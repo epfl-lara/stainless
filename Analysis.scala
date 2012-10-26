@@ -13,7 +13,7 @@ import solvers.{Solver,TrivialSolver}
 
 import scala.collection.mutable.{Set => MutableSet}
 
-class Analysis(val program : Program, val reporter: Reporter = Settings.reporter) {
+class Analysis(val program : Program, val reporter: Reporter) {
   Extensions.loadAll(reporter)
 
   val analysisExtensions: Seq[Analyser] = loadedAnalysisExtensions

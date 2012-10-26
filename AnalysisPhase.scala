@@ -8,6 +8,6 @@ object AnalysisPhase extends UnitPhase[Program] {
   val description = "Leon Analyses"
 
   def apply(ctx: LeonContext, program: Program) {
-    new Analysis(program).analyse
+    new Analysis(program, ctx.reporter).analyse
   }
 }
