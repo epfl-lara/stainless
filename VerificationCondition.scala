@@ -21,28 +21,16 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
     case Some(false) => "invalid"
   }
 
-  private def tacticStr = tactic.shortDescription match {
+  def tacticStr = tactic.shortDescription match {
     case "default" => ""
     case s => s
   }
 
-  private def solverStr = solvedWith match {
+  def solverStr = solvedWith match {
     case Some(s) => s.shortDescription
     case None => ""
   }
 
-  private def timeStr = time.map(t => "%-3.3f".format(t)).getOrElse("")
-
-  def infoLine : String = {
-    "║ %-25s %-9s %9s %-8s %-10s %-7s %7s ║" format (funDef.id.toString, kind, posInfo, status, tacticStr, solverStr, timeStr)
-  }
-}
-
-object VerificationCondition {
-  val infoFooter : String = "╚" + ("═" * 83) + "╝"
-  val infoHeader : String = ". ┌─────────┐\n" +
-                            "╔═╡ Summary ╞" + ("═" * 71) + "╗\n" +
-                            "║ └─────────┘" + (" " * 71) + "║"
 }
 
 object VCKind extends Enumeration {

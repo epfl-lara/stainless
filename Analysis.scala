@@ -40,13 +40,12 @@ class Analysis(val program : Program, val reporter: Reporter) {
       FunctionTemplate.mkTemplate(funDef)
     }
 
-    if(solverExtensions.size > 1) {
+    val report = if(solverExtensions.size > 1) {
       reporter.info("Running verification condition generation...")
-
-      val list = generateVerificationConditions
-      checkVerificationConditions(list : _*)
+      checkVerificationConditions(generateVerificationConditions)
     } else {
       reporter.warning("No solver specified. Cannot test verification conditions.")
+      VerificationReport.emptyReport
     }
 
     analysisExtensions.foreach(ae => {
@@ -54,7 +53,7 @@ class Analysis(val program : Program, val reporter: Reporter) {
       ae.analyse(program)
     })
 
-    new VerificationReport
+    report
   }
 
   private def generateVerificationConditions : List[VerificationCondition] = {
@@ -91,8 +90,7 @@ class Analysis(val program : Program, val reporter: Reporter) {
     allVCs.toList
   }
 
-  def checkVerificationCondition(vc: VerificationCondition) : Unit = checkVerificationConditions(vc)
-  def checkVerificationConditions(vcs: VerificationCondition*) : Unit = {
+  private def checkVerificationConditions(vcs: Seq[VerificationCondition]) : VerificationReport = {
     for(vcInfo <- vcs) {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
@@ -152,73 +150,8 @@ class Analysis(val program : Program, val reporter: Reporter) {
     
     } 
 
-    if(vcs.size > 0) {
-      val summaryString = (
-        VerificationCondition.infoHeader +
-        vcs.map(_.infoLine).mkString("\n", "\n", "\n") +
-        VerificationCondition.infoFooter
-      )
-      reporter.info(summaryString)
-
-      if(Settings.simpleOutput) {
-        val outStr =
-          if(vcs.forall(_.status == "valid")) "valid" 
-          else if(vcs.exists(_.status == "invalid")) "invalid"
-          else "unknown"
-        println(outStr)
-      }
-
-      // Printing summary for the evaluation section of paper:
-      val writeSummary = false
-      if (writeSummary) {
-        def writeToFile(filename: String, content: String) : Unit = {
-          try {
-            val fw = new java.io.FileWriter(filename)
-            fw.write(content)
-            fw.close
-          } catch {
-            case e => reporter.error("There was an error while generating the test file" + filename)
-          }
-        }
-
-        var toWrite: String = ""
-        val functionVCs = vcs groupBy (_.funDef)
-        val vcsByPostcond = functionVCs groupBy 
-          (_._2 exists ((vc: VerificationCondition) => vc.kind == VCKind.Postcondition))
-        def functionInfoLine(id: String, funVCs: Traversable[VerificationCondition]) = {
-          val vcsByKind  = funVCs groupBy (_.kind)
-          val nbPrecond  = vcsByKind.get(VCKind.Precondition).getOrElse(Nil).size
-          val nbMatch    = vcsByKind.get(VCKind.ExhaustiveMatch).getOrElse(Nil).size
-          val totalTime  = 
-            (funVCs.foldLeft(0.0)((a, b) => a + b.time.getOrElse(0.0)))
-          val validStr   = "ok"
-          val invalidStr = "err"
-          val status = if (funVCs.forall(_.status == "valid")) validStr else invalidStr
-          val timeStr = if (totalTime < 0.01) "< 0.01" else ("%-3.2f" format totalTime)
-
-          val toRet =
-            "%-25s %-3s %-3s %-9s %6s" format (id, nbPrecond, nbMatch, status, timeStr)
-          toRet
-        }
-        for ((withPostcond, functionsByPostcond) <- vcsByPostcond) {
-          if (withPostcond)
-            toWrite += "with postcondition:\n"
-          else
-            toWrite += "without postcondition:\n"
-          for ((funDef, funVCs) <- functionsByPostcond.toList.sortWith((p1, p2) => p1._1 < p2._1)) {
-            toWrite += functionInfoLine(funDef.id.toString, funVCs) + "\n"
-          }
-        }
-
-        val fileName = program.mainObject.id.toString + "-evaluation.txt"
-        val folderName   = "summary"
-
-        new java.io.File(folderName).mkdir()
-
-        writeToFile(folderName + "/" + fileName, toWrite)
-      }
-    } else {
-      reporter.info("No verification conditions were analyzed.")
-    }
+    val report = new VerificationReport(vcs)
+    reporter.info(report.summaryString)
+    report
   }
 }
