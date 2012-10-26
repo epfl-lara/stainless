@@ -16,8 +16,8 @@ class VerificationReport(val conditions : Seq[VerificationCondition]) {
     conditions.map(VerificationReport.infoLine).mkString("\n", "\n", "\n") +
     VerificationReport.infoSep +
     ("║ total: %-4d   valid: %-4d   invalid: %-4d   unknown %-4d " +
-      (" " * 18) +
-      " %-3.3f ║\n").format(totalConditions, totalValid, totalInvalid, totalUnknown, totalTime) +
+      (" " * 16) +
+      " %7.3f ║\n").format(totalConditions, totalValid, totalInvalid, totalUnknown, totalTime) +
     VerificationReport.infoFooter
   } else {
     "No verification conditions were analyzed."
