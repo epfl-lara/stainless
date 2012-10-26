@@ -42,8 +42,6 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
             Implies(matchToIfThenElse(prec.get), bodyAndPost)
           }
 
-          import Analysis._
-
           withPrec
         }
         if(functionDefinition.fromLoop)

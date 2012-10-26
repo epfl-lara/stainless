@@ -33,7 +33,7 @@ class Analysis(val program : Program, val reporter: Reporter) {
   // construction time. If at least one solver is loaded, verification
   // conditions are generated and passed to all solvers. Otherwise, only the
   // Analysis extensions are run on the program.
-  def analyse : Unit = {
+  def analyse : VerificationReport = {
     // We generate all function templates in advance.
     for(funDef <- program.definedFunctions if funDef.hasImplementation) {
       // this gets cached :D
@@ -53,6 +53,8 @@ class Analysis(val program : Program, val reporter: Reporter) {
       reporter.info("Running analysis from extension: " + ae.description)
       ae.analyse(program)
     })
+
+    new VerificationReport
   }
 
   private def generateVerificationConditions : List[VerificationCondition] = {

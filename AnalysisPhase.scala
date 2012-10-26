@@ -3,11 +3,11 @@ package verification
 
 import purescala.Definitions._
 
-object AnalysisPhase extends UnitPhase[Program] {
+object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
-  val description = "Leon Analyses"
+  val description = "Leon Verification"
 
-  def apply(ctx: LeonContext, program: Program) {
+  def run(ctx: LeonContext)(program: Program) : VerificationReport = {
     new Analysis(program, ctx.reporter).analyse
   }
 }
