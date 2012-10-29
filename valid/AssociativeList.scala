@@ -29,9 +29,9 @@ object AssociativeList {
     case Cons(KeyValuePair(k, v), xs) => find(xs, k) == None() && noDuplicates(xs)
   }
 
-  def update(l1: List, l2: List): List = (l2 match {
+  def updateAll(l1: List, l2: List): List = (l2 match {
     case Nil() => l1
-    case Cons(x, xs) => update(updateElem(l1, x), xs)
+    case Cons(x, xs) => updateAll(updateElem(l1, x), xs)
   }) ensuring(domain(_) == domain(l1) ++ domain(l2))
 
   def updateElem(l: List, e: KeyValuePairAbs): List = (l match {

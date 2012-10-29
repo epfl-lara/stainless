@@ -25,7 +25,6 @@ object RedBlackTree {
     case Node(_, l, v, r) => size(l) + 1 + size(r)
   }) ensuring(_ >= 0)
 
-  /* We consider leaves to be black by definition */
   def isBlack(t: Tree) : Boolean = t match {
     case Empty() => true
     case Node(Black(),_,_,_) => true
@@ -54,7 +53,6 @@ object RedBlackTree {
     case Node(Red(), l, _, _) => blackHeight(l)
   }
 
-  // <<insert element x into the tree t>>
   def ins(x: Int, t: Tree): Tree = {
     require(redNodesHaveBlackChildren(t) && blackBalanced(t))
     t match {
@@ -69,19 +67,6 @@ object RedBlackTree {
                    && redDescHaveBlackChildren(res)
                    && blackBalanced(res))
 
-  def makeBlack(n: Tree): Tree = {
-    require(redDescHaveBlackChildren(n) && blackBalanced(n))
-    n match {
-      case Node(Red(),l,v,r) => Node(Black(),l,v,r)
-      case _ => n
-    }
-  } ensuring(res => redNodesHaveBlackChildren(res) && blackBalanced(res))
-
-  def add(x: Int, t: Tree): Tree = {
-    require(redNodesHaveBlackChildren(t) && blackBalanced(t))
-    makeBlack(ins(x, t))
-  } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res) && blackBalanced(res))
-  
   def balance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
     Node(c,a,x,b) match {
       case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 
@@ -95,4 +80,23 @@ object RedBlackTree {
       case Node(c,a,xV,b) => Node(c,a,xV,b)
     }
   } ensuring (res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
+
+  def buggyAdd(x: Int, t: Tree): Tree = {
+    require(redNodesHaveBlackChildren(t))
+    ins(x, t)
+  } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res))
+  
+  def buggyBalance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
+    Node(c,a,x,b) match {
+      case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 
+        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
+      case Node(Black(),Node(Red(),a,xV,Node(Red(),b,yV,c)),zV,d) => 
+        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
+      case Node(Black(),a,xV,Node(Red(),Node(Red(),b,yV,c),zV,d)) => 
+        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
+      case Node(Black(),a,xV,Node(Red(),b,yV,Node(Red(),c,zV,d))) => 
+        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
+      // case Node(c,a,xV,b) => Node(c,a,xV,b)
+    }
+  } ensuring (res => content(res) == content(Node(c,a,x,b)))
 }

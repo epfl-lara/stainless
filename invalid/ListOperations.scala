@@ -82,6 +82,10 @@ object ListOperations {
     def appendAssoc(xs : List, ys : List, zs : List) : Boolean =
       (append(append(xs, ys), zs) == append(xs, append(ys, zs))) holds
 
+    def revAuxBroken(l1 : List, e : Int, l2 : List) : Boolean = {
+      (append(reverse(l1), Cons(e,l2)) == reverse0(l1, l2))
+    } holds
+
     @induct
     def sizeAppend(l1 : List, l2 : List) : Boolean =
       (size(append(l1, l2)) == size(l1) + size(l2)) holds

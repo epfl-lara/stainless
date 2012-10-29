@@ -61,6 +61,17 @@ object PropositionalLogic {
 
   def fv(f : Formula) = { vars(nnf(f)) }
 
+  // @induct
+  // def wrongCommutative(f: Formula) : Boolean = {
+  //   nnf(simplify(f)) == simplify(nnf(f))
+  // } holds
+
+  @induct
+  def simplifyBreaksNNF(f: Formula) : Boolean = {
+    require(isNNF(f))
+    isNNF(simplify(f))
+  } holds
+
   @induct
   def nnfIsStable(f: Formula) : Boolean = {
     require(isNNF(f))
