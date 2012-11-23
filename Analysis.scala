@@ -7,22 +7,20 @@ import purescala.Trees._
 import purescala.TreeOps._
 import purescala.TypeTrees._
 
-import Extensions._
-
 import solvers.{Solver,TrivialSolver}
+import solvers.z3.FairZ3Solver
 
 import scala.collection.mutable.{Set => MutableSet}
 
 class Analysis(val program : Program, val reporter: Reporter) {
-  Extensions.loadAll(reporter)
 
-  val analysisExtensions: Seq[Analyser] = loadedAnalysisExtensions
+  val trivialSolver = new TrivialSolver(reporter)
 
-  val trivialSolver = new TrivialSolver(reporter) // This one you can't disable :D
+  val fairZ3 = new FairZ3Solver(reporter)
 
-  val solverExtensions: Seq[Solver] = trivialSolver +: loadedSolverExtensions
+  val solvers : Seq[Solver] = trivialSolver :: fairZ3 :: Nil
 
-  solverExtensions.foreach(_.setProgram(program))
+  solvers.foreach(_.setProgram(program))
 
   val defaultTactic = new DefaultTactic(reporter)
   defaultTactic.setProgram(program)
@@ -40,7 +38,7 @@ class Analysis(val program : Program, val reporter: Reporter) {
       FunctionTemplate.mkTemplate(funDef)
     }
 
-    val report = if(solverExtensions.size > 1) {
+    val report = if(solvers.size > 1) {
       reporter.info("Running verification condition generation...")
       checkVerificationConditions(generateVerificationConditions)
     } else {
@@ -48,10 +46,11 @@ class Analysis(val program : Program, val reporter: Reporter) {
       VerificationReport.emptyReport
     }
 
-    analysisExtensions.foreach(ae => {
-      reporter.info("Running analysis from extension: " + ae.description)
-      ae.analyse(program)
-    })
+    // This used to be for additional analyses. They should now just be different phases.
+    // analysisExtensions.foreach(ae => {
+    //   reporter.info("Running analysis from extension: " + ae.description)
+    //   ae.analyse(program)
+    // })
 
     report
   }
@@ -105,7 +104,7 @@ class Analysis(val program : Program, val reporter: Reporter) {
 
       // try all solvers until one returns a meaningful answer
       var superseeded : Set[String] = Set.empty[String]
-      solverExtensions.find(se => {
+      solvers.find(se => {
         reporter.info("Trying with solver: " + se.shortDescription)
         if(superseeded(se.shortDescription) || superseeded(se.description)) {
           reporter.info("Solver was superseeded. Skipping.")

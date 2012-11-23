@@ -1,11 +1,12 @@
 package leon
 package verification
 
-import Extensions.Extension
-
 import purescala.Definitions._
 
-abstract class Tactic(reporter: Reporter) extends Extension(reporter) {
+abstract class Tactic(reporter: Reporter) {
+  val description : String
+  val shortDescription : String
+
   def setProgram(program: Program) : Unit = {}
   def generatePostconditions(function: FunDef) : Seq[VerificationCondition]
   def generatePreconditions(function: FunDef) : Seq[VerificationCondition]
