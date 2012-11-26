@@ -17,10 +17,18 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val description = "Leon Verification"
 
   override def definedOptions = Set(
-    LeonFlagOptionDef("no-luck", "--no-luck", "Disable early model detection in solving loop.")
+    LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,...")
   )
 
   def run(ctx: LeonContext)(program: Program) : VerificationReport = {
+    val functionsToAnalyse : MutableSet[String] = MutableSet.empty
+
+    for(opt <- ctx.options) opt match {
+      case LeonValueOption("functions", ListValue(fs)) =>
+        functionsToAnalyse ++= fs
+      case _ =>
+    } 
+
     val reporter = ctx.reporter
 
     val trivialSolver = new TrivialSolver(ctx)
@@ -39,7 +47,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       var allVCs: Seq[VerificationCondition] = Seq.empty
       val analysedFunctions: MutableSet[String] = MutableSet.empty
 
-      for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1 < fd2) if (Settings.functionsToAnalyse.isEmpty || Settings.functionsToAnalyse.contains(funDef.id.name))) {
+      for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1 < fd2) if (functionsToAnalyse.isEmpty || functionsToAnalyse.contains(funDef.id.name))) {
         analysedFunctions += funDef.id.name
 
         val tactic: Tactic =
@@ -63,7 +71,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         })
       }
 
-      val notFound: Set[String] = Settings.functionsToAnalyse -- analysedFunctions
+      val notFound = functionsToAnalyse -- analysedFunctions
       notFound.foreach(fn => reporter.error("Did not find function \"" + fn + "\" though it was marked for analysis."))
 
       allVCs.toList
