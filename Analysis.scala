@@ -12,11 +12,12 @@ import solvers.z3.FairZ3Solver
 
 import scala.collection.mutable.{Set => MutableSet}
 
-class Analysis(val program : Program, val reporter: Reporter) {
+class Analysis(val program : Program, val context: LeonContext) {
+  private val reporter = context.reporter
 
-  val trivialSolver = new TrivialSolver(reporter)
+  val trivialSolver = new TrivialSolver(context)
 
-  val fairZ3 = new FairZ3Solver(reporter)
+  val fairZ3 = new FairZ3Solver(context)
 
   val solvers : Seq[Solver] = trivialSolver :: fairZ3 :: Nil
 

@@ -12,6 +12,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   )
 
   def run(ctx: LeonContext)(program: Program) : VerificationReport = {
-    new Analysis(program, ctx.reporter).analyse
+    new Analysis(program, ctx).analyse
   }
 }
