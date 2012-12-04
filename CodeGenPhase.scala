@@ -20,23 +20,34 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
     val cName = programToClassName(p)
 
     val cf = new ClassFile(cName, None)
-    cf.setFlags(
-      (cf.getFlags | CLASS_ACC_PUBLIC | CLASS_ACC_FINAL).asInstanceOf[U2]
-    )
+    cf.addDefaultConstructor
+
+    cf.setFlags((
+      CLASS_ACC_SUPER |
+      CLASS_ACC_PUBLIC |
+      CLASS_ACC_FINAL
+    ).asInstanceOf[U2])
 
     // This assumes that all functions of a given program get compiled
     // as methods of a single class file.
     for(funDef <- p.definedFunctions;
-        (_,mn) <- env.funDefToMethod(funDef)) {
+        (_,mn,_) <- env.funDefToMethod(funDef)) {
 
       val m = cf.addMethod(
         typeToJVM(funDef.returnType),
         mn,
         funDef.args.map(a => typeToJVM(a.tpe)) : _*
       )
+      m.setFlags((
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL |
+        METHOD_ACC_STATIC
+      ).asInstanceOf[U2])
  
       CodeGeneration.compileFunDef(funDef, m.codeHandler)
     }
+
+    cf.writeToFile(cName + ".class")
 
     CompilationResult(successful = true)
   } 
