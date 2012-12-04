@@ -101,7 +101,15 @@ object CodeGeneration {
         ch << IMUL
 
       case UMinus(e) =>
-        mkExpr(Minus(IntLiteral(0), e), ch)
+        mkExpr(e, ch)
+        ch << INEG
+
+      case b if b.getType == BooleanType =>
+        val fl = ch.getFreshLabel("boolfalse")
+        val al = ch.getFreshLabel("boolafter")
+        ch << Ldc(1)
+        mkBranch(b, al, fl, ch)
+        ch << Label(fl) << POP << Ldc(0) << Label(al)
 
       case _ => throw CompilationException("Unsupported expr. : " + e) 
     }
