@@ -15,15 +15,16 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
   def run(ctx : LeonContext)(p : Program) : CompilationResult = {
     import CodeGeneration._
 
+    // This sets up an environment where all classes and all functions have names.
     implicit val env = CompilationEnvironment.fromProgram(p)
 
-    val cName = programToClassName(p)
-
-    for((p,cs) <- p.algebraicDataTypes) {
-      // val acf = new ClassFile(p....
+    for((parent,children) <- p.algebraicDataTypes) {
+      val acf = compileAbstractClassDef(p, parent)
+      val ccfs = children.map(c => compileCaseClassDef(p, c))
     } 
 
-    val cf = new ClassFile(cName, None)
+    val mainClassName = defToJVMName(p, p.mainObject)
+    val cf = new ClassFile(mainClassName, None)
     cf.addDefaultConstructor
 
     cf.setFlags((
@@ -51,7 +52,7 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
       CodeGeneration.compileFunDef(funDef, m.codeHandler)
     }
 
-    cf.writeToFile(cName + ".class")
+    cf.writeToFile(mainClassName + ".class")
 
     CompilationResult(successful = true)
   } 

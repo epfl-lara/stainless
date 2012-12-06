@@ -7,15 +7,22 @@ import purescala.Trees._
 import purescala.TypeTrees._
 
 import cafebabe._
-import cafebabe.ByteCodes._
 import cafebabe.AbstractByteCodes._
+import cafebabe.ByteCodes._
+import cafebabe.ClassFileTypes._
+import cafebabe.Flags._
 
 object CodeGeneration {
-  def programToClassName(p : Program) : String = "Leon$CodeGen$" + p.mainObject.id.uniqueName
+  def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
   def typeToJVM(tpe : TypeTree)(implicit env : CompilationEnvironment) : String = tpe match {
     case Int32Type => "I"
+
     case BooleanType => "Z"
+
+    case c : ClassType =>
+      env.classDefToName(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
+
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
 
@@ -169,5 +176,69 @@ object CodeGeneration {
     env.varToLocal(id).getOrElse {
       throw CompilationException("Unknown variable : " + id)
     }
+  }
+
+  def compileAbstractClassDef(p : Program, acd : AbstractClassDef)(implicit env : CompilationEnvironment) : ClassFile = {
+    val cName = defToJVMName(p, acd)
+
+    val cf  = new ClassFile(cName, None)
+    cf.setFlags((
+      CLASS_ACC_SUPER |
+      CLASS_ACC_PUBLIC |
+      CLASS_ACC_ABSTRACT
+    ).asInstanceOf[U2])
+
+    cf.addDefaultConstructor
+
+    //cf.writeToFile(cName + ".class")
+    cf
+  }
+
+  def compileCaseClassDef(p : Program, ccd : CaseClassDef)(implicit env : CompilationEnvironment) : ClassFile = {
+    assert(ccd.hasParent)
+
+    val cName = defToJVMName(p, ccd)
+    val pName = defToJVMName(p, ccd.parent.get)
+
+    val cf = new ClassFile(cName, Some(pName))
+    cf.setFlags((
+      CLASS_ACC_SUPER |
+      CLASS_ACC_PUBLIC |
+      CLASS_ACC_FINAL
+    ).asInstanceOf[U2])
+
+    if(ccd.fields.isEmpty) {
+      cf.addDefaultConstructor
+    } else {
+      val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
+
+      for((nme, jvmt) <- namesTypes) {
+        val fh = cf.addField(jvmt, nme)
+        fh.setFlags((
+          FIELD_ACC_PUBLIC |
+          FIELD_ACC_FINAL
+        ).asInstanceOf[U2])
+      }
+
+      val cmh = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
+
+      cmh << ALoad(0) << InvokeSpecial(pName, cafebabe.Defaults.constructorName, "()V")
+
+      var c = 1
+      for((nme, jvmt) <- namesTypes) {
+        cmh << ALoad(0)
+        cmh << (jvmt match {
+          case "I" | "Z" => ILoad(c)
+          case _ => ALoad(c)
+        })
+        cmh << PutField(cName, nme, jvmt)
+        c += 1
+      }
+      cmh << RETURN
+      cmh.freeze
+    }
+
+    //cf.writeToFile(cName + ".class")
+    cf
   }
 }

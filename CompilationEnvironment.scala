@@ -10,6 +10,8 @@ abstract class CompilationEnvironment() {
   //   - a mapping of function defs to class + method name
   //   - a mapping of class defs to class names
   //   - a mapping of class fields to fields
+  
+  def classDefToName(classDef : ClassTypeDef) : Option[String]
 
   def funDefToMethod(funDef : FunDef) : Option[(String,String,String)]
 
@@ -18,6 +20,7 @@ abstract class CompilationEnvironment() {
   /** Augment the environment with new local var. mappings. */
   def withVars(pairs : Map[Identifier,Int]) = {
     new CompilationEnvironment {
+      def classDefToName(classDef : ClassTypeDef) = self.classDefToName(classDef)
       def funDefToMethod(funDef : FunDef) = self.funDefToMethod(funDef)
       def varToLocal(v : Identifier) = pairs.get(v).orElse(self.varToLocal(v))
     }
@@ -25,20 +28,21 @@ abstract class CompilationEnvironment() {
 }
 
 object CompilationEnvironment {
-
-  lazy val empty = new CompilationEnvironment {
-    def funDefToMethod(funDef : FunDef) = None
-    def varToLocal(v : Identifier) = None
-  }
-
   def fromProgram(p : Program) : CompilationEnvironment = {
     import CodeGeneration.typeToJVM
 
     // This should change: it should contain the case classes before
     // we go and generate function signatures.
-    implicit val env = empty
+    implicit val initial = new CompilationEnvironment {
+      private val cNames : Map[ClassTypeDef,String] = 
+        p.definedClasses.map(c => (c, CodeGeneration.defToJVMName(p, c))).toMap 
 
-    val className = CodeGeneration.programToClassName(p)
+      def classDefToName(classDef : ClassTypeDef) = cNames.get(classDef)
+      def funDefToMethod(funDef : FunDef) = None
+      def varToLocal(v : Identifier) = None
+    }
+
+    val className = CodeGeneration.defToJVMName(p, p.mainObject)
 
     val fs = p.definedFunctions.filter(_.hasImplementation)
 
@@ -49,8 +53,8 @@ object CompilationEnvironment {
     }).toMap
 
     new CompilationEnvironment {
+      def classDefToName(classDef : ClassTypeDef) = initial.classDefToName(classDef)
       def funDefToMethod(funDef : FunDef) = fMap.get(funDef)
-
       def varToLocal(v : Identifier) = None
     }
   }
