@@ -21,7 +21,7 @@ object CodeGeneration {
     case BooleanType => "Z"
 
     case c : ClassType =>
-      env.classDefToName(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
+      env.classDefToClass(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -30,7 +30,10 @@ object CodeGeneration {
   // Generates method body, and freezes the handler at the end.
   def compileFunDef(funDef : FunDef, ch : CodeHandler)(implicit env : CompilationEnvironment) {
     val newMapping = funDef.args.map(_.id).zipWithIndex.toMap
-    mkExpr(funDef.getBody, ch)(env.withVars(newMapping))
+
+    val exprToCompile = purescala.TreeOps.matchToIfThenElse(funDef.getBody)
+
+    mkExpr(exprToCompile, ch)(env.withVars(newMapping))
 
     funDef.returnType match {
       case Int32Type | BooleanType =>
@@ -66,11 +69,35 @@ object CodeGeneration {
       case IntLiteral(v) =>
         ch << Ldc(v)
 
-      case BooleanLiteral(true) =>
-        ch << Ldc(1)
+      case BooleanLiteral(v) =>
+        ch << Ldc(if(v) 1 else 0)
 
-      case BooleanLiteral(false) =>
-        ch << Ldc(0)
+      case CaseClass(ccd, as) =>
+        val ccName = env.classDefToClass(ccd).getOrElse {
+          throw CompilationException("Unknown class : " + ccd.id)
+        }
+        // It's a little ugly that we do it each time. Could be in env.
+        val consSig = "(" + ccd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+        ch << New(ccName) << DUP
+        for(a <- as) {
+          mkExpr(a, ch)
+        }
+        ch << InvokeSpecial(ccName, "<init>", consSig)
+
+      case CaseClassInstanceOf(ccd, e) =>
+        val ccName = env.classDefToClass(ccd).getOrElse {
+          throw CompilationException("Unknown class : " + ccd.id)
+        }
+        mkExpr(e, ch)
+        ch << InstanceOf(ccName)
+
+      case CaseClassSelector(ccd, e, sid) =>
+        mkExpr(e, ch)
+        val ccName = env.classDefToClass(ccd).getOrElse {
+          throw CompilationException("Unknown class : " + ccd.id)
+        }
+        ch << CheckCast(ccName)
+        ch << GetField(ccName, sid.name, typeToJVM(sid.getType))
 
       case IfExpr(c, t, e) =>
         val tl = ch.getFreshLabel("then")
@@ -111,6 +138,8 @@ object CodeGeneration {
         mkExpr(e, ch)
         ch << INEG
 
+      // WARNING !!! See remark at the end of mkBranch ! The two functions are 
+      // mutually recursive and will loop if none supports some Boolean construct !
       case b if b.getType == BooleanType =>
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
@@ -148,6 +177,14 @@ object CodeGeneration {
       case Variable(b) =>
         ch << ILoad(slotFor(b)) << IfEq(elze) << Goto(then)
 
+      case Equals(l,r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        l.getType match {
+          case Int32Type | BooleanType => ch << If_ICmpEq(then) << Goto(elze)
+          case _ => ch << If_ACmpEq(then) << Goto(elze)
+        }
+
       case LessThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
@@ -168,7 +205,11 @@ object CodeGeneration {
         mkExpr(r, ch)
         ch << If_ICmpGe(then) << Goto(elze) 
       
-      case _ => throw CompilationException("Unsupported cond. expr. : " + cond)
+      // WARNING !!! mkBranch delegates to mkExpr, and mkExpr delegates to mkBranch !
+      // That means, between the two of them, they'd better know what to generate !
+      case other =>
+        mkExpr(other, ch)
+        ch << IfEq(elze) << Goto(then)
     }
   }
 
@@ -190,7 +231,7 @@ object CodeGeneration {
 
     cf.addDefaultConstructor
 
-    //cf.writeToFile(cName + ".class")
+    cf.writeToFile(cName + ".class")
     cf
   }
 
@@ -207,6 +248,7 @@ object CodeGeneration {
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
 
+    // definition of the constructor
     if(ccd.fields.isEmpty) {
       cf.addDefaultConstructor
     } else {
@@ -220,25 +262,83 @@ object CodeGeneration {
         ).asInstanceOf[U2])
       }
 
-      val cmh = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
+      val cch = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
 
-      cmh << ALoad(0) << InvokeSpecial(pName, cafebabe.Defaults.constructorName, "()V")
+      cch << ALoad(0) << InvokeSpecial(pName, cafebabe.Defaults.constructorName, "()V")
 
       var c = 1
       for((nme, jvmt) <- namesTypes) {
-        cmh << ALoad(0)
-        cmh << (jvmt match {
+        cch << ALoad(0)
+        cch << (jvmt match {
           case "I" | "Z" => ILoad(c)
           case _ => ALoad(c)
         })
-        cmh << PutField(cName, nme, jvmt)
+        cch << PutField(cName, nme, jvmt)
         c += 1
       }
-      cmh << RETURN
-      cmh.freeze
+      cch << RETURN
+      cch.freeze
     }
 
-    //cf.writeToFile(cName + ".class")
+    // definition of equals
+    locally {
+      val emh = cf.addMethod("Z", "equals", "Ljava/lang/Object;")
+      emh.setFlags((
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL
+      ).asInstanceOf[U2])
+
+      val ech = emh.codeHandler
+
+      val notRefEq = ech.getFreshLabel("notrefeq")
+      val notEq = ech.getFreshLabel("noteq")
+      val castSlot = ech.getFreshVar
+
+      // If references are equal, trees are equal.
+      ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
+
+      // We check the type (this also checks against null)....
+      ech << ALoad(1) << InstanceOf(cName) << IfEq(notEq)
+
+      // ...finally, we compare fields one by one, shortcircuiting on disequalities.
+      if(!ccd.fields.isEmpty) {
+        ech << ALoad(1) << CheckCast(cName) << AStore(castSlot)
+
+        val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
+        
+        for((nme, jvmt) <- namesTypes) {
+          ech << ALoad(0) << GetField(cName, nme, jvmt)
+          ech << ALoad(castSlot) << GetField(cName, nme, jvmt)
+
+          jvmt match {
+            case "I" | "Z" =>
+              ech << If_ICmpNe(notEq)
+
+            case ot =>
+              ech << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z") << IfEq(notEq)
+          }
+        }
+      } 
+
+      ech << Ldc(1) << IRETURN << Label(notEq) << Ldc(0) << IRETURN
+      ech.freeze
+    }
+
+    // definition of hashcode
+    locally {
+      val hmh = cf.addMethod("I", "hashCode", "")
+      hmh.setFlags((
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL
+      ).asInstanceOf[U2])
+
+      val hch = hmh.codeHandler
+      // TODO FIXME. Look at Scala for inspiration.
+      hch << Ldc(42) << IRETURN
+      hch.freeze
+    }
+
+    cf.writeToFile(cName + ".class")
     cf
   }
 }

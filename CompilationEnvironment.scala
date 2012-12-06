@@ -11,8 +11,10 @@ abstract class CompilationEnvironment() {
   //   - a mapping of class defs to class names
   //   - a mapping of class fields to fields
   
-  def classDefToName(classDef : ClassTypeDef) : Option[String]
+  // Returns (JVM) name of class, and signature of constructor
+  def classDefToClass(classDef : ClassTypeDef) : Option[String]
 
+  // Return (JVM) name of enclosing class, name of method, and signature
   def funDefToMethod(funDef : FunDef) : Option[(String,String,String)]
 
   def varToLocal(v : Identifier) : Option[Int]
@@ -20,7 +22,7 @@ abstract class CompilationEnvironment() {
   /** Augment the environment with new local var. mappings. */
   def withVars(pairs : Map[Identifier,Int]) = {
     new CompilationEnvironment {
-      def classDefToName(classDef : ClassTypeDef) = self.classDefToName(classDef)
+      def classDefToClass(classDef : ClassTypeDef) = self.classDefToClass(classDef)
       def funDefToMethod(funDef : FunDef) = self.funDefToMethod(funDef)
       def varToLocal(v : Identifier) = pairs.get(v).orElse(self.varToLocal(v))
     }
@@ -37,7 +39,7 @@ object CompilationEnvironment {
       private val cNames : Map[ClassTypeDef,String] = 
         p.definedClasses.map(c => (c, CodeGeneration.defToJVMName(p, c))).toMap 
 
-      def classDefToName(classDef : ClassTypeDef) = cNames.get(classDef)
+      def classDefToClass(classDef : ClassTypeDef) = cNames.get(classDef)
       def funDefToMethod(funDef : FunDef) = None
       def varToLocal(v : Identifier) = None
     }
@@ -53,7 +55,7 @@ object CompilationEnvironment {
     }).toMap
 
     new CompilationEnvironment {
-      def classDefToName(classDef : ClassTypeDef) = initial.classDefToName(classDef)
+      def classDefToClass(classDef : ClassTypeDef) = initial.classDefToClass(classDef)
       def funDefToMethod(funDef : FunDef) = fMap.get(funDef)
       def varToLocal(v : Identifier) = None
     }
