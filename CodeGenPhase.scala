@@ -19,6 +19,10 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
 
     val cName = programToClassName(p)
 
+    for((p,cs) <- p.algebraicDataTypes) {
+      // val acf = new ClassFile(p....
+    } 
+
     val cf = new ClassFile(cName, None)
     cf.addDefaultConstructor
 
