@@ -94,8 +94,6 @@ class CompilationUnit(val program: Program, val mainClass: ClassFile, implicit v
 
     loader.register(cf)
 
-    cf.writeToFile("PLOP.class")
-
     new CompiledExpression(this, cf, args)
   }
 }
