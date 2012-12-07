@@ -46,7 +46,7 @@ object CodeGeneration {
     ch.freeze
   }
 
-  private def mkExpr(e : Expr, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+  private[codegen] def mkExpr(e : Expr, ch : CodeHandler)(implicit env : CompilationEnvironment) {
     e match {
       case Variable(id) =>
         val slot = slotFor(id)
@@ -151,7 +151,7 @@ object CodeGeneration {
     }
   }
 
-  private def mkBranch(cond : Expr, then : String, elze : String, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+  private[codegen] def mkBranch(cond : Expr, then : String, elze : String, ch : CodeHandler)(implicit env : CompilationEnvironment) {
     cond match {
       case BooleanLiteral(true) =>
         ch << Goto(then)
@@ -189,22 +189,22 @@ object CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         ch << If_ICmpLt(then) << Goto(elze) 
-      
+
       case GreaterThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
         ch << If_ICmpGt(then) << Goto(elze) 
-      
+
       case LessEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
         ch << If_ICmpLe(then) << Goto(elze) 
-      
+
       case GreaterEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
         ch << If_ICmpGe(then) << Goto(elze) 
-      
+
       // WARNING !!! mkBranch delegates to mkExpr, and mkExpr delegates to mkBranch !
       // That means, between the two of them, they'd better know what to generate !
       case other =>
@@ -213,7 +213,7 @@ object CodeGeneration {
     }
   }
 
-  private def slotFor(id : Identifier)(implicit env : CompilationEnvironment) : Int = {
+  private[codegen] def slotFor(id : Identifier)(implicit env : CompilationEnvironment) : Int = {
     env.varToLocal(id).getOrElse {
       throw CompilationException("Unknown variable : " + id)
     }
