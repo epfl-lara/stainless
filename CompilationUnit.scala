@@ -14,10 +14,11 @@ import cafebabe.Flags._
 
 import CodeGeneration._
 
-class CompilationUnit(val p: Program, val mainClass: ClassFile, implicit val env: CompilationEnvironment) {
-  val mainClassName = defToJVMName(p, p.mainObject)
+class CompilationUnit(val program: Program, val mainClass: ClassFile, implicit val env: CompilationEnvironment) {
+  val mainClassName = defToJVMName(program, program.mainObject)
 
   val loader = new CafebabeClassLoader
+  loader.register(mainClass)
 
   def writeClassFiles() {
     mainClass.writeToFile(mainClassName + ".class")
@@ -29,12 +30,19 @@ class CompilationUnit(val p: Program, val mainClass: ClassFile, implicit val env
     _nextExprId
   }
 
-  def groundExprToJava(e: Expr): AnyRef = {
-    null
+  private[codegen] def groundExprToJava(e: Expr): Any = {
+    compileExpression(e, Seq()).evalToJava(Seq())
   }
 
-  def javaToGroundExpr(e: AnyRef): Expr = {
-    null
+  private[codegen] def javaToGroundExpr(e: AnyRef): Expr = e match {
+    case i: Integer =>
+      IntLiteral(i.toInt)
+
+    case b: java.lang.Boolean =>
+      BooleanLiteral(b.booleanValue)
+
+    case _ => 
+      throw CompilationException("Unsupported return value : " + e)
   }
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
@@ -85,6 +93,8 @@ class CompilationUnit(val p: Program, val mainClass: ClassFile, implicit val env
     ch.freeze
 
     loader.register(cf)
+
+    cf.writeToFile("PLOP.class")
 
     new CompiledExpression(this, cf, args)
   }

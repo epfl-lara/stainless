@@ -14,14 +14,21 @@ import cafebabe.Flags._
 
 class CompiledExpression(unit: CompilationUnit, cf: ClassFile, argsDecl: Seq[Identifier]) {
 
-  def eval(args: Seq[Expr]): Expr = {
+  def evalToJava(args: Seq[Expr]): AnyRef = {
     val cl = unit.loader.loadClass(cf.className)
-    val obj = cl.newInstance()
     val meth = cl.getMethods()(0)
 
-    val res = meth.invoke(obj, args.map(unit.groundExprToJava))
+    assert(args.size == argsDecl.size)
 
-    unit.javaToGroundExpr(res)
+    if (args.isEmpty) {
+      meth.invoke(null)
+    } else {
+      meth.invoke(null, args.map(unit.groundExprToJava).toArray)
+    }
+  }
+
+  def eval(args: Seq[Expr]): Expr = {
+    unit.javaToGroundExpr(evalToJava(args))
   }
 
 } 
