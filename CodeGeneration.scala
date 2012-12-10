@@ -358,6 +358,7 @@ object CodeGeneration {
         pech << Ldc(i)
         pech << ALoad(0)
         pech << GetField(cName, f.id.name, typeToJVM(f.tpe))
+        mkBox(f.tpe, pech)
         pech << AASTORE
       }
 
