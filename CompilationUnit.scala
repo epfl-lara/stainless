@@ -53,6 +53,14 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
         case _ =>
           throw CompilationException("Unsupported return value : " + e)
       }
+
+    case tpl: runtime.Tuple =>
+      val elems = for (i <- 0 until tpl.getArity) yield {
+        javaToGroundExpr(tpl.get(i))
+      }
+
+      Tuple(elems)
+
     case _ => 
       throw CompilationException("MEH Unsupported return value : " + e.getClass)
   }
