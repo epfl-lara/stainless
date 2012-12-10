@@ -14,12 +14,15 @@ import cafebabe.Flags._
 
 import CodeGeneration._
 
-class CompilationUnit(val program: Program, val classes: Seq[ClassFile], implicit val env: CompilationEnvironment) {
+class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFile], implicit val env: CompilationEnvironment) {
+
+  val jvmClassToDef = classes.map{ case (d, cf) => cf.className -> d }.toMap
+
   val loader = new CafebabeClassLoader
-  classes.foreach(loader.register(_))
+  classes.values.foreach(loader.register(_))
 
   def writeClassFiles() {
-    for (cl <- classes) {
+    for ((d, cl) <- classes) {
       cl.writeToFile(cl.className + ".class")
     }
   }
@@ -42,9 +45,14 @@ class CompilationUnit(val program: Program, val classes: Seq[ClassFile], implici
       BooleanLiteral(b.booleanValue)
 
     case cc: runtime.CaseClass =>
-      println("YAY")
-      throw CompilationException("YAY Unsupported return value : " + e)
+      val fields = cc.productElements()
 
+      jvmClassToDef.get(e.getClass.getName) match {
+        case Some(cc: CaseClassDef) =>
+          CaseClass(cc, fields.map(javaToGroundExpr))
+        case _ =>
+          throw CompilationException("Unsupported return value : " + e)
+      }
     case _ => 
       throw CompilationException("MEH Unsupported return value : " + e.getClass)
   }
@@ -106,20 +114,20 @@ object CompilationUnit {
   def compileProgram(p: Program): Option[CompilationUnit] = {
     implicit val env = CompilationEnvironment.fromProgram(p)
 
-    var classes = Seq[ClassFile]()
+    var classes = Map[Definition, ClassFile]()
 
     for((parent,children) <- p.algebraicDataTypes) {
-      val acf = compileAbstractClassDef(p, parent)
-      val ccfs = children.map(c => compileCaseClassDef(p, c))
+      classes += parent -> compileAbstractClassDef(p, parent)
 
-      classes = classes :+ acf
-      classes = classes ++ ccfs
+      for (c <- children) {
+        classes += c -> compileCaseClassDef(p, c)
+      }
     } 
 
     val mainClassName = defToJVMName(p, p.mainObject)
     val cf = new ClassFile(mainClassName, None)
 
-    classes = classes :+ cf
+    classes += p.mainObject -> cf
 
     cf.addDefaultConstructor
 
