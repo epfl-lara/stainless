@@ -43,8 +43,11 @@ object CodeGeneration {
       case Int32Type | BooleanType =>
         ch << IRETURN
 
+      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) => 
+        ch << ARETURN
+
       case other =>
-        throw CompilationException("Unsupported return type : " + other)
+        throw CompilationException("Unsupported return type : " + other.getClass)
     }
 
     ch.freeze

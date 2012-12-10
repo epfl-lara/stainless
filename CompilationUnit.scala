@@ -14,14 +14,14 @@ import cafebabe.Flags._
 
 import CodeGeneration._
 
-class CompilationUnit(val program: Program, val mainClass: ClassFile, implicit val env: CompilationEnvironment) {
-  val mainClassName = defToJVMName(program, program.mainObject)
-
+class CompilationUnit(val program: Program, val classes: Seq[ClassFile], implicit val env: CompilationEnvironment) {
   val loader = new CafebabeClassLoader
-  loader.register(mainClass)
+  classes.foreach(loader.register(_))
 
   def writeClassFiles() {
-    mainClass.writeToFile(mainClassName + ".class")
+    for (cl <- classes) {
+      cl.writeToFile(cl.className + ".class")
+    }
   }
 
   private var _nextExprId = 0
@@ -41,8 +41,12 @@ class CompilationUnit(val program: Program, val mainClass: ClassFile, implicit v
     case b: java.lang.Boolean =>
       BooleanLiteral(b.booleanValue)
 
+    case cc: runtime.CaseClass =>
+      println("YAY")
+      throw CompilationException("YAY Unsupported return value : " + e)
+
     case _ => 
-      throw CompilationException("Unsupported return value : " + e)
+      throw CompilationException("MEH Unsupported return value : " + e.getClass)
   }
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
@@ -83,7 +87,7 @@ class CompilationUnit(val program: Program, val mainClass: ClassFile, implicit v
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) => 
+      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) => 
         ch << ARETURN
 
       case other =>
@@ -102,13 +106,21 @@ object CompilationUnit {
   def compileProgram(p: Program): Option[CompilationUnit] = {
     implicit val env = CompilationEnvironment.fromProgram(p)
 
+    var classes = Seq[ClassFile]()
+
     for((parent,children) <- p.algebraicDataTypes) {
       val acf = compileAbstractClassDef(p, parent)
       val ccfs = children.map(c => compileCaseClassDef(p, c))
+
+      classes = classes :+ acf
+      classes = classes ++ ccfs
     } 
 
     val mainClassName = defToJVMName(p, p.mainObject)
     val cf = new ClassFile(mainClassName, None)
+
+    classes = classes :+ cf
+
     cf.addDefaultConstructor
 
     cf.setFlags((
@@ -136,6 +148,6 @@ object CompilationUnit {
       compileFunDef(funDef, m.codeHandler)
     }
 
-    Some(new CompilationUnit(p, cf, env))
+    Some(new CompilationUnit(p, classes, env))
   }
 }
