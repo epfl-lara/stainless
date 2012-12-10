@@ -10,9 +10,13 @@ import cafebabe._
 import cafebabe.AbstractByteCodes._
 import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
+import cafebabe.Defaults.constructorName
 import cafebabe.Flags._
 
 object CodeGeneration {
+  private val BoxedIntClass = "java/lang/Integer"
+  private val BoxedBoolClass = "java/lang/Boolean"
+
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
   def typeToJVM(tpe : TypeTree)(implicit env : CompilationEnvironment) : String = tpe match {
@@ -82,7 +86,7 @@ object CodeGeneration {
         for(a <- as) {
           mkExpr(a, ch)
         }
-        ch << InvokeSpecial(ccName, "<init>", consSig)
+        ch << InvokeSpecial(ccName, constructorName, consSig)
 
       case CaseClassInstanceOf(ccd, e) =>
         val ccName = env.classDefToClass(ccd).getOrElse {
@@ -148,6 +152,58 @@ object CodeGeneration {
         ch << Label(fl) << POP << Ldc(0) << Label(al)
 
       case _ => throw CompilationException("Unsupported expr. : " + e) 
+    }
+  }
+
+  // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
+  private[codegen] def mkBoxedExpr(e : Expr, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+    e.getType match {
+      case Int32Type =>
+        ch << New(BoxedIntClass) << DUP
+        mkExpr(e, ch)
+        ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+
+      case BooleanType =>
+        ch << New(BoxedBoolClass) << DUP
+        mkExpr(e, ch)
+        ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
+
+      case _ =>
+        mkExpr(e, ch)
+    }
+  }
+
+  // Assumes the top of the stack contains of value of the right type, and makes it
+  // compatible with java.lang.Object.
+  private[codegen] def mkBox(tpe : TypeTree, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+    tpe match {
+      case Int32Type =>
+        ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+
+      case BooleanType =>
+        ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
+
+      case _ => 
+    }
+  }
+
+  // Assumes that the top of the stack contains a value that should be of type `tpe`, and unboxes it to the right (JVM) type.
+  private[codegen] def mkUnbox(tpe : TypeTree, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+    tpe match {
+      case Int32Type =>
+        ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
+
+      case BooleanType =>
+        ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
+
+      case ct : ClassType =>
+        val cn = env.classDefToClass(ct.classDef).getOrElse {
+          throw new CompilationException("Unsupported class type : " + ct)
+        }
+        ch << CheckCast(cn)
+
+      case _ =>
+        throw new CompilationException("Unsupported type in unboxing : " + tpe)
     }
   }
 
@@ -266,7 +322,7 @@ object CodeGeneration {
 
       val cch = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
 
-      cch << ALoad(0) << InvokeSpecial(pName, cafebabe.Defaults.constructorName, "()V")
+      cch << ALoad(0) << InvokeSpecial(pName, constructorName, "()V")
 
       var c = 1
       for((nme, jvmt) <- namesTypes) {
