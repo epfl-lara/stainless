@@ -17,7 +17,8 @@ object CodeGeneration {
   private val BoxedIntClass = "java/lang/Integer"
   private val BoxedBoolClass = "java/lang/Boolean"
 
-  private val TupleClass = "leon/codegen/runtime/Tuple"
+  private val TupleClass     = "leon/codegen/runtime/Tuple"
+  private val SetClass       = "leon/codegen/runtime/Set"
   private val CaseClassClass = "leon/codegen/runtime/CaseClass"
 
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
@@ -30,8 +31,11 @@ object CodeGeneration {
     case c : ClassType =>
       env.classDefToClass(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
 
-    case t : TupleType =>
+    case _ : TupleType =>
       "L" + TupleClass + ";"
+
+    case _ : SetType =>
+      "L" + SetClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -49,7 +53,7 @@ object CodeGeneration {
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType =>
+      case _ : ClassType | _ : TupleType | _ : SetType =>
         ch << ARETURN
 
       case other =>
@@ -132,7 +136,7 @@ object CodeGeneration {
 
       case Tuple(es) =>
         ch << New(TupleClass) << DUP
-        ch << Ldc(es.size) << DUP
+        ch << Ldc(es.size)
         ch << NewArray("java/lang/Object")
         for((e,i) <- es.zipWithIndex) {
           ch << DUP
@@ -140,7 +144,7 @@ object CodeGeneration {
           mkBoxedExpr(e, ch)
           ch << AASTORE
         }
-        ch << InvokeSpecial(TupleClass, constructorName, "(I[Ljava/lang/Object;)V")
+        ch << InvokeSpecial(TupleClass, constructorName, "([Ljava/lang/Object;)V")
 
       case TupleSelect(t, i) =>
         val TupleType(bs) = t.getType
@@ -148,6 +152,46 @@ object CodeGeneration {
         ch << Ldc(i - 1)
         ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
         mkUnbox(bs(i - 1), ch)
+
+      case EmptySet(_) =>
+        ch << DefaultNew(SetClass)  
+
+      case FiniteSet(es) =>
+        ch << DefaultNew(SetClass)
+        for(e <- es) {
+          ch << DUP
+          mkBoxedExpr(e, ch)
+          ch << InvokeVirtual(SetClass, "add", "(Ljava/lang/Object;)V")
+        }
+
+      case ElementOfSet(e, s) =>
+        mkExpr(s, ch)
+        mkBoxedExpr(e, ch)
+        ch << InvokeVirtual(SetClass, "contains", "(Ljava/lang/Object;)Z")
+
+      case SetCardinality(s) =>
+        mkExpr(s, ch)
+        ch << InvokeVirtual(SetClass, "size", "()I")
+
+      case SubsetOf(s1, s2) =>
+        mkExpr(s1, ch)
+        mkExpr(s2, ch)
+        ch << InvokeVirtual(SetClass, "subsetOf", "(L%s;)Z".format(SetClass))
+
+      case SetIntersection(s1, s2) =>
+        mkExpr(s1, ch)
+        mkExpr(s2, ch)
+        ch << InvokeVirtual(SetClass, "intersect", "(L%s;)L%s;".format(SetClass,SetClass))
+
+      case SetUnion(s1, s2) =>
+        mkExpr(s1, ch)
+        mkExpr(s2, ch)
+        ch << InvokeVirtual(SetClass, "union", "(L%s;)L%s;".format(SetClass,SetClass))
+
+      case SetDifference(s1, s2) =>
+        mkExpr(s1, ch)
+        mkExpr(s2, ch)
+        ch << InvokeVirtual(SetClass, "minus", "(L%s;)L%s;".format(SetClass,SetClass))
 
       case IfExpr(c, t, e) =>
         val tl = ch.getFreshLabel("then")
