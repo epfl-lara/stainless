@@ -17,6 +17,9 @@ object CodeGeneration {
   private val BoxedIntClass = "java/lang/Integer"
   private val BoxedBoolClass = "java/lang/Boolean"
 
+  private val TupleClass = "leon/codegen/runtime/Tuple"
+  private val CaseClassClass = "leon/codegen/runtime/CaseClass"
+
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
   def typeToJVM(tpe : TypeTree)(implicit env : CompilationEnvironment) : String = tpe match {
@@ -26,6 +29,9 @@ object CodeGeneration {
 
     case c : ClassType =>
       env.classDefToClass(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
+
+    case t : TupleType =>
+      "L" + TupleClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -43,7 +49,7 @@ object CodeGeneration {
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) => 
+      case _ : ClassType | _ : TupleType =>
         ch << ARETURN
 
       case other =>
@@ -105,6 +111,25 @@ object CodeGeneration {
         }
         ch << CheckCast(ccName)
         ch << GetField(ccName, sid.name, typeToJVM(sid.getType))
+
+      case Tuple(es) =>
+        ch << New(TupleClass) << DUP
+        ch << Ldc(es.size) << DUP
+        ch << NewArray("java/lang/Object")
+        for((e,i) <- es.zipWithIndex) {
+          ch << DUP
+          ch << Ldc(i)
+          mkBoxedExpr(e, ch)
+          ch << AASTORE
+        }
+        ch << InvokeSpecial(TupleClass, constructorName, "(I[Ljava/lang/Object;)V")
+
+      case TupleSelect(t, i) =>
+        val TupleType(bs) = t.getType
+        mkExpr(t,ch)
+        ch << Ldc(i - 1)
+        ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
+        mkUnbox(bs(i - 1), ch)
 
       case IfExpr(c, t, e) =>
         val tl = ch.getFreshLabel("then")
@@ -288,7 +313,7 @@ object CodeGeneration {
       CLASS_ACC_ABSTRACT
     ).asInstanceOf[U2])
 
-    cf.addInterface("leon/codegen/runtime/CaseClass")
+    cf.addInterface(CaseClassClass)
 
     cf.addDefaultConstructor
 
