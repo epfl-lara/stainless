@@ -33,11 +33,11 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
     _nextExprId
   }
 
-  private[codegen] def groundExprToJava(e: Expr): Any = {
-    compileExpression(e, Seq()).evalToJava(Seq())
+  private[codegen] def valueToJVM(e: Expr): Any = {
+    compileExpression(e, Seq()).evalToJVM(Seq())
   }
 
-  private[codegen] def javaToGroundExpr(e: AnyRef): Expr = e match {
+  private[codegen] def jvmToValue(e: AnyRef): Expr = e match {
     case i: Integer =>
       IntLiteral(i.toInt)
 
@@ -49,14 +49,14 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 
       jvmClassToDef.get(e.getClass.getName) match {
         case Some(cc: CaseClassDef) =>
-          CaseClass(cc, fields.map(javaToGroundExpr))
+          CaseClass(cc, fields.map(jvmToValue))
         case _ =>
           throw CompilationException("Unsupported return value : " + e)
       }
 
     case tpl: runtime.Tuple =>
       val elems = for (i <- 0 until tpl.getArity) yield {
-        javaToGroundExpr(tpl.get(i))
+        jvmToValue(tpl.get(i))
       }
 
       Tuple(elems)

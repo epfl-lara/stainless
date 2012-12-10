@@ -14,7 +14,7 @@ import cafebabe.Flags._
 
 class CompiledExpression(unit: CompilationUnit, cf: ClassFile, argsDecl: Seq[Identifier]) {
 
-  def evalToJava(args: Seq[Expr]): AnyRef = {
+  def evalToJVM(args: Seq[Expr]): AnyRef = {
     val cl = unit.loader.loadClass(cf.className)
     val meth = cl.getMethods()(0)
 
@@ -23,12 +23,12 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, argsDecl: Seq[Ide
     if (args.isEmpty) {
       meth.invoke(null)
     } else {
-      meth.invoke(null, args.map(unit.groundExprToJava).toArray)
+      meth.invoke(null, args.map(unit.valueToJVM).toArray)
     }
   }
 
   def eval(args: Seq[Expr]): Expr = {
-    unit.javaToGroundExpr(evalToJava(args))
+    unit.jvmToValue(evalToJVM(args))
   }
 
 } 
