@@ -12,6 +12,8 @@ import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
+import scala.collection.JavaConverters._
+
 import CodeGeneration._
 
 class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFile], implicit val env: CompilationEnvironment) {
@@ -33,8 +35,19 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
     _nextExprId
   }
 
-  private[codegen] def valueToJVM(e: Expr): Any = {
-    compileExpression(e, Seq()).evalToJVM(Seq())
+  // Currently, this method is only used to prepare arguments to reflective calls.
+  // This means it is safe to return AnyRef (and never native values), because
+  // reflection needs this anyway.
+  private[codegen] def valueToJVM(e: Expr): AnyRef = e match {
+    case IntLiteral(v) =>
+      new java.lang.Integer(v)
+
+    case BooleanLiteral(v) =>
+      new java.lang.Boolean(v)
+
+    // just slightly overkill...
+    case _ =>
+      compileExpression(e, Seq()).evalToJVM(Seq())
   }
 
   private[codegen] def jvmToValue(e: AnyRef): Expr = e match {
@@ -58,10 +71,12 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       val elems = for (i <- 0 until tpl.getArity) yield {
         jvmToValue(tpl.get(i))
       }
-
       Tuple(elems)
 
-    case _ => 
+    case set : runtime.Set =>
+      FiniteSet(set.getElements().asScala.map(jvmToValue).toSeq)
+
+    case _ =>
       throw CompilationException("MEH Unsupported return value : " + e.getClass)
   }
 
@@ -103,7 +118,7 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) => 
+      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) =>
         ch << ARETURN
 
       case other =>
@@ -130,7 +145,7 @@ object CompilationUnit {
       for (c <- children) {
         classes += c -> compileCaseClassDef(p, c)
       }
-    } 
+    }
 
     val mainClassName = defToJVMName(p, p.mainObject)
     val cf = new ClassFile(mainClassName, None)
@@ -160,7 +175,7 @@ object CompilationUnit {
         METHOD_ACC_FINAL |
         METHOD_ACC_STATIC
       ).asInstanceOf[U2])
- 
+
       compileFunDef(funDef, m.codeHandler)
     }
 
