@@ -17,7 +17,7 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
 
     CompilationUnit.compileProgram(p) match {
       case Some(unit) => 
-        unit.writeClassFiles()
+        //unit.writeClassFiles()
         CompilationResult(successful = true)
       case None =>
         CompilationResult(successful = false)
