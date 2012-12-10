@@ -379,7 +379,6 @@ object CodeGeneration {
 
     cf.addDefaultConstructor
 
-    cf.writeToFile(cName + ".class")
     cf
   }
 
@@ -511,7 +510,6 @@ object CodeGeneration {
       hch.freeze
     }
 
-    cf.writeToFile(cName + ".class")
     cf
   }
 }
