@@ -229,6 +229,8 @@ object CodeGeneration {
       CLASS_ACC_ABSTRACT
     ).asInstanceOf[U2])
 
+    cf.addInterface("leon/codegen/runtime/CaseClass")
+
     cf.addDefaultConstructor
 
     cf.writeToFile(cName + ".class")
@@ -278,6 +280,30 @@ object CodeGeneration {
       }
       cch << RETURN
       cch.freeze
+    }
+
+    locally {
+      val pem = cf.addMethod("[java/lang/Object;", "productElements")
+      pem.setFlags((
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL
+      ).asInstanceOf[U2])
+
+      val pech = pem.codeHandler
+
+      pech << Ldc(ccd.fields.size)
+      pech << NewArray("java/lang/Object")
+
+      for ((f, i) <- ccd.fields.zipWithIndex) {
+        pech << DUP
+        pech << Ldc(i)
+        pech << ALoad(0)
+        pech << GetField(cName, f.id.name, typeToJVM(f.tpe))
+        pech << AASTORE
+      }
+
+      pech << ARETURN
+      pech.freeze
     }
 
     // definition of equals
