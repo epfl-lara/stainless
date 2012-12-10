@@ -342,7 +342,7 @@ object CodeGeneration {
     }
 
     locally {
-      val pem = cf.addMethod("[java/lang/Object;", "productElements")
+      val pem = cf.addMethod("[Ljava/lang/Object;", "productElements")
       pem.setFlags((
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL
