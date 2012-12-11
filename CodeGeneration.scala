@@ -14,12 +14,14 @@ import cafebabe.Defaults.constructorName
 import cafebabe.Flags._
 
 object CodeGeneration {
-  private val BoxedIntClass = "java/lang/Integer"
+  private val BoxedIntClass  = "java/lang/Integer"
   private val BoxedBoolClass = "java/lang/Boolean"
 
   private val TupleClass     = "leon/codegen/runtime/Tuple"
   private val SetClass       = "leon/codegen/runtime/Set"
+  private val MapClass       = "leon/codegen/runtime/Map"
   private val CaseClassClass = "leon/codegen/runtime/CaseClass"
+  private val ErrorClass     = "leon/codegen/runtime/LeonCodeGenRuntimeException"
 
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
@@ -27,6 +29,8 @@ object CodeGeneration {
     case Int32Type => "I"
 
     case BooleanType => "Z"
+
+    case UnitType => "Z"
 
     case c : ClassType =>
       env.classDefToClass(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
@@ -36,6 +40,9 @@ object CodeGeneration {
 
     case _ : SetType =>
       "L" + SetClass + ";"
+
+    case _ : MapType =>
+      "L" + MapClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -50,10 +57,10 @@ object CodeGeneration {
     mkExpr(exprToCompile, ch)(env.withVars(newMapping))
 
     funDef.returnType match {
-      case Int32Type | BooleanType =>
+      case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType | _ : SetType =>
+      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType =>
         ch << ARETURN
 
       case other =>
@@ -68,7 +75,7 @@ object CodeGeneration {
       case Variable(id) =>
         val slot = slotFor(id)
         val instr = id.getType match {
-          case Int32Type | BooleanType => ILoad(slot)
+          case Int32Type | BooleanType | UnitType => ILoad(slot)
           case _ => ALoad(slot)
         }
         ch << instr
@@ -77,7 +84,7 @@ object CodeGeneration {
         mkExpr(d, ch)
         val slot = ch.getFreshVar
         val instr = i.getType match {
-          case Int32Type | BooleanType => IStore(slot)
+          case Int32Type | BooleanType | UnitType => IStore(slot)
           case _ => AStore(slot)
         }
         ch << instr
@@ -93,7 +100,7 @@ object CodeGeneration {
           ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
           mkUnbox(i.getType, ch)
           val instr = i.getType match {
-            case Int32Type | BooleanType => IStore(s)
+            case Int32Type | BooleanType | UnitType => IStore(s)
             case _ => AStore(s)
           }
           ch << instr
@@ -107,11 +114,15 @@ object CodeGeneration {
       case BooleanLiteral(v) =>
         ch << Ldc(if(v) 1 else 0)
 
+      case UnitLiteral =>
+        ch << Ldc(1)
+
+      // Case classes
       case CaseClass(ccd, as) =>
         val ccName = env.classDefToClass(ccd).getOrElse {
           throw CompilationException("Unknown class : " + ccd.id)
         }
-        // It's a little ugly that we do it each time. Could be in env.
+        // TODO FIXME It's a little ugly that we do it each time. Could be in env.
         val consSig = "(" + ccd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
         ch << New(ccName) << DUP
         for(a <- as) {
@@ -134,6 +145,7 @@ object CodeGeneration {
         ch << CheckCast(ccName)
         ch << GetField(ccName, sid.name, typeToJVM(sid.getType))
 
+      // Tuples (note that instanceOf checks are in mkBranch)
       case Tuple(es) =>
         ch << New(TupleClass) << DUP
         ch << Ldc(es.size)
@@ -153,6 +165,7 @@ object CodeGeneration {
         ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
         mkUnbox(bs(i - 1), ch)
 
+      // Sets
       case FiniteSet(es) =>
         ch << DefaultNew(SetClass)
         for(e <- es) {
@@ -190,6 +203,34 @@ object CodeGeneration {
         mkExpr(s2, ch)
         ch << InvokeVirtual(SetClass, "minus", "(L%s;)L%s;".format(SetClass,SetClass))
 
+      // Maps
+      case FiniteMap(ss) =>
+        ch << DefaultNew(MapClass)
+        for((f,t) <- ss) {
+          ch << DUP
+          mkBoxedExpr(f, ch)
+          mkBoxedExpr(t, ch)
+          ch << InvokeVirtual(MapClass, "add", "(Ljava/lang/Object;Ljava/lang/Object;)V")
+        }
+
+      case MapGet(m, k) =>
+        val MapType(_, tt) = m.getType
+        mkExpr(m, ch)
+        mkBoxedExpr(k, ch)
+        ch << InvokeVirtual(MapClass, "get", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        mkUnbox(tt, ch)
+
+      case MapIsDefinedAt(m, k) =>
+        mkExpr(m, ch)
+        mkBoxedExpr(k, ch)
+        ch << InvokeVirtual(MapClass, "isDefinedAt", "(Ljava/lang/Object;)Z")
+
+      case MapUnion(m1, m2) =>
+        mkExpr(m1, ch)
+        mkExpr(m2, ch)
+        ch << InvokeVirtual(MapClass, "union", "(L%s;)L%s;".format(MapClass,MapClass))
+
+      // Branching
       case IfExpr(c, t, e) =>
         val tl = ch.getFreshLabel("then")
         val el = ch.getFreshLabel("else")
@@ -210,6 +251,7 @@ object CodeGeneration {
         }
         ch << InvokeStatic(cn, mn, ms)
 
+      // Arithmetic
       case Plus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
@@ -225,13 +267,31 @@ object CodeGeneration {
         mkExpr(r, ch)
         ch << IMUL
 
+      case Division(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IDIV
+
+      case Modulo(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IREM
+
       case UMinus(e) =>
         mkExpr(e, ch)
         ch << INEG
 
+      // Misc and boolean tests
+      case Error(desc) =>
+        ch << New(ErrorClass) << DUP
+        ch << Ldc(desc)
+        ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
+        ch << ATHROW
+
       // WARNING !!! See remark at the end of mkBranch ! The two functions are 
       // mutually recursive and will loop if none supports some Boolean construct !
       case b if b.getType == BooleanType =>
+        // println("Don't know how to mkExpr for " + b)
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
         ch << Ldc(1)
@@ -250,7 +310,7 @@ object CodeGeneration {
         mkExpr(e, ch)
         ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-      case BooleanType =>
+      case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP
         mkExpr(e, ch)
         ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
@@ -267,7 +327,7 @@ object CodeGeneration {
       case Int32Type =>
         ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-      case BooleanType =>
+      case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
       case _ => 
@@ -280,7 +340,7 @@ object CodeGeneration {
       case Int32Type =>
         ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
 
-      case BooleanType =>
+      case BooleanType | UnitType =>
         ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
 
       case ct : ClassType =>
@@ -288,6 +348,15 @@ object CodeGeneration {
           throw new CompilationException("Unsupported class type : " + ct)
         }
         ch << CheckCast(cn)
+
+      case tt : TupleType =>
+        ch << CheckCast(TupleClass)
+
+      case st : SetType =>
+        ch << CheckCast(SetClass)
+
+      case mt : MapType =>
+        ch << CheckCast(MapClass)
 
       case _ =>
         throw new CompilationException("Unsupported type in unboxing : " + tpe)
@@ -314,6 +383,9 @@ object CodeGeneration {
         ch << Label(fl)
         mkBranch(Or(es.tail), then, elze, ch) 
 
+      case Implies(l, r) =>
+        mkBranch(Or(Not(l), r), then, elze, ch)
+
       case Not(c) =>
         mkBranch(c, elze, then, ch)
 
@@ -324,9 +396,16 @@ object CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type | BooleanType => ch << If_ICmpEq(then) << Goto(elze)
-          case _ => ch << If_ACmpEq(then) << Goto(elze)
+          case Int32Type | BooleanType | UnitType =>
+            ch << If_ICmpEq(then) << Goto(elze)
+
+          case _ =>
+            ch << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z")
+            ch << IfEq(elze) << Goto(then)
         }
+
+      case Iff(l,r) =>
+        mkBranch(Equals(l, r), then, elze, ch)
 
       case LessThan(l,r) =>
         mkExpr(l, ch)
@@ -351,6 +430,7 @@ object CodeGeneration {
       // WARNING !!! mkBranch delegates to mkExpr, and mkExpr delegates to mkBranch !
       // That means, between the two of them, they'd better know what to generate !
       case other =>
+        // println("Don't know how to mkBranch for " + other)
         mkExpr(other, ch)
         ch << IfEq(elze) << Goto(then)
     }
@@ -422,6 +502,20 @@ object CodeGeneration {
       }
       cch << RETURN
       cch.freeze
+    }
+
+    locally {
+      val pnm = cf.addMethod("Ljava/lang/String;", "productName")
+      pnm.setFlags((
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL
+      ).asInstanceOf[U2])
+
+      val pnch = pnm.codeHandler
+
+      pnch << Ldc(cName) << ARETURN
+
+      pnch.freeze
     }
 
     locally {

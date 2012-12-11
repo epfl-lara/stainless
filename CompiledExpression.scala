@@ -12,23 +12,28 @@ import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
-class CompiledExpression(unit: CompilationUnit, cf: ClassFile, argsDecl: Seq[Identifier]) {
+import java.lang.reflect.InvocationTargetException
 
-  def evalToJVM(args: Seq[Expr]): AnyRef = {
-    val cl = unit.loader.loadClass(cf.className)
-    val meth = cl.getMethods()(0)
+class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr, argsDecl: Seq[Identifier]) {
+  private lazy val cl = unit.loader.loadClass(cf.className)
+  private lazy val meth = cl.getMethods()(0)
 
+  protected[codegen] def evalToJVM(args: Seq[Expr]): AnyRef = {
     assert(args.size == argsDecl.size)
 
     if (args.isEmpty) {
       meth.invoke(null)
     } else {
-      meth.invoke(null, args.map(unit.valueToJVM).toArray)
+      meth.invoke(null, args.map(unit.valueToJVM).toArray : _*)
     }
   }
 
-  def eval(args: Seq[Expr]): Expr = {
-    unit.jvmToValue(evalToJVM(args))
+  // This may throw an exception. We unwrap it if needed.
+  def eval(args: Seq[Expr]) : Expr = {
+    try {
+      unit.jvmToValue(evalToJVM(args))
+    } catch {
+      case ite : InvocationTargetException => throw ite.getCause()
+    }
   }
-
 } 

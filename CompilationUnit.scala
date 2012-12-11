@@ -14,29 +14,47 @@ import cafebabe.Flags._
 
 import scala.collection.JavaConverters._
 
+import java.lang.reflect.Constructor
+
 import CodeGeneration._
 
 class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFile], implicit val env: CompilationEnvironment) {
 
-  val jvmClassToDef = classes.map{ case (d, cf) => cf.className -> d }.toMap
+  private val jvmClassToDef = classes.map {
+    case (d, cf) => cf.className -> d
+  }.toMap
 
-  val loader = new CafebabeClassLoader
-  classes.values.foreach(loader.register(_))
+  protected[codegen] val loader = {
+    val l = new CafebabeClassLoader
+    classes.values.foreach(l.register(_))
+    l
+  }
 
-  def writeClassFiles() {
+  private val caseClassConstructors : Map[CaseClassDef,Constructor[_]] = {
+    (classes collect {
+      case (ccd : CaseClassDef, cf) =>
+        val klass = loader.loadClass(cf.className)
+        // This is a hack: we pick the constructor with the most arguments.
+        val conss = klass.getConstructors().sortBy(_.getParameterTypes().length)
+        assert(!conss.isEmpty)
+        (ccd -> conss.last)
+    }).toMap
+  }
+
+  private def writeClassFiles() {
     for ((d, cl) <- classes) {
       cl.writeToFile(cl.className + ".class")
     }
   }
 
   private var _nextExprId = 0
-  def nextExprId = {
+  private def nextExprId = {
     _nextExprId += 1
     _nextExprId
   }
 
   // Currently, this method is only used to prepare arguments to reflective calls.
-  // This means it is safe to return AnyRef (and never native values), because
+  // This means it is safe to return AnyRef (as opposed to primitive types), because
   // reflection needs this anyway.
   private[codegen] def valueToJVM(e: Expr): AnyRef = e match {
     case IntLiteral(v) =>
@@ -44,6 +62,10 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 
     case BooleanLiteral(v) =>
       new java.lang.Boolean(v)
+
+    case CaseClass(ccd, args) =>
+      val cons = caseClassConstructors(ccd)
+      cons.newInstance(args.map(valueToJVM).toArray : _*).asInstanceOf[AnyRef]
 
     // just slightly overkill...
     case _ =>
@@ -76,8 +98,16 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
     case set : runtime.Set =>
       FiniteSet(set.getElements().asScala.map(jvmToValue).toSeq)
 
+    case map : runtime.Map =>
+      val pairs = map.getElements().asScala.map { entry =>
+        val k = jvmToValue(entry.getKey())
+        val v = jvmToValue(entry.getValue())
+        (k, v)
+      }
+      FiniteMap(pairs.toSeq)
+
     case _ =>
-      throw CompilationException("MEH Unsupported return value : " + e.getClass)
+      throw CompilationException("Unsupported return value : " + e.getClass)
   }
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
@@ -129,8 +159,10 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 
     loader.register(cf)
 
-    new CompiledExpression(this, cf, args)
+    new CompiledExpression(this, cf, e, args)
   }
+
+  // writeClassFiles
 }
 
 object CompilationUnit {
