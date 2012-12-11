@@ -21,6 +21,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   )
 
   def run(ctx: LeonContext)(program: Program) : VerificationReport = {
+    println(program)
     val functionsToAnalyse : MutableSet[String] = MutableSet.empty
 
     for(opt <- ctx.options) opt match {
