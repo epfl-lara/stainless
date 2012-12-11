@@ -89,8 +89,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         // try all solvers until one returns a meaningful answer
         var superseeded : Set[String] = Set.empty[String]
         solvers.find(se => {
-          reporter.info("Trying with solver: " + se.shortDescription)
-          if(superseeded(se.shortDescription) || superseeded(se.description)) {
+          reporter.info("Trying with solver: " + se.name)
+          if(superseeded(se.name) || superseeded(se.description)) {
             reporter.info("Solver was superseeded. Skipping.")
             false
           } else {

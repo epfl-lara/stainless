@@ -27,7 +27,7 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
   }
 
   def solverStr = solvedWith match {
-    case Some(s) => s.shortDescription
+    case Some(s) => s.name
     case None => ""
   }
 
