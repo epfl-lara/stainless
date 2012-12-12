@@ -7,7 +7,7 @@ import purescala.Trees._
 import purescala.TreeOps._
 import purescala.TypeTrees._
 
-import solvers.{Solver,TrivialSolver}
+import solvers.{Solver,TrivialSolver,TimeoutSolver}
 import solvers.z3.FairZ3Solver
 
 import scala.collection.mutable.{Set => MutableSet}
@@ -17,26 +17,39 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val description = "Leon Verification"
 
   override val definedOptions : Set[LeonOptionDef] = Set(
-    LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,...")
+    LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,..."),
+    LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
   )
 
   def run(ctx: LeonContext)(program: Program) : VerificationReport = {
     val functionsToAnalyse : MutableSet[String] = MutableSet.empty
+    var timeout: Option[Int] = None
 
     for(opt <- ctx.options) opt match {
       case LeonValueOption("functions", ListValue(fs)) =>
         functionsToAnalyse ++= fs
+      case LeonValueOption("timeout", t) =>
+        try {
+          timeout = Some(t.toInt)
+        } catch {
+          case _: Throwable => 
+        }
       case _ =>
-    } 
+    }
 
     val reporter = ctx.reporter
 
     val trivialSolver = new TrivialSolver(ctx)
     val fairZ3 = new FairZ3Solver(ctx)
 
-    val solvers : Seq[Solver] = trivialSolver :: fairZ3 :: Nil
+    val solvers0 : Seq[Solver] = trivialSolver :: fairZ3 :: Nil
+    val solvers: Seq[Solver] = timeout match {
+      case Some(t) => solvers0.map(s => new TimeoutSolver(s, t))
+      case None => solvers0
+    }
 
     solvers.foreach(_.setProgram(program))
+
 
     val defaultTactic = new DefaultTactic(reporter)
     defaultTactic.setProgram(program)
