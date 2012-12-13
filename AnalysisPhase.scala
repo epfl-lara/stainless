@@ -28,12 +28,10 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     for(opt <- ctx.options) opt match {
       case LeonValueOption("functions", ListValue(fs)) =>
         functionsToAnalyse ++= fs
-      case LeonValueOption("timeout", t) =>
-        try {
-          timeout = Some(t.toInt)
-        } catch {
-          case _: Throwable => 
-        }
+
+      case v @ LeonValueOption("timeout", _) =>
+        timeout = v.asInt(ctx)
+
       case _ =>
     }
 
