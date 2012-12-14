@@ -149,12 +149,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       report
     }
 
-    // We generate all function templates in advance.
-    for(funDef <- program.definedFunctions if funDef.hasImplementation) {
-      // this gets cached :D
-      FunctionTemplate.mkTemplate(funDef)
-    }
-
     val report = if(solvers.size > 1) {
       reporter.info("Running verification condition generation...")
       checkVerificationConditions(generateVerificationConditions)
