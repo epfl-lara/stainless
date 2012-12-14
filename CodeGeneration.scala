@@ -153,9 +153,6 @@ object CodeGeneration {
         ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
         mkUnbox(bs(i - 1), ch)
 
-      case EmptySet(_) =>
-        ch << DefaultNew(SetClass)  
-
       case FiniteSet(es) =>
         ch << DefaultNew(SetClass)
         for(e <- es) {
