@@ -148,7 +148,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       } 
 
       val report = new VerificationReport(vcs)
-      reporter.info(report.summaryString)
       report
     }
 
