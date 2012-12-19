@@ -70,7 +70,7 @@ object CodeGeneration {
     ch.freeze
   }
 
-  private[codegen] def mkExpr(e : Expr, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+  private[codegen] def mkExpr(e : Expr, ch : CodeHandler, canDelegateToMkBranch : Boolean = true)(implicit env : CompilationEnvironment) {
     e match {
       case Variable(id) =>
         val slot = slotFor(id)
@@ -288,14 +288,11 @@ object CodeGeneration {
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
-      // WARNING !!! See remark at the end of mkBranch ! The two functions are 
-      // mutually recursive and will loop if none supports some Boolean construct !
-      case b if b.getType == BooleanType =>
-        // println("Don't know how to mkExpr for " + b)
+      case b if b.getType == BooleanType && canDelegateToMkBranch =>
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
         ch << Ldc(1)
-        mkBranch(b, al, fl, ch)
+        mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
         ch << Label(fl) << POP << Ldc(0) << Label(al)
 
       case _ => throw CompilationException("Unsupported expr. : " + e) 
@@ -363,7 +360,7 @@ object CodeGeneration {
     }
   }
 
-  private[codegen] def mkBranch(cond : Expr, then : String, elze : String, ch : CodeHandler)(implicit env : CompilationEnvironment) {
+  private[codegen] def mkBranch(cond : Expr, then : String, elze : String, ch : CodeHandler, canDelegateToMkExpr : Boolean = true)(implicit env : CompilationEnvironment) {
     cond match {
       case BooleanLiteral(true) =>
         ch << Goto(then)
@@ -405,7 +402,9 @@ object CodeGeneration {
         }
 
       case Iff(l,r) =>
-        mkBranch(Equals(l, r), then, elze, ch)
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << If_ICmpEq(then) << Goto(elze)
 
       case LessThan(l,r) =>
         mkExpr(l, ch)
@@ -427,12 +426,11 @@ object CodeGeneration {
         mkExpr(r, ch)
         ch << If_ICmpGe(then) << Goto(elze) 
 
-      // WARNING !!! mkBranch delegates to mkExpr, and mkExpr delegates to mkBranch !
-      // That means, between the two of them, they'd better know what to generate !
-      case other =>
-        // println("Don't know how to mkBranch for " + other)
-        mkExpr(other, ch)
+      case other if canDelegateToMkExpr =>
+        mkExpr(other, ch, canDelegateToMkBranch = false)
         ch << IfEq(elze) << Goto(then)
+
+      case other => throw CompilationException("Unsupported branching expr. : " + other) 
     }
   }
 
