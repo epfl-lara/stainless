@@ -27,6 +27,14 @@ class VerificationReport(val conditions : Seq[VerificationCondition]) {
 object VerificationReport {
   def emptyReport : VerificationReport = new VerificationReport(Nil)
 
+  private def fit(str : String, maxLength : Int) : String = {
+    if(str.length <= maxLength) {
+      str
+    } else {
+      str.substring(0, maxLength - 1) + "…"
+    }
+  }
+
   private val infoSep    : String = "╟" + ("┄" * 83) + "╢\n"
   private val infoFooter : String = "╚" + ("═" * 83) + "╝"
   private val infoHeader : String = ". ┌─────────┐\n" +
@@ -37,7 +45,7 @@ object VerificationReport {
     val timeStr = vc.time.map(t => "%-3.3f".format(t)).getOrElse("")
 
     "║ %-25s %-9s %9s %-8s %-10s %-7s %7s ║".format(
-      vc.funDef.id.toString,
+      fit(vc.funDef.id.toString, 25),
       vc.kind,
       vc.posInfo,
       vc.status,
