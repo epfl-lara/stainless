@@ -109,7 +109,9 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
             val t1 = System.nanoTime
             se.init()
-            val solverResult = se.solve(vc)
+            val (satResult, counterexample) = se.solveSAT(Not(vc))
+            val solverResult = satResult.map(!_)
+
             val t2 = System.nanoTime
             val dt = ((t2 - t1) / 1000000) / 1000.0
 
@@ -125,8 +127,9 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
                 true
               }
               case Some(false) => {
+                reporter.error("Found counter-example : ")
+                reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
                 reporter.error("==== INVALID ====")
-
                 vcInfo.value = Some(false)
                 vcInfo.solvedWith = Some(se)
                 vcInfo.time = Some(dt)
