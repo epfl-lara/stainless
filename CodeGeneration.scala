@@ -22,6 +22,7 @@ object CodeGeneration {
   private val MapClass       = "leon/codegen/runtime/Map"
   private val CaseClassClass = "leon/codegen/runtime/CaseClass"
   private val ErrorClass     = "leon/codegen/runtime/LeonCodeGenRuntimeException"
+  private val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
 
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
@@ -286,6 +287,12 @@ object CodeGeneration {
         ch << New(ErrorClass) << DUP
         ch << Ldc(desc)
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
+        ch << ATHROW
+
+      case Choose(_, _) =>
+        ch << New(ImpossibleEvaluationClass) << DUP
+        ch << Ldc("Cannot execute choose.")
+        ch << InvokeSpecial(ImpossibleEvaluationClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
       case b if b.getType == BooleanType && canDelegateToMkBranch =>
