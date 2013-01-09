@@ -45,6 +45,9 @@ object CodeGeneration {
     case _ : MapType =>
       "L" + MapClass + ";"
 
+    case ArrayType(base) =>
+      "[" + typeToJVM(base)
+
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
 
@@ -61,7 +64,7 @@ object CodeGeneration {
       case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType =>
+      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType =>
         ch << ARETURN
 
       case other =>
@@ -281,6 +284,34 @@ object CodeGeneration {
       case UMinus(e) =>
         mkExpr(e, ch)
         ch << INEG
+
+      case ArrayLength(a) =>
+        mkExpr(a, ch)
+        ch << ARRAYLENGTH
+
+      case as @ ArraySelect(a,i) =>
+        mkExpr(a, ch)
+        mkExpr(i, ch)
+        ch << (as.getType match {
+          case Untyped => throw CompilationException("Cannot compile untyped array access.")
+          case Int32Type => IALOAD
+          case BooleanType => BALOAD
+          case _ => AALOAD
+        })
+
+      case a @ FiniteArray(es) =>
+        ch << Ldc(es.size)
+        val storeInstr = a.getType match {
+          case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+          case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+          case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
+          case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
+        }
+        for((e,i) <- es.zipWithIndex) {
+          ch << DUP << Ldc(i)
+          mkExpr(e, ch) 
+          ch << storeInstr
+        }
 
       // Misc and boolean tests
       case Error(desc) =>

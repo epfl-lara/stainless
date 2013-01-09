@@ -67,7 +67,12 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       val cons = caseClassConstructors(ccd)
       cons.newInstance(args.map(valueToJVM).toArray : _*).asInstanceOf[AnyRef]
 
-    // just slightly overkill...
+    // For now, we only treat boolean arrays separately.
+    // We have a use for these, mind you.
+    case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
+      exprs.map(e => valueToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
+
+    // Just slightly overkill...
     case _ =>
       compileExpression(e, Seq()).evalToJVM(Seq())
   }
@@ -112,6 +117,9 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
   }
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
+    if(e.getType == Untyped) {
+      throw new IllegalArgumentException("Cannot compile untyped expression [%s].".format(e))
+    }
 
     val id = nextExprId
 
@@ -149,7 +157,7 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) =>
+      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) | ArrayType(_) =>
         ch << ARETURN
 
       case other =>
