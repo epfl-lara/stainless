@@ -465,17 +465,20 @@ object CodeGeneration {
   }
 
   def compileCaseClassDef(p : Program, ccd : CaseClassDef)(implicit env : CompilationEnvironment) : ClassFile = {
-    assert(ccd.hasParent)
 
     val cName = defToJVMName(p, ccd)
-    val pName = defToJVMName(p, ccd.parent.get)
+    val pName = ccd.parent.map(parent => defToJVMName(p, parent))
 
-    val cf = new ClassFile(cName, Some(pName))
+    val cf = new ClassFile(cName, pName)
     cf.setFlags((
       CLASS_ACC_SUPER |
       CLASS_ACC_PUBLIC |
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
+
+    if(ccd.parent.isEmpty) {
+      cf.addInterface(CaseClassClass)
+    }
 
     // definition of the constructor
     if(ccd.fields.isEmpty) {
@@ -493,7 +496,8 @@ object CodeGeneration {
 
       val cch = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
 
-      cch << ALoad(0) << InvokeSpecial(pName, constructorName, "()V")
+      cch << ALoad(0)
+      cch << InvokeSpecial(pName.getOrElse("java/lang/Object"), constructorName, "()V")
 
       var c = 1
       for((nme, jvmt) <- namesTypes) {

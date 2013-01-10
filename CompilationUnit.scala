@@ -179,6 +179,10 @@ object CompilationUnit {
       }
     }
 
+    for(single <- p.singleCaseClasses) {
+      classes += single -> compileCaseClassDef(p, single)
+    }
+
     val mainClassName = defToJVMName(p, p.mainObject)
     val cf = new ClassFile(mainClassName, None)
 
