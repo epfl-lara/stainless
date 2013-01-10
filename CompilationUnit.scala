@@ -25,7 +25,7 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
   }.toMap
 
   protected[codegen] val loader = {
-    val l = new CafebabeClassLoader
+    val l = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
     classes.values.foreach(l.register(_))
     l
   }
@@ -72,6 +72,7 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       compileExpression(e, Seq()).evalToJVM(Seq())
   }
 
+  // Note that this may produce untyped expressions! (typically: sets, maps)
   private[codegen] def jvmToValue(e: AnyRef): Expr = e match {
     case i: Integer =>
       IntLiteral(i.toInt)

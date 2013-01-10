@@ -18,6 +18,8 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
   private lazy val cl = unit.loader.loadClass(cf.className)
   private lazy val meth = cl.getMethods()(0)
 
+  private val exprType = expression.getType
+
   protected[codegen] def evalToJVM(args: Seq[Expr]): AnyRef = {
     assert(args.size == argsDecl.size)
 
@@ -29,9 +31,14 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
   }
 
   // This may throw an exception. We unwrap it if needed.
+  // We also need to reattach a type in some cases (sets, maps).
   def eval(args: Seq[Expr]) : Expr = {
     try {
-      unit.jvmToValue(evalToJVM(args))
+      val result = unit.jvmToValue(evalToJVM(args))
+      if(!result.isTyped) {
+        result.setType(exprType)
+      }
+      result
     } catch {
       case ite : InvocationTargetException => throw ite.getCause()
     }
