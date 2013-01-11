@@ -44,7 +44,9 @@ class SimpleTerminationChecker(context : LeonContext, program : Program) extends
     if(!funDef.hasImplementation)
       return NoGuarantee
 
-    val sccIndex   = funDefToSCCIndex(funDef)
+    val sccIndex   = funDefToSCCIndex.getOrElse(funDef, {
+      return NoGuarantee
+    })
     val sccCallees = sccGraph(sccIndex)
 
     // We check all functions that are in a "lower" scc. These must
