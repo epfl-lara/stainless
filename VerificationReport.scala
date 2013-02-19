@@ -1,6 +1,16 @@
-package leon.verification
+package leon
+package verification
 
-class VerificationReport(val conditions : Seq[VerificationCondition]) {
+import purescala.Definitions.FunDef
+
+class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
+  val conditions : Seq[VerificationCondition] = fvcs.flatMap(_._2).toSeq.sortWith {
+      (vc1,vc2) =>
+        val id1 = vc1.funDef.id.name
+        val id2 = vc2.funDef.id.name
+        if(id1 != id2) id1 < id2 else vc1 < vc2
+    }
+
   lazy val totalConditions : Int = conditions.size
 
   lazy val totalTime : Double = conditions.foldLeft(0.0d)((t,c) => t + c.time.getOrElse(0.0d))
@@ -25,7 +35,7 @@ class VerificationReport(val conditions : Seq[VerificationCondition]) {
 }
 
 object VerificationReport {
-  def emptyReport : VerificationReport = new VerificationReport(Nil)
+  def emptyReport : VerificationReport = new VerificationReport(Map())
 
   private def fit(str : String, maxLength : Int) : String = {
     if(str.length <= maxLength) {

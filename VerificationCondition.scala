@@ -11,6 +11,7 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
   // None = still unknown
   // Some(true) = valid
   // Some(false) = valid
+  var hasValue = false
   var value : Option[Boolean] = None
   var solvedWith : Option[Solver] = None
   var time : Option[Double] = None

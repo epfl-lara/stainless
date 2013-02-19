@@ -21,17 +21,15 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
   )
 
-  def generateVerificationConditions(reporter: Reporter, program: Program, functionsToAnalyse: Set[String])  : List[VerificationCondition] = {
+  def generateVerificationConditions(reporter: Reporter, program: Program, functionsToAnalyse: Set[String]): Map[FunDef, List[VerificationCondition]] = {
     val defaultTactic = new DefaultTactic(reporter)
     defaultTactic.setProgram(program)
     val inductionTactic = new InductionTactic(reporter)
     inductionTactic.setProgram(program)
 
-    var allVCs: Seq[VerificationCondition] = Seq.empty
-    val analysedFunctions: MutableSet[String] = MutableSet.empty
+    var allVCs = Map[FunDef, List[VerificationCondition]]()
 
     for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1 < fd2) if (functionsToAnalyse.isEmpty || functionsToAnalyse.contains(funDef.id.name))) {
-      analysedFunctions += funDef.id.name
 
       val tactic: Tactic =
         if(funDef.annotations.contains("induct")) {
@@ -41,27 +39,27 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         }
 
       if(funDef.body.isDefined) {
-        allVCs ++= tactic.generatePreconditions(funDef)
-        allVCs ++= tactic.generatePatternMatchingExhaustivenessChecks(funDef)
-        allVCs ++= tactic.generatePostconditions(funDef)
-        allVCs ++= tactic.generateMiscCorrectnessConditions(funDef)
-        allVCs ++= tactic.generateArrayAccessChecks(funDef)
+        val funVCs = tactic.generatePreconditions(funDef) ++
+                     tactic.generatePatternMatchingExhaustivenessChecks(funDef) ++
+                     tactic.generatePostconditions(funDef) ++
+                     tactic.generateMiscCorrectnessConditions(funDef) ++
+                     tactic.generateArrayAccessChecks(funDef)
+
+        allVCs += funDef -> funVCs.toList
       }
-      allVCs = allVCs.sortWith((vc1, vc2) => {
-        val id1 = vc1.funDef.id.name
-        val id2 = vc2.funDef.id.name
-        if(id1 != id2) id1 < id2 else vc1 < vc2
-      })
     }
 
-    val notFound = functionsToAnalyse -- analysedFunctions
+    val notFound = functionsToAnalyse -- allVCs.keys.map(_.id.name)
     notFound.foreach(fn => reporter.error("Did not find function \"" + fn + "\" though it was marked for analysis."))
 
-    allVCs.toList
+    allVCs
   }
 
-  def checkVerificationConditions(reporter: Reporter, solvers: Seq[Solver], vcs: Seq[VerificationCondition]) : VerificationReport = {
-    for(vcInfo <- vcs) {
+  def checkVerificationConditions(vctx: VerificationContext, vcs: Map[FunDef, List[VerificationCondition]]) : VerificationReport = {
+    val reporter = vctx.reporter
+    val solvers  = vctx.solvers
+
+    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !vctx.shouldStop.get()) {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
 
@@ -88,37 +86,43 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
           val dt = ((t2 - t1) / 1000000) / 1000.0
 
           solverResult match {
-            case None => false
-            case Some(true) => {
+            case _ if vctx.shouldStop.get() =>
+              reporter.info("=== CANCELLED ===")
+              false
+
+            case None =>
+              false
+
+            case Some(true) =>
               reporter.info("==== VALID ====")
 
+              vcInfo.hasValue = true
               vcInfo.value = Some(true)
               vcInfo.solvedWith = Some(se)
               vcInfo.time = Some(dt)
-
               true
-            }
-            case Some(false) => {
+
+            case Some(false) =>
               reporter.error("Found counter-example : ")
               reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
               reporter.error("==== INVALID ====")
+              vcInfo.hasValue = true
               vcInfo.value = Some(false)
               vcInfo.solvedWith = Some(se)
               vcInfo.counterExample = Some(counterexample)
               vcInfo.time = Some(dt)
-
               true
-            }
+
           }
         }
       }) match {
         case None => {
+          vcInfo.hasValue = true
           reporter.warning("No solver could prove or disprove the verification condition.")
         }
-        case _ => 
-      } 
-    
-    } 
+        case _ =>
+      }
+    }
 
     val report = new VerificationReport(vcs)
     report
@@ -151,11 +155,12 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     solvers.foreach(_.setProgram(program))
 
+    val vctx = VerificationContext(ctx, solvers, reporter)
 
     val report = if(solvers.size > 1) {
       reporter.info("Running verification condition generation...")
       val vcs = generateVerificationConditions(reporter, program, functionsToAnalyse)
-      checkVerificationConditions(reporter, solvers, vcs)
+      checkVerificationConditions(vctx, vcs)
     } else {
       reporter.warning("No solver specified. Cannot test verification conditions.")
       VerificationReport.emptyReport
