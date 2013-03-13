@@ -4,17 +4,32 @@ package leon
 package termination
 
 import purescala.Definitions._
+import purescala.Trees._
 
 abstract class TerminationChecker(val context : LeonContext, val program : Program) extends LeonComponent {
   
+  def initialize() : Unit
   def terminates(funDef : FunDef) : TerminationGuarantee
 }
 
 sealed abstract class TerminationGuarantee {
-  val isGuaranteed : Boolean = false
+  def isGuaranteed: Boolean
 }
 
-case class TerminatesForAllInputs(justification : String) extends TerminationGuarantee {
-  override val isGuaranteed : Boolean = true
+abstract class Terminating(justification: String) extends TerminationGuarantee {
+  override def isGuaranteed: Boolean = true
 }
-case object NoGuarantee extends TerminationGuarantee
+
+case class Terminates(justification: String) extends Terminating(justification)
+
+abstract class NonTerminating extends TerminationGuarantee {
+  override def isGuaranteed: Boolean = false
+}
+
+case class LoopsGivenInputs(justification: String, args: Seq[Expr]) extends NonTerminating
+
+case class CallsNonTerminating(calls: Set[FunDef]) extends NonTerminating
+
+case object NoGuarantee extends TerminationGuarantee {
+  override def isGuaranteed: Boolean = false
+}

@@ -12,9 +12,30 @@ case class TerminationReport(val results : Seq[(FunDef,TerminationGuarantee)], v
     sb.append(" Termination summary \n")
     sb.append("─────────────────────\n\n")
     for((fd,g) <- results) {
-      sb.append("- %-30s  %-30s\n".format(fd.id.name, g.toString))
+      val result = if (g.isGuaranteed) "\u2713" else "\u2717"
+      val toPrint = g match {
+        case LoopsGivenInputs(reason, args) =>
+          "Non-terminating for call: " + args.mkString(fd.id+"(", ",", ")")
+        case CallsNonTerminating(funDefs) =>
+          "Calls non-terminating functions " + funDefs.map(_.id).mkString(",")
+        case Terminates(reason) =>
+          "Terminates (" + reason + ")"
+        case _ => g.toString
+      }
+      sb.append("- %-30s %s %-30s\n".format(fd.id.name, result, toPrint))
     }
     sb.append("\n[Analysis time: %7.3f]\n".format(time))
+    sb.toString
+  }
+
+  def evaluationString : String = {
+    val sb = new StringBuilder
+    for((fd,g) <- results) {
+      sb.append("- %-30s %s\n".format(fd.id.name, g match {
+        case NoGuarantee => "u"
+        case t => if (t.isGuaranteed) "t" else "n"
+      }))
+    }
     sb.toString
   }
 }

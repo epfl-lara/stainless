@@ -1,12 +1,10 @@
-/* Copyright 2009-2013 EPFL, Lausanne */
-
 package leon
 package termination
 
 /** This could be defined anywhere, it's just that the
     termination checker is the only place where it is used. */
-object SCC {
-  def scc[T](graph : Map[T,Set[T]]) : List[Set[T]] = {
+object ComponentBuilder {
+  def run[T](graph : Map[T,Set[T]]) : List[Set[T]] = {
     // The first part is a shameless adaptation from Wikipedia
     val allVertices : Set[T] = graph.keySet ++ graph.values.flatten
 
@@ -47,7 +45,7 @@ object SCC {
     for(v <- allVertices) {
       if(!indices.isDefinedAt(v)) {
         strongConnect(v)
-      }  
+      }
     }
 
     components
