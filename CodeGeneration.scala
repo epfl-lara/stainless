@@ -56,7 +56,21 @@ object CodeGeneration {
   def compileFunDef(funDef : FunDef, ch : CodeHandler)(implicit env : CompilationEnvironment) {
     val newMapping = funDef.args.map(_.id).zipWithIndex.toMap
 
-    val exprToCompile = purescala.TreeOps.matchToIfThenElse(funDef.getBody)
+    val bodyWithPre = if(funDef.hasPrecondition) {
+      IfExpr(funDef.precondition.get, funDef.getBody, Error("Precondition failed"))
+    } else {
+      funDef.getBody
+    }
+
+    val bodyWithPost = if(funDef.hasPostcondition) {
+      val freshResID = FreshIdentifier("result").setType(funDef.returnType)
+      val post = purescala.TreeOps.replace(Map(ResultVariable() -> Variable(freshResID)), funDef.postcondition.get)
+      Let(freshResID, bodyWithPre, IfExpr(post, Variable(freshResID), Error("Postcondition failed")) )
+    } else {
+      bodyWithPre
+    }
+
+    val exprToCompile = purescala.TreeOps.matchToIfThenElse(bodyWithPost)
 
     mkExpr(exprToCompile, ch)(env.withVars(newMapping))
 
