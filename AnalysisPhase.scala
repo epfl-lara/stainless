@@ -88,9 +88,11 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
           solverResult match {
             case _ if vctx.shouldStop.get() =>
               reporter.info("=== CANCELLED ===")
+              vcInfo.time = Some(dt)
               false
 
             case None =>
+              vcInfo.time = Some(dt)
               false
 
             case Some(true) =>
