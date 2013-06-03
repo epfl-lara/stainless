@@ -1,3 +1,5 @@
+/* Copyright 2009-2013 EPFL, Lausanne */
+
 object Subtyping1 {
 
   sealed abstract class Tree

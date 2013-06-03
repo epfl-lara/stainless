@@ -1,3 +1,5 @@
+/* Copyright 2009-2013 EPFL, Lausanne */
+
 object MyTuple3 {
 
   def foo(): Int = {

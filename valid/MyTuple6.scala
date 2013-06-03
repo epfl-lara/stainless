@@ -1,3 +1,5 @@
+/* Copyright 2009-2013 EPFL, Lausanne */
+
 object MyTuple6 {
 
   def foo(t: (Int, Int)): (Int, Int) = {

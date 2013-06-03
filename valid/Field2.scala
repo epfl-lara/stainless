@@ -1,3 +1,5 @@
+/* Copyright 2009-2013 EPFL, Lausanne */
+
 object Field2 {
 
   abstract sealed class A

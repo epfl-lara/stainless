@@ -1,3 +1,5 @@
+/* Copyright 2009-2013 EPFL, Lausanne */
+
 import leon.Utils._
 
 object FiniteSorting {
