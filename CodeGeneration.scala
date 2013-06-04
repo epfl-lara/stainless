@@ -414,10 +414,10 @@ object CodeGeneration {
     }
   }
 
-  private[codegen] def mkBranch(cond : Expr, then : String, elze : String, ch : CodeHandler, canDelegateToMkExpr : Boolean = true)(implicit env : CompilationEnvironment) {
+  private[codegen] def mkBranch(cond : Expr, thenn : String, elze : String, ch : CodeHandler, canDelegateToMkExpr : Boolean = true)(implicit env : CompilationEnvironment) {
     cond match {
       case BooleanLiteral(true) =>
-        ch << Goto(then)
+        ch << Goto(thenn)
 
       case BooleanLiteral(false) =>
         ch << Goto(elze)
@@ -426,63 +426,63 @@ object CodeGeneration {
         val fl = ch.getFreshLabel("andnext")
         mkBranch(es.head, fl, elze, ch)
         ch << Label(fl)
-        mkBranch(And(es.tail), then, elze, ch)
+        mkBranch(And(es.tail), thenn, elze, ch)
 
       case Or(es) =>
         val fl = ch.getFreshLabel("ornext")
-        mkBranch(es.head, then, fl, ch)
+        mkBranch(es.head, thenn, fl, ch)
         ch << Label(fl)
-        mkBranch(Or(es.tail), then, elze, ch) 
+        mkBranch(Or(es.tail), thenn, elze, ch) 
 
       case Implies(l, r) =>
-        mkBranch(Or(Not(l), r), then, elze, ch)
+        mkBranch(Or(Not(l), r), thenn, elze, ch)
 
       case Not(c) =>
-        mkBranch(c, elze, then, ch)
+        mkBranch(c, elze, thenn, ch)
 
       case Variable(b) =>
-        ch << ILoad(slotFor(b)) << IfEq(elze) << Goto(then)
+        ch << ILoad(slotFor(b)) << IfEq(elze) << Goto(thenn)
 
       case Equals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
           case Int32Type | BooleanType | UnitType =>
-            ch << If_ICmpEq(then) << Goto(elze)
+            ch << If_ICmpEq(thenn) << Goto(elze)
 
           case _ =>
             ch << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z")
-            ch << IfEq(elze) << Goto(then)
+            ch << IfEq(elze) << Goto(thenn)
         }
 
       case Iff(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpEq(then) << Goto(elze)
+        ch << If_ICmpEq(thenn) << Goto(elze)
 
       case LessThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpLt(then) << Goto(elze) 
+        ch << If_ICmpLt(thenn) << Goto(elze) 
 
       case GreaterThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpGt(then) << Goto(elze) 
+        ch << If_ICmpGt(thenn) << Goto(elze) 
 
       case LessEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpLe(then) << Goto(elze) 
+        ch << If_ICmpLe(thenn) << Goto(elze) 
 
       case GreaterEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpGe(then) << Goto(elze) 
+        ch << If_ICmpGe(thenn) << Goto(elze) 
 
       case other if canDelegateToMkExpr =>
         mkExpr(other, ch, canDelegateToMkBranch = false)
-        ch << IfEq(elze) << Goto(then)
+        ch << IfEq(elze) << Goto(thenn)
 
       case other => throw CompilationException("Unsupported branching expr. : " + other) 
     }

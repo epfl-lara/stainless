@@ -43,6 +43,8 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
     }).toMap
   }
 
+  val a = 42
+
   private def writeClassFiles() {
     for ((d, cl) <- classes) {
       cl.writeToFile(cl.className + ".class")
