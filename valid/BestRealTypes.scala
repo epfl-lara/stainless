@@ -23,5 +23,5 @@ object BestRealTypes {
   def somethingToProve(b : Boolean) : Boolean = {
     val (z1,z2) = zipWrap(Wrapper(boolToNum(b)), Wrapper(boolToNum(!b)))
     z1.num == Zero() || z2.num == Zero() 
-  } holds
+  }.holds
 }

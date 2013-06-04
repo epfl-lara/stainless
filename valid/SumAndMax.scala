@@ -37,12 +37,12 @@ object SumAndMax {
   def prop0(list : List) : Boolean = {
     require(list != Nil())
     !allPos(list) || max(list) >= 0
-  } holds
+  }.holds
 
   @induct
   def property(list : List) : Boolean = {
     // This precondition was given in the problem but isn't actually useful :D
     // require(allPos(list))
     sum(list) <= size(list) * (if(list == Nil()) 0 else max(list))
-  } holds
+  }.holds
 }

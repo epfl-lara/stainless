@@ -4,6 +4,6 @@ object Unit1 {
 
   def foo(): Unit = ({
     ()
-  }) ensuring(_ == ())
+  }) ensuring(r => true)
 
 }

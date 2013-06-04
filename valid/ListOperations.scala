@@ -50,7 +50,7 @@ object ListOperations {
 
     def sizesAreEquiv(l: List) : Boolean = {
       size(l) == sizeTailRec(l)
-    } holds
+    }.holds
 
     def content(l: List) : Set[Int] = l match {
       case Nil() => Set.empty[Int]
@@ -59,7 +59,7 @@ object ListOperations {
 
     def sizeAndContent(l: List) : Boolean = {
       size(l) == 0 || content(l) != Set.empty[Int]
-    } holds
+    }.holds
     
     def drunk(l : List) : List = (l match {
       case Nil() => Nil()
@@ -78,15 +78,15 @@ object ListOperations {
     }) ensuring(content(_) == content(l1) ++ content(l2))
 
     @induct
-    def nilAppend(l : List) : Boolean = (append(l, Nil()) == l) holds
+    def nilAppend(l : List) : Boolean = (append(l, Nil()) == l).holds
 
     @induct
     def appendAssoc(xs : List, ys : List, zs : List) : Boolean =
-      (append(append(xs, ys), zs) == append(xs, append(ys, zs))) holds
+      (append(append(xs, ys), zs) == append(xs, append(ys, zs))).holds
 
     @induct
     def sizeAppend(l1 : List, l2 : List) : Boolean =
-      (size(append(l1, l2)) == size(l1) + size(l2)) holds
+      (size(append(l1, l2)) == size(l1) + size(l2)).holds
 
     @induct
     def concat(l1: List, l2: List) : List = 

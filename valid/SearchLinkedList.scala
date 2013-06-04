@@ -46,5 +46,5 @@ object SearchLinkedList {
     } else {
       true
     }
-  } holds
+  }.holds
 }

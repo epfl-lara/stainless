@@ -78,7 +78,7 @@ object AmortizedQueue {
   //     asList(enqueue(queue, elem)) == concat(list, Cons(elem, Nil()))
   //   } else
   //     true
-  // } holds
+  // }.holds
 
   @induct
   def propFront(queue : AbsQueue, list : List, elem : Int) : Boolean = {
@@ -89,7 +89,7 @@ object AmortizedQueue {
       }
     } else
       true
-  } holds
+  }.holds
 
   @induct
   def propTail(rear : List, front : List, list : List, elem : Int) : Boolean = {
@@ -100,14 +100,14 @@ object AmortizedQueue {
       }
     } else
       true
-  } // holds
+  } //.holds
 
   def enqueueAndFront(queue : AbsQueue, elem : Int) : Boolean = {
     if (isEmpty(queue))
       front(enqueue(queue, elem)) == elem
     else
       true
-  } holds
+  }.holds
 
   def enqueueDequeueThrice(queue : AbsQueue, e1 : Int, e2 : Int, e3 : Int) : Boolean = {
     if (isEmpty(queue)) {
@@ -122,5 +122,5 @@ object AmortizedQueue {
       e1 == e1prime && e2 == e2prime && e3 == e3prime
     } else
       true
-  } holds
+  }.holds
 }
