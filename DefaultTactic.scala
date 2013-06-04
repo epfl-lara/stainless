@@ -206,9 +206,9 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
             rec(e, path)
             rec(b, Equals(Variable(i), e) :: path)
           }
-          case IfExpr(cond, then, elze) => {
+          case IfExpr(cond, thenn, elze) => {
             rec(cond, path)
-            rec(then, cond :: path)
+            rec(thenn, cond :: path)
             rec(elze, Not(cond) :: path)
           }
           case NAryOperator(args, _) => args.foreach(rec(_, path))
