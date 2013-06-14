@@ -21,20 +21,9 @@ abstract class Processor(val checker: TerminationChecker) {
 
   val name: String
 
+  val reporter = checker.context.reporter
+
   def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem])
-}
-
-class Solution(solution: Option[Boolean], val model: Map[Identifier, Expr]) {
-  lazy val isValid : Boolean = solution getOrElse false
-}
-
-object NoSolution extends Solution(None, Map())
-
-object Solution {
-  def unapply(s: Solution): Option[(Boolean, Map[Identifier, Expr])] = {
-    if (s == NoSolution) None
-    else Some(s.isValid, s.model)
-  }
 }
 
 object Solvable {
@@ -57,7 +46,7 @@ object Solvable {
     val resFresh = FreshIdentifier("result", true).setType(body.getType)
     val formula = Implies(prec, Let(resFresh, body, replace(Map(ResultVariable() -> Variable(resFresh)), post)))
 
-    if (!solver.solve(formula).isValid) {
+    if (!solver.isAlwaysSAT(formula)) {
       funDef.postcondition = postcondition
       strengthened.add(funDef)
       false
@@ -85,17 +74,25 @@ object Solvable {
 
 trait Solvable { self: Processor =>
 
+  private var solvers: List[Solver] = null
+
   def strengthenPostconditions(funDefs: Set[FunDef]) = Solvable.strengthenPostconditions(funDefs)(this)
 
-  def solve(problem: Expr): Solution = {
+  def initSolvers {
     val program     : Program         = self.checker.program
     val allDefs     : Seq[Definition] = program.mainObject.defs ++ StructuralSize.defs
     val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
+    val context     : LeonContext     = self.checker.context.copy(reporter = new QuietReporter())
 
-    val solvers0 = new TrivialSolver(self.checker.context) :: new FairZ3Solver(self.checker.context) :: Nil
-    val solvers = solvers0.map(new TimeoutSolver(_, 500))
+    val solvers0 = new TrivialSolver(context) :: new FairZ3Solver(context) :: Nil
+    solvers = solvers0.map(new TimeoutSolver(_, 500))
     solvers.foreach(_.setProgram(newProgram))
+  }
 
+  type Solution = (Option[Boolean], Map[Identifier, Expr])
+
+  private def solve(problem: Expr): Solution = {
+    if (solvers == null) initSolvers
     // drop functions from constraints that might not terminate (and may therefore
     // make Leon unroll them forever...)
     val dangerousCallsMap : Map[Expr, Expr] = functionCallsOf(problem).collect({
@@ -115,16 +112,29 @@ trait Solvable { self: Processor =>
           superseeded = superseeded ++ Set(se.superseeds: _*)
 
           se.init()
-          val (satResult, model) = se.solveSAT(Not(expr))
-          val solverResult = satResult.map(!_)
+          val (satResult, model) = se.solveSAT(expr)
 
-          if (!solverResult.isDefined) None
-          else Some(new Solution(solverResult, model))
+          if (!satResult.isDefined) None
+          else Some(satResult, model)
         }
       }
     }
 
-    solvers.collectFirst({ case Solved(result) => result }) getOrElse NoSolution
+    solvers.collectFirst({ case Solved(s, model) => (s, model) }) getOrElse (None, Map())
+  }
+
+  def isSAT(problem: Expr): Boolean = {
+    solve(problem)._1 getOrElse false
+  }
+
+  def isAlwaysSAT(problem: Expr): Boolean = {
+    solve(Not(problem))._1.map(!_) getOrElse false
+  }
+
+  def getModel(problem: Expr): Option[Map[Identifier, Expr]] = {
+    val solution = solve(problem)
+    if (solution._1 getOrElse false) Some(solution._2)
+    else None
   }
 }
 
@@ -157,7 +167,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
 
   private def printResult(results: List[Result]) {
     val sb = new StringBuilder()
-    sb.append("- Queue.head Processing Result:\n")
+    sb.append("- Processing Result:\n")
     for(result <- results) result match {
       case Cleared(fd) => sb.append("    %-10s %s\n".format(fd.id, "Cleared"))
       case Broken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "Broken for arguments: " + args.mkString("(", ",", ")")))
@@ -173,10 +183,11 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
   }
 
   def run : Iterator[(String, List[Result])] = new Iterator[(String, List[Result])] {
-    // basic sanity check, funDefs can't call themselves in precondition!
-    assert(initialProblem.funDefs.forall(fd => !fd.precondition.map({ precondition =>
-      functionCallsOf(precondition).map(fi => program.transitiveCallees(fi.funDef)).flatten
-    }).flatten.toSet(fd)))
+    // basic sanity check, funDefs shouldn't call themselves in precondition!
+    // XXX: it seems like some do...
+    // assert(initialProblem.funDefs.forall(fd => !fd.precondition.map({ precondition =>
+    //   functionCallsOf(precondition).map(fi => program.transitiveCallees(fi.funDef)).flatten
+    // }).flatten.toSet(fd)))
 
     def hasNext : Boolean      = problems.nonEmpty
     def next    : (String, List[Result]) = {

@@ -12,6 +12,9 @@ class RelationProcessor(checker: TerminationChecker) extends Processor(checker) 
 
   val name: String = "Relation Processor"
 
+  RelationBuilder.init
+  RelationComparator.init
+
   def run(problem: Problem) = {
 
     strengthenPostconditions(problem.funDefs)
@@ -32,10 +35,12 @@ class RelationProcessor(checker: TerminationChecker) extends Processor(checker) 
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
+    initSolvers
+
     val decreasing = formulas.map({ case (fd, formulas) =>
       val solved = formulas.map({ case (fid, (gt, ge)) =>
-        if(solve(gt).isValid) Success
-        else if(solve(ge).isValid) Dep(Set(fid))
+        if(isAlwaysSAT(gt)) Success
+        else if(isAlwaysSAT(ge)) Dep(Set(fid))
         else Failure
       })
       val result = if(solved.contains(Failure)) Failure else {
@@ -69,18 +74,5 @@ class RelationProcessor(checker: TerminationChecker) extends Processor(checker) 
     val results = terminating.map(Cleared(_)).toList
     val newProblems = if (problem.funDefs intersect nonTerminating nonEmpty) List(Problem(nonTerminating)) else Nil
     (results, newProblems)
-
-    /*
-    val noIncrease = gtformulas.forall(solvers.solve(_._2))
-    if(noIncrease) {
-      val isReducing = eqformulas.map(x => x._1 -> solvers.solve(x._2))
-      if(isReducing.exists(!_._2)) {
-        val (ok,nok) = isReducing.partition(_._2) match { case (xs, ys) => (xs.map(_._1), ys.map(_._1)) }
-        ProcessingResult(Nil, ok.map(Conditional(_, nok)) toList, List(problem filter nok))
-      } else if(noArgs.nonEmpty) {
-        ProcessingResult(Nil, functionsOfInterest.map(Conditional(_, noArgs)) toList, List(problem filter noArgs))
-      } else ProcessingResult(problem.callers.map(Cleared(_, "size relation formula solved")) toList, Nil, Nil)
-    } else ProcessingResult(Nil, Nil, List(problem))
-    */
   }
 }

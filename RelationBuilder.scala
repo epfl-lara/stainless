@@ -13,7 +13,9 @@ final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocat
 
 object RelationBuilder {
   import scala.collection.mutable.{Map => MutableMap}
-  val relationCache : MutableMap[FunDef, Set[Relation]] = MutableMap()
+  private val relationCache : MutableMap[FunDef, Set[Relation]] = MutableMap()
+
+  def init : Unit = relationCache.clear
 
   def run(funDef: FunDef): Set[Relation] = relationCache.get(funDef) match {
     case Some(relations) => relations
@@ -61,8 +63,6 @@ object RelationBuilder {
 
         case _ => sys.error("Expression "+e+" ["+e.getClass+"] is not extractable")
       }
-
-      // TODO: throw error if we see funDef in precondition or postcondition
 
       val precondition = funDef.precondition getOrElse BooleanLiteral(true)
       val precRelations = funDef.precondition.map(e => visit(simplifyLets(matchToIfThenElse(e)), Nil)).flatten.toSet

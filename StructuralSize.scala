@@ -19,21 +19,29 @@ object StructuralSize {
 
   private val sizeFunctionCache : MutableMap[TypeTree, FunDef] = MutableMap()
   def size(typedExpr: TypedExpr) : Expr = {
-    def funDef(tpe: TypeTree, cases: => Seq[MatchCase]) = sizeFunctionCache.get(tpe) match {
-      case Some(fd) => fd
-      case None =>
-        val argument = VarDecl(FreshIdentifier("x"), tpe)
-        val fd = new FunDef(FreshIdentifier("size", true), Int32Type, Seq(argument))
-        sizeFunctionCache(tpe) = fd
+    def funDef(tpe: TypeTree, cases: => Seq[MatchCase]) = {
+      // we want to reuse generic size functions for sub-types
+      val argumentType = tpe match {
+        case CaseClassType(cd) if cd.parent.isDefined => classDefToClassType(cd.parent.get)
+        case _ => tpe
+      }
 
-        val body = simplifyLets(matchToIfThenElse(MatchExpr(argument.toVariable, cases)))
-        val postSubcalls = functionCallsOf(body).map(GreaterThan(_, IntLiteral(0))).toSeq
-        val postRecursive = GreaterThan(ResultVariable(), IntLiteral(0))
-        val postcondition = And(postSubcalls :+ postRecursive)
+      sizeFunctionCache.get(argumentType) match {
+        case Some(fd) => fd
+        case None =>
+          val argument = VarDecl(FreshIdentifier("x"), argumentType)
+          val fd = new FunDef(FreshIdentifier("size", true), Int32Type, Seq(argument))
+          sizeFunctionCache(argumentType) = fd
 
-        fd.body = Some(body)
-        fd.postcondition = Some(postcondition)
-        fd
+          val body = simplifyLets(matchToIfThenElse(MatchExpr(argument.toVariable, cases)))
+          val postSubcalls = functionCallsOf(body).map(GreaterThan(_, IntLiteral(0))).toSeq
+          val postRecursive = GreaterThan(ResultVariable(), IntLiteral(0))
+          val postcondition = And(postSubcalls :+ postRecursive)
+
+          fd.body = Some(body)
+          fd.postcondition = Some(postcondition)
+          fd
+      }
     }
 
     def caseClassType2MatchCase(_c: ClassTypeDef): MatchCase = {
@@ -60,6 +68,8 @@ object StructuralSize {
   }
 
   def defs : Set[FunDef] = Set(sizeFunctionCache.values.toSeq : _*)
+
+  def init : Unit = sizeFunctionCache.clear
 }
 
 // vim: set ts=4 sw=4 et:

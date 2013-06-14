@@ -10,6 +10,8 @@ import purescala.Common._
 object ChainComparator {
   import StructuralSize._
 
+  def init : Unit = StructuralSize.init
+
   def sizeDecreasing(e1: TypedExpr, e2s: Seq[(Seq[Expr], Expr)]) = _sizeDecreasing(e1, e2s map {
     case (path, e2) => (path, exprToTypedExpr(e2))
   })

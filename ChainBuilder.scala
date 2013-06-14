@@ -10,9 +10,9 @@ final case class Chain(chain: List[Relation]) {
   def funDef  : FunDef                    = chain.head.funDef
   def funDefs : Set[FunDef]               = chain.map(_.funDef) toSet
 
-  def loop(initialSubst: Map[Identifier, Expr] = Map(), finalSubst: Map[Identifier, Expr] = Map()) : Seq[Expr] = {
-    assert(initialSubst.nonEmpty || finalSubst.nonEmpty)
+  lazy val size: Int = chain.size
 
+  def loop(initialSubst: Map[Identifier, Expr] = Map(), finalSubst: Map[Identifier, Expr] = Map()) : Seq[Expr] = {
     def rec(relations: List[Relation], subst: Map[Identifier, Expr]): Seq[Expr] = relations match {
       case Relation(_, path, FunctionInvocation(fd, args)) :: Nil =>
         assert(fd == funDef)
@@ -49,16 +49,6 @@ final case class Chain(chain: List[Relation]) {
     firstLoop ++ secondLoop
   }
 
-  def times(k: Int, initialSubst: Map[Identifier, Expr] = Map(), finalSubst: Map[Identifier, Expr] = Map()) : Seq[Expr] = {
-    def rec(bindingSubst: Map[Identifier, Expr], count: Int) : Seq[Expr] = if (count == k) loop(initialSubst = bindingSubst, finalSubst = finalSubst) else {
-      val nextSubst : Map[Identifier, Expr] = funDef.args.map(arg => arg.id -> arg.id.freshen.toVariable).toMap
-      val currentLoop = loop(initialSubst = bindingSubst, finalSubst = nextSubst)
-      val rest = rec(nextSubst, count + 1)
-      currentLoop ++ rest
-    }
-    rec(initialSubst, 1)
-  }
-
   def inlined: TraversableOnce[Expr] = {
     def rec(list: List[Relation], mapping: Map[Identifier, Expr]): List[Expr] = list match {
       case Relation(_, _, FunctionInvocation(fd, args)) :: xs =>
@@ -80,6 +70,9 @@ object ChainBuilder {
   import scala.collection.mutable.{Map => MutableMap}
 
   private val chainCache : MutableMap[FunDef, Set[Chain]] = MutableMap()
+
+  def init : Unit = chainCache.clear
+
   def run(funDef: FunDef): Set[Chain] = chainCache.get(funDef) match {
     case Some(chains) => chains
     case None => {

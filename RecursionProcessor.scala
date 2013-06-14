@@ -11,6 +11,8 @@ class RecursionProcessor(checker: TerminationChecker) extends Processor(checker)
 
   val name: String = "Recursion Processor"
 
+  RelationBuilder.init
+
   private def isSubtreeOf(expr: Expr, id: Identifier) : Boolean = {
     @tailrec
     def rec(e: Expr, fst: Boolean): Boolean = e match {
@@ -23,20 +25,19 @@ class RecursionProcessor(checker: TerminationChecker) extends Processor(checker)
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) (Nil, List(problem)) else {
     val funDef = problem.funDefs.head
+    val relations = RelationBuilder.run(funDef)
+    val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(fd, _)) => fd == funDef })
 
-    val selfRecursiveRelations = RelationBuilder.run(funDef).filter({
-      case Relation(_, _, FunctionInvocation(fd, _)) =>
-        fd == funDef || checker.terminates(fd).isGuaranteed
-    })
-
-    val decreases = funDef.args.zipWithIndex.exists({ case (arg, index) =>
-      selfRecursiveRelations.forall({ case Relation(_, _, FunctionInvocation(_, args)) =>
-        isSubtreeOf(args(index), arg.id)
+    if (others.exists({ case Relation(_, _, FunctionInvocation(fd, _)) => !checker.terminates(fd).isGuaranteed })) (Nil, List(problem)) else {
+      val decreases = funDef.args.zipWithIndex.exists({ case (arg, index) =>
+        recursive.forall({ case Relation(_, _, FunctionInvocation(_, args)) =>
+          isSubtreeOf(args(index), arg.id)
+        })
       })
-    })
 
-    if (!decreases) (Nil, List(problem))
-    else (Cleared(funDef) :: Nil, Nil)
+      if (!decreases) (Nil, List(problem))
+      else (Cleared(funDef) :: Nil, Nil)
+    }
   }
 }
 

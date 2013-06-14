@@ -12,25 +12,35 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
 
   val name: String = "Chain Processor"
 
-  def run(problem: Problem) = {
-    val allChainMap : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> ChainBuilder.run(funDef)).toMap
-    val allChains   : Set[Chain]              = allChainMap.values.flatten.toSet
+  ChainBuilder.init
+  ChainComparator.init
 
-    // We check that loops can reenter themselves after a run. If not, then this is not a chain (since it will
-    // enter another chain and their conjunction is contained elsewhere in the chains set)
-    // Note: We are checking reentrance SAT, not looking for a counter example so we negate the formula!
-    val validChains : Set[Chain]              = allChains.filter(chain => !solve(Not(And(chain reentrant chain))).isValid)
-    val chainMap    : Map[FunDef, Set[Chain]] = allChainMap.mapValues(chains => chains intersect validChains)
+  def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
+    reporter.info("- Running ChainProcessor")
+    val allChainMap       : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> ChainBuilder.run(funDef)).toMap
+    reporter.info("- Computing all possible Chains")
+    val possibleChainMap  : Map[FunDef, Set[Chain]] = allChainMap.mapValues(chains => chains.filter(chain => isSAT(And(chain.loop()))))
+    reporter.info("- Collecting re-entrant Chains")
+    val reentrantChainMap : Map[FunDef, Set[Chain]] = possibleChainMap.mapValues(chains => chains.filter(chain => isSAT(And(chain reentrant chain))))
 
     // We build a cross-chain map that determines which chains can reenter into another one after a loop.
     // Note: We are also checking reentrance SAT here, so again, we negate the formula!
-    val crossChains : Map[Chain, Set[Chain]] = chainMap.map({ case (funDef, chains) =>
-      chains.map(chain => chain -> (chains - chain).filter(other => !solve(Not(And(chain reentrant other))).isValid))
+    reporter.info("- Computing cross-chain map")
+    val crossChains       : Map[Chain, Set[Chain]]  = possibleChainMap.map({ case (funDef, chains) =>
+      val reentrant = reentrantChainMap(funDef)
+      val reentrantPairs = reentrant.map(chain => chain -> Set(chain))
+      val crosswise = (chains -- reentrant).map(chain => chain -> {
+        reentrant.filter(other => isSAT(And(chain reentrant other)))
+      })
+      reentrantPairs ++ crosswise
     }).flatten.toMap
+
+    val validChainMap     : Map[FunDef, Set[Chain]] = possibleChainMap.map({ case (funDef, chains) => funDef -> chains.filter(crossChains(_).nonEmpty) })
 
     // We use the cross-chains to build chain clusters. For each cluster, we must prove that the SAME argument
     // decreases in each of the chains in the cluster!
-    val clusters : Map[FunDef, Set[Set[Chain]]] = {
+    reporter.info("- Building initial cluster estimation by fix-point iteration")
+    val generalClusters : Map[FunDef, Set[Set[Chain]]] = {
       def cluster(set: Set[Chain]): Set[Chain] = {
         set ++ set.map(crossChains(_)).flatten
       }
@@ -51,9 +61,19 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
         filterClusters(allClusters.toList.sortBy(- _.size)).toSet
       }
 
-      chainMap.map({ case (funDef, chains) => funDef -> build(chains) })
+      validChainMap.map({ case (funDef, chains) => funDef -> build(chains) })
     }
 
+    reporter.info("- Trimming down to final clusters")
+    val clusters : Map[FunDef, Set[Set[Chain]]] = generalClusters.map({ case (funDef, clusters) =>
+      funDef -> clusters.map(cluster => cluster.toSeq.sortBy(_.size).foldLeft(Set[Chain]())({ case (acc, chain) =>
+        val chainElements : Set[Relation] = chain.chain.toSet
+        val seenElements  : Set[Relation] = acc.map(_.chain).flatten.toSet
+        if (chainElements -- seenElements nonEmpty) acc + chain else acc
+      })).filter(_.nonEmpty)
+    })
+
+    reporter.info("- Strengthening postconditions")
     strengthenPostconditions(problem.funDefs)
 
     def buildLoops(fd: FunDef, cluster: Set[Chain]): (Expr, Seq[(Seq[Expr], Expr)]) = {
@@ -71,23 +91,36 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
     type ClusterMap = Map[FunDef, Set[Set[Chain]]]
     type FormulaGenerator = (FunDef, Set[Chain]) => Expr
 
-    def clear(clusters: ClusterMap, gen: FormulaGenerator): ClusterMap = clusters.map({ case (fd, clusters) =>
-      val remaining = clusters.filter(cluster => !solve(gen(fd, cluster)).isValid)
-      fd -> remaining
-    })
+    def clear(clusters: ClusterMap, gen: FormulaGenerator): ClusterMap = {
+      val formulas = clusters.map({ case (fd, clusters) =>
+        (fd, clusters.map(cluster => cluster -> gen(fd, cluster)))
+      })
 
+      initSolvers // add structural size functions to solver
+      formulas.map({ case (fd, clustersWithFormulas) =>
+        fd -> clustersWithFormulas.filter({ case (cluster, formula) => !isAlwaysSAT(formula) }).map(_._1)
+      })
+    }
+
+    reporter.info("- Searching for structural size decrease")
     val sizeCleared : ClusterMap = clear(clusters, (fd, cluster) => {
       val (e1, e2s) = buildLoops(fd, cluster)
       ChainComparator.sizeDecreasing(e1, e2s)
     })
 
+    reporter.info("- Searching for numeric convergence")
     val numericCleared : ClusterMap = clear(sizeCleared, (fd, cluster) => {
       val (e1, e2s) = buildLoops(fd, cluster)
       ChainComparator.numericConverging(e1, e2s, cluster, checker)
     })
 
     val (okPairs, nokPairs) = numericCleared.partition(_._2.isEmpty)
-    val newProblems = if (nokPairs nonEmpty) List(Problem(nokPairs.map(_._1).toSet)) else Nil
-    (okPairs.map(p => Cleared(p._1)), newProblems)
+    val nok = nokPairs.map(_._1).toSet
+    val (ok, transitiveNok) = okPairs.map(_._1).partition({ fd =>
+      checker.program.transitiveCallees(fd) intersect nok isEmpty
+    })
+    val allNok = nok ++ transitiveNok
+    val newProblems = if (allNok nonEmpty) List(Problem(allNok)) else Nil
+    (ok.map(Cleared(_)), newProblems)
   }
 }
