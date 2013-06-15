@@ -78,7 +78,7 @@ trait Solvable { self: Processor =>
 
   def strengthenPostconditions(funDefs: Set[FunDef]) = Solvable.strengthenPostconditions(funDefs)(this)
 
-  def initSolvers {
+  private def initSolvers {
     val program     : Program         = self.checker.program
     val allDefs     : Seq[Definition] = program.mainObject.defs ++ StructuralSize.defs
     val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
@@ -92,7 +92,7 @@ trait Solvable { self: Processor =>
   type Solution = (Option[Boolean], Map[Identifier, Expr])
 
   private def solve(problem: Expr): Solution = {
-    if (solvers == null) initSolvers
+    initSolvers
     // drop functions from constraints that might not terminate (and may therefore
     // make Leon unroll them forever...)
     val dangerousCallsMap : Map[Expr, Expr] = functionCallsOf(problem).collect({
@@ -123,13 +123,11 @@ trait Solvable { self: Processor =>
     solvers.collectFirst({ case Solved(s, model) => (s, model) }) getOrElse (None, Map())
   }
 
-  def isSAT(problem: Expr): Boolean = {
-    solve(problem)._1 getOrElse false
-  }
+  def isStrongSAT(problem: Expr): Boolean = solve(problem)._1 getOrElse false
 
-  def isAlwaysSAT(problem: Expr): Boolean = {
-    solve(Not(problem))._1.map(!_) getOrElse false
-  }
+  def isWeakSAT(problem: Expr): Boolean = solve(problem)._1 getOrElse true
+
+  def isAlwaysSAT(problem: Expr): Boolean = solve(Not(problem))._1.map(!_) getOrElse false
 
   def getModel(problem: Expr): Option[Map[Identifier, Expr]] = {
     val solution = solve(problem)

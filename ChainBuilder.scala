@@ -6,7 +6,20 @@ import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.purescala.Common._
 
+object ChainID {
+  private var counter: Int = 0
+  def get: Int = {
+    counter = counter + 1
+    counter
+  }
+}
+
 final case class Chain(chain: List[Relation]) {
+  val id = ChainID.get
+
+  override def equals(obj: Any): Boolean = obj.isInstanceOf[Chain] && obj.asInstanceOf[Chain].id == id
+  override def hashCode(): Int = id
+
   def funDef  : FunDef                    = chain.head.funDef
   def funDefs : Set[FunDef]               = chain.map(_.funDef) toSet
 

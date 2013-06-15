@@ -35,8 +35,6 @@ class RelationProcessor(checker: TerminationChecker) extends Processor(checker) 
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
-    initSolvers
-
     val decreasing = formulas.map({ case (fd, formulas) =>
       val solved = formulas.map({ case (fid, (gt, ge)) =>
         if(isAlwaysSAT(gt)) Success

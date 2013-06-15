@@ -14,7 +14,7 @@ class LoopProcessor(checker: TerminationChecker, k: Int = 10) extends Processor(
   def run(problem: Problem) = {
     val allChains : Set[Chain] = problem.funDefs.map(fd => ChainBuilder.run(fd)).flatten
     // Get reentrant loops (see ChainProcessor for more details)
-    val chains    : Set[Chain] = allChains.filter(chain => isSAT(And(chain reentrant chain)))
+    val chains    : Set[Chain] = allChains.filter(chain => isWeakSAT(And(chain reentrant chain)))
 
     val nonTerminating = chains.flatMap({ chain =>
       val freshArgs : Seq[Expr] = chain.funDef.args.map(arg => arg.id.freshen.toVariable)
