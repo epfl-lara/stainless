@@ -25,6 +25,7 @@ object CodeGeneration {
   private val CaseClassClass = "leon/codegen/runtime/CaseClass"
   private val ErrorClass     = "leon/codegen/runtime/LeonCodeGenRuntimeException"
   private val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
+  private val HashingClass   = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
 
   def defToJVMName(p : Program, d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
 
@@ -645,6 +646,8 @@ object CodeGeneration {
 
     // definition of hashcode
     locally {
+      val hashFieldName = "$leon$hashCode"
+      cf.addField("I", hashFieldName).setFlags((FIELD_ACC_PRIVATE).asInstanceOf[U2])
       val hmh = cf.addMethod("I", "hashCode", "")
       hmh.setFlags((
         METHOD_ACC_PUBLIC |
@@ -652,8 +655,20 @@ object CodeGeneration {
       ).asInstanceOf[U2])
 
       val hch = hmh.codeHandler
-      // TODO FIXME. Look at Scala for inspiration.
-      hch << Ldc(42) << IRETURN
+      
+      val wasNotCached = hch.getFreshLabel("wasNotCached")
+
+      hch << ALoad(0) << GetField(cName, hashFieldName, "I") << DUP
+      hch << IfEq(wasNotCached)
+      hch << IRETURN
+      hch << Label(wasNotCached) << POP
+      hch << ALoad(0) << InvokeVirtual(cName, "productElements", "()[Ljava/lang/Object;")
+      hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
+      hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
+      hch << InvokeStatic(HashingClass, "seqHash", "([Ljava/lang/Object;I)I") << DUP
+      hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I") 
+      hch << IRETURN
+      
       hch.freeze
     }
 
