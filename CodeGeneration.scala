@@ -59,10 +59,12 @@ object CodeGeneration {
   def compileFunDef(funDef : FunDef, ch : CodeHandler)(implicit env : CompilationEnvironment) {
     val newMapping = funDef.args.map(_.id).zipWithIndex.toMap
 
+    val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body"))
+
     val bodyWithPre = if(funDef.hasPrecondition && env.compileContracts) {
-      IfExpr(funDef.precondition.get, funDef.getBody, Error("Precondition failed"))
+      IfExpr(funDef.precondition.get, body, Error("Precondition failed"))
     } else {
-      funDef.getBody
+      body
     }
 
     val bodyWithPost = if(funDef.hasPostcondition && env.compileContracts) {
