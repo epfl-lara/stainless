@@ -68,9 +68,8 @@ object CodeGeneration {
     }
 
     val bodyWithPost = if(funDef.hasPostcondition && env.compileContracts) {
-      val freshResID = FreshIdentifier("result").setType(funDef.returnType)
-      val post = purescala.TreeOps.replace(Map(ResultVariable() -> Variable(freshResID)), funDef.postcondition.get)
-      Let(freshResID, bodyWithPre, IfExpr(post, Variable(freshResID), Error("Postcondition failed")) )
+      val Some((id, post)) = funDef.postcondition
+      Let(id, bodyWithPre, IfExpr(post, Variable(id), Error("Postcondition failed")) )
     } else {
       bodyWithPre
     }
