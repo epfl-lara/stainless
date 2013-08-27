@@ -28,25 +28,27 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
     def generatePostconditions(functionDefinition: FunDef) : Seq[VerificationCondition] = {
       assert(functionDefinition.body.isDefined)
       val prec = functionDefinition.precondition
-      val post = functionDefinition.postcondition
+      val optPost = functionDefinition.postcondition
       val body = matchToIfThenElse(functionDefinition.body.get)
 
-      if(post.isEmpty) {
-        Seq.empty
-      } else {
-        val theExpr = { 
-          val resFresh = FreshIdentifier("result", true).setType(body.getType)
-          val bodyAndPost = Let(resFresh, body, replace(Map(ResultVariable() -> Variable(resFresh)), matchToIfThenElse(post.get)))
+      optPost match {
+        case None =>
+          Seq()
 
-          val withPrec = if(prec.isEmpty) {
-            bodyAndPost
-          } else {
-            Implies(matchToIfThenElse(prec.get), bodyAndPost)
+        case Some((id, post)) =>
+          val theExpr = { 
+            val resFresh = FreshIdentifier("result", true).setType(body.getType)
+            val bodyAndPost = Let(resFresh, body, replace(Map(Variable(id) -> Variable(resFresh)), matchToIfThenElse(post)))
+
+            val withPrec = if(prec.isEmpty) {
+              bodyAndPost
+            } else {
+              Implies(matchToIfThenElse(prec.get), bodyAndPost)
+            }
+
+            withPrec
           }
-
-          withPrec
-        }
-        Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this.asInstanceOf[DefaultTactic]))
+          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this.asInstanceOf[DefaultTactic]))
       }
     }
   

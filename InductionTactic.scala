@@ -38,39 +38,41 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
     firstAbsClassDef(funDef.args) match {
       case Some((classDef, arg)) =>
         val prec = funDef.precondition
-        val post = funDef.postcondition
+        val optPost = funDef.postcondition
         val body = matchToIfThenElse(funDef.body.get)
         val argAsVar = arg.toVariable
 
-        if (post.isEmpty) {
-          Seq.empty
-        } else {
-          val children = classDef.knownChildren
-          val conditionsForEachChild = (for (child <- classDef.knownChildren) yield (child match {
-            case ccd @ CaseClassDef(id, prnt, vds) =>
-              val selectors = selectorsOfParentType(classDefToClassType(classDef), ccd, argAsVar)
-              // if no subtrees of parent type, assert property for base case
-              val resFresh = FreshIdentifier("result", true).setType(body.getType)
-              val bodyAndPostForArg = Let(resFresh, body, replace(Map(ResultVariable() -> Variable(resFresh)), matchToIfThenElse(post.get)))
-              val withPrec = if (prec.isEmpty) bodyAndPostForArg else Implies(matchToIfThenElse(prec.get), bodyAndPostForArg)
+        optPost match {
+          case None =>
+            Seq.empty
+          case Some((pid, post)) =>
+            val children = classDef.knownChildren
+            val conditionsForEachChild = (for (child <- classDef.knownChildren) yield (child match {
+              case ccd @ CaseClassDef(id, prnt, vds) =>
+                val selectors = selectorsOfParentType(classDefToClassType(classDef), ccd, argAsVar)
+                // if no subtrees of parent type, assert property for base case
+                val resFresh = FreshIdentifier("result", true).setType(body.getType)
+                val bodyAndPostForArg = Let(resFresh, body, replace(Map(Variable(pid) -> Variable(resFresh)), matchToIfThenElse(post)))
+                val withPrec = if (prec.isEmpty) bodyAndPostForArg else Implies(matchToIfThenElse(prec.get), bodyAndPostForArg)
 
-              val conditionForChild = 
-                if (selectors.size == 0) 
-                  withPrec
-                else {
-                  val inductiveHypothesis = (for (sel <- selectors) yield {
-                    val resFresh = FreshIdentifier("result", true).setType(body.getType)
-                    val bodyAndPost = Let(resFresh, replace(Map(argAsVar -> sel), body), replace(Map(ResultVariable() -> Variable(resFresh), argAsVar -> sel), matchToIfThenElse(post.get))) 
-                    val withPrec = if (prec.isEmpty) bodyAndPost else Implies(replace(Map(argAsVar -> sel), matchToIfThenElse(prec.get)), bodyAndPost)
+                val conditionForChild = 
+                  if (selectors.size == 0) 
                     withPrec
-                  })
-                  Implies(And(inductiveHypothesis), withPrec)
-                }
-              new VerificationCondition(Implies(CaseClassInstanceOf(ccd, argAsVar), conditionForChild), funDef, VCKind.Postcondition, this)
-            case _ => scala.sys.error("Abstract class has non-case class subtype.")
-          }))
-          conditionsForEachChild
+                  else {
+                    val inductiveHypothesis = (for (sel <- selectors) yield {
+                      val resFresh = FreshIdentifier("result", true).setType(body.getType)
+                      val bodyAndPost = Let(resFresh, replace(Map(argAsVar -> sel), body), replace(Map(Variable(pid) -> Variable(resFresh), argAsVar -> sel), matchToIfThenElse(post))) 
+                      val withPrec = if (prec.isEmpty) bodyAndPost else Implies(replace(Map(argAsVar -> sel), matchToIfThenElse(prec.get)), bodyAndPost)
+                      withPrec
+                    })
+                    Implies(And(inductiveHypothesis), withPrec)
+                  }
+                new VerificationCondition(Implies(CaseClassInstanceOf(ccd, argAsVar), conditionForChild), funDef, VCKind.Postcondition, this)
+              case _ => scala.sys.error("Abstract class has non-case class subtype.")
+            }))
+            conditionsForEachChild
         }
+
       case None =>
         reporter.warning("Induction tactic currently supports exactly one argument of abstract class type")
         defaultPost
