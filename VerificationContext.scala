@@ -10,6 +10,5 @@ import java.util.concurrent.atomic.AtomicBoolean
 case class VerificationContext (
   context: LeonContext,
   solvers: Seq[Solver],
-  reporter: Reporter,
-  shouldStop: AtomicBoolean = new AtomicBoolean(false)
+  reporter: Reporter
 )

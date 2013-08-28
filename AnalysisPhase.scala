@@ -61,7 +61,9 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val reporter = vctx.reporter
     val solvers  = vctx.solvers
 
-    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !vctx.shouldStop.get()) {
+    val interruptManager = vctx.context.interruptManager
+
+    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !interruptManager.isInterrupted()) {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
 
@@ -88,7 +90,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
           val dt = ((t2 - t1) / 1000000) / 1000.0
 
           solverResult match {
-            case _ if vctx.shouldStop.get() =>
+            case _ if interruptManager.isInterrupted() =>
               reporter.info("=== CANCELLED ===")
               vcInfo.time = Some(dt)
               false
