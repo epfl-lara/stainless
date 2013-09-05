@@ -169,7 +169,7 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | TupleType(_)  | SetType(_) | MapType(_, _) | AbstractClassType(_) | CaseClassType(_) | ArrayType(_) =>
+      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType =>
         ch << ARETURN
 
       case other =>
