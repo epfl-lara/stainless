@@ -9,8 +9,8 @@ import purescala.Trees._
 import purescala.TreeOps._
 import purescala.TypeTrees._
 
-import solvers.{Solver,TrivialSolver,TimeoutSolver}
-import solvers.z3.FairZ3Solver
+import solvers._
+import solvers.z3._
 
 import scala.collection.mutable.{Set => MutableSet}
 
@@ -72,54 +72,44 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       reporter.info(simplifyLets(vc))
 
       // try all solvers until one returns a meaningful answer
-      var superseeded : Set[String] = Set.empty[String]
       solvers.find(se => {
         reporter.info("Trying with solver: " + se.name)
-        if(superseeded(se.name) || superseeded(se.description)) {
-          reporter.info("Solver was superseeded. Skipping.")
-          false
-        } else {
-          superseeded = superseeded ++ Set(se.superseeds: _*)
+        val t1 = System.nanoTime
+        val (satResult, counterexample) = SimpleSolverAPI(se).solveSAT(Not(vc))
+        val solverResult = satResult.map(!_)
 
-          val t1 = System.nanoTime
-          se.init()
-          val (satResult, counterexample) = se.solveSAT(Not(vc))
-          val solverResult = satResult.map(!_)
+        val t2 = System.nanoTime
+        val dt = ((t2 - t1) / 1000000) / 1000.0
 
-          val t2 = System.nanoTime
-          val dt = ((t2 - t1) / 1000000) / 1000.0
+        solverResult match {
+          case _ if interruptManager.isInterrupted() =>
+            reporter.info("=== CANCELLED ===")
+            vcInfo.time = Some(dt)
+            false
 
-          solverResult match {
-            case _ if interruptManager.isInterrupted() =>
-              reporter.info("=== CANCELLED ===")
-              vcInfo.time = Some(dt)
-              false
+          case None =>
+            vcInfo.time = Some(dt)
+            false
 
-            case None =>
-              vcInfo.time = Some(dt)
-              false
+          case Some(true) =>
+            reporter.info("==== VALID ====")
 
-            case Some(true) =>
-              reporter.info("==== VALID ====")
+            vcInfo.hasValue = true
+            vcInfo.value = Some(true)
+            vcInfo.solvedWith = Some(se)
+            vcInfo.time = Some(dt)
+            true
 
-              vcInfo.hasValue = true
-              vcInfo.value = Some(true)
-              vcInfo.solvedWith = Some(se)
-              vcInfo.time = Some(dt)
-              true
-
-            case Some(false) =>
-              reporter.error("Found counter-example : ")
-              reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
-              reporter.error("==== INVALID ====")
-              vcInfo.hasValue = true
-              vcInfo.value = Some(false)
-              vcInfo.solvedWith = Some(se)
-              vcInfo.counterExample = Some(counterexample)
-              vcInfo.time = Some(dt)
-              true
-
-          }
+          case Some(false) =>
+            reporter.error("Found counter-example : ")
+            reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
+            reporter.error("==== INVALID ====")
+            vcInfo.hasValue = true
+            vcInfo.value = Some(false)
+            vcInfo.solvedWith = Some(se)
+            vcInfo.counterExample = Some(counterexample)
+            vcInfo.time = Some(dt)
+            true
         }
       }) match {
         case None => {
@@ -150,20 +140,21 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val reporter = ctx.reporter
 
-    val trivialSolver = new TrivialSolver(ctx)
-    val fairZ3 = new FairZ3Solver(ctx)
+    val fairZ3 = new FairZ3SolverFactory(ctx, program)
 
-    val solvers0 : Seq[Solver] = trivialSolver :: fairZ3 :: Nil
-    val solvers: Seq[Solver] = timeout match {
-      case Some(t) => solvers0.map(s => new TimeoutSolver(s, 1000L * t))
-      case None => solvers0
+    val baseSolvers : Seq[SolverFactory[Solver]] = fairZ3 :: Nil
+
+    val solvers: Seq[SolverFactory[Solver]] = timeout match {
+      case Some(t) =>
+        baseSolvers.map(_.withTimeout(100L*t))
+
+      case None =>
+        baseSolvers
     }
-
-    solvers.foreach(_.setProgram(program))
 
     val vctx = VerificationContext(ctx, solvers, reporter)
 
-    val report = if(solvers.size > 1) {
+    val report = if(solvers.size >= 1) {
       reporter.info("Running verification condition generation...")
       val vcs = generateVerificationConditions(reporter, program, functionsToAnalyse)
       checkVerificationConditions(vctx, vcs)
