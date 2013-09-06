@@ -18,6 +18,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
   val description = "Leon Verification"
 
+  implicit val debugSection = ReportingVerification
+
   override val definedOptions : Set[LeonOptionDef] = Set(
     LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,..."),
     LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
@@ -61,8 +63,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val reporter = vctx.reporter
     val solvers  = vctx.solvers
 
-    val debug = reporter.debug(ReportingVerification)_
-
     val interruptManager = vctx.context.interruptManager
 
     for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !interruptManager.isInterrupted()) {
@@ -70,12 +70,12 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       val vc = vcInfo.condition
 
       reporter.info("Now considering '" + vcInfo.kind + "' VC for " + funDef.id + "...")
-      debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
-      debug(simplifyLets(vc))
+      reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
+      reporter.debug(simplifyLets(vc))
 
       // try all solvers until one returns a meaningful answer
       solvers.find(se => {
-        debug("Trying with solver: " + se.name)
+        reporter.debug("Trying with solver: " + se.name)
         val t1 = System.nanoTime
         val (satResult, counterexample) = SimpleSolverAPI(se).solveSAT(Not(vc))
         val solverResult = satResult.map(!_)
@@ -156,10 +156,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val vctx = VerificationContext(ctx, solvers, reporter)
 
-    val debug = reporter.debug(ReportingVerification)_
-
     val report = if(solvers.size >= 1) {
-      debug("Running verification condition generation...")
+      reporter.debug("Running verification condition generation...")
       val vcs = generateVerificationConditions(reporter, program, functionsToAnalyse)
       checkVerificationConditions(vctx, vcs)
     } else {
