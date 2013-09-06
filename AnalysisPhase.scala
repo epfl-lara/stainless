@@ -61,6 +61,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val reporter = vctx.reporter
     val solvers  = vctx.solvers
 
+    val debug = reporter.debug(ReportingVerification)_
+
     val interruptManager = vctx.context.interruptManager
 
     for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !interruptManager.isInterrupted()) {
@@ -68,12 +70,12 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       val vc = vcInfo.condition
 
       reporter.info("Now considering '" + vcInfo.kind + "' VC for " + funDef.id + "...")
-      reporter.info("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
-      reporter.info(simplifyLets(vc))
+      debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
+      debug(simplifyLets(vc))
 
       // try all solvers until one returns a meaningful answer
       solvers.find(se => {
-        reporter.info("Trying with solver: " + se.name)
+        debug("Trying with solver: " + se.name)
         val t1 = System.nanoTime
         val (satResult, counterexample) = SimpleSolverAPI(se).solveSAT(Not(vc))
         val solverResult = satResult.map(!_)
@@ -114,7 +116,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       }) match {
         case None => {
           vcInfo.hasValue = true
-          reporter.warning("No solver could prove or disprove the verification condition.")
+          reporter.warning("==== UNKNOWN ====")
         }
         case _ =>
       }
@@ -154,14 +156,18 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val vctx = VerificationContext(ctx, solvers, reporter)
 
+    val debug = reporter.debug(ReportingVerification)_
+
     val report = if(solvers.size >= 1) {
-      reporter.info("Running verification condition generation...")
+      debug("Running verification condition generation...")
       val vcs = generateVerificationConditions(reporter, program, functionsToAnalyse)
       checkVerificationConditions(vctx, vcs)
     } else {
       reporter.warning("No solver specified. Cannot test verification conditions.")
       VerificationReport.emptyReport
     }
+
+    solvers.foreach(_.free())
 
     report
   }
