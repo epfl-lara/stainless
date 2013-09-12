@@ -18,7 +18,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
   val description = "Leon Verification"
 
-  implicit val debugSection = ReportingVerification
+  implicit val debugSection = DebugSectionVerification
 
   override val definedOptions : Set[LeonOptionDef] = Set(
     LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,..."),
