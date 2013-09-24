@@ -33,9 +33,9 @@ object RelationBuilder {
           val vb = visit(b, Equals(Variable(i), e) :: path)
           ve ++ vb
 
-        case IfExpr(cond, then, elze) =>
+        case IfExpr(cond, thenn, elze) =>
           val vc = visit(cond, path)
-          val vt = visit(then, cond :: path)
+          val vt = visit(thenn, cond :: path)
           val ve = visit(elze, Not(cond) :: path)
           vc ++ vt ++ ve
 
@@ -44,14 +44,14 @@ object RelationBuilder {
             case x :: xs => visit(x, p ++ path) ++ resolveAnds(xs, x :: p)
             case Nil => Set()
           }
-          resolveAnds(es toList, Nil)
+          resolveAnds(es.toList, Nil)
 
         case Or(es) =>
           def resolveOrs(ors: List[Expr], p: List[Expr]): Set[Relation] = ors match {
             case x :: xs => visit(x, p ++ path) ++ resolveOrs(xs, Not(x) :: p)
             case Nil => Set()
           }
-          resolveOrs(es toList, Nil)
+          resolveOrs(es.toList, Nil)
 
         case UnaryOperator(e, _) => visit(e, path)
 
@@ -65,9 +65,9 @@ object RelationBuilder {
       }
 
       val precondition = funDef.precondition getOrElse BooleanLiteral(true)
-      val precRelations = funDef.precondition.map(e => visit(simplifyLets(matchToIfThenElse(e)), Nil)).flatten.toSet
-      val bodyRelations = funDef.body.map(e => visit(simplifyLets(matchToIfThenElse(e)), List(precondition))).flatten.toSet
-      val postRelations = funDef.postcondition.map(e => visit(simplifyLets(matchToIfThenElse(e)), Nil)).flatten.toSet
+      val precRelations = funDef.precondition.map(e => visit(simplifyLets(matchToIfThenElse(e)), Nil)) getOrElse Set()
+      val bodyRelations = funDef.body.map(e => visit(simplifyLets(matchToIfThenElse(e)), List(precondition))) getOrElse Set()
+      val postRelations = funDef.postcondition.map(e => visit(simplifyLets(matchToIfThenElse(e._2)), Nil)) getOrElse Set()
       val relations = precRelations ++ bodyRelations ++ postRelations
       relationCache(funDef) = relations
       relations

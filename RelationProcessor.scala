@@ -70,7 +70,7 @@ class RelationProcessor(checker: TerminationChecker) extends Processor(checker) 
     assert(terminating ++ nonTerminating == problem.funDefs)
 
     val results = terminating.map(Cleared(_)).toList
-    val newProblems = if (problem.funDefs intersect nonTerminating nonEmpty) List(Problem(nonTerminating)) else Nil
+    val newProblems = if ((problem.funDefs intersect nonTerminating).nonEmpty) List(Problem(nonTerminating)) else Nil
     (results, newProblems)
   }
 }

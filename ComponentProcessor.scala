@@ -26,8 +26,8 @@ class ComponentProcessor(checker: TerminationChecker) extends Processor(checker)
     })
 
     val terminating = problem.funDefs.filter(terminates(_))
-    assert(components.forall(scc => (scc subsetOf terminating) || (scc intersect terminating isEmpty)))
-    val newProblems = components.filter(scc => scc intersect terminating isEmpty).map(Problem(_))
+    assert(components.forall(scc => (scc subsetOf terminating) || (scc intersect terminating).isEmpty))
+    val newProblems = components.filter(scc => (scc intersect terminating).isEmpty).map(Problem(_))
     (terminating.map(Cleared(_)), newProblems)
   }
 }

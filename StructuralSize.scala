@@ -7,18 +7,11 @@ import purescala.TypeTrees._
 import purescala.Definitions._
 import purescala.Common._
 
-case class TypedExpr(expr: Expr, tpe: TypeTree)
-
 object StructuralSize {
   import scala.collection.mutable.{Map => MutableMap}
 
-  implicit def exprToTypedExpr(expr: Expr): TypedExpr = {
-    assert(expr.getType != Untyped)
-    TypedExpr(expr, expr.getType)
-  }
-
   private val sizeFunctionCache : MutableMap[TypeTree, FunDef] = MutableMap()
-  def size(typedExpr: TypedExpr) : Expr = {
+  def size(expr: Expr) : Expr = {
     def funDef(tpe: TypeTree, cases: => Seq[MatchCase]) = {
       // we want to reuse generic size functions for sub-types
       val argumentType = tpe match {
@@ -34,12 +27,13 @@ object StructuralSize {
           sizeFunctionCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(MatchExpr(argument.toVariable, cases)))
+          val postId = FreshIdentifier("res", false).setType(Int32Type)
           val postSubcalls = functionCallsOf(body).map(GreaterThan(_, IntLiteral(0))).toSeq
-          val postRecursive = GreaterThan(ResultVariable(), IntLiteral(0))
+          val postRecursive = GreaterThan(Variable(postId), IntLiteral(0))
           val postcondition = And(postSubcalls :+ postRecursive)
 
           fd.body = Some(body)
-          fd.postcondition = Some(postcondition)
+          fd.postcondition = Some(postId, postcondition)
           fd
       }
     }
@@ -48,20 +42,20 @@ object StructuralSize {
       val c = _c.asInstanceOf[CaseClassDef] // required by leon framework
       val arguments = c.fields.map(f => f -> f.id.freshen)
       val argumentPatterns = arguments.map(p => WildcardPattern(Some(p._2)))
-      val sizes = arguments.map(p => size(TypedExpr(Variable(p._2), p._1.tpe)))
+      val sizes = arguments.map(p => size(Variable(p._2)))
       val result = sizes.foldLeft[Expr](IntLiteral(1))(Plus(_,_))
       SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
     }
 
-    typedExpr match {
-      case TypedExpr(expr, a: AbstractClassType) =>
+    expr.getType match {
+      case a: AbstractClassType =>
         val sizeFd = funDef(a, a.classDef.knownChildren map caseClassType2MatchCase)
         FunctionInvocation(sizeFd, Seq(expr))
-      case TypedExpr(expr, c: CaseClassType) =>
+      case c: CaseClassType =>
         val sizeFd = funDef(c, Seq(caseClassType2MatchCase(c.classDef)))
         FunctionInvocation(sizeFd, Seq(expr))
-      case TypedExpr(expr, TupleType(argTypes)) => argTypes.zipWithIndex.map({
-        case (tpe, index) => size(TypedExpr(TupleSelect(expr, index + 1), tpe))
+      case TupleType(argTypes) => argTypes.zipWithIndex.map({
+        case (_, index) => size(TupleSelect(expr, index + 1))
       }).foldLeft[Expr](IntLiteral(0))(Plus(_,_))
       case _ => IntLiteral(0)
     }

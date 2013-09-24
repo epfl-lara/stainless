@@ -56,7 +56,7 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
         all.map(cluster => cluster.toSeq.sortBy(_.size).foldLeft(Set[Chain]())({ case (acc, chain) =>
           val chainElements : Set[Relation] = chain.chain.toSet
           val seenElements  : Set[Relation] = acc.map(_.chain).flatten.toSet
-          if (chainElements -- seenElements nonEmpty) acc + chain else acc
+          if ((chainElements -- seenElements).nonEmpty) acc + chain else acc
         })).filter(_.nonEmpty)
       }
 
@@ -119,10 +119,10 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
     val (okPairs, nokPairs) = numericCleared.partition(_._2.isEmpty)
     val nok = nokPairs.map(_._1).toSet
     val (ok, transitiveNok) = okPairs.map(_._1).partition({ fd =>
-      checker.program.transitiveCallees(fd) intersect nok isEmpty
+      (checker.program.transitiveCallees(fd) intersect nok).isEmpty
     })
     val allNok = nok ++ transitiveNok
-    val newProblems = if (allNok nonEmpty) List(Problem(allNok)) else Nil
+    val newProblems = if (allNok.nonEmpty) List(Problem(allNok)) else Nil
     (ok.map(Cleared(_)), newProblems)
   }
 }

@@ -21,7 +21,7 @@ final case class Chain(chain: List[Relation]) {
   override def hashCode(): Int = id
 
   def funDef  : FunDef                    = chain.head.funDef
-  def funDefs : Set[FunDef]               = chain.map(_.funDef) toSet
+  def funDefs : Set[FunDef]               = chain.map(_.funDef).toSet
 
   lazy val size: Int = chain.size
 
@@ -38,7 +38,7 @@ final case class Chain(chain: List[Relation]) {
       case Relation(_, path, FunctionInvocation(fd, args)) :: xs =>
         val formalArgs = fd.args.map(_.id)
         val freshFormalArgVars = formalArgs.map(_.freshen.toVariable)
-        val formalArgsMap: Map[Identifier, Expr] = formalArgs zip freshFormalArgVars toMap
+        val formalArgsMap: Map[Identifier, Expr] = (formalArgs zip freshFormalArgVars).toMap
         val (newPath, newArgs) = (path.map(replaceFromIDs(subst, _)), args.map(replaceFromIDs(subst, _)))
         val constraints = newPath ++ (freshFormalArgVars zip newArgs).map(p => Equals(p._1, p._2))
         constraints ++ rec(xs, formalArgsMap)
@@ -68,14 +68,14 @@ final case class Chain(chain: List[Relation]) {
         val mappedArgs = args.map(replaceFromIDs(mapping, _))
         val newMapping = fd.args.map(_.id).zip(mappedArgs).toMap
         // We assume we have a body at this point. It would be weird to have gotten here without one...
-        val expr = hoistIte(expandLets(matchToIfThenElse(fd.getBody)))
+        val expr = hoistIte(expandLets(matchToIfThenElse(fd.body.get)))
         val inlinedExpr = replaceFromIDs(newMapping, expr)
         inlinedExpr:: rec(xs, newMapping)
       case Nil => Nil
     }
 
-    val body = hoistIte(expandLets(matchToIfThenElse(funDef.getBody)))
-    body :: rec(chain, funDef.args.map(arg => arg.id -> arg.toVariable) toMap)
+    val body = hoistIte(expandLets(matchToIfThenElse(funDef.body.get)))
+    body :: rec(chain, funDef.args.map(arg => arg.id -> arg.toVariable).toMap)
   }
 }
 

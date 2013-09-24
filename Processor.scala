@@ -23,31 +23,36 @@ abstract class Processor(val checker: TerminationChecker) {
 
   val reporter = checker.context.reporter
 
-  def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem])
+  protected def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem])
+
+  def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = run(problem)
 }
 
 object Solvable {
   import scala.collection.mutable.{Set => MutableSet}
 
   private val strengthened : MutableSet[FunDef] = MutableSet()
-  private def strengthenPostcondition(funDef: FunDef, cmp: (Expr, TypedExpr) => Expr)
+  private def strengthenPostcondition(funDef: FunDef, cmp: (Expr, Expr) => Expr)
                                      (implicit solver: Processor with Solvable) : Boolean = if (!funDef.hasBody) false else {
     assert(solver.checker.terminates(funDef).isGuaranteed)
 
-    val postcondition = funDef.postcondition
-    val args = funDef.args.map(_.toVariable)
-    val typedResult = TypedExpr(ResultVariable(), funDef.returnType)
-    val sizePost = cmp(Tuple(args), typedResult)
-    funDef.postcondition = Some(And(postcondition.toSeq :+ sizePost))
+    val old = funDef.postcondition
+    val (res, postcondition) = {
+      val (res, post) = old.getOrElse(FreshIdentifier("res").setType(funDef.returnType) -> BooleanLiteral(true))
+      val args = funDef.args.map(_.toVariable)
+      val sizePost = cmp(Tuple(funDef.args.map(_.toVariable)), res.toVariable)
+      (res, And(post, sizePost))
+    }
+
+    funDef.postcondition = Some(res -> postcondition)
 
     val prec = matchToIfThenElse(funDef.precondition.getOrElse(BooleanLiteral(true)))
-    val post = matchToIfThenElse(funDef.postcondition.get)
     val body = matchToIfThenElse(funDef.body.get)
-    val resFresh = FreshIdentifier("result", true).setType(body.getType)
-    val formula = Implies(prec, Let(resFresh, body, replace(Map(ResultVariable() -> Variable(resFresh)), post)))
+    val post = matchToIfThenElse(postcondition)
+    val formula = Implies(prec, Let(res, body, post))
 
     if (!solver.isAlwaysSAT(formula)) {
-      funDef.postcondition = postcondition
+      funDef.postcondition = old
       strengthened.add(funDef)
       false
     } else {
@@ -74,19 +79,36 @@ object Solvable {
 
 trait Solvable { self: Processor =>
 
-  private var solvers: List[Solver] = null
+  override def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
+    try {
+      self.run(problem)
+    } finally {
+      destroySolvers
+    }
+  }
+
+  private var solvers: List[SolverFactory[Solver]] = null
+  private var lastDefs: Set[FunDef] = Set()
 
   def strengthenPostconditions(funDefs: Set[FunDef]) = Solvable.strengthenPostconditions(funDefs)(this)
 
   private def initSolvers {
-    val program     : Program         = self.checker.program
-    val allDefs     : Seq[Definition] = program.mainObject.defs ++ StructuralSize.defs
-    val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
-    val context     : LeonContext     = self.checker.context.copy(reporter = new QuietReporter())
+    val structDefs = StructuralSize.defs
+    if (structDefs != lastDefs || solvers == null) {
+      destroySolvers
 
-    val solvers0 = new TrivialSolver(context) :: new FairZ3Solver(context) :: Nil
-    solvers = solvers0.map(new TimeoutSolver(_, 500))
-    solvers.foreach(_.setProgram(newProgram))
+      val program     : Program         = self.checker.program
+      val allDefs     : Seq[Definition] = program.mainObject.defs ++ structDefs
+      val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
+      val context     : LeonContext     = self.checker.context
+
+      val solvers0 = new FairZ3SolverFactory(context, newProgram) :: Nil
+      solvers = solvers0.map(_.withTimeout(500))
+    }
+  }
+
+  protected def destroySolvers {
+    if (solvers != null) solvers.foreach(_.free())
   }
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
@@ -104,19 +126,11 @@ trait Solvable { self: Processor =>
     val expr = searchAndReplace(dangerousCallsMap.get, recursive=false)(problem)
 
     object Solved {
-      var superseeded : Set[String] = Set.empty[String]
-      def unapply(se: Solver): Option[Solution] = {
-        if(superseeded(se.name) || superseeded(se.description)) {
-          None
-        } else {
-          superseeded = superseeded ++ Set(se.superseeds: _*)
+      def unapply(se: SolverFactory[Solver]): Option[Solution] = {
+        val (satResult, model) = SimpleSolverAPI(se).solveSAT(expr)
 
-          se.init()
-          val (satResult, model) = se.solveSAT(expr)
-
-          if (!satResult.isDefined) None
-          else Some(satResult, model)
-        }
+        if (!satResult.isDefined) None
+        else Some(satResult -> model)
       }
     }
 
@@ -176,7 +190,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
   def clear(fd: FunDef) : Boolean = {
     lazy val unsolvedDefs = unsolved.map(_.funDefs).flatten.toSet
     lazy val problemDefs = problems.map({ case (problem, _) => problem.funDefs }).flatten.toSet
-    def issue(defs: Set[FunDef]) : Boolean = defs(fd) || (defs intersect program.transitiveCallees(fd) nonEmpty)
+    def issue(defs: Set[FunDef]) : Boolean = defs(fd) || (defs intersect program.transitiveCallees(fd)).nonEmpty
     ! (issue(unsolvedDefs) || issue(problemDefs))
   }
 
@@ -192,7 +206,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
       printQueue
       val (problem, index) = problems.head
       val processor : Processor = processors(index)
-      val (_results, nextProblems) = processor.run(problem)
+      val (_results, nextProblems) = processor.process(problem)
       val results = _results.toList
       printResult(results)
 
