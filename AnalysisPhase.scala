@@ -11,6 +11,8 @@ import purescala.TypeTrees._
 
 import solvers._
 import solvers.z3._
+import solvers.bapaminmax._
+import solvers.combinators._
 
 import scala.collection.mutable.{Set => MutableSet}
 
@@ -68,7 +70,11 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !interruptManager.isInterrupted()) {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
+      
+      val time0 : Long = System.currentTimeMillis
 
+      val time1 = System.currentTimeMillis
+      
       reporter.info("Now considering '" + vcInfo.kind + "' VC for " + funDef.id + "...")
       reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
       reporter.debug(simplifyLets(vc))
@@ -142,9 +148,11 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val reporter = ctx.reporter
 
-    val fairZ3 = new FairZ3SolverFactory(ctx, program)
+    lazy val fairZ3 = new FairZ3SolverFactory(ctx, program)
 
-    val baseSolvers : Seq[SolverFactory[Solver]] = fairZ3 :: Nil
+    val baseSolvers : Seq[SolverFactory[Solver]] = {
+      fairZ3 :: Nil
+    }
 
     val solvers: Seq[SolverFactory[Solver]] = timeout match {
       case Some(t) =>
