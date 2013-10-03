@@ -80,11 +80,7 @@ object Solvable {
 trait Solvable { self: Processor =>
 
   override def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
-    try {
-      self.run(problem)
-    } finally {
-      destroySolvers
-    }
+    self.run(problem)
   }
 
   private var solvers: List[SolverFactory[Solver]] = null
@@ -95,20 +91,13 @@ trait Solvable { self: Processor =>
   private def initSolvers {
     val structDefs = StructuralSize.defs
     if (structDefs != lastDefs || solvers == null) {
-      destroySolvers
-
       val program     : Program         = self.checker.program
       val allDefs     : Seq[Definition] = program.mainObject.defs ++ structDefs
       val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
       val context     : LeonContext     = self.checker.context
 
-      val solvers0 = new FairZ3SolverFactory(context, newProgram) :: Nil
-      solvers = solvers0.map(_.withTimeout(500))
+      solvers = new TimeoutSolverFactory(SolverFactory(() => new FairZ3Solver(context, newProgram)), 500) :: Nil
     }
-  }
-
-  protected def destroySolvers {
-    if (solvers != null) solvers.foreach(_.free())
   }
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
@@ -151,6 +140,8 @@ trait Solvable { self: Processor =>
 }
 
 class ProcessingPipeline(program: Program, context: LeonContext, _processors: Processor*) {
+  implicit val debugSection = DebugSectionTermination
+
   import scala.collection.mutable.{Queue => MutableQueue}
 
   assert(_processors.nonEmpty)
@@ -174,7 +165,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
         sb.append("      " + funDef.id + "\n")
       }
     }
-    reporter.info(sb.toString)
+    reporter.debug(sb.toString)
   }
 
   private def printResult(results: List[Result]) {
@@ -184,7 +175,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
       case Cleared(fd) => sb.append("    %-10s %s\n".format(fd.id, "Cleared"))
       case Broken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "Broken for arguments: " + args.mkString("(", ",", ")")))
     }
-    reporter.info(sb.toString)
+    reporter.debug(sb.toString)
   }
 
   def clear(fd: FunDef) : Boolean = {
