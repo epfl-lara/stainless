@@ -14,6 +14,8 @@ import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
+import runtime.LeonCodeGenRuntimeMonitor
+
 import java.lang.reflect.InvocationTargetException
 
 class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr, argsDecl: Seq[Identifier]) {
@@ -22,6 +24,8 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
 
   private val exprType = expression.getType
 
+  private val params = unit.env.params
+
   def argsToJVM(args: Seq[Expr]): Seq[AnyRef] = {
     args.map(unit.valueToJVM)
   }
@@ -29,10 +33,16 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
   def evalToJVM(args: Seq[AnyRef]): AnyRef = {
     assert(args.size == argsDecl.size)
 
-    if (args.isEmpty) {
+    val realArgs = if (params.requireMonitor) {
+      new LeonCodeGenRuntimeMonitor(params.maxFunctionInvocations) +: args
+    } else {
+      args
+    }
+
+    if (realArgs.isEmpty) {
       meth.invoke(null)
     } else {
-      meth.invoke(null, args.toArray : _*)
+      meth.invoke(null, realArgs.toArray : _*)
     }
   }
 

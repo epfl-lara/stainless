@@ -145,10 +145,18 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 
     cf.addDefaultConstructor
 
+    val argsTypes = args.map(a => typeToJVM(a.getType))
+
+    val realArgs = if (env.params.requireMonitor) {
+      ("L" + CodeGeneration.MonitorClass + ";") +: argsTypes
+    } else {
+      argsTypes
+    }
+
     val m = cf.addMethod(
       typeToJVM(e.getType),
       "eval",
-      args.map(a => typeToJVM(a.getType)) : _*
+      realArgs : _*
     )
 
     m.setFlags((
@@ -159,7 +167,11 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 
     val ch = m.codeHandler
 
-    val newMapping    = args.zipWithIndex.toMap
+    val newMapping    = if (env.params.requireMonitor) {
+        args.zipWithIndex.toMap.mapValues(_ + 1)
+      } else {
+        args.zipWithIndex.toMap
+      }
 
     val exprToCompile = purescala.TreeOps.matchToIfThenElse(e)
 
@@ -187,8 +199,8 @@ class CompilationUnit(val program: Program, val classes: Map[Definition, ClassFi
 }
 
 object CompilationUnit {
-  def compileProgram(p: Program, compileContracts: Boolean = true): Option[CompilationUnit] = {
-    implicit val env = CompilationEnvironment.fromProgram(p, compileContracts)
+  def compileProgram(p: Program, params: CodeGenParams = CodeGenParams()): Option[CompilationUnit] = {
+    implicit val env = CompilationEnvironment.fromProgram(p, params)
 
     var classes = Map[Definition, ClassFile]()
 
@@ -222,10 +234,17 @@ object CompilationUnit {
     for(funDef <- p.definedFunctions;
         (_,mn,_) <- env.funDefToMethod(funDef)) {
 
+      val argsTypes = funDef.args.map(a => typeToJVM(a.tpe))
+      val realArgs = if (env.params.requireMonitor) {
+        ("L" + CodeGeneration.MonitorClass + ";") +: argsTypes
+      } else {
+        argsTypes
+      }
+
       val m = cf.addMethod(
         typeToJVM(funDef.returnType),
         mn,
-        funDef.args.map(a => typeToJVM(a.tpe)) : _*
+        realArgs : _*
       )
       m.setFlags((
         METHOD_ACC_PUBLIC |

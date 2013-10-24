@@ -15,7 +15,7 @@ abstract class CompilationEnvironment() {
 
   val program: Program
 
-  val compileContracts: Boolean
+  val params: CodeGenParams
   
   // Returns (JVM) name of class, and signature of constructor
   def classDefToClass(classDef : ClassTypeDef) : Option[String]
@@ -29,7 +29,7 @@ abstract class CompilationEnvironment() {
   def withVars(pairs : Map[Identifier,Int]) = {
     new CompilationEnvironment {
       val program = self.program
-      val compileContracts = self.compileContracts
+      val params = self.params
       def classDefToClass(classDef : ClassTypeDef) = self.classDefToClass(classDef)
       def funDefToMethod(funDef : FunDef) = self.funDefToMethod(funDef)
       def varToLocal(v : Identifier) = pairs.get(v).orElse(self.varToLocal(v))
@@ -38,7 +38,7 @@ abstract class CompilationEnvironment() {
 }
 
 object CompilationEnvironment {
-  def fromProgram(p : Program, _compileContracts: Boolean) : CompilationEnvironment = {
+  def fromProgram(p : Program, _params: CodeGenParams) : CompilationEnvironment = {
     import CodeGeneration.typeToJVM
 
     // This should change: it should contain the case classes before
@@ -46,7 +46,7 @@ object CompilationEnvironment {
     implicit val initial = new CompilationEnvironment {
       val program = p
 
-      val compileContracts = _compileContracts
+      val params = _params
 
       private val cNames : Map[ClassTypeDef,String] = 
         p.definedClasses.map(c => (c, CodeGeneration.defToJVMName(c)(this))).toMap 
@@ -60,8 +60,14 @@ object CompilationEnvironment {
 
     val fs = p.definedFunctions.filter(_.hasImplementation)
 
+    val monitorType = if (_params.requireMonitor) {
+        "L" + CodeGeneration.MonitorClass + ";"
+      } else {
+        ""
+      }
+
     val fMap : Map[FunDef,(String,String,String)] = (fs.map { fd =>
-      val sig = "(" + fd.args.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
+      val sig = "(" + monitorType + fd.args.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
 
       fd -> (className, fd.id.uniqueName, sig)
     }).toMap
@@ -69,7 +75,7 @@ object CompilationEnvironment {
     new CompilationEnvironment {
       val program = p
 
-      val compileContracts = initial.compileContracts
+      val params = initial.params
 
       def classDefToClass(classDef : ClassTypeDef) = initial.classDefToClass(classDef)
       def funDefToMethod(funDef : FunDef) = fMap.get(funDef)

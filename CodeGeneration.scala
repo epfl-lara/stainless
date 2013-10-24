@@ -26,6 +26,7 @@ object CodeGeneration {
   private val ErrorClass      = "leon/codegen/runtime/LeonCodeGenRuntimeException"
   private val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
   private val HashingClass   = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
+  private[codegen] val MonitorClass    = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
 
   def defToJVMName(d : Definition)(implicit env : CompilationEnvironment) : String = "Leon$CodeGen$" + d.id.uniqueName
 
@@ -57,17 +58,21 @@ object CodeGeneration {
   // Assumes the CodeHandler has never received any bytecode.
   // Generates method body, and freezes the handler at the end.
   def compileFunDef(funDef : FunDef, ch : CodeHandler)(implicit env : CompilationEnvironment) {
-    val newMapping = funDef.args.map(_.id).zipWithIndex.toMap
+    val newMapping = if (env.params.requireMonitor) {
+        funDef.args.map(_.id).zipWithIndex.toMap.mapValues(_ + 1)
+      } else {
+        funDef.args.map(_.id).zipWithIndex.toMap
+      }
 
     val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body"))
 
-    val bodyWithPre = if(funDef.hasPrecondition && env.compileContracts) {
+    val bodyWithPre = if(funDef.hasPrecondition && env.params.checkContracts) {
       IfExpr(funDef.precondition.get, body, Error("Precondition failed"))
     } else {
       body
     }
 
-    val bodyWithPost = if(funDef.hasPostcondition && env.compileContracts) {
+    val bodyWithPost = if(funDef.hasPostcondition && env.params.checkContracts) {
       val Some((id, post)) = funDef.postcondition
       Let(id, bodyWithPre, IfExpr(post, Variable(id), Error("Postcondition failed")) )
     } else {
@@ -75,6 +80,10 @@ object CodeGeneration {
     }
 
     val exprToCompile = purescala.TreeOps.matchToIfThenElse(bodyWithPost)
+
+    if (env.params.recordInvocations) {
+      ch << ALoad(0) << InvokeVirtual(MonitorClass, "onInvoke", "()V")
+    }
 
     mkExpr(exprToCompile, ch)(env.withVars(newMapping))
 
@@ -267,6 +276,9 @@ object CodeGeneration {
       case FunctionInvocation(fd, as) =>
         val (cn, mn, ms) = env.funDefToMethod(fd).getOrElse {
           throw CompilationException("Unknown method : " + fd.id)
+        }
+        if (env.params.requireMonitor) {
+          ch << ALoad(0)
         }
         for(a <- as) {
           mkExpr(a, ch)
