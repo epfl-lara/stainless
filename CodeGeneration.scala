@@ -137,6 +137,7 @@ object CodeGeneration {
           ch << instr
           count += 1
         }
+        ch << POP
         mkExpr(b, ch)(env.withVars(withSlots.toMap))
 
       case IntLiteral(v) =>
@@ -525,8 +526,6 @@ object CodeGeneration {
     cf
   }
 
-  var doInstrument = true
-
   /**
    * Instrument read operations
    */
@@ -536,7 +535,7 @@ object CodeGeneration {
     ccd.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
         val cName = defToJVMName(ccd)
-        if (doInstrument) {
+        if (env.params.doInstrument) {
           ch << DUP << DUP
           ch << GetField(cName, instrumentedField, "I")
           ch << Ldc(1)
@@ -570,7 +569,7 @@ object CodeGeneration {
     val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
 
     // definition of the constructor
-    if(!doInstrument && ccd.fields.isEmpty) {
+    if(!env.params.doInstrument && ccd.fields.isEmpty) {
       cf.addDefaultConstructor
     } else {
 
@@ -582,7 +581,7 @@ object CodeGeneration {
         ).asInstanceOf[U2])
       }
 
-      if (doInstrument) {
+      if (env.params.doInstrument) {
         val fh = cf.addField("I", instrumentedField)
         fh.setFlags(FIELD_ACC_PUBLIC)
       }
@@ -592,7 +591,7 @@ object CodeGeneration {
       cch << ALoad(0)
       cch << InvokeSpecial(pName.getOrElse("java/lang/Object"), constructorName, "()V")
 
-      if (doInstrument) {
+      if (env.params.doInstrument) {
         cch << ALoad(0)
         cch << Ldc(0)
         cch << PutField(cName, instrumentedField, "I")
