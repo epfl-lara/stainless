@@ -4,7 +4,8 @@ package termination
 import purescala.Definitions._
 import purescala.Trees._
 
-class ComplexTerminationChecker(context: LeonContext, program: Program) extends TerminationChecker(context, program) {
+class ComplexTerminationChecker(context: LeonContext, _program: Program) extends TerminationChecker(context, _program.duplicate) {
+
   import scala.collection.mutable.{Map => MutableMap}
 
   val name = "Complex Termination Checker"
