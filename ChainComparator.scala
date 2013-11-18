@@ -7,10 +7,8 @@ import purescala.TypeTrees._
 import purescala.Definitions._
 import purescala.Common._
 
-object ChainComparator {
-  import StructuralSize._
-
-  def init : Unit = StructuralSize.init
+class ChainComparator(structuralSize: StructuralSize) {
+  import structuralSize.size
 
   private object ContainerType {
     def unapply(c: ClassType): Option[(CaseClassDef, Seq[(Identifier, TypeTree)])] = c match {

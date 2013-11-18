@@ -7,11 +7,9 @@ import purescala.Definitions._
 
 import scala.annotation.tailrec
 
-class RecursionProcessor(checker: TerminationChecker) extends Processor(checker) {
+class RecursionProcessor(checker: TerminationChecker, relationBuilder: RelationBuilder) extends Processor(checker) {
 
   val name: String = "Recursion Processor"
-
-  RelationBuilder.init
 
   private def isSubtreeOf(expr: Expr, id: Identifier) : Boolean = {
     @tailrec
@@ -25,7 +23,7 @@ class RecursionProcessor(checker: TerminationChecker) extends Processor(checker)
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) (Nil, List(problem)) else {
     val funDef = problem.funDefs.head
-    val relations = RelationBuilder.run(funDef)
+    val relations = relationBuilder.run(funDef)
     val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(fd, _)) => fd == funDef })
 
     if (others.exists({ case Relation(_, _, FunctionInvocation(fd, _)) => !checker.terminates(fd).isGuaranteed })) (Nil, List(problem)) else {

@@ -8,19 +8,20 @@ import purescala.Common._
 import purescala.Extractors._
 import purescala.Definitions._
 
-class ChainProcessor(checker: TerminationChecker) extends Processor(checker) with Solvable {
+class ChainProcessor(checker: TerminationChecker,
+                     chainBuilder: ChainBuilder,
+                     val structuralSize: StructuralSize,
+                     val strengthener: Strengthener) extends Processor(checker) with Solvable {
 
   val name: String = "Chain Processor"
 
-  ChainBuilder.init
-  ChainComparator.init
+  val chainComparator = new ChainComparator(structuralSize)
 
   def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
-    import scala.collection.mutable.{Map => MutableMap}
     implicit val debugSection = DebugSectionTermination
 
     reporter.debug("- Running ChainProcessor")
-    val allChainMap       : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> ChainBuilder.run(funDef)).toMap
+    val allChainMap       : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> chainBuilder.run(funDef)).toMap
     reporter.debug("- Computing all possible Chains")
     var counter = 0
     val possibleChainMap  : Map[FunDef, Set[Chain]] = allChainMap.mapValues(chains => chains.filter(chain => isWeakSAT(And(chain.loop()))))
@@ -109,13 +110,13 @@ class ChainProcessor(checker: TerminationChecker) extends Processor(checker) wit
     reporter.debug("- Searching for structural size decrease")
     val sizeCleared : ClusterMap = clear(clusters, (fd, cluster) => {
       val (e1, e2s) = buildLoops(fd, cluster)
-      ChainComparator.sizeDecreasing(e1, e2s)
+      chainComparator.sizeDecreasing(e1, e2s)
     })
 
     reporter.debug("- Searching for numeric convergence")
     val numericCleared : ClusterMap = clear(sizeCleared, (fd, cluster) => {
       val (e1, e2s) = buildLoops(fd, cluster)
-      ChainComparator.numericConverging(e1, e2s, cluster, checker)
+      chainComparator.numericConverging(e1, e2s, cluster, checker)
     })
 
     val (okPairs, nokPairs) = numericCleared.partition(_._2.isEmpty)

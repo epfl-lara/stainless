@@ -7,7 +7,7 @@ import purescala.TypeTrees._
 import purescala.Definitions._
 import purescala.Common._
 
-object StructuralSize {
+class StructuralSize {
   import scala.collection.mutable.{Map => MutableMap}
 
   private val sizeFunctionCache : MutableMap[TypeTree, FunDef] = MutableMap()
@@ -62,8 +62,6 @@ object StructuralSize {
   }
 
   def defs : Set[FunDef] = Set(sizeFunctionCache.values.toSeq : _*)
-
-  def init : Unit = sizeFunctionCache.clear
 }
 
 // vim: set ts=4 sw=4 et:

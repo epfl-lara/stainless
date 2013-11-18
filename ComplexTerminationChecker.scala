@@ -11,13 +11,19 @@ class ComplexTerminationChecker(context: LeonContext, _program: Program) extends
   val name = "Complex Termination Checker"
   val description = "A modular termination checker with a few basic modules™"
 
+  val structuralSize     = new StructuralSize()
+  val relationBuilder    = new RelationBuilder()
+  val chainBuilder       = new ChainBuilder(relationBuilder)
+  val relationComparator = new RelationComparator(structuralSize)
+  val strengthener       = new Strengthener(relationComparator)
+
   private val pipeline = new ProcessingPipeline(
     program, context, // required for solvers and reporting
     new ComponentProcessor(this),
-    new RecursionProcessor(this),
-    new RelationProcessor(this),
-    new ChainProcessor(this),
-    new LoopProcessor(this)
+    new RecursionProcessor(this, relationBuilder),
+    new RelationProcessor(this, relationBuilder, structuralSize, relationComparator, strengthener),
+    new ChainProcessor(this, chainBuilder, structuralSize, strengthener),
+    new LoopProcessor(this, chainBuilder, structuralSize, strengthener)
   )
 
   private val clearedMap     : MutableMap[FunDef, String]               = MutableMap()

@@ -7,15 +7,14 @@ import purescala.TreeOps._
 import purescala.Extractors._
 import purescala.Common._
 
+import scala.collection.mutable.{Map => MutableMap}
+
 final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocation) {
   override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.funDef.id + call.args.mkString("(",",",")") + ")"
 }
 
-object RelationBuilder {
-  import scala.collection.mutable.{Map => MutableMap}
+class RelationBuilder {
   private val relationCache : MutableMap[FunDef, Set[Relation]] = MutableMap()
-
-  def init : Unit = relationCache.clear
 
   def run(funDef: FunDef): Set[Relation] = relationCache.get(funDef) match {
     case Some(relations) => relations

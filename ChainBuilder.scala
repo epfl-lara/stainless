@@ -6,6 +6,8 @@ import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.purescala.Common._
 
+import scala.collection.mutable.{Map => MutableMap}
+
 object ChainID {
   private var counter: Int = 0
   def get: Int = {
@@ -79,12 +81,9 @@ final case class Chain(chain: List[Relation]) {
   }
 }
 
-object ChainBuilder {
-  import scala.collection.mutable.{Map => MutableMap}
+class ChainBuilder(relationBuilder: RelationBuilder) {
 
   private val chainCache : MutableMap[FunDef, Set[Chain]] = MutableMap()
-
-  def init : Unit = chainCache.clear
 
   def run(funDef: FunDef): Set[Chain] = chainCache.get(funDef) match {
     case Some(chains) => chains
@@ -94,14 +93,14 @@ object ChainBuilder {
         // Note that chains in partials are reversed to profit from O(1) insertion
         val (results, newPartials) = partials.foldLeft(List[List[Relation]](),List[(Relation, List[Relation])]())({
           case ((results, partials), (first, chain @ Relation(_, _, FunctionInvocation(fd, _)) :: xs)) =>
-            val cycle = RelationBuilder.run(fd).contains(first)
+            val cycle = relationBuilder.run(fd).contains(first)
             // reverse the chain when "returning" it since we're working on reversed chains
             val newResults = if (cycle) chain.reverse :: results else results
 
             // Partial chains can fall back onto a transition that was already taken (thus creating a cycle
             // inside the chain). Since this cycle will be discovered elsewhere, such partial chains should be
             // dropped from the partial chain list
-            val transitions = RelationBuilder.run(fd) -- chain.toSet
+            val transitions = relationBuilder.run(fd) -- chain.toSet
             val newPartials = transitions.map(transition => (first, transition :: chain)).toList
 
             (newResults, partials ++ newPartials)
@@ -111,7 +110,7 @@ object ChainBuilder {
         results ++ chains(newPartials)
       }
 
-      val initialPartials = RelationBuilder.run(funDef).map(r => (r, r :: Nil)).toList
+      val initialPartials = relationBuilder.run(funDef).map(r => (r, r :: Nil)).toList
       val result = chains(initialPartials).map(Chain(_)).toSet
       chainCache(funDef) = result
       result

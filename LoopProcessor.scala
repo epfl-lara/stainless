@@ -5,14 +5,16 @@ import purescala.Definitions._
 import purescala.Trees._
 import purescala.TreeOps._
 
-class LoopProcessor(checker: TerminationChecker, k: Int = 10) extends Processor(checker) with Solvable {
+class LoopProcessor(checker: TerminationChecker,
+                    chainBuilder: ChainBuilder,
+                    val structuralSize: StructuralSize,
+                    val strengthener: Strengthener,
+                    k: Int = 10) extends Processor(checker) with Solvable {
 
   val name: String = "Loop Processor"
 
-  ChainBuilder.init
-
   def run(problem: Problem) = {
-    val allChains : Set[Chain] = problem.funDefs.map(fd => ChainBuilder.run(fd)).flatten
+    val allChains : Set[Chain] = problem.funDefs.map(fd => chainBuilder.run(fd)).flatten
     // Get reentrant loops (see ChainProcessor for more details)
     val chains    : Set[Chain] = allChains.filter(chain => isWeakSAT(And(chain reentrant chain)))
 

@@ -7,10 +7,8 @@ import purescala.TypeTrees._
 import purescala.Definitions._
 import purescala.Common._
 
-object RelationComparator {
-  import StructuralSize._
-
-  def init : Unit = StructuralSize.init
+class RelationComparator(structuralSize: StructuralSize) {
+  import structuralSize.size
 
   def sizeDecreasing(e1: Expr, e2: Expr) = GreaterThan(size(e1), size(e2))
 

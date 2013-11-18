@@ -8,24 +8,25 @@ import leon.purescala.Common._
 import leon.purescala.Extractors._
 import leon.purescala.Definitions._
 
-class RelationProcessor(checker: TerminationChecker) extends Processor(checker) with Solvable {
+class RelationProcessor(checker: TerminationChecker,
+                        relationBuilder: RelationBuilder,
+                        val structuralSize: StructuralSize,
+                        relationComparator: RelationComparator,
+                        val strengthener: Strengthener) extends Processor(checker) with Solvable {
 
   val name: String = "Relation Processor"
-
-  RelationBuilder.init
-  RelationComparator.init
 
   def run(problem: Problem) = {
 
     strengthenPostconditions(problem.funDefs)
 
     val formulas = problem.funDefs.map({ funDef =>
-      funDef -> RelationBuilder.run(funDef).collect({
+      funDef -> relationBuilder.run(funDef).collect({
         case Relation(_, path, FunctionInvocation(fd, args)) if problem.funDefs(fd) =>
           val (e1, e2) = (Tuple(funDef.args.map(_.toVariable)), Tuple(args))
           def constraint(expr: Expr) = Implies(And(path.toSeq), expr)
-          val greaterThan = RelationComparator.sizeDecreasing(e1, e2)
-          val greaterEquals = RelationComparator.softDecreasing(e1, e2)
+          val greaterThan = relationComparator.sizeDecreasing(e1, e2)
+          val greaterEquals = relationComparator.softDecreasing(e1, e2)
           (fd, (constraint(greaterThan), constraint(greaterEquals)))
       })
     })

@@ -3,6 +3,7 @@ package termination
 
 import purescala.TreeOps._
 import purescala.Definitions._
+import scala.collection.mutable.{Map => MutableMap}
 
 class ComponentProcessor(checker: TerminationChecker) extends Processor(checker) {
 
@@ -16,7 +17,6 @@ class ComponentProcessor(checker: TerminationChecker) extends Processor(checker)
     val components : List[Set[FunDef]]        = ComponentBuilder.run(callGraph)
     val fdToSCC    : Map[FunDef, Set[FunDef]] = components.map(set => set.map(fd => fd -> set)).flatten.toMap
 
-    import scala.collection.mutable.{Map => MutableMap}
     val terminationCache : MutableMap[FunDef, Boolean] = MutableMap()
     def terminates(fd: FunDef) : Boolean = terminationCache.getOrElse(fd, {
       val scc = fdToSCC.getOrElse(fd, Set()) // functions that aren't called and don't call belong to no SCC

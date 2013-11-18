@@ -28,7 +28,7 @@ abstract class Processor(val checker: TerminationChecker) {
   def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = run(problem)
 }
 
-object Solvable {
+class Strengthener(relationComparator: RelationComparator) {
   import scala.collection.mutable.{Set => MutableSet}
 
   private val strengthened : MutableSet[FunDef] = MutableSet()
@@ -67,17 +67,20 @@ object Solvable {
     val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => solver.checker.program.transitivelyCalls(fd2, fd1))
     for (funDef <- sortedCallees if !strengthened(funDef) && funDef.hasBody && solver.checker.terminates(funDef).isGuaranteed) {
       // test if size is smaller or equal to input
-      val weekConstraintHolds = strengthenPostcondition(funDef, RelationComparator.softDecreasing)
+      val weekConstraintHolds = strengthenPostcondition(funDef, relationComparator.softDecreasing)
 
       if (weekConstraintHolds) {
         // try to improve postcondition with strictly smaller
-        strengthenPostcondition(funDef, RelationComparator.sizeDecreasing)
+        strengthenPostcondition(funDef, relationComparator.sizeDecreasing)
       }
     }
   }
 }
 
 trait Solvable { self: Processor =>
+
+  val structuralSize: StructuralSize
+  val strengthener: Strengthener
 
   override def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
     self.run(problem)
@@ -86,10 +89,10 @@ trait Solvable { self: Processor =>
   private var solvers: List[SolverFactory[Solver]] = null
   private var lastDefs: Set[FunDef] = Set()
 
-  def strengthenPostconditions(funDefs: Set[FunDef]) = Solvable.strengthenPostconditions(funDefs)(this)
+  def strengthenPostconditions(funDefs: Set[FunDef]) = strengthener.strengthenPostconditions(funDefs)(this)
 
   private def initSolvers {
-    val structDefs = StructuralSize.defs
+    val structDefs = structuralSize.defs
     if (structDefs != lastDefs || solvers == null) {
       val program     : Program         = self.checker.program
       val allDefs     : Seq[Definition] = program.mainObject.defs ++ structDefs
@@ -108,7 +111,7 @@ trait Solvable { self: Processor =>
     // make Leon unroll them forever...)
     val dangerousCallsMap : Map[Expr, Expr] = functionCallsOf(problem).collect({
       // extra definitions (namely size functions) are quaranteed to terminate because structures are non-looping
-      case fi @ FunctionInvocation(fd, args) if !StructuralSize.defs(fd) && !self.checker.terminates(fd).isGuaranteed =>
+      case fi @ FunctionInvocation(fd, args) if !structuralSize.defs(fd) && !self.checker.terminates(fd).isGuaranteed =>
         fi -> FreshIdentifier("noRun", true).setType(fi.getType).toVariable
     }).toMap
 
