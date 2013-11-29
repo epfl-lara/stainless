@@ -34,7 +34,9 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     var allVCs = Map[FunDef, List[VerificationCondition]]()
 
-    for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1 < fd2) if (functionsToAnalyse.isEmpty || functionsToAnalyse.contains(funDef.id.name))) {
+    println(purescala.ScalaPrinter(program))
+
+    for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1.getPos < fd2.getPos) if (functionsToAnalyse.isEmpty || functionsToAnalyse.contains(funDef.id.name))) {
 
       val tactic: Tactic =
         if(funDef.annotations.contains("induct")) {
@@ -66,7 +68,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val interruptManager = vctx.context.interruptManager
 
-    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1 < b._1); vcInfo <- vcs if !interruptManager.isInterrupted()) {
+    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos); vcInfo <- vcs if !interruptManager.isInterrupted()) {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
 

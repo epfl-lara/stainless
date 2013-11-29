@@ -10,7 +10,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
       (vc1,vc2) =>
         val id1 = vc1.funDef.id.name
         val id2 = vc2.funDef.id.name
-        if(id1 != id2) id1 < id2 else vc1 < vc2
+        if(id1 != id2) id1 < id2 else vc1.getPos < vc2.getPos
     }
 
   lazy val totalConditions : Int = conditions.size
@@ -59,7 +59,7 @@ object VerificationReport {
     "║ %-25s %-9s %9s %-8s %-10s %-7s %7s ║".format(
       fit(vc.funDef.id.toString, 25),
       vc.kind,
-      vc.posInfo,
+      vc.getPos,
       vc.status,
       vc.tacticStr,
       vc.solverStr,

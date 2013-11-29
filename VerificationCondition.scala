@@ -5,11 +5,12 @@ package leon.verification
 import leon.purescala.Trees._
 import leon.purescala.Definitions._
 import leon.purescala.Common._
+import leon.utils.{Position, Positioned}
 
 import leon.solvers._
 
 /** This is just to hold some history information. */
-class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: VCKind.Value, val tactic: Tactic, val info: String = "") extends ScalacPositional {
+class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: VCKind.Value, val tactic: Tactic, val info: String = "") extends Positioned {
   // None = still unknown
   // Some(true) = valid
   // Some(false) = valid

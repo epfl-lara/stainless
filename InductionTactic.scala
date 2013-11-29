@@ -131,7 +131,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
                     })
                     Implies(And(inductiveHypothesis), toProve)
                   }
-                new VerificationCondition(Implies(CaseClassInstanceOf(ccd, argAsVar), conditionForChild), function, VCKind.Precondition, this).setPosInfo(fi)
+                new VerificationCondition(Implies(CaseClassInstanceOf(ccd, argAsVar), conditionForChild), function, VCKind.Precondition, this).setPos(fi)
               }
               case _ => scala.sys.error("Abstract class has non-case class subtype")
             }))

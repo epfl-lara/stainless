@@ -48,7 +48,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
 
             withPrec
           }
-          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this.asInstanceOf[DefaultTactic]))
+          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this))
       }
     }
   
@@ -88,7 +88,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
               withPrecIfDefined(path, newCall),
               function,
               VCKind.Precondition,
-              this.asInstanceOf[DefaultTactic]).setPosInfo(fi)
+              this.asInstanceOf[DefaultTactic]).setPos(fi)
         }).toSeq
       } else {
         Seq.empty
@@ -120,7 +120,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
             withPrecIfDefined(pc._1),
             function,//if(function.fromLoop) function.parent.get else function,
             VCKind.ExhaustiveMatch,
-            this.asInstanceOf[DefaultTactic]).setPosInfo(pc._2.asInstanceOf[Error])
+            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
         ).toSeq
       } else {
         Seq.empty
@@ -152,7 +152,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
             withPrecIfDefined(pc._1),
             function, //if(function.fromLoop) function.parent.get else function,
             VCKind.MapAccess,
-            this.asInstanceOf[DefaultTactic]).setPosInfo(pc._2.asInstanceOf[Error])
+            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
         ).toSeq
       } else {
         Seq.empty
@@ -181,7 +181,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
             withPrecIfDefined(pc._1),
             function, //if(function.fromLoop) function.parent.get else function,
             VCKind.ArrayAccess,
-            this.asInstanceOf[DefaultTactic]).setPosInfo(pc._2.asInstanceOf[Error])
+            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
         ).toSeq
       } else {
         Seq.empty
