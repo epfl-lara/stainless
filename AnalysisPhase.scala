@@ -34,8 +34,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     var allVCs = Map[FunDef, List[VerificationCondition]]()
 
-    println(purescala.ScalaPrinter(program))
-
     for(funDef <- program.definedFunctions.toList.sortWith((fd1, fd2) => fd1.getPos < fd2.getPos) if (functionsToAnalyse.isEmpty || functionsToAnalyse.contains(funDef.id.name))) {
 
       val tactic: Tactic =
