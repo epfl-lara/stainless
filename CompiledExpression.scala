@@ -24,10 +24,10 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
 
   private val exprType = expression.getType
 
-  private val params = unit.env.params
+  private val params = unit.params
 
   def argsToJVM(args: Seq[Expr]): Seq[AnyRef] = {
-    args.map(unit.valueToJVM)
+    args.map(unit.exprToJVM)
   }
 
   def evalToJVM(args: Seq[AnyRef]): AnyRef = {
@@ -50,7 +50,7 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
   // We also need to reattach a type in some cases (sets, maps).
   def evalFromJVM(args: Seq[AnyRef]) : Expr = {
     try {
-      val result = unit.jvmToValue(evalToJVM(args))
+      val result = unit.jvmToExpr(evalToJVM(args))
       if(!result.isTyped) {
         result.setType(exprType)
       }

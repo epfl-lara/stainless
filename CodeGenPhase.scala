@@ -3,6 +3,8 @@
 package leon
 package codegen
 
+import scala.util.control.NonFatal
+
 import purescala.Common._
 import purescala.Definitions._
 
@@ -15,14 +17,12 @@ object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
   val description = "Compiles a Leon program into Java methods"
 
   def run(ctx : LeonContext)(p : Program) : CompilationResult = {
-    import CodeGeneration._
-
-    CompilationUnit.compileProgram(p) match {
-      case Some(unit) => 
-        //unit.writeClassFiles()
-        CompilationResult(successful = true)
-      case None =>
-        CompilationResult(successful = false)
+    try {
+      val unit = new CompilationUnit(ctx, p);
+      unit.writeClassFiles()
+      CompilationResult(successful = true)
+    } catch {
+      case NonFatal(e) => CompilationResult(successful = false)
     }
 
   } 
