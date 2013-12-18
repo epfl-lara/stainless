@@ -115,7 +115,9 @@ trait Solvable { self: Processor =>
         fi -> FreshIdentifier("noRun", true).setType(fi.getType).toVariable
     }).toMap
 
-    val expr = searchAndReplace(dangerousCallsMap.get, recursive=false)(problem)
+    // TODO: Fix&check without the recursive=false
+    //val expr = searchAndReplace(dangerousCallsMap.get, recursive=false)(problem)
+    val expr = postMap(dangerousCallsMap.lift)(problem)
 
     object Solved {
       def unapply(se: SolverFactory[Solver]): Option[Solution] = {
