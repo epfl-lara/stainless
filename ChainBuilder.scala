@@ -29,16 +29,16 @@ final case class Chain(chain: List[Relation]) {
 
   def loop(initialSubst: Map[Identifier, Expr] = Map(), finalSubst: Map[Identifier, Expr] = Map()) : Seq[Expr] = {
     def rec(relations: List[Relation], subst: Map[Identifier, Expr]): Seq[Expr] = relations match {
-      case Relation(_, path, FunctionInvocation(fd, args)) :: Nil =>
-        assert(fd == funDef)
+      case Relation(_, path, FunctionInvocation(tfd, args)) :: Nil =>
+        assert(tfd.fd == funDef)
         val newPath = path.map(replaceFromIDs(subst, _))
         val equalityConstraints = if (finalSubst.isEmpty) Seq() else {
           val newArgs = args.map(replaceFromIDs(subst, _))
-          (fd.args.map(arg => finalSubst(arg.id)) zip newArgs).map(p => Equals(p._1, p._2))
+          (tfd.args.map(arg => finalSubst(arg.id)) zip newArgs).map(p => Equals(p._1, p._2))
         }
         newPath ++ equalityConstraints
-      case Relation(_, path, FunctionInvocation(fd, args)) :: xs =>
-        val formalArgs = fd.args.map(_.id)
+      case Relation(_, path, FunctionInvocation(tfd, args)) :: xs =>
+        val formalArgs = tfd.args.map(_.id)
         val freshFormalArgVars = formalArgs.map(_.freshen.toVariable)
         val formalArgsMap: Map[Identifier, Expr] = (formalArgs zip freshFormalArgVars).toMap
         val (newPath, newArgs) = (path.map(replaceFromIDs(subst, _)), args.map(replaceFromIDs(subst, _)))
@@ -92,15 +92,15 @@ class ChainBuilder(relationBuilder: RelationBuilder) {
       def chains(partials: List[(Relation, List[Relation])]): List[List[Relation]] = if (partials.isEmpty) Nil else {
         // Note that chains in partials are reversed to profit from O(1) insertion
         val (results, newPartials) = partials.foldLeft(List[List[Relation]](),List[(Relation, List[Relation])]())({
-          case ((results, partials), (first, chain @ Relation(_, _, FunctionInvocation(fd, _)) :: xs)) =>
-            val cycle = relationBuilder.run(fd).contains(first)
+          case ((results, partials), (first, chain @ Relation(_, _, FunctionInvocation(tfd, _)) :: xs)) =>
+            val cycle = relationBuilder.run(tfd.fd).contains(first)
             // reverse the chain when "returning" it since we're working on reversed chains
             val newResults = if (cycle) chain.reverse :: results else results
 
             // Partial chains can fall back onto a transition that was already taken (thus creating a cycle
             // inside the chain). Since this cycle will be discovered elsewhere, such partial chains should be
             // dropped from the partial chain list
-            val transitions = relationBuilder.run(fd) -- chain.toSet
+            val transitions = relationBuilder.run(tfd.fd) -- chain.toSet
             val newPartials = transitions.map(transition => (first, transition :: chain)).toList
 
             (newResults, partials ++ newPartials)

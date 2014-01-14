@@ -25,7 +25,7 @@ class LoopProcessor(checker: TerminationChecker,
       val formula = And(path :+ Equals(Tuple(chain.funDef.args.map(_.toVariable)), Tuple(freshArgs)))
 
       val solvable = functionCallsOf(formula).forall({
-        case FunctionInvocation(fd, args) => checker.terminates(fd).isGuaranteed
+        case FunctionInvocation(tfd, args) => checker.terminates(tfd.fd).isGuaranteed
       })
 
       if (!solvable) None else getModel(formula) match {

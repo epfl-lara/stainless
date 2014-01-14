@@ -91,7 +91,7 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
         oe.map { e =>
           functionCallsOf(
             simplifyLets(
-              matchToIfThenElse(e))).filter(_.funDef == funDef)
+              matchToIfThenElse(e))).filter(_.tfd.fd == funDef)
         } getOrElse Set.empty[FunctionInvocation]
       }
 

@@ -10,7 +10,7 @@ import purescala.Common._
 import scala.collection.mutable.{Map => MutableMap}
 
 final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocation) {
-  override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.funDef.id + call.args.mkString("(",",",")") + ")"
+  override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.tfd.fd.id + call.args.mkString("(",",",")") + ")"
 }
 
 class RelationBuilder {

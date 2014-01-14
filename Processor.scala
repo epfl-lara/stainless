@@ -95,8 +95,8 @@ trait Solvable { self: Processor =>
     val structDefs = structuralSize.defs
     if (structDefs != lastDefs || solvers == null) {
       val program     : Program         = self.checker.program
-      val allDefs     : Seq[Definition] = program.mainObject.defs ++ structDefs
-      val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
+      val allDefs     : Seq[Definition] = program.mainModule.defs ++ structDefs
+      val newProgram  : Program         = program.copy(mainModule = program.mainModule.copy(defs = allDefs))
       val context     : LeonContext     = self.checker.context
 
       solvers = new TimeoutSolverFactory(SolverFactory(() => new FairZ3Solver(context, newProgram) with TimeoutSolver), 500) :: Nil
@@ -111,7 +111,7 @@ trait Solvable { self: Processor =>
     // make Leon unroll them forever...)
     val dangerousCallsMap : Map[Expr, Expr] = functionCallsOf(problem).collect({
       // extra definitions (namely size functions) are quaranteed to terminate because structures are non-looping
-      case fi @ FunctionInvocation(fd, args) if !structuralSize.defs(fd) && !self.checker.terminates(fd).isGuaranteed =>
+      case fi @ FunctionInvocation(tfd, args) if !structuralSize.defs(tfd.fd) && !self.checker.terminates(tfd.fd).isGuaranteed =>
         fi -> FreshIdentifier("noRun", true).setType(fi.getType).toVariable
     }).toMap
 

@@ -4,6 +4,7 @@ package termination
 import purescala.Trees._
 import purescala.TreeOps._
 import purescala.TypeTrees._
+import purescala.TypeTreeOps._
 import purescala.Definitions._
 import purescala.Common._
 
@@ -11,20 +12,27 @@ class ChainComparator(structuralSize: StructuralSize) {
   import structuralSize.size
 
   private object ContainerType {
-    def unapply(c: ClassType): Option[(CaseClassDef, Seq[(Identifier, TypeTree)])] = c match {
-      case CaseClassType(classDef) =>
-        if (classDef.fields.exists(arg => isSubtypeOf(arg.tpe, classDef.parent.map(AbstractClassType(_)).getOrElse(c)))) None
-        else if (classDef.hasParent && classDef.parent.get.knownChildren.size > 1) None
-        else Some((classDef, classDef.fields.map(arg => arg.id -> arg.tpe)))
+    def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
+      case act @ CaseClassType(classDef, tpes) =>
+        val ftps = act.fields
+        val parentType = classDef.parent.getOrElse(c)
+
+        if (ftps.exists(ad => isSubtypeOf(ad.tpe, parentType))) {
+          None
+        } else if (classDef.parent.map(_.classDef.knownChildren.size > 1).getOrElse(false)) {
+          None
+        } else {
+          Some((act, ftps.map{ ad => ad.id -> ad.tpe }))
+        }
       case _ => None
     }
   }
 
   def sizeDecreasing(e1: Expr, e2s: Seq[(Seq[Expr], Expr)]) : Expr = e1.getType match {
-    case ContainerType(def1, fields1) => Or(fields1.zipWithIndex map { case ((id1, type1), index) =>
-      sizeDecreasing(CaseClassSelector(def1, e1, id1), e2s.map { case (path, e2) =>
+    case ContainerType(ct1, fields1) => Or(fields1.zipWithIndex map { case ((id1, type1), index) =>
+      sizeDecreasing(CaseClassSelector(ct1, e1, id1), e2s.map { case (path, e2) =>
         e2.getType match {
-          case ContainerType(def2, fields2) => (path, CaseClassSelector(def2, e2, fields2(index)._1))
+          case ContainerType(ct2, fields2) => (path, CaseClassSelector(ct2, e2, fields2(index)._1))
           case _ => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
         }
       })
@@ -128,8 +136,8 @@ class ChainComparator(structuralSize: StructuralSize) {
         case NoEndpoint =>
           endpoint(thenn) min endpoint(elze)
         case ep =>
-          val terminatingThen = functionCallsOf(thenn).forall(fi => checker.terminates(fi.funDef).isGuaranteed)
-          val terminatingElze = functionCallsOf(elze).forall(fi => checker.terminates(fi.funDef).isGuaranteed)
+          val terminatingThen = functionCallsOf(thenn).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
+          val terminatingElze = functionCallsOf(elze).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
           val thenEndpoint = if (terminatingThen) ep max endpoint(thenn) else endpoint(thenn)
           val elzeEndpoint = if (terminatingElze) ep.inverse max endpoint(elze) else endpoint(elze)
           thenEndpoint max elzeEndpoint
