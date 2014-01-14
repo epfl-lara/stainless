@@ -48,16 +48,17 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
 
             withPrec
           }
-          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this))
+          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this).setPos(post))
       }
     }
   
     def generatePreconditions(function: FunDef) : Seq[VerificationCondition] = {
       val toRet = if(function.hasBody) {
-        val cleanBody = expandLets(matchToIfThenElse(function.body.get))
+        val pre = matchToIfThenElse(function.body.get)
+        val cleanBody = expandLets(pre)
 
         val allPathConds = collectWithPathCondition((t => t match {
-          case FunctionInvocation(fd, _) if(fd.hasPrecondition) => true
+          case FunctionInvocation(tfd, _) if(tfd.hasPrecondition) => true
           case _ => false
         }), cleanBody)
 
@@ -70,20 +71,13 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
         allPathConds.map(pc => {
           val path : Seq[Expr] = pc._1
           val fi = pc._2.asInstanceOf[FunctionInvocation]
-          val FunctionInvocation(fd, args) = fi
-          val prec : Expr = freshenLocals(matchToIfThenElse(fd.precondition.get))
-          val newLetIDs = fd.args.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-          val substMap = Map[Expr,Expr]((fd.args.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
+          val FunctionInvocation(tfd, args) = fi
+          val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
+          val newLetIDs = tfd.args.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
+          val substMap = Map[Expr,Expr]((tfd.args.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
           val newBody : Expr = replace(substMap, prec)
           val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
 
-          //if(fd.fromLoop)
-          //  new VerificationCondition(
-          //    withPrecIfDefined(path, newCall),
-          //    fd.parent.get,
-          //    if(fd == function) VCKind.InvariantInd else VCKind.InvariantInit,
-          //    this.asInstanceOf[DefaultTactic]).setPosInfo(fd)
-          //else
             new VerificationCondition(
               withPrecIfDefined(path, newCall),
               function,
