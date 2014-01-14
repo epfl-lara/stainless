@@ -54,7 +54,7 @@ trait CodeGeneration {
     case UnitType => "Z"
 
     case c : ClassType =>
-      leonClassToJVMClass(c.classDef).map(n => "L" + n + ";").getOrElse("Unsupported class " + c.id)
+      leonClassToJVMInfo(c.classDef).map { case (n, _) => "L" + n + ";" }.getOrElse("Unsupported class " + c.id)
 
     case _ : TupleType =>
       "L" + TupleClass + ";"
@@ -67,6 +67,9 @@ trait CodeGeneration {
 
     case ArrayType(base) =>
       "[" + typeToJVM(base)
+
+    case TypeParameter(_) =>
+      "Ljava/lang/Object;"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -107,7 +110,7 @@ trait CodeGeneration {
       case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType =>
+      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -166,32 +169,35 @@ trait CodeGeneration {
         ch << Ldc(1)
 
       // Case classes
-      case CaseClass(ccd, as) =>
-        val ccName = leonClassToJVMClass(ccd).getOrElse {
-          throw CompilationException("Unknown class : " + ccd.id)
+      case CaseClass(cct, as) =>
+        val (ccName, ccApplySig) = leonClassToJVMInfo(cct.classDef).getOrElse {
+          throw CompilationException("Unknown class : " + cct.id)
         }
-        // TODO FIXME It's a little ugly that we do it each time. Could be in env.
-        val consSig = "(" + ccd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
         ch << New(ccName) << DUP
-        for(a <- as) {
-          mkExpr(a, ch)
+        for((a, vd) <- as zip cct.classDef.fields) {
+          vd.tpe match {
+            case TypeParameter(_) =>
+              mkBoxedExpr(a, ch)
+            case _ =>
+              mkExpr(a, ch)
+          }
         }
-        ch << InvokeSpecial(ccName, constructorName, consSig)
+        ch << InvokeSpecial(ccName, constructorName, ccApplySig)
 
-      case CaseClassInstanceOf(ccd, e) =>
-        val ccName = leonClassToJVMClass(ccd).getOrElse {
-          throw CompilationException("Unknown class : " + ccd.id)
+      case CaseClassInstanceOf(cct, e) =>
+        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
+          throw CompilationException("Unknown class : " + cct.id)
         }
         mkExpr(e, ch)
         ch << InstanceOf(ccName)
 
-      case CaseClassSelector(ccd, e, sid) =>
+      case CaseClassSelector(cct, e, sid) =>
         mkExpr(e, ch)
-        val ccName = leonClassToJVMClass(ccd).getOrElse {
-          throw CompilationException("Unknown class : " + ccd.id)
+        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
+          throw CompilationException("Unknown class : " + cct.id)
         }
         ch << CheckCast(ccName)
-        instrumentedGetField(ch, ccd, sid)
+        instrumentedGetField(ch, cct, sid)
 
       // Tuples (note that instanceOf checks are in mkBranch)
       case Tuple(es) =>
@@ -290,17 +296,31 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << Label(al)
 
-      case FunctionInvocation(fd, as) =>
-        val (cn, mn, ms) = leonFunDefToJVMInfo(fd).getOrElse {
-          throw CompilationException("Unknown method : " + fd.id)
+      case FunctionInvocation(tfd, as) =>
+        val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
+          throw CompilationException("Unknown method : " + tfd.id)
         }
+
         if (params.requireMonitor) {
           ch << ALoad(0)
         }
-        for(a <- as) {
-          mkExpr(a, ch)
+
+        for((a, vd) <- as zip tfd.fd.args) {
+          vd.tpe match {
+            case TypeParameter(_) =>
+              mkBoxedExpr(a, ch)
+            case _ =>
+              mkExpr(a, ch)
+          }
         }
+
         ch << InvokeStatic(cn, mn, ms)
+
+        (tfd.fd.returnType, tfd.returnType) match {
+          case (TypeParameter(_), tpe)  =>
+            mkUnbox(tpe, ch)
+          case _ =>
+        }
 
       // Arithmetic
       case Plus(l, r) =>
@@ -466,7 +486,7 @@ trait CodeGeneration {
         ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
 
       case ct : ClassType =>
-        val cn = leonClassToJVMClass(ct.classDef).getOrElse {
+        val (cn, _) = leonClassToJVMInfo(ct.classDef).getOrElse {
           throw new CompilationException("Unsupported class type : " + ct)
         }
         ch << CheckCast(cn)
@@ -479,6 +499,8 @@ trait CodeGeneration {
 
       case mt : MapType =>
         ch << CheckCast(MapClass)
+
+      case tp : TypeParameter =>
 
       case _ =>
         throw new CompilationException("Unsupported type in unboxing : " + tpe)
@@ -586,9 +608,13 @@ trait CodeGeneration {
    */
   val instrumentedField = "__read"
 
-  def instrumentedGetField(ch: CodeHandler, ccd: CaseClassDef, id: Identifier)(implicit locals: Locals): Unit = {
+  def instrumentedGetField(ch: CodeHandler, cct: CaseClassType, id: Identifier)(implicit locals: Locals): Unit = {
+    val ccd = cct.classDef
+
     ccd.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
+        val expType = cct.fields(i).tpe
+
         val cName = defToJVMName(ccd)
         if (params.doInstrument) {
           ch << DUP << DUP
@@ -600,6 +626,12 @@ trait CodeGeneration {
           ch << PutField(cName, instrumentedField, "I")
         }
         ch << GetField(cName, f.id.name, typeToJVM(f.tpe))
+
+        f.tpe match {
+          case TypeParameter(_) =>
+            mkUnbox(expType, ch)
+          case _ =>
+        }
       case None =>
         throw CompilationException("Unknown field: "+ccd.id.name+"."+id)
     }
@@ -608,7 +640,8 @@ trait CodeGeneration {
   def compileCaseClassDef(ccd: CaseClassDef) {
 
     val cName = defToJVMName(ccd)
-    val pName = ccd.parent.map(parent => defToJVMName(parent))
+    val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
+    val cct = CaseClassType(ccd, ccd.tparams.map(_.tp))
 
     val cf = classes(ccd)
 
@@ -710,7 +743,7 @@ trait CodeGeneration {
         pech << DUP
         pech << Ldc(i)
         pech << ALoad(0)
-        instrumentedGetField(pech, ccd, f.id)(NoLocals)
+        instrumentedGetField(pech, cct, f.id)(NoLocals)
         mkBox(f.tpe, pech)(NoLocals)
         pech << AASTORE
       }
@@ -745,9 +778,9 @@ trait CodeGeneration {
 
         for(vd <- ccd.fields) {
           ech << ALoad(0)
-          instrumentedGetField(ech, ccd, vd.id)(NoLocals)
+          instrumentedGetField(ech, cct, vd.id)(NoLocals)
           ech << ALoad(castSlot)
-          instrumentedGetField(ech, ccd, vd.id)(NoLocals)
+          instrumentedGetField(ech, cct, vd.id)(NoLocals)
 
           typeToJVM(vd.id.getType) match {
             case "I" | "Z" =>

@@ -31,13 +31,13 @@ class CompilationUnit(val ctx: LeonContext,
 
     val cf = df match {
       case ccd: CaseClassDef =>
-        val pName = ccd.parent.map(parent => defToJVMName(parent))
+        val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
         new ClassFile(cName, pName)
 
       case acd: AbstractClassDef =>
         new ClassFile(cName, None)
 
-      case ob: ObjectDef =>
+      case ob: ModuleDef =>
         new ClassFile(cName, None)
 
       case _ =>
@@ -51,8 +51,13 @@ class CompilationUnit(val ctx: LeonContext,
     classes.find(_._2.className == name).map(_._1)
   }
 
-  def leonClassToJVMClass(cd: Definition): Option[String] = {
-    classes.get(cd).map(_.className)
+  def leonClassToJVMInfo(cd: ClassDef): Option[(String, String)] = {
+    classes.get(cd) match {
+      case Some(cf) =>
+        val sig = "(" + cd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+        Some((cf.className, sig))
+      case _ => None
+    }
   }
 
   // Returns className, methodName, methodSignature
@@ -64,9 +69,9 @@ class CompilationUnit(val ctx: LeonContext,
 
       val sig = "(" + monitorType + fd.args.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
 
-      leonClassToJVMClass(program.mainObject) match {
-        case Some(cn) =>
-          val res = (cn, fd.id.uniqueName, sig)
+      classes.get(program.mainModule) match {
+        case Some(cf) =>
+          val res = (cf.className, fd.id.uniqueName, sig)
           funDefInfo += fd -> res
           Some(res)
         case None =>
@@ -113,11 +118,14 @@ class CompilationUnit(val ctx: LeonContext,
     case BooleanLiteral(v) =>
       new java.lang.Boolean(v)
 
+    case GenericValue(tp, id) =>
+      e
+
     case Tuple(elems) =>
       tupleConstructor.newInstance(elems.map(exprToJVM).toArray).asInstanceOf[AnyRef]
 
-    case CaseClass(ccd, args) =>
-      caseClassConstructor(ccd) match {
+    case CaseClass(cct, args) =>
+      caseClassConstructor(cct.classDef) match {
         case Some(cons) =>
           cons.newInstance(args.map(exprToJVM).toArray : _*).asInstanceOf[AnyRef]
         case None =>
@@ -147,7 +155,7 @@ class CompilationUnit(val ctx: LeonContext,
 
       jvmClassToLeonClass(e.getClass.getName) match {
         case Some(cc: CaseClassDef) =>
-          CaseClass(cc, fields.map(jvmToExpr))
+          CaseClass(CaseClassType(cc, Nil), fields.map(jvmToExpr))
         case _ =>
           throw CompilationException("Unsupported return value : " + e)
       }
@@ -157,6 +165,9 @@ class CompilationUnit(val ctx: LeonContext,
         jvmToExpr(tpl.get(i))
       }
       Tuple(elems)
+
+    case gv : GenericValue =>
+      gv
 
     case set : runtime.Set =>
       FiniteSet(set.getElements().asScala.map(jvmToExpr).toSeq)
@@ -226,7 +237,7 @@ class CompilationUnit(val ctx: LeonContext,
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType =>
+      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -240,8 +251,8 @@ class CompilationUnit(val ctx: LeonContext,
     new CompiledExpression(this, cf, e, args)
   }
 
-  def compileMainObject() {
-    val cf = classes(program.mainObject)
+  def compileMainModule() {
+    val cf = classes(program.mainModule)
 
     cf.addDefaultConstructor
 
@@ -295,7 +306,7 @@ class CompilationUnit(val ctx: LeonContext,
       defineClass(single)
     }
 
-    defineClass(program.mainObject)
+    defineClass(program.mainModule)
   }
 
   def compile() {
@@ -312,7 +323,7 @@ class CompilationUnit(val ctx: LeonContext,
       compileCaseClassDef(single)
     }
 
-    compileMainObject()
+    compileMainModule()
 
     classes.values.foreach(loader.register _)
   }
