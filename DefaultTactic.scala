@@ -165,18 +165,28 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
       val toRet = if (function.hasBody) {
         val cleanBody = matchToIfThenElse(function.body.get)
 
-        val allPathConds = collectWithPathCondition((t => t match {
-          case Error("Index out of bound") => true
-          case _ => false
-        }), cleanBody)
+        val allPathConds = new CollectorWithPaths({
+          case expr@ArraySelect(a, i) => (expr, a, i)
+          case expr@ArrayUpdated(a, i, _) => (expr, a, i)
+        }).traverse(cleanBody)
 
-        def withPrecIfDefined(conds: Seq[Expr]) : Expr = if (function.hasPrecondition) {
-          Not(And(mapGetWithChecks(matchToIfThenElse(function.precondition.get)), And(conds)))
-        } else {
-          Not(And(conds))
+        val arrayAccessConditions = allPathConds.map{
+          case ((expr, array, index), pathCond) => {
+            val length = ArrayLength(array)
+            val negative = LessThan(index, IntLiteral(0))
+            val tooBig = GreaterEquals(index, length)
+            (And(pathCond, Or(negative, tooBig)), expr)
+          }
         }
 
-        allPathConds.map(pc =>
+        def withPrecIfDefined(conds: Expr) : Expr = if (function.hasPrecondition) {
+          Not(And(mapGetWithChecks(matchToIfThenElse(function.precondition.get)), conds))
+        } else {
+          Not(conds)
+        }
+
+
+        arrayAccessConditions.map(pc =>
           new VerificationCondition(
             withPrecIfDefined(pc._1),
             function, //if(function.fromLoop) function.parent.get else function,
@@ -194,34 +204,42 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
       generateMapAccessChecks(function)
     }
 
-    // prec: there should be no lets and no pattern-matching in this expression
     def collectWithPathCondition(matcher: Expr=>Boolean, expression: Expr) : Set[(Seq[Expr],Expr)] = {
-      var collected : Set[(Seq[Expr],Expr)] = Set.empty
-
-      def rec(expr: Expr, path: List[Expr]) : Unit = {
-        if(matcher(expr)) {
-          collected = collected + ((path.reverse, expr))
-        }
-
-        expr match {
-          case Let(i,e,b) => {
-            rec(e, path)
-            rec(b, Equals(Variable(i), e) :: path)
-          }
-          case IfExpr(cond, thenn, elze) => {
-            rec(cond, path)
-            rec(thenn, cond :: path)
-            rec(elze, Not(cond) :: path)
-          }
-          case NAryOperator(args, _) => args.foreach(rec(_, path))
-          case BinaryOperator(t1, t2, _) => rec(t1, path); rec(t2, path)
-          case UnaryOperator(t, _) => rec(t, path)
-          case t : Terminal => ;
-          case _ => scala.sys.error("Unhandled tree in collectWithPathCondition : " + expr)
-        }
-      }
-
-      rec(expression, Nil)
-      collected
+      new CollectorWithPaths({ 
+        case e if matcher(e) => e 
+      }).traverse(expression).map{ 
+        case (e, And(es)) => (es, e)
+        case (e1, e2) => (Seq(e2), e1)
+      }.toSet
     }
+    // prec: there should be no lets and no pattern-matching in this expression
+    //def collectWithPathCondition(matcher: Expr=>Boolean, expression: Expr) : Set[(Seq[Expr],Expr)] = {
+    //  var collected : Set[(Seq[Expr],Expr)] = Set.empty
+
+    //  def rec(expr: Expr, path: List[Expr]) : Unit = {
+    //    if(matcher(expr)) {
+    //      collected = collected + ((path.reverse, expr))
+    //    }
+
+    //    expr match {
+    //      case Let(i,e,b) => {
+    //        rec(e, path)
+    //        rec(b, Equals(Variable(i), e) :: path)
+    //      }
+    //      case IfExpr(cond, thenn, elze) => {
+    //        rec(cond, path)
+    //        rec(thenn, cond :: path)
+    //        rec(elze, Not(cond) :: path)
+    //      }
+    //      case NAryOperator(args, _) => args.foreach(rec(_, path))
+    //      case BinaryOperator(t1, t2, _) => rec(t1, path); rec(t2, path)
+    //      case UnaryOperator(t, _) => rec(t, path)
+    //      case t : Terminal => ;
+    //      case _ => scala.sys.error("Unhandled tree in collectWithPathCondition : " + expr)
+    //    }
+    //  }
+
+    //  rec(expression, Nil)
+    //  collected
+    //}
 }
