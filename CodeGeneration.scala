@@ -346,6 +346,30 @@ trait CodeGeneration {
           case _ => AALOAD
         })
 
+      case au @ ArrayUpdated(a, i, v) =>
+        mkExpr(a, ch)
+        ch << DUP
+        ch << ARRAYLENGTH
+        val storeInstr = a.getType match {
+          case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+          case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+          case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
+          case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
+        } 
+        //srcArrary and targetArray is on the stack
+        ch << DUP_X1 //insert targetArray under srcArray
+        ch << Ldc(0) << SWAP //srcArray, 0, targetArray
+        ch << DUP << ARRAYLENGTH //targetArray, length on stack
+        ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
+        ch << InvokeStatic("java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V")
+
+        //targetArray remains on the stack
+        ch << DUP
+        mkExpr(i, ch)
+        mkExpr(v, ch)
+        ch << storeInstr
+        //returns targetArray
+
       case a @ FiniteArray(es) =>
         ch << Ldc(es.size)
         val storeInstr = a.getType match {
