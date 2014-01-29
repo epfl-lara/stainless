@@ -151,7 +151,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val allSolvers = Map(
       "fairz3" -> SolverFactory(() => new FairZ3Solver(ctx, program) with TimeoutSolver),
-      "enum"   -> SolverFactory(() => new EnumerationSolver(ctx, program) with TimeoutSolver)
+      "enum"   -> SolverFactory(() => new EnumerationSolver(ctx, program) with TimeoutSolver),
+      "smt"    -> SolverFactory(() => new smtlib.SMTLIBSolver(ctx, program, new _root_.smtlib.interpreters.Z3Interpreter))
     )
 
     val reporter = ctx.reporter
@@ -183,7 +184,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     } else {
       SolverFactory( () => new PortfolioSolver(ctx, solversToUse.values.toSeq) with TimeoutSolver)
     }
-
 
     val mainSolver = timeout match {
       case Some(sec) =>
