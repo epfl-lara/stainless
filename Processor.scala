@@ -99,7 +99,7 @@ trait Solvable { self: Processor =>
       val newProgram  : Program         = program.copy(mainObject = program.mainObject.copy(defs = allDefs))
       val context     : LeonContext     = self.checker.context
 
-      solvers = new TimeoutSolverFactory(SolverFactory(() => new FairZ3Solver(context, newProgram)), 500) :: Nil
+      solvers = new TimeoutSolverFactory(SolverFactory(() => new FairZ3Solver(context, newProgram) with TimeoutSolver), 500) :: Nil
     }
   }
 
