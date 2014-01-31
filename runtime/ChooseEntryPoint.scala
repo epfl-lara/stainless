@@ -9,6 +9,7 @@ import purescala.Definitions._
 import purescala.Trees.{Tuple => LeonTuple, _}
 import purescala.TreeOps.valuateWithModel
 import purescala.TypeTrees._
+import solvers.TimeoutSolver
 import solvers.z3._
 
 import codegen.CompilationUnit
@@ -41,7 +42,7 @@ object ChooseEntryPoint {
 
     val tStart = System.currentTimeMillis;
 
-    val solver = new FairZ3Solver(ctx, program).setTimeout(10000L)
+    val solver = (new FairZ3Solver(ctx, program) with TimeoutSolver).setTimeout(10000L)
 
     val inputsMap = (p.as zip inputs).map {
       case (id, v) =>
