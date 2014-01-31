@@ -151,7 +151,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val reporter = ctx.reporter
 
     val baseFactories = Seq(
-      SolverFactory(() => new FairZ3Solver(ctx, program))
+      SolverFactory(() => new FairZ3Solver(ctx, program) with TimeoutSolver)
     )
 
     val solverFactories = timeout match {
