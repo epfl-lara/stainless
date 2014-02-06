@@ -13,7 +13,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
   override val description = "Induction tactic for suitable functions"
   override val shortDescription = "induction"
 
-  private def firstAbsClassDef(args: Seq[VarDecl]) : Option[(AbstractClassType, VarDecl)] = {
+  private def firstAbsClassDef(args: Seq[ValDef]) : Option[(AbstractClassType, ValDef)] = {
     args.map(vd => (vd.getType, vd)).collect {
       case (act: AbstractClassType, vd) => (act, vd)
     }.headOption
@@ -28,7 +28,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
 
   override def generatePostconditions(funDef: FunDef) : Seq[VerificationCondition] = {
     assert(funDef.body.isDefined)
-    firstAbsClassDef(funDef.args) match {
+    firstAbsClassDef(funDef.params) match {
       case Some((cct, arg)) =>
         val prec = funDef.precondition
         val optPost = funDef.postcondition
@@ -71,7 +71,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
 
   override def generatePreconditions(function: FunDef) : Seq[VerificationCondition] = {
     val defaultPrec = super.generatePreconditions(function)
-    firstAbsClassDef(function.args) match {
+    firstAbsClassDef(function.params) match {
       case Some((cct, arg)) => {
         val toRet = if(function.hasBody) {
           val parentType = cct
@@ -98,8 +98,8 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
               val selectors = selectorsOfParentType(parentType, cct, argAsVar)
               
               val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-              val newLetIDs = tfd.args.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-              val substMap = Map[Expr,Expr]((tfd.args.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
+              val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
+              val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
               val newBody : Expr = replace(substMap, prec)
               val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
 
@@ -111,8 +111,8 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
                 else {
                   val inductiveHypothesis = (for (sel <- selectors) yield {
                     val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-                    val newLetIDs = tfd.args.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-                    val substMap = Map[Expr,Expr]((tfd.args.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
+                    val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
+                    val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
                     val newBody : Expr = replace(substMap, prec)
                     val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
 

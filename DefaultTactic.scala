@@ -73,8 +73,8 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
           val fi = pc._2.asInstanceOf[FunctionInvocation]
           val FunctionInvocation(tfd, args) = fi
           val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-          val newLetIDs = tfd.args.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-          val substMap = Map[Expr,Expr]((tfd.args.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
+          val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
+          val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
           val newBody : Expr = replace(substMap, prec)
           val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
 
