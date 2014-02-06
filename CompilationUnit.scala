@@ -24,7 +24,8 @@ class CompilationUnit(val ctx: LeonContext,
 
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
-  var classes = Map[Definition, ClassFile]()
+  var classes     = Map[Definition, ClassFile]()
+  var defToModule = Map[Definition, ModuleDef]()
 
   def defineClass(df: Definition) {
     val cName = defToJVMName(df)
@@ -67,11 +68,11 @@ class CompilationUnit(val ctx: LeonContext,
     funDefInfo.get(fd).orElse {
       val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
 
-      val sig = "(" + monitorType + fd.args.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
+      val sig = "(" + monitorType + fd.params.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
 
-      classes.get(program.mainModule) match {
+      defToModule.get(fd).flatMap(m => classes.get(m)) match {
         case Some(cf) =>
-          val res = (cf.className, fd.id.uniqueName, sig)
+          val res = (cf.className, idToSafeJVMName(fd.id), sig)
           funDefInfo += fd -> res
           Some(res)
         case None =>
@@ -251,8 +252,8 @@ class CompilationUnit(val ctx: LeonContext,
     new CompiledExpression(this, cf, e, args)
   }
 
-  def compileMainModule() {
-    val cf = classes(program.mainModule)
+  def compileModule(module: ModuleDef) {
+    val cf = classes(module)
 
     cf.addDefaultConstructor
 
@@ -262,23 +263,21 @@ class CompilationUnit(val ctx: LeonContext,
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
 
-    // This assumes that all functions of a given program get compiled
-    // as methods of a single class file.
-    for(funDef <- program.definedFunctions;
+    for(funDef <- module.definedFunctions;
         (_,mn,_) <- leonFunDefToJVMInfo(funDef)) {
 
-      val argsTypes = funDef.args.map(a => typeToJVM(a.tpe))
+      val paramsTypes = funDef.params.map(a => typeToJVM(a.tpe))
 
-      val realArgs = if (params.requireMonitor) {
-        ("L" + MonitorClass + ";") +: argsTypes
+      val realParams = if (params.requireMonitor) {
+        ("L" + MonitorClass + ";") +: paramsTypes
       } else {
-        argsTypes
+        paramsTypes
       }
 
       val m = cf.addMethod(
         typeToJVM(funDef.returnType),
         mn,
-        realArgs : _*
+        realParams : _*
       )
       m.setFlags((
         METHOD_ACC_PUBLIC |
@@ -287,43 +286,52 @@ class CompilationUnit(val ctx: LeonContext,
       ).asInstanceOf[U2])
 
       compileFunDef(funDef, m.codeHandler)
-
     }
   }
 
 
   def init() {
     // First define all classes
-    for ((parent, children) <- program.algebraicDataTypes) {
-      defineClass(parent)
+    for (m <- program.modules) {
+      for ((parent, children) <- m.algebraicDataTypes) {
+        defineClass(parent)
 
-      for (c <- children) {
-        defineClass(c)
+        for (c <- children) {
+          defineClass(c)
+        }
       }
-    }
 
-    for(single <- program.singleCaseClasses) {
-      defineClass(single)
-    }
+      for(single <- m.singleCaseClasses) {
+        defineClass(single)
+      }
 
-    defineClass(program.mainModule)
+      defineClass(m)
+    }
   }
 
   def compile() {
     // Compile everything
-    for ((parent, children) <- program.algebraicDataTypes) {
-      compileAbstractClassDef(parent)
+    for (m <- program.modules) {
+      for ((parent, children) <- m.algebraicDataTypes) {
+        compileAbstractClassDef(parent)
 
-      for (c <- children) {
-        compileCaseClassDef(c)
+        for (c <- children) {
+          compileCaseClassDef(c)
+        }
+      }
+
+      for(single <- m.singleCaseClasses) {
+        compileCaseClassDef(single)
+      }
+
+      for(funDef <- m.definedFunctions) {
+        defToModule += funDef -> m
       }
     }
 
-    for(single <- program.singleCaseClasses) {
-      compileCaseClassDef(single)
+    for (m <- program.modules) {
+      compileModule(m)
     }
-
-    compileMainModule()
 
     classes.values.foreach(loader.register _)
   }

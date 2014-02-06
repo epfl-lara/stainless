@@ -44,7 +44,8 @@ trait CodeGeneration {
   private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
   private[codegen] val MonitorClass              = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
 
-  def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + d.id.uniqueName
+  def idToSafeJVMName(id: Identifier) = id.uniqueName.replaceAll("\\.", "\\$")
+  def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
 
   def typeToJVM(tpe : TypeTree) : String = tpe match {
     case Int32Type => "I"
@@ -78,9 +79,9 @@ trait CodeGeneration {
   // Generates method body, and freezes the handler at the end.
   def compileFunDef(funDef : FunDef, ch : CodeHandler) {
     val newMapping = if (params.requireMonitor) {
-        funDef.args.map(_.id).zipWithIndex.toMap.mapValues(_ + 1)
+        funDef.params.map(_.id).zipWithIndex.toMap.mapValues(_ + 1)
       } else {
-        funDef.args.map(_.id).zipWithIndex.toMap
+        funDef.params.map(_.id).zipWithIndex.toMap
       }
 
     val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body"))
@@ -305,7 +306,7 @@ trait CodeGeneration {
           ch << ALoad(0)
         }
 
-        for((a, vd) <- as zip tfd.fd.args) {
+        for((a, vd) <- as zip tfd.fd.params) {
           vd.tpe match {
             case TypeParameter(_) =>
               mkBoxedExpr(a, ch)
