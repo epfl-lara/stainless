@@ -23,7 +23,7 @@ class StructuralSize() {
       sizeFunctionCache.get(argumentType) match {
         case Some(fd) => fd
         case None =>
-          val argument = VarDecl(FreshIdentifier("x"), argumentType)
+          val argument = ValDef(FreshIdentifier("x"), argumentType)
           val fd = new FunDef(FreshIdentifier("size", true), Nil, Int32Type, Seq(argument))
           val tfd = fd.typed(Nil)
           sizeFunctionCache(argumentType) = tfd

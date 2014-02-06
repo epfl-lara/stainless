@@ -10,7 +10,7 @@ class ComponentProcessor(checker: TerminationChecker) extends Processor(checker)
   val name: String = "Component Processor"
 
   def run(problem: Problem) = {
-    val pairs      : Set[(FunDef, FunDef)]    = checker.program.callGraph.filter({
+    val pairs      : Set[(FunDef, FunDef)]    = checker.program.callGraph.allCalls.filter({
       case (fd1, fd2) => problem.funDefs(fd1) && problem.funDefs(fd2)
     })
     val callGraph  : Map[FunDef,Set[FunDef]]  = pairs.groupBy(_._1).mapValues(_.map(_._2))

@@ -19,17 +19,17 @@ class LoopProcessor(checker: TerminationChecker,
     val chains    : Set[Chain] = allChains.filter(chain => isWeakSAT(And(chain reentrant chain)))
 
     val nonTerminating = chains.flatMap({ chain =>
-      val freshArgs : Seq[Expr] = chain.funDef.args.map(arg => arg.id.freshen.toVariable)
-      val finalBindings = (chain.funDef.args.map(_.id) zip freshArgs).toMap
+      val freshArgs : Seq[Expr] = chain.funDef.params.map(arg => arg.id.freshen.toVariable)
+      val finalBindings = (chain.funDef.params.map(_.id) zip freshArgs).toMap
       val path = chain.loop(finalSubst = finalBindings)
-      val formula = And(path :+ Equals(Tuple(chain.funDef.args.map(_.toVariable)), Tuple(freshArgs)))
+      val formula = And(path :+ Equals(Tuple(chain.funDef.params.map(_.toVariable)), Tuple(freshArgs)))
 
       val solvable = functionCallsOf(formula).forall({
         case FunctionInvocation(tfd, args) => checker.terminates(tfd.fd).isGuaranteed
       })
 
       if (!solvable) None else getModel(formula) match {
-        case Some(map) => Some(chain.funDef -> chain.funDef.args.map(arg => map(arg.id)))
+        case Some(map) => Some(chain.funDef -> chain.funDef.params.map(arg => map(arg.id)))
         case _ => None
       }
     }).toMap

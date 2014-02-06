@@ -83,10 +83,10 @@ class ChainProcessor(checker: TerminationChecker,
     strengthenPostconditions(problem.funDefs)
 
     def buildLoops(fd: FunDef, cluster: Set[Chain]): (Expr, Seq[(Seq[Expr], Expr)]) = {
-      val e1 = Tuple(fd.args.map(_.toVariable))
+      val e1 = Tuple(fd.params.map(_.toVariable))
       val e2s = cluster.toSeq.map({ chain =>
-        val freshArgs : Seq[Expr] = fd.args.map(arg => arg.id.freshen.toVariable)
-        val finalBindings = (fd.args.map(_.id) zip freshArgs).toMap
+        val freshArgs : Seq[Expr] = fd.params.map(arg => arg.id.freshen.toVariable)
+        val finalBindings = (fd.params.map(_.id) zip freshArgs).toMap
         val path = chain.loop(finalSubst = finalBindings)
         path -> Tuple(freshArgs)
       })
@@ -122,7 +122,7 @@ class ChainProcessor(checker: TerminationChecker,
     val (okPairs, nokPairs) = numericCleared.partition(_._2.isEmpty)
     val nok = nokPairs.map(_._1).toSet
     val (ok, transitiveNok) = okPairs.map(_._1).partition({ fd =>
-      (checker.program.transitiveCallees(fd) intersect nok).isEmpty
+      (checker.program.callGraph.transitiveCallees(fd) intersect nok).isEmpty
     })
     val allNok = nok ++ transitiveNok
     val newProblems = if (allNok.nonEmpty) List(Problem(allNok)) else Nil

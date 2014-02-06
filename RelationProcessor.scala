@@ -23,7 +23,7 @@ class RelationProcessor(checker: TerminationChecker,
     val formulas = problem.funDefs.map({ funDef =>
       funDef -> relationBuilder.run(funDef).collect({
         case Relation(_, path, FunctionInvocation(tfd, args)) if problem.funDefs(tfd.fd) =>
-          val (e1, e2) = (Tuple(funDef.args.map(_.toVariable)), Tuple(args))
+          val (e1, e2) = (Tuple(funDef.params.map(_.toVariable)), Tuple(args))
           def constraint(expr: Expr) = Implies(And(path.toSeq), expr)
           val greaterThan = relationComparator.sizeDecreasing(e1, e2)
           val greaterEquals = relationComparator.softDecreasing(e1, e2)

@@ -34,11 +34,11 @@ final case class Chain(chain: List[Relation]) {
         val newPath = path.map(replaceFromIDs(subst, _))
         val equalityConstraints = if (finalSubst.isEmpty) Seq() else {
           val newArgs = args.map(replaceFromIDs(subst, _))
-          (tfd.args.map(arg => finalSubst(arg.id)) zip newArgs).map(p => Equals(p._1, p._2))
+          (tfd.params.map(arg => finalSubst(arg.id)) zip newArgs).map(p => Equals(p._1, p._2))
         }
         newPath ++ equalityConstraints
       case Relation(_, path, FunctionInvocation(tfd, args)) :: xs =>
-        val formalArgs = tfd.args.map(_.id)
+        val formalArgs = tfd.params.map(_.id)
         val freshFormalArgVars = formalArgs.map(_.freshen.toVariable)
         val formalArgsMap: Map[Identifier, Expr] = (formalArgs zip freshFormalArgVars).toMap
         val (newPath, newArgs) = (path.map(replaceFromIDs(subst, _)), args.map(replaceFromIDs(subst, _)))
@@ -48,7 +48,7 @@ final case class Chain(chain: List[Relation]) {
     }
 
     val subst : Map[Identifier, Expr] = if (initialSubst.nonEmpty) initialSubst else {
-      funDef.args.map(arg => arg.id -> arg.toVariable).toMap
+      funDef.params.map(arg => arg.id -> arg.toVariable).toMap
     }
     val Chain(relations) = this
     rec(relations, subst)
@@ -56,7 +56,7 @@ final case class Chain(chain: List[Relation]) {
 
   def reentrant(other: Chain) : Seq[Expr] = {
     assert(funDef == other.funDef)
-    val bindingSubst : Map[Identifier, Expr] = funDef.args.map({
+    val bindingSubst : Map[Identifier, Expr] = funDef.params.map({
       arg => arg.id -> arg.id.freshen.toVariable
     }).toMap
     val firstLoop = loop(finalSubst = bindingSubst)
@@ -68,7 +68,7 @@ final case class Chain(chain: List[Relation]) {
     def rec(list: List[Relation], mapping: Map[Identifier, Expr]): List[Expr] = list match {
       case Relation(_, _, FunctionInvocation(fd, args)) :: xs =>
         val mappedArgs = args.map(replaceFromIDs(mapping, _))
-        val newMapping = fd.args.map(_.id).zip(mappedArgs).toMap
+        val newMapping = fd.params.map(_.id).zip(mappedArgs).toMap
         // We assume we have a body at this point. It would be weird to have gotten here without one...
         val expr = hoistIte(expandLets(matchToIfThenElse(fd.body.get)))
         val inlinedExpr = replaceFromIDs(newMapping, expr)
@@ -77,7 +77,7 @@ final case class Chain(chain: List[Relation]) {
     }
 
     val body = hoistIte(expandLets(matchToIfThenElse(funDef.body.get)))
-    body :: rec(chain, funDef.args.map(arg => arg.id -> arg.toVariable).toMap)
+    body :: rec(chain, funDef.params.map(arg => arg.id -> arg.toVariable).toMap)
   }
 }
 

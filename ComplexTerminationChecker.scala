@@ -41,7 +41,7 @@ class ComplexTerminationChecker(context: LeonContext, _program: Program) extends
     case None => {
       val guarantee = brokenMap.get(funDef) match {
         case Some((reason, args)) => LoopsGivenInputs(reason, args)
-        case None => program.transitiveCallees(funDef) intersect brokenMap.keys.toSet match {
+        case None => program.callGraph.transitiveCallees(funDef) intersect brokenMap.keys.toSet match {
           case set if set.nonEmpty => CallsNonTerminating(set)
           case _ => if (pipeline.clear(funDef)) clearedMap.get(funDef) match {
             case Some(reason) => Terminates(reason)
