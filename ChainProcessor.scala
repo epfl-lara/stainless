@@ -18,7 +18,7 @@ class ChainProcessor(checker: TerminationChecker,
   val chainComparator = new ChainComparator(structuralSize)
 
   def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
-    implicit val debugSection = DebugSectionTermination
+    implicit val debugSection = utils.DebugSectionTermination
 
     reporter.debug("- Running ChainProcessor")
     val allChainMap       : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> chainBuilder.run(funDef)).toMap

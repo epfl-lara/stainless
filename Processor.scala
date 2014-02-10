@@ -1,6 +1,8 @@
 package leon
 package termination
 
+import utils._
+
 import purescala.Trees._
 import purescala.TreeOps._
 import purescala.Common._
