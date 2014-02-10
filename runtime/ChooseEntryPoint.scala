@@ -68,7 +68,7 @@ object ChooseEntryPoint {
           val total = System.currentTimeMillis-tStart;
 
           ctx.reporter.debug("Synthesis took "+total+"ms")
-          ctx.reporter.debug("Finished synthesis with "+leonRes)
+          ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))
 
           unit.exprToJVM(leonRes)
         case Some(false) =>
