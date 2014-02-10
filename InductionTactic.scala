@@ -13,16 +13,10 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
   override val description = "Induction tactic for suitable functions"
   override val shortDescription = "induction"
 
-  private def firstAbsClassDef(args: Seq[VarDecl]) : Option[(AbstractClassDef, VarDecl)] = {
-    val filtered = args.filter(arg =>
-      arg.getType match {
-        case AbstractClassType(_, _) => true
-        case _ => false
-      })
-    if (filtered.size == 0) None else (filtered.head.getType match {
-      case AbstractClassType(classDef, _) => Some((classDef, filtered.head))
-      case _ => scala.sys.error("This should not happen.")
-    })
+  private def firstAbsClassDef(args: Seq[VarDecl]) : Option[(AbstractClassType, VarDecl)] = {
+    args.map(vd => (vd.getType, vd)).collect {
+      case (act: AbstractClassType, vd) => (act, vd)
+    }.headOption
   } 
 
   private def selectorsOfParentType(parentType: ClassType, cct: CaseClassType, expr: Expr) : Seq[Expr] = {
@@ -34,14 +28,13 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
 
   override def generatePostconditions(funDef: FunDef) : Seq[VerificationCondition] = {
     assert(funDef.body.isDefined)
-    val defaultPost = super.generatePostconditions(funDef)
     firstAbsClassDef(funDef.args) match {
-      case Some((classDef, arg)) =>
+      case Some((cct, arg)) =>
         val prec = funDef.precondition
         val optPost = funDef.postcondition
         val body = matchToIfThenElse(funDef.body.get)
         val argAsVar = arg.toVariable
-        val parentType = classDefToClassType(classDef)
+        val parentType = cct
 
         optPost match {
           case None =>
@@ -66,22 +59,22 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
                   })
                   Implies(And(inductiveHypothesis), withPrec)
                 }
-              new VerificationCondition(Implies(CaseClassInstanceOf(cct, argAsVar), conditionForChild), funDef, VCKind.Postcondition, this)
+              new VerificationCondition(Implies(CaseClassInstanceOf(cct, argAsVar), conditionForChild), funDef, VCKind.Postcondition, this).setPos(funDef)
             }
         }
 
       case None =>
-        reporter.warning("Induction tactic currently supports exactly one argument of abstract class type")
-        defaultPost
+        reporter.warning("Could not find abstract class type argument to induct on")
+        super.generatePostconditions(funDef)
     }
   }
 
   override def generatePreconditions(function: FunDef) : Seq[VerificationCondition] = {
     val defaultPrec = super.generatePreconditions(function)
     firstAbsClassDef(function.args) match {
-      case Some((classDef, arg)) => {
+      case Some((cct, arg)) => {
         val toRet = if(function.hasBody) {
-          val parentType = classDefToClassType(classDef)
+          val parentType = cct
           val cleanBody = expandLets(matchToIfThenElse(function.body.get))
 
           val allPathConds = collectWithPathCondition((t => t match {
