@@ -84,7 +84,7 @@ trait CodeGeneration {
         funDef.params.map(_.id).zipWithIndex.toMap
       }
 
-    val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body"))
+    val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
 
     val bodyWithPre = if(funDef.hasPrecondition && params.checkContracts) {
       IfExpr(funDef.precondition.get, body, Error("Precondition failed"))
