@@ -1,6 +1,6 @@
 /* Copyright 2009-2013 EPFL, Lausanne */
 
-import leon.Utils._
+import leon.lang._
 
 /** This benchmarks tests some potential issues with the legacy "bestRealType" function, which was original introduced to work around
  * Scala's well-too-precise-for-Leon type inference. */

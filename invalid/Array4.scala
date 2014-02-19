@@ -1,6 +1,6 @@
 /* Copyright 2009-2013 EPFL, Lausanne */
 
-import leon.Utils._
+import leon.lang._
 
 object Array4 {
 

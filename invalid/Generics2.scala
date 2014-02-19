@@ -1,4 +1,4 @@
-import leon.Utils._
+import leon.lang._
 
 object Generics1 {
   abstract class List[T]

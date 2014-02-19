@@ -1,4 +1,4 @@
-import leon.Utils._
+import leon.lang._
 object Numerals {
   def foo(): Int = {
     val b : Array[Int] = Array[Int](1,2,3)

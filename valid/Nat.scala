@@ -1,5 +1,5 @@
-import leon.Annotations._
-import leon.Utils._
+import leon.annotation._
+import leon.lang._
 
 object Nat {
   sealed abstract class Nat

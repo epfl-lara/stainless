@@ -1,7 +1,7 @@
 /* Copyright 2009-2013 EPFL, Lausanne */
 
-import leon.Annotations._
-import leon.Utils._
+import leon.annotation._
+import leon.lang._
 
 object Choose1 {
     sealed abstract class List

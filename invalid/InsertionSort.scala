@@ -1,8 +1,8 @@
 /* Copyright 2009-2013 EPFL, Lausanne */
 
 import scala.collection.immutable.Set
-import leon.Annotations._
-import leon.Utils._
+import leon.annotation._
+import leon.lang._
 
 object InsertionSort {
   sealed abstract class List
