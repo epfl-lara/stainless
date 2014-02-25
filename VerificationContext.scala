@@ -11,6 +11,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 case class VerificationContext (
   context: LeonContext,
   program: Program,
-  solvers: Seq[SolverFactory[Solver]],
+  solverFactory: SolverFactory[Solver],
   reporter: Reporter
 )
