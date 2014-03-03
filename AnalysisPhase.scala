@@ -103,7 +103,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
       val s = solverFactory.getNewSolver
       try {
-        reporter.debug("Trying with solver: " + s.name)
+        reporter.debug("Solving with: " + s.name)
         val t1 = System.nanoTime
         s.assertCnstr(Not(vc))
 
