@@ -34,6 +34,8 @@ trait CodeGeneration {
 
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
+  private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/ArrayBox"
+
   private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
@@ -166,7 +168,7 @@ trait CodeGeneration {
       case BooleanLiteral(v) =>
         ch << Ldc(if(v) 1 else 0)
 
-      case UnitLiteral =>
+      case UnitLiteral() =>
         ch << Ldc(1)
 
       // Case classes
@@ -458,6 +460,11 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
+      case at @ ArrayType(et) =>
+        ch << New(BoxedArrayClass) << DUP
+        mkExpr(e, ch)
+        ch << InvokeSpecial(BoxedArrayClass, constructorName, "(%s)V".format(typeToJVM(at)))
+
       case _ =>
         mkExpr(e, ch)
     }
@@ -473,7 +480,9 @@ trait CodeGeneration {
       case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
-      case _ => 
+      case at @ ArrayType(et) =>
+        ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, "(%s)V".format(typeToJVM(at)))
+      case _ =>
     }
   }
 
@@ -502,6 +511,10 @@ trait CodeGeneration {
         ch << CheckCast(MapClass)
 
       case tp : TypeParameter =>
+
+      case tp : ArrayType =>
+        ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", "()%s".format(typeToJVM(tp)))
+        ch << CheckCast(typeToJVM(tp))
 
       case _ =>
         throw new CompilationException("Unsupported type in unboxing : " + tpe)
