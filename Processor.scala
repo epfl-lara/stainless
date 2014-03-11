@@ -3,8 +3,6 @@
 package leon
 package termination
 
-import utils._
-
 import purescala.Trees._
 import purescala.TreeOps._
 import purescala.Common._
@@ -20,135 +18,71 @@ case class Problem(funDefs: Set[FunDef]) {
 sealed abstract class Result(funDef: FunDef)
 case class Cleared(funDef: FunDef) extends Result(funDef)
 case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
+case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
 
-abstract class Processor(val checker: TerminationChecker) {
+trait Processor {
 
   val name: String
 
+  val checker : TerminationChecker
+
+  implicit val debugSection = utils.DebugSectionTermination
   val reporter = checker.context.reporter
 
-  protected def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem])
-
-  def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = run(problem)
+  def run(problem: Problem): (Traversable[Result], Traversable[Problem])
 }
 
-class Strengthener(relationComparator: RelationComparator) {
-  import scala.collection.mutable.{Set => MutableSet}
+trait Solvable extends Processor {
 
-  private val strengthened : MutableSet[FunDef] = MutableSet()
-  private def strengthenPostcondition(funDef: FunDef, cmp: (Expr, Expr) => Expr)
-                                     (implicit solver: Processor with Solvable) : Boolean = if (!funDef.hasBody) false else {
-    assert(solver.checker.terminates(funDef).isGuaranteed)
+  val checker : TerminationChecker with Strengthener with StructuralSize
 
-    val old = funDef.postcondition
-    val (res, postcondition) = {
-      val (res, post) = old.getOrElse(FreshIdentifier("res").setType(funDef.returnType) -> BooleanLiteral(true))
-      val args = funDef.params.map(_.toVariable)
-      val sizePost = cmp(Tuple(funDef.params.map(_.toVariable)), res.toVariable)
-      (res, And(post, sizePost))
-    }
+  private val solver: SolverFactory[Solver] = SolverFactory(() => {
+    val structDefs = checker.defs
+    val program     : Program     = checker.program
+    val context     : LeonContext = checker.context
+    val sizeModule  : ModuleDef   = ModuleDef(FreshIdentifier("$size", false), checker.defs.toSeq)
+    val newProgram  : Program     = program.copy(modules = sizeModule :: program.modules)
 
-    funDef.postcondition = Some(res -> postcondition)
-
-    val prec = matchToIfThenElse(funDef.precondition.getOrElse(BooleanLiteral(true)))
-    val body = matchToIfThenElse(funDef.body.get)
-    val post = matchToIfThenElse(postcondition)
-    val formula = Implies(prec, Let(res, body, post))
-
-    if (!solver.isAlwaysSAT(formula)) {
-      funDef.postcondition = old
-      strengthened.add(funDef)
-      false
-    } else {
-      strengthened.add(funDef)
-      true
-    }
-  }
-
-  def strengthenPostconditions(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
-    // Strengthen postconditions on all accessible functions by adding size constraints
-    val callees : Set[FunDef] = funDefs.map(fd => solver.checker.program.callGraph.transitiveCallees(fd)).flatten
-    val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => solver.checker.program.callGraph.transitivelyCalls(fd2, fd1))
-    for (funDef <- sortedCallees if !strengthened(funDef) && funDef.hasBody && solver.checker.terminates(funDef).isGuaranteed) {
-      // test if size is smaller or equal to input
-      val weekConstraintHolds = strengthenPostcondition(funDef, relationComparator.softDecreasing)
-
-      if (weekConstraintHolds) {
-        // try to improve postcondition with strictly smaller
-        strengthenPostcondition(funDef, relationComparator.sizeDecreasing)
-      }
-    }
-  }
-}
-
-trait Solvable { self: Processor =>
-
-  val structuralSize: StructuralSize
-  val strengthener: Strengthener
-
-  override def process(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
-    self.run(problem)
-  }
-
-  private var solvers: List[SolverFactory[Solver]] = null
-  private var lastDefs: Set[FunDef] = Set()
-
-  def strengthenPostconditions(funDefs: Set[FunDef]) = strengthener.strengthenPostconditions(funDefs)(this)
-
-  private def initSolvers {
-    val structDefs = structuralSize.defs
-    if (structDefs != lastDefs || solvers == null) {
-      val program     : Program         = self.checker.program
-      val newProgram  : Program         = program.copy(modules = ModuleDef(FreshIdentifier("structDefs"), structDefs.toSeq) :: program.modules)
-      val context     : LeonContext     = self.checker.context
-
-      solvers = new TimeoutSolverFactory(SolverFactory(() => new FairZ3Solver(context, newProgram) with TimeoutSolver), 500) :: Nil
-    }
-  }
+    (new FairZ3Solver(context, newProgram) with TimeoutAssumptionSolver).setTimeout(500L)
+  })
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
 
-  private def solve(problem: Expr): Solution = {
-    initSolvers
-    // drop functions from constraints that might not terminate (and may therefore
-    // make Leon unroll them forever...)
-    val dangerousCallsMap : Map[Expr, Expr] = functionCallsOf(problem).collect({
-      // extra definitions (namely size functions) are quaranteed to terminate because structures are non-looping
-      case fi @ FunctionInvocation(tfd, args) if !structuralSize.defs(tfd.fd) && !self.checker.terminates(tfd.fd).isGuaranteed =>
-        fi -> FreshIdentifier("noRun", true).setType(fi.getType).toVariable
-    }).toMap
-
-    // TODO: Fix&check without the recursive=false
-    //val expr = searchAndReplace(dangerousCallsMap.get, recursive=false)(problem)
-    val expr = postMap(dangerousCallsMap.lift)(problem)
-
-    object Solved {
-      def unapply(se: SolverFactory[Solver]): Option[Solution] = {
-        val (satResult, model) = SimpleSolverAPI(se).solveSAT(expr)
-
-        if (!satResult.isDefined) None
-        else Some(satResult -> model)
-      }
+  private def withoutPosts[T](block: => T): T = {
+    val dangerousFunDefs = checker.functions.filter(fd => !checker.terminates(fd).isGuaranteed)
+    val backups = dangerousFunDefs.toList map { fd =>
+      val p = fd.postcondition
+      fd.postcondition = None
+      () => fd.postcondition = p
     }
 
-    solvers.collectFirst({ case Solved(s, model) => (s, model) }) getOrElse (None, Map())
+    val res : T = block // force evaluation now
+    backups.foreach(_())
+    res
   }
 
-  def isStrongSAT(problem: Expr): Boolean = solve(problem)._1 getOrElse false
+  def maybeSAT(problem: Expr): Boolean = {
+    withoutPosts {
+      SimpleSolverAPI(solver).solveSAT(problem)._1 getOrElse true
+    }
+  }
 
-  def isWeakSAT(problem: Expr): Boolean = solve(problem)._1 getOrElse true
+  def definitiveALL(problem: Expr): Boolean = {
+    withoutPosts {
+      SimpleSolverAPI(solver).solveSAT(Not(problem))._1.map(!_) getOrElse false
+    }
+  }
 
-  def isAlwaysSAT(problem: Expr): Boolean = solve(Not(problem))._1.map(!_) getOrElse false
-
-  def getModel(problem: Expr): Option[Map[Identifier, Expr]] = {
-    val solution = solve(problem)
-    if (solution._1 getOrElse false) Some(solution._2)
-    else None
+  def definitiveSATwithModel(problem: Expr): Option[Map[Identifier, Expr]] = {
+    withoutPosts {
+      val (sat, model) = SimpleSolverAPI(solver).solveSAT(problem)
+      if (sat.isDefined && sat.get) Some(model) else None
+    }
   }
 }
 
 class ProcessingPipeline(program: Program, context: LeonContext, _processors: Processor*) {
-  implicit val debugSection = DebugSectionTermination
+  implicit val debugSection = utils.DebugSectionTermination
 
   import scala.collection.mutable.{Queue => MutableQueue}
 
@@ -182,6 +116,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
     for(result <- results) result match {
       case Cleared(fd) => sb.append("    %-10s %s\n".format(fd.id, "Cleared"))
       case Broken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "Broken for arguments: " + args.mkString("(", ",", ")")))
+      case MaybeBroken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "HO construct application breaks for arguments: " + args.mkString("(", ",", ")")))
     }
     reporter.debug(sb.toString)
   }
@@ -205,7 +140,8 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
       printQueue
       val (problem, index) = problems.head
       val processor : Processor = processors(index)
-      val (_results, nextProblems) = processor.process(problem)
+      reporter.debug("Running " + processor.name)
+      val (_results, nextProblems) = processor.run(problem)
       val results = _results.toList
       printResult(results)
 

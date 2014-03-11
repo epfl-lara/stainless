@@ -10,37 +10,75 @@ import purescala.TypeTreeOps._
 import purescala.Definitions._
 import purescala.Common._
 
-class ChainComparator(structuralSize: StructuralSize) {
-  import structuralSize.size
+trait ChainComparator { self : StructuralSize with TerminationChecker =>
 
   private object ContainerType {
     def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
-      case act @ CaseClassType(classDef, tpes) =>
-        val ftps = act.fields
-        val parentType = classDef.parent.getOrElse(c)
-
-        if (ftps.exists(ad => isSubtypeOf(ad.tpe, parentType))) {
-          None
-        } else if (classDef.parent.map(_.classDef.knownChildren.size > 1).getOrElse(false)) {
-          None
-        } else {
-          Some((act, ftps.map{ ad => ad.id -> ad.tpe }))
-        }
+      case cct @ CaseClassType(ccd, _) =>
+        if (cct.fields.exists(arg => isSubtypeOf(arg.tpe, cct.parent.getOrElse(c)))) None
+        else if (ccd.hasParent && ccd.parent.get.knownDescendents.size > 1) None
+        else Some((cct, cct.fields.map(arg => arg.id -> arg.tpe)))
       case _ => None
     }
   }
 
-  def sizeDecreasing(e1: Expr, e2s: Seq[(Seq[Expr], Expr)]) : Expr = e1.getType match {
-    case ContainerType(ct1, fields1) => Or(fields1.zipWithIndex map { case ((id1, type1), index) =>
-      sizeDecreasing(CaseClassSelector(ct1, e1, id1), e2s.map { case (path, e2) =>
+  private def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
+    def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
+      l.toSet.subsets.filter(_.nonEmpty).map((reconss : Set[Expr => Expr]) => reconss.toSeq match {
+        case Seq(x) => x
+        case seq => (e: Expr) => Tuple(seq.map(r => r(e)))
+      }).toSet
+    }
+
+    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match  {
+      case ContainerType(cct, fields) =>
+        powerSetToFunSet(fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
+          rec(fieldTpe).map(recons => (e: Expr) => recons(CaseClassSelector(cct, e, fieldId)))
+        })
+      case TupleType(tpes) =>
+        powerSetToFunSet((0 until tpes.length).flatMap { case index =>
+          rec(tpes(index)).map(recons => (e: Expr) => recons(TupleSelect(e, index + 1)))
+        })
+      case _ => Set((e: Expr) => e)
+    }
+
+    rec(tpe)
+  }
+
+  private def flatType(tpe: TypeTree): Set[Expr => Expr] = {
+    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match {
+      case ContainerType(cct, fields) =>
+        fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
+          rec(fieldTpe).map(recons => (e: Expr) => recons(CaseClassSelector(cct, e, fieldId)))
+        }.toSet
+      case TupleType(tpes) =>
+        (0 until tpes.length).flatMap { case index =>
+          rec(tpes(index)).map(recons => (e: Expr) => recons(TupleSelect(e, index + 1)))
+        }.toSet
+      case _ => Set((e: Expr) => e)
+    }
+
+    rec(tpe)
+  }
+
+  def structuralDecreasing(e1: Expr, e2s: Seq[(Seq[Expr], Expr)]) : Seq[Expr] = flatTypesPowerset(e1.getType).toSeq.map {
+    recons => And(e2s.map { case (path, e2) =>
+      Implies(And(path), GreaterThan(self.size(recons(e1)), self.size(recons(e2))))
+    })
+  }
+
+  /*
+  def structuralDecreasing(e1: Expr, e2s: Seq[(Seq[Expr], Expr)]) : Expr = e1.getType match {
+    case ContainerType(def1, fields1) => Or(fields1.zipWithIndex map { case ((id1, type1), index) =>
+      structuralDecreasing(CaseClassSelector(def1, e1, id1), e2s.map { case (path, e2) =>
         e2.getType match {
-          case ContainerType(ct2, fields2) => (path, CaseClassSelector(ct2, e2, fields2(index)._1))
+          case ContainerType(def2, fields2) => (path, CaseClassSelector(def2, e2, fields2(index)._1))
           case _ => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
         }
       })
     })
     case TupleType(types1) => Or((0 until types1.length) map { case index =>
-      sizeDecreasing(TupleSelect(e1, index + 1), e2s.map { case (path, e2) =>
+      structuralDecreasing(TupleSelect(e1, index + 1), e2s.map { case (path, e2) =>
         e2.getType match {
           case TupleType(_) => (path, TupleSelect(e2, index + 1))
           case _ => scala.sys.error("Unexpected input combination: " + e1 + " " + e2)
@@ -49,14 +87,13 @@ class ChainComparator(structuralSize: StructuralSize) {
     })
     case c: ClassType => And(e2s map { case (path, e2) =>
       e2.getType match {
-        case c2: ClassType => Implies(And(path), GreaterThan(size(e1), size(e2)))
+        case c2: ClassType => Implies(And(path), GreaterThan(self.size(e1), self.size(e2)))
         case _ => scala.sys.error("Unexpected input combination: " + e1 + " " + e2)
       }
     })
-    case BooleanType => BooleanLiteral(false)
-    case Int32Type => BooleanLiteral(false)
-    case tpe => scala.sys.error("Unexpected type " + tpe)
+    case _ => BooleanLiteral(false)
   }
+  */
 
   private sealed abstract class NumericEndpoint {
     def inverse: NumericEndpoint = this match {
@@ -97,7 +134,7 @@ class ChainComparator(structuralSize: StructuralSize) {
   private case object AnyEndpoint extends NumericEndpoint
   private case object NoEndpoint extends NumericEndpoint
 
-  private def numericEndpoint(value: Expr, cluster: Set[Chain], checker: TerminationChecker) = {
+  private def numericEndpoint(value: Expr, cluster: Set[Chain]) = {
 
     object Value {
       val vars = variablesOf(value)
@@ -138,8 +175,8 @@ class ChainComparator(structuralSize: StructuralSize) {
         case NoEndpoint =>
           endpoint(thenn) min endpoint(elze)
         case ep =>
-          val terminatingThen = functionCallsOf(thenn).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
-          val terminatingElze = functionCallsOf(elze).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
+          val terminatingThen = functionCallsOf(thenn).forall(fi => self.terminates(fi.tfd.fd).isGuaranteed)
+          val terminatingElze = functionCallsOf(elze).forall(fi => self.terminates(fi.tfd.fd).isGuaranteed)
           val thenEndpoint = if (terminatingThen) ep max endpoint(thenn) else endpoint(thenn)
           val elzeEndpoint = if (terminatingElze) ep.inverse max endpoint(elze) else endpoint(elze)
           thenEndpoint max elzeEndpoint
@@ -152,45 +189,26 @@ class ChainComparator(structuralSize: StructuralSize) {
     })
   }
 
-  def numericConverging(e1: Expr, e2s: Seq[(Seq[Expr], Expr)], cluster: Set[Chain], checker: TerminationChecker) : Expr = e1.getType match {
-    case ContainerType(def1, fields1) => Or(fields1.zipWithIndex map { case ((id1, type1), index) =>
-      numericConverging(CaseClassSelector(def1, e1, id1), e2s.map { case (path, e2) =>
-        e2.getType match {
-          case ContainerType(def2, fields2) => (path, CaseClassSelector(def2, e2, fields2(index)._1))
-          case _ => scala.sys.error("Unexpected input combination: " + e1 + " " + e2)
+  def numericConverging(e1: Expr, e2s: Seq[(Seq[Expr], Expr)], cluster: Set[Chain]) : Seq[Expr] = flatType(e1.getType).toSeq.flatMap {
+    recons => recons(e1) match {
+      case e if e.getType == Int32Type =>
+        val endpoint = numericEndpoint(e, cluster)
+
+        val uppers = if (endpoint == UpperBoundEndpoint || endpoint == AnyEndpoint) {
+          Some(And(e2s map { case (path, e2) => Implies(And(path), GreaterThan(e, recons(e2))) }))
+        } else {
+          None
         }
-      }, cluster, checker)
-    })
-    case TupleType(types) => Or((0 until types.length) map { case index =>
-      numericConverging(TupleSelect(e1, index + 1), e2s.map { case (path, e2) =>
-        e2.getType match {
-          case TupleType(_) => (path, TupleSelect(e2, index + 1))
-          case _ => scala.sys.error("Unexpected input combination: " + e1 + " " + e2)
+
+        val lowers = if (endpoint == LowerBoundEndpoint || endpoint == AnyEndpoint) {
+          Some(And(e2s map { case (path, e2) => Implies(And(path), LessThan(e, recons(e2))) }))
+        } else {
+          None
         }
-      }, cluster, checker)
-    })
-    case Int32Type => numericEndpoint(e1, cluster, checker) match {
-      case UpperBoundEndpoint => And(e2s map {
-        case (path, e2) if e2.getType == Int32Type => Implies(And(path), GreaterThan(e1, e2))
-        case (_, e2) => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
-      })
-      case LowerBoundEndpoint => And(e2s map {
-        case (path, e2) if e2.getType == Int32Type => Implies(And(path), LessThan(e1, e2))
-        case (_, e2) => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
-      })
-      case AnyEndpoint => Or(And(e2s map {
-        case (path, e2) if e2.getType == Int32Type => Implies(And(path), GreaterThan(e1, e2))
-        case (_, e2) => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
-      }), And(e2s map {
-        case (path, e2) if e2.getType == Int32Type => Implies(And(path), LessThan(e1, e2))
-        case (_, e2) => scala.sys.error("Unexpected input combinations: " + e1 + " " + e2)
-      }))
-      case InnerEndpoint => BooleanLiteral(false)
-      case NoEndpoint => BooleanLiteral(false)
+
+        uppers ++ lowers
+      case _ => Seq.empty
     }
-    case _: ClassType => BooleanLiteral(false)
-    case BooleanType => BooleanLiteral(false)
-    case tpe => scala.sys.error("Unexpected type " + tpe)
   }
 }
 

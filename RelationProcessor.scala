@@ -10,25 +10,26 @@ import leon.purescala.Common._
 import leon.purescala.Extractors._
 import leon.purescala.Definitions._
 
-class RelationProcessor(checker: TerminationChecker,
-                        relationBuilder: RelationBuilder,
-                        val structuralSize: StructuralSize,
-                        relationComparator: RelationComparator,
-                        val strengthener: Strengthener) extends Processor(checker) with Solvable {
+class RelationProcessor(
+    val checker: TerminationChecker with RelationBuilder with RelationComparator with Strengthener with StructuralSize
+  ) extends Processor with Solvable {
 
   val name: String = "Relation Processor"
 
   def run(problem: Problem) = {
+    reporter.debug("- Strengthening postconditions")
+    checker.strengthenPostconditions(problem.funDefs)(this)
 
-    strengthenPostconditions(problem.funDefs)
+//    reporter.debug("- Strengthening applications")
+//    checker.strengthenApplications(problem.funDefs)(this)
 
     val formulas = problem.funDefs.map({ funDef =>
-      funDef -> relationBuilder.run(funDef).collect({
-        case Relation(_, path, FunctionInvocation(tfd, args)) if problem.funDefs(tfd.fd) =>
+      funDef -> checker.getRelations(funDef).collect({
+        case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funDefs(tfd.fd) =>
           val (e1, e2) = (Tuple(funDef.params.map(_.toVariable)), Tuple(args))
           def constraint(expr: Expr) = Implies(And(path.toSeq), expr)
-          val greaterThan = relationComparator.sizeDecreasing(e1, e2)
-          val greaterEquals = relationComparator.softDecreasing(e1, e2)
+          val greaterThan = checker.sizeDecreasing(e1, e2)
+          val greaterEquals = checker.softDecreasing(e1, e2)
           (tfd.fd, (constraint(greaterThan), constraint(greaterEquals)))
       })
     })
@@ -38,15 +39,16 @@ class RelationProcessor(checker: TerminationChecker,
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
+    reporter.debug("- Searching for structural size decrease")
     val decreasing = formulas.map({ case (fd, formulas) =>
       val solved = formulas.map({ case (fid, (gt, ge)) =>
-        if(isAlwaysSAT(gt)) Success
-        else if(isAlwaysSAT(ge)) Dep(Set(fid))
+        if (definitiveALL(gt)) Success
+        else if (definitiveALL(ge)) Dep(Set(fid))
         else Failure
       })
       val result = if(solved.contains(Failure)) Failure else {
         val deps = solved.collect({ case Dep(fds) => fds }).flatten
-        if(deps.isEmpty) Success
+        if (deps.isEmpty) Success
         else Dep(deps)
       }
       fd -> result

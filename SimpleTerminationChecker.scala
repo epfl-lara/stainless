@@ -12,7 +12,7 @@ import scala.collection.mutable.{ Map => MutableMap }
 
 import scala.annotation.tailrec
 
-class SimpleTerminationChecker(context: LeonContext, program: Program) extends TerminationChecker(context, program) {
+class SimpleTerminationChecker(context: LeonContext, program: Program) extends TerminationChecker(context, program) with ComponentBuilder {
 
   val name = "T1"
   val description = "The simplest form of Terminator™"
@@ -20,7 +20,7 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
   private lazy val callGraph: Map[FunDef, Set[FunDef]] =
     program.callGraph.allCalls.groupBy(_._1).mapValues(_.map(_._2)) // one liner from hell
 
-  private lazy val components = ComponentBuilder.run(callGraph)
+  private lazy val components = getComponents(callGraph)
   val allVertices = callGraph.keySet ++ callGraph.values.flatten
 
   val sccArray = components.toArray

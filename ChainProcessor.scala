@@ -10,124 +10,68 @@ import purescala.Common._
 import purescala.Extractors._
 import purescala.Definitions._
 
-class ChainProcessor(checker: TerminationChecker,
-                     chainBuilder: ChainBuilder,
-                     val structuralSize: StructuralSize,
-                     val strengthener: Strengthener) extends Processor(checker) with Solvable {
+import scala.collection.mutable.{Map => MutableMap}
+
+class ChainProcessor(val checker: TerminationChecker with ChainBuilder with ChainComparator with Strengthener with StructuralSize) extends Processor with Solvable {
 
   val name: String = "Chain Processor"
 
-  val chainComparator = new ChainComparator(structuralSize)
-
-  def run(problem: Problem): (TraversableOnce[Result], TraversableOnce[Problem]) = {
-    implicit val debugSection = utils.DebugSectionTermination
-
-    reporter.debug("- Running ChainProcessor")
-    val allChainMap       : Map[FunDef, Set[Chain]] = problem.funDefs.map(funDef => funDef -> chainBuilder.run(funDef)).toMap
-    reporter.debug("- Computing all possible Chains")
-    var counter = 0
-    val possibleChainMap  : Map[FunDef, Set[Chain]] = allChainMap.mapValues(chains => chains.filter(chain => isWeakSAT(And(chain.loop()))))
-    reporter.debug("- Collecting re-entrant Chains")
-    val reentrantChainMap : Map[FunDef, Set[Chain]] = possibleChainMap.mapValues(chains => chains.filter(chain => isWeakSAT(And(chain reentrant chain))))
-
-    // We build a cross-chain map that determines which chains can reenter into another one after a loop.
-    // Note: We are also checking reentrance SAT here, so again, we negate the formula!
-    reporter.debug("- Computing cross-chain map")
-    val crossChains       : Map[Chain, Set[Chain]]  = possibleChainMap.toSeq.map({ case (funDef, chains) =>
-      val reentrant = reentrantChainMap(funDef)
-      chains.map(chain => chain -> {
-        val cross = (reentrant - chain).filter(other => isWeakSAT(And(chain reentrant other)))
-        val self = if (reentrant(chain)) Set(chain) else Set()
-        cross ++ self
-      })
-    }).flatten.toMap
-
-    val validChainMap     : Map[FunDef, Set[Chain]] = possibleChainMap.map({ case (funDef, chains) => funDef -> chains.filter(crossChains(_).nonEmpty) }).toMap
-
-    // We use the cross-chains to build chain clusters. For each cluster, we must prove that the SAME argument
-    // decreases in each of the chains in the cluster!
-    reporter.debug("- Building cluster estimation by fix-point iteration")
-    val clusters          : Map[FunDef, Set[Set[Chain]]] = {
-      def cluster(set: Set[Chain]): Set[Chain] = {
-        set ++ set.map(crossChains(_)).flatten
-      }
-
-      def fix[A](f: A => A, a: A): A = {
-        val na = f(a)
-        if (a == na) a else fix(f, na)
-      }
-
-      def reduceClusters(all: List[Set[Chain]]): List[Set[Chain]] = {
-        all.map(cluster => cluster.toSeq.sortBy(_.size).foldLeft(Set[Chain]())({ case (acc, chain) =>
-          val chainElements : Set[Relation] = chain.chain.toSet
-          val seenElements  : Set[Relation] = acc.map(_.chain).flatten.toSet
-          if ((chainElements -- seenElements).nonEmpty) acc + chain else acc
-        })).filter(_.nonEmpty)
-      }
-
-      def filterClusters(all: List[Set[Chain]]): List[Set[Chain]] = if (all.isEmpty) Nil else {
-        val newCluster = all.head
-        val rest = all.tail.filter(set => !set.subsetOf(newCluster))
-        newCluster :: filterClusters(rest)
-      }
-
-      def build(chains: Set[Chain]): Set[Set[Chain]] = {
-        val allClusters = chains.map(chain => fix(cluster, Set(chain)))
-        val reducedClusters = reduceClusters(allClusters.toList)
-        val filteredClusters = filterClusters(reducedClusters.sortBy(- _.size))
-        filteredClusters.toSet
-      }
-
-      validChainMap.map({ case (funDef, chains) => funDef -> build(chains) })
-    }
-
+  def run(problem: Problem) = {
     reporter.debug("- Strengthening postconditions")
-    strengthenPostconditions(problem.funDefs)
+    checker.strengthenPostconditions(problem.funDefs)(this)
 
-    def buildLoops(fd: FunDef, cluster: Set[Chain]): (Expr, Seq[(Seq[Expr], Expr)]) = {
-      val e1 = Tuple(fd.params.map(_.toVariable))
-      val e2s = cluster.toSeq.map({ chain =>
-        val freshArgs : Seq[Expr] = fd.params.map(arg => arg.id.freshen.toVariable)
-        val finalBindings = (fd.params.map(_.id) zip freshArgs).toMap
-        val path = chain.loop(finalSubst = finalBindings)
-        path -> Tuple(freshArgs)
-      })
+//    reporter.debug("- Strengthening applications")
+//    checker.strengthenApplications(problem.funDefs)(this)
 
-      (e1, e2s)
+    reporter.debug("- Running ChainBuilder")
+    val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funDefs.map { funDef =>
+      funDef -> checker.getChains(funDef)(this)
+    }.toMap
+
+    val loopPoints = chainsMap.foldLeft(Set.empty[FunDef]) { case (set, (fd, (fds, chains))) => set ++ fds }
+
+    if (loopPoints.size > 1) {
+      reporter.debug("-+> Multiple looping points, can't build chain proof")
+      (Nil, List(problem))
+    } else {
+
+      def exprs(fd: FunDef): (Expr, Seq[(Seq[Expr], Expr)], Set[Chain]) = {
+        val fdChains = chainsMap(fd)._2
+        val nfdChains = chainsMap.filter(_._1 != fd).values.foldLeft(Set.empty[Chain])((set, p) => set ++ p._2)
+        assert(nfdChains.subsetOf(fdChains))
+
+        val e1 = Tuple(fd.params.map(_.toVariable))
+        val e2s = fdChains.toSeq.map { chain =>
+          val freshParams = chain.finalParams.map(arg => FreshIdentifier(arg.id.name, true).setType(arg.id.getType))
+          val finalBindings = (chain.finalParams.map(_.id) zip freshParams).toMap
+          (chain.loop(finalSubst = finalBindings), Tuple(freshParams.map(_.toVariable)))
+        }
+
+        (e1, e2s, fdChains)
+      }
+
+      val funDefs = if (loopPoints.size == 1) Set(loopPoints.head) else problem.funDefs
+
+      reporter.debug("-+> Searching for structural size decrease")
+
+      val (se1, se2s, _) = exprs(funDefs.head)
+      val structuralFormulas = checker.structuralDecreasing(se1, se2s)
+      val structuralDecreasing = structuralFormulas.exists(formula => definitiveALL(formula))
+
+      reporter.debug("-+> Searching for numerical converging")
+
+      // worth checking multiple funDefs as the endpoint discovery can be context sensitive
+      val numericDecreasing = funDefs.exists { fd =>
+        val (ne1, ne2s, fdChains) = exprs(fd)
+        val numericFormulas = checker.numericConverging(ne1, ne2s, fdChains)
+        numericFormulas.exists(formula => definitiveALL(formula))
+      }
+
+      if (structuralDecreasing || numericDecreasing) {
+        (problem.funDefs.map(Cleared(_)), Nil)
+      } else {
+        (Nil, List(problem))
+      }
     }
-
-    type ClusterMap = Map[FunDef, Set[Set[Chain]]]
-    type FormulaGenerator = (FunDef, Set[Chain]) => Expr
-
-    def clear(clusters: ClusterMap, gen: FormulaGenerator): ClusterMap = {
-      val formulas = clusters.map({ case (fd, clusters) =>
-        (fd, clusters.map(cluster => cluster -> gen(fd, cluster)))
-      })
-
-      formulas.map({ case (fd, clustersWithFormulas) =>
-        fd -> clustersWithFormulas.filter({ case (cluster, formula) => !isAlwaysSAT(formula) }).map(_._1)
-      })
-    }
-
-    reporter.debug("- Searching for structural size decrease")
-    val sizeCleared : ClusterMap = clear(clusters, (fd, cluster) => {
-      val (e1, e2s) = buildLoops(fd, cluster)
-      chainComparator.sizeDecreasing(e1, e2s)
-    })
-
-    reporter.debug("- Searching for numeric convergence")
-    val numericCleared : ClusterMap = clear(sizeCleared, (fd, cluster) => {
-      val (e1, e2s) = buildLoops(fd, cluster)
-      chainComparator.numericConverging(e1, e2s, cluster, checker)
-    })
-
-    val (okPairs, nokPairs) = numericCleared.partition(_._2.isEmpty)
-    val nok = nokPairs.map(_._1).toSet
-    val (ok, transitiveNok) = okPairs.map(_._1).partition({ fd =>
-      (checker.program.callGraph.transitiveCallees(fd) intersect nok).isEmpty
-    })
-    val allNok = nok ++ transitiveNok
-    val newProblems = if (allNok.nonEmpty) List(Problem(allNok)) else Nil
-    (ok.map(Cleared(_)), newProblems)
   }
 }

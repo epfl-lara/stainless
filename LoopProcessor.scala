@@ -4,39 +4,50 @@ package leon
 package termination
 
 import purescala.Definitions._
+import purescala.Common._
 import purescala.Trees._
 import purescala.TreeOps._
 
-class LoopProcessor(checker: TerminationChecker,
-                    chainBuilder: ChainBuilder,
-                    val structuralSize: StructuralSize,
-                    val strengthener: Strengthener,
-                    k: Int = 10) extends Processor(checker) with Solvable {
+import scala.collection.mutable.{Map => MutableMap}
+
+class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Strengthener with StructuralSize, k: Int = 10) extends Processor with Solvable {
 
   val name: String = "Loop Processor"
 
   def run(problem: Problem) = {
-    val allChains : Set[Chain] = problem.funDefs.map(fd => chainBuilder.run(fd)).flatten
-    // Get reentrant loops (see ChainProcessor for more details)
-    val chains    : Set[Chain] = allChains.filter(chain => isWeakSAT(And(chain reentrant chain)))
+//    reporter.debug("- Strengthening applications")
+//    checker.strengthenApplications(problem.funDefs)(this)
 
-    val nonTerminating = chains.flatMap({ chain =>
-      val freshArgs : Seq[Expr] = chain.funDef.params.map(arg => arg.id.freshen.toVariable)
-      val finalBindings = (chain.funDef.params.map(_.id) zip freshArgs).toMap
-      val path = chain.loop(finalSubst = finalBindings)
-      val formula = And(path :+ Equals(Tuple(chain.funDef.params.map(_.toVariable)), Tuple(freshArgs)))
+    reporter.debug("- Running ChainBuilder")
+    val chains : Set[Chain] = problem.funDefs.flatMap(fd => checker.getChains(fd)(this)._2)
 
-      val solvable = functionCallsOf(formula).forall({
-        case FunctionInvocation(tfd, args) => checker.terminates(tfd.fd).isGuaranteed
-      })
+    reporter.debug("- Searching for loops")
+    val nonTerminating: MutableMap[FunDef, Result] = MutableMap.empty
 
-      if (!solvable) None else getModel(formula) match {
-        case Some(map) => Some(chain.funDef -> chain.funDef.params.map(arg => map(arg.id)))
-        case _ => None
+    (0 to k).foldLeft(chains) { (cs, index) =>
+      reporter.debug("-+> Iteration #" + index)
+      for (chain <- cs if !nonTerminating.isDefinedAt(chain.funDef) &&
+          (chain.funDef.params zip chain.finalParams).forall(p => p._1.getType == p._2.getType)) {
+        val freshParams = chain.funDef.params.map(arg => FreshIdentifier(arg.id.name, true).setType(arg.tpe))
+        val finalBindings = (chain.funDef.params.map(_.id) zip freshParams).toMap
+        val path = chain.loop(finalSubst = finalBindings)
+
+        val srcTuple = Tuple(chain.funDef.params.map(_.toVariable))
+        val resTuple = Tuple(freshParams.map(_.toVariable))
+
+        definitiveSATwithModel(And(path :+ Equals(srcTuple, resTuple))) match {
+          case Some(map) =>
+            val args = chain.funDef.params.map(arg => map(arg.id))
+            val res = if (chain.relations.exists(_.inAnon)) MaybeBroken(chain.funDef, args) else Broken(chain.funDef, args)
+            nonTerminating(chain.funDef) = res
+          case None =>
+        }
       }
-    }).toMap
 
-    val results = nonTerminating.map({ case (funDef, args) => Broken(funDef, args) })
+      cs.flatMap(c1 => chains.flatMap(c2 => c1.compose(c2)))
+    }
+
+    val results = nonTerminating.values.toSet
     val remaining = problem.funDefs -- nonTerminating.keys
     val newProblems = if (remaining.nonEmpty) List(Problem(remaining)) else Nil
     (results, newProblems)

@@ -9,7 +9,7 @@ import purescala.Definitions._
 
 import scala.annotation.tailrec
 
-class RecursionProcessor(checker: TerminationChecker, relationBuilder: RelationBuilder) extends Processor(checker) {
+class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) extends Processor {
 
   val name: String = "Recursion Processor"
 
@@ -25,12 +25,12 @@ class RecursionProcessor(checker: TerminationChecker, relationBuilder: RelationB
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) (Nil, List(problem)) else {
     val funDef = problem.funDefs.head
-    val relations = relationBuilder.run(funDef)
-    val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(fd, _)) => fd == funDef })
+    val relations = checker.getRelations(funDef)
+    val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(tfd, _), _) => tfd.fd == funDef })
 
-    if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _)) => !checker.terminates(tfd.fd).isGuaranteed })) (Nil, List(problem)) else {
+    if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _), _) => !checker.terminates(tfd.fd).isGuaranteed })) (Nil, List(problem)) else {
       val decreases = funDef.params.zipWithIndex.exists({ case (arg, index) =>
-        recursive.forall({ case Relation(_, _, FunctionInvocation(_, args)) =>
+        recursive.forall({ case Relation(_, _, FunctionInvocation(_, args), _) =>
           isSubtreeOf(args(index), arg.id)
         })
       })
