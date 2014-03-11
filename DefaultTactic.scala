@@ -159,10 +159,10 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
       val toRet = if (function.hasBody) {
         val cleanBody = matchToIfThenElse(function.body.get)
 
-        val allPathConds = new CollectorWithPaths({
+        val allPathConds = CollectorWithPaths {
           case expr@ArraySelect(a, i) => (expr, a, i)
           case expr@ArrayUpdated(a, i, _) => (expr, a, i)
-        }).traverse(cleanBody)
+        }.traverse(cleanBody)
 
         val arrayAccessConditions = allPathConds.map{
           case ((expr, array, index), pathCond) => {
@@ -199,7 +199,7 @@ class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
     }
 
     def collectWithPathCondition(matcher: Expr=>Boolean, expression: Expr) : Set[(Seq[Expr],Expr)] = {
-      new CollectorWithPaths({ 
+      CollectorWithPaths({ 
         case e if matcher(e) => e 
       }).traverse(expression).map{ 
         case (e, And(es)) => (es, e)
