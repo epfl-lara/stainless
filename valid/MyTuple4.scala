@@ -1,4 +1,4 @@
-/* Copyright 2009-2013 EPFL, Lausanne */
+/* Copyright 2009-2014 EPFL, Lausanne */
 
 
 object MyTuple4 {
