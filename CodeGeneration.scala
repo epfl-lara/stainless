@@ -803,7 +803,7 @@ trait CodeGeneration {
           ech << ALoad(castSlot)
           instrumentedGetField(ech, cct, vd.id)(NoLocals)
 
-          typeToJVM(vd.id.getType) match {
+          typeToJVM(vd.getType) match {
             case "I" | "Z" =>
               ech << If_ICmpNe(notEq)
 
