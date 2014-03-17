@@ -13,7 +13,7 @@ import leon.solvers._
 class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: VCKind, val tactic: Tactic, val info: String = "") extends Positioned {
   // None = still unknown
   // Some(true) = valid
-  // Some(false) = valid
+  // Some(false) = invalid
   var hasValue = false
   var value : Option[Boolean] = None
   var solvedWith : Option[Solver] = None
@@ -35,6 +35,12 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
     case Some(s) => s.name
     case None => ""
   }
+
+  override def toString = {
+    kind.toString + " in function " + funDef.id.name + "\n" +
+    condition.toString
+  }
+
 }
 
 abstract class VCKind(val name: String, val abbrv: String) {
