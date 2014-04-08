@@ -7,6 +7,7 @@ import purescala.Common._
 import purescala.Definitions._
 import purescala.Trees._
 import purescala.TypeTrees._
+import purescala.TypeTreeOps.instantiateType
 import utils._
 
 import cafebabe._
@@ -19,19 +20,32 @@ import cafebabe.Flags._
 trait CodeGeneration {
   self: CompilationUnit =>
 
-  case class Locals(vars: Map[Identifier, Int]) {
+  /** A class providing information about the status of parameters in the function that is being currently compiled.
+   *  vars is a mapping from local variables/ parameters to the offset of the respective JVM local register
+   *  isStatic signifies if the current method is static (a function, in Leon terms) 
+   */
+  case class Locals(vars: Map[Identifier, Int], private val isStatic : Boolean ) {
+    /** Fetches the offset of a local variable/ parameter from its identifier */
     def varToLocal(v: Identifier): Option[Int] = vars.get(v)
 
+    /** Adds some extra variables to the mapping */
     def withVars(newVars: Map[Identifier, Int]) = {
-      Locals(vars ++ newVars)
+      Locals(vars ++ newVars, isStatic)
     }
 
+    /** Adds an extra variable to the mapping */
     def withVar(nv: (Identifier, Int)) = {
-      Locals(vars + nv)
+      Locals(vars + nv, isStatic)
     }
+  
+    /** The index of the monitor object in this function */
+    def monitorIndex = if (isStatic) 0 else 1
   }
-
-  object NoLocals extends Locals(Map())
+  
+  object NoLocals {
+    /** Make a $Locals object without any local variables */
+    def apply(isStatic : Boolean) = new Locals(Map(), isStatic)
+  }
 
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
@@ -50,6 +64,10 @@ trait CodeGeneration {
   def idToSafeJVMName(id: Identifier) = id.uniqueName.replaceAll("\\.", "\\$")
   def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
 
+  /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
+  private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying" 
+  
+  /** Return the respective JVM type from a Leon type */
   def typeToJVM(tpe : TypeTree) : String = tpe match {
     case Int32Type => "I"
 
@@ -78,15 +96,57 @@ trait CodeGeneration {
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
 
-  // Assumes the CodeHandler has never received any bytecode.
-  // Generates method body, and freezes the handler at the end.
-  def compileFunDef(funDef : FunDef, ch : CodeHandler) {
-    val newMapping = if (params.requireMonitor) {
-        funDef.params.map(_.id).zipWithIndex.toMap.mapValues(_ + 1)
-      } else {
-        funDef.params.map(_.id).zipWithIndex.toMap
-      }
+  /** Return the respective boxed JVM type from a Leon type */
+  def typeToJVMBoxed(tpe : TypeTree) : String = tpe match {
+    case Int32Type              => s"L$BoxedIntClass;"
+    case BooleanType | UnitType => s"L$BoxedBoolClass;"
+    case other => typeToJVM(other)
+  }
+  
+  /**
+   * Compiles a function/method definition.
+   * @param funDef The function definition to be compiled
+   * @param owner The module/class that contains $funDef
+   */  
+  def compileFunDef(funDef : FunDef, owner : Definition) {
+    
+    val isStatic = owner.isInstanceOf[ModuleDef]
+    
+    val cf = classes(owner)
+    val (_,mn,_) = leonFunDefToJVMInfo(funDef).get
 
+    val paramsTypes = funDef.params.map(a => typeToJVM(a.tpe))
+
+    val realParams = if (params.requireMonitor) {
+      ("L" + MonitorClass + ";") +: paramsTypes
+    } else {
+      paramsTypes
+    }
+
+    val m = cf.addMethod(
+      typeToJVM(funDef.returnType),
+      mn,
+      realParams : _*
+    )
+    m.setFlags(( 
+      if (isStatic)   
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL  |
+        METHOD_ACC_STATIC
+      else
+        METHOD_ACC_PUBLIC |
+        METHOD_ACC_FINAL
+    ).asInstanceOf[U2])
+    
+    val ch = m.codeHandler
+   
+    // An offset we introduce to the parameters:
+    // 1 if this is a method, so we need "this" in position 0 of the stack
+    // 1 if we are monitoring // FIXME
+    val paramsOffset = Seq(!isStatic, params.requireMonitor).count(x => x)
+    val newMapping = 
+      funDef.params.map(_.id).zipWithIndex.toMap.mapValues(_ + paramsOffset)
+      
     val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
 
     val bodyWithPre = if(funDef.hasPrecondition && params.checkContracts) {
@@ -105,10 +165,11 @@ trait CodeGeneration {
     val exprToCompile = purescala.TreeOps.matchToIfThenElse(bodyWithPost)
 
     if (params.recordInvocations) {
-      ch << ALoad(0) << InvokeVirtual(MonitorClass, "onInvoke", "()V")
+      // index of monitor object will be before the first Scala parameter
+      ch << ALoad(paramsOffset-1) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
     }
 
-    mkExpr(exprToCompile, ch)(Locals(newMapping))
+    mkExpr(exprToCompile, ch)(Locals(newMapping, isStatic))
 
     funDef.returnType match {
       case Int32Type | BooleanType | UnitType =>
@@ -184,6 +245,8 @@ trait CodeGeneration {
           throw CompilationException("Unknown class : " + cct.id)
         }
         ch << New(ccName) << DUP
+        if (params.requireMonitor) 
+          ch << ALoad(locals.monitorIndex)
         for((a, vd) <- as zip cct.classDef.fields) {
           vd.tpe match {
             case TypeParameter(_) =>
@@ -306,13 +369,35 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << Label(al)
 
+      // Strict static fields
+      case FunctionInvocation(tfd, as) if tfd.fd.canBeStrictField =>
+        val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
+          throw CompilationException("Unknown method : " + tfd.id)
+        }
+        
+        if (params.requireMonitor) {
+          // index of monitor object will be before the first Scala parameter
+          ch << ALoad(locals.monitorIndex) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
+        }
+    
+        // Get static field
+        ch << GetStatic(className, fieldName, typeToJVM(tfd.fd.returnType))
+        
+        // unbox field
+        (tfd.fd.returnType, tfd.returnType) match {
+          case (TypeParameter(_), tpe)  =>
+            mkUnbox(tpe, ch)
+          case _ =>
+        }
+        
+      // Static lazy fields/ functions
       case FunctionInvocation(tfd, as) =>
         val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
           throw CompilationException("Unknown method : " + tfd.id)
         }
-
-        if (params.requireMonitor) {
-          ch << ALoad(0)
+        
+        if (params.requireMonitor) {         
+          ch << ALoad(locals.monitorIndex)
         }
 
         for((a, vd) <- as zip tfd.fd.params) {
@@ -331,7 +416,63 @@ trait CodeGeneration {
             mkUnbox(tpe, ch)
           case _ =>
         }
-
+        
+      // Strict fields are handled as fields
+      case MethodInvocation(rec, _, tfd, _) if tfd.fd.canBeStrictField =>
+        val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
+          throw CompilationException("Unknown method : " + tfd.id)
+        }
+        
+        if (params.requireMonitor) {
+          // index of monitor object will be before the first Scala parameter
+          ch << ALoad(locals.monitorIndex) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
+        }
+        // Load receiver 
+        mkExpr(rec,ch) 
+        
+        // Get field
+        ch << GetField(className, fieldName, typeToJVM(tfd.fd.returnType))
+        
+        // unbox field
+        (tfd.fd.returnType, tfd.returnType) match {
+          case (TypeParameter(_), tpe)  =>
+            mkUnbox(tpe, ch)
+          case _ =>
+        }
+              
+      // This is for lazy fields and real methods.
+      // To access a lazy field, we call its accessor function.
+      case MethodInvocation(rec, cd, tfd, as) =>
+        val (className, methodName, sig) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
+          throw CompilationException("Unknown method : " + tfd.id)
+        }
+        
+        // Receiver of the method call 
+        mkExpr(rec,ch)
+        
+        if (params.requireMonitor) {
+          ch << ALoad(locals.monitorIndex)
+        }
+  
+        for((a, vd) <- as zip tfd.fd.params) {
+          vd.tpe match {
+            case TypeParameter(_) =>
+              mkBoxedExpr(a, ch)
+            case _ =>
+              mkExpr(a, ch)
+          }
+        }
+       
+        // No dynamic dispatching/overriding in Leon, 
+        // so no need to take care of own vs. "super" methods
+        ch << InvokeVirtual(className, methodName, sig) 
+  
+        (tfd.fd.returnType, tfd.returnType) match {
+          case (TypeParameter(_), tpe)  =>
+            mkUnbox(tpe, ch)
+          case _ =>
+        }
+        
       // Arithmetic
       case Plus(l, r) =>
         mkExpr(l, ch)
@@ -442,7 +583,10 @@ trait CodeGeneration {
         ch << InvokeStatic(ChooseEntryPointClass, "invoke", "(I[Ljava/lang/Object;)Ljava/lang/Object;")
 
         mkUnbox(choose.getType, ch)
-
+      
+      case This(ct) =>
+        ch << ALoad(0) // FIXME what if doInstrument etc
+        
       case b if b.getType == BooleanType && canDelegateToMkBranch =>
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
@@ -608,7 +752,162 @@ trait CodeGeneration {
     }
   }
 
-  def compileAbstractClassDef(acd : AbstractClassDef) {
+  
+  /**
+    * Compiles a lazy field $lzy, owned by the module/ class $owner.
+    * 
+    * To define a lazy field, we have to add an accessor method and an underlying field.
+    * The accessor method has the name of the original (Scala) lazy field and can be public.
+    * The underlying field has a different name, is private, and is of a boxed type 
+    * to support null value (to signify uninitialized). 
+    * 
+    * @param lzy The lazy field to be compiled
+    * @param owner The module/class containing $lzy
+    */
+  def compileLazyField(lzy : FunDef, owner : Definition) { 
+    ctx.reporter.internalAssertion(lzy.canBeLazyField, s"Trying to compile non-lazy ${lzy.id.name} as a lazy field")
+        
+    val (_, accessorName, _ ) = leonFunDefToJVMInfo(lzy).get
+    val cf = classes(owner)
+    val cName = defToJVMName(owner)
+    
+    val isStatic = owner.isInstanceOf[ModuleDef]
+    
+    // Name of the underlying field
+    val underlyingName = underlyingField(accessorName)
+    // Underlying field is of boxed type
+    val underlyingType = typeToJVMBoxed(lzy.returnType)
+    
+    // Underlying field. It is of a boxed type
+    val fh = cf.addField(underlyingType,underlyingName)
+    fh.setFlags( if (isStatic) {(
+      FIELD_ACC_STATIC | 
+      FIELD_ACC_PRIVATE
+    ).asInstanceOf[U2] } else {
+      FIELD_ACC_PRIVATE
+    }) // FIXME private etc?
+      
+    // accessor method
+    locally {
+      val parameters = if (params.requireMonitor) {
+        Seq("L" + MonitorClass + ";")
+      } else Seq()
+      
+      val accM = cf.addMethod(typeToJVM(lzy.returnType), accessorName, parameters : _*)
+      accM.setFlags( if (isStatic) {(
+        METHOD_ACC_STATIC | // FIXME other flags? Not always public?
+        METHOD_ACC_PUBLIC
+      ).asInstanceOf[U2] } else {
+        METHOD_ACC_PUBLIC
+      }) 
+      val ch = accM.codeHandler
+      val body = purescala.TreeOps.matchToIfThenElse(lzy.body.getOrElse(throw CompilationException("Lazy field without body?")))
+      val initLabel = ch.getFreshLabel("isInitialized")
+      
+      if (params.requireMonitor) {
+        ch << ALoad(if (isStatic) 0 else 1) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
+      }
+      
+      if (isStatic) {
+        ch << GetStatic(cName, underlyingName, underlyingType)
+      } else {
+        ch << ALoad(0) << GetField(cName, underlyingName, underlyingType) // if (lzy == null)
+      }
+      // oldValue
+      ch << DUP << IfNonNull(initLabel) 
+      // null
+      ch << POP
+      // 
+      mkBoxedExpr(body,ch)(NoLocals(isStatic)) // lzy = <expr> 
+      ch << DUP
+      // newValue, newValue 
+      if (isStatic) {
+        ch << PutStatic(cName, underlyingName, underlyingType)
+        //newValue
+      }
+      else {
+        ch << ALoad(0) << SWAP
+        // newValue, object, newValue
+        ch << PutField (cName, underlyingName, underlyingType)
+        //newValue
+      }
+      ch << Label(initLabel)  // return lzy 
+      //newValue
+      lzy.returnType match {
+        case Int32Type | BooleanType | UnitType => 
+          // Since the underlying field only has boxed types, we have to unbox them to return them
+          mkUnbox(lzy.returnType, ch)(NoLocals(isStatic)) 
+          ch << IRETURN      
+        case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
+          ch << ARETURN
+        case other => throw CompilationException("Unsupported return type : " + other.getClass)
+      }
+      ch.freeze 
+    }
+  }
+    
+  /** Compile the (strict) field $field which is owned by class $owner */
+  def compileStrictField(field : FunDef, owner : Definition) = {
+
+    ctx.reporter.internalAssertion(field.canBeStrictField, 
+      s"Trying to compile ${field.id.name} as a strict field")
+    val (_, fieldName, _) = leonFunDefToJVMInfo(field).get
+
+    val cf = classes(owner)
+    val fh = cf.addField(typeToJVM(field.returnType),fieldName)
+    fh.setFlags( owner match {
+      case _ : ModuleDef => (
+        FIELD_ACC_STATIC | 
+        FIELD_ACC_PUBLIC | // FIXME
+        FIELD_ACC_FINAL
+      ).asInstanceOf[U2]
+      case _ => (
+        FIELD_ACC_PUBLIC | // FIXME
+        FIELD_ACC_FINAL
+      ).asInstanceOf[U2]
+    })
+  }
+  
+  /** Initializes a lazy field to null
+   *  @param ch the codehandler to add the initializing code to
+   *  @param className the name of the class in which the field is initialized 
+   *  @param lzy the lazy field to be initialized
+   *  @param isStatic true if this is a static field
+   */
+  def initLazyField(ch: CodeHandler, className : String,  lzy : FunDef, isStatic: Boolean) = {
+    val (_, name, _) = leonFunDefToJVMInfo(lzy).get
+    val underlyingName = underlyingField(name) 
+    val jvmType = typeToJVMBoxed(lzy.returnType)
+    if (isStatic){
+      ch << ACONST_NULL << PutStatic(className, underlyingName, jvmType)
+    } else {
+      ch << ALoad(0) << ACONST_NULL << PutField(className, underlyingName, jvmType)
+    }
+  }
+  
+  /** Initializes a (strict) field
+   *  @param ch the codehandler to add the initializing code to
+   *  @param className the name of the class in which the field is initialized 
+   *  @param field the field to be initialized
+   *  @param isStatic true if this is a static field
+   */
+  def initStrictField(ch : CodeHandler, className : String, field: FunDef,  isStatic: Boolean) { 
+    val (_, name , _) = leonFunDefToJVMInfo(field).get
+    val body = field.body.getOrElse(throw CompilationException("No body for field?"))
+    val jvmType = typeToJVM(field.returnType)
+    
+    mkExpr(purescala.TreeOps.matchToIfThenElse(body), ch)(NoLocals(isStatic)) // FIXME Locals?  
+    
+    if (isStatic){
+      ch << PutStatic(className, name, jvmType)
+    } else {
+      ch << ALoad(0) << SWAP << PutField (className, name, jvmType)
+    }
+  }   
+  
+  
+  def compileAbstractClassDef(acd : AbstractClassDef) {    
+    
     val cName = defToJVMName(acd)
 
     val cf  = classes(acd)
@@ -621,7 +920,56 @@ trait CodeGeneration {
 
     cf.addInterface(CaseClassClass)
 
-    cf.addDefaultConstructor
+    // add special monitor for method invocations 
+    if (params.doInstrument) {
+      val fh = cf.addField("I", instrumentedField)
+      fh.setFlags(FIELD_ACC_PUBLIC)
+    }
+    
+    val (fields, methods) = acd.methods partition { _.canBeField }
+    val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
+    
+    // Compile methods
+    for (method <- methods) {
+      compileFunDef(method,acd)
+    }
+    
+    // Compile lazy fields
+    for (lzy <- lazyFields) {
+      compileLazyField(lzy, acd)
+    }
+    
+    // Compile strict fields
+    for (field <- strictFields) {
+      compileStrictField(field, acd)
+    }
+    
+    // definition of the constructor
+    if (fields.isEmpty && !params.doInstrument && !params.requireMonitor) cf.addDefaultConstructor else {
+      
+      val constrParams = if (params.requireMonitor) {
+        Seq("L" + MonitorClass + ";")
+      } else Seq()
+      
+      val cch = cf.addConstructor(constrParams : _*).codeHandler
+      // Abstract classes are hierarchy roots, so call java.lang.Object constructor
+      cch << ALoad(0)
+      cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+      
+      // Initialize special monitor field
+      if (params.doInstrument) {
+        cch << ALoad(0)
+        cch << Ldc(0)
+        cch << PutField(cName, instrumentedField, "I")
+      }
+      
+      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false) }
+      for (field <- strictFields) { initStrictField(cch, cName, field, false)}
+ 
+      cch << RETURN
+      cch.freeze
+    }
+    
   }
 
   /**
@@ -629,9 +977,8 @@ trait CodeGeneration {
    */
   val instrumentedField = "__read"
 
-  def instrumentedGetField(ch: CodeHandler, cct: CaseClassType, id: Identifier)(implicit locals: Locals): Unit = {
+  def instrumentedGetField(ch: CodeHandler, cct: ClassType, id: Identifier)(implicit locals: Locals): Unit = {
     val ccd = cct.classDef
-
     ccd.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
         val expType = cct.fields(i).tpe
@@ -658,12 +1005,15 @@ trait CodeGeneration {
     }
   }
 
+
+
   def compileCaseClassDef(ccd: CaseClassDef) {
 
     val cName = defToJVMName(ccd)
     val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
+    // An instantiation of ccd with its own type parameters 
     val cct = CaseClassType(ccd, ccd.tparams.map(_.tp))
-
+    
     val cf = classes(ccd)
 
     cf.setFlags((
@@ -676,48 +1026,94 @@ trait CodeGeneration {
       cf.addInterface(CaseClassClass)
     }
 
-    val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
-
-    // definition of the constructor
-    if(!params.doInstrument && ccd.fields.isEmpty) {
-      cf.addDefaultConstructor
-    } else {
-      for((nme, jvmt) <- namesTypes) {
-        val fh = cf.addField(jvmt, nme)
-        fh.setFlags((
-          FIELD_ACC_PUBLIC |
-          FIELD_ACC_FINAL
-        ).asInstanceOf[U2])
+    locally { 
+      
+      val (fields, methods) = ccd.methods partition { _.canBeField }
+      val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
+      
+      // Compile methods
+      for (method <- methods) {
+        compileFunDef(method,ccd)
       }
-
-      if (params.doInstrument) {
-        val fh = cf.addField("I", instrumentedField)
-        fh.setFlags(FIELD_ACC_PUBLIC)
+      
+      // Compile lazy fields
+      for (lzy <- lazyFields) {
+        compileLazyField(lzy, ccd) 
       }
-
-      val cch = cf.addConstructor(namesTypes.map(_._2).toList).codeHandler
-
-      cch << ALoad(0)
-      cch << InvokeSpecial(pName.getOrElse("java/lang/Object"), constructorName, "()V")
-
-      if (params.doInstrument) {
-        cch << ALoad(0)
-        cch << Ldc(0)
-        cch << PutField(cName, instrumentedField, "I")
+      
+      // Compile strict fields
+      for (field <- strictFields) {
+        compileStrictField(field, ccd) 
       }
+      
+      // Case class parameters
+      val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
+  
+      // definition of the constructor
+      if(!params.doInstrument && !params.requireMonitor && ccd.fields.isEmpty && ccd.methods.filter{ _.canBeField }.isEmpty) {
+        cf.addDefaultConstructor
+      } else {
+        for((nme, jvmt) <- namesTypes) {
+          val fh = cf.addField(jvmt, nme)
+          fh.setFlags((
+            FIELD_ACC_PUBLIC |
+            FIELD_ACC_FINAL
+          ).asInstanceOf[U2])
+        }
+  
+        if (params.doInstrument) {
+          val fh = cf.addField("I", instrumentedField)
+          fh.setFlags(FIELD_ACC_PUBLIC)
+        }
+  
+        // If we are monitoring function calls, we have an extra argument on the constructor
+        val realArgs = if (params.requireMonitor) {
+          ("L" + MonitorClass + ";") +: (namesTypes map (_._2))
+        } else (namesTypes map (_._2))
+        
+        // Offset of the first Scala parameter of the constructor
+        val paramOffset = if (params.requireMonitor) 2 else 1
+        
+        val cch = cf.addConstructor(realArgs.toList).codeHandler
+  
+        if (params.doInstrument) {
+          cch << ALoad(0)
+          cch << Ldc(0)
+          cch << PutField(cName, instrumentedField, "I")
+        }
+  
+        var c = paramOffset
+        for((nme, jvmt) <- namesTypes) {
+          cch << ALoad(0)
+          cch << (jvmt match {
+            case "I" | "Z" => ILoad(c)
+            case _ => ALoad(c)
+          })
+          cch << PutField(cName, nme, jvmt)
+          c += 1
+        }
+        
+        // Call parent constructor AFTER initializing case class parameters
+        if (ccd.parent.isDefined) {
+          // Load this
+          cch << ALoad(0)
+          // Load monitor object
+          if (params.requireMonitor) cch << ALoad(1)
+          val constrSig = if (params.requireMonitor) "(L" + MonitorClass + ";)V" else "()V"
+          cch << InvokeSpecial(pName.get, constructorName, constrSig)
+        } else {
+          // Call constructor of java.lang.Object
+          cch << ALoad(0)
+          cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+        }
 
-      var c = 1
-      for((nme, jvmt) <- namesTypes) {
-        cch << ALoad(0)
-        cch << (jvmt match {
-          case "I" | "Z" => ILoad(c)
-          case _ => ALoad(c)
-        })
-        cch << PutField(cName, nme, jvmt)
-        c += 1
+        
+        // Now initialize fields
+        for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false)}  
+        for (field <- strictFields) { initStrictField(cch, cName , field, false)}
+        cch << RETURN
+        cch.freeze
       }
-      cch << RETURN
-      cch.freeze
     }
 
     locally {
@@ -764,8 +1160,12 @@ trait CodeGeneration {
         pech << DUP
         pech << Ldc(i)
         pech << ALoad(0)
-        instrumentedGetField(pech, cct, f.id)(NoLocals)
-        mkBox(f.tpe, pech)(NoLocals)
+        // WARNING: Passing NoLocals(false) is kind of a hack, 
+        // since there is no monitor object anywhere in this method. 
+        // We are saved because it is not used anywhere, 
+        // but beware if you decide to add any mkExpr and the like.
+        instrumentedGetField(pech, cct, f.id)(NoLocals(false))
+        mkBox(f.tpe, pech)(NoLocals(false))
         pech << AASTORE
       }
 
@@ -798,10 +1198,14 @@ trait CodeGeneration {
         ech << ALoad(1) << CheckCast(cName) << AStore(castSlot)
 
         for(vd <- ccd.fields) {
+          // WARNING: Passing NoLocals(false) is kind of a hack, 
+          // since there is no monitor object anywhere in this method. 
+          // We are saved because it is not used anywhere, 
+          // but beware if you decide to add any mkExpr and the like.
           ech << ALoad(0)
-          instrumentedGetField(ech, cct, vd.id)(NoLocals)
+          instrumentedGetField(ech, cct, vd.id)(NoLocals(false)) 
           ech << ALoad(castSlot)
-          instrumentedGetField(ech, cct, vd.id)(NoLocals)
+          instrumentedGetField(ech, cct, vd.id)(NoLocals(false))
 
           typeToJVM(vd.getType) match {
             case "I" | "Z" =>

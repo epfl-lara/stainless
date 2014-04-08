@@ -25,8 +25,8 @@ class CompilationUnit(val ctx: LeonContext,
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
   var classes     = Map[Definition, ClassFile]()
-  var defToModule = Map[Definition, ModuleDef]()
-
+  var defToModuleOrClass = Map[Definition, Definition]()
+  
   def defineClass(df: Definition) {
     val cName = defToJVMName(df)
 
@@ -55,7 +55,8 @@ class CompilationUnit(val ctx: LeonContext,
   def leonClassToJVMInfo(cd: ClassDef): Option[(String, String)] = {
     classes.get(cd) match {
       case Some(cf) =>
-        val sig = "(" + cd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+        val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
+        val sig = "(" + monitorType + cd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
         Some((cf.className, sig))
       case _ => None
     }
@@ -64,13 +65,20 @@ class CompilationUnit(val ctx: LeonContext,
   // Returns className, methodName, methodSignature
   private[this] var funDefInfo = Map[FunDef, (String, String, String)]()
 
+  
+  /**
+   * Returns (cn, mn, sig) where 
+   *  cn is the module name
+   *  mn is the safe method name
+   *  sig is the method signature
+   */
   def leonFunDefToJVMInfo(fd: FunDef): Option[(String, String, String)] = {
     funDefInfo.get(fd).orElse {
       val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
 
       val sig = "(" + monitorType + fd.params.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
 
-      defToModule.get(fd).flatMap(m => classes.get(m)) match {
+      defToModuleOrClass.get(fd).flatMap(m => classes.get(m)) match {
         case Some(cf) =>
           val res = (cf.className, idToSafeJVMName(fd.id), sig)
           funDefInfo += fd -> res
@@ -232,7 +240,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     val exprToCompile = purescala.TreeOps.matchToIfThenElse(e)
 
-    mkExpr(e, ch)(Locals(newMapping))
+    mkExpr(e, ch)(Locals(newMapping, true))
 
     e.getType match {
       case Int32Type | BooleanType =>
@@ -254,64 +262,105 @@ class CompilationUnit(val ctx: LeonContext,
 
   def compileModule(module: ModuleDef) {
     val cf = classes(module)
-
-    cf.addDefaultConstructor
-
     cf.setFlags((
       CLASS_ACC_SUPER |
       CLASS_ACC_PUBLIC |
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
-
-    for(funDef <- module.definedFunctions;
-        (_,mn,_) <- leonFunDefToJVMInfo(funDef)) {
-
-      val paramsTypes = funDef.params.map(a => typeToJVM(a.tpe))
-
-      val realParams = if (params.requireMonitor) {
-        ("L" + MonitorClass + ";") +: paramsTypes
-      } else {
-        paramsTypes
+    
+    /*if (false) {
+      // currently we do not handle object fields 
+      // this treats all fields as functions
+      for (fun <- module.definedFunctions) {
+        compileFunDef(fun, module)
       }
-
-      val m = cf.addMethod(
-        typeToJVM(funDef.returnType),
-        mn,
-        realParams : _*
-      )
-      m.setFlags((
-        METHOD_ACC_PUBLIC |
-        METHOD_ACC_FINAL |
-        METHOD_ACC_STATIC
-      ).asInstanceOf[U2])
-
-      compileFunDef(funDef, m.codeHandler)
+    } else {*/
+    
+    val (fields, functions) = module.definedFunctions partition { _.canBeField }
+    val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
+    
+    // Compile methods
+    for (function <- functions) {
+      compileFunDef(function,module)
     }
+    
+    // Compile lazy fields
+    for (lzy <- lazyFields) {
+      compileLazyField(lzy, module)
+    }
+    
+    // Compile strict fields
+    for (field <- strictFields) {
+      compileStrictField(field, module)
+    }
+ 
+    // Constructor
+    cf.addDefaultConstructor
+    
+    val cName = defToJVMName(module)
+    
+    // Add class initializer method
+    locally{ 
+      val mh = cf.addMethod("V", "<clinit>")
+      mh.setFlags((
+        METHOD_ACC_STATIC | 
+        METHOD_ACC_PUBLIC
+      ).asInstanceOf[U2])
+      
+      val ch = mh.codeHandler
+      /*
+       * FIXME :
+       * Dirty hack to make this compatible with monitoring of method invocations.
+       * Because we don't have access to the monitor object here, we initialize a new one 
+       * that will get lost when this method returns, so we can't hope to count 
+       * method invocations here :( 
+       */
+      ch << New(MonitorClass) << DUP
+      ch << Ldc(Int.MaxValue) // Allow "infinite" method calls
+      ch << InvokeSpecial(MonitorClass, cafebabe.Defaults.constructorName, "(I)V")
+      ch << AStore(ch.getFreshVar) // position 0
+      for (lzy <- lazyFields) { initLazyField(ch, cName, lzy, true)}  
+      for (field <- strictFields) { initStrictField(ch, cName , field, true)}
+      ch  << RETURN
+      ch.freeze
+    }
+      
+    
+
+  
   }
 
-
+  /** Traverses the program to find all definitions, and stores those in global variables */
   def init() {
-    // First define all classes
+    // First define all classes/ methods/ functions
     for (m <- program.modules) {
-      for ((parent, children) <- m.algebraicDataTypes) {
-        defineClass(parent)
-
-        for (c <- children) {
-          defineClass(c)
+      for ( (parent, children) <- m.algebraicDataTypes;
+            cls <- Seq(parent) ++ children) {
+        defineClass(cls)
+        for (meth <- cls.methods) {
+          defToModuleOrClass += meth -> cls
         }
       }
-
-      for(single <- m.singleCaseClasses) {
+      
+      for ( single <- m.singleCaseClasses ) {
         defineClass(single)
+        for (meth <- single.methods) {
+          defToModuleOrClass += meth -> single
+        }
       }
-
+      
+      for(funDef <- m.definedFunctions) {
+        defToModuleOrClass += funDef -> m
+      }
       defineClass(m)
     }
   }
 
+  /** Compiles the program. Uses information provided by $init */
   def compile() {
     // Compile everything
     for (m <- program.modules) {
+      
       for ((parent, children) <- m.algebraicDataTypes) {
         compileAbstractClassDef(parent)
 
@@ -324,9 +373,7 @@ class CompilationUnit(val ctx: LeonContext,
         compileCaseClassDef(single)
       }
 
-      for(funDef <- m.definedFunctions) {
-        defToModule += funDef -> m
-      }
+      
     }
 
     for (m <- program.modules) {
