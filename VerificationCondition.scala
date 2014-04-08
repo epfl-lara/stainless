@@ -35,7 +35,6 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
     case Some(s) => s.name
     case None => ""
   }
-
 }
 
 object VCKind extends Enumeration {
