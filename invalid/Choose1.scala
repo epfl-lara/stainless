@@ -1,6 +1,7 @@
 /* Copyright 2009-2014 EPFL, Lausanne */
 
 import leon.annotation._
+import leon.lang.synthesis._
 import leon.lang._
 
 object Choose1 {
