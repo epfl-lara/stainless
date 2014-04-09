@@ -64,7 +64,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
         }
 
       case None =>
-        reporter.warning("Could not find abstract class type argument to induct on")
+        reporter.warning(funDef.getPos, "Could not find abstract class type argument to induct on")
         super.generatePostconditions(funDef)
     }
   }
@@ -132,7 +132,7 @@ class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
         toRet
       }
       case None => {
-        reporter.warning("Induction tactic currently supports exactly one argument of abstract class type")
+        reporter.warning(function.getPos, "Induction tactic currently supports exactly one argument of abstract class type")
         defaultPrec
       }
     }
