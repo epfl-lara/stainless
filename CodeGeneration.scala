@@ -421,9 +421,6 @@ trait CodeGeneration {
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
-      case hole @ Hole(oracle) =>
-        mkExpr(OracleTraverser(oracle, hole.getType, program).value, ch)
-
       case choose @ Choose(_, _) =>
         val prob = synthesis.Problem.fromChoose(choose)
 
