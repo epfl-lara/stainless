@@ -53,7 +53,7 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
       return NoGuarantee
 
     // This is also too confusing for me to think about now.
-    if (!funDef.hasImplementation)
+    if (!funDef.hasBody)
       return NoGuarantee
 
     val sccIndex = funDefToSCCIndex.getOrElse(funDef, {
