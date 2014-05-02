@@ -134,6 +134,12 @@ trait CodeGeneration {
         }
         ch << instr
 
+      case Assert(cond, oerr, body) =>
+        mkExpr(IfExpr(Not(cond), Error(oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
+
+      case Ensuring(body, id, post) =>
+        mkExpr(Let(id, body, Assert(post, Some("Ensuring failed"), Variable(id))), ch)
+
       case Let(i,d,b) =>
         mkExpr(d, ch)
         val slot = ch.getFreshVar
