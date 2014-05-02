@@ -9,132 +9,83 @@ import purescala.TreeOps._
 import purescala.TypeTrees._
 import purescala.Definitions._
 
-class InductionTactic(reporter: Reporter) extends DefaultTactic(reporter) {
+class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   override val description = "Induction tactic for suitable functions"
   override val shortDescription = "induction"
 
-  private def firstAbsClassDef(args: Seq[ValDef]) : Option[(AbstractClassType, ValDef)] = {
+  private def firstAbsClassDef(args: Seq[ValDef]): Option[(AbstractClassType, ValDef)] = {
     args.map(vd => (vd.getType, vd)).collect {
       case (act: AbstractClassType, vd) => (act, vd)
     }.headOption
-  } 
+  }
 
-  private def selectorsOfParentType(parentType: ClassType, cct: CaseClassType, expr: Expr) : Seq[Expr] = {
+  private def selectorsOfParentType(parentType: ClassType, cct: CaseClassType, expr: Expr): Seq[Expr] = {
     val childrenOfSameType = cct.fields.filter(_.tpe == parentType)
     for (field <- childrenOfSameType) yield {
       CaseClassSelector(cct, expr, field.id)
     }
   }
 
-  override def generatePostconditions(funDef: FunDef) : Seq[VerificationCondition] = {
-    assert(funDef.body.isDefined)
-    firstAbsClassDef(funDef.params) match {
-      case Some((cct, arg)) =>
-        val prec = funDef.precondition
-        val optPost = funDef.postcondition
-        val body = matchToIfThenElse(funDef.body.get)
-        val argAsVar = arg.toVariable
-        val parentType = cct
+  override def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
+    (fd.body.map(safe), firstAbsClassDef(fd.params), fd.postcondition) match {
+      case (Some(b), Some((parentType, arg)), Some((id, p))) =>
+        val post = safe(p)
+        val body = safe(b)
 
-        optPost match {
-          case None =>
-            Seq.empty
-          case Some((pid, post)) =>
-            for (cct <- parentType.knownCCDescendents) yield {
-              val selectors = selectorsOfParentType(parentType, cct, argAsVar)
-                // if no subtrees of parent type, assert property for base case
-              val resFresh = FreshIdentifier("result", true).setType(body.getType)
-              val bodyAndPostForArg = Let(resFresh, body, replace(Map(Variable(pid) -> Variable(resFresh)), matchToIfThenElse(post)))
-              val withPrec = if (prec.isEmpty) bodyAndPostForArg else Implies(matchToIfThenElse(prec.get), bodyAndPostForArg)
+        for (cct <- parentType.knownCCDescendents) yield {
+          val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
-              val conditionForChild = 
-                if (selectors.size == 0) 
-                  withPrec
-                else {
-                  val inductiveHypothesis = (for (sel <- selectors) yield {
-                    val resFresh = FreshIdentifier("result", true).setType(body.getType)
-                    val bodyAndPost = Let(resFresh, replace(Map(argAsVar -> sel), body), replace(Map(Variable(pid) -> Variable(resFresh), argAsVar -> sel), matchToIfThenElse(post))) 
-                    val withPrec = if (prec.isEmpty) bodyAndPost else Implies(replace(Map(argAsVar -> sel), matchToIfThenElse(prec.get)), bodyAndPost)
-                    withPrec
-                  })
-                  Implies(And(inductiveHypothesis), withPrec)
-                }
-              new VerificationCondition(Implies(CaseClassInstanceOf(cct, argAsVar), conditionForChild), funDef, VCKind.Postcondition, this).setPos(funDef)
-            }
+          val subCases = selectors.map { sel =>
+            val res = id.freshen
+            replace(Map(arg.toVariable -> sel),
+              Implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
+            )
+          }
+
+          val vc = Implies(And(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), Implies(And(subCases), Let(id, body, post)))
+
+          new VerificationCondition(vc, fd, VCKind.Postcondition, this).setPos(fd)
         }
 
-      case None =>
-        reporter.warning(funDef.getPos, "Could not find abstract class type argument to induct on")
-        super.generatePostconditions(funDef)
+      case (body, _, post) =>
+        if (post.isDefined && body.isDefined) {
+          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+        }
+        super.generatePostconditions(fd)
     }
   }
 
-  override def generatePreconditions(function: FunDef) : Seq[VerificationCondition] = {
-    val defaultPrec = super.generatePreconditions(function)
-    firstAbsClassDef(function.params) match {
-      case Some((cct, arg)) => {
-        val toRet = if(function.hasBody) {
-          val parentType = cct
-          val cleanBody = expandLets(matchToIfThenElse(function.body.get))
+  override def generatePreconditions(fd: FunDef): Seq[VerificationCondition] = {
+    (fd.body.map(safe), firstAbsClassDef(fd.params)) match {
+      case (Some(b), Some((parentType, arg))) =>
+        val body = safe(b)
 
-          val allPathConds = collectWithPathCondition((t => t match {
-            case FunctionInvocation(tfd, _) if(tfd.hasPrecondition) => true
-            case _ => false
-          }), cleanBody)
+        val calls = collectWithPC {
+          case fi @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (fi, safe(tfd.precondition.get))
+        }(body)
 
-          def withPrec(path: Seq[Expr], shouldHold: Expr) : Expr = if(function.hasPrecondition) {
-            Not(And(And(matchToIfThenElse(function.precondition.get) +: path), Not(shouldHold)))
-          } else {
-            Not(And(And(path), Not(shouldHold)))
-          }
-
-          val conditionsForAllPaths : Seq[Seq[VerificationCondition]] = allPathConds.map(pc => {
-            val path : Seq[Expr] = pc._1
-            val fi = pc._2.asInstanceOf[FunctionInvocation]
-            val FunctionInvocation(tfd, args) = fi
-
+        calls.flatMap {
+          case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
             for (cct <- parentType.knownCCDescendents) yield {
-              val argAsVar = arg.toVariable
-              val selectors = selectorsOfParentType(parentType, cct, argAsVar)
-              
-              val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-              val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-              val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
-              val newBody : Expr = replace(substMap, prec)
-              val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
+              val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
-              val toProve = withPrec(path, newCall)
+              val subCases = selectors.map { sel =>
+                replace(Map(arg.toVariable -> sel),
+                  Implies(precOrTrue(fd), replace((tfd.params.map(_.toVariable) zip args).toMap, pre))
+                )
+              }
 
-              val conditionForChild =
-                if (selectors.isEmpty)
-                  toProve
-                else {
-                  val inductiveHypothesis = (for (sel <- selectors) yield {
-                    val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-                    val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-                    val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
-                    val newBody : Expr = replace(substMap, prec)
-                    val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
+              val vc = Implies(And(Seq(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path)), Implies(And(subCases), replace((tfd.params.map(_.toVariable) zip args).toMap, pre)))
 
-                    val toReplace = withPrec(path, newCall)
-                    replace(Map(argAsVar -> sel), toReplace)
-                  })
-                  Implies(And(inductiveHypothesis), toProve)
-                }
-              new VerificationCondition(Implies(CaseClassInstanceOf(cct, argAsVar), conditionForChild), function, VCKind.Precondition, this).setPos(fi)
+              new VerificationCondition(vc, fd, VCKind.Precondition, this).setPos(fi)
             }
-          }).toSeq
-
-          conditionsForAllPaths.flatten
-        } else {
-          Seq.empty
         }
-        toRet
-      }
-      case None => {
-        reporter.warning(function.getPos, "Induction tactic currently supports exactly one argument of abstract class type")
-        defaultPrec
-      }
+
+      case (body, _) =>
+        if (body.isDefined) {
+          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+        }
+        super.generatePreconditions(fd)
     }
   }
 }

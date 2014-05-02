@@ -32,10 +32,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     import vctx.reporter
     import vctx.program
 
-    val defaultTactic = new DefaultTactic(reporter)
-    defaultTactic.setProgram(program)
-    val inductionTactic = new InductionTactic(reporter)
-    inductionTactic.setProgram(program)
+    val defaultTactic = new DefaultTactic(vctx)
+    val inductionTactic = new InductionTactic(vctx)
 
     var allVCs = Map[FunDef, List[VerificationCondition]]()
 
@@ -64,11 +62,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         }
 
       if(funDef.body.isDefined) {
-        val funVCs = tactic.generatePreconditions(funDef) ++
-                     tactic.generatePatternMatchingExhaustivenessChecks(funDef) ++
-                     tactic.generatePostconditions(funDef) ++
-                     tactic.generateMiscCorrectnessConditions(funDef) ++
-                     tactic.generateArrayAccessChecks(funDef)
+        val funVCs = tactic.generateVCs(funDef)
 
         allVCs += funDef -> funVCs.toList
       }

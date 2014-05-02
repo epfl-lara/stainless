@@ -40,6 +40,7 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
 object VCKind extends Enumeration {
   val Precondition = Value("precond.")
   val Postcondition = Value("postcond.")
+  val Correctness = Value("correct.")
   val ExhaustiveMatch = Value("match.")
   val MapAccess = Value("map acc.")
   val ArrayAccess = Value("arr. acc.")

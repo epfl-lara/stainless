@@ -11,229 +11,61 @@ import purescala.Definitions._
 
 import scala.collection.mutable.{Map => MutableMap}
 
-class DefaultTactic(reporter: Reporter) extends Tactic(reporter) {
+class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
     val description = "Default verification condition generation approach"
     override val shortDescription = "default"
 
-    var _prog : Option[Program] = None
-    def program : Program = _prog match {
-      case None => throw new Exception("Program never set in DefaultTactic.")
-      case Some(p) => p
+    def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
+      (fd.postcondition, fd.body) match {
+        case (Some((id, post)), Some(body)) =>
+          val res = id.freshen
+          val vc = Implies(precOrTrue(fd), Let(res, safe(body), replace(Map(id.toVariable -> res.toVariable), safe(post))))
+
+          Seq(new VerificationCondition(vc, fd, VCKind.Postcondition, this).setPos(post))
+        case _ =>
+          Nil
+      }
     }
+  
+    def generatePreconditions(fd: FunDef): Seq[VerificationCondition] = {
+      fd.body match {
+        case Some(body) =>
+          val calls = collectWithPC {
+            case c @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (c, tfd.precondition.get)
+          }(safe(body))
 
-    override def setProgram(program: Program) : Unit = {
-      _prog = Some(program)
-    }
+          calls.map {
+            case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
+              val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, safe(pre))
+              val vc = Implies(And(precOrTrue(fd), path), pre2)
 
-    def generatePostconditions(functionDefinition: FunDef) : Seq[VerificationCondition] = {
-      assert(functionDefinition.body.isDefined)
-      val prec = functionDefinition.precondition
-      val optPost = functionDefinition.postcondition
-      val body = matchToIfThenElse(functionDefinition.body.get)
+              new VerificationCondition(vc, fd, VCKind.Precondition, this).setPos(fi)
+          }
 
-      optPost match {
         case None =>
-          Seq()
+          Nil
+      }
+    }
 
-        case Some((id, post)) =>
-          val theExpr = { 
-            val resFresh = FreshIdentifier("result", true).setType(body.getType)
-            val bodyAndPost = Let(resFresh, body, replace(Map(Variable(id) -> Variable(resFresh)), matchToIfThenElse(post)))
+    def generateCorrectnessConditions(fd: FunDef): Seq[VerificationCondition] = {
+      fd.body match {
+        case Some(body) =>
+          val calls = collectWithPC {
+            case e @ Error(_) => (e, BooleanLiteral(false))
+            case a @ Assert(cond, _, _) => (a, cond)
+            // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
+            case a @ Ensuring(body, id, post) => (a, Let(id, body, post))
+          }(safe(body))
 
-            val withPrec = if(prec.isEmpty) {
-              bodyAndPost
-            } else {
-              Implies(matchToIfThenElse(prec.get), bodyAndPost)
-            }
+          calls.map {
+            case ((e, errorCond), path) =>
+              val vc = Implies(And(precOrTrue(fd), path), errorCond)
 
-            withPrec
+              new VerificationCondition(vc, fd, VCKind.Correctness, this).setPos(e)
           }
-          Seq(new VerificationCondition(theExpr, functionDefinition, VCKind.Postcondition, this).setPos(post))
+
+        case None =>
+          Nil
       }
     }
-  
-    def generatePreconditions(function: FunDef) : Seq[VerificationCondition] = {
-      val toRet = if(function.hasBody) {
-        val pre = matchToIfThenElse(function.body.get)
-        val cleanBody = expandLets(pre)
-
-        val allPathConds = collectWithPathCondition((t => t match {
-          case FunctionInvocation(tfd, _) if(tfd.hasPrecondition) => true
-          case _ => false
-        }), cleanBody)
-
-        def withPrecIfDefined(path: Seq[Expr], shouldHold: Expr) : Expr = if(function.hasPrecondition) {
-          Not(And(And(matchToIfThenElse(function.precondition.get) +: path), Not(shouldHold)))
-        } else {
-          Not(And(And(path), Not(shouldHold)))
-        }
-
-        allPathConds.map(pc => {
-          val path : Seq[Expr] = pc._1
-          val fi = pc._2.asInstanceOf[FunctionInvocation]
-          val FunctionInvocation(tfd, args) = fi
-          val prec : Expr = freshenLocals(matchToIfThenElse(tfd.precondition.get))
-          val newLetIDs = tfd.params.map(a => FreshIdentifier("arg_" + a.id.name, true).setType(a.tpe))
-          val substMap = Map[Expr,Expr]((tfd.params.map(_.toVariable) zip newLetIDs.map(Variable(_))) : _*)
-          val newBody : Expr = replace(substMap, prec)
-          val newCall : Expr = (newLetIDs zip args).foldRight(newBody)((iap, e) => Let(iap._1, iap._2, e))
-
-            new VerificationCondition(
-              withPrecIfDefined(path, newCall),
-              function,
-              VCKind.Precondition,
-              this.asInstanceOf[DefaultTactic]).setPos(fi)
-        }).toSeq
-      } else {
-        Seq.empty
-      }
-
-      // println("PRECS VCs FOR " + function.id.name)
-      // println(toRet.toList.map(vc => vc.posInfo + " -- " + vc.condition).mkString("\n\n"))
-
-      toRet
-    }
-
-    def generatePatternMatchingExhaustivenessChecks(function: FunDef) : Seq[VerificationCondition] = {
-      val toRet = if(function.hasBody) {
-        val cleanBody = matchToIfThenElse(function.body.get)
-
-        val allPathConds = collectWithPathCondition((t => t match {
-          case Error("non-exhaustive match") => true
-          case _ => false
-        }), cleanBody)
-  
-        def withPrecIfDefined(conds: Seq[Expr]) : Expr = if(function.hasPrecondition) {
-          Not(And(matchToIfThenElse(function.precondition.get), And(conds)))
-        } else {
-          Not(And(conds))
-        }
-
-        allPathConds.map(pc => 
-          new VerificationCondition(
-            withPrecIfDefined(pc._1),
-            function,//if(function.fromLoop) function.parent.get else function,
-            VCKind.ExhaustiveMatch,
-            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
-        ).toSeq
-      } else {
-        Seq.empty
-      }
-
-      // println("MATCHING VCs FOR " + function.id.name)
-      // println(toRet.toList.map(vc => vc.posInfo + " -- " + vc.condition).mkString("\n\n"))
-
-      toRet
-    }
-
-    def generateMapAccessChecks(function: FunDef) : Seq[VerificationCondition] = {
-      val toRet = if (function.hasBody) {
-        val cleanBody = mapGetWithChecks(matchToIfThenElse(function.body.get))
-
-        val allPathConds = collectWithPathCondition((t => t match {
-          case Error("key not found for map access") => true
-          case _ => false
-        }), cleanBody)
-
-        def withPrecIfDefined(conds: Seq[Expr]) : Expr = if (function.hasPrecondition) {
-          Not(And(mapGetWithChecks(matchToIfThenElse(function.precondition.get)), And(conds)))
-        } else {
-          Not(And(conds))
-        }
-
-        allPathConds.map(pc =>
-          new VerificationCondition(
-            withPrecIfDefined(pc._1),
-            function, //if(function.fromLoop) function.parent.get else function,
-            VCKind.MapAccess,
-            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
-        ).toSeq
-      } else {
-        Seq.empty
-      }
-
-      toRet
-    }
-
-    def generateArrayAccessChecks(function: FunDef) : Seq[VerificationCondition] = {
-      val toRet = if (function.hasBody) {
-        val cleanBody = matchToIfThenElse(function.body.get)
-
-        val allPathConds = CollectorWithPaths {
-          case expr@ArraySelect(a, i) => (expr, a, i)
-          case expr@ArrayUpdated(a, i, _) => (expr, a, i)
-        }.traverse(cleanBody)
-
-        val arrayAccessConditions = allPathConds.map{
-          case ((expr, array, index), pathCond) => {
-            val length = ArrayLength(array)
-            val negative = LessThan(index, IntLiteral(0))
-            val tooBig = GreaterEquals(index, length)
-            (And(pathCond, Or(negative, tooBig)), expr)
-          }
-        }
-
-        def withPrecIfDefined(conds: Expr) : Expr = if (function.hasPrecondition) {
-          Not(And(mapGetWithChecks(matchToIfThenElse(function.precondition.get)), conds))
-        } else {
-          Not(conds)
-        }
-
-
-        arrayAccessConditions.map(pc =>
-          new VerificationCondition(
-            withPrecIfDefined(pc._1),
-            function, //if(function.fromLoop) function.parent.get else function,
-            VCKind.ArrayAccess,
-            this.asInstanceOf[DefaultTactic]).setPos(pc._2)
-        ).toSeq
-      } else {
-        Seq.empty
-      }
-
-      toRet
-    }
-
-    def generateMiscCorrectnessConditions(function: FunDef) : Seq[VerificationCondition] = {
-      generateMapAccessChecks(function)
-    }
-
-    def collectWithPathCondition(matcher: Expr=>Boolean, expression: Expr) : Set[(Seq[Expr],Expr)] = {
-      CollectorWithPaths({ 
-        case e if matcher(e) => e 
-      }).traverse(expression).map{ 
-        case (e, And(es)) => (es, e)
-        case (e1, e2) => (Seq(e2), e1)
-      }.toSet
-    }
-    // prec: there should be no lets and no pattern-matching in this expression
-    //def collectWithPathCondition(matcher: Expr=>Boolean, expression: Expr) : Set[(Seq[Expr],Expr)] = {
-    //  var collected : Set[(Seq[Expr],Expr)] = Set.empty
-
-    //  def rec(expr: Expr, path: List[Expr]) : Unit = {
-    //    if(matcher(expr)) {
-    //      collected = collected + ((path.reverse, expr))
-    //    }
-
-    //    expr match {
-    //      case Let(i,e,b) => {
-    //        rec(e, path)
-    //        rec(b, Equals(Variable(i), e) :: path)
-    //      }
-    //      case IfExpr(cond, thenn, elze) => {
-    //        rec(cond, path)
-    //        rec(thenn, cond :: path)
-    //        rec(elze, Not(cond) :: path)
-    //      }
-    //      case NAryOperator(args, _) => args.foreach(rec(_, path))
-    //      case BinaryOperator(t1, t2, _) => rec(t1, path); rec(t2, path)
-    //      case UnaryOperator(t, _) => rec(t, path)
-    //      case t : Terminal => ;
-    //      case _ => scala.sys.error("Unhandled tree in collectWithPathCondition : " + expr)
-    //    }
-    //  }
-
-    //  rec(expression, Nil)
-    //  collected
-    //}
 }
