@@ -15,6 +15,8 @@ import solvers.combinators._
 
 import scala.collection.mutable.{Set => MutableSet}
 
+import _root_.smtlib.interpreters.Z3Interpreter
+
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
   val description = "Leon Verification"
@@ -23,7 +25,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
   override val definedOptions : Set[LeonOptionDef] = Set(
     LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,..."),
-    LeonValueOptionDef("solvers",   "--solvers=s1,s2",   "Use solvers s1 and s2 (fairz3,enum)", default = Some("fairz3")),
     LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
   )
 
@@ -147,13 +148,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   def run(ctx: LeonContext)(program: Program) : VerificationReport = {
     var filterFuns: Option[Seq[String]] = None
     var timeout: Option[Int]             = None
-    var selectedSolvers                  = Set[String]("fairz3")
-
-    val allSolvers = Map(
-      "fairz3" -> SolverFactory(() => new FairZ3Solver(ctx, program) with TimeoutSolver),
-      "enum"   -> SolverFactory(() => new EnumerationSolver(ctx, program) with TimeoutSolver),
-      "smt"    -> SolverFactory(() => new smtlib.SMTLIBSolver(ctx, program, new _root_.smtlib.interpreters.Z3Interpreter))
-    )
 
     val reporter = ctx.reporter
 
@@ -161,12 +155,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       case LeonValueOption("functions", ListValue(fs)) =>
         filterFuns = Some(fs)
 
-      case LeonValueOption("solvers", ListValue(ss)) =>
-        val unknownSolvers = ss.toSet -- allSolvers.keySet
-        if (unknownSolvers.nonEmpty) {
-          reporter.error("Unknown solver(s): "+unknownSolvers.mkString(", ")+" (Available: "+allSolvers.keys.mkString(", ")+")")
-        }
-        selectedSolvers = Set() ++ ss
 
       case v @ LeonValueOption("timeout", _) =>
         timeout = v.asInt(ctx)
@@ -175,15 +163,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     }
 
     // Solvers selection and validation
-    val solversToUse = allSolvers.filterKeys(selectedSolvers)
-
-    val entrySolver = if (solversToUse.isEmpty) {
-      reporter.fatalError("No solver selected. Aborting")
-    } else if (solversToUse.size == 1) {
-      solversToUse.values.head
-    } else {
-      SolverFactory( () => new PortfolioSolver(ctx, solversToUse.values.toSeq) with TimeoutSolver)
-    }
+    val entrySolver = SolverFactory.getFromSettings(ctx, program)
 
     val mainSolver = timeout match {
       case Some(sec) =>
