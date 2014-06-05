@@ -20,45 +20,32 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
   lazy val totalUnknown : Int = conditions.count(_.value == None)
 
   def summaryString : String = if(totalConditions >= 0) {
-    VerificationReport.infoHeader +
-    conditions.map(VerificationReport.infoLine).mkString("\n", "\n", "\n") +
-    VerificationReport.infoSep +
-    ("║ total: %-4d   valid: %-4d   invalid: %-4d   unknown %-4d " +
-      (" " * 16) +
-      " %7.3f ║\n").format(totalConditions, totalValid, totalInvalid, totalUnknown, totalTime) +
-    VerificationReport.infoFooter
+    import utils.ASCIITables._
+
+    var t = Table("Verification Summary")
+
+    t ++= conditions.map { vc =>
+      val timeStr = vc.time.map(t => "%-3.3f".format(t)).getOrElse("")
+      Row(Seq(
+        Cell(vc.funDef.id.toString),
+        Cell(vc.kind),
+        Cell(vc.status),
+        Cell(vc.tacticStr),
+        Cell(vc.solverStr),
+        Cell(timeStr, align = Right)
+      ))
+    }
+
+    t += Separator
+
+    t += Row(Seq(
+      Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown $totalUnknown%-4d", 5),
+      Cell(f"$totalTime%7.3f", align = Right)
+    ))
+
+    t.render
+
   } else {
     "No verification conditions were analyzed."
-  }
-}
-
-object VerificationReport {
-  def emptyReport : VerificationReport = new VerificationReport(Map())
-
-  private def fit(str : String, maxLength : Int) : String = {
-    if(str.length <= maxLength) {
-      str
-    } else {
-      str.substring(0, maxLength - 1) + "…"
-    }
-  }
-
-  private val infoSep    : String = "╟" + ("┄" * 83) + "╢\n"
-  private val infoFooter : String = "╚" + ("═" * 83) + "╝"
-  private val infoHeader : String = ". ┌─────────┐\n" +
-                                    "╔═╡ Summary ╞" + ("═" * 71) + "╗\n" +
-                                    "║ └─────────┘" + (" " * 71) + "║"
-
-  private def infoLine(vc : VerificationCondition) : String = {
-    val timeStr = vc.time.map(t => "%-3.3f".format(t)).getOrElse("")
-
-    "║ %-25s %-9s %9s %-8s %-10s %-7s %7s ║".format(
-      fit(vc.funDef.id.toString, 25),
-      vc.kind,
-      vc.getPos,
-      vc.status,
-      vc.tacticStr,
-      vc.solverStr,
-      timeStr)
   }
 }
