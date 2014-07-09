@@ -29,6 +29,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
       Row(Seq(
         Cell(vc.funDef.id.toString),
         Cell(vc.kind.name),
+        Cell(vc.getPos),
         Cell(vc.status),
         Cell(vc.tacticStr),
         Cell(vc.solverStr),
@@ -39,7 +40,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
     t += Separator
 
     t += Row(Seq(
-      Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown $totalUnknown%-4d", 5),
+      Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown $totalUnknown%-4d", 6),
       Cell(f"$totalTime%7.3f", align = Right)
     ))
 
