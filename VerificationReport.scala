@@ -7,7 +7,7 @@ import purescala.Definitions.FunDef
 
 class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
   import scala.math.Ordering.Implicits._
-  val conditions : Seq[VerificationCondition] = fvcs.flatMap(_._2).toSeq.sortBy(vc => (vc.funDef.id.name, vc.kind))
+  val conditions : Seq[VerificationCondition] = fvcs.flatMap(_._2).toSeq.sortBy(vc => (vc.funDef.id.name, vc.kind.toString))
 
   lazy val totalConditions : Int = conditions.size
 
