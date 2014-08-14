@@ -121,7 +121,7 @@ class CompilationUnit(val ctx: LeonContext,
   // Currently, this method is only used to prepare arguments to reflective calls.
   // This means it is safe to return AnyRef (as opposed to primitive types), because
   // reflection needs this anyway.
-  private[codegen] def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
+  def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
     case IntLiteral(v) =>
       new java.lang.Integer(v)
 
@@ -148,57 +148,84 @@ class CompilationUnit(val ctx: LeonContext,
     case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
       exprs.map(e => exprToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
 
+    case s @ FiniteSet(els) =>
+      val s = new leon.codegen.runtime.Set()
+      for (e <- els) {
+        s.add(exprToJVM(e))
+      }
+      s
+
+    case m @ FiniteMap(els) =>
+      val m = new leon.codegen.runtime.Map()
+      for ((k,v) <- els) {
+        m.add(exprToJVM(k), exprToJVM(v))
+      }
+      m
+
     // Just slightly overkill...
     case _ =>
       compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
   }
 
   // Note that this may produce untyped expressions! (typically: sets, maps)
-  private[codegen] def jvmToExpr(e: AnyRef): Expr = e match {
-    case i: Integer =>
+  def jvmToExpr(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
+    case (i: Integer, Int32Type) =>
       IntLiteral(i.toInt)
 
-    case b: java.lang.Boolean =>
+    case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
 
-    case cc: runtime.CaseClass =>
+    case (cc: runtime.CaseClass, ct: ClassType) =>
       val fields = cc.productElements()
 
-      jvmClassToLeonClass(e.getClass.getName) match {
-        case Some(cc: CaseClassDef) =>
-          CaseClass(CaseClassType(cc, Nil), fields.map(jvmToExpr))
+      // identify case class type of ct
+      val cct = ct match {
+        case cc: CaseClassType =>
+          cc
+
         case _ =>
-          throw CompilationException("Unsupported return value : " + e)
+          jvmClassToLeonClass(cc.getClass.getName) match {
+            case Some(cc: CaseClassDef) =>
+              CaseClassType(cc, ct.tps)
+            case _ =>
+              throw CompilationException("Unable to identify class "+cc.getClass.getName+" to descendent of "+ct)
+        }
       }
 
-    case tpl: runtime.Tuple =>
-      val elems = for (i <- 0 until tpl.getArity) yield {
-        jvmToExpr(tpl.get(i))
+      CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToExpr(e, tpe) })
+
+    case (tpl: runtime.Tuple, TupleType(stpe)) =>
+      val elems = stpe.zipWithIndex.map { case (tpe, i) => 
+        jvmToExpr(tpl.get(i), tpe)
       }
       Tuple(elems)
 
-    case gv : GenericValue =>
+    case (gv : GenericValue, _: TypeParameter) =>
       gv
 
-    case set : runtime.Set =>
-      FiniteSet(set.getElements().asScala.map(jvmToExpr).toSeq)
+    case (set : runtime.Set, SetType(b)) =>
+      FiniteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSeq).setType(SetType(b))
 
-    case map : runtime.Map =>
+    case (map : runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements().asScala.map { entry =>
-        val k = jvmToExpr(entry.getKey())
-        val v = jvmToExpr(entry.getValue())
+        val k = jvmToExpr(entry.getKey(), from)
+        val v = jvmToExpr(entry.getValue(), to)
         (k, v)
       }
       FiniteMap(pairs.toSeq)
 
     case _ =>
-      throw CompilationException("Unsupported return value : " + e.getClass)
+      throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
   }
+
+  var compiledN = 0;
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
     if(e.getType == Untyped) {
       throw new IllegalArgumentException("Cannot compile untyped expression [%s].".format(e))
     }
+
+    compiledN += 1
 
     val id = CompilationUnit.nextExprId
 

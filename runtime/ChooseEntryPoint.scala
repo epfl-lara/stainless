@@ -46,7 +46,7 @@ object ChooseEntryPoint {
 
     val inputsMap = (p.as zip inputs).map {
       case (id, v) =>
-        Equals(Variable(id), unit.jvmToExpr(v))
+        Equals(Variable(id), unit.jvmToExpr(v, id.getType))
     }
 
     solver.assertCnstr(And(Seq(p.pc, p.phi) ++ inputsMap))
