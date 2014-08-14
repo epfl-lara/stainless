@@ -21,7 +21,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
           val res = id.freshen
           val vc = Implies(precOrTrue(fd), Let(res, safe(body), replace(Map(id.toVariable -> res.toVariable), safe(post))))
 
-          Seq(new VerificationCondition(vc, fd, VCKind.Postcondition, this).setPos(post))
+          Seq(new VerificationCondition(vc, fd, VCPostcondition, this).setPos(post))
         case _ =>
           Nil
       }
@@ -39,7 +39,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, safe(pre))
               val vc = Implies(And(precOrTrue(fd), path), pre2)
 
-              new VerificationCondition(vc, fd, VCKind.Precondition, this).setPos(fi)
+              new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
           }
 
         case None =>
@@ -51,17 +51,32 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       fd.body match {
         case Some(body) =>
           val calls = collectWithPC {
-            case e @ Error(_) => (e, BooleanLiteral(false))
-            case a @ Assert(cond, _, _) => (a, cond)
+            case e @ Error("Match is non-exhaustive") =>
+              (e, VCExhaustiveMatch, BooleanLiteral(false))
+
+            case e @ Error(_) =>
+              (e, VCAssert, BooleanLiteral(false))
+
+            case a @ Assert(cond, Some(err), _) => 
+              val kind = if (err.startsWith("Map ")) {
+                VCMapUsage
+              } else if (err.startsWith("Array ")) {
+                VCArrayUsage
+              } else {
+                VCAssert
+              }
+
+              (a, kind, cond)
+            case a @ Assert(cond, None, _) => (a, VCAssert, cond)
             // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
-            case a @ Ensuring(body, id, post) => (a, Let(id, body, post))
+            case a @ Ensuring(body, id, post) => (a, VCAssert, Let(id, body, post))
           }(safe(body))
 
           calls.map {
-            case ((e, errorCond), path) =>
+            case ((e, kind, errorCond), path) =>
               val vc = Implies(And(precOrTrue(fd), path), errorCond)
 
-              new VerificationCondition(vc, fd, VCKind.Correctness, this).setPos(e)
+              new VerificationCondition(vc, fd, kind, this).setPos(e)
           }
 
         case None =>

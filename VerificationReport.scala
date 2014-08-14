@@ -28,7 +28,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
       val timeStr = vc.time.map(t => "%-3.3f".format(t)).getOrElse("")
       Row(Seq(
         Cell(vc.funDef.id.toString),
-        Cell(vc.kind),
+        Cell(vc.kind.name),
         Cell(vc.status),
         Cell(vc.tacticStr),
         Cell(vc.solverStr),
