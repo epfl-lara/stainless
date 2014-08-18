@@ -37,7 +37,9 @@ class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: V
   }
 }
 
-abstract class VCKind(val name: String, val abbrv: String)
+abstract class VCKind(val name: String, val abbrv: String) {
+  override def toString = name
+}
 case object VCPrecondition    extends VCKind("precondition", "precond.")
 case object VCPostcondition   extends VCKind("postcondition", "postcond.")
 case object VCAssert          extends VCKind("body assertion", "assert.")
