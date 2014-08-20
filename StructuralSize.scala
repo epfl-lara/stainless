@@ -33,7 +33,7 @@ trait StructuralSize {
         case None =>
           val argument = ValDef(FreshIdentifier("x").setType(argumentType), argumentType)
           val formalTParams = typeParams.map(TypeParameterDef(_))
-          val fd = new FunDef(FreshIdentifier("size", true), formalTParams, Int32Type, Seq(argument))
+          val fd = new FunDef(FreshIdentifier("size", true), formalTParams, Int32Type, Seq(argument), DefType.MethodDef)
           sizeCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(MatchExpr(argument.toVariable, cases(argumentType))))
