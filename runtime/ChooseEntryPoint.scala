@@ -70,7 +70,7 @@ object ChooseEntryPoint {
           ctx.reporter.debug("Synthesis took "+total+"ms")
           ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))
 
-          unit.exprToJVM(leonRes)
+          unit.exprToJVM(leonRes)(new LeonCodeGenRuntimeMonitor(unit.params.maxFunctionInvocations))
         case Some(false) =>
           throw new LeonCodeGenRuntimeException("Constraint is UNSAT")
         case _ =>

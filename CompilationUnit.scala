@@ -7,6 +7,7 @@ import purescala.Common._
 import purescala.Definitions._
 import purescala.Trees._
 import purescala.TypeTrees._
+import codegen.runtime.LeonCodeGenRuntimeMonitor
 
 import cafebabe._
 import cafebabe.AbstractByteCodes._
@@ -120,7 +121,7 @@ class CompilationUnit(val ctx: LeonContext,
   // Currently, this method is only used to prepare arguments to reflective calls.
   // This means it is safe to return AnyRef (as opposed to primitive types), because
   // reflection needs this anyway.
-  private[codegen] def exprToJVM(e: Expr): AnyRef = e match {
+  private[codegen] def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
     case IntLiteral(v) =>
       new java.lang.Integer(v)
 
@@ -131,12 +132,13 @@ class CompilationUnit(val ctx: LeonContext,
       e
 
     case Tuple(elems) =>
-      tupleConstructor.newInstance(elems.map(exprToJVM).toArray).asInstanceOf[AnyRef]
+      tupleConstructor.newInstance(elems.map(exprToJVM _).toArray).asInstanceOf[AnyRef]
 
     case CaseClass(cct, args) =>
       caseClassConstructor(cct.classDef) match {
         case Some(cons) =>
-          cons.newInstance(args.map(exprToJVM).toArray : _*).asInstanceOf[AnyRef]
+          val realArgs = if (params.requireMonitor) monitor +: args.map(exprToJVM _) else  args.map(exprToJVM _)
+          cons.newInstance(realArgs.toArray : _*).asInstanceOf[AnyRef]
         case None =>
           ctx.reporter.fatalError("Case class constructor not found?!?")
       }
@@ -148,7 +150,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     // Just slightly overkill...
     case _ =>
-      compileExpression(e, Seq()).evalToJVM(Seq())
+      compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
   }
 
   // Note that this may produce untyped expressions! (typically: sets, maps)
