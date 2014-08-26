@@ -19,6 +19,7 @@ import scala.collection.JavaConverters._
 
 import java.lang.reflect.Constructor
 
+
 class CompilationUnit(val ctx: LeonContext,
                       val program: Program,
                       val params: CodeGenParams = CodeGenParams()) extends CodeGeneration {
@@ -362,35 +363,29 @@ class CompilationUnit(val ctx: LeonContext,
   /** Traverses the program to find all definitions, and stores those in global variables */
   def init() {
     // First define all classes/ methods/ functions
-    for (m <- program.modules) {
-      for ( (parent, children) <- m.algebraicDataTypes;
-            cls <- Seq(parent) ++ children) {
+    for (u <- program.units; m <- u.modules) {
+      val (parents, children) = m.algebraicDataTypes.toSeq.unzip
+      for ( cls <- parents ++ children.flatten ++ m.singleCaseClasses) {
         defineClass(cls)
         for (meth <- cls.methods) {
           defToModuleOrClass += meth -> cls
         }
       }
-      
-      for ( single <- m.singleCaseClasses ) {
-        defineClass(single)
-        for (meth <- single.methods) {
-          defToModuleOrClass += meth -> single
-        }
-      }
-      
+     
+      defineClass(m)
       for(funDef <- m.definedFunctions) {
         defToModuleOrClass += funDef -> m
       }
-      defineClass(m)
+      
     }
   }
 
   /** Compiles the program. Uses information provided by $init */
   def compile() {
     // Compile everything
-    for (m <- program.modules) {
+    for (u <- program.units) {
       
-      for ((parent, children) <- m.algebraicDataTypes) {
+      for ((parent, children) <- u.algebraicDataTypes) {
         compileAbstractClassDef(parent)
 
         for (c <- children) {
@@ -398,15 +393,12 @@ class CompilationUnit(val ctx: LeonContext,
         }
       }
 
-      for(single <- m.singleCaseClasses) {
+      for(single <- u.singleCaseClasses) {
         compileCaseClassDef(single)
       }
 
+      for (m <- u.modules) compileModule(m)
       
-    }
-
-    for (m <- program.modules) {
-      compileModule(m)
     }
 
     classes.values.foreach(loader.register _)
