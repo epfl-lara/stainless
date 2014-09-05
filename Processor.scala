@@ -40,7 +40,7 @@ trait Solvable extends Processor {
     val structDefs = checker.defs
     val program     : Program     = checker.program
     val context     : LeonContext = checker.context
-    val sizeModule  : ModuleDef   = ModuleDef(FreshIdentifier("$size", false), checker.defs.toSeq)
+    val sizeModule  : ModuleDef   = ModuleDef(FreshIdentifier("$size", false), checker.defs.toSeq, false)
     val sizeUnit    : UnitDef     = UnitDef(FreshIdentifier("$size", false),Seq(sizeModule)) 
     val newProgram  : Program     = program.copy( units = sizeUnit :: program.units)
 
