@@ -24,27 +24,36 @@ trait CodeGeneration {
    *  vars is a mapping from local variables/ parameters to the offset of the respective JVM local register
    *  isStatic signifies if the current method is static (a function, in Leon terms) 
    */
-  case class Locals(vars: Map[Identifier, Int], private val isStatic : Boolean ) {
+  case class Locals(
+    vars     : Map[Identifier, Int],
+    args     : Map[Identifier, Int],
+    closures : Map[Identifier, (String,String,String)],
+    private val isStatic : Boolean
+  ) {
     /** Fetches the offset of a local variable/ parameter from its identifier */
     def varToLocal(v: Identifier): Option[Int] = vars.get(v)
 
+    def varToArg(v: Identifier): Option[Int] = args.get(v)
+
+    def varToClosure(v: Identifier): Option[(String,String,String)] = closures.get(v)
+
     /** Adds some extra variables to the mapping */
-    def withVars(newVars: Map[Identifier, Int]) = {
-      Locals(vars ++ newVars, isStatic)
-    }
+    def withVars(newVars: Map[Identifier, Int]) = Locals(vars ++ newVars, args, closures, isStatic)
 
     /** Adds an extra variable to the mapping */
-    def withVar(nv: (Identifier, Int)) = {
-      Locals(vars + nv, isStatic)
-    }
-  
+    def withVar(nv: (Identifier, Int)) = Locals(vars + nv, args, closures, isStatic)
+
+    def withArgs(newArgs: Map[Identifier, Int]) = Locals(vars, args ++ newArgs, closures, isStatic)
+
+    def withClosures(newClosures: Map[Identifier,(String,String,String)]) = Locals(vars, args, closures ++ newClosures, isStatic)
+
     /** The index of the monitor object in this function */
     def monitorIndex = if (isStatic) 0 else 1
   }
   
   object NoLocals {
     /** Make a $Locals object without any local variables */
-    def apply(isStatic : Boolean) = new Locals(Map(), isStatic)
+    def apply(isStatic : Boolean) = new Locals(Map(), Map(), Map(), isStatic)
   }
 
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
@@ -56,6 +65,7 @@ trait CodeGeneration {
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
+  private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
@@ -89,6 +99,9 @@ trait CodeGeneration {
 
     case _ : MapType =>
       "L" + MapClass + ";"
+
+    case _ : FunctionType =>
+      "L" + LambdaClass + ";"
 
     case ArrayType(base) =>
       "[" + typeToJVM(base)
@@ -173,13 +186,13 @@ trait CodeGeneration {
       ch << ALoad(paramsOffset-1) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
     }
 
-    mkExpr(exprToCompile, ch)(Locals(newMapping, isStatic))
+    mkExpr(exprToCompile, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic))
 
     funDef.returnType match {
       case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter =>
+      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -192,12 +205,7 @@ trait CodeGeneration {
   private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)(implicit locals: Locals) {
     e match {
       case Variable(id) =>
-        val slot = slotFor(id)
-        val instr = id.getType match {
-          case Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
-          case _ => ALoad(slot)
-        }
-        ch << instr
+        load(id, ch)
 
       case Assert(cond, oerr, body) =>
         mkExpr(IfExpr(Not(cond), Error(oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
@@ -479,6 +487,97 @@ trait CodeGeneration {
             mkUnbox(tpe, ch)
           case _ =>
         }
+
+      case app @ Application(caller, args) =>
+        mkExpr(caller, ch)
+        ch << Ldc(args.size) << NewArray("java/lang/Object")
+        for ((arg,i) <- args.zipWithIndex) {
+          ch << DUP << Ldc(i)
+          mkBoxedExpr(arg, ch)
+          ch << AASTORE
+        }
+
+        ch << InvokeVirtual(LambdaClass, "apply", "([Ljava/lang/Object;)Ljava/lang/Object;")
+        mkUnbox(app.getType, ch)
+
+      case l @ Lambda(args, body) =>
+        val afName = "Leon$CodeGen$Lambda$" + CompilationUnit.nextLambdaId
+
+        val cf = new ClassFile(afName, Some(LambdaClass))
+
+        cf.setFlags((
+          CLASS_ACC_SUPER |
+          CLASS_ACC_PUBLIC |
+          CLASS_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        val closures = purescala.TreeOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
+        val closureTypes = closures.map(id => id.name -> typeToJVM(id.getType))
+
+        if (closureTypes.isEmpty) {
+          cf.addDefaultConstructor
+        } else {
+          for ((nme, jvmt) <- closureTypes) {
+            val fh = cf.addField(jvmt, nme)
+            fh.setFlags((
+              FIELD_ACC_PUBLIC |
+              FIELD_ACC_FINAL
+            ).asInstanceOf[U2])
+          }
+
+          val cch = cf.addConstructor(closureTypes.map(_._2).toList).codeHandler
+
+          cch << ALoad(0)
+          cch << InvokeSpecial(LambdaClass, constructorName, "()V")
+
+          var c = 1
+          for ((nme, jvmt) <- closureTypes) {
+            cch << ALoad(0)
+            cch << (jvmt match {
+              case "I" | "Z" => ILoad(c)
+              case _ => ALoad(c)
+            })
+            cch << PutField(afName, nme, jvmt)
+            c += 1
+          }
+
+          cch << RETURN
+          cch.freeze
+        }
+
+        locally {
+          val argTypes = args.map(arg => typeToJVM(arg.tpe))
+
+          val apm = cf.addMethod("Ljava/lang/Object;", "apply", "[Ljava/lang/Object;")
+
+          apm.setFlags((
+            METHOD_ACC_PUBLIC |
+            METHOD_ACC_FINAL
+          ).asInstanceOf[U2])
+
+          val argMapping = args.map(_.id).zipWithIndex.toMap
+          val closureMapping = (closures zip closureTypes).map { case (id, (name, tpe)) => id -> (afName, name, tpe) }.toMap
+
+          val newLocals = locals.withArgs(argMapping).withClosures(closureMapping)
+          
+          val apch = apm.codeHandler
+
+          mkBoxedExpr(body, apch)(newLocals)
+
+          apch << ARETURN
+
+          apch.freeze
+        }
+
+        loader.register(cf)
+
+        val consSig = "(" + closures.map(id => typeToJVM(id.getType)).mkString("") + ")V"
+
+        ch << New(afName) << DUP
+        for (a <- closures) {
+          mkExpr(Variable(a), ch)
+        }
+        ch << InvokeSpecial(afName, constructorName, consSig)
         
       // Arithmetic
       case Plus(l, r) =>
@@ -604,7 +703,7 @@ trait CodeGeneration {
         mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
         ch << Label(fl) << POP << Ldc(0) << Label(al)
 
-      case _ => throw CompilationException("Unsupported expr. : " + e) 
+      case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass) 
     }
   }
 
@@ -682,7 +781,10 @@ trait CodeGeneration {
       case mt : MapType =>
         ch << CheckCast(MapClass)
 
-      case tp : TypeParameter =>
+      case ft : FunctionType =>
+        ch << CheckCast(LambdaClass)
+
+      case tp : TypeParameter => 
 
       case tp : ArrayType =>
         ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", "()%s".format(typeToJVM(tp)))
@@ -720,7 +822,8 @@ trait CodeGeneration {
         mkBranch(c, elze, thenn, ch)
 
       case Variable(b) =>
-        ch << ILoad(slotFor(b)) << IfEq(elze) << Goto(thenn)
+        load(b, ch)
+        ch << IfEq(elze) << Goto(thenn)
 
       case Equals(l,r) =>
         mkExpr(l, ch)
@@ -767,13 +870,27 @@ trait CodeGeneration {
     }
   }
 
-  private[codegen] def slotFor(id: Identifier)(implicit locals: Locals) : Int = {
-    locals.varToLocal(id).getOrElse {
-      throw CompilationException("Unknown variable: " + id)
+  private def load(id: Identifier, ch: CodeHandler)(implicit locals: Locals): Unit = {
+    locals.varToArg(id) match {
+      case Some(slot) =>
+        ch << ALoad(1) << Ldc(slot) << AALOAD
+        mkUnbox(id.getType, ch)
+      case None => locals.varToClosure(id) match {
+        case Some((afName, nme, tpe)) =>
+          ch << ALoad(0) << GetField(afName, nme, tpe)
+        case None => locals.varToLocal(id) match {
+          case Some(slot) =>
+            val instr = id.getType match {
+              case Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
+              case _ => ALoad(slot)
+            }
+            ch << instr
+          case None => throw CompilationException("Unknown variable : " + id)
+        }
+      }
     }
   }
 
-  
   /**
     * Compiles a lazy field $lzy, owned by the module/ class $owner.
     * 

@@ -163,6 +163,18 @@ class CompilationUnit(val ctx: LeonContext,
       }
       m
 
+    case f @ FiniteLambda(dflt, els) =>
+      val l = new leon.codegen.runtime.FiniteLambda(exprToJVM(dflt))
+      for ((k,v) <- els) {
+        val jvmK = if (f.fixedType.from.size == 1) {
+          exprToJVM(Tuple(Seq(k)))
+        } else {
+          exprToJVM(k)
+        }
+        l.add(jvmK.asInstanceOf[leon.codegen.runtime.Tuple], exprToJVM(v))
+      }
+      l
+
     // Just slightly overkill...
     case _ =>
       compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
@@ -270,13 +282,13 @@ class CompilationUnit(val ctx: LeonContext,
 
     val exprToCompile = purescala.TreeOps.matchToIfThenElse(e)
 
-    mkExpr(e, ch)(Locals(newMapping, true))
+    mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
 
     e.getType match {
       case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: TypeParameter =>
+      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -416,9 +428,15 @@ class CompilationUnit(val ctx: LeonContext,
 
 object CompilationUnit {
   private var _nextExprId = 0
-  private def nextExprId = synchronized {
+  private[codegen] def nextExprId = synchronized {
     _nextExprId += 1
     _nextExprId
+  }
+
+  private var _nextLambdaId = 0
+  private[codegen] def nextLambdaId = synchronized {
+    _nextLambdaId += 1
+    _nextLambdaId
   }
 }
 
