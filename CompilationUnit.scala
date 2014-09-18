@@ -204,7 +204,7 @@ class CompilationUnit(val ctx: LeonContext,
       gv
 
     case (set : runtime.Set, SetType(b)) =>
-      FiniteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSeq).setType(SetType(b))
+      FiniteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSet).setType(SetType(b))
 
     case (map : runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements().asScala.map { entry =>
