@@ -21,7 +21,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
   lazy val totalUnknown : Int = conditions.count(_.value == None)
 
   def summaryString : String = if(totalConditions >= 0) {
-    import utils.ASCIITables._
+    import utils.ASCIIHelpers._
 
     var t = Table("Verification Summary")
 
