@@ -49,6 +49,7 @@ trait CodeGeneration {
 
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
+  private[codegen] val BoxedCharClass            = "java/lang/Character"
   private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/ArrayBox"
 
   private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
@@ -72,6 +73,8 @@ trait CodeGeneration {
     case Int32Type => "I"
 
     case BooleanType => "Z"
+
+    case CharType => "C"
 
     case UnitType => "Z"
 
@@ -100,6 +103,7 @@ trait CodeGeneration {
   def typeToJVMBoxed(tpe : TypeTree) : String = tpe match {
     case Int32Type              => s"L$BoxedIntClass;"
     case BooleanType | UnitType => s"L$BoxedBoolClass;"
+    case CharType               => s"L$BoxedCharClass;"
     case other => typeToJVM(other)
   }
   
@@ -190,7 +194,7 @@ trait CodeGeneration {
       case Variable(id) =>
         val slot = slotFor(id)
         val instr = id.getType match {
-          case Int32Type | BooleanType | UnitType => ILoad(slot)
+          case Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
           case _ => ALoad(slot)
         }
         ch << instr
@@ -205,7 +209,7 @@ trait CodeGeneration {
         mkExpr(d, ch)
         val slot = ch.getFreshVar
         val instr = i.getType match {
-          case Int32Type | BooleanType | UnitType => IStore(slot)
+          case Int32Type | CharType | BooleanType | UnitType => IStore(slot)
           case _ => AStore(slot)
         }
         ch << instr
@@ -221,7 +225,7 @@ trait CodeGeneration {
           ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
           mkUnbox(i.getType, ch)
           val instr = i.getType match {
-            case Int32Type | BooleanType | UnitType => IStore(s)
+            case Int32Type | CharType | BooleanType | UnitType => IStore(s)
             case _ => AStore(s)
           }
           ch << instr
@@ -231,6 +235,9 @@ trait CodeGeneration {
         mkExpr(b, ch)(locals.withVars(withSlots.toMap))
 
       case IntLiteral(v) =>
+        ch << Ldc(v)
+
+      case CharLiteral(v) =>
         ch << Ldc(v)
 
       case BooleanLiteral(v) =>
@@ -512,6 +519,7 @@ trait CodeGeneration {
         mkExpr(i, ch)
         ch << (as.getType match {
           case Untyped => throw CompilationException("Cannot compile untyped array access.")
+          case CharType => CALOAD
           case Int32Type => IALOAD
           case BooleanType => BALOAD
           case _ => AALOAD
@@ -522,6 +530,7 @@ trait CodeGeneration {
         ch << DUP
         ch << ARRAYLENGTH
         val storeInstr = a.getType match {
+          case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
@@ -544,6 +553,7 @@ trait CodeGeneration {
       case a @ FiniteArray(es) =>
         ch << Ldc(es.size)
         val storeInstr = a.getType match {
+          case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
@@ -611,6 +621,11 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
+      case CharType =>
+        ch << New(BoxedCharClass) << DUP
+        mkExpr(e, ch)
+        ch << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
+
       case at @ ArrayType(et) =>
         ch << New(BoxedArrayClass) << DUP
         mkExpr(e, ch)
@@ -631,6 +646,9 @@ trait CodeGeneration {
       case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
+      case CharType =>
+        ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
+
       case at @ ArrayType(et) =>
         ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, "(%s)V".format(typeToJVM(at)))
       case _ =>
@@ -645,6 +663,9 @@ trait CodeGeneration {
 
       case BooleanType | UnitType =>
         ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
+
+      case CharType =>
+        ch << CheckCast(BoxedCharClass) << InvokeVirtual(BoxedCharClass, "charValue", "()C")
 
       case ct : ClassType =>
         val (cn, _) = leonClassToJVMInfo(ct.classDef).getOrElse {
@@ -705,7 +726,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type | BooleanType | UnitType =>
+          case Int32Type | BooleanType | UnitType | CharType =>
             ch << If_ICmpEq(thenn) << Goto(elze)
 
           case _ =>
@@ -834,7 +855,7 @@ trait CodeGeneration {
       ch << Label(initLabel)  // return lzy 
       //newValue
       lzy.returnType match {
-        case Int32Type | BooleanType | UnitType => 
+        case Int32Type | BooleanType | UnitType | CharType => 
           // Since the underlying field only has boxed types, we have to unbox them to return them
           mkUnbox(lzy.returnType, ch)(NoLocals(isStatic)) 
           ch << IRETURN      
