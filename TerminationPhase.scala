@@ -4,6 +4,7 @@ package leon
 package termination
 
 import purescala.Definitions._
+import purescala.DefOps._
 
 object TerminationPhase extends LeonPhase[Program,TerminationReport] {
   val name = "Termination"
@@ -17,7 +18,7 @@ object TerminationPhase extends LeonPhase[Program,TerminationReport] {
 
     tc.initialize()
 
-    val results = program.definedFunctions.toList.sortWith(_.getPos < _.getPos).map { funDef =>
+    val results = visibleFunDefsFromMain(program).toList.sortWith(_.getPos < _.getPos).map { funDef =>
       (funDef -> tc.terminates(funDef))
     }
     val endTime = System.currentTimeMillis

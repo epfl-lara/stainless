@@ -5,10 +5,11 @@ package termination
 
 import purescala.Definitions._
 import purescala.Trees._
+import purescala.DefOps._
 
 abstract class TerminationChecker(val context: LeonContext, val program: Program) extends LeonComponent {
 
-  val functions = program.definedFunctions.toSet
+  val functions = visibleFunDefsFromMain(program)
 
   def initialize() : Unit
   def terminates(funDef : FunDef) : TerminationGuarantee
