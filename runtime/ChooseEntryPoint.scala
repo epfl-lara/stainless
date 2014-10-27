@@ -32,6 +32,7 @@ object ChooseEntryPoint {
     hash
   }
 
+  private[this] var cache = ScalaMap[(Int, Seq[AnyRef]), java.lang.Object]()
   def invoke(i: Int, inputs: Array[AnyRef]): java.lang.Object = {
     val (p, unit) = map(i)
 
@@ -39,45 +40,52 @@ object ChooseEntryPoint {
     val ctx     = unit.ctx
 
     ctx.reporter.debug("Executing choose!")
+    val is = inputs.toSeq
 
-    val tStart = System.currentTimeMillis;
+    if (cache contains (i, is)) {
+      cache((i, is))
+    } else {
+      val tStart = System.currentTimeMillis;
 
-    val solver = (new FairZ3Solver(ctx, program) with TimeoutSolver).setTimeout(10000L)
+      val solver = (new FairZ3Solver(ctx, program) with TimeoutSolver).setTimeout(10000L)
 
-    val inputsMap = (p.as zip inputs).map {
-      case (id, v) =>
-        Equals(Variable(id), unit.jvmToExpr(v, id.getType))
-    }
-
-    solver.assertCnstr(And(Seq(p.pc, p.phi) ++ inputsMap))
-
-    try {
-      solver.check match {
-        case Some(true) =>
-          val model = solver.getModel;
-
-          val valModel = valuateWithModel(model) _
-
-          val res = p.xs.map(valModel)
-          val leonRes = if (res.size > 1) {
-            LeonTuple(res)
-          } else {
-            res(0)
-          }
-
-          val total = System.currentTimeMillis-tStart;
-
-          ctx.reporter.debug("Synthesis took "+total+"ms")
-          ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))
-
-          unit.exprToJVM(leonRes)(new LeonCodeGenRuntimeMonitor(unit.params.maxFunctionInvocations))
-        case Some(false) =>
-          throw new LeonCodeGenRuntimeException("Constraint is UNSAT")
-        case _ =>
-          throw new LeonCodeGenRuntimeException("Timeout exceeded")
+      val inputsMap = (p.as zip inputs).map {
+        case (id, v) =>
+          Equals(Variable(id), unit.jvmToExpr(v, id.getType))
       }
-    } finally {
-      solver.free()
+
+      solver.assertCnstr(And(Seq(p.pc, p.phi) ++ inputsMap))
+
+      try {
+        solver.check match {
+          case Some(true) =>
+            val model = solver.getModel;
+
+            val valModel = valuateWithModel(model) _
+
+            val res = p.xs.map(valModel)
+            val leonRes = if (res.size > 1) {
+              LeonTuple(res)
+            } else {
+              res(0)
+            }
+
+            val total = System.currentTimeMillis-tStart;
+
+            ctx.reporter.debug("Synthesis took "+total+"ms")
+            ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))
+
+            val obj = unit.exprToJVM(leonRes)(new LeonCodeGenRuntimeMonitor(unit.params.maxFunctionInvocations))
+            cache += (i, is) -> obj
+            obj
+          case Some(false) =>
+            throw new LeonCodeGenRuntimeException("Constraint is UNSAT")
+          case _ =>
+            throw new LeonCodeGenRuntimeException("Timeout exceeded")
+        }
+      } finally {
+        solver.free()
+      }
     }
   }
 }
