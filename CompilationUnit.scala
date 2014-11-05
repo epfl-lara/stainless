@@ -125,6 +125,8 @@ class CompilationUnit(val ctx: LeonContext,
   def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
     case IntLiteral(v) =>
       new java.lang.Integer(v)
+    case InfiniteIntegerLiteral(v) =>
+      new java.lang.Integer(v.toInt)
 
     case BooleanLiteral(v) =>
       new java.lang.Boolean(v)
@@ -184,6 +186,8 @@ class CompilationUnit(val ctx: LeonContext,
   def jvmToExpr(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
     case (i: Integer, Int32Type) =>
       IntLiteral(i.toInt)
+    case (i: Integer, IntegerType) =>
+      InfiniteIntegerLiteral(i.toInt)
 
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
@@ -284,7 +288,7 @@ class CompilationUnit(val ctx: LeonContext,
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
 
     e.getType match {
-      case Int32Type | BooleanType =>
+      case IntegerType | Int32Type | BooleanType =>
         ch << IRETURN
 
       case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
