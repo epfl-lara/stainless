@@ -194,7 +194,7 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
 
   def numericConverging(e1: Expr, e2s: Seq[(Seq[Expr], Expr)], cluster: Set[Chain]) : Seq[Expr] = flatType(e1.getType).toSeq.flatMap {
     recons => recons(e1) match {
-      case e if e.getType == Int32Type =>
+      case e if e.getType == IntegerType =>
         val endpoint = numericEndpoint(e, cluster)
 
         val uppers = if (endpoint == UpperBoundEndpoint || endpoint == AnyEndpoint) {
