@@ -9,8 +9,8 @@ object Choose1 {
     case class Cons(head: Int, tail: List) extends List
     case class Nil() extends List
 
-    def size(l: List) : Int = (l match {
-        case Nil() => 0
+    def size(l: List) : BigInt = (l match {
+        case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
     }) ensuring(res => res >= 0)
 
@@ -19,10 +19,10 @@ object Choose1 {
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
 
-    def listOfSize(i: Int): List = {
+    def listOfSize(i: BigInt): List = {
       require(i >= 0)
 
-      if (i == 0) {
+      if (i == BigInt(0)) {
         Nil()
       } else {
         choose { (res: List) => size(res) == i }
@@ -30,7 +30,7 @@ object Choose1 {
     } ensuring ( size(_) == i )
 
 
-    def listOfSize2(i: Int): List = {
+    def listOfSize2(i: BigInt): List = {
       require(i >= 0)
 
       if (i > 0) {

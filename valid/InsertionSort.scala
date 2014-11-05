@@ -13,8 +13,8 @@ object InsertionSort {
   case class Some(value: Int) extends OptInt
   case class None() extends OptInt
 
-  def size(l : List) : Int = (l match {
-    case Nil() => 0
+  def size(l : List) : BigInt = (l match {
+    case Nil() => BigInt(0)
     case Cons(_, xs) => 1 + size(xs)
   }) ensuring(_ >= 0)
 

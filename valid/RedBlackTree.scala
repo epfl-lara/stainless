@@ -11,19 +11,19 @@ object RedBlackTree {
  
   sealed abstract class Tree
   case class Empty() extends Tree
-  case class Node(color: Color, left: Tree, value: Int, right: Tree) extends Tree
+  case class Node(color: Color, left: Tree, value: BigInt, right: Tree) extends Tree
 
   sealed abstract class OptionInt
-  case class Some(v : Int) extends OptionInt
+  case class Some(v : BigInt) extends OptionInt
   case class None() extends OptionInt
 
-  def content(t: Tree) : Set[Int] = t match {
+  def content(t: Tree) : Set[BigInt] = t match {
     case Empty() => Set.empty
     case Node(_, l, v, r) => content(l) ++ Set(v) ++ content(r)
   }
 
-  def size(t: Tree) : Int = (t match {
-    case Empty() => 0
+  def size(t: Tree) : BigInt = (t match {
+    case Empty() => BigInt(0)
     case Node(_, l, v, r) => size(l) + 1 + size(r)
   }) ensuring(_ >= 0)
 
@@ -50,14 +50,14 @@ object RedBlackTree {
     case Empty() => true
   }
 
-  def blackHeight(t : Tree) : Int = t match {
+  def blackHeight(t : Tree) : BigInt = t match {
     case Empty() => 1
     case Node(Black(), l, _, _) => blackHeight(l) + 1
     case Node(Red(), l, _, _) => blackHeight(l)
   }
 
   // <<insert element x into the tree t>>
-  def ins(x: Int, t: Tree): Tree = {
+  def ins(x: BigInt, t: Tree): Tree = {
     require(redNodesHaveBlackChildren(t) && blackBalanced(t))
     t match {
       case Empty() => Node(Red(),Empty(),x,Empty())
@@ -79,12 +79,12 @@ object RedBlackTree {
     }
   } ensuring(res => redNodesHaveBlackChildren(res) && blackBalanced(res))
 
-  def add(x: Int, t: Tree): Tree = {
+  def add(x: BigInt, t: Tree): Tree = {
     require(redNodesHaveBlackChildren(t) && blackBalanced(t))
     makeBlack(ins(x, t))
   } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res) && blackBalanced(res))
   
-  def balance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
+  def balance(c: Color, a: Tree, x: BigInt, b: Tree): Tree = {
     Node(c,a,x,b) match {
       case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))

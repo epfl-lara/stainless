@@ -4,7 +4,7 @@ import leon._
 
 object Operators {
 
-  def foo(a: Int): Int = {
+  def foo(a: BigInt): BigInt = {
     require(a > 0)
 
     {
@@ -17,7 +17,7 @@ object Operators {
     _ > a
   }
 
-  def bar(a: Int): Int = {
+  def bar(a: BigInt): BigInt = {
     require(a > 0)
 
     {

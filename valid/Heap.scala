@@ -7,25 +7,25 @@ object Heaps {
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
   /* Data type definitions */
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
-  private case class Node(rank : Int, elem : Int, nodes : Heap)
+  private case class Node(rank : BigInt, elem : BigInt, nodes : Heap)
   
   sealed abstract class Heap
   private case class  Nodes(head : Node, tail : Heap) extends Heap
   private case object Empty extends Heap
   
   sealed abstract class OptInt
-  case class Some(value : Int) extends OptInt
+  case class Some(value : BigInt) extends OptInt
   case object None extends OptInt
   
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
   /* Abstraction functions */
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
-  def heapContent(h : Heap) : Set[Int] = h match {
-    case Empty => Set.empty[Int]
+  def heapContent(h : Heap) : Set[BigInt] = h match {
+    case Empty => Set.empty[BigInt]
     case Nodes(n, ns) => nodeContent(n) ++ heapContent(ns)
   }
   
-  def nodeContent(n : Node) : Set[Int] = n match {
+  def nodeContent(n : Node) : Set[BigInt] = n match {
     case Node(_, e, h) => Set(e) ++ heapContent(h)
   }
   
@@ -78,13 +78,13 @@ object Heaps {
   /*~~~~~~~~~~~~~~~~*/
   def empty() : Heap = {
     Empty
-  } ensuring(res => heapContent(res) == Set.empty[Int])
+  } ensuring(res => heapContent(res) == Set.empty[BigInt])
   
   def isEmpty(h : Heap) : Boolean = {
     (h == Empty)
-  } ensuring(res => res == (heapContent(h) == Set.empty[Int]))
+  } ensuring(res => res == (heapContent(h) == Set.empty[BigInt]))
   
-  def insert(e : Int, h : Heap) : Heap = {
+  def insert(e : BigInt, h : Heap) : Heap = {
     insertNode(Node(0, e, Empty), h)
   } ensuring(res => heapContent(res) == heapContent(h) ++ Set(e))
   

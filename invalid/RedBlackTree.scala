@@ -22,8 +22,8 @@ object RedBlackTree {
     case Node(_, l, v, r) => content(l) ++ Set(v) ++ content(r)
   }
 
-  def size(t: Tree) : Int = (t match {
-    case Empty() => 0
+  def size(t: Tree) : BigInt = (t match {
+    case Empty() => BigInt(0)
     case Node(_, l, v, r) => size(l) + 1 + size(r)
   }) ensuring(_ >= 0)
 

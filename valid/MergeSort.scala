@@ -23,8 +23,8 @@ object MergeSort {
     case LCons(x, xs) => content(x) ++ lContent(xs)
   }
 
-  def size(list : List) : Int = (list match {
-    case Nil() => 0
+  def size(list : List) : BigInt = (list match {
+    case Nil() => BigInt(0)
     case Cons(_, xs) => 1 + size(xs)
   }) ensuring(_ >= 0)
 
@@ -40,7 +40,7 @@ object MergeSort {
     case LCons(x, xs) => isSorted(x) && lIsSorted(xs)
   }
 
-  def abs(i : Int) : Int = {
+  def abs(i : BigInt) : BigInt = {
     if(i < 0) -i else i
   } ensuring(_ >= 0)
 
