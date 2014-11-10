@@ -49,6 +49,6 @@ abstract class VCKind(val name: String, val abbrv: String) {
 case object VCPrecondition    extends VCKind("precondition", "precond.")
 case object VCPostcondition   extends VCKind("postcondition", "postcond.")
 case object VCAssert          extends VCKind("body assertion", "assert.")
-case object VCExhaustiveMatch extends VCKind("match exhaustivness", "match.")
+case object VCExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
 case object VCMapUsage        extends VCKind("map usage", "map use")
 case object VCArrayUsage      extends VCKind("array usage", "arr. use")
