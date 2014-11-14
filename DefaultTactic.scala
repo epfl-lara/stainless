@@ -19,7 +19,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       (fd.postcondition, fd.body) match {
         case (Some((id, post)), Some(body)) =>
           val res = id.freshen
-          val vc = Implies(precOrTrue(fd), Let(res, safe(body), replace(Map(id.toVariable -> res.toVariable), safe(post))))
+          val vc = Implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
 
           Seq(new VerificationCondition(vc, fd, VCPostcondition, this).setPos(post))
         case _ =>
@@ -32,11 +32,11 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
         case Some(body) =>
           val calls = collectWithPC {
             case c @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (c, tfd.precondition.get)
-          }(safe(body))
+          }(body)
 
           calls.map {
             case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
-              val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, safe(pre))
+              val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, pre)
               val vc = Implies(And(precOrTrue(fd), path), pre2)
 
               new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
@@ -70,7 +70,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
             case a @ Assert(cond, None, _) => (a, VCAssert, cond)
             // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
             case a @ Ensuring(body, id, post) => (a, VCAssert, Let(id, body, post))
-          }(safe(body))
+          }(body)
 
           calls.map {
             case ((e, kind, errorCond), path) =>

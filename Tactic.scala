@@ -14,7 +14,9 @@ abstract class Tactic(vctx: VerificationContext) {
   val program  = vctx.program
   val reporter = vctx.reporter
 
-  def generateVCs(fd: FunDef): Seq[VerificationCondition] = {
+  def generateVCs(fdUnsafe: FunDef): Seq[VerificationCondition] = {
+    val fd = fdUnsafe.duplicate
+    fd.fullBody = matchToIfThenElse(fd.fullBody)
     generatePostconditions(fd) ++
     generatePreconditions(fd) ++
     generateCorrectnessConditions(fd)
@@ -26,9 +28,8 @@ abstract class Tactic(vctx: VerificationContext) {
 
 
   // Helper functions
-  protected def safe(e: Expr): Expr = matchToIfThenElse(e)
   protected def precOrTrue(fd: FunDef): Expr = fd.precondition match {
-    case Some(pre) => safe(pre)
+    case Some(pre) => pre
     case None => BooleanLiteral(true)
   }
 
