@@ -280,8 +280,6 @@ class CompilationUnit(val ctx: LeonContext,
         args.zipWithIndex.toMap
       }
 
-    val exprToCompile = purescala.TreeOps.matchToIfThenElse(e)
-
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
 
     e.getType match {

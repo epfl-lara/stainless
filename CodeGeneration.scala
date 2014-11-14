@@ -6,7 +6,7 @@ package codegen
 import purescala.Common._
 import purescala.Definitions._
 import purescala.Trees._
-import purescala.TreeOps.simplestValue
+import purescala.TreeOps.{simplestValue, matchToIfThenElse}
 import purescala.TypeTrees._
 import purescala.TypeTreeOps.instantiateType
 import utils._
@@ -180,14 +180,12 @@ trait CodeGeneration {
       bodyWithPre
     }
 
-    val exprToCompile = purescala.TreeOps.matchToIfThenElse(bodyWithPost)
-
     if (params.recordInvocations) {
       // index of monitor object will be before the first Scala parameter
       ch << ALoad(paramsOffset-1) << InvokeVirtual(MonitorClass, "onInvoke", "()V") 
     }
 
-    mkExpr(exprToCompile, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic))
+    mkExpr(bodyWithPost, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic))
 
     funDef.returnType match {
       case Int32Type | BooleanType | UnitType =>
@@ -700,6 +698,9 @@ trait CodeGeneration {
       case This(ct) =>
         ch << ALoad(0) // FIXME what if doInstrument etc
         
+      case m : MatchExpr => 
+        mkExpr(matchToIfThenElse(m), ch)
+      
       case b if b.getType == BooleanType && canDelegateToMkBranch =>
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
@@ -865,6 +866,19 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         ch << If_ICmpGe(thenn) << Goto(elze) 
+  
+      case IfExpr(c, t, e) => 
+        val innerThen = ch.getFreshLabel("then")
+        val innerElse = ch.getFreshLabel("else")
+        mkBranch(c, innerThen, innerElse, ch)
+        ch << Label(innerThen)
+        mkBranch(t, thenn, elze, ch)
+        ch << Label(innerElse)
+        mkBranch(e, thenn, elze, ch)
+
+      case cci@CaseClassInstanceOf(cct, e) =>
+        mkExpr(cci, ch)
+        ch << IfEq(elze) << Goto(thenn)
 
       case other if canDelegateToMkExpr =>
         mkExpr(other, ch, canDelegateToMkBranch = false)
@@ -943,7 +957,7 @@ trait CodeGeneration {
         METHOD_ACC_PUBLIC
       }) 
       val ch = accM.codeHandler
-      val body = purescala.TreeOps.matchToIfThenElse(lzy.body.getOrElse(throw CompilationException("Lazy field without body?")))
+      val body = lzy.body.getOrElse(throw CompilationException("Lazy field without body?"))
       val initLabel = ch.getFreshLabel("isInitialized")
       
       if (params.requireMonitor) {
@@ -1038,7 +1052,7 @@ trait CodeGeneration {
     val body = field.body.getOrElse(throw CompilationException("No body for field?"))
     val jvmType = typeToJVM(field.returnType)
     
-    mkExpr(purescala.TreeOps.matchToIfThenElse(body), ch)(NoLocals(isStatic)) // FIXME Locals?  
+    mkExpr(body, ch)(NoLocals(isStatic)) // FIXME Locals?  
     
     if (isStatic){
       ch << PutStatic(className, name, jvmType)
