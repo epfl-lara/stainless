@@ -224,25 +224,6 @@ trait CodeGeneration {
         ch << instr
         mkExpr(b, ch)(locals.withVar(i -> slot))
 
-      case LetTuple(is,d,b) =>
-        mkExpr(d, ch) // the tuple
-        var count = 0
-        val withSlots = is.map(i => (i, ch.getFreshVar))
-        for((i,s) <- withSlots) {
-          ch << DUP
-          ch << Ldc(count)
-          ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
-          mkUnbox(i.getType, ch)
-          val instr = i.getType match {
-            case Int32Type | CharType | BooleanType | UnitType => IStore(s)
-            case _ => AStore(s)
-          }
-          ch << instr
-          count += 1
-        }
-        ch << POP
-        mkExpr(b, ch)(locals.withVars(withSlots.toMap))
-
       case IntLiteral(v) =>
         ch << Ldc(v)
 
