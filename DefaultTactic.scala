@@ -51,10 +51,10 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       fd.body match {
         case Some(body) =>
           val calls = collectWithPC {
-            case e @ Error("Match is non-exhaustive") =>
+            case e @ Error(_, "Match is non-exhaustive") =>
               (e, VCExhaustiveMatch, BooleanLiteral(false))
 
-            case e @ Error(_) =>
+            case e @ Error(_, _) =>
               (e, VCAssert, BooleanLiteral(false))
 
             case a @ Assert(cond, Some(err), _) => 
