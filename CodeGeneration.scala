@@ -168,14 +168,14 @@ trait CodeGeneration {
     val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
 
     val bodyWithPre = if(funDef.hasPrecondition && params.checkContracts) {
-      IfExpr(funDef.precondition.get, body, Error("Precondition failed"))
+      IfExpr(funDef.precondition.get, body, Error(body.getType, "Precondition failed"))
     } else {
       body
     }
 
     val bodyWithPost = if(funDef.hasPostcondition && params.checkContracts) {
       val Some((id, post)) = funDef.postcondition
-      Let(id, bodyWithPre, IfExpr(post, Variable(id), Error("Postcondition failed")) )
+      Let(id, bodyWithPre, IfExpr(post, Variable(id), Error(id.getType, "Postcondition failed")) )
     } else {
       bodyWithPre
     }
@@ -207,7 +207,7 @@ trait CodeGeneration {
         load(id, ch)
 
       case Assert(cond, oerr, body) =>
-        mkExpr(IfExpr(Not(cond), Error(oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
+        mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
 
       case Ensuring(body, id, post) =>
         mkExpr(Let(id, body, Assert(post, Some("Ensuring failed"), Variable(id))), ch)
@@ -664,7 +664,7 @@ trait CodeGeneration {
         }
 
       // Misc and boolean tests
-      case Error(desc) =>
+      case Error(tpe, desc) =>
         ch << New(ErrorClass) << DUP
         ch << Ldc(desc)
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")

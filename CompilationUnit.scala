@@ -166,7 +166,7 @@ class CompilationUnit(val ctx: LeonContext,
     case f @ FiniteLambda(dflt, els) =>
       val l = new leon.codegen.runtime.FiniteLambda(exprToJVM(dflt))
       for ((k,v) <- els) {
-        val jvmK = if (f.fixedType.from.size == 1) {
+        val jvmK = if (f.getType.from.size == 1) {
           exprToJVM(Tuple(Seq(k)))
         } else {
           exprToJVM(k)
