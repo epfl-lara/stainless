@@ -699,6 +699,9 @@ trait CodeGeneration {
       case This(ct) =>
         ch << ALoad(0) // FIXME what if doInstrument etc
         
+      case p : Passes => 
+        mkExpr(matchToIfThenElse(p.asConstraint), ch)
+
       case m : MatchExpr => 
         mkExpr(matchToIfThenElse(m), ch)
       
