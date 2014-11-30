@@ -9,6 +9,7 @@ import purescala.Definitions._
 import purescala.Trees.{Tuple => LeonTuple, _}
 import purescala.TreeOps.valuateWithModel
 import purescala.TypeTrees._
+import purescala.Constructors._
 import solvers.TimeoutSolver
 import solvers.z3._
 
@@ -54,7 +55,7 @@ object ChooseEntryPoint {
           Equals(Variable(id), unit.jvmToExpr(v, id.getType))
       }
 
-      solver.assertCnstr(And(Seq(p.pc, p.phi) ++ inputsMap))
+      solver.assertCnstr(andJoin(Seq(p.pc, p.phi) ++ inputsMap))
 
       try {
         solver.check match {

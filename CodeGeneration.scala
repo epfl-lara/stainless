@@ -8,6 +8,7 @@ import purescala.Definitions._
 import purescala.Trees._
 import purescala.TreeOps.{simplestValue, matchToIfThenElse}
 import purescala.TypeTrees._
+import purescala.Constructors._
 import purescala.TypeTreeOps.instantiateType
 import utils._
 
@@ -812,16 +813,16 @@ trait CodeGeneration {
         val fl = ch.getFreshLabel("andnext")
         mkBranch(es.head, fl, elze, ch)
         ch << Label(fl)
-        mkBranch(And(es.tail), thenn, elze, ch)
+        mkBranch(andJoin(es.tail), thenn, elze, ch)
 
       case Or(es) =>
         val fl = ch.getFreshLabel("ornext")
         mkBranch(es.head, thenn, fl, ch)
         ch << Label(fl)
-        mkBranch(Or(es.tail), thenn, elze, ch) 
+        mkBranch(orJoin(es.tail), thenn, elze, ch) 
 
       case Implies(l, r) =>
-        mkBranch(Or(Not(l), r), thenn, elze, ch)
+        mkBranch(or(not(l), r), thenn, elze, ch)
 
       case Not(c) =>
         mkBranch(c, elze, thenn, ch)
@@ -841,11 +842,6 @@ trait CodeGeneration {
             ch << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
-
-      case Iff(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << If_ICmpEq(thenn) << Goto(elze)
 
       case LessThan(l,r) =>
         mkExpr(l, ch)
