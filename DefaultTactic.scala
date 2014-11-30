@@ -8,6 +8,7 @@ import purescala.Trees._
 import purescala.TreeOps._
 import purescala.Extractors._
 import purescala.Definitions._
+import purescala.Constructors._
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -19,7 +20,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       (fd.postcondition, fd.body) match {
         case (Some((id, post)), Some(body)) =>
           val res = id.freshen
-          val vc = Implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
+          val vc = implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
 
           Seq(new VerificationCondition(vc, fd, VCPostcondition, this).setPos(post))
         case _ =>
@@ -37,7 +38,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
           calls.map {
             case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
               val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, pre)
-              val vc = Implies(And(precOrTrue(fd), path), pre2)
+              val vc = implies(and(precOrTrue(fd), path), pre2)
 
               new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
           }
@@ -74,7 +75,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
 
           calls.map {
             case ((e, kind, errorCond), path) =>
-              val vc = Implies(And(precOrTrue(fd), path), errorCond)
+              val vc = implies(and(precOrTrue(fd), path), errorCond)
 
               new VerificationCondition(vc, fd, kind, this).setPos(e)
           }

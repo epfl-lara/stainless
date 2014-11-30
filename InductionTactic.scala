@@ -8,6 +8,7 @@ import purescala.Trees._
 import purescala.TreeOps._
 import purescala.TypeTrees._
 import purescala.Definitions._
+import purescala.Constructors._
 
 class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   override val description = "Induction tactic for suitable functions"
@@ -38,11 +39,11 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
           val subCases = selectors.map { sel =>
             val res = id.freshen
             replace(Map(arg.toVariable -> sel),
-              Implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
+              implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
             )
           }
 
-          val vc = Implies(And(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), Implies(And(subCases), Let(id, body, post)))
+          val vc = implies(and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), implies(andJoin(subCases), Let(id, body, post)))
 
           new VerificationCondition(vc, fd, VCPostcondition, this).setPos(fd)
         }
@@ -71,11 +72,11 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
               val subCases = selectors.map { sel =>
                 replace(Map(arg.toVariable -> sel),
-                  Implies(precOrTrue(fd), replace((tfd.params.map(_.toVariable) zip args).toMap, pre))
+                  implies(precOrTrue(fd), replace((tfd.params.map(_.toVariable) zip args).toMap, pre))
                 )
               }
 
-              val vc = Implies(And(Seq(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path)), Implies(And(subCases), replace((tfd.params.map(_.toVariable) zip args).toMap, pre)))
+              val vc = implies(and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path), implies(andJoin(subCases), replace((tfd.params.map(_.toVariable) zip args).toMap, pre)))
 
               new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
             }

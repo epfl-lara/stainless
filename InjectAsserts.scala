@@ -8,6 +8,7 @@ import purescala.Trees._
 import xlang.Trees._
 import purescala.TreeOps._
 import purescala.Definitions._
+import purescala.Constructors._
 
 object InjectAsserts extends LeonPhase[Program, Program] {
 
@@ -16,7 +17,7 @@ object InjectAsserts extends LeonPhase[Program, Program] {
 
   def run(ctx: LeonContext)(pgm: Program): Program = {
     def indexUpTo(i: Expr, e: Expr) = {
-      And(GreaterEquals(i, IntLiteral(0)), LessThan(i, e))
+      and(GreaterEquals(i, IntLiteral(0)), LessThan(i, e))
     }
 
     pgm.definedFunctions.foreach(fd => {
