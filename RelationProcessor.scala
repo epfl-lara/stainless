@@ -8,6 +8,7 @@ import leon.purescala.TreeOps._
 import leon.purescala.TypeTrees._
 import leon.purescala.Common._
 import leon.purescala.Extractors._
+import leon.purescala.Constructors._
 import leon.purescala.Definitions._
 
 class RelationProcessor(
@@ -27,7 +28,7 @@ class RelationProcessor(
       funDef -> checker.getRelations(funDef).collect({
         case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funDefs(tfd.fd) =>
           val (e1, e2) = (Tuple(funDef.params.map(_.toVariable)), Tuple(args))
-          def constraint(expr: Expr) = Implies(And(path.toSeq), expr)
+          def constraint(expr: Expr) = implies(andJoin(path.toSeq), expr)
           val greaterThan = checker.sizeDecreasing(e1, e2)
           val greaterEquals = checker.softDecreasing(e1, e2)
           (tfd.fd, (constraint(greaterThan), constraint(greaterEquals)))

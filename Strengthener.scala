@@ -6,6 +6,7 @@ import purescala.TypeTrees._
 import purescala.TreeOps._
 import purescala.Common._
 import purescala.Definitions._
+import purescala.Constructors._
 
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
@@ -25,7 +26,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
           val (res, post) = old.getOrElse(FreshIdentifier("res").setType(funDef.returnType) -> BooleanLiteral(true))
           val args = funDef.params.map(_.toVariable)
           val sizePost = cmp(Tuple(funDef.params.map(_.toVariable)), res.toVariable)
-          (res, And(post, sizePost))
+          (res, and(post, sizePost))
         }
 
         funDef.postcondition = Some(res -> postcondition)
@@ -33,7 +34,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
         val prec = matchToIfThenElse(funDef.precondition.getOrElse(BooleanLiteral(true)))
         val body = matchToIfThenElse(funDef.body.get)
         val post = matchToIfThenElse(postcondition)
-        val formula = Implies(prec, Let(res, body, post))
+        val formula = implies(prec, Let(res, body, post))
 
         if (!solver.definitiveALL(formula)) {
           funDef.postcondition = old

@@ -7,6 +7,7 @@ import purescala.Definitions._
 import purescala.Common._
 import purescala.Trees._
 import purescala.TreeOps._
+import purescala.Constructors._
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -35,7 +36,7 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
         val srcTuple = Tuple(chain.funDef.params.map(_.toVariable))
         val resTuple = Tuple(freshParams.map(_.toVariable))
 
-        definitiveSATwithModel(And(path :+ Equals(srcTuple, resTuple))) match {
+        definitiveSATwithModel(andJoin(path :+ Equals(srcTuple, resTuple))) match {
           case Some(map) =>
             val args = chain.funDef.params.map(arg => map(arg.id))
             val res = if (chain.relations.exists(_.inLambda)) MaybeBroken(chain.funDef, args) else Broken(chain.funDef, args)

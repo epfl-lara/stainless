@@ -7,6 +7,7 @@ import leon.purescala.Definitions._
 import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.purescala.TypeTrees._
+import leon.purescala.Constructors._
 import leon.purescala.TypeTreeOps._
 import leon.purescala.Common._
 
@@ -128,8 +129,8 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
         val constraints = relations.map(relation => relationConstraints.get(relation).getOrElse {
           val Relation(funDef, path, FunctionInvocation(fd, args), _) = relation
           val (e1, e2) = (Tuple(funDef.params.map(_.toVariable)), Tuple(args))
-          val constraint = if (solver.definitiveALL(Implies(And(path), self.softDecreasing(e1, e2)))) {
-            if (solver.definitiveALL(Implies(And(path), self.sizeDecreasing(e1, e2)))) {
+          val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(e1, e2)))) {
+            if (solver.definitiveALL(implies(andJoin(path), self.sizeDecreasing(e1, e2)))) {
               StrongDecreasing
             } else {
               WeakDecreasing
