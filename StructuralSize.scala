@@ -53,7 +53,7 @@ trait StructuralSize {
       val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
       val sizes = arguments.map(id => size(Variable(id)))
       val result = sizes.foldLeft[Expr](IntLiteral(1))(Plus(_,_))
-      SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
+      purescala.Extractors.SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
     }
 
     expr.getType match {
