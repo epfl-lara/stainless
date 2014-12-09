@@ -72,6 +72,7 @@ trait CodeGeneration {
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
   private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
+  private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
   private[codegen] val MonitorClass              = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
 
   def idToSafeJVMName(id: Identifier) = id.uniqueName.replaceAll("\\.", "\\$")
@@ -695,6 +696,11 @@ trait CodeGeneration {
         ch << InvokeStatic(ChooseEntryPointClass, "invoke", "(I[Ljava/lang/Object;)Ljava/lang/Object;")
 
         mkUnbox(choose.getType, ch)
+
+      case gv @ GenericValue(tp, int) =>
+        val id = runtime.GenericValues.register(gv);
+        ch << Ldc(id)
+        ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
       
       case This(ct) =>
         ch << ALoad(0) // FIXME what if doInstrument etc
