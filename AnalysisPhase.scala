@@ -72,7 +72,12 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     allVCs
   }
 
-  def checkVerificationConditions(vctx: VerificationContext, vcs: Map[FunDef, List[VerificationCondition]], checkInParallel: Boolean = false) : VerificationReport = {
+  def checkVerificationConditions(
+      vctx: VerificationContext, 
+      vcs: Map[FunDef, List[VerificationCondition]], 
+      checkInParallel: Boolean = false,
+      interruptOn : VerificationCondition => Boolean = { _ => false }
+  ) : VerificationReport = {
     import vctx.reporter
     import vctx.solverFactory
     import vctx.program
@@ -150,15 +155,22 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       }
     }
     
+    var interrupt = false 
+    
     if (checkInParallel) {
       val allVCsPar = (for {(_, vcs) <- vcs.toSeq; vcInfo <- vcs} yield vcInfo).par
-      for (vc <- allVCsPar if !interruptManager.isInterrupted()) 
+      for (vc <- allVCsPar if !interruptManager.isInterrupted() && !interrupt) {
         checkVC(vc)
+        interrupt = interruptOn(vc)
+      }
     } else {
       for {
         (funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos)
-        vcInfo <- vcs if !interruptManager.isInterrupted()
-      } checkVC(vcInfo)
+        vc <- vcs if !interruptManager.isInterrupted() && !interrupt
+      } {
+        checkVC(vc)
+        interrupt = interruptOn(vc)
+      }
     }
     
     val report = new VerificationReport(vcs)
