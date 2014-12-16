@@ -72,28 +72,33 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     allVCs
   }
 
-  def checkVerificationConditions(vctx: VerificationContext, vcs: Map[FunDef, List[VerificationCondition]]) : VerificationReport = {
+  def checkVerificationConditions(vctx: VerificationContext, vcs: Map[FunDef, List[VerificationCondition]], checkInParallel: Boolean = false) : VerificationReport = {
     import vctx.reporter
     import vctx.solverFactory
     import vctx.program
 
+    import utils.ASCIIHelpers.subTitle
+    
     val interruptManager = vctx.context.interruptManager
 
-    for((funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos); vcInfo <- vcs if !interruptManager.isInterrupted()) {
+    def checkVC(vcInfo : VerificationCondition) = {
       val funDef = vcInfo.funDef
       val vc = vcInfo.condition
 
       // Check if vc targets abstract methods
       val targets = functionCallsOf(vc).map(_.tfd.fd)
       val callsAbstract = (vctx.program.callGraph.transitiveCallees(targets) ++ targets).exists(_.annotations("abstract"))
-
-      reporter.info("Now considering '" + vcInfo.kind + "' VC for " + funDef.id + "...")
-      reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
-      reporter.debug(simplifyLets(vc).asString(vctx.context))
-
+    
       val s = solverFactory.getNewSolver
       try {
-        reporter.debug("Solving with: " + s.name)
+        
+        reporter.synchronized {
+          reporter.info(subTitle(s"Now considering '${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos}..."))
+          reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
+          reporter.debug(simplifyLets(vc).asString(vctx.context))
+          reporter.debug("Solving with: " + s.name)
+        }
+        
         val t1 = System.nanoTime
         s.assertCnstr(Not(vc))
 
@@ -103,44 +108,59 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
         val t2 = System.nanoTime
         val dt = ((t2 - t1) / 1000000) / 1000.0
-
-        solverResult match {
-          case _ if interruptManager.isInterrupted() =>
-            reporter.info("=== CANCELLED ===")
-            vcInfo.time = Some(dt)
-            false
-
-          case None =>
-            vcInfo.hasValue = true
-            reporter.warning("==== UNKNOWN ====")
-            vcInfo.time = Some(dt)
-            false
-
-          case Some(true) =>
-            reporter.info("==== VALID ====")
-
-            vcInfo.hasValue = true
-            vcInfo.value = Some(true)
-            vcInfo.solvedWith = Some(s)
-            vcInfo.time = Some(dt)
-            true
-
-          case Some(false) =>
-            reporter.error("Found counter-example : ")
-            reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
-            reporter.error("==== INVALID ====")
-            vcInfo.hasValue = true
-            vcInfo.value = Some(false)
-            vcInfo.solvedWith = Some(s)
-            vcInfo.counterExample = Some(counterexample)
-            vcInfo.time = Some(dt)
-            true
+        
+        reporter.synchronized {
+          def title(s : String) = 
+            subTitle(s"'${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos} is $s")
+          solverResult match {
+            case _ if interruptManager.isInterrupted() =>
+              reporter.warning(title("CANCELLED"))
+              vcInfo.time = Some(dt)
+              false
+  
+            case None =>
+              vcInfo.hasValue = true
+              reporter.warning(title("UNKNOWN"))
+              vcInfo.time = Some(dt)
+              false
+  
+            case Some(true) =>
+              reporter.info(title("VALID"))
+  
+              vcInfo.hasValue = true
+              vcInfo.value = Some(true)
+              vcInfo.solvedWith = Some(s)
+              vcInfo.time = Some(dt)
+              true
+  
+            case Some(false) =>
+              reporter.error(title("INVALID"))
+              reporter.error("Found counter-example : ")
+              reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
+              vcInfo.hasValue = true
+              vcInfo.value = Some(false)
+              vcInfo.solvedWith = Some(s)
+              vcInfo.counterExample = Some(counterexample)
+              vcInfo.time = Some(dt)
+              true
+          }
         }
       } finally {
         s.free()
       }
     }
-
+    
+    if (checkInParallel) {
+      val allVCsPar = (for {(_, vcs) <- vcs.toSeq; vcInfo <- vcs} yield vcInfo).par
+      for (vc <- allVCsPar if !interruptManager.isInterrupted()) 
+        checkVC(vc)
+    } else {
+      for {
+        (funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos)
+        vcInfo <- vcs if !interruptManager.isInterrupted()
+      } checkVC(vcInfo)
+    }
+    
     val report = new VerificationReport(vcs)
     report
   }
