@@ -702,6 +702,12 @@ trait CodeGeneration {
         ch << Ldc(id)
         ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
       
+      case NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
+        mkExpr(simplestValue(tp), ch)
+        
+      case NoTree(_) =>
+        ch << ACONST_NULL
+      
       case This(ct) =>
         ch << ALoad(0) // FIXME what if doInstrument etc
         
