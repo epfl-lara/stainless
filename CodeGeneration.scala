@@ -675,7 +675,10 @@ trait CodeGeneration {
       case rh: RepairHole =>
         mkExpr(simplestValue(rh.getType), ch) // It is expected to be invalid, we want to repair it
 
-      case choose @ Choose(_, _) =>
+      case Choose(_, _, Some(e)) =>
+        mkExpr(e, ch)
+
+      case choose @ Choose(_, _, None) =>
         val prob = synthesis.Problem.fromChoose(choose)
 
         val id = runtime.ChooseEntryPoint.register(prob, this);
@@ -702,10 +705,12 @@ trait CodeGeneration {
         ch << Ldc(id)
         ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
       
-      case NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
+      case nt @ NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
+        println("COMPILING "+nt+" TO "+simplestValue(tp))
         mkExpr(simplestValue(tp), ch)
         
-      case NoTree(_) =>
+      case nt @ NoTree(_) =>
+        println("COMPILING "+nt+" TO NULL")
         ch << ACONST_NULL
       
       case This(ct) =>
