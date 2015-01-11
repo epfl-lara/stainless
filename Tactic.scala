@@ -11,9 +11,6 @@ abstract class Tactic(vctx: VerificationContext) {
   val description : String
   val shortDescription : String
 
-  val program  = vctx.program
-  val reporter = vctx.reporter
-
   def generateVCs(fdUnsafe: FunDef): Seq[VerificationCondition] = {
     val fd = fdUnsafe.duplicate
     fd.fullBody = matchToIfThenElse(fd.fullBody)

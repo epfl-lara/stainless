@@ -14,6 +14,8 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   override val description = "Induction tactic for suitable functions"
   override val shortDescription = "induction"
 
+  val reporter = vctx.reporter
+
   private def firstAbsClassDef(args: Seq[ValDef]): Option[(AbstractClassType, ValDef)] = {
     args.map(vd => (vd.getType, vd)).collect {
       case (act: AbstractClassType, vd) => (act, vd)
