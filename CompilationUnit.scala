@@ -213,8 +213,9 @@ class CompilationUnit(val ctx: LeonContext,
       }
       Tuple(elems)
 
-    case (gv : GenericValue, _: TypeParameter) =>
-      gv
+    case (gv @ GenericValue(gtp, id), tp: TypeParameter) =>
+      if (gtp == tp) gv
+      else GenericValue(tp, id).copiedFrom(gv)
 
     case (set : runtime.Set, SetType(b)) =>
       FiniteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSet).setType(SetType(b))
