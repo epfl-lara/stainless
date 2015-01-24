@@ -184,9 +184,11 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
       case _ => NoEndpoint
     }
 
-    cluster.foldLeft[NumericEndpoint](AnyEndpoint)((acc, chain) => {
-      acc min chain.inlined.foldLeft[NumericEndpoint](NoEndpoint)((acc, expr) => acc max endpoint(expr))
-    })
+    cluster.foldLeft[NumericEndpoint](AnyEndpoint) { (acc, chain) =>
+      acc min chain.inlined.foldLeft[NumericEndpoint](NoEndpoint) { (acc, expr) =>
+        acc max endpoint(expr)
+      }
+    }
   }
 
   def numericConverging(e1: Expr, e2s: Seq[(Seq[Expr], Expr)], cluster: Set[Chain]) : Seq[Expr] = flatType(e1.getType).toSeq.flatMap {

@@ -60,7 +60,6 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
   case object WeakDecreasing extends SizeConstraint
   case object NoConstraint extends SizeConstraint
 
-  /*
   private val strengthenedApp : MutableSet[FunDef] = MutableSet.empty
 
   protected def strengthened(fd: FunDef): Boolean = strengthenedApp(fd)
@@ -68,7 +67,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
   private val appConstraint   : MutableMap[(FunDef, Identifier), SizeConstraint] = MutableMap.empty
 
   def applicationConstraint(fd: FunDef, id: Identifier, arg: Expr, args: Seq[Expr]): Expr = arg match {
-    case AnonymousFunction(fargs, body) => appConstraint.get(fd -> id) match {
+    case Lambda(fargs, body) => appConstraint.get(fd -> id) match {
       case Some(StrongDecreasing) => self.sizeDecreasing(Tuple(args), Tuple(fargs.map(_.toVariable)))
       case Some(WeakDecreasing) => self.softDecreasing(Tuple(args), Tuple(fargs.map(_.toVariable)))
       case _ => BooleanLiteral(true)
@@ -84,14 +83,14 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
       val appCollector = new CollectorWithPaths[(Identifier,Expr,Expr)] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Expr)] = e match {
-          case FunctionApplication(Variable(id), args) => Some((id, And(path), Tuple(args)))
+          case Application(Variable(id), args) => Some((id, And(path), Tuple(args)))
           case _ => None
         }
       }
 
       val applications = appCollector.traverse(funDef).distinct
 
-      val funDefArgTuple = Tuple(funDef.args.map(_.toVariable))
+      val funDefArgTuple = Tuple(funDef.params.map(_.toVariable))
 
       val allFormulas = for ((id, path, appArgs) <- applications) yield {
         val soft = Implies(path, self.softDecreasing(funDefArgTuple, appArgs))
@@ -102,8 +101,8 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip)
 
       val constraints = for ((id, (weakFormulas, strongFormulas)) <- formulaMap) yield id -> {
-        if (solver.definitiveALL(And(weakFormulas.toSeq), funDef.precondition)) {
-          if (solver.definitiveALL(And(strongFormulas.toSeq), funDef.precondition)) {
+        if (solver.definitiveALL(And(weakFormulas.toSeq))) {
+          if (solver.definitiveALL(And(strongFormulas.toSeq))) {
             StrongDecreasing
           } else {
             WeakDecreasing
@@ -113,13 +112,13 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
         }
       }
 
-      val funDefHOArgs = funDef.args.map(_.id).filter(_.getType.isInstanceOf[FunctionType]).toSet
+      val funDefHOArgs = funDef.params.map(_.id).filter(_.getType.isInstanceOf[FunctionType]).toSet
 
       val fiCollector = new CollectorWithPaths[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] = e match {
           case FunctionInvocation(fd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((And(path), Tuple(args), (args zip fd.args).collect {
-              case (Variable(id), vd) if funDefHOArgs(id) => id -> ((fd, vd.id))
+            Some((And(path), Tuple(args), (args zip fd.params).collect {
+              case (Variable(id), vd) if funDefHOArgs(id) => id -> ((fd.fd, vd.id))
             }))
           case _ => None
         }
@@ -145,14 +144,14 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
               case (_, None) => NoConstraint
               case (NoConstraint, _) => NoConstraint
               case (StrongDecreasing | WeakDecreasing, Some(StrongDecreasing)) =>
-                if (solver.definitiveALL(weakFormula, funDef.precondition)) StrongDecreasing
+                if (solver.definitiveALL(weakFormula)) StrongDecreasing
                 else NoConstraint
               case (StrongDecreasing, Some(WeakDecreasing)) =>
-                if (solver.definitiveALL(strongFormula, funDef.precondition)) StrongDecreasing
-                else if (solver.definitiveALL(weakFormula, funDef.precondition)) WeakDecreasing
+                if (solver.definitiveALL(strongFormula)) StrongDecreasing
+                else if (solver.definitiveALL(weakFormula)) WeakDecreasing
                 else NoConstraint
               case (WeakDecreasing, Some(WeakDecreasing)) =>
-                if (solver.definitiveALL(weakFormula, funDef.precondition)) WeakDecreasing
+                if (solver.definitiveALL(weakFormula)) WeakDecreasing
                 else NoConstraint
             }
         }
@@ -167,7 +166,6 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       strengthenedApp += funDef
     }
   }
-  */
 }
 
 

@@ -31,20 +31,20 @@ final case class Chain(relations: List[Relation]) {
   lazy val size: Int = relations.size
 
   private lazy val inlining : Seq[(Seq[ValDef], Expr)] = {
-    def rec(list: List[Relation], funDef: TypedFunDef, subst: Map[Identifier, Expr]): Seq[(Seq[ValDef], Expr)] = list match {
-      case Relation(_, _, fi @ FunctionInvocation(fitfd, args), _) :: xs =>
+    def rec(list: List[Relation], funDef: TypedFunDef, args: Seq[Expr]): Seq[(Seq[ValDef], Expr)] = list match {
+      case Relation(_, _, fi @ FunctionInvocation(fitfd, nextArgs), _) :: xs =>
         val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated(_)))
+        val subst = (tfd.params.map(_.id) zip args).toMap
         val expr = replaceFromIDs(subst, hoistIte(expandLets(matchToIfThenElse(tfd.body.get))))
+        val mappedArgs = nextArgs.map(e => replaceFromIDs(subst, tfd.translated(e)))
 
-        val mappedArgs = args.map(e => replaceFromIDs(subst, tfd.translated(e)))
-        val newSubst = (tfd.params.map(_.id) zip mappedArgs).toMap
-        (tfd.params, expr) +: rec(xs, tfd, newSubst)
+        (tfd.params, expr) +: rec(xs, tfd, mappedArgs)
       case Nil => Seq.empty
     }
 
     val body = hoistIte(expandLets(matchToIfThenElse(funDef.body.get)))
     val tfd = funDef.typed(funDef.tparams.map(_.tp))
-    (tfd.params, body) +: rec(relations, tfd, funDef.params.map(arg => arg.id -> arg.toVariable).toMap)
+    (tfd.params, body) +: rec(relations, tfd, tfd.params.map(_.toVariable))
   }
 
   lazy val finalParams : Seq[ValDef] = inlining.last._1

@@ -11,8 +11,8 @@ import purescala.Definitions._
 
 import scala.collection.mutable.{Map => MutableMap}
 
-final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocation, inAnon: Boolean) {
-  override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.tfd.id + call.args.mkString("(",",",")") + "," + inAnon + ")"
+final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocation, inLambda: Boolean) {
+  override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.tfd.id + call.args.mkString("(",",",")") + "," + inLambda + ")"
 }
 
 trait RelationBuilder { self: TerminationChecker with Strengthener =>
@@ -30,13 +30,13 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
     case Some((relations, signature)) if signature == funDefRelationSignature(funDef) => relations
     case _ => {
       val collector = new CollectorWithPaths[Relation] {
-        var inAnon: Boolean = false
+        var inLambda: Boolean = false
         def collect(e: Expr, path: Seq[Expr]): Option[Relation] = e match {
           case fi @ FunctionInvocation(f, args) if self.functions(f.fd) =>
-            Some(Relation(funDef, path, fi, inAnon))
-//          case af @ AnonymousFunction(args, body) =>
-//            inAnon = true
-//            None
+            Some(Relation(funDef, path, fi, inLambda))
+          case l @ Lambda(args, body) =>
+            inLambda = true
+            None
           case _ => None
         }
 

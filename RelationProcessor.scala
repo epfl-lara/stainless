@@ -20,8 +20,8 @@ class RelationProcessor(
     reporter.debug("- Strengthening postconditions")
     checker.strengthenPostconditions(problem.funDefs)(this)
 
-//    reporter.debug("- Strengthening applications")
-//    checker.strengthenApplications(problem.funDefs)(this)
+    reporter.debug("- Strengthening applications")
+    checker.strengthenApplications(problem.funDefs)(this)
 
     val formulas = problem.funDefs.map({ funDef =>
       funDef -> checker.getRelations(funDef).collect({

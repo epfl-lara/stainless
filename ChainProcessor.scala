@@ -20,8 +20,8 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
     reporter.debug("- Strengthening postconditions")
     checker.strengthenPostconditions(problem.funDefs)(this)
 
-//    reporter.debug("- Strengthening applications")
-//    checker.strengthenApplications(problem.funDefs)(this)
+    reporter.debug("- Strengthening applications")
+    checker.strengthenApplications(problem.funDefs)(this)
 
     reporter.debug("- Running ChainBuilder")
     val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funDefs.map { funDef =>
@@ -37,8 +37,6 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
 
       def exprs(fd: FunDef): (Expr, Seq[(Seq[Expr], Expr)], Set[Chain]) = {
         val fdChains = chainsMap(fd)._2
-        val nfdChains = chainsMap.filter(_._1 != fd).values.foldLeft(Set.empty[Chain])((set, p) => set ++ p._2)
-        assert(nfdChains.subsetOf(fdChains))
 
         val e1 = Tuple(fd.params.map(_.toVariable))
         val e2s = fdChains.toSeq.map { chain =>

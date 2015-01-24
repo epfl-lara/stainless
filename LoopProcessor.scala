@@ -15,8 +15,8 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
   val name: String = "Loop Processor"
 
   def run(problem: Problem) = {
-//    reporter.debug("- Strengthening applications")
-//    checker.strengthenApplications(problem.funDefs)(this)
+    reporter.debug("- Strengthening applications")
+    checker.strengthenApplications(problem.funDefs)(this)
 
     reporter.debug("- Running ChainBuilder")
     val chains : Set[Chain] = problem.funDefs.flatMap(fd => checker.getChains(fd)(this)._2)
@@ -38,7 +38,7 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
         definitiveSATwithModel(And(path :+ Equals(srcTuple, resTuple))) match {
           case Some(map) =>
             val args = chain.funDef.params.map(arg => map(arg.id))
-            val res = if (chain.relations.exists(_.inAnon)) MaybeBroken(chain.funDef, args) else Broken(chain.funDef, args)
+            val res = if (chain.relations.exists(_.inLambda)) MaybeBroken(chain.funDef, args) else Broken(chain.funDef, args)
             nonTerminating(chain.funDef) = res
           case None =>
         }

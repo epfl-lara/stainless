@@ -31,7 +31,7 @@ trait StructuralSize {
       sizeCache.get(argumentType) match {
         case Some(fd) => fd
         case None =>
-          val argument = ValDef(FreshIdentifier("x").setType(argumentType), argumentType)
+          val argument = ValDef(FreshIdentifier("x", true).setType(argumentType), argumentType)
           val formalTParams = typeParams.map(TypeParameterDef(_))
           val fd = new FunDef(FreshIdentifier("size", true), formalTParams, Int32Type, Seq(argument), DefType.MethodDef)
           sizeCache(argumentType) = fd
@@ -48,9 +48,9 @@ trait StructuralSize {
 
     def caseClassType2MatchCase(_c: ClassType): MatchCase = {
       val c = _c.asInstanceOf[CaseClassType] // required by leon framework
-      val arguments = c.fields.map(f => f -> f.id.freshen)
-      val argumentPatterns = arguments.map(p => WildcardPattern(Some(p._2)))
-      val sizes = arguments.map(p => size(Variable(p._2)))
+      val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name).setType(vd.tpe))
+      val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
+      val sizes = arguments.map(id => size(Variable(id)))
       val result = sizes.foldLeft[Expr](IntLiteral(1))(Plus(_,_))
       SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
     }
