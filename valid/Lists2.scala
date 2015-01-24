@@ -25,6 +25,25 @@ object Lists2 {
       case Cons(head, tail) => positive_lemma(list) && positive_lemma_induct(tail)
     }
   }.holds
+
+  def remove[T](list: List[T], e: T) : List[T] = {
+    list match {
+      case Nil() => Nil()
+      case Cons(x, xs) if x == e => remove(xs, e)
+      case Cons(x, xs)           => Cons(x, remove(xs, e))
+    }
+  } //ensuring { (res: List[T]) => forall(res, (x : T) => x != e) }
+
+  def remove_lemma[T](list: List[T], e: T): Boolean = {
+    forall(remove(list, e), (x : T) => x != e)
+  }
+
+  def remove_lemma_induct[T](list: List[T], e: T): Boolean = {
+    list match {
+      case Nil() => remove_lemma(list, e)
+      case Cons(head, tail) => remove_lemma(list, e) && remove_lemma_induct(tail, e)
+    }
+  }.holds
 }
 
 // vim: set ts=4 sw=4 et:
