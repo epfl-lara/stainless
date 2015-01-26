@@ -20,7 +20,7 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
   protected type RelationSignature = (FunDef, Option[Expr], Option[Expr], Option[Expr], Boolean, Set[(FunDef, Boolean)])
 
   protected def funDefRelationSignature(fd: FunDef): RelationSignature = {
-    val strengthenedCallees = Set.empty[(FunDef, Boolean)] // self.program.callGraph.callees(fd).map(fd => fd -> strengthened(fd))
+    val strengthenedCallees = self.program.callGraph.callees(fd).map(fd => fd -> strengthened(fd))
     (fd, fd.precondition, fd.body, fd.postcondition.map(_._2), self.terminates(fd).isGuaranteed, strengthenedCallees)
   }
 
@@ -31,19 +31,29 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
     case _ => {
       val collector = new CollectorWithPaths[Relation] {
         var inLambda: Boolean = false
+
+        override def rec(e: Expr, path: Seq[Expr]): Expr = e match {
+          case l : Lambda =>
+            val old = inLambda
+            inLambda = true
+            val res = super.rec(e, path)
+            inLambda = old
+            res
+          case _ =>
+            super.rec(e, path)
+        }
+
         def collect(e: Expr, path: Seq[Expr]): Option[Relation] = e match {
           case fi @ FunctionInvocation(f, args) if self.functions(f.fd) =>
             Some(Relation(funDef, path, fi, inLambda))
-          case l @ Lambda(args, body) =>
-            inLambda = true
-            None
           case _ => None
         }
 
         override def walk(e: Expr, path: Seq[Expr]) = e match {
-          case FunctionInvocation(fd, args) =>
-            Some(FunctionInvocation(fd, (fd.params.map(_.id) zip args) map { case (id, arg) =>
-              rec(arg, /* register(self.applicationConstraint(fd, id, arg, args), path) */ path)
+          case FunctionInvocation(tfd, args) =>
+            val funDef = tfd.fd
+            Some(FunctionInvocation(tfd, (funDef.params.map(_.id) zip args) map { case (id, arg) =>
+              rec(arg, register(self.applicationConstraint(funDef, id, arg, args), path))
             }))
           case _ => None
         }

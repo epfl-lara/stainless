@@ -116,9 +116,9 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
       val fiCollector = new CollectorWithPaths[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] = e match {
-          case FunctionInvocation(fd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((And(path), Tuple(args), (args zip fd.params).collect {
-              case (Variable(id), vd) if funDefHOArgs(id) => id -> ((fd.fd, vd.id))
+          case FunctionInvocation(tfd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
+            Some((And(path), Tuple(args), (args zip tfd.fd.params).collect {
+              case (Variable(id), vd) if funDefHOArgs(id) => id -> ((tfd.fd, vd.id))
             }))
           case _ => None
         }
