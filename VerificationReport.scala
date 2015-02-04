@@ -4,7 +4,6 @@ package leon
 package verification
 
 import purescala.Definitions.FunDef
-import purescala.ScalaPrinter
 
 class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
   import scala.math.Ordering.Implicits._
