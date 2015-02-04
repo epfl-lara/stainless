@@ -146,8 +146,8 @@ class CompilationUnit(val ctx: LeonContext,
 
     // For now, we only treat boolean arrays separately.
     // We have a use for these, mind you.
-    case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
-      exprs.map(e => exprToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
+    //case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
+    //  exprs.map(e => exprToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
 
     case s @ FiniteSet(els) =>
       val s = new leon.codegen.runtime.Set()

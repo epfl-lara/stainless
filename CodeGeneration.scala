@@ -650,8 +650,9 @@ trait CodeGeneration {
         ch << storeInstr
         //returns targetArray
 
-      case a @ FiniteArray(es) =>
-        ch << Ldc(es.size)
+      case a @ FiniteArray(elems, default, length) =>
+        val IntLiteral(l) = length
+        ch << Ldc(l)
         val storeInstr = a.getType match {
           case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
@@ -659,7 +660,7 @@ trait CodeGeneration {
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
           case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
         }
-        for((e,i) <- es.zipWithIndex) {
+        for((i, e) <- elems) {
           ch << DUP << Ldc(i)
           mkExpr(e, ch) 
           ch << storeInstr
