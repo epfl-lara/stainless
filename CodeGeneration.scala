@@ -628,6 +628,40 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << INEG
 
+      case BVNot(e) =>
+        mkExpr(e, ch)
+        mkExpr(IntLiteral(-1), ch)
+        ch << IXOR
+
+      case BVAnd(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IAND
+
+      case BVOr(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IOR
+
+      case BVXOr(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IXOR
+
+      case BVShiftLeft(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << ISHL
+
+      case BVLShiftRight(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << IUSHR
+
+      case BVAShiftRight(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << ISHR
 
       case ArrayLength(a) =>
         mkExpr(a, ch)
