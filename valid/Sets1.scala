@@ -9,15 +9,15 @@ object Sets1 {
 
   def intersection(s1: Int => Boolean, s2: Int => Boolean): Int => Boolean = x => s1(x) && s2(x)
 
-  def associativity(sa1: Int => Boolean, sa2: Int => Boolean, sa3: Int => Boolean, x: Int): Boolean = {
-    val u1 = union(union(sa1, sa2), sa3)
-    val u2 = union(sa1, union(sa2, sa3))
+  def de_morgan_1(s1: Int => Boolean, s2: Int => Boolean, x: Int): Boolean = {
+    val u1 = union(s1, s2)
+    val u2 = complement(intersection(complement(s1), complement(s2)))
     u1(x) == u2(x)
   }.holds
 
-  def lemma(s1: Int => Boolean, s2: Int => Boolean, x: Int): Boolean = {
-    val u1 = union(s1, s2)
-    val u2 = complement(intersection(complement(s1), complement(s2)))
+  def de_morgan_2(s1: Int => Boolean, s2: Int => Boolean, x: Int): Boolean = {
+    val u1 = intersection(s1, s2)
+    val u2 = complement(union(complement(s1), complement(s2)))
     u1(x) == u2(x)
   }.holds
 }
