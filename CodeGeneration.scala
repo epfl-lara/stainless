@@ -672,9 +672,6 @@ trait CodeGeneration {
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
-      case rh: RepairHole =>
-        mkExpr(simplestValue(rh.getType), ch) // It is expected to be invalid, we want to repair it
-
       case Choose(_, _, Some(e)) =>
         mkExpr(e, ch)
 
