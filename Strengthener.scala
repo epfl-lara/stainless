@@ -84,7 +84,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
       val appCollector = new CollectorWithPaths[(Identifier,Expr,Expr)] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Expr)] = e match {
-          case Application(Variable(id), args) => Some((id, And(path), Tuple(args)))
+          case Application(Variable(id), args) => Some((id, andJoin(path), Tuple(args)))
           case _ => None
         }
       }
@@ -102,8 +102,8 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip)
 
       val constraints = for ((id, (weakFormulas, strongFormulas)) <- formulaMap) yield id -> {
-        if (solver.definitiveALL(And(weakFormulas.toSeq))) {
-          if (solver.definitiveALL(And(strongFormulas.toSeq))) {
+        if (solver.definitiveALL(andJoin(weakFormulas.toSeq))) {
+          if (solver.definitiveALL(andJoin(strongFormulas.toSeq))) {
             StrongDecreasing
           } else {
             WeakDecreasing
@@ -118,7 +118,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       val fiCollector = new CollectorWithPaths[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] = e match {
           case FunctionInvocation(tfd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((And(path), Tuple(args), (args zip tfd.fd.params).collect {
+            Some((andJoin(path), Tuple(args), (args zip tfd.fd.params).collect {
               case (Variable(id), vd) if funDefHOArgs(id) => id -> ((tfd.fd, vd.id))
             }))
           case _ => None
