@@ -98,7 +98,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       try {
         
         reporter.synchronized {
-          reporter.info(subTitle(s"Now considering '${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos}..."))
+          reporter.info(s" - Now considering '${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos}...")
           reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
           reporter.debug(simplifyLets(vc).asString(vctx.context))
           reporter.debug("Solving with: " + s.name)
@@ -115,8 +115,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         val dt = ((t2 - t1) / 1000000) / 1000.0
         
         reporter.synchronized {
-          def title(s : String) = 
-            subTitle(s"'${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos} is $s")
+          def title(s : String) = s"   => $s"
           solverResult match {
             case _ if interruptManager.isInterrupted() =>
               reporter.warning(title("CANCELLED"))
