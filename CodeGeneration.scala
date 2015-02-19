@@ -396,6 +396,59 @@ trait CodeGeneration {
           case _ =>
         }
         
+      case FunctionInvocation(TypedFunDef(fd, Seq(tp)), Seq(set)) if fd == program.library.setToList.get =>
+
+        val ObjectClass = "java/lang/Object"
+        val IteratorClass = "java/util/Iterator"
+        val nil = CaseClass(CaseClassType(program.library.Nil.get, Seq(tp)), Seq())
+        val cons = program.library.Cons.get
+        val (consName, ccApplySig) = leonClassToJVMInfo(cons).getOrElse {
+          throw CompilationException("Unknown class : " + cons)
+        }
+        
+        mkExpr(nil, ch)
+        mkExpr(set, ch)
+        //if (params.requireMonitor) {
+        //  ch << ALoad(locals.monitorIndex)
+        //}
+
+        // No dynamic dispatching/overriding in Leon, 
+        // so no need to take care of own vs. "super" methods
+        ch << InvokeVirtual(SetClass, "getElements", s"()L$IteratorClass;")
+        
+        val loop = ch.getFreshLabel("loop")
+        val out = ch.getFreshLabel("out")
+        ch << Label(loop)
+        // list, it
+        ch << DUP
+        // list, it, it
+        ch << InvokeInterface(IteratorClass, "hasNext", "()Z")
+        // list, it, hasNext
+        ch << IfEq(out)
+        // list, it
+        ch << DUP2
+        // list, it, list, it
+        ch << InvokeInterface(IteratorClass, "next", s"()L$ObjectClass;") << SWAP
+        // list, it, elem, list
+        ch << New(consName) << DUP << DUP2_X2
+        // list, it, cons, cons, elem, list, cons, cons
+        ch << POP << POP
+        // list, it, cons, cons, elem, list
+        
+        if (params.requireMonitor) {
+          ch << ALoad(locals.monitorIndex) << DUP_X2 << POP
+        }
+        ch << InvokeSpecial(consName, constructorName, ccApplySig)
+        // list, it, newList
+        ch << DUP_X2 << POP << SWAP << POP
+        // newList, it
+        ch << Goto(loop)
+        
+        ch << Label(out)
+        // list, it
+        ch << POP
+        // list
+      
       // Static lazy fields/ functions
       case FunctionInvocation(tfd, as) =>
         val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
