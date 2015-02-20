@@ -125,8 +125,9 @@ class CompilationUnit(val ctx: LeonContext,
   def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
     case IntLiteral(v) =>
       new java.lang.Integer(v)
+
     case InfiniteIntegerLiteral(v) =>
-      new java.lang.Integer(v.toInt)
+      new leon.codegen.runtime.BigInt(v.toString)
 
     case BooleanLiteral(v) =>
       new java.lang.Boolean(v)
@@ -186,8 +187,9 @@ class CompilationUnit(val ctx: LeonContext,
   def jvmToExpr(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
     case (i: Integer, Int32Type) =>
       IntLiteral(i.toInt)
-    case (i: Integer, IntegerType) =>
-      InfiniteIntegerLiteral(i.toInt)
+
+    case (c: runtime.BigInt, IntegerType) =>
+      InfiniteIntegerLiteral(BigInt(c.underlying))
 
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
@@ -288,10 +290,10 @@ class CompilationUnit(val ctx: LeonContext,
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
 
     e.getType match {
-      case IntegerType | Int32Type | BooleanType =>
+      case Int32Type | BooleanType =>
         ch << IRETURN
 
-      case UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
+      case IntegerType | UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>

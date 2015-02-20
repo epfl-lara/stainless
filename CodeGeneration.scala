@@ -66,6 +66,7 @@ trait CodeGeneration {
   private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
+  private[codegen] val BigIntClass               = "leon/codegen/runtime/BigInt"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
@@ -84,7 +85,6 @@ trait CodeGeneration {
   /** Return the respective JVM type from a Leon type */
   def typeToJVM(tpe : TypeTree) : String = tpe match {
     case Int32Type => "I"
-    case IntegerType => "I"
 
     case BooleanType => "Z"
 
@@ -104,6 +104,9 @@ trait CodeGeneration {
     case _ : MapType =>
       "L" + MapClass + ";"
 
+    case IntegerType =>
+      "L" + BigIntClass + ";"
+
     case _ : FunctionType =>
       "L" + LambdaClass + ";"
 
@@ -119,7 +122,6 @@ trait CodeGeneration {
   /** Return the respective boxed JVM type from a Leon type */
   def typeToJVMBoxed(tpe : TypeTree) : String = tpe match {
     case Int32Type              => s"L$BoxedIntClass;"
-    case IntegerType            => s"L$BoxedIntClass;"
     case BooleanType | UnitType => s"L$BoxedBoolClass;"
     case CharType               => s"L$BoxedCharClass;"
     case other => typeToJVM(other)
@@ -192,10 +194,10 @@ trait CodeGeneration {
     mkExpr(bodyWithPost, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic))
 
     funDef.returnType match {
-      case IntegerType | Int32Type | BooleanType | UnitType =>
+      case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
+      case IntegerType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -220,7 +222,7 @@ trait CodeGeneration {
         mkExpr(d, ch)
         val slot = ch.getFreshVar
         val instr = i.getType match {
-          case IntegerType | Int32Type | CharType | BooleanType | UnitType => IStore(slot)
+          case Int32Type | CharType | BooleanType | UnitType => IStore(slot)
           case _ => AStore(slot)
         }
         ch << instr
@@ -228,8 +230,6 @@ trait CodeGeneration {
 
       case IntLiteral(v) =>
         ch << Ldc(v)
-      case InfiniteIntegerLiteral(v) =>
-        ch << Ldc(v.toInt)
 
       case CharLiteral(v) =>
         ch << Ldc(v)
@@ -239,6 +239,11 @@ trait CodeGeneration {
 
       case UnitLiteral() =>
         ch << Ldc(1)
+
+      case InfiniteIntegerLiteral(v) =>
+        ch << New(BigIntClass) << DUP
+        ch << Ldc(v.toString)
+        ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
 
       // Case classes
       case CaseClass(cct, as) =>
@@ -572,31 +577,31 @@ trait CodeGeneration {
       case Plus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << IADD
+        ch << InvokeVirtual(BigIntClass, "add", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
 
       case Minus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << ISUB
+        ch << InvokeVirtual(BigIntClass, "sub", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
 
       case Times(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << IMUL
+        ch << InvokeVirtual(BigIntClass, "mult", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
 
       case Division(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << IDIV
+        ch << InvokeVirtual(BigIntClass, "div", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
 
       case Modulo(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << IREM
+        ch << InvokeVirtual(BigIntClass, "mod", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
 
       case UMinus(e) =>
         mkExpr(e, ch)
-        ch << INEG
+        ch << InvokeVirtual(BigIntClass, "neg", "()L%s;".format(BigIntClass))
 
       //BV arithmetic
       case BVPlus(l, r) =>
@@ -674,7 +679,6 @@ trait CodeGeneration {
           case Untyped => throw CompilationException("Cannot compile untyped array access.")
           case CharType => CALOAD
           case Int32Type => IALOAD
-          case IntegerType => IALOAD
           case BooleanType => BALOAD
           case _ => AALOAD
         })
@@ -686,7 +690,6 @@ trait CodeGeneration {
         val storeInstr = a.getType match {
           case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-          case ArrayType(IntegerType) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
           case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
@@ -711,7 +714,6 @@ trait CodeGeneration {
         val storeInstr = a.getType match {
           case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-          case ArrayType(IntegerType) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
           case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
@@ -794,10 +796,6 @@ trait CodeGeneration {
         ch << New(BoxedIntClass) << DUP
         mkExpr(e, ch)
         ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
-      case IntegerType =>
-        ch << New(BoxedIntClass) << DUP
-        mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
       case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP
@@ -825,8 +823,6 @@ trait CodeGeneration {
     tpe match {
       case Int32Type =>
         ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
-      case IntegerType =>
-        ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
       case BooleanType | UnitType =>
         ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
@@ -845,8 +841,6 @@ trait CodeGeneration {
     tpe match {
       case Int32Type =>
         ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
-      case IntegerType =>
-        ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
 
       case BooleanType | UnitType =>
         ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
@@ -859,6 +853,9 @@ trait CodeGeneration {
           throw new CompilationException("Unsupported class type : " + ct)
         }
         ch << CheckCast(cn)
+
+      case IntegerType =>
+        ch << CheckCast(BigIntClass)
 
       case tt : TupleType =>
         ch << CheckCast(TupleClass)
@@ -917,7 +914,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type | IntegerType | BooleanType | UnitType | CharType =>
+          case Int32Type | BooleanType | UnitType | CharType =>
             ch << If_ICmpEq(thenn) << Goto(elze)
 
           case _ =>
@@ -928,22 +925,46 @@ trait CodeGeneration {
       case LessThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpLt(thenn) << Goto(elze) 
+        l.getType match {
+          case Int32Type =>
+            ch << If_ICmpLt(thenn) << Goto(elze) 
+          case IntegerType =>
+            ch << InvokeVirtual(BigIntClass, "lessThan", "(L%s;)Z".format(BigIntClass)) 
+            ch << IfEq(elze) << Goto(thenn)
+        }
 
       case GreaterThan(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpGt(thenn) << Goto(elze) 
+        l.getType match {
+          case Int32Type =>
+            ch << If_ICmpGt(thenn) << Goto(elze) 
+          case IntegerType =>
+            ch << InvokeVirtual(BigIntClass, "greaterThan", "(L%s;)Z".format(BigIntClass)) 
+            ch << IfEq(elze) << Goto(thenn)
+        }
 
       case LessEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpLe(thenn) << Goto(elze) 
+        l.getType match {
+          case Int32Type =>
+            ch << If_ICmpLe(thenn) << Goto(elze) 
+          case IntegerType =>
+            ch << InvokeVirtual(BigIntClass, "lessEquals", "(L%s;)Z".format(BigIntClass)) 
+            ch << IfEq(elze) << Goto(thenn)
+        }
 
       case GreaterEquals(l,r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << If_ICmpGe(thenn) << Goto(elze) 
+        l.getType match {
+          case Int32Type =>
+            ch << If_ICmpGe(thenn) << Goto(elze) 
+          case IntegerType =>
+            ch << InvokeVirtual(BigIntClass, "greaterEquals", "(L%s;)Z".format(BigIntClass)) 
+            ch << IfEq(elze) << Goto(thenn)
+        }
   
       case IfExpr(c, t, e) => 
         val innerThen = ch.getFreshLabel("then")
@@ -977,7 +998,7 @@ trait CodeGeneration {
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
             val instr = id.getType match {
-              case IntegerType | Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
+              case Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
               case _ => ALoad(slot)
             }
             ch << instr
@@ -1068,11 +1089,11 @@ trait CodeGeneration {
       ch << Label(initLabel)  // return lzy 
       //newValue
       lzy.returnType match {
-        case Int32Type | IntegerType | BooleanType | UnitType | CharType => 
+        case Int32Type | BooleanType | UnitType | CharType => 
           // Since the underlying field only has boxed types, we have to unbox them to return them
           mkUnbox(lzy.returnType, ch)(NoLocals(isStatic)) 
           ch << IRETURN      
-        case _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
+        case IntegerType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
           ch << ARETURN
         case other => throw CompilationException("Unsupported return type : " + other.getClass)
       }
