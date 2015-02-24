@@ -10,7 +10,7 @@ object LiteralMaps {
   }
 
   def test3(): Map[Int, Int] = {
-    Map()
+    Map[Int, Int]()
   }
 
   def test4(): Map[Int, Int] = {
