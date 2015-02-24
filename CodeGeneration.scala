@@ -10,6 +10,7 @@ import purescala.TreeOps.{simplestValue, matchToIfThenElse}
 import purescala.TypeTrees._
 import purescala.Constructors._
 import purescala.TypeTreeOps.instantiateType
+import purescala.Extractors._
 import utils._
 
 import cafebabe._

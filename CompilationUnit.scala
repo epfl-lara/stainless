@@ -7,6 +7,8 @@ import purescala.Common._
 import purescala.Definitions._
 import purescala.Trees._
 import purescala.TypeTrees._
+import purescala.Extractors._
+import purescala.Constructors._
 import codegen.runtime.LeonCodeGenRuntimeMonitor
 
 import cafebabe._
@@ -224,7 +226,7 @@ class CompilationUnit(val ctx: LeonContext,
       else GenericValue(tp, id).copiedFrom(gv)
 
     case (set : runtime.Set, SetType(b)) =>
-      FiniteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSet).setType(SetType(b))
+      finiteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSet, b)
 
     case (map : runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements().asScala.map { entry =>
@@ -232,7 +234,7 @@ class CompilationUnit(val ctx: LeonContext,
         val v = jvmToExpr(entry.getValue(), to)
         (k, v)
       }
-      FiniteMap(pairs.toSeq)
+      finiteMap(pairs.toSeq, from, to)
 
     case _ =>
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
