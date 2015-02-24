@@ -23,7 +23,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       def strengthen(cmp: (Expr, Expr) => Expr): Boolean = {
         val old = funDef.postcondition
         val (res, postcondition) = {
-          val (res, post) = old.getOrElse(FreshIdentifier("res").setType(funDef.returnType) -> BooleanLiteral(true))
+          val (res, post) = old.getOrElse(FreshIdentifier("res", funDef.returnType) -> BooleanLiteral(true))
           val args = funDef.params.map(_.toVariable)
           val sizePost = cmp(Tuple(funDef.params.map(_.toVariable)), res.toVariable)
           (res, and(post, sizePost))

@@ -32,13 +32,13 @@ trait StructuralSize {
       sizeCache.get(argumentType) match {
         case Some(fd) => fd
         case None =>
-          val argument = ValDef(FreshIdentifier("x", true).setType(argumentType), argumentType)
+          val argument = ValDef(FreshIdentifier("x", argumentType, true), argumentType)
           val formalTParams = typeParams.map(TypeParameterDef(_))
-          val fd = new FunDef(FreshIdentifier("size", true), formalTParams, IntegerType, Seq(argument), DefType.MethodDef)
+          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, IntegerType, Seq(argument), DefType.MethodDef)
           sizeCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
-          val postId = FreshIdentifier("res", false).setType(IntegerType)
+          val postId = FreshIdentifier("res", IntegerType)
           val postcondition = GreaterThan(Variable(postId), InfiniteIntegerLiteral(0))
 
           fd.body = Some(body)
@@ -49,7 +49,7 @@ trait StructuralSize {
 
     def caseClassType2MatchCase(_c: ClassType): MatchCase = {
       val c = _c.asInstanceOf[CaseClassType] // required by leon framework
-      val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name).setType(vd.tpe))
+      val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name, vd.tpe))
       val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
       val sizes = arguments.map(id => size(Variable(id)))
       val result = sizes.foldLeft[Expr](InfiniteIntegerLiteral(1))(Plus(_,_))
