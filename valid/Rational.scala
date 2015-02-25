@@ -5,10 +5,10 @@ object Rationals {
   // Represents n/d
   case class Q(n: BigInt, d: BigInt)
 
-  def +(a: Q, b: Q) = {
+  def op(a: Q, b: Q) = {
     require(isRational(a) && isRational(b))
 
-      Q(a.n*b.d + b.n*a.d, a.d*b.d)
+      Q(a.n + b.n, a.d)
   } ensuring {
     isRational(_)
   }
