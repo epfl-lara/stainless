@@ -25,10 +25,10 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
 
   private def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
     def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
-      l.toSet.subsets.filter(_.nonEmpty).map((reconss : Set[Expr => Expr]) => reconss.toSeq match {
-        case Seq(x) => x
-        case seq => (e: Expr) => Tuple(seq.map(r => r(e)))
-      }).toSet
+      l.toSet.subsets.filter(_.nonEmpty).map{
+        (reconss : Set[Expr => Expr]) => (e : Expr) => 
+          tupleWrap(reconss.toSeq map { f => f(e) })
+      }.toSet
     }
 
     def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match  {

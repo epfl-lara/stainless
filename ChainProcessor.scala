@@ -9,6 +9,7 @@ import purescala.TypeTrees._
 import purescala.Common._
 import purescala.Extractors._
 import purescala.Definitions._
+import purescala.Constructors.tupleWrap
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -38,11 +39,11 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
       def exprs(fd: FunDef): (Expr, Seq[(Seq[Expr], Expr)], Set[Chain]) = {
         val fdChains = chainsMap(fd)._2
 
-        val e1 = Tuple(fd.params.map(_.toVariable))
+        val e1 = tupleWrap(fd.params.map(_.toVariable))
         val e2s = fdChains.toSeq.map { chain =>
           val freshParams = chain.finalParams.map(arg => FreshIdentifier(arg.id.name, arg.id.getType, true))
           val finalBindings = (chain.finalParams.map(_.id) zip freshParams).toMap
-          (chain.loop(finalSubst = finalBindings), Tuple(freshParams.map(_.toVariable)))
+          (chain.loop(finalSubst = finalBindings), tupleWrap(freshParams.map(_.toVariable)))
         }
 
         (e1, e2s, fdChains)

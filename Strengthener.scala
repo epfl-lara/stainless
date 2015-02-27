@@ -25,7 +25,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
         val (res, postcondition) = {
           val (res, post) = old.getOrElse(FreshIdentifier("res", funDef.returnType) -> BooleanLiteral(true))
           val args = funDef.params.map(_.toVariable)
-          val sizePost = cmp(Tuple(funDef.params.map(_.toVariable)), res.toVariable)
+          val sizePost = cmp(tupleWrap(funDef.params.map(_.toVariable)), res.toVariable)
           (res, and(post, sizePost))
         }
 
@@ -69,8 +69,8 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
   def applicationConstraint(fd: FunDef, id: Identifier, arg: Expr, args: Seq[Expr]): Expr = arg match {
     case Lambda(fargs, body) => appConstraint.get(fd -> id) match {
-      case Some(StrongDecreasing) => self.sizeDecreasing(Tuple(args), Tuple(fargs.map(_.toVariable)))
-      case Some(WeakDecreasing) => self.softDecreasing(Tuple(args), Tuple(fargs.map(_.toVariable)))
+      case Some(StrongDecreasing) => self.sizeDecreasing(tupleWrap(args), tupleWrap(fargs.map(_.toVariable)))
+      case Some(WeakDecreasing) => self.softDecreasing(tupleWrap(args), tupleWrap(fargs.map(_.toVariable)))
       case _ => BooleanLiteral(true)
     }
     case _ => BooleanLiteral(true)
@@ -84,14 +84,14 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
       val appCollector = new CollectorWithPaths[(Identifier,Expr,Expr)] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Expr)] = e match {
-          case Application(Variable(id), args) => Some((id, andJoin(path), Tuple(args)))
+          case Application(Variable(id), args) => Some((id, andJoin(path), tupleWrap(args)))
           case _ => None
         }
       }
 
       val applications = appCollector.traverse(funDef).distinct
 
-      val funDefArgTuple = Tuple(funDef.params.map(_.toVariable))
+      val funDefArgTuple = tupleWrap(funDef.params.map(_.toVariable))
 
       val allFormulas = for ((id, path, appArgs) <- applications) yield {
         val soft = Implies(path, self.softDecreasing(funDefArgTuple, appArgs))
@@ -118,7 +118,7 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       val fiCollector = new CollectorWithPaths[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] = e match {
           case FunctionInvocation(tfd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((andJoin(path), Tuple(args), (args zip tfd.fd.params).collect {
+            Some((andJoin(path), tupleWrap(args), (args zip tfd.fd.params).collect {
               case (Variable(id), vd) if funDefHOArgs(id) => id -> ((tfd.fd, vd.id))
             }))
           case _ => None

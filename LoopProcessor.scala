@@ -33,8 +33,8 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
         val finalBindings = (chain.funDef.params.map(_.id) zip freshParams).toMap
         val path = chain.loop(finalSubst = finalBindings)
 
-        val srcTuple = Tuple(chain.funDef.params.map(_.toVariable))
-        val resTuple = Tuple(freshParams.map(_.toVariable))
+        val srcTuple = tupleWrap(chain.funDef.params.map(_.toVariable))
+        val resTuple = tupleWrap(freshParams.map(_.toVariable))
 
         definitiveSATwithModel(andJoin(path :+ Equals(srcTuple, resTuple))) match {
           case Some(map) =>

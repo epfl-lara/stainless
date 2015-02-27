@@ -27,7 +27,7 @@ class RelationProcessor(
     val formulas = problem.funDefs.map({ funDef =>
       funDef -> checker.getRelations(funDef).collect({
         case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funDefs(tfd.fd) =>
-          val (e1, e2) = (Tuple(funDef.params.map(_.toVariable)), Tuple(args))
+          val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
           def constraint(expr: Expr) = implies(andJoin(path.toSeq), expr)
           val greaterThan = checker.sizeDecreasing(e1, e2)
           val greaterEquals = checker.softDecreasing(e1, e2)
