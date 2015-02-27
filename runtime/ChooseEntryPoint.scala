@@ -65,11 +65,7 @@ object ChooseEntryPoint {
             val valModel = valuateWithModel(model) _
 
             val res = p.xs.map(valModel)
-            val leonRes = if (res.size > 1) {
-              LeonTuple(res)
-            } else {
-              res(0)
-            }
+            val leonRes = tupleWrap(res) 
 
             val total = System.currentTimeMillis-tStart;
 

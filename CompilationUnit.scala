@@ -170,13 +170,11 @@ class CompilationUnit(val ctx: LeonContext,
 
     case f @ purescala.Extractors.FiniteLambda(dflt, els) =>
       val l = new leon.codegen.runtime.FiniteLambda(exprToJVM(dflt))
-      for ((k,v) <- els) {
-        val jvmK = if (f.getType.from.size == 1) {
-          exprToJVM(Tuple(Seq(k)))
-        } else {
-          exprToJVM(k)
-        }
-        l.add(jvmK.asInstanceOf[leon.codegen.runtime.Tuple], exprToJVM(v))
+      for ((UnwrapTuple(ks),v) <- els) {
+        // Force tuple even with 1/0 elems.
+        val kJvm = tupleConstructor.newInstance(ks.map(exprToJVM _).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
+        val vJvm = exprToJVM(v)
+        l.add(kJvm,vJvm)
       }
       l
 
@@ -215,11 +213,11 @@ class CompilationUnit(val ctx: LeonContext,
 
       CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToExpr(e, tpe) })
 
-    case (tpl: runtime.Tuple, TupleType(stpe)) =>
+    case (tpl: runtime.Tuple, UnwrapTupleType(stpe)) =>
       val elems = stpe.zipWithIndex.map { case (tpe, i) => 
         jvmToExpr(tpl.get(i), tpe)
       }
-      Tuple(elems)
+      tupleWrap(elems)
 
     case (gv @ GenericValue(gtp, id), tp: TypeParameter) =>
       if (gtp == tp) gv
@@ -292,10 +290,10 @@ class CompilationUnit(val ctx: LeonContext,
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
 
     e.getType match {
-      case Int32Type | BooleanType =>
+      case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case IntegerType | UnitType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
+      case IntegerType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>
