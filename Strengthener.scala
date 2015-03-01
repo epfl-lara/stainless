@@ -22,19 +22,20 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
     for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && self.terminates(funDef).isGuaranteed) {
       def strengthen(cmp: (Expr, Expr) => Expr): Boolean = {
         val old = funDef.postcondition
-        val (res, postcondition) = {
-          val (res, post) = old.getOrElse(FreshIdentifier("res", funDef.returnType) -> BooleanLiteral(true))
+        val postcondition = {
+          val res = FreshIdentifier("res", funDef.returnType, true)
+          val post = old.map{application(_, Seq(Variable(res)))}.getOrElse(BooleanLiteral(true))
           val args = funDef.params.map(_.toVariable)
           val sizePost = cmp(tupleWrap(funDef.params.map(_.toVariable)), res.toVariable)
-          (res, and(post, sizePost))
+          Lambda(Seq(ValDef(res)), and(post, sizePost))
         }
 
-        funDef.postcondition = Some(res -> postcondition)
+        funDef.postcondition = Some(postcondition)
 
         val prec = matchToIfThenElse(funDef.precondition.getOrElse(BooleanLiteral(true)))
         val body = matchToIfThenElse(funDef.body.get)
         val post = matchToIfThenElse(postcondition)
-        val formula = implies(prec, Let(res, body, post))
+        val formula = implies(prec, application(post, Seq(body)))
 
         if (!solver.definitiveALL(formula)) {
           funDef.postcondition = old

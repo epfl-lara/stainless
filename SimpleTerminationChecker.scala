@@ -87,15 +87,11 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
       // Now we apply a simple recipe: we check that in each (self)
       // call, at least one argument is of an ADT type and decreases.
       // Yes, it's that restrictive.
-      val callsOfInterest = { (oe: Option[Expr]) =>
-        oe.map { e =>
-          functionCallsOf(
-            simplifyLets(
-              matchToIfThenElse(e))).filter(_.tfd.fd == funDef)
-        } getOrElse Set.empty[FunctionInvocation]
-      }
+      val callsOfInterest = { (e: Expr) =>
+        functionCallsOf(simplifyLets(matchToIfThenElse(e))).filter(_.tfd.fd == funDef)
+      } 
 
-      val callsToAnalyze = callsOfInterest(funDef.body) ++ callsOfInterest(funDef.precondition) ++ callsOfInterest(funDef.postcondition map { _._2 })
+      val callsToAnalyze = callsOfInterest(funDef.fullBody)
 
       val funDefArgsIDs = funDef.params.map(_.id).toSet
 

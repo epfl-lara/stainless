@@ -39,10 +39,10 @@ trait StructuralSize {
 
           val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
           val postId = FreshIdentifier("res", IntegerType)
-          val postcondition = GreaterThan(Variable(postId), InfiniteIntegerLiteral(0))
+          val postcondition = Lambda(Seq(ValDef(postId)), GreaterThan(Variable(postId), InfiniteIntegerLiteral(0)))
 
           fd.body = Some(body)
-          fd.postcondition = Some(postId, postcondition)
+          fd.postcondition = Some(postcondition)
           fd
       }
     }

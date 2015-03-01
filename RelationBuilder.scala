@@ -21,7 +21,7 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
 
   protected def funDefRelationSignature(fd: FunDef): RelationSignature = {
     val strengthenedCallees = self.program.callGraph.callees(fd).map(fd => fd -> strengthened(fd))
-    (fd, fd.precondition, fd.body, fd.postcondition map {_._2}, self.terminates(fd).isGuaranteed, strengthenedCallees)
+    (fd, fd.precondition, fd.body, fd.postcondition, self.terminates(fd).isGuaranteed, strengthenedCallees)
   }
 
   private val relationCache : MutableMap[FunDef, (Set[Relation], RelationSignature)] = MutableMap.empty
