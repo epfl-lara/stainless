@@ -18,9 +18,8 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
 
     def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
       (fd.postcondition, fd.body) match {
-        case (Some((id, post)), Some(body)) =>
-          val res = id.freshen
-          val vc = implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
+        case (Some(post), Some(body)) =>
+          val vc = implies(precOrTrue(fd), application(post, Seq(body)))
 
           Seq(new VerificationCondition(vc, fd, VCPostcondition, this).setPos(post))
         case _ =>
@@ -70,7 +69,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               (a, kind, cond)
             case a @ Assert(cond, None, _) => (a, VCAssert, cond)
             // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
-            case a @ Ensuring(body, id, post) => (a, VCAssert, Let(id, body, post))
+            case a @ Ensuring(body, post) => (a, VCAssert, Application(post, Seq(body)))
           }(body)
 
           calls.map {

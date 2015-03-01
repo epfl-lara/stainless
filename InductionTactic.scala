@@ -31,21 +31,20 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
   override def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
     (fd.body, firstAbsClassDef(fd.params), fd.postcondition) match {
-      case (Some(b), Some((parentType, arg)), Some((id, p))) =>
-        val post = p
-        val body = b
-
+      case (Some(body), Some((parentType, arg)), Some(post)) =>
         for (cct <- parentType.knownCCDescendents) yield {
           val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
           val subCases = selectors.map { sel =>
-            val res = id.freshen
             replace(Map(arg.toVariable -> sel),
-              implies(precOrTrue(fd), Let(res, body, replace(Map(id.toVariable -> res.toVariable), post)))
+              implies(precOrTrue(fd), application(post, Seq(body)))
             )
           }
 
-          val vc = implies(and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), implies(andJoin(subCases), Let(id, body, post)))
+          val vc = implies(
+            and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), 
+            implies(andJoin(subCases), application(post, Seq(body)))
+          )
 
           new VerificationCondition(vc, fd, VCPostcondition, this).setPos(fd)
         }
