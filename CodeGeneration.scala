@@ -180,11 +180,10 @@ trait CodeGeneration {
       body
     }
 
-    val bodyWithPost = if(funDef.hasPostcondition && params.checkContracts) {
-      val Some((id, post)) = funDef.postcondition
-      Let(id, bodyWithPre, IfExpr(post, Variable(id), Error(id.getType, "Postcondition failed")) )
-    } else {
-      bodyWithPre
+    val bodyWithPost = funDef.postcondition match {
+      case Some(post) if params.checkContracts => 
+        Ensuring(bodyWithPre, post).toAssert
+      case _ => bodyWithPre
     }
 
     if (params.recordInvocations) {
@@ -216,8 +215,8 @@ trait CodeGeneration {
       case Assert(cond, oerr, body) =>
         mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
 
-      case Ensuring(body, id, post) =>
-        mkExpr(Let(id, body, Assert(post, Some("Ensuring failed"), Variable(id))), ch)
+      case en@Ensuring(_, _) =>
+        mkExpr(en.toAssert, ch)
 
       case Let(i,d,b) =>
         mkExpr(d, ch)
@@ -785,10 +784,10 @@ trait CodeGeneration {
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
-      case Choose(_, _, Some(e)) =>
+      case Choose(_, Some(e)) =>
         mkExpr(e, ch)
 
-      case choose @ Choose(_, _, None) =>
+      case choose @ Choose(_, None) =>
         val prob = synthesis.Problem.fromChoose(choose)
 
         val id = runtime.ChooseEntryPoint.register(prob, this);
