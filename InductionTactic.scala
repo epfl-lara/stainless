@@ -23,7 +23,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   }
 
   private def selectorsOfParentType(parentType: ClassType, cct: CaseClassType, expr: Expr): Seq[Expr] = {
-    val childrenOfSameType = cct.fields.filter(_.tpe == parentType)
+    val childrenOfSameType = cct.fields.filter(_.getType == parentType)
     for (field <- childrenOfSameType) yield {
       CaseClassSelector(cct, expr, field.id)
     }
