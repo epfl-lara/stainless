@@ -68,7 +68,7 @@ final case class Chain(relations: List[Relation]) {
         }
         case xs =>
           val params = tfd.params.map(_.id)
-          val freshParams = tfd.params.map(arg => FreshIdentifier(arg.id.name, arg.tpe, true))
+          val freshParams = tfd.params.map(arg => FreshIdentifier(arg.id.name, arg.getType, true))
           val bindings = (freshParams.map(_.toVariable) zip newArgs).map(p => Equals(p._1, p._2))
           bindings ++ rec(xs, tfd, (params zip freshParams).toMap)
       })
