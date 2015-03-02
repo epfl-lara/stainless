@@ -60,7 +60,7 @@ class CompilationUnit(val ctx: LeonContext,
     classes.get(cd) match {
       case Some(cf) =>
         val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
-        val sig = "(" + monitorType + cd.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+        val sig = "(" + monitorType + cd.fields.map(f => typeToJVM(f.getType)).mkString("") + ")V"
         Some((cf.className, sig))
       case _ => None
     }
@@ -80,7 +80,7 @@ class CompilationUnit(val ctx: LeonContext,
     funDefInfo.get(fd).orElse {
       val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
 
-      val sig = "(" + monitorType + fd.params.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
+      val sig = "(" + monitorType + fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.returnType)
 
       defToModuleOrClass.get(fd).flatMap(m => classes.get(m)) match {
         case Some(cf) =>

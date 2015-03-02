@@ -140,7 +140,7 @@ trait CodeGeneration {
     val cf = classes(owner)
     val (_,mn,_) = leonFunDefToJVMInfo(funDef).get
 
-    val paramsTypes = funDef.params.map(a => typeToJVM(a.tpe))
+    val paramsTypes = funDef.params.map(a => typeToJVM(a.getType))
 
     val realParams = if (params.requireMonitor) {
       ("L" + MonitorClass + ";") +: paramsTypes
@@ -255,7 +255,7 @@ trait CodeGeneration {
         if (params.requireMonitor) 
           ch << ALoad(locals.monitorIndex)
         for((a, vd) <- as zip cct.classDef.fields) {
-          vd.tpe match {
+          vd.getType match {
             case TypeParameter(_) =>
               mkBoxedExpr(a, ch)
             case _ =>
@@ -461,7 +461,7 @@ trait CodeGeneration {
         }
 
         for((a, vd) <- as zip tfd.fd.params) {
-          vd.tpe match {
+          vd.getType match {
             case TypeParameter(_) =>
               mkBoxedExpr(a, ch)
             case _ =>
@@ -515,7 +515,7 @@ trait CodeGeneration {
         }
   
         for((a, vd) <- as zip tfd.fd.params) {
-          vd.tpe match {
+          vd.getType match {
             case TypeParameter(_) =>
               mkBoxedExpr(a, ch)
             case _ =>
@@ -591,7 +591,7 @@ trait CodeGeneration {
         }
 
         locally {
-          val argTypes = args.map(arg => typeToJVM(arg.tpe))
+          val argTypes = args.map(arg => typeToJVM(arg.getType))
 
           val apm = cf.addMethod("Ljava/lang/Object;", "apply", "[Ljava/lang/Object;")
 
@@ -1290,7 +1290,7 @@ trait CodeGeneration {
     val ccd = cct.classDef
     ccd.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
-        val expType = cct.fields(i).tpe
+        val expType = cct.fields(i).getType
 
         val cName = defToJVMName(ccd)
         if (params.doInstrument) {
@@ -1302,9 +1302,9 @@ trait CodeGeneration {
           ch << IOR
           ch << PutField(cName, instrumentedField, "I")
         }
-        ch << GetField(cName, f.id.name, typeToJVM(f.tpe))
+        ch << GetField(cName, f.id.name, typeToJVM(f.getType))
 
-        f.tpe match {
+        f.getType match {
           case TypeParameter(_) =>
             mkUnbox(expType, ch)
           case _ =>
@@ -1356,7 +1356,7 @@ trait CodeGeneration {
       }
       
       // Case class parameters
-      val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.tpe)) }
+      val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.getType)) }
   
       // definition of the constructor
       if(!params.doInstrument && !params.requireMonitor && ccd.fields.isEmpty && ccd.methods.filter{ _.canBeField }.isEmpty) {
@@ -1474,7 +1474,7 @@ trait CodeGeneration {
         // We are saved because it is not used anywhere, 
         // but beware if you decide to add any mkExpr and the like.
         instrumentedGetField(pech, cct, f.id)(NoLocals(false))
-        mkBox(f.tpe, pech)(NoLocals(false))
+        mkBox(f.getType, pech)(NoLocals(false))
         pech << AASTORE
       }
 
