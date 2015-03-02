@@ -38,7 +38,7 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
         })
       case TupleType(tpes) =>
         powerSetToFunSet((0 until tpes.length).flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1)))
+          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
         })
       case _ => Set((e: Expr) => e)
     }
@@ -54,7 +54,7 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
         }.toSet
       case TupleType(tpes) =>
         (0 until tpes.length).flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1)))
+          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
         }.toSet
       case _ => Set((e: Expr) => e)
     }

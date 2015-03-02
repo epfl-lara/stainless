@@ -64,7 +64,7 @@ trait StructuralSize {
         })
         FunctionInvocation(TypedFunDef(fd, ct.tps), Seq(expr))
       case TupleType(argTypes) => argTypes.zipWithIndex.map({
-        case (_, index) => size(tupleSelect(expr, index + 1))
+        case (_, index) => size(tupleSelect(expr, index + 1, true))
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus(_,_))
       case _ => InfiniteIntegerLiteral(0)
     }
