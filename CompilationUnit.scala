@@ -170,7 +170,9 @@ class CompilationUnit(val ctx: LeonContext,
 
     case f @ purescala.Extractors.FiniteLambda(dflt, els) =>
       val l = new leon.codegen.runtime.FiniteLambda(exprToJVM(dflt))
-      for ((UnwrapTuple(ks),v) <- els) {
+
+      for ((k,v) <- els) {
+        val ks = unwrapTuple(k, f.getType.asInstanceOf[FunctionType].from.size)
         // Force tuple even with 1/0 elems.
         val kJvm = tupleConstructor.newInstance(ks.map(exprToJVM _).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
         val vJvm = exprToJVM(v)
@@ -213,7 +215,8 @@ class CompilationUnit(val ctx: LeonContext,
 
       CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToExpr(e, tpe) })
 
-    case (tpl: runtime.Tuple, UnwrapTupleType(stpe)) =>
+    case (tpl: runtime.Tuple, tpe) =>
+      val stpe = unwrapTupleType(tpe, tpl.getArity())
       val elems = stpe.zipWithIndex.map { case (tpe, i) => 
         jvmToExpr(tpl.get(i), tpe)
       }
