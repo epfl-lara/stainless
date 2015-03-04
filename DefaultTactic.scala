@@ -69,7 +69,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               (a, kind, cond)
             case a @ Assert(cond, None, _) => (a, VCAssert, cond)
             // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
-            case a @ Ensuring(body, post) => (a, VCAssert, Application(post, Seq(body)))
+            case a @ Ensuring(body, post) => (a, VCAssert, application(post, Seq(body)))
           }(body)
 
           calls.map {
