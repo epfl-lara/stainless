@@ -10,6 +10,11 @@ object Monads2 {
     case None() => None()
   }
 
+  def add[T](o1: Option[T], o2: Option[T]): Option[T] = o1 match {
+    case Some(x) => o1
+    case None() => o2
+  }
+
   def associative_law[T,U,V](opt: Option[T], f: T => Option[U], g: U => Option[V]): Boolean = {
     flatMap(flatMap(opt, f), g) == flatMap(opt, (x: T) => flatMap(f(x), g))
   }.holds
@@ -22,14 +27,21 @@ object Monads2 {
     flatMap(opt, (x: T) => Some(x)) == opt
   }.holds
 
-  /*
-  def associative_induct[T,U,V](opt: Option[T], f: T => Option[U], g: U => Option[V]): Boolean = {
-    opt match {
-      case Some(x) => associative(opt)
+  def flatMap_zero_law[T,U](none: None[T], f: T => Option[U]): Boolean = {
+    flatMap(none, f) == None[U]()
+  }.holds
 
-    }
-  }
-  */
+  def flatMap_to_zero_law[T,U](opt: Option[T]): Boolean = {
+    flatMap(opt, (x: T) => None[U]()) == None[U]()
+  }.holds
+
+  def add_zero_law[T](opt: Option[T]): Boolean = {
+    add(opt, None[T]()) == opt
+  }.holds
+
+  def zero_add_law[T](opt: Option[T]): Boolean = {
+    add(None[T](), opt) == opt
+  }.holds
 }
 
 // vim: set ts=4 sw=4 et:
