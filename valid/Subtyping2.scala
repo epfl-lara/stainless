@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object Test {
+object Subtyping2 {
 
   abstract class List
   case class Nil() extends List

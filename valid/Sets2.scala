@@ -1,6 +1,6 @@
 import leon.lang._
 
-object Sets1 {
+object Sets2 {
   def set(i: Int): Int => Boolean = x => x == i
 
   def complement(s: Int => Boolean): Int => Boolean = x => !s(x)

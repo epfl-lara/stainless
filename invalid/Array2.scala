@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object Array4 {
+object Array2 {
 
   def foo(a: Array[Int]): Int = {
     require(a.length > 2)

@@ -2,8 +2,7 @@
 
 import leon.lang._
 
-object Test {
-
+object Array3 {
   def find(c: Array[Int], i: Int): Int = {
     require(i >= 0)
     if(c(i) == i)

@@ -1,6 +1,6 @@
 /* Copyright 2009-2014 EPFL, Lausanne */
 
-object MyTuple1 {
+object MyTuple5 {
 
   abstract class A
   case class B(t: (Int, Int)) extends A

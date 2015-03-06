@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object Array4 {
+object Array1 {
 
   def foo(a: Array[Int]): Int = {
     a(2)

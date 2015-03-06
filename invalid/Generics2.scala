@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object Generics1 {
+object Generics2 {
   abstract class List[T]
   case class Cons[A](head: A, tail: List[A]) extends List[A]
   case class Nil[B]() extends List[B]

@@ -2,7 +2,7 @@ import leon.lang._
 import leon.annotation._
 import leon._
 
-object Operators {
+object Asserts1 {
 
   def foo(a: Int): Int = {
     require(a > 0)
