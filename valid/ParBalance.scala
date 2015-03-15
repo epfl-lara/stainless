@@ -4,17 +4,17 @@ import leon.lang._
 object ParBalance {
 
   sealed abstract class List
-  case class Cons(head: Int, tail: List) extends List
+  case class Cons(head: BigInt, tail: List) extends List
   case class Nil() extends List
 
   sealed abstract class Option
-  case class Some(x: Int) extends Option
+  case class Some(x: BigInt) extends Option
   case class None() extends Option
 
-  val openPar = 1
-  val closePar = 2
+  val openPar : BigInt = BigInt(1)
+  val closePar : BigInt = BigInt(2)
 
-  def balanced(list: List, counter: Int): Boolean = {
+  def balanced(list: List, counter: BigInt): Boolean = {
     if (counter < 0) false else list match {
       case Cons(head, tail) =>
         val c = if (head == openPar) counter + 1
@@ -25,7 +25,7 @@ object ParBalance {
     }
   }
 
-  def balanced_nonEarly(list: List, counter: Int): Boolean = {
+  def balanced_nonEarly(list: List, counter: BigInt): Boolean = {
     list match {
       case Cons(head, tail) =>
         if (counter < 0) balanced_nonEarly(tail, counter) else {
@@ -38,7 +38,7 @@ object ParBalance {
     }
   } ensuring { res => res == balanced(list, counter) }
 
-  def balanced_withFailure(list: List, counter: Int, failed: Boolean): Boolean = {
+  def balanced_withFailure(list: List, counter: BigInt, failed: Boolean): Boolean = {
     require(counter >= 0 || failed)
     list match {
       case Cons(head, tail) =>
@@ -56,7 +56,7 @@ object ParBalance {
     }
   }
 
-  def balanced_withReduce(list: List, p: (Int, Int)): Boolean = {
+  def balanced_withReduce(list: List, p: (BigInt, BigInt)): Boolean = {
     require(p._1 >= 0 && p._2 >= 0)
     list match {
       case Cons(head, tail) =>
@@ -67,10 +67,10 @@ object ParBalance {
     }
   } ensuring { res => res == balanced_withFailure(list, p._1 - p._2, p._2 > 0) }
 
-  def balanced_foldLeft_equivalence(list: List, p: (Int, Int)): Boolean = {
+  def balanced_foldLeft_equivalence(list: List, p: (BigInt, BigInt)): Boolean = {
     require(p._1 >= 0 && p._2 >= 0)
-    val f = (s: (Int, Int), x: Int) => reduce(s, parPair(x))
-    (foldLeft(list, p, f) == (0, 0)) == balanced_withReduce(list, p) && (list match {
+    val f = (s: (BigInt, BigInt), x: BigInt) => reduce(s, parPair(x))
+    (foldLeft(list, p, f) == (BigInt(0), BigInt(0))) == balanced_withReduce(list, p) && (list match {
       case Cons(head, tail) =>
         val p2 = f(p, head)
         balanced_foldLeft_equivalence(tail, p2)
@@ -78,21 +78,21 @@ object ParBalance {
     })
   }.holds
 
-  def foldRight[A](list: List, state: A, f: (Int, A) => A): A = list match {
+  def foldRight[A](list: List, state: A, f: (BigInt, A) => A): A = list match {
     case Cons(head, tail) =>
       val tailState = foldRight(tail, state, f)
       f(head, tailState)
     case Nil() => state
   }
 
-  def foldLeft[A](list: List, state: A, f: (A, Int) => A): A = list match {
+  def foldLeft[A](list: List, state: A, f: (A, BigInt) => A): A = list match {
     case Cons(head, tail) =>
       val nextState = f(state, head)
       foldLeft(tail, nextState, f)
     case Nil() => state
   }
 
-  def reduce(p1: (Int, Int), p2: (Int, Int)): (Int, Int) = {
+  def reduce(p1: (BigInt, BigInt), p2: (BigInt, BigInt)): (BigInt, BigInt) = {
     if (p1._1 >= p2._2) {
       (p1._1 - p2._2 + p2._1, p1._2)
     } else {
@@ -100,25 +100,25 @@ object ParBalance {
     }
   }
 
-  def reduce_associative(p1: (Int, Int), p2: (Int, Int), p3: (Int, Int)): Boolean = {
+  def reduce_associative(p1: (BigInt, BigInt), p2: (BigInt, BigInt), p3: (BigInt, BigInt)): Boolean = {
     reduce(p1, reduce(p2, p3)) == reduce(reduce(p1, p2), p3)
   }.holds
 
-  def swap(p: (Int, Int)): (Int, Int) = (p._2, p._1)
+  def swap(p: (BigInt, BigInt)): (BigInt, BigInt) = (p._2, p._1)
 
-  def reduce_inverse(p1: (Int, Int), p2: (Int, Int)): Boolean = {
+  def reduce_inverse(p1: (BigInt, BigInt), p2: (BigInt, BigInt)): Boolean = {
     reduce(p1, p2) == swap(reduce(swap(p2), swap(p1)))
   }.holds
 
-  def reduce_associative_inverse(p1: (Int, Int), p2: (Int, Int), p3: (Int, Int)): Boolean = {
+  def reduce_associative_inverse(p1: (BigInt, BigInt), p2: (BigInt, BigInt), p3: (BigInt, BigInt)): Boolean = {
     reduce(p1, reduce(p2, p3)) == swap(reduce(reduce(swap(p3), swap(p2)), swap(p1)))
   }.holds
 
-  def reduce_associative_inverse2(p1: (Int, Int), p2: (Int, Int), p3: (Int, Int)): Boolean = {
+  def reduce_associative_inverse2(p1: (BigInt, BigInt), p2: (BigInt, BigInt), p3: (BigInt, BigInt)): Boolean = {
     reduce(reduce(p1, p2), p3) == swap(reduce(swap(p3), reduce(swap(p2), swap(p1))))
   }.holds
 
-  def parPair(x: Int): (Int, Int) = {
+  def parPair(x: BigInt): (BigInt, BigInt) = {
     if (x == openPar) (1, 0) else if (x == closePar) (0, 1) else (0, 0)
   }
 
@@ -144,7 +144,7 @@ object ParBalance {
     case Nil() => Nil()
   }
 
-  def addLast(list: List, x: Int): List = {
+  def addLast(list: List, x: BigInt): List = {
     list match {
       case Cons(head, tail) => Cons(head, addLast(tail, x))
       case Nil() => Cons(x, Nil())
@@ -190,14 +190,14 @@ object ParBalance {
   /*
   def fold_equivalence(list: List): Boolean = {
     val s = (0, 0)
-    val fl = (s: (Int, Int), x: Int) => reduce(s, parPair(x))
-    val fr = (x: Int, s: (Int, Int)) => reduce(parPair(x), s)
+    val fl = (s: (BigInt, BigInt), x: BigInt) => reduce(s, parPair(x))
+    val fr = (x: BigInt, s: (BigInt, BigInt)) => reduce(parPair(x), s)
 
     foldLeft(list, s, fl) == foldRight(list, s, fr)
   }.holds
 
   def lemma(list: List): Boolean = {
-    val f = (x: Int, s: (Int, Int)) => reduce(parPair(x), s)
+    val f = (x: BigInt, s: (BigInt, BigInt)) => reduce(parPair(x), s)
     fold_equivalence(list) && balanced_foldLeft_equivalence(list, (0, 0)) &&
     (foldRight(list, (0, 0), f) == (0, 0)) == balanced(list, 0)
   }.holds
