@@ -4,10 +4,6 @@ package leon
 package termination
 
 import purescala.Trees._
-import purescala.TreeOps._
-import purescala.TypeTrees._
-import purescala.Definitions._
-import purescala.Common._
 
 trait RelationComparator { self : StructuralSize =>
 

@@ -5,7 +5,6 @@ package termination
 
 import purescala.Trees._
 import purescala.Common._
-import purescala.Definitions._
 
 import scala.annotation.tailrec
 

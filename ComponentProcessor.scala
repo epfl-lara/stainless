@@ -3,7 +3,6 @@
 package leon
 package termination
 
-import purescala.TreeOps._
 import purescala.Definitions._
 import scala.collection.mutable.{Map => MutableMap}
 

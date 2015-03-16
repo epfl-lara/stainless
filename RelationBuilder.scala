@@ -5,8 +5,6 @@ package termination
 
 import purescala.Trees._
 import purescala.TreeOps._
-import purescala.Extractors._
-import purescala.Common._
 import purescala.Definitions._
 
 import scala.collection.mutable.{Map => MutableMap}
