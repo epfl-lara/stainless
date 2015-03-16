@@ -3,10 +3,8 @@
 package leon
 package verification
 
-import purescala.Common._
 import purescala.Trees._
 import purescala.TreeOps._
-import purescala.Extractors._
 import purescala.Definitions._
 import purescala.Constructors._
 

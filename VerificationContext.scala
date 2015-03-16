@@ -6,8 +6,6 @@ package verification
 import purescala.Definitions.Program
 import solvers._
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 case class VerificationContext (
   context: LeonContext,
   program: Program,
