@@ -4,15 +4,9 @@ package leon
 package codegen
 
 import purescala.Common._
-import purescala.Definitions._
 import purescala.Trees._
-import purescala.TypeTrees._
 
 import cafebabe._
-import cafebabe.AbstractByteCodes._
-import cafebabe.ByteCodes._
-import cafebabe.ClassFileTypes._
-import cafebabe.Flags._
 
 import runtime.{LeonCodeGenRuntimeMonitor => LM }
 

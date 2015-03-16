@@ -5,12 +5,7 @@ package codegen
 
 import scala.util.control.NonFatal
 
-import purescala.Common._
 import purescala.Definitions._
-
-import cafebabe._
-import cafebabe.ClassFileTypes.U2
-import cafebabe.Flags._
 
 object CodeGenPhase extends LeonPhase[Program,CompilationResult] {
   val name = "CodeGen"

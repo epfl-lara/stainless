@@ -3,16 +3,8 @@
 package leon
 package codegen.runtime
 
-import utils._
-import purescala.Common._
-import purescala.Definitions._
-import purescala.Trees.{Tuple => LeonTuple, _}
-import purescala.TreeOps.valuateWithModel
-import purescala.TypeTrees._
-
+import purescala.Trees.GenericValue
 import scala.collection.immutable.{Map => ScalaMap}
-
-import synthesis._
 
 object GenericValues {
   private[this] var counter = 0;
