@@ -25,7 +25,6 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
         val postcondition = {
           val res = FreshIdentifier("res", funDef.returnType, true)
           val post = old.map{application(_, Seq(Variable(res)))}.getOrElse(BooleanLiteral(true))
-          val args = funDef.params.map(_.toVariable)
           val sizePost = cmp(tupleWrap(funDef.params.map(_.toVariable)), res.toVariable)
           Lambda(Seq(ValDef(res)), and(post, sizePost))
         }

@@ -34,8 +34,6 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
     i -> dsts
   }).toMap
 
-  private def callees(funDef: FunDef): Set[FunDef] = callGraph.getOrElse(funDef, Set.empty)
-
   private val answerCache = MutableMap.empty[FunDef, TerminationGuarantee]
 
   def initialize() {}

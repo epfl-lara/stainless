@@ -6,7 +6,6 @@ package termination
 import purescala.Definitions._
 import purescala.Common._
 import purescala.Expressions._
-import purescala.ExprOps._
 import purescala.Constructors._
 
 import scala.collection.mutable.{Map => MutableMap}

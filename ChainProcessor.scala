@@ -4,14 +4,9 @@ package leon
 package termination
 
 import purescala.Expressions._
-import purescala.ExprOps._
-import purescala.Types._
 import purescala.Common._
-import purescala.Extractors._
 import purescala.Definitions._
 import purescala.Constructors.tupleWrap
-
-import scala.collection.mutable.{Map => MutableMap}
 
 class ChainProcessor(val checker: TerminationChecker with ChainBuilder with ChainComparator with Strengthener with StructuralSize) extends Processor with Solvable {
 

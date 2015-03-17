@@ -6,9 +6,7 @@ package termination
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.purescala.ExprOps._
-import leon.purescala.Types._
 import leon.purescala.Constructors._
-import leon.purescala.TypeOps._
 import leon.purescala.Common._
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -57,7 +55,7 @@ final case class Chain(relations: List[Relation]) {
         (e: Expr) => replace(map, funDef.translated(e))
       }
 
-      val Relation(_, path, fi @ FunctionInvocation(fitfd, args), _) = relations.head
+      val Relation(_, path, FunctionInvocation(fitfd, args), _) = relations.head
       val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
 
       lazy val newArgs = args.map(translate)
@@ -127,7 +125,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
 
       def decreasing(relations: List[Relation]): Boolean = {
         val constraints = relations.map(relation => relationConstraints.getOrElse(relation, {
-          val Relation(funDef, path, FunctionInvocation(fd, args), _) = relation
+          val Relation(funDef, path, FunctionInvocation(_, args), _) = relation
           val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
           val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(e1, e2)))) {
             if (solver.definitiveALL(implies(andJoin(path), self.sizeDecreasing(e1, e2)))) {
@@ -147,7 +145,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
       }
 
       def chains(seen: Set[FunDef], chain: List[Relation]) : (Set[FunDef], Set[Chain]) = {
-        val Relation(_, _, FunctionInvocation(tfd, _), _) :: xs = chain
+        val Relation(_, _, FunctionInvocation(tfd, _), _) :: _ = chain
         val fd = tfd.fd
 
         if (!self.program.callGraph.transitivelyCalls(fd, funDef)) {

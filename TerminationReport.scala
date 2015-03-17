@@ -22,19 +22,20 @@ case class TerminationReport(results : Seq[(FunDef,TerminationGuarantee)], time 
           "Terminates (" + reason + ")"
         case _ => g.toString
       }
-      sb.append("- %-30s %s %-30s\n".format(fd.id.name, result, toPrint))
+      sb.append(f"- ${fd.id.name}%-30s $result $toPrint%-30s\n")
     }
-    sb.append("\n[Analysis time: %7.3f]\n".format(time))
+    sb.append(f"\n[Analysis time: $time%7.3f]\n")
     sb.toString
   }
 
   def evaluationString : String = {
     val sb = new StringBuilder
     for((fd,g) <- results) {
-      sb.append("- %-30s %s\n".format(fd.id.name, g match {
+      val guar = g match {
         case NoGuarantee => "u"
         case t => if (t.isGuaranteed) "t" else "n"
-      }))
+      }
+      sb.append(f"- ${fd.id.name}%-30s $guar\n")
     }
     sb.toString
   }

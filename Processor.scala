@@ -4,7 +4,6 @@ package leon
 package termination
 
 import purescala.Expressions._
-import purescala.ExprOps._
 import purescala.Common._
 import purescala.Definitions._
 
@@ -37,7 +36,6 @@ trait Solvable extends Processor {
   val checker : TerminationChecker with Strengthener with StructuralSize
 
   private val solver: SolverFactory[Solver] = SolverFactory(() => {
-    val structDefs = checker.defs
     val program     : Program     = checker.program
     val context     : LeonContext = checker.context
     val sizeModule  : ModuleDef   = ModuleDef(FreshIdentifier("$size"), checker.defs.toSeq, false)
@@ -115,9 +113,9 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
     val sb = new StringBuilder()
     sb.append("- Processing Result:\n")
     for(result <- results) result match {
-      case Cleared(fd) => sb.append("    %-10s %s\n".format(fd.id, "Cleared"))
-      case Broken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "Broken for arguments: " + args.mkString("(", ",", ")")))
-      case MaybeBroken(fd, args) => sb.append("    %-10s %s\n".format(fd.id, "HO construct application breaks for arguments: " + args.mkString("(", ",", ")")))
+      case Cleared(fd) => sb.append(f"    ${fd.id}%-10s Cleared\n")
+      case Broken(fd, args) => sb.append(f"    ${fd.id}%-10s ${"Broken for arguments: " + args.mkString("(", ",", ")")}\n")
+      case MaybeBroken(fd, args) => sb.append(f"    ${fd.id}%-10s ${"HO construct application breaks for arguments: " + args.mkString("(", ",", ")")}\n")
     }
     reporter.debug(sb.toString)
   }
@@ -138,7 +136,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
 
     def hasNext : Boolean      = problems.nonEmpty
     def next()  : (String, List[Result]) = {
-      printQueue
+      printQueue()
       val (problem, index) = problems.head
       val processor : Processor = processors(index)
       reporter.debug("Running " + processor.name)
