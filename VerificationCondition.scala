@@ -5,7 +5,7 @@ package leon.verification
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 import leon.purescala.Common._
-import leon.utils.{Position, Positioned}
+import leon.utils.Positioned
 
 import leon.solvers._
 

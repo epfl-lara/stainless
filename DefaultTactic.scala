@@ -8,8 +8,6 @@ import purescala.ExprOps._
 import purescala.Definitions._
 import purescala.Constructors._
 
-import scala.collection.mutable.{Map => MutableMap}
-
 class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
     val description = "Default verification condition generation approach"
     override val shortDescription = "default"

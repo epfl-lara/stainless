@@ -7,15 +7,8 @@ import purescala.Common._
 import purescala.Definitions._
 import purescala.Expressions._
 import purescala.ExprOps._
-import purescala.Types._
 
 import solvers._
-import solvers.z3._
-import solvers.combinators._
-
-import scala.collection.mutable.{Set => MutableSet}
-
-import _root_.smtlib.interpreters.Z3Interpreter
 
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
@@ -80,9 +73,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   ) : VerificationReport = {
     import vctx.reporter
     import vctx.solverFactory
-    import vctx.program
-
-    import utils.ASCIIHelpers.subTitle
     
     val interruptManager = vctx.context.interruptManager
 
@@ -92,8 +82,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
       // Check if vc targets abstract methods
       val targets = functionCallsOf(vc).map(_.tfd.fd)
-      val callsAbstract = (vctx.program.callGraph.transitiveCallees(targets) ++ targets).exists(_.annotations("abstract"))
-    
+
       val s = solverFactory.getNewSolver
       try {
         

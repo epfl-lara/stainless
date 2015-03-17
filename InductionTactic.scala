@@ -3,7 +3,6 @@
 package leon
 package verification
 
-import purescala.Common._
 import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Types._
