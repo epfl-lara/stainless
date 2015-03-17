@@ -4,7 +4,7 @@ package leon
 package termination
 
 import purescala.Definitions._
-import purescala.Trees._
+import purescala.Expressions._
 
 import scala.collection.mutable.{Map => MutableMap}
 

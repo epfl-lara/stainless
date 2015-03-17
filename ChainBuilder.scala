@@ -4,11 +4,11 @@ package leon
 package termination
 
 import leon.purescala.Definitions._
-import leon.purescala.Trees._
-import leon.purescala.TreeOps._
-import leon.purescala.TypeTrees._
+import leon.purescala.Expressions._
+import leon.purescala.ExprOps._
+import leon.purescala.Types._
 import leon.purescala.Constructors._
-import leon.purescala.TypeTreeOps._
+import leon.purescala.TypeOps._
 import leon.purescala.Common._
 
 import scala.collection.mutable.{Map => MutableMap}

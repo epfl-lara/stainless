@@ -3,7 +3,7 @@
 package leon
 package termination
 
-import purescala.Trees._
+import purescala.Expressions._
 
 trait RelationComparator { self : StructuralSize =>
 

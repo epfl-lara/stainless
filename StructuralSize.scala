@@ -3,9 +3,9 @@
 package leon
 package termination
 
-import purescala.Trees._
-import purescala.TreeOps._
-import purescala.TypeTrees._
+import purescala.Expressions._
+import purescala.ExprOps._
+import purescala.Types._
 import purescala.Definitions._
 import purescala.Constructors._
 import purescala.Common._
