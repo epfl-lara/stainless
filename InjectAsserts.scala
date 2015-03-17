@@ -4,7 +4,7 @@ package leon
 package utils
 
 import purescala.Expressions._
-import xlang.Trees._
+import xlang.Expressions._
 import purescala.ExprOps._
 import purescala.Definitions._
 import purescala.Constructors._
