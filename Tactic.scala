@@ -4,8 +4,8 @@ package leon
 package verification
 
 import purescala.Definitions._
-import purescala.Trees._
-import purescala.TreeOps._
+import purescala.Expressions._
+import purescala.ExprOps._
 
 abstract class Tactic(vctx: VerificationContext) {
   val description : String

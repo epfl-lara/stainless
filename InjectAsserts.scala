@@ -3,9 +3,9 @@
 package leon
 package utils
 
-import purescala.Trees._
+import purescala.Expressions._
 import xlang.Trees._
-import purescala.TreeOps._
+import purescala.ExprOps._
 import purescala.Definitions._
 import purescala.Constructors._
 

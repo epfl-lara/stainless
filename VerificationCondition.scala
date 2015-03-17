@@ -2,7 +2,7 @@
 
 package leon.verification
 
-import leon.purescala.Trees._
+import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 import leon.purescala.Common._
 import leon.utils.{Position, Positioned}
