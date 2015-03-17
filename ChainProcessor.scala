@@ -67,7 +67,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
       }
 
       if (structuralDecreasing || numericDecreasing) {
-        (problem.funDefs.map(Cleared(_)), Nil)
+        (problem.funDefs.map(Cleared), Nil)
       } else {
         (Nil, List(problem))
       }

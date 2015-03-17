@@ -22,14 +22,14 @@ class ComponentProcessor(val checker: TerminationChecker with ComponentBuilder) 
     val terminationCache : MutableMap[FunDef, Boolean] = MutableMap()
     def terminates(fd: FunDef) : Boolean = terminationCache.getOrElse(fd, {
       val scc = fdToSCC.getOrElse(fd, Set()) // functions that aren't called and don't call belong to no SCC
-      val result = if (scc(fd)) false else scc.forall(terminates(_))
+      val result = if (scc(fd)) false else scc.forall(terminates)
       terminationCache(fd) = result
       result
     })
 
-    val terminating = problem.funDefs.filter(terminates(_))
+    val terminating = problem.funDefs.filter(terminates)
     assert(components.forall(scc => (scc subsetOf terminating) || (scc intersect terminating).isEmpty))
-    val newProblems = components.filter(scc => (scc intersect terminating).isEmpty).map(Problem(_))
-    (terminating.map(Cleared(_)), newProblems)
+    val newProblems = components.filter(scc => (scc intersect terminating).isEmpty).map(Problem)
+    (terminating.map(Cleared), newProblems)
   }
 }

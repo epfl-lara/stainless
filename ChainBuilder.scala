@@ -24,7 +24,7 @@ final case class Chain(relations: List[Relation]) {
     case _ => false
   }
 
-  override def hashCode(): Int = identifier.hashCode
+  override def hashCode(): Int = identifier.hashCode()
 
   lazy val funDef  : FunDef      = relations.head.funDef
   lazy val funDefs : Set[FunDef] = relations.map(_.funDef).toSet
@@ -34,7 +34,7 @@ final case class Chain(relations: List[Relation]) {
   private lazy val inlining : Seq[(Seq[ValDef], Expr)] = {
     def rec(list: List[Relation], funDef: TypedFunDef, args: Seq[Expr]): Seq[(Seq[ValDef], Expr)] = list match {
       case Relation(_, _, fi @ FunctionInvocation(fitfd, nextArgs), _) :: xs =>
-        val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated(_)))
+        val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
         val subst = (tfd.params.map(_.id) zip args).toMap
         val expr = replaceFromIDs(subst, hoistIte(expandLets(matchToIfThenElse(tfd.body.get))))
         val mappedArgs = nextArgs.map(e => replaceFromIDs(subst, tfd.translated(e)))
@@ -58,11 +58,11 @@ final case class Chain(relations: List[Relation]) {
       }
 
       val Relation(_, path, fi @ FunctionInvocation(fitfd, args), _) = relations.head
-      val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated(_)))
+      val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
 
-      lazy val newArgs = args.map(translate(_))
+      lazy val newArgs = args.map(translate)
 
-      path.map(translate(_)) ++ (relations.tail match {
+      path.map(translate) ++ (relations.tail match {
         case Nil => if (finalSubst.isEmpty) Seq.empty else {
           (tfd.params.map(vd => finalSubst(vd.id).toVariable) zip newArgs).map(p => Equals(p._1, p._2))
         }
@@ -115,7 +115,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
   protected type ChainSignature = (FunDef, Set[RelationSignature])
 
   protected def funDefChainSignature(funDef: FunDef): ChainSignature = {
-    funDef -> (self.program.callGraph.transitiveCallees(funDef) + funDef).map(funDefRelationSignature(_))
+    funDef -> (self.program.callGraph.transitiveCallees(funDef) + funDef).map(funDefRelationSignature)
   }
 
   private val chainCache : MutableMap[FunDef, (Set[FunDef], Set[Chain], ChainSignature)] = MutableMap.empty
@@ -126,7 +126,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
       val relationConstraints : MutableMap[Relation, SizeConstraint] = MutableMap.empty
 
       def decreasing(relations: List[Relation]): Boolean = {
-        val constraints = relations.map(relation => relationConstraints.get(relation).getOrElse {
+        val constraints = relations.map(relation => relationConstraints.getOrElse(relation, {
           val Relation(funDef, path, FunctionInvocation(fd, args), _) = relation
           val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
           val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(e1, e2)))) {
@@ -141,7 +141,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
 
           relationConstraints(relation) = constraint
           constraint
-        }).toSet
+        })).toSet
 
         !constraints(NoConstraint) && constraints(StrongDecreasing)
       }

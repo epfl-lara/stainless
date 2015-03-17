@@ -19,7 +19,7 @@ object TerminationPhase extends LeonPhase[Program,TerminationReport] {
     tc.initialize()
 
     val results = visibleFunDefsFromMain(program).toList.sortWith(_.getPos < _.getPos).map { funDef =>
-      (funDef -> tc.terminates(funDef))
+      funDef -> tc.terminates(funDef)
     }
     val endTime = System.currentTimeMillis
 

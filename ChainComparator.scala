@@ -157,8 +157,8 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
     }
 
     def matches(expr: Expr) : NumericEndpoint = expr match {
-      case And(es) => es.map(matches(_)).foldLeft[NumericEndpoint](AnyEndpoint)(_ min _)
-      case Or(es) => es.map(matches(_)).foldLeft[NumericEndpoint](NoEndpoint)(_ max _)
+      case And(es) => es.map(matches).foldLeft[NumericEndpoint](AnyEndpoint)(_ min _)
+      case Or(es) => es.map(matches).foldLeft[NumericEndpoint](NoEndpoint)(_ max _)
       case Not(e) => matches(e).inverse
       case GreaterThan(Value(), e)   if variablesOf(e).isEmpty => LowerBoundEndpoint
       case GreaterThan(e, Value())   if variablesOf(e).isEmpty => UpperBoundEndpoint

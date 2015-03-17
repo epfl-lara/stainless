@@ -75,7 +75,7 @@ class RelationProcessor(
 
     assert(terminating ++ nonTerminating == problem.funDefs)
 
-    val results = terminating.map(Cleared(_)).toList
+    val results = terminating.map(Cleared).toList
     val newProblems = if ((problem.funDefs intersect nonTerminating).nonEmpty) List(Problem(nonTerminating)) else Nil
     (results, newProblems)
   }

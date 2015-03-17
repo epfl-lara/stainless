@@ -33,7 +33,7 @@ trait StructuralSize {
         case Some(fd) => fd
         case None =>
           val argument = ValDef(FreshIdentifier("x", argumentType, true))
-          val formalTParams = typeParams.map(TypeParameterDef(_))
+          val formalTParams = typeParams.map(TypeParameterDef)
           val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, IntegerType, Seq(argument), DefType.MethodDef)
           sizeCache(argumentType) = fd
 
@@ -52,20 +52,20 @@ trait StructuralSize {
       val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name, vd.getType))
       val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
       val sizes = arguments.map(id => size(Variable(id)))
-      val result = sizes.foldLeft[Expr](InfiniteIntegerLiteral(1))(Plus(_,_))
+      val result = sizes.foldLeft[Expr](InfiniteIntegerLiteral(1))(Plus)
       purescala.Extractors.SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
     }
 
     expr.getType match {
       case (ct: ClassType) =>
-        val fd = funDef(ct, _ match {
+        val fd = funDef(ct, {
           case (act: AbstractClassType) => act.knownCCDescendents map caseClassType2MatchCase
           case (cct: CaseClassType) => Seq(caseClassType2MatchCase(cct))
         })
         FunctionInvocation(TypedFunDef(fd, ct.tps), Seq(expr))
       case TupleType(argTypes) => argTypes.zipWithIndex.map({
         case (_, index) => size(tupleSelect(expr, index + 1, true))
-      }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus(_,_))
+      }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
       case _ => InfiniteIntegerLiteral(0)
     }
   }

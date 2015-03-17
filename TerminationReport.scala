@@ -5,7 +5,7 @@ package termination
 
 import purescala.Definitions._
 
-case class TerminationReport(val results : Seq[(FunDef,TerminationGuarantee)], val time : Double) {
+case class TerminationReport(results : Seq[(FunDef,TerminationGuarantee)], time : Double) {
   def summaryString : String = {
     val sb = new StringBuilder
     sb.append("─────────────────────\n")

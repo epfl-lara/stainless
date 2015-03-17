@@ -70,7 +70,7 @@ trait Solvable extends Processor {
 
   def definitiveALL(problem: Expr): Boolean = {
     withoutPosts {
-      SimpleSolverAPI(solver).solveSAT(Not(problem))._1.map(!_) getOrElse false
+      SimpleSolverAPI(solver).solveSAT(Not(problem))._1.exists(!_)
     }
   }
 
@@ -95,7 +95,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
   private val problems : MutableQueue[(Problem,Int)] = MutableQueue((initialProblem, 0))
   private var unsolved : Set[Problem] = Set()
 
-  private def printQueue {
+  private def printQueue() {
     val sb = new StringBuilder()
     sb.append("- Problems in Queue:\n")
     for((problem, index) <- problems) {
@@ -137,7 +137,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
     // }).flatten.toSet(fd)))
 
     def hasNext : Boolean      = problems.nonEmpty
-    def next    : (String, List[Result]) = {
+    def next()  : (String, List[Result]) = {
       printQueue
       val (problem, index) = problems.head
       val processor : Processor = processors(index)
@@ -148,15 +148,15 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
 
       // dequeue and enqueue atomically to make sure the queue always
       // makes sense (necessary for calls to clear(fd))
-      problems.dequeue
+      problems.dequeue()
       nextProblems match {
         case x :: xs if x == problem =>
           assert(xs.isEmpty)
           if (index == processors.size - 1) unsolved += x
           else problems.enqueue(x -> (index + 1))
         case list @ x :: xs =>
-          problems.enqueue(list.map(p => (p -> 0)) : _*)
-          problems.enqueue(unsolved.map(p => (p -> 0)).toSeq : _*)
+          problems.enqueue(list.map(p => p -> 0) : _*)
+          problems.enqueue(unsolved.map(p => p -> 0).toSeq : _*)
           unsolved = Set()
         case Nil => // no problem => do nothing!
       }

@@ -113,7 +113,7 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
   private def isSubTreeOfArg(expr: Expr, args: Set[Identifier]): Boolean = {
     @tailrec
     def rec(e: Expr, fst: Boolean): Boolean = e match {
-      case Variable(id) if (args(id)) => !fst
+      case Variable(id) if args(id) => !fst
       case CaseClassSelector(_, cc, _) => rec(cc, false)
       case _ => false
     }
