@@ -47,7 +47,7 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
     try {
       unit.jvmToExpr(evalToJVM(args, monitor), exprType)
     } catch {
-      case ite : InvocationTargetException => throw ite.getCause()
+      case ite : InvocationTargetException => throw ite.getCause
     }
   }
 
@@ -57,7 +57,7 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
         new LM(params.maxFunctionInvocations)
       evalFromJVM(argsToJVM(args, monitor),monitor)
     } catch {
-      case ite : InvocationTargetException => throw ite.getCause()
+      case ite : InvocationTargetException => throw ite.getCause
     }
   }
 } 

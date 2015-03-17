@@ -790,7 +790,7 @@ trait CodeGeneration {
       case choose @ Choose(_, None) =>
         val prob = synthesis.Problem.fromChoose(choose)
 
-        val id = runtime.ChooseEntryPoint.register(prob, this);
+        val id = runtime.ChooseEntryPoint.register(prob, this)
         ch << Ldc(id)
 
 
@@ -810,7 +810,7 @@ trait CodeGeneration {
         mkUnbox(choose.getType, ch)
 
       case gv @ GenericValue(tp, int) =>
-        val id = runtime.GenericValues.register(gv);
+        val id = runtime.GenericValues.register(gv)
         ch << Ldc(id)
         ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
       
@@ -1502,7 +1502,7 @@ trait CodeGeneration {
       ech << ALoad(1) << InstanceOf(cName) << IfEq(notEq)
 
       // ...finally, we compare fields one by one, shortcircuiting on disequalities.
-      if(!ccd.fields.isEmpty) {
+      if(ccd.fields.nonEmpty) {
         ech << ALoad(1) << CheckCast(cName) << AStore(castSlot)
 
         for(vd <- ccd.fields) {
@@ -1532,7 +1532,7 @@ trait CodeGeneration {
     // definition of hashcode
     locally {
       val hashFieldName = "$leon$hashCode"
-      cf.addField("I", hashFieldName).setFlags((FIELD_ACC_PRIVATE).asInstanceOf[U2])
+      cf.addField("I", hashFieldName).setFlags(FIELD_ACC_PRIVATE)
       val hmh = cf.addMethod("I", "hashCode", "")
       hmh.setFlags((
         METHOD_ACC_PUBLIC |

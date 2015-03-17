@@ -46,7 +46,7 @@ object ChooseEntryPoint {
     if (cache contains (i, is)) {
       cache((i, is))
     } else {
-      val tStart = System.currentTimeMillis;
+      val tStart = System.currentTimeMillis
 
       val solver = (new FairZ3Solver(ctx, program) with TimeoutSolver).setTimeout(10000L)
 
@@ -60,14 +60,14 @@ object ChooseEntryPoint {
       try {
         solver.check match {
           case Some(true) =>
-            val model = solver.getModel;
+            val model = solver.getModel
 
             val valModel = valuateWithModel(model) _
 
             val res = p.xs.map(valModel)
             val leonRes = tupleWrap(res) 
 
-            val total = System.currentTimeMillis-tStart;
+            val total = System.currentTimeMillis-tStart
 
             ctx.reporter.debug("Synthesis took "+total+"ms")
             ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))

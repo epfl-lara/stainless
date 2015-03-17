@@ -102,8 +102,8 @@ class CompilationUnit(val ctx: LeonContext,
         case Some(cf) =>
           val klass = loader.loadClass(cf.className)
           // This is a hack: we pick the constructor with the most arguments.
-          val conss = klass.getConstructors().sortBy(_.getParameterTypes().length)
-          assert(!conss.isEmpty)
+          val conss = klass.getConstructors.sortBy(_.getParameterTypes.length)
+          assert(conss.nonEmpty)
           val cons = conss.last
 
           ccdConstructors += ccd -> cons
@@ -116,8 +116,8 @@ class CompilationUnit(val ctx: LeonContext,
 
   private[this] lazy val tupleConstructor: Constructor[_] = {
     val tc = loader.loadClass("leon.codegen.runtime.Tuple")
-    val conss = tc.getConstructors().sortBy(_.getParameterTypes().length)
-    assert(!conss.isEmpty)
+    val conss = tc.getConstructors.sortBy(_.getParameterTypes.length)
+    assert(conss.nonEmpty)
     conss.last
   }
 
@@ -138,12 +138,12 @@ class CompilationUnit(val ctx: LeonContext,
       e
 
     case Tuple(elems) =>
-      tupleConstructor.newInstance(elems.map(exprToJVM _).toArray).asInstanceOf[AnyRef]
+      tupleConstructor.newInstance(elems.map(exprToJVM).toArray).asInstanceOf[AnyRef]
 
     case CaseClass(cct, args) =>
       caseClassConstructor(cct.classDef) match {
         case Some(cons) =>
-          val realArgs = if (params.requireMonitor) monitor +: args.map(exprToJVM _) else  args.map(exprToJVM _)
+          val realArgs = if (params.requireMonitor) monitor +: args.map(exprToJVM) else  args.map(exprToJVM)
           cons.newInstance(realArgs.toArray : _*).asInstanceOf[AnyRef]
         case None =>
           ctx.reporter.fatalError("Case class constructor not found?!?")
@@ -174,7 +174,7 @@ class CompilationUnit(val ctx: LeonContext,
       for ((k,v) <- els) {
         val ks = unwrapTuple(k, f.getType.asInstanceOf[FunctionType].from.size)
         // Force tuple even with 1/0 elems.
-        val kJvm = tupleConstructor.newInstance(ks.map(exprToJVM _).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
+        val kJvm = tupleConstructor.newInstance(ks.map(exprToJVM).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
         val vJvm = exprToJVM(v)
         l.add(kJvm,vJvm)
       }
@@ -216,7 +216,7 @@ class CompilationUnit(val ctx: LeonContext,
       CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToExpr(e, tpe) })
 
     case (tpl: runtime.Tuple, tpe) =>
-      val stpe = unwrapTupleType(tpe, tpl.getArity())
+      val stpe = unwrapTupleType(tpe, tpl.getArity)
       val elems = stpe.zipWithIndex.map { case (tpe, i) => 
         jvmToExpr(tpl.get(i), tpe)
       }
@@ -227,12 +227,12 @@ class CompilationUnit(val ctx: LeonContext,
       else GenericValue(tp, id).copiedFrom(gv)
 
     case (set : runtime.Set, SetType(b)) =>
-      finiteSet(set.getElements().asScala.map(jvmToExpr(_, b)).toSet, b)
+      finiteSet(set.getElements.asScala.map(jvmToExpr(_, b)).toSet, b)
 
     case (map : runtime.Map, MapType(from, to)) =>
-      val pairs = map.getElements().asScala.map { entry =>
-        val k = jvmToExpr(entry.getKey(), from)
-        val v = jvmToExpr(entry.getValue(), to)
+      val pairs = map.getElements.asScala.map { entry =>
+        val k = jvmToExpr(entry.getKey, from)
+        val v = jvmToExpr(entry.getValue, to)
         (k, v)
       }
       finiteMap(pairs.toSeq, from, to)
@@ -241,7 +241,7 @@ class CompilationUnit(val ctx: LeonContext,
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
   }
 
-  var compiledN = 0;
+  var compiledN = 0
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
     if(e.getType == Untyped) {
@@ -421,7 +421,7 @@ class CompilationUnit(val ctx: LeonContext,
       
     }
 
-    classes.values.foreach(loader.register _)
+    classes.values.foreach(loader.register)
   }
 
   def writeClassFiles(prefix: String) {
