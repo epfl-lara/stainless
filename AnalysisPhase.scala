@@ -117,7 +117,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         reporter.synchronized {
           def title(s : String) = s"   => $s"
           solverResult match {
-            case _ if interruptManager.isInterrupted() =>
+            case _ if interruptManager.isInterrupted =>
               reporter.warning(title("CANCELLED"))
               vcInfo.time = Some(dt)
               false
@@ -158,14 +158,14 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     
     if (checkInParallel) {
       val allVCsPar = (for {(_, vcs) <- vcs.toSeq; vcInfo <- vcs} yield vcInfo).par
-      for (vc <- allVCsPar if !interruptManager.isInterrupted() && !interrupt) {
+      for (vc <- allVCsPar if !interruptManager.isInterrupted && !interrupt) {
         checkVC(vc)
         interrupt = interruptOn(vc)
       }
     } else {
       for {
         (funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos)
-        vc <- vcs if !interruptManager.isInterrupted() && !interrupt
+        vc <- vcs if !interruptManager.isInterrupted && !interrupt
       } {
         checkVC(vc)
         interrupt = interruptOn(vc)
