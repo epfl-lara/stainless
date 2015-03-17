@@ -3,7 +3,7 @@
 package leon
 package codegen.runtime
 
-import purescala.Trees.GenericValue
+import purescala.Expressions.GenericValue
 import scala.collection.immutable.{Map => ScalaMap}
 
 object GenericValues {

@@ -5,8 +5,8 @@ package codegen
 
 import purescala.Common._
 import purescala.Definitions._
-import purescala.Trees._
-import purescala.TypeTrees._
+import purescala.Expressions._
+import purescala.Types._
 import purescala.Extractors._
 import purescala.Constructors._
 import codegen.runtime.LeonCodeGenRuntimeMonitor

@@ -6,9 +6,9 @@ package codegen.runtime
 import utils._
 import purescala.Common._
 import purescala.Definitions._
-import purescala.Trees.{Tuple => LeonTuple, _}
-import purescala.TreeOps.valuateWithModel
-import purescala.TypeTrees._
+import purescala.Expressions.{Tuple => LeonTuple, _}
+import purescala.ExprOps.valuateWithModel
+import purescala.Types._
 import purescala.Constructors._
 import solvers.TimeoutSolver
 import solvers.z3._

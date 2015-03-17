@@ -5,11 +5,11 @@ package codegen
 
 import purescala.Common._
 import purescala.Definitions._
-import purescala.Trees._
-import purescala.TreeOps.{simplestValue, matchToIfThenElse}
-import purescala.TypeTrees._
+import purescala.Expressions._
+import purescala.ExprOps.{simplestValue, matchToIfThenElse}
+import purescala.Types._
 import purescala.Constructors._
-import purescala.TypeTreeOps.instantiateType
+import purescala.TypeOps.instantiateType
 import purescala.Extractors._
 import utils._
 
@@ -555,7 +555,7 @@ trait CodeGeneration {
           CLASS_ACC_FINAL
         ).asInstanceOf[U2])
 
-        val closures = purescala.TreeOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
+        val closures = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
         val closureTypes = closures.map(id => id.name -> typeToJVM(id.getType))
 
         if (closureTypes.isEmpty) {

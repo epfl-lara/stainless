@@ -4,7 +4,7 @@ package leon
 package codegen
 
 import purescala.Common._
-import purescala.Trees._
+import purescala.Expressions._
 
 import cafebabe._
 
