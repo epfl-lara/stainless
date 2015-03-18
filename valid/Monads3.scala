@@ -1,7 +1,7 @@
 import leon.lang._
 import leon.collection._
 
-object FlatMap {
+object Monads3 {
 
   def append[T](l1: List[T], l2: List[T]): List[T] = {
     l1 match {
