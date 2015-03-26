@@ -245,7 +245,7 @@ class CompilationUnit(val ctx: LeonContext,
 
   def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
     if(e.getType == Untyped) {
-      throw new IllegalArgumentException("Cannot compile untyped expression [%s].".format(e))
+      throw new IllegalArgumentException(s"Cannot compile untyped expression [$e].")
     }
 
     compiledN += 1

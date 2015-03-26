@@ -319,22 +319,22 @@ trait CodeGeneration {
       case SubsetOf(s1, s2) =>
         mkExpr(s1, ch)
         mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "subsetOf", "(L%s;)Z".format(SetClass))
+        ch << InvokeVirtual(SetClass, "subsetOf", s"(L$SetClass;)Z")
 
       case SetIntersection(s1, s2) =>
         mkExpr(s1, ch)
         mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "intersect", "(L%s;)L%s;".format(SetClass,SetClass))
+        ch << InvokeVirtual(SetClass, "intersect", s"(L$SetClass;)L$SetClass;")
 
       case SetUnion(s1, s2) =>
         mkExpr(s1, ch)
         mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "union", "(L%s;)L%s;".format(SetClass,SetClass))
+        ch << InvokeVirtual(SetClass, "union", s"(L$SetClass;)L$SetClass;")
 
       case SetDifference(s1, s2) =>
         mkExpr(s1, ch)
         mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "minus", "(L%s;)L%s;".format(SetClass,SetClass))
+        ch << InvokeVirtual(SetClass, "minus", s"(L$SetClass;)L$SetClass;")
 
       // Maps
       case FiniteMap(ss) =>
@@ -361,7 +361,7 @@ trait CodeGeneration {
       case MapUnion(m1, m2) =>
         mkExpr(m1, ch)
         mkExpr(m2, ch)
-        ch << InvokeVirtual(MapClass, "union", "(L%s;)L%s;".format(MapClass,MapClass))
+        ch << InvokeVirtual(MapClass, "union", s"(L$MapClass;)L$MapClass;")
 
       // Branching
       case IfExpr(c, t, e) =>
@@ -630,31 +630,31 @@ trait CodeGeneration {
       case Plus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "add", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "add", s"(L$BigIntClass;)L$BigIntClass;")
 
       case Minus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "sub", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "sub", s"(L$BigIntClass;)L$BigIntClass;")
 
       case Times(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "mult", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "mult", s"(L$BigIntClass;)L$BigIntClass;")
 
       case Division(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "div", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
 
       case Modulo(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "mod", "(L%s;)L%s;".format(BigIntClass, BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
 
       case UMinus(e) =>
         mkExpr(e, ch)
-        ch << InvokeVirtual(BigIntClass, "neg", "()L%s;".format(BigIntClass))
+        ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
 
       //BV arithmetic
       case BVPlus(l, r) =>
@@ -745,7 +745,7 @@ trait CodeGeneration {
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-          case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
+          case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
         } 
         //srcArrary and targetArray is on the stack
         ch << DUP_X1 //insert targetArray under srcArray
@@ -769,7 +769,7 @@ trait CodeGeneration {
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-          case other => throw CompilationException("Cannot compile finite array expression whose type is %s.".format(other))
+          case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
         }
         for((i, e) <- elems) {
           ch << DUP << Ldc(i)
@@ -863,7 +863,7 @@ trait CodeGeneration {
       case at @ ArrayType(et) =>
         ch << New(BoxedArrayClass) << DUP
         mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedArrayClass, constructorName, "(%s)V".format(typeToJVM(at)))
+        ch << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
 
       case _ =>
         mkExpr(e, ch)
@@ -884,7 +884,7 @@ trait CodeGeneration {
         ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
       case at @ ArrayType(et) =>
-        ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, "(%s)V".format(typeToJVM(at)))
+        ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
       case _ =>
     }
   }
@@ -925,7 +925,7 @@ trait CodeGeneration {
       case tp : TypeParameter => 
 
       case tp : ArrayType =>
-        ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", "()%s".format(typeToJVM(tp)))
+        ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", s"()${typeToJVM(tp)}")
         ch << CheckCast(typeToJVM(tp))
 
       case _ =>
@@ -982,7 +982,7 @@ trait CodeGeneration {
           case Int32Type =>
             ch << If_ICmpLt(thenn) << Goto(elze) 
           case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "lessThan", "(L%s;)Z".format(BigIntClass)) 
+            ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -993,7 +993,7 @@ trait CodeGeneration {
           case Int32Type =>
             ch << If_ICmpGt(thenn) << Goto(elze) 
           case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "greaterThan", "(L%s;)Z".format(BigIntClass)) 
+            ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1004,7 +1004,7 @@ trait CodeGeneration {
           case Int32Type =>
             ch << If_ICmpLe(thenn) << Goto(elze) 
           case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "lessEquals", "(L%s;)Z".format(BigIntClass)) 
+            ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1015,7 +1015,7 @@ trait CodeGeneration {
           case Int32Type =>
             ch << If_ICmpGe(thenn) << Goto(elze) 
           case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "greaterEquals", "(L%s;)Z".format(BigIntClass)) 
+            ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
   
@@ -1377,7 +1377,7 @@ trait CodeGeneration {
         // If we are monitoring function calls, we have an extra argument on the constructor
         val realArgs = if (params.requireMonitor) {
           ("L" + MonitorClass + ";") +: (namesTypes map (_._2))
-        } else (namesTypes map (_._2))
+        } else namesTypes map (_._2)
         
         // Offset of the first Scala parameter of the constructor
         val paramOffset = if (params.requireMonitor) 2 else 1
