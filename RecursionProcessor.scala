@@ -29,8 +29,15 @@ class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) e
 
     if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _), _) => !checker.terminates(tfd.fd).isGuaranteed })) (Nil, List(problem)) else {
       val decreases = funDef.params.zipWithIndex.exists({ case (arg, index) =>
-        recursive.forall({ case Relation(_, _, FunctionInvocation(_, args), _) =>
-          isSubtreeOf(args(index), arg.id)
+        recursive.forall({ case Relation(_, path, FunctionInvocation(_, args), _) =>
+          args(index) match {
+            // handle case class deconstruction in match expression!
+            case Variable(id) => path.reverse.exists {
+              case Equals(Variable(vid), ccs) if vid == id => isSubtreeOf(ccs, arg.id)
+              case _ => false
+            }
+            case expr => isSubtreeOf(expr, arg.id)
+          }
         })
       })
 

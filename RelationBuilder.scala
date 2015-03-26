@@ -43,7 +43,11 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
 
         def collect(e: Expr, path: Seq[Expr]): Option[Relation] = e match {
           case fi @ FunctionInvocation(f, args) if self.functions(f.fd) =>
-            Some(Relation(funDef, path, fi, inLambda))
+            val flatPath = path flatMap {
+              case And(es) => es
+              case expr => Seq(expr)
+            }
+            Some(Relation(funDef, flatPath, fi, inLambda))
           case _ => None
         }
 

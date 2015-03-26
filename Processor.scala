@@ -89,8 +89,39 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
   private val processors: Array[Processor] = _processors.toArray
   private val reporter: Reporter = context.reporter
 
+  implicit object ProblemOrdering extends Ordering[(Problem, Int)] {
+    def compare(a: (Problem, Int), b: (Problem, Int)): Int = {
+      val ((aProblem, aIndex), (bProblem, bIndex)) = (a,b)
+      val (aDefs, bDefs) = (aProblem.funDefs, bProblem.funDefs)
+
+      val aCallees: Set[FunDef] = aDefs.flatMap(program.callGraph.transitiveCallees)
+      val bCallees: Set[FunDef] = bDefs.flatMap(program.callGraph.transitiveCallees)
+
+      lazy val aCallers: Set[FunDef] = aDefs.flatMap(program.callGraph.transitiveCallers)
+      lazy val bCallers: Set[FunDef] = bDefs.flatMap(program.callGraph.transitiveCallers)
+
+      val aCallsB = bDefs.subsetOf(aCallees)
+      val bCallsA = aDefs.subsetOf(bCallees)
+
+      if (aCallsB && !bCallsA) {
+        -1
+      } else if (bCallsA && !aCallsB) {
+        1
+      } else {
+        val smallerPool = bCallees.size compare aCallees.size
+        if (smallerPool != 0) smallerPool else {
+          val largerImpact = aCallers.size compare bCallers.size
+          if (largerImpact != 0) largerImpact else {
+            bIndex compare aIndex
+          }
+        }
+      }
+    }
+  }
+
   private val initialProblem : Problem = Problem(program.definedFunctions.toSet)
-  private val problems : MutableQueue[(Problem,Int)] = MutableQueue((initialProblem, 0))
+  private val problems = new scala.collection.mutable.PriorityQueue[(Problem, Int)] += (initialProblem -> 0)
+//  private val problems : MutableQueue[(Problem,Int)] = MutableQueue((initialProblem, 0))
   private var unsolved : Set[Problem] = Set()
 
   private def printQueue() {
