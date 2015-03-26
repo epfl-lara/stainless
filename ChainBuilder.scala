@@ -102,7 +102,7 @@ final case class Chain(relations: List[Relation]) {
         val (start2, end2) = that.relations.splitAt(i2)
         Chain(start1 ++ end2 ++ start2 ++ end1)
       }
-    }).toSet
+    })
   }
 
   lazy val inlined: Seq[Expr] = inlining.map(_._2)

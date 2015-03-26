@@ -67,7 +67,7 @@ class RelationProcessor(
         if(na == a && nb == b) (a,b) else fix(f, na, nb)
       }
 
-      val ok = decreasing.collect({ case (fd, Success) => fd }).toSet
+      val ok = decreasing.collect({ case (fd, Success) => fd })
       val nok = decreasing.collect({ case (fd, Dep(fds)) => fd -> fds }).toList
       val (allOk, allNok) = fix(currentReducing, ok, nok)
       (allOk, allNok.map(_._1).toSet ++ decreasing.collect({ case (fd, Failure) => fd }))

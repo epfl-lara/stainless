@@ -121,7 +121,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
   }
 
   def clear(fd: FunDef) : Boolean = {
-    lazy val unsolvedDefs = unsolved.map(_.funDefs).flatten.toSet
+    lazy val unsolvedDefs = unsolved.map(_.funDefs).flatten
     lazy val problemDefs = problems.map({ case (problem, _) => problem.funDefs }).flatten.toSet
     def issue(defs: Set[FunDef]) : Boolean = defs(fd) || (defs intersect program.callGraph.transitiveCallees(fd)).nonEmpty
     ! (issue(unsolvedDefs) || issue(problemDefs))
@@ -150,7 +150,7 @@ class ProcessingPipeline(program: Program, context: LeonContext, _processors: Pr
       nextProblems match {
         case x :: xs if x == problem =>
           assert(xs.isEmpty)
-          if (index == processors.size - 1) unsolved += x
+          if (index == processors.length - 1) unsolved += x
           else problems.enqueue(x -> (index + 1))
         case list @ x :: xs =>
           problems.enqueue(list.map(p => p -> 0) : _*)
