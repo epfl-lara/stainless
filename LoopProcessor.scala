@@ -29,8 +29,7 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
       for (chain <- cs if !nonTerminating.isDefinedAt(chain.funDef) &&
           (chain.funDef.params zip chain.finalParams).forall(p => p._1.getType == p._2.getType)) {
         val freshParams = chain.funDef.params.map(arg => FreshIdentifier(arg.id.name, arg.getType, true))
-        val finalBindings = (chain.funDef.params.map(_.id) zip freshParams).toMap
-        val path = chain.loop(finalSubst = finalBindings)
+        val path = chain.loop(finalArgs = freshParams)
 
         val srcTuple = tupleWrap(chain.funDef.params.map(_.toVariable))
         val resTuple = tupleWrap(freshParams.map(_.toVariable))

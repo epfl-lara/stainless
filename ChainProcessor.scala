@@ -37,8 +37,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
         val e1 = tupleWrap(fd.params.map(_.toVariable))
         val e2s = fdChains.toSeq.map { chain =>
           val freshParams = chain.finalParams.map(arg => FreshIdentifier(arg.id.name, arg.id.getType, true))
-          val finalBindings = (chain.finalParams.map(_.id) zip freshParams).toMap
-          (chain.loop(finalSubst = finalBindings), tupleWrap(freshParams.map(_.toVariable)))
+          (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
         }
 
         (e1, e2s, fdChains)

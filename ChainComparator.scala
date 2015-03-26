@@ -203,7 +203,7 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
         }
 
         val lowers = if (endpoint == LowerBoundEndpoint || endpoint == AnyEndpoint) {
-          Some(And(e2s map { case (path, e2) => implies(andJoin(path), LessThan(e, recons(e2))) }))
+          Some(andJoin(e2s map { case (path, e2) => implies(andJoin(path), LessThan(e, recons(e2))) }))
         } else {
           None
         }

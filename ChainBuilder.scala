@@ -48,7 +48,7 @@ final case class Chain(relations: List[Relation]) {
 
   lazy val finalParams : Seq[ValDef] = inlining.last._1
 
-  def loop(initialSubst: Map[Identifier, Identifier] = Map(), finalSubst: Map[Identifier, Identifier] = Map()) : Seq[Expr] = {
+  def loop(initialArgs: Seq[Identifier] = Seq.empty, finalArgs: Seq[Identifier] = Seq.empty): Seq[Expr] = {
     def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[Identifier, Identifier]): Seq[Expr] = {
       val translate : Expr => Expr = {
         val map : Map[Expr, Expr] = subst.map(p => p._1.toVariable -> p._2.toVariable)
@@ -61,18 +61,18 @@ final case class Chain(relations: List[Relation]) {
       lazy val newArgs = args.map(translate)
 
       path.map(translate) ++ (relations.tail match {
-        case Nil => if (finalSubst.isEmpty) Seq.empty else {
-          (tfd.params.map(vd => finalSubst(vd.id).toVariable) zip newArgs).map(p => Equals(p._1, p._2))
-        }
+        case Nil =>
+          (finalArgs zip newArgs).map { case (finalArg, newArg) => Equals(finalArg.toVariable, newArg) }
         case xs =>
           val params = tfd.params.map(_.id)
           val freshParams = tfd.params.map(arg => FreshIdentifier(arg.id.name, arg.getType, true))
           val bindings = (freshParams.map(_.toVariable) zip newArgs).map(p => Equals(p._1, p._2))
           bindings ++ rec(xs, tfd, (params zip freshParams).toMap)
       })
+
     }
 
-    rec(relations, funDef.typed(funDef.tparams.map(_.tp)), initialSubst)
+    rec(relations, funDef.typedWithDef, (funDef.params.map(_.id) zip initialArgs).toMap)
   }
 
   /*
