@@ -25,7 +25,7 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
     var t = Table("Verification Summary")
 
     t ++= conditions.map { vc =>
-      val timeStr = vc.time.map(t => "%-3.3f".format(t)).getOrElse("")
+      val timeStr = vc.time.map(t => f"$t%-3.3f").getOrElse("")
       Row(Seq(
         Cell(vc.funDef.id.toString),
         Cell(vc.kind.name),

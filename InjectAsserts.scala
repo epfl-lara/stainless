@@ -1,13 +1,14 @@
 /* Copyright 2009-2014 EPFL, Lausanne */
 
 package leon
-package utils
+package verification
 
-import purescala.Expressions._
+import purescala._
+import Expressions._
+import ExprOps._
+import Definitions._
+import Constructors._
 import xlang.Expressions._
-import purescala.ExprOps._
-import purescala.Definitions._
-import purescala.Constructors._
 
 object InjectAsserts extends LeonPhase[Program, Program] {
 

@@ -41,7 +41,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       filterInclusive(filterFuns.map(fdMatcher), Some(excludeByDefault _))
     }
 
-    val toVerify = program.definedFunctions.toList.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
+    val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
 
     for(funDef <- toVerify) {
       if (excludeByDefault(funDef)) {
