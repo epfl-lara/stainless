@@ -167,7 +167,7 @@ trait CodeGeneration {
    
     // An offset we introduce to the parameters:
     // 1 if this is a method, so we need "this" in position 0 of the stack
-    // 1 if we are monitoring // FIXME
+    // 1 if we are monitoring
     val paramsOffset = Seq(!isStatic, params.requireMonitor).count(x => x)
     val newMapping = 
       funDef.params.map(_.id).zipWithIndex.toMap.mapValues(_ + paramsOffset)
@@ -624,9 +624,6 @@ trait CodeGeneration {
         ch << InvokeSpecial(afName, constructorName, consSig)
         
       // Arithmetic
-      /*
-       * TODO: Correct code generation for infinite precision operations
-       */
       case Plus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
@@ -1204,7 +1201,7 @@ trait CodeGeneration {
     val body = field.body.getOrElse(throw CompilationException("No body for field?"))
     val jvmType = typeToJVM(field.returnType)
     
-    mkExpr(body, ch)(NoLocals(isStatic)) // FIXME Locals?  
+    mkExpr(body, ch)(NoLocals(isStatic))
     
     if (isStatic){
       ch << PutStatic(className, name, jvmType)
