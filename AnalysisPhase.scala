@@ -183,16 +183,16 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     }
 
     // Solvers selection and validation
-    val entrySolver = SolverFactory.getFromSettings(ctx, program)
+    val entrySolverFactory = SolverFactory.getFromSettings(ctx, program)
 
-    val mainSolver = timeout match {
+    val mainSolverFactory = timeout match {
       case Some(sec) =>
-        new TimeoutSolverFactory(entrySolver, sec*1000L)
+        new TimeoutSolverFactory(entrySolverFactory, sec*1000L)
       case None =>
-        entrySolver
+        entrySolverFactory
     }
 
-    val vctx = VerificationContext(ctx, program, mainSolver, reporter)
+    val vctx = VerificationContext(ctx, program, mainSolverFactory, reporter)
 
     reporter.debug("Running verification condition generation...")
     val vcs = generateVerificationConditions(vctx, filterFuns)
