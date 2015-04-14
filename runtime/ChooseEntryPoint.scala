@@ -40,7 +40,7 @@ object ChooseEntryPoint {
     val program = unit.program
     val ctx     = unit.ctx
 
-    ctx.reporter.debug("Executing choose!")
+    ctx.reporter.debug("Executing choose (codegen)!")
     val is = inputs.toSeq
 
     if (cache contains (i, is)) {

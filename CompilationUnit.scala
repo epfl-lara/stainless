@@ -24,7 +24,7 @@ import java.lang.reflect.Constructor
 
 class CompilationUnit(val ctx: LeonContext,
                       val program: Program,
-                      val params: CodeGenParams = CodeGenParams()) extends CodeGeneration {
+                      val params: CodeGenParams = CodeGenParams.default) extends CodeGeneration {
 
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
