@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 import leon.lang._
 import leon.annotation._
 import leon._

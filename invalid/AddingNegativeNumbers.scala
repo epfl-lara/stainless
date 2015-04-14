@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package test.resources.regression.verification.purescala.invalid
 
 object AddingNegativeNumbers {
