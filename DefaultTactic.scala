@@ -10,20 +10,19 @@ import purescala.Constructors._
 
 class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
     val description = "Default verification condition generation approach"
-    override val shortDescription = "default"
 
-    def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
+    def generatePostconditions(fd: FunDef): Seq[VC] = {
       (fd.postcondition, fd.body) match {
         case (Some(post), Some(body)) =>
           val vc = implies(precOrTrue(fd), application(post, Seq(body)))
 
-          Seq(new VerificationCondition(vc, fd, VCPostcondition, this).setPos(post))
+          Seq(VC(vc, fd, VCKinds.Postcondition, this).setPos(post))
         case _ =>
           Nil
       }
     }
   
-    def generatePreconditions(fd: FunDef): Seq[VerificationCondition] = {
+    def generatePreconditions(fd: FunDef): Seq[VC] = {
       fd.body match {
         case Some(body) =>
           val calls = collectWithPC {
@@ -35,7 +34,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, pre)
               val vc = implies(and(precOrTrue(fd), path), pre2)
 
-              new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
+              VC(vc, fd, VCKinds.Precondition, this).setPos(fi)
           }
 
         case None =>
@@ -43,36 +42,36 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       }
     }
 
-    def generateCorrectnessConditions(fd: FunDef): Seq[VerificationCondition] = {
+    def generateCorrectnessConditions(fd: FunDef): Seq[VC] = {
       fd.body match {
         case Some(body) =>
           val calls = collectWithPC {
             case e @ Error(_, "Match is non-exhaustive") =>
-              (e, VCExhaustiveMatch, BooleanLiteral(false))
+              (e, VCKinds.ExhaustiveMatch, BooleanLiteral(false))
 
             case e @ Error(_, _) =>
-              (e, VCAssert, BooleanLiteral(false))
+              (e, VCKinds.Assert, BooleanLiteral(false))
 
             case a @ Assert(cond, Some(err), _) => 
               val kind = if (err.startsWith("Map ")) {
-                VCMapUsage
+                VCKinds.MapUsage
               } else if (err.startsWith("Array ")) {
-                VCArrayUsage
+                VCKinds.ArrayUsage
               } else {
-                VCAssert
+                VCKinds.Assert
               }
 
               (a, kind, cond)
-            case a @ Assert(cond, None, _) => (a, VCAssert, cond)
+            case a @ Assert(cond, None, _) => (a, VCKinds.Assert, cond)
             // Only triggered for inner ensurings, general postconditions are handled by generatePostconditions
-            case a @ Ensuring(body, post) => (a, VCAssert, application(post, Seq(body)))
+            case a @ Ensuring(body, post) => (a, VCKinds.Assert, application(post, Seq(body)))
           }(body)
 
           calls.map {
             case ((e, kind, errorCond), path) =>
               val vc = implies(and(precOrTrue(fd), path), errorCond)
 
-              new VerificationCondition(vc, fd, kind, this).setPos(e)
+              VC(vc, fd, kind, this).setPos(e)
           }
 
         case None =>

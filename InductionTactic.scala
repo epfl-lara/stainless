@@ -11,7 +11,6 @@ import purescala.Constructors._
 
 class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   override val description = "Induction tactic for suitable functions"
-  override val shortDescription = "induction"
 
   val reporter = vctx.reporter
 
@@ -28,7 +27,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
     }
   }
 
-  override def generatePostconditions(fd: FunDef): Seq[VerificationCondition] = {
+  override def generatePostconditions(fd: FunDef): Seq[VC] = {
     (fd.body, firstAbsClassDef(fd.params), fd.postcondition) match {
       case (Some(body), Some((parentType, arg)), Some(post)) =>
         for (cct <- parentType.knownCCDescendents) yield {
@@ -45,7 +44,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
             implies(andJoin(subCases), application(post, Seq(body)))
           )
 
-          new VerificationCondition(vc, fd, VCPostcondition, this).setPos(fd)
+          VC(vc, fd, VCKinds.Info(VCKinds.Postcondition, s"ind. on ${arg.id} / ${cct.classDef.id}"), this).setPos(fd)
         }
 
       case (body, _, post) =>
@@ -56,7 +55,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
     }
   }
 
-  override def generatePreconditions(fd: FunDef): Seq[VerificationCondition] = {
+  override def generatePreconditions(fd: FunDef): Seq[VC] = {
     (fd.body, firstAbsClassDef(fd.params)) match {
       case (Some(b), Some((parentType, arg))) =>
         val body = b
@@ -78,7 +77,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
               val vc = implies(and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path), implies(andJoin(subCases), replace((tfd.params.map(_.toVariable) zip args).toMap, pre)))
 
-              new VerificationCondition(vc, fd, VCPrecondition, this).setPos(fi)
+              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, "ind. on $arg / ${cct.classDef.id}"), this).setPos(fi)
             }
         }
 

@@ -3,36 +3,39 @@
 package leon
 package verification
 
+import VCKinds._
+import VCStatus._
+
 import purescala.Definitions.FunDef
 
-class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
+case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
   import scala.math.Ordering.Implicits._
-  val conditions : Seq[VerificationCondition] = fvcs.flatMap(_._2).toSeq.sortBy(vc => (vc.funDef.id.name, vc.kind.toString))
 
-  lazy val totalConditions : Int = conditions.size
+  val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
+    case (vc, or) => (vc, or.getOrElse(VCResult(Unknown, None, None)))
+  }
 
-  lazy val totalTime : Double = conditions.foldLeft(0.0d)((t,c) => t + c.time.getOrElse(0.0d))
+  lazy val totalConditions : Int = vrs.size
 
-  lazy val totalValid : Int = conditions.count(_.value == Some(true))
+  lazy val totalTime: Long = vrs.map(_._2.timeMs.getOrElse(0l)).sum
 
-  lazy val totalInvalid : Int = conditions.count(_.value == Some(false))
-
-  lazy val totalUnknown : Int = conditions.count(_.value == None)
+  lazy val totalValid: Int   = vrs.count(_._2.isValid)
+  lazy val totalInvalid: Int = vrs.count(_._2.isInvalid)
+  lazy val totalUnknown: Int = vrs.count(_._2.isInconclusive)
 
   def summaryString : String = if(totalConditions >= 0) {
     import utils.ASCIIHelpers._
 
     var t = Table("Verification Summary")
 
-    t ++= conditions.map { vc =>
-      val timeStr = vc.time.map(t => f"$t%-3.3f").getOrElse("")
+    t ++= vrs.map { case (vc, vr) =>
+      val timeStr = vr.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
       Row(Seq(
-        Cell(vc.funDef.id.toString),
+        Cell(vc.fd.id.toString),
         Cell(vc.kind.name),
         Cell(vc.getPos),
-        Cell(vc.status),
-        Cell(vc.tacticStr),
-        Cell(vc.solverStr),
+        Cell(vr.status),
+        Cell(vr.solvedWith.map(_.name).getOrElse("")),
         Cell(timeStr, align = Right)
       ))
     }
@@ -40,8 +43,8 @@ class VerificationReport(val fvcs: Map[FunDef, List[VerificationCondition]]) {
     t += Separator
 
     t += Row(Seq(
-      Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown $totalUnknown%-4d", 6),
-      Cell(f"$totalTime%7.3f", align = Right)
+      Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown $totalUnknown%-4d", 5),
+      Cell(f"${totalTime/1000d}%7.3f", align = Right)
     ))
 
     t.render

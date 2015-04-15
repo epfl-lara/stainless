@@ -10,45 +10,75 @@ import leon.utils.Positioned
 import leon.solvers._
 
 /** This is just to hold some history information. */
-class VerificationCondition(val condition: Expr, val funDef: FunDef, val kind: VCKind, val tactic: Tactic, val info: String = "") extends Positioned {
-  // None = still unknown
-  // Some(true) = valid
-  // Some(false) = invalid
-  var hasValue = false
-  var value : Option[Boolean] = None
-  var solvedWith : Option[Solver] = None
-  var time : Option[Double] = None
-  var counterExample : Option[Map[Identifier, Expr]] = None
-
-  def status : String = value match {
-    case None => "unknown"
-    case Some(true) => "valid"
-    case Some(false) => "invalid"
-  }
-
-  def tacticStr = tactic.shortDescription match {
-    case "default" => ""
-    case s => s
-  }
-
-  def solverStr = solvedWith match {
-    case Some(s) => s.name
-    case None => ""
-  }
-
+case class VC(condition: Expr, fd: FunDef, kind: VCKind, tactic: Tactic) extends Positioned {
   override def toString = {
-    kind.toString + " in function " + funDef.id.name + "\n" +
-    condition.toString
+    fd.id.name +" - " +kind.toString
   }
-
 }
 
 abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name
+
+  def underlying = this
 }
-case object VCPrecondition    extends VCKind("precondition", "precond.")
-case object VCPostcondition   extends VCKind("postcondition", "postcond.")
-case object VCAssert          extends VCKind("body assertion", "assert.")
-case object VCExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
-case object VCMapUsage        extends VCKind("map usage", "map use")
-case object VCArrayUsage      extends VCKind("array usage", "arr. use")
+
+object VCKinds {
+  case class Info(k: VCKind, info: String) extends VCKind(k.abbrv+" ("+info+")", k.abbrv) {
+    override def underlying = k
+  }
+
+  case object Precondition    extends VCKind("precondition", "precond.")
+  case object Postcondition   extends VCKind("postcondition", "postcond.")
+  case object Assert          extends VCKind("body assertion", "assert.")
+  case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
+  case object MapUsage        extends VCKind("map usage", "map use")
+  case object ArrayUsage      extends VCKind("array usage", "arr. use")
+}
+
+case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option[Long]) {
+  def isValid   = status == VCStatus.Valid
+  def isInvalid = status.isInstanceOf[VCStatus.Invalid]
+  def isInconclusive = !isValid && !isInvalid
+
+  def report(vctx: VerificationContext) {
+    import vctx.reporter
+    import vctx.context
+
+    status match {
+      case VCStatus.Valid =>
+        reporter.info(" => VALID")
+
+      case VCStatus.Invalid(cex) =>
+        reporter.error(" => INVALID")
+        reporter.error("Found counter-example:")
+
+        val strings = cex.toSeq.sortBy(_._1.name).map {
+          case (id, v) => (id.asString(context), v.asString(context))
+        }
+
+        if (strings.nonEmpty) {
+          val max = strings.map(_._1.size).max
+
+          for ((id, v) <- strings) {
+            reporter.error(("  %-"+max+"s -> %s").format(id, v))
+          }
+        } else {
+          reporter.error(f"  (Empty counter-example)")
+        }
+      case _ =>
+        reporter.warning(" => "+status.name.toUpperCase)
+    }
+  }
+}
+
+sealed abstract class VCStatus(val name: String) {
+  override def toString = name
+}
+
+object VCStatus {
+  case class  Invalid(cex: Map[Identifier, Expr]) extends VCStatus("invalid")
+  case object Valid extends VCStatus("valid")
+  case object Unknown extends VCStatus("unknown")
+  case object Timeout extends VCStatus("timeout")
+  case object Cancelled extends VCStatus("cancelled")
+}

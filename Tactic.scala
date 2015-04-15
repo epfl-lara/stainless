@@ -9,9 +9,8 @@ import purescala.ExprOps._
 
 abstract class Tactic(vctx: VerificationContext) {
   val description : String
-  val shortDescription : String
 
-  def generateVCs(fdUnsafe: FunDef): Seq[VerificationCondition] = {
+  def generateVCs(fdUnsafe: FunDef): Seq[VC] = {
     val fd = fdUnsafe.duplicate
     fd.fullBody = matchToIfThenElse(fd.fullBody)
     generatePostconditions(fd) ++
@@ -19,10 +18,9 @@ abstract class Tactic(vctx: VerificationContext) {
     generateCorrectnessConditions(fd)
   }
 
-  def generatePostconditions(function: FunDef): Seq[VerificationCondition]
-  def generatePreconditions(function: FunDef): Seq[VerificationCondition]
-  def generateCorrectnessConditions(function: FunDef): Seq[VerificationCondition]
-
+  def generatePostconditions(function: FunDef): Seq[VC]
+  def generatePreconditions(function: FunDef): Seq[VC]
+  def generateCorrectnessConditions(function: FunDef): Seq[VC]
 
   // Helper functions
   protected def precOrTrue(fd: FunDef): Expr = fd.precondition match {

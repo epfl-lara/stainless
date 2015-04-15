@@ -21,153 +21,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
   )
 
-  def generateVerificationConditions(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Map[FunDef, List[VerificationCondition]] = {
-
-    import vctx.reporter
-    import vctx.program
-
-    val defaultTactic = new DefaultTactic(vctx)
-    val inductionTactic = new InductionTactic(vctx)
-
-    var allVCs = Map[FunDef, List[VerificationCondition]]()
-
-    def excludeByDefault(fd: FunDef): Boolean = {
-      (fd.annotations contains "verified") || (fd.annotations contains "library")
-    }
-
-    val fdFilter = {
-      import OptionsHelpers._
-
-      filterInclusive(filterFuns.map(fdMatcher), Some(excludeByDefault _))
-    }
-
-    val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
-
-    for(funDef <- toVerify) {
-      if (excludeByDefault(funDef)) {
-        reporter.warning("Forcing verification of "+funDef.id.name+" which was assumed verified")
-      }
-
-      val tactic: Tactic =
-        if(funDef.annotations.contains("induct")) {
-          inductionTactic
-        } else {
-          defaultTactic
-        }
-
-      if(funDef.body.isDefined) {
-        val funVCs = tactic.generateVCs(funDef)
-
-        allVCs += funDef -> funVCs.toList
-      }
-    }
-
-    allVCs
-  }
-
-  def checkVerificationConditions(
-      vctx: VerificationContext, 
-      vcs: Map[FunDef, List[VerificationCondition]], 
-      checkInParallel: Boolean = false,
-      stopAfter : VerificationCondition => Boolean = { _ => false }
-  ) : VerificationReport = {
-    import vctx.reporter
-    import vctx.solverFactory
-    
-    val interruptManager = vctx.context.interruptManager
-
-    def checkVC(vcInfo : VerificationCondition) = {
-      val funDef = vcInfo.funDef
-      val vc = vcInfo.condition
-
-      // Check if vc targets abstract methods
-      val targets = functionCallsOf(vc).map(_.tfd.fd)
-
-      val s = solverFactory.getNewSolver
-      try {
-        
-        reporter.synchronized {
-          reporter.info(s" - Now considering '${vcInfo.kind}' VC for ${funDef.id} @${vcInfo.getPos}...")
-          reporter.debug("Verification condition (" + vcInfo.kind + ") for ==== " + funDef.id + " ====")
-          reporter.debug(simplifyLets(vc).asString(vctx.context))
-          reporter.debug("Solving with: " + s.name)
-        }
-        
-        val t1 = System.nanoTime
-        s.assertCnstr(Not(vc))
-
-        val satResult = s.check
-        val counterexample: Map[Identifier, Expr] = if (satResult == Some(true)) s.getModel else Map()
-        val solverResult = satResult.map(!_)
-
-        val t2 = System.nanoTime
-        val dt = ((t2 - t1) / 1000000) / 1000.0
-        
-        reporter.synchronized {
-          def title(s : String) = s"   => $s"
-          solverResult match {
-            case _ if interruptManager.isInterrupted =>
-              reporter.warning(title("CANCELLED"))
-              vcInfo.time = Some(dt)
-              false
-  
-            case None =>
-              vcInfo.hasValue = true
-              reporter.warning(title("UNKNOWN"))
-              vcInfo.time = Some(dt)
-              false
-  
-            case Some(true) =>
-              reporter.info(title("VALID"))
-  
-              vcInfo.hasValue = true
-              vcInfo.value = Some(true)
-              vcInfo.solvedWith = Some(s)
-              vcInfo.time = Some(dt)
-              true
-  
-            case Some(false) =>
-              reporter.error(title("INVALID"))
-              reporter.error("Found counter-example : ")
-              reporter.error(counterexample.toSeq.sortBy(_._1.name).map(p => p._1 + " -> " + p._2).mkString("\n"))
-              vcInfo.hasValue = true
-              vcInfo.value = Some(false)
-              vcInfo.solvedWith = Some(s)
-              vcInfo.counterExample = Some(counterexample)
-              vcInfo.time = Some(dt)
-              true
-          }
-        }
-      } finally {
-        s.free()
-      }
-    }
-    
-    var stop = false
-    
-    if (checkInParallel) {
-      val allVCsPar = (for {(_, vcs) <- vcs.toSeq; vcInfo <- vcs} yield vcInfo).par
-      for (vc <- allVCsPar if !stop) {
-        checkVC(vc)
-        if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter(vc)
-      }
-    } else {
-      for {
-        (funDef, vcs) <- vcs.toSeq.sortWith((a,b) => a._1.getPos < b._1.getPos)
-        vc <- vcs if !interruptManager.isInterrupted && !stop
-      } {
-        checkVC(vc)
-        if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter(vc)
-      }
-    }
-    
-    val report = new VerificationReport(vcs)
-    report
-  }
-
-  def run(ctx: LeonContext)(program: Program) : VerificationReport = {
+  def run(ctx: LeonContext)(program: Program): VerificationReport = {
     var filterFuns: Option[Seq[String]] = None
     var timeout: Option[Int]             = None
 
@@ -196,8 +50,135 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val vctx = VerificationContext(ctx, program, mainSolverFactory, reporter)
 
-    reporter.debug("Running verification condition generation...")
-    val vcs = generateVerificationConditions(vctx, filterFuns)
-    checkVerificationConditions(vctx, vcs)
+    reporter.debug("Generating Verification Conditions...")
+
+    val vcs = generateVCs(vctx, filterFuns)
+
+    reporter.debug("Checking Verification Conditions...")
+
+    checkVCs(vctx, vcs)
+  }
+
+  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Seq[VC] = {
+
+    import vctx.reporter
+    import vctx.program
+
+    val defaultTactic   = new DefaultTactic(vctx)
+    val inductionTactic = new InductionTactic(vctx)
+
+    def excludeByDefault(fd: FunDef): Boolean = {
+      (fd.annotations contains "verified") || (fd.annotations contains "library")
+    }
+
+    val fdFilter = {
+      import OptionsHelpers._
+
+      filterInclusive(filterFuns.map(fdMatcher), Some(excludeByDefault _))
+    }
+
+    val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
+
+    val vcs = for(funDef <- toVerify) yield {
+      if (excludeByDefault(funDef)) {
+        reporter.warning("Forcing verification of "+funDef.id.name+" which was assumed verified")
+      }
+
+      val tactic: Tactic =
+        if(funDef.annotations.contains("induct")) {
+          inductionTactic
+        } else {
+          defaultTactic
+        }
+
+      if(funDef.body.isDefined) {
+        tactic.generateVCs(funDef)
+      } else {
+        Nil
+      }
+    }
+
+    vcs.flatten
+  }
+
+  def checkVCs(
+      vctx: VerificationContext,
+      vcs: Seq[VC],
+      checkInParallel: Boolean = false,
+      stopAfter: Option[(VC, VCResult) => Boolean] = None
+  ): VerificationReport = {
+    val interruptManager = vctx.context.interruptManager
+
+    var stop = false
+
+    val initMap: Map[VC, Option[VCResult]] = vcs.map(v => v -> None).toMap
+
+    val results = if (checkInParallel) {
+      for (vc <- vcs.par if !stop) yield {
+        val r = checkVC(vctx, vc)
+        if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
+        stop = stopAfter.map(f => f(vc, r)).getOrElse(false)
+        vc -> Some(r)
+      }
+    } else {
+      for (vc <- vcs.toSeq.sortWith((a,b) => a.fd.getPos < b.fd.getPos) if !interruptManager.isInterrupted && !stop) yield {
+        val r = checkVC(vctx, vc)
+        if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
+        stop = stopAfter.map(f => f(vc, r)).getOrElse(false)
+        vc -> Some(r)
+      }
+    }
+
+    VerificationReport(initMap ++ results)
+  }
+
+  def checkVC(vctx: VerificationContext, vc: VC): VCResult = {
+    import vctx.reporter
+    import vctx.solverFactory
+
+    val interruptManager = vctx.context.interruptManager
+
+    val vcCond = vc.condition
+
+    val s = solverFactory.getNewSolver
+
+    try {
+      reporter.synchronized {
+        reporter.info(s" - Now considering '${vc.kind}' VC for ${vc.fd.id} @${vc.getPos}...")
+        reporter.debug(simplifyLets(vcCond).asString(vctx.context))
+        reporter.debug("Solving with: " + s.name)
+      }
+
+      val tStart = System.currentTimeMillis
+
+      s.assertCnstr(Not(vcCond))
+
+      val satResult = s.check
+
+      val dt = System.currentTimeMillis - tStart
+
+      val res = satResult match {
+        case _ if interruptManager.isInterrupted =>
+          VCResult(VCStatus.Cancelled, Some(s), Some(dt))
+
+        case None =>
+          VCResult(VCStatus.Unknown, Some(s), Some(dt))
+
+        case Some(false) =>
+          VCResult(VCStatus.Valid, Some(s), Some(dt))
+
+        case Some(true) =>
+          VCResult(VCStatus.Invalid(s.getModel), Some(s), Some(dt))
+      }
+
+      reporter.synchronized {
+        res.report(vctx)
+      }
+
+      res
+
+    } finally {
+      s.free()
+    }
   }
 }
