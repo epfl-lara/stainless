@@ -18,27 +18,11 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
   implicit val debugSection = utils.DebugSectionVerification
 
-  override val definedOptions : Set[LeonOptionDef] = Set(
-    LeonValueOptionDef("functions", "--functions=f1:f2", "Limit verification to f1,f2,..."),
-    LeonValueOptionDef("timeout",   "--timeout=T",       "Timeout after T seconds when trying to prove a verification condition.")
-  )
-
   def run(ctx: LeonContext)(program: Program): VerificationReport = {
-    var filterFuns: Option[Seq[String]] = None
-    var timeout: Option[Int]             = None
+    val filterFuns: Option[Seq[String]] = ctx.findOption(SharedOptions.FunctionsOptionDef)
+    val timeout:    Option[Long]        = ctx.findOption(SharedOptions.Timeout)
 
     val reporter = ctx.reporter
-
-    for(opt <- ctx.options) opt match {
-      case LeonValueOption("functions", ListValue(fs)) =>
-        filterFuns = Some(fs)
-
-
-      case v @ LeonValueOption("timeout", _) =>
-        timeout = v.asInt(ctx)
-
-      case _ =>
-    }
 
     // Solvers selection and validation
     var baseSolverF = SolverFactory.getFromSettings(ctx, program)
@@ -119,14 +103,14 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       for (vc <- vcs.par if !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.map(f => f(vc, r)).getOrElse(false)
+        stop = stopAfter.exists(_(vc, r))
         vc -> Some(r)
       }
     } else {
       for (vc <- vcs.toSeq.sortWith((a,b) => a.fd.getPos < b.fd.getPos) if !interruptManager.isInterrupted && !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.map(f => f(vc, r)).getOrElse(false)
+        stop = stopAfter.exists(_(vc, r))
         vc -> Some(r)
       }
     }
@@ -142,7 +126,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val vcCond = vc.condition
 
-    val s = solverFactory.getNewSolver
+    val s = solverFactory.getNewSolver()
 
     try {
       reporter.synchronized {
