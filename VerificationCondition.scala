@@ -4,6 +4,7 @@ package leon.verification
 
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
+import leon.purescala.PrettyPrinter
 import leon.purescala.Common._
 import leon.utils.Positioned
 
@@ -52,8 +53,11 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         reporter.error(" => INVALID")
         reporter.error("Found counter-example:")
 
+        // We use PrettyPrinter explicitly and not ScalaPrinter: printing very
+        // large arrays faithfully in ScalaPrinter is hard, while PrettyPrinter
+        // is free to simplify
         val strings = cex.toSeq.sortBy(_._1.name).map {
-          case (id, v) => (id.asString(context), v.asString(context))
+          case (id, v) => (id.asString(context), PrettyPrinter(v))
         }
 
         if (strings.nonEmpty) {
