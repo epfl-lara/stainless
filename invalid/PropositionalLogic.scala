@@ -1,6 +1,5 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-import scala.collection.immutable.Set
 import leon.lang._
 import leon.annotation._
 
