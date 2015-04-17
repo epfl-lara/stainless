@@ -1,5 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
+import leon.lang._
+
 object LiteralMaps {
   def test(): Map[Int, Int] = {
     Map(1 -> 2, 3 -> 4, (5, 6))
