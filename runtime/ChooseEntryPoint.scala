@@ -4,11 +4,8 @@ package leon
 package codegen.runtime
 
 import utils._
-import purescala.Common._
-import purescala.Definitions._
-import purescala.Expressions.{Tuple => LeonTuple, _}
+import purescala.Expressions._
 import purescala.ExprOps.valuateWithModel
-import purescala.Types._
 import purescala.Constructors._
 import solvers.TimeoutSolver
 import solvers.z3._
