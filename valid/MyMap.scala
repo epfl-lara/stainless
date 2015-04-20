@@ -9,10 +9,11 @@ object MyMap {
     m(2)
   } ensuring(_ == 3)
 
-  def map2(): Boolean = {
-    val m1 = Map[Int, Int]()
-    val m2 = Map.empty[Int, Int]
-    m1 == m2
-  }.holds
+  // Empty maps are not well supported in CVC4, because of lack of quantifiers
+  //def map2(): Boolean = {
+  //  val m1 = Map[Int, Int]()
+  //  val m2 = Map.empty[Int, Int]
+  //  m1 == m2
+  //}.holds
 
 }
