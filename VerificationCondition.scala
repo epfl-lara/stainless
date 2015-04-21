@@ -75,6 +75,10 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
   }
 }
 
+object VCResult {
+  def unknown = VCResult(VCStatus.Unknown, None, None)
+}
+
 sealed abstract class VCStatus(val name: String) {
   override def toString = name
 }

@@ -8,6 +8,8 @@ import purescala.Definitions._
 import purescala.Expressions._
 import purescala.ExprOps._
 
+import scala.concurrent.duration._
+
 import solvers._
 
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
@@ -39,16 +41,16 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     }
 
     // Solvers selection and validation
-    val entrySolverFactory = SolverFactory.getFromSettings(ctx, program)
+    var baseSolverF = SolverFactory.getFromSettings(ctx, program)
 
-    val mainSolverFactory = timeout match {
+    val solverF = timeout match {
       case Some(sec) =>
-        new TimeoutSolverFactory(entrySolverFactory, sec*1000L)
+        baseSolverF.withTimeout(sec.seconds)
       case None =>
-        entrySolverFactory
+        baseSolverF
     }
 
-    val vctx = VerificationContext(ctx, program, mainSolverFactory, reporter)
+    val vctx = VerificationContext(ctx, program, solverF, reporter)
 
     reporter.debug("Generating Verification Conditions...")
 

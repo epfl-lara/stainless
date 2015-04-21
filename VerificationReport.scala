@@ -12,7 +12,7 @@ case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
   import scala.math.Ordering.Implicits._
 
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
-    case (vc, or) => (vc, or.getOrElse(VCResult(Unknown, None, None)))
+    case (vc, or) => (vc, or.getOrElse(VCResult.unknown))
   }
 
   lazy val totalConditions : Int = vrs.size
