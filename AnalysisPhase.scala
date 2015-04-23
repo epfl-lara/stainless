@@ -19,8 +19,8 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   implicit val debugSection = utils.DebugSectionVerification
 
   def run(ctx: LeonContext)(program: Program): VerificationReport = {
-    val filterFuns: Option[Seq[String]] = ctx.findOption(SharedOptions.FunctionsOptionDef)
-    val timeout:    Option[Long]        = ctx.findOption(SharedOptions.Timeout)
+    val filterFuns: Option[Seq[String]] = ctx.findOption(SharedOptions.optFunctions)
+    val timeout:    Option[Long]        = ctx.findOption(SharedOptions.optTimeout)
 
     val reporter = ctx.reporter
 
