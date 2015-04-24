@@ -15,6 +15,16 @@ import scala.collection.mutable.{Map => MutableMap}
 trait StructuralSize {
 
   private val sizeCache : MutableMap[TypeTree, FunDef] = MutableMap.empty
+  
+  private val absFun = new FunDef(
+      FreshIdentifier("abs", alwaysShowUniqueID = true),
+      Seq(), // no type params 
+      IntegerType, // returns BigInt
+      Seq(ValDef(FreshIdentifier("x", IntegerType, alwaysShowUniqueID = true))), 
+      DefType.MethodDef
+  )
+  
+  private val typedAbsFun = TypedFunDef(absFun, Seq(IntegerType))
 
   def size(expr: Expr) : Expr = {
     def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
@@ -66,6 +76,9 @@ trait StructuralSize {
       case TupleType(argTypes) => argTypes.zipWithIndex.map({
         case (_, index) => size(tupleSelect(expr, index + 1, true))
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
+      case IntegerType =>
+        println("here")
+        FunctionInvocation(typedAbsFun, Seq(expr)) 
       case _ => InfiniteIntegerLiteral(0)
     }
   }
