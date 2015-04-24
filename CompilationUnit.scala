@@ -196,6 +196,9 @@ class CompilationUnit(val ctx: LeonContext,
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
 
+    case (c: java.lang.Character, CharType) =>
+      CharLiteral(c.toChar)
+
     case (cc: runtime.CaseClass, ct: ClassType) =>
       val fields = cc.productElements()
 
