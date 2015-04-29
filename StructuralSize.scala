@@ -16,16 +16,25 @@ trait StructuralSize {
 
   private val sizeCache : MutableMap[TypeTree, FunDef] = MutableMap.empty
   
-  private val absFun = new FunDef(
+  // function abs(x: BigInt): BigInt = if (x >= 0) x else -x
+  val typedAbsFun = makeAbsFun
+
+  def makeAbsFun: TypedFunDef = {
+    val x = FreshIdentifier("x", IntegerType, alwaysShowUniqueID = true)
+    val absFun = new FunDef(
       FreshIdentifier("abs", alwaysShowUniqueID = true),
       Seq(), // no type params 
       IntegerType, // returns BigInt
-      Seq(ValDef(FreshIdentifier("x", IntegerType, alwaysShowUniqueID = true))), 
+      Seq(ValDef(x)),
       DefType.MethodDef
-  )
+    )
+    absFun.body = Some(IfExpr(
+        GreaterEquals(Variable(x), InfiniteIntegerLiteral(0)),
+        Variable(x),
+        Minus(InfiniteIntegerLiteral(0), Variable(x))))
+    TypedFunDef(absFun, Seq()) // Seq() because no generic type params
+  }
   
-  private val typedAbsFun = TypedFunDef(absFun, Seq(IntegerType))
-
   def size(expr: Expr) : Expr = {
     def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
       // we want to reuse generic size functions for sub-types
@@ -77,7 +86,6 @@ trait StructuralSize {
         case (_, index) => size(tupleSelect(expr, index + 1, true))
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
       case IntegerType =>
-        println("here")
         FunctionInvocation(typedAbsFun, Seq(expr)) 
       case _ => InfiniteIntegerLiteral(0)
     }

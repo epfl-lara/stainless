@@ -24,7 +24,8 @@ class RelationProcessor(
     reporter.debug("- Strengthening applications")
     checker.strengthenApplications(problem.funSet)(this)
 
-    val formulas = problem.funDefs.map({ funDef =>
+    val formulas: Set[(FunDef, Set[(FunDef, (Expr, Expr))])] =
+    problem.funDefs.map({ funDef =>
       funDef -> checker.getRelations(funDef).collect({
         case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funSet(tfd.fd) =>
           val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
