@@ -50,13 +50,18 @@ final case class Chain(relations: List[Relation]) {
 
   def loop(initialArgs: Seq[Identifier] = Seq.empty, finalArgs: Seq[Identifier] = Seq.empty): Seq[Expr] = {
     def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[Identifier, Identifier]): Seq[Expr] = {
-      val translate : Expr => Expr = {
-        val map : Map[Expr, Expr] = subst.map(p => p._1.toVariable -> p._2.toVariable)
-        (e: Expr) => replace(map, funDef.translated(e))
-      }
-
       val Relation(_, path, FunctionInvocation(fitfd, args), _) = relations.head
       val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
+
+      val translate : Expr => Expr = {
+        val free : Set[Identifier] = path.flatMap(variablesOf).toSet -- funDef.fd.params.map(_.id)
+        val freeMapping : Map[Identifier,Identifier] = free.map(id => id -> {
+          FreshIdentifier(id.name, funDef.translated(id.getType), true).copiedFrom(id)
+        }).toMap
+
+        val map : Map[Expr, Expr] = (subst ++ freeMapping).map(p => p._1.toVariable -> p._2.toVariable)
+        (e: Expr) => replace(map, funDef.translated(e))
+      }
 
       lazy val newArgs = args.map(translate)
 
