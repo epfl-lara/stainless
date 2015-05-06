@@ -240,6 +240,9 @@ class CompilationUnit(val ctx: LeonContext,
       }
       finiteMap(pairs.toSeq, from, to)
 
+    case (_, UnitType) =>
+      UnitLiteral()
+
     case _ =>
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
   }
