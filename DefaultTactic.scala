@@ -34,7 +34,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, pre)
               val vc = implies(and(precOrTrue(fd), path), pre2)
 
-              VC(vc, fd, VCKinds.Precondition, this).setPos(fi)
+              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fi"), this).setPos(fi)
           }
 
         case None =>
