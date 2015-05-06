@@ -30,6 +30,18 @@ object InjectAsserts extends LeonPhase[Program, Program] {
           Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
         case e @ MapGet(m,k) =>
           Some(Assert(MapIsDefinedAt(m, k), Some("Map undefined at this index"), e).setPos(e))
+
+        case e @ Division(_, d)  =>
+          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+                      Some("Division by zero"),
+                      e
+                     ).setPos(e))
+        case e @ BVDivision(_, d)  =>
+          Some(Assert(Not(Equals(d, IntLiteral(0))),
+                      Some("Division by zero"),
+                      e
+                     ).setPos(e))
+
         case _ =>
           None
       }) 

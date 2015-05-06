@@ -49,6 +49,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
             case e @ Error(_, "Match is non-exhaustive") =>
               (e, VCKinds.ExhaustiveMatch, BooleanLiteral(false))
 
+
             case e @ Error(_, _) =>
               (e, VCKinds.Assert, BooleanLiteral(false))
 
@@ -57,6 +58,8 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
                 VCKinds.MapUsage
               } else if (err.startsWith("Array ")) {
                 VCKinds.ArrayUsage
+              } else if (err.startsWith("Division ")) {
+                VCKinds.DivisionByZero
               } else {
                 VCKinds.Assert
               }

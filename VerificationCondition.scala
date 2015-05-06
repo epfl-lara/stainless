@@ -34,6 +34,7 @@ object VCKinds {
   case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
   case object MapUsage        extends VCKind("map usage", "map use")
   case object ArrayUsage      extends VCKind("array usage", "arr. use")
+  case object DivisionByZero  extends VCKind("division by zero", "div 0")
 }
 
 case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option[Long]) {
