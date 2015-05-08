@@ -3,7 +3,6 @@
 package leon
 package verification
 
-import purescala.Common._
 import purescala.Definitions._
 import purescala.Expressions._
 import purescala.ExprOps._
@@ -25,7 +24,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val reporter = ctx.reporter
 
     // Solvers selection and validation
-    var baseSolverF = SolverFactory.getFromSettings(ctx, program)
+    val baseSolverF = SolverFactory.getFromSettings(ctx, program)
 
     val solverF = timeout match {
       case Some(sec) =>
@@ -88,10 +87,10 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   }
 
   def checkVCs(
-      vctx: VerificationContext,
-      vcs: Seq[VC],
-      checkInParallel: Boolean = false,
-      stopAfter: Option[(VC, VCResult) => Boolean] = None
+    vctx: VerificationContext,
+    vcs: Seq[VC],
+    checkInParallel: Boolean = false,
+    stopAfter: Option[(VC, VCResult) => Boolean] = None
   ): VerificationReport = {
     val interruptManager = vctx.context.interruptManager
 
