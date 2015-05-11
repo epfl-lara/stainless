@@ -19,14 +19,14 @@ class RelationProcessor(
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening postconditions")
-    checker.strengthenPostconditions(problem.funDefs)(this)
+    checker.strengthenPostconditions(problem.funSet)(this)
 
     reporter.debug("- Strengthening applications")
-    checker.strengthenApplications(problem.funDefs)(this)
+    checker.strengthenApplications(problem.funSet)(this)
 
     val formulas = problem.funDefs.map({ funDef =>
       funDef -> checker.getRelations(funDef).collect({
-        case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funDefs(tfd.fd) =>
+        case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funSet(tfd.fd) =>
           val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
           def constraint(expr: Expr) = implies(andJoin(path.toSeq), expr)
           val greaterThan = checker.sizeDecreasing(e1, e2)
@@ -69,14 +69,15 @@ class RelationProcessor(
 
       val ok = decreasing.collect({ case (fd, Success) => fd })
       val nok = decreasing.collect({ case (fd, Dep(fds)) => fd -> fds }).toList
-      val (allOk, allNok) = fix(currentReducing, ok, nok)
+      val (allOk, allNok) = fix(currentReducing, ok.toSet, nok)
       (allOk, allNok.map(_._1).toSet ++ decreasing.collect({ case (fd, Failure) => fd }))
     }
 
-    assert(terminating ++ nonTerminating == problem.funDefs)
+    assert(terminating ++ nonTerminating == problem.funSet)
 
-    val results = terminating.map(Cleared).toList
-    val newProblems = if ((problem.funDefs intersect nonTerminating).nonEmpty) List(Problem(nonTerminating)) else Nil
-    (results, newProblems)
+    if (nonTerminating.isEmpty)
+      Some(terminating.map(Cleared).toSeq)
+    else
+      None
   }
 }

@@ -22,12 +22,14 @@ class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) e
     rec(expr, true)
   }
 
-  def run(problem: Problem) = if (problem.funDefs.size > 1) (Nil, List(problem)) else {
+  def run(problem: Problem) = if (problem.funDefs.size > 1) None else {
     val funDef = problem.funDefs.head
     val relations = checker.getRelations(funDef)
     val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(tfd, _), _) => tfd.fd == funDef })
 
-    if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _), _) => !checker.terminates(tfd.fd).isGuaranteed })) (Nil, List(problem)) else {
+    if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _), _) => !checker.terminates(tfd.fd).isGuaranteed })) {
+      None
+    } else {
       val decreases = funDef.params.zipWithIndex.exists({ case (arg, index) =>
         recursive.forall({ case Relation(_, path, FunctionInvocation(_, args), _) =>
           args(index) match {
@@ -41,8 +43,10 @@ class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) e
         })
       })
 
-      if (!decreases) (Nil, List(problem))
-      else (Cleared(funDef) :: Nil, Nil)
+      if (decreases)
+        Some(Cleared(funDef) :: Nil)
+      else
+        None
     }
   }
 }

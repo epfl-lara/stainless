@@ -16,10 +16,10 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening applications")
-    checker.strengthenApplications(problem.funDefs)(this)
+    checker.strengthenApplications(problem.funSet)(this)
 
     reporter.debug("- Running ChainBuilder")
-    val chains : Set[Chain] = problem.funDefs.flatMap(fd => checker.getChains(fd)(this)._2)
+    val chains : Set[Chain] = problem.funSet.flatMap(fd => checker.getChains(fd)(this)._2)
 
     reporter.debug("- Searching for loops")
     val nonTerminating: MutableMap[FunDef, Result] = MutableMap.empty
@@ -46,10 +46,10 @@ class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Stren
       cs.flatMap(c1 => chains.flatMap(c2 => c1.compose(c2)))
     }
 
-    val results = nonTerminating.values.toSet
-    val remaining = problem.funDefs -- nonTerminating.keys
-    val newProblems = if (remaining.nonEmpty) List(Problem(remaining)) else Nil
-    (results, newProblems)
+    if (nonTerminating.nonEmpty)
+      Some(nonTerminating.values.toSeq)
+    else
+      None
   }
 }
 

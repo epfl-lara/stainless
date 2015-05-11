@@ -11,7 +11,6 @@ abstract class TerminationChecker(val context: LeonContext, val program: Program
 
   val functions = visibleFunDefsFromMain(program)
 
-  def initialize() : Unit
   def terminates(funDef : FunDef) : TerminationGuarantee
 }
 

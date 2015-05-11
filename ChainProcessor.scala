@@ -14,13 +14,13 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening postconditions")
-    checker.strengthenPostconditions(problem.funDefs)(this)
+    checker.strengthenPostconditions(problem.funSet)(this)
 
     reporter.debug("- Strengthening applications")
-    checker.strengthenApplications(problem.funDefs)(this)
+    checker.strengthenApplications(problem.funSet)(this)
 
     reporter.debug("- Running ChainBuilder")
-    val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funDefs.map { funDef =>
+    val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map { funDef =>
       funDef -> checker.getChains(funDef)(this)
     }.toMap
 
@@ -28,7 +28,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
 
     if (loopPoints.size > 1) {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
-      (Nil, List(problem))
+      None
     } else {
 
       def exprs(fd: FunDef): (Expr, Seq[(Seq[Expr], Expr)], Set[Chain]) = {
@@ -43,7 +43,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
         (e1, e2s, fdChains)
       }
 
-      val funDefs = if (loopPoints.size == 1) Set(loopPoints.head) else problem.funDefs
+      val funDefs = if (loopPoints.size == 1) Set(loopPoints.head) else problem.funSet
 
       reporter.debug("-+> Searching for structural size decrease")
 
@@ -60,11 +60,10 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
         numericFormulas.exists(formula => definitiveALL(formula))
       }
 
-      if (structuralDecreasing || numericDecreasing) {
-        (problem.funDefs.map(Cleared), Nil)
-      } else {
-        (Nil, List(problem))
-      }
+      if (structuralDecreasing || numericDecreasing)
+        Some(problem.funDefs map Cleared)
+      else
+        None
     }
   }
 }

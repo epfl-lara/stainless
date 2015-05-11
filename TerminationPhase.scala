@@ -16,9 +16,7 @@ object TerminationPhase extends LeonPhase[Program,TerminationReport] {
 //    val tc = new SimpleTerminationChecker(ctx, program)
     val tc = new ComplexTerminationChecker(ctx, program)
 
-    tc.initialize()
-
-    val results = visibleFunDefsFromMain(program).toList.sortWith(_.getPos < _.getPos).map { funDef =>
+    val results = funDefsFromMain(program).toList.sortWith(_.getPos < _.getPos).map { funDef =>
       funDef -> tc.terminates(funDef)
     }
     val endTime = System.currentTimeMillis
