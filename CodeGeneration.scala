@@ -24,7 +24,7 @@ trait CodeGeneration {
 
   /** A class providing information about the status of parameters in the function that is being currently compiled.
    *  vars is a mapping from local variables/ parameters to the offset of the respective JVM local register
-   *  isStatic signifies if the current method is static (a function, in Leon terms) 
+   *  isStatic signifies if the current method is static (a function, in Leon terms)
    */
   class Locals private[codegen] (
     vars   : Map[Identifier, Int],
@@ -67,6 +67,7 @@ trait CodeGeneration {
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
   private[codegen] val BigIntClass               = "leon/codegen/runtime/BigInt"
   private[codegen] val RealClass                 = "leon/codegen/runtime/Real"
+  private[codegen] val RationalClass             = "leon/codegen/runtime/Rational"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
@@ -120,7 +121,7 @@ trait CodeGeneration {
       "L" + BigIntClass + ";"
 
     case RealType =>
-      "L" + RealClass + ";"
+      "L" + RationalClass + ";"
 
     case _ : FunctionType =>
       "L" + LambdaClass + ";"
@@ -141,12 +142,12 @@ trait CodeGeneration {
     case CharType               => s"L$BoxedCharClass;"
     case other                  => typeToJVM(other)
   }
-  
+
   /**
    * Compiles a function/method definition.
    * @param funDef The function definition to be compiled
    * @param owner The module/class that contains `funDef`
-   */  
+   */
   def compileFunDef(funDef: FunDef, owner: Definition) {
     val isStatic = owner.isInstanceOf[ModuleDef]
 
@@ -194,7 +195,7 @@ trait CodeGeneration {
     }
 
     val bodyWithPost = funDef.postcondition match {
-      case Some(post) if params.checkContracts => 
+      case Some(post) if params.checkContracts =>
         Ensuring(bodyWithPre, post).toAssert
       case _ => bodyWithPre
     }
@@ -569,10 +570,11 @@ trait CodeGeneration {
         ch << Ldc(v.toString)
         ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
 
-      case RealLiteral(v) =>
-        ch << New(RealClass) << DUP
-        ch << Ldc(v.toString)
-        ch << InvokeSpecial(RealClass, constructorName, "(Ljava/lang/String;)V")
+      case FractionalLiteral(n, d) =>
+        ch << New(RationalClass) << DUP
+        ch << Ldc(n.toString)
+        ch << Ldc(d.toString)
+        ch << InvokeSpecial(RationalClass, constructorName, "(Ljava/lang/String;Ljava/lang/String;)V")
 
       // Case classes
       case CaseClass(cct, as) =>
@@ -718,7 +720,7 @@ trait CodeGeneration {
         val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
           throw CompilationException("Unknown method : " + tfd.id)
         }
-        
+
         if (requireMonitor) {
           load(monitorID, ch)
           ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
@@ -748,7 +750,7 @@ trait CodeGeneration {
         //  ch << ALoad(locals.monitorIndex)
         //}
 
-        // No dynamic dispatching/overriding in Leon, 
+        // No dynamic dispatching/overriding in Leon,
         // so no need to take care of own vs. "super" methods
         ch << InvokeVirtual(SetClass, "getElements", s"()L$JavaIteratorClass;")
 
@@ -818,17 +820,17 @@ trait CodeGeneration {
         val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
           throw CompilationException("Unknown method : " + tfd.id)
         }
-        
+
         if (requireMonitor) {
           load(monitorID, ch)
           ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
         }
-        // Load receiver 
-        mkExpr(rec,ch) 
-        
+        // Load receiver
+        mkExpr(rec,ch)
+
         // Get field
         ch << GetField(className, fieldName, typeToJVM(tfd.fd.returnType))
-        
+
         // unbox field
         (tfd.fd.returnType, tfd.returnType) match {
           case (TypeParameter(_), tpe)  =>
@@ -843,13 +845,13 @@ trait CodeGeneration {
           throw CompilationException("Unknown method : " + tfd.id)
         }
 
-        // Receiver of the method call 
+        // Receiver of the method call
         mkExpr(rec,ch)
 
         if (requireMonitor) {
           load(monitorID, ch)
         }
-  
+
         for((a, vd) <- as zip tfd.fd.params) {
           vd.getType match {
             case TypeParameter(_) =>
@@ -860,7 +862,7 @@ trait CodeGeneration {
         }
 
         // No interfaces in Leon, so no need to use InvokeInterface
-        ch << InvokeVirtual(className, methodName, sig) 
+        ch << InvokeVirtual(className, methodName, sig)
 
         (tfd.fd.returnType, tfd.returnType) match {
           case (TypeParameter(_), tpe)  =>
@@ -924,26 +926,26 @@ trait CodeGeneration {
       case RealPlus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(RealClass, "add", s"(L$RealClass;)L$RealClass;")
+        ch << InvokeVirtual(RationalClass, "add", s"(L$RationalClass;)L$RationalClass;")
 
       case RealMinus(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(RealClass, "sub", s"(L$RealClass;)L$RealClass;")
+        ch << InvokeVirtual(RationalClass, "sub", s"(L$RationalClass;)L$RationalClass;")
 
       case RealTimes(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(RealClass, "mult", s"(L$RealClass;)L$RealClass;")
+        ch << InvokeVirtual(RationalClass, "mult", s"(L$RationalClass;)L$RationalClass;")
 
       case RealDivision(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(RealClass, "div", s"(L$RealClass;)L$RealClass;")
+        ch << InvokeVirtual(RationalClass, "div", s"(L$RationalClass;)L$RationalClass;")
 
       case RealUMinus(e) =>
         mkExpr(e, ch)
-        ch << InvokeVirtual(RealClass, "neg", s"()L$RealClass;")
+        ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
 
 
       //BV arithmetic
@@ -1036,7 +1038,7 @@ trait CodeGeneration {
           case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
           case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
-        } 
+        }
         //srcArrary and targetArray is on the stack
         ch << DUP_X1 //insert targetArray under srcArray
         ch << Ldc(0) << SWAP //srcArray, 0, targetArray
@@ -1065,10 +1067,10 @@ trait CodeGeneration {
         for (i <- 0 until l) {
           val v = elems.get(i).orElse(default).getOrElse {
             throw CompilationException(s"No valuation for key '$i' in array")
-          } 
+          }
 
           ch << DUP << Ldc(i)
-          mkExpr(v, ch) 
+          mkExpr(v, ch)
           ch << storeInstr
         }
 
@@ -1104,22 +1106,22 @@ trait CodeGeneration {
         val id = runtime.GenericValues.register(gv)
         ch << Ldc(id)
         ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
-      
+
       case nt @ NoTree( tp@ValueType() ) =>
         mkExpr(simplestValue(tp), ch)
-        
+
       case NoTree(_) =>
         ch << ACONST_NULL
-      
+
       case This(ct) =>
         ch << ALoad(0)
-        
-      case p : Passes => 
+
+      case p : Passes =>
         mkExpr(matchToIfThenElse(p.asConstraint), ch)
 
-      case m : MatchExpr => 
+      case m : MatchExpr =>
         mkExpr(matchToIfThenElse(m), ch)
-      
+
       case b if b.getType == BooleanType && canDelegateToMkBranch =>
         val fl = ch.getFreshLabel("boolfalse")
         val al = ch.getFreshLabel("boolafter")
@@ -1127,7 +1129,7 @@ trait CodeGeneration {
         mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
         ch << Label(fl) << POP << Ldc(0) << Label(al)
 
-      case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass) 
+      case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
     }
   }
 
@@ -1200,7 +1202,7 @@ trait CodeGeneration {
         ch << CheckCast(BigIntClass)
 
       case RealType =>
-        ch << CheckCast(RealClass)
+        ch << CheckCast(RationalClass)
 
       case tt : TupleType =>
         ch << CheckCast(TupleClass)
@@ -1214,7 +1216,7 @@ trait CodeGeneration {
       case ft : FunctionType =>
         ch << CheckCast(LambdaClass)
 
-      case tp : TypeParameter => 
+      case tp : TypeParameter =>
 
       case tp : ArrayType =>
         ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", s"()${typeToJVM(tp)}")
@@ -1243,7 +1245,7 @@ trait CodeGeneration {
         val fl = ch.getFreshLabel("ornext")
         mkBranch(es.head, thenn, fl, ch)
         ch << Label(fl)
-        mkBranch(orJoin(es.tail), thenn, elze, ch) 
+        mkBranch(orJoin(es.tail), thenn, elze, ch)
 
       case Implies(l, r) =>
         mkBranch(or(not(l), r), thenn, elze, ch)
@@ -1272,12 +1274,12 @@ trait CodeGeneration {
         mkExpr(r, ch)
         l.getType match {
           case Int32Type | CharType =>
-            ch << If_ICmpLt(thenn) << Goto(elze) 
+            ch << If_ICmpLt(thenn) << Goto(elze)
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
           case RealType =>
-            ch << InvokeVirtual(RealClass, "lessThan", s"(L$RealClass;)Z")
+            ch << InvokeVirtual(RationalClass, "lessThan", s"(L$RationalClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1286,12 +1288,12 @@ trait CodeGeneration {
         mkExpr(r, ch)
         l.getType match {
           case Int32Type | CharType =>
-            ch << If_ICmpGt(thenn) << Goto(elze) 
+            ch << If_ICmpGt(thenn) << Goto(elze)
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
           case RealType =>
-            ch << InvokeVirtual(RealClass, "greaterThan", s"(L$RealClass;)Z")
+            ch << InvokeVirtual(RationalClass, "greaterThan", s"(L$RationalClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1300,12 +1302,12 @@ trait CodeGeneration {
         mkExpr(r, ch)
         l.getType match {
           case Int32Type | CharType =>
-            ch << If_ICmpLe(thenn) << Goto(elze) 
+            ch << If_ICmpLe(thenn) << Goto(elze)
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
           case RealType =>
-            ch << InvokeVirtual(RealClass, "lessEquals", s"(L$RealClass;)Z")
+            ch << InvokeVirtual(RationalClass, "lessEquals", s"(L$RationalClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1314,16 +1316,16 @@ trait CodeGeneration {
         mkExpr(r, ch)
         l.getType match {
           case Int32Type | CharType =>
-            ch << If_ICmpGe(thenn) << Goto(elze) 
+            ch << If_ICmpGe(thenn) << Goto(elze)
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
           case RealType =>
-            ch << InvokeVirtual(RealClass, "greaterEquals", s"(L$RealClass;)Z")
+            ch << InvokeVirtual(RationalClass, "greaterEquals", s"(L$RationalClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
-  
-      case IfExpr(c, t, e) => 
+
+      case IfExpr(c, t, e) =>
         val innerThen = ch.getFreshLabel("then")
         val innerElse = ch.getFreshLabel("else")
         mkBranch(c, innerThen, innerElse, ch)
@@ -1340,7 +1342,7 @@ trait CodeGeneration {
         mkExpr(other, ch, canDelegateToMkBranch = false)
         ch << IfEq(elze) << Goto(thenn)
 
-      case other => throw CompilationException("Unsupported branching expr. : " + other) 
+      case other => throw CompilationException("Unsupported branching expr. : " + other)
     }
   }
 
@@ -1366,38 +1368,38 @@ trait CodeGeneration {
   }
 
   /** Compiles a lazy field.
-    * 
+    *
     * To define a lazy field, we have to add an accessor method and an underlying field.
     * The accessor method has the name of the original (Scala) lazy field and can be public.
-    * The underlying field has a different name, is private, and is of a boxed type 
-    * to support null value (to signify uninitialized). 
-    * 
+    * The underlying field has a different name, is private, and is of a boxed type
+    * to support null value (to signify uninitialized).
+    *
     * @param lzy The lazy field to be compiled
     * @param owner The module/class containing `lzy`
     */
-  def compileLazyField(lzy: FunDef, owner: Definition) { 
+  def compileLazyField(lzy: FunDef, owner: Definition) {
     ctx.reporter.internalAssertion(lzy.canBeLazyField, s"Trying to compile non-lazy ${lzy.id.name} as a lazy field")
-        
+
     val (_, accessorName, _ ) = leonFunDefToJVMInfo(lzy).get
     val cf = classes(owner)
     val cName = defToJVMName(owner)
-    
+
     val isStatic = owner.isInstanceOf[ModuleDef]
-    
+
     // Name of the underlying field
     val underlyingName = underlyingField(accessorName)
     // Underlying field is of boxed type
     val underlyingType = typeToJVMBoxed(lzy.returnType)
-    
+
     // Underlying field. It is of a boxed type
     val fh = cf.addField(underlyingType,underlyingName)
     fh.setFlags( if (isStatic) {(
-      FIELD_ACC_STATIC | 
+      FIELD_ACC_STATIC |
       FIELD_ACC_PRIVATE
     ).asInstanceOf[U2] } else {
       FIELD_ACC_PRIVATE
     }) // FIXME private etc?
-      
+
     // accessor method
     locally {
       val parameters = if (requireMonitor) {
@@ -1413,11 +1415,11 @@ trait CodeGeneration {
         METHOD_ACC_PUBLIC
       ).asInstanceOf[U2] } else {
         METHOD_ACC_PUBLIC
-      }) 
+      })
       val ch = accM.codeHandler
       val body = lzy.body.getOrElse(throw CompilationException("Lazy field without body?"))
       val initLabel = ch.getFreshLabel("isInitialized")
-      
+
       if (requireMonitor) {
         load(monitorID, ch)(newLocs)
         ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
@@ -1429,13 +1431,13 @@ trait CodeGeneration {
         ch << ALoad(0) << GetField(cName, underlyingName, underlyingType) // if (lzy == null)
       }
       // oldValue
-      ch << DUP << IfNonNull(initLabel) 
+      ch << DUP << IfNonNull(initLabel)
       // null
       ch << POP
-      // 
-      mkBoxedExpr(body,ch)(newLocs) // lzy = <expr> 
+      //
+      mkBoxedExpr(body,ch)(newLocs) // lzy = <expr>
       ch << DUP
-      // newValue, newValue 
+      // newValue, newValue
       if (isStatic) {
         ch << PutStatic(cName, underlyingName, underlyingType)
         //newValue
@@ -1446,7 +1448,7 @@ trait CodeGeneration {
         ch << PutField (cName, underlyingName, underlyingType)
         //newValue
       }
-      ch << Label(initLabel)  // return lzy 
+      ch << Label(initLabel)  // return lzy
       //newValue
       lzy.returnType match {
         case ValueType() =>
@@ -1456,14 +1458,14 @@ trait CodeGeneration {
         case _ =>
           ch << ARETURN
       }
-      ch.freeze 
+      ch.freeze
     }
   }
-    
+
   /** Compile the (strict) field `field` which is owned by class `owner` */
   def compileStrictField(field : FunDef, owner : Definition) = {
 
-    ctx.reporter.internalAssertion(field.canBeStrictField, 
+    ctx.reporter.internalAssertion(field.canBeStrictField,
       s"Trying to compile ${field.id.name} as a strict field")
     val (_, fieldName, _) = leonFunDefToJVMInfo(field).get
 
@@ -1471,7 +1473,7 @@ trait CodeGeneration {
     val fh = cf.addField(typeToJVM(field.returnType),fieldName)
     fh.setFlags( owner match {
       case _ : ModuleDef => (
-        FIELD_ACC_STATIC | 
+        FIELD_ACC_STATIC |
         FIELD_ACC_PUBLIC | // FIXME
         FIELD_ACC_FINAL
       ).asInstanceOf[U2]
@@ -1481,16 +1483,16 @@ trait CodeGeneration {
       ).asInstanceOf[U2]
     })
   }
-  
+
   /** Initializes a lazy field to null
    *  @param ch the codehandler to add the initializing code to
-   *  @param className the name of the class in which the field is initialized 
+   *  @param className the name of the class in which the field is initialized
    *  @param lzy the lazy field to be initialized
    *  @param isStatic true if this is a static field
    */
   def initLazyField(ch: CodeHandler, className: String,  lzy: FunDef, isStatic: Boolean)(implicit locals: Locals) = {
     val (_, name, _) = leonFunDefToJVMInfo(lzy).get
-    val underlyingName = underlyingField(name) 
+    val underlyingName = underlyingField(name)
     val jvmType = typeToJVMBoxed(lzy.returnType)
     if (isStatic){
       ch << ACONST_NULL << PutStatic(className, underlyingName, jvmType)
@@ -1498,10 +1500,10 @@ trait CodeGeneration {
       ch << ALoad(0) << ACONST_NULL << PutField(className, underlyingName, jvmType)
     }
   }
-  
+
   /** Initializes a (strict) field
    *  @param ch the codehandler to add the initializing code to
-   *  @param className the name of the class in which the field is initialized 
+   *  @param className the name of the class in which the field is initialized
    *  @param field the field to be initialized
    *  @param isStatic true if this is a static field
    */
@@ -1519,8 +1521,8 @@ trait CodeGeneration {
     }
   }
 
-  def compileAbstractClassDef(acd : AbstractClassDef) {    
-    
+  def compileAbstractClassDef(acd : AbstractClassDef) {
+
     val cName = defToJVMName(acd)
 
     val cf  = classes(acd)
@@ -1533,30 +1535,30 @@ trait CodeGeneration {
 
     cf.addInterface(CaseClassClass)
 
-    // add special monitor for method invocations 
+    // add special monitor for method invocations
     if (params.doInstrument) {
       val fh = cf.addField("I", instrumentedField)
       fh.setFlags(FIELD_ACC_PUBLIC)
     }
-    
+
     val (fields, methods) = acd.methods partition { _.canBeField }
     val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
-    
+
     // Compile methods
     for (method <- methods) {
       compileFunDef(method,acd)
     }
-    
+
     // Compile lazy fields
     for (lzy <- lazyFields) {
       compileLazyField(lzy, acd)
     }
-    
+
     // Compile strict fields
     for (field <- strictFields) {
       compileStrictField(field, acd)
     }
-    
+
     // definition of the constructor
     locally {
       val constrParams = if (requireMonitor) {
@@ -1586,7 +1588,7 @@ trait CodeGeneration {
           // Call constructor of java.lang.Object
           cch << InvokeSpecial(ObjectClass, constructorName, "()V")
       }
-      
+
       // Initialize special monitor field
       if (params.doInstrument) {
         cch << ALoad(0)
@@ -1637,9 +1639,9 @@ trait CodeGeneration {
 
     val cName = defToJVMName(ccd)
     val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
-    // An instantiation of ccd with its own type parameters 
+    // An instantiation of ccd with its own type parameters
     val cct = CaseClassType(ccd, ccd.tparams.map(_.tp))
-    
+
     val cf = classes(ccd)
 
     cf.setFlags((
@@ -1662,25 +1664,25 @@ trait CodeGeneration {
       case (id, jvmt) => (id, (cName, id.name, jvmt))
     }.toMap)
 
-    locally { 
+    locally {
       val (fields, methods) = ccd.methods partition { _.canBeField }
       val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
-      
+
       // Compile methods
       for (method <- methods) {
         compileFunDef(method,ccd)
       }
-      
+
       // Compile lazy fields
       for (lzy <- lazyFields) {
-        compileLazyField(lzy, ccd) 
+        compileLazyField(lzy, ccd)
       }
-      
+
       // Compile strict fields
       for (field <- strictFields) {
-        compileStrictField(field, ccd) 
+        compileStrictField(field, ccd)
       }
-  
+
       // definition of the constructor
       if(!params.doInstrument && !requireMonitor && ccd.fields.isEmpty && !ccd.methods.exists(_.canBeField)) {
         cf.addDefaultConstructor
@@ -1692,14 +1694,14 @@ trait CodeGeneration {
             FIELD_ACC_FINAL
           ).asInstanceOf[U2])
         }
-  
+
         if (params.doInstrument) {
           val fh = cf.addField("I", instrumentedField)
           fh.setFlags(FIELD_ACC_PUBLIC)
         }
-  
+
         val cch = cf.addConstructor(constructorArgs.map(_._2) : _*).codeHandler
-  
+
         if (params.doInstrument) {
           cch << ALoad(0)
           cch << Ldc(0)
@@ -1831,7 +1833,7 @@ trait CodeGeneration {
               ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
           }
         }
-      } 
+      }
 
       ech << Ldc(1) << IRETURN << Label(notEq) << Ldc(0) << IRETURN
       ech.freeze
@@ -1859,7 +1861,7 @@ trait CodeGeneration {
       hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
       hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
       hch << InvokeStatic(HashingClass, "seqHash", s"([L$ObjectClass;I)I") << DUP
-      hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I") 
+      hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I")
       hch << IRETURN
 
       hch.freeze

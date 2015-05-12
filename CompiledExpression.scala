@@ -59,4 +59,4 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
       case ite : InvocationTargetException => throw ite.getCause
     }
   }
-} 
+}

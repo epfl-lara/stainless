@@ -75,9 +75,9 @@ class CompilationUnit(val ctx: LeonContext,
   // Returns className, methodName, methodSignature
   private[this] var funDefInfo = Map[FunDef, (String, String, String)]()
 
-  
+
   /**
-   * Returns (cn, mn, sig) where 
+   * Returns (cn, mn, sig) where
    *  cn is the module name
    *  mn is the safe method name
    *  sig is the method signature
@@ -164,8 +164,8 @@ class CompilationUnit(val ctx: LeonContext,
     case InfiniteIntegerLiteral(v) =>
       new runtime.BigInt(v.toString)
 
-    case RealLiteral(v) =>
-      new runtime.Real(v.toString)
+    case FractionalLiteral(n, d) =>
+      new runtime.Rational(n.toString, d.toString)
 
     case GenericValue(tp, id) =>
       e
@@ -218,7 +218,7 @@ class CompilationUnit(val ctx: LeonContext,
     //case _ =>
     //  compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
   }
-  
+
   /** Translates JVM objects back to Leon values of the appropriate type */
   def jvmToValue(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
     case (i: Integer, Int32Type) =>
@@ -227,8 +227,10 @@ class CompilationUnit(val ctx: LeonContext,
     case (c: runtime.BigInt, IntegerType) =>
       InfiniteIntegerLiteral(BigInt(c.underlying))
 
-    case (c: runtime.Real, RealType) =>
-      RealLiteral(BigDecimal(c.underlying))
+    case (c: runtime.Rational, RealType) =>
+      val num = BigInt(c.numerator())
+      val denom = BigInt(c.denominator())
+      FractionalLiteral(num, denom)
 
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
@@ -257,7 +259,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     case (tpl: runtime.Tuple, tpe) =>
       val stpe = unwrapTupleType(tpe, tpl.getArity)
-      val elems = stpe.zipWithIndex.map { case (tpe, i) => 
+      val elems = stpe.zipWithIndex.map { case (tpe, i) =>
         jvmToValue(tpl.get(i), tpe)
       }
       tupleWrap(elems)
@@ -379,7 +381,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     val (fields, functions) = module.definedFunctions partition { _.canBeField }
     val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
-    
+
     // Compile methods
     for (function <- functions) {
       compileFunDef(function,module)
@@ -394,17 +396,17 @@ class CompilationUnit(val ctx: LeonContext,
     for (field <- strictFields) {
       compileStrictField(field, module)
     }
- 
+
     // Constructor
     cf.addDefaultConstructor
 
     val cName = defToJVMName(module)
 
     // Add class initializer method
-    locally{ 
+    locally{
       val mh = cf.addMethod("V", "<clinit>")
       mh.setFlags((
-        METHOD_ACC_STATIC | 
+        METHOD_ACC_STATIC |
         METHOD_ACC_PUBLIC
       ).asInstanceOf[U2])
 
@@ -412,9 +414,9 @@ class CompilationUnit(val ctx: LeonContext,
       /*
        * FIXME :
        * Dirty hack to make this compatible with monitoring of method invocations.
-       * Because we don't have access to the monitor object here, we initialize a new one 
-       * that will get lost when this method returns, so we can't hope to count 
-       * method invocations here :( 
+       * Because we don't have access to the monitor object here, we initialize a new one
+       * that will get lost when this method returns, so we can't hope to count
+       * method invocations here :(
        */
       val locals = NoLocals.withVar(monitorID -> ch.getFreshVar)
       ch << New(MonitorClass) << DUP
@@ -443,7 +445,7 @@ class CompilationUnit(val ctx: LeonContext,
           defToModuleOrClass += meth -> cls
         }
       }
-     
+
       for (m <- u.modules) {
         defineClass(m)
         for(funDef <- m.definedFunctions) {
@@ -453,14 +455,14 @@ class CompilationUnit(val ctx: LeonContext,
     }
   }
 
-  /** Compiles the program. 
+  /** Compiles the program.
     *
     * Uses information provided by [[init]].
     */
   def compile() {
     // Compile everything
     for (u <- program.units) {
-      
+
       for {
         ch <- u.classHierarchies
         c  <- ch
