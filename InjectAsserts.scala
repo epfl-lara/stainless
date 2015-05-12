@@ -21,7 +21,7 @@ object InjectAsserts extends LeonPhase[Program, Program] {
     }
 
     pgm.definedFunctions.foreach(fd => {
-      fd.body = fd.body.map(postMap { 
+      fd.body = fd.body.map(postMap {
         case e @ ArraySelect(a, i)        =>
           Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
         case e @ ArrayUpdated(a, i, v)    =>
@@ -69,14 +69,14 @@ object InjectAsserts extends LeonPhase[Program, Program] {
                      ).setPos(e))
 
         case e @ RealDivision(_, d)  =>
-          Some(Assert(Not(Equals(d, RealLiteral(0))),
+          Some(Assert(Not(Equals(d, FractionalLiteral(0, 1))),
                       Some("Division by zero"),
                       e
                      ).setPos(e))
 
         case _ =>
           None
-      }) 
+      })
     })
 
     pgm
