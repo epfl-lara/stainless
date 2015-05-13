@@ -79,7 +79,8 @@ object ChooseEntryPoint {
     } else {
       val tStart = System.currentTimeMillis
 
-      val solver = SolverFactory.default(ctx, program).withTimeout(10.second).getNewSolver()
+      val solverf = SolverFactory.default(ctx, program).withTimeout(10.second)
+      val solver = solverf.getNewSolver()
 
       val inputsMap = (p.as zip inputs).map {
         case (id, v) =>
@@ -113,6 +114,7 @@ object ChooseEntryPoint {
         }
       } finally {
         solver.free()
+        solverf.shutdown()
       }
     }
   }
