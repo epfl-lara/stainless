@@ -37,11 +37,15 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     reporter.debug("Generating Verification Conditions...")
 
-    val vcs = generateVCs(vctx, filterFuns)
+    try { 
+      val vcs = generateVCs(vctx, filterFuns)
 
-    reporter.debug("Checking Verification Conditions...")
+      reporter.debug("Checking Verification Conditions...")
 
-    checkVCs(vctx, vcs)
+      checkVCs(vctx, vcs)
+    } finally {
+      solverF.shutdown()
+    }
   }
 
   def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Seq[VC] = {
