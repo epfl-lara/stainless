@@ -31,4 +31,11 @@ abstract class Tactic(vctx: VerificationContext) {
   protected def collectWithPC[T](f: PartialFunction[Expr, T])(expr: Expr): Seq[(T, Expr)] = {
     CollectorWithPaths(f).traverse(expr)
   }
+
+  protected def exprToShortString(e: Expr) = {
+    // Crop the call to display it properly
+    val eS = e.toString
+    val s = eS.takeWhile(_ != '\n').take(35)
+    if (s == eS) s else s ++ " ..."
+  }
 }
