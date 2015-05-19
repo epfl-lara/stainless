@@ -56,9 +56,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val defaultTactic   = new DefaultTactic(vctx)
     val inductionTactic = new InductionTactic(vctx)
 
-    def excludeByDefault(fd: FunDef): Boolean = {
-      (fd.annotations contains "verified") || (fd.annotations contains "library")
-    }
+    def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
 
     val fdFilter = {
       import OptionsHelpers._
