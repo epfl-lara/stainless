@@ -4,12 +4,12 @@ package leon
 package verification
 
 import purescala.Definitions._
-import purescala.Expressions._
 import purescala.ExprOps._
 
 import scala.concurrent.duration._
 
 import solvers._
+import solvers.smtlib.SMTLIBCVC4QuantifiedSolver
 
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
@@ -38,7 +38,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     reporter.debug("Generating Verification Conditions...")
 
     try { 
-      val vcs = generateVCs(vctx, filterFuns)
+      val vcs = generateVCs(vctx, filterFuns, forceGrouped = baseSolverF.getNewSolver.isInstanceOf[SMTLIBCVC4QuantifiedSolver])
 
       reporter.debug("Checking Verification Conditions...")
 
@@ -48,13 +48,14 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     }
   }
 
-  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Seq[VC] = {
+  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]], forceGrouped: Boolean = false): Seq[VC] = {
 
     import vctx.reporter
     import vctx.program
 
     val defaultTactic   = new DefaultTactic(vctx)
     val inductionTactic = new InductionTactic(vctx)
+    val groupedTactic   = new GroupedTactic(vctx)
 
     def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
 
@@ -72,7 +73,9 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       }
 
       val tactic: Tactic =
-        if(funDef.annotations.contains("induct")) {
+        if (forceGrouped) {
+          groupedTactic
+        } else if(funDef.annotations.contains("induct")) {
           inductionTactic
         } else {
           defaultTactic
@@ -138,7 +141,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
       val tStart = System.currentTimeMillis
 
-      s.assertCnstr(Not(vcCond))
+      s.assertVC(vc)
 
       val satResult = s.check
 
