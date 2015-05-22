@@ -10,8 +10,7 @@ import purescala.ExprOps._
 abstract class Tactic(vctx: VerificationContext) {
   val description : String
 
-  def generateVCs(fdUnsafe: FunDef): Seq[VC] = {
-    val fd = fdUnsafe.duplicate
+  def generateVCs(fd: FunDef): Seq[VC] = {
     fd.fullBody = matchToIfThenElse(fd.fullBody)
     generatePostconditions(fd) ++
     generatePreconditions(fd) ++
