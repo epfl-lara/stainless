@@ -33,7 +33,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
             case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
               val pre2 = replaceFromIDs((tfd.params.map(_.id) zip args).toMap, pre)
               val vc = implies(and(precOrTrue(fd), path), pre2)
-              val fiS = exprToShortString(fi)
+              val fiS = sizeLimit(fi.toString, 40)
               VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS"), this).setPos(fi)
           }
 

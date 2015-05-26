@@ -31,10 +31,14 @@ abstract class Tactic(vctx: VerificationContext) {
     CollectorWithPaths(f).traverse(expr)
   }
 
-  protected def exprToShortString(e: Expr) = {
+  protected def sizeLimit(s: String, limit: Int) = {
+    require(limit > 3)
     // Crop the call to display it properly
-    val eS = e.toString
-    val s = eS.takeWhile(_ != '\n').take(35)
-    if (s == eS) s else s ++ " ..."
+    val res = s.takeWhile(_ != '\n').take(limit)
+    if (res == s) {
+      res
+    } else {
+      res + " ..."
+    }
   }
 }

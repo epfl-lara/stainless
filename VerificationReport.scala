@@ -23,16 +23,6 @@ case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
   lazy val totalInvalid: Int = vrs.count(_._2.isInvalid)
   lazy val totalUnknown: Int = vrs.count(_._2.isInconclusive)
 
-  def sizeLimit(str: String, limit: Int): String = {
-    require(limit > 3)
-    val res = str.takeWhile(_ != '\n').take(35)
-    if (res != str) {
-      res + "..."
-    } else {
-      str
-    }
-  }
-
   def summaryString : String = if(totalConditions >= 0) {
     import utils.ASCIIHelpers._
 
@@ -42,7 +32,7 @@ case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
       val timeStr = vr.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
       Row(Seq(
         Cell(vc.fd.id.toString),
-        Cell(sizeLimit(vc.kind.name, 30)),
+        Cell(vc.kind.name),
         Cell(vc.getPos),
         Cell(vr.status),
         Cell(vr.solvedWith.map(_.name).getOrElse("")),
