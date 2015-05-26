@@ -20,7 +20,9 @@ class GroupedTactic(vctx: VerificationContext) extends Tactic(vctx) {
         } yield {
           implies(
             precOrTrue(inComp),
-            application(p, Seq(b))
+            // @mk: Don't know which one is better. Inline the body, or have it as a fun. app?
+            //application(p, Seq(b))
+            application(p, Seq(FunctionInvocation(inComp.typedWithDef, inComp.params map { _.toVariable })))
           )
         }
         
