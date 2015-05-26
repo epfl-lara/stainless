@@ -25,8 +25,9 @@ case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
 
   def sizeLimit(str: String, limit: Int): String = {
     require(limit > 3)
-    if (str.length > limit) {
-      str.substring(0, limit-3)+"..."
+    val res = str.takeWhile(_ != '\n').take(35)
+    if (res != str) {
+      res + "..."
     } else {
       str
     }
