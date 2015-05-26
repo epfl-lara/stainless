@@ -644,10 +644,11 @@ trait CodeGeneration {
         mkExpr(r, ch)
         ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
 
+      //Modulo in Leon corresponds to the "rem" operator on java/Scala BigInt
       case Modulo(l, r) =>
         mkExpr(l, ch)
         mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
+        ch << InvokeVirtual(BigIntClass, "rem", s"(L$BigIntClass;)L$BigIntClass;")
 
       case UMinus(e) =>
         mkExpr(e, ch)
