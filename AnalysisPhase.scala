@@ -33,12 +33,19 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         baseSolverF
     }
 
+    val isSMTQuantified = {
+      val solver = baseSolverF.getNewSolver
+      val res = solver.isInstanceOf[SMTLIBCVC4QuantifiedSolver]
+      solver.free
+      res
+    }
+
     val vctx = VerificationContext(ctx, program, solverF, reporter)
 
     reporter.debug("Generating Verification Conditions...")
 
     try { 
-      val vcs = generateVCs(vctx, filterFuns, forceGrouped = baseSolverF.getNewSolver.isInstanceOf[SMTLIBCVC4QuantifiedSolver])
+      val vcs = generateVCs(vctx, filterFuns, forceGrouped = isSMTQuantified)
 
       reporter.debug("Checking Verification Conditions...")
 
