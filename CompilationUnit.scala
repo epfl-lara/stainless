@@ -28,6 +28,7 @@ class CompilationUnit(val ctx: LeonContext,
 
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
+  var lambdas     = Map[String, Lambda]()
   var classes     = Map[Definition, ClassFile]()
   var defToModuleOrClass = Map[Definition, Definition]()
   
@@ -229,16 +230,28 @@ class CompilationUnit(val ctx: LeonContext,
       if (gtp == tp) gv
       else GenericValue(tp, id).copiedFrom(gv)
 
-    case (set : runtime.Set, SetType(b)) =>
+    case (set: runtime.Set, SetType(b)) =>
       finiteSet(set.getElements.asScala.map(jvmToExpr(_, b)).toSet, b)
 
-    case (map : runtime.Map, MapType(from, to)) =>
+    case (map: runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements.asScala.map { entry =>
         val k = jvmToExpr(entry.getKey, from)
         val v = jvmToExpr(entry.getValue, to)
         (k, v)
       }
       finiteMap(pairs.toSeq, from, to)
+
+    case (lambda: runtime.Lambda, _: FunctionType) =>
+      val cls = lambda.getClass
+
+      val l = lambdas(cls.getName)
+      val closures = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
+      val closureVals = closures.map { id =>
+        val fieldVal = lambda.getClass.getField(id.name).get(lambda)
+        jvmToExpr(fieldVal, id.getType)
+      }
+
+      purescala.ExprOps.replaceFromIDs((closures zip closureVals).toMap, l)
 
     case (_, UnitType) =>
       UnitLiteral()

@@ -546,6 +546,7 @@ trait CodeGeneration {
 
       case l @ Lambda(args, body) =>
         val afName = "Leon$CodeGen$Lambda$" + CompilationUnit.nextLambdaId
+        lambdas += afName -> l
 
         val cf = new ClassFile(afName, Some(LambdaClass))
 
