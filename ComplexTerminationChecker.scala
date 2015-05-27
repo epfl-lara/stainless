@@ -24,6 +24,7 @@ class ComplexTerminationChecker(context: LeonContext, program: Program)
     new RecursionProcessor(this),
     new RelationProcessor(this),
     new ChainProcessor(this),
+    new SelfCallsProcessor(this),
     new LoopProcessor(this)
   )
 
