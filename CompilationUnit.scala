@@ -154,14 +154,14 @@ class CompilationUnit(val ctx: LeonContext,
     //case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
     //  exprs.map(e => exprToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
 
-    case s @ FiniteSet(els) =>
+    case s @ FiniteSet(els, _) =>
       val s = new leon.codegen.runtime.Set()
       for (e <- els) {
         s.add(exprToJVM(e))
       }
       s
 
-    case m @ FiniteMap(els) =>
+    case m @ FiniteMap(els, _, _) =>
       val m = new leon.codegen.runtime.Map()
       for ((k,v) <- els) {
         m.add(exprToJVM(k), exprToJVM(v))

@@ -299,7 +299,7 @@ trait CodeGeneration {
         mkUnbox(bs(i - 1), ch)
 
       // Sets
-      case FiniteSet(es) =>
+      case FiniteSet(es, _) =>
         ch << DefaultNew(SetClass)
         for(e <- es) {
           ch << DUP
@@ -337,7 +337,7 @@ trait CodeGeneration {
         ch << InvokeVirtual(SetClass, "minus", s"(L$SetClass;)L$SetClass;")
 
       // Maps
-      case FiniteMap(ss) =>
+      case FiniteMap(ss, _, _) =>
         ch << DefaultNew(MapClass)
         for((f,t) <- ss) {
           ch << DUP
