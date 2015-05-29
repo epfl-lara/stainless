@@ -978,7 +978,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type =>
+          case Int32Type | CharType =>
             ch << If_ICmpLt(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
@@ -989,7 +989,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type =>
+          case Int32Type | CharType =>
             ch << If_ICmpGt(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
@@ -1000,7 +1000,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type =>
+          case Int32Type | CharType =>
             ch << If_ICmpLe(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
@@ -1011,7 +1011,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type =>
+          case Int32Type | CharType =>
             ch << If_ICmpGe(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
