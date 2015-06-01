@@ -16,7 +16,17 @@ object TerminationPhase extends LeonPhase[Program,TerminationReport] {
 //    val tc = new SimpleTerminationChecker(ctx, program)
     val tc = new ComplexTerminationChecker(ctx, program)
 
-    val results = funDefsFromMain(program).toList.sortWith(_.getPos < _.getPos).map { funDef =>
+    def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
+
+    val fdFilter = {
+      import OptionsHelpers._
+
+      filterInclusive(ctx.findOption(SharedOptions.optFunctions).map(fdMatcher), Some(excludeByDefault _))
+    }
+
+    val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
+
+    val results = toVerify.map { funDef =>
       funDef -> tc.terminates(funDef)
     }
     val endTime = System.currentTimeMillis
