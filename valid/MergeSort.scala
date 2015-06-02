@@ -83,13 +83,18 @@ object MergeSort {
   }
 
   // Not really quicksort, neither mergesort.
-  def weirdSort(in : List) : List = (in match {
-    case Nil() => Nil()
-    case Cons(x, Nil()) => Cons(x, Nil())
-    case _ =>
-      val (s1,s2) = split(in)
-      mergeFast(weirdSort(s1), weirdSort(s2))
-  }) ensuring(res => sortSpec(in, res))
+  // Note: the `s` argument is just a witness for termination (always decreases),
+  // and not needed for functionality. Any decent optimizer will remove it ;-)
+  def weirdSort(s: BigInt, in : List) : List = {
+    require(s == size(in))
+    in match {
+      case Nil() => Nil()
+      case Cons(x, Nil()) => Cons(x, Nil())
+      case _ =>
+        val (s1,s2) = split(in)
+        mergeFast(weirdSort(size(s1), s1), weirdSort(size(s2), s2))
+    }
+  } ensuring(res => sortSpec(in, res))
 
   def toLList(list : List) : LList = (list match {
     case Nil() => LNil()
