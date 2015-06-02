@@ -131,9 +131,9 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
       def decreasing(relations: List[Relation]): Boolean = {
         val constraints = relations.map(relation => relationConstraints.getOrElse(relation, {
           val Relation(funDef, path, FunctionInvocation(_, args), _) = relation
-          val (e1, e2) = (tupleWrap(funDef.params.map(_.toVariable)), tupleWrap(args))
-          val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(e1, e2)))) {
-            if (solver.definitiveALL(implies(andJoin(path), self.sizeDecreasing(e1, e2)))) {
+          val args0 = funDef.params.map(_.toVariable)
+          val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(args0, args)))) {
+            if (solver.definitiveALL(implies(andJoin(path), self.sizeDecreasing(args0, args)))) {
               StrongDecreasing
             } else {
               WeakDecreasing

@@ -22,12 +22,12 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
     val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => self.program.callGraph.transitivelyCalls(fd2, fd1))
 
     for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && self.terminates(funDef).isGuaranteed) {
-      def strengthen(cmp: (Expr, Expr) => Expr): Boolean = {
+      def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val old = funDef.postcondition
         val postcondition = {
           val res = FreshIdentifier("res", funDef.returnType, true)
           val post = old.map{application(_, Seq(Variable(res)))}.getOrElse(BooleanLiteral(true))
-          val sizePost = cmp(tupleWrap(funDef.params.map(_.toVariable)), res.toVariable)
+          val sizePost = cmp(funDef.params.map(_.toVariable), Seq(res.toVariable))
           Lambda(Seq(ValDef(res)), and(post, sizePost))
         }
 
@@ -71,8 +71,8 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
   def applicationConstraint(fd: FunDef, id: Identifier, arg: Expr, args: Seq[Expr]): Expr = arg match {
     case Lambda(fargs, body) => appConstraint.get(fd -> id) match {
-      case Some(StrongDecreasing) => self.sizeDecreasing(tupleWrap(args), tupleWrap(fargs.map(_.toVariable)))
-      case Some(WeakDecreasing) => self.softDecreasing(tupleWrap(args), tupleWrap(fargs.map(_.toVariable)))
+      case Some(StrongDecreasing) => self.sizeDecreasing(args, fargs.map(_.toVariable))
+      case Some(WeakDecreasing) => self.softDecreasing(args, fargs.map(_.toVariable))
       case _ => BooleanLiteral(true)
     }
     case _ => BooleanLiteral(true)
@@ -84,20 +84,20 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
     for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && self.terminates(funDef).isGuaranteed) {
 
-      val appCollector = new CollectorWithPaths[(Identifier,Expr,Expr)] {
-        def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Expr)] = e match {
-          case Application(Variable(id), args) => Some((id, andJoin(path), tupleWrap(args)))
+      val appCollector = new CollectorWithPaths[(Identifier,Expr,Seq[Expr])] {
+        def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Seq[Expr])] = e match {
+          case Application(Variable(id), args) => Some((id, andJoin(path), args))
           case _ => None
         }
       }
 
       val applications = appCollector.traverse(funDef).distinct
 
-      val funDefArgTuple = tupleWrap(funDef.params.map(_.toVariable))
+      val funDefArgs = funDef.params.map(_.toVariable)
 
       val allFormulas = for ((id, path, appArgs) <- applications) yield {
-        val soft = Implies(path, self.softDecreasing(funDefArgTuple, appArgs))
-        val hard = Implies(path, self.sizeDecreasing(funDefArgTuple, appArgs))
+        val soft = Implies(path, self.softDecreasing(funDefArgs, appArgs))
+        val hard = Implies(path, self.sizeDecreasing(funDefArgs, appArgs))
         id -> ((soft, hard))
       }
 
@@ -117,10 +117,10 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
 
       val funDefHOArgs = funDef.params.map(_.id).filter(_.getType.isInstanceOf[FunctionType]).toSet
 
-      val fiCollector = new CollectorWithPaths[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] {
-        def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Expr, Seq[(Identifier,(FunDef, Identifier))])] = e match {
+      val fiCollector = new CollectorWithPaths[(Expr, Seq[Expr], Seq[(Identifier,(FunDef, Identifier))])] {
+        def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Seq[Expr], Seq[(Identifier,(FunDef, Identifier))])] = e match {
           case FunctionInvocation(tfd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((andJoin(path), tupleWrap(args), (args zip tfd.fd.params).collect {
+            Some((andJoin(path), args, (args zip tfd.fd.params).collect {
               case (Variable(id), vd) if funDefHOArgs(id) => id -> ((tfd.fd, vd.id))
             }))
           case _ => None
@@ -128,19 +128,19 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
       }
 
       val invocations = fiCollector.traverse(funDef)
-      val id2invocations : Seq[(Identifier, ((FunDef, Identifier), Expr, Expr))] =
+      val id2invocations : Seq[(Identifier, ((FunDef, Identifier), Expr, Seq[Expr]))] =
         invocations.flatMap(p => p._3.map(c => c._1 -> ((c._2, p._1, p._2))))
-      val invocationMap  : Map[Identifier, Seq[((FunDef, Identifier), Expr, Expr)]] = 
+      val invocationMap  : Map[Identifier, Seq[((FunDef, Identifier), Expr, Seq[Expr])]] = 
         id2invocations.groupBy(_._1).mapValues(_.map(_._2))
 
-      def constraint(id: Identifier, passings: Seq[((FunDef, Identifier), Expr, Expr)]): SizeConstraint = {
+      def constraint(id: Identifier, passings: Seq[((FunDef, Identifier), Expr, Seq[Expr])]): SizeConstraint = {
         if (constraints.get(id) == Some(NoConstraint)) NoConstraint
         else if (passings.exists(p => appConstraint.get(p._1) == Some(NoConstraint))) NoConstraint
         else passings.foldLeft[SizeConstraint](constraints.getOrElse(id, StrongDecreasing)) {
           case (constraint, (key, path, args)) =>
 
-            lazy val strongFormula = Implies(path, self.sizeDecreasing(funDefArgTuple, args))
-            lazy val weakFormula = Implies(path, self.softDecreasing(funDefArgTuple, args))
+            lazy val strongFormula = Implies(path, self.sizeDecreasing(funDefArgs, args))
+            lazy val weakFormula = Implies(path, self.softDecreasing(funDefArgs, args))
 
             (constraint, appConstraint.get(key)) match {
               case (_, Some(NoConstraint)) => scala.sys.error("Whaaaat!?!? This shouldn't happen...")
