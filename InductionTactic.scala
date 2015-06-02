@@ -80,7 +80,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
               // Crop the call to display it properly
               val fiS = sizeLimit(fi.toString, 25)
 
-              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, "call $fiS, ind. on ($arg : ${cct.classDef.id)}"), this).setPos(fi)
+              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on ($arg : ${cct.classDef.id})"), this).setPos(fi)
             }
         }
 
