@@ -8,20 +8,23 @@ import purescala.Common._
 import purescala.Definitions._
 import purescala.Constructors.tupleWrap
 
-class ChainProcessor(val checker: TerminationChecker with ChainBuilder with ChainComparator with Strengthener with StructuralSize) extends Processor with Solvable {
+class ChainProcessor(
+    val checker: TerminationChecker,
+    val modules: ChainBuilder with ChainComparator with Strengthener with StructuralSize
+) extends Processor with Solvable {
 
   val name: String = "Chain Processor"
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening postconditions")
-    checker.strengthenPostconditions(problem.funSet)(this)
+    modules.strengthenPostconditions(problem.funSet)(this)
 
     reporter.debug("- Strengthening applications")
-    checker.strengthenApplications(problem.funSet)(this)
+    modules.strengthenApplications(problem.funSet)(this)
 
     reporter.debug("- Running ChainBuilder")
     val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map { funDef =>
-      funDef -> checker.getChains(funDef)(this)
+      funDef -> modules.getChains(funDef)(this)
     }.toMap
 
     val loopPoints = chainsMap.foldLeft(Set.empty[FunDef]) { case (set, (fd, (fds, chains))) => set ++ fds }
@@ -48,7 +51,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
       reporter.debug("-+> Searching for structural size decrease")
 
       val (se1, se2s, _) = exprs(funDefs.head)
-      val structuralFormulas = checker.structuralDecreasing(se1, se2s)
+      val structuralFormulas = modules.structuralDecreasing(se1, se2s)
       val structuralDecreasing = structuralFormulas.exists(formula => definitiveALL(formula))
 
       reporter.debug("-+> Searching for numerical converging")
@@ -56,7 +59,7 @@ class ChainProcessor(val checker: TerminationChecker with ChainBuilder with Chai
       // worth checking multiple funDefs as the endpoint discovery can be context sensitive
       val numericDecreasing = funDefs.exists { fd =>
         val (ne1, ne2s, fdChains) = exprs(fd)
-        val numericFormulas = checker.numericConverging(ne1, ne2s, fdChains)
+        val numericFormulas = modules.numericConverging(ne1, ne2s, fdChains)
         numericFormulas.exists(formula => definitiveALL(formula))
       }
 

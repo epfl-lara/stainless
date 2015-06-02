@@ -10,7 +10,8 @@ import purescala.TypeOps._
 import purescala.Constructors._
 import purescala.Common._
 
-trait ChainComparator { self : StructuralSize with TerminationChecker =>
+trait ChainComparator { self : StructuralSize =>
+  val checker: TerminationChecker
 
   private object ContainerType {
     def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
@@ -175,8 +176,8 @@ trait ChainComparator { self : StructuralSize with TerminationChecker =>
         case NoEndpoint =>
           endpoint(thenn) min endpoint(elze)
         case ep =>
-          val terminatingThen = functionCallsOf(thenn).forall(fi => self.terminates(fi.tfd.fd).isGuaranteed)
-          val terminatingElze = functionCallsOf(elze).forall(fi => self.terminates(fi.tfd.fd).isGuaranteed)
+          val terminatingThen = functionCallsOf(thenn).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
+          val terminatingElze = functionCallsOf(elze).forall(fi => checker.terminates(fi.tfd.fd).isGuaranteed)
           val thenEndpoint = if (terminatingThen) ep max endpoint(thenn) else endpoint(thenn)
           val elzeEndpoint = if (terminatingElze) ep.inverse max endpoint(elze) else endpoint(elze)
           thenEndpoint max elzeEndpoint

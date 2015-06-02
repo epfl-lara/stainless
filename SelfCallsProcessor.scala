@@ -6,7 +6,7 @@ import purescala.Common._
 import purescala.Expressions._
 import purescala.Constructors._
 
-class SelfCallsProcessor(val checker: TerminationChecker with ChainBuilder with Strengthener with StructuralSize) extends Processor with Solvable {
+class SelfCallsProcessor(val checker: TerminationChecker) extends Processor {
 
   val name: String = "Self Calls Processor"
 

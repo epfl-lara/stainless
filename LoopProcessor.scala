@@ -10,16 +10,16 @@ import purescala.Constructors._
 
 import scala.collection.mutable.{Map => MutableMap}
 
-class LoopProcessor(val checker: TerminationChecker with ChainBuilder with Strengthener with StructuralSize, k: Int = 10) extends Processor with Solvable {
+class LoopProcessor(val checker: TerminationChecker, val modules: ChainBuilder with Strengthener with StructuralSize, k: Int = 10) extends Processor with Solvable {
 
   val name: String = "Loop Processor"
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening applications")
-    checker.strengthenApplications(problem.funSet)(this)
+    modules.strengthenApplications(problem.funSet)(this)
 
     reporter.debug("- Running ChainBuilder")
-    val chains : Set[Chain] = problem.funSet.flatMap(fd => checker.getChains(fd)(this)._2)
+    val chains : Set[Chain] = problem.funSet.flatMap(fd => modules.getChains(fd)(this)._2)
 
     reporter.debug("- Searching for loops")
     val nonTerminating: MutableMap[FunDef, Result] = MutableMap.empty

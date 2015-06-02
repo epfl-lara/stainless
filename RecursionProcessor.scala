@@ -8,7 +8,7 @@ import purescala.Common._
 
 import scala.annotation.tailrec
 
-class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) extends Processor {
+class RecursionProcessor(val checker: TerminationChecker, val rb: RelationBuilder) extends Processor {
 
   val name: String = "Recursion Processor"
 
@@ -24,7 +24,7 @@ class RecursionProcessor(val checker: TerminationChecker with RelationBuilder) e
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) None else {
     val funDef = problem.funDefs.head
-    val relations = checker.getRelations(funDef)
+    val relations = rb.getRelations(funDef)
     val (recursive, others) = relations.partition({ case Relation(_, _, FunctionInvocation(tfd, _), _) => tfd.fd == funDef })
 
     if (others.exists({ case Relation(_, _, FunctionInvocation(tfd, _), _) => !checker.terminates(tfd.fd).isGuaranteed })) {

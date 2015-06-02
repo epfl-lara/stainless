@@ -13,13 +13,15 @@ final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocat
   override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.tfd.id + call.args.mkString("(",",",")") + "," + inLambda + ")"
 }
 
-trait RelationBuilder { self: TerminationChecker with Strengthener =>
+trait RelationBuilder { self: Strengthener =>
+
+  val checker: TerminationChecker
 
   protected type RelationSignature = (FunDef, Option[Expr], Option[Expr], Option[Expr], Boolean, Set[(FunDef, Boolean)])
 
   protected def funDefRelationSignature(fd: FunDef): RelationSignature = {
-    val strengthenedCallees = self.program.callGraph.callees(fd).map(fd => fd -> strengthened(fd))
-    (fd, fd.precondition, fd.body, fd.postcondition, self.terminates(fd).isGuaranteed, strengthenedCallees)
+    val strengthenedCallees = checker.program.callGraph.callees(fd).map(fd => fd -> strengthened(fd))
+    (fd, fd.precondition, fd.body, fd.postcondition, checker.terminates(fd).isGuaranteed, strengthenedCallees)
   }
 
   private val relationCache : MutableMap[FunDef, (Set[Relation], RelationSignature)] = MutableMap.empty
@@ -42,7 +44,7 @@ trait RelationBuilder { self: TerminationChecker with Strengthener =>
         }
 
         def collect(e: Expr, path: Seq[Expr]): Option[Relation] = e match {
-          case fi @ FunctionInvocation(f, args) if self.functions(f.fd) =>
+          case fi @ FunctionInvocation(f, args) if checker.functions(f.fd) =>
             val flatPath = path flatMap {
               case And(es) => es
               case expr => Seq(expr)

@@ -113,12 +113,12 @@ final case class Chain(relations: List[Relation]) {
   lazy val inlined: Seq[Expr] = inlining.map(_._2)
 }
 
-trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Strengthener with RelationComparator =>
+trait ChainBuilder extends RelationBuilder { self: Strengthener with RelationComparator =>
 
   protected type ChainSignature = (FunDef, Set[RelationSignature])
 
   protected def funDefChainSignature(funDef: FunDef): ChainSignature = {
-    funDef -> (self.program.callGraph.transitiveCallees(funDef) + funDef).map(funDefRelationSignature)
+    funDef -> (checker.program.callGraph.transitiveCallees(funDef) + funDef).map(funDefRelationSignature)
   }
 
   private val chainCache : MutableMap[FunDef, (Set[FunDef], Set[Chain], ChainSignature)] = MutableMap.empty
@@ -153,7 +153,7 @@ trait ChainBuilder extends RelationBuilder { self: TerminationChecker with Stren
         val Relation(_, _, FunctionInvocation(tfd, _), _) :: _ = chain
         val fd = tfd.fd
 
-        if (!self.program.callGraph.transitivelyCalls(fd, funDef)) {
+        if (!checker.program.callGraph.transitivelyCalls(fd, funDef)) {
           Set.empty[FunDef] -> Set.empty[Chain]
         } else if (fd == funDef) {
           Set.empty[FunDef] -> Set(Chain(chain.reverse))

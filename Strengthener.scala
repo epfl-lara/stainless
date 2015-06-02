@@ -12,16 +12,18 @@ import purescala.Constructors._
 
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
-trait Strengthener { self : TerminationChecker with RelationComparator with RelationBuilder =>
+trait Strengthener { self : RelationComparator =>
+
+  val checker: TerminationChecker
 
   private val strengthenedPost : MutableSet[FunDef] = MutableSet.empty
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
     // Strengthen postconditions on all accessible functions by adding size constraints
-    val callees : Set[FunDef] = funDefs.map(fd => self.program.callGraph.transitiveCallees(fd)).flatten
-    val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => self.program.callGraph.transitivelyCalls(fd2, fd1))
+    val callees : Set[FunDef] = funDefs.map(fd => checker.program.callGraph.transitiveCallees(fd)).flatten
+    val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
 
-    for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && self.terminates(funDef).isGuaranteed) {
+    for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val old = funDef.postcondition
         val postcondition = {
@@ -79,10 +81,10 @@ trait Strengthener { self : TerminationChecker with RelationComparator with Rela
   }
 
   def strengthenApplications(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
-    val transitiveFunDefs = funDefs ++ funDefs.flatMap(fd => self.program.callGraph.transitiveCallees(fd))
-    val sortedFunDefs = transitiveFunDefs.toSeq.sortWith((fd1, fd2) => self.program.callGraph.transitivelyCalls(fd2, fd1))
+    val transitiveFunDefs = funDefs ++ funDefs.flatMap(fd => checker.program.callGraph.transitiveCallees(fd))
+    val sortedFunDefs = transitiveFunDefs.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
 
-    for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && self.terminates(funDef).isGuaranteed) {
+    for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
 
       val appCollector = new CollectorWithPaths[(Identifier,Expr,Seq[Expr])] {
         def collect(e: Expr, path: Seq[Expr]): Option[(Identifier, Expr, Seq[Expr])] = e match {
