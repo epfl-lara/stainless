@@ -146,12 +146,21 @@ object ParBalance {
     case Nil() => Nil()
   }
 
+  def size(list: List): BigInt = (list match {
+    case Nil() => 0
+    case Cons(h, t) => 1 + size(t)
+  }) ensuring (_ >= 0)
+
   def addLast(list: List, x: BigInt): List = {
     list match {
       case Cons(head, tail) => Cons(head, addLast(tail, x))
       case Nil() => Cons(x, Nil())
     }
-  } ensuring { res => lastOption(res) == Some(x) && init(res) == list }
+  } ensuring { res =>
+    lastOption(res) == Some(x) &&
+    init(res) == list &&
+    size(list) + 1 == size(res)
+  }
 
   def reverse(list: List): List = {
     list match {
@@ -160,7 +169,8 @@ object ParBalance {
     }
   } ensuring { res =>
     lastOption(res) == headOption(list) &&
-    lastOption(list) == headOption(res)
+    lastOption(list) == headOption(res) &&
+    size(res) == size(list)
   }
 
   def reverse_tail_equivalence(list: List): Boolean = {
@@ -181,10 +191,16 @@ object ParBalance {
     })
   }.holds
 
-  def reverse_reverse_equivalence(list: List): Boolean = {
+  // In order to prove that this function terminates, we cannot just say
+  // "it always calls itself with a sub-list of `list`", because `t2` is
+  // the tail of `reverse(list)`, not the tail of `list` directly.
+  // So we add another argument `s`, whose only purpose is to be
+  // always decreasing, so that the termination checker can prove termination.
+  def reverse_reverse_equivalence(s: BigInt, list: List): Boolean = {
+    require(size(list) == s)
     reverse(reverse(list)) == list && ((list, reverse(list)) match {
       case (Cons(h1, t1), Cons(h2, t2)) =>
-        reverse_reverse_equivalence(t1) && reverse_reverse_equivalence(t2)
+        reverse_reverse_equivalence(size(t1), t1) && reverse_reverse_equivalence(size(t2), t2)
       case _ => true
     })
   }.holds
