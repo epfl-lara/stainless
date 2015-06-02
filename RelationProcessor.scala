@@ -16,7 +16,7 @@ class RelationProcessor(
     val modules: RelationBuilder with RelationComparator with Strengthener with StructuralSize
   ) extends Processor with Solvable {
 
-  val name: String = "Relation Processor"
+  val name: String = "Relation Processor " + modules.comparisonMethod
 
   def run(problem: Problem) = {
     reporter.debug("- Strengthening postconditions")
