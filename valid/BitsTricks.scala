@@ -47,20 +47,17 @@ object BitsTricks {
     x ^ y ^ x
   } ensuring(res => res == y)
 
-
-  def turnOffRightmostOneRec(x: Int, index: Int): Int = {
-    require(index >= 0 && index < 32)
-    if(bitAt(x, index)) toggleBitN(x, index)//(x ^ (1 << index))
-    else if(index == 31) x
-    else turnOffRightmostOneRec(x, index + 1)
+  def turnOffRightmostOneRec(x: Int, indexFromLeft: Int): Int = {
+    require(0 <= indexFromLeft && indexFromLeft < 32)
+    if(bitAt(x, 31 - indexFromLeft)) toggleBitN(x, 31 - indexFromLeft)//(x ^ (1 << (31 - indexFromLeft)))
+    else if(indexFromLeft == 0) x
+    else turnOffRightmostOneRec(x, indexFromLeft - 1)
   }
 
-  /*
-   * loops forever on the proof
-   */
+  // proves in 10s
   def turnOffRightmostOne(x: Int): Int = {
     x & (x - 1)
-  } //ensuring(_ == turnOffRightmostOneRec(x, 0))
+  } //ensuring(_ == turnOffRightmostOneRec(x, 31))
 
   // 010100 -> 010111
   def rightPropagateRightmostOne(x: Int): Int = {
@@ -73,10 +70,9 @@ object BitsTricks {
   } ensuring(b => b)
 
   def isRotationLeft(x: Int, y: Int, n: Int, i: Int): Boolean = {
-    require(i >= 0 && i <= 32 && n >= 0 && n < 32)
-    if(i == 32) 
-      true 
-    else bitAt(x, i) == bitAt(y, (i + n) % 32) && isRotationLeft(x, y, n, i+1)
+    require(0 <= i && i < 32 && 0 <= n && n < 32)
+    val isOk = bitAt(x, i) == bitAt(y, (i + n) % 32)
+    if (i == 0) isOk else isOk && isRotationLeft(x, y, n, i-1)
   }
 
   //rotateLeft proves in 1 minute (on very powerful computer)
@@ -84,7 +80,7 @@ object BitsTricks {
     require(n >= 0 && n < 32)
     val front = x >>> (32 - n)
     (x << n) | front
-  } //ensuring(res => isRotationLeft(x, res, n, 0))
+  } //ensuring(res => isRotationLeft(x, res, n, 31))
 
   //careful with overflows, case definition, truncated
   def safeMean(x: Int, y: Int): Int = {
