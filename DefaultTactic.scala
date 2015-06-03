@@ -60,6 +60,10 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
                 VCKinds.ArrayUsage
               } else if (err.startsWith("Division ")) {
                 VCKinds.DivisionByZero
+              } else if (err.startsWith("Modulo ")) {
+                VCKinds.ModuloByZero
+              } else if (err.startsWith("Remainder ")) {
+                VCKinds.RemainderByZero
               } else {
                 VCKinds.Assert
               }

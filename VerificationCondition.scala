@@ -35,6 +35,8 @@ object VCKinds {
   case object MapUsage        extends VCKind("map usage", "map use")
   case object ArrayUsage      extends VCKind("array usage", "arr. use")
   case object DivisionByZero  extends VCKind("division by zero", "div 0")
+  case object ModuloByZero    extends VCKind("modulo by zero", "mod 0")
+  case object RemainderByZero extends VCKind("remainder by zero", "rem 0")
 }
 
 case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option[Long]) {

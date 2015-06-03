@@ -13,7 +13,7 @@ import xlang.Expressions._
 object InjectAsserts extends LeonPhase[Program, Program] {
 
   val name = "Asserts"
-  val description = "Inject asserts for various corrected conditions (map accesses, array accesses, ..)"
+  val description = "Inject asserts for various correctness conditions (map accesses, array accesses, divisions by zero,..)"
 
   def run(ctx: LeonContext)(pgm: Program): Program = {
     def indexUpTo(i: Expr, e: Expr) = {
@@ -40,9 +40,25 @@ object InjectAsserts extends LeonPhase[Program, Program] {
                       Some("Division by zero"),
                       e
                      ).setPos(e))
+        case e @ Remainder(_, d)  =>
+          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+                      Some("Remainder by zero"),
+                      e
+                     ).setPos(e))
+        case e @ Modulo(_, d)  =>
+          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+                      Some("Modulo by zero"),
+                      e
+                     ).setPos(e))
+
         case e @ BVDivision(_, d)  =>
           Some(Assert(Not(Equals(d, IntLiteral(0))),
                       Some("Division by zero"),
+                      e
+                     ).setPos(e))
+        case e @ BVRemainder(_, d)  =>
+          Some(Assert(Not(Equals(d, IntLiteral(0))),
+                      Some("Remainder by zero"),
                       e
                      ).setPos(e))
 
