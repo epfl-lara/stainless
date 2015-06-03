@@ -9,6 +9,7 @@ import purescala.ExprOps._
 import scala.concurrent.duration._
 
 import solvers._
+import solvers.combinators.PortfolioSolver
 import solvers.smtlib.SMTLIBCVC4QuantifiedSolver
 
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
@@ -33,10 +34,17 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         baseSolverF
     }
 
-    val isSMTQuantified = {
-      val solver = baseSolverF.getNewSolver
-      val res = solver.isInstanceOf[SMTLIBCVC4QuantifiedSolver]
-      solver.free
+    def isSMTQuantified[S <: Solver](sf: SolverFactory[S]): Boolean = {
+      val solver: S = sf.getNewSolver()
+      val res = solver match {
+        case _ : SMTLIBCVC4QuantifiedSolver =>
+          true
+        case ps: PortfolioSolver[_] =>
+          ps.solvers exists isSMTQuantified
+        case _ =>
+          false
+      }
+      solver.free()
       res
     }
 
@@ -45,7 +53,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     reporter.debug("Generating Verification Conditions...")
 
     try { 
-      val vcs = generateVCs(vctx, filterFuns, forceGrouped = isSMTQuantified)
+      val vcs = generateVCs(vctx, filterFuns, forceGrouped = isSMTQuantified(baseSolverF))
 
       reporter.debug("Checking Verification Conditions...")
 
