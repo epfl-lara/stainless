@@ -35,9 +35,21 @@ class ComplexTerminationChecker(context: LeonContext, program: Program) extends 
     val checker = ComplexTerminationChecker.this
   }
 
+  val modulesBV =
+        new StructuralSize
+       with BVRelationComparator
+       with ChainComparator
+       with Strengthener
+       with RelationBuilder
+       with ChainBuilder 
+  {
+    val checker = ComplexTerminationChecker.this
+  }
+
   def processors = List(
     new RecursionProcessor(this, modules),
     // RelationProcessor is the only Processor which benefits from trying a different RelationComparator
+    new RelationProcessor(this, modulesBV),
     new RelationProcessor(this, modules),
     new RelationProcessor(this, modulesLexicographic),
     new ChainProcessor(this, modules),

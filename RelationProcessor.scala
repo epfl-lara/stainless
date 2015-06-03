@@ -18,7 +18,9 @@ class RelationProcessor(
 
   val name: String = "Relation Processor " + modules.comparisonMethod
 
-  def run(problem: Problem) = {
+  def run(problem: Problem): Option[Seq[Result]] = {
+    if (!modules.isApplicableFor(problem)) return None
+    
     reporter.debug("- Strengthening postconditions")
     modules.strengthenPostconditions(problem.funSet)(this)
 
