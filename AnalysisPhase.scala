@@ -34,26 +34,12 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
         baseSolverF
     }
 
-    def isSMTQuantified[S <: Solver](sf: SolverFactory[S]): Boolean = {
-      val solver: S = sf.getNewSolver()
-      val res = solver match {
-        case _ : SMTLIBCVC4QuantifiedSolver =>
-          true
-        case ps: PortfolioSolver[_] =>
-          ps.solvers exists isSMTQuantified
-        case _ =>
-          false
-      }
-      solver.free()
-      res
-    }
-
     val vctx = VerificationContext(ctx, program, solverF, reporter)
 
     reporter.debug("Generating Verification Conditions...")
 
     try { 
-      val vcs = generateVCs(vctx, filterFuns, forceGrouped = isSMTQuantified(baseSolverF))
+      val vcs = generateVCs(vctx, filterFuns)
 
       reporter.debug("Checking Verification Conditions...")
 
@@ -63,14 +49,13 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     }
   }
 
-  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]], forceGrouped: Boolean = false): Seq[VC] = {
+  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Seq[VC] = {
 
     import vctx.reporter
     import vctx.program
 
     val defaultTactic   = new DefaultTactic(vctx)
     val inductionTactic = new InductionTactic(vctx)
-    val groupedTactic   = new GroupedTactic(vctx)
 
     def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
 
@@ -88,9 +73,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       }
 
       val tactic: Tactic =
-        if (forceGrouped) {
-          groupedTactic
-        } else if(funDef.annotations.contains("induct")) {
+        if (funDef.annotations.contains("induct")) {
           inductionTactic
         } else {
           defaultTactic
