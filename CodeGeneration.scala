@@ -591,7 +591,6 @@ trait CodeGeneration {
         }
 
         locally {
-          val argTypes = args.map(arg => typeToJVM(arg.getType))
 
           val apm = cf.addMethod("Ljava/lang/Object;", "apply", "[Ljava/lang/Object;")
 

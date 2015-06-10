@@ -213,7 +213,7 @@ class CompilationUnit(val ctx: LeonContext,
             case Some(cc: CaseClassDef) =>
               CaseClassType(cc, ct.tps)
             case _ =>
-              throw CompilationException("Unable to identify class "+cc.getClass.getName+" to descendent of "+ct)
+              throw CompilationException("Unable to identify class "+cc.getClass.getName+" to descendant of "+ct)
         }
       }
 
