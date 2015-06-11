@@ -402,20 +402,23 @@ class CompilationUnit(val ctx: LeonContext,
   /** Traverses the program to find all definitions, and stores those in global variables */
   def init() {
     // First define all classes/ methods/ functions
-    for (u <- program.units; m <- u.modules) {
-      val (parents, children) = m.algebraicDataTypes.toSeq.unzip
-      for ( cls <- parents ++ children.flatten ++ m.singleCaseClasses) {
+    for (u <- program.units) {
+
+      val (parents, children) = u.algebraicDataTypes.toSeq.unzip
+
+      for ( cls <- parents ++ children.flatten ++ u.singleCaseClasses) {
         defineClass(cls)
         for (meth <- cls.methods) {
           defToModuleOrClass += meth -> cls
         }
       }
      
-      defineClass(m)
-      for(funDef <- m.definedFunctions) {
-        defToModuleOrClass += funDef -> m
+      for (m <- u.modules) {
+        defineClass(m)
+        for(funDef <- m.definedFunctions) {
+          defToModuleOrClass += funDef -> m
+        }
       }
-      
     }
   }
 
