@@ -450,7 +450,7 @@ trait CodeGeneration {
         // list
       
       // Static lazy fields/ functions
-      case FunctionInvocation(tfd, as) =>
+      case fi @ FunctionInvocation(tfd, as) =>
         val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
           throw CompilationException("Unknown method : " + tfd.id)
         }
@@ -814,11 +814,9 @@ trait CodeGeneration {
         ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
       
       case nt @ NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
-        println("COMPILING "+nt+" TO "+simplestValue(tp))
         mkExpr(simplestValue(tp), ch)
         
       case nt @ NoTree(_) =>
-        println("COMPILING "+nt+" TO NULL")
         ch << ACONST_NULL
       
       case This(ct) =>
