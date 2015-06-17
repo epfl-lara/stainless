@@ -6,7 +6,7 @@ object Array4 {
 
   def foo(a: Array[Int]): Int = {
     val tmp = a.updated(0, 0)
-    42
+    tmp(0)
   }
 
 }
