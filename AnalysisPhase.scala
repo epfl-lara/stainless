@@ -150,7 +150,18 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
           VCResult(VCStatus.Cancelled, Some(s), Some(dt))
 
         case None =>
-          VCResult(VCStatus.Unknown, Some(s), Some(dt))
+          val status = s match {
+            case ts: TimeoutSolver =>
+              ts.optTimeout match {
+                case Some(t) if t < dt =>
+                  VCStatus.Timeout
+                case _ =>
+                  VCStatus.Unknown
+              }
+            case _ =>
+              VCStatus.Unknown
+          }
+          VCResult(status, Some(s), Some(dt))
 
         case Some(false) =>
           VCResult(VCStatus.Valid, Some(s), Some(dt))
