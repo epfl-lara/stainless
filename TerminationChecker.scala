@@ -7,7 +7,12 @@ import purescala.Definitions._
 import purescala.Expressions._
 import purescala.DefOps._
 
-abstract class TerminationChecker(val context: LeonContext, val program: Program) extends LeonComponent {
+abstract class TerminationChecker(val context: LeonContext, initProgram: Program) extends LeonComponent {
+  val program = {
+    val (pgm, _) = replaceFunDefs(initProgram){ fd => Some(fd.duplicate) }
+
+    pgm
+  }
 
   val functions = visibleFunDefsFromMain(program)
 

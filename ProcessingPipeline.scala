@@ -32,7 +32,7 @@ case class Cleared(funDef: FunDef) extends Result(funDef)
 case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
 case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
 
-abstract class ProcessingPipeline(context: LeonContext, program: Program) extends TerminationChecker(context, program) {
+abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) extends TerminationChecker(context, initProgram) {
   implicit val debugSection = utils.DebugSectionTermination
 
   import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}

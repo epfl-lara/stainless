@@ -24,7 +24,7 @@ object TerminationPhase extends LeonPhase[Program,TerminationReport] {
       filterInclusive(ctx.findOption(SharedOptions.optFunctions).map(fdMatcher), Some(excludeByDefault _))
     }
 
-    val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
+    val toVerify = tc.program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
 
     val results = toVerify.map { funDef =>
       funDef -> tc.terminates(funDef)

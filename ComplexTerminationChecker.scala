@@ -8,7 +8,7 @@ import purescala.Expressions._
 
 import scala.collection.mutable.{Map => MutableMap}
 
-class ComplexTerminationChecker(context: LeonContext, program: Program) extends ProcessingPipeline(context, program) {
+class ComplexTerminationChecker(context: LeonContext, initProgram: Program) extends ProcessingPipeline(context, initProgram) {
 
   val name = "Complex Termination Checker"
   val description = "A modular termination checker with a few basic modules™"
