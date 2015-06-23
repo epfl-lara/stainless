@@ -24,8 +24,12 @@ object InjectAsserts extends LeonPhase[Program, Program] {
       fd.body = fd.body.map(postMap { 
         case e @ ArraySelect(a, i)        =>
           Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
-        case e @ ArrayUpdated(a, i, _)    =>
-          Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
+        case e @ ArrayUpdated(a, i, v)    =>
+          Some(ArrayUpdated(
+            a,
+            Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), i).setPos(i),
+            v
+          ).setPos(e))
         case e @ ArrayUpdate(a, i, _)  =>
           Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
         case e @ MapGet(m,k) =>
