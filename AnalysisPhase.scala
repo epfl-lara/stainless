@@ -9,8 +9,6 @@ import purescala.ExprOps._
 import scala.concurrent.duration._
 
 import solvers._
-import solvers.combinators.PortfolioSolver
-import solvers.smtlib.SMTLIBCVC4QuantifiedSolver
 
 object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
   val name = "Analysis"
