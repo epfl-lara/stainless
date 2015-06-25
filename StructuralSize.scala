@@ -35,7 +35,7 @@ trait StructuralSize {
       Variable(x),
       uminus(Variable(x))
     ))
-    TypedFunDef(absFun, Seq()) // Seq() because no generic type params
+    absFun.typed
   }
   
   def size(expr: Expr) : Expr = {
