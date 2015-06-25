@@ -33,7 +33,7 @@ final case class Chain(relations: List[Relation]) {
     def rec(list: List[Relation], funDef: TypedFunDef, args: Seq[Expr]): Seq[(Seq[ValDef], Expr)] = list match {
       case Relation(_, _, fi @ FunctionInvocation(fitfd, nextArgs), _) :: xs =>
         val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
-        val subst = (tfd.params.map(_.id) zip args).toMap
+        val subst = tfd.paramSubst(args)
         val expr = replaceFromIDs(subst, hoistIte(expandLets(matchToIfThenElse(tfd.body.get))))
         val mappedArgs = nextArgs.map(e => replaceFromIDs(subst, tfd.translated(e)))
 
