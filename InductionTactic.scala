@@ -64,24 +64,27 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
           case fi @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (fi, tfd.precondition.get)
         }(body)
 
-        calls.flatMap {
-          case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
-            for (cct <- parentType.knownCCDescendents) yield {
-              val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
+        for {
+          ((fi@FunctionInvocation(tfd, args), pre), path) <- calls
+          cct <- parentType.knownCCDescendents
+        } yield {
+          val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
-              val subCases = selectors.map { sel =>
-                replace(Map(arg.toVariable -> sel),
-                  implies(precOrTrue(fd), replace((tfd.params.map(_.toVariable) zip args).toMap, pre))
-                )
-              }
+          val subCases = selectors.map { sel =>
+            replace(Map(arg.toVariable -> sel),
+              implies(precOrTrue(fd), replace((tfd.params.map(_.toVariable) zip args).toMap, pre))
+            )
+          }
 
-              val vc = implies(and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path), implies(andJoin(subCases), replace((tfd.params.map(_.toVariable) zip args).toMap, pre)))
+          val vc = implies(
+            andJoin(Seq(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path) ++ subCases),
+            replace((tfd.params.map(_.toVariable) zip args).toMap, pre)
+          )
 
-              // Crop the call to display it properly
-              val fiS = sizeLimit(fi.toString, 25)
+          // Crop the call to display it properly
+          val fiS = sizeLimit(fi.toString, 25)
 
-              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on ($arg : ${cct.classDef.id})"), this).setPos(fi)
-            }
+          VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on ($arg : ${cct.classDef.id})"), this).setPos(fi)
         }
 
       case (body, _) =>
