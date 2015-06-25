@@ -77,7 +77,7 @@ final case class Chain(relations: List[Relation]) {
 
     }
 
-    rec(relations, funDef.typedWithDef, (funDef.params.map(_.id) zip initialArgs).toMap)
+    rec(relations, funDef.typed, (funDef.params.map(_.id) zip initialArgs).toMap)
   }
 
   /*
