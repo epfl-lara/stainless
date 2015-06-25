@@ -81,7 +81,7 @@ trait Strengthener { self : RelationComparator =>
   }
 
   def strengthenApplications(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
-    val transitiveFunDefs = funDefs ++ funDefs.flatMap(fd => checker.program.callGraph.transitiveCallees(fd))
+    val transitiveFunDefs = funDefs ++ funDefs.flatMap(checker.program.callGraph.transitiveCallees)
     val sortedFunDefs = transitiveFunDefs.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
 
     for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
@@ -131,8 +131,11 @@ trait Strengthener { self : RelationComparator =>
 
       val invocations = fiCollector.traverse(funDef)
       val id2invocations : Seq[(Identifier, ((FunDef, Identifier), Expr, Seq[Expr]))] =
-        invocations.flatMap(p => p._3.map(c => c._1 -> ((c._2, p._1, p._2))))
-      val invocationMap  : Map[Identifier, Seq[((FunDef, Identifier), Expr, Seq[Expr])]] = 
+        for {
+          p <- invocations
+          c <- p._3
+        } yield c._1 -> (c._2, p._1, p._2)
+      val invocationMap: Map[Identifier, Seq[((FunDef, Identifier), Expr, Seq[Expr])]] =
         id2invocations.groupBy(_._1).mapValues(_.map(_._2))
 
       def constraint(id: Identifier, passings: Seq[((FunDef, Identifier), Expr, Seq[Expr])]): SizeConstraint = {

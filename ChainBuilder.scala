@@ -100,14 +100,14 @@ final case class Chain(relations: List[Relation]) {
     val tmap = that.relations.zipWithIndex.map(p => p._1.funDef -> p._2).groupBy(_._1).mapValues(_.map(_._2))
     val keys = map.keys.toSet & tmap.keys.toSet
 
-    keys.flatMap(fd => map(fd).flatMap { i1 =>
-      val (start1, end1) = relations.splitAt(i1)
-      val called = if (start1.isEmpty) relations.head.funDef else start1.last.call.tfd.fd
-      tmap(called).map { i2 =>
-        val (start2, end2) = that.relations.splitAt(i2)
-        Chain(start1 ++ end2 ++ start2 ++ end1)
-      }
-    })
+    for {
+      fd <- keys
+      i1 <- map(fd)
+      (start1, end1) = relations.splitAt(i1)
+      called = if (start1.isEmpty) relations.head.funDef else start1.last.call.tfd.fd
+      i2 <- tmap(called)
+      (start2, end2) = that.relations.splitAt(i2)
+    } yield Chain(start1 ++ end2 ++ start2 ++ end1)
   }
 
   lazy val inlined: Seq[Expr] = inlining.map(_._2)

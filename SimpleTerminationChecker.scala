@@ -31,7 +31,10 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
     v -> (0 until cSize).find(i => sccArray(i)(v)).get).toMap
 
   val sccGraph = (0 until cSize).map({ i =>
-    val dsts = sccArray(i).flatMap(v => callGraph.getOrElse(v, Set.empty)).map(funDefToSCCIndex(_))
+    val dsts = for {
+      v <- sccArray(i)
+      c <- callGraph.getOrElse(v, Set.empty)
+    } yield funDefToSCCIndex(c)
     i -> dsts
   }).toMap
 
