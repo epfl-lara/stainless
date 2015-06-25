@@ -28,13 +28,13 @@ trait StructuralSize {
       FreshIdentifier(name, alwaysShowUniqueID = true),
       Seq(), // no type params 
       tp, // return type
-      Seq(ValDef(x)),
-      DefType.MethodDef
+      Seq(ValDef(x))
     )
     absFun.body = Some(IfExpr(
-        GreaterEquals(Variable(x), zero),
-        Variable(x),
-        uminus(Variable(x))))
+      GreaterEquals(Variable(x), zero),
+      Variable(x),
+      uminus(Variable(x))
+    ))
     TypedFunDef(absFun, Seq()) // Seq() because no generic type params
   }
   
@@ -56,7 +56,7 @@ trait StructuralSize {
         case None =>
           val argument = ValDef(FreshIdentifier("x", argumentType, true))
           val formalTParams = typeParams.map(TypeParameterDef)
-          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, IntegerType, Seq(argument), DefType.MethodDef)
+          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, IntegerType, Seq(argument))
           sizeCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
