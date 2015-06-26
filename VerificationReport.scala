@@ -9,7 +9,6 @@ import VCStatus._
 import purescala.Definitions.FunDef
 
 case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
-  import scala.math.Ordering.Implicits._
 
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
     case (vc, or) => (vc, or.getOrElse(VCResult.unknown))
