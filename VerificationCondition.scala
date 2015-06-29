@@ -53,8 +53,8 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         reporter.info(" => VALID")
 
       case VCStatus.Invalid(cex) =>
-        reporter.error(" => INVALID")
-        reporter.error("Found counter-example:")
+        reporter.warning(" => INVALID")
+        reporter.warning("Found counter-example:")
 
         // We use PrettyPrinter explicitly and not ScalaPrinter: printing very
         // large arrays faithfully in ScalaPrinter is hard, while PrettyPrinter
@@ -67,10 +67,10 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
           val max = strings.map(_._1.size).max
 
           for ((id, v) <- strings) {
-            reporter.error(("  %-"+max+"s -> %s").format(id, v))
+            reporter.warning(("  %-"+max+"s -> %s").format(id, v))
           }
         } else {
-          reporter.error(f"  (Empty counter-example)")
+          reporter.warning(f"  (Empty counter-example)")
         }
       case _ =>
         reporter.warning(" => "+status.name.toUpperCase)
