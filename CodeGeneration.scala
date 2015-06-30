@@ -786,10 +786,7 @@ trait CodeGeneration {
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
 
-      case Choose(_, Some(e)) =>
-        mkExpr(e, ch)
-
-      case choose @ Choose(_, None) =>
+      case choose: Choose =>
         val prob = synthesis.Problem.fromChoose(choose)
 
         val id = runtime.ChooseEntryPoint.register(prob, this)
