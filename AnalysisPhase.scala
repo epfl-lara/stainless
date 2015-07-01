@@ -36,25 +36,6 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     reporter.debug("Generating Verification Conditions...")
 
-    try { 
-      val vcs = generateVCs(vctx, filterFuns)
-
-      reporter.debug("Checking Verification Conditions...")
-
-      checkVCs(vctx, vcs)
-    } finally {
-      solverF.shutdown()
-    }
-  }
-
-  def generateVCs(vctx: VerificationContext, filterFuns: Option[Seq[String]]): Seq[VC] = {
-
-    import vctx.reporter
-    import vctx.program
-
-    val defaultTactic   = new DefaultTactic(vctx)
-    val inductionTactic = new InductionTactic(vctx)
-
     def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
 
     val fdFilter = {
@@ -65,11 +46,29 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
 
     val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
 
-    val vcs = for(funDef <- toVerify) yield {
+    for(funDef <- toVerify) {
       if (excludeByDefault(funDef)) {
-        reporter.warning("Forcing verification of "+funDef.id.name+" which was assumed verified")
+        reporter.warning("Forcing verification of " + funDef.id.name + " which was assumed verified")
       }
+    }
 
+
+    try {
+      val vcs = generateVCs(vctx, toVerify)
+
+      reporter.debug("Checking Verification Conditions...")
+
+      checkVCs(vctx, vcs)
+    } finally {
+      solverF.shutdown()
+    }
+  }
+
+  def generateVCs(vctx: VerificationContext, toVerify: Seq[FunDef]): Seq[VC] = {
+    val defaultTactic   = new DefaultTactic(vctx)
+    val inductionTactic = new InductionTactic(vctx)
+
+    val vcs = for(funDef <- toVerify) yield {
       val tactic: Tactic =
         if (funDef.annotations.contains("induct")) {
           inductionTactic
