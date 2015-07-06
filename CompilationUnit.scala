@@ -36,12 +36,9 @@ class CompilationUnit(val ctx: LeonContext,
     val cName = defToJVMName(df)
 
     val cf = df match {
-      case ccd: CaseClassDef =>
-        val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
+      case cd: ClassDef =>
+        val pName = cd.parent.map(parent => defToJVMName(parent.classDef))
         new ClassFile(cName, pName)
-
-      case acd: AbstractClassDef =>
-        new ClassFile(cName, None)
 
       case ob: ModuleDef =>
         new ClassFile(cName, None)
@@ -393,9 +390,6 @@ class CompilationUnit(val ctx: LeonContext,
       ch  << RETURN
       ch.freeze
     }
-      
-    
-
   
   }
 
@@ -404,9 +398,7 @@ class CompilationUnit(val ctx: LeonContext,
     // First define all classes/ methods/ functions
     for (u <- program.units) {
 
-      val (parents, children) = u.algebraicDataTypes.toSeq.unzip
-
-      for ( cls <- parents ++ children.flatten ++ u.singleCaseClasses) {
+      for ( cls <- u.definedClassesOrdered ) {
         defineClass(cls)
         for (meth <- cls.methods) {
           defToModuleOrClass += meth -> cls
@@ -427,16 +419,13 @@ class CompilationUnit(val ctx: LeonContext,
     // Compile everything
     for (u <- program.units) {
       
-      for ((parent, children) <- u.algebraicDataTypes) {
-        compileAbstractClassDef(parent)
-
-        for (c <- children) {
-          compileCaseClassDef(c)
+      for (c <- u.definedClassesOrdered) {
+        c match {
+          case acd: AbstractClassDef =>
+            compileAbstractClassDef(acd)
+          case ccd: CaseClassDef =>
+            compileCaseClassDef(ccd)
         }
-      }
-
-      for(single <- u.singleCaseClasses) {
-        compileCaseClassDef(single)
       }
 
       for (m <- u.modules) compileModule(m)

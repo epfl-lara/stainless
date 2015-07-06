@@ -94,7 +94,9 @@ trait CodeGeneration {
     case UnitType => "Z"
 
     case c : ClassType =>
-      leonClassToJVMInfo(c.classDef).map { case (n, _) => "L" + n + ";" }.getOrElse("Unsupported class " + c.id)
+      leonClassToJVMInfo(c.classDef).map { case (n, _) => "L" + n + ";" }.getOrElse(
+        throw CompilationException("Unsupported class " + c.id)
+      )
 
     case _ : TupleType =>
       "L" + TupleClass + ";"
@@ -134,7 +136,6 @@ trait CodeGeneration {
    * @param owner The module/class that contains $funDef
    */  
   def compileFunDef(funDef : FunDef, owner : Definition) {
-    
     val isStatic = owner.isInstanceOf[ModuleDef]
     
     val cf = classes(owner)
@@ -153,7 +154,7 @@ trait CodeGeneration {
       mn,
       realParams : _*
     )
-    m.setFlags(( 
+    m.setFlags((
       if (isStatic)   
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL  |
@@ -263,7 +264,7 @@ trait CodeGeneration {
         }
         ch << InvokeSpecial(ccName, constructorName, ccApplySig)
 
-      case CaseClassInstanceOf(cct, e) =>
+      case IsInstanceOf(cct, e) =>
         val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
           throw CompilationException("Unknown class : " + cct.id)
         }
@@ -1025,7 +1026,7 @@ trait CodeGeneration {
         ch << Label(innerElse)
         mkBranch(e, thenn, elze, ch)
 
-      case cci@CaseClassInstanceOf(cct, e) =>
+      case cci@IsInstanceOf(cct, e) =>
         mkExpr(cci, ch)
         ch << IfEq(elze) << Goto(thenn)
 
@@ -1250,16 +1251,31 @@ trait CodeGeneration {
     }
     
     // definition of the constructor
-    if (fields.isEmpty && !params.doInstrument && !params.requireMonitor) cf.addDefaultConstructor else {
+    locally {
       
       val constrParams = if (params.requireMonitor) {
         Seq("L" + MonitorClass + ";")
       } else Seq()
       
       val cch = cf.addConstructor(constrParams : _*).codeHandler
-      // Abstract classes are hierarchy roots, so call java.lang.Object constructor
+
+      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false) }
+      for (field <- strictFields) { initStrictField(cch, cName, field, false)}
+
+      // Call parent constructor
       cch << ALoad(0)
-      cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+      acd.parent match {
+        case Some(parent) =>
+          val pName = defToJVMName(parent.classDef)
+          // Load monitor object
+          if (params.requireMonitor) cch << ALoad(1)
+          val constrSig = if (params.requireMonitor) "(L" + MonitorClass + ";)V" else "()V"
+          cch << InvokeSpecial(pName, constructorName, constrSig)
+
+        case None =>
+          // Call constructor of java.lang.Object
+          cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+      }
       
       // Initialize special monitor field
       if (params.doInstrument) {
@@ -1267,10 +1283,7 @@ trait CodeGeneration {
         cch << Ldc(0)
         cch << PutField(cName, instrumentedField, "I")
       }
-      
-      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false) }
-      for (field <- strictFields) { initStrictField(cch, cName, field, false)}
- 
+
       cch << RETURN
       cch.freeze
     }
