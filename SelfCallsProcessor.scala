@@ -53,7 +53,7 @@ class SelfCallsProcessor(val checker: TerminationChecker) extends Processor {
       case Not(expr: Expr) => rec(expr)
       case Equals(lhs: Expr, rhs: Expr) => rec(lhs) || rec(rhs)
       case CaseClass(ct, args: Seq[Expr]) => args.exists(arg => rec(arg)) 
-      case CaseClassInstanceOf(ct, expr: Expr) => rec(expr)
+      case IsInstanceOf(ct, expr: Expr) => rec(expr)
       case CaseClassSelector(ct, caseClassExpr, selector) => rec(caseClassExpr)
       case Plus(lhs: Expr, rhs: Expr) => rec(lhs) || rec(rhs)
       case Minus(lhs: Expr, rhs: Expr) => rec(lhs) || rec(rhs)
