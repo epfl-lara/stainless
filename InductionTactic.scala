@@ -40,7 +40,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
           }
 
           val vc = implies(
-            and(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd)), 
+            and(IsInstanceOf(cct, arg.toVariable), precOrTrue(fd)),
             implies(andJoin(subCases), application(post, Seq(body)))
           )
 
@@ -77,7 +77,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
           }
 
           val vc = implies(
-            andJoin(Seq(CaseClassInstanceOf(cct, arg.toVariable), precOrTrue(fd), path) ++ subCases),
+            andJoin(Seq(IsInstanceOf(cct, arg.toVariable), precOrTrue(fd), path) ++ subCases),
             tfd.withParamSubst(args, pre)
           )
 
