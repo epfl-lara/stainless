@@ -64,8 +64,8 @@ class SimpleTerminationChecker(context: LeonContext, program: Program) extends T
 
     // We check all functions that are in a "lower" scc. These must
     // terminate for all inputs in any case.
-    val sccLowerCallees = sccCallees.filterNot(_ == sccIndex)
-    val lowerDefs = sccLowerCallees.map(sccArray(_)).foldLeft(Set.empty[FunDef])(_ ++ _)
+    val sccLowerCallees = sccCallees - sccIndex
+    val lowerDefs = sccLowerCallees.flatMap(sccArray(_))
     val lowerOK = lowerDefs.forall(terminates(_).isGuaranteed)
     if (!lowerOK)
       return NoGuarantee

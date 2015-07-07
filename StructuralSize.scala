@@ -69,8 +69,7 @@ trait StructuralSize {
       }
     }
 
-    def caseClassType2MatchCase(_c: ClassType): MatchCase = {
-      val c = _c.asInstanceOf[CaseClassType] // required by leon framework
+    def caseClassType2MatchCase(c: CaseClassType): MatchCase = {
       val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name, vd.getType))
       val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
       val sizes = arguments.map(id => size(Variable(id)))
