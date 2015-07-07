@@ -9,9 +9,7 @@ import purescala.Expressions._
 import purescala.ExprOps.{simplestValue, matchToIfThenElse}
 import purescala.Types._
 import purescala.Constructors._
-import purescala.TypeOps.instantiateType
 import purescala.Extractors._
-import utils._
 
 import cafebabe._
 import cafebabe.AbstractByteCodes._
