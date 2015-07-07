@@ -45,10 +45,10 @@ trait StructuralSize {
         case (cct : CaseClassType) if cct.parent.isDefined =>
           val classDef = cct.parent.get.classDef
           val tparams = classDef.tparams.map(_.tp)
-          (classDefToClassType(classDef, tparams), tparams)
+          (classDef typed tparams, tparams)
         case (ct : ClassType) =>
           val tparams = ct.classDef.tparams.map(_.tp)
-          (classDefToClassType(ct.classDef, tparams), tparams)
+          (ct.classDef typed tparams, tparams)
       }
 
       sizeCache.get(argumentType) match {
