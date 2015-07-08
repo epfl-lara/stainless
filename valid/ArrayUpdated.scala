@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object Test {
+object ArrayUpdated {
 
   def test(a: Array[Int]): Int = {
     require(a.length > 0)

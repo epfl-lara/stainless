@@ -2,7 +2,7 @@
 
 import leon.lang._
 
-object FiniteSorting {
+object FiniteSort {
 
   // These finite sorting functions essentially implement insertion sort.
   def sort2(x : Int, y : Int) : (Int,Int) = {

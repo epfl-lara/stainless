@@ -1,7 +1,8 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
 import leon.lang._
-object Numerals {
+
+object ArrayLiterals {
   def foo(): Int = {
     val b : Array[Int] = Array[Int](1,2,3)
     val a : Array[Int] = Array(1,2,3)

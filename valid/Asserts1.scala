@@ -4,7 +4,7 @@ import leon.lang._
 import leon.annotation._
 import leon._
 
-object Operators {
+object Asserts1 {
 
   def foo(a: BigInt): BigInt = {
     require(a > 0)
