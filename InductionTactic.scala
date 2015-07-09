@@ -30,7 +30,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
   override def generatePostconditions(fd: FunDef): Seq[VC] = {
     (fd.body, firstAbsClassDef(fd.params), fd.postcondition) match {
       case (Some(body), Some((parentType, arg)), Some(post)) =>
-        for (cct <- parentType.knownCCDescendents) yield {
+        for (cct <- parentType.knownCCDescendants) yield {
           val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
           val subCases = selectors.map { sel =>
@@ -66,7 +66,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
         for {
           ((fi@FunctionInvocation(tfd, args), pre), path) <- calls
-          cct <- parentType.knownCCDescendents
+          cct <- parentType.knownCCDescendants
         } yield {
           val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
 
