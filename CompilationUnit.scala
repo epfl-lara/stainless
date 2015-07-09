@@ -398,7 +398,10 @@ class CompilationUnit(val ctx: LeonContext,
     // First define all classes/ methods/ functions
     for (u <- program.units) {
 
-      for ( cls <- u.definedClassesOrdered ) {
+      for {
+        ch  <- u.classHierarchies
+        cls <- ch
+      } {
         defineClass(cls)
         for (meth <- cls.methods) {
           defToModuleOrClass += meth -> cls
@@ -419,7 +422,10 @@ class CompilationUnit(val ctx: LeonContext,
     // Compile everything
     for (u <- program.units) {
       
-      for (c <- u.definedClassesOrdered) {
+      for {
+        ch <- u.classHierarchies
+        c  <- ch
+      } {
         c match {
           case acd: AbstractClassDef =>
             compileAbstractClassDef(acd)
