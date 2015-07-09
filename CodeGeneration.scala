@@ -57,6 +57,7 @@ trait CodeGeneration {
     def apply(isStatic : Boolean) = new Locals(Map(), Map(), Map(), isStatic)
   }
 
+  private[codegen] val ObjectClass               = "java/lang/Object"
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
   private[codegen] val BoxedCharClass            = "java/lang/Character"
@@ -115,7 +116,7 @@ trait CodeGeneration {
       "[" + typeToJVM(base)
 
     case TypeParameter(_) =>
-      "Ljava/lang/Object;"
+      s"L$ObjectClass;"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -281,20 +282,20 @@ trait CodeGeneration {
       case Tuple(es) =>
         ch << New(TupleClass) << DUP
         ch << Ldc(es.size)
-        ch << NewArray("java/lang/Object")
+        ch << NewArray(s"$ObjectClass")
         for((e,i) <- es.zipWithIndex) {
           ch << DUP
           ch << Ldc(i)
           mkBoxedExpr(e, ch)
           ch << AASTORE
         }
-        ch << InvokeSpecial(TupleClass, constructorName, "([Ljava/lang/Object;)V")
+        ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
 
       case TupleSelect(t, i) =>
         val TupleType(bs) = t.getType
         mkExpr(t,ch)
         ch << Ldc(i - 1)
-        ch << InvokeVirtual(TupleClass, "get", "(I)Ljava/lang/Object;")
+        ch << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
         mkUnbox(bs(i - 1), ch)
 
       // Sets
@@ -303,13 +304,13 @@ trait CodeGeneration {
         for(e <- es) {
           ch << DUP
           mkBoxedExpr(e, ch)
-          ch << InvokeVirtual(SetClass, "add", "(Ljava/lang/Object;)V")
+          ch << InvokeVirtual(SetClass, "add", s"(L$ObjectClass;)V")
         }
 
       case ElementOfSet(e, s) =>
         mkExpr(s, ch)
         mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(SetClass, "contains", "(Ljava/lang/Object;)Z")
+        ch << InvokeVirtual(SetClass, "contains", s"(L$ObjectClass;)Z")
 
       case SetCardinality(s) =>
         mkExpr(s, ch)
@@ -342,20 +343,20 @@ trait CodeGeneration {
           ch << DUP
           mkBoxedExpr(f, ch)
           mkBoxedExpr(t, ch)
-          ch << InvokeVirtual(MapClass, "add", "(Ljava/lang/Object;Ljava/lang/Object;)V")
+          ch << InvokeVirtual(MapClass, "add", s"(L$ObjectClass;L$ObjectClass;)V")
         }
 
       case MapGet(m, k) =>
         val MapType(_, tt) = m.getType
         mkExpr(m, ch)
         mkBoxedExpr(k, ch)
-        ch << InvokeVirtual(MapClass, "get", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        ch << InvokeVirtual(MapClass, "get", s"(L$ObjectClass;)L$ObjectClass;")
         mkUnbox(tt, ch)
 
       case MapIsDefinedAt(m, k) =>
         mkExpr(m, ch)
         mkBoxedExpr(k, ch)
-        ch << InvokeVirtual(MapClass, "isDefinedAt", "(Ljava/lang/Object;)Z")
+        ch << InvokeVirtual(MapClass, "isDefinedAt", s"(L$ObjectClass;)Z")
 
       case MapUnion(m1, m2) =>
         mkExpr(m1, ch)
@@ -397,7 +398,6 @@ trait CodeGeneration {
         
       case FunctionInvocation(TypedFunDef(fd, Seq(tp)), Seq(set)) if fd == program.library.setToList.get =>
 
-        val ObjectClass = "java/lang/Object"
         val IteratorClass = "java/util/Iterator"
         val nil = CaseClass(CaseClassType(program.library.Nil.get, Seq(tp)), Seq())
         val cons = program.library.Cons.get
@@ -532,14 +532,14 @@ trait CodeGeneration {
 
       case app @ Application(caller, args) =>
         mkExpr(caller, ch)
-        ch << Ldc(args.size) << NewArray("java/lang/Object")
+        ch << Ldc(args.size) << NewArray(s"$ObjectClass")
         for ((arg,i) <- args.zipWithIndex) {
           ch << DUP << Ldc(i)
           mkBoxedExpr(arg, ch)
           ch << AASTORE
         }
 
-        ch << InvokeVirtual(LambdaClass, "apply", "([Ljava/lang/Object;)Ljava/lang/Object;")
+        ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
         mkUnbox(app.getType, ch)
 
       case l @ Lambda(args, body) =>
@@ -590,7 +590,7 @@ trait CodeGeneration {
 
         locally {
 
-          val apm = cf.addMethod("Ljava/lang/Object;", "apply", "[Ljava/lang/Object;")
+          val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
 
           apm.setFlags((
             METHOD_ACC_PUBLIC |
@@ -752,7 +752,7 @@ trait CodeGeneration {
         ch << Ldc(0) << SWAP //srcArray, 0, targetArray
         ch << DUP << ARRAYLENGTH //targetArray, length on stack
         ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
-        ch << InvokeStatic("java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V")
+        ch << InvokeStatic("java/lang/System", "arraycopy", s"(L$ObjectClass;IL$ObjectClass;II)V")
 
         //targetArray remains on the stack
         ch << DUP
@@ -792,7 +792,7 @@ trait CodeGeneration {
 
 
         ch << Ldc(prob.as.size)
-        ch << NewArray("java/lang/Object")
+        ch << NewArray(ObjectClass)
 
         for ((id, i) <- prob.as.zipWithIndex) {
           ch << DUP
@@ -802,14 +802,14 @@ trait CodeGeneration {
           ch << AASTORE
         }
 
-        ch << InvokeStatic(ChooseEntryPointClass, "invoke", "(I[Ljava/lang/Object;)Ljava/lang/Object;")
+        ch << InvokeStatic(ChooseEntryPointClass, "invoke", s"(I[L$ObjectClass;)L$ObjectClass;")
 
         mkUnbox(choose.getType, ch)
 
       case gv @ GenericValue(tp, int) =>
         val id = runtime.GenericValues.register(gv)
         ch << Ldc(id)
-        ch << InvokeStatic(GenericValuesClass, "get", "(I)Ljava/lang/Object;")
+        ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
       
       case nt @ NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
         mkExpr(simplestValue(tp), ch)
@@ -966,7 +966,7 @@ trait CodeGeneration {
             ch << If_ICmpEq(thenn) << Goto(elze)
 
           case _ =>
-            ch << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z")
+            ch << InvokeVirtual(s"$ObjectClass", "equals", s"(L$ObjectClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1271,7 +1271,7 @@ trait CodeGeneration {
 
         case None =>
           // Call constructor of java.lang.Object
-          cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+          cch << InvokeSpecial(ObjectClass, constructorName, "()V")
       }
       
       // Initialize special monitor field
@@ -1419,7 +1419,7 @@ trait CodeGeneration {
         } else {
           // Call constructor of java.lang.Object
           cch << ALoad(0)
-          cch << InvokeSpecial("java/lang/Object", constructorName, "()V")
+          cch << InvokeSpecial(ObjectClass, constructorName, "()V")
         }
 
         
@@ -1460,7 +1460,7 @@ trait CodeGeneration {
     }
 
     locally {
-      val pem = cf.addMethod("[Ljava/lang/Object;", "productElements")
+      val pem = cf.addMethod(s"[L$ObjectClass;", "productElements")
       pem.setFlags((
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL
@@ -1469,7 +1469,7 @@ trait CodeGeneration {
       val pech = pem.codeHandler
 
       pech << Ldc(ccd.fields.size)
-      pech << NewArray("java/lang/Object")
+      pech << NewArray(ObjectClass)
 
       for ((f, i) <- ccd.fields.zipWithIndex) {
         pech << DUP
@@ -1490,7 +1490,7 @@ trait CodeGeneration {
 
     // definition of equals
     locally {
-      val emh = cf.addMethod("Z", "equals", "Ljava/lang/Object;")
+      val emh = cf.addMethod("Z", "equals", s"L$ObjectClass;")
       emh.setFlags((
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL
@@ -1527,7 +1527,7 @@ trait CodeGeneration {
               ech << If_ICmpNe(notEq)
 
             case ot =>
-              ech << InvokeVirtual("java/lang/Object", "equals", "(Ljava/lang/Object;)Z") << IfEq(notEq)
+              ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
           }
         }
       } 
@@ -1554,10 +1554,10 @@ trait CodeGeneration {
       hch << IfEq(wasNotCached)
       hch << IRETURN
       hch << Label(wasNotCached) << POP
-      hch << ALoad(0) << InvokeVirtual(cName, "productElements", "()[Ljava/lang/Object;")
+      hch << ALoad(0) << InvokeVirtual(cName, "productElements", s"()[L$ObjectClass;")
       hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
       hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
-      hch << InvokeStatic(HashingClass, "seqHash", "([Ljava/lang/Object;I)I") << DUP
+      hch << InvokeStatic(HashingClass, "seqHash", s"([L$ObjectClass;I)I") << DUP
       hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I") 
       hch << IRETURN
       
