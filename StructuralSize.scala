@@ -41,15 +41,9 @@ trait StructuralSize {
   def size(expr: Expr) : Expr = {
     def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
       // we want to reuse generic size functions for sub-types
-      val (argumentType, typeParams) = ct match {
-        case (cct : CaseClassType) if cct.parent.isDefined =>
-          val classDef = cct.parent.get.classDef
-          val tparams = classDef.tparams.map(_.tp)
-          (classDef typed tparams, tparams)
-        case (ct : ClassType) =>
-          val tparams = ct.classDef.tparams.map(_.tp)
-          (ct.classDef typed tparams, tparams)
-      }
+      val classDef = ct.root.classDef
+      val argumentType = classDef.typed
+      val typeParams = classDef.tparams.map(_.tp)
 
       sizeCache.get(argumentType) match {
         case Some(fd) => fd
