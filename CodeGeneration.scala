@@ -521,8 +521,7 @@ trait CodeGeneration {
           }
         }
        
-        // No dynamic dispatching/overriding in Leon, 
-        // so no need to take care of own vs. "super" methods
+        // No interfaces in Leon, so no need to use InvokeInterface
         ch << InvokeVirtual(className, methodName, sig) 
   
         (tfd.fd.returnType, tfd.returnType) match {
