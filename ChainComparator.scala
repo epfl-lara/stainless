@@ -17,7 +17,7 @@ trait ChainComparator { self : StructuralSize =>
     def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
       case cct @ CaseClassType(ccd, _) =>
         if (cct.fields.exists(arg => isSubtypeOf(arg.getType, cct.root))) None
-        else if (ccd.hasParent && ccd.parent.get.knownDescendents.size > 1) None
+        else if (ccd.hasParent && ccd.parent.get.knownDescendants.size > 1) None
         else Some((cct, cct.fields.map(arg => arg.id -> arg.getType)))
       case _ => None
     }

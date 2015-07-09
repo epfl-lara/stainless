@@ -74,7 +74,7 @@ trait StructuralSize {
     expr.getType match {
       case (ct: ClassType) =>
         val fd = funDef(ct, {
-          case (act: AbstractClassType) => act.knownCCDescendents map caseClassType2MatchCase
+          case (act: AbstractClassType) => act.knownCCDescendants map caseClassType2MatchCase
           case (cct: CaseClassType) => Seq(caseClassType2MatchCase(cct))
         })
         FunctionInvocation(TypedFunDef(fd, ct.tps), Seq(expr))
