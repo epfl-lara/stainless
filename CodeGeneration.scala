@@ -67,6 +67,7 @@ trait CodeGeneration {
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
   private[codegen] val BigIntClass               = "leon/codegen/runtime/BigInt"
+  private[codegen] val RealClass                 = "leon/codegen/runtime/Real"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
@@ -108,6 +109,9 @@ trait CodeGeneration {
 
     case IntegerType =>
       "L" + BigIntClass + ";"
+
+    case RealType =>
+      "L" + RealClass + ";"
 
     case _ : FunctionType =>
       "L" + LambdaClass + ";"
@@ -197,7 +201,7 @@ trait CodeGeneration {
       case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case IntegerType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
+      case IntegerType | RealType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
         ch << ARETURN
 
       case other =>
@@ -244,6 +248,11 @@ trait CodeGeneration {
         ch << New(BigIntClass) << DUP
         ch << Ldc(v.toString)
         ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
+
+      case RealLiteral(v) =>
+        ch << New(RealClass) << DUP
+        ch << Ldc(v.toString)
+        ch << InvokeSpecial(RealClass, constructorName, "(Ljava/lang/String;)V")
 
       // Case classes
       case CaseClass(cct, as) =>
@@ -656,6 +665,31 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
 
+      case RealPlus(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << InvokeVirtual(RealClass, "add", s"(L$RealClass;)L$RealClass;")
+
+      case RealMinus(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << InvokeVirtual(RealClass, "sub", s"(L$RealClass;)L$RealClass;")
+
+      case RealTimes(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << InvokeVirtual(RealClass, "mult", s"(L$RealClass;)L$RealClass;")
+
+      case RealDivision(l, r) =>
+        mkExpr(l, ch)
+        mkExpr(r, ch)
+        ch << InvokeVirtual(RealClass, "div", s"(L$RealClass;)L$RealClass;")
+
+      case RealUMinus(e) =>
+        mkExpr(e, ch)
+        ch << InvokeVirtual(RealClass, "neg", s"()L$RealClass;")
+
+
       //BV arithmetic
       case BVPlus(l, r) =>
         mkExpr(l, ch)
@@ -905,6 +939,9 @@ trait CodeGeneration {
       case IntegerType =>
         ch << CheckCast(BigIntClass)
 
+      case RealType =>
+        ch << CheckCast(RealClass)
+
       case tt : TupleType =>
         ch << CheckCast(TupleClass)
 
@@ -979,6 +1016,9 @@ trait CodeGeneration {
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
+          case RealType =>
+            ch << InvokeVirtual(RealClass, "lessThan", s"(L$RealClass;)Z")
+            ch << IfEq(elze) << Goto(thenn)
         }
 
       case GreaterThan(l,r) =>
@@ -989,6 +1029,9 @@ trait CodeGeneration {
             ch << If_ICmpGt(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
+            ch << IfEq(elze) << Goto(thenn)
+          case RealType =>
+            ch << InvokeVirtual(RealClass, "greaterThan", s"(L$RealClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
 
@@ -1001,6 +1044,9 @@ trait CodeGeneration {
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
+          case RealType =>
+            ch << InvokeVirtual(RealClass, "lessEquals", s"(L$RealClass;)Z")
+            ch << IfEq(elze) << Goto(thenn)
         }
 
       case GreaterEquals(l,r) =>
@@ -1011,6 +1057,9 @@ trait CodeGeneration {
             ch << If_ICmpGe(thenn) << Goto(elze) 
           case IntegerType =>
             ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
+            ch << IfEq(elze) << Goto(thenn)
+          case RealType =>
+            ch << InvokeVirtual(RealClass, "greaterEquals", s"(L$RealClass;)Z")
             ch << IfEq(elze) << Goto(thenn)
         }
   
@@ -1141,7 +1190,7 @@ trait CodeGeneration {
           // Since the underlying field only has boxed types, we have to unbox them to return them
           mkUnbox(lzy.returnType, ch)(NoLocals(isStatic)) 
           ch << IRETURN      
-        case IntegerType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
+        case IntegerType | RealType |  _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
           ch << ARETURN
         case other => throw CompilationException("Unsupported return type : " + other.getClass)
       }

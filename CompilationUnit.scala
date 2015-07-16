@@ -191,6 +191,10 @@ class CompilationUnit(val ctx: LeonContext,
     case (c: runtime.BigInt, IntegerType) =>
       InfiniteIntegerLiteral(BigInt(c.underlying))
 
+    case (c: runtime.Real, RealType) =>
+      RealLiteral(BigDecimal(c.underlying))
+
+
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
 
@@ -312,7 +316,7 @@ class CompilationUnit(val ctx: LeonContext,
       case Int32Type | BooleanType | UnitType =>
         ch << IRETURN
 
-      case IntegerType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
+      case IntegerType | RealType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
         ch << ARETURN
 
       case other =>
