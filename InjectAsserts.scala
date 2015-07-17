@@ -62,6 +62,12 @@ object InjectAsserts extends LeonPhase[Program, Program] {
                       e
                      ).setPos(e))
 
+        case e @ RealDivision(_, d)  =>
+          Some(Assert(Not(Equals(d, RealLiteral(0))),
+                      Some("Division by zero"),
+                      e
+                     ).setPos(e))
+
         case _ =>
           None
       }) 
