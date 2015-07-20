@@ -16,7 +16,7 @@ object BasicReal {
 
   def divBy2(x: Real): Boolean = {
     x/Real(2) == x*Real(1,2)
-  } holds
+  }.holds
 
   def twice(x: Real): Real = {
     require(x > Real(0))
