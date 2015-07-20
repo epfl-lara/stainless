@@ -11,7 +11,6 @@ abstract class Tactic(vctx: VerificationContext) {
   val description : String
 
   def generateVCs(fd: FunDef): Seq[VC] = {
-    fd.fullBody = matchToIfThenElse(fd.fullBody)
     generatePostconditions(fd) ++
     generatePreconditions(fd) ++
     generateCorrectnessConditions(fd)
