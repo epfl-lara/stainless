@@ -161,10 +161,10 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
           VCResult(status, Some(s), Some(dt))
 
         case Some(false) =>
-          VCResult(VCStatus.Valid, Some(s), Some(dt))
+          VCResult(VCStatus.Valid, s.getResultSolver, Some(dt))
 
         case Some(true) =>
-          VCResult(VCStatus.Invalid(s.getModel), Some(s), Some(dt))
+          VCResult(VCStatus.Invalid(s.getModel), s.getResultSolver, Some(dt))
       }
 
       reporter.synchronized {
