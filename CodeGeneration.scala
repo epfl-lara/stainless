@@ -53,7 +53,7 @@ trait CodeGeneration {
   }
   
   object NoLocals {
-    /** Make a $Locals object without any local variables */
+    /** Make a [[Locals]] object without any local variables */
     def apply(isStatic : Boolean) = new Locals(Map(), Map(), Map(), isStatic)
   }
 
@@ -136,7 +136,7 @@ trait CodeGeneration {
   /**
    * Compiles a function/method definition.
    * @param funDef The function definition to be compiled
-   * @param owner The module/class that contains $funDef
+   * @param owner The module/class that contains `funDef`
    */  
   def compileFunDef(funDef : FunDef, owner : Definition) {
     val isStatic = owner.isInstanceOf[ModuleDef]
@@ -1105,8 +1105,7 @@ trait CodeGeneration {
     }
   }
 
-  /**
-    * Compiles a lazy field $lzy, owned by the module/ class $owner.
+  /** Compiles a lazy field.
     * 
     * To define a lazy field, we have to add an accessor method and an underlying field.
     * The accessor method has the name of the original (Scala) lazy field and can be public.
@@ -1114,7 +1113,7 @@ trait CodeGeneration {
     * to support null value (to signify uninitialized). 
     * 
     * @param lzy The lazy field to be compiled
-    * @param owner The module/class containing $lzy
+    * @param owner The module/class containing `lzy`
     */
   def compileLazyField(lzy : FunDef, owner : Definition) { 
     ctx.reporter.internalAssertion(lzy.canBeLazyField, s"Trying to compile non-lazy ${lzy.id.name} as a lazy field")
@@ -1198,7 +1197,7 @@ trait CodeGeneration {
     }
   }
     
-  /** Compile the (strict) field $field which is owned by class $owner */
+  /** Compile the (strict) field `field` which is owned by class `owner` */
   def compileStrictField(field : FunDef, owner : Definition) = {
 
     ctx.reporter.internalAssertion(field.canBeStrictField, 

@@ -421,7 +421,10 @@ class CompilationUnit(val ctx: LeonContext,
     }
   }
 
-  /** Compiles the program. Uses information provided by $init */
+  /** Compiles the program. 
+    *
+    * Uses information provided by [[init]].
+    */
   def compile() {
     // Compile everything
     for (u <- program.units) {
