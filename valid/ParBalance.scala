@@ -147,8 +147,8 @@ object ParBalance {
   }
 
   def size(list: List): BigInt = (list match {
-    case Nil() => 0
-    case Cons(h, t) => 1 + size(t)
+    case Nil() => BigInt(0)
+    case Cons(h, t) => BigInt(1) + size(t)
   }) ensuring (_ >= 0)
 
   def addLast(list: List, x: BigInt): List = {
