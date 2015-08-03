@@ -257,6 +257,17 @@ class CompilationUnit(val ctx: LeonContext,
     case (_, UnitType) =>
       UnitLiteral()
 
+    case (ar: Array[_], ArrayType(base)) =>
+      if (ar.length == 0) {
+        EmptyArray(base)
+      } else {
+        val elems = for ((e: AnyRef, i) <- ar.zipWithIndex) yield {
+          i -> jvmToExpr(e, base)
+        }
+
+        NonemptyArray(elems.toMap, None)
+      }
+
     case _ =>
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
   }

@@ -805,9 +805,14 @@ trait CodeGeneration {
           case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
           case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
         }
-        for((i, e) <- elems) {
+
+        for (i <- 0 until l) {
+          val v = elems.get(i).orElse(default).getOrElse {
+            throw CompilationException(s"No valuation for key '$i' in array")
+          } 
+
           ch << DUP << Ldc(i)
-          mkExpr(e, ch) 
+          mkExpr(v, ch) 
           ch << storeInstr
         }
 
