@@ -10,6 +10,8 @@ import purescala.ExprOps._
 abstract class Tactic(vctx: VerificationContext) {
   val description : String
 
+  implicit val ctx = vctx.context
+
   def generateVCs(fd: FunDef): Seq[VC] = {
     generatePostconditions(fd) ++
     generatePreconditions(fd) ++

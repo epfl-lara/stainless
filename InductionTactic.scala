@@ -44,7 +44,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
             implies(andJoin(subCases), application(post, Seq(body)))
           )
 
-          VC(vc, fd, VCKinds.Info(VCKinds.Postcondition, s"ind. on ${arg.id} / ${cct.classDef.id}"), this).setPos(fd)
+          VC(vc, fd, VCKinds.Info(VCKinds.Postcondition, s"ind. on ${arg.asString} / ${cct.classDef.id.asString}"), this).setPos(fd)
         }
 
       case (body, _, post) =>
@@ -82,9 +82,9 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
           )
 
           // Crop the call to display it properly
-          val fiS = sizeLimit(fi.toString, 25)
+          val fiS = sizeLimit(fi.asString, 25)
 
-          VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on ($arg : ${cct.classDef.id})"), this).setPos(fi)
+          VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on (${arg.asString} : ${cct.classDef.id.asString})"), this).setPos(fi)
         }
 
       case (body, _) =>
