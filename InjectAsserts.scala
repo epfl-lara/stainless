@@ -35,6 +35,12 @@ object InjectAsserts extends LeonPhase[Program, Program] {
         case e @ MapGet(m,k) =>
           Some(Assert(MapIsDefinedAt(m, k), Some("Map undefined at this index"), e).setPos(e))
 
+        case e @ AsInstanceOf(expr, ct)  =>
+          Some(Assert(IsInstanceOf(ct, expr),
+                      Some("Cast error"),
+                      e
+                     ).setPos(e))
+
         case e @ Division(_, d)  =>
           Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
                       Some("Division by zero"),

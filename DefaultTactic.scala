@@ -64,6 +64,8 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
                 VCKinds.ModuloByZero
               } else if (err.startsWith("Remainder ")) {
                 VCKinds.RemainderByZero
+              } else if (err.startsWith("Cast ")) {
+                VCKinds.CastError
               } else {
                 VCKinds.Assert
               }
