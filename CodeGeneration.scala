@@ -279,6 +279,13 @@ trait CodeGeneration {
         mkExpr(e, ch)
         ch << InstanceOf(ccName)
 
+      case AsInstanceOf(e, cct) =>
+        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
+          throw CompilationException("Unknown class : " + cct.id)
+        }
+        mkExpr(e, ch)
+        ch << CheckCast(ccName)
+
       case CaseClassSelector(cct, e, sid) =>
         mkExpr(e, ch)
         val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
