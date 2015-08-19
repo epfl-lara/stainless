@@ -321,7 +321,7 @@ class CompilationUnit(val ctx: LeonContext,
         args.zipWithIndex.toMap
       }
 
-    mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, true))
+    mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic = true))
 
     e.getType match {
       case Int32Type | BooleanType | UnitType =>
@@ -400,8 +400,8 @@ class CompilationUnit(val ctx: LeonContext,
       ch << Ldc(Int.MaxValue) // Allow "infinite" method calls
       ch << InvokeSpecial(MonitorClass, cafebabe.Defaults.constructorName, "(I)V")
       ch << AStore(ch.getFreshVar) // position 0
-      for (lzy <- lazyFields) { initLazyField(ch, cName, lzy, true)}  
-      for (field <- strictFields) { initStrictField(ch, cName , field, true)}
+      for (lzy <- lazyFields) { initLazyField(ch, cName, lzy, isStatic = true)}
+      for (field <- strictFields) { initStrictField(ch, cName , field, isStatic = true)}
       ch  << RETURN
       ch.freeze
     }

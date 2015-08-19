@@ -1316,8 +1316,8 @@ trait CodeGeneration {
       
       val cch = cf.addConstructor(constrParams : _*).codeHandler
 
-      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false) }
-      for (field <- strictFields) { initStrictField(cch, cName, field, false)}
+      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false) }
+      for (field <- strictFields) { initStrictField(cch, cName, field, isStatic = false)}
 
       // Call parent constructor
       cch << ALoad(0)
@@ -1425,7 +1425,7 @@ trait CodeGeneration {
       val namesTypes = ccd.fields.map { vd => (vd.id.name, typeToJVM(vd.getType)) }
   
       // definition of the constructor
-      if(!params.doInstrument && !params.requireMonitor && ccd.fields.isEmpty && ccd.methods.filter{ _.canBeField }.isEmpty) {
+      if(!params.doInstrument && !params.requireMonitor && ccd.fields.isEmpty && !ccd.methods.exists(_.canBeField)) {
         cf.addDefaultConstructor
       } else {
         for((nme, jvmt) <- namesTypes) {
@@ -1484,8 +1484,8 @@ trait CodeGeneration {
 
         
         // Now initialize fields
-        for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, false)}  
-        for (field <- strictFields) { initStrictField(cch, cName , field, false)}
+        for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)}
+        for (field <- strictFields) { initStrictField(cch, cName , field, isStatic = false)}
         cch << RETURN
         cch.freeze
       }
