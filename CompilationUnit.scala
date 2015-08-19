@@ -324,14 +324,10 @@ class CompilationUnit(val ctx: LeonContext,
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic = true))
 
     e.getType match {
-      case Int32Type | BooleanType | UnitType =>
+      case ValueType() =>
         ch << IRETURN
-
-      case IntegerType | RealType | _: TupleType  | _: SetType | _: MapType | _: AbstractClassType | _: CaseClassType | _: ArrayType | _: FunctionType | _: TypeParameter =>
+      case _ =>
         ch << ARETURN
-
-      case other =>
-        throw CompilationException("Unsupported return type : " + other)
     }
 
     ch.freeze

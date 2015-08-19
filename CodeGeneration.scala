@@ -81,8 +81,15 @@ trait CodeGeneration {
   def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
 
   /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
-  private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying" 
-  
+  private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying"
+
+  protected object ValueType {
+    def unapply(tp: TypeTree): Boolean = tp match {
+      case Int32Type | BooleanType | CharType | UnitType => true
+      case _ => false
+    }
+  }
+
   /** Return the respective JVM type from a Leon type */
   def typeToJVM(tpe : TypeTree) : String = tpe match {
     case Int32Type => "I"
@@ -120,7 +127,7 @@ trait CodeGeneration {
       "[" + typeToJVM(base)
 
     case TypeParameter(_) =>
-      s"L$ObjectClass;"
+      "L" + ObjectClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
@@ -130,7 +137,7 @@ trait CodeGeneration {
     case Int32Type              => s"L$BoxedIntClass;"
     case BooleanType | UnitType => s"L$BoxedBoolClass;"
     case CharType               => s"L$BoxedCharClass;"
-    case other => typeToJVM(other)
+    case other                  => typeToJVM(other)
   }
   
   /**
@@ -158,7 +165,8 @@ trait CodeGeneration {
       realParams : _*
     )
     m.setFlags((
-      if (isStatic)   
+      // FIXME Not sure about this "FINAL" now that we can have methods in inheritable classes
+      if (isStatic)
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL  |
         METHOD_ACC_STATIC
@@ -198,14 +206,11 @@ trait CodeGeneration {
     mkExpr(bodyWithPost, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic))
 
     funDef.returnType match {
-      case Int32Type | BooleanType | UnitType =>
+      case ValueType() =>
         ch << IRETURN
 
-      case IntegerType | RealType | _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _ : FunctionType | _ : TypeParameter =>
+      case _ =>
         ch << ARETURN
-
-      case other =>
-        throw CompilationException("Unsupported return type : " + other.getClass)
     }
 
     ch.freeze
@@ -226,7 +231,7 @@ trait CodeGeneration {
         mkExpr(d, ch)
         val slot = ch.getFreshVar
         val instr = i.getType match {
-          case Int32Type | CharType | BooleanType | UnitType => IStore(slot)
+          case ValueType() => IStore(slot)
           case _ => AStore(slot)
         }
         ch << instr
@@ -857,14 +862,14 @@ trait CodeGeneration {
         ch << Ldc(id)
         ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
       
-      case nt @ NoTree( tp@(Int32Type | BooleanType | UnitType | CharType)) =>
+      case nt @ NoTree( tp@ValueType() ) =>
         mkExpr(simplestValue(tp), ch)
         
-      case nt @ NoTree(_) =>
+      case NoTree(_) =>
         ch << ACONST_NULL
       
       case This(ct) =>
-        ch << ALoad(0) // FIXME what if doInstrument etc
+        ch << ALoad(0)
         
       case p : Passes => 
         mkExpr(matchToIfThenElse(p.asConstraint), ch)
@@ -1011,7 +1016,7 @@ trait CodeGeneration {
         mkExpr(l, ch)
         mkExpr(r, ch)
         l.getType match {
-          case Int32Type | BooleanType | UnitType | CharType =>
+          case ValueType() =>
             ch << If_ICmpEq(thenn) << Goto(elze)
 
           case _ =>
@@ -1107,7 +1112,7 @@ trait CodeGeneration {
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
             val instr = id.getType match {
-              case Int32Type | CharType | BooleanType | UnitType => ILoad(slot)
+              case ValueType() => ILoad(slot)
               case _ => ALoad(slot)
             }
             ch << instr
@@ -1197,13 +1202,12 @@ trait CodeGeneration {
       ch << Label(initLabel)  // return lzy 
       //newValue
       lzy.returnType match {
-        case Int32Type | BooleanType | UnitType | CharType => 
+        case ValueType() =>
           // Since the underlying field only has boxed types, we have to unbox them to return them
           mkUnbox(lzy.returnType, ch)(NoLocals(isStatic)) 
           ch << IRETURN      
-        case IntegerType | RealType |  _ : ClassType | _ : TupleType | _ : SetType | _ : MapType | _ : ArrayType | _: TypeParameter => 
+        case _ =>
           ch << ARETURN
-        case other => throw CompilationException("Unsupported return type : " + other.getClass)
       }
       ch.freeze 
     }
