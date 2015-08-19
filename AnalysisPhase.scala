@@ -41,14 +41,14 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
     val fdFilter = {
       import OptionsHelpers._
 
-      filterInclusive(filterFuns.map(fdMatcher), Some(excludeByDefault _))
+      filterInclusive(filterFuns.map(fdMatcher(program)), Some(excludeByDefault _))
     }
 
     val toVerify = program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
 
     for(funDef <- toVerify) {
       if (excludeByDefault(funDef)) {
-        reporter.warning("Forcing verification of " + funDef.id.name + " which was assumed verified")
+        reporter.warning("Forcing verification of " + funDef.qualifiedName(program) + " which was assumed verified")
       }
     }
 
@@ -114,7 +114,7 @@ object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
       }
     }
 
-    VerificationReport(initMap ++ results)
+    VerificationReport(vctx.program, initMap ++ results)
   }
 
   def checkVC(vctx: VerificationContext, vc: VC): VCResult = {

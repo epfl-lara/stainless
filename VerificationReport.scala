@@ -6,9 +6,9 @@ package verification
 import VCKinds._
 import VCStatus._
 
-import purescala.Definitions.FunDef
+import purescala.Definitions.{FunDef, Program}
 
-case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
+case class VerificationReport(val program: Program, val results: Map[VC, Option[VCResult]]) {
 
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
     case (vc, or) => (vc, or.getOrElse(VCResult.unknown))
@@ -30,7 +30,7 @@ case class VerificationReport(val results: Map[VC, Option[VCResult]]) {
     t ++= vrs.map { case (vc, vr) =>
       val timeStr = vr.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
       Row(Seq(
-        Cell(vc.fd.id.toString),
+        Cell(vc.fd.qualifiedName(program)),
         Cell(vc.kind.name),
         Cell(vc.getPos),
         Cell(vr.status),
