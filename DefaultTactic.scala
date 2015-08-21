@@ -46,9 +46,9 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
       fd.body match {
         case Some(body) =>
           val calls = collectWithPC {
-            case e @ Error(_, "Match is non-exhaustive") =>
-              (e, VCKinds.ExhaustiveMatch, BooleanLiteral(false))
 
+            case m @ MatchExpr(scrut, cases) =>
+              (m, VCKinds.ExhaustiveMatch, orJoin(cases map (matchCaseCondition(scrut, _))))
 
             case e @ Error(_, _) =>
               (e, VCKinds.Assert, BooleanLiteral(false))
@@ -77,8 +77,8 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
           }(body)
 
           calls.map {
-            case ((e, kind, errorCond), path) =>
-              val vc = implies(and(precOrTrue(fd), path), errorCond)
+            case ((e, kind, correctnessCond), path) =>
+              val vc = implies(and(precOrTrue(fd), path), correctnessCond)
 
               VC(vc, fd, kind, this).setPos(e)
           }
