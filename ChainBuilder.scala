@@ -90,7 +90,7 @@ final case class Chain(relations: List[Relation]) {
   }
   */
 
-  lazy val cycles : Seq[List[Relation]] = (0 to relations.size - 1).map { index =>
+  lazy val cycles : Seq[List[Relation]] = relations.indices.map { index =>
     val (start, end) = relations.splitAt(index)
     end ++ start
   }

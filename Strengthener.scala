@@ -20,7 +20,7 @@ trait Strengthener { self : RelationComparator =>
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
     // Strengthen postconditions on all accessible functions by adding size constraints
-    val callees : Set[FunDef] = funDefs.map(fd => checker.program.callGraph.transitiveCallees(fd)).flatten
+    val callees : Set[FunDef] = funDefs.flatMap(fd => checker.program.callGraph.transitiveCallees(fd))
     val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
 
     for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
@@ -175,6 +175,3 @@ trait Strengthener { self : RelationComparator =>
     }
   }
 }
-
-
-// vim: set ts=4 sw=4 et:

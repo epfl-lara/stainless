@@ -37,7 +37,7 @@ trait ChainComparator { self : StructuralSize =>
           rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
         })
       case TupleType(tpes) =>
-        powerSetToFunSet((0 until tpes.length).flatMap { case index =>
+        powerSetToFunSet(tpes.indices.flatMap { case index =>
           rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
         })
       case _ => Set((e: Expr) => e)
@@ -53,7 +53,7 @@ trait ChainComparator { self : StructuralSize =>
           rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
         }.toSet
       case TupleType(tpes) =>
-        (0 until tpes.length).flatMap { case index =>
+        tpes.indices.flatMap { case index =>
           rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
         }.toSet
       case _ => Set((e: Expr) => e)

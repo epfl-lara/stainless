@@ -90,7 +90,7 @@ trait StructuralSize {
   def lexicographicDecreasing(s1: Seq[Expr], s2: Seq[Expr], strict: Boolean, sizeOfOneExpr: Expr => Expr): Expr = {
     // Note: The Equal and GreaterThan ASTs work for both BigInt and Bitvector
     
-    val sameSizeExprs = for ((arg1, arg2) <- (s1 zip s2)) yield Equals(sizeOfOneExpr(arg1), sizeOfOneExpr(arg2))
+    val sameSizeExprs = for ((arg1, arg2) <- s1 zip s2) yield Equals(sizeOfOneExpr(arg1), sizeOfOneExpr(arg2))
     
     val greaterBecauseGreaterAtFirstDifferentPos =
       orJoin(for (firstDifferent <- 0 until scala.math.min(s1.length, s2.length)) yield and(
@@ -107,5 +107,3 @@ trait StructuralSize {
 
   def defs : Set[FunDef] = Set(sizeCache.values.toSeq : _*)
 }
-
-// vim: set ts=4 sw=4 et:

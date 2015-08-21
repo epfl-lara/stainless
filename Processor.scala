@@ -10,7 +10,6 @@ import purescala.Definitions._
 import scala.concurrent.duration._
 
 import leon.solvers._
-import leon.solvers.z3._
 
 trait Processor {
 

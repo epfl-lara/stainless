@@ -50,5 +50,3 @@ class RecursionProcessor(val checker: TerminationChecker, val rb: RelationBuilde
     }
   }
 }
-
-// vim: set ts=4 sw=4 et:

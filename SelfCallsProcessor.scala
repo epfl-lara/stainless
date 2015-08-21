@@ -6,7 +6,6 @@ package termination
 import purescala.Definitions._
 import purescala.Common._
 import purescala.Expressions._
-import purescala.Constructors._
 
 class SelfCallsProcessor(val checker: TerminationChecker) extends Processor {
 
