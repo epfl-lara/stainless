@@ -126,36 +126,36 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
   }
 
   private val terminationMap : MutableMap[FunDef, TerminationGuarantee] = MutableMap.empty
-  def terminates(funDef: FunDef): TerminationGuarantee = terminationMap.get(funDef) match {
-    case Some(guarantee) => guarantee
-    case None =>
-      val guarantee = brokenMap.get(funDef) match {
-        case Some((reason, args)) => LoopsGivenInputs(reason, args)
-        case None => maybeBrokenMap.get(funDef) match {
-          case Some((reason, args)) => MaybeLoopsGivenInputs(reason, args)
-          case None =>
-            val callees = program.callGraph.transitiveCallees(funDef)
-            val broken = brokenMap.keys.toSet ++ maybeBrokenMap.keys
-            callees intersect broken match {
-              case set if set.nonEmpty => CallsNonTerminating(set)
-              case _ if isProblem(funDef) => NoGuarantee
-              case _ => clearedMap.get(funDef) match {
-                case Some(reason) => Terminates(reason)
-                case None if !running =>
-                  verifyTermination(funDef)
-                  terminates(funDef)
-                case _ =>
-                  if (!dependencies.exists(_.contains(funDef))) {
-                    dependencies ++= generateProblems(funDef)
-                  }
-                  NoGuarantee
+  def terminates(funDef: FunDef): TerminationGuarantee = {
+    val guarantee = {
+      terminationMap.get(funDef) orElse
+      brokenMap.get(funDef).map { case (reason, args) => LoopsGivenInputs(reason, args) } orElse
+      maybeBrokenMap.get(funDef).map { case (reason, args) => MaybeLoopsGivenInputs(reason, args)} getOrElse {
+        val callees = program.callGraph.transitiveCallees(funDef)
+        val broken = brokenMap.keys.toSet ++ maybeBrokenMap.keys
+        val brokenCallees = callees intersect broken
+        if (brokenCallees.nonEmpty) {
+          CallsNonTerminating(brokenCallees)
+        } else if (isProblem(funDef)) {
+          NoGuarantee
+        } else {
+          clearedMap.get(funDef).map(Terminates).getOrElse(
+            if (!running) {
+              verifyTermination(funDef)
+              terminates(funDef)
+            } else {
+              if (!dependencies.exists(_.contains(funDef))) {
+                dependencies ++= generateProblems(funDef)
               }
+              NoGuarantee
             }
+          )
         }
       }
+    }
 
-      if (!running) terminationMap(funDef) = guarantee
-      guarantee
+    if (!running) terminationMap(funDef) = guarantee
+    guarantee
   }
 
   private def generateProblems(funDef: FunDef): Seq[Problem] = {
