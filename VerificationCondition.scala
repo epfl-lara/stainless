@@ -65,7 +65,7 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         }
 
         if (strings.nonEmpty) {
-          val max = strings.map(_._1.size).max
+          val max = strings.map(_._1.length).max
 
           for ((id, v) <- strings) {
             reporter.warning(("  %-"+max+"s -> %s").format(id, v))
