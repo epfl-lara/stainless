@@ -213,5 +213,3 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
     }
   }
 }
-
-// vim: set ts=4 sw=4 et:

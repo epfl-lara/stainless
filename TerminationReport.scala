@@ -4,28 +4,38 @@ package leon
 package termination
 
 import purescala.Definitions._
+import utils.ASCIIHelpers._
 
-case class TerminationReport(results : Seq[(FunDef,TerminationGuarantee)], time : Double) {
+case class TerminationReport(ctx: LeonContext, results : Seq[(FunDef,TerminationGuarantee)], time : Double) {
+
   def summaryString : String = {
-    val sb = new StringBuilder
-    sb.append("─────────────────────\n")
-    sb.append(" Termination summary \n")
-    sb.append("─────────────────────\n\n")
-    for((fd,g) <- results) {
-      val result = if (g.isGuaranteed) "\u2713" else "\u2717"
-      val toPrint = g match {
-        case LoopsGivenInputs(reason, args) =>
-          "Non-terminating for call: " + args.mkString(fd.id+"(", ",", ")")
-        case CallsNonTerminating(funDefs) =>
-          "Calls non-terminating functions " + funDefs.map(_.id).mkString(",")
-        case Terminates(reason) =>
-          "Terminates (" + reason + ")"
-        case _ => g.toString
+    var t = Table("Termination summary")
+
+    for ((fd, g) <- results) t += Row(Seq(
+      Cell(fd.id.asString(ctx)),
+      Cell {
+        val result = if (g.isGuaranteed) "\u2713" else "\u2717"
+        val verdict = g match {
+          case LoopsGivenInputs(reason, args) =>
+            "Non-terminating for call: " + args.mkString(fd.id + "(", ",", ")")
+          case CallsNonTerminating(funDefs) =>
+            "Calls non-terminating functions " + funDefs.map(_.id).mkString(",")
+          case Terminates(reason) =>
+            "Terminates (" + reason + ")"
+          case _ => g.toString
+        }
+        s"$result $verdict"
       }
-      sb.append(f"- ${fd.id.name}%-30s $result $toPrint%-30s\n")
-    }
-    sb.append(f"\n[Analysis time: $time%7.3f]\n")
-    sb.toString
+    ))
+
+    t += Separator
+
+    t += Row(Seq(Cell(
+      f"Analysis time: $time%7.3f",
+      spanning = 2
+    )))
+
+    t.render
   }
 
   def evaluationString : String = {
