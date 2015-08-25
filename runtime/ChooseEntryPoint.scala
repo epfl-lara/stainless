@@ -76,8 +76,8 @@ object ChooseEntryPoint {
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.default(ctx, program)
-      val solver = solverf.getNewSolver().setTimeout(10.seconds)
+      val solverf = SolverFactory.default(ctx, program).withTimeout(10.second)
+      val solver = solverf.getNewSolver()
 
       val inputsMap = (p.as zip inputs).map {
         case (id, v) =>
@@ -110,7 +110,7 @@ object ChooseEntryPoint {
             throw new LeonCodeGenRuntimeException("Timeout exceeded")
         }
       } finally {
-        solverf.reclaim(solver)
+        solver.free()
         solverf.shutdown()
       }
     }

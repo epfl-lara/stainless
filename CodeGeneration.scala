@@ -843,7 +843,6 @@ trait CodeGeneration {
         val id = runtime.ChooseEntryPoint.register(prob, this)
         ch << Ldc(id)
 
-
         ch << Ldc(prob.as.size)
         ch << NewArray(ObjectClass)
 
