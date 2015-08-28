@@ -77,7 +77,9 @@ trait CodeGeneration {
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
   private[codegen] val MonitorClass              = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
 
-  def idToSafeJVMName(id: Identifier) = id.uniqueName.replaceAll("\\.", "\\$")
+  def idToSafeJVMName(id: Identifier) = {
+    scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
+  }
   def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
 
   /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
