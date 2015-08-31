@@ -178,9 +178,12 @@ class CompilationUnit(val ctx: LeonContext,
       }
       l
 
-    // Just slightly overkill...
     case _ =>
-      compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
+      throw LeonFatalError("Unexpected expression in exprToJVM")
+
+    // Just slightly overkill...
+    //case _ =>
+    //  compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
   }
 
   // Note that this may produce untyped expressions! (typically: sets, maps)
@@ -274,9 +277,9 @@ class CompilationUnit(val ctx: LeonContext,
 
   var compiledN = 0
 
-  def compileExpression(e: Expr, args: Seq[Identifier]): CompiledExpression = {
+  def compileExpression(e: Expr, args: Seq[Identifier])(implicit ctx: LeonContext): CompiledExpression = {
     if(e.getType == Untyped) {
-      throw new IllegalArgumentException(s"Cannot compile untyped expression [$e].")
+      throw new Unsupported(e, s"Cannot compile untyped expression.")
     }
 
     compiledN += 1
