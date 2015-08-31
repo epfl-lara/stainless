@@ -84,7 +84,7 @@ object ChooseEntryPoint {
 
       val inputsMap = (p.as zip inputs).map {
         case (id, v) =>
-          Equals(Variable(id), unit.jvmToExpr(v, id.getType))
+          Equals(Variable(id), unit.jvmToValue(v, id.getType))
       }
 
       solver.assertCnstr(andJoin(Seq(p.pc, p.phi) ++ inputsMap))
@@ -104,7 +104,7 @@ object ChooseEntryPoint {
             ctx.reporter.debug("Synthesis took "+total+"ms")
             ctx.reporter.debug("Finished synthesis with "+leonRes.asString(ctx))
 
-            val obj = unit.exprToJVM(leonRes)(new LeonCodeGenRuntimeMonitor(unit.params.maxFunctionInvocations))
+            val obj = unit.valueToJVM(leonRes)(new LeonCodeGenRuntimeMonitor(unit.params.maxFunctionInvocations))
             chCache += is -> obj
             obj
           case Some(false) =>

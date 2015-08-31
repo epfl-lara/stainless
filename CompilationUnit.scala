@@ -10,6 +10,7 @@ import purescala.Types._
 import purescala.Extractors._
 import purescala.Constructors._
 import codegen.runtime.LeonCodeGenRuntimeMonitor
+import utils.UniqueCounter
 
 import cafebabe._
 import cafebabe.AbstractByteCodes._
@@ -119,10 +120,13 @@ class CompilationUnit(val ctx: LeonContext,
     conss.last
   }
 
-  // Currently, this method is only used to prepare arguments to reflective calls.
-  // This means it is safe to return AnyRef (as opposed to primitive types), because
-  // reflection needs this anyway.
-  def exprToJVM(e: Expr)(implicit monitor : LeonCodeGenRuntimeMonitor): AnyRef = e match {
+  /** Translates Leon values (not generic expressions) to JVM compatible objects.
+    *
+    * Currently, this method is only used to prepare arguments to reflective calls.
+    * This means it is safe to return AnyRef (as opposed to primitive types), because
+    * reflection needs this anyway.
+    */
+  def valueToJVM(e: Expr)(implicit monitor: LeonCodeGenRuntimeMonitor): AnyRef = e match {
     case IntLiteral(v) =>
       new java.lang.Integer(v)
 
@@ -136,12 +140,12 @@ class CompilationUnit(val ctx: LeonContext,
       e
 
     case Tuple(elems) =>
-      tupleConstructor.newInstance(elems.map(exprToJVM).toArray).asInstanceOf[AnyRef]
+      tupleConstructor.newInstance(elems.map(valueToJVM).toArray).asInstanceOf[AnyRef]
 
     case CaseClass(cct, args) =>
       caseClassConstructor(cct.classDef) match {
         case Some(cons) =>
-          val realArgs = if (params.requireMonitor) monitor +: args.map(exprToJVM) else  args.map(exprToJVM)
+          val realArgs = if (params.requireMonitor) monitor +: args.map(valueToJVM) else args.map(valueToJVM)
           cons.newInstance(realArgs.toArray : _*).asInstanceOf[AnyRef]
         case None =>
           ctx.reporter.fatalError("Case class constructor not found?!?")
@@ -155,39 +159,39 @@ class CompilationUnit(val ctx: LeonContext,
     case s @ FiniteSet(els, _) =>
       val s = new leon.codegen.runtime.Set()
       for (e <- els) {
-        s.add(exprToJVM(e))
+        s.add(valueToJVM(e))
       }
       s
 
     case m @ FiniteMap(els, _, _) =>
       val m = new leon.codegen.runtime.Map()
       for ((k,v) <- els) {
-        m.add(exprToJVM(k), exprToJVM(v))
+        m.add(valueToJVM(k), valueToJVM(v))
       }
       m
 
     case f @ purescala.Extractors.FiniteLambda(dflt, els) =>
-      val l = new leon.codegen.runtime.FiniteLambda(exprToJVM(dflt))
+      val l = new leon.codegen.runtime.FiniteLambda(valueToJVM(dflt))
 
       for ((k,v) <- els) {
         val ks = unwrapTuple(k, f.getType.asInstanceOf[FunctionType].from.size)
         // Force tuple even with 1/0 elems.
-        val kJvm = tupleConstructor.newInstance(ks.map(exprToJVM).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
-        val vJvm = exprToJVM(v)
+        val kJvm = tupleConstructor.newInstance(ks.map(valueToJVM).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
+        val vJvm = valueToJVM(v)
         l.add(kJvm,vJvm)
       }
       l
 
     case _ =>
-      throw LeonFatalError("Unexpected expression in exprToJVM")
+      throw CompilationException(s"Unexpected expression $e in valueToJVM")
 
     // Just slightly overkill...
     //case _ =>
     //  compileExpression(e, Seq()).evalToJVM(Seq(),monitor)
   }
-
-  // Note that this may produce untyped expressions! (typically: sets, maps)
-  def jvmToExpr(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
+  
+  /** Translates JVM objects back to Leon values of the appropriate type */
+  def jvmToValue(e: AnyRef, tpe: TypeTree): Expr = (e, tpe) match {
     case (i: Integer, Int32Type) =>
       IntLiteral(i.toInt)
 
@@ -196,7 +200,6 @@ class CompilationUnit(val ctx: LeonContext,
 
     case (c: runtime.Real, RealType) =>
       RealLiteral(BigDecimal(c.underlying))
-
 
     case (b: java.lang.Boolean, BooleanType) =>
       BooleanLiteral(b.booleanValue)
@@ -221,12 +224,12 @@ class CompilationUnit(val ctx: LeonContext,
         }
       }
 
-      CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToExpr(e, tpe) })
+      CaseClass(cct, (fields zip cct.fieldsTypes).map { case (e, tpe) => jvmToValue(e, tpe) })
 
     case (tpl: runtime.Tuple, tpe) =>
       val stpe = unwrapTupleType(tpe, tpl.getArity)
       val elems = stpe.zipWithIndex.map { case (tpe, i) => 
-        jvmToExpr(tpl.get(i), tpe)
+        jvmToValue(tpl.get(i), tpe)
       }
       tupleWrap(elems)
 
@@ -235,12 +238,12 @@ class CompilationUnit(val ctx: LeonContext,
       else GenericValue(tp, id).copiedFrom(gv)
 
     case (set: runtime.Set, SetType(b)) =>
-      FiniteSet(set.getElements.asScala.map(jvmToExpr(_, b)).toSet, b)
+      FiniteSet(set.getElements.asScala.map(jvmToValue(_, b)).toSet, b)
 
     case (map: runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements.asScala.map { entry =>
-        val k = jvmToExpr(entry.getKey, from)
-        val v = jvmToExpr(entry.getValue, to)
+        val k = jvmToValue(entry.getKey, from)
+        val v = jvmToValue(entry.getValue, to)
         (k, v)
       }
       FiniteMap(pairs.toSeq, from, to)
@@ -252,7 +255,7 @@ class CompilationUnit(val ctx: LeonContext,
       val closures = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
       val closureVals = closures.map { id =>
         val fieldVal = lambda.getClass.getField(id.name).get(lambda)
-        jvmToExpr(fieldVal, id.getType)
+        jvmToValue(fieldVal, id.getType)
       }
 
       purescala.ExprOps.replaceFromIDs((closures zip closureVals).toMap, l)
@@ -265,7 +268,7 @@ class CompilationUnit(val ctx: LeonContext,
         EmptyArray(base)
       } else {
         val elems = for ((e: AnyRef, i) <- ar.zipWithIndex) yield {
-          i -> jvmToExpr(e, base)
+          i -> jvmToValue(e, base)
         }
 
         NonemptyArray(elems.toMap, None)
@@ -284,7 +287,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     compiledN += 1
 
-    val id = CompilationUnit.nextExprId
+    val id = exprCounter.nextGlobal
 
     val cName = "Leon$CodeGen$Expr$"+id
 
@@ -347,15 +350,7 @@ class CompilationUnit(val ctx: LeonContext,
       CLASS_ACC_PUBLIC |
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
-    
-    /*if (false) {
-      // currently we do not handle object fields 
-      // this treats all fields as functions
-      for (fun <- module.definedFunctions) {
-        compileFunDef(fun, module)
-      }
-    } else {*/
-    
+
     val (fields, functions) = module.definedFunctions partition { _.canBeField }
     val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
     
@@ -468,17 +463,5 @@ class CompilationUnit(val ctx: LeonContext,
   compile()
 }
 
-object CompilationUnit {
-  private var _nextExprId = 0
-  private[codegen] def nextExprId = synchronized {
-    _nextExprId += 1
-    _nextExprId
-  }
-
-  private var _nextLambdaId = 0
-  private[codegen] def nextLambdaId = synchronized {
-    _nextLambdaId += 1
-    _nextLambdaId
-  }
-}
-
+private [codegen] object exprCounter extends UniqueCounter[Unit]
+private [codegen] object lambdaCounter extends UniqueCounter[Unit]

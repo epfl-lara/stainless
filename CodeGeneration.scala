@@ -566,7 +566,7 @@ trait CodeGeneration {
         mkUnbox(app.getType, ch)
 
       case l @ Lambda(args, body) =>
-        val afName = "Leon$CodeGen$Lambda$" + CompilationUnit.nextLambdaId
+        val afName = "Leon$CodeGen$Lambda$" + lambdaCounter.nextGlobal
         lambdas += afName -> l
 
         val cf = new ClassFile(afName, Some(LambdaClass))
