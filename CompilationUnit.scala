@@ -9,7 +9,8 @@ import purescala.Expressions._
 import purescala.Types._
 import purescala.Extractors._
 import purescala.Constructors._
-import codegen.runtime.LeonCodeGenRuntimeMonitor
+
+import runtime.LeonCodeGenRuntimeMonitor
 import utils.UniqueCounter
 
 import cafebabe._
@@ -130,11 +131,20 @@ class CompilationUnit(val ctx: LeonContext,
     case IntLiteral(v) =>
       new java.lang.Integer(v)
 
-    case InfiniteIntegerLiteral(v) =>
-      new leon.codegen.runtime.BigInt(v.toString)
-
     case BooleanLiteral(v) =>
       new java.lang.Boolean(v)
+
+    case UnitLiteral() =>
+      new java.lang.Boolean(true)
+
+    case CharLiteral(c) =>
+      new Character(c)
+
+    case InfiniteIntegerLiteral(v) =>
+      new runtime.BigInt(v.toString)
+
+    case RealLiteral(v) =>
+      new runtime.Real(v.toString)
 
     case GenericValue(tp, id) =>
       e
@@ -278,14 +288,11 @@ class CompilationUnit(val ctx: LeonContext,
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)
   }
 
-  var compiledN = 0
 
   def compileExpression(e: Expr, args: Seq[Identifier])(implicit ctx: LeonContext): CompiledExpression = {
     if(e.getType == Untyped) {
       throw new Unsupported(e, s"Cannot compile untyped expression.")
     }
-
-    compiledN += 1
 
     val id = exprCounter.nextGlobal
 
