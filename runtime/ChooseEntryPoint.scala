@@ -28,11 +28,8 @@ object ChooseEntryPoint {
 
   private[this] val ids = new WeakHashMap[CompilationUnit, MutableMap[Problem, ChooseId]]()
 
-  private[this] var _next = 0
-  private[this] def nextInt(): Int = {
-    _next += 1
-    _next
-  }
+  private val intCounter = new UniqueCounter[Unit]
+  intCounter.nextGlobal // Start with 1
 
   private def getUniqueId(unit: CompilationUnit, p: Problem): ChooseId = {
     if (!ids.containsKey(unit)) {
@@ -42,7 +39,7 @@ object ChooseEntryPoint {
     if (ids.get(unit) contains p) {
       ids.get(unit)(p)
     } else {
-      val cid = new ChooseId(nextInt())
+      val cid = new ChooseId(intCounter.nextGlobal)
       ids.get(unit) += p -> cid
       cid
     }
