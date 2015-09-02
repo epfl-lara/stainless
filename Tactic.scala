@@ -10,7 +10,7 @@ import purescala.ExprOps._
 abstract class Tactic(vctx: VerificationContext) {
   val description : String
 
-  implicit val ctx = vctx.context
+  implicit protected val ctx = vctx.context
 
   def generateVCs(fd: FunDef): Seq[VC] = {
     generatePostconditions(fd) ++
@@ -26,10 +26,6 @@ abstract class Tactic(vctx: VerificationContext) {
   protected def precOrTrue(fd: FunDef): Expr = fd.precondition match {
     case Some(pre) => pre
     case None => BooleanLiteral(true)
-  }
-
-  protected def collectWithPC[T](f: PartialFunction[Expr, T])(expr: Expr): Seq[(T, Expr)] = {
-    CollectorWithPaths(f).traverse(expr)
   }
 
   protected def sizeLimit(s: String, limit: Int) = {
