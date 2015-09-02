@@ -16,7 +16,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
         case (Some(post), Some(body)) =>
           val vc = implies(precOrTrue(fd), application(post, Seq(body)))
 
-          Seq(VC(vc, fd, VCKinds.Postcondition, this).setPos(post))
+          Seq(VC(vc, fd, VCKinds.Postcondition).setPos(post))
         case _ =>
           Nil
       }
@@ -34,7 +34,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
               val pre2 = tfd.withParamSubst(args, pre)
               val vc = implies(and(precOrTrue(fd), path), pre2)
               val fiS = sizeLimit(fi.asString, 40)
-              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS"), this).setPos(fi)
+              VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS")).setPos(fi)
           }
 
         case None =>
@@ -80,7 +80,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
             case ((e, kind, correctnessCond), path) =>
               val vc = implies(and(precOrTrue(fd), path), correctnessCond)
 
-              VC(vc, fd, kind, this).setPos(e)
+              VC(vc, fd, kind).setPos(e)
           }
 
         case None =>

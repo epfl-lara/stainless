@@ -11,7 +11,7 @@ import leon.utils.Positioned
 import leon.solvers._
 
 /** This is just to hold some history information. */
-case class VC(condition: Expr, fd: FunDef, kind: VCKind, tactic: Tactic) extends Positioned {
+case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
   override def toString = {
     fd.id.name +" - " +kind.toString
   }
