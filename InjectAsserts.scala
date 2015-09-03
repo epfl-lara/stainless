@@ -32,7 +32,7 @@ object InjectAsserts extends LeonPhase[Program, Program] {
           ).setPos(e))
         case e @ ArrayUpdate(a, i, _)  =>
           Some(Assert(indexUpTo(i, ArrayLength(a)), Some("Array index out of range"), e).setPos(e))
-        case e @ MapGet(m,k) =>
+        case e @ MapApply(m,k) =>
           Some(Assert(MapIsDefinedAt(m, k), Some("Map undefined at this index"), e).setPos(e))
 
         case e @ AsInstanceOf(expr, ct)  =>
