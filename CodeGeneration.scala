@@ -369,7 +369,7 @@ trait CodeGeneration {
           ch << InvokeVirtual(MapClass, "add", s"(L$ObjectClass;L$ObjectClass;)V")
         }
 
-      case MapGet(m, k) =>
+      case MapApply(m, k) =>
         val MapType(_, tt) = m.getType
         mkExpr(m, ch)
         mkBoxedExpr(k, ch)
