@@ -105,13 +105,6 @@ Building Documentation
 
 To build this documentation locally, you will need Sphinx (
 http://sphinx-doc.org/ ), a restructured text toolkit that
-was originally developed to support Python documentation. You will
-also need `make`.
+was originally developed to support Python documentation.
 
-After installing sphinx, entering the `doc/` directory of
-Leon and running `make html` should build the documentation
-in the HTML format. (Several other formats are supported,
-though we do not use them, so we do not vouch for the
-quality of the output.) As a top-level file for the HTML
-documentation check `doc/_build/html/index.html` (you may
-wish to bookmark this file in your browser).
+After installing sphinx, run ``sbt previewSite``. This will generate the documentation and open a browser.
