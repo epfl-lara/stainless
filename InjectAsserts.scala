@@ -36,7 +36,7 @@ object InjectAsserts extends LeonPhase[Program, Program] {
           Some(Assert(MapIsDefinedAt(m, k), Some("Map undefined at this index"), e).setPos(e))
 
         case e @ AsInstanceOf(expr, ct)  =>
-          Some(Assert(IsInstanceOf(ct, expr),
+          Some(Assert(IsInstanceOf(expr, ct),
                       Some("Cast error"),
                       e
                      ).setPos(e))
