@@ -32,3 +32,9 @@ Papers
  - `Decision Procedures for Algebraic Data Types with Abstractions <http://lara.epfl.ch/~kuncak/papers/SuterETAL10DecisionProceduresforAlgebraicDataTypesAbstractions.pdf>`_, by *Philippe Suter*, *Mirco Dotta*, *Viktor Kuncak*. Principles of Programming Languages (POPL), 2010 
  - `Complete functional synthesis <http://lara.epfl.ch/~kuncak/papers/KuncakETAL10CompleteFunctionalSynthesis.pdf>`_, by *Viktor Kuncak*, *Mikael Mayer*, *Ruzica Piskac*, and *Philippe Suter*. ACM SIGPLAN Conf. Programming Language Design and Implementation (PLDI), 2010.
 
+
+
+Books
+*****
+
+ - `Concrete Sematics with Isabelle/HOL <http://www.concrete-semantics.org/>`_, by *Tobias Nipkow* and *Gerwin Klein*.

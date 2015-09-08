@@ -3,8 +3,8 @@
 Pure Scala
 ==========
 
-The input to Leon is a purely functional **subset** of Scala
-(http://www.scala-lang.org/), which we call 
+The input to Leon is a purely functional **subset** of `Scala
+<http://www.scala-lang.org/>`_, which we call 
 **Pure Scala**. Constructs specific for Leon are defined inside
 Leon's libraries in package `leon` and its subpackages. Leon
 invokes standard `scalac` compiler on the input file, then

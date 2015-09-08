@@ -166,6 +166,10 @@ These options are available by all Leon components:
   * ``ground``
 
     Only solves ground verification conditions (without variables) by evaluating them.
+
+  * ``isabelle``
+
+    Solve verification conditions via Isabelle.
   
 * ``--strict``
 
@@ -182,7 +186,7 @@ These options are available by all Leon components:
   Support for additional language constructs described in :ref:`xlang`.
   These constructs are desugared into :ref:`purescala` before other operations.
 
-Additional Options, by Component:
+Additional Options (by component)
 ---------------------------------
 
 File Output
@@ -193,7 +197,7 @@ File Output
   Output files to the directory ``dir`` (default: leon.out).
   Used when ``--noop`` is selected.
 
-Code extraction
+Code Extraction
 ***************
 
 * ``--strictCompilation``
@@ -240,6 +244,7 @@ These options are also used by repair during the synthesis stage.
 
 Fair-z3 Solver
 **************
+
 * ``--checkmodels``
 
   Double-check counter-examples with evaluator.
@@ -260,9 +265,52 @@ Fair-z3 Solver
  
   Use unsat-cores to drive unrolling while remaining fair.
   
-CVC4-solver
+CVC4 Solver
 ***********
 
 * ``--solver:cvc4=<cvc4-opt>``
   
   Pass extra command-line arguments to CVC4.
+
+Isabelle
+********
+
+* ``--isabelle:base=<path>``
+
+  Specify the installation directory of Isabelle. In Isabelle-parlance, this is
+  called ``$ISABELLE_HOME``. It will have the form ``/path/to/Isabelle2015``.
+  When no Isabelle installation can be found there, the system suggests to
+  enable the ``download`` option.
+
+* ``--isabelle:build``
+
+  Flag to indicate that during the start-up of Leon, Isabelle should
+  automatically build all required library sources. This is on by default, and
+  should usually be left on. Building only happens when some dependencies
+  changed and subsequent runs of Leon don't rebuild the library. However, even
+  if nothing is build, it still requires the system a couple of seconds to
+  figure that out.
+
+* ``--isabelle:download``
+
+  If necessary, perform a full system bootstrap by downloading and unpacking a
+  copy of Isabelle. Off by default. Only supported under Linux.
+
+* ``--isabelle:dump=<path>``
+
+  Makes the system write theory files containing the translated definitions
+  and scripts. The generated files may be loaded directly into Isabelle, but
+  are not guaranteed to work, as pretty-printing Isabelle terms is only an
+  approximation.
+
+* ``--isabelle:mapping``
+
+  Controls function and type mapping. On by default. When switched off, neither
+  functions nor types are mapped at all.
+
+* ``--isabelle:strict``
+
+  Strict prover mode. On by default. Replays all referenced proofs from the
+  library when verifiying a Leon source file. Keeping it enabled prevents
+  unsound proofs when postconditions or mappings in the library are wrong.
+  When disabled, a warning is printed.

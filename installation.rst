@@ -13,9 +13,9 @@ Windows.
 
 **Requirements:**
 
-* `1.7  Java Development Kit <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_
+* `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_
 
-* SBT 0.13.X (Available from http://www.scala-sbt.org/)
+* SBT 0.13.x (Available from http://www.scala-sbt.org/)
 
 * Support for at least one SMT solver (See :ref:`smt-solvers`)
 
@@ -45,7 +45,8 @@ all the appropriate settings:
 Windows
 -------
 
-Get the sources of Leon by cloning the official Leon repository (You will need a git shell for windows e.g. https://msysgit.github.io/):
+Get the sources of Leon by cloning the official Leon repository. You will need
+a Git shell for windows, e.g. `Git for Windows <https://git-for-windows.github.io/>`_.
 
 .. code-block:: bash
 
@@ -72,8 +73,8 @@ under Cygwin.
 
 If running leon produces errors because it could not find some cafebabe*.jar or vanuatoo*.jar, it is probably because symlinks have not been resolved. If your architecture is x64, do the following:
 
-1. Copy unmanaged/common/cafebabe*.jar to unmanaged/64/
-2. Copy unmanaged/common/vanuatoo*.jar to unmanaged/64/
+1. Copy ``unmanaged/common/cafebabe*.jar`` to ``unmanaged/64/``
+2. Copy ``unmanaged/common/vanuatoo*.jar`` to ``unmanaged/64/``
 
 .. _smt-solvers:
 
@@ -98,7 +99,10 @@ their binaries available in the ``$PATH``.
 
 Since the default solver uses the native Z3 API, you will have to explicitly
 specify another solver if this native layer is not available to you. Check also 
-the ``--solvers`` option in :ref:`cmdlineoptions` .
+the ``--solvers`` option in :ref:`cmdlineoptions`.
+
+Alternatively, there is a non-SMT solver available. See :ref:`isabelle` for
+details.
 
 Building Documentation
 ----------------------
