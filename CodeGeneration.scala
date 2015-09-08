@@ -279,7 +279,7 @@ trait CodeGeneration {
         }
         ch << InvokeSpecial(ccName, constructorName, ccApplySig)
 
-      case IsInstanceOf(cct, e) =>
+      case IsInstanceOf(e, cct) =>
         val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
           throw CompilationException("Unknown class : " + cct.id)
         }
