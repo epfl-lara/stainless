@@ -40,6 +40,9 @@ itself. During the first start, you just need to pass the command line option
 ``--isabelle:download=true``. You may specify ``--isabelle:base``, but don't
 have to.
 
+Additionally, you need to instruct Git to fetch all the referenced repositories
+via ``git submodule update --init --recursive``.
+
 
 Basic usage
 -----------
