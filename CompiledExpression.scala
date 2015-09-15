@@ -8,11 +8,11 @@ import purescala.Expressions._
 
 import cafebabe._
 
-import runtime.{LeonCodeGenRuntimeMonitor => LM }
+import runtime.{LeonCodeGenRuntimeMonitor => LM, LeonCodeGenRuntimeHenkinMonitor => LHM}
 
 import java.lang.reflect.InvocationTargetException
 
-class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr, argsDecl: Seq[Identifier]) {
+class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr, argsDecl: Seq[Identifier]) {
 
   private lazy val cl = unit.loader.loadClass(cf.className)
   private lazy val meth = cl.getMethods()(0)
@@ -28,7 +28,7 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
   def evalToJVM(args: Seq[AnyRef], monitor: LM): AnyRef = {
     assert(args.size == argsDecl.size)
 
-    val realArgs = if (params.requireMonitor) {
+    val realArgs = if (unit.requireMonitor) {
       monitor +: args
     } else {
       args
@@ -51,11 +51,10 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression : Expr
     }
   }
 
-  def eval(args: Seq[Expr]) : Expr = {
+  def eval(model: solvers.Model) : Expr = {
     try {
-      val monitor = 
-        new LM(params.maxFunctionInvocations)
-      evalFromJVM(argsToJVM(args, monitor),monitor)
+      val monitor = unit.modelToJVM(model, params.maxFunctionInvocations)
+      evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
     } catch {
       case ite : InvocationTargetException => throw ite.getCause
     }

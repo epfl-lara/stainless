@@ -6,11 +6,12 @@ package codegen
 import purescala.Common._
 import purescala.Definitions._
 import purescala.Expressions._
+import purescala.ExprOps._
 import purescala.Types._
 import purescala.Extractors._
 import purescala.Constructors._
-
-import runtime.LeonCodeGenRuntimeMonitor
+import codegen.runtime.LeonCodeGenRuntimeMonitor
+import codegen.runtime.LeonCodeGenRuntimeHenkinMonitor
 import utils.UniqueCounter
 
 import cafebabe._
@@ -28,12 +29,17 @@ class CompilationUnit(val ctx: LeonContext,
                       val program: Program,
                       val params: CodeGenParams = CodeGenParams.default) extends CodeGeneration {
 
+  protected[codegen] val requireQuantification = program.definedFunctions.exists { fd =>
+    exists { case _: Forall => true case _ => false } (fd.fullBody)
+  }
+
+  protected[codegen] val requireMonitor = params.requireMonitor || requireQuantification
+
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
-  var lambdas     = Map[String, Lambda]()
-  var classes     = Map[Definition, ClassFile]()
+  var classes = Map[Definition, ClassFile]()
   var defToModuleOrClass = Map[Definition, Definition]()
-  
+
   def defineClass(df: Definition) {
     val cName = defToJVMName(df)
 
@@ -59,7 +65,7 @@ class CompilationUnit(val ctx: LeonContext,
   def leonClassToJVMInfo(cd: ClassDef): Option[(String, String)] = {
     classes.get(cd) match {
       case Some(cf) =>
-        val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
+        val monitorType = if (requireMonitor) "L"+MonitorClass+";" else ""
         val sig = "(" + monitorType + cd.fields.map(f => typeToJVM(f.getType)).mkString("") + ")V"
         Some((cf.className, sig))
       case _ => None
@@ -78,7 +84,7 @@ class CompilationUnit(val ctx: LeonContext,
    */
   def leonFunDefToJVMInfo(fd: FunDef): Option[(String, String, String)] = {
     funDefInfo.get(fd).orElse {
-      val monitorType = if (params.requireMonitor) "L"+MonitorClass+";" else ""
+      val monitorType = if (requireMonitor) "L"+MonitorClass+";" else ""
 
       val sig = "(" + monitorType + fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.returnType)
 
@@ -121,6 +127,21 @@ class CompilationUnit(val ctx: LeonContext,
     conss.last
   }
 
+  def modelToJVM(model: solvers.Model, maxInvocations: Int): LeonCodeGenRuntimeMonitor = model match {
+    case hModel: solvers.HenkinModel =>
+      val lhm = new LeonCodeGenRuntimeHenkinMonitor(maxInvocations)
+      for ((tpe, domain) <- hModel.domains; args <- domain) {
+        val tpeId = typeId(tpe)
+        // note here that it doesn't matter that `lhm` doesn't yet have its domains
+        // filled since all values in `args` should be grounded
+        val inputJvm = tupleConstructor.newInstance(args.map(valueToJVM(_)(lhm)).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
+        lhm.add(tpeId, inputJvm)
+      }
+      lhm
+    case _ =>
+      new LeonCodeGenRuntimeMonitor(maxInvocations)
+  }
+
   /** Translates Leon values (not generic expressions) to JVM compatible objects.
     *
     * Currently, this method is only used to prepare arguments to reflective calls.
@@ -155,7 +176,7 @@ class CompilationUnit(val ctx: LeonContext,
     case CaseClass(cct, args) =>
       caseClassConstructor(cct.classDef) match {
         case Some(cons) =>
-          val realArgs = if (params.requireMonitor) monitor +: args.map(valueToJVM) else args.map(valueToJVM)
+          val realArgs = if (requireMonitor) monitor +: args.map(valueToJVM) else  args.map(valueToJVM)
           cons.newInstance(realArgs.toArray : _*).asInstanceOf[AnyRef]
         case None =>
           ctx.reporter.fatalError("Case class constructor not found?!?")
@@ -180,11 +201,9 @@ class CompilationUnit(val ctx: LeonContext,
       }
       m
 
-    case f @ purescala.Extractors.FiniteLambda(dflt, els) =>
-      val l = new leon.codegen.runtime.FiniteLambda(valueToJVM(dflt))
-
-      for ((k,v) <- els) {
-        val ks = unwrapTuple(k, f.getType.asInstanceOf[FunctionType].from.size)
+    case f @ PartialLambda(mapping, _) =>
+      val l = new leon.codegen.runtime.PartialLambda()
+      for ((ks,v) <- mapping) {
         // Force tuple even with 1/0 elems.
         val kJvm = tupleConstructor.newInstance(ks.map(valueToJVM).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
         val vJvm = valueToJVM(v)
@@ -261,7 +280,7 @@ class CompilationUnit(val ctx: LeonContext,
     case (lambda: runtime.Lambda, _: FunctionType) =>
       val cls = lambda.getClass
 
-      val l = lambdas(cls.getName)
+      val l = classToLambda(cls.getName)
       val closures = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
       val closureVals = closures.map { id =>
         val fieldVal = lambda.getClass.getField(id.name).get(lambda)
@@ -308,7 +327,7 @@ class CompilationUnit(val ctx: LeonContext,
 
     val argsTypes = args.map(a => typeToJVM(a.getType))
 
-    val realArgs = if (params.requireMonitor) {
+    val realArgs = if (requireMonitor) {
       ("L" + MonitorClass + ";") +: argsTypes
     } else {
       argsTypes
@@ -328,11 +347,11 @@ class CompilationUnit(val ctx: LeonContext,
 
     val ch = m.codeHandler
 
-    val newMapping = if (params.requireMonitor) {
-        args.zipWithIndex.toMap.mapValues(_ + 1)
-      } else {
-        args.zipWithIndex.toMap
-      }
+    val newMapping = if (requireMonitor) {
+      args.zipWithIndex.toMap.mapValues(_ + 1) + (monitorID -> 0)
+    } else {
+      args.zipWithIndex.toMap
+    }
 
     mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic = true))
 
@@ -454,7 +473,6 @@ class CompilationUnit(val ctx: LeonContext,
       }
 
       for (m <- u.modules) compileModule(m)
-      
     }
 
     classes.values.foreach(loader.register)
