@@ -1,6 +1,6 @@
 import leon.lang._
 
-object HOInvocations {
+object HOInvocations2 {
   def switch(x: Int, f: (Int) => Int, g: (Int) => Int) = if(x > 0) f else g
 
   def passing_1(f: (Int) => Int) = {

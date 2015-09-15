@@ -1,6 +1,6 @@
 import leon.lang._
 
-object PositiveMap {
+object PositiveMap2 {
   
   abstract class List
   case class Cons(head: BigInt, tail: List) extends List

@@ -1,6 +1,6 @@
 import leon.lang._
 
-object HOInvocations {
+object HOInvocations2 {
   def switch(x: BigInt, f: (BigInt) => BigInt, g: (BigInt) => BigInt) = if(x > 0) f else g
 
   def failling_1(f: (BigInt) => BigInt) = {
