@@ -35,8 +35,8 @@ class LoopProcessor(val checker: TerminationChecker, val modules: ChainBuilder w
         val resTuple = tupleWrap(freshParams.map(_.toVariable))
 
         definitiveSATwithModel(andJoin(path :+ Equals(srcTuple, resTuple))) match {
-          case Some(map) =>
-            val args = chain.funDef.params.map(arg => map(arg.id))
+          case Some(model) =>
+            val args = chain.funDef.params.map(arg => model(arg.id))
             val res = if (chain.relations.exists(_.inLambda)) MaybeBroken(chain.funDef, args) else Broken(chain.funDef, args)
             nonTerminating(chain.funDef) = res
           case None =>

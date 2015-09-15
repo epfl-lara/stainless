@@ -64,7 +64,7 @@ trait Solvable extends Processor {
     }
   }
 
-  def definitiveSATwithModel(problem: Expr): Option[Map[Identifier, Expr]] = {
+  def definitiveSATwithModel(problem: Expr): Option[Model] = {
     withoutPosts {
       val (sat, model) = SimpleSolverAPI(solver).solveSAT(problem)
       if (sat.isDefined && sat.get) Some(model) else None
