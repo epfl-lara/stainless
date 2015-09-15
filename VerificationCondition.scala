@@ -88,7 +88,7 @@ sealed abstract class VCStatus(val name: String) {
 }
 
 object VCStatus {
-  case class  Invalid(cex: Map[Identifier, Expr]) extends VCStatus("invalid")
+  case class  Invalid(cex: Model) extends VCStatus("invalid")
   case object Valid extends VCStatus("valid")
   case object Unknown extends VCStatus("unknown")
   case object Timeout extends VCStatus("timeout")
