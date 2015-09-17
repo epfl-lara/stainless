@@ -35,7 +35,7 @@ trait Strengthener { self : RelationComparator =>
 
         funDef.postcondition = Some(postcondition)
 
-        val prec = matchToIfThenElse(funDef.precondition.getOrElse(BooleanLiteral(true)))
+        val prec = matchToIfThenElse(funDef.precOrTrue)
         val body = matchToIfThenElse(funDef.body.get)
         val post = matchToIfThenElse(postcondition)
         val formula = implies(prec, application(post, Seq(body)))
