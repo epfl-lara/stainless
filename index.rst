@@ -19,8 +19,8 @@ Contents:
    library
    xlang
    verification
-   isabelle
    neon
+   isabelle
    limitations
    synthesis
    repair

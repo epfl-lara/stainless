@@ -15,7 +15,7 @@
 import sys
 import os
 
-docauthorlist = u'M. Antognini, R. Blanc, S. Gruetter, E. Kneuss, M. Koukoutos, V. Kuncak, S. Stucki, P. Suter'
+docauthorlist = u'M. Antognini, R. Blanc, S. Gruetter, L. Hupel, E. Kneuss, M. Koukoutos, V. Kuncak, S. Stucki, P. Suter'
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
