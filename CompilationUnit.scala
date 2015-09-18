@@ -283,7 +283,7 @@ class CompilationUnit(val ctx: LeonContext,
       val l = classToLambda(cls.getName)
       val closures = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
       val closureVals = closures.map { id =>
-        val fieldVal = lambda.getClass.getField(id.name).get(lambda)
+        val fieldVal = lambda.getClass.getField(id.uniqueName).get(lambda)
         jvmToValue(fieldVal, id.getType)
       }
 
