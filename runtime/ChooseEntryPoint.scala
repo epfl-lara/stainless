@@ -31,7 +31,7 @@ object ChooseEntryPoint {
   private val intCounter = new UniqueCounter[Unit]
   intCounter.nextGlobal // Start with 1
 
-  private def getUniqueId(unit: CompilationUnit, p: Problem): ChooseId = {
+  private def getUniqueId(unit: CompilationUnit, p: Problem): ChooseId = synchronized {
     if (!ids.containsKey(unit)) {
       ids.put(unit, new MutableMap())
     }
@@ -44,7 +44,6 @@ object ChooseEntryPoint {
       cid
     }
   }
-
 
   def register(p: Problem, unit: CompilationUnit): Int = {
     val cid = getUniqueId(unit, p)

@@ -353,7 +353,7 @@ class CompilationUnit(val ctx: LeonContext,
       args.zipWithIndex.toMap
     }
 
-    mkExpr(e, ch)(Locals(newMapping, Map.empty, Map.empty, isStatic = true))
+    mkExpr(e, ch)(NoLocals.withVars(newMapping))
 
     e.getType match {
       case ValueType() =>
@@ -384,12 +384,12 @@ class CompilationUnit(val ctx: LeonContext,
     for (function <- functions) {
       compileFunDef(function,module)
     }
-    
+
     // Compile lazy fields
     for (lzy <- lazyFields) {
       compileLazyField(lzy, module)
     }
-    
+
     // Compile strict fields
     for (field <- strictFields) {
       compileStrictField(field, module)
@@ -397,9 +397,9 @@ class CompilationUnit(val ctx: LeonContext,
  
     // Constructor
     cf.addDefaultConstructor
-    
+
     val cName = defToJVMName(module)
-    
+
     // Add class initializer method
     locally{ 
       val mh = cf.addMethod("V", "<clinit>")
@@ -407,7 +407,7 @@ class CompilationUnit(val ctx: LeonContext,
         METHOD_ACC_STATIC | 
         METHOD_ACC_PUBLIC
       ).asInstanceOf[U2])
-      
+
       val ch = mh.codeHandler
       /*
        * FIXME :
@@ -416,16 +416,17 @@ class CompilationUnit(val ctx: LeonContext,
        * that will get lost when this method returns, so we can't hope to count 
        * method invocations here :( 
        */
+      val locals = NoLocals.withVar(monitorID -> ch.getFreshVar)
       ch << New(MonitorClass) << DUP
       ch << Ldc(Int.MaxValue) // Allow "infinite" method calls
       ch << InvokeSpecial(MonitorClass, cafebabe.Defaults.constructorName, "(I)V")
-      ch << AStore(ch.getFreshVar) // position 0
-      for (lzy <- lazyFields) { initLazyField(ch, cName, lzy, isStatic = true)}
-      for (field <- strictFields) { initStrictField(ch, cName , field, isStatic = true)}
+      ch << AStore(locals.varToLocal(monitorID).get) // position 0
+      for (lzy <- lazyFields) { initLazyField(ch, cName, lzy, isStatic = true)(locals) }
+      for (field <- strictFields) { initStrictField(ch, cName , field, isStatic = true)(locals) }
       ch  << RETURN
       ch.freeze
     }
-  
+
   }
 
   /** Traverses the program to find all definitions, and stores those in global variables */
