@@ -211,6 +211,45 @@ class CompilationUnit(val ctx: LeonContext,
       }
       l
 
+    case f @ IsTyped(FiniteArray(elems, default, IntLiteral(length)), ArrayType(underlying)) =>
+      if (length < 0) {
+        throw LeonFatalError(
+          s"Whoops! Array ${f.asString(ctx)} has length $length. " +
+          default.map { df => s"default: ${df.asString(ctx)}" }.getOrElse("")
+        )
+      }
+
+      import scala.reflect.ClassTag
+
+      def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
+        val arr = new Array[A](length)
+        for {
+          df <- default.toSeq
+          v = f(df)
+          i <- 0 until length
+        } {
+          arr(i) = v
+        }
+        for ((ind, v) <- elems) {
+          arr(ind) = f(v)
+        }
+        arr
+
+      }
+
+      underlying match {
+        case Int32Type =>
+          allocArray { case IntLiteral(v) => v }
+        case BooleanType =>
+          allocArray { case BooleanLiteral(b) => b }
+        case UnitType =>
+          allocArray { case UnitLiteral() => true }
+        case CharType =>
+          allocArray { case CharLiteral(c) => c }
+        case _ =>
+          allocArray(valueToJVM)
+      }
+
     case _ =>
       throw CompilationException(s"Unexpected expression $e in valueToJVM")
 

@@ -1054,8 +1054,8 @@ trait CodeGeneration {
         //returns targetArray
 
       case a @ FiniteArray(elems, default, length) =>
-        val IntLiteral(l) = length
-        ch << Ldc(l)
+        mkExpr(length, ch)
+
         val storeInstr = a.getType match {
           case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
           case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
@@ -1064,11 +1064,27 @@ trait CodeGeneration {
           case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
         }
 
-        for (i <- 0 until l) {
-          val v = elems.get(i).orElse(default).getOrElse {
-            throw CompilationException(s"No valuation for key '$i' in array")
-          }
+        // Fill up with default
+        default foreach { df =>
+          val loop = ch.getFreshLabel("array_loop")
+          val loopOut = ch.getFreshLabel("array_loop_out")
+          ch << Ldc(0)
+          // (array, index)
+          ch << Label(loop)
+          ch << DUP2 << SWAP
+          // (array, index, index, array)
+          ch << ARRAYLENGTH
+          // (array, index, index, length)
+          ch << If_ICmpGe(loopOut) << DUP2
+          // (array, index, array, index)
+          mkExpr(df, ch)
+          ch << storeInstr
+          ch << Ldc(1) << IADD << Goto(loop)
+          ch << Label(loopOut) << POP
+        }
 
+        // Replace present elements with correct value
+        for ((i,v) <- elems ) {
           ch << DUP << Ldc(i)
           mkExpr(v, ch)
           ch << storeInstr
