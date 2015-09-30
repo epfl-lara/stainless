@@ -19,6 +19,7 @@ Contents:
    library
    xlang
    verification
+   invinference
    neon
    isabelle
    limitations

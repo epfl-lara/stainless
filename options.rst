@@ -11,7 +11,8 @@ or ``off`` or ``no``.
 Additionally, if you need to pass options to the ``scalac`` frontend of Leon,
 you can do it by using a single dash ``-``. For example, ``-Ybrowse:typer``.
 
-The rest of this section presents all command-line options that Leon recognizes.
+The rest of this section presents command-line options that Leon recognizes.
+For more up-to-date list, please invoke ``leon --help``.
 
 Choosing which Leon feature to use
 ----------------------------------
@@ -39,6 +40,14 @@ These options are mutually exclusive. By default, ``--verify`` is chosen.
   
   Runs termination analysis. Can be used along ``--verify``.
 
+* ``--inferInv`` 
+
+  Infer invariants from (instrumented) the code (using Orb)
+
+* ``--instrument``                
+
+  Instrument the code for inferring time/depth/stack bounds (using Orb)
+
 * ``--noop``
   
   Runs the program through the extraction and preprocessing phases, then outputs it in the specified
@@ -47,6 +56,8 @@ These options are mutually exclusive. By default, ``--verify`` is chosen.
 * ``--help``
   
   Prints a helpful message, then exits.
+
+
 
 Additional top-level options
 ----------------------------
@@ -185,6 +196,47 @@ These options are available by all Leon components:
   
   Support for additional language constructs described in :ref:`xlang`.
   These constructs are desugared into :ref:`purescala` before other operations.
+
+Invariant Inference
+-------------------
+
+These options are to be used in conjuction with ``--inferInv`` and ``--instrument``.
+
+* ``--cegis``
+
+  Use cegis instead of farkas
+
+* ``--disableInfer``
+
+  Disable automatic inference of auxiliary invariants
+
+* ``--fullunroll``
+
+  Unroll all calls in every unroll step
+
+* ``--inferTemp``
+
+  Infer templates by enumeration
+
+* ``--minbounds``
+
+  Tighten the inferred time bounds
+
+* ``--stats-suffix=s``
+
+  Specifies the suffix of the statistics file
+
+* ``--usereals``
+
+  Interpret the input program as a program over real numbers
+
+* ``--wholeprogram``
+
+  Perform a non-modular whole program analysis
+
+* ``--withmult``
+
+  Do not convert multiplication into a recursive function inside verification conditions
 
 Additional Options (by component)
 ---------------------------------
