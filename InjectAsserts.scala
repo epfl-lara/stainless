@@ -10,12 +10,12 @@ import Definitions._
 import Constructors._
 import xlang.Expressions._
 
-object InjectAsserts extends LeonPhase[Program, Program] {
+object InjectAsserts extends SimpleLeonPhase[Program, Program] {
 
   val name = "Asserts"
   val description = "Inject asserts for various correctness conditions (map accesses, array accesses, divisions by zero,..)"
 
-  def run(ctx: LeonContext)(pgm: Program): Program = {
+  def apply(ctx: LeonContext, pgm: Program): Program = {
     def indexUpTo(i: Expr, e: Expr) = {
       and(GreaterEquals(i, IntLiteral(0)), LessThan(i, e))
     }

@@ -10,13 +10,13 @@ import scala.concurrent.duration._
 
 import solvers._
 
-object AnalysisPhase extends LeonPhase[Program,VerificationReport] {
+object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
   val name = "Analysis"
   val description = "Leon Verification"
 
   implicit val debugSection = utils.DebugSectionVerification
 
-  def run(ctx: LeonContext)(program: Program): VerificationReport = {
+  def apply(ctx: LeonContext, program: Program): VerificationReport = {
     val filterFuns: Option[Seq[String]] = ctx.findOption(SharedOptions.optFunctions)
     val timeout:    Option[Long]        = ctx.findOption(SharedOptions.optTimeout)
 
