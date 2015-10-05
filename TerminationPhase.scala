@@ -5,11 +5,11 @@ package termination
 
 import purescala.Definitions._
 
-object TerminationPhase extends LeonPhase[Program,TerminationReport] {
+object TerminationPhase extends SimpleLeonPhase[Program, TerminationReport] {
   val name = "Termination"
   val description = "Check termination of PureScala functions"
 
-  def run(ctx : LeonContext)(program : Program) : TerminationReport = {
+  def apply(ctx: LeonContext, program: Program): TerminationReport = {
     val startTime = System.currentTimeMillis
 
 //    val tc = new SimpleTerminationChecker(ctx, program)
