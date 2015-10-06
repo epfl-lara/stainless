@@ -14,7 +14,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
   def generatePostconditions(fd: FunDef): Seq[VC] = {
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val vc = implies(precOrTrue(fd), application(post, Seq(body)))
+        val vc = implies(fd.precOrTrue, application(post, Seq(body)))
         Seq(VC(vc, fd, VCKinds.Postcondition).setPos(post))
       case _ =>
         Nil
@@ -31,7 +31,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
         calls.map {
           case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
             val pre2 = tfd.withParamSubst(args, pre)
-            val vc = implies(and(precOrTrue(fd), path), pre2)
+            val vc = implies(and(fd.precOrTrue, path), pre2)
             val fiS = sizeLimit(fi.asString, 40)
             VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS")).setPos(fi)
         }
@@ -74,7 +74,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
 
       calls.map {
         case (e, correctnessCond) =>
-          val vc = implies(precOrTrue(fd), correctnessCond)
+          val vc = implies(fd.precOrTrue, correctnessCond)
 
           VC(vc, fd, eToVCKind(e)).setPos(e)
       }

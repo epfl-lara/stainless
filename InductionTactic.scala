@@ -35,12 +35,12 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
           val subCases = selectors.map { sel =>
             replace(Map(arg.toVariable -> sel),
-              implies(precOrTrue(fd), application(post, Seq(body)))
+              implies(fd.precOrTrue, application(post, Seq(body)))
             )
           }
 
           val vc = implies(
-            and(IsInstanceOf(arg.toVariable, cct), precOrTrue(fd)),
+            and(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue),
             implies(andJoin(subCases), application(post, Seq(body)))
           )
 
@@ -72,12 +72,12 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
 
           val subCases = selectors.map { sel =>
             replace(Map(arg.toVariable -> sel),
-              implies(precOrTrue(fd), tfd.withParamSubst(args, pre))
+              implies(fd.precOrTrue, tfd.withParamSubst(args, pre))
             )
           }
 
           val vc = implies(
-            andJoin(Seq(IsInstanceOf(arg.toVariable, cct), precOrTrue(fd), path) ++ subCases),
+            andJoin(Seq(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue, path) ++ subCases),
             tfd.withParamSubst(args, pre)
           )
 

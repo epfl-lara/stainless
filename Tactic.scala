@@ -21,12 +21,6 @@ abstract class Tactic(vctx: VerificationContext) {
   def generatePreconditions(function: FunDef): Seq[VC]
   def generateCorrectnessConditions(function: FunDef): Seq[VC]
 
-  // Helper functions
-  protected def precOrTrue(fd: FunDef): Expr = fd.precondition match {
-    case Some(pre) => pre
-    case None => BooleanLiteral(true)
-  }
-
   protected def sizeLimit(s: String, limit: Int) = {
     require(limit > 3)
     // Crop the call to display it properly
