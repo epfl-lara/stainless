@@ -315,8 +315,8 @@ class CompilationUnit(val ctx: LeonContext,
         val k = jvmToValue(entry.getKey, from)
         val v = jvmToValue(entry.getValue, to)
         (k, v)
-      }
-      FiniteMap(pairs.toSeq, from, to)
+      }.toMap
+      FiniteMap(pairs, from, to)
 
     case (lambda: runtime.Lambda, _: FunctionType) =>
       val cls = lambda.getClass
