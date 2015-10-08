@@ -183,7 +183,7 @@ trait CodeGeneration {
     // An offset we introduce to the parameters:
     // 1 if this is a method, so we need "this" in position 0 of the stack
     // 1 if we are monitoring
-    val idParams = (if (requireMonitor) Seq(monitorID) else Seq.empty) ++ funDef.params.map(_.id)
+    val idParams = (if (requireMonitor) Seq(monitorID) else Seq.empty) ++ funDef.paramIds
     val newMapping = idParams.zipWithIndex.toMap.mapValues(_ + (if (!isStatic) 1 else 0))
 
     val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
