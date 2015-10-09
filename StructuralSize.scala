@@ -24,12 +24,7 @@ trait StructuralSize {
 
   def makeAbsFun(tp: TypeTree, name: String, uminus: Expr => Expr, zero: Expr): TypedFunDef = {
     val x = FreshIdentifier("x", tp, alwaysShowUniqueID = true)
-    val absFun = new FunDef(
-      FreshIdentifier(name, alwaysShowUniqueID = true),
-      Seq(), // no type params 
-      tp, // return type
-      Seq(ValDef(x))
-    )
+    val absFun = new FunDef(FreshIdentifier(name, alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), tp)
     absFun.body = Some(IfExpr(
       GreaterEquals(Variable(x), zero),
       Variable(x),
@@ -50,7 +45,7 @@ trait StructuralSize {
         case None =>
           val argument = ValDef(FreshIdentifier("x", argumentType, true))
           val formalTParams = typeParams.map(TypeParameterDef)
-          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, IntegerType, Seq(argument))
+          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, Seq(argument), IntegerType)
           sizeCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
