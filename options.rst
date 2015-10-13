@@ -42,7 +42,7 @@ These options are mutually exclusive. By default, ``--verify`` is chosen.
 
 * ``--inferInv`` 
 
-  Infer invariants from (instrumented) the code (using Orb)
+  Infer invariants from the (instrumented) code (using Orb)
 
 * ``--instrument``                
 
