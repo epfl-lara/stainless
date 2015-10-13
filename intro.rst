@@ -13,16 +13,46 @@ unique automation functionality. In particular, Leon can
 * automatically execute and synthesize working functions
   from partial input/output specifications and test cases.
 
+Leon and Scala
+--------------
+
+Leon attempts to strike a delicate balance between the convenience 
+of use on the one hand and the simplicity of reasoning 
+on the other hand. 
 Leon primarily supports programs written in :ref:`Pure Scala <purescala>`, a purely
-functional subset of Scala.  That said, the :ref:`XLang <xlang>` extension enables Leon to
-work on a richer subset of Scala, including imperative features. 
-The :ref:`Pure Scala <purescala>` features are at the *core* of the Leon
+functional subset of Scala. 
+This fragment is at the core of 
+the functional programming paradigm and lies at the intersection
+of functional languages such as Scala, Haskell, ML, and fragments present in interactive theorem provers such as Isabelle and Coq. Thus,
+if you do not already know Scala, learning the Leon subset should
+be easier as it is a smaller language.
+The :ref:`Pure Scala <purescala>` features are at the core of the Leon
 system. They are considered as primitives and get a personalized treatment in
-the solving algorithms of Leon. On the other hand, features introduced by
-:ref:`XLang <xlang>` are handled by translation into Pure Scala
-concepts. They are often more than just syntactic sugar, because some of them
-require significant modification of the original program, such as introducing
-additional parameters to a set of functions.
+the solving algorithms of Leon. 
+Leon's algorithms can map this fragment into the first-order language
+of SMT (satisfiability modulo theory) solvers, enabling
+efficient automated reasoning. Moreover, thanks to the use of 
+``scalac`` front end, Leon supports implicits and ``for`` 
+comprehensions (which also serve as a syntax for monads in Scala).
+Leon also comes with a simple library of useful data types, which are designed
+to work well with automated reasoning and Leon's language fragment.
+
+In addition to this pure fragment, Leon supports the
+:ref:`XLang <xlang>` extension, which enables Leon to work
+on a richer subset of Scala, including imperative features.
+Features introduced by :ref:`XLang <xlang>` are handled by
+translation into Pure Scala concepts. They are often more
+than just syntactic sugar, because some of them require
+significant modification of the original program, such as
+introducing additional parameters to a set of functions.  As
+an intended aspect of its current design, Leon's language
+currently does not provide a default encoding of
+e.g. concurrency with a shared mutable heap, though it might
+support more manageable forms of concurrency in the future.
+For practical reasons, Leon programs can also call out into
+general Scala code, which needs to be used with care as it
+is a form of "foreign function interface" into the general
+world of Scala.
 
 If you would like to use Leon now, check the :ref:`Getting Started <gettingstarted>`
 section and try our :ref:`Tutorial <tutorial>`.

@@ -3,15 +3,33 @@
 Leon Library
 ============
 
-Leon defines its own versions of most data structures. One
-of the reasons is to ensure that these operations can be
-correctly mapped to mathematical functions and relations
-inside of SMT solvers, largely defined by the SMT-LIB
-standard (see http://www.smt-lib.org/).
+Leon defines its own library with some core data types and
+operations on them, which work with the fragment supported
+by Leon. One of the reasons for a separate library is to
+ensure that these operations can be correctly mapped to
+mathematical functions and relations inside of SMT solvers,
+largely defined by the SMT-LIB standard (see
+http://www.smt-lib.org/). Thus for some data types, such as
+``BigInt``, Leon provides a dedicated mapping to support reasoning.
+(If you are a fan
+of growing the language only through libraries, keep in mind that 
+growing operations together with the ability to reason about them
+is what the development of mathematical theories is all about, and
+is a process slower than putting together 
+libraries of unverified code--efficient automation of reasoning about a 
+single decidable theory generally results in multiple research papers.)
+For other operations (e.g., `List[T]`), the library
+is much like Leon user-defined code, but specifies some
+useful preconditions and postconditions of the operations, thus
+providing reasoning abilities using mechanisms entirely available
+to the user.
 
 To use Leon's libraries, you need to use the appropriate
 `import` directive at the top of Leon's compilation units.
-Here is a quick summary of what to import.
+Here is a quick summary of what to import. 
+For the most up-to-date version of the library,
+please consult the ``library/`` directory in your Leon
+distribution.
 
 +--------------------------------+----------------------------------------------------+
 | Package to import              | What it gives access to                            |
