@@ -12,5 +12,5 @@ case class VerificationContext (
   solverFactory: SolverFactory[Solver],
   reporter: Reporter
 ) {
-  val checkInParallel: Boolean = context.findOptionOrDefault(AnalysisPhase.optParallelVCs)
+  val checkInParallel: Boolean = context.findOptionOrDefault(VerificationPhase.optParallelVCs)
 }

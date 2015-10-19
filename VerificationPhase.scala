@@ -11,9 +11,9 @@ import java.lang.System
 
 import solvers._
 
-object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
-  val name = "Analysis"
-  val description = "Leon Verification"
+object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
+  val name = "Verification"
+  val description = "Verification of function contracts"
 
   val optParallelVCs = LeonFlagOptionDef("parallel", "Check verification conditions in parallel", default = false)
 
