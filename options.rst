@@ -18,7 +18,7 @@ Choosing which Leon feature to use
 ----------------------------------
 
 The first group of options determine which feature of Leon will be used.
-These options are mutually exclusive. By default, ``--verify`` is chosen.
+These options are mutually exclusive (except when noted). By default, ``--verify`` is chosen.
 
 * ``--eval`` 
  
@@ -62,7 +62,7 @@ These options are mutually exclusive. By default, ``--verify`` is chosen.
 Additional top-level options
 ----------------------------
 
-These options are available by all Leon components:
+These options are available to all Leon components:
 
 * ``--debug=d1,d2,...``
   
@@ -197,49 +197,19 @@ These options are available by all Leon components:
   Support for additional language constructs described in :ref:`xlang`.
   These constructs are desugared into :ref:`purescala` before other operations.
 
-Invariant Inference
--------------------
-
-These options are to be used in conjuction with ``--inferInv`` and ``--instrument``.
-
-* ``--cegis``
-
-  Use cegis instead of farkas
-
-* ``--disableInfer``
-
-  Disable automatic inference of auxiliary invariants
-
-* ``--fullunroll``
-
-  Unroll all calls in every unroll step
-
-* ``--inferTemp``
-
-  Infer templates by enumeration
-
-* ``--minbounds``
-
-  Tighten the inferred time bounds
-
-* ``--stats-suffix=s``
-
-  Specifies the suffix of the statistics file
-
-* ``--usereals``
-
-  Interpret the input program as a program over real numbers
-
-* ``--wholeprogram``
-
-  Perform a non-modular whole program analysis
-
-* ``--withmult``
-
-  Do not convert multiplication into a recursive function inside verification conditions
-
 Additional Options (by component)
 ---------------------------------
+
+The following options relate to specific components in Leon. Bear in mind
+that related components might still use these options, e.g. repair will use
+synthesis options and verification options.
+
+Verification
+************
+
+* ``--parallel``
+
+  Check verification conditions in parallel.
 
 File Output
 ***********
@@ -258,8 +228,6 @@ Code Extraction
 
 Synthesis
 *********
-
-These options are also used by repair during the synthesis stage.
 
 * ``--cegis:opttimeout``
 
@@ -366,3 +334,45 @@ Isabelle
   library when verifiying a Leon source file. Keeping it enabled prevents
   unsound proofs when postconditions or mappings in the library are wrong.
   When disabled, a warning is printed.
+
+Invariant Inference
+*******************
+
+These options are to be used in conjunction with ``--inferInv`` and ``--instrument``.
+
+* ``--cegis``
+
+  Use cegis instead of farkas
+
+* ``--disableInfer``
+
+  Disable automatic inference of auxiliary invariants
+
+* ``--fullunroll``
+
+  Unroll all calls in every unroll step
+
+* ``--inferTemp``
+
+  Infer templates by enumeration
+
+* ``--minbounds``
+
+  Tighten the inferred time bounds
+
+* ``--stats-suffix=s``
+
+  Specifies the suffix of the statistics file
+
+* ``--usereals``
+
+  Interpret the input program as a program over real numbers
+
+* ``--wholeprogram``
+
+  Perform a non-modular whole program analysis
+
+* ``--withmult``
+
+  Do not convert multiplication into a recursive function inside verification conditions
+
