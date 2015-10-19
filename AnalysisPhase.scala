@@ -7,12 +7,17 @@ import purescala.Definitions._
 import purescala.ExprOps._
 
 import scala.concurrent.duration._
+import java.lang.System
 
 import solvers._
 
 object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
   val name = "Analysis"
   val description = "Leon Verification"
+
+  val optParallelVCs = LeonFlagOptionDef("parallel", "Check verification conditions in parallel", default = false)
+
+  override val definedOptions: Set[LeonOptionDef[Any]] = Set(optParallelVCs)
 
   implicit val debugSection = utils.DebugSectionVerification
 
@@ -89,7 +94,6 @@ object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
   def checkVCs(
     vctx: VerificationContext,
     vcs: Seq[VC],
-    checkInParallel: Boolean = false,
     stopAfter: Option[(VC, VCResult) => Boolean] = None
   ): VerificationReport = {
     val interruptManager = vctx.context.interruptManager
@@ -98,7 +102,7 @@ object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
 
     val initMap: Map[VC, Option[VCResult]] = vcs.map(v => v -> None).toMap
 
-    val results = if (checkInParallel) {
+    val results = if (vctx.checkInParallel) {
       for (vc <- vcs.par if !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
@@ -168,6 +172,9 @@ object AnalysisPhase extends SimpleLeonPhase[Program,VerificationReport] {
       }
 
       reporter.synchronized {
+        if (vctx.checkInParallel) {
+          reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd.id} @${vc.getPos}:")
+        }
         res.report(vctx)
       }
 
