@@ -54,7 +54,16 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
   def eval(model: solvers.Model) : Expr = {
     try {
       val monitor = unit.modelToJVM(model, params.maxFunctionInvocations)
-      evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
+      val res = evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
+      monitor match {
+        case hm: LHM =>
+          val it = hm.getWarnings().iterator()
+          while (it.hasNext) {
+            unit.ctx.reporter.warning(it.next)
+          }
+        case _ =>
+      }
+      res
     } catch {
       case ite : InvocationTargetException => throw ite.getCause
     }

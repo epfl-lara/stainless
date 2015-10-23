@@ -70,8 +70,10 @@ trait CodeGeneration {
   private[codegen] val RationalClass             = "leon/codegen/runtime/Rational"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
+  private[codegen] val PartialLambdaClass        = "leon/codegen/runtime/PartialLambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
+  private[codegen] val BadQuantificationClass    = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
   private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
@@ -375,6 +377,34 @@ trait CodeGeneration {
         hch.freeze
       }
 
+      locally {
+        val vmh = cf.addMethod("V", "checkForall", s"[Z")
+        vmh.setFlags((
+          METHOD_ACC_PUBLIC |
+          METHOD_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        val vch = vmh.codeHandler
+
+        vch << ALoad(1) // load boolean array `quantified`
+        def rec(args: Seq[Identifier], idx: Int, quantified: Set[Identifier]): Unit = args match {
+          case x :: xs =>
+            val notQuantLabel = vch.getFreshLabel("notQuant")
+            vch << DUP << ALoad(idx) << IfEq(notQuantLabel)
+            rec(xs, idx + 1, quantified + x)
+            vch << Label(notQuantLabel)
+            rec(xs, idx + 1, quantified)
+
+          case Nil =>
+            if (quantified.nonEmpty) checkQuantified(quantified, nl.body, vch)
+            vch << POP << RETURN
+        }
+
+        rec(nl.args.map(_.id), 0, Set.empty)
+
+        vch.freeze
+      }
+
       loader.register(cf)
 
       afName
@@ -391,6 +421,29 @@ trait CodeGeneration {
       }
     }
     ch << InvokeSpecial(afName, constructorName, consSig)
+  }
+
+  private def checkQuantified(quantified: Set[Identifier], body: Expr, ch: CodeHandler)(implicit locals: Locals): Unit = {
+    val status = checkForall(quantified, body)
+    if (status.isValid) {
+      purescala.ExprOps.preTraversal {
+        case Application(caller, args) =>
+          ch << NewArray.primitive("T_BOOLEAN")
+          for ((arg, idx) <- args.zipWithIndex) {
+            ch << DUP << Ldc(idx) << Ldc(arg match {
+              case Variable(id) if quantified(id) => 1
+              case _ => 0
+            }) << BASTORE
+          }
+
+          ch << InvokeVirtual(LambdaClass, "checkForall", "([Z)V")
+              case _ =>
+      } (body)
+    } else {
+      load(monitorID, ch)
+      ch << Ldc("Invalid forall: " + status)
+      ch << InvokeVirtual(HenkinClass, "warn", "(Ljava/lang/String;)V")
+    }
   }
 
   private val typeIdCache = scala.collection.mutable.Map.empty[TypeTree, Int]
@@ -412,6 +465,9 @@ trait CodeGeneration {
     ch << InvokeSpecial(ImpossibleEvaluationClass, constructorName, "(Ljava/lang/String;)V")
     ch << ATHROW
     ch << Label(monitorOk)
+
+    val quantified = f.args.map(_.id).toSet
+    checkQuantified(quantified, f.body, ch)
 
     val Forall(fargs, TopLevelAnds(conjuncts)) = f
     val endLabel = ch.getFreshLabel("forallEnd")
@@ -881,6 +937,21 @@ trait CodeGeneration {
 
         ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
         mkUnbox(app.getType, ch)
+
+      case p @ PartialLambda(mapping, dflt, _) =>
+        if (dflt.isDefined) {
+          mkExpr(dflt.get, ch)
+          ch << New(PartialLambdaClass)
+          ch << InvokeSpecial(PartialLambdaClass, constructorName, s"(L$ObjectClass;)V")
+        } else {
+          ch << DefaultNew(PartialLambdaClass)
+        }
+
+        for ((es,v) <- mapping) {
+          mkExpr(Tuple(es), ch)
+          mkExpr(v, ch)
+          ch << InvokeVirtual(PartialLambdaClass, "add", s"(L$TupleClass;L$ObjectClass;)V")
+        }
 
       case l @ Lambda(args, body) =>
         compileLambda(l, ch)

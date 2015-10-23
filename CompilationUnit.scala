@@ -201,8 +201,13 @@ class CompilationUnit(val ctx: LeonContext,
       }
       m
 
-    case f @ PartialLambda(mapping, _) =>
-      val l = new leon.codegen.runtime.PartialLambda()
+    case f @ PartialLambda(mapping, dflt, _) =>
+      val l = if (dflt.isDefined) {
+        new leon.codegen.runtime.PartialLambda(dflt.get)
+      } else {
+        new leon.codegen.runtime.PartialLambda()
+      }
+
       for ((ks,v) <- mapping) {
         // Force tuple even with 1/0 elems.
         val kJvm = tupleConstructor.newInstance(ks.map(valueToJVM).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
