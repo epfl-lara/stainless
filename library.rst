@@ -74,7 +74,9 @@ which instruct Leon to handle some functions or objects in a specialized way.
 |                   | code written in full Scala which is not verifiable|
 |                   | by Leon.                                          |
 +-------------------+---------------------------------------------------+
-
+| ``@inline``       | Inline this function. Leon will refuse to inline  |
+|                   | (mutually) recursive functions.                   |
++-------------------+---------------------------------------------------+
 
 List[T]
 -------

@@ -9,10 +9,10 @@ or just ``--option``. To disable a flag option, use ``--option=false``
 or ``off`` or ``no``.
 
 Additionally, if you need to pass options to the ``scalac`` frontend of Leon,
-you can do it by using a single dash ``-``. For example, ``-Ybrowse:typer``.
+you can do it by using a single dash ``-``. For example, try ``-Ybrowse:typer``.
 
 The rest of this section presents command-line options that Leon recognizes.
-For more up-to-date list, please invoke ``leon --help``.
+For a short (but always up-to-date) summary, you can also invoke ``leon --help``.
 
 Choosing which Leon feature to use
 ----------------------------------
@@ -73,10 +73,14 @@ These options are available to all Leon components:
   
   * ``eval`` (Evaluators)
   
+  * ``isabelle`` (:ref:`The Isabelle-based solver <isabelle>`)
+
   * ``leon`` (The top-level component)
   
   * ``options`` (Options parsed by Leon)
-  
+ 
+  * ``positions`` (When printing, attach positions to trees)
+
   * ``repair`` (Program repair)
   
   * ``solver`` (SMT solvers and their wrappers)
@@ -88,7 +92,9 @@ These options are available to all Leon components:
   * ``timers`` (Timers, timer pools)
   
   * ``trees`` (Manipulation of trees)
-  
+ 
+  * ``types`` (When printing, attach types to expressions)
+
   * ``verification`` (Verification)
   
   * ``xlang`` (Transformation of XLang into Pure Scala programs)
@@ -100,9 +106,9 @@ These options are available to all Leon components:
   where Leon manipulates the input in a per-function basis.
 
   Leon will match against suffixes of qualified names. For instance:
-  ``--functions=List.size`` will match the method
-  ``leon.collection.List.size`` while  ``--functions=size`` will match all ``size``
-  methods and functions. This option supports ``_`` as wildcard: ``--functions=List._`` will
+  ``--functions=List.size`` will match the method ``leon.collection.List.size``,
+  while  ``--functions=size`` will match all methods and functions named ``size``.
+  This option supports ``_`` as wildcard: ``--functions=List._`` will
   match all ``List`` methods.
 
 * ``--solvers=s1,s2,...`` 
@@ -201,7 +207,8 @@ Additional Options (by component)
 ---------------------------------
 
 The following options relate to specific components in Leon. Bear in mind
-that related components might still use these options, e.g. repair will use
+that related components might still use these options, e.g. repair,
+which invokes synthesis and verification, will also use
 synthesis options and verification options.
 
 Verification
