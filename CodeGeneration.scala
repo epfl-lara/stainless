@@ -654,7 +654,7 @@ trait CodeGeneration {
 
       case SetCardinality(s) =>
         mkExpr(s, ch)
-        ch << InvokeVirtual(SetClass, "size", "()I")
+        ch << InvokeVirtual(SetClass, "size", s"()$BigIntClass;")
 
       case SubsetOf(s1, s2) =>
         mkExpr(s1, ch)
