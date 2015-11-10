@@ -505,13 +505,11 @@ class CompilationUnit(val ctx: LeonContext,
       for {
         ch <- u.classHierarchies
         c  <- ch
-      } {
-        c match {
-          case acd: AbstractClassDef =>
-            compileAbstractClassDef(acd)
-          case ccd: CaseClassDef =>
-            compileCaseClassDef(ccd)
-        }
+      } c match {
+        case acd: AbstractClassDef =>
+          compileAbstractClassDef(acd)
+        case ccd: CaseClassDef =>
+          compileCaseClassDef(ccd)
       }
 
       for (m <- u.modules) compileModule(m)
