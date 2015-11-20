@@ -1138,7 +1138,7 @@ trait CodeGeneration {
         ch << ATHROW
 
       case choose: Choose =>
-        val prob = synthesis.Problem.fromChoose(choose)
+        val prob = synthesis.Problem.fromSpec(choose.pred)
 
         val id = runtime.ChooseEntryPoint.register(prob, this)
         ch << Ldc(id)
