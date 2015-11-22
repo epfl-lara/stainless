@@ -127,13 +127,24 @@ class CompilationUnit(val ctx: LeonContext,
     conss.last
   }
 
-  def modelToJVM(model: solvers.Model, maxInvocations: Int): LeonCodeGenRuntimeMonitor = model match {
+  def modelToJVM(model: solvers.Model, maxInvocations: Int, check: Boolean): LeonCodeGenRuntimeMonitor = model match {
     case hModel: solvers.HenkinModel =>
-      val lhm = new LeonCodeGenRuntimeHenkinMonitor(maxInvocations)
-      for ((tpe, domain) <- hModel.domains; args <- domain) {
+      val lhm = new LeonCodeGenRuntimeHenkinMonitor(maxInvocations, check)
+      for ((lambda, domain) <- hModel.doms.lambdas) {
+        val (afName, _, _) = compileLambda(lambda)
+        val lc = loader.loadClass(afName)
+
+        for (args <- domain) {
+          // note here that it doesn't matter that `lhm` doesn't yet have its domains
+          // filled since all values in `args` should be grounded
+          val inputJvm = tupleConstructor.newInstance(args.map(valueToJVM(_)(lhm)).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
+          lhm.add(lc, inputJvm)
+        }
+      }
+
+      for ((tpe, domain) <- hModel.doms.tpes; args <- domain) {
         val tpeId = typeId(tpe)
-        // note here that it doesn't matter that `lhm` doesn't yet have its domains
-        // filled since all values in `args` should be grounded
+        // same remark as above about valueToJVM(_)(lhm)
         val inputJvm = tupleConstructor.newInstance(args.map(valueToJVM(_)(lhm)).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
         lhm.add(tpeId, inputJvm)
       }
@@ -537,3 +548,5 @@ class CompilationUnit(val ctx: LeonContext,
 
 private [codegen] object exprCounter extends UniqueCounter[Unit]
 private [codegen] object lambdaCounter extends UniqueCounter[Unit]
+private [codegen] object forallCounter extends UniqueCounter[Unit]
+

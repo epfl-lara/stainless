@@ -8,7 +8,7 @@ import purescala.Expressions._
 
 import cafebabe._
 
-import runtime.{LeonCodeGenRuntimeMonitor => LM, LeonCodeGenRuntimeHenkinMonitor => LHM}
+import runtime.{LeonCodeGenRuntimeMonitor => LM}
 
 import java.lang.reflect.InvocationTargetException
 
@@ -51,19 +51,10 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
     }
   }
 
-  def eval(model: solvers.Model) : Expr = {
+  def eval(model: solvers.Model, check: Boolean = false) : Expr = {
     try {
-      val monitor = unit.modelToJVM(model, params.maxFunctionInvocations)
-      val res = evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
-      monitor match {
-        case hm: LHM =>
-          val it = hm.getWarnings().iterator()
-          while (it.hasNext) {
-            unit.ctx.reporter.warning(it.next)
-          }
-        case _ =>
-      }
-      res
+      val monitor = unit.modelToJVM(model, params.maxFunctionInvocations, check)
+      evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
     } catch {
       case ite : InvocationTargetException => throw ite.getCause
     }
