@@ -46,26 +46,6 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
   def isInvalid = status.isInstanceOf[VCStatus.Invalid]
   def isInconclusive = !isValid && !isInvalid
 
-  def userDefinedString(v: Expr, orElse: =>String)(vctx: VerificationContext): String = {
-    //println(vctx.program.definedFunctions.map(fd => fd.id.name + "," + (fd.returnType == StringType) + ", " + (fd.params.length == 1) + "," + (fd.params.length == 1 && fd.params.head.getType == v.getType)).mkString("\n"))
-    (vctx.program.definedFunctions find {
-      case fd => fd.returnType == StringType && fd.params.length == 1 && fd.params.head.getType == v.getType && fd.id.name.toLowerCase().endsWith("tostring")
-    }) match {
-      case Some(fd) =>
-        println("Found fd: " + fd.id.name)
-        val ste = new StringTracingEvaluator(vctx.context, vctx.program)
-        val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
-        result.result match {
-          case Some((StringLiteral(res), _)) =>
-            res
-          case _ =>
-            orElse
-        }
-      case None =>
-        orElse
-    }
-  }
-  
   def report(vctx: VerificationContext) {
     import vctx.reporter
     import vctx.context
@@ -83,7 +63,7 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         // is free to simplify
         val strings = cex.toSeq.sortBy(_._1.name).map {
           case (id, v) =>
-            (id.asString(context), userDefinedString(v, PrettyPrinter(v))(vctx))
+            (id.asString(context), VerificationReport.userDefinedString(v, PrettyPrinter(v))(vctx.context, vctx.program))
         }
 
         if (strings.nonEmpty) {

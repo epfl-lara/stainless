@@ -4,6 +4,36 @@ package leon
 package verification
 
 import purescala.Definitions.Program
+import leon.evaluators.StringTracingEvaluator
+import purescala.Expressions._
+import purescala.Types.StringType
+import leon.utils.DebugSectionSynthesis
+import leon.utils.DebugSectionVerification
+import leon.purescala.TypeOps
+
+object VerificationReport {
+  /** If it can be computed, returns a user defined string for the given expression */
+  def userDefinedString(v: Expr, orElse: =>String)(ctx: LeonContext, program: Program): String = {
+    //println("Functions available:" + program.definedFunctions.map(fd => fd.id.name + "," + (fd.returnType == StringType) + ", " + (fd.params.length == 1) + "," + (fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType)) + ", " + (if(fd.params.length == 1) fd.params.head.getType + " == " + v.getType else "")).mkString("\n"))
+    (program.definedFunctions find {
+      case fd => fd.returnType == StringType && fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType) && fd.id.name.toLowerCase().endsWith("tostring")
+    }) match {
+      case Some(fd) =>
+        //println("Found fd: " + fd.id.name)
+        val ste = new StringTracingEvaluator(ctx, program)
+        val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
+        result.result match {
+          case Some((StringLiteral(res), _)) =>
+            res
+          case _ =>
+            orElse
+        }
+      case None =>
+        //println("Function to render " + v + " not found")
+        orElse
+    }
+  }
+}
 
 case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) {
 
