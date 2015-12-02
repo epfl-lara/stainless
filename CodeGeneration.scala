@@ -6,7 +6,7 @@ package codegen
 import purescala.Common._
 import purescala.Definitions._
 import purescala.Expressions._
-import purescala.ExprOps.{simplestValue, matchToIfThenElse, collect}
+import purescala.ExprOps.{simplestValue, matchToIfThenElse, collect, variablesOf, CollectorWithPaths}
 import purescala.Types._
 import purescala.Constructors._
 import purescala.Extractors._
@@ -47,6 +47,8 @@ trait CodeGeneration {
     def withArgs(newArgs: Map[Identifier, Int]) = new Locals(vars, args ++ newArgs, fields)
 
     def withFields(newFields: Map[Identifier,(String,String,String)]) = new Locals(vars, args, fields ++ newFields)
+
+    override def toString = "Locals("+vars + ", " + args + ", " + fields + ")"
   }
 
   object NoLocals extends Locals(Map.empty, Map.empty, Map.empty)
@@ -71,8 +73,12 @@ trait CodeGeneration {
   private[codegen] val RationalClass             = "leon/codegen/runtime/Rational"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
+  private[codegen] val ForallClass               = "leon/codegen/runtime/Forall"
+  private[codegen] val PartialLambdaClass        = "leon/codegen/runtime/PartialLambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
+  private[codegen] val InvalidForallClass        = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
+  private[codegen] val BadQuantificationClass    = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
   private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
@@ -228,8 +234,8 @@ trait CodeGeneration {
   private[codegen] val lambdaToClass = scala.collection.mutable.Map.empty[Lambda, String]
   private[codegen] val classToLambda = scala.collection.mutable.Map.empty[String, Lambda]
 
-  private def compileLambda(l: Lambda, ch: CodeHandler)(implicit locals: Locals): Unit = {
-    val (normalized, structSubst) = purescala.ExprOps.normalizeStructure(l)
+  protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], String) = {
+    val (normalized, structSubst) = purescala.ExprOps.normalizeStructure(matchToIfThenElse(l))
     val reverseSubst = structSubst.map(p => p._2 -> p._1)
     val nl = normalized.asInstanceOf[Lambda]
 
@@ -283,6 +289,10 @@ trait CodeGeneration {
         cch.freeze
       }
 
+      val argMapping = nl.args.map(_.id).zipWithIndex.toMap
+      val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
+      val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
+
       locally {
         val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
 
@@ -290,11 +300,6 @@ trait CodeGeneration {
           METHOD_ACC_PUBLIC |
           METHOD_ACC_FINAL
         ).asInstanceOf[U2])
-
-        val argMapping = nl.args.map(_.id).zipWithIndex.toMap
-        val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
-
-        val newLocals = locals.withArgs(argMapping).withFields(closureMapping)
 
         val apch = apm.codeHandler
 
@@ -380,22 +385,135 @@ trait CodeGeneration {
         hch.freeze
       }
 
+      locally {
+        val vmh = cf.addMethod("V", "checkForall", "[Z")
+        vmh.setFlags((
+          METHOD_ACC_PUBLIC |
+          METHOD_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        val vch = vmh.codeHandler
+
+        vch << ALoad(1) // load argument array
+        def rec(args: Seq[Identifier], idx: Int, quantified: Set[Identifier]): Unit = args match {
+          case x :: xs =>
+            val notQuantLabel = vch.getFreshLabel("notQuant")
+            vch << DUP << Ldc(idx) << BALOAD << IfEq(notQuantLabel)
+            rec(xs, idx + 1, quantified + x)
+            vch << Label(notQuantLabel)
+            rec(xs, idx + 1, quantified)
+
+          case Nil =>
+            if (quantified.nonEmpty) {
+              checkQuantified(quantified, nl.body, vch)(newLocals)
+              vch << ALoad(0) << InvokeVirtual(LambdaClass, "checkAxiom", "()V")
+            }
+            vch << POP << RETURN
+        }
+
+        if (requireQuantification) {
+          rec(nl.args.map(_.id), 0, Set.empty)
+        } else {
+          vch << POP << RETURN
+        }
+
+        vch.freeze
+      }
+
+      locally {
+        val vmh = cf.addMethod("V", "checkAxiom")
+        vmh.setFlags((
+          METHOD_ACC_PUBLIC |
+          METHOD_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        val vch = vmh.codeHandler
+
+        if (requireQuantification) {
+          val thisVar = FreshIdentifier("this", l.getType)
+          val axiom = Equals(Application(Variable(thisVar), nl.args.map(_.toVariable)), nl.body)
+          val axiomLocals = NoLocals.withFields(closureMapping).withVar(thisVar -> 0)
+
+          mkForall(nl.args.map(_.id).toSet, axiom, vch, check = false)(axiomLocals)
+
+          val skip = vch.getFreshLabel("skip")
+          vch << IfNe(skip)
+          vch << New(InvalidForallClass) << DUP
+          vch << Ldc("Unaxiomatic lambda " + l)
+          vch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
+          vch << ATHROW
+          vch << Label(skip)
+        }
+
+        vch << RETURN
+        vch.freeze
+      }
+
       loader.register(cf)
 
       afName
     })
 
-    val consSig = "(" + closures.map(_._2).mkString("") + ")V"
+    (afName, closures.map { case p @ (id, jvmt) =>
+      if (id == monitorID) p else (reverseSubst(id) -> jvmt)
+    }, "(" + closures.map(_._2).mkString("") + ")V")
+  }
 
-    ch << New(afName) << DUP
-    for ((id,jvmt) <- closures) {
-      if (id == monitorID) {
-        load(monitorID, ch)
-      } else {
-        mkExpr(Variable(reverseSubst(id)), ch)
-      }
+  private def checkQuantified(quantified: Set[Identifier], body: Expr, ch: CodeHandler)(implicit locals: Locals): Unit = {
+    val skipCheck = ch.getFreshLabel("skipCheck")
+
+    load(monitorID, ch)
+    ch << CheckCast(HenkinClass) << GetField(HenkinClass, "checkForalls", "Z")
+    ch << IfEq(skipCheck)
+
+    checkForall(quantified, body)(ctx) match {
+      case status: ForallInvalid =>
+        ch << New(InvalidForallClass) << DUP
+        ch << Ldc("Invalid forall: " + status.getMessage)
+        ch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
+        ch << ATHROW
+
+      case ForallValid =>
+        // expand match case expressions and lets so that caller can be compiled given
+        // the current locals (lets and matches introduce new locals)
+        val cleanBody = purescala.ExprOps.expandLets(purescala.ExprOps.matchToIfThenElse(body))
+
+        val calls = new CollectorWithPaths[(Expr, Seq[Expr], Seq[Expr])] {
+          def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Seq[Expr], Seq[Expr])] = e match {
+            case QuantificationMatcher(IsTyped(caller, _: FunctionType), args) => Some((caller, args, path))
+            case _ => None
+          }
+
+          override def rec(e: Expr, path: Seq[Expr]): Expr = e match {
+            case l : Lambda => l
+            case _ => super.rec(e, path)
+          }
+        }.traverse(cleanBody)
+
+        for ((caller, args, paths) <- calls) {
+          if ((variablesOf(caller) & quantified).isEmpty) {
+            val enabler = andJoin(paths.filter(expr => (variablesOf(expr) & quantified).isEmpty))
+            val skipCall = ch.getFreshLabel("skipCall")
+            mkExpr(enabler, ch)
+            ch << IfEq(skipCall)
+
+            mkExpr(caller, ch)
+            ch << Ldc(args.size) << NewArray.primitive("T_BOOLEAN")
+            for ((arg, idx) <- args.zipWithIndex) {
+              ch << DUP << Ldc(idx) << Ldc(arg match {
+                case Variable(id) if quantified(id) => 1
+                case _ => 0
+              }) << BASTORE
+            }
+
+            ch << InvokeVirtual(LambdaClass, "checkForall", "([Z)V")
+
+            ch << Label(skipCall)
+          }
+        }
     }
-    ch << InvokeSpecial(afName, constructorName, consSig)
+
+    ch << Label(skipCheck)
   }
 
   private val typeIdCache = scala.collection.mutable.Map.empty[TypeTree, Int]
@@ -407,134 +525,270 @@ trait CodeGeneration {
       id
   }
 
-  private def compileForall(f: Forall, ch: CodeHandler)(implicit locals: Locals): Unit = {
-    // make sure we have an available HenkinModel
-    val monitorOk = ch.getFreshLabel("monitorOk")
+  private[codegen] val forallToClass = scala.collection.mutable.Map.empty[Expr, String]
+
+  private def mkForall(quants: Set[Identifier], body: Expr, ch: CodeHandler, check: Boolean = true)(implicit locals: Locals): Unit = {
+    val (afName, closures, consSig) = compileForall(quants, body)
+    ch << New(afName) << DUP
     load(monitorID, ch)
-    ch << InstanceOf(HenkinClass) << IfNe(monitorOk)
-    ch << New(ImpossibleEvaluationClass) << DUP
-    ch << Ldc("Can't evaluate foralls without domain")
-    ch << InvokeSpecial(ImpossibleEvaluationClass, constructorName, "(Ljava/lang/String;)V")
-    ch << ATHROW
-    ch << Label(monitorOk)
+    mkTuple(closures.map(_.toVariable) :+ BooleanLiteral(check), ch)
+    ch << InvokeSpecial(afName, constructorName, consSig)
+    ch << InvokeVirtual(ForallClass, "check", "()Z")
+  }
 
-    val Forall(fargs, TopLevelAnds(conjuncts)) = f
-    val endLabel = ch.getFreshLabel("forallEnd")
+  private def compileForall(quants: Set[Identifier], body: Expr): (String, Seq[Identifier], String) = {
+    val (nl, structSubst) = purescala.ExprOps.normalizeStructure(matchToIfThenElse(body))
+    val reverseSubst = structSubst.map(p => p._2 -> p._1)
+    val nquants = quants.flatMap(structSubst.get)
 
-    for (conj <- conjuncts) {
-      val vars = purescala.ExprOps.variablesOf(conj)
-      val args = fargs.map(_.id).filter(vars)
-      val quantified = args.toSet
+    val closures = (purescala.ExprOps.variablesOf(nl) -- nquants).toSeq.sortBy(_.uniqueName)
 
-      val matchQuorums = extractQuorums(conj, quantified)
+    val afName = forallToClass.getOrElse(nl, {
+      val afName = "Leon$CodeGen$Forall$" + forallCounter.nextGlobal
+      forallToClass += nl -> afName
 
-      val matcherIndexes = matchQuorums.flatten.distinct.zipWithIndex.toMap
+      val cf = new ClassFile(afName, Some(ForallClass))
 
-      def buildLoops(
-        mis: List[(Expr, Seq[Expr], Int)],
-        localMapping: Map[Identifier, Int],
-        pointerMapping: Map[(Int, Int), Identifier]
-      ): Unit = mis match {
-        case (expr, args, qidx) :: rest =>
-          load(monitorID, ch)
-          ch << CheckCast(HenkinClass)
+      cf.setFlags((
+        CLASS_ACC_SUPER |
+        CLASS_ACC_PUBLIC |
+        CLASS_ACC_FINAL
+      ).asInstanceOf[U2])
 
-          mkExpr(expr, ch)
-          ch << Ldc(typeId(expr.getType))
-          ch << InvokeVirtual(HenkinClass, "domain", s"(L$ObjectClass;I)L$JavaListClass;")
-          ch << InvokeInterface(JavaListClass, "iterator", s"()L$JavaIteratorClass;")
+      locally {
+        val cch = cf.addConstructor(s"L$MonitorClass;", s"L$TupleClass;").codeHandler
 
-          val loop = ch.getFreshLabel("loop")
-          val out = ch.getFreshLabel("out")
-          ch << Label(loop)
-          // it
-          ch << DUP
-          // it, it
-          ch << InvokeInterface(JavaIteratorClass, "hasNext", "()Z")
-          // it, hasNext
-          ch << IfEq(out) << DUP
-          // it, it
-          ch << InvokeInterface(JavaIteratorClass, "next", s"()L$ObjectClass;")
-          // it, elem
-          ch << CheckCast(TupleClass)
-
-          val (newLoc, newPtr) = (for ((arg, aidx) <- args.zipWithIndex) yield {
-            val id = FreshIdentifier("q", arg.getType, true)
-            val slot = ch.getFreshVar
-
-            ch << DUP << Ldc(aidx) << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
-            mkUnbox(arg.getType, ch)
-            ch << (typeToJVM(arg.getType) match {
-              case "I" | "Z" => IStore(slot)
-              case _ => AStore(slot)
-            })
-
-            (id -> slot, (qidx -> aidx) -> id)
-          }).unzip
-
-          ch << POP
-          // it
-
-          buildLoops(rest, localMapping ++ newLoc, pointerMapping ++ newPtr)
-
-          ch << Goto(loop)
-          ch << Label(out) << POP
-
-        case Nil =>
-          var okLabel: Option[String] = None
-          for (quorum <- matchQuorums) {
-            okLabel.foreach(ok => ch << Label(ok))
-            okLabel = Some(ch.getFreshLabel("quorumOk"))
-
-            var mappings: Seq[(Identifier, Int, Int)] = Seq.empty
-            var constraints: Seq[(Expr, Int, Int)] = Seq.empty
-            var equalities: Seq[((Int, Int), (Int, Int))] = Seq.empty
-
-            for (q @ (expr, args) <- quorum) {
-              val qidx = matcherIndexes(q)
-              val (qmappings, qconstraints) = args.zipWithIndex.partition {
-                case (Variable(id), aidx) => quantified(id)
-                case _ => false
-              }
-
-              mappings ++= qmappings.map(p => (p._1.asInstanceOf[Variable].id, qidx, p._2))
-              constraints ++= qconstraints.map(p => (p._1, qidx, p._2))
-            }
-
-            val mapping = for ((id, es) <- mappings.groupBy(_._1)) yield {
-              val base :: others = es.toList.map(p => (p._2, p._3))
-              equalities ++= others.map(p => base -> p)
-              (id -> base)
-            }
-
-            val enabler = andJoin(constraints.map {
-              case (e, qidx, aidx) => Equals(e, pointerMapping(qidx -> aidx).toVariable)
-            } ++ equalities.map {
-              case (k1, k2) => Equals(pointerMapping(k1).toVariable, pointerMapping(k2).toVariable)
-            })
-
-            mkExpr(enabler, ch)(locals.withVars(localMapping))
-            ch << IfEq(okLabel.get)
-
-            val varsMap = args.map(id => id -> localMapping(pointerMapping(mapping(id)))).toMap
-            mkExpr(conj, ch)(locals.withVars(varsMap))
-            ch << IfNe(okLabel.get)
-
-            // -- Forall is false! --
-            // POP all the iterators...
-            for (_ <- List.range(0, matcherIndexes.size)) ch << POP
-
-            // ... and return false
-            ch << Ldc(0) << Goto(endLabel)
-          }
-
-          ch << Label(okLabel.get)
+        cch << ALoad(0) << ALoad(1) << ALoad(2)
+        cch << InvokeSpecial(ForallClass, constructorName, s"(L$MonitorClass;L$TupleClass;)V")
+        cch << RETURN
+        cch.freeze
       }
 
-      buildLoops(matcherIndexes.toList.map { case ((e, as), idx) => (e, as, idx) }, Map.empty, Map.empty)
-    }
+      locally {
+        val cfm = cf.addMethod("Z", "checkForall")
 
-    ch << Ldc(1) << Label(endLabel)
+        cfm.setFlags((
+          METHOD_ACC_PUBLIC |
+          METHOD_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        val cfch = cfm.codeHandler
+
+        cfch << ALoad(0) << GetField(ForallClass, "closures", s"L$TupleClass;")
+
+        val closureVars = (for ((id, idx) <- closures.zipWithIndex) yield {
+          val slot = cfch.getFreshVar
+          cfch << DUP << Ldc(idx) << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
+          mkUnbox(id.getType, cfch)
+          cfch << (id.getType match {
+            case ValueType() => IStore(slot)
+            case _ => AStore(slot)
+          })
+          id -> slot
+        }).toMap
+
+        cfch << POP
+
+        val monitorSlot = cfch.getFreshVar
+        cfch << ALoad(0) << GetField(ForallClass, "monitor", s"L$HenkinClass;")
+        cfch << AStore(monitorSlot)
+
+        implicit val locals = NoLocals.withVars(closureVars).withVar(monitorID -> monitorSlot)
+
+        val skipCheck = cfch.getFreshLabel("skipCheck")
+        cfch << ALoad(0) << GetField(ForallClass, "check", "Z")
+        cfch << IfEq(skipCheck)
+        checkQuantified(nquants, nl, cfch)
+        cfch << Label(skipCheck)
+
+        val TopLevelAnds(conjuncts) = nl
+        val endLabel = cfch.getFreshLabel("forallEnd")
+
+        for (conj <- conjuncts) {
+          val vars = purescala.ExprOps.variablesOf(conj)
+          val quantified = nquants.filter(vars)
+
+          val matchQuorums = extractQuorums(conj, quantified)
+
+          var allSlots: List[Int] = Nil
+          var freeSlots: List[Int] = Nil
+          def getSlot(): Int = freeSlots match {
+            case x :: xs =>
+              freeSlots = xs
+              x
+            case Nil =>
+              val slot = cfch.getFreshVar
+              allSlots = allSlots :+ slot
+              slot
+          }
+
+          for ((qrm, others) <- matchQuorums) {
+            val quorum = qrm.toList
+
+            def rec(mis: List[(Expr, Expr, Seq[Expr], Int)], locs: Map[Identifier, Int], pointers: Map[(Int, Int), Identifier]): Unit = mis match {
+              case (TopLevelAnds(paths), expr, args, qidx) :: rest =>
+                load(monitorID, cfch)
+                cfch << CheckCast(HenkinClass)
+
+                mkExpr(expr, cfch)
+                cfch << Ldc(typeId(expr.getType))
+                cfch << InvokeVirtual(HenkinClass, "domain", s"(L$ObjectClass;I)L$JavaListClass;")
+                cfch << InvokeInterface(JavaListClass, "iterator", s"()L$JavaIteratorClass;")
+
+                val loop = cfch.getFreshLabel("loop")
+                val out = cfch.getFreshLabel("out")
+                cfch << Label(loop)
+                // it
+                cfch << DUP
+                // it, it
+                cfch << InvokeInterface(JavaIteratorClass, "hasNext", "()Z")
+                // it, hasNext
+                cfch << IfEq(out) << DUP
+                // it, it
+                cfch << InvokeInterface(JavaIteratorClass, "next", s"()L$ObjectClass;")
+                // it, elem
+                cfch << CheckCast(TupleClass)
+
+                val (newLoc, newPtr) = (for ((arg, aidx) <- args.zipWithIndex) yield {
+                  val id = FreshIdentifier("q", arg.getType, true)
+                  val slot = getSlot()
+
+                  cfch << DUP << Ldc(aidx) << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
+                  mkUnbox(arg.getType, cfch)
+                  cfch << (typeToJVM(arg.getType) match {
+                    case "I" | "Z" => IStore(slot)
+                    case _ => AStore(slot)
+                  })
+
+                  (id -> slot, (qidx -> aidx) -> id)
+                }).unzip
+
+                cfch << POP
+                // it
+
+                rec(rest, locs ++ newLoc, pointers ++ newPtr)
+
+                cfch << Goto(loop)
+                cfch << Label(out) << POP
+
+              case Nil =>
+                val okLabel = cfch.getFreshLabel("assignmentOk")
+
+                var mappings: Seq[(Identifier, Int, Int)] = Seq.empty
+                var constraints: Seq[(Expr, Int, Int)] = Seq.empty
+                var equalities: Seq[((Int, Int), (Int, Int))] = Seq.empty
+
+                for ((q @ (_, expr, args), qidx) <- quorum.zipWithIndex) {
+                  val (qmappings, qconstraints) = args.zipWithIndex.partition {
+                    case (Variable(id), aidx) => quantified(id)
+                    case _ => false
+                  }
+
+                  mappings ++= qmappings.map(p => (p._1.asInstanceOf[Variable].id, qidx, p._2))
+                  constraints ++= qconstraints.map(p => (p._1, qidx, p._2))
+                }
+
+                val mapping = for ((id, es) <- mappings.groupBy(_._1)) yield {
+                  val base :: others = es.toList.map(p => (p._2, p._3))
+                  equalities ++= others.map(p => base -> p)
+                  (id -> base)
+                }
+
+                val enabler = andJoin(constraints.map {
+                  case (e, qidx, aidx) => Equals(e, pointers(qidx -> aidx).toVariable)
+                } ++ equalities.map {
+                  case (k1, k2) => Equals(pointers(k1).toVariable, pointers(k2).toVariable)
+                })
+
+                val varsMap = quantified.map(id => id -> locs(pointers(mapping(id)))).toMap
+                val varLocals = locals.withVars(varsMap)
+
+                mkExpr(enabler, cfch)(varLocals.withVars(locs))
+                cfch << IfEq(okLabel)
+
+                val checkOk = cfch.getFreshLabel("checkOk")
+                load(monitorID, cfch)
+                cfch << GetField(HenkinClass, "checkForalls", "Z")
+                cfch << IfEq(checkOk)
+
+                var nextLabel: Option[String] = None
+                for ((b,caller,args) <- others) {
+                  nextLabel.foreach(label => cfch << Label(label))
+                  nextLabel = Some(cfch.getFreshLabel("next"))
+
+                  mkExpr(b, cfch)(varLocals)
+                  cfch << IfEq(nextLabel.get)
+
+                  load(monitorID, cfch)
+                  cfch << CheckCast(HenkinClass)
+                  mkExpr(caller, cfch)(varLocals)
+                  cfch << Ldc(typeId(caller.getType))
+                  cfch << InvokeVirtual(HenkinClass, "domain", s"(L$ObjectClass;I)L$JavaListClass;")
+                  mkTuple(args, cfch)(varLocals)
+                  cfch << InvokeInterface(JavaListClass, "contains", s"(L$ObjectClass;)Z")
+                  cfch << IfNe(nextLabel.get)
+
+                  cfch << New(InvalidForallClass) << DUP
+                  cfch << Ldc("Unhandled transitive implication in " + conj)
+                  cfch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
+                  cfch << ATHROW
+                }
+                nextLabel.foreach(label => cfch << Label(label))
+
+                cfch << Label(checkOk)
+                mkExpr(conj, cfch)(varLocals)
+                cfch << IfNe(okLabel)
+
+                // -- Forall is false! --
+                // POP all the iterators...
+                for (_ <- List.range(0, quorum.size)) cfch << POP
+
+                // ... and return false
+                cfch << Ldc(0) << Goto(endLabel)
+                cfch << Label(okLabel)
+            }
+
+            val skipQuorum = cfch.getFreshLabel("skipQuorum")
+            for ((TopLevelAnds(paths), _, _) <- quorum) {
+              val p = andJoin(paths.filter(path => (variablesOf(path) & quantified).isEmpty))
+              mkExpr(p, cfch)
+              cfch << IfEq(skipQuorum)
+            }
+
+            val mis = quorum.zipWithIndex.map { case ((p, e, as), idx) => (p, e, as, idx) }
+            rec(mis, Map.empty, Map.empty)
+            freeSlots = allSlots
+
+            cfch << Label(skipQuorum)
+          }
+        }
+
+        cfch << Ldc(1) << Label(endLabel)
+        cfch << IRETURN
+
+        cfch.freeze
+      }
+
+      loader.register(cf)
+
+      afName
+    })
+
+    (afName, closures.map(reverseSubst), s"(L$MonitorClass;L$TupleClass;)V")
+  }
+
+  // also makes tuples with 0/1 args
+  private def mkTuple(es: Seq[Expr], ch: CodeHandler)(implicit locals: Locals) : Unit = {
+    ch << New(TupleClass) << DUP
+    ch << Ldc(es.size)
+    ch << NewArray(s"$ObjectClass")
+    for((e,i) <- es.zipWithIndex) {
+      ch << DUP
+      ch << Ldc(i)
+      mkBoxedExpr(e, ch)
+      ch << AASTORE
+    }
+    ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
   }
 
   private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)(implicit locals: Locals) {
@@ -627,17 +881,7 @@ trait CodeGeneration {
         instrumentedGetField(ch, cct, sid)
 
       // Tuples (note that instanceOf checks are in mkBranch)
-      case Tuple(es) =>
-        ch << New(TupleClass) << DUP
-        ch << Ldc(es.size)
-        ch << NewArray(s"$ObjectClass")
-        for((e,i) <- es.zipWithIndex) {
-          ch << DUP
-          ch << Ldc(i)
-          mkBoxedExpr(e, ch)
-          ch << AASTORE
-        }
-        ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
+      case Tuple(es) => mkTuple(es, ch)
 
       case TupleSelect(t, i) =>
         val TupleType(bs) = t.getType
@@ -662,7 +906,7 @@ trait CodeGeneration {
 
       case SetCardinality(s) =>
         mkExpr(s, ch)
-        ch << InvokeVirtual(SetClass, "size", "()I")
+        ch << InvokeVirtual(SetClass, "size", s"()$BigIntClass;")
 
       case SubsetOf(s1, s2) =>
         mkExpr(s1, ch)
@@ -890,11 +1134,38 @@ trait CodeGeneration {
         ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
         mkUnbox(app.getType, ch)
 
+      case p @ PartialLambda(mapping, optDflt, _) =>
+        ch << New(PartialLambdaClass) << DUP
+        optDflt match {
+          case Some(dflt) =>
+            mkBoxedExpr(dflt, ch)
+            ch << InvokeSpecial(PartialLambdaClass, constructorName, s"(L$ObjectClass;)V")
+          case None =>
+            ch << InvokeSpecial(PartialLambdaClass, constructorName, "()V")
+        }
+
+        for ((es,v) <- mapping) {
+          ch << DUP
+          mkTuple(es, ch)
+          mkBoxedExpr(v, ch)
+          ch << InvokeVirtual(PartialLambdaClass, "add", s"(L$TupleClass;L$ObjectClass;)V")
+        }
+
       case l @ Lambda(args, body) =>
-        compileLambda(l, ch)
+        val (afName, closures, consSig) = compileLambda(l)
+
+        ch << New(afName) << DUP
+        for ((id,jvmt) <- closures) {
+          if (id == monitorID) {
+            load(monitorID, ch)
+          } else {
+            mkExpr(Variable(id), ch)
+          }
+        }
+        ch << InvokeSpecial(afName, constructorName, consSig)
 
       case f @ Forall(args, body) =>
-        compileForall(f, ch)
+        mkForall(args.map(_.id).toSet, body, ch)
 
       // String processing =>
       case StringConcat(l, r) =>
@@ -1219,7 +1490,7 @@ trait CodeGeneration {
 
   // Assumes the top of the stack contains of value of the right type, and makes it
   // compatible with java.lang.Object.
-  private[codegen] def mkBox(tpe: TypeTree, ch: CodeHandler)(implicit locals: Locals) {
+  private[codegen] def mkBox(tpe: TypeTree, ch: CodeHandler): Unit = {
     tpe match {
       case Int32Type =>
         ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
@@ -1237,7 +1508,7 @@ trait CodeGeneration {
   }
 
   // Assumes that the top of the stack contains a value that should be of type `tpe`, and unboxes it to the right (JVM) type.
-  private[codegen] def mkUnbox(tpe: TypeTree, ch: CodeHandler)(implicit locals: Locals) {
+  private[codegen] def mkUnbox(tpe: TypeTree, ch: CodeHandler): Unit = {
     tpe match {
       case Int32Type =>
         ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
@@ -1512,7 +1783,7 @@ trait CodeGeneration {
       lzy.returnType match {
         case ValueType() =>
           // Since the underlying field only has boxed types, we have to unbox them to return them
-          mkUnbox(lzy.returnType, ch)(newLocs)
+          mkUnbox(lzy.returnType, ch)
           ch << IRETURN
         case _ =>
           ch << ARETURN
@@ -1846,7 +2117,7 @@ trait CodeGeneration {
         pech << Ldc(i)
         pech << ALoad(0)
         instrumentedGetField(pech, cct, f.id)(newLocs)
-        mkBox(f.getType, pech)(newLocs)
+        mkBox(f.getType, pech)
         pech << AASTORE
       }
 
