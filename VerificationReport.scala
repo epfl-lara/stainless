@@ -11,6 +11,18 @@ import leon.utils.DebugSectionSynthesis
 import leon.utils.DebugSectionVerification
 import leon.purescala.TypeOps
 
+import leon.purescala.Quantification._
+import purescala.Constructors._
+import purescala.ExprOps._
+import purescala.Expressions.Pattern
+import purescala.Extractors._
+import purescala.TypeOps._
+import purescala.Types._
+import purescala.Common._
+import purescala.Expressions._
+import purescala.Definitions._
+import leon.solvers.{ HenkinModel, Model, SolverFactory }
+
 object VerificationReport {
   /** If it can be computed, returns a user defined string for the given expression */
   def userDefinedString(v: Expr, orElse: =>String)(ctx: LeonContext, program: Program): String = {
@@ -21,11 +33,17 @@ object VerificationReport {
       case Some(fd) =>
         //println("Found fd: " + fd.id.name)
         val ste = new StringTracingEvaluator(ctx, program)
+        try {
         val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
+        
         result.result match {
-          case Some((StringLiteral(res), _)) =>
+          case Some((StringLiteral(res), _)) if res != "" =>
             res
           case _ =>
+            orElse
+        }
+        } catch {
+          case e: evaluators.ContextualEvaluator#EvalError =>
             orElse
         }
       case None =>

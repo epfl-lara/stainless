@@ -95,4 +95,5 @@ object VCStatus {
   case object Unknown extends VCStatus("unknown")
   case object Timeout extends VCStatus("timeout")
   case object Cancelled extends VCStatus("cancelled")
+  case object Crashed extends VCStatus("crashed")
 }
