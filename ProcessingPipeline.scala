@@ -165,8 +165,8 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
     val components = SCC.scc(callGraph)
 
     for (fd <- funDefs -- components.toSet.flatten) clearedMap(fd) = "Non-recursive"
-
-    components.map(fds => Problem(fds.toSeq))
+    val newProblems = components.filter(fds => fds.forall { fd => !terminationMap.isDefinedAt(fd) })
+    newProblems.map(fds => Problem(fds.toSeq))
   }
 
   def verifyTermination(funDef: FunDef): Unit = {

@@ -6,7 +6,7 @@ package termination
 import purescala.Expressions._
 import purescala.Common._
 import purescala.Definitions._
-import purescala.Constructors.tupleWrap
+import purescala.Constructors._
 
 class ChainProcessor(
     val checker: TerminationChecker,
@@ -33,40 +33,37 @@ class ChainProcessor(
       reporter.debug("-+> Multiple looping points, can't build chain proof")
       None
     } else {
+      val funDef = loopPoints.head
+      val chains = chainsMap(funDef)._2
 
-      def exprs(fd: FunDef): (Expr, Seq[(Seq[Expr], Expr)], Set[Chain]) = {
-        val fdChains = chainsMap(fd)._2
-
-        val e1 = tupleWrap(fd.params.map(_.toVariable))
-        val e2s = fdChains.toSeq.map { chain =>
-          val freshParams = chain.finalParams.map(arg => FreshIdentifier(arg.id.name, arg.id.getType, true))
-          (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
-        }
-
-        (e1, e2s, fdChains)
+      val e1 = tupleWrap(funDef.params.map(_.toVariable))
+      val e2s = chains.toSeq.map { chain =>
+        val freshParams = chain.finalParams.map(arg => FreshIdentifier(arg.id.name, arg.id.getType, true))
+        (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
       }
-
-      val funDefs = if (loopPoints.size == 1) Set(loopPoints.head) else problem.funSet
 
       reporter.debug("-+> Searching for structural size decrease")
 
-      val (se1, se2s, _) = exprs(funDefs.head)
-      val structuralFormulas = modules.structuralDecreasing(se1, se2s)
+      val structuralFormulas = modules.structuralDecreasing(e1, e2s)
       val structuralDecreasing = structuralFormulas.exists(formula => definitiveALL(formula))
 
       reporter.debug("-+> Searching for numerical converging")
 
-      // worth checking multiple funDefs as the endpoint discovery can be context sensitive
-      val numericDecreasing = funDefs.exists { fd =>
-        val (ne1, ne2s, fdChains) = exprs(fd)
-        val numericFormulas = modules.numericConverging(ne1, ne2s, fdChains)
-        numericFormulas.exists(formula => definitiveALL(formula))
-      }
+      val numericFormulas = modules.numericConverging(e1, e2s, chains)
+      val numericDecreasing = numericFormulas.exists(formula => definitiveALL(formula))
 
       if (structuralDecreasing || numericDecreasing)
         Some(problem.funDefs map Cleared)
-      else
-        None
+      else {
+        val chainsUnlooping = chains.flatMap(c1 => chains.flatMap(c2 => c1 compose c2)).forall {
+          chain => !definitiveSATwithModel(andJoin(chain.loop())).isDefined
+        }
+
+        if (chainsUnlooping) 
+          Some(problem.funDefs map Cleared)
+        else 
+          None
+      }
     }
   }
 }
