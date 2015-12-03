@@ -215,3 +215,17 @@ As an example, the following code should issue a warning with Scala:
 
 But Leon will prove that the pattern matching is actually exhaustive,
 relying on the given precondition.
+
+Pretty-printing
+---------------
+
+If a global function name ends with "``toString``" with any case, has only one argument and returns a string, this function will be used when printing verification examples. This function can be synthesized (see the synthesis section). For example,
+
+.. code-block:: scala
+
+  def intToString(i: Int) = "#" + i.toString + ",..."
+  def allIntsAreLessThan9(i: Int) = i <= 9 holds
+
+It will display the counter example for ``allIntsAreLessThan9`` as:
+
+  Counter-example: ``#10,...``

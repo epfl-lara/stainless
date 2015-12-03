@@ -104,7 +104,7 @@ this rule generates two sub-chooses, and combines them as follows:
    }
 
 
-Inequalite Split
+Inequality Split
 ^^^^^^^^^^^^^^^^
 
 Given two input variables `a` and `b` of numeric type, this rule
@@ -404,3 +404,45 @@ generally faster way of discovering candidate expressions. However, these
 expressions are not guaranteed to be valid since they have only been validated
 by tests. Leon's synthesis framework supports untrusted solutions which trigger
 an end-to-end validation step that relies on verification.
+
+
+String Conversion
+^^^^^^^^^^^^^^^^^
+
+This rule applies to pretty-printing problems given a non-empty list of examples, i.e. of the type:
+
+.. code-block:: scala
+
+  choose ((x: String) =>
+    (input, x) passes {
+       case InputExample1 => "Output Example1"
+       case InputExample2 => "Output Example2"
+    }
+  )
+
+It will create a set of functions and an expression that will be consistent with the example. The example need to ensure the following properties:
+
+* **Primitive display**: All primitive values (int, boolean, Bigint) present in the InputExample must appear in the OutputExample. The exception being Boolean which can also be rendered differently (e.g. as "yes" and "no")
+* **Linearization**: The output example must use the same order as the definition of InputExample; that is, no Set, Map or out of order rendering (e.g. ``case (1, 2) => "2, 1"`` will not work)
+
+To further optimize the search, it is also better to ensure the following property
+
+* **Constant case class display**: By default, if a hierarchy of case classes only contains parameterless variants, such as
+
+.. code-block:: scala
+
+  abstract class StackThread
+  case class T1() extends StackThread
+  case class T2() extends StackThread
+
+it will first try to render expressions with the following function:
+
+.. code-block:: scala
+
+  def StackThreadToString(t: StackThread) = t match {
+    case T1() => "T1"
+    case T2() => "T2"
+  }
+  CONST + StackThreadToString(t) + CONST
+
+where CONST will be inferred from the examples.
