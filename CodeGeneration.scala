@@ -6,7 +6,7 @@ package codegen
 import purescala.Common._
 import purescala.Definitions._
 import purescala.Expressions._
-import purescala.ExprOps.{simplestValue, matchToIfThenElse, collect, variablesOf, CollectorWithPaths}
+import purescala.ExprOps._
 import purescala.Types._
 import purescala.Constructors._
 import purescala.Extractors._
