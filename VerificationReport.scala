@@ -28,12 +28,17 @@ object VerificationReport {
   def userDefinedString(v: Expr, orElse: =>String)(ctx: LeonContext, program: Program): String = {
     //println("Functions available:" + program.definedFunctions.map(fd => fd.id.name + "," + (fd.returnType == StringType) + ", " + (fd.params.length == 1) + "," + (fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType)) + ", " + (if(fd.params.length == 1) fd.params.head.getType + " == " + v.getType else "")).mkString("\n"))
     (program.definedFunctions find {
-      case fd => fd.returnType == StringType && fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType) && fd.id.name.toLowerCase().endsWith("tostring")
+      case fd =>
+        fd.returnType == StringType && fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType) && fd.id.name.toLowerCase().endsWith("tostring") &&
+        program.callGraph.transitiveCallees(fd).forall { fde => 
+          !purescala.ExprOps.exists( _.isInstanceOf[Choose])(fde.fullBody)
+        }
     }) match {
       case Some(fd) =>
         //println("Found fd: " + fd.id.name)
         val ste = new StringTracingEvaluator(ctx, program)
         try {
+        println("Function to test: " + fd)
         val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
         
         result.result match {
