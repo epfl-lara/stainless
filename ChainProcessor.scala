@@ -33,7 +33,10 @@ class ChainProcessor(
       reporter.debug("-+> Multiple looping points, can't build chain proof")
       None
     } else {
-      val funDef = loopPoints.head
+      val funDef = loopPoints.headOption getOrElse {
+        chainsMap.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.get
+      }
+
       val chains = chainsMap(funDef)._2
 
       val e1 = tupleWrap(funDef.params.map(_.toVariable))

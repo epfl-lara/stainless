@@ -156,7 +156,7 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with RelationCom
         if (!checker.program.callGraph.transitivelyCalls(fd, funDef)) {
           Set.empty[FunDef] -> Set.empty[Chain]
         } else if (fd == funDef) {
-          Set(fd) -> Set(Chain(chain.reverse))
+          Set.empty[FunDef] -> Set(Chain(chain.reverse))
         } else if (seen(fd)) {
           Set(fd) -> Set.empty[Chain]
         } else {
