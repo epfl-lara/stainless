@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
 import leon.lang._
+import leon.proof._
 import leon.collection._
 
 object Monads3 {
