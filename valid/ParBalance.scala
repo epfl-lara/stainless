@@ -72,7 +72,7 @@ object ParBalance {
   def balanced_foldLeft_equivalence(list: List, p: (BigInt, BigInt)): Boolean = {
     require(p._1 >= 0 && p._2 >= 0)
     val f = (s: (BigInt, BigInt), x: BigInt) => reduce(s, parPair(x))
-    (foldLeft(list, p, f) == (BigInt(0), BigInt(0))) == balanced_withReduce(list, p) && (list match {
+    (foldLeft(list, p, f) == (BigInt(0), BigInt(0))) == balanced_withReduce(list, p) because (list match {
       case Cons(head, tail) =>
         val p2 = f(p, head)
         balanced_foldLeft_equivalence(tail, p2)
@@ -178,14 +178,14 @@ object ParBalance {
   }.holds
 
   def reverse_init_equivalence(list: List): Boolean = {
-    reverse(init(list)) == tail(reverse(list)) && (list match {
+    reverse(init(list)) == tail(reverse(list)) because (list match {
       case Cons(head, tail) => reverse_init_equivalence(tail)
       case Nil() => true
     })
   }.holds
 
   def reverse_equality_equivalence(l1: List, l2: List): Boolean = {
-    (l1 == l2) == (reverse(l1) == reverse(l2)) && ((l1, l2) match {
+    (l1 == l2) == (reverse(l1) == reverse(l2)) because ((l1, l2) match {
       case (Cons(h1, t1), Cons(h2, t2)) => reverse_equality_equivalence(t1, t2)
       case _ => true
     })
@@ -198,7 +198,7 @@ object ParBalance {
   // always decreasing, so that the termination checker can prove termination.
   def reverse_reverse_equivalence(s: BigInt, list: List): Boolean = {
     require(size(list) == s)
-    reverse(reverse(list)) == list && ((list, reverse(list)) match {
+    reverse(reverse(list)) == list because ((list, reverse(list)) match {
       case (Cons(h1, t1), Cons(h2, t2)) =>
         reverse_reverse_equivalence(size(t1), t1) && reverse_reverse_equivalence(size(t2), t2)
       case _ => true

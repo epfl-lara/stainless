@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
 import leon.lang._
+import leon.proof._
 import leon.collection._
 
 object Lists5 {
@@ -26,9 +27,9 @@ object Lists5 {
   }
 
   def equivalence_lemma_induct[T](f: T => Boolean, list: List[T]): Boolean = {
-    list match {
-      case Cons(head, tail) => equivalence_lemma(f, list) && equivalence_lemma_induct(f, tail)
-      case Nil() => equivalence_lemma(f, list)
-    }
+    equivalence_lemma(f, list) because (list match {
+      case Cons(head, tail) => equivalence_lemma_induct(f, tail)
+      case Nil() => true
+    })
   }.holds
 }

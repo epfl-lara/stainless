@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
 import leon.lang._
+import leon.proof._
 
 object Lists3 {
   abstract class List[T]
@@ -26,10 +27,10 @@ object Lists3 {
   }
 
   def positive_lemma_induct(list: List[Int]): Boolean = {
-    list match {
-      case Nil() => positive_lemma(list)
-      case Cons(head, tail) => positive_lemma(list) && positive_lemma_induct(tail)
-    }
+    positive_lemma(list) because (list match {
+      case Nil() => true
+      case Cons(head, tail) => positive_lemma_induct(tail)
+    })
   }.holds
 }
 

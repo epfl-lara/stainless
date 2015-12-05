@@ -22,20 +22,21 @@ object Monads3 {
   }
 
   def associative_lemma_induct[T,U,V](list: List[T], flist: List[U], glist: List[V], f: T => List[U], g: U => List[V]): Boolean = {
-    associative_lemma(list, f, g) &&
-    append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g))) &&
-    (glist match {
-      case Cons(ghead, gtail) =>
-        associative_lemma_induct(list, flist, gtail, f, g)
-      case Nil() => flist match {
-        case Cons(fhead, ftail) =>
-          associative_lemma_induct(list, ftail, g(fhead), f, g)
-        case Nil() => list match {
-          case Cons(head, tail) => associative_lemma_induct(tail, f(head), Nil(), f, g)
-          case Nil() => true
+    associative_lemma(list, f, g) because {
+      append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g))) because
+      (glist match {
+        case Cons(ghead, gtail) =>
+          associative_lemma_induct(list, flist, gtail, f, g)
+        case Nil() => flist match {
+          case Cons(fhead, ftail) =>
+            associative_lemma_induct(list, ftail, g(fhead), f, g)
+          case Nil() => list match {
+            case Cons(head, tail) => associative_lemma_induct(tail, f(head), Nil(), f, g)
+            case Nil() => true
+          }
         }
-      }
-    })
+      })
+    }
   }.holds
 
   def left_unit_law[T,U](x: T, f: T => List[U]): Boolean = {
@@ -47,7 +48,7 @@ object Monads3 {
   }
     
   def right_unit_induct[T,U](list: List[T]): Boolean = {
-    right_unit_law(list) && (list match {
+    right_unit_law(list) because (list match {
       case Cons(head, tail) => right_unit_induct(tail)
       case Nil() => true
     })
@@ -62,7 +63,7 @@ object Monads3 {
   }
     
   def flatMap_to_zero_induct[T,U](list: List[T]): Boolean = {
-    flatMap_to_zero_law(list) && (list match {
+    flatMap_to_zero_law(list) because (list match {
       case Cons(head, tail) => flatMap_to_zero_induct(tail)
       case Nil() => true
     })

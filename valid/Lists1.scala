@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
 import leon.lang._
+import leon.proof._
 import leon.collection._
 import leon.annotation._
 
@@ -21,10 +22,10 @@ object Lists1 {
   }
 
   def exists_lemma_induct[T](list: List[T], f: T => Boolean): Boolean = {
-    list match {
-      case Nil() => exists_lemma(list, f)
-      case Cons(head, tail) => exists_lemma(list, f) && exists_lemma_induct(tail, f)
-    }
+    exists_lemma(list, f) because (list match {
+      case Nil() => true
+      case Cons(head, tail) => exists_lemma_induct(tail, f)
+    })
   }.holds 
 
 }
