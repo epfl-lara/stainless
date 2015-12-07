@@ -67,7 +67,7 @@ object PropositionalLogic {
   //   nnf(simplify(f)) == simplify(nnf(f))
   // }.holds
 
-  //@induct
+  @induct
   def simplifyBreaksNNF(f: Formula) : Boolean = {
     require(isNNF(f))
     isNNF(simplify(f))
