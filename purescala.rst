@@ -36,6 +36,51 @@ Pure Scala supports two kinds of top-level declarations:
 
 .. _adts:
 
+
+Boolean
+#######
+
+Booleans are used to express truth conditions in Leon.
+Unlike some proof assistants, there is no separation 
+at the type level between
+Boolean values and the truth conditions of conjectures
+and theorems.
+
+Typical propositional operations are available using Scala
+notation, along
+with a new shorthand for implication. The `if` expression
+is also present.
+
+.. code-block:: scala
+
+  a && b
+  a || b
+  a == b
+  !a
+  a ==> b // Leon syntax for boolean implication
+
+Leon uses short-circuit interpretation of `&&`, `||`, and `==>`, 
+which evaluates the second argument only when needed:
+
+.. code-block:: scala
+
+  a && b   === if (a) b else false
+
+  a || b   === if (a) true else b
+
+  a ==> b  === if (a) b else true
+
+This aspect is important because of:
+
+1. evaluation of expressions, which is kept compatible with Scala
+
+2. verification condition generation for safety: arguments of Boolean operations
+may be operations with preconditions; these preconditions apply only in case
+that the corresponding argument is evaluated. 
+
+3. termination checking, which takes into account that only one of the paths in an if expression is evaluated for a given truth value of the condition.
+
+
 Algebraic Data Types
 --------------------
 
@@ -266,16 +311,6 @@ TupleX
  val y = 1 -> 2 // alternative Scala syntax for Tuple2
  x._1 // == 1
 
-Boolean
-#######
-
-.. code-block:: scala
-
-  a && b
-  a || b
-  a == b
-  !a
-  a ==> b // Leon syntax for boolean implication
 
 Int
 ###
