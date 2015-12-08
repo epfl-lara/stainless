@@ -30,7 +30,7 @@ class SelfCallsProcessor(val checker: TerminationChecker) extends Processor {
     def rec(e0: Expr): Boolean = e0 match {
       case Assert(pred: Expr, error: Option[String], body: Expr) => rec(pred) || rec(body)
       case Let(binder: Identifier, value: Expr, body: Expr) => rec(value) || rec(body)
-      case LetDef(fd: FunDef, body: Expr) => rec(body) // don't enter fd because we don't know if it will be called
+      case LetDef(fds, body: Expr) => rec(body) // don't enter fds because we don't know if it will be called
       case FunctionInvocation(tfd: TypedFunDef, args: Seq[Expr]) =>
         tfd.fd == f /* <-- success in proving non-termination */ ||
         args.exists(arg => rec(arg)) || (tfd.fd.hasBody && (!seenFunDefs.contains(tfd.fd)) && {
