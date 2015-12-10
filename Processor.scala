@@ -34,7 +34,7 @@ trait Solvable extends Processor {
     val sizeUnit    : UnitDef     = UnitDef(FreshIdentifier("$size"),Seq(sizeModule)) 
     val newProgram  : Program     = program.copy( units = sizeUnit :: program.units)
 
-    SolverFactory.getFromSettings(context, newProgram).withTimeout(1000.millisecond)
+    SolverFactory.getFromSettings(context, newProgram).withTimeout(10.seconds)
   }
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
