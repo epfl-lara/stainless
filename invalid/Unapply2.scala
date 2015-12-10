@@ -5,7 +5,12 @@ object Unap2 {
 }
  
 object Unapply {
-  def bar: Boolean = { (42, false, ()) match {
-    case Unap2(_, b) if b => b
-  }} ensuring { res => res }
+
+  sealed abstract class Bool
+  case class True() extends Bool
+  case class False() extends Bool
+
+  def bar: Bool = { (42, False().asInstanceOf[Bool], ()) match {
+    case Unap2(_, b) if b == True() => b
+  }} ensuring { res => res == True() }
 }
