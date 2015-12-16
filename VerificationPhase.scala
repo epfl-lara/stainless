@@ -57,7 +57,6 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
       }
     }
 
-
     try {
       val vcs = generateVCs(vctx, toVerify)
 
