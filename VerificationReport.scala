@@ -24,11 +24,12 @@ import purescala.Definitions._
 import leon.solvers.{ HenkinModel, Model, SolverFactory }
 
 object VerificationReport {
-  /** If it can be computed, returns a user defined string for the given expression */
-  def userDefinedString(v: Expr, orElse: =>String)(ctx: LeonContext, program: Program): String = {
+  /** If it can be computed, returns a user defined string for the given expression
+    * @param The list of functions which should be excluded from pretty-printing (to avoid rendering counter-examples of toString methods using the method itself) */
+  def userDefinedString(v: Expr, orElse: =>String, excluded: FunDef => Boolean = Set())(ctx: LeonContext, program: Program): String = {
     //println("Functions available:" + program.definedFunctions.map(fd => fd.id.name + "," + (fd.returnType == StringType) + ", " + (fd.params.length == 1) + "," + (fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType)) + ", " + (if(fd.params.length == 1) fd.params.head.getType + " == " + v.getType else "")).mkString("\n"))
     (program.definedFunctions find {
-      case fd =>
+      case fd if !excluded(fd) =>
         fd.returnType == StringType && fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType) && fd.id.name.toLowerCase().endsWith("tostring") &&
         program.callGraph.transitiveCallees(fd).forall { fde => 
           !purescala.ExprOps.exists( _.isInstanceOf[Choose])(fde.fullBody)
@@ -38,7 +39,6 @@ object VerificationReport {
         //println("Found fd: " + fd.id.name)
         val ste = new StringTracingEvaluator(ctx, program)
         try {
-        println("Function to test: " + fd)
         val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
         
         result.result match {
