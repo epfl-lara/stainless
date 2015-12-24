@@ -71,12 +71,15 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
   def generateVCs(vctx: VerificationContext, toVerify: Seq[FunDef]): Seq[VC] = {
     val defaultTactic   = new DefaultTactic(vctx)
     val inductionTactic = new InductionTactic(vctx)
+    val trInductTactic = new TraceInductionTactic(vctx)
 
     val vcs = for(funDef <- toVerify) yield {
       val tactic: Tactic =
         if (funDef.annotations.contains("induct")) {
           inductionTactic
-        } else {
+        } else if(funDef.annotations.contains("traceInduct")){
+          trInductTactic
+        }else {          
           defaultTactic
         }
 
