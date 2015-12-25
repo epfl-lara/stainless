@@ -15,8 +15,8 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
   val name = "Verification"
   val description = "Verification of function contracts"
 
-  val optParallelVCs = LeonFlagOptionDef("parallel", "Check verification conditions in parallel", default = false)
-
+  val optParallelVCs = LeonFlagOptionDef("parallel", "Check verification conditions in parallel", default = false)  
+  
   override val definedOptions: Set[LeonOptionDef[Any]] = Set(optParallelVCs)
 
   implicit val debugSection = utils.DebugSectionVerification
