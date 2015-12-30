@@ -25,6 +25,7 @@ Contents:
    limitations
    synthesis
    repair
+   genc
    options
    faq
    references
