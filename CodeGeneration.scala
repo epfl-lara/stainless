@@ -1182,7 +1182,7 @@ trait CodeGeneration {
         ch << InvokeStatic(StrOpsClass, "intToString", s"(I)L$JavaStringClass;")
       case BooleanToString(a) =>
         mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "booleanToString", s"(z)L$JavaStringClass;")
+        ch << InvokeStatic(StrOpsClass, "booleanToString", s"(Z)L$JavaStringClass;")
       case IntegerToString(a) =>
         mkExpr(a, ch)
         ch << InvokeStatic(StrOpsClass, "bigIntToString", s"(L$BigIntClass;)L$JavaStringClass;")
