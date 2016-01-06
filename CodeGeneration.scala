@@ -1199,6 +1199,10 @@ trait CodeGeneration {
         mkExpr(end, ch)
         ch << InvokeStatic(StrOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
         
+      case StringEscape(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "escape", s"(L$JavaStringClass;)L$JavaStringClass;")
+        
       // Arithmetic
       case Plus(l, r) =>
         mkExpr(l, ch)
