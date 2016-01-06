@@ -42,34 +42,34 @@ object InjectAsserts extends SimpleLeonPhase[Program, Program] {
                      ).setPos(e))
 
         case e @ Division(_, d)  =>
-          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+          Some(assertion(not(equality(d, InfiniteIntegerLiteral(0))),
                       Some("Division by zero"),
                       e
                      ).setPos(e))
         case e @ Remainder(_, d)  =>
-          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+          Some(assertion(not(equality(d, InfiniteIntegerLiteral(0))),
                       Some("Remainder by zero"),
                       e
                      ).setPos(e))
         case e @ Modulo(_, d)  =>
-          Some(Assert(Not(Equals(d, InfiniteIntegerLiteral(0))),
+          Some(assertion(not(equality(d, InfiniteIntegerLiteral(0))),
                       Some("Modulo by zero"),
                       e
                      ).setPos(e))
 
         case e @ BVDivision(_, d)  =>
-          Some(Assert(Not(Equals(d, IntLiteral(0))),
+          Some(assertion(not(equality(d, IntLiteral(0))),
                       Some("Division by zero"),
                       e
                      ).setPos(e))
         case e @ BVRemainder(_, d)  =>
-          Some(Assert(Not(Equals(d, IntLiteral(0))),
+          Some(assertion(not(equality(d, IntLiteral(0))),
                       Some("Remainder by zero"),
                       e
                      ).setPos(e))
 
         case e @ RealDivision(_, d)  =>
-          Some(Assert(Not(Equals(d, FractionalLiteral(0, 1))),
+          Some(assertion(not(equality(d, FractionalLiteral(0, 1))),
                       Some("Division by zero"),
                       e
                      ).setPos(e))
