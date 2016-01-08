@@ -3,63 +3,28 @@
 package leon
 package verification
 
+import evaluators.StringTracingEvaluator
+import utils.DebugSectionSynthesis
+import utils.DebugSectionVerification
+import leon.purescala
 import purescala.Definitions.Program
-import leon.evaluators.StringTracingEvaluator
 import purescala.Expressions._
 import purescala.Types.StringType
-import leon.utils.DebugSectionSynthesis
-import leon.utils.DebugSectionVerification
-import leon.purescala.TypeOps
-
-import leon.purescala.Quantification._
+import purescala.TypeOps
+import purescala.Quantification._
 import purescala.Constructors._
 import purescala.ExprOps._
-import purescala.Expressions.Pattern
+import purescala.Expressions.{Pattern, Expr}
 import purescala.Extractors._
 import purescala.TypeOps._
 import purescala.Types._
 import purescala.Common._
 import purescala.Expressions._
 import purescala.Definitions._
+import purescala.SelfPrettyPrinter
 import leon.solvers.{ HenkinModel, Model, SolverFactory }
 
-object VerificationReport {
-  /** If it can be computed, returns a user defined string for the given expression
-    * @param The list of functions which should be excluded from pretty-printing (to avoid rendering counter-examples of toString methods using the method itself) */
-  def userDefinedString(v: Expr, orElse: =>String, excluded: FunDef => Boolean = Set())(ctx: LeonContext, program: Program): String = {
-    //println("Functions available:" + program.definedFunctions.map(fd => fd.id.name + "," + (fd.returnType == StringType) + ", " + (fd.params.length == 1) + "," + (fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType)) + ", " + (if(fd.params.length == 1) fd.params.head.getType + " == " + v.getType else "")).mkString("\n"))
-    (program.definedFunctions find {
-      case fd if !excluded(fd) =>
-        fd.returnType == StringType && fd.params.length == 1 && TypeOps.isSubtypeOf(v.getType, fd.params.head.getType) && fd.id.name.toLowerCase().endsWith("tostring") &&
-        program.callGraph.transitiveCallees(fd).forall { fde => 
-          !purescala.ExprOps.exists( _.isInstanceOf[Choose])(fde.fullBody)
-        }
-    }) match {
-      case Some(fd) =>
-        //println("Found fd: " + fd.id.name)
-        val ste = new StringTracingEvaluator(ctx, program)
-        try {
-        val result = ste.eval(FunctionInvocation(fd.typed, Seq(v)))
-        
-        result.result match {
-          case Some((StringLiteral(res), _)) if res != "" =>
-            res
-          case _ =>
-            orElse
-        }
-        } catch {
-          case e: evaluators.ContextualEvaluator#EvalError =>
-            orElse
-        }
-      case None =>
-        //println("Function to render " + v + " not found")
-        orElse
-    }
-  }
-}
-
 case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) {
-
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
     case (vc, or) => (vc, or.getOrElse(VCResult.unknown))
   }

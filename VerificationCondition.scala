@@ -10,6 +10,7 @@ import leon.utils.Positioned
 import leon.evaluators.StringTracingEvaluator
 import leon.solvers._
 import leon.LeonContext
+import leon.purescala.SelfPrettyPrinter
 
 /** This is just to hold some history information. */
 case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
@@ -63,7 +64,7 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         // is free to simplify
         val strings = cex.toSeq.sortBy(_._1.name).map {
           case (id, v) =>
-            (id.asString(context), VerificationReport.userDefinedString(v, PrettyPrinter(v))(vctx.context, vctx.program))
+            (id.asString(context), SelfPrettyPrinter.print(v, PrettyPrinter(v))(vctx.context, vctx.program))
         }
 
         if (strings.nonEmpty) {
