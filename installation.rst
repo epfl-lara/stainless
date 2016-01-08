@@ -86,7 +86,7 @@ x64, do the following:
 2. Copy ``unmanaged/common/vanuatoo*.jar`` to ``unmanaged/64/``
 
 You may be able to obtain additional tips on getting Leon to work on Windows 
-from Mikael Mayer, http://people.epfl.ch/mikael.mayer
+from [Mikael Mayer](http://people.epfl.ch/mikael.mayer) or on [his dedicated web page](http://lara.epfl.ch/~mayer/leon/),
 
 .. _smt-solvers:
 
