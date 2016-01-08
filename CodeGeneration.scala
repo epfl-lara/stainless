@@ -987,7 +987,11 @@ trait CodeGeneration {
             mkUnbox(tpe, ch)
           case _ =>
         }
-
+        
+      case FunctionInvocation(TypedFunDef(fd, Nil), Seq(a)) if fd == program.library.escape.get =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "escape", s"(L$JavaStringClass;)L$JavaStringClass;")
+        
       case FunctionInvocation(TypedFunDef(fd, Seq(tp)), Seq(set)) if fd == program.library.setToList.get =>
 
         val nil = CaseClass(CaseClassType(program.library.Nil.get, Seq(tp)), Seq())
@@ -1198,10 +1202,6 @@ trait CodeGeneration {
         mkExpr(start, ch)
         mkExpr(end, ch)
         ch << InvokeStatic(StrOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
-        
-      case StringEscape(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "escape", s"(L$JavaStringClass;)L$JavaStringClass;")
         
       // Arithmetic
       case Plus(l, r) =>
