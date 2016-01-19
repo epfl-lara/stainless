@@ -3,7 +3,6 @@
 package leon
 package verification
 
-import evaluators.StringTracingEvaluator
 import utils.DebugSectionSynthesis
 import utils.DebugSectionVerification
 import leon.purescala

@@ -7,7 +7,6 @@ import leon.purescala.Definitions._
 import leon.purescala.Types._
 import leon.purescala.PrettyPrinter
 import leon.utils.Positioned
-import leon.evaluators.StringTracingEvaluator
 import leon.solvers._
 import leon.LeonContext
 import leon.purescala.SelfPrettyPrinter
