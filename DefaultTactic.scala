@@ -22,23 +22,20 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
   }
 
   def generatePreconditions(fd: FunDef): Seq[VC] = {
-    fd.body match {
-      case Some(body) =>
-        val calls = collectWithPC {
-          case c @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (c, tfd.precondition.get)
-        }(body)
 
-        calls.map {
-          case ((fi @ FunctionInvocation(tfd, args), pre), path) =>
-            val pre2 = tfd.withParamSubst(args, pre)
-            val vc = implies(and(fd.precOrTrue, path), pre2)
-            val fiS = sizeLimit(fi.asString, 40)
-            VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS")).setPos(fi)
-        }
+    val calls = collectWithPC {
+      case c @ FunctionInvocation(tfd, _) if tfd.hasPrecondition =>
+        c
+    }(fd.fullBody)
 
-      case None =>
-        Nil
+    calls.map {
+      case (fi @ FunctionInvocation(tfd, args), path) =>
+        val pre = tfd.withParamSubst(args, tfd.precondition.get)
+        val vc = implies(path, pre)
+        val fiS = sizeLimit(fi.asString, 40)
+        VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS")).setPos(fi)
     }
+
   }
 
   def generateCorrectnessConditions(fd: FunDef): Seq[VC] = {
@@ -68,17 +65,14 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
         VCKinds.Assert
     }
 
-    fd.body.toSeq.flatMap { body =>
-      // We don't collect preconditions here, because these are handled by generatePreconditions
-      val calls = collectCorrectnessConditions(body, collectFIs = false)
+    // We don't collect preconditions here, because these are handled by generatePreconditions
+    val calls = collectCorrectnessConditions(fd.fullBody)
 
-      calls.map {
-        case (e, correctnessCond) =>
-          val vc = implies(fd.precOrTrue, correctnessCond)
-
-          VC(vc, fd, eToVCKind(e)).setPos(e)
-      }
+    calls.map {
+      case (e, correctnessCond) =>
+        VC(correctnessCond, fd, eToVCKind(e)).setPos(e)
     }
   }
+
 
 }
