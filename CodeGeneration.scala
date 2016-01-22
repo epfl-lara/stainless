@@ -197,18 +197,10 @@ trait CodeGeneration {
     val idParams = (if (requireMonitor) Seq(monitorID) else Seq.empty) ++ funDef.paramIds
     val newMapping = idParams.zipWithIndex.toMap.mapValues(_ + (if (!isStatic) 1 else 0))
 
-    val body = funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
-
-    val bodyWithPre = if(funDef.hasPrecondition && params.checkContracts) {
-      IfExpr(funDef.precondition.get, body, Error(body.getType, "Precondition failed"))
+    val body = if (params.checkContracts) {
+      funDef.fullBody
     } else {
-      body
-    }
-
-    val bodyWithPost = funDef.postcondition match {
-      case Some(post) if params.checkContracts =>
-        ensur(bodyWithPre, post).toAssert
-      case _ => bodyWithPre
+      funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
     }
 
     val locals = NoLocals.withVars(newMapping)
@@ -218,7 +210,7 @@ trait CodeGeneration {
       ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
     }
 
-    mkExpr(bodyWithPost, ch)(locals)
+    mkExpr(body, ch)(locals)
 
     funDef.returnType match {
       case ValueType() =>
@@ -801,6 +793,9 @@ trait CodeGeneration {
 
       case en @ Ensuring(_, _) =>
         mkExpr(en.toAssert, ch)
+
+      case Require(pre, body) =>
+        mkExpr(IfExpr(pre, body, Error(body.getType, "Precondition failed")), ch)
 
       case Let(i,d,b) =>
         mkExpr(d, ch)
