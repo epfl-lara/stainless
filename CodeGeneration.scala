@@ -207,7 +207,7 @@ trait CodeGeneration {
 
     val bodyWithPost = funDef.postcondition match {
       case Some(post) if params.checkContracts =>
-        Ensuring(bodyWithPre, post).toAssert
+        ensur(bodyWithPre, post).toAssert
       case _ => bodyWithPre
     }
 
