@@ -82,7 +82,8 @@ trait CodeGeneration {
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
   private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
-  private[codegen] val MonitorClass              = "leon/codegen/runtime/LeonCodeGenRuntimeMonitor"
+  private[codegen] val MonitorClass              = "leon/codegen/runtime/Monitor"
+  private[codegen] val NoMonitorClass            = "leon/codegen/runtime/NoMonitor"
   private[codegen] val HenkinClass               = "leon/codegen/runtime/LeonCodeGenRuntimeHenkinMonitor"
   private[codegen] val StrOpsClass               = "leon/codegen/runtime/StrOps"
 
@@ -165,13 +166,7 @@ trait CodeGeneration {
     val cf = classes(owner)
     val (_,mn,_) = leonFunDefToJVMInfo(funDef).get
 
-    val paramsTypes = funDef.params.map(a => typeToJVM(a.getType))
-
-    val realParams = if (requireMonitor) {
-      ("L" + MonitorClass + ";") +: paramsTypes
-    } else {
-      paramsTypes
-    }
+    val realParams = ("L" + MonitorClass + ";") +: funDef.params.map(a => typeToJVM(a.getType))
 
     val m = cf.addMethod(
       typeToJVM(funDef.returnType),
@@ -194,7 +189,7 @@ trait CodeGeneration {
     // An offset we introduce to the parameters:
     // 1 if this is a method, so we need "this" in position 0 of the stack
     // 1 if we are monitoring
-    val idParams = (if (requireMonitor) Seq(monitorID) else Seq.empty) ++ funDef.paramIds
+    val idParams = monitorID +: funDef.paramIds
     val newMapping = idParams.zipWithIndex.toMap.mapValues(_ + (if (!isStatic) 1 else 0))
 
     val body = if (params.checkContracts) {
@@ -207,7 +202,7 @@ trait CodeGeneration {
 
     if (params.recordInvocations) {
       load(monitorID, ch)(locals)
-      ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
+      ch << InvokeVirtual(MonitorClass, "onInvocation", "()V")
     }
 
     mkExpr(body, ch)(locals)
@@ -233,9 +228,7 @@ trait CodeGeneration {
 
     val closureIDs = purescala.ExprOps.variablesOf(nl).toSeq.sortBy(_.uniqueName)
     val closuresWithoutMonitor = closureIDs.map(id => id -> typeToJVM(id.getType))
-    val closures = if (requireMonitor) {
-      (monitorID -> s"L$MonitorClass;") +: closuresWithoutMonitor
-    } else closuresWithoutMonitor
+    val closures = (monitorID -> s"L$MonitorClass;") +: closuresWithoutMonitor
 
     val afName = lambdaToClass.getOrElse(nl, {
       val afName = "Leon$CodeGen$Lambda$" + lambdaCounter.nextGlobal
@@ -839,9 +832,7 @@ trait CodeGeneration {
           throw CompilationException("Unknown class : " + cct.id)
         }
         ch << New(ccName) << DUP
-        if (requireMonitor) {
-          load(monitorID, ch)
-        }
+        load(monitorID, ch)
 
         for((a, vd) <- as zip cct.classDef.fields) {
           vd.getType match {
@@ -968,11 +959,6 @@ trait CodeGeneration {
           throw CompilationException("Unknown method : " + tfd.id)
         }
 
-        if (requireMonitor) {
-          load(monitorID, ch)
-          ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
-        }
-
         // Get static field
         ch << GetStatic(className, fieldName, typeToJVM(tfd.fd.returnType))
 
@@ -1024,10 +1010,9 @@ trait CodeGeneration {
         ch << POP << POP
         // list, it, cons, cons, elem, list
 
-        if (requireMonitor) {
-          load(monitorID, ch)
-          ch << DUP_X2 << POP
-        }
+        load(monitorID, ch)
+        ch << DUP_X2 << POP
+
         ch << InvokeSpecial(consName, constructorName, ccApplySig)
         // list, it, newList
         ch << DUP_X2 << POP << SWAP << POP
@@ -1039,15 +1024,36 @@ trait CodeGeneration {
         ch << POP
         // list
 
+      case FunctionInvocation(tfd, as) if abstractFunDefs(tfd.fd.id) =>
+        val id = registerAbstractFD(tfd.fd)
+
+        load(monitorID, ch)
+
+        ch << Ldc(id)
+
+        ch << Ldc(as.size)
+        ch << NewArray(ObjectClass)
+
+        for ((e, i) <- as.zipWithIndex) {
+          ch << DUP
+          ch << Ldc(i)
+          mkExpr(e, ch)
+          mkBox(e.getType, ch)
+          ch << AASTORE
+        }
+
+        ch << InvokeVirtual(MonitorClass, "onAbstractInvocation", s"(I[L$ObjectClass;)L$ObjectClass;")
+
+        mkUnbox(tfd.returnType, ch)
+
+
       // Static lazy fields/ functions
       case fi @ FunctionInvocation(tfd, as) =>
         val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
           throw CompilationException("Unknown method : " + tfd.id)
         }
 
-        if (requireMonitor) {
-          load(monitorID, ch)
-        }
+        load(monitorID, ch)
 
         for((a, vd) <- as zip tfd.fd.params) {
           vd.getType match {
@@ -1072,10 +1078,6 @@ trait CodeGeneration {
           throw CompilationException("Unknown method : " + tfd.id)
         }
 
-        if (requireMonitor) {
-          load(monitorID, ch)
-          ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
-        }
         // Load receiver
         mkExpr(rec,ch)
 
@@ -1097,11 +1099,9 @@ trait CodeGeneration {
         }
 
         // Receiver of the method call
-        mkExpr(rec,ch)
+        mkExpr(rec, ch)
 
-        if (requireMonitor) {
-          load(monitorID, ch)
-        }
+        load(monitorID, ch)
 
         for((a, vd) <- as zip tfd.fd.params) {
           vd.getType match {
@@ -1410,7 +1410,10 @@ trait CodeGeneration {
       case choose: Choose =>
         val prob = synthesis.Problem.fromSpec(choose.pred)
 
-        val id = runtime.ChooseEntryPoint.register(prob, this)
+        val id = registerProblem(prob)
+
+        load(monitorID, ch)
+
         ch << Ldc(id)
 
         ch << Ldc(prob.as.size)
@@ -1424,7 +1427,7 @@ trait CodeGeneration {
           ch << AASTORE
         }
 
-        ch << InvokeStatic(ChooseEntryPointClass, "invoke", s"(I[L$ObjectClass;)L$ObjectClass;")
+        ch << InvokeVirtual(MonitorClass, "onChooseInvocation", s"(I[L$ObjectClass;)L$ObjectClass;")
 
         mkUnbox(choose.getType, ch)
 
@@ -1731,9 +1734,7 @@ trait CodeGeneration {
 
     // accessor method
     locally {
-      val parameters = if (requireMonitor) {
-        Seq(monitorID -> s"L$MonitorClass;")
-      } else Seq()
+      val parameters = Seq(monitorID -> s"L$MonitorClass;")
 
       val paramMapping = parameters.map(_._1).zipWithIndex.toMap.mapValues(_ + (if (isStatic) 0 else 1))
       val newLocs = NoLocals.withVars(paramMapping)
@@ -1748,11 +1749,6 @@ trait CodeGeneration {
       val ch = accM.codeHandler
       val body = lzy.body.getOrElse(throw CompilationException("Lazy field without body?"))
       val initLabel = ch.getFreshLabel("isInitialized")
-
-      if (requireMonitor) {
-        load(monitorID, ch)(newLocs)
-        ch << InvokeVirtual(MonitorClass, "onInvoke", "()V")
-      }
 
       if (isStatic) {
         ch << GetStatic(cName, underlyingName, underlyingType)
@@ -1890,9 +1886,7 @@ trait CodeGeneration {
 
     // definition of the constructor
     locally {
-      val constrParams = if (requireMonitor) {
-        Seq(monitorID -> s"L$MonitorClass;")
-      } else Seq()
+      val constrParams = Seq(monitorID -> s"L$MonitorClass;")
 
       val newLocs = NoLocals.withVars {
         constrParams.map(_._1).zipWithIndex.toMap.mapValues(_ + 1)
@@ -1909,8 +1903,8 @@ trait CodeGeneration {
         case Some(parent) =>
           val pName = defToJVMName(parent.classDef)
           // Load monitor object
-          if (requireMonitor) cch << ALoad(1)
-          val constrSig = if (requireMonitor) "(L" + MonitorClass + ";)V" else "()V"
+          cch << ALoad(1)
+          val constrSig = "(L" + MonitorClass + ";)V"
           cch << InvokeSpecial(pName, constructorName, constrSig)
 
         case None =>
@@ -1985,9 +1979,7 @@ trait CodeGeneration {
 
     // Case class parameters
     val fieldsTypes = ccd.fields.map { vd => (vd.id, typeToJVM(vd.getType)) }
-    val constructorArgs = if (requireMonitor) {
-      (monitorID -> s"L$MonitorClass;") +: fieldsTypes
-    } else fieldsTypes
+    val constructorArgs = (monitorID -> s"L$MonitorClass;") +: fieldsTypes
 
     val newLocs = NoLocals.withFields(constructorArgs.map {
       case (id, jvmt) => (id, (cName, id.name, jvmt))
@@ -2013,62 +2005,54 @@ trait CodeGeneration {
       }
 
       // definition of the constructor
-      if(!params.doInstrument && !requireMonitor && ccd.fields.isEmpty && !ccd.methods.exists(_.canBeField)) {
-        cf.addDefaultConstructor
-      } else {
-        for((id, jvmt) <- constructorArgs) {
-          val fh = cf.addField(jvmt, id.name)
-          fh.setFlags((
-            FIELD_ACC_PUBLIC |
-            FIELD_ACC_FINAL
-          ).asInstanceOf[U2])
-        }
-
-        if (params.doInstrument) {
-          val fh = cf.addField("I", instrumentedField)
-          fh.setFlags(FIELD_ACC_PUBLIC)
-        }
-
-        val cch = cf.addConstructor(constructorArgs.map(_._2) : _*).codeHandler
-
-        if (params.doInstrument) {
-          cch << ALoad(0)
-          cch << Ldc(0)
-          cch << PutField(cName, instrumentedField, "I")
-        }
-
-        var c = 1
-        for((id, jvmt) <- constructorArgs) {
-          cch << ALoad(0)
-          cch << (jvmt match {
-            case "I" | "Z" => ILoad(c)
-            case _ => ALoad(c)
-          })
-          cch << PutField(cName, id.name, jvmt)
-          c += 1
-        }
-
-        // Call parent constructor AFTER initializing case class parameters
-        if (ccd.parent.isDefined) {
-          cch << ALoad(0)
-          if (requireMonitor) {
-            cch << ALoad(1)
-            cch << InvokeSpecial(pName.get, constructorName, s"(L$MonitorClass;)V")
-          } else {
-            cch << InvokeSpecial(pName.get, constructorName, "()V")
-          }
-        } else {
-          // Call constructor of java.lang.Object
-          cch << ALoad(0)
-          cch << InvokeSpecial(ObjectClass, constructorName, "()V")
-        }
-
-        // Now initialize fields
-        for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)(newLocs) }
-        for (field <- strictFields) { initStrictField(cch, cName , field, isStatic = false)(newLocs) }
-        cch << RETURN
-        cch.freeze
+      for((id, jvmt) <- constructorArgs) {
+        val fh = cf.addField(jvmt, id.name)
+        fh.setFlags((
+          FIELD_ACC_PUBLIC |
+          FIELD_ACC_FINAL
+        ).asInstanceOf[U2])
       }
+
+      if (params.doInstrument) {
+        val fh = cf.addField("I", instrumentedField)
+        fh.setFlags(FIELD_ACC_PUBLIC)
+      }
+
+      val cch = cf.addConstructor(constructorArgs.map(_._2) : _*).codeHandler
+
+      if (params.doInstrument) {
+        cch << ALoad(0)
+        cch << Ldc(0)
+        cch << PutField(cName, instrumentedField, "I")
+      }
+
+      var c = 1
+      for((id, jvmt) <- constructorArgs) {
+        cch << ALoad(0)
+        cch << (jvmt match {
+          case "I" | "Z" => ILoad(c)
+          case _ => ALoad(c)
+        })
+        cch << PutField(cName, id.name, jvmt)
+        c += 1
+      }
+
+      // Call parent constructor AFTER initializing case class parameters
+      if (ccd.parent.isDefined) {
+        cch << ALoad(0)
+        cch << ALoad(1)
+        cch << InvokeSpecial(pName.get, constructorName, s"(L$MonitorClass;)V")
+      } else {
+        // Call constructor of java.lang.Object
+        cch << ALoad(0)
+        cch << InvokeSpecial(ObjectClass, constructorName, "()V")
+      }
+
+      // Now initialize fields
+      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)(newLocs) }
+      for (field <- strictFields) { initStrictField(cch, cName , field, isStatic = false)(newLocs) }
+      cch << RETURN
+      cch.freeze
     }
 
     locally {

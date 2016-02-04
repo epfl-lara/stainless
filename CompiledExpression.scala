@@ -8,7 +8,7 @@ import purescala.Expressions._
 
 import cafebabe._
 
-import runtime.{LeonCodeGenRuntimeMonitor => LM}
+import runtime.Monitor
 
 import java.lang.reflect.InvocationTargetException
 
@@ -21,29 +21,21 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
 
   private val params = unit.params
 
-  def argsToJVM(args: Seq[Expr], monitor: LM): Seq[AnyRef] = {
+  def argsToJVM(args: Seq[Expr], monitor: Monitor): Seq[AnyRef] = {
     args.map(unit.valueToJVM(_)(monitor))
   }
 
-  def evalToJVM(args: Seq[AnyRef], monitor: LM): AnyRef = {
+  def evalToJVM(args: Seq[AnyRef], monitor: Monitor): AnyRef = {
     assert(args.size == argsDecl.size)
 
-    val realArgs = if (unit.requireMonitor) {
-      monitor +: args
-    } else {
-      args
-    }
+    val allArgs = monitor +: args
 
-    if (realArgs.isEmpty) {
-      meth.invoke(null)
-    } else {
-      meth.invoke(null, realArgs.toArray : _*)
-    }
+    meth.invoke(null, allArgs.toArray : _*)
   }
 
   // This may throw an exception. We unwrap it if needed.
   // We also need to reattach a type in some cases (sets, maps).
-  def evalFromJVM(args: Seq[AnyRef], monitor: LM) : Expr = {
+  def evalFromJVM(args: Seq[AnyRef], monitor: Monitor) : Expr = {
     try {
       unit.jvmToValue(evalToJVM(args, monitor), exprType)
     } catch {
@@ -53,7 +45,8 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
 
   def eval(model: solvers.Model, check: Boolean = false) : Expr = {
     try {
-      val monitor = unit.modelToJVM(model, params.maxFunctionInvocations, check)
+      val monitor = unit.getMonitor(model, params.maxFunctionInvocations, check)
+
       evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
     } catch {
       case ite : InvocationTargetException => throw ite.getCause
