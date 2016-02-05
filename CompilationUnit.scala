@@ -237,12 +237,8 @@ class CompilationUnit(val ctx: LeonContext,
       }
       m
 
-    case f @ PartialLambda(mapping, dflt, _) =>
-      val l = if (dflt.isDefined) {
-        new leon.codegen.runtime.PartialLambda(dflt.get)
-      } else {
-        new leon.codegen.runtime.PartialLambda()
-      }
+    case f @ FiniteLambda(mapping, dflt, _) =>
+      val l = new leon.codegen.runtime.FiniteLambda(dflt)
 
       for ((ks,v) <- mapping) {
         // Force tuple even with 1/0 elems.

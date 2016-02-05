@@ -74,7 +74,7 @@ trait CodeGeneration {
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
   private[codegen] val ForallClass               = "leon/codegen/runtime/Forall"
-  private[codegen] val PartialLambdaClass        = "leon/codegen/runtime/PartialLambda"
+  private[codegen] val FiniteLambdaClass         = "leon/codegen/runtime/FiniteLambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
   private[codegen] val InvalidForallClass        = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
@@ -1133,21 +1133,16 @@ trait CodeGeneration {
         ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
         mkUnbox(app.getType, ch)
 
-      case p @ PartialLambda(mapping, optDflt, _) =>
-        ch << New(PartialLambdaClass) << DUP
-        optDflt match {
-          case Some(dflt) =>
-            mkBoxedExpr(dflt, ch)
-            ch << InvokeSpecial(PartialLambdaClass, constructorName, s"(L$ObjectClass;)V")
-          case None =>
-            ch << InvokeSpecial(PartialLambdaClass, constructorName, "()V")
-        }
+      case p @ FiniteLambda(mapping, dflt, _) =>
+        ch << New(FiniteLambdaClass) << DUP
+        mkBoxedExpr(dflt, ch)
+        ch << InvokeSpecial(FiniteLambdaClass, constructorName, s"(L$ObjectClass;)V")
 
         for ((es,v) <- mapping) {
           ch << DUP
           mkTuple(es, ch)
           mkBoxedExpr(v, ch)
-          ch << InvokeVirtual(PartialLambdaClass, "add", s"(L$TupleClass;L$ObjectClass;)V")
+          ch << InvokeVirtual(FiniteLambdaClass, "add", s"(L$TupleClass;L$ObjectClass;)V")
         }
 
       case l @ Lambda(args, body) =>
@@ -1406,6 +1401,8 @@ trait CodeGeneration {
         ch << Ldc(desc)
         ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
         ch << ATHROW
+
+      case forall @ Forall(fargs, body) =>
 
       case choose: Choose =>
         val prob = synthesis.Problem.fromSpec(choose.pred)
