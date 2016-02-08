@@ -43,9 +43,9 @@ class CompiledExpression(unit: CompilationUnit, cf: ClassFile, expression: Expr,
     }
   }
 
-  def eval(model: solvers.Model, check: Boolean = false) : Expr = {
+  def eval(model: solvers.Model) : Expr = {
     try {
-      val monitor = unit.getMonitor(model, params.maxFunctionInvocations, check)
+      val monitor = unit.getMonitor(model, params.maxFunctionInvocations)
 
       evalFromJVM(argsToJVM(argsDecl.map(model), monitor), monitor)
     } catch {

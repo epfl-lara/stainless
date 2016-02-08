@@ -27,9 +27,10 @@ trait CodeGeneration {
    *  isStatic signifies if the current method is static (a function, in Leon terms)
    */
   class Locals private[codegen] (
-    vars   : Map[Identifier, Int],
-    args   : Map[Identifier, Int],
-    fields : Map[Identifier, (String,String,String)]
+    vars    : Map[Identifier, Int],
+    args    : Map[Identifier, Int],
+    fields  : Map[Identifier, (String,String,String)],
+    val tps : Seq[TypeParameter]
   ) {
     /** Fetches the offset of a local variable/ parameter from its identifier */
     def varToLocal(v: Identifier): Option[Int] = vars.get(v)
@@ -39,21 +40,24 @@ trait CodeGeneration {
     def varToField(v: Identifier): Option[(String,String,String)] = fields.get(v)
 
     /** Adds some extra variables to the mapping */
-    def withVars(newVars: Map[Identifier, Int]) = new Locals(vars ++ newVars, args, fields)
+    def withVars(newVars: Map[Identifier, Int]) = new Locals(vars ++ newVars, args, fields, tps)
 
     /** Adds an extra variable to the mapping */
-    def withVar(nv: (Identifier, Int)) = new Locals(vars + nv, args, fields)
+    def withVar(nv: (Identifier, Int)) = new Locals(vars + nv, args, fields, tps)
 
-    def withArgs(newArgs: Map[Identifier, Int]) = new Locals(vars, args ++ newArgs, fields)
+    def withArgs(newArgs: Map[Identifier, Int]) = new Locals(vars, args ++ newArgs, fields, tps)
 
-    def withFields(newFields: Map[Identifier,(String,String,String)]) = new Locals(vars, args, fields ++ newFields)
+    def withFields(newFields: Map[Identifier,(String,String,String)]) = new Locals(vars, args, fields ++ newFields, tps)
 
-    override def toString = "Locals("+vars + ", " + args + ", " + fields + ")"
+    def withTypes(newTps: Seq[TypeParameter]) = new Locals(vars, args, fields, tps ++ newTps)
+
+    override def toString = "Locals("+vars + ", " + args + ", " + fields + ", " + tps + ")"
   }
 
-  object NoLocals extends Locals(Map.empty, Map.empty, Map.empty)
+  object NoLocals extends Locals(Map.empty, Map.empty, Map.empty, Seq.empty)
 
   lazy val monitorID = FreshIdentifier("__$monitor")
+  lazy val tpsID     = FreshIdentifier("__$tps")
 
   private[codegen] val ObjectClass               = "java/lang/Object"
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
@@ -73,10 +77,8 @@ trait CodeGeneration {
   private[codegen] val RationalClass             = "leon/codegen/runtime/Rational"
   private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
   private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
-  private[codegen] val ForallClass               = "leon/codegen/runtime/Forall"
   private[codegen] val FiniteLambdaClass         = "leon/codegen/runtime/FiniteLambda"
   private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
-  private[codegen] val InvalidForallClass        = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
   private[codegen] val BadQuantificationClass    = "leon/codegen/runtime/LeonCodeGenQuantificationException"
   private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
@@ -166,7 +168,8 @@ trait CodeGeneration {
     val cf = classes(owner)
     val (_,mn,_) = leonFunDefToJVMInfo(funDef).get
 
-    val realParams = ("L" + MonitorClass + ";") +: funDef.params.map(a => typeToJVM(a.getType))
+    val tpeParam = if (funDef.tparams.isEmpty) Seq() else Seq("[I")
+    val realParams = ("L" + MonitorClass + ";") +: (tpeParam ++ funDef.params.map(a => typeToJVM(a.getType)))
 
     val m = cf.addMethod(
       typeToJVM(funDef.returnType),
@@ -188,9 +191,12 @@ trait CodeGeneration {
 
     // An offset we introduce to the parameters:
     // 1 if this is a method, so we need "this" in position 0 of the stack
-    // 1 if we are monitoring
-    val idParams = monitorID +: funDef.paramIds
-    val newMapping = idParams.zipWithIndex.toMap.mapValues(_ + (if (!isStatic) 1 else 0))
+    // 1 the method is type parametric and we need to keep track of types
+    val receiverOffset = if (isStatic) 0 else 1
+    val paramIds = Seq(monitorID) ++ 
+      (if (funDef.tparams.nonEmpty) Seq(tpsID) else Seq.empty) ++
+      funDef.paramIds
+    val newMapping = paramIds.zipWithIndex.toMap.mapValues(_ + receiverOffset)
 
     val body = if (params.checkContracts) {
       funDef.fullBody
@@ -198,7 +204,7 @@ trait CodeGeneration {
       funDef.body.getOrElse(throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name))
     }
 
-    val locals = NoLocals.withVars(newMapping)
+    val locals = NoLocals.withVars(newMapping).withTypes(funDef.tparams.map(_.tp))
 
     if (params.recordInvocations) {
       load(monitorID, ch)(locals)
@@ -218,17 +224,30 @@ trait CodeGeneration {
     ch.freeze
   }
 
+  private def typeParameters(expr: Expr): Seq[TypeParameter] = {
+    var tparams: Set[TypeParameter] = Set.empty
+    def extractParameters(tpe: TypeTree): Unit = tpe match {
+      case tp: TypeParameter => tparams += tp
+      case NAryType(tps, _) => tps.foreach(extractParameters)
+    }
+    preTraversal(e => extractParameters(e.getType))(expr)
+    tparams.toSeq.sortBy(_.id.uniqueName)
+  }
+
   private[codegen] val lambdaToClass = scala.collection.mutable.Map.empty[Lambda, String]
   private[codegen] val classToLambda = scala.collection.mutable.Map.empty[String, Lambda]
 
-  protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], String) = {
+  protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
     val (normalized, structSubst) = purescala.ExprOps.normalizeStructure(matchToIfThenElse(l))
     val reverseSubst = structSubst.map(p => p._2 -> p._1)
     val nl = normalized.asInstanceOf[Lambda]
 
-    val closureIDs = purescala.ExprOps.variablesOf(nl).toSeq.sortBy(_.uniqueName)
-    val closuresWithoutMonitor = closureIDs.map(id => id -> typeToJVM(id.getType))
-    val closures = (monitorID -> s"L$MonitorClass;") +: closuresWithoutMonitor
+    val tparams: Seq[TypeParameter] = typeParameters(nl)
+
+    val closedVars = purescala.ExprOps.variablesOf(nl).toSeq.sortBy(_.uniqueName)
+    val closuresWithoutMonitor = closedVars.map(id => id -> typeToJVM(id.getType))
+    val closures = (monitorID -> s"L$MonitorClass;") +:
+      ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++ closuresWithoutMonitor)
 
     val afName = lambdaToClass.getOrElse(nl, {
       val afName = "Leon$CodeGen$Lambda$" + lambdaCounter.nextGlobal
@@ -276,7 +295,7 @@ trait CodeGeneration {
 
       val argMapping = nl.args.map(_.id).zipWithIndex.toMap
       val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
-      val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
+      val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping).withTypes(tparams)
 
       locally {
         val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
@@ -370,396 +389,14 @@ trait CodeGeneration {
         hch.freeze
       }
 
-      locally {
-        val vmh = cf.addMethod("V", "checkForall", "[Z")
-        vmh.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val vch = vmh.codeHandler
-
-        vch << ALoad(1) // load argument array
-        def rec(args: Seq[Identifier], idx: Int, quantified: Set[Identifier]): Unit = args match {
-          case x :: xs =>
-            val notQuantLabel = vch.getFreshLabel("notQuant")
-            vch << DUP << Ldc(idx) << BALOAD << IfEq(notQuantLabel)
-            rec(xs, idx + 1, quantified + x)
-            vch << Label(notQuantLabel)
-            rec(xs, idx + 1, quantified)
-
-          case Nil =>
-            if (quantified.nonEmpty) {
-              checkQuantified(quantified, nl.body, vch)(newLocals)
-              vch << ALoad(0) << InvokeVirtual(LambdaClass, "checkAxiom", "()V")
-            }
-            vch << POP << RETURN
-        }
-
-        if (requireQuantification) {
-          rec(nl.args.map(_.id), 0, Set.empty)
-        } else {
-          vch << POP << RETURN
-        }
-
-        vch.freeze
-      }
-
-      locally {
-        val vmh = cf.addMethod("V", "checkAxiom")
-        vmh.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val vch = vmh.codeHandler
-
-        if (requireQuantification) {
-          val thisVar = FreshIdentifier("this", l.getType)
-          val axiom = Equals(Application(Variable(thisVar), nl.args.map(_.toVariable)), nl.body)
-          val axiomLocals = NoLocals.withFields(closureMapping).withVar(thisVar -> 0)
-
-          mkForall(nl.args.map(_.id).toSet, axiom, vch, check = false)(axiomLocals)
-
-          val skip = vch.getFreshLabel("skip")
-          vch << IfNe(skip)
-          vch << New(InvalidForallClass) << DUP
-          vch << Ldc("Unaxiomatic lambda " + l)
-          vch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
-          vch << ATHROW
-          vch << Label(skip)
-        }
-
-        vch << RETURN
-        vch.freeze
-      }
-
       loader.register(cf)
 
       afName
     })
 
     (afName, closures.map { case p @ (id, jvmt) =>
-      if (id == monitorID) p else (reverseSubst(id) -> jvmt)
-    }, "(" + closures.map(_._2).mkString("") + ")V")
-  }
-
-  private def checkQuantified(quantified: Set[Identifier], body: Expr, ch: CodeHandler)(implicit locals: Locals): Unit = {
-    val skipCheck = ch.getFreshLabel("skipCheck")
-
-    load(monitorID, ch)
-    ch << CheckCast(HenkinClass) << GetField(HenkinClass, "checkForalls", "Z")
-    ch << IfEq(skipCheck)
-
-    checkForall(quantified, body)(ctx) match {
-      case status: ForallInvalid =>
-        ch << New(InvalidForallClass) << DUP
-        ch << Ldc("Invalid forall: " + status.getMessage)
-        ch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
-        ch << ATHROW
-
-      case ForallValid =>
-        // expand match case expressions and lets so that caller can be compiled given
-        // the current locals (lets and matches introduce new locals)
-        val cleanBody = purescala.ExprOps.expandLets(purescala.ExprOps.matchToIfThenElse(body))
-
-        val calls = new CollectorWithPaths[(Expr, Seq[Expr], Seq[Expr])] {
-          def collect(e: Expr, path: Seq[Expr]): Option[(Expr, Seq[Expr], Seq[Expr])] = e match {
-            case QuantificationMatcher(IsTyped(caller, _: FunctionType), args) => Some((caller, args, path))
-            case _ => None
-          }
-
-          override def rec(e: Expr, path: Seq[Expr]): Expr = e match {
-            case l : Lambda => l
-            case _ => super.rec(e, path)
-          }
-        }.traverse(cleanBody)
-
-        for ((caller, args, paths) <- calls) {
-          if ((variablesOf(caller) & quantified).isEmpty) {
-            val enabler = andJoin(paths.filter(expr => (variablesOf(expr) & quantified).isEmpty))
-            val skipCall = ch.getFreshLabel("skipCall")
-            mkExpr(enabler, ch)
-            ch << IfEq(skipCall)
-
-            mkExpr(caller, ch)
-            ch << Ldc(args.size) << NewArray.primitive("T_BOOLEAN")
-            for ((arg, idx) <- args.zipWithIndex) {
-              ch << DUP << Ldc(idx) << Ldc(arg match {
-                case Variable(id) if quantified(id) => 1
-                case _ => 0
-              }) << BASTORE
-            }
-
-            ch << InvokeVirtual(LambdaClass, "checkForall", "([Z)V")
-
-            ch << Label(skipCall)
-          }
-        }
-    }
-
-    ch << Label(skipCheck)
-  }
-
-  private val typeIdCache = scala.collection.mutable.Map.empty[TypeTree, Int]
-  private[codegen] def typeId(tpe: TypeTree): Int = typeIdCache.get(tpe) match {
-    case Some(id) => id
-    case None =>
-      val id = typeIdCache.size
-      typeIdCache += tpe -> id
-      id
-  }
-
-  private[codegen] val forallToClass = scala.collection.mutable.Map.empty[Expr, String]
-
-  private def mkForall(quants: Set[Identifier], body: Expr, ch: CodeHandler, check: Boolean = true)(implicit locals: Locals): Unit = {
-    val (afName, closures, consSig) = compileForall(quants, body)
-    ch << New(afName) << DUP
-    load(monitorID, ch)
-    mkTuple(closures.map(_.toVariable) :+ BooleanLiteral(check), ch)
-    ch << InvokeSpecial(afName, constructorName, consSig)
-    ch << InvokeVirtual(ForallClass, "check", "()Z")
-  }
-
-  private def compileForall(quants: Set[Identifier], body: Expr): (String, Seq[Identifier], String) = {
-    val (nl, structSubst) = purescala.ExprOps.normalizeStructure(matchToIfThenElse(body))
-    val reverseSubst = structSubst.map(p => p._2 -> p._1)
-    val nquants = quants.flatMap(structSubst.get)
-
-    val closures = (purescala.ExprOps.variablesOf(nl) -- nquants).toSeq.sortBy(_.uniqueName)
-
-    val afName = forallToClass.getOrElse(nl, {
-      val afName = "Leon$CodeGen$Forall$" + forallCounter.nextGlobal
-      forallToClass += nl -> afName
-
-      val cf = new ClassFile(afName, Some(ForallClass))
-
-      cf.setFlags((
-        CLASS_ACC_SUPER |
-        CLASS_ACC_PUBLIC |
-        CLASS_ACC_FINAL
-      ).asInstanceOf[U2])
-
-      locally {
-        val cch = cf.addConstructor(s"L$MonitorClass;", s"L$TupleClass;").codeHandler
-
-        cch << ALoad(0) << ALoad(1) << ALoad(2)
-        cch << InvokeSpecial(ForallClass, constructorName, s"(L$MonitorClass;L$TupleClass;)V")
-        cch << RETURN
-        cch.freeze
-      }
-
-      locally {
-        val cfm = cf.addMethod("Z", "checkForall")
-
-        cfm.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val cfch = cfm.codeHandler
-
-        cfch << ALoad(0) << GetField(ForallClass, "closures", s"L$TupleClass;")
-
-        val closureVars = (for ((id, idx) <- closures.zipWithIndex) yield {
-          val slot = cfch.getFreshVar
-          cfch << DUP << Ldc(idx) << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
-          mkUnbox(id.getType, cfch)
-          cfch << (id.getType match {
-            case ValueType() => IStore(slot)
-            case _ => AStore(slot)
-          })
-          id -> slot
-        }).toMap
-
-        cfch << POP
-
-        val monitorSlot = cfch.getFreshVar
-        cfch << ALoad(0) << GetField(ForallClass, "monitor", s"L$HenkinClass;")
-        cfch << AStore(monitorSlot)
-
-        implicit val locals = NoLocals.withVars(closureVars).withVar(monitorID -> monitorSlot)
-
-        val skipCheck = cfch.getFreshLabel("skipCheck")
-        cfch << ALoad(0) << GetField(ForallClass, "check", "Z")
-        cfch << IfEq(skipCheck)
-        checkQuantified(nquants, nl, cfch)
-        cfch << Label(skipCheck)
-
-        val TopLevelAnds(conjuncts) = nl
-        val endLabel = cfch.getFreshLabel("forallEnd")
-
-        for (conj <- conjuncts) {
-          val vars = purescala.ExprOps.variablesOf(conj)
-          val quantified = nquants.filter(vars)
-
-          val matchQuorums = extractQuorums(conj, quantified)
-
-          var allSlots: List[Int] = Nil
-          var freeSlots: List[Int] = Nil
-          def getSlot(): Int = freeSlots match {
-            case x :: xs =>
-              freeSlots = xs
-              x
-            case Nil =>
-              val slot = cfch.getFreshVar
-              allSlots = allSlots :+ slot
-              slot
-          }
-
-          for ((qrm, others) <- matchQuorums) {
-            val quorum = qrm.toList
-
-            def rec(mis: List[(Expr, Expr, Seq[Expr], Int)], locs: Map[Identifier, Int], pointers: Map[(Int, Int), Identifier]): Unit = mis match {
-              case (TopLevelAnds(paths), expr, args, qidx) :: rest =>
-                load(monitorID, cfch)
-                cfch << CheckCast(HenkinClass)
-
-                mkExpr(expr, cfch)
-                cfch << Ldc(typeId(expr.getType))
-                cfch << InvokeVirtual(HenkinClass, "domain", s"(L$ObjectClass;I)L$JavaListClass;")
-                cfch << InvokeInterface(JavaListClass, "iterator", s"()L$JavaIteratorClass;")
-
-                val loop = cfch.getFreshLabel("loop")
-                val out = cfch.getFreshLabel("out")
-                cfch << Label(loop)
-                // it
-                cfch << DUP
-                // it, it
-                cfch << InvokeInterface(JavaIteratorClass, "hasNext", "()Z")
-                // it, hasNext
-                cfch << IfEq(out) << DUP
-                // it, it
-                cfch << InvokeInterface(JavaIteratorClass, "next", s"()L$ObjectClass;")
-                // it, elem
-                cfch << CheckCast(TupleClass)
-
-                val (newLoc, newPtr) = (for ((arg, aidx) <- args.zipWithIndex) yield {
-                  val id = FreshIdentifier("q", arg.getType, true)
-                  val slot = getSlot()
-
-                  cfch << DUP << Ldc(aidx) << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
-                  mkUnbox(arg.getType, cfch)
-                  cfch << (typeToJVM(arg.getType) match {
-                    case "I" | "Z" => IStore(slot)
-                    case _ => AStore(slot)
-                  })
-
-                  (id -> slot, (qidx -> aidx) -> id)
-                }).unzip
-
-                cfch << POP
-                // it
-
-                rec(rest, locs ++ newLoc, pointers ++ newPtr)
-
-                cfch << Goto(loop)
-                cfch << Label(out) << POP
-
-              case Nil =>
-                val okLabel = cfch.getFreshLabel("assignmentOk")
-
-                var mappings: Seq[(Identifier, Int, Int)] = Seq.empty
-                var constraints: Seq[(Expr, Int, Int)] = Seq.empty
-                var equalities: Seq[((Int, Int), (Int, Int))] = Seq.empty
-
-                for ((q @ (_, expr, args), qidx) <- quorum.zipWithIndex) {
-                  val (qmappings, qconstraints) = args.zipWithIndex.partition {
-                    case (Variable(id), aidx) => quantified(id)
-                    case _ => false
-                  }
-
-                  mappings ++= qmappings.map(p => (p._1.asInstanceOf[Variable].id, qidx, p._2))
-                  constraints ++= qconstraints.map(p => (p._1, qidx, p._2))
-                }
-
-                val mapping = for ((id, es) <- mappings.groupBy(_._1)) yield {
-                  val base :: others = es.toList.map(p => (p._2, p._3))
-                  equalities ++= others.map(p => base -> p)
-                  (id -> base)
-                }
-
-                val enabler = andJoin(constraints.map {
-                  case (e, qidx, aidx) => Equals(e, pointers(qidx -> aidx).toVariable)
-                } ++ equalities.map {
-                  case (k1, k2) => Equals(pointers(k1).toVariable, pointers(k2).toVariable)
-                })
-
-                val varsMap = quantified.map(id => id -> locs(pointers(mapping(id)))).toMap
-                val varLocals = locals.withVars(varsMap)
-
-                mkExpr(enabler, cfch)(varLocals.withVars(locs))
-                cfch << IfEq(okLabel)
-
-                val checkOk = cfch.getFreshLabel("checkOk")
-                load(monitorID, cfch)
-                cfch << GetField(HenkinClass, "checkForalls", "Z")
-                cfch << IfEq(checkOk)
-
-                var nextLabel: Option[String] = None
-                for ((b,caller,args) <- others) {
-                  nextLabel.foreach(label => cfch << Label(label))
-                  nextLabel = Some(cfch.getFreshLabel("next"))
-
-                  mkExpr(b, cfch)(varLocals)
-                  cfch << IfEq(nextLabel.get)
-
-                  load(monitorID, cfch)
-                  cfch << CheckCast(HenkinClass)
-                  mkExpr(caller, cfch)(varLocals)
-                  cfch << Ldc(typeId(caller.getType))
-                  cfch << InvokeVirtual(HenkinClass, "domain", s"(L$ObjectClass;I)L$JavaListClass;")
-                  mkTuple(args, cfch)(varLocals)
-                  cfch << InvokeInterface(JavaListClass, "contains", s"(L$ObjectClass;)Z")
-                  cfch << IfNe(nextLabel.get)
-
-                  cfch << New(InvalidForallClass) << DUP
-                  cfch << Ldc("Unhandled transitive implication in " + conj)
-                  cfch << InvokeSpecial(InvalidForallClass, constructorName, "(Ljava/lang/String;)V")
-                  cfch << ATHROW
-                }
-                nextLabel.foreach(label => cfch << Label(label))
-
-                cfch << Label(checkOk)
-                mkExpr(conj, cfch)(varLocals)
-                cfch << IfNe(okLabel)
-
-                // -- Forall is false! --
-                // POP all the iterators...
-                for (_ <- List.range(0, quorum.size)) cfch << POP
-
-                // ... and return false
-                cfch << Ldc(0) << Goto(endLabel)
-                cfch << Label(okLabel)
-            }
-
-            val skipQuorum = cfch.getFreshLabel("skipQuorum")
-            for ((TopLevelAnds(paths), _, _) <- quorum) {
-              val p = andJoin(paths.filter(path => (variablesOf(path) & quantified).isEmpty))
-              mkExpr(p, cfch)
-              cfch << IfEq(skipQuorum)
-            }
-
-            val mis = quorum.zipWithIndex.map { case ((p, e, as), idx) => (p, e, as, idx) }
-            rec(mis, Map.empty, Map.empty)
-            freeSlots = allSlots
-
-            cfch << Label(skipQuorum)
-          }
-        }
-
-        cfch << Ldc(1) << Label(endLabel)
-        cfch << IRETURN
-
-        cfch.freeze
-      }
-
-      loader.register(cf)
-
-      afName
-    })
-
-    (afName, closures.map(reverseSubst), s"(L$MonitorClass;L$TupleClass;)V")
+      if (id == monitorID || id == tpsID) p else (reverseSubst(id) -> jvmt)
+    }, tparams, "(" + closures.map(_._2).mkString("") + ")V")
   }
 
   // also makes tuples with 0/1 args
@@ -774,6 +411,31 @@ trait CodeGeneration {
       ch << AASTORE
     }
     ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
+  }
+
+  private def loadTypes(tps: Seq[TypeTree], ch: CodeHandler)(implicit locals: Locals): Unit = {
+    if (tps.nonEmpty) {
+      ch << Ldc(tps.size)
+      ch << NewArray.primitive("T_INT")
+      for ((tpe,idx) <- tps.zipWithIndex) {
+        ch << DUP << Ldc(idx) << Ldc(registerType(tpe)) << IASTORE
+      }
+
+      if (locals.tps.nonEmpty) {
+        load(monitorID, ch)
+        ch << SWAP
+
+        ch << Ldc(locals.tps.size)
+        ch << NewArray.primitive("T_INT")
+        for ((tpe,idx) <- locals.tps.zipWithIndex) {
+          ch << DUP << Ldc(idx) << Ldc(registerType(tpe)) << IASTORE
+        }
+
+        ch << SWAP
+        load(tpsID, ch)
+        ch << InvokeVirtual(MonitorClass, "typeParams", s"([I[I[I)[I")
+      }
+    }
   }
 
   private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)(implicit locals: Locals) {
@@ -1042,10 +704,9 @@ trait CodeGeneration {
           ch << AASTORE
         }
 
-        ch << InvokeVirtual(MonitorClass, "onAbstractInvocation", s"(I[L$ObjectClass;)L$ObjectClass;")
+        ch << InvokeVirtual(MonitorClass, "onAbstractInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
 
         mkUnbox(tfd.returnType, ch)
-
 
       // Static lazy fields/ functions
       case fi @ FunctionInvocation(tfd, as) =>
@@ -1054,6 +715,7 @@ trait CodeGeneration {
         }
 
         load(monitorID, ch)
+        loadTypes(tfd.tps, ch)
 
         for((a, vd) <- as zip tfd.fd.params) {
           vd.getType match {
@@ -1102,6 +764,7 @@ trait CodeGeneration {
         mkExpr(rec, ch)
 
         load(monitorID, ch)
+        loadTypes(tfd.tps, ch)
 
         for((a, vd) <- as zip tfd.fd.params) {
           vd.getType match {
@@ -1146,20 +809,17 @@ trait CodeGeneration {
         }
 
       case l @ Lambda(args, body) =>
-        val (afName, closures, consSig) = compileLambda(l)
+        val (afName, closures, tparams, consSig) = compileLambda(l)
 
         ch << New(afName) << DUP
         for ((id,jvmt) <- closures) {
-          if (id == monitorID) {
-            load(monitorID, ch)
+          if (id == tpsID) {
+            loadTypes(tparams, ch)
           } else {
             mkExpr(Variable(id), ch)
           }
         }
         ch << InvokeSpecial(afName, constructorName, consSig)
-
-      case f @ Forall(args, body) =>
-        mkForall(args.map(_.id).toSet, body, ch)
 
       // String processing =>
       case StringConcat(l, r) =>
@@ -1403,15 +1063,42 @@ trait CodeGeneration {
         ch << ATHROW
 
       case forall @ Forall(fargs, body) =>
+        val id = registerForall(forall, locals.tps)
+        val args = variablesOf(forall).toSeq.sortBy(_.uniqueName)
+
+        load(monitorID, ch)
+        ch << Ldc(id)
+        if (locals.tps.nonEmpty) {
+          load(tpsID, ch)
+        } else {
+          ch << Ldc(0) << NewArray.primitive("T_INT")
+        }
+
+        ch << Ldc(args.size)
+        ch << NewArray(ObjectClass)
+
+        for ((id, i) <- args.zipWithIndex) {
+          ch << DUP
+          ch << Ldc(i)
+          mkExpr(Variable(id), ch)
+          mkBox(id.getType, ch)
+          ch << AASTORE
+        }
+
+        ch << InvokeVirtual(MonitorClass, "onForallInvocation", s"(I[I[L$ObjectClass;)Z")
 
       case choose: Choose =>
         val prob = synthesis.Problem.fromSpec(choose.pred)
 
-        val id = registerProblem(prob)
+        val id = registerProblem(prob, locals.tps)
 
         load(monitorID, ch)
-
         ch << Ldc(id)
+        if (locals.tps.nonEmpty) {
+          load(tpsID, ch)
+        } else {
+          ch << Ldc(0) << NewArray.primitive("T_INT")
+        }
 
         ch << Ldc(prob.as.size)
         ch << NewArray(ObjectClass)
@@ -1424,7 +1111,7 @@ trait CodeGeneration {
           ch << AASTORE
         }
 
-        ch << InvokeVirtual(MonitorClass, "onChooseInvocation", s"(I[L$ObjectClass;)L$ObjectClass;")
+        ch << InvokeVirtual(MonitorClass, "onChooseInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
 
         mkUnbox(choose.getType, ch)
 

@@ -44,11 +44,30 @@ class CompilationUnit(val ctx: LeonContext,
 
   val runtimeCounter = new UniqueCounter[Unit]
 
-  var runtimeProblemMap  = Map[Int, Problem]()
+  var runtimeTypeToIdMap = Map[TypeTree, Int]()
+  var runtimeIdToTypeMap = Map[Int, TypeTree]()
+  def registerType(tpe: TypeTree): Int = runtimeTypeToIdMap.get(tpe) match {
+    case Some(id) => id
+    case None =>
+      val id = runtimeCounter.nextGlobal
+      runtimeTypeToIdMap += tpe -> id
+      runtimeIdToTypeMap += id -> tpe
+      id
+  }
 
-  def registerProblem(p: Problem): Int = {
+  var runtimeProblemMap  = Map[Int, (Seq[TypeParameter], Problem)]()
+
+  def registerProblem(p: Problem, tps: Seq[TypeParameter]): Int = {
     val id = runtimeCounter.nextGlobal
-    runtimeProblemMap += id -> p
+    runtimeProblemMap += id -> (tps, p)
+    id
+  }
+
+  var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
+
+  def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = {
+    val id = runtimeCounter.nextGlobal
+    runtimeForallMap += id -> (tps, f)
     id
   }
 
@@ -103,7 +122,9 @@ class CompilationUnit(val ctx: LeonContext,
    */
   def leonFunDefToJVMInfo(fd: FunDef): Option[(String, String, String)] = {
     funDefInfo.get(fd).orElse {
-      val sig = "(L"+MonitorClass+";" + fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.returnType)
+      val sig = "(L"+MonitorClass+";" +
+        (if (fd.tparams.nonEmpty) "[I" else "") +
+        fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.returnType)
 
       defToModuleOrClass.get(fd).flatMap(m => classes.get(m)) match {
         case Some(cf) =>
@@ -144,36 +165,15 @@ class CompilationUnit(val ctx: LeonContext,
     conss.last
   }
 
-  def getMonitor(model: solvers.Model, maxInvocations: Int, check: Boolean): Monitor = {
+  def getMonitor(model: solvers.Model, maxInvocations: Int): Monitor = {
     val bodies = model.toSeq.filter { case (id, v) => abstractFunDefs(id) }.toMap
+    val domains = model match {
+      case hm: solvers.HenkinModel => Some(hm.doms)
+      case _ => None
+    }
 
-    new StdMonitor(this, maxInvocations, bodies)
+    new StdMonitor(this, maxInvocations, bodies, domains)
   }
-  //  model match {
-  //  case hModel: solvers.HenkinModel =>
-  //    val lhm = new LeonCodeGenRuntimeHenkinMonitor(maxInvocations, check)
-  //    for ((lambda, domain) <- hModel.doms.lambdas) {
-  //      val (afName, _, _) = compileLambda(lambda)
-  //      val lc = loader.loadClass(afName)
-
-  //      for (args <- domain) {
-  //        // note here that it doesn't matter that `lhm` doesn't yet have its domains
-  //        // filled since all values in `args` should be grounded
-  //        val inputJvm = tupleConstructor.newInstance(args.map(valueToJVM(_)(lhm)).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
-  //        lhm.add(lc, inputJvm)
-  //      }
-  //    }
-
-  //    for ((tpe, domain) <- hModel.doms.tpes; args <- domain) {
-  //      val tpeId = typeId(tpe)
-  //      // same remark as above about valueToJVM(_)(lhm)
-  //      val inputJvm = tupleConstructor.newInstance(args.map(valueToJVM(_)(lhm)).toArray).asInstanceOf[leon.codegen.runtime.Tuple]
-  //      lhm.add(tpeId, inputJvm)
-  //    }
-  //    lhm
-  //  case _ =>
-  //    new LeonCodeGenRuntimeMonitor(maxInvocations)
-  //}
 
   /** Translates Leon values (not generic expressions) to JVM compatible objects.
     *
@@ -238,7 +238,7 @@ class CompilationUnit(val ctx: LeonContext,
       m
 
     case f @ FiniteLambda(mapping, dflt, _) =>
-      val l = new leon.codegen.runtime.FiniteLambda(dflt)
+      val l = new leon.codegen.runtime.FiniteLambda(valueToJVM(dflt))
 
       for ((ks,v) <- mapping) {
         // Force tuple even with 1/0 elems.
@@ -353,6 +353,15 @@ class CompilationUnit(val ctx: LeonContext,
         (k, v)
       }.toMap
       FiniteMap(pairs, from, to)
+
+    case (lambda: runtime.FiniteLambda, ft @ FunctionType(from, to)) =>
+      val mapping = lambda.mapping.asScala.map { entry =>
+        val k = jvmToValue(entry._1, tupleTypeWrap(from))
+        val v = jvmToValue(entry._2, to)
+        unwrapTuple(k, from.size) -> v
+      }
+      val dflt = jvmToValue(lambda.dflt, to)
+      FiniteLambda(mapping.toSeq, dflt, ft)
 
     case (lambda: runtime.Lambda, _: FunctionType) =>
       val cls = lambda.getClass
