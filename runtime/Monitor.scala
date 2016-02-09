@@ -16,10 +16,11 @@ import purescala.Quantification.{extractQuorums, HenkinDomains}
 import codegen.CompilationUnit
 
 import scala.collection.immutable.{Map => ScalaMap}
-import scala.collection.mutable.{HashMap => MutableMap}
+import scala.collection.mutable.{HashMap => MutableMap, Set => MutableSet}
 import scala.concurrent.duration._
 
 import solvers.SolverFactory
+import solvers.combinators.UnrollingProcedure
 
 import synthesis._
 
@@ -60,7 +61,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
   private[this] var invocations = 0
 
   def onInvocation(): Unit = {
-    if(invocationsMax >= 0) {
+    if (invocationsMax >= 0) {
       if (invocations < invocationsMax) {
         invocations += 1;
       } else {
@@ -170,7 +171,11 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     val (tparams, f) = unit.runtimeForallMap(id)
 
     val program = unit.program
-    val ctx     = unit.ctx
+    val ctx     = unit.ctx.copy(options = unit.ctx.options.map {
+      case LeonOption(optDef, value) if optDef == UnrollingProcedure.optFeelingLucky =>
+        LeonOption(optDef)(false)
+      case opt => opt
+    })
 
     ctx.reporter.debug("Executing forall (codegen)!")
     val argsSeq = args.toSeq

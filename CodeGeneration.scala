@@ -191,7 +191,6 @@ trait CodeGeneration {
 
     // An offset we introduce to the parameters:
     // 1 if this is a method, so we need "this" in position 0 of the stack
-    // 1 the method is type parametric and we need to keep track of types
     val receiverOffset = if (isStatic) 0 else 1
     val paramIds = Seq(monitorID) ++ 
       (if (funDef.tparams.nonEmpty) Seq(tpsID) else Seq.empty) ++
