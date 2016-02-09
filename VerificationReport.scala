@@ -3,25 +3,7 @@
 package leon
 package verification
 
-import utils.DebugSectionSynthesis
-import utils.DebugSectionVerification
-import leon.purescala
 import purescala.Definitions.Program
-import purescala.Expressions._
-import purescala.Types.StringType
-import purescala.TypeOps
-import purescala.Quantification._
-import purescala.Constructors._
-import purescala.ExprOps._
-import purescala.Expressions.{Pattern, Expr}
-import purescala.Extractors._
-import purescala.TypeOps._
-import purescala.Types._
-import purescala.Common._
-import purescala.Expressions._
-import purescala.Definitions._
-import purescala.SelfPrettyPrinter
-import leon.solvers.{ PartialModel, Model, SolverFactory }
 
 case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) {
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
