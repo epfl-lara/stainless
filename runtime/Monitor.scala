@@ -115,15 +115,21 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
       val tpMap = (tparams.map(TypeParameterDef(_)) zip newTypes).toMap
 
-      val vars = (variablesOf(p.pc) ++ variablesOf(p.phi)).toSeq.sortBy(_.uniqueName)
-      val newVars = vars.map(id => FreshIdentifier(id.name, instantiateType(id.getType, tpMap), true))
+      val newXs = p.xs.map { id =>
+        val newTpe = instantiateType(id.getType, tpMap)
+        if (id.getType == newTpe) id else FreshIdentifier(id.name, newTpe, true)
+      }
 
-      val args = p.as.map(id => FreshIdentifier(id.name, instantiateType(id.getType, tpMap), true))
-      val inputsMap = (args zip inputs).map {
+      val newAs = p.as.map { id =>
+        val newTpe = instantiateType(id.getType, tpMap)
+        if (id.getType == newTpe) id else FreshIdentifier(id.name, newTpe, true)
+      }
+
+      val inputsMap = (newAs zip inputs).map {
         case (id, v) => Equals(Variable(id), unit.jvmToValue(v, id.getType))
       }
 
-      val expr = instantiateType(and(p.pc, p.phi), tpMap, (vars zip newVars).toMap)
+      val expr = instantiateType(and(p.pc, p.phi), tpMap, (p.as zip newAs).toMap ++ (p.xs zip newXs))
       solver.assertCnstr(andJoin(expr +: inputsMap))
 
       try {
@@ -133,7 +139,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
 
             val valModel = valuateWithModel(model) _
 
-            val res = p.xs.map(valModel)
+            val res = newXs.map(valModel)
             val leonRes = tupleWrap(res) 
 
             val total = System.currentTimeMillis-tStart
