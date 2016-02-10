@@ -8,6 +8,7 @@ import purescala.Definitions._
 import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Types._
+import purescala.TypeOps._
 import purescala.Constructors._
 import purescala.Extractors._
 import purescala.Quantification._
@@ -223,16 +224,6 @@ trait CodeGeneration {
     ch.freeze
   }
 
-  private def typeParameters(expr: Expr): Seq[TypeParameter] = {
-    var tparams: Set[TypeParameter] = Set.empty
-    def extractParameters(tpe: TypeTree): Unit = tpe match {
-      case tp: TypeParameter => tparams += tp
-      case NAryType(tps, _) => tps.foreach(extractParameters)
-    }
-    preTraversal(e => extractParameters(e.getType))(expr)
-    tparams.toSeq.sortBy(_.id.uniqueName)
-  }
-
   private[codegen] val lambdaToClass = scala.collection.mutable.Map.empty[Lambda, String]
   private[codegen] val classToLambda = scala.collection.mutable.Map.empty[String, Lambda]
 
@@ -241,7 +232,7 @@ trait CodeGeneration {
     val reverseSubst = structSubst.map(p => p._2 -> p._1)
     val nl = normalized.asInstanceOf[Lambda]
 
-    val tparams: Seq[TypeParameter] = typeParameters(nl)
+    val tparams: Seq[TypeParameter] = typeParamsOf(nl).toSeq.sortBy(_.id.uniqueName)
 
     val closedVars = purescala.ExprOps.variablesOf(nl).toSeq.sortBy(_.uniqueName)
     val closuresWithoutMonitor = closedVars.map(id => id -> typeToJVM(id.getType))

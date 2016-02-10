@@ -8,6 +8,7 @@ import purescala.Definitions._
 import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Types._
+import purescala.TypeOps._
 import purescala.Extractors._
 import purescala.Constructors._
 import utils.UniqueCounter
@@ -247,6 +248,22 @@ class CompilationUnit(val ctx: LeonContext,
         l.add(kJvm,vJvm)
       }
       l
+
+    case l @ Lambda(args, body) =>
+      val (afName, closures, tparams, consSig) = compileLambda(l)
+      val args = closures.map { case (id, _) =>
+        if (id == monitorID) monitor
+        else if (id == tpsID) typeParamsOf(l).toSeq.sortBy(_.id.uniqueName).map(registerType).toArray
+        else throw CompilationException(s"Unexpected closure $id in Lambda compilation")
+      }
+
+      val lc = loader.loadClass(afName)
+      val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
+      println(conss)
+      assert(conss.nonEmpty)
+      val lambdaConstructor = conss.last
+      println(args.toArray)
+      lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
 
     case f @ IsTyped(FiniteArray(elems, default, IntLiteral(length)), ArrayType(underlying)) =>
       if (length < 0) {
