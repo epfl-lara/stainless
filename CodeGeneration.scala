@@ -682,6 +682,11 @@ trait CodeGeneration {
         load(monitorID, ch)
 
         ch << Ldc(id)
+        if (tfd.fd.tparams.nonEmpty) {
+          loadTypes(tfd.tps, ch)
+        } else {
+          ch << Ldc(0) << NewArray.primitive("T_INT")
+        }
 
         ch << Ldc(as.size)
         ch << NewArray(ObjectClass)
