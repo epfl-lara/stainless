@@ -8,7 +8,6 @@ import Expressions._
 import ExprOps._
 import Definitions._
 import Constructors._
-import xlang.Expressions._
 
 object InjectAsserts extends SimpleLeonPhase[Program, Program] {
 
