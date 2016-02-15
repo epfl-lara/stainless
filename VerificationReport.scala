@@ -21,7 +21,7 @@ import purescala.Common._
 import purescala.Expressions._
 import purescala.Definitions._
 import purescala.SelfPrettyPrinter
-import leon.solvers.{ HenkinModel, Model, SolverFactory }
+import leon.solvers.{ PartialModel, Model, SolverFactory }
 
 case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) {
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
