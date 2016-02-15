@@ -169,7 +169,7 @@ class CompilationUnit(val ctx: LeonContext,
   def getMonitor(model: solvers.Model, maxInvocations: Int): Monitor = {
     val bodies = model.toSeq.filter { case (id, v) => abstractFunDefs(id) }.toMap
     val domains = model match {
-      case hm: solvers.HenkinModel => Some(hm.doms)
+      case hm: solvers.PartialModel => Some(hm.domains)
       case _ => None
     }
 

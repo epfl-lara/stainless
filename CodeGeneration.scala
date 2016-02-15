@@ -87,7 +87,6 @@ trait CodeGeneration {
   private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
   private[codegen] val MonitorClass              = "leon/codegen/runtime/Monitor"
   private[codegen] val NoMonitorClass            = "leon/codegen/runtime/NoMonitor"
-  private[codegen] val HenkinClass               = "leon/codegen/runtime/LeonCodeGenRuntimeHenkinMonitor"
   private[codegen] val StrOpsClass               = "leon/codegen/runtime/StrOps"
 
   def idToSafeJVMName(id: Identifier) = {

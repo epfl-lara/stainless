@@ -11,7 +11,7 @@ import purescala.Common._
 import purescala.Types._
 import purescala.TypeOps._
 import purescala.ExprOps.{valuateWithModel, replaceFromIDs, variablesOf}
-import purescala.Quantification.{extractQuorums, HenkinDomains}
+import purescala.Quantification.{extractQuorums, Domains}
 
 import codegen.CompilationUnit
 
@@ -56,7 +56,7 @@ class NoMonitor extends Monitor {
   }
 }
 
-class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Identifier, Expr], domains: Option[HenkinDomains] = None) extends Monitor {
+class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Identifier, Expr], domains: Option[Domains] = None) extends Monitor {
 
   private[this] var invocations = 0
 
