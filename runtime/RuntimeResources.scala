@@ -6,7 +6,6 @@ import leon.utils.UniqueCounter
 
 import java.util.WeakHashMap
 import java.lang.ref.WeakReference
-import scala.collection.mutable.{HashMap => MutableMap}
 
 /**
  * This class allows an evaluator to statically register a resource, identified
