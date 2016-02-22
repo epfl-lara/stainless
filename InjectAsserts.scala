@@ -71,6 +71,12 @@ object InjectAsserts extends SimpleLeonPhase[Program, Program] {
                       e
                      ).setPos(e))
 
+        case e @ CaseClass(cct, args) if cct.root.classDef.hasInvariant =>
+          Some(assertion(FunctionInvocation(cct.root.invariant.get, Seq(e)),
+                      Some("ADT invariant"),
+                      e
+                     ).setPos(e))
+
         case _ =>
           None
       })
