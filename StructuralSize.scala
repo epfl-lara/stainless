@@ -32,7 +32,7 @@ trait StructuralSize {
     ))
     absFun.typed
   }
-  
+
   def size(expr: Expr) : Expr = {
     def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
       // we want to reuse generic size functions for sub-types
