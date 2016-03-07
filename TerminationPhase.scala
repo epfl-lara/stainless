@@ -20,7 +20,7 @@ object TerminationPhase extends SimpleLeonPhase[Program, TerminationReport] {
     val fdFilter = {
       import OptionsHelpers._
 
-      filterInclusive(ctx.findOption(SharedOptions.optFunctions).map(fdMatcher(program)), Some(excludeByDefault _))
+      filterInclusive(ctx.findOption(GlobalOptions.optFunctions).map(fdMatcher(program)), Some(excludeByDefault _))
     }
 
     val toVerify = tc.program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
