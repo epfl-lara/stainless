@@ -8,7 +8,6 @@ import Expressions._
 import ExprOps._
 import Definitions._
 import Constructors._
-import xlang.Expressions._
 
 object InjectAsserts extends SimpleLeonPhase[Program, Program] {
 
@@ -69,6 +68,12 @@ object InjectAsserts extends SimpleLeonPhase[Program, Program] {
         case e @ RealDivision(_, d)  =>
           Some(assertion(not(equality(d, FractionalLiteral(0, 1))),
                       Some("Division by zero"),
+                      e
+                     ).setPos(e))
+
+        case e @ CaseClass(cct, args) if cct.root.classDef.hasInvariant =>
+          Some(assertion(FunctionInvocation(cct.root.invariant.get, Seq(e)),
+                      Some("ADT invariant"),
                       e
                      ).setPos(e))
 
