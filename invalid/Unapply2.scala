@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 import leon.lang._ 
 object Unap2 {
   def unapply[A, B](i: (Int, B, A)): Option[(A, B)] = 

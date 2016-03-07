@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 import leon.lang._
 import leon.lang.synthesis._
 import leon.collection._

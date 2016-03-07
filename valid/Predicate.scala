@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 package leon.monads.predicate
 
 import leon.collection._

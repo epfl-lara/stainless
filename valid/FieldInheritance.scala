@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 import leon.lang._
 
 object FieldInheritance {

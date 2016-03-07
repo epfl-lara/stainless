@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 object Overrides {
   abstract class A {
     def x(a: Int): Int
