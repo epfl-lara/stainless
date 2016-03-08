@@ -4,8 +4,9 @@ package leon
 package verification
 
 import purescala.Definitions.Program
+import utils.Report
 
-case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) {
+case class VerificationReport(program: Program, results: Map[VC, Option[VCResult]]) extends Report {
   val vrs: Seq[(VC, VCResult)] = results.toSeq.sortBy { case (vc, _) => (vc.fd.id.name, vc.kind.toString) }.map {
     case (vc, or) => (vc, or.getOrElse(VCResult.unknown))
   }
