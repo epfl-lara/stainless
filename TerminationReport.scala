@@ -4,9 +4,10 @@ package leon
 package termination
 
 import purescala.Definitions._
+import utils.Report
 import utils.ASCIIHelpers._
 
-case class TerminationReport(ctx: LeonContext, results : Seq[(FunDef,TerminationGuarantee)], time : Double) {
+case class TerminationReport(ctx: LeonContext, results : Seq[(FunDef,TerminationGuarantee)], time : Double) extends Report {
 
   def summaryString : String = {
     var t = Table("Termination summary")
