@@ -201,7 +201,7 @@ trait CodeGeneration {
       funDef.fullBody
     } else {
       funDef.body.getOrElse(
-        if(funDef.annotations contains "library") {
+        if(funDef.annotations contains "extern") {
           Error(funDef.id.getType, "Body of " + funDef.id.name + " not implemented at compile-time and still executed.")
         } else {
           throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name)
