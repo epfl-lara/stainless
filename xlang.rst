@@ -39,35 +39,16 @@ The above example illustrates three new features introduced by XLang:
 3. Assignments
 
 You can use Scala variables with a few restrictions. The variables can only be
-declared and used locally in the same function, and inner functions cannot
-close over them. XLang introduces the possibility to use sequences of
-expressions (blocks) -- a feature not available in :ref:`Pure Scala
-<purescala>`, where you're only option is a sequence of ``val`` which
-essentially introduce nested ``let`` declarations.
-
-.. warning::
-   Be careful when combining variables with nested functions from PureScala. Leon
-   will reject code with nested functions accessing a variable from an outside scope:
-   
-   .. code-block::  scala
-
-      def foo(x: Int) = {
-        var a = 12
-        def bar(y: Int): Int = {
-          a = a + 1
-          a + y
-        }
-        bar(17)
-      }
-
-   The problem with such code is the complications involved in representing closures as
-   they need a pointer to an environment containing the variables. Leon is only able
-   to handle closures with ``val``, where it is sufficient to explicitly pass the values
-   as parameters.
+declared and used locally, no variable declaration outside of a function body.
+There is also support for variables in case classes constructors. XLang
+introduces the possibility to use sequences of expressions (blocks) -- a
+feature not available in :ref:`Pure Scala <purescala>`, where you're only
+option is a sequence of ``val`` which essentially introduce nested ``let``
+declarations.
 
 
 While loops 
-***********
+-----------
 
 You can use the ``while`` keyword. While loops usually combine the ability to
 declare variables and make a sequence of assignments in order to compute
@@ -123,7 +104,7 @@ verification condition is used to prove the invariant on initialization of the
 loop.
 
 Arrays
-******
+------
 
 PureScala supports functional arrays, that is, the operations ``apply`` and
 ``updated`` which do not modify an array but only returns some result. In
@@ -146,8 +127,7 @@ XLang adds the usual ``update`` operation on arrays:
    a(1) = 10
    a(1) //10
 
-There are some limitations with what you can do with arrays. Leon simply
-rewrite arrays using ``update`` operation as assignment of function arrays
+Leon simply rewrite arrays using ``update`` operation as assignment of function arrays
 using ``updated``.  This leverages the built-in algorithm for functional array
 and rely on the elimination procedure for assignments. Concretely, it would
 transform the above on the following equivalent implementation:
@@ -161,8 +141,91 @@ transform the above on the following equivalent implementation:
 
 Then Leon would apply the same process as for any other XLang program.
 
-Due to the way Leon handles side-effects, you cannot update arrays passed
-to a function as a parameter.
+Mutable Objects
+---------------
+
+A restricted form of mutable classes is supported via case classes with ``var``
+arguments:
+
+.. code-block:: scala
+
+   case class A(var x: Int)
+   def f(): Int = {
+     val a = new A(10)
+     a.x = 13
+     a.x
+   }
+
+Mutable case classes are behaving similarly to ``Array``, and are handled with a
+rewriting, where each field updates becomes essentially a copy of the object with
+the modified parameter changed.
+
+Aliasing
+--------
+
+With mutable data structures comes the problem of aliasing. In Leon, we
+maintain the invariant that in any scope, there is at most one pointer to some
+mutable structure. Leon will issue an error if you try to create an alias to
+some mutable structure in the same scope:
+
+.. code-block:: scala
+
+   val a = Array(1,2,3,4)
+   val b = a //error: illegal aliasing
+   b(0) = 10
+   assert(a(0) == 10)
+
+However, Leon correctly supports aliasing mutable structures when passing it
+as a parameter to a function (assuming its scope is not shared with the call
+site, i.e. not a nested function). Essentially you can do:
+
+.. code-block:: scala
+    
+   case class A(var x: Int)
+   def updateA(a: A): Unit = {
+     a.x = 14
+   }
+   def f(): Unit = {
+     val a = A(10)
+     updateA(a)
+     assert(a.x == 14)
+   }
+
+The function ``updateA`` will have the side effect of updating its argument
+``a`` and this will be visible at the call site.
+
+Annotations for Imperative Programming
+--------------------------------------
+
+XLang introduces the special function ``old`` that can be used in postconditions to
+talk about the value of a variable before the execution of the block. When you refer to a variable
+or mutable structure in a post-condition, leon will always consider the current value of
+the object, so that in the case of a post-condition this would refer to the final value of the
+object. Using ``old``, you can refer to the original value of the variable and check some
+properties:
+
+.. code-block:: scala
+   
+   case class A(var x: Int)
+   def inc(a: A): Unit = {
+     a.x = a.x + 1
+   } ensuring(_ => a.x == old(a).x + 1)
+
+``old`` can be wrapped around any identifier that is affected by the body. You can also use
+``old`` for variables in scope, in case of nested functions:
+
+.. code-block:: scala
+   
+   def f(): Int = {
+     var x = 0
+     def inc(): Unit = {
+       x = x + 1
+     } ensuring(_ => x == old(x) + 1)
+
+     inc(); inc();
+     assert(x == 2)
+   }
+
 
 Epsilon
 -------
