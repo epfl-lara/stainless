@@ -6,11 +6,17 @@ package verification
 import purescala.Definitions.Program
 import solvers._
 
-case class VerificationContext (
+class VerificationContext(
   context: LeonContext,
-  program: Program,
-  solverFactory: SolverFactory[Solver],
-  reporter: Reporter
+  val program: Program,
+  val solverFactory: SolverFactory[Solver]
+) extends LeonContext(
+  context.reporter,
+  context.interruptManager,
+  context.options,
+  context.files,
+  context.classDir,
+  context.timers
 ) {
-  val checkInParallel: Boolean = context.findOptionOrDefault(VerificationPhase.optParallelVCs)
+  lazy val checkInParallel: Boolean = context.findOptionOrDefault(VerificationPhase.optParallelVCs)
 }

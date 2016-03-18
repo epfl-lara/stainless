@@ -49,7 +49,6 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
 
   def report(vctx: VerificationContext) {
     import vctx.reporter
-    import vctx.context
 
     status match {
       case VCStatus.Valid =>
@@ -64,7 +63,7 @@ case class VCResult(status: VCStatus, solvedWith: Option[Solver], timeMs: Option
         // is free to simplify
         val strings = cex.toSeq.sortBy(_._1.name).map {
           case (id, v) =>
-            (id.asString(context), SelfPrettyPrinter.print(v, PrettyPrinter(v))(vctx.context, vctx.program))
+            (id.asString(vctx), SelfPrettyPrinter.print(v, PrettyPrinter(v))(vctx, vctx.program))
         }
 
         if (strings.nonEmpty) {

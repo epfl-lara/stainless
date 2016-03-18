@@ -36,7 +36,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
         baseSolverF
     }
 
-    val vctx = VerificationContext(ctx, program, solverF, reporter)
+    val vctx = new VerificationContext(ctx, program, solverF)
 
     reporter.debug("Generating Verification Conditions...")
 
@@ -97,7 +97,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     vcs: Seq[VC],
     stopWhen: VCResult => Boolean = _ => false
   ): VerificationReport = {
-    val interruptManager = vctx.context.interruptManager
+    val interruptManager = vctx.interruptManager
 
     var stop = false
 
@@ -126,7 +126,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     import vctx.reporter
     import vctx.solverFactory
 
-    val interruptManager = vctx.context.interruptManager
+    val interruptManager = vctx.interruptManager
 
     val vcCond = vc.condition
 
@@ -135,7 +135,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     try {
       reporter.synchronized {
         reporter.info(s" - Now considering '${vc.kind}' VC for ${vc.fd.id} @${vc.getPos}...")
-        reporter.debug(simplifyLets(vcCond).asString(vctx.context))
+        reporter.debug(simplifyLets(vcCond).asString(vctx))
         reporter.debug("Solving with: " + s.name)
       }
 
