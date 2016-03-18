@@ -95,7 +95,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
   def checkVCs(
     vctx: VerificationContext,
     vcs: Seq[VC],
-    stopAfter: Option[(VC, VCResult) => Boolean] = None
+    stopWhen: VCResult => Boolean = _ => false
   ): VerificationReport = {
     val interruptManager = vctx.context.interruptManager
 
@@ -107,14 +107,14 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
       for (vc <- vcs.par if !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.exists(_(vc, r))
+        stop = stopWhen(r)
         vc -> Some(r)
       }
     } else {
       for (vc <- vcs.toSeq.sortWith((a,b) => a.fd.getPos < b.fd.getPos) if !interruptManager.isInterrupted && !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.exists(_(vc, r))
+        stop = stopWhen(r)
         vc -> Some(r)
       }
     }
