@@ -28,20 +28,10 @@ verification.
 Installation
 ------------
 
-You can obtain a copy of Isabelle for your operating system at `its website
-<https://isabelle.in.tum.de/>`_, then follow the `installation instructions
-<https://isabelle.in.tum.de/installation.html>`_. The installation path needs
-to be passed to Leon via the ``--isabelle:base`` command line option. (The path
-will end in ``Isabelle2015``. Depending on your operating system, this folder
-might be some levels into the installation tree.)
-
-On Linux, you can skip this step. Leon is able to download and install Isabelle
-itself. During the first start, you just need to pass the command line option
-``--isabelle:download=true``. You may specify ``--isabelle:base``, but don't
-have to.
-
-Additionally, you need to instruct Git to fetch all the referenced repositories
-via ``git submodule update --init --recursive``.
+You don't have to obtain a copy of Isabelle. Leon is able to download and
+install Isabelle itself. The installation happens in the appropriate folder for
+your operating system, e.g. ``%APPDATA%`` under Windows or ``$HOME/.local``
+under Linux.
 
 
 Basic usage

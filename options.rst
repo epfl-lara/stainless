@@ -313,27 +313,6 @@ CVC4 Solver
 Isabelle
 ********
 
-* ``--isabelle:base=<path>``
-
-  Specify the installation directory of Isabelle. In Isabelle-parlance, this is
-  called ``$ISABELLE_HOME``. It will have the form ``/path/to/Isabelle2015``.
-  When no Isabelle installation can be found there, the system suggests to
-  enable the ``download`` option.
-
-* ``--isabelle:build``
-
-  Flag to indicate that during the start-up of Leon, Isabelle should
-  automatically build all required library sources. This is on by default, and
-  should usually be left on. Building only happens when some dependencies
-  changed and subsequent runs of Leon don't rebuild the library. However, even
-  if nothing is build, it still requires the system a couple of seconds to
-  figure that out.
-
-* ``--isabelle:download``
-
-  If necessary, perform a full system bootstrap by downloading and unpacking a
-  copy of Isabelle. Off by default. Only supported under Linux.
-
 * ``--isabelle:dump=<path>``
 
   Makes the system write theory files containing the translated definitions
