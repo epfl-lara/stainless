@@ -20,7 +20,7 @@ import scala.collection.mutable.{HashMap => MutableMap, Set => MutableSet}
 import scala.concurrent.duration._
 
 import solvers.SolverFactory
-import solvers.combinators.UnrollingProcedure
+import solvers.unrolling.UnrollingProcedure
 
 import synthesis._
 
