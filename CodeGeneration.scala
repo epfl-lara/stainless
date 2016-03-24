@@ -92,7 +92,8 @@ trait CodeGeneration {
   def idToSafeJVMName(id: Identifier) = {
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
   }
-  def defToJVMName(d : Definition) : String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
+
+  def defToJVMName(d: Definition): String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
 
   /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
   private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying"
@@ -201,7 +202,7 @@ trait CodeGeneration {
       funDef.fullBody
     } else {
       funDef.body.getOrElse(
-        if(funDef.annotations contains "extern") {
+        if (funDef.annotations contains "extern") {
           Error(funDef.id.getType, "Body of " + funDef.id.name + " not implemented at compile-time and still executed.")
         } else {
           throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name)
@@ -489,8 +490,9 @@ trait CodeGeneration {
         }
         ch << New(ccName) << DUP
         load(monitorID, ch)
+        loadTypes(cct.tps, ch)
 
-        for((a, vd) <- as zip cct.classDef.fields) {
+        for ((a, vd) <- as zip cct.classDef.fields) {
           vd.getType match {
             case TypeParameter(_) =>
               mkBoxedExpr(a, ch)
@@ -667,6 +669,8 @@ trait CodeGeneration {
         // list, it, cons, cons, elem, list
 
         load(monitorID, ch)
+        ch << DUP_X2 << POP
+        loadTypes(Seq(tp), ch)
         ch << DUP_X2 << POP
 
         ch << InvokeSpecial(consName, constructorName, ccApplySig)
@@ -1529,7 +1533,7 @@ trait CodeGeneration {
     }
   }
 
-  def compileAbstractClassDef(acd : AbstractClassDef) {
+  def compileAbstractClassDef(acd: AbstractClassDef) {
 
     val cName = defToJVMName(acd)
 
@@ -1642,7 +1646,6 @@ trait CodeGeneration {
   }
 
   def compileCaseClassDef(ccd: CaseClassDef) {
-
     val cName = defToJVMName(ccd)
     val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
     // An instantiation of ccd with its own type parameters
@@ -1656,13 +1659,14 @@ trait CodeGeneration {
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
 
-    if(ccd.parent.isEmpty) {
+    if (ccd.parent.isEmpty) {
       cf.addInterface(CaseClassClass)
     }
 
     // Case class parameters
     val fieldsTypes = ccd.fields.map { vd => (vd.id, typeToJVM(vd.getType)) }
-    val constructorArgs = (monitorID -> s"L$MonitorClass;") +: fieldsTypes
+    val tpeParam = if (ccd.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
+    val constructorArgs = (monitorID -> s"L$MonitorClass;") +: (tpeParam ++ fieldsTypes)
 
     val newLocs = NoLocals.withFields(constructorArgs.map {
       case (id, jvmt) => (id, (cName, id.name, jvmt))
@@ -1674,7 +1678,7 @@ trait CodeGeneration {
 
       // Compile methods
       for (method <- methods) {
-        compileFunDef(method,ccd)
+        compileFunDef(method, ccd)
       }
 
       // Compile lazy fields
@@ -1688,7 +1692,7 @@ trait CodeGeneration {
       }
 
       // definition of the constructor
-      for((id, jvmt) <- constructorArgs) {
+      for ((id, jvmt) <- constructorArgs) {
         val fh = cf.addField(jvmt, id.name)
         fh.setFlags((
           FIELD_ACC_PUBLIC |
@@ -1710,7 +1714,7 @@ trait CodeGeneration {
       }
 
       var c = 1
-      for((id, jvmt) <- constructorArgs) {
+      for ((id, jvmt) <- constructorArgs) {
         cch << ALoad(0)
         cch << (jvmt match {
           case "I" | "Z" => ILoad(c)
@@ -1734,6 +1738,17 @@ trait CodeGeneration {
       // Now initialize fields
       for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)(newLocs) }
       for (field <- strictFields) { initStrictField(cch, cName , field, isStatic = false)(newLocs) }
+
+      // Finally check invariant (if it exists)
+      if (params.checkContracts && ccd.hasInvariant) {
+        val thisId = FreshIdentifier("this", cct, true)
+        val invLocals = newLocs.withVar(thisId -> 0)
+        mkExpr(IfExpr(FunctionInvocation(cct.invariant.get, Seq(Variable(thisId))),
+          BooleanLiteral(true),
+          Error(BooleanType, "ADT Invariant failed @" + ccd.invariant.get.getPos)), cch)(invLocals)
+        cch << POP
+      }
+
       cch << RETURN
       cch.freeze
     }
