@@ -58,11 +58,11 @@ class ChainProcessor(
       if (structuralDecreasing || numericDecreasing)
         Some(problem.funDefs map Cleared)
       else {
-        val chainsUnlooping = chains.flatMap(c1 => chains.flatMap(c2 => c1 compose c2)).forall {
-          chain => !definitiveSATwithModel(andJoin(chain.loop())).isDefined
+        val maybeReentrant = chains.flatMap(c1 => chains.flatMap(c2 => c1 compose c2)).exists {
+          chain => maybeSAT(andJoin(chain.loop()))
         }
 
-        if (chainsUnlooping) 
+        if (!maybeReentrant)
           Some(problem.funDefs map Cleared)
         else 
           None

@@ -34,7 +34,7 @@ trait Solvable extends Processor {
     val sizeUnit    : UnitDef     = UnitDef(FreshIdentifier("$size"),Seq(sizeModule)) 
     val newProgram  : Program     = program.copy( units = sizeUnit :: program.units)
 
-    SolverFactory.getFromSettings(context, newProgram).withTimeout(10.seconds)
+    SolverFactory.getFromSettings(context, newProgram).withTimeout(1.seconds)
   }
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
@@ -52,23 +52,17 @@ trait Solvable extends Processor {
     res
   }
 
-  def maybeSAT(problem: Expr): Boolean = {
-    withoutPosts {
-      SimpleSolverAPI(solver).solveSAT(problem)._1 getOrElse true
-    }
+  def maybeSAT(problem: Expr): Boolean = withoutPosts {
+    SimpleSolverAPI(solver).solveSAT(problem)._1 getOrElse true
   }
 
-  def definitiveALL(problem: Expr): Boolean = {
-    withoutPosts {
-      SimpleSolverAPI(solver).solveSAT(Not(problem))._1.exists(!_)
-    }
+  def definitiveALL(problem: Expr): Boolean = withoutPosts {
+    SimpleSolverAPI(solver).solveSAT(Not(problem))._1.exists(!_)
   }
 
-  def definitiveSATwithModel(problem: Expr): Option[Model] = {
-    withoutPosts {
-      val (sat, model) = SimpleSolverAPI(solver).solveSAT(problem)
-      if (sat.isDefined && sat.get) Some(model) else None
-    }
+  def definitiveSATwithModel(problem: Expr): Option[Model] = withoutPosts {
+    val (sat, model) = SimpleSolverAPI(solver).solveSAT(problem)
+    if (sat.isDefined && sat.get) Some(model) else None
   }
 }
 
