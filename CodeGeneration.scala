@@ -245,7 +245,8 @@ trait CodeGeneration {
       ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++ closuresWithoutMonitor)
 
     val afName = lambdaToClass.getOrElse(nl, {
-      val afName = "Leon$CodeGen$Lambda$" + lambdaCounter.nextGlobal
+      val afId = FreshIdentifier("Leon$CodeGen$Lambda$")
+      val afName = afId.uniqueName
       lambdaToClass += nl -> afName
       classToLambda += afName -> nl
 

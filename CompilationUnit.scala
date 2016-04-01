@@ -582,6 +582,5 @@ class CompilationUnit(val ctx: LeonContext,
 }
 
 private [codegen] object exprCounter extends UniqueCounter[Unit]
-private [codegen] object lambdaCounter extends UniqueCounter[Unit]
 private [codegen] object forallCounter extends UniqueCounter[Unit]
 
