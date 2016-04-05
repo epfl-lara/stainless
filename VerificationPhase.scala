@@ -7,7 +7,6 @@ import purescala.Definitions._
 import purescala.ExprOps._
 
 import scala.concurrent.duration._
-import java.lang.System
 
 import solvers._
 
