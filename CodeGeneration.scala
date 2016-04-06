@@ -72,6 +72,7 @@ trait CodeGeneration {
 
   private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
+  private[codegen] val BagClass                  = "leon/codegen/runtime/Bag"
   private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
   private[codegen] val BigIntClass               = "leon/codegen/runtime/BigInt"
   private[codegen] val RealClass                 = "leon/codegen/runtime/Real"
@@ -125,6 +126,9 @@ trait CodeGeneration {
 
     case _ : SetType =>
       "L" + SetClass + ";"
+
+    case _ : BagType =>
+      "L" + BagClass + ";"
 
     case _ : MapType =>
       "L" + MapClass + ";"
@@ -544,6 +548,11 @@ trait CodeGeneration {
           ch << InvokeVirtual(SetClass, "add", s"(L$ObjectClass;)V")
         }
 
+      case SetAdd(s, e) =>
+        mkExpr(s, ch)
+        mkBoxedExpr(e, ch)
+        ch << InvokeVirtual(SetClass, "plus", s"(L$ObjectClass;)L$SetClass;")
+
       case ElementOfSet(e, s) =>
         mkExpr(s, ch)
         mkBoxedExpr(e, ch)
@@ -572,6 +581,41 @@ trait CodeGeneration {
         mkExpr(s1, ch)
         mkExpr(s2, ch)
         ch << InvokeVirtual(SetClass, "minus", s"(L$SetClass;)L$SetClass;")
+
+      // Bags
+      case FiniteBag(els, _) =>
+        ch << DefaultNew(BagClass)
+        for((k,v) <- els) {
+          ch << DUP
+          mkBoxedExpr(k, ch)
+          mkExpr(v, ch)
+          ch << InvokeVirtual(BagClass, "add", s"(L$ObjectClass;I)V")
+        }
+
+      case BagAdd(b, e) =>
+        mkExpr(b, ch)
+        mkBoxedExpr(e, ch)
+        ch << InvokeVirtual(BagClass, "plus", s"(L$ObjectClass;)L$BagClass;")
+
+      case MultiplicityInBag(e, b) =>
+        mkExpr(b, ch)
+        mkBoxedExpr(e, ch)
+        ch << InvokeVirtual(BagClass, "get", s"(L$ObjectClass;)I")
+
+      case BagIntersection(b1, b2) =>
+        mkExpr(b1, ch)
+        mkExpr(b2, ch)
+        ch << InvokeVirtual(BagClass, "intersect", s"(L$BagClass;)L$BagClass;")
+
+      case BagUnion(b1, b2) =>
+        mkExpr(b1, ch)
+        mkExpr(b2, ch)
+        ch << InvokeVirtual(BagClass, "union", s"(L$BagClass;)L$BagClass;")
+
+      case BagDifference(b1, b2) =>
+        mkExpr(b1, ch)
+        mkExpr(b2, ch)
+        ch << InvokeVirtual(BagClass, "difference", s"(L$BagClass;)L$BagClass;")
 
       // Maps
       case FiniteMap(ss, _, _) =>

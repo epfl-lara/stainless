@@ -232,6 +232,13 @@ class CompilationUnit(val ctx: LeonContext,
       }
       s
 
+    case b @ FiniteBag(els, _) =>
+      val b = new leon.codegen.runtime.Bag()
+      for ((k,v) <- els) {
+        b.add(valueToJVM(k), valueToJVM(v))
+      }
+      b
+
     case m @ FiniteMap(els, _, _) =>
       val m = new leon.codegen.runtime.Map()
       for ((k,v) <- els) {
@@ -361,6 +368,13 @@ class CompilationUnit(val ctx: LeonContext,
 
     case (set: runtime.Set, SetType(b)) =>
       FiniteSet(set.getElements.asScala.map(jvmToValue(_, b)).toSet, b)
+
+    case (bag: runtime.Bag, BagType(b)) =>
+      FiniteBag(bag.getElements.asScala.map { entry =>
+        val k = jvmToValue(entry.getKey, b)
+        val v = jvmToValue(entry.getValue, IntegerType)
+        (k, v)
+      }.toMap, b)
 
     case (map: runtime.Map, MapType(from, to)) =>
       val pairs = map.getElements.asScala.map { entry =>
