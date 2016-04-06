@@ -78,21 +78,23 @@ trait StructuralSize {
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
       case IntegerType =>
         FunctionInvocation(typedAbsBigIntFun, Seq(expr)) 
+      case Int32Type =>
+        FunctionInvocation(typedAbsIntFun, Seq(expr))
       case _ => InfiniteIntegerLiteral(0)
     }
   }
 
   def lexicographicDecreasing(s1: Seq[Expr], s2: Seq[Expr], strict: Boolean, sizeOfOneExpr: Expr => Expr): Expr = {
     // Note: The Equal and GreaterThan ASTs work for both BigInt and Bitvector
-    
+
     val sameSizeExprs = for ((arg1, arg2) <- s1 zip s2) yield Equals(sizeOfOneExpr(arg1), sizeOfOneExpr(arg2))
-    
+
     val greaterBecauseGreaterAtFirstDifferentPos =
       orJoin(for (firstDifferent <- 0 until scala.math.min(s1.length, s2.length)) yield and(
           andJoin(sameSizeExprs.take(firstDifferent)),
           GreaterThan(sizeOfOneExpr(s1(firstDifferent)), sizeOfOneExpr(s2(firstDifferent)))
       ))
-      
+
     if (s1.length > s2.length || (s1.length == s2.length && !strict)) {
       or(andJoin(sameSizeExprs), greaterBecauseGreaterAtFirstDifferentPos)
     } else {
