@@ -235,7 +235,7 @@ class CompilationUnit(val ctx: LeonContext,
     case b @ FiniteBag(els, _) =>
       val b = new leon.codegen.runtime.Bag()
       for ((k,v) <- els) {
-        b.add(valueToJVM(k), valueToJVM(v))
+        b.add(valueToJVM(k), valueToJVM(v).asInstanceOf[leon.codegen.runtime.BigInt])
       }
       b
 

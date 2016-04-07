@@ -589,7 +589,7 @@ trait CodeGeneration {
           ch << DUP
           mkBoxedExpr(k, ch)
           mkExpr(v, ch)
-          ch << InvokeVirtual(BagClass, "add", s"(L$ObjectClass;I)V")
+          ch << InvokeVirtual(BagClass, "add", s"(L$ObjectClass;L$BigIntClass;)V")
         }
 
       case BagAdd(b, e) =>
@@ -600,7 +600,7 @@ trait CodeGeneration {
       case MultiplicityInBag(e, b) =>
         mkExpr(b, ch)
         mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(BagClass, "get", s"(L$ObjectClass;)I")
+        ch << InvokeVirtual(BagClass, "get", s"(L$ObjectClass;)L$BigIntClass;")
 
       case BagIntersection(b1, b2) =>
         mkExpr(b1, ch)
