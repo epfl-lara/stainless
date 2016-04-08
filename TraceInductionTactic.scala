@@ -145,8 +145,7 @@ class TraceInductionTactic(vctx: VerificationContext) extends Tactic(vctx) {
           }
           val argsMap = callee.params.map(_.id).zip(finv.args).toMap
           val tparamMap = callee.tparams.zip(finv.tfd.tps).toMap
-          val inlinedBody = replaceFromIDs(argsMap,
-            instantiateType(callee.body.get, tparamMap, Map()))
+          val inlinedBody = instantiateType(replaceFromIDs(argsMap, callee.body.get), tparamMap, Map())
           val inductScheme = inductPattern(inlinedBody)
           // add body, pre and post for the tactFun
           tactFun.body = Some(createAnd(Seq(inductScheme, prop)))
