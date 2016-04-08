@@ -78,8 +78,10 @@ trait StructuralSize {
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
       case IntegerType =>
         FunctionInvocation(typedAbsBigIntFun, Seq(expr)) 
+/*
       case Int32Type =>
         FunctionInvocation(typedAbsIntFun, Seq(expr))
+*/
       case _ => InfiniteIntegerLiteral(0)
     }
   }
