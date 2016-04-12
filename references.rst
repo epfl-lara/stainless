@@ -17,6 +17,7 @@ Videos
 Papers
 ******
 
+ - `Translating Scala Programs to Isabelle/HOL (System Description) <http://lara.epfl.ch/~kuncak/papers/HupelKuncak16TranslatingScalaProgramsIsabelleHOLSystemDescription.pdf>`_, by *Lars Hupel* and *Viktor Kuncak*. International Joint Conference on Automated Reasoning (IJCAR), 2016.
  - `Counter-example complete verification for higher-order functions <http://lara.epfl.ch/~kuncak/papers/VoirolETAL15CounterExampleCompleteVerificationHigherOrderFunctions.pdf>`_, by *Nicolas Voirol*, *Etienne Kneuss*, and *Viktor Kuncak*. Scala Symposium, 2015.
  - `Sound reasoning about integral data types with a reusable SMT solver interface <http://lara.epfl.ch/~kuncak/papers/BlancKuncak15SoundReasoningIntegralDataTypes.pdf>`_, by *Régis Blanc* and *Viktor Kuncak*. Scala Symposium, 2015.
  - `Deductive program repair <http://lara.epfl.ch/~kuncak/papers/KneussETAL15DeductiveProgramRepair.pdf>`_, by *Etienne Kneuss*, *Manos Koukoutos*, and *Viktor Kuncak*. Computer-Aided Verification (CAV), 2015.
