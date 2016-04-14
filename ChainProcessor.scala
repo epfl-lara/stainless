@@ -9,8 +9,8 @@ import purescala.Definitions._
 import purescala.Constructors._
 
 class ChainProcessor(
-    val checker: TerminationChecker,
-    val modules: ChainBuilder with ChainComparator with Strengthener with StructuralSize
+  val checker: TerminationChecker,
+  val modules: ChainBuilder with ChainComparator with Strengthener with StructuralSize
 ) extends Processor with Solvable {
 
   val name: String = "Chain Processor"
@@ -59,7 +59,7 @@ class ChainProcessor(
         Some(problem.funDefs map Cleared)
       else {
         val maybeReentrant = chains.flatMap(c1 => chains.flatMap(c2 => c1 compose c2)).exists {
-          chain => maybeSAT(andJoin(chain.loop()))
+          chain => maybeSAT(chain.loop().toClause)
         }
 
         if (!maybeReentrant)

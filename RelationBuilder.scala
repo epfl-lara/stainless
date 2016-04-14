@@ -3,13 +3,14 @@
 package leon
 package termination
 
+import purescala._
 import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Definitions._
 
 import scala.collection.mutable.{Map => MutableMap}
 
-final case class Relation(funDef: FunDef, path: Seq[Expr], call: FunctionInvocation, inLambda: Boolean) {
+final case class Relation(funDef: FunDef, path: Path, call: FunctionInvocation, inLambda: Boolean) {
   override def toString : String = "Relation(" + funDef.id + "," + path + ", " + call.tfd.id + call.args.mkString("(",",",")") + "," + inLambda + ")"
 }
 
@@ -32,7 +33,7 @@ trait RelationBuilder { self: Strengthener =>
       val collector = new CollectorWithPaths[Relation] {
         var inLambda: Boolean = false
 
-        override def rec(e: Expr, path: Seq[Expr]): Expr = e match {
+        override def rec(e: Expr, path: Path): Expr = e match {
           case l : Lambda =>
             val old = inLambda
             inLambda = true
@@ -43,21 +44,17 @@ trait RelationBuilder { self: Strengthener =>
             super.rec(e, path)
         }
 
-        def collect(e: Expr, path: Seq[Expr]): Option[Relation] = e match {
+        def collect(e: Expr, path: Path): Option[Relation] = e match {
           case fi @ FunctionInvocation(f, args) if checker.functions(f.fd) =>
-            val flatPath = path flatMap {
-              case And(es) => es
-              case expr => Seq(expr)
-            }
-            Some(Relation(funDef, flatPath, fi, inLambda))
+            Some(Relation(funDef, path, fi, inLambda))
           case _ => None
         }
 
-        override def walk(e: Expr, path: Seq[Expr]) = e match {
+        override def walk(e: Expr, path: Path) = e match {
           case FunctionInvocation(tfd, args) =>
             val funDef = tfd.fd
             Some(FunctionInvocation(tfd, (funDef.params.map(_.id) zip args) map { case (id, arg) =>
-              rec(arg, register(self.applicationConstraint(funDef, id, arg, args), path))
+              rec(arg, path withCond self.applicationConstraint(funDef, id, arg, args))
             }))
           case _ => None
         }

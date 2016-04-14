@@ -3,6 +3,7 @@
 package leon
 package termination
 
+import purescala.Path
 import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Types._
@@ -62,9 +63,9 @@ trait ChainComparator { self : StructuralSize =>
     rec(tpe)
   }
 
-  def structuralDecreasing(e1: Expr, e2s: Seq[(Seq[Expr], Expr)]) : Seq[Expr] = flatTypesPowerset(e1.getType).toSeq.map {
+  def structuralDecreasing(e1: Expr, e2s: Seq[(Path, Expr)]): Seq[Expr] = flatTypesPowerset(e1.getType).toSeq.map {
     recons => andJoin(e2s.map { case (path, e2) =>
-      implies(andJoin(path), GreaterThan(self.size(recons(e1)), self.size(recons(e2))))
+      path implies GreaterThan(self.size(recons(e1)), self.size(recons(e2)))
     })
   }
 
@@ -192,19 +193,19 @@ trait ChainComparator { self : StructuralSize =>
     }
   }
 
-  def numericConverging(e1: Expr, e2s: Seq[(Seq[Expr], Expr)], cluster: Set[Chain]) : Seq[Expr] = flatType(e1.getType).toSeq.flatMap {
+  def numericConverging(e1: Expr, e2s: Seq[(Path, Expr)], cluster: Set[Chain]) : Seq[Expr] = flatType(e1.getType).toSeq.flatMap {
     recons => recons(e1) match {
       case e if e.getType == IntegerType =>
         val endpoint = numericEndpoint(e, cluster)
 
         val uppers = if (endpoint == UpperBoundEndpoint || endpoint == AnyEndpoint) {
-          Some(andJoin(e2s map { case (path, e2) => implies(andJoin(path), GreaterThan(e, recons(e2))) }))
+          Some(andJoin(e2s map { case (path, e2) => path implies GreaterThan(e, recons(e2)) }))
         } else {
           None
         }
 
         val lowers = if (endpoint == LowerBoundEndpoint || endpoint == AnyEndpoint) {
-          Some(andJoin(e2s map { case (path, e2) => implies(andJoin(path), LessThan(e, recons(e2))) }))
+          Some(andJoin(e2s map { case (path, e2) => path implies LessThan(e, recons(e2)) }))
         } else {
           None
         }

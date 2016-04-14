@@ -3,11 +3,12 @@
 package leon
 package termination
 
-import leon.purescala.Definitions._
-import leon.purescala.Expressions._
-import leon.purescala.ExprOps._
-import leon.purescala.Constructors._
-import leon.purescala.Common._
+import purescala.Path
+import purescala.Definitions._
+import purescala.Expressions._
+import purescala.ExprOps._
+import purescala.Constructors._
+import purescala.Common._
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -48,13 +49,13 @@ final case class Chain(relations: List[Relation]) {
 
   lazy val finalParams : Seq[ValDef] = inlining.last._1
 
-  def loop(initialArgs: Seq[Identifier] = Seq.empty, finalArgs: Seq[Identifier] = Seq.empty): Seq[Expr] = {
-    def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[Identifier, Identifier]): Seq[Expr] = {
+  def loop(initialArgs: Seq[Identifier] = Seq.empty, finalArgs: Seq[Identifier] = Seq.empty): Path = {
+    def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[Identifier, Identifier]): Path = {
       val Relation(_, path, FunctionInvocation(fitfd, args), _) = relations.head
       val tfd = TypedFunDef(fitfd.fd, fitfd.tps.map(funDef.translated))
 
       val translate : Expr => Expr = {
-        val free : Set[Identifier] = path.flatMap(variablesOf).toSet -- funDef.fd.params.map(_.id)
+        val free : Set[Identifier] = path.variables -- funDef.fd.params.map(_.id)
         val freeMapping : Map[Identifier,Identifier] = free.map(id => id -> {
           FreshIdentifier(id.name, funDef.translated(id.getType), true).copiedFrom(id)
         }).toMap
@@ -65,16 +66,14 @@ final case class Chain(relations: List[Relation]) {
 
       lazy val newArgs = args.map(translate)
 
-      path.map(translate) ++ (relations.tail match {
+      path.map(translate) merge (relations.tail match {
         case Nil =>
-          (finalArgs zip newArgs).map { case (finalArg, newArg) => Equals(finalArg.toVariable, newArg) }
+          Path.empty withBindings (finalArgs zip newArgs)
         case xs =>
           val params = tfd.params.map(_.id)
           val freshParams = tfd.params.map(arg => FreshIdentifier(arg.id.name, arg.getType, true))
-          val bindings = (freshParams.map(_.toVariable) zip newArgs).map(p => Equals(p._1, p._2))
-          bindings ++ rec(xs, tfd, (params zip freshParams).toMap)
+          Path.empty withBindings (freshParams zip newArgs) merge rec(xs, tfd, (params zip freshParams).toMap)
       })
-
     }
 
     rec(relations, funDef.typed, (funDef.params.map(_.id) zip initialArgs).toMap)
@@ -132,8 +131,8 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with RelationCom
         val constraints = relations.map(relation => relationConstraints.getOrElse(relation, {
           val Relation(funDef, path, FunctionInvocation(_, args), _) = relation
           val args0 = funDef.params.map(_.toVariable)
-          val constraint = if (solver.definitiveALL(implies(andJoin(path), self.softDecreasing(args0, args)))) {
-            if (solver.definitiveALL(implies(andJoin(path), self.sizeDecreasing(args0, args)))) {
+          val constraint = if (solver.definitiveALL(path implies self.softDecreasing(args0, args))) {
+            if (solver.definitiveALL(path implies self.sizeDecreasing(args0, args))) {
               StrongDecreasing
             } else {
               WeakDecreasing

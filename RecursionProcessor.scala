@@ -34,8 +34,8 @@ class RecursionProcessor(val checker: TerminationChecker, val rb: RelationBuilde
         recursive.forall({ case Relation(_, path, FunctionInvocation(_, args), _) =>
           args(index) match {
             // handle case class deconstruction in match expression!
-            case Variable(id) => path.reverse.exists {
-              case Equals(Variable(vid), ccs) if vid == id => isSubtreeOf(ccs, arg.id)
+            case Variable(id) => path.bindings.exists {
+              case (vid, ccs) if vid == id => isSubtreeOf(ccs, arg.id)
               case _ => false
             }
             case expr => isSubtreeOf(expr, arg.id)
