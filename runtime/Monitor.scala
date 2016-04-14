@@ -127,11 +127,16 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
       }
 
       val inputsMap = (newAs zip inputs).map {
-        case (id, v) => Equals(Variable(id), unit.jvmToValue(v, id.getType))
+        case (id, v) => id -> unit.jvmToValue(v, id.getType)
       }
 
-      val expr = instantiateType(and(p.pc, p.phi), tpMap, (p.as zip newAs).toMap ++ (p.xs zip newXs))
-      solver.assertCnstr(andJoin(expr +: inputsMap))
+      val instTpe: Expr => Expr = {
+        val idMap = (p.as zip newAs).toMap ++ (p.xs zip newXs)
+        instantiateType(_: Expr, tpMap, idMap)
+      }
+
+      val expr = p.pc map instTpe withBindings inputsMap and instTpe(p.phi)
+      solver.assertCnstr(expr)
 
       try {
         solver.check match {
@@ -220,7 +225,12 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
 
           val domainMap = quantifierDomains.groupBy(_._1).mapValues(_.map(_._2).flatten)
           andJoin(domainMap.toSeq.map { case (id, dom) =>
-            orJoin(dom.toSeq.map { case (path, value) => and(path, Equals(Variable(id), value)) })
+            orJoin(dom.toSeq.map { case (path, value) =>
+              // @nv: Note that we know id.getType is first-order since quantifiers can only
+              //      range over basic types. This means equality is guaranteed well-defined
+              //      between `id` and `value`
+              path and Equals(Variable(id), value)
+            })
           })
         })
 
