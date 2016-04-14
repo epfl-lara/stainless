@@ -94,7 +94,7 @@ trait CodeGeneration {
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
   }
 
-  def defToJVMName(d: Definition): String = "Leon$CodeGen$" + idToSafeJVMName(d.id)
+  def defToJVMName(d: Definition): String = "Leon$CodeGen$Def$" + idToSafeJVMName(d.id)
 
   /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
   private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying"
