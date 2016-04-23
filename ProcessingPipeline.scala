@@ -86,15 +86,15 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
   private val unsolved     : MutableSet[Problem] = MutableSet.empty
   private val dependencies : MutableSet[Problem] = MutableSet.empty
 
-  def isProblem(fd: FunDef): Boolean =
+  def isProblem(fd: FunDef): Boolean = {
+    lazy val callees = program.callGraph.transitiveCallees(fd)
+    lazy val problemDefs = problems.flatMap(_._1.funDefs).toSet
     unsolved.exists(_.contains(fd)) ||
-    dependencies.exists(_.contains(fd)) || {
-      val problemDefs = problems.flatMap(_._1.funDefs).toSet
-      problemDefs(fd) || {
-        val callees = program.callGraph.transitiveCallees(fd)
-        (problemDefs intersect callees).nonEmpty
-      }
-    }
+    dependencies.exists(_.contains(fd)) || 
+    unsolved.exists(_.funDefs exists callees) ||
+    dependencies.exists(_.funDefs exists callees) ||
+    problemDefs(fd) || (problemDefs intersect callees).nonEmpty
+  }
 
   private def printQueue() {
     val sb = new StringBuilder()
