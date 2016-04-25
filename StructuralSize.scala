@@ -16,20 +16,48 @@ trait StructuralSize {
 
   private val sizeCache : MutableMap[TypeTree, FunDef] = MutableMap.empty
   
-  // function absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
-  val typedAbsBigIntFun = makeAbsFun(IntegerType, "absBigInt", e => UMinus(e), InfiniteIntegerLiteral(0))
-
-  // function absInt(x: Int): Int = if (x >= 0) x else -x
-  val typedAbsIntFun = makeAbsFun(Int32Type, "absInt", e => BVUMinus(e), IntLiteral(0))
-
-  def makeAbsFun(tp: TypeTree, name: String, uminus: Expr => Expr, zero: Expr): TypedFunDef = {
-    val x = FreshIdentifier("x", tp, alwaysShowUniqueID = true)
-    val absFun = new FunDef(FreshIdentifier(name, alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), tp)
+  /* Absolute value for BigInt type
+   *
+   * def absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
+   */
+  val typedAbsBigIntFun: TypedFunDef = {
+    val x = FreshIdentifier("x", IntegerType, alwaysShowUniqueID = true)
+    val absFun = new FunDef(FreshIdentifier("absBigInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), IntegerType)
     absFun.body = Some(IfExpr(
-      GreaterEquals(Variable(x), zero),
+      GreaterEquals(Variable(x), InfiniteIntegerLiteral(0)),
       Variable(x),
-      uminus(Variable(x))
+      UMinus(Variable(x))
     ))
+    absFun.typed
+  }
+
+  /* Absolute value for Int (32 bit) type
+   *
+   * We use a recursive function here as the bv2int functionality provided
+   * through SMT solvers is waaaaay too slow. Recursivity requires the
+   * postcondition for verification efforts to succeed.
+   *
+   * def absInt(x: Int): BigInt = (if (x == 0) {
+   *   BigInt(0)
+   * } else if (x > 0) {
+   *   1 + absInt(x - 1)
+   * } else {
+   *   1 + absInt(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
+   * }) ensuring (_ >= 0)
+   */
+  def typedAbsIntFun: TypedFunDef = {
+    val x = FreshIdentifier("x", Int32Type, alwaysShowUniqueID = true)
+    val absFun = new FunDef(FreshIdentifier("absInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), IntegerType)
+    absFun.body = Some(IfExpr(
+      Equals(Variable(x), IntLiteral(0)),
+      InfiniteIntegerLiteral(0),
+      IfExpr(
+        GreaterThan(Variable(x), IntLiteral(0)),
+        Plus(InfiniteIntegerLiteral(1), FunctionInvocation(absFun.typed, Seq(BVMinus(Variable(x), IntLiteral(1))))),
+        Plus(InfiniteIntegerLiteral(1), FunctionInvocation(absFun.typed, Seq(BVUMinus(BVPlus(Variable(x), IntLiteral(1))))))
+      )))
+    val res = FreshIdentifier("res", IntegerType, alwaysShowUniqueID = true)
+    absFun.postcondition = Some(Lambda(Seq(ValDef(res)), GreaterEquals(Variable(res), InfiniteIntegerLiteral(0))))
     absFun.typed
   }
 
@@ -78,10 +106,8 @@ trait StructuralSize {
       }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
       case IntegerType =>
         FunctionInvocation(typedAbsBigIntFun, Seq(expr)) 
-/*
       case Int32Type =>
         FunctionInvocation(typedAbsIntFun, Seq(expr))
-*/
       case _ => InfiniteIntegerLiteral(0)
     }
   }
