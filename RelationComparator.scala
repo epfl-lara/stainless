@@ -76,19 +76,22 @@ trait BVRelationComparator extends RelationComparator { self : StructuralSize =>
   def isApplicableFor(p: Problem): Boolean = {
     p.funDefs.forall(fd => fd.params.exists(valdef => valdef.getType == Int32Type))
   }
-  
+
   def bvSize(e: Expr): Expr = FunctionInvocation(typedAbsIntFun, Seq(e))
+
+  /* Note: We swap the arguments to the `lexicographicDecreasing` call
+   * since bvSize maps into negative ints! (avoids -Integer.MIN_VALUE overflow) */
 
   def sizeDecreasing(s10: Seq[Expr], s20: Seq[Expr]): Expr = {
     val s1 = s10.filter(_.getType == Int32Type)
     val s2 = s20.filter(_.getType == Int32Type)
-    lexicographicDecreasing(s1, s2, strict = true, sizeOfOneExpr = bvSize)
+    lexicographicDecreasing(s2, s1, strict = true, sizeOfOneExpr = bvSize)
   }
 
   def softDecreasing(s10: Seq[Expr], s20: Seq[Expr]): Expr = {
     val s1 = s10.filter(_.getType == Int32Type)
     val s2 = s20.filter(_.getType == Int32Type)
-    lexicographicDecreasing(s1, s2, strict = false, sizeOfOneExpr = bvSize)
+    lexicographicDecreasing(s2, s1, strict = false, sizeOfOneExpr = bvSize)
   }
 
 }

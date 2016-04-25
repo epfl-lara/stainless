@@ -27,15 +27,8 @@ trait Solvable extends Processor {
 
   val modules: Strengthener with StructuralSize
 
-  private val solver: SolverFactory[Solver] = {
-    val program     : Program     = checker.program
-    val context     : LeonContext = checker.context
-    val sizeModule  : ModuleDef   = ModuleDef(FreshIdentifier("$size"), modules.defs.toSeq, false)
-    val sizeUnit    : UnitDef     = UnitDef(FreshIdentifier("$size"),Seq(sizeModule)) 
-    val newProgram  : Program     = program.copy( units = sizeUnit :: program.units)
-
-    SolverFactory.getFromSettings(context, newProgram).withTimeout(1.seconds)
-  }
+  private val solver: SolverFactory[Solver] =
+    SolverFactory.getFromSettings(checker.context, checker.program).withTimeout(1.seconds)
 
   type Solution = (Option[Boolean], Map[Identifier, Expr])
 

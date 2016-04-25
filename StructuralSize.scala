@@ -14,8 +14,8 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait StructuralSize {
 
-  private val sizeCache : MutableMap[TypeTree, FunDef] = MutableMap.empty
-  
+  private val sizeCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
+
   /* Absolute value for BigInt type
    *
    * def absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
@@ -31,7 +31,25 @@ trait StructuralSize {
     absFun.typed
   }
 
-  /* Absolute value for Int (32 bit) type
+  /* Negative absolute value for Int type
+   *
+   * To avoid -Integer.MIN_VALUE overflow, we use negative absolute value
+   * for bitvector integers.
+   *
+   * def absInt(x: Int): Int = if (x >= 0) -x else x
+   */
+  val typedAbsIntFun: TypedFunDef = {
+    val x = FreshIdentifier("x", Int32Type, alwaysShowUniqueID = true)
+    val absFun = new FunDef(FreshIdentifier("absInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), Int32Type)
+    absFun.body = Some(IfExpr(
+      GreaterEquals(Variable(x), IntLiteral(0)),
+      BVUMinus(Variable(x)),
+      Variable(x)
+    ))
+    absFun.typed
+  }
+
+  /* Absolute value for Int (32 bit) type into mathematical integers
    *
    * We use a recursive function here as the bv2int functionality provided
    * through SMT solvers is waaaaay too slow. Recursivity requires the
@@ -45,7 +63,7 @@ trait StructuralSize {
    *   1 + absInt(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
    * }) ensuring (_ >= 0)
    */
-  def typedAbsIntFun: TypedFunDef = {
+  def typedAbsInt2IntegerFun: TypedFunDef = {
     val x = FreshIdentifier("x", Int32Type, alwaysShowUniqueID = true)
     val absFun = new FunDef(FreshIdentifier("absInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), IntegerType)
     absFun.body = Some(IfExpr(
@@ -107,7 +125,7 @@ trait StructuralSize {
       case IntegerType =>
         FunctionInvocation(typedAbsBigIntFun, Seq(expr)) 
       case Int32Type =>
-        FunctionInvocation(typedAbsIntFun, Seq(expr))
+        FunctionInvocation(typedAbsInt2IntegerFun, Seq(expr))
       case _ => InfiniteIntegerLiteral(0)
     }
   }
@@ -129,6 +147,4 @@ trait StructuralSize {
       greaterBecauseGreaterAtFirstDifferentPos
     }
   }
-
-  def defs : Set[FunDef] = Set(sizeCache.values.toSeq : _*)
 }
