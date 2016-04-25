@@ -18,7 +18,6 @@ trait RelationComparator { self : StructuralSize =>
 
   /** weakly decreasing: args1 >= args2 */
   def softDecreasing(args1: Seq[Expr], args2: Seq[Expr]): Expr
-
 }
 
 
@@ -29,13 +28,28 @@ trait ArgsSizeSumRelationComparator extends RelationComparator { self : Structur
   def isApplicableFor(p: Problem): Boolean = true
 
   def sizeDecreasing(args1: Seq[Expr], args2: Seq[Expr]): Expr = {
-    GreaterThan(self.size(tupleWrap(args1)), self.size(tupleWrap(args2)))
+    GreaterThan(self.fullSize(tupleWrap(args1)), self.fullSize(tupleWrap(args2)))
   }
 
   def softDecreasing(args1: Seq[Expr], args2: Seq[Expr]): Expr = {
-    GreaterEquals(self.size(tupleWrap(args1)), self.size(tupleWrap(args2)))
+    GreaterEquals(self.fullSize(tupleWrap(args1)), self.fullSize(tupleWrap(args2)))
+  }
+}
+
+
+trait ArgsOuterSizeRelationComparator extends RelationComparator { self : StructuralSize =>
+
+  val comparisonMethod = "comparing outer structural sizes of argument types"
+
+  def isApplicableFor(p: Problem): Boolean = true
+
+  def sizeDecreasing(args1: Seq[Expr], args2: Seq[Expr]): Expr = {
+    GreaterThan(self.outerSize(tupleWrap(args1)), self.outerSize(tupleWrap(args2)))
   }
 
+  def softDecreasing(args1: Seq[Expr], args2: Seq[Expr]): Expr = {
+    GreaterEquals(self.outerSize(tupleWrap(args1)), self.outerSize(tupleWrap(args2)))
+  }
 }
 
 
@@ -46,13 +60,12 @@ trait LexicographicRelationComparator extends RelationComparator { self : Struct
   def isApplicableFor(p: Problem): Boolean = true
 
   def sizeDecreasing(s1: Seq[Expr], s2: Seq[Expr]): Expr = {
-    lexicographicDecreasing(s1, s2, strict = true, sizeOfOneExpr = e => self.size(e))
+    lexicographicDecreasing(s1, s2, strict = true, sizeOfOneExpr = e => self.fullSize(e))
   }
 
   def softDecreasing(s1: Seq[Expr], s2: Seq[Expr]): Expr = {
-    lexicographicDecreasing(s1, s2, strict = false, sizeOfOneExpr = e => self.size(e))
+    lexicographicDecreasing(s1, s2, strict = false, sizeOfOneExpr = e => self.fullSize(e))
   }
-
 }
 
 // for bitvector Ints
@@ -93,7 +106,6 @@ trait BVRelationComparator extends RelationComparator { self : StructuralSize =>
     val s2 = s20.filter(_.getType == Int32Type)
     lexicographicDecreasing(s2, s1, strict = false, sizeOfOneExpr = bvSize)
   }
-
 }
 
 

@@ -14,58 +14,9 @@ import purescala.Common._
 trait ChainComparator { self : StructuralSize =>
   val checker: TerminationChecker
 
-  private object ContainerType {
-    def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
-      case cct @ CaseClassType(ccd, _) =>
-        if (cct.fields.exists(arg => isSubtypeOf(arg.getType, cct.root))) None
-        else if (ccd.hasParent && ccd.parent.get.knownDescendants.size > 1) None
-        else Some((cct, cct.fields.map(arg => arg.id -> arg.getType)))
-      case _ => None
-    }
-  }
-
-  private def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
-    def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
-      l.toSet.subsets.filter(_.nonEmpty).map{
-        (reconss : Set[Expr => Expr]) => (e : Expr) => 
-          tupleWrap(reconss.toSeq map { f => f(e) })
-      }.toSet
-    }
-
-    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match  {
-      case ContainerType(cct, fields) =>
-        powerSetToFunSet(fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
-          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
-        })
-      case TupleType(tpes) =>
-        powerSetToFunSet(tpes.indices.flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
-        })
-      case _ => Set((e: Expr) => e)
-    }
-
-    rec(tpe)
-  }
-
-  private def flatType(tpe: TypeTree): Set[Expr => Expr] = {
-    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match {
-      case ContainerType(cct, fields) =>
-        fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
-          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
-        }.toSet
-      case TupleType(tpes) =>
-        tpes.indices.flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
-        }.toSet
-      case _ => Set((e: Expr) => e)
-    }
-
-    rec(tpe)
-  }
-
   def structuralDecreasing(e1: Expr, e2s: Seq[(Path, Expr)]): Seq[Expr] = flatTypesPowerset(e1.getType).toSeq.map {
     recons => andJoin(e2s.map { case (path, e2) =>
-      path implies GreaterThan(self.size(recons(e1)), self.size(recons(e2)))
+      path implies GreaterThan(self.fullSize(recons(e1)), self.fullSize(recons(e2)))
     })
   }
 

@@ -46,6 +46,7 @@ class RelationProcessor(
         else if (definitiveALL(ge)) Dep(Set(fid))
         else Failure
       })
+
       val result = if(solved.contains(Failure)) Failure else {
         val deps = solved.collect({ case Dep(fds) => fds }).flatten
         if (deps.isEmpty) Success
