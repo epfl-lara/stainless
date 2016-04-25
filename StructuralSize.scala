@@ -205,20 +205,21 @@ trait StructuralSize {
         case ct: ClassType =>
           val root = ct.root
           val fd = outerCache.getOrElse(root.classDef.typed, {
-            val id = FreshIdentifier("x", root.classDef.typed, true)
+            val tcd = root.classDef.typed
+            val id = FreshIdentifier("x", tcd, true)
             val fd = new FunDef(FreshIdentifier("outerSize", alwaysShowUniqueID = true),
               root.classDef.tparams,
               Seq(ValDef(id)),
               IntegerType)
-            outerCache(root.classDef.typed) = fd
+            outerCache(tcd) = fd
 
-            fd.body = Some(MatchExpr(Variable(id), root.knownCCDescendants map { cct =>
+            fd.body = Some(MatchExpr(Variable(id), tcd.knownCCDescendants map { cct =>
               val args = cct.fields.map(_.id.freshen)
               purescala.Extractors.SimpleCase(
                 CaseClassPattern(None, cct, args.map(id => WildcardPattern(Some(id)))),
                 args.foldLeft[Expr](InfiniteIntegerLiteral(1)) { case (e, id) =>
                   plus(e, id.getType match {
-                    case ct: ClassType if dependencies(root)(ct.root) => outerSize(Variable(id))
+                    case ct: ClassType if dependencies(tcd)(ct.root) => outerSize(Variable(id))
                     case _ => InfiniteIntegerLiteral(0)
                   })
                 })
@@ -229,7 +230,7 @@ trait StructuralSize {
             fd
           })
 
-          FunctionInvocation(fd.typed(ct.tps), Seq(e))
+          FunctionInvocation(fd.typed(root.tps), Seq(e))
 
         case _ => InfiniteIntegerLiteral(0)
       })
