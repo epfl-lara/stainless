@@ -14,8 +14,6 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait StructuralSize {
 
-  private val sizeCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
-
   /* Absolute value for BigInt type
    *
    * def absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
@@ -79,20 +77,27 @@ trait StructuralSize {
     absFun.typed
   }
 
-  def size(expr: Expr) : Expr = {
+  private val fullCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
+
+  /* Fully recursive size computation
+   *
+   * Computes (positive) size of leon types by summing up all sub-elements
+   * accessible in the type definition.
+   */
+  def fullSize(expr: Expr) : Expr = {
     def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
       // we want to reuse generic size functions for sub-types
       val classDef = ct.root.classDef
       val argumentType = classDef.typed
       val typeParams = classDef.tparams.map(_.tp)
 
-      sizeCache.get(argumentType) match {
+      fullCache.get(argumentType) match {
         case Some(fd) => fd
         case None =>
           val argument = ValDef(FreshIdentifier("x", argumentType, true))
           val formalTParams = typeParams.map(TypeParameterDef)
-          val fd = new FunDef(FreshIdentifier("size", alwaysShowUniqueID = true), formalTParams, Seq(argument), IntegerType)
-          sizeCache(argumentType) = fd
+          val fd = new FunDef(FreshIdentifier("fullSize", alwaysShowUniqueID = true), formalTParams, Seq(argument), IntegerType)
+          fullCache(argumentType) = fd
 
           val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
           val postId = FreshIdentifier("res", IntegerType)
@@ -107,26 +112,127 @@ trait StructuralSize {
     def caseClassType2MatchCase(c: CaseClassType): MatchCase = {
       val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name, vd.getType))
       val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
-      val sizes = arguments.map(id => size(Variable(id)))
+      val sizes = arguments.map(id => fullSize(Variable(id)))
       val result = sizes.foldLeft[Expr](InfiniteIntegerLiteral(1))(Plus)
       purescala.Extractors.SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
     }
 
     expr.getType match {
       case (ct: ClassType) =>
-        val fd = funDef(ct, {
+        val fd = funDef(ct.root, {
           case (act: AbstractClassType) => act.knownCCDescendants map caseClassType2MatchCase
           case (cct: CaseClassType) => Seq(caseClassType2MatchCase(cct))
         })
         FunctionInvocation(TypedFunDef(fd, ct.tps), Seq(expr))
       case TupleType(argTypes) => argTypes.zipWithIndex.map({
-        case (_, index) => size(tupleSelect(expr, index + 1, true))
-      }).foldLeft[Expr](InfiniteIntegerLiteral(0))(Plus)
+        case (_, index) => fullSize(tupleSelect(expr, index + 1, true))
+      }).foldLeft[Expr](InfiniteIntegerLiteral(0))(plus)
       case IntegerType =>
-        FunctionInvocation(typedAbsBigIntFun, Seq(expr)) 
+        FunctionInvocation(typedAbsBigIntFun, Seq(expr))
       case Int32Type =>
         FunctionInvocation(typedAbsInt2IntegerFun, Seq(expr))
       case _ => InfiniteIntegerLiteral(0)
+    }
+  }
+
+  private val outerCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
+
+  object ContainerType {
+    def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
+      case cct @ CaseClassType(ccd, _) =>
+        if (cct.fields.exists(arg => purescala.TypeOps.isSubtypeOf(arg.getType, cct.root))) None
+        else if (ccd.hasParent && ccd.parent.get.knownDescendants.size > 1) None
+        else Some((cct, cct.fields.map(arg => arg.id -> arg.getType)))
+      case _ => None
+    }
+  }
+
+  def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
+    def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
+      l.toSet.subsets.filter(_.nonEmpty).map{
+        (reconss : Set[Expr => Expr]) => (e : Expr) => 
+          tupleWrap(reconss.toSeq map { f => f(e) })
+      }.toSet
+    }
+
+    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match  {
+      case ContainerType(cct, fields) =>
+        powerSetToFunSet(fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
+          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
+        })
+      case TupleType(tpes) =>
+        powerSetToFunSet(tpes.indices.flatMap { case index =>
+          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
+        })
+      case _ => Set((e: Expr) => e)
+    }
+
+    rec(tpe)
+  }
+
+  def flatType(tpe: TypeTree): Set[Expr => Expr] = {
+    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match {
+      case ContainerType(cct, fields) =>
+        fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
+          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
+        }.toSet
+      case TupleType(tpes) =>
+        tpes.indices.flatMap { case index =>
+          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
+        }.toSet
+      case _ => Set((e: Expr) => e)
+    }
+
+    rec(tpe)
+  }
+
+  /* Recursively computes outer datastructure size
+   *
+   * Computes the structural size of a datastructure but only considers
+   * the outer-most datatype definition.
+   *
+   * eg. for List[List[T]], the inner list size is not considered
+   */
+  def outerSize(expr: Expr) : Expr = {
+    def dependencies(ct: ClassType): Set[ClassType] = {
+      def deps(ct: ClassType): Set[ClassType] = ct.fieldsTypes.collect { case ct: ClassType => ct.root }.toSet
+      utils.fixpoint((cts: Set[ClassType]) => cts ++ cts.flatMap(deps))(Set(ct))
+    }
+
+    flatType(expr.getType).foldLeft[Expr](InfiniteIntegerLiteral(0)) { case (i, f) =>
+      val e = f(expr)
+      plus(i, e.getType match {
+        case ct: ClassType =>
+          val root = ct.root
+          val fd = outerCache.getOrElse(root.classDef.typed, {
+            val id = FreshIdentifier("x", root.classDef.typed, true)
+            val fd = new FunDef(FreshIdentifier("outerSize", alwaysShowUniqueID = true),
+              root.classDef.tparams,
+              Seq(ValDef(id)),
+              IntegerType)
+            outerCache(root.classDef.typed) = fd
+
+            fd.body = Some(MatchExpr(Variable(id), root.knownCCDescendants map { cct =>
+              val args = cct.fields.map(_.id.freshen)
+              purescala.Extractors.SimpleCase(
+                CaseClassPattern(None, cct, args.map(id => WildcardPattern(Some(id)))),
+                args.foldLeft[Expr](InfiniteIntegerLiteral(1)) { case (e, id) =>
+                  plus(e, id.getType match {
+                    case ct: ClassType if dependencies(root)(ct.root) => outerSize(Variable(id))
+                    case _ => InfiniteIntegerLiteral(0)
+                  })
+                })
+            }))
+
+            val res = FreshIdentifier("res", IntegerType, true)
+            fd.postcondition = Some(Lambda(Seq(ValDef(res)), GreaterEquals(Variable(res), InfiniteIntegerLiteral(0))))
+            fd
+          })
+
+          FunctionInvocation(fd.typed(ct.tps), Seq(e))
+
+        case _ => InfiniteIntegerLiteral(0)
+      })
     }
   }
 
