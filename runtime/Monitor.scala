@@ -4,7 +4,7 @@ package leon
 package codegen.runtime
 
 import utils._
-import purescala.Expressions._
+import purescala.Expressions.{CaseClass => LeonCaseClass, _}
 import purescala.Constructors._
 import purescala.Definitions._
 import purescala.Common._
@@ -29,6 +29,10 @@ abstract class Monitor {
 
   def typeParams(params: Array[Int], tps: Array[Int], newTps: Array[Int]): Array[Int]
 
+  def invariantCheck(obj: AnyRef, tpeIdx: Int): Boolean
+
+  def invariantResult(obj: AnyRef, tpeIdx: Int, result: Boolean): Unit
+
   def onAbstractInvocation(id: Int, tps: Array[Int], args: Array[AnyRef]): AnyRef
 
   def onChooseInvocation(id: Int, tps: Array[Int], args: Array[AnyRef]): AnyRef
@@ -40,6 +44,14 @@ class NoMonitor extends Monitor {
   def onInvocation(): Unit = {}
 
   def typeParams(params: Array[Int], tps: Array[Int], newTps: Array[Int]): Array[Int] = {
+    throw new LeonCodeGenEvaluationException("No monitor available.")
+  }
+
+  def invariantCheck(obj: AnyRef, tpeIdx: Int): Boolean = {
+    throw new LeonCodeGenEvaluationException("No monitor available.")
+  }
+
+  def invariantResult(obj: AnyRef, tpeIdx: Int, result: Boolean): Unit = {
     throw new LeonCodeGenEvaluationException("No monitor available.")
   }
 
@@ -68,6 +80,21 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
         throw new LeonCodeGenEvaluationException("Maximum number of invocations reached ("+invocationsMax+").");
       }
     }
+  }
+
+  def invariantCheck(obj: AnyRef, tpeIdx: Int): Boolean = {
+    val tpe = unit.runtimeIdToTypeMap(tpeIdx)
+    val cc = unit.jvmToValue(obj, tpe).asInstanceOf[LeonCaseClass]
+    val result = evaluators.Evaluator.invariantCheck(cc)
+    if (result.isFailure) throw new LeonCodeGenRuntimeException("ADT invariant failed @" + cc.ct.classDef.invariant.get.getPos)
+    else result.isRequired
+  }
+
+  def invariantResult(obj: AnyRef, tpeIdx: Int, result: Boolean): Unit = {
+    val tpe = unit.runtimeIdToTypeMap(tpeIdx)
+    val cc = unit.jvmToValue(obj, tpe).asInstanceOf[LeonCaseClass]
+    evaluators.Evaluator.invariantResult(cc, result)
+    if (!result) throw new LeonCodeGenRuntimeException("ADT invariant failed @" + cc.ct.classDef.invariant.get.getPos)
   }
 
   def typeParams(params: Array[Int], tps: Array[Int], newTps: Array[Int]): Array[Int] = {
@@ -110,7 +137,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.default(ctx, program).withTimeout(10.second)
+      val solverf = SolverFactory.getFromSettings(ctx, program).withTimeout(10.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
@@ -176,11 +203,16 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     val (tparams, f) = unit.runtimeForallMap(id)
 
     val program = unit.program
-    val ctx     = unit.ctx.copy(options = unit.ctx.options.map {
-      case LeonOption(optDef, value) if optDef == UnrollingProcedure.optFeelingLucky =>
-        LeonOption(optDef)(false)
-      case opt => opt
-    })
+
+    val newOptions = Seq(
+      LeonOption(UnrollingProcedure.optFeelingLucky)(false),
+      LeonOption(UnrollingProcedure.optSilentErrors)(true),
+      LeonOption(UnrollingProcedure.optCheckModels)(true)
+    )
+
+    val ctx = unit.ctx.copy(options = unit.ctx.options.filterNot { opt =>
+      newOptions.exists(no => opt.optionDef == no.optionDef)
+    } ++ newOptions)
 
     ctx.reporter.debug("Executing forall (codegen)!")
     val argsSeq = args.toSeq
@@ -190,7 +222,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.default(ctx, program).withTimeout(1.second)
+      val solverf = SolverFactory.getFromSettings(ctx, program).withTimeout(.5.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))

@@ -237,22 +237,18 @@ trait CodeGeneration {
   private[codegen] val classToLambda = scala.collection.mutable.Map.empty[String, Lambda]
 
   protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
-    val (normalized, structSubst) = purescala.ExprOps.normalizeStructure(matchToIfThenElse(l))
-    val reverseSubst = structSubst.map(p => p._2 -> p._1)
-    val nl = normalized.asInstanceOf[Lambda]
+    val tparams: Seq[TypeParameter] = typeParamsOf(l).toSeq.sortBy(_.id.uniqueName)
 
-    val tparams: Seq[TypeParameter] = typeParamsOf(nl).toSeq.sortBy(_.id.uniqueName)
-
-    val closedVars = purescala.ExprOps.variablesOf(nl).toSeq.sortBy(_.uniqueName)
+    val closedVars = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
     val closuresWithoutMonitor = closedVars.map(id => id -> typeToJVM(id.getType))
     val closures = (monitorID -> s"L$MonitorClass;") +:
       ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++ closuresWithoutMonitor)
 
-    val afName = lambdaToClass.getOrElse(nl, {
+    val afName = lambdaToClass.getOrElse(l, {
       val afId = FreshIdentifier("Leon$CodeGen$Lambda$")
       val afName = afId.uniqueName
-      lambdaToClass += nl -> afName
-      classToLambda += afName -> nl
+      lambdaToClass += l -> afName
+      classToLambda += afName -> l
 
       val cf = new ClassFile(afName, Some(LambdaClass))
 
@@ -293,7 +289,7 @@ trait CodeGeneration {
         cch.freeze
       }
 
-      val argMapping = nl.args.map(_.id).zipWithIndex.toMap
+      val argMapping = l.args.map(_.id).zipWithIndex.toMap
       val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
       val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping).withTypes(tparams)
 
@@ -307,7 +303,7 @@ trait CodeGeneration {
 
         val apch = apm.codeHandler
 
-        mkBoxedExpr(nl.body, apch)(newLocals)
+        mkBoxedExpr(l.body, apch)(newLocals)
 
         apch << ARETURN
 
@@ -395,7 +391,7 @@ trait CodeGeneration {
     })
 
     (afName, closures.map { case p @ (id, jvmt) =>
-      if (id == monitorID || id == tpsID) p else (reverseSubst(id) -> jvmt)
+      if (id == monitorID || id == tpsID) p else (id -> jvmt)
     }, tparams, "(" + closures.map(_._2).mkString("") + ")V")
   }
 
@@ -1786,12 +1782,23 @@ trait CodeGeneration {
 
       // Finally check invariant (if it exists)
       if (params.checkContracts && ccd.hasInvariant) {
+        val skip = cch.getFreshLabel("skip_invariant")
+        load(monitorID, cch)(newLocs)
+        cch << ALoad(0)
+        cch << Ldc(registerType(cct))
+
+        cch << InvokeVirtual(MonitorClass, "invariantCheck", s"(L$ObjectClass;I)Z")
+        cch << IfEq(skip)
+
+        load(monitorID, cch)(newLocs)
+        cch << ALoad(0)
+        cch << Ldc(registerType(cct))
+
         val thisId = FreshIdentifier("this", cct, true)
         val invLocals = newLocs.withVar(thisId -> 0)
-        mkExpr(IfExpr(FunctionInvocation(cct.invariant.get, Seq(Variable(thisId))),
-          BooleanLiteral(true),
-          Error(BooleanType, "ADT Invariant failed @" + ccd.invariant.get.getPos)), cch)(invLocals)
-        cch << POP
+        mkExpr(FunctionInvocation(cct.invariant.get, Seq(Variable(thisId))), cch)(invLocals)
+        cch << InvokeVirtual(MonitorClass, "invariantResult", s"(L$ObjectClass;IZ)V")
+        cch << Label(skip)
       }
 
       cch << RETURN
