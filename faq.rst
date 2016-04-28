@@ -36,6 +36,55 @@ large, so, if the input list had the size `Int.MaxValue + 1`
 around and produce `Int.MinValue` (that is, -2^31), so the
 `ensuring` clause would not hold.
 
+Use variable number of arguments in Leon programs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+I have defined an apply function that should accept a variable number of arguments.
+
+.. code-block:: scala
+
+    import leon.collection._
+    case class Element(children: List[Element]) {
+      def addChildren(c: Element*): Element = {
+        Element(children ++ c.toList)
+      }
+    }
+
+This does not compile in Leon, why?
+
+**Answer:** 
+
+To support variable number of arguments, do the following:
+
+.. code-block:: scala
+
+    import leon.collection._
+    import leon.annotation._
+    case class Element(children: List[Element]) {
+      @ignore
+      def addChildren(c: Element*): Element = {
+        var l: List[WebTree] = Nil[WebTree]()
+        for (e <- elems) {
+          l = Cons(e, l)
+        }
+        addChildren(l.reverse)
+      }
+      def addChildren(c: List[Element]): Element = {
+        Element(children ++ toList)
+      }
+    }
+
+This code is compatible with both Leon and Scala.
+At parsing time, when Leon encounters a call to
+`addChildren(a, b)`
+using the first method, it translates it to
+`addChildren(Cons(a, Cons(b, Nil())))`
+using the second method.
+When Scala encounters the same call,
+it executes the `@ignore`-d function and calls the second method.
+
+The reason is that the `scala.collection.Seq` used in the case of multiple arguments does not have a method `toList` that converts the sequence to a Leon `List`. Hence this workaround.
+
 Compiling Leon programs to bytecode
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
