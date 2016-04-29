@@ -12,7 +12,6 @@ import purescala.TypeOps._
 import purescala.Constructors._
 import purescala.Extractors._
 import purescala.Quantification._
-
 import cafebabe._
 import cafebabe.AbstractByteCodes._
 import cafebabe.ByteCodes._
@@ -873,7 +872,7 @@ trait CodeGeneration {
         
       case StringLength(a) =>
         mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "length", s"(L$JavaStringClass;)L$BigIntClass;")
+        ch << InvokeSpecial(JavaStringClass, "length", s"()I")
         
       case Int32ToString(a) =>
         mkExpr(a, ch)
@@ -895,7 +894,7 @@ trait CodeGeneration {
         mkExpr(a, ch)
         mkExpr(start, ch)
         mkExpr(end, ch)
-        ch << InvokeStatic(StrOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
+        ch << InvokeSpecial(JavaStringClass, "substring", s"(L$JavaStringClass;II)L$JavaStringClass;")
         
       // Arithmetic
       case Plus(l, r) =>
