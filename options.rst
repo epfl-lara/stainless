@@ -255,10 +255,6 @@ Synthesis
 
   Shrink non-deterministic programs when tests pruning works well.
 
-* ``--cegis:vanuatoo``
-
-  Generate inputs using new korat-style generator.
-
 * ``--costmodel=cm``
 
   Use a specific cost model for this search.
