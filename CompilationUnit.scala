@@ -25,9 +25,11 @@ import scala.collection.JavaConverters._
 import java.lang.reflect.Constructor
 
 import synthesis.Problem
+import evaluators._
 
 class CompilationUnit(val ctx: LeonContext,
                       val program: Program,
+                      val bank: EvaluationBank = new EvaluationBank,
                       val params: CodeGenParams = CodeGenParams.default) extends CodeGeneration {
 
 

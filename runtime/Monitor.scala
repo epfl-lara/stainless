@@ -22,6 +22,7 @@ import scala.concurrent.duration._
 import solvers.SolverFactory
 import solvers.unrolling.UnrollingProcedure
 
+import evaluators._
 import synthesis._
 
 abstract class Monitor {
@@ -85,7 +86,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
   def invariantCheck(obj: AnyRef, tpeIdx: Int): Boolean = {
     val tpe = unit.runtimeIdToTypeMap(tpeIdx)
     val cc = unit.jvmToValue(obj, tpe).asInstanceOf[LeonCaseClass]
-    val result = evaluators.Evaluator.invariantCheck(cc)
+    val result = unit.bank.invariantCheck(cc)
     if (result.isFailure) throw new LeonCodeGenRuntimeException("ADT invariant failed @" + cc.ct.classDef.invariant.get.getPos)
     else result.isRequired
   }
@@ -93,7 +94,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
   def invariantResult(obj: AnyRef, tpeIdx: Int, result: Boolean): Unit = {
     val tpe = unit.runtimeIdToTypeMap(tpeIdx)
     val cc = unit.jvmToValue(obj, tpe).asInstanceOf[LeonCaseClass]
-    evaluators.Evaluator.invariantResult(cc, result)
+    unit.bank.invariantResult(cc, result)
     if (!result) throw new LeonCodeGenRuntimeException("ADT invariant failed @" + cc.ct.classDef.invariant.get.getPos)
   }
 
@@ -137,7 +138,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.getFromSettings(ctx, program).withTimeout(10.second)
+      val solverf = SolverFactory.getEvalSolver(ctx, program, unit.bank).withTimeout(10.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
@@ -222,7 +223,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.getFromSettings(ctx, program).withTimeout(.5.second)
+      val solverf = SolverFactory.getEvalSolver(ctx, program, unit.bank).withTimeout(.5.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
