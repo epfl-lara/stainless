@@ -19,7 +19,7 @@ import scala.collection.immutable.{Map => ScalaMap}
 import scala.collection.mutable.{HashMap => MutableMap, Set => MutableSet}
 import scala.concurrent.duration._
 
-import solvers.SolverFactory
+import solvers.{SolverContext, SolverFactory}
 import solvers.unrolling.UnrollingProcedure
 
 import evaluators._
@@ -138,7 +138,8 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.getEvalSolver(ctx, program, unit.bank).withTimeout(10.second)
+      val sctx = SolverContext(ctx, unit.bank)
+      val solverf = SolverFactory.getFromSettings(sctx, program).withTimeout(10.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
@@ -223,7 +224,8 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     } else {
       val tStart = System.currentTimeMillis
 
-      val solverf = SolverFactory.getEvalSolver(ctx, program, unit.bank).withTimeout(.5.second)
+      val sctx = SolverContext(ctx, unit.bank)
+      val solverf = SolverFactory.getFromSettings(sctx, program).withTimeout(.5.second)
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
