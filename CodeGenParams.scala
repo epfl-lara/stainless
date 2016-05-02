@@ -6,7 +6,7 @@ package codegen
 case class CodeGenParams (
   maxFunctionInvocations: Int,     // Monitor calls and abort execution if more than X calls
   checkContracts: Boolean,         // Generate calls that checks pre/postconditions
-  doInstrument: Boolean            // Instrument reads to case classes
+  doInstrument: Boolean            // Instrument reads to case classes (mainly for vanuatoo)
 ) {
   val recordInvocations = maxFunctionInvocations > -1
 
