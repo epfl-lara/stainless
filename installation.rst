@@ -78,11 +78,12 @@ under Cygwin.
 *Missing jars*
 
 If running leon produces errors because it could not find
-some cafebabe*.jar, it is probably because
+some cafebabe*.jar or vanuatoo*.jar, it is probably because
 symlinks have not been resolved. If your architecture is
 x64, do the following:
 
-Copy ``unmanaged/common/cafebabe*.jar`` to ``unmanaged/64/``
+1. Copy ``unmanaged/common/cafebabe*.jar`` to ``unmanaged/64/``
+2. Copy ``unmanaged/common/vanuatoo*.jar`` to ``unmanaged/64/``
 
 You may be able to obtain additional tips on getting Leon to work on Windows 
 from [Mikael Mayer](http://people.epfl.ch/mikael.mayer) or on [his dedicated web page](http://lara.epfl.ch/~mayer/leon/),
