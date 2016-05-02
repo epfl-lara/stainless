@@ -30,6 +30,6 @@ object TerminationPhase extends SimpleLeonPhase[Program, TerminationReport] {
     }
     val endTime = System.currentTimeMillis
 
-    new TerminationReport(ctx, results, (endTime - startTime).toDouble / 1000.0d)
+    new TerminationReport(ctx, tc.program, results, (endTime - startTime).toDouble / 1000.0d)
   }
 }

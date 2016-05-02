@@ -6,8 +6,10 @@ package termination
 import purescala.Definitions._
 import utils.Report
 import utils.ASCIIHelpers._
+import leon.purescala.PrettyPrinter
+import leon.purescala.SelfPrettyPrinter
 
-case class TerminationReport(ctx: LeonContext, results : Seq[(FunDef,TerminationGuarantee)], time : Double) extends Report {
+case class TerminationReport(ctx: LeonContext, program: Program, results : Seq[(FunDef,TerminationGuarantee)], time : Double) extends Report {
 
   def summaryString : String = {
     var t = Table("Termination summary")
@@ -18,7 +20,10 @@ case class TerminationReport(ctx: LeonContext, results : Seq[(FunDef,Termination
         val result = if (g.isGuaranteed) "\u2713" else "\u2717"
         val verdict = g match {
           case LoopsGivenInputs(reason, args) =>
-            "Non-terminating for call: " + args.mkString(fd.id + "(", ",", ")")
+            val niceArgs = args.map { v =>
+              SelfPrettyPrinter.print(v, PrettyPrinter(v))(ctx, program)
+            }
+            "Non-terminating for call: " + niceArgs.mkString(fd.id + "(", ",", ")")
           case CallsNonTerminating(funDefs) =>
             "Calls non-terminating functions " + funDefs.map(_.id).mkString(",")
           case Terminates(reason) =>
