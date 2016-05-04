@@ -872,7 +872,11 @@ trait CodeGeneration {
         
       case StringLength(a) =>
         mkExpr(a, ch)
-        ch << InvokeSpecial(JavaStringClass, "length", s"()I")
+        ch << InvokeVirtual(JavaStringClass, "length", s"()I")
+        
+      case StringBigLength(a) =>
+        mkExpr(a, ch)
+        ch << InvokeStatic(StrOpsClass, "bigLength", s"(L$JavaStringClass;)L$BigIntClass;")
         
       case Int32ToString(a) =>
         mkExpr(a, ch)
@@ -894,7 +898,13 @@ trait CodeGeneration {
         mkExpr(a, ch)
         mkExpr(start, ch)
         mkExpr(end, ch)
-        ch << InvokeSpecial(JavaStringClass, "substring", s"(L$JavaStringClass;II)L$JavaStringClass;")
+        ch << InvokeVirtual(JavaStringClass, "substring", s"(II)L$JavaStringClass;")
+      
+      case BigSubString(a, start, end) =>
+        mkExpr(a, ch)
+        mkExpr(start, ch)
+        mkExpr(end, ch)
+        ch << InvokeStatic(StrOpsClass, "bigSubstring", s"(L$JavaStringClass;II)L$JavaStringClass;")
         
       // Arithmetic
       case Plus(l, r) =>
