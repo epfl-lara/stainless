@@ -41,7 +41,9 @@ trait Strengthener { self : RelationComparator =>
         val post = matchToIfThenElse(postcondition)
         val formula = implies(prec, application(post, Seq(body)))
 
-        if (!solver.definitiveALL(formula)) {
+        // @nv: one must also check satisfiability here as if both formula and
+        //      !formula are UNSAT, we will proceed to invalid strenghtening
+        if (!solver.maybeSAT(formula) || !solver.definitiveALL(formula)) {
           funDef.postcondition = old
           false
         } else {
