@@ -102,7 +102,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
     val tparams = params.toSeq.map(unit.runtimeIdToTypeMap(_).asInstanceOf[TypeParameter])
     val static = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
     val newTypes = newTps.toSeq.map(unit.runtimeIdToTypeMap(_))
-    val tpMap = (tparams.map(TypeParameterDef(_)) zip newTypes).toMap
+    val tpMap = (tparams zip newTypes).toMap
     static.map(tpe => unit.registerType(instantiateType(tpe, tpMap))).toArray
   }
 
@@ -143,7 +143,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
-      val tpMap = (tparams.map(TypeParameterDef(_)) zip newTypes).toMap
+      val tpMap = (tparams zip newTypes).toMap
 
       val newXs = p.xs.map { id =>
         val newTpe = instantiateType(id.getType, tpMap)
@@ -229,7 +229,7 @@ class StdMonitor(unit: CompilationUnit, invocationsMax: Int, bodies: ScalaMap[Id
       val solver = solverf.getNewSolver()
 
       val newTypes = tps.toSeq.map(unit.runtimeIdToTypeMap(_))
-      val tpMap = (tparams.map(TypeParameterDef(_)) zip newTypes).toMap
+      val tpMap = (tparams zip newTypes).toMap
 
       val vars = variablesOf(f).toSeq.sortBy(_.uniqueName)
       val newVars = vars.map(id => FreshIdentifier(id.name, instantiateType(id.getType, tpMap), true))
