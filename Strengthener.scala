@@ -17,12 +17,22 @@ trait Strengthener { self : RelationComparator =>
 
   val checker: TerminationChecker
 
+  implicit object CallGraphOrdering extends Ordering[FunDef] {
+    def compare(a: FunDef, b: FunDef): Int = {
+      val aCallsB = checker.program.callGraph.transitivelyCalls(a, b)
+      val bCallsA = checker.program.callGraph.transitivelyCalls(b, a)
+      if (aCallsB && !bCallsA) -1
+      else if (bCallsA && !aCallsB) 1
+      else 0
+    }
+  }
+
   private val strengthenedPost : MutableSet[FunDef] = MutableSet.empty
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
     // Strengthen postconditions on all accessible functions by adding size constraints
     val callees : Set[FunDef] = funDefs.flatMap(fd => checker.program.callGraph.transitiveCallees(fd))
-    val sortedCallees : Seq[FunDef] = callees.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
+    val sortedCallees : Seq[FunDef] = callees.toSeq.sorted
 
     for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
@@ -85,7 +95,7 @@ trait Strengthener { self : RelationComparator =>
 
   def strengthenApplications(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
     val transitiveFunDefs = funDefs ++ funDefs.flatMap(checker.program.callGraph.transitiveCallees)
-    val sortedFunDefs = transitiveFunDefs.toSeq.sortWith((fd1, fd2) => checker.program.callGraph.transitivelyCalls(fd2, fd1))
+    val sortedFunDefs = transitiveFunDefs.toSeq.sorted
 
     for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
 
