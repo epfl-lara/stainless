@@ -904,7 +904,7 @@ trait CodeGeneration {
         mkExpr(a, ch)
         mkExpr(start, ch)
         mkExpr(end, ch)
-        ch << InvokeStatic(StrOpsClass, "bigSubstring", s"(L$JavaStringClass;II)L$JavaStringClass;")
+        ch << InvokeStatic(StrOpsClass, "bigSubstring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
         
       // Arithmetic
       case Plus(l, r) =>
