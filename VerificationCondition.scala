@@ -6,6 +6,7 @@ import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 import leon.purescala.Types._
 import leon.purescala.PrettyPrinter
+import leon.purescala.ExprOps
 import leon.utils.Positioned
 import leon.solvers._
 import leon.LeonContext
@@ -15,6 +16,16 @@ import leon.purescala.SelfPrettyPrinter
 case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
   override def toString = {
     fd.id.name +" - " +kind.toString
+  }
+  // If the two functions are the same but have different positions, used to transfer one to the other.
+  def copyTo(newFun: FunDef) = {
+    val thisPos = this.getPos
+    val newPos = ExprOps.lookup(_.getPos == thisPos, _.getPos)(fd.fullBody, newFun.fullBody) match {
+      case Some(position) => position
+      case None => newFun.getPos
+    }
+    val newCondition = ExprOps.lookup(condition == _, i => i)(fd.fullBody, newFun.fullBody).getOrElse(condition)
+    VC(newCondition, newFun, kind).setPos(newPos)
   }
 }
 
