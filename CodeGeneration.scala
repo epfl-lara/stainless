@@ -1195,6 +1195,9 @@ trait CodeGeneration {
         mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
         ch << Label(fl) << POP << Ldc(0) << Label(al)
 
+      case MutableExpr(e) =>
+        mkExpr(e, ch)
+
       case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
     }
   }
