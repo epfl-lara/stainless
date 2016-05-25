@@ -9,9 +9,7 @@ import purescala.DefOps._
 
 abstract class TerminationChecker(val context: LeonContext, initProgram: Program) extends LeonComponent {
   val program = {
-    val (pgm, _, _, _) = replaceFunDefs(initProgram){ fd => Some(fd.duplicate()) }
-
-    pgm
+    transformProgram(funDefReplacer{ fd => Some(fd.duplicate()) }, initProgram)
   }
 
   val functions = visibleFunDefsFromMain(program)
