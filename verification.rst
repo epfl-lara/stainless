@@ -57,7 +57,7 @@ the following for any number of parameters):
    } ensuring(r => post)
 
 where, :math:`\mbox{prec}(x)` is a Boolean expression with free variables
-contained in :math:`\{ x \}`, :math:`\mbox{body}(x)` is a Boolean expression with
+contained in :math:`\{ x \}`, :math:`\mbox{body}(x)` is an expression with
 free variables contained in :math:`\{ x \}` and :math:`\mbox{post}(x, r)` is a
 Boolean expression with free variables contained in :math:`\{ x, r \}`. The
 types of :math:`x` and :math:`r` are respectively ``A`` and ``B``. We write
