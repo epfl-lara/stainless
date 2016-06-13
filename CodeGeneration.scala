@@ -228,7 +228,7 @@ trait CodeGeneration {
       case _ =>
         ch << ARETURN
     }
-
+    
     ch.freeze
   }
 
@@ -447,11 +447,21 @@ trait CodeGeneration {
       case Require(pre, body) =>
         mkExpr(IfExpr(pre, body, Error(body.getType, "Precondition failed")), ch)
 
+      case Let(id, d, Variable(id2)) if id == id2 => // Optimization for local variables.
+        mkExpr(d, ch)
+        
+      case Let(id, d, Let(id3, Variable(id2), Variable(id4))) if id == id2 && id3 == id4 => // Optimization for local variables.
+        mkExpr(d, ch)
+        
       case Let(i,d,b) =>
         mkExpr(d, ch)
         val slot = ch.getFreshVar
         val instr = i.getType match {
-          case ValueType() => IStore(slot)
+          case ValueType() =>
+            if(slot > 127) {
+              println("Error while converting one more slot which is too much " + e)
+            }
+            IStore(slot)
           case _ => AStore(slot)
         }
         ch << instr
