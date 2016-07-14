@@ -43,8 +43,11 @@ object Predicate {
     equals(map(map(p, f), g), map(p, (a: A) => g(f(a))))
   }.holds
 
+  /* Disabled
+   * Nested quantification is not really a supported feature anyway...
   def testInt(p: BigInt => Boolean, f: BigInt => BigInt, g: BigInt => BigInt): Boolean = {
     equals(map(map(p, f), g), map(p, (x: BigInt) => g(f(x))))
   }.holds
+  */
 }
 

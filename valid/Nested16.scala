@@ -1,11 +1,11 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-object Nested14 {
+object Nested16 {
 
-  def foo(i: Int): Int = {
-    def rec1(j: Int): Int = {
+  def foo(i: BigInt): BigInt = {
+    def rec1(j: BigInt): BigInt = {
       require(j >= 0)
-      def rec2(k: Int): Int = {
+      def rec2(k: BigInt): BigInt = {
         require(j > 0 || j == k)
         if(k == 0) 0 else rec1(j-1)
       }
