@@ -31,7 +31,7 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
     calls.map {
       case (fi @ FunctionInvocation(tfd, args), path) =>
         val pre = tfd.withParamSubst(args, tfd.precondition.get)
-        val vc = implies(path, pre)
+        val vc = path implies pre
         val fiS = sizeLimit(fi.asString, 40)
         VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS")).setPos(fi)
     }

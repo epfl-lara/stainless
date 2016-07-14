@@ -65,7 +65,7 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
         }(body)
 
         for {
-          ((fi@FunctionInvocation(tfd, args), pre), path) <- calls
+          ((fi @ FunctionInvocation(tfd, args), pre), path) <- calls
           cct <- parentType.knownCCDescendants
         } yield {
           val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
@@ -76,10 +76,9 @@ class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
             )
           }
 
-          val vc = implies(
-            andJoin(Seq(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue, path) ++ subCases),
-            tfd.withParamSubst(args, pre)
-          )
+          val vc = path
+            .withConds(Seq(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue) ++ subCases)
+            .implies(tfd.withParamSubst(args, pre))
 
           // Crop the call to display it properly
           val fiS = sizeLimit(fi.asString, 25)

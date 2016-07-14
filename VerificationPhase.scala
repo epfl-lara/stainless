@@ -7,7 +7,6 @@ import purescala.Definitions._
 import purescala.ExprOps._
 
 import scala.concurrent.duration._
-import java.lang.System
 
 import solvers._
 
@@ -37,7 +36,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
         baseSolverF
     }
 
-    val vctx = VerificationContext(ctx, program, solverF, reporter)
+    val vctx = new VerificationContext(ctx, program, solverF)
 
     reporter.debug("Generating Verification Conditions...")
 
@@ -96,9 +95,9 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
   def checkVCs(
     vctx: VerificationContext,
     vcs: Seq[VC],
-    stopAfter: Option[(VC, VCResult) => Boolean] = None
+    stopWhen: VCResult => Boolean = _ => false
   ): VerificationReport = {
-    val interruptManager = vctx.context.interruptManager
+    val interruptManager = vctx.interruptManager
 
     var stop = false
 
@@ -108,14 +107,14 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
       for (vc <- vcs.par if !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.exists(_(vc, r))
+        stop = stopWhen(r)
         vc -> Some(r)
       }
     } else {
       for (vc <- vcs.toSeq.sortWith((a,b) => a.fd.getPos < b.fd.getPos) if !interruptManager.isInterrupted && !stop) yield {
         val r = checkVC(vctx, vc)
         if (interruptManager.isInterrupted) interruptManager.recoverInterrupt()
-        stop = stopAfter.exists(_(vc, r))
+        stop = stopWhen(r)
         vc -> Some(r)
       }
     }
@@ -127,7 +126,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     import vctx.reporter
     import vctx.solverFactory
 
-    val interruptManager = vctx.context.interruptManager
+    val interruptManager = vctx.interruptManager
 
     val vcCond = vc.condition
 
@@ -136,7 +135,7 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     try {
       reporter.synchronized {
         reporter.info(s" - Now considering '${vc.kind}' VC for ${vc.fd.id} @${vc.getPos}...")
-        reporter.debug(simplifyLets(vcCond).asString(vctx.context))
+        reporter.debug(simplifyLets(vcCond).asString(vctx))
         reporter.debug("Solving with: " + s.name)
       }
 
