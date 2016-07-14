@@ -15,16 +15,19 @@ object ListOperations {
     sealed abstract class IntPair
     case class IP(fst: Int, snd: Int) extends IntPair
 
+    @pure
     def size(l: List) : BigInt = (l match {
         case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
     }) ensuring(res => res >= 0)
 
+    @pure
     def iplSize(l: IntPairList) : BigInt = (l match {
       case IPNil() => BigInt(0)
       case IPCons(_, xs) => 1 + iplSize(xs)
     }) ensuring(_ >= 0)
 
+    @pure
     def zip(l1: List, l2: List) : IntPairList = {
       // try to comment this and see how pattern-matching becomes
       // non-exhaustive and post-condition fails
@@ -47,10 +50,12 @@ object ListOperations {
      }
     } ensuring(res => res == size(l) + acc)
 
+    @pure
     def sizesAreEquiv(l: List) : Boolean = {
       size(l) == sizeTailRec(l)
     }.holds
 
+    @pure
     def content(l: List) : Set[Int] = l match {
       case Nil() => Set.empty[Int]
       case Cons(x, xs) => Set(x) ++ content(xs)
@@ -60,11 +65,13 @@ object ListOperations {
       size(l) == BigInt(0) || content(l) != Set.empty[Int]
     }.holds
     
+    @pure
     def drunk(l : List) : List = (l match {
       case Nil() => Nil()
       case Cons(x,l1) => Cons(x,Cons(x,drunk(l1)))
     }) ensuring (size(_) == 2 * size(l))
 
+    @pure
     def reverse(l: List) : List = reverse0(l, Nil()) ensuring(content(_) == content(l))
     def reverse0(l1: List, l2: List) : List = (l1 match {
       case Nil() => l2
