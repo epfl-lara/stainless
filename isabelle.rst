@@ -53,7 +53,7 @@ specific annotations in the object ``leon.annotation.isabelle``.
 Mapping Leon entities to Isabelle entities
 ******************************************
 
-Isabelle -- or it's standard logic *HOL*, to be precise -- ships with a rather
+Isabelle -- or its standard logic *HOL*, to be precise -- ships with a rather
 large existing library. By default, the Isabelle backend would just translate
 all Leon definitions into equivalent Isabelle definitions, which means that
 existing proofs about them are not applicable. For example, Isabelle/HOL already
