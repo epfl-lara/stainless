@@ -19,7 +19,7 @@ Contents:
    library
    xlang
    verification
-   invinference
+   resourcebounds
    neon
    isabelle
    limitations
