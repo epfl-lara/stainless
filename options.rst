@@ -332,44 +332,53 @@ Isabelle
   unsound proofs when postconditions or mappings in the library are wrong.
   When disabled, a warning is printed.
 
-Invariant Inference
-*******************
+Invariant and Resource Bound Inference
+**************************************
 
-These options are to be used in conjunction with ``--inferInv`` and ``--instrument``.
+These options are to be used in conjunction with ``--inferInv``.
 
-* ``--cegis``
+* ``--minbounds=lowerlimit``
 
-  Use cegis instead of farkas
+  Minimize the inferred coefficients based on the rate of growth of the corresponding term in the bound.
+  Coefficients of faster growing terms have higher priority than coefficients of smaller growing terms.
+  ``lowerlimit`` is a (possibly negative or zero) integer that specifies a lower limit up to which the minimization can 
+  proceed. A lower limit is mandatory. 
+
+* ``--timeout=s``
+
+  A overall timeout in seconds for the inference phase. The tool will exit after ``s`` seconds
+
+* ``--solvers=sol`` 
+
+  Use the SMT solver ``sol`` for checking verification conditions.
+  ``sol`` could be either ``orb-smt-z3`` or ``orb-smt-cvc4``.   
+  ``orb-smt-z3`` is generally faster than ``orb-smt-cvc4``.
+  But, ``orb-smt-cvc4`` works better for theory of sets, and datatypes .
+  
+
+* ``--benchmark``
+
+  Dump useful statistics about the performance of inference to file.
+
+
+* ``--assumepreInf``
+
+  Assume preconditions of callees while unfolding callees during inference
 
 * ``--disableInfer``
 
-  Disable automatic inference of auxiliary invariants
+  Disable automatic inference of auxiliary invariants and only infer values for holes
 
-* ``--fullunroll``
 
-  Unroll all calls in every unroll step
+* ``--nlTimeout=s``
 
-* ``--inferTemp``
+  A timeout in seconds for nonlinear solving step, which is by default 15s
 
-  Infer templates by enumeration
+* ``--vcTimeout=s``
 
-* ``--minbounds``
+  A timeout in seconds for solving verification conditions, which is by default 15s
 
-  Tighten the inferred time bounds
 
-* ``--stats-suffix=s``
 
-  Specifies the suffix of the statistics file
 
-* ``--usereals``
-
-  Interpret the input program as a program over real numbers
-
-* ``--wholeprogram``
-
-  Perform a non-modular whole program analysis
-
-* ``--withmult``
-
-  Do not convert multiplication into a recursive function inside verification conditions
 
