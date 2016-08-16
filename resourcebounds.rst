@@ -6,14 +6,14 @@ Resource Verification
 Not only does Leon allow verification of correctness properties, it also supports establishing
 bounds on resources, such as time or memory usage, consumed by programs. 
 The sub-system of Leon that performs verification of resource bounds is called: *Orb*.
-It complements the Leon verifier by allowing users to specify and verify 
+It complements correctness verification by allowing users to specify and verify 
 upper bounds on resources consumed by programs. 
 
 
 Why Verify Resource Bounds?
 ---------------------------
 
-Statically proving bounds on resources such as time, and space consumed by softwares is considered too difficult 
+Statically proving bounds on resources such as time and space consumed by softwares is considered too difficult 
 a task to accomplish due to the complexities of the hardware, and operating environments that 
 the modern day softwares are deployed on.
 This is true to an extent only if one wants to precisely estimate the resource usage in terms of the actual
@@ -28,7 +28,7 @@ takes time quadratic in size of the list`.
 After all, most of the  development effort is spent on making implementations efficient, and now you can verify the 
 efficiency of your implementations!
 
-The rest of this documentation presents an brief of verifying resource usage of programs using Leon. 
+The rest of this documentation presents a brief overview of verifying resource usage of programs using Leon. 
 More illustrations are available under the `Resourcebounds` section of `leon web <http://leon.epfl.ch>`_
 
 
@@ -36,7 +36,7 @@ Proving Abstract Bounds on Resources
 ------------------------------------
 
 Let us start by considering the function ``count`` shown below that decrements ``n`` until ``0``.
-The function takes time `O(n)`, if we consider subtraction of big integers as a constant time operation.
+The function takes time `O(n)`. (Subtraction of big integers is considered as a constant time operation.)
 This can be expressed in Leon as shown below:
 
 .. code-block:: scala
@@ -54,9 +54,9 @@ This can be expressed in Leon as shown below:
 
 Consider the postconditions of the ``count`` function.
 The postcondition uses a reserved keyword ``steps`` that refers to the number of steps in the evaluation of the function 
-``count`` for a given input, 
-Generally, it is equal to the number of primitive operations such as arithmetic, logical 
-operations performed by the function, and hence is an abstraction of the execution time.
+``count`` on a given input, 
+Generally, it is equal to the number of primitive operations, such as arithmetic-logical 
+operations, performed by the function, and hence is an abstraction of the execution time.
 The question marks (``?``) represent unknown coefficients called *holes*, which needs to be inferred by 
 the system. 
 You will find that Leon is able to automatically infer values for the holes, and complete the bound
@@ -69,7 +69,7 @@ However, the minimality of the inferred constants is only "best-effort", and not
 
 Importing Inferred Bounds
 -------------------------
-The `leon web <http://leon.epfl.ch>`_ interface allows importing the inferred resource bounds and correctness invariants (if any),
+The `leon web <http://leon.epfl.ch>`_ interface allows importing the inferred resource bounds and correctness invariants (if any)
 automatically into the program. To do so, click on a tick mark on the right pane, and choose `import all invariants`.
 Once all invariants have been imported, the verification phase will get initiated, which may serve to cross check the results.
 
@@ -118,10 +118,11 @@ Using Correctness Properties to Establish Bounds
 Resource bounds can be stated in combination with other correctness properties. 
 In fact, sometimes the resource bounds themselves may depend on certain correctness properties.
 For example, consider the function ``reverse`` that reverses the elements in a list by calling ``append``.
-To upper bound the running time of ``reverse``, we need to know that  ``append`` takes time that is linear
-in the size of ``tl`` (which equals ``l.tail``). This holds because the size of list returned by ``reverse(tl)`` is equal to the size of ``tl``. 
-These relationships between the sizes of the input and output lists of ``reverse`` and ``append`` can be stated in their postconditions along
-with the resource bounds, and will be used during the verification of bounds.
+To upper bound the running time of ``reverse``, we need to know that the call ``append(reverse(tl), Cons(hd, Nil()))`` 
+in ``reverse`` takes time linear in the size of ``tl`` (which equals ``l.tail``). 
+To establish this we need two facts, (a) the function ``append`` takes time that is linear
+in the size of its first argument, (b)  the size of the list returned by ``reverse`` is equal to the size of the input list, which in turn requires that the sizes of the lists returned by ``append`` is  equal to sum of the sizes of the input lists.
+These relationships between the sizes of the input and output lists of ``reverse`` and ``append`` can be stated in their postconditions along with the resource bounds as shown below, and will be used during the verification of bounds.
 
 .. code-block:: scala
 
@@ -164,9 +165,9 @@ Resources Supported
 Leon currently supports the following resource bounds, which can be used in the *postcondition* of functions.
 Let `f` be a function. The following keywords can be used in its postcondition, and have the following meaning.
 
-* **steps** - Number of steps in the evaluation of the function on a given input. This is an abstraction of time taken by the function on a given input. 
-* **alloc** - Number of objects allocated in the heap by the function on a given input. This is an abstraction of heap memory usage
-* **stack** - Stack size in words (4 bytes) consumed by the function on a given input. This is an abstraction of stack memory usage
+* **steps** - Number of steps in the evaluation of the function on a given input. This is an abstraction of the time taken by the function on a given input.
+* **alloc** - Number of objects allocated in the heap by the function on a given input. This is an abstraction of heap memory usage.
+* **stack** - Stack size in words (4 bytes) consumed by the function on a given input. This is an abstraction of stack memory usage.
 * **depth** - The longest chain of data dependencies between the operations executed by the function on a given input. This is a measure of parallel execution time.
 * **rec**   - Number of recursive calls, including mutually recursive calls, executed by the function on a given input. This is similar to a loop count of a single loop. Note that calls to functions that do not belong to the same strongly-connected component (SCC) are not counted by this resource.		  
 
@@ -197,7 +198,7 @@ A common use case is shown below:
 	./leon --inferInv --minbounds=0 --solvers=orb-smt-z3 ./testcases/orb-testcases/timing/AVLTree.scala
 
 The option ``--inferInv`` invokes the resource verifier. The option ``--minbounds=0``
-instructs the verifier to minimize the bounds with a lower bound of 0 for the coefficients. 
+instructs the verifier to minimize the bounds using a lower bound of 0 for the coefficients. 
 The option ``--solvers=orb-smt-z3`` configures the verifier to use the SMT Z3 solver through the 
 SMTLIB interface to solve formulas that are generated during inference.
 This option is recommended if it is necessary to impose hard time limits on resource verification.
@@ -255,8 +256,12 @@ check the following publications that explain the underlying techniques.
 Contributors
 ------------
 
+Find below a list people who have contribtued to the resource verification sub-system `Orb`.
+
  **Contributor**, **Organization**, **Github Username**
 
 * Ravi Madhavan, EPFL, `ravimad`
-* Prateek Fegade (during 2015 Summer), IIT Bombay , `pratikfegade`
+* Pratik Fegade (during 2015 Summer), IIT Bombay , `pratikfegade`
 * Sumith Kulal (during 2016 Summer), IIT Bombay, `sumith1896`
+
+Orb depends extensively on the rest of the code base of Leon. In particular, it relies on functionalities provided by the  Leon Frontend, Leon SMT Solver APIs, and Leon Abstract Syntax Trees. These are contributed, and maintained by many others who are not mentioned above.
