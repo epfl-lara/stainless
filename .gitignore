@@ -1,0 +1,67 @@
+# Vim
+*.swp
+
+# emacs
+*~
+
+# ensime
+.ensime
+.ensime_cache
+
+# sbt
+target
+/project/build
+/leon
+/setupenv
+/leon-bench
+/.test-history
+/out-classes
+
+# synthesis
+derivation*.dot
+
+# leon
+last.log
+*.last
+*.table
+*.log
+smt-sessions/
+leon.out/
+repairs.dat
+tmp
+
+#eclipse
+.cache
+.classpath
+.project
+.settings/
+.worksheet/
+
+#intellij
+.idea
+Leon.eml
+Leon.iml
+/.idea_modules
+
+#scripts
+out-classes
+
+#z3
+.z3-trace
+
+#travis
+/travis/builds
+
+# Windows
+/bin/
+/cvc4.exe
+/libz3.dll
+/libz3.lib
+/msvcp100.dll
+/msvcr100.dll
+/scalaz3.dll
+/scalaz3.lib
+/vcomp100.dll
+/z3.exe
+/libz3java.dll
+/libz3java.lib

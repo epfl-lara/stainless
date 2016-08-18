@@ -1,0 +1,377 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
+package stainless
+package ast
+
+/* @nv: necessary to ensure the self-type bound of SymbolOps can be satisfied
+ *      while at the same time having {{{val trees: stainless.ast.Trees}}} */
+trait TypeOps extends inox.ast.TypeOps {
+  protected val trees: Trees
+}
+
+trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
+  import trees._
+  import trees.exprOps._
+  import symbols._
+
+  /** Recursively transforms a pattern on a boolean formula expressing the conditions for the input expression, possibly including name binders
+    *
+    * For example, the following pattern on the input `i`
+    * {{{
+    * case m @ MyCaseClass(t: B, (_, 7)) =>
+    * }}}
+    * will yield the following condition before simplification (to give some flavour)
+    *
+    * {{{and(IsInstanceOf(MyCaseClass, i), and(Equals(m, i), InstanceOfClass(B, i.t), equals(i.k.arity, 2), equals(i.k._2, 7))) }}}
+    *
+    * Pretty-printed, this would be:
+    * {{{
+    * i.instanceOf[MyCaseClass] && m == i && i.t.instanceOf[B] && i.k.instanceOf[Tuple2] && i.k._2 == 7
+    * }}}
+    *
+    * @see [[purescala.Expressions.Pattern]]
+    */
+  def conditionForPattern(in: Expr, pattern: Pattern, includeBinders: Boolean = false): Path = {
+    def bind(ob: Option[ValDef], to: Expr): Path = {
+      if (!includeBinders) {
+        Path.empty
+      } else {
+        ob.map(vd => Path.empty withBinding (vd -> to)).getOrElse(Path.empty)
+      }
+    }
+
+    def rec(in: Expr, pattern: Pattern): Path = {
+      pattern match {
+        case WildcardPattern(ob) =>
+          bind(ob, in)
+
+        case InstanceOfPattern(ob, ct) =>
+          val tcd = ct.tcd
+          if (tcd.root == tcd) {
+            bind(ob, in)
+          } else {
+            Path(isInstOf(in, ct)) merge bind(ob, in)
+          }
+
+        case CaseClassPattern(ob, ct, subps) =>
+          val tcd = ct.tcd.toCase
+          assert(tcd.fields.size == subps.size)
+          val pairs = tcd.fields zip subps
+          val subTests = pairs.map(p => rec(caseClassSelector(asInstOf(in, ct), p._1.id), p._2))
+          Path(isInstOf(in, ct)) merge bind(ob, in) merge subTests
+
+        case TuplePattern(ob, subps) =>
+          val TupleType(tpes) = in.getType
+          assert(tpes.size == subps.size)
+          val subTests = subps.zipWithIndex.map { case (p, i) => rec(tupleSelect(in, i+1, subps.size), p) }
+          bind(ob, in) merge subTests
+
+        case up @ UnapplyPattern(ob, id, tps, subps) =>
+          val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (rec _).tupled
+          bind(ob, in) withCond up.isSome(in) merge subs
+
+        case LiteralPattern(ob, lit) =>
+          Path(Equals(in, lit)) merge bind(ob, in)
+      }
+    }
+
+    rec(in, pattern)
+  }
+
+  /** Converts the pattern applied to an input to a map between identifiers and expressions */
+  def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef,Expr] = {
+    def bindIn(vd: Option[ValDef], cast: Option[ClassType] = None): Map[ValDef,Expr] = vd match {
+      case None => Map()
+      case Some(vd) => Map(vd -> cast.map(asInstOf(in, _)).getOrElse(in))
+    }
+
+    pattern match {
+      case CaseClassPattern(b, ct, subps) =>
+        assert(ct.tcd.toCase.fields.size == subps.size)
+        val pairs = ct.tcd.toCase.fields zip subps
+        val subMaps = pairs.map(p => mapForPattern(caseClassSelector(asInstOf(in, ct), p._1.id), p._2))
+        val together = subMaps.flatten.toMap
+        bindIn(b, Some(ct)) ++ together
+
+      case TuplePattern(b, subps) =>
+        val TupleType(tpes) = in.getType
+        assert(tpes.size == subps.size)
+
+        val maps = subps.zipWithIndex.map { case (p, i) => mapForPattern(tupleSelect(in, i+1, subps.size), p)}
+        val map = maps.flatten.toMap
+        bindIn(b) ++ map
+
+      case up @ UnapplyPattern(b, _, _, subps) =>
+        bindIn(b) ++ unwrapTuple(up.getUnsafe(in), subps.size).zip(subps).flatMap {
+          case (e, p) => mapForPattern(e, p)
+        }.toMap
+
+      case InstanceOfPattern(b, ct) =>
+        bindIn(b, Some(ct))
+
+      case other =>
+        bindIn(other.binder)
+    }
+  }
+
+  /** Rewrites all pattern-matching expressions into if-then-else expressions
+    * Introduces additional error conditions. Does not introduce additional variables.
+    */
+  def matchToIfThenElse(expr: Expr): Expr = {
+
+    def rewritePM(e: Expr): Option[Expr] = e match {
+      case m @ MatchExpr(scrut, cases) =>
+        // println("Rewriting the following PM: " + e)
+
+        val condsAndRhs = for (cse <- cases) yield {
+          val map = mapForPattern(scrut, cse.pattern)
+          val patCond = conditionForPattern(scrut, cse.pattern, includeBinders = false)
+          val realCond = cse.optGuard match {
+            case Some(g) => patCond withCond replaceFromSymbols(map, g)
+            case None => patCond
+          }
+          val newRhs = replaceFromSymbols(map, cse.rhs)
+          (realCond.toClause, newRhs, cse)
+        }
+
+        val bigIte = condsAndRhs.foldRight[Expr](Error(m.getType, "Match is non-exhaustive").copiedFrom(m))((p1, ex) => {
+          if(p1._1 == BooleanLiteral(true)) {
+            p1._2
+          } else {
+            IfExpr(p1._1, p1._2, ex).copiedFrom(p1._3)
+          }
+        })
+
+        Some(bigIte)
+
+      case _ => None
+    }
+
+    preMap(rewritePM)(expr)
+  }
+
+  /** For each case in the [[purescala.Expressions.MatchExpr MatchExpr]],
+   *  concatenates the path condition with the newly induced conditions.
+   *
+   *  Each case holds the conditions on other previous cases as negative.
+   *
+    * @see [[purescala.ExprOps#conditionForPattern conditionForPattern]]
+    * @see [[purescala.ExprOps#mapForPattern mapForPattern]]
+    */
+  def matchExprCaseConditions(m: MatchExpr, path: Path) : Seq[Path] = {
+    val MatchExpr(scrut, cases) = m
+    var pcSoFar = path
+
+    for (c <- cases) yield {
+      val g = c.optGuard getOrElse BooleanLiteral(true)
+      val cond = conditionForPattern(scrut, c.pattern, includeBinders = true)
+      val localCond = pcSoFar merge (cond withCond g)
+
+      // These contain no binders defined in this MatchCase
+      val condSafe = conditionForPattern(scrut, c.pattern)
+      val gSafe = replaceFromSymbols(mapForPattern(scrut, c.pattern), g)
+      pcSoFar = pcSoFar merge (condSafe withCond gSafe).negate
+
+      localCond
+    }
+  }
+
+  /** Condition to pass this match case, expressed w.r.t scrut only */
+  def matchCaseCondition(scrut: Expr, c: MatchCase): Path = {
+
+    val patternC = conditionForPattern(scrut, c.pattern, includeBinders = false)
+
+    c.optGuard match {
+      case Some(g) =>
+        // guard might refer to binders
+        val map  = mapForPattern(scrut, c.pattern)
+        patternC withCond replaceFromSymbols(map, g)
+
+      case None =>
+        patternC
+    }
+  }
+
+
+  /* ======================
+   * Stainless Constructors
+   * ====================== */
+
+  def tupleWrapArg(fun: Expr) = fun.getType match {
+    case FunctionType(args, res) if args.size > 1 =>
+      val newArgs = fun match {
+        case Lambda(args, _) => args
+        case _ => args map (tpe => ValDef(FreshIdentifier("x", true), tpe))
+      }
+
+      val res = ValDef(FreshIdentifier("res", true), TupleType(args))
+      val patt = TuplePattern(None, newArgs map (arg => WildcardPattern(Some(arg))))
+      Lambda(Seq(res), MatchExpr(res.toVariable, Seq(
+        MatchCase(patt, None, application(fun, newArgs map (_.toVariable)))
+      )))
+
+    case _ => fun
+  }
+
+  def assertion(c: Expr, err: Option[String], res: Expr) = {
+    if (c == BooleanLiteral(true)) {
+      res
+    } else if (c == BooleanLiteral(false)) {
+      Error(res.getType, err.getOrElse("Assertion failed"))
+    } else {
+      Assert(c, err, res)
+    }
+  }
+
+  def req(pred: Expr, body: Expr) = pred match {
+    case BooleanLiteral(true)  => body
+    case BooleanLiteral(false) => Error(body.getType, "Precondition failed")
+    case _ => Require(pred, body)
+  }
+
+  def ensur(e: Expr, pred: Expr) = {
+    Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda])
+  }
+
+
+  /* =================
+   * Body manipulation
+   * ================= */
+
+  /** Returns whether a particular [[Expressions.Expr]] contains specification
+    * constructs, namely [[Expressions.Require]] and [[Expressions.Ensuring]].
+    */
+  def hasSpec(e: Expr): Boolean = e match {
+    case Require(_, _) => true
+    case Ensuring(_, _) => true
+    case Let(i, e, b) => hasSpec(b)
+    case _ => false
+  }
+
+  /** Merges the given [[Path]] into the provided [[Expressions.Expr]].
+    *
+    * This method expects to run on a [[Definitions.FunDef.fullBody]] and merges into
+    * existing pre- and postconditions.
+    *
+    * @param expr The current body
+    * @param path The path that should be wrapped around the given body
+    * @see [[Expressions.Ensuring]]
+    * @see [[Expressions.Require]]
+    */
+  def withPath(expr: Expr, path: Path): Expr = {
+    def unwrap(e: Expr): Lambda = e match {
+      case Let(i, e, b) =>
+        val Lambda(args, body) = unwrap(b)
+        Lambda(args, let(i, e, body))
+      case l: Lambda => l
+      case _ => scala.sys.error("Should never happen!")
+    }
+
+    def spec(cond: Expr, es: Seq[Expr]): Expr = es match {
+      case Seq(e) => req(cond, e)
+      case Seq(e, pre) => req(and(cond, pre), e)
+      case Seq(e, pre, post) => ensur(req(and(cond, pre), e), unwrap(post))
+      case _ => scala.sys.error("Should never happen!")
+    }
+
+    expr match {
+      case Let(i, e, b) => withPath(b, path withBinding (i -> e))
+      case Require(pre, b) => path withShared (Seq(b, pre), spec)
+      case Ensuring(Require(pre, b), post) => path withShared (Seq(b, pre, post), spec)
+      case Ensuring(b, post) => path withShared (Seq(b, BooleanLiteral(true), post), spec)
+      case b => path withShared (Seq(b), spec)
+    }
+  }
+
+  /** Replaces the precondition of an existing [[Expressions.Expr]] with a new one.
+    *
+    * If no precondition is provided, removes any existing precondition.
+    * Else, wraps the expression with a [[Expressions.Require]] clause referring to the new precondition.
+    *
+    * @param expr The current expression
+    * @param pred An optional precondition. Setting it to None removes any precondition.
+    * @see [[Expressions.Ensuring]]
+    * @see [[Expressions.Require]]
+    */
+  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr = (pred, expr) match {
+    case (Some(newPre), Require(pre, b))              => req(newPre, b)
+    case (Some(newPre), Ensuring(Require(pre, b), p)) => Ensuring(req(newPre, b), p)
+    case (Some(newPre), Ensuring(b, p))               => Ensuring(req(newPre, b), p)
+    case (Some(newPre), Let(i, e, b)) if hasSpec(b)   => Let(i, e, withPrecondition(b, pred))
+    case (Some(newPre), b)                            => req(newPre, b)
+    case (None, Require(pre, b))                      => b
+    case (None, Ensuring(Require(pre, b), p))         => Ensuring(b, p)
+    case (None, Let(i, e, b)) if hasSpec(b)           => Let(i, e, withPrecondition(b, pred))
+    case (None, b)                                    => b
+  }
+
+  /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
+    *
+    * If no postcondition is provided, removes any existing postcondition.
+    * Else, wraps the expression with a [[Expressions.Ensuring]] clause referring to the new postcondition.
+    *
+    * @param expr The current expression
+    * @param oie An optional postcondition. Setting it to None removes any postcondition.
+    * @see [[Expressions.Ensuring]]
+    * @see [[Expressions.Require]]
+    */
+  def withPostcondition(expr: Expr, oie: Option[Expr]): Expr = (oie, expr) match {
+    case (Some(npost), Ensuring(b, post))          => ensur(b, npost)
+    case (Some(npost), Let(i, e, b)) if hasSpec(b) => Let(i, e, withPostcondition(b, oie))
+    case (Some(npost), b)                          => ensur(b, npost)
+    case (None, Ensuring(b, p))                    => b
+    case (None, Let(i, e, b)) if hasSpec(b)        => Let(i, e, withPostcondition(b, oie))
+    case (None, b)                                 => b
+  }
+
+  /** Adds a body to a specification
+    *
+    * @param expr The specification expression [[Expressions.Ensuring]] or [[Expressions.Require]]. If none of these, the argument is discarded.
+    * @param body An option of [[Expressions.Expr]] possibly containing an expression body.
+    * @return The post/pre condition with the body. If no body is provided, returns [[Expressions.NoTree]]
+    * @see [[Expressions.Ensuring]]
+    * @see [[Expressions.Require]]
+    */
+  def withBody(expr: Expr, body: Option[Expr]): Expr = expr match {
+    case Let(i, e, b) if hasSpec(b)      => Let(i, e, withBody(b, body))
+    case Require(pre, _)                 => Require(pre, body.getOrElse(NoTree(expr.getType)))
+    case Ensuring(Require(pre, _), post) => Ensuring(Require(pre, body.getOrElse(NoTree(expr.getType))), post)
+    case Ensuring(_, post)               => Ensuring(body.getOrElse(NoTree(expr.getType)), post)
+    case _                               => body.getOrElse(NoTree(expr.getType))
+  }
+
+  /** Extracts the body without its specification
+    *
+    * [[Expressions.Expr]] trees contain its specifications as part of certain nodes.
+    * This function helps extracting only the body part of an expression
+    *
+    * @return An option type with the resulting expression if not [[Expressions.NoTree]]
+    * @see [[Expressions.Ensuring]]
+    * @see [[Expressions.Require]]
+    */
+  def withoutSpec(expr: Expr): Option[Expr] = expr match {
+    case Let(i, e, b)                    => withoutSpec(b).map(Let(i, e, _))
+    case Require(pre, b)                 => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(Require(pre, b), post) => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(b, post)               => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case b                               => Option(b).filterNot(_.isInstanceOf[NoTree])
+  }
+
+  /** Returns the precondition of an expression wrapped in Option */
+  def preconditionOf(expr: Expr): Option[Expr] = expr match {
+    case Let(i, e, b)                 => preconditionOf(b).map(Let(i, e, _).copiedFrom(expr))
+    case Require(pre, _)              => Some(pre)
+    case Ensuring(Require(pre, _), _) => Some(pre)
+    case b                            => None
+  }
+
+  /** Returns the postcondition of an expression wrapped in Option */
+  def postconditionOf(expr: Expr): Option[Expr] = expr match {
+    case Let(i, e, b)      => postconditionOf(b).map(Let(i, e, _).copiedFrom(expr))
+    case Ensuring(_, post) => Some(post)
+    case _                 => None
+  }
+
+  /** Returns a tuple of precondition, the raw body and the postcondition of an expression */
+  def breakDownSpecs(e: Expr) = (preconditionOf(e), withoutSpec(e), postconditionOf(e))
+}
