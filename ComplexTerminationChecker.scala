@@ -46,6 +46,7 @@ class ComplexTerminationChecker(context: LeonContext, initProgram: Program) exte
   }
 
   def processors = List(
+    //new DecreasesByProcessor(this),
     new RecursionProcessor(this, modules),
     // RelationProcessor is the only Processor which benefits from trying a different RelationComparator
     new RelationProcessor(this, modulesBV),
