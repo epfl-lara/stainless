@@ -10,17 +10,17 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   def deconstruct(pattern: s.Pattern): (Seq[s.Expr], Seq[s.Type], Seq[s.Pattern], (Seq[t.Expr], Seq[t.Type], Seq[t.Pattern]) => t.Pattern) = pattern match {
     case s.InstanceOfPattern(binder, ct) =>
       (Seq(), binder.map(_.tpe).toSeq :+ ct, Seq(), (es, tps, pats) => binder match {
-        case Some(vd) => t.InstanceOfPattern(Some(t.ValDef(vd.id, tps(0))), tps(1).asInstanceOf[t.ClassType])
-        case None => t.InstanceOfPattern(None, tps(0).asInstanceOf[t.ClassType])
+        case Some(vd) => t.InstanceOfPattern(Some(t.ValDef(vd.id, tps(0))), tps(1).asInstanceOf[t.ADTType])
+        case None => t.InstanceOfPattern(None, tps(0).asInstanceOf[t.ADTType])
       })
     case s.WildcardPattern(binder) => (
       Seq(), binder.map(_.tpe).toSeq, Seq(),
       (es, tps, pats) => t.WildcardPattern((binder zip tps).map(p => t.ValDef(p._1.id, p._2)).headOption)
     )
-    case s.CaseClassPattern(binder, ct, subs) => (
+    case s.ADTPattern(binder, ct, subs) => (
       Seq(), binder.map(_.tpe).toSeq :+ ct, subs, (es, tps, pats) => binder match {
-        case Some(vd) => t.CaseClassPattern(Some(t.ValDef(vd.id, tps(0))), tps(1).asInstanceOf[t.ClassType], pats)
-        case None => t.CaseClassPattern(None, tps(0).asInstanceOf[t.ClassType], pats)
+        case Some(vd) => t.ADTPattern(Some(t.ValDef(vd.id, tps(0))), tps(1).asInstanceOf[t.ADTType], pats)
+        case None => t.ADTPattern(None, tps(0).asInstanceOf[t.ADTType], pats)
       })
     case s.TuplePattern(binder, subs) => (
       Seq(), binder.map(_.tpe).toSeq, subs,
@@ -104,6 +104,11 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
 
     case _ => super.deconstruct(expr)
   }
+
+  override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[t.Type] => t.Type) = tpe match {
+    case s.ArrayType(base) => (Seq(base), tps => t.ArrayType(tps(0)))
+    case _ => super.deconstruct(tpe)
+  }
 }
 
 trait Extractors extends inox.ast.Extractors { self: Trees =>
@@ -124,16 +129,5 @@ trait Extractors extends inox.ast.Extractors { self: Trees =>
       val (es, tps, pats, builder) = deconstructor.deconstruct(pat)
       Some(pats, patss => builder(es, tps, patss))
     }
-  }
-
-  object Pattern {
-    def unapply(pat: Pattern): Option[(Option[ValDef], Seq[Pattern], (Option[ValDef], Seq[Pattern]) => Pattern)] = Some(pat match {
-      case InstanceOfPattern(binder, ct) => (binder, Seq(), (b, pats) => InstanceOfPattern(b, ct))
-      case WildcardPattern(binder) => (binder, Seq(), (b, pats) => WildcardPattern(b))
-      case CaseClassPattern(binder, ct, subs) => (binder, subs, (b, pats) => CaseClassPattern(b, ct, pats))
-      case TuplePattern(binder, subs) => (binder, subs, (b, pats) => TuplePattern(b, pats))
-      case LiteralPattern(binder, lit) => (binder, Seq(), (b, pats) => LiteralPattern(b, lit))
-      case UnapplyPattern(binder, id, tps, subs) => (binder, subs, (b, pats) => UnapplyPattern(b, id, tps, pats))
-    })
   }
 }

@@ -11,22 +11,20 @@
 # sbt
 target
 /project/build
-/leon
-/setupenv
-/leon-bench
+/stainless
 /.test-history
 /out-classes
 
 # synthesis
 derivation*.dot
 
-# leon
+# stainless
 last.log
 *.last
 *.table
 *.log
 smt-sessions/
-leon.out/
+stainless.out/
 repairs.dat
 tmp
 

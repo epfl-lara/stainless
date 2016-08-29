@@ -3,7 +3,7 @@
 package stainless
 package ast
 
-trait Expressions extends inox.ast.Expressions { self: Trees =>
+trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees =>
 
   /** Stands for an undefined Expr, similar to `???` or `null`
     *
@@ -111,24 +111,19 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
     *
     * @see [[Expressions.MatchCase]]
     */
-  sealed abstract class Pattern extends Tree {
+  abstract class Pattern extends Tree {
     val subPatterns: Seq[Pattern]
     val binder: Option[ValDef]
 
     private def subBinders = subPatterns.flatMap(_.binders).toSet
     def binders: Set[ValDef] = subBinders ++ binder.toSet
-
-    def withBinder(vd: ValDef) = (this match {
-      case Pattern(None, subs, builder) => builder(Some(vd), subs)
-      case other => other
-    }).copiedFrom(this)
   }
 
   /** Pattern encoding `case binder: ct`
     *
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
-  case class InstanceOfPattern(binder: Option[ValDef], ct: ClassType) extends Pattern {
+  case class InstanceOfPattern(binder: Option[ValDef], tpe: ADTType) extends Pattern {
     val subPatterns = Seq()
   }
 
@@ -141,7 +136,7 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
     *
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
-  case class CaseClassPattern(binder: Option[ValDef], ct: ClassType, subPatterns: Seq[Pattern]) extends Pattern
+  case class ADTPattern(binder: Option[ValDef], tpe: ADTType, subPatterns: Seq[Pattern]) extends Pattern
 
   /** Pattern encoding tuple pattern `case binder @ (subPatterns...) =>`
     *
@@ -162,14 +157,14 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
     def tfd(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
     // Hacky, but ok
-    def optionType(implicit s: Symbols): ClassType = tfd.returnType.asInstanceOf[ClassType].tcd.root.toType
+    def optionType(implicit s: Symbols): ADTType = tfd.returnType.asInstanceOf[ADTType].getADT.root.toType
     
-    private def optionChildren(implicit s: Symbols): Seq[TypedCaseClassDef] =
-      optionType.tcd.asInstanceOf[TypedAbstractClassDef].descendants.sortBy(_.fields.size)
-    def noneType(implicit s: Symbols): ClassType = optionChildren.apply(0).toType
-    def someType(implicit s: Symbols): ClassType = optionChildren.apply(1).toType
+    private def optionChildren(implicit s: Symbols): Seq[TypedADTConstructor] =
+      optionType.getADT.toSort.constructors.sortBy(_.fields.size)
+    def noneType(implicit s: Symbols): ADTType = optionChildren.apply(0).toType
+    def someType(implicit s: Symbols): ADTType = optionChildren.apply(1).toType
 
-    def someSelector(implicit s: Symbols): Identifier = someType.tcd.toCase.fields.head.id
+    def someSelector(implicit s: Symbols): Identifier = someType.getADT.toConstructor.fields.head.id
 
     /** Construct a pattern matching against unapply(scrut) (as an if-expression)
       *
@@ -186,7 +181,7 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
         FunctionInvocation(id, tps, Seq(scrut)),
         IfExpr(
           IsInstanceOf(binder.toVariable, someType),
-          someCase(CaseClassSelector(AsInstanceOf(binder.toVariable, someType), someSelector)),
+          someCase(ADTSelector(AsInstanceOf(binder.toVariable, someType), someSelector)),
           noneCase
         )
       )
@@ -201,7 +196,7 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
 
     /** Selects Some.v field without type-checking.
       * Use ONLY in a context where scrut.isDefined returns true! */
-    def getUnsafe(scrut: Expr)(implicit s: Symbols): Expr = CaseClassSelector(
+    def getUnsafe(scrut: Expr)(implicit s: Symbols): Expr = ADTSelector(
       AsInstanceOf(FunctionInvocation(id, tps, Seq(scrut)), someType),
       someSelector
     )
@@ -209,5 +204,49 @@ trait Expressions extends inox.ast.Expressions { self: Trees =>
     def isSome(scrut: Expr)(implicit s: Symbols): Expr =
       IsInstanceOf(FunctionInvocation(id, tps, Seq(scrut)), someType)
   }
+
+
+  /* Array Operations */
+
+  case class ArrayType(base: Type) extends Type
+
+  /** $encodingof `Array(elems...)` */
+  case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
+    def computeType(implicit s: Symbols): Type = ArrayType(base).unveilUntyped
+  }
+
+  /** $encodingof `Array(elems...)` for huge arrays
+    * @param elems   Map from an index to the corresponding element
+    * @param default Default value for indexes not in the [[elems]] map
+    * @param size    Array length
+    */
+  case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr) extends Expr with CachingTyped {
+    def computeType(implicit s: Symbols): Type = ArrayType(default.getType).unveilUntyped
+  }
+
+  /** $encodingof `array(index)` */
+  case class ArraySelect(array: Expr, index: Expr) extends Expr with CachingTyped {
+    def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+      case (ArrayType(base), Int32Type) => base
+      case _ => Untyped
+    }
+  }
+
+  /** $encodingof `array.updated(index, value)` */
+  case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
+    def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+      case (ArrayType(base), Int32Type) => ArrayType(s.leastUpperBound(base, value.getType).getOrElse(Untyped)).unveilUntyped
+      case _ => Untyped
+    }
+  }
+
+  /** $encodingof `array.length` */
+  case class ArrayLength(array: Expr) extends Expr with CachingTyped {
+    def computeType(implicit s: Symbols): Type = array.getType match {
+      case ArrayType(_) => Int32Type
+      case _ => Untyped
+    }
+  }
+
 
 }
