@@ -68,7 +68,7 @@ script := {
                             |
                             |SCALACLASSPATH=$paths
                             |
-                            |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=false stainless.Main $$@ 2>&1 | tee -i last.log
+                            |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
                             |""".stripMargin)
     scriptFile.setExecutable(true)
   } catch {
@@ -76,6 +76,24 @@ script := {
       s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
   }
 }
+
+sourceGenerators in Compile <+= Def.task {
+  val libraryFiles = ((baseDirectory.value / "library") ** "*.scala").getPaths
+  val build = (sourceManaged in Compile).value / "stainless" / "Build.scala"
+  IO.write(build, s"""|package stainless
+                      |
+                      |object Build {
+                      |  val baseDirectory = \"\"\"${baseDirectory.value.toString}\"\"\"
+                      |  val libraryFiles = List(
+                        ${libraryFiles
+                          .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
+                          .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
+                      |  )
+                      |}""".stripMargin)
+  Seq(build)
+}
+
+sourcesInBase in Compile := false
 
 Keys.fork in run := true
 

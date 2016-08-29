@@ -6,6 +6,7 @@ package xlang
 trait Trees
   extends ast.Trees
      with Expressions
+     with Extractors
      with Types {
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {

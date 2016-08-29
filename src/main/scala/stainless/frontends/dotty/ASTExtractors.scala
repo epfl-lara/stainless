@@ -157,7 +157,7 @@ trait ASTExtractors {
 
     object ExSymbol {
       def unapplySeq(t: tpd.Tree): Option[Seq[String]] =
-        Some(t.symbol.fullName.toString.split(".").toSeq)
+        Some(t.symbol.fullName.toString.split('.').toSeq)
     }
   }
 
@@ -213,14 +213,14 @@ trait ASTExtractors {
     object ExBigIntLiteral {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(ExSelected("scala", "package", "BigInt", "apply"), Seq(i)) => Some(i)
-        case Apply(ExSelected("leon", "lang", "package", "BigInt", "apply"), Seq(i)) => Some(i)
+        case Apply(ExSelected("stainless", "lang", "package", "BigInt", "apply"), Seq(i)) => Some(i)
         case _ => None
       }
     }
 
     object ExRealLiteral {
       def unapply(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
-        case Apply(ExSelected("leon", "lang", "Real", "apply"), args) => Some(args)
+        case Apply(ExSelected("stainless", "lang", "Real", "apply"), args) => Some(args)
         case _ => None
       }
     }
@@ -305,6 +305,20 @@ trait ASTExtractors {
 
   object StructuralExtractors {
 
+    object ExObjectDef {
+      def unapply(td: tpd.TypeDef): Boolean = {
+        val sym = td.symbol
+        td.isClassDef && ((sym is ModuleClass) || (sym is Package)) && !(sym is Synthetic) && !(sym is Case)
+      }
+    }
+
+    object ExClassDef {
+      def unapply(td: tpd.TypeDef): Boolean = {
+        val sym = td.symbol
+        td.isClassDef && ((sym is Abstract) || (sym is Case) || (sym is Implicit))
+      }
+    }
+
     object ExFunctionDef {
       def unapply(dd: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = dd match {
         case DefDef(name, tparams, vparamss, tpt, rhs) if name != nme.CONSTRUCTOR && !dd.symbol.is(Accessor) =>
@@ -387,7 +401,7 @@ trait ASTExtractors {
           Select(Apply(TypeApply(ExSelected("scala", "Predef", "Ensuring"), Seq(_)), Seq(body)), ExNamed("ensuring")),
           Seq(contract)) => Some((body, contract))
         case Apply(
-          Select(Apply(TypeApply(ExSelected("leon", "lang", "StaticChecks", "any2Ensuring"), Seq(_)), Seq(body)), ExNamed("ensuring")),
+          Select(Apply(TypeApply(ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"), Seq(_)), Seq(body)), ExNamed("ensuring")),
           Seq(contract)) => Some((body, contract))
         case _ => None
       }
@@ -396,7 +410,7 @@ trait ASTExtractors {
     object ExHolds {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Select(
-          Apply(ExSelected("leon", "lang", "package", "BooleanDecorations"), Seq(expr)),
+          Apply(ExSelected("stainless", "lang", "package", "BooleanDecorations"), Seq(expr)),
           ExNamed("holds")) => Some(expr)
         case _ => None
       }
@@ -405,7 +419,7 @@ trait ASTExtractors {
     object ExBecause {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Apply(
-          Select(Apply(ExSelected("leon", "proof", "package", "boolean2ProofOps"), Seq(body)), ExNamed("because")),
+          Select(Apply(ExSelected("stainless", "proof", "package", "boolean2ProofOps"), Seq(body)), ExNamed("because")),
           Seq(proof)) => Some((body, proof))
         case _ => None
       }
@@ -414,7 +428,7 @@ trait ASTExtractors {
     object ExComputes {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Apply(
-          Select(Apply(TypeApply(ExSelected("leon", "lang", "package", "SpecsDecorations"), Seq(_)), Seq(body)), ExNamed("computes")),
+          Select(Apply(TypeApply(ExSelected("stainless", "lang", "package", "SpecsDecorations"), Seq(_)), Seq(body)), ExNamed("computes")),
           Seq(expected)) => Some((body, expected))
         case _ => None
       }

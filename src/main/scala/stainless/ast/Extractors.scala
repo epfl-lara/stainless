@@ -102,6 +102,22 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
         })
       })
 
+    case s.FiniteArray(elems, base) =>
+      (elems, Seq(base), (es, tps) => t.FiniteArray(es, tps.head))
+
+    case s.LargeArray(elems, default, size) =>
+      val (keys, values) = elems.toSeq.unzip
+      (values :+ default :+ size, Seq.empty, { case (es :+ nd :+ ns, _) => t.LargeArray((keys zip es).toMap, nd, ns) })
+
+    case s.ArraySelect(array, index) =>
+      (Seq(array, index), Seq.empty, (es, tps) => t.ArraySelect(es(0), es(1)))
+
+    case s.ArrayUpdated(array, index, value) =>
+      (Seq(array, index, value), Seq.empty, (es, tps) => t.ArrayUpdated(es(0), es(1), es(2)))
+
+    case s.ArrayLength(array) =>
+      (Seq(array), Seq.empty, (es, tps) => t.ArrayLength(es.head))
+
     case _ => super.deconstruct(expr)
   }
 

@@ -51,13 +51,21 @@ trait Types extends inox.ast.Types with inox.ast.Definitions with ast.Trees { se
 
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")
 
-  case object IsInvariant extends Annotation("__$invariant", Seq.empty)
-  case object IsAbstract extends Annotation("__$abstract", Seq.empty)
-  case object IsInlined extends Annotation("__$inline", Seq.empty)
-  case object IsVar extends Annotation("__$var", Seq.empty)
+  object IsInvariant extends Annotation("__$invariant", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "invariant" }
+  object IsAbstract extends Annotation("__$abstract", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "abstract" }
+  object IsInlined extends Annotation("__$inline", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "inline" }
+  object IsVar extends Annotation("__$var", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "var" }
 
-  case class IsField(isLazy: Boolean) extends Annotation("__$field", Seq(Some(isLazy)))
-  case object Ignore extends Annotation("ignore", Seq.empty)
+  object Ignore extends Annotation("stainless.annotation.package$.ignore", Seq.empty)
+  class IsField(val isLazy: Boolean) extends Annotation("__$field", Seq(Some(isLazy)))
+  
+  object IsField {
+    def apply(isLazy: Boolean) = new IsField(isLazy)
+    def unapply(annot: Annotation): Option[Boolean] = annot match {
+      case Annotation("__$field", Seq(Some(isLazy: Boolean))) => Some(isLazy)
+      case _ => None
+    }
+  }
 
   class ClassDef(
     val id: Identifier,

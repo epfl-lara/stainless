@@ -19,7 +19,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** Computational errors (unmatched case, taking min of an empty set,
     * division by zero, etc.). Corresponds to the ``error[T](description)``
-    * Leon library function.
+    * Stainless library function.
     * It should always be typed according to the expected type.
     *
     * @param tpe The type of this expression
@@ -29,7 +29,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     def getType(implicit s: Symbols): Type = tpe
   }
 
-  /** Precondition of an [[Expressions.Expr]]. Corresponds to the Leon keyword *require*
+  /** Precondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *require*
     *
     * @param pred The precondition formula inside ``require(...)``
     * @param body The body following the ``require(...)``
@@ -41,7 +41,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     }
   }
 
-  /** Postcondition of an [[Expressions.Expr]]. Corresponds to the Leon keyword *ensuring*
+  /** Postcondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *ensuring*
     *
     * @param body The body of the expression. It can contain at most one [[Expressions.Require]] sub-expression.
     * @param pred The predicate to satisfy. It should be a function whose argument's type can handle the type of the body

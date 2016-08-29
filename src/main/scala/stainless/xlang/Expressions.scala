@@ -3,12 +3,7 @@
 package stainless
 package xlang
 
-trait Expressions extends ast.Expressions with ast.Extractors { self: Trees =>
-
-  val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  }
+trait Expressions extends ast.Expressions { self: Trees =>
 
   /* XLang functional trees to desugar */
 
@@ -86,17 +81,6 @@ trait Expressions extends ast.Expressions with ast.Extractors { self: Trees =>
       case (ArrayType(base), Int32Type) if s.isSubtypeOf(value.getType, base) => UnitType
       case _ => Untyped
     }
-  }
-}
-
-trait TreeDeconstructor extends ast.TreeDeconstructor {
-  protected val s: Trees
-  protected val t: Trees
-
-  override def deconstruct(e: s.Expr): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
-    case s.MethodInvocation(rec, id, tps, args) =>
-      (rec +: args, tps, (es, tps) => t.MethodInvocation(es(0), id, tps, es.tail))
-    case _ => super.deconstruct(e)
   }
 }
 

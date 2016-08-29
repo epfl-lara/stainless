@@ -13,6 +13,7 @@ object Main {
       def newCompiler(implicit ctx: Context) = new frontends.dotty.DottyCompiler(inoxCtx)
     }
 
-    driver.process(args)
+    val compilerArgs = args.filterNot(_.startsWith("--")) ++ Build.libraryFiles
+    driver.process(compilerArgs)
   }
 }
