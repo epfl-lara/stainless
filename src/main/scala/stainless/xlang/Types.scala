@@ -5,30 +5,7 @@ package xlang
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Types extends inox.ast.Types with inox.ast.Definitions with ast.Trees { self: Trees =>
-
-  class VarDef(id: Identifier, tpe: Type) extends ValDef(id, tpe) {
-    override val flags: Set[Annotation] = Set(IsVar)
-  }
-
-  object VarDef {
-    def apply(id: Identifier, tpe: Type): VarDef = new VarDef(id, tpe)
-    def unapply(d: Definition): Option[(Identifier, Type)] = d match {
-      case vd: ValDef if vd.flags(IsVar) => Some(vd.id -> vd.tpe)
-      case _ => None
-    }
-  }
-
-  implicit def convertToVar = new VariableConverter[VarDef] {
-    def convert(vs: VariableSymbol): VarDef = vs match {
-      case vd: VarDef => vd
-      case _ => VarDef(vs.id, vs.tpe)
-    }
-  }
-
-  implicit class VariableSymbolToVar(vs: VariableSymbol) {
-    def toVar: VarDef = vs.to[VarDef]
-  }
+trait Types extends inox.ast.Types { self: Trees =>
 
   class ClassType(id: Identifier, tps: Seq[Type]) extends ADTType(id, tps) {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
@@ -47,101 +24,6 @@ trait Types extends inox.ast.Types with inox.ast.Definitions with ast.Trees { se
       case ct: ClassType => Some((ct.id, ct.tps))
       case _ => None
     }
-  }
-
-  case class ClassLookupException(id: Identifier) extends LookupException(id, "class")
-
-  object IsInvariant extends Annotation("__$invariant", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "invariant" }
-  object IsAbstract extends Annotation("__$abstract", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "abstract" }
-  object IsInlined extends Annotation("__$inline", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "inline" }
-  object IsVar extends Annotation("__$var", Seq.empty) { override def asString(implicit opts: PrinterOptions) = "var" }
-
-  object Ignore extends Annotation("stainless.annotation.package$.ignore", Seq.empty)
-  class IsField(val isLazy: Boolean) extends Annotation("__$field", Seq(Some(isLazy)))
-  
-  object IsField {
-    def apply(isLazy: Boolean) = new IsField(isLazy)
-    def unapply(annot: Annotation): Option[Boolean] = annot match {
-      case Annotation("__$field", Seq(Some(isLazy: Boolean))) => Some(isLazy)
-      case _ => None
-    }
-  }
-
-  class ClassDef(
-    val id: Identifier,
-    val tparams: Seq[TypeParameterDef],
-    val parent: Option[Identifier],
-    val fields: Seq[ValDef],
-    val methods: Seq[Identifier],
-    val flags: Set[Annotation]
-  ) extends Definition {
-
-    def root(implicit s: Symbols): ClassDef = parent.map(id => s.getClass(id).root).getOrElse(this)
-
-    def ancestors(implicit s: Symbols): Seq[ClassDef] = parent.map(id => s.getClass(id)) match {
-      case Some(pcd) => pcd +: pcd.ancestors
-      case None => Seq.empty
-    }
-
-    def typeArgs = tparams map (_.tp)
-
-    def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
-    def typed(implicit s: Symbols): TypedClassDef = typed(tparams.map(_.tp))
-  }
-
-  case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
-    lazy val id: Identifier = cd.id
-    lazy val root: TypedClassDef = cd.root.typed(tps)
-    lazy val ancestors: Seq[TypedClassDef] = cd.ancestors.map(_.typed(tps))
-
-    lazy val parent: Option[TypedClassDef] = cd.parent.map(id => symbols.getClass(id, tps))
-
-    lazy val fields: Seq[ValDef] = {
-      lazy val tmap = (cd.typeArgs zip tps).toMap
-      if (tmap.isEmpty) cd.fields
-      else cd.fields.map(vd => vd.copy(tpe = symbols.instantiateType(vd.tpe, tmap)))
-    }
-    
-    def toType = ClassType(id, tps)
-  }
-
-  type Symbols >: Null <: AbstractSymbols
-
-  trait AbstractSymbols extends super.AbstractSymbols with TypeOps { self0: Symbols =>
-    val classes: Map[Identifier, ClassDef]
-
-    private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
-    def lookupClass(id: Identifier): Option[ClassDef] = classes.get(id)
-    def lookupClass(id: Identifier, tps: Seq[Type]): Option[TypedClassDef] =
-      typedClassCache.getOrElseUpdate(id -> tps, lookupClass(id).map(_.typed(tps)))
-
-    def getClass(id: Identifier): ClassDef = lookupClass(id).getOrElse(throw ClassLookupException(id))
-    def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef = lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
-
-    override def asString(implicit opts: PrinterOptions): String = {
-      classes.map(p => PrettyPrinter(p._2, opts)).mkString("\n\n") +
-      "\n\n-----------\n\n" +
-      super.asString
-    }
-
-    override def transform(t: TreeTransformer): Symbols =
-      super.transform(t).withClasses(classes.values.toSeq.map(cd => new ClassDef(
-        cd.id,
-        cd.tparams,
-        cd.parent,
-        cd.fields.map(t.transform),
-        cd.methods,
-        cd.flags
-      )))
-
-    override def equals(that: Any): Boolean = super.equals(that) && (that match {
-      case sym: AbstractSymbols => classes == sym.classes
-      case _ => false
-    })
-
-    override def hashCode: Int = super.hashCode + 31 * classes.hashCode
-
-    def withClasses(classes: Seq[ClassDef]): Symbols
   }
 }
 

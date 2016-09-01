@@ -248,5 +248,4 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     }
   }
 
-
 }

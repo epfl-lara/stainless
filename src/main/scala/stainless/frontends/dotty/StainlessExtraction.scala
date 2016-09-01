@@ -19,7 +19,15 @@ class StainlessExtraction(inoxCtx: inox.InoxContext) extends Phase {
 
     tree match {
       case pd @ PackageDef(_, _) =>
-        println(extraction.extractPackage(pd))
+        val (pkg, allClasses, allFunctions) = extraction.extractPackage(pd)
+        val syms = xlang.trees.NoSymbols.withClasses(allClasses).withFunctions(allFunctions)
+        val program = new inox.Program {
+          val trees = xlang.trees
+          val ctx = inoxCtx
+          val symbols = syms
+        }
+
+        println(pkg.asString(program.printerOpts))
 
       case _ =>
         println(tree)

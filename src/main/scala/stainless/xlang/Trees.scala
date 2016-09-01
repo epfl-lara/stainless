@@ -5,9 +5,11 @@ package xlang
 
 trait Trees
   extends ast.Trees
+     with Definitions
      with Expressions
      with Extractors
-     with Types {
+     with Types
+     with Printers {
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
     protected val trees: Trees.this.type = Trees.this
