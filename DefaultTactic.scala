@@ -7,6 +7,8 @@ import purescala.Expressions._
 import purescala.ExprOps._
 import purescala.Definitions._
 import purescala.Constructors._
+import purescala.Extractors._
+import leon.synthesis.ExamplesFinder
 
 class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
   val description = "Default verification condition generation approach"
@@ -14,7 +16,22 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
   def generatePostconditions(fd: FunDef): Seq[VC] = {
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val vc = implies(fd.precOrTrue, application(post, Seq(body)))
+        val newpost = if(post match { case TopLevelAnds(conjuncts) => conjuncts.exists(_.isInstanceOf[Passes])}) {
+          val ef = new ExamplesFinder(vctx, vctx.program)
+          val examples = ef.extractFromFunDef(fd, true)
+          val examplesConditions = examples.invalids.collect{
+             case synthesis.InOutExample(in, out) =>
+               not(and(fd.paramIds.zip(in).map{ idVal => Equals(Variable(idVal._1), idVal._2)}: _*))
+          }
+          
+          post match {
+            case Lambda(vd, tla@TopLevelAnds(conjuncts)) =>
+              Lambda(vd, and(examplesConditions ++ conjuncts.filterNot(ExamplesFinder.isConcretelyTestablePasses) :_*).copiedFrom(tla)
+              ).copiedFrom(post)
+          }}
+          else post
+        
+        val vc = implies(fd.precOrTrue, application(newpost, Seq(body)))
         Seq(VC(vc, fd, VCKinds.Postcondition).setPos(post))
       case _ =>
         Nil
