@@ -16,14 +16,14 @@ class DefaultTactic(vctx: VerificationContext) extends Tactic(vctx) {
   def generatePostconditions(fd: FunDef): Seq[VC] = {
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val newpost = if(post match { case TopLevelAnds(conjuncts) => conjuncts.exists(_.isInstanceOf[Passes])}) {
+        val newpost = if(post match { case Lambda(vd, tla@TopLevelAnds(conjuncts)) => conjuncts.exists(_.isInstanceOf[Passes]) case _ => false}) {
           val ef = new ExamplesFinder(vctx, vctx.program)
           val examples = ef.extractFromFunDef(fd, true)
           val examplesConditions = examples.invalids.collect{
              case synthesis.InOutExample(in, out) =>
                not(and(fd.paramIds.zip(in).map{ idVal => Equals(Variable(idVal._1), idVal._2)}: _*))
           }
-          
+
           post match {
             case Lambda(vd, tla@TopLevelAnds(conjuncts)) =>
               Lambda(vd, and(examplesConditions ++ conjuncts.filterNot(ExamplesFinder.isConcretelyTestablePasses) :_*).copiedFrom(tla)
