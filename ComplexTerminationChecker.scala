@@ -50,14 +50,12 @@ class ComplexTerminationChecker(context: LeonContext, initProgram: Program) exte
     //new DecreasesByProcessor(this),
     new RecursionProcessor(this, modules),
     // RelationProcessor is the only Processor which benefits from trying a different RelationComparator
-    //new RelationProcessor(this, modulesBV),
+    new RelationProcessor(this, modulesBV),
     new RelationProcessor(this, modulesOuter),
     new RelationProcessor(this, modulesLexicographic),
-    new RelationProcessor(this, modules)
-    /*,
+    new RelationProcessor(this, modules),
     new ChainProcessor(this, modules),
     new SelfCallsProcessor(this),
-    new LoopProcessor(this, modules)*/
+    new LoopProcessor(this, modules)
   )
-
 }
