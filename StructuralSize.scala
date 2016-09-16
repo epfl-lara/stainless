@@ -9,6 +9,7 @@ import purescala.Types._
 import purescala.Definitions._
 import purescala.Constructors._
 import purescala.Common._
+import laziness.HOMemUtil._
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -142,7 +143,7 @@ trait StructuralSize {
       case cct @ CaseClassType(ccd, _) =>
         if (cct.fields.exists(arg => purescala.TypeOps.isSubtypeOf(arg.getType, cct.root))) None
         else if (ccd.hasParent && ccd.parent.get.knownDescendants.size > 1) None
-        else Some((cct, cct.fields.map(arg => arg.id -> arg.getType)))
+        else Some((cct, ccd.fields.map(arg => arg.id -> arg.getType)))
       case _ => None
     }
   }
@@ -150,7 +151,7 @@ trait StructuralSize {
   def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
     def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
       l.toSet.subsets.filter(_.nonEmpty).map{
-        (reconss : Set[Expr => Expr]) => (e : Expr) => 
+        (reconss : Set[Expr => Expr]) => (e : Expr) =>
           tupleWrap(reconss.toSeq map { f => f(e) })
       }.toSet
     }
@@ -182,7 +183,6 @@ trait StructuralSize {
         }.toSet
       case _ => Set((e: Expr) => e)
     }
-
     rec(tpe)
   }
 
@@ -199,6 +199,11 @@ trait StructuralSize {
       utils.fixpoint((cts: Set[ClassType]) => cts ++ cts.flatMap(deps))(Set(ct))
     }
 
+    // A hacky way for handling memoized programs: why is this happening
+    /*val se = expr match {
+      case f@FunctionInvocation(TypedFunDef(fd, _), Seq(arg)) if fd.id.name == "*" => arg
+      case e => e
+    }*/
     flatType(expr.getType).foldLeft[Expr](InfiniteIntegerLiteral(0)) { case (i, f) =>
       val e = f(expr)
       plus(i, e.getType match {
