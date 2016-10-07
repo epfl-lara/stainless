@@ -11,13 +11,6 @@ object Bag {
   def apply[T](elems: (T, BigInt)*) = {
     new Bag[T](scala.collection.immutable.Map[T, BigInt](elems : _*))
   }
-  
-  @extern @library
-  def mkString[A](bag: Bag[A], infix: String, f: A => String) = {
-    bag.theBag.flatMap{ case (k, v) => 
-      List.range(1, v.toString.toInt).map(_ => f(k))
-    }.toList.sorted.mkString(infix)
-  }
 }
 
 @ignore

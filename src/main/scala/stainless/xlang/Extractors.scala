@@ -14,33 +14,36 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
     case _ => super.deconstruct(vd)
   }
 
-  override def deconstruct(e: s.Expr): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
     case s.MethodInvocation(rec, id, tps, args) =>
-      (rec +: args, tps, (es, tps) => t.MethodInvocation(es(0), id, tps, es.tail))
+      (Seq(), rec +: args, tps, (_, es, tps) => t.MethodInvocation(es(0), id, tps, es.tail))
 
     case s.ClassConstructor(ct, args) =>
-      (args, Seq(ct), (es, tps) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
+      (Seq(), args, Seq(ct), (_, es, tps) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
 
     case s.ClassSelector(expr, selector) =>
-      (Seq(expr), Seq.empty, (es, tps) => t.ClassSelector(es.head, selector))
+      (Seq(), Seq(expr), Seq(), (_, es, _) => t.ClassSelector(es.head, selector))
 
     case s.This(ct) =>
-      (Seq.empty, Seq(ct), (es, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
+      (Seq(), Seq(), Seq(ct), (_, _, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
 
     case s.Block(exprs, last) =>
-      (exprs :+ last, Seq.empty, (es, tps) => t.Block(es.init, es.last))
+      (Seq(), exprs :+ last, Seq(), (_, es, _) => t.Block(es.init, es.last))
+
+    case s.LetVar(vd, value, expr) =>
+      (Seq(vd.toVariable), Seq(value, expr), Seq(), (vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
 
     case s.Assignment(v, value) =>
-      (Seq(v, value), Seq.empty, (es, tps) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
+      (Seq(v), Seq(value), Seq(), (vs, es, _) => t.Assignment(vs.head, es.head))
 
     case s.FieldAssignment(obj, selector, value) =>
-      (Seq(obj, value), Seq.empty, (es, tps) => t.FieldAssignment(es(0), selector, es(1)))
+      (Seq(), Seq(obj, value), Seq(), (_, es, _) => t.FieldAssignment(es(0), selector, es(1)))
 
     case s.While(cond, body, pred) =>
-      (Seq(cond, body) ++ pred, Seq.empty, (es, tps) => t.While(es(0), es(1), es.drop(2).headOption))
+      (Seq(), Seq(cond, body) ++ pred, Seq(), (_, es, _) => t.While(es(0), es(1), es.drop(2).headOption))
 
     case s.ArrayUpdate(array, index, value) =>
-      (Seq(array, index, value), Seq.empty, (es, tps) => t.ArrayUpdate(es(0), es(1), es(2)))
+      (Seq(), Seq(array, index, value), Seq(), (_, es, _) => t.ArrayUpdate(es(0), es(1), es(2)))
 
     case _ => super.deconstruct(e)
   }

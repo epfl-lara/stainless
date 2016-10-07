@@ -7,7 +7,7 @@ trait Printers extends ast.Printers { self: Trees =>
 
   protected def withSymbols[T <: Tree](elems: Seq[Either[T, Identifier]], header: String)
                                       (implicit ctx: PrinterContext): Unit = {
-    new StringContext(List.fill(elems.size - 1)("\n\n") : _*).p((for (e <- elems) yield e match {
+    new StringContext(("" +: (List.fill(elems.size - 1)("\n\n") :+ "")) : _*).p((for (e <- elems) yield e match {
       case Left(d) => d
       case Right(id) => {
         implicit pctx2: PrinterContext =>
@@ -38,26 +38,34 @@ trait Printers extends ast.Printers { self: Trees =>
       if (isWildcard) p"._"
 
     case PackageDef(id, imports, cls, subs) =>
-      p"""|package $id"""
+      p"""|package $id
+          |"""
 
-      if (imports.nonEmpty) p"""|
-                                |${nary(imports, "\n")}"""
+      if (imports.nonEmpty) p"""|${nary(imports, "\n")}
+                                |"""
       if (cls.nonEmpty)     p"""|
-                                |${classes(cls)}"""
+                                |${classes(cls)}
+                                |"""
       if (subs.nonEmpty)    p"""|
-                                |${nary(subs, "\n\n")}"""
+                                |${nary(subs, "\n\n")}
+                                |"""
 
     case ModuleDef(id, imports, cls, funs, subs) =>
-      p"""|object $id {"""
-      if (imports.nonEmpty) p"""|  ${nary(imports, "\n")}
+      p"""|object $id {
+          |"""
+      if (imports.nonEmpty) p"""|
+                                |  ${nary(imports, "\n")}
                                 |"""
-      if (cls.nonEmpty)     p"""|  ${classes(cls)}
+      if (cls.nonEmpty)     p"""|
+                                |  ${classes(cls)}
                                 |"""
-      if (funs.nonEmpty)    p"""|  ${functions(funs)}
+      if (funs.nonEmpty)    p"""|
+                                |  ${functions(funs)}
                                 |"""
-      if (subs.nonEmpty)    p"""|  ${nary(subs, "\n\n")}
+      if (subs.nonEmpty)    p"""|
+                                |  ${nary(subs, "\n\n")}
                                 |"""
-      p"}"
+      p"|}"
 
     case cd: ClassDef =>
       p"class ${cd.id}"
@@ -69,13 +77,16 @@ trait Printers extends ast.Printers { self: Trees =>
       }
 
       if (cd.methods.nonEmpty) {
-        p" {"
-        p"""|  ${functions(cd.methods)}
+        p""" {
+            |  ${functions(cd.methods)}
             |}"""
       }
 
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
+
+    case ClassSelector(cls, selector) =>
+      p"$cls.$selector"
 
     case MethodInvocation(caller, id, tps, args) =>
       p"$caller.$id${nary(tps, ", ", "[", "]")}"
@@ -87,5 +98,11 @@ trait Printers extends ast.Printers { self: Trees =>
     case This(_) => p"this"
 
     case _ => super.ppBody(tree)
+  }
+
+  override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
+    case (_, Some(_: ClassConstructor)) => false
+    case (_, Some(MethodInvocation(_, _, _, args))) => !args.contains(ex)
+    case _ => super.requiresParentheses(ex, within)
   }
 }

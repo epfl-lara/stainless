@@ -35,7 +35,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param body The body following the ``require(...)``
     */
   case class Require(pred: Expr, body: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = {
+    protected def computeType(implicit s: Symbols): Type = {
       if (pred.getType == BooleanType) body.getType
       else Untyped
     }
@@ -47,7 +47,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param pred The predicate to satisfy. It should be a function whose argument's type can handle the type of the body
     */
   case class Ensuring(body: Expr, pred: Lambda) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = pred.getType match {
+    protected def computeType(implicit s: Symbols): Type = pred.getType match {
       case FunctionType(Seq(bodyType), BooleanType) if s.isSubtypeOf(body.getType, bodyType) =>
         body.getType
       case _ =>
@@ -72,7 +72,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param body The expression following `assert(..., ...)`
     */
   case class Assert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = {
+    protected def computeType(implicit s: Symbols): Type = {
       if (pred.getType == BooleanType) body.getType
       else Untyped
     }
@@ -92,7 +92,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   case class MatchExpr(scrutinee: Expr, cases: Seq[MatchCase]) extends Expr with CachingTyped {
     require(cases.nonEmpty)
 
-    def computeType(implicit s: Symbols): Type =
+    protected def computeType(implicit s: Symbols): Type =
       s.leastUpperBound(cases.map(_.rhs.getType)).getOrElse(Untyped).unveilUntyped
   }
 
@@ -212,7 +212,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** $encodingof `Array(elems...)` */
   case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = ArrayType(base).unveilUntyped
+    protected def computeType(implicit s: Symbols): Type = ArrayType(base).unveilUntyped
   }
 
   /** $encodingof `Array(elems...)` for huge arrays
@@ -221,12 +221,12 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param size    Array length
     */
   case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = ArrayType(default.getType).unveilUntyped
+    protected def computeType(implicit s: Symbols): Type = ArrayType(default.getType).unveilUntyped
   }
 
   /** $encodingof `array(index)` */
   case class ArraySelect(array: Expr, index: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+    protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
       case (ArrayType(base), Int32Type) => base
       case _ => Untyped
     }
@@ -234,7 +234,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** $encodingof `array.updated(index, value)` */
   case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+    protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
       case (ArrayType(base), Int32Type) => ArrayType(s.leastUpperBound(base, value.getType).getOrElse(Untyped)).unveilUntyped
       case _ => Untyped
     }
@@ -242,7 +242,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** $encodingof `array.length` */
   case class ArrayLength(array: Expr) extends Expr with CachingTyped {
-    def computeType(implicit s: Symbols): Type = array.getType match {
+    protected def computeType(implicit s: Symbols): Type = array.getType match {
       case ArrayType(_) => Int32Type
       case _ => Untyped
     }

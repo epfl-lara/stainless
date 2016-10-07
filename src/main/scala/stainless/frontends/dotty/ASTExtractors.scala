@@ -156,8 +156,10 @@ trait ASTExtractors {
     }
 
     object ExSymbol {
-      def unapplySeq(t: tpd.Tree): Option[Seq[String]] =
-        Some(t.symbol.fullName.toString.split('.').toSeq)
+      def unapplySeq(arg: Any): Option[Seq[String]] = arg match {
+        case (t: Tree[_]) => Some(t.symbol.fullName.toString.split('.').toSeq)
+        case sym: Symbol => Some(sym.fullName.toString.split('.').toSeq)
+      }
     }
   }
 
@@ -396,50 +398,38 @@ trait ASTExtractors {
 
     object ExEnsuring {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExCall(Some(rec), sym, Seq(), Seq(contract)) if (
-          sym.fullName.toString == "scala.Predef$.Ensuring.ensuring" ||
-          sym.fullName.toString == "stainless.lang.StaticChecks$.any2Ensuring.ensuring"
-        ) => rec match {
-          case Block(Nil, Apply(_, Seq(body))) => Some((body, contract))
-          case Apply(_, Seq(body)) => Some((body, contract))
-          case _ => None
-        }
-        case ExCall(Some(rec), sym, _, Seq(contract)) if sym.name.toString == "ensuring" =>
-          println(rec, rec.tpe.typeSymbol.fullName, sym.fullName)
-          None
-        case Apply(
-          Select(Apply(TypeApply(ExSymbol("scala", "Predef$", "Ensuring"), Seq(_)), Seq(body)), ExNamed("ensuring")),
-          Seq(contract)) => println(body); Some((body, contract))
-        case Apply(
-          Select(Apply(TypeApply(ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(_)), Seq(body)), ExNamed("ensuring")),
-          Seq(contract)) => println(body); Some((body, contract))
+        case ExCall(Some(rec),
+          ExSymbol("scala", "Predef$", "Ensuring", "ensuring") |
+          ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring", "ensuring"),
+          Seq(), Seq(contract)
+        ) => Some((rec, contract))
         case _ => None
       }
     }
 
     object ExHolds {
-      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Select(
-          Apply(ExSymbol("stainless", "lang", "package", "BooleanDecorations"), Seq(expr)),
-          ExNamed("holds")) => Some(expr)
+      def unapplySeq(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
+        case ExCall(Some(rec),
+          ExSymbol("stainless", "lang", "package$", "BooleanDecorations", "holds"),
+          Seq(), args) => Some(rec +: args)
         case _ => None
       }
     }
 
     object ExBecause {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case Apply(
-          Select(Apply(ExSymbol("stainless", "proof", "package", "boolean2ProofOps"), Seq(body)), ExNamed("because")),
-          Seq(proof)) => Some((body, proof))
+        case ExCall(Some(rec),
+          ExSymbol("stainless", "proof", "package$", "boolean2ProofOps", "because"),
+          Seq(), Seq(proof)) => Some((rec, proof))
         case _ => None
       }
     }
 
     object ExComputes {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case Apply(
-          Select(Apply(TypeApply(ExSymbol("stainless", "lang", "package", "SpecsDecorations"), Seq(_)), Seq(body)), ExNamed("computes")),
-          Seq(expected)) => Some((body, expected))
+        case ExCall(Some(rec),
+          ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
+          _, Seq(expected)) => Some((rec, expected))
         case _ => None
       }
     }

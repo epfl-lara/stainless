@@ -45,8 +45,8 @@ trait SolverEncoder {
         t.Assume(transform(pred), transform(body))
 
       case _ =>
-        val (es, tps, recons) = deconstruct(e)
-        recons(es map transform, tps map translate)
+        val (vs, es, tps, recons) = deconstruct(e)
+        recons(vs map translate, es map transform, tps map translate)
     }
   }
 
