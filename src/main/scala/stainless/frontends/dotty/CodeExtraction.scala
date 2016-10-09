@@ -24,7 +24,7 @@ import scala.util.matching.Regex
 
 import scala.language.implicitConversions
 
-class CodeExtraction(inoxCtx: inox.InoxContext)(implicit val ctx: Context) extends ASTExtractors {
+class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends ASTExtractors {
   import AuxiliaryExtractors._
   import ExpressionExtractors._
   import StructuralExtractors._

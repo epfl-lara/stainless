@@ -4,11 +4,11 @@ package stainless
 package solvers
 
 import inox._
-import inox.solvers.{Solver => InoxSolver, _}
+import inox.solvers.{Solver => _, _}
 
-trait Solver extends inox.solvers.Solver {
+trait InoxSolver extends inox.solvers.Solver {
   val encoder: SolverEncoder { val trees: program.trees.type }
-  val underlying: InoxSolver { val program: InoxProgram }
+  val underlying: inox.solvers.Solver { val program: InoxProgram }
 
   lazy val name = underlying.name
   lazy val options = underlying.options
@@ -43,4 +43,11 @@ trait Solver extends inox.solvers.Solver {
   def reset(): Unit = underlying.reset()
   def push(): Unit = underlying.push()
   def pop(): Unit = underlying.pop()
+}
+
+object InoxSolver {
+  def apply(p: StainlessProgram): Solver { val program: p.type } = new {
+    val encoder: SolverEncoder { val program: p.type } = SolverEncoder(p)
+    val underlying: inox.solvers.Solver { val program: encoder.targetProgram.type } = encoder.targetProgram
+  } with InoxSolver
 }

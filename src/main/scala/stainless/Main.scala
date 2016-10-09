@@ -7,7 +7,7 @@ import dotty.tools.dotc.core.Contexts._
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val inoxCtx = inox.InoxContext.empty
+    val inoxCtx = inox.Context.empty
 
     val driver = new Driver {
       def newCompiler(implicit ctx: Context) = new frontends.dotty.DottyCompiler(inoxCtx)

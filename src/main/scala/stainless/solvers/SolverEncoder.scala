@@ -4,22 +4,26 @@ package stainless
 package solvers
 
 trait SolverEncoder {
-  val trees: ast.Trees
+  val program: Program { val trees: ast.Trees }
+  import program._
+  import program.trees._
+  import program.symbols._
 
   val encoder: Encoder
   val decoder: Decoder
 
-  def encode(e: trees.Expr)(implicit s: trees.Symbols): inox.trees.Expr = encoder.transform(e)
-  def encode(t: trees.Type): inox.trees.Type = encoder.translate(t)
+  lazy val targetProgram: Program { val trees: encoder.t.type } = program.transform(encoder)
 
-  def decode(e: inox.trees.Expr): trees.Expr = decoder.translate(e)
-  def decode(t: inox.trees.Type): trees.Type = decoder.translate(t)
+  def encode(e: trees.Expr): inox.trees.Expr = encoder.transform(e)
+  def encode(t: trees.Type): inox.trees.Type = encoder.transform(t)
 
-  trait Encoder extends inox.ast.TreeDeconstructor {
-    protected val s: trees.type = trees
-    protected val t: inox.trees.type = inox.trees
+  def decode(e: inox.trees.Expr): trees.Expr = decoder.transform(e)
+  def decode(t: inox.trees.Type): trees.Type = decoder.transform(t)
 
-    def transform(e: s.Expr)(implicit syms: s.Symbols): t.Expr = e match {
+  trait Encoder extends trees.TreeTransformer {
+    val t: inox.trees.type = inox.trees
+
+    override def transform(e: s.Expr): t.Expr = e match {
       case m: s.MatchExpr =>
         transform(syms.matchToIfThenElse(m))
 
@@ -44,14 +48,31 @@ trait SolverEncoder {
       case s.Assert(pred, error, body) =>
         t.Assume(transform(pred), transform(body))
 
-      case _ =>
-        val (vs, es, tps, recons) = deconstruct(e)
-        recons(vs map translate, es map transform, tps map translate)
+      case _ => super.transform(e)
     }
   }
 
-  trait Decoder extends inox.ast.TreeDeconstructor {
-    protected val s: inox.trees.type = inox.trees
-    protected val t: trees.type = trees
+  trait Decoder extends inox.trees.TreeTransformer {
+    val t: trees.type = trees
+  }
+}
+
+object SolverEncoder {
+  def apply(p: StainlessProgram): SolverEncoder { val program: p.type } = new {
+    val program: p.type = p
+  } with SolverEncoder {
+    object encoder extends Encoder {
+      object deconstructor extends {
+        val s: p.trees.type = p.trees
+        val t: inox.trees.type = inox.trees
+      } with ast.TreeDeconstructor
+    }
+
+    object decoder extends Decoder {
+      object deconstructor extends {
+        val s: inox.trees.type = inox.trees
+        val t: p.trees.type = p.trees
+      } with inox.ast.TreeDeconstructor
+    }
   }
 }

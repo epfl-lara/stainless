@@ -7,7 +7,7 @@ import dotty.tools.dotc.ast.Trees._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
-class StainlessExtraction(inoxCtx: inox.InoxContext) extends Phase {
+class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
 
   def phaseName: String = "stainless extraction"
 
