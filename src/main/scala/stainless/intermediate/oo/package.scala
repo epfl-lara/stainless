@@ -1,10 +1,11 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+package stainless.intermediate
 
-package stainless
+/**
+  * Created by koukouto on 10/10/16.
+  */
+package object oo {
 
-package object xlang {
-
-  object trees extends xlang.Trees {
+  object trees extends Trees {
 
     object deconstructor extends {
       protected val s: trees.type = trees
