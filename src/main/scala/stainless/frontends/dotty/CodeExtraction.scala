@@ -646,25 +646,56 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       args.map(extractTree)
   }
 
+  private def extractBlock(es: List[tpd.Tree])(implicit dctx: DefContext): xt.Expr = es match {
+    case Nil => xt.UnitLiteral() // FIXME?
+    case x :: Nil => extractTree(x)
+    case x :: xs =>
+      x match {
+        case ExAssert(contract, oerr) =>
+          val const = extractTree(contract)
+          val b     = extractBlock(xs)
+          xt.Assert(const, oerr, b)
+
+        case ExRequire(contract) =>
+          val pre = extractTree(contract)
+          val b   = extractBlock(xs).setPos(pre)
+          xt.Require(pre, b)
+
+        case v @ ValDef(name, tpt, _) =>
+          val vd = if (!v.symbol.is(Mutable)) {
+            xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+          } else {
+            xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+          }
+
+          val restTree = extractBlock(xs) {
+            if (!v.symbol.is(Mutable)) {
+              dctx.withNewVar(v.symbol -> (() => vd.toVariable))
+            } else {
+              dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
+            }
+          }.setPos(vd.getPos)
+
+          xt.Let(vd, extractTree(v.rhs), restTree)
+      }
+  }
+
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = {
-    val (current, tmpRest) = tr match {
-      case Block(Block(e :: es1, l1) :: es2, l2) =>
-        (e, Some(Block(es1 ++ Seq(l1) ++ es2, l2)))
-      case Block(Seq(dd: tpd.DefDef), c: tpd.Closure) =>
-        (tr, None)
-      case Block(e :: Nil, last) =>
-        (e, Some(last))
-      case Block(e :: es, last) =>
-        (e, Some(Block(es, last)))
-      case Block(Nil, last) =>
-        (last, None)
-      case e =>
-        (e, None)
-    }
+    val res = tr match {
+      case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), Closure(Nil, call, targetTpt)) if call.symbol == dd.symbol =>
+        val vds = vparams map (vd => xt.ValDef(
+          FreshIdentifier(vd.symbol.name.toString),
+          extractType(vd.tpt)
+        ).setPos(vd.pos))
 
-    var rest = tmpRest
+        xt.Lambda(vds, extractTree(dd.rhs)(dctx.withNewVars((vparams zip vds).map {
+          case (v, vd) => v.symbol -> (() => vd.toVariable)
+        })))
 
-    val res = current match {
+      case Block(es, e) =>
+        val b = extractBlock(es :+ e)
+        xt.exprOps.flattenBlocks(b)
+
       case Apply(
         ExSymbol("scala", "Predef$", "Ensuring") |
         ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(arg)) => extractTree(arg)
@@ -688,39 +719,39 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         xt.Ensuring(b, closure)
 
       case t @ ExHolds(body, proof) =>
-        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(current.pos)
+        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(tr.pos)
         val post = xt.Lambda(Seq(vd),
-          xt.And(Seq(extractTree(proof), vd.toVariable)).setPos(current.pos)
-        ).setPos(current.pos)
+          xt.And(Seq(extractTree(proof), vd.toVariable)).setPos(tr.pos)
+        ).setPos(tr.pos)
         xt.Ensuring(extractTreeOrNoTree(body), post)
 
-      // an optionnal "because" is allowed
+      // an optional "because" is allowed
       case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
-        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(current.pos)
+        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(tr.pos)
         val post = xt.Lambda(Seq(vd),
-          xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(current.pos)
-        ).setPos(current.pos)
+          xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
+        ).setPos(tr.pos)
         xt.Ensuring(extractTreeOrNoTree(body), post)
 
       case t @ ExHolds(body) =>
-        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(current.pos)
-        val post = xt.Lambda(Seq(vd), vd.toVariable).setPos(current.pos)
+        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(tr.pos)
+        val post = xt.Lambda(Seq(vd), vd.toVariable).setPos(tr.pos)
         xt.Ensuring(extractTreeOrNoTree(body), post)
 
       // If the because statement encompasses a holds statement
       case t @ ExBecause(ExHolds(body), proof) =>
-        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(current.pos)
+        val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType).setPos(tr.pos)
         val post = xt.Lambda(Seq(vd),
-          xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(current.pos)
-        ).setPos(current.pos)
+          xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
+        ).setPos(tr.pos)
         xt.Ensuring(extractTreeOrNoTree(body), post)
 
       case t @ ExComputes(body, expected) =>
         val tpe = extractType(body)
-        val vd = xt.ValDef(FreshIdentifier("holds"), tpe).setPos(current.pos)
+        val vd = xt.ValDef(FreshIdentifier("holds"), tpe).setPos(tr.pos)
         val post = xt.Lambda(Seq(vd),
-          xt.Equals(vd.toVariable, extractTreeOrNoTree(expected)).setPos(current.pos)
-        ).setPos(current.pos)
+          xt.Equals(vd.toVariable, extractTreeOrNoTree(expected)).setPos(tr.pos)
+        ).setPos(tr.pos)
         xt.Ensuring(extractTreeOrNoTree(body), post)
 
       /* TODO: By example stuff...
@@ -762,21 +793,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
           case _ => outOfSubsetError(t, "Unknown \"bigSubstring\" call: " + t)
         }
 
-      case ExAssert(contract, oerr) =>
-        val const = extractTree(contract)
-        val b     = rest.map(extractTreeOrNoTree).getOrElse(xt.UnitLiteral().setPos(current.pos))
 
-        rest = None
-
-        xt.Assert(const, oerr, b)
-
-      case ExRequire(contract) =>
-        val pre = extractTree(contract)
-        val b   = rest.map(extractTreeOrNoTree).getOrElse(xt.UnitLiteral().setPos(current.pos))
-
-        rest = None
-
-        xt.Require(pre, b)
 
       /* TODO: passes stuff...
       case ExPasses(in, out, cases) =>
@@ -816,24 +833,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       case ExTupleSelect(tuple, i) =>
         xt.TupleSelect(extractTree(tuple), i)
 
-      case v @ ValDef(name, tpt, _) =>
-        val vd = if (!v.symbol.is(Mutable)) {
-          xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
-        } else {
-          xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
-        }
 
-        val restTree = rest.map(rst => extractTree(rst) {
-          if (!v.symbol.is(Mutable)) {
-            dctx.withNewVar(v.symbol -> (() => vd.toVariable))
-          } else {
-            dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
-          }
-        }).getOrElse(xt.UnitLiteral().setPos(current.pos))
-
-        rest = None
-
-        xt.Let(vd, extractTree(v.rhs), restTree)
 
       /* TODO: LetDefs
       case d @ ExFunctionDef(sym, tparams, params, ret, b) =>
@@ -882,7 +882,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         }
 
       case ExWhile(cond, body) => xt.While(extractTree(cond),
-        xt.Block(body.map(extractTree), xt.UnitLiteral().setPos(current.pos)).setPos(current.pos),
+        xt.Block(body.map(extractTree), xt.UnitLiteral().setPos(tr.pos)).setPos(tr.pos),
         None
       )
 
@@ -978,16 +978,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
           }
         }
 
-      case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), Closure(Nil, call, targetTpt)) if call.symbol == dd.symbol =>
-        val vds = vparams map (vd => xt.ValDef(
-          FreshIdentifier(vd.symbol.name.toString),
-          extractType(vd.tpt)
-        ).setPos(vd.pos))
-
-        xt.Lambda(vds, extractTree(dd.rhs)(dctx.withNewVars((vparams zip vds).map {
-          case (v, vd) => v.symbol -> (() => vd.toVariable)
-        })))
-
       case Apply(TypeApply(ExSymbol("stainless", "lang", "forall"), types), Seq(fun)) =>
         extractTree(fun) match {
           case xt.Lambda(vds, body) => xt.Forall(vds, body)
@@ -1012,9 +1002,9 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         }
 
         val dflt = xt.ClassConstructor(
-          xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(current.pos),
+          xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
           Seq.empty
-        ).setPos(current.pos)
+        ).setPos(tr.pos)
 
         xt.FiniteMap(somePairs, dflt, extractType(tptFrom))
 
@@ -1042,7 +1032,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       case Select(e, nme.UNARY_~) => xt.BVNot(extractTree(e))
 
       case Apply(Select(l, nme.NE), Seq(r)) => xt.Not(
-        xt.Equals(extractTree(l), extractTree(r)).setPos(current.pos)
+        xt.Equals(extractTree(l), extractTree(r)).setPos(tr.pos)
       )
 
       case Apply(Select(l, nme.EQ), Seq(r)) => xt.Equals(extractTree(l), extractTree(r))
@@ -1092,7 +1082,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         val tpe = extractType(tpt)
         val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe))
         val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(tpe))
-        extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(current.pos)) {
+        extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(tr.pos)) {
           case (e, ls) => xt.ClassConstructor(cons, Seq(e, ls)).setPos(e)
         }
 
@@ -1180,17 +1170,10 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
       // default behaviour is to complain :)
       case _ =>
-        outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+"), current=" + current)
+        outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+"), current=" + tr)
     }
 
-    res.setPos(current.pos)
-
-    rest match {
-      case Some(r) =>
-        xt.exprOps.flattenBlocks(xt.Block(Seq(res), extractTree(r)).setPos(current.pos))
-      case None =>
-        res
-    }
+    res.setPos(tr.pos)
   }
 
   private def extractType(t: tpd.Tree)(implicit dctx: DefContext): xt.Type = {
