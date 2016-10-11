@@ -8,28 +8,47 @@ trait Trees extends stainless.ast.Trees { self =>
 
   case class LetRec(defs: Seq[(ValDef, Expr)], in: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      // FIXME
-      in.getType
+      val (vals, es) = defs.unzip
+      checkParamTypes(vals map (_.getType), es map (_.getType), in.getType)
     }
   }
 
   case class ApplyLetRec(fun: Variable, args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      // FIXME
-      Untyped
+      import s._
+      fun.getType match {
+        case FunctionType(from, to) =>
+          canBeSubtypeOf(tupleTypeWrap(args.map(_.getType)), tupleTypeWrap(from)) match {
+            case Some(map) =>
+              instantiateType(to, map)
+            case None => Untyped
+          }
+        case _ =>
+          Untyped
+      }
     }
   }
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
-    // FIXME
     case LetRec(defs, body) =>
       defs foreach { case (name, Lambda(args, body)) =>
-        p"def $name "
+        p"""|def $name($args) = {
+            |  $body"
+            |}
+            |"""
       }
+      p"$body"
+
+    case ApplyLetRec(fun, args) =>
+      p"$fun($args)"
 
     case _ => super.ppBody(tree)
   }
-  // FIXME requiresBraces
+
+  override def requiresBraces(ex: Tree, within: Option[Tree]) = (ex, within) match {
+    case (_, Some(_:LetRec)) => false
+    case _ => super.requiresBraces(ex, within)
+  }
 
   override val deconstructor: TreeDeconstructor {
     val s: self.type
@@ -50,7 +69,10 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
         defs map (_._1.toVariable),
         defs.map(_._2) :+ body,
         Seq(),
-        (vs, es, _) => t.LetRec(vs.zip(es.init).map{case (v, e) => (v.toVal, e)}, es.last)
+        (vs, es, _) => t.LetRec(
+          vs.zip(es.init).map{ case (v, e) => (v.toVal, e) },
+          es.last
+        )
       )
     case s.ApplyLetRec(fun, args) =>
       (

@@ -1,7 +1,8 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 package stainless
 package intermediate
 package oo
-
 
 trait Trees extends holes.Trees {
   /** $encodingof `receiver.id[tps](args)` */

@@ -1,8 +1,7 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 package stainless.intermediate
 
-/**
-  * Created by koukouto on 10/10/16.
-  */
 package object oo {
 
   object trees extends Trees with ObjectSymbols {

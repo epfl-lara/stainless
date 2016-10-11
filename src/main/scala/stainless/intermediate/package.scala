@@ -1,3 +1,5 @@
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 package stainless
 
 /** Provides definitions for a hierarchy of languages above stainless,
@@ -10,7 +12,7 @@ package stainless
   * Imperative adds imperative features.
   * Holes adds the hole (???) synthesis construct.
   * OO adds object-oriented features.
-  * xlang adds imports and module structure
+  * xlang adds imports and module structure.
   *
   */
 package object intermediate {
