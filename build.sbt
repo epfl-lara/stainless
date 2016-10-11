@@ -103,8 +103,7 @@ testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-lazy val inox = //ghProject("https://github.com/epfl-lara/inox.git", "fbbca114a8d7af021bc20d677ad2cf0e2e3a411a")
-  RootProject(file("../inox"))
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "074c1ac8c2011b270eab4838a3462f4f0e85f57f")
 
 lazy val root = (project in file("."))
   .configs(IntegrationTest)
