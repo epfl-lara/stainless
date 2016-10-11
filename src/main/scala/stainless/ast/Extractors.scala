@@ -137,9 +137,12 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
 
 trait Extractors extends inox.ast.Extractors { self: Trees =>
 
-  val deconstructor: TreeDeconstructor {
+  override val deconstructor: TreeDeconstructor {
     val s: self.type
     val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
   }
 
   object PatternExtractor extends {

@@ -96,11 +96,13 @@ trait Trees extends innerfuns.Trees { self =>
     protected val trees: Trees.this.type = Trees.this
   } with ExprOps
 
-  val deconstructor: TreeDeconstructor {
+  override val deconstructor: TreeDeconstructor {
     val s: self.type
     val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
   }
-
 }
 
 

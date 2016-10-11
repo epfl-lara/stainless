@@ -269,12 +269,14 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
 }
 
 trait Extractors extends ast.Extractors { self: Trees =>
-  val deconstructor: TreeDeconstructor {
+  override val deconstructor: TreeDeconstructor {
     val s: self.type
     val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
   }
 }
-
 
 trait SymbolTransformer extends inox.ast.SymbolTransformer {
   val transformer: inox.ast.TreeTransformer { val s: Trees; val t: Trees }

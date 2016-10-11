@@ -31,11 +31,13 @@ trait Trees extends stainless.ast.Trees { self =>
   }
   // FIXME requiresBraces
 
-  val deconstructor: TreeDeconstructor {
+  override val deconstructor: TreeDeconstructor {
     val s: self.type
     val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
   }
-
 }
 
 trait TreeDeconstructor extends ast.TreeDeconstructor {

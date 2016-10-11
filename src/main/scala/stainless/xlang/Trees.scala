@@ -5,7 +5,7 @@ package xlang
 
 import stainless.intermediate.oo
 
-trait Trees extends oo.Trees {
+trait Trees extends oo.Trees { self =>
 
   case class IsField(isLazy: Boolean) extends Flag("field", Seq(isLazy))
   case object IsInvariant extends Flag("invariant", Seq.empty)
@@ -98,6 +98,14 @@ trait Trees extends oo.Trees {
       }
 
     case _ => super.ppBody(tree)
+  }
+
+  override val deconstructor: TreeDeconstructor {
+    val s: self.type
+    val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
   }
 
 }
