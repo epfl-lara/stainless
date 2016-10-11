@@ -6,22 +6,23 @@ package innerfuns
 
 trait Trees extends stainless.ast.Trees { self =>
 
-  case class LetRec(defs: Seq[(ValDef, Expr)], in: Expr) extends Expr with CachingTyped {
+  case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)
+
+  case class LetRec(fds: Seq[LocalFunDef], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      val (vals, es) = defs.unzip
-      checkParamTypes(vals map (_.getType), es map (_.getType), in.getType)
+      body.getType //FIXME
     }
   }
 
-  case class ApplyLetRec(fun: Variable, args: Seq[Expr]) extends Expr with CachingTyped {
+  case class ApplyLetRec(fun: Variable, tparams: Seq[TypeParameterDef], args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
       import s._
       fun.getType match {
         case FunctionType(from, to) =>
           canBeSubtypeOf(tupleTypeWrap(args.map(_.getType)), tupleTypeWrap(from)) match {
-            case Some(map) =>
+            case Some(map) if map.keySet subsetOf tparams.toSet.map((td: TypeParameterDef ) => td.tp) =>
               instantiateType(to, map)
-            case None => Untyped
+            case _ => Untyped
           }
         case _ =>
           Untyped
@@ -31,16 +32,16 @@ trait Trees extends stainless.ast.Trees { self =>
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
-      defs foreach { case (name, Lambda(args, body)) =>
-        p"""|def $name($args) = {
+      defs foreach { case (LocalFunDef(name, tparams, Lambda(args, body))) =>
+        p"""|def $name[$tparams]($args) = {
             |  $body"
             |}
             |"""
       }
       p"$body"
 
-    case ApplyLetRec(fun, args) =>
-      p"$fun($args)"
+    case ApplyLetRec(fun, tparams, args) =>
+      p"$fun[$tparams]($args)"
 
     case _ => super.ppBody(tree)
   }
@@ -66,20 +67,30 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
   override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
     case s.LetRec(defs, body) =>
       (
-        defs map (_._1.toVariable),
-        defs.map(_._2) :+ body,
-        Seq(),
-        (vs, es, _) => t.LetRec(
-          vs.zip(es.init).map{ case (v, e) => (v.toVal, e) },
-          es.last
-        )
+        defs map (_.name.toVariable),
+        defs.map(_.body) :+ body,
+        defs.flatMap(_.tparams).map(_.tp),
+        (vs, es, tps) => {
+          var restTps = tps
+          var restFuns = defs
+          t.LetRec(
+            vs.zip(es.init).map{ case (v, e) =>
+              val howMany = defs.head.tparams.size
+              val (tps, rest) = restTps splitAt howMany
+              restTps = restTps drop howMany
+              restFuns = restFuns.tail
+              t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
+            },
+            es.last
+          )
+        }
       )
-    case s.ApplyLetRec(fun, args) =>
+    case s.ApplyLetRec(fun, tparams, args) =>
       (
         Seq(fun),
         args,
-        Seq(),
-        (vs, es, _) => t.ApplyLetRec(vs.head, es)
+        tparams map (_.tp),
+        (vs, es, tparams) => t.ApplyLetRec(vs.head, tparams.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), es)
       )
     case other =>
       super.deconstruct(other)

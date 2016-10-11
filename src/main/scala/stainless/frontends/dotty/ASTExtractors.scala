@@ -12,8 +12,6 @@ import core.Symbols._
 import core.Types._
 import core.Flags._
 
-import scala.util.matching.Regex
-
 trait ASTExtractors {
 
   protected implicit val ctx: Context
@@ -22,16 +20,16 @@ trait ASTExtractors {
 
   // Well-known symbols that we match on
 
-  protected lazy val tuple2Sym          = classFromName("scala.Tuple2")
-  protected lazy val tuple3Sym          = classFromName("scala.Tuple3")
-  protected lazy val tuple4Sym          = classFromName("scala.Tuple4")
-  protected lazy val tuple5Sym          = classFromName("scala.Tuple5")
-  protected lazy val scalaMapSym        = classFromName("scala.collection.immutable.Map")
-  protected lazy val scalaSetSym        = classFromName("scala.collection.immutable.Set")
-  protected lazy val setSym             = classFromName("stainless.lang.Set")
-  protected lazy val mapSym             = classFromName("stainless.lang.Map")
-  protected lazy val bagSym             = classFromName("stainless.lang.Bag")
-  protected lazy val realSym            = classFromName("stainless.lang.Real")
+  protected lazy val tuple2Sym    = classFromName("scala.Tuple2")
+  protected lazy val tuple3Sym    = classFromName("scala.Tuple3")
+  protected lazy val tuple4Sym    = classFromName("scala.Tuple4")
+  protected lazy val tuple5Sym    = classFromName("scala.Tuple5")
+  protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
+  protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
+  protected lazy val setSym       = classFromName("stainless.lang.Set")
+  protected lazy val mapSym       = classFromName("stainless.lang.Map")
+  protected lazy val bagSym       = classFromName("stainless.lang.Bag")
+  protected lazy val realSym      = classFromName("stainless.lang.Real")
 
   protected lazy val optionSymbol = classFromName("stainless.lang.Option")
   protected lazy val someSymbol   = classFromName("stainless.lang.Some")

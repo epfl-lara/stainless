@@ -6,9 +6,7 @@ package frontends.dotty
 import dotty.tools.dotc._
 import ast.tpd
 import ast.Trees._
-import core.Phases._
 import core.Contexts._
-import core.Constants._
 import core.Names._
 import core.StdNames._
 import core.Symbols._
@@ -18,9 +16,6 @@ import util.Positions._
 
 import inox.ast.{Identifier, FreshIdentifier}
 import xlang.{trees => xt}
-
-import scala.collection.mutable.{Map => MutableMap}
-import scala.util.matching.Regex
 
 import scala.language.implicitConversions
 
@@ -68,6 +63,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     vars: Map[Symbol, () => xt.Variable] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     lazyVars: Set[Symbol] = Set(),
+    localFuns: Map[Symbol, xt.LocalFunDef] = Map(),
     isExtern: Boolean = false
   ) {
     def union(that: DefContext) = {
@@ -75,6 +71,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
            this.vars ++ that.vars,
            this.mutableVars ++ that.mutableVars,
            this.lazyVars ++ that.lazyVars,
+           this.localFuns ++ that.localFuns,
            this.isExtern || that.isExtern)
     }
 
@@ -94,6 +91,10 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
     def withNewMutableVars(nvars: Traversable[(Symbol, () => xt.Variable)]) = {
       copy(mutableVars = mutableVars ++ nvars)
+    }
+
+    def withLocalFun(s: Symbol, lf: xt.LocalFunDef) = {
+      copy(localFuns = this.localFuns + (s -> lf))
     }
 
     def isLazy(s: Symbol): Boolean = lazyVars(s)
@@ -125,7 +126,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       extractType(tpt)
     } catch {
       case e: ImpureCodeEncounteredException =>
-        e.printStackTrace
+        e.printStackTrace()
         xt.Untyped
     }
   }
@@ -308,7 +309,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     val tparams = tparamsMap.map(t => xt.TypeParameterDef(t._2))
     val tpCtx = DefContext((tparamsMap.map(_._1) zip tparams.map(_.tp)).toMap)
 
-    val flags = annotationsOf(sym).toSet ++ (if (sym is Abstract) Some(xt.IsAbstract) else None)
+    val flags = annotationsOf(sym) ++ (if (sym is Abstract) Some(xt.IsAbstract) else None)
 
     val template = td.rhs.asInstanceOf[tpd.Template]
     val args = template.constr.vparamss.flatten
@@ -477,10 +478,12 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     val id = getIdentifier(sym)
 
     // If this is a lazy field definition, drop the assignment/ accessing
-    val body = if (!(flags contains xt.IsField(true))) rhs else (rhs match {
-      case Block(List(Assign(_, realBody)),_ ) => realBody
-      case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
-    })
+    val body =
+      if (!(flags contains xt.IsField(true))) rhs
+      else rhs match {
+        case Block(List(Assign(_, realBody)),_ ) => realBody
+        case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
+      }
 
     val finalBody = if (rhs == tpd.EmptyTree) {
       flags += xt.IsAbstract
@@ -490,7 +493,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     } catch {
       case e: ImpureCodeEncounteredException =>
         reporter.error(e.pos, e.getMessage)
-        e.printStackTrace
+        e.printStackTrace()
         //val pos = if (body0.pos == NoPosition) NoPosition else leonPosToScalaPos(body0.pos.source, funDef.getPos)
         /* TODO
         if (inoxCtx.options.findOptionOrDefault(ExtractionPhase.optStrictCompilation)) {
@@ -649,35 +652,51 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
   private def extractBlock(es: List[tpd.Tree])(implicit dctx: DefContext): xt.Expr = es match {
     case Nil => xt.UnitLiteral() // FIXME?
     case x :: Nil => extractTree(x)
-    case x :: xs =>
-      x match {
-        case ExAssert(contract, oerr) =>
-          val const = extractTree(contract)
-          val b     = extractBlock(xs)
-          xt.Assert(const, oerr, b)
+    case x :: xs => x match {
+      case ExAssert(contract, oerr) =>
+        val const = extractTree(contract)
+        val b     = extractBlock(xs)
+        xt.Assert(const, oerr, b)
 
-        case ExRequire(contract) =>
-          val pre = extractTree(contract)
-          val b   = extractBlock(xs).setPos(pre)
-          xt.Require(pre, b)
+      case ExRequire(contract) =>
+        val pre = extractTree(contract)
+        val b   = extractBlock(xs).setPos(pre)
+        xt.Require(pre, b)
 
-        case v @ ValDef(name, tpt, _) =>
-          val vd = if (!v.symbol.is(Mutable)) {
-            xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+      case v @ ValDef(name, tpt, _) =>
+        val vd = if (!v.symbol.is(Mutable)) {
+          xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+        } else {
+          xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+        }
+
+        val restTree = extractBlock(xs) {
+          if (!v.symbol.is(Mutable)) {
+            dctx.withNewVar(v.symbol -> (() => vd.toVariable))
           } else {
-            xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+            dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
           }
+        }.setPos(vd.getPos)
 
-          val restTree = extractBlock(xs) {
-            if (!v.symbol.is(Mutable)) {
-              dctx.withNewVar(v.symbol -> (() => vd.toVariable))
-            } else {
-              dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
-            }
-          }.setPos(vd.getPos)
+        xt.Let(vd, extractTree(v.rhs), restTree)
 
-          xt.Let(vd, extractTree(v.rhs), restTree)
-      }
+      case d @ ExFunctionDef(sym, tparams, params, ret, b) =>
+        val fd = extractFunction(sym, tparams, params, b)(dctx, d.pos)
+        val letRec = xt.LocalFunDef(
+          xt.ValDef(fd.id, extractType(ret)(dctx, d.pos /*FIXME */)),
+          fd.tparams,
+          xt.Lambda(fd.params, fd.fullBody)
+        )
+        extractBlock(xs)(dctx.withLocalFun(sym, letRec)) match {
+          case xt.LetRec(defs, body) =>
+            xt.LetRec(letRec +: defs, body)
+          case other =>
+            xt.LetRec(Seq(letRec), other)
+        }
+
+      case _ =>
+        outOfSubsetError(x, "Unexpected head of block")
+    }
   }
 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = {
@@ -832,39 +851,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
       case ExTupleSelect(tuple, i) =>
         xt.TupleSelect(extractTree(tuple), i)
-
-
-
-      /* TODO: LetDefs
-      case d @ ExFunctionDef(sym, tparams, params, ret, b) =>
-        val fd = defineFunDef(sym)
-
-        val tparamsMap = (tparams zip fd.tparams.map(_.tp)).toMap
-
-        fd.addFlags(annotationsOf(d.symbol).map { case (name, args) => FunctionFlag.fromName(name, args) }.toSet)
-
-        val newDctx = dctx.copy(tparams = dctx.tparams ++ tparamsMap)
-
-        val restTree = rest match {
-          case Some(rst) => extractTree(rst)
-          case None => UnitLiteral()
-        }
-        rest = None
-
-        val oldCurrentFunDef = currentFunDef
-
-        val funDefWithBody = extractFunction(fd, params, b)(newDctx)
-
-        currentFunDef = oldCurrentFunDef
-
-        val (other_fds, block) = restTree match {
-          case LetDef(fds, block) =>
-            (fds, block)
-          case _ =>
-            (Nil, restTree)
-        }
-        letDef(funDefWithBody +: other_fds, block)
-        */
 
       // FIXME case ExDefaultValueFunction
 
@@ -1099,7 +1085,12 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
       case ExCall(rec, sym, tps, args) => rec match {
         case None =>
-          xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), args.map(extractTree))
+          dctx.localFuns.get(sym) match {
+            case None =>
+              xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), args.map(extractTree))
+            case Some(localFun) =>
+              xt.ApplyLetRec(localFun.name.toVariable, localFun.tparams, args map extractTree)
+          }
 
         case Some(lhs) => extractType(lhs) match {
           case ct: xt.ClassType =>
@@ -1107,11 +1098,11 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
               xt.ClassConstructor(ct, args map extractTree)
             } else if (sym.is(Method)) {
               xt.MethodInvocation(extractTree(lhs), getIdentifier(sym), tps map extractType, args map extractTree)
-            } else (args match {
+            } else args match {
               case Seq() => xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
               case Seq(rhs) => xt.FieldAssignment(extractTree(lhs), getIdentifier(sym), extractTree(rhs))
               case _ => outOfSubsetError(tr, "Unexpected call")
-            })
+            }
 
           case ft: xt.FunctionType =>
             xt.Application(extractTree(lhs), args.map(extractTree))
