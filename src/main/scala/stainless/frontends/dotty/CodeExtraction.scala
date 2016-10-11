@@ -141,7 +141,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     val prefix = selectorChain(i.expr)
     val imports = i.selectors.map {
       case Ident(name) => prefix :+ name.toString
-      case Pair(Ident(name), _) => prefix :+ name.toString
+      case Thicket(Seq(Ident(name), _)) => prefix :+ name.toString
     }
 
     imports.map {
