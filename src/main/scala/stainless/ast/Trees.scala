@@ -7,7 +7,8 @@ trait Trees
   extends inox.ast.Trees
      with Expressions
      with Extractors
-     with Printers {
+     with Printers
+     with TreeOps {
 
   object patternOps extends {
     protected val sourceTrees: Trees.this.type = Trees.this

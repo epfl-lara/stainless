@@ -1,6 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package object stainless {
+
+  type StainlessProgram = inox.Program { val trees: stainless.trees.type }
   
   object trees extends ast.Trees with inox.ast.SimpleSymbols {
     object deconstructor extends {

@@ -212,7 +212,9 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** $encodingof `Array(elems...)` */
   case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = ArrayType(base).unveilUntyped
+    protected def computeType(implicit s: Symbols): Type = {
+      checkParamTypes(elems.map(_.getType), List.fill(elems.size)(base), ArrayType(base).unveilUntyped)
+    }
   }
 
   /** $encodingof `Array(elems...)` for huge arrays
@@ -221,7 +223,14 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param size    Array length
     */
   case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = ArrayType(default.getType).unveilUntyped
+    protected def computeType(implicit s: Symbols): Type = {
+      if (size.getType == Int32Type) {
+        val bound = s.leastUpperBound((default +: elems.values.toSeq).map(_.getType)).getOrElse(Untyped)
+        ArrayType(bound).unveilUntyped
+      } else {
+        Untyped
+      }
+    }
   }
 
   /** $encodingof `array(index)` */

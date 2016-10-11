@@ -54,6 +54,16 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
 
     case _ => super.deconstruct(tpe)
   }
+
+  override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
+    case s.IsField(b) => (Seq(), Seq(), (_, _) => t.IsField(b))
+    case s.IsInvariant => (Seq(), Seq(), (_, _) => t.IsInvariant)
+    case s.IsAbstract => (Seq(), Seq(), (_, _) => t.IsAbstract)
+    case s.IsVar => (Seq(), Seq(), (_, _) => t.IsVar)
+    case s.Ignore => (Seq(), Seq(), (_, _) => t.Ignore)
+    case s.Inline => (Seq(), Seq(), (_, _) => t.Inline)
+    case _ => super.deconstruct(f)
+  }
 }
 
 trait Extractors extends ast.Extractors { self: Trees =>

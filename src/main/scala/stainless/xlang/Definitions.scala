@@ -124,15 +124,9 @@ trait Definitions extends inox.ast.Definitions with ast.Trees { self: Trees =>
       super.asString
     }
 
-    override def transform(t: TreeTransformer): Symbols =
-      super.transform(t).withClasses(classes.values.toSeq.map(cd => new ClassDef(
-        cd.id,
-        cd.tparams,
-        cd.parent,
-        cd.fields.map(t.transform),
-        cd.methods,
-        cd.flags
-      )))
+    override def transform(trans: SelfTransformer): Symbols = new SymbolTransformer {
+      val transformer: trans.type = trans
+    }.transform(this)
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
       case sym: AbstractSymbols => classes == sym.classes
