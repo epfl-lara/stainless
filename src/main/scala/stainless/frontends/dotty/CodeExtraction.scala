@@ -651,52 +651,54 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
   private def extractBlock(es: List[tpd.Tree])(implicit dctx: DefContext): xt.Expr = es match {
     case Nil => xt.UnitLiteral() // FIXME?
-    case x :: Nil => extractTree(x)
-    case x :: xs => x match {
-      case ExAssert(contract, oerr) =>
-        val const = extractTree(contract)
-        val b     = extractBlock(xs)
-        xt.Assert(const, oerr, b)
 
-      case ExRequire(contract) =>
-        val pre = extractTree(contract)
-        val b   = extractBlock(xs).setPos(pre)
-        xt.Require(pre, b)
+    case ExAssert(contract, oerr) :: xs =>
+      val const = extractTree(contract)
+      val b     = extractBlock(xs)
+      xt.Assert(const, oerr, b)
 
-      case v @ ValDef(name, tpt, _) =>
-        val vd = if (!v.symbol.is(Mutable)) {
-          xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+    case ExRequire(contract) :: xs =>
+      val pre = extractTree(contract)
+      val b   = extractBlock(xs).setPos(pre)
+      xt.Require(pre, b)
+
+    case (v @ ValDef(name, tpt, _)) :: xs =>
+      val vd = if (!v.symbol.is(Mutable)) {
+        xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+      } else {
+        xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+      }
+
+      val restTree = extractBlock(xs) {
+        if (!v.symbol.is(Mutable)) {
+          dctx.withNewVar(v.symbol -> (() => vd.toVariable))
         } else {
-          xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+          dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
         }
+      }.setPos(vd.getPos)
 
-        val restTree = extractBlock(xs) {
-          if (!v.symbol.is(Mutable)) {
-            dctx.withNewVar(v.symbol -> (() => vd.toVariable))
-          } else {
-            dctx.withNewMutableVar(v.symbol -> (() => vd.toVariable))
-          }
-        }.setPos(vd.getPos)
+      xt.Let(vd, extractTree(v.rhs), restTree)
 
-        xt.Let(vd, extractTree(v.rhs), restTree)
+    case (d @ ExFunctionDef(sym, tparams, params, ret, b)) :: xs =>
+      val fd = extractFunction(sym, tparams, params, b)(dctx, d.pos)
+      val letRec = xt.LocalFunDef(
+        xt.ValDef(fd.id, extractType(ret)(dctx, d.pos /*FIXME */)),
+        fd.tparams,
+        xt.Lambda(fd.params, fd.fullBody)
+      )
+      extractBlock(xs)(dctx.withLocalFun(sym, letRec)) match {
+        case xt.LetRec(defs, body) =>
+          xt.LetRec(letRec +: defs, body)
+        case other =>
+          xt.LetRec(Seq(letRec), other)
+      }
 
-      case d @ ExFunctionDef(sym, tparams, params, ret, b) =>
-        val fd = extractFunction(sym, tparams, params, b)(dctx, d.pos)
-        val letRec = xt.LocalFunDef(
-          xt.ValDef(fd.id, extractType(ret)(dctx, d.pos /*FIXME */)),
-          fd.tparams,
-          xt.Lambda(fd.params, fd.fullBody)
-        )
-        extractBlock(xs)(dctx.withLocalFun(sym, letRec)) match {
-          case xt.LetRec(defs, body) =>
-            xt.LetRec(letRec +: defs, body)
-          case other =>
-            xt.LetRec(Seq(letRec), other)
-        }
+    case x :: Nil =>
+      extractTree(x)
 
-      case _ =>
-        outOfSubsetError(x, "Unexpected head of block")
-    }
+    case x :: _ =>
+      outOfSubsetError(x, "Unexpected head of block")
+
   }
 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = {
