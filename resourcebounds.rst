@@ -13,6 +13,7 @@ upper bounds on resources consumed by programs.
 Why Verify Resource Bounds?
 ---------------------------
 
+<<<<<<< 4bc3afbdf32c31238dccfbaa5818763a437c7a71
 Statically proving bounds on resources such as time and space consumed by softwares is considered too difficult 
 a task to accomplish due to the complexities of the hardware, and operating environments that 
 the modern day softwares are deployed on.
@@ -27,6 +28,22 @@ For instance, you can state and prove that a function `sorting a list of integer
 takes time quadratic in size of the list`.
 After all, most of the  development effort is spent on making implementations efficient, and now you can verify the 
 efficiency of your implementations!
+=======
+Statically establishing bounds on resources such as time and space consumed by softwares
+is an important problem that developers are often faced with. 
+While it is desirable to compute resource usage in terms of physical units such as wall-clock time
+or bytes, this task is usually dependent on the underlying hardware and operating environments.
+For these reasons, resource usage of programs are often assessed using more abstract, 
+algorithmic metrics that are fairly independent of the runtime infrastructure.
+These metrics helps establish the asymptotic behavior of the programs, and also can provide more concrete 
+information such as the number of instructions executed by a program in the worst case, 
+or the number of objects allocated in the heap. What Leon provides you is a way to establish bounds on 
+such algorithmic metrics. 
+For instance, you can state and prove that a function `sorting a list of integers using insertion sort 
+takes time quadratic in size of the list`.
+After all, most of the  development effort is spent on making implementations efficient, and 
+now you can verify the efficiency of your implementations!
+>>>>>>> Minor changes to the doc
 
 The rest of this documentation presents a brief overview of verifying resource usage of programs using Leon. 
 More illustrations are available under the `Resourcebounds` section of `leon web <http://leon.epfl.ch>`_
