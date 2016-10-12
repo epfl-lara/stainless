@@ -4,11 +4,13 @@ package stainless
 package intermediate
 package oo
 
+import inox.ast.Identifier
+
 trait ObjectSymbols { self: Trees =>
-  
-  val NoSymbols = Symbols(Map.empty, Map.empty, Map.empty)
 
   val Symbols: (Map[Identifier, FunDef], Map[Identifier, ADTDefinition], Map[Identifier, ClassDef]) => Symbols
+
+  val NoSymbols = Symbols(Map.empty, Map.empty, Map.empty)
 
   abstract class ObjectSymbols extends AbstractSymbols { self: Symbols =>
 

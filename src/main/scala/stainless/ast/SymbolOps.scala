@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import inox.ast.{Identifier, FreshIdentifier}
+
 /* @nv: necessary to ensure the self-type bound of SymbolOps can be satisfied
  *      while at the same time having {{{val trees: stainless.ast.Trees}}} */
 trait TypeOps extends inox.ast.TypeOps {

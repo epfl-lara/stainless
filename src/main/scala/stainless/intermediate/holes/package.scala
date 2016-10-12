@@ -3,6 +3,8 @@
 package stainless
 package intermediate
 
+import inox.ast.Identifier
+
 package object holes {
 
   object trees extends holes.Trees with inox.ast.SimpleSymbols {

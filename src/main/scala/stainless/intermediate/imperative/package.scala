@@ -3,6 +3,8 @@
 package stainless
 package intermediate
 
+import inox.ast.Identifier
+
 package object imperative {
 
   object trees extends imperative.Trees with inox.ast.SimpleSymbols {

@@ -4,6 +4,8 @@ package stainless
 package intermediate
 package oo
 
+import inox.ast.Identifier
+
 trait Trees extends holes.Trees {
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {

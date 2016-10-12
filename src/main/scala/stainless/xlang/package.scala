@@ -2,6 +2,8 @@
 
 package stainless
 
+import inox.ast.Identifier
+
 package object xlang {
 
   object trees extends xlang.Trees with intermediate.oo.ObjectSymbols {

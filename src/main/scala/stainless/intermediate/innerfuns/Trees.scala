@@ -4,6 +4,8 @@ package stainless
 package intermediate
 package innerfuns
 
+import inox.ast.Identifier
+
 trait Trees extends stainless.ast.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)
@@ -58,6 +60,10 @@ trait Trees extends stainless.ast.Trees { self =>
     protected val s: self.type = self
     protected val t: self.type = self
   }
+
+  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
+    protected val trees: Trees.this.type = Trees.this
+  } with ExprOps
 }
 
 trait TreeDeconstructor extends ast.TreeDeconstructor {
@@ -98,3 +104,21 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
 
 }
 
+trait ExprOps extends ast.ExprOps {
+  protected val trees: Trees
+  import trees._
+  /** Returns functions in directly nested LetDefs */
+  def directlyNestedFunDefs(e: Expr): Set[LocalFunDef] = {
+    fold[Set[LocalFunDef]]{
+      case (LetRec(fds,_), fromFdsFromBd) => fromFdsFromBd.last ++ fds
+      case (_,             subs)          => subs.flatten.toSet
+    }(e)
+  }
+
+  def innerFunctionCalls(e: Expr) = {
+    collect[Identifier] {
+      case ApplyLetRec(fd, _, _) => Set(fd.id)
+      case _ => Set()
+    }(e)
+  }
+}

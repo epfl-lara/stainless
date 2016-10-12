@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import inox.ast.{Identifier, FreshIdentifier}
+
 trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees =>
 
   /** Stands for an undefined Expr, similar to `???` or `null`
@@ -84,7 +86,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `... match { ... }`
     *
     * '''cases''' should be nonempty. If you are not sure about this, you should use
-    * [[purescala.Constructors#matchExpr purescala's constructor matchExpr]]
+    * FIXME
     *
     * @param scrutinee Expression to the left of the '''match''' keyword
     * @param cases A sequence of cases to match `scrutinee` against
