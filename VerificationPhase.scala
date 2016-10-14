@@ -19,14 +19,10 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
   override val definedOptions: Set[LeonOptionDef[Any]] = Set(optParallelVCs)
 
   implicit val debugSection = utils.DebugSectionVerification
-
-  def apply(ctx: LeonContext, program: Program): VerificationReport = {
-    val filterFuns: Option[Seq[String]] = ctx.findOption(GlobalOptions.optFunctions)
+  
+  /** Solvers selection and validation */
+  def getSolverFactory(ctx: LeonContext, program: Program): SolverFactory[Solver] = {
     val timeout:    Option[Long]        = ctx.findOption(GlobalOptions.optTimeout)
-
-    val reporter = ctx.reporter
-
-    // Solvers selection and validation
     val baseSolverF = SolverFactory.getFromSettings(ctx, program)
 
     val solverF = timeout match {
@@ -35,6 +31,15 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
       case None =>
         baseSolverF
     }
+    solverF
+  }
+
+  def apply(ctx: LeonContext, program: Program): VerificationReport = {
+    val filterFuns: Option[Seq[String]] = ctx.findOption(GlobalOptions.optFunctions)
+    
+    val reporter = ctx.reporter
+
+    val solverF = getSolverFactory(ctx, program)
 
     val vctx = new VerificationContext(ctx, program, solverF)
 
@@ -122,15 +127,29 @@ object VerificationPhase extends SimpleLeonPhase[Program,VerificationReport] {
     VerificationReport(vctx.program, initMap ++ results)
   }
 
-  def checkVC(vctx: VerificationContext, vc: VC): VCResult = {
-    import vctx.reporter
-    import vctx.solverFactory
-
-    val interruptManager = vctx.interruptManager
-
+  def checkVC(_vctx: VerificationContext, vc: VC): VCResult = {
     val vcCond = vc.condition
 
-    val s = solverFactory.getNewSolver()
+    val (finalSolverFactory: SolverFactory[_], vctx: VerificationContext) =  vc.fd.extAnnotations.get("options") match {
+      case Some(seq) => // We rebuild the solverfactory.
+        val newCtx = ((_vctx: LeonContext) /: seq) {
+          case (ctx, Some(moreCommands: String)) =>
+            ctx ++ leon.Main.parseOptions(leon.Main.splitOptions(moreCommands), true)
+          case (ctx, Some((optionName: String, value: String))) =>
+            ctx ++ Seq(leon.Main.parseOption("--" + optionName + "=" + value, true)).flatten
+          case (ctx, _) => ctx
+        }
+        val solverF = getSolverFactory(newCtx, _vctx.program)
+        val vctx = new VerificationContext(newCtx, _vctx.program, solverF)
+        (solverF, vctx)
+      case None => 
+        (_vctx.solverFactory, _vctx)
+    }
+    import vctx.reporter
+    import vctx.solverFactory
+    val interruptManager = vctx.interruptManager
+    
+    val s = finalSolverFactory.getNewSolver
 
     try {
       reporter.synchronized {
