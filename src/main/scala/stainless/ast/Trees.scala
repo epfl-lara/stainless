@@ -5,6 +5,7 @@ package ast
 
 trait Trees
   extends inox.ast.Trees
+     with Definitions
      with Expressions
      with Extractors
      with Printers
@@ -23,11 +24,4 @@ trait Trees
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
     protected val trees: Trees.this.type = Trees.this
   } with ExprOps
-
-  type Symbols >: Null <: AbstractSymbols
-
-  trait AbstractSymbols extends super.AbstractSymbols
-    with TypeOps
-    with SymbolOps { self0: Symbols =>
-  }
 }

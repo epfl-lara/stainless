@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon.codegen.runtime
+package stainless.codegen.runtime
 
-import leon.utils.UniqueCounter
+import inox.utils.UniqueCounter
 
 import java.util.WeakHashMap
 import java.lang.ref.WeakReference

@@ -1,17 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package codegen
 
-import purescala.Common._
-import purescala.Definitions._
-import purescala.Expressions._
-import purescala.ExprOps._
-import purescala.Types._
-import purescala.TypeOps._
-import purescala.Constructors._
-import purescala.Extractors._
-import purescala.Quantification._
 import cafebabe._
 import cafebabe.AbstractByteCodes._
 import cafebabe.ByteCodes._
@@ -19,12 +10,30 @@ import cafebabe.ClassFileTypes._
 import cafebabe.Defaults.constructorName
 import cafebabe.Flags._
 
-trait CodeGeneration {
-  self: CompilationUnit =>
+import inox.utils._
+
+import scala.collection.mutable.{Map => MutableMap}
+
+case class CompilationException(msg: String) extends Exception(msg)
+
+object optInstrumentFields extends inox.FlagOptionDef(
+  "instrument", "Instrument ADT field access during code generation", false)
+
+trait CodeGeneration { self: CompilationUnit =>
+  import program._
+  import program.trees._
+  import program.symbols._
+  import program.trees.exprOps._
+
+  val maxSteps: Int
+
+  lazy val ignoreContracts = options.findOptionOrDefault(inox.evaluators.optIgnoreContracts)
+  lazy val doInstrument = options.findOptionOrDefault(optInstrumentFields)
+  lazy val recordInvocations = maxSteps >= 0
 
   /** A class providing information about the status of parameters in the function that is being currently compiled.
    *  vars is a mapping from local variables/ parameters to the offset of the respective JVM local register
-   *  isStatic signifies if the current method is static (a function, in Leon terms)
+   *  isStatic signifies if the current method is static (a function, in Stainless terms)
    */
   class Locals private[codegen] (
     vars    : Map[Identifier, Int],
@@ -63,50 +72,102 @@ trait CodeGeneration {
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
   private[codegen] val BoxedCharClass            = "java/lang/Character"
-  private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/ArrayBox"
+  private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/BoxedArray"
 
   private[codegen] val JavaListClass             = "java/util/List"
   private[codegen] val JavaIteratorClass         = "java/util/Iterator"
   private[codegen] val JavaStringClass           = "java/lang/String"
 
-  private[codegen] val TupleClass                = "leon/codegen/runtime/Tuple"
-  private[codegen] val SetClass                  = "leon/codegen/runtime/Set"
-  private[codegen] val BagClass                  = "leon/codegen/runtime/Bag"
-  private[codegen] val MapClass                  = "leon/codegen/runtime/Map"
-  private[codegen] val BigIntClass               = "leon/codegen/runtime/BigInt"
-  private[codegen] val RealClass                 = "leon/codegen/runtime/Real"
-  private[codegen] val RationalClass             = "leon/codegen/runtime/Rational"
-  private[codegen] val CaseClassClass            = "leon/codegen/runtime/CaseClass"
-  private[codegen] val LambdaClass               = "leon/codegen/runtime/Lambda"
-  private[codegen] val FiniteLambdaClass         = "leon/codegen/runtime/FiniteLambda"
-  private[codegen] val ErrorClass                = "leon/codegen/runtime/LeonCodeGenRuntimeException"
-  private[codegen] val ImpossibleEvaluationClass = "leon/codegen/runtime/LeonCodeGenEvaluationException"
-  private[codegen] val BadQuantificationClass    = "leon/codegen/runtime/LeonCodeGenQuantificationException"
-  private[codegen] val HashingClass              = "leon/codegen/runtime/LeonCodeGenRuntimeHashing"
-  private[codegen] val ChooseEntryPointClass     = "leon/codegen/runtime/ChooseEntryPoint"
-  private[codegen] val GenericValuesClass        = "leon/codegen/runtime/GenericValues"
-  private[codegen] val MonitorClass              = "leon/codegen/runtime/Monitor"
-  private[codegen] val NoMonitorClass            = "leon/codegen/runtime/NoMonitor"
-  private[codegen] val StrOpsClass               = "leon/codegen/runtime/StrOps"
+  private[codegen] val TupleClass                = "stainless/codegen/runtime/Tuple"
+  private[codegen] val SetClass                  = "stainless/codegen/runtime/Set"
+  private[codegen] val BagClass                  = "stainless/codegen/runtime/Bag"
+  private[codegen] val MapClass                  = "stainless/codegen/runtime/Map"
+  private[codegen] val BigIntClass               = "stainless/codegen/runtime/BigInt"
+  private[codegen] val BitVectorClass            = "stainless/codegen/runtime/BitVector"
+  private[codegen] val RationalClass             = "stainless/codegen/runtime/Rational"
+  private[codegen] val ADTClass                  = "stainless/codegen/runtime/ADT"
+  private[codegen] val LambdaClass               = "stainless/codegen/runtime/Lambda"
+  private[codegen] val FiniteLambdaClass         = "stainless/codegen/runtime/FiniteLambda"
+  private[codegen] val ErrorClass                = "stainless/codegen/runtime/StainlessCodeGenRuntimeException"
+  private[codegen] val ChooseEntryPointClass     = "stainless/codegen/runtime/ChooseEntryPoint"
+  private[codegen] val GenericValuesClass        = "stainless/codegen/runtime/GenericValues"
+  private[codegen] val MonitorClass              = "stainless/codegen/runtime/Monitor"
+  private[codegen] val StringOpsClass            = "stainless/codegen/runtime/StringOps"
+
+  private[codegen] val HashingClass              = "scala/util/hashing/MurmurHash3"
 
   def idToSafeJVMName(id: Identifier) = {
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
   }
 
-  def defToJVMName(d: Definition): String = "Leon$CodeGen$Def$" + idToSafeJVMName(d.id)
+  def defToJVMName(d: Definition): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(d.id)
 
-  /** Retrieve the name of the underlying lazy field from a lazy field accessor method */
-  private[codegen] def underlyingField(lazyAccessor : String) = lazyAccessor + "$underlying"
+  private[this] val adtClassFiles : MutableMap[ADTDefinition, ClassFile] = MutableMap.empty
+  private[this] val classToADT    : MutableMap[String, ADTDefinition]    = MutableMap.empty
+
+  def getClass(adt: ADTDefinition): ClassFile = adtClassFiles.get(adt) match {
+    case Some(cf) => cf
+    case None =>
+      val cName = defToJVMName(adt)
+      val pName = adt match {
+        case cons: ADTConstructor => cons.sort.map(id => defToJVMName(getADT(id)))
+        case _ => None
+      }
+
+      val cf = new ClassFile(cName, pName)
+      classToADT += cf.className -> adt
+      adtClassFiles += adt -> cf
+      cf
+  }
+
+  private[this] lazy val static = new ClassFile("<static>", None)
+
+  protected def compile(): Seq[ClassFile] = {
+    for (adt <- adts.values) adt match {
+      case sort: ADTSort => compileADTSort(sort)
+      case cons: ADTConstructor => compileADTConstructor(cons)
+    }
+
+    for (fd <- functions.values) {
+      compileFunDef(fd, static)
+    }
+
+    adtClassFiles.values.toSeq :+ static
+  }
+
+  protected def jvmClassNameToADT(className: String): Option[ADTDefinition] = classToADT.get(className)
+
+  private[this] val adtInfos: MutableMap[ADTDefinition, (String, String)] = MutableMap.empty
+
+  protected def getADTInfo(adt: ADTDefinition): (String, String) = adtInfos.getOrElseUpdate(adt, {
+    val cf = getClass(adt)
+    val tpeParam = if (adt.tparams.isEmpty) "" else "[I"
+    val sig = "(L"+MonitorClass+";" + tpeParam + (adt match {
+      case cons: ADTConstructor => cons.fields.map(f => typeToJVM(f.tpe)).mkString("")
+      case _ => ""
+    }) + ")V"
+    (cf.className, sig)
+  })
+
+  private[this] val funDefInfos: MutableMap[FunDef, (String, String, String)] = MutableMap.empty
+
+  protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElseUpdate(fd, {
+    val sig = "(L"+MonitorClass+";" +
+      (if (fd.tparams.nonEmpty) "[I" else "") +
+      fd.params.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
+
+    (static.className, idToSafeJVMName(fd.id), sig)
+  })
 
   protected object ValueType {
-    def unapply(tp: TypeTree): Boolean = tp match {
+    def unapply(tp: Type): Boolean = tp match {
       case Int32Type | BooleanType | CharType | UnitType => true
       case _ => false
     }
   }
 
-  /** Return the respective JVM type from a Leon type */
-  def typeToJVM(tpe : TypeTree) : String = tpe match {
+  /** Return the respective JVM type from a Stainless type */
+  def typeToJVM(tpe: Type) : String = tpe match {
     case Int32Type => "I"
 
     case BooleanType => "Z"
@@ -115,10 +176,9 @@ trait CodeGeneration {
 
     case UnitType => "Z"
 
-    case c : ClassType =>
-      leonClassToJVMInfo(c.classDef).map { case (n, _) => "L" + n + ";" }.getOrElse(
-        throw CompilationException("Unsupported class " + c.id)
-      )
+    case adt: ADTType =>
+      val (n, _) = getADTInfo(adt.getADT.definition)
+      s"L$n;"
 
     case _ : TupleType =>
       "L" + TupleClass + ";"
@@ -153,8 +213,8 @@ trait CodeGeneration {
     case _ => throw CompilationException("Unsupported type : " + tpe)
   }
 
-  /** Return the respective boxed JVM type from a Leon type */
-  def typeToJVMBoxed(tpe : TypeTree) : String = tpe match {
+  /** Return the respective boxed JVM type from a Stainless type */
+  def typeToJVMBoxed(tpe: Type) : String = tpe match {
     case Int32Type              => s"L$BoxedIntClass;"
     case BooleanType | UnitType => s"L$BoxedBoolClass;"
     case CharType               => s"L$BoxedCharClass;"
@@ -166,11 +226,8 @@ trait CodeGeneration {
    * @param funDef The function definition to be compiled
    * @param owner The module/class that contains `funDef`
    */
-  def compileFunDef(funDef: FunDef, owner: Definition) {
-    val isStatic = owner.isInstanceOf[ModuleDef]
-
-    val cf = classes(owner)
-    val (_,mn,_) = leonFunDefToJVMInfo(funDef).get
+  def compileFunDef(funDef: FunDef, cf: ClassFile): Unit = {
+    val (_,mn,_) = getFunDefInfo(funDef)
 
     val tpeParam = if (funDef.tparams.isEmpty) Seq() else Seq("[I")
     val realParams = ("L" + MonitorClass + ";") +: (tpeParam ++ funDef.params.map(a => typeToJVM(a.getType)))
@@ -180,41 +237,37 @@ trait CodeGeneration {
       mn,
       realParams : _*
     )
+
     m.setFlags((
-      // FIXME Not sure about this "FINAL" now that we can have methods in inheritable classes
-      if (isStatic)
-        METHOD_ACC_PUBLIC |
-        METHOD_ACC_FINAL  |
-        METHOD_ACC_STATIC
-      else
-        METHOD_ACC_PUBLIC |
-        METHOD_ACC_FINAL
+      METHOD_ACC_PUBLIC |
+      METHOD_ACC_FINAL  |
+      METHOD_ACC_STATIC
     ).asInstanceOf[U2])
 
     val ch = m.codeHandler
 
-    // An offset we introduce to the parameters:
-    // 1 if this is a method, so we need "this" in position 0 of the stack
-    val receiverOffset = if (isStatic) 0 else 1
     val paramIds = Seq(monitorID) ++ 
       (if (funDef.tparams.nonEmpty) Seq(tpsID) else Seq.empty) ++
-      funDef.paramIds
-    val newMapping = paramIds.zipWithIndex.toMap.mapValues(_ + receiverOffset)
+      funDef.params.map(_.id)
 
-    val body = if (params.checkContracts) {
+    val newMapping = paramIds.zipWithIndex.toMap
+
+    val body = if (!ignoreContracts) {
       funDef.fullBody
     } else {
       funDef.body.getOrElse(
+        // TODO: externs!!
+        /*
         if (funDef.annotations contains "extern") {
           Error(funDef.id.getType, "Body of " + funDef.id.name + " not implemented at compile-time and still executed.")
-        } else {
+        } else {*/
           throw CompilationException("Can't compile a FunDef without body: "+funDef.id.name)
-        })
+        )
     }
 
     val locals = NoLocals.withVars(newMapping).withTypes(funDef.tparams.map(_.tp))
 
-    if (params.recordInvocations) {
+    if (recordInvocations) {
       load(monitorID, ch)(locals)
       ch << InvokeVirtual(MonitorClass, "onInvocation", "()V")
     }
@@ -232,22 +285,24 @@ trait CodeGeneration {
     ch.freeze
   }
 
-  private[codegen] val lambdaToClass = scala.collection.mutable.Map.empty[Lambda, String]
-  private[codegen] val classToLambda = scala.collection.mutable.Map.empty[String, Lambda]
+  private[this] val lambdaClasses = new Bijection[Lambda, String]
+
+  protected def jvmClassNameToLambda(className: String): Option[Lambda] = lambdaClasses.getA(className)
 
   protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
+    assert(normalizeStructure(l)._1 == l)
+
     val tparams: Seq[TypeParameter] = typeParamsOf(l).toSeq.sortBy(_.id.uniqueName)
 
-    val closedVars = purescala.ExprOps.variablesOf(l).toSeq.sortBy(_.uniqueName)
-    val closuresWithoutMonitor = closedVars.map(id => id -> typeToJVM(id.getType))
+    val closedVars = variablesOf(l).toSeq.sortBy(_.id.uniqueName)
+    val closuresWithoutMonitor = closedVars.map(v => v -> typeToJVM(v.tpe))
     val closures = (monitorID -> s"L$MonitorClass;") +:
-      ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++ closuresWithoutMonitor)
+      ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++
+      closuresWithoutMonitor.map(p => p._1.id -> p._2))
 
-    val afName = lambdaToClass.getOrElse(l, {
-      val afId = FreshIdentifier("Leon$CodeGen$Lambda$")
+    val afName = lambdaClasses.cachedB(l) {
+      val afId = FreshIdentifier("Stainless$CodeGen$Lambda$")
       val afName = afId.uniqueName
-      lambdaToClass += l -> afName
-      classToLambda += afName -> l
 
       val cf = new ClassFile(afName, Some(LambdaClass))
 
@@ -288,7 +343,7 @@ trait CodeGeneration {
         cch.freeze
       }
 
-      val argMapping = l.args.map(_.id).zipWithIndex.toMap
+      val argMapping = l.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
       val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
       val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping).withTypes(tparams)
 
@@ -369,15 +424,15 @@ trait CodeGeneration {
         hch << Label(wasNotCached) << POP
 
         hch << Ldc(closuresWithoutMonitor.size) << NewArray(s"$ObjectClass")
-        for (((id, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
+        for (((v, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
           hch << DUP << Ldc(i)
-          hch << ALoad(0) << GetField(afName, id.uniqueName, jvmt)
-          mkBox(id.getType, hch)
+          hch << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
+          mkBox(v.tpe, hch)
           hch << AASTORE
         }
 
         hch << Ldc(afName.hashCode)
-        hch << InvokeStatic(HashingClass, "seqHash", s"([L$ObjectClass;I)I") << DUP
+        hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
         hch << ALoad(0) << SWAP << PutField(afName, hashFieldName, "I")
         hch << IRETURN
 
@@ -387,11 +442,9 @@ trait CodeGeneration {
       loader.register(cf)
 
       afName
-    })
+    }
 
-    (afName, closures.map { case p @ (id, jvmt) =>
-      if (id == monitorID || id == tpsID) p else (id -> jvmt)
-    }, tparams, "(" + closures.map(_._2).mkString("") + ")V")
+    (afName, closures, tparams, "(" + closures.map(_._2).mkString("") + ")V")
   }
 
   // also makes tuples with 0/1 args
@@ -408,7 +461,7 @@ trait CodeGeneration {
     ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
   }
 
-  private def loadTypes(tps: Seq[TypeTree], ch: CodeHandler)(implicit locals: Locals): Unit = {
+  private def loadTypes(tps: Seq[Type], ch: CodeHandler)(implicit locals: Locals): Unit = {
     if (tps.nonEmpty) {
       ch << Ldc(tps.size)
       ch << NewArray.primitive("T_INT")
@@ -433,1013 +486,893 @@ trait CodeGeneration {
     }
   }
 
-  private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)(implicit locals: Locals) {
-    e match {
-      case Variable(id) =>
-        load(id, ch)
+  private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)
+                             (implicit locals: Locals): Unit = e match {
+    case v: Variable =>
+      load(v, ch)
 
-      case Assert(cond, oerr, body) =>
-        mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
+    case Assert(cond, oerr, body) =>
+      mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
 
-      case en @ Ensuring(_, _) =>
-        mkExpr(en.toAssert, ch)
+    case en @ Ensuring(_, _) =>
+      mkExpr(en.toAssert, ch)
 
-      case Require(pre, body) =>
-        mkExpr(IfExpr(pre, body, Error(body.getType, "Precondition failed")), ch)
+    case Require(pre, body) =>
+      mkExpr(IfExpr(pre, body, Error(body.getType, "Precondition failed")), ch)
 
-      case Let(id, d, Variable(id2)) if id == id2 => // Optimization for local variables.
-        mkExpr(d, ch)
-        
-      case Let(id, d, Let(id3, Variable(id2), Variable(id4))) if id == id2 && id3 == id4 => // Optimization for local variables.
-        mkExpr(d, ch)
-        
-      case Let(i,d,b) =>
-        mkExpr(d, ch)
-        val slot = ch.getFreshVar
-        val instr = i.getType match {
-          case ValueType() =>
-            if(slot > 127) {
-              println("Error while converting one more slot which is too much " + e)
-            }
-            IStore(slot)
-          case _ => AStore(slot)
-        }
-        ch << instr
-        mkExpr(b, ch)(locals.withVar(i -> slot))
-
-      case IntLiteral(v) =>
-        ch << Ldc(v)
-
-      case CharLiteral(v) =>
-        ch << Ldc(v)
-
-      case BooleanLiteral(v) =>
-        ch << Ldc(if(v) 1 else 0)
-
-      case UnitLiteral() =>
-        ch << Ldc(1)
+    case Let(vd, d, v) if vd.toVariable == v => // Optimization for local variables.
+      mkExpr(d, ch)
       
-      case StringLiteral(v) =>
-        ch << Ldc(v)
-
-      case InfiniteIntegerLiteral(v) =>
-        ch << New(BigIntClass) << DUP
-        ch << Ldc(v.toString)
-        ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
-
-      case FractionalLiteral(n, d) =>
-        ch << New(RationalClass) << DUP
-        ch << Ldc(n.toString)
-        ch << Ldc(d.toString)
-        ch << InvokeSpecial(RationalClass, constructorName, "(Ljava/lang/String;Ljava/lang/String;)V")
-
-      // Case classes
-      case CaseClass(cct, as) =>
-        val (ccName, ccApplySig) = leonClassToJVMInfo(cct.classDef).getOrElse {
-          throw CompilationException("Unknown class : " + cct.id)
-        }
-        ch << New(ccName) << DUP
-        load(monitorID, ch)
-        loadTypes(cct.tps, ch)
-
-        for ((a, vd) <- as zip cct.classDef.fields) {
-          vd.getType match {
-            case TypeParameter(_) =>
-              mkBoxedExpr(a, ch)
-            case _ =>
-              mkExpr(a, ch)
+    case Let(vd, d, Let(vd2, v, v2)) if vd.toVariable == v && vd2.toVariable == v2 => // Optimization for local variables.
+      mkExpr(d, ch)
+      
+    case Let(vd,d,b) =>
+      mkExpr(d, ch)
+      val slot = ch.getFreshVar
+      val instr = vd.tpe match {
+        case ValueType() =>
+          if (slot > 127) {
+            println("Error while converting one more slot which is too much " + e)
           }
-        }
-        ch << InvokeSpecial(ccName, constructorName, ccApplySig)
+          IStore(slot)
+        case _ => AStore(slot)
+      }
+      ch << instr
+      mkExpr(b, ch)(locals.withVar(vd.id -> slot))
 
-      case IsInstanceOf(e, cct) =>
-        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
-          throw CompilationException("Unknown class : " + cct.id)
-        }
-        mkExpr(e, ch)
-        ch << InstanceOf(ccName)
+    case IntLiteral(v) =>
+      ch << Ldc(v)
 
-      case AsInstanceOf(e, cct) =>
-        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
-          throw CompilationException("Unknown class : " + cct.id)
-        }
-        mkExpr(e, ch)
-        ch << CheckCast(ccName)
+    case CharLiteral(v) =>
+      ch << Ldc(v)
 
-      case CaseClassSelector(cct, e, sid) =>
-        mkExpr(e, ch)
-        val (ccName, _) = leonClassToJVMInfo(cct.classDef).getOrElse {
-          throw CompilationException("Unknown class : " + cct.id)
-        }
-        ch << CheckCast(ccName)
-        instrumentedGetField(ch, cct, sid)
+    case BooleanLiteral(v) =>
+      ch << Ldc(if(v) 1 else 0)
 
-      // Tuples (note that instanceOf checks are in mkBranch)
-      case Tuple(es) => mkTuple(es, ch)
+    case UnitLiteral() =>
+      ch << Ldc(1)
+    
+    case StringLiteral(v) =>
+      ch << Ldc(v)
 
-      case TupleSelect(t, i) =>
-        val TupleType(bs) = t.getType
-        mkExpr(t,ch)
-        ch << Ldc(i - 1)
-        ch << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
-        mkUnbox(bs(i - 1), ch)
+    case IntegerLiteral(v) =>
+      ch << New(BigIntClass) << DUP
+      ch << Ldc(v.toString)
+      ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
 
-      // Sets
-      case FiniteSet(es, _) =>
-        ch << DefaultNew(SetClass)
-        for(e <- es) {
-          ch << DUP
-          mkBoxedExpr(e, ch)
-          ch << InvokeVirtual(SetClass, "add", s"(L$ObjectClass;)V")
-        }
+    case FractionLiteral(n, d) =>
+      ch << New(RationalClass) << DUP
+      ch << Ldc(n.toString)
+      ch << Ldc(d.toString)
+      ch << InvokeSpecial(RationalClass, constructorName, "(Ljava/lang/String;Ljava/lang/String;)V")
 
-      case SetAdd(s, e) =>
-        mkExpr(s, ch)
-        mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(SetClass, "plus", s"(L$ObjectClass;)L$SetClass;")
+    case ADT(adt, as) =>
+      val tcons = adt.getADT.toConstructor
+      val cons = tcons.definition
+      val (adtName, adtApplySig) = getADTInfo(cons)
+      ch << New(adtName) << DUP
+      load(monitorID, ch)
+      loadTypes(adt.tps, ch)
 
-      case ElementOfSet(e, s) =>
-        mkExpr(s, ch)
-        mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(SetClass, "contains", s"(L$ObjectClass;)Z")
-
-      case SetCardinality(s) =>
-        mkExpr(s, ch)
-        ch << InvokeVirtual(SetClass, "size", s"()$BigIntClass;")
-
-      case SubsetOf(s1, s2) =>
-        mkExpr(s1, ch)
-        mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "subsetOf", s"(L$SetClass;)Z")
-
-      case SetIntersection(s1, s2) =>
-        mkExpr(s1, ch)
-        mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "intersect", s"(L$SetClass;)L$SetClass;")
-
-      case SetUnion(s1, s2) =>
-        mkExpr(s1, ch)
-        mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "union", s"(L$SetClass;)L$SetClass;")
-
-      case SetDifference(s1, s2) =>
-        mkExpr(s1, ch)
-        mkExpr(s2, ch)
-        ch << InvokeVirtual(SetClass, "minus", s"(L$SetClass;)L$SetClass;")
-
-      // Bags
-      case FiniteBag(els, _) =>
-        ch << DefaultNew(BagClass)
-        for((k,v) <- els) {
-          ch << DUP
-          mkBoxedExpr(k, ch)
-          mkExpr(v, ch)
-          ch << InvokeVirtual(BagClass, "add", s"(L$ObjectClass;L$BigIntClass;)V")
-        }
-
-      case BagAdd(b, e) =>
-        mkExpr(b, ch)
-        mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(BagClass, "plus", s"(L$ObjectClass;)L$BagClass;")
-
-      case MultiplicityInBag(e, b) =>
-        mkExpr(b, ch)
-        mkBoxedExpr(e, ch)
-        ch << InvokeVirtual(BagClass, "get", s"(L$ObjectClass;)L$BigIntClass;")
-
-      case BagIntersection(b1, b2) =>
-        mkExpr(b1, ch)
-        mkExpr(b2, ch)
-        ch << InvokeVirtual(BagClass, "intersect", s"(L$BagClass;)L$BagClass;")
-
-      case BagUnion(b1, b2) =>
-        mkExpr(b1, ch)
-        mkExpr(b2, ch)
-        ch << InvokeVirtual(BagClass, "union", s"(L$BagClass;)L$BagClass;")
-
-      case BagDifference(b1, b2) =>
-        mkExpr(b1, ch)
-        mkExpr(b2, ch)
-        ch << InvokeVirtual(BagClass, "difference", s"(L$BagClass;)L$BagClass;")
-
-      // Maps
-      case FiniteMap(ss, _, _) =>
-        ch << DefaultNew(MapClass)
-        for((f,t) <- ss) {
-          ch << DUP
-          mkBoxedExpr(f, ch)
-          mkBoxedExpr(t, ch)
-          ch << InvokeVirtual(MapClass, "add", s"(L$ObjectClass;L$ObjectClass;)V")
-        }
-
-      case MapApply(m, k) =>
-        val MapType(_, tt) = m.getType
-        mkExpr(m, ch)
-        mkBoxedExpr(k, ch)
-        ch << InvokeVirtual(MapClass, "get", s"(L$ObjectClass;)L$ObjectClass;")
-        mkUnbox(tt, ch)
-
-      case MapIsDefinedAt(m, k) =>
-        mkExpr(m, ch)
-        mkBoxedExpr(k, ch)
-        ch << InvokeVirtual(MapClass, "isDefinedAt", s"(L$ObjectClass;)Z")
-
-      case MapUnion(m1, m2) =>
-        mkExpr(m1, ch)
-        mkExpr(m2, ch)
-        ch << InvokeVirtual(MapClass, "union", s"(L$MapClass;)L$MapClass;")
-
-      // Branching
-      case IfExpr(c, t, e) =>
-        val tl = ch.getFreshLabel("then")
-        val el = ch.getFreshLabel("else")
-        val al = ch.getFreshLabel("after")
-        mkBranch(c, tl, el, ch)
-        ch << Label(tl)
-        mkExpr(t, ch)
-        ch << Goto(al) << Label(el)
-        mkExpr(e, ch)
-        ch << Label(al)
-
-      // Strict static fields
-      case FunctionInvocation(tfd, as) if tfd.fd.canBeStrictField =>
-        val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
-          throw CompilationException("Unknown method : " + tfd.id)
-        }
-
-        // Get static field
-        ch << GetStatic(className, fieldName, typeToJVM(tfd.fd.returnType))
-
-        // unbox field
-        (tfd.fd.returnType, tfd.returnType) match {
-          case (TypeParameter(_), tpe)  =>
-            mkUnbox(tpe, ch)
+      for ((a, vd) <- as zip cons.fields) {
+        vd.tpe match {
+          case TypeParameter(_) =>
+            mkBoxedExpr(a, ch)
           case _ =>
+            mkExpr(a, ch)
         }
-        
-      case FunctionInvocation(TypedFunDef(fd, Nil), Seq(a)) if fd == program.library.escape.get =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "escape", s"(L$JavaStringClass;)L$JavaStringClass;")
-        
-      case FunctionInvocation(TypedFunDef(fd, Seq(tp)), Seq(set)) if fd == program.library.setToList.get =>
+      }
+      ch << InvokeSpecial(adtName, constructorName, adtApplySig)
 
-        val nil = CaseClass(CaseClassType(program.library.Nil.get, Seq(tp)), Seq())
-        val cons = program.library.Cons.get
-        val (consName, ccApplySig) = leonClassToJVMInfo(cons).getOrElse {
-          throw CompilationException("Unknown class : " + cons)
-        }
-
-        mkExpr(nil, ch)
-        mkExpr(set, ch)
-        //if (params.requireMonitor) {
-        //  ch << ALoad(locals.monitorIndex)
-        //}
-
-        // No dynamic dispatching/overriding in Leon,
-        // so no need to take care of own vs. "super" methods
-        ch << InvokeVirtual(SetClass, "getElements", s"()L$JavaIteratorClass;")
-
-        val loop = ch.getFreshLabel("loop")
-        val out = ch.getFreshLabel("out")
-        ch << Label(loop)
-        // list, it
+      // check invariant (if it exists)
+      if (!ignoreContracts && cons.hasInvariant) {
         ch << DUP
-        // list, it, it
-        ch << InvokeInterface(JavaIteratorClass, "hasNext", "()Z")
-        // list, it, hasNext
-        ch << IfEq(out)
-        // list, it
-        ch << DUP2
-        // list, it, list, it
-        ch << InvokeInterface(JavaIteratorClass, "next", s"()L$ObjectClass;") << SWAP
-        // list, it, elem, list
-        ch << New(consName) << DUP << DUP2_X2
-        // list, it, cons, cons, elem, list, cons, cons
-        ch << POP << POP
-        // list, it, cons, cons, elem, list
+
+        val tfd = tcons.invariant.get
+        val (cn, mn, ms) = getFunDefInfo(tfd.fd)
 
         load(monitorID, ch)
-        ch << DUP_X2 << POP
-        loadTypes(Seq(tp), ch)
-        ch << DUP_X2 << POP
+        ch << SWAP // stack: (monitor, adt)
 
-        ch << InvokeSpecial(consName, constructorName, ccApplySig)
-        // list, it, newList
-        ch << DUP_X2 << POP << SWAP << POP
-        // newList, it
-        ch << Goto(loop)
-
-        ch << Label(out)
-        // list, it
-        ch << POP
-        // list
-
-      case FunctionInvocation(tfd, as) if abstractFunDefs(tfd.fd.id) =>
-        val id = registerAbstractFD(tfd.fd)
-
-        load(monitorID, ch)
-
-        ch << Ldc(id)
-        if (tfd.fd.tparams.nonEmpty) {
-          loadTypes(tfd.tps, ch)
-        } else {
-          ch << Ldc(0) << NewArray.primitive("T_INT")
-        }
-
-        ch << Ldc(as.size)
-        ch << NewArray(ObjectClass)
-
-        for ((e, i) <- as.zipWithIndex) {
-          ch << DUP
-          ch << Ldc(i)
-          mkExpr(e, ch)
-          mkBox(e.getType, ch)
-          ch << AASTORE
-        }
-
-        ch << InvokeVirtual(MonitorClass, "onAbstractInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
-
-        mkUnbox(tfd.returnType, ch)
-
-      // Static lazy fields/ functions
-      case fi @ FunctionInvocation(tfd, as) =>
-        val (cn, mn, ms) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
-          throw CompilationException("Unknown method : " + tfd.id)
-        }
-
-        load(monitorID, ch)
         loadTypes(tfd.tps, ch)
-
-        for((a, vd) <- as zip tfd.fd.params) {
-          vd.getType match {
-            case TypeParameter(_) =>
-              mkBoxedExpr(a, ch)
-            case _ =>
-              mkExpr(a, ch)
-          }
-        }
+        ch << SWAP // stack: (monitor, tps, adt)
 
         ch << InvokeStatic(cn, mn, ms)
 
-        (tfd.fd.returnType, tfd.returnType) match {
-          case (TypeParameter(_), tpe)  =>
-            mkUnbox(tpe, ch)
+        val ok = ch.getFreshLabel("invariant_ok")
+        ch << IfNe(ok)
+        mkExpr(Error(BooleanType, "ADT invariant failed @" + e.getPos), ch)
+        ch << Label(ok)
+      }
+
+    case IsInstanceOf(e, adt) =>
+      val (ccName, _) = getADTInfo(adt.getADT.definition)
+      mkExpr(e, ch)
+      ch << InstanceOf(ccName)
+
+    case AsInstanceOf(e, adt) =>
+      val (ccName, _) = getADTInfo(adt.getADT.definition)
+      mkExpr(e, ch)
+      ch << CheckCast(ccName)
+
+    case ADTSelector(IsTyped(e, adt: ADTType), sid) =>
+      mkExpr(e, ch)
+      val (ccName, _) = getADTInfo(adt.getADT.definition)
+      ch << CheckCast(ccName)
+      instrumentedGetField(ch, adt, sid)
+
+    // Tuples (note that instanceOf checks are in mkBranch)
+    case Tuple(es) => mkTuple(es, ch)
+
+    case TupleSelect(t, i) =>
+      val TupleType(bs) = t.getType
+      mkExpr(t,ch)
+      ch << Ldc(i - 1)
+      ch << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
+      mkUnbox(bs(i - 1), ch)
+
+    // Sets
+    case FiniteSet(es, _) =>
+      ch << DefaultNew(SetClass)
+      for(e <- es) {
+        ch << DUP
+        mkBoxedExpr(e, ch)
+        ch << InvokeVirtual(SetClass, "insert", s"(L$ObjectClass;)V")
+      }
+
+    case SetAdd(s, e) =>
+      mkExpr(s, ch)
+      mkBoxedExpr(e, ch)
+      ch << InvokeVirtual(SetClass, "add", s"(L$ObjectClass;)L$SetClass;")
+
+    case ElementOfSet(e, s) =>
+      mkExpr(s, ch)
+      mkBoxedExpr(e, ch)
+      ch << InvokeVirtual(SetClass, "contains", s"(L$ObjectClass;)Z")
+
+    case SubsetOf(s1, s2) =>
+      mkExpr(s1, ch)
+      mkExpr(s2, ch)
+      ch << InvokeVirtual(SetClass, "subsetOf", s"(L$SetClass;)Z")
+
+    case SetIntersection(s1, s2) =>
+      mkExpr(s1, ch)
+      mkExpr(s2, ch)
+      ch << InvokeVirtual(SetClass, "intersect", s"(L$SetClass;)L$SetClass;")
+
+    case SetUnion(s1, s2) =>
+      mkExpr(s1, ch)
+      mkExpr(s2, ch)
+      ch << InvokeVirtual(SetClass, "union", s"(L$SetClass;)L$SetClass;")
+
+    case SetDifference(s1, s2) =>
+      mkExpr(s1, ch)
+      mkExpr(s2, ch)
+      ch << InvokeVirtual(SetClass, "difference", s"(L$SetClass;)L$SetClass;")
+
+    // Bags
+    case FiniteBag(els, _) =>
+      ch << DefaultNew(BagClass)
+      for((k,v) <- els) {
+        ch << DUP
+        mkBoxedExpr(k, ch)
+        mkExpr(v, ch)
+        ch << InvokeVirtual(BagClass, "insert", s"(L$ObjectClass;L$BigIntClass;)V")
+      }
+
+    case BagAdd(b, e) =>
+      mkExpr(b, ch)
+      mkBoxedExpr(e, ch)
+      ch << InvokeVirtual(BagClass, "add", s"(L$ObjectClass;)L$BagClass;")
+
+    case MultiplicityInBag(e, b) =>
+      mkExpr(b, ch)
+      mkBoxedExpr(e, ch)
+      ch << InvokeVirtual(BagClass, "get", s"(L$ObjectClass;)L$BigIntClass;")
+
+    case BagIntersection(b1, b2) =>
+      mkExpr(b1, ch)
+      mkExpr(b2, ch)
+      ch << InvokeVirtual(BagClass, "intersect", s"(L$BagClass;)L$BagClass;")
+
+    case BagUnion(b1, b2) =>
+      mkExpr(b1, ch)
+      mkExpr(b2, ch)
+      ch << InvokeVirtual(BagClass, "union", s"(L$BagClass;)L$BagClass;")
+
+    case BagDifference(b1, b2) =>
+      mkExpr(b1, ch)
+      mkExpr(b2, ch)
+      ch << InvokeVirtual(BagClass, "difference", s"(L$BagClass;)L$BagClass;")
+
+    // Maps
+    case FiniteMap(ss, dflt, _) =>
+      mkExpr(dflt, ch)
+      ch << New(MapClass) << DUP
+      ch << InvokeSpecial(MapClass, constructorName, s"(L$ObjectClass;)V")
+      for((f,t) <- ss) {
+        ch << DUP
+        mkBoxedExpr(f, ch)
+        mkBoxedExpr(t, ch)
+        ch << InvokeVirtual(MapClass, "insert", s"(L$ObjectClass;L$ObjectClass;)V")
+      }
+
+    case MapApply(m, k) =>
+      val MapType(_, tt) = m.getType
+      mkExpr(m, ch)
+      mkBoxedExpr(k, ch)
+      ch << InvokeVirtual(MapClass, "get", s"(L$ObjectClass;)L$ObjectClass;")
+      mkUnbox(tt, ch)
+
+    case MapUpdated(map, key, value) =>
+      mkExpr(map, ch)
+      mkBoxedExpr(key, ch)
+      mkBoxedExpr(value, ch)
+      ch << InvokeVirtual(MapClass, "updated", s"(L$ObjectClass;L$ObjectClass;)L$MapClass;")
+
+    // Branching
+    case IfExpr(c, t, e) =>
+      val tl = ch.getFreshLabel("then")
+      val el = ch.getFreshLabel("else")
+      val al = ch.getFreshLabel("after")
+      mkBranch(c, tl, el, ch)
+      ch << Label(tl)
+      mkExpr(t, ch)
+      ch << Goto(al) << Label(el)
+      mkExpr(e, ch)
+      ch << Label(al)
+
+    // Static lazy fields/ functions
+    case fi @ FunctionInvocation(id, tps, as) =>
+      val tfd = getFunction(id, tps)
+      val (cn, mn, ms) = getFunDefInfo(tfd.fd)
+
+      load(monitorID, ch)
+      loadTypes(tfd.tps, ch)
+
+      for((a, vd) <- as zip tfd.fd.params) {
+        vd.getType match {
+          case TypeParameter(_) =>
+            mkBoxedExpr(a, ch)
           case _ =>
+            mkExpr(a, ch)
         }
+      }
 
-      // Strict fields are handled as fields
-      case MethodInvocation(rec, _, tfd, _) if tfd.fd.canBeStrictField =>
-        val (className, fieldName, _) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
-          throw CompilationException("Unknown method : " + tfd.id)
+      ch << InvokeStatic(cn, mn, ms)
+
+      (tfd.fd.returnType, tfd.returnType) match {
+        case (TypeParameter(_), tpe)  =>
+          mkUnbox(tpe, ch)
+        case _ =>
+      }
+
+    case app @ Application(caller, args) =>
+      mkExpr(caller, ch)
+      ch << Ldc(args.size) << NewArray(s"$ObjectClass")
+      for ((arg,i) <- args.zipWithIndex) {
+        ch << DUP << Ldc(i)
+        mkBoxedExpr(arg, ch)
+        ch << AASTORE
+      }
+
+      ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
+      mkUnbox(app.getType, ch)
+
+    case lambda @ Lambda(args, body) =>
+      val (l, mapping) = normalizeStructure(lambda)
+      val (afName, closures, tparams, consSig) = compileLambda(l)
+
+      ch << New(afName) << DUP
+      for ((id,jvmt) <- closures) {
+        if (id == tpsID) {
+          loadTypes(tparams, ch)
+        } else {
+          val closure = mapping.collectFirst { case (Variable(`id`, _), e) => e }.get
+          mkExpr(closure, ch)
         }
+      }
+      ch << InvokeSpecial(afName, constructorName, consSig)
 
-        // Load receiver
-        mkExpr(rec,ch)
+    // String processing =>
+    case StringConcat(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      ch << InvokeStatic(StringOpsClass, "concat", s"(L$JavaStringClass;L$JavaStringClass;)L$JavaStringClass;")
 
-        // Get field
-        ch << GetField(className, fieldName, typeToJVM(tfd.fd.returnType))
-
-        // unbox field
-        (tfd.fd.returnType, tfd.returnType) match {
-          case (TypeParameter(_), tpe)  =>
-            mkUnbox(tpe, ch)
-          case _ =>
-        }
-
-      // This is for lazy fields and real methods.
-      // To access a lazy field, we call its accessor function.
-      case MethodInvocation(rec, cd, tfd, as) =>
-        val (className, methodName, sig) = leonFunDefToJVMInfo(tfd.fd).getOrElse {
-          throw CompilationException("Unknown method : " + tfd.id)
-        }
-
-        // Receiver of the method call
-        mkExpr(rec, ch)
-
-        load(monitorID, ch)
-        loadTypes(tfd.tps, ch)
-
-        for((a, vd) <- as zip tfd.fd.params) {
-          vd.getType match {
-            case TypeParameter(_) =>
-              mkBoxedExpr(a, ch)
-            case _ =>
-              mkExpr(a, ch)
-          }
-        }
-
-        // No interfaces in Leon, so no need to use InvokeInterface
-        ch << InvokeVirtual(className, methodName, sig)
-
-        (tfd.fd.returnType, tfd.returnType) match {
-          case (TypeParameter(_), tpe)  =>
-            mkUnbox(tpe, ch)
-          case _ =>
-        }
-
-      case app @ Application(caller, args) =>
-        mkExpr(caller, ch)
-        ch << Ldc(args.size) << NewArray(s"$ObjectClass")
-        for ((arg,i) <- args.zipWithIndex) {
-          ch << DUP << Ldc(i)
-          mkBoxedExpr(arg, ch)
-          ch << AASTORE
-        }
-
-        ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
-        mkUnbox(app.getType, ch)
-
-      case p @ FiniteLambda(mapping, dflt, _) =>
-        ch << New(FiniteLambdaClass) << DUP
-        mkBoxedExpr(dflt, ch)
-        ch << InvokeSpecial(FiniteLambdaClass, constructorName, s"(L$ObjectClass;)V")
-
-        for ((es,v) <- mapping) {
-          ch << DUP
-          mkTuple(es, ch)
-          mkBoxedExpr(v, ch)
-          ch << InvokeVirtual(FiniteLambdaClass, "add", s"(L$TupleClass;L$ObjectClass;)V")
-        }
-
-      case l @ Lambda(args, body) =>
-        val (afName, closures, tparams, consSig) = compileLambda(l)
-
-        ch << New(afName) << DUP
-        for ((id,jvmt) <- closures) {
-          if (id == tpsID) {
-            loadTypes(tparams, ch)
-          } else {
-            mkExpr(Variable(id), ch)
-          }
-        }
-        ch << InvokeSpecial(afName, constructorName, consSig)
-
-      // String processing =>
-      case StringConcat(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeStatic(StrOpsClass, "concat", s"(L$JavaStringClass;L$JavaStringClass;)L$JavaStringClass;")
-        
-      case StringLength(a) =>
-        mkExpr(a, ch)
-        ch << InvokeVirtual(JavaStringClass, "length", s"()I")
-        
-      case StringBigLength(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "bigLength", s"(L$JavaStringClass;)L$BigIntClass;")
-        
-      case Int32ToString(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "intToString", s"(I)L$JavaStringClass;")
-      case BooleanToString(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "booleanToString", s"(Z)L$JavaStringClass;")
-      case IntegerToString(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "bigIntToString", s"(L$BigIntClass;)L$JavaStringClass;")
-      case CharToString(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "charToString", s"(C)L$JavaStringClass;")
-      case RealToString(a) =>
-        mkExpr(a, ch)
-        ch << InvokeStatic(StrOpsClass, "realToString", s"(L$RealClass;)L$JavaStringClass;")
-        
-      case SubString(a, start, end) =>
-        mkExpr(a, ch)
-        mkExpr(start, ch)
-        mkExpr(end, ch)
-        ch << InvokeVirtual(JavaStringClass, "substring", s"(II)L$JavaStringClass;")
+    case StringLength(a) =>
+      mkExpr(a, ch)
+      ch << InvokeStatic(StringOpsClass, "length", s"(L$JavaStringClass;)L$BigIntClass;")
       
-      case BigSubString(a, start, end) =>
-        mkExpr(a, ch)
-        mkExpr(start, ch)
-        mkExpr(end, ch)
-        ch << InvokeStatic(StrOpsClass, "bigSubstring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
-        
-      // Arithmetic
-      case Plus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "add", s"(L$BigIntClass;)L$BigIntClass;")
+    case SubString(a, start, end) =>
+      mkExpr(a, ch)
+      mkExpr(start, ch)
+      mkExpr(end, ch)
+      ch << InvokeStatic(StringOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
+      
+    // Arithmetic
+    case Plus(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "add", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          ch << IADD
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "add", s"(L$BitVectorClass;)L$BitVectorClass;")
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "add", s"(L$RationalClass;)L$RationalClass;")
+      }
 
-      case Minus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "sub", s"(L$BigIntClass;)L$BigIntClass;")
+    case Minus(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "sub", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          ch << ISUB
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "sub", s"(L$BitVectorClass;)L$BitVectorClass;")
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "sub", s"(L$RationalClass;)L$RationalClass;")
+      }
 
-      case Times(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "mult", s"(L$BigIntClass;)L$BigIntClass;")
+    case Times(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "mult", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          ch << IMUL
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "mult", s"(L$BitVectorClass;)L$BitVectorClass;")
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "mult", s"(L$RationalClass;)L$RationalClass;")
+      }
 
-      case Division(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
+    case Division(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          ch << IDIV
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "div", s"(L$BitVectorClass;)L$BitVectorClass;")
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "div", s"(L$RationalClass;)L$RationalClass;")
+      }
 
-      case Remainder(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "rem", s"(L$BigIntClass;)L$BigIntClass;")
+    case Remainder(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "rem", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          ch << IREM
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "rem", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case Modulo(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
+    case Modulo(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
+        case Int32Type =>
+          // stack: (l, r)
+          ch << DUP_X1
+          // stack: (r, l, r)
+          ch << IREM
+          // stack: (r, l % r)
+          ch << SWAP << DUP_X1
+          // stack: (r, l % r, r)
+          ch << IADD << SWAP
+          // stack: (l % r + r, r)
+          ch << IREM
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "mod", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case UMinus(e) =>
+    case UMinus(e) => e.getType match {
+      case IntegerType =>
         mkExpr(e, ch)
         ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
-
-      case RealPlus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(RationalClass, "add", s"(L$RationalClass;)L$RationalClass;")
-
-      case RealMinus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(RationalClass, "sub", s"(L$RationalClass;)L$RationalClass;")
-
-      case RealTimes(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(RationalClass, "mult", s"(L$RationalClass;)L$RationalClass;")
-
-      case RealDivision(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << InvokeVirtual(RationalClass, "div", s"(L$RationalClass;)L$RationalClass;")
-
-      case RealUMinus(e) =>
-        mkExpr(e, ch)
-        ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
-
-
-      //BV arithmetic
-      case BVPlus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IADD
-
-      case BVMinus(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << ISUB
-
-      case BVTimes(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IMUL
-
-      case BVDivision(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IDIV
-
-      case BVRemainder(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IREM
-
-      case BVUMinus(e) =>
+      case Int32Type =>
         mkExpr(e, ch)
         ch << INEG
+      case BVType(_) =>
+        ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
+      case RealType =>
+        ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
+    }
 
-      case BVNot(e) =>
-        mkExpr(e, ch)
-        mkExpr(IntLiteral(-1), ch)
-        ch << IXOR
+    case BVNot(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Int32Type =>
+          mkExpr(IntLiteral(-1), ch)
+          ch << IXOR
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "not", s"()L$BitVectorClass;")
+      }
 
-      case BVAnd(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IAND
+    case BVAnd(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << IAND
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "and", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case BVOr(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IOR
+    case BVOr(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << IOR
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "or", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case BVXOr(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IXOR
+    case BVXor(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << IXOR
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "xor", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case BVShiftLeft(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << ISHL
+    case BVShiftLeft(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << ISHL
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "shiftLeft", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case BVLShiftRight(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << IUSHR
+    case BVLShiftRight(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << IUSHR
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "lShiftRight", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case BVAShiftRight(l, r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        ch << ISHR
+    case BVAShiftRight(l, r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      e.getType match {
+        case Int32Type =>
+          ch << ISHR
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "aShiftRight", s"(L$BitVectorClass;)L$BitVectorClass;")
+      }
 
-      case ArrayLength(a) =>
-        mkExpr(a, ch)
-        ch << ARRAYLENGTH
+    case ArrayLength(a) =>
+      mkExpr(a, ch)
+      ch << ARRAYLENGTH
 
-      case as @ ArraySelect(a,i) =>
-        mkExpr(a, ch)
-        mkExpr(i, ch)
-        ch << (as.getType match {
-          case Untyped => throw CompilationException("Cannot compile untyped array access.")
-          case CharType => CALOAD
-          case Int32Type => IALOAD
-          case BooleanType => BALOAD
-          case _ => AALOAD
-        })
+    case as @ ArraySelect(a,i) =>
+      mkExpr(a, ch)
+      mkExpr(i, ch)
+      ch << (as.getType match {
+        case Untyped => throw CompilationException("Cannot compile untyped array access.")
+        case CharType => CALOAD
+        case Int32Type => IALOAD
+        case BooleanType => BALOAD
+        case _ => AALOAD
+      })
 
-      case au @ ArrayUpdated(a, i, v) =>
-        mkExpr(a, ch)
-        ch << DUP
-        ch << ARRAYLENGTH
-        val storeInstr = a.getType match {
-          case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-          case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-          case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
-          case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-          case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
-        }
-        //srcArrary and targetArray is on the stack
-        ch << DUP_X1 //insert targetArray under srcArray
-        ch << Ldc(0) << SWAP //srcArray, 0, targetArray
-        ch << DUP << ARRAYLENGTH //targetArray, length on stack
-        ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
-        ch << InvokeStatic("java/lang/System", "arraycopy", s"(L$ObjectClass;IL$ObjectClass;II)V")
+    case au @ ArrayUpdated(a, i, v) =>
+      mkExpr(a, ch)
+      ch << DUP
+      ch << ARRAYLENGTH
+      val storeInstr = a.getType match {
+        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
+        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
+        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
+      }
+      //srcArrary and targetArray is on the stack
+      ch << DUP_X1 //insert targetArray under srcArray
+      ch << Ldc(0) << SWAP //srcArray, 0, targetArray
+      ch << DUP << ARRAYLENGTH //targetArray, length on stack
+      ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
+      ch << InvokeStatic("java/lang/System", "arraycopy", s"(L$ObjectClass;IL$ObjectClass;II)V")
 
-        //targetArray remains on the stack
-        ch << DUP
-        mkExpr(i, ch)
+      //targetArray remains on the stack
+      ch << DUP
+      mkExpr(i, ch)
+      mkExpr(v, ch)
+      ch << storeInstr
+      //returns targetArray
+
+    case a @ FiniteArray(elems, _) =>
+      ch << Ldc(elems.size)
+
+      val storeInstr = a.getType match {
+        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
+        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
+        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
+      }
+
+      // Replace present elements with correct value
+      for ((v, i) <- elems.zipWithIndex ) {
+        ch << DUP << Ldc(i)
         mkExpr(v, ch)
         ch << storeInstr
-        //returns targetArray
+      }
 
-      case a @ FiniteArray(elems, default, length) =>
-        mkExpr(length, ch)
+    case a @ LargeArray(elems, default, size) =>
+      mkExpr(size, ch)
 
-        val storeInstr = a.getType match {
-          case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-          case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-          case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
-          case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-          case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
-        }
+      val storeInstr = a.getType match {
+        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
+        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
+        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
+      }
 
-        // Fill up with default
-        default foreach { df =>
-          val loop = ch.getFreshLabel("array_loop")
-          val loopOut = ch.getFreshLabel("array_loop_out")
-          ch << Ldc(0)
-          // (array, index)
-          ch << Label(loop)
-          ch << DUP2 << SWAP
-          // (array, index, index, array)
-          ch << ARRAYLENGTH
-          // (array, index, index, length)
-          ch << If_ICmpGe(loopOut) << DUP2
-          // (array, index, array, index)
-          mkExpr(df, ch)
-          ch << storeInstr
-          ch << Ldc(1) << IADD << Goto(loop)
-          ch << Label(loopOut) << POP
-        }
+      val loop = ch.getFreshLabel("array_loop")
+      val loopOut = ch.getFreshLabel("array_loop_out")
+      val dfltSlot = ch.getFreshVar
 
-        // Replace present elements with correct value
-        for ((i,v) <- elems ) {
-          ch << DUP << Ldc(i)
-          mkExpr(v, ch)
-          ch << storeInstr
-        }
+      mkExpr(default, ch)
+      ch << AStore(dfltSlot)
 
-      // Misc and boolean tests
-      case Error(tpe, desc) =>
-        ch << New(ErrorClass) << DUP
-        ch << Ldc(desc)
-        ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
-        ch << ATHROW
+      ch << Ldc(0)
+      // (array, index)
+      ch << Label(loop)
+      ch << DUP2 << SWAP
+      // (array, index, index, array)
+      ch << ARRAYLENGTH
+      // (array, index, index, length)
+      ch << If_ICmpGe(loopOut) << DUP2
+      // (array, index, array, index)
+      ch << ALoad(dfltSlot)
+      ch << storeInstr
+      ch << Ldc(1) << IADD << Goto(loop)
+      ch << Label(loopOut) << POP
 
-      case forall @ Forall(fargs, body) =>
-        val id = registerForall(forall, locals.tps)
-        val args = variablesOf(forall).toSeq.sortBy(_.uniqueName)
+      for ((i,v) <- elems) {
+        ch << DUP << Ldc(i)
+        mkExpr(v, ch)
+        ch << storeInstr
+      }
 
-        load(monitorID, ch)
-        ch << Ldc(id)
-        if (locals.tps.nonEmpty) {
-          load(tpsID, ch)
-        } else {
-          ch << Ldc(0) << NewArray.primitive("T_INT")
-        }
 
-        ch << Ldc(args.size)
-        ch << NewArray(ObjectClass)
+    // Misc and boolean tests
+    case Error(tpe, desc) =>
+      ch << New(ErrorClass) << DUP
+      ch << Ldc(desc)
+      ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
+      ch << ATHROW
 
-        for ((id, i) <- args.zipWithIndex) {
-          ch << DUP
-          ch << Ldc(i)
-          mkExpr(Variable(id), ch)
-          mkBox(id.getType, ch)
-          ch << AASTORE
-        }
+    case forall @ Forall(fargs, body) =>
+      val id = registerForall(forall, locals.tps)
+      val args = variablesOf(forall).toSeq.sortBy(_.id.uniqueName)
 
-        ch << InvokeVirtual(MonitorClass, "onForallInvocation", s"(I[I[L$ObjectClass;)Z")
+      load(monitorID, ch)
+      ch << Ldc(id)
+      if (locals.tps.nonEmpty) {
+        load(tpsID, ch)
+      } else {
+        ch << Ldc(0) << NewArray.primitive("T_INT")
+      }
 
-      case choose: Choose =>
-        val prob = synthesis.Problem.fromSpec(choose.pred)
+      ch << Ldc(args.size)
+      ch << NewArray(ObjectClass)
 
-        val id = registerProblem(prob, locals.tps)
+      for ((v, i) <- args.zipWithIndex) {
+        ch << DUP
+        ch << Ldc(i)
+        mkExpr(v, ch)
+        mkBox(v.tpe, ch)
+        ch << AASTORE
+      }
 
-        load(monitorID, ch)
-        ch << Ldc(id)
-        if (locals.tps.nonEmpty) {
-          load(tpsID, ch)
-        } else {
-          ch << Ldc(0) << NewArray.primitive("T_INT")
-        }
+      ch << InvokeVirtual(MonitorClass, "onForallInvocation", s"(I[I[L$ObjectClass;)Z")
 
-        ch << Ldc(prob.as.size)
-        ch << NewArray(ObjectClass)
+    case choose: Choose =>
+      val id = registerChoose(choose, locals.tps)
+      val args = variablesOf(choose).toSeq.sortBy(_.id.uniqueName)
 
-        for ((id, i) <- prob.as.zipWithIndex) {
-          ch << DUP
-          ch << Ldc(i)
-          mkExpr(Variable(id), ch)
-          mkBox(id.getType, ch)
-          ch << AASTORE
-        }
+      load(monitorID, ch)
+      ch << Ldc(id)
+      if (locals.tps.nonEmpty) {
+        load(tpsID, ch)
+      } else {
+        ch << Ldc(0) << NewArray.primitive("T_INT")
+      }
 
-        ch << InvokeVirtual(MonitorClass, "onChooseInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
+      ch << Ldc(args.size)
+      ch << NewArray(ObjectClass)
 
-        mkUnbox(choose.getType, ch)
+      for ((v, i) <- args.zipWithIndex) {
+        ch << DUP
+        ch << Ldc(i)
+        mkExpr(v, ch)
+        mkBox(v.tpe, ch)
+        ch << AASTORE
+      }
 
-      case gv @ GenericValue(tp, int) =>
-        val id = runtime.GenericValues.register(gv)
-        ch << Ldc(id)
-        ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
+      ch << InvokeVirtual(MonitorClass, "onChooseInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
 
-      case nt @ NoTree( tp@ValueType() ) =>
-        mkExpr(simplestValue(tp), ch)
+      mkUnbox(choose.getType, ch)
 
-      case NoTree(_) =>
-        ch << ACONST_NULL
+    case gv @ GenericValue(tp, int) =>
+      val id = runtime.GenericValues.register(gv)
+      ch << Ldc(id)
+      ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
 
-      case This(ct) =>
-        ch << ALoad(0)
+    case nt @ NoTree(tp @ ValueType()) =>
+      mkExpr(simplestValue(tp), ch)
 
-      case p : Passes =>
-        mkExpr(matchToIfThenElse(p.asConstraint), ch)
+    case NoTree(_) =>
+      ch << ACONST_NULL
 
-      case m : MatchExpr =>
-        mkExpr(matchToIfThenElse(m), ch)
+    case m : MatchExpr =>
+      mkExpr(matchToIfThenElse(m), ch)
 
-      case b if b.getType == BooleanType && canDelegateToMkBranch =>
-        val fl = ch.getFreshLabel("boolfalse")
-        val al = ch.getFreshLabel("boolafter")
-        ch << Ldc(1)
-        mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
-        ch << Label(fl) << POP << Ldc(0) << Label(al)
+    case b if b.getType == BooleanType && canDelegateToMkBranch =>
+      val fl = ch.getFreshLabel("boolfalse")
+      val al = ch.getFreshLabel("boolafter")
+      ch << Ldc(1)
+      mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
+      ch << Label(fl) << POP << Ldc(0) << Label(al)
 
-      case synthesis.utils.MutableExpr(e) =>
-        mkExpr(e, ch)
-
-      case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
-    }
+    case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
   }
 
   // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
-  private[codegen] def mkBoxedExpr(e: Expr, ch: CodeHandler)(implicit locals: Locals) {
-    e.getType match {
-      case Int32Type =>
-        ch << New(BoxedIntClass) << DUP
-        mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+  private[codegen] def mkBoxedExpr(e: Expr, ch: CodeHandler)
+                                  (implicit locals: Locals): Unit = e.getType match {
+    case Int32Type =>
+      ch << New(BoxedIntClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-      case BooleanType | UnitType =>
-        ch << New(BoxedBoolClass) << DUP
-        mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
+    case BooleanType | UnitType =>
+      ch << New(BoxedBoolClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
-      case CharType =>
-        ch << New(BoxedCharClass) << DUP
-        mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
+    case CharType =>
+      ch << New(BoxedCharClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
-      case at @ ArrayType(et) =>
-        ch << New(BoxedArrayClass) << DUP
-        mkExpr(e, ch)
-        ch << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
+    case at @ ArrayType(et) =>
+      ch << New(BoxedArrayClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
 
-      case _ =>
-        mkExpr(e, ch)
-    }
+    case _ =>
+      mkExpr(e, ch)
   }
 
   // Assumes the top of the stack contains of value of the right type, and makes it
   // compatible with java.lang.Object.
-  private[codegen] def mkBox(tpe: TypeTree, ch: CodeHandler): Unit = {
-    tpe match {
-      case Int32Type =>
-        ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+  private[codegen] def mkBox(tpe: Type, ch: CodeHandler): Unit = tpe match {
+    case Int32Type =>
+      ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-      case BooleanType | UnitType =>
-        ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
+    case BooleanType | UnitType =>
+      ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
-      case CharType =>
-        ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
+    case CharType =>
+      ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
-      case at @ ArrayType(et) =>
-        ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
-      case _ =>
-    }
+    case at @ ArrayType(et) =>
+      ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
+    case _ =>
   }
 
   // Assumes that the top of the stack contains a value that should be of type `tpe`, and unboxes it to the right (JVM) type.
-  private[codegen] def mkUnbox(tpe: TypeTree, ch: CodeHandler): Unit = {
-    tpe match {
-      case Int32Type =>
-        ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
+  private[codegen] def mkUnbox(tpe: Type, ch: CodeHandler): Unit = tpe match {
+    case Int32Type =>
+      ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
 
-      case BooleanType | UnitType =>
-        ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
+    case BooleanType | UnitType =>
+      ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
 
-      case CharType =>
-        ch << CheckCast(BoxedCharClass) << InvokeVirtual(BoxedCharClass, "charValue", "()C")
+    case CharType =>
+      ch << CheckCast(BoxedCharClass) << InvokeVirtual(BoxedCharClass, "charValue", "()C")
 
-      case ct : ClassType =>
-        val (cn, _) = leonClassToJVMInfo(ct.classDef).getOrElse {
-          throw new CompilationException("Unsupported class type : " + ct)
-        }
-        ch << CheckCast(cn)
+    case adt: ADTType =>
+      val (cn, _) = getADTInfo(adt.getADT.definition)
+      ch << CheckCast(cn)
 
-      case IntegerType =>
-        ch << CheckCast(BigIntClass)
+    case IntegerType =>
+      ch << CheckCast(BigIntClass)
 
-      case StringType =>
-        ch << CheckCast(JavaStringClass)
+    case StringType =>
+      ch << CheckCast(JavaStringClass)
 
-      case RealType =>
-        ch << CheckCast(RationalClass)
+    case RealType =>
+      ch << CheckCast(RationalClass)
 
-      case tt : TupleType =>
-        ch << CheckCast(TupleClass)
+    case tt : TupleType =>
+      ch << CheckCast(TupleClass)
 
-      case st : SetType =>
-        ch << CheckCast(SetClass)
+    case st : SetType =>
+      ch << CheckCast(SetClass)
 
-      case mt : MapType =>
-        ch << CheckCast(MapClass)
+    case mt : MapType =>
+      ch << CheckCast(MapClass)
 
-      case ft : FunctionType =>
-        ch << CheckCast(LambdaClass)
+    case ft : FunctionType =>
+      ch << CheckCast(LambdaClass)
 
-      case tp : TypeParameter =>
+    case tp : TypeParameter =>
 
-      case tp : ArrayType =>
-        ch << CheckCast(BoxedArrayClass) << InvokeVirtual(BoxedArrayClass, "arrayValue", s"()${typeToJVM(tp)}")
-        ch << CheckCast(typeToJVM(tp))
+    case tp @ ArrayType(base) =>
+      ch << CheckCast(BoxedArrayClass)
+      base match {
+        case Int32Type =>
+          ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
+        case BooleanType =>
+          ch << InvokeVirtual(BoxedArrayClass, "booleanArray", s"()${typeToJVM(tp)}")
+        case _ =>
+          ch << InvokeVirtual(BoxedArrayClass, "anyRefArray", s"()[L$ObjectClass;")
+          ch << CheckCast(typeToJVM(tp))
+      }
 
-      case _ =>
-        throw new CompilationException("Unsupported type in unboxing : " + tpe)
-    }
+    case _ =>
+      throw new CompilationException("Unsupported type in unboxing : " + tpe)
   }
 
-  private[codegen] def mkBranch(cond: Expr, thenn: String, elze: String, ch: CodeHandler, canDelegateToMkExpr: Boolean = true)(implicit locals: Locals) {
-    cond match {
-      case BooleanLiteral(true) =>
-        ch << Goto(thenn)
+  private[codegen] def mkBranch(cond: Expr, thenn: String, elze: String, ch: CodeHandler, canDelegateToMkExpr: Boolean = true)
+                               (implicit locals: Locals): Unit = cond match {
+    case BooleanLiteral(true) =>
+      ch << Goto(thenn)
 
-      case BooleanLiteral(false) =>
-        ch << Goto(elze)
+    case BooleanLiteral(false) =>
+      ch << Goto(elze)
 
-      case And(es) =>
-        val fl = ch.getFreshLabel("andnext")
-        mkBranch(es.head, fl, elze, ch)
-        ch << Label(fl)
-        mkBranch(andJoin(es.tail), thenn, elze, ch)
+    case And(es) =>
+      val fl = ch.getFreshLabel("andnext")
+      mkBranch(es.head, fl, elze, ch)
+      ch << Label(fl)
+      mkBranch(andJoin(es.tail), thenn, elze, ch)
 
-      case Or(es) =>
-        val fl = ch.getFreshLabel("ornext")
-        mkBranch(es.head, thenn, fl, ch)
-        ch << Label(fl)
-        mkBranch(orJoin(es.tail), thenn, elze, ch)
+    case Or(es) =>
+      val fl = ch.getFreshLabel("ornext")
+      mkBranch(es.head, thenn, fl, ch)
+      ch << Label(fl)
+      mkBranch(orJoin(es.tail), thenn, elze, ch)
 
-      case Implies(l, r) =>
-        mkBranch(or(not(l), r), thenn, elze, ch)
+    case Implies(l, r) =>
+      mkBranch(or(not(l), r), thenn, elze, ch)
 
-      case Not(c) =>
-        mkBranch(c, elze, thenn, ch)
+    case Not(c) =>
+      mkBranch(c, elze, thenn, ch)
 
-      case Variable(b) =>
-        load(b, ch)
-        ch << IfEq(elze) << Goto(thenn)
+    case v: Variable =>
+      load(v, ch)
+      ch << IfEq(elze) << Goto(thenn)
 
-      case Equals(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        l.getType match {
-          case ValueType() =>
-            ch << If_ICmpEq(thenn) << Goto(elze)
+    case Equals(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case ValueType() =>
+          ch << If_ICmpEq(thenn) << Goto(elze)
 
-          case _ =>
-            ch << InvokeVirtual(s"$ObjectClass", "equals", s"(L$ObjectClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-        }
+        case _ =>
+          ch << InvokeVirtual(s"$ObjectClass", "equals", s"(L$ObjectClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+      }
 
-      case LessThan(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        l.getType match {
-          case Int32Type | CharType =>
-            ch << If_ICmpLt(thenn) << Goto(elze)
-          case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-          case RealType =>
-            ch << InvokeVirtual(RationalClass, "lessThan", s"(L$RationalClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-        }
+    case LessThan(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case Int32Type | CharType =>
+          ch << If_ICmpLt(thenn) << Goto(elze)
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "lessThan", s"(L$RationalClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+      }
 
-      case GreaterThan(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        l.getType match {
-          case Int32Type | CharType =>
-            ch << If_ICmpGt(thenn) << Goto(elze)
-          case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-          case RealType =>
-            ch << InvokeVirtual(RationalClass, "greaterThan", s"(L$RationalClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-        }
+    case GreaterThan(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case Int32Type | CharType =>
+          ch << If_ICmpGt(thenn) << Goto(elze)
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "greaterThan", s"(L$RationalClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+      }
 
-      case LessEquals(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        l.getType match {
-          case Int32Type | CharType =>
-            ch << If_ICmpLe(thenn) << Goto(elze)
-          case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-          case RealType =>
-            ch << InvokeVirtual(RationalClass, "lessEquals", s"(L$RationalClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-        }
+    case LessEquals(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case Int32Type | CharType =>
+          ch << If_ICmpLe(thenn) << Goto(elze)
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "lessEquals", s"(L$RationalClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+      }
 
-      case GreaterEquals(l,r) =>
-        mkExpr(l, ch)
-        mkExpr(r, ch)
-        l.getType match {
-          case Int32Type | CharType =>
-            ch << If_ICmpGe(thenn) << Goto(elze)
-          case IntegerType =>
-            ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-          case RealType =>
-            ch << InvokeVirtual(RationalClass, "greaterEquals", s"(L$RationalClass;)Z")
-            ch << IfEq(elze) << Goto(thenn)
-        }
+    case GreaterEquals(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case Int32Type | CharType =>
+          ch << If_ICmpGe(thenn) << Goto(elze)
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "greaterEquals", s"(L$RationalClass;)Z")
+          ch << IfEq(elze) << Goto(thenn)
+      }
 
-      case IfExpr(c, t, e) =>
-        val innerThen = ch.getFreshLabel("then")
-        val innerElse = ch.getFreshLabel("else")
-        mkBranch(c, innerThen, innerElse, ch)
-        ch << Label(innerThen)
-        mkBranch(t, thenn, elze, ch)
-        ch << Label(innerElse)
-        mkBranch(e, thenn, elze, ch)
+    case IfExpr(c, t, e) =>
+      val innerThen = ch.getFreshLabel("then")
+      val innerElse = ch.getFreshLabel("else")
+      mkBranch(c, innerThen, innerElse, ch)
+      ch << Label(innerThen)
+      mkBranch(t, thenn, elze, ch)
+      ch << Label(innerElse)
+      mkBranch(e, thenn, elze, ch)
 
-      case cci@IsInstanceOf(cct, e) =>
-        mkExpr(cci, ch)
-        ch << IfEq(elze) << Goto(thenn)
+    case cci @ IsInstanceOf(adt, e) =>
+      mkExpr(cci, ch)
+      ch << IfEq(elze) << Goto(thenn)
 
-      case other if canDelegateToMkExpr =>
-        mkExpr(other, ch, canDelegateToMkBranch = false)
-        ch << IfEq(elze) << Goto(thenn)
+    case other if canDelegateToMkExpr =>
+      mkExpr(other, ch, canDelegateToMkBranch = false)
+      ch << IfEq(elze) << Goto(thenn)
 
-      case other => throw CompilationException("Unsupported branching expr. : " + other)
-    }
+    case other => throw CompilationException("Unsupported branching expr. : " + other)
   }
 
-  private def load(id: Identifier, ch: CodeHandler)(implicit locals: Locals): Unit = {
+  private def load(v: Variable, ch: CodeHandler)(implicit locals: Locals): Unit = load(v.id, ch, Some(v.tpe))
+
+  private def load(id: Identifier, ch: CodeHandler, tpe: Option[Type] = None)(implicit locals: Locals): Unit = {
     locals.varToArg(id) match {
       case Some(slot) =>
         ch << ALoad(1) << Ldc(slot) << AALOAD
-        mkUnbox(id.getType, ch)
+        tpe.foreach(tpe => mkUnbox(tpe, ch))
       case None => locals.varToField(id) match {
         case Some((afName, nme, tpe)) =>
           ch << ALoad(0) << GetField(afName, nme, tpe)
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
-            val instr = id.getType match {
-              case ValueType() => ILoad(slot)
+            val instr = tpe match {
+              case Some(ValueType()) => ILoad(slot)
               case _ => ALoad(slot)
             }
             ch << instr
@@ -1449,158 +1382,9 @@ trait CodeGeneration {
     }
   }
 
-  /** Compiles a lazy field.
-    *
-    * To define a lazy field, we have to add an accessor method and an underlying field.
-    * The accessor method has the name of the original (Scala) lazy field and can be public.
-    * The underlying field has a different name, is private, and is of a boxed type
-    * to support null value (to signify uninitialized).
-    *
-    * @param lzy The lazy field to be compiled
-    * @param owner The module/class containing `lzy`
-    */
-  def compileLazyField(lzy: FunDef, owner: Definition) {
-    ctx.reporter.internalAssertion(lzy.canBeLazyField, s"Trying to compile non-lazy ${lzy.id.name} as a lazy field")
-
-    val (_, accessorName, _ ) = leonFunDefToJVMInfo(lzy).get
-    val cf = classes(owner)
-    val cName = defToJVMName(owner)
-
-    val isStatic = owner.isInstanceOf[ModuleDef]
-
-    // Name of the underlying field
-    val underlyingName = underlyingField(accessorName)
-    // Underlying field is of boxed type
-    val underlyingType = typeToJVMBoxed(lzy.returnType)
-
-    // Underlying field. It is of a boxed type
-    val fh = cf.addField(underlyingType,underlyingName)
-    fh.setFlags( if (isStatic) {(
-      FIELD_ACC_STATIC |
-      FIELD_ACC_PRIVATE
-    ).asInstanceOf[U2] } else {
-      FIELD_ACC_PRIVATE
-    }) // FIXME private etc?
-
-    // accessor method
-    locally {
-      val parameters = Seq(monitorID -> s"L$MonitorClass;")
-
-      val paramMapping = parameters.map(_._1).zipWithIndex.toMap.mapValues(_ + (if (isStatic) 0 else 1))
-      val newLocs = NoLocals.withVars(paramMapping)
-
-      val accM = cf.addMethod(typeToJVM(lzy.returnType), accessorName, parameters.map(_._2) : _*)
-      accM.setFlags( if (isStatic) {(
-        METHOD_ACC_STATIC | // FIXME other flags? Not always public?
-        METHOD_ACC_PUBLIC
-      ).asInstanceOf[U2] } else {
-        METHOD_ACC_PUBLIC
-      })
-      val ch = accM.codeHandler
-      val body = lzy.body.getOrElse(throw CompilationException("Lazy field without body?"))
-      val initLabel = ch.getFreshLabel("isInitialized")
-
-      if (isStatic) {
-        ch << GetStatic(cName, underlyingName, underlyingType)
-      } else {
-        ch << ALoad(0) << GetField(cName, underlyingName, underlyingType) // if (lzy == null)
-      }
-      // oldValue
-      ch << DUP << IfNonNull(initLabel)
-      // null
-      ch << POP
-      //
-      mkBoxedExpr(body,ch)(newLocs) // lzy = <expr>
-      ch << DUP
-      // newValue, newValue
-      if (isStatic) {
-        ch << PutStatic(cName, underlyingName, underlyingType)
-        //newValue
-      }
-      else {
-        ch << ALoad(0) << SWAP
-        // newValue, object, newValue
-        ch << PutField (cName, underlyingName, underlyingType)
-        //newValue
-      }
-      ch << Label(initLabel)  // return lzy
-      //newValue
-      lzy.returnType match {
-        case ValueType() =>
-          // Since the underlying field only has boxed types, we have to unbox them to return them
-          mkUnbox(lzy.returnType, ch)
-          ch << IRETURN
-        case _ =>
-          ch << ARETURN
-      }
-      ch.freeze
-    }
-  }
-
-  /** Compile the (strict) field `field` which is owned by class `owner` */
-  def compileStrictField(field : FunDef, owner : Definition) = {
-
-    ctx.reporter.internalAssertion(field.canBeStrictField,
-      s"Trying to compile ${field.id.name} as a strict field")
-    val (_, fieldName, _) = leonFunDefToJVMInfo(field).get
-
-    val cf = classes(owner)
-    val fh = cf.addField(typeToJVM(field.returnType),fieldName)
-    fh.setFlags( owner match {
-      case _ : ModuleDef => (
-        FIELD_ACC_STATIC |
-        FIELD_ACC_PUBLIC | // FIXME
-        FIELD_ACC_FINAL
-      ).asInstanceOf[U2]
-      case _ => (
-        FIELD_ACC_PUBLIC | // FIXME
-        FIELD_ACC_FINAL
-      ).asInstanceOf[U2]
-    })
-  }
-
-  /** Initializes a lazy field to null
-   *  @param ch the codehandler to add the initializing code to
-   *  @param className the name of the class in which the field is initialized
-   *  @param lzy the lazy field to be initialized
-   *  @param isStatic true if this is a static field
-   */
-  def initLazyField(ch: CodeHandler, className: String,  lzy: FunDef, isStatic: Boolean)(implicit locals: Locals) = {
-    val (_, name, _) = leonFunDefToJVMInfo(lzy).get
-    val underlyingName = underlyingField(name)
-    val jvmType = typeToJVMBoxed(lzy.returnType)
-    if (isStatic){
-      ch << ACONST_NULL << PutStatic(className, underlyingName, jvmType)
-    } else {
-      ch << ALoad(0) << ACONST_NULL << PutField(className, underlyingName, jvmType)
-    }
-  }
-
-  /** Initializes a (strict) field
-   *  @param ch the codehandler to add the initializing code to
-   *  @param className the name of the class in which the field is initialized
-   *  @param field the field to be initialized
-   *  @param isStatic true if this is a static field
-   */
-  def initStrictField(ch: CodeHandler, className: String, field: FunDef, isStatic: Boolean)(implicit locals: Locals) {
-    val (_, name , _) = leonFunDefToJVMInfo(field).get
-    val body = field.body.getOrElse(throw CompilationException("No body for field?"))
-    val jvmType = typeToJVM(field.returnType)
-
-    mkExpr(body, ch)
-
-    if (isStatic){
-      ch << PutStatic(className, name, jvmType)
-    } else {
-      ch << ALoad(0) << SWAP << PutField (className, name, jvmType)
-    }
-  }
-
-  def compileAbstractClassDef(acd: AbstractClassDef) {
-
-    val cName = defToJVMName(acd)
-
-    val cf  = classes(acd)
+  def compileADTSort(sort: ADTSort): Unit = {
+    val cName = defToJVMName(sort)
+    val cf = getClass(sort)
 
     cf.setFlags((
       CLASS_ACC_SUPER |
@@ -1608,30 +1392,12 @@ trait CodeGeneration {
       CLASS_ACC_ABSTRACT
     ).asInstanceOf[U2])
 
-    cf.addInterface(CaseClassClass)
+    cf.addInterface(ADTClass)
 
     // add special monitor for method invocations
-    if (params.doInstrument) {
+    if (doInstrument) {
       val fh = cf.addField("I", instrumentedField)
       fh.setFlags(FIELD_ACC_PUBLIC)
-    }
-
-    val (fields, methods) = acd.methods partition { _.canBeField }
-    val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
-
-    // Compile methods
-    for (method <- methods) {
-      compileFunDef(method,acd)
-    }
-
-    // Compile lazy fields
-    for (lzy <- lazyFields) {
-      compileLazyField(lzy, acd)
-    }
-
-    // Compile strict fields
-    for (field <- strictFields) {
-      compileStrictField(field, acd)
     }
 
     // definition of the constructor
@@ -1644,26 +1410,13 @@ trait CodeGeneration {
 
       val cch = cf.addConstructor(constrParams.map(_._2) : _*).codeHandler
 
-      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)(newLocs) }
-      for (field <- strictFields) { initStrictField(cch, cName, field, isStatic = false)(newLocs) }
-
       // Call parent constructor
       cch << ALoad(0)
-      acd.parent match {
-        case Some(parent) =>
-          val pName = defToJVMName(parent.classDef)
-          // Load monitor object
-          cch << ALoad(1)
-          val constrSig = "(L" + MonitorClass + ";)V"
-          cch << InvokeSpecial(pName, constructorName, constrSig)
-
-        case None =>
-          // Call constructor of java.lang.Object
-          cch << InvokeSpecial(ObjectClass, constructorName, "()V")
-      }
+      // Call constructor of java.lang.Object
+      cch << InvokeSpecial(ObjectClass, constructorName, "()V")
 
       // Initialize special monitor field
-      if (params.doInstrument) {
+      if (doInstrument) {
         cch << ALoad(0)
         cch << Ldc(0)
         cch << PutField(cName, instrumentedField, "I")
@@ -1672,7 +1425,6 @@ trait CodeGeneration {
       cch << RETURN
       cch.freeze
     }
-
   }
 
   /**
@@ -1680,14 +1432,15 @@ trait CodeGeneration {
    */
   val instrumentedField = "__read"
 
-  def instrumentedGetField(ch: CodeHandler, cct: ClassType, id: Identifier)(implicit locals: Locals): Unit = {
-    val ccd = cct.classDef
-    ccd.fields.zipWithIndex.find(_._1.id == id) match {
+  def instrumentedGetField(ch: CodeHandler, adt: ADTType, id: Identifier)(implicit locals: Locals): Unit = {
+    val tcons = adt.getADT.toConstructor
+    val cons = tcons.definition
+    cons.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
-        val expType = cct.fields(i).getType
+        val expType = tcons.fields(i).getType
 
-        val cName = defToJVMName(ccd)
-        if (params.doInstrument) {
+        val cName = defToJVMName(cons)
+        if (doInstrument) {
           ch << DUP << DUP
           ch << GetField(cName, instrumentedField, "I")
           ch << Ldc(1)
@@ -1704,17 +1457,18 @@ trait CodeGeneration {
           case _ =>
         }
       case None =>
-        throw CompilationException("Unknown field: "+ccd.id.name+"."+id)
+        throw CompilationException("Unknown field: "+cons.id.name+"."+id)
     }
   }
 
-  def compileCaseClassDef(ccd: CaseClassDef) {
-    val cName = defToJVMName(ccd)
-    val pName = ccd.parent.map(parent => defToJVMName(parent.classDef))
-    // An instantiation of ccd with its own type parameters
-    val cct = CaseClassType(ccd, ccd.tparams.map(_.tp))
+  def compileADTConstructor(cons: ADTConstructor) {
+    val cName = defToJVMName(cons)
+    val pName = cons.sort.map(id => defToJVMName(getADT(id)))
 
-    val cf = classes(ccd)
+    // An instantiation of cons with its own type parameters
+    val adt = cons.typed.toType
+
+    val cf = getClass(cons)
 
     cf.setFlags((
       CLASS_ACC_SUPER |
@@ -1722,13 +1476,13 @@ trait CodeGeneration {
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
 
-    if (ccd.parent.isEmpty) {
-      cf.addInterface(CaseClassClass)
+    if (cons.sort.isEmpty) {
+      cf.addInterface(ADTClass)
     }
 
     // Case class parameters
-    val fieldsTypes = ccd.fields.map { vd => (vd.id, typeToJVM(vd.getType)) }
-    val tpeParam = if (ccd.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
+    val fieldsTypes = cons.fields.map(vd => (vd.id, typeToJVM(vd.tpe)))
+    val tpeParam = if (cons.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
     val constructorArgs = (monitorID -> s"L$MonitorClass;") +: (tpeParam ++ fieldsTypes)
 
     val newLocs = NoLocals.withFields(constructorArgs.map {
@@ -1736,24 +1490,6 @@ trait CodeGeneration {
     }.toMap)
 
     locally {
-      val (fields, methods) = ccd.methods partition { _.canBeField }
-      val (strictFields, lazyFields) = fields partition { _.canBeStrictField }
-
-      // Compile methods
-      for (method <- methods) {
-        compileFunDef(method, ccd)
-      }
-
-      // Compile lazy fields
-      for (lzy <- lazyFields) {
-        compileLazyField(lzy, ccd)
-      }
-
-      // Compile strict fields
-      for (field <- strictFields) {
-        compileStrictField(field, ccd)
-      }
-
       // definition of the constructor
       for ((id, jvmt) <- constructorArgs) {
         val fh = cf.addField(jvmt, id.name)
@@ -1763,14 +1499,14 @@ trait CodeGeneration {
         ).asInstanceOf[U2])
       }
 
-      if (params.doInstrument) {
+      if (doInstrument) {
         val fh = cf.addField("I", instrumentedField)
         fh.setFlags(FIELD_ACC_PUBLIC)
       }
 
       val cch = cf.addConstructor(constructorArgs.map(_._2) : _*).codeHandler
 
-      if (params.doInstrument) {
+      if (doInstrument) {
         cch << ALoad(0)
         cch << Ldc(0)
         cch << PutField(cName, instrumentedField, "I")
@@ -1788,7 +1524,7 @@ trait CodeGeneration {
       }
 
       // Call parent constructor AFTER initializing case class parameters
-      if (ccd.parent.isDefined) {
+      if (cons.sort.isDefined) {
         cch << ALoad(0)
         cch << ALoad(1)
         cch << InvokeSpecial(pName.get, constructorName, s"(L$MonitorClass;)V")
@@ -1796,31 +1532,6 @@ trait CodeGeneration {
         // Call constructor of java.lang.Object
         cch << ALoad(0)
         cch << InvokeSpecial(ObjectClass, constructorName, "()V")
-      }
-
-      // Now initialize fields
-      for (lzy <- lazyFields) { initLazyField(cch, cName, lzy, isStatic = false)(newLocs) }
-      for (field <- strictFields) { initStrictField(cch, cName , field, isStatic = false)(newLocs) }
-
-      // Finally check invariant (if it exists)
-      if (params.checkContracts && ccd.hasInvariant) {
-        val skip = cch.getFreshLabel("skip_invariant")
-        load(monitorID, cch)(newLocs)
-        cch << ALoad(0)
-        cch << Ldc(registerType(cct))
-
-        cch << InvokeVirtual(MonitorClass, "invariantCheck", s"(L$ObjectClass;I)Z")
-        cch << IfEq(skip)
-
-        load(monitorID, cch)(newLocs)
-        cch << ALoad(0)
-        cch << Ldc(registerType(cct))
-
-        val thisId = FreshIdentifier("this", cct, true)
-        val invLocals = newLocs.withVar(thisId -> 0)
-        mkExpr(FunctionInvocation(cct.invariant.get, Seq(Variable(thisId))), cch)(invLocals)
-        cch << InvokeVirtual(MonitorClass, "invariantResult", s"(L$ObjectClass;IZ)V")
-        cch << Label(skip)
       }
 
       cch << RETURN
@@ -1864,15 +1575,15 @@ trait CodeGeneration {
 
       val pech = pem.codeHandler
 
-      pech << Ldc(ccd.fields.size)
+      pech << Ldc(cons.fields.size)
       pech << NewArray(ObjectClass)
 
-      for ((f, i) <- ccd.fields.zipWithIndex) {
+      for ((f, i) <- cons.fields.zipWithIndex) {
         pech << DUP
         pech << Ldc(i)
         pech << ALoad(0)
-        instrumentedGetField(pech, cct, f.id)(newLocs)
-        mkBox(f.getType, pech)
+        instrumentedGetField(pech, adt, f.id)(newLocs)
+        mkBox(f.tpe, pech)
         pech << AASTORE
       }
 
@@ -1901,14 +1612,14 @@ trait CodeGeneration {
       ech << ALoad(1) << InstanceOf(cName) << IfEq(notEq)
 
       // ...finally, we compare fields one by one, shortcircuiting on disequalities.
-      if(ccd.fields.nonEmpty) {
+      if (cons.fields.nonEmpty) {
         ech << ALoad(1) << CheckCast(cName) << AStore(castSlot)
 
-        for(vd <- ccd.fields) {
+        for (vd <- cons.fields) {
           ech << ALoad(0)
-          instrumentedGetField(ech, cct, vd.id)(newLocs)
+          instrumentedGetField(ech, adt, vd.id)(newLocs)
           ech << ALoad(castSlot)
-          instrumentedGetField(ech, cct, vd.id)(newLocs)
+          instrumentedGetField(ech, adt, vd.id)(newLocs)
 
           typeToJVM(vd.getType) match {
             case "I" | "Z" =>
@@ -1945,7 +1656,7 @@ trait CodeGeneration {
       hch << ALoad(0) << InvokeVirtual(cName, "productElements", s"()[L$ObjectClass;")
       hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
       hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
-      hch << InvokeStatic(HashingClass, "seqHash", s"([L$ObjectClass;I)I") << DUP
+      hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
       hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I")
       hch << IRETURN
 

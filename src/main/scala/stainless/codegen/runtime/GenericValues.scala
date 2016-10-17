@@ -1,18 +1,17 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package codegen.runtime
 
-import purescala.Expressions.GenericValue
 import scala.collection.immutable.{Map => ScalaMap}
 
 object GenericValues {
   private[this] var counter = 0
 
-  private[this] var gvToI = ScalaMap[GenericValue, Int]()
-  private[this] var iTogv = ScalaMap[Int, GenericValue]()
+  private[this] var gvToI = ScalaMap[ast.Trees#GenericValue, Int]()
+  private[this] var iTogv = ScalaMap[Int, ast.Trees#GenericValue]()
 
-  def register(gv: GenericValue): Int = {
+  def register(gv: ast.Trees#GenericValue): Int = {
     if (gvToI contains gv) {
       gvToI(gv)
     } else {

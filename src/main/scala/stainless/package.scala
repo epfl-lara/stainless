@@ -2,7 +2,9 @@
 
 package object stainless {
 
-  type StainlessProgram = inox.Program { val trees: stainless.trees.type }
+  type Program = inox.Program { val trees: ast.Trees }
+
+  type StainlessProgram = Program { val trees: stainless.trees.type }
 
   object trees extends ast.Trees with inox.ast.SimpleSymbols {
     case class Symbols(

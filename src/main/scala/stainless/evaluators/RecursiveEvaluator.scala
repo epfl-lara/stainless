@@ -4,7 +4,7 @@ package stainless
 package evaluators
 
 trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
-  val program: inox.Program { val trees: ast.Trees }
+  val program: Program
   import program._
   import program.trees._
   import program.symbols._

@@ -4,7 +4,7 @@ package stainless
 package solvers
 
 trait InoxEncoder extends inox.solvers.combinators.ProgramEncoder {
-  val sourceProgram: inox.Program { val trees: ast.Trees }
+  val sourceProgram: Program
   val t: inox.trees.type = inox.trees
 
   val encoder: inox.ast.SymbolTransformer {
