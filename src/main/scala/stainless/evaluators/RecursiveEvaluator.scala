@@ -145,12 +145,11 @@ object RecursiveEvaluator {
   def apply(p: StainlessProgram, opts: inox.Options): RecursiveEvaluator { val program: p.type } = {
     new {
       val program: p.type = p
+      val options = opts
     } with RecursiveEvaluator
       with inox.evaluators.HasDefaultGlobalContext
       with inox.evaluators.HasDefaultRecContext {
 
-      val options = opts
-      val maxSteps = 50000
       def getSolver(moreOpts: inox.OptionValue[_]*) = solvers.SolverFactory(p, opts ++ moreOpts)
     }
   }

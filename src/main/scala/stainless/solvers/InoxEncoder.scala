@@ -5,7 +5,7 @@ package solvers
 
 import inox.ast._
 
-trait InoxEncoder extends inox.solvers.combinators.ProgramEncoder {
+trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program
   val t: inox.trees.type = inox.trees
 

@@ -29,6 +29,8 @@ trait CompilationUnit extends CodeGeneration {
 
   val options: inox.Options
 
+  val maxSteps: Int = options.findOptionOrDefault(inox.evaluators.optMaxCalls)
+
   val loader = new CafebabeClassLoader(classOf[CompilationUnit].getClassLoader)
 
   class CompiledExpression(cf: ClassFile, expression: Expr, args: Seq[ValDef]) {

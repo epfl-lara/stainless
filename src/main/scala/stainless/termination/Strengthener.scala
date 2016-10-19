@@ -60,17 +60,17 @@ trait Strengthener { self: OrderingRelation =>
           Lambda(Seq(res), and(post, sizePost))
         }
 
-        val api = transformedAPI(new IdentitySymbolTransformer {
+        val formula = implies(fd.precOrTrue, application(postcondition, Seq(fd.body.get)))
+
+        val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
             Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))))
           }
-        })
-
-        val formula = implies(fd.precOrTrue, application(postcondition, Seq(fd.body.get)))
+        }
 
         // @nv: one must also check satisfiability here as if both formula and
         //      !formula are UNSAT, we will proceed to invalid strenghtening
-        if (exprOps.variablesOf(formula).nonEmpty && api.solveVALID(formula).getOrElse(false)) {
+        if (exprOps.variablesOf(formula).nonEmpty && solveVALID(formula, strengthener).getOrElse(false)) {
           strengthenedPost(fd) = Some(postcondition)
           true
         } else {

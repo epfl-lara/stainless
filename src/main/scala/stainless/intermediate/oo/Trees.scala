@@ -4,7 +4,14 @@ package stainless
 package intermediate
 package oo
 
-trait Trees extends holes.Trees {
+import scala.collection.mutable.{Map => MutableMap}
+
+trait Trees extends holes.Trees { self =>
+
+  /* ========================================
+   *         EXPRESSIONS AND TYPES
+   * ======================================== */
+
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = receiver.getType match {
@@ -38,7 +45,7 @@ trait Trees extends holes.Trees {
     def getType(implicit s: Symbols): Type = ct
   }
 
-
+  /** Type associated to instances of [[ClassConstructor]] */
   class ClassType(id: Identifier, tps: Seq[Type]) extends ADTType(id, tps) {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
     def tcd(implicit s: Symbols): TypedClassDef = s.getClass(id, tps)
@@ -50,6 +57,11 @@ trait Trees extends holes.Trees {
     }
   }
 
+  /** Companion object of [[ClassType]].
+    *
+    * As [[ClassType]] extends the [[ADTType]] case class, we provide the [[apply]]
+    * and [[unapply]] methods for [[ClassType]] here. 
+    */
   object ClassType {
     def apply(id: Identifier, tps: Seq[Type]): ClassType = new ClassType(id, tps)
     def unapply(tpe: Type): Option[(Identifier, Seq[Type])] = tpe match {
@@ -58,6 +70,23 @@ trait Trees extends holes.Trees {
     }
   }
 
+
+  /* ========================================
+   *              EXTRACTORS
+   * ======================================== */
+
+  override val deconstructor: TreeDeconstructor {
+    val s: self.type
+    val t: self.type
+  } = new TreeDeconstructor {
+    protected val s: self.type = self
+    protected val t: self.type = self
+  }
+
+
+  /* ========================================
+   *             DEFINITIONS
+   * ======================================== */
 
   class ClassDef(
     val id: Identifier,
@@ -99,7 +128,6 @@ trait Trees extends holes.Trees {
 
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")
 
-  import scala.collection.mutable.{Map => MutableMap}
 
   type Symbols >: Null <: AbstractSymbols
 
@@ -133,6 +161,11 @@ trait Trees extends holes.Trees {
 
     def withClasses(classes: Seq[ClassDef]): Symbols
   }
+
+
+  /* ========================================
+   *               PRINTERS
+   * ======================================== */
 
   protected def withSymbols[T <: Tree](elems: Seq[Either[T, Identifier]], header: String)
                                       (implicit ctx: PrinterContext): Unit = {
@@ -193,10 +226,7 @@ trait Trees extends holes.Trees {
     case (_, Some(MethodInvocation(_, _, _, args))) => !args.contains(ex)
     case _ => super.requiresParentheses(ex, within)
   }
-
-
 }
-
 
 
 trait TypeOps extends ast.TypeOps {
@@ -266,16 +296,6 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
       (tps, tps => t.ClassType(id, tps))
 
     case _ => super.deconstruct(tpe)
-  }
-}
-
-trait Extractors extends ast.Extractors { self: Trees =>
-  override val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  } = new TreeDeconstructor {
-    protected val s: self.type = self
-    protected val t: self.type = self
   }
 }
 

@@ -3,9 +3,10 @@
 package stainless
 package termination
 
+import scala.concurrent.duration._
 import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
 
-trait ProcessingPipeline extends TerminationChecker {
+trait ProcessingPipeline extends TerminationChecker { self =>
   import program._
   import program.trees._
   import program.symbols._
@@ -35,13 +36,50 @@ trait ProcessingPipeline extends TerminationChecker {
   case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
   case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
 
-  protected val processors: List[Processor { val checker: ProcessingPipeline.this.type }]
+  protected val processors: List[Processor { val checker: self.type }]
 
-  protected def getSolver(transformer: inox.ast.SymbolTransformer {
-    val transformer: SelfTransformer
-  }): inox.solvers.SolverFactory {
-    val program: Program { val trees: ProcessingPipeline.this.program.trees.type }
-    type S <: inox.solvers.combinators.TimeoutSolver
+  protected val encoder: inox.ast.SymbolTransformer {
+    val transformer: ast.TreeTransformer {
+      val s: program.trees.type
+      val t: stainless.trees.type
+    }
+  }
+
+  object programEncoder extends {
+    val sourceProgram: program.type = program
+    val t: stainless.trees.type = stainless.trees
+  } with inox.ast.ProgramEncoder {
+    val encoder = self.encoder
+    val decoder = new inox.ast.SymbolTransformer {
+      val transformer = new ast.TreeTransformer {
+        val s: stainless.trees.type = stainless.trees
+        val t: program.trees.type = program.trees
+
+        val deconstructor: ast.TreeDeconstructor {
+          val s: stainless.trees.type
+          val t: program.trees.type
+        } = new ast.TreeDeconstructor {
+          protected val s: stainless.trees.type = stainless.trees
+          protected val t: program.trees.type = program.trees
+        }
+      }
+    }
+  }
+
+  protected def getSolver(p: StainlessProgram, opts: inox.Options): inox.solvers.SolverFactory {
+    val program: p.type
+    type S <: inox.solvers.combinators.TimeoutSolver { val program: p.type }
+  } = solvers.SolverFactory(p, opts).withTimeout(1.seconds)
+
+  private def solverFactory(transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+    solvers.SolverFactory.getFromSettings(program, options)(
+      inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
+        evaluators.Evaluator(programEncoder.targetProgram, options)
+      ), programEncoder >> solvers.InoxEncoder(programEncoder.targetProgram))
+  }
+
+  private def solverAPI(transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+    inox.solvers.SimpleSolverAPI(solverFactory(transformer))
   }
 
   /** /!\ WARNING /!\
@@ -64,14 +102,17 @@ trait ProcessingPipeline extends TerminationChecker {
     transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }
   ): Unit = transformers = transformers compose transformer
 
-  def getAPI = inox.solvers.SimpleSolverAPI(getSolver(transformers))
-  def solveVALID(e: Expr) = getAPI.solveVALID(e)
-  def solveSAT(e: Expr) = getAPI.solveSAT(e)
+  def solveVALID(e: Expr) = solverAPI(transformers).solveVALID(e)
+  def solveVALID(e: Expr, t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+    solverAPI(transformers compose t).solveVALID(e)
+  }
 
-  def transformedAPI(t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) =
-    inox.solvers.SimpleSolverAPI(getSolver(transformers compose t))
+  def solveSAT(e: Expr) = solverAPI(transformers).solveSAT(e)
+  def solveSAT(e: Expr, t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+    solverAPI(transformers compose t).solveSAT(e)
+  }
 
-  private lazy val processorArray: Array[Processor { val checker: ProcessingPipeline.this.type }] = {
+  private lazy val processorArray: Array[Processor { val checker: self.type }] = {
     assert(processors.nonEmpty)
     processors.toArray
   }
