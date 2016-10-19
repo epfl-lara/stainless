@@ -3,8 +3,6 @@
 package stainless
 package intermediate
 
-import inox.ast.Identifier
-
 package object innerfuns {
   
   object trees extends innerfuns.Trees with inox.ast.SimpleSymbols {

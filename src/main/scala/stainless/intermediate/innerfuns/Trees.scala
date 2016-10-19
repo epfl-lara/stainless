@@ -4,8 +4,6 @@ package stainless
 package intermediate
 package innerfuns
 
-import inox.ast.Identifier
-
 trait Trees extends stainless.ast.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)

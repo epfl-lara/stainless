@@ -3,8 +3,6 @@
 package stainless
 package ast
 
-import inox.ast.{Identifier, FreshIdentifier}
-
 trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees =>
 
   /** Stands for an undefined Expr, similar to `???` or `null`

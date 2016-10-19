@@ -3,8 +3,6 @@
 package stainless
 package ast
 
-import inox.ast.Identifier
-
 trait Printers extends inox.ast.Printers { self: Trees =>
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {

@@ -2,8 +2,6 @@
 
 package stainless.intermediate
 
-import inox.ast.Identifier
-
 package object oo {
 
   object trees extends Trees with ObjectSymbols {

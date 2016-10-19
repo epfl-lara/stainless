@@ -4,8 +4,6 @@ package stainless
 package intermediate
 package oo
 
-import inox.ast.Identifier
-
 trait ObjectSymbols { self: Trees =>
 
   val Symbols: (Map[Identifier, FunDef], Map[Identifier, ADTDefinition], Map[Identifier, ClassDef]) => Symbols

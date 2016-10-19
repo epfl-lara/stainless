@@ -4,8 +4,6 @@ package stainless
 package intermediate
 package imperative
 
-import inox.ast.Identifier
-
 trait Trees extends innerfuns.Trees { self =>
 
   /* XLang imperative trees to desugar */

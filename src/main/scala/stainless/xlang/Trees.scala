@@ -4,7 +4,6 @@ package stainless
 package xlang
 
 import stainless.intermediate.oo
-import inox.ast.Identifier
 
 trait Trees extends oo.Trees { self =>
 

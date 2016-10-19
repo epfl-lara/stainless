@@ -1,7 +1,5 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import inox.ast.Identifier
-
 package object stainless {
 
   type Program = inox.Program { val trees: ast.Trees }
