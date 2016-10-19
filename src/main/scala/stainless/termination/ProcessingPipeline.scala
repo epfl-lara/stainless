@@ -1,61 +1,94 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package termination
 
-import purescala.Expressions._
-import purescala.Definitions._
-import utils._
+import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
 
-trait Problem {
-  def funSet: Set[FunDef]
-  def funDefs: Seq[FunDef]
-  def contains(fd: FunDef): Boolean = funSet(fd)
+trait ProcessingPipeline extends TerminationChecker {
+  import program._
+  import program.trees._
+  import program.symbols._
 
-  override def toString : String = funDefs.map(_.id).mkString("Problem(", ",", ")")
-}
+  trait Problem {
+    def funSet: Set[FunDef]
+    def funDefs: Seq[FunDef]
+    def contains(fd: FunDef): Boolean = funSet(fd)
 
-object Problem {
-  def apply(fds: Set[FunDef]): Problem = new Problem {
-    val funSet = fds
-    lazy val funDefs = funSet.toSeq
+    override def toString : String = funDefs.map(_.id).mkString("Problem(", ",", ")")
   }
 
-  def apply(fds: Seq[FunDef]): Problem = new Problem {
-    val funDefs = fds
-    lazy val funSet = funDefs.toSet
+  object Problem {
+    def apply(fds: Set[FunDef]): Problem = new Problem {
+      val funSet = fds
+      lazy val funDefs = funSet.toSeq
+    }
+
+    def apply(fds: Seq[FunDef]): Problem = new Problem {
+      val funDefs = fds
+      lazy val funSet = funDefs.toSet
+    }
   }
-}
 
-sealed abstract class Result(funDef: FunDef)
-case class Cleared(funDef: FunDef) extends Result(funDef)
-case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
-case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
+  sealed abstract class Result(funDef: FunDef)
+  case class Cleared(funDef: FunDef) extends Result(funDef)
+  case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
+  case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
 
-abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) extends TerminationChecker(context, initProgram) {
-  implicit val debugSection = utils.DebugSectionTermination
+  protected val processors: List[Processor { val checker: ProcessingPipeline.this.type }]
 
-  import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
+  protected def getSolver(transformer: inox.ast.SymbolTransformer {
+    val transformer: SelfTransformer
+  }): inox.solvers.SolverFactory {
+    val program: Program { val trees: ProcessingPipeline.this.program.trees.type }
+    type S <: inox.solvers.combinators.TimeoutSolver
+  }
 
-  def processors: List[Processor]
+  /** /!\ WARNING /!\
+    * We can't use a [[SymbolIdentity]] here as we're counting on [[transformFunction]] to
+    * get called during the transformation of the symbols!
+    */
+  private object withoutPosts extends inox.ast.SymbolTransformer {
+    val transformer = new IdentityTreeTransformer {}
 
-  private lazy val processorArray: Array[Processor] = {
+    // we can shortcut some transformations as we know `transformer` is the identity
+    override protected def transformFunction(fd: FunDef): FunDef = {
+      if (true /* FIXME: dangerous ?? */) fd
+      else fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
+    }
+  }
+
+  private var transformers: inox.ast.SymbolTransformer { val transformer: SelfTransformer } = withoutPosts
+
+  private[termination] def registerTransformer(
+    transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }
+  ): Unit = transformers = transformers compose transformer
+
+  def getAPI = inox.solvers.SimpleSolverAPI(getSolver(transformers))
+  def solveVALID(e: Expr) = getAPI.solveVALID(e)
+  def solveSAT(e: Expr) = getAPI.solveSAT(e)
+
+  def transformedAPI(t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) =
+    inox.solvers.SimpleSolverAPI(getSolver(transformers compose t))
+
+  private lazy val processorArray: Array[Processor { val checker: ProcessingPipeline.this.type }] = {
     assert(processors.nonEmpty)
     processors.toArray
   }
 
-  private val reporter: Reporter = context.reporter
+  implicit private val debugSection = DebugSectionTermination
+  private lazy val reporter = ctx.reporter
 
   implicit object ProblemOrdering extends Ordering[(Problem, Int)] {
     def compare(a: (Problem, Int), b: (Problem, Int)): Int = {
       val ((aProblem, aIndex), (bProblem, bIndex)) = (a,b)
       val (aDefs, bDefs) = (aProblem.funSet, bProblem.funSet)
 
-      val aCallees: Set[FunDef] = aDefs.flatMap(program.callGraph.transitiveCallees)
-      val bCallees: Set[FunDef] = bDefs.flatMap(program.callGraph.transitiveCallees)
+      val aCallees: Set[FunDef] = aDefs.flatMap(transitiveCallees)
+      val bCallees: Set[FunDef] = bDefs.flatMap(transitiveCallees)
 
-      lazy val aCallers: Set[FunDef] = aDefs.flatMap(program.callGraph.transitiveCallers)
-      lazy val bCallers: Set[FunDef] = bDefs.flatMap(program.callGraph.transitiveCallers)
+      lazy val aCallers: Set[FunDef] = aDefs.flatMap(transitiveCallers)
+      lazy val bCallers: Set[FunDef] = bDefs.flatMap(transitiveCallers)
 
       val aCallsB = bDefs.subsetOf(aCallees)
       val bCallsA = aDefs.subsetOf(bCallees)
@@ -87,7 +120,7 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
   private val dependencies : MutableSet[Problem] = MutableSet.empty
 
   def isProblem(fd: FunDef): Boolean = {
-    lazy val callees = program.callGraph.transitiveCallees(fd)
+    lazy val callees = transitiveCallees(fd)
     lazy val problemDefs = problems.flatMap(_._1.funDefs).toSet
     unsolved.exists(_.contains(fd)) ||
     dependencies.exists(_.contains(fd)) || 
@@ -131,7 +164,7 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
       terminationMap.get(funDef) orElse
       brokenMap.get(funDef).map { case (reason, args) => LoopsGivenInputs(reason, args) } orElse
       maybeBrokenMap.get(funDef).map { case (reason, args) => MaybeLoopsGivenInputs(reason, args)} getOrElse {
-        val callees = program.callGraph.transitiveCallees(funDef)
+        val callees = transitiveCallees(funDef)
         val broken = brokenMap.keys.toSet ++ maybeBrokenMap.keys
         val brokenCallees = callees intersect broken
         if (brokenCallees.nonEmpty) {
@@ -160,13 +193,13 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
   }
 
   private def generateProblems(funDef: FunDef): Seq[Problem] = {
-    val funDefs = program.callGraph.transitiveCallees(funDef) + funDef
-    val pairs = program.callGraph.allCalls.filter { case (fd1, fd2) => funDefs(fd1) && funDefs(fd2) }
+    val funDefs = transitiveCallees(funDef) + funDef
+    val pairs = allCalls.filter { case (fd1, fd2) => funDefs(fd1) && funDefs(fd2) }
     val callGraph = pairs.groupBy(_._1).mapValues(_.map(_._2))
-    val allComponents = SCC.scc(callGraph)
+    val allComponents = inox.utils.SCC.scc(callGraph)
 
     val (problemComponents, nonRec) = allComponents.partition { fds =>
-      fds.flatMap(fd => program.callGraph.transitiveCallees(fd)) exists fds
+      fds.flatMap(fd => transitiveCallees(fd)) exists fds
     }
 
     for (fd <- funDefs -- problemComponents.toSet.flatten) clearedMap(fd) = "Non-recursive"
@@ -184,7 +217,7 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
       def next()  : (String, List[Result]) = {
         printQueue()
         val (problem, index) = problems.head
-        val processor : Processor = processorArray(index)
+        val processor = processorArray(index)
         reporter.debug("Running " + processor.name)
         val result = processor.run(problem)
         reporter.debug(" +-> " + (if (result.isDefined) "Success" else "Failure")+ "\n")
@@ -198,7 +231,7 @@ abstract class ProcessingPipeline(context: LeonContext, initProgram: Program) ex
           case None =>
             problems.enqueue(problem -> (index + 1))
           case Some(results) =>
-            val impacted = problem.funDefs.flatMap(fd => program.callGraph.transitiveCallers(fd))
+            val impacted = problem.funDefs.flatMap(fd => transitiveCallers(fd))
             val reenter = unsolved.filter(p => (p.funDefs intersect impacted).nonEmpty)
             problems.enqueue(reenter.map(_ -> 0).toSeq : _*)
             unsolved --= reenter

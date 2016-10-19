@@ -1,181 +1,172 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package termination
 
-import purescala.Expressions._
-import purescala.ExprOps._
-import purescala.Types._
-import purescala.Definitions._
-import purescala.Constructors._
-import purescala.Common._
-import laziness.HOMemUtil._
-
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 trait StructuralSize {
+
+  val checker: TerminationChecker
+  import checker.program.trees._
+  import checker.program.symbols._
+  import dsl._
+
+  private val functions: ListBuffer[FunDef] = new ListBuffer[FunDef]
+  def sizeFunctions: Seq[FunDef] = functions.toSeq
 
   /* Absolute value for BigInt type
    *
    * def absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
    */
-  val typedAbsBigIntFun: TypedFunDef = {
-    val x = FreshIdentifier("x", IntegerType, alwaysShowUniqueID = true)
-    val absFun = new FunDef(FreshIdentifier("absBigInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), IntegerType)
-    absFun.body = Some(IfExpr(
-      GreaterEquals(Variable(x), InfiniteIntegerLiteral(0)),
-      Variable(x),
-      UMinus(Variable(x))
-    ))
-    absFun.typed
-  }
+  val integerAbs: TypedFunDef = mkFunDef(FreshIdentifier("integerAbs"))()(_ => (
+    Seq("x" :: IntegerType), IntegerType, { case Seq(x) =>
+      if_ (x >= E(BigInt(0))) {
+        x
+      } else_ {
+        -x
+      }
+    })).typed
+  functions += integerAbs.fd
 
-  /* Negative absolute value for Int type
+  private val bvCache: MutableMap[BVType, TypedFunDef] = MutableMap.empty
+
+  /* Negative absolute value for bitvector types
    *
    * To avoid -Integer.MIN_VALUE overflow, we use negative absolute value
    * for bitvector integers.
    *
-   * def absInt(x: Int): Int = if (x >= 0) -x else x
+   * def absBV(x: BV): BV = if (x >= 0) -x else x
    */
-  val typedAbsIntFun: TypedFunDef = {
-    val x = FreshIdentifier("x", Int32Type, alwaysShowUniqueID = true)
-    val absFun = new FunDef(FreshIdentifier("absInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), Int32Type)
-    absFun.body = Some(IfExpr(
-      GreaterEquals(Variable(x), IntLiteral(0)),
-      BVUMinus(Variable(x)),
-      Variable(x)
-    ))
-    absFun.typed
-  }
+  def bvAbs(tpe: BVType): TypedFunDef = bvCache.getOrElseUpdate(tpe, {
+    val tfd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ => (
+      Seq("x" :: tpe), tpe, { case Seq(x) =>
+        if_ (x >= E(0)) {
+          -x
+        } else_ {
+          x
+        }
+      })).typed
+    functions += tfd.fd
+    tfd
+  })
 
-  /* Absolute value for Int (32 bit) type into mathematical integers
+  private val bv2IntegerCache: MutableMap[BVType, TypedFunDef] = MutableMap.empty
+
+  /* Absolute value for bitvector type into mathematical integers
    *
    * We use a recursive function here as the bv2int functionality provided
    * through SMT solvers is waaaaay too slow. Recursivity requires the
    * postcondition for verification efforts to succeed.
    *
-   * def absInt(x: Int): BigInt = (if (x == 0) {
+   * def absBV(x: BV): BigInt = (if (x == 0) {
    *   BigInt(0)
    * } else if (x > 0) {
-   *   1 + absInt(x - 1)
+   *   1 + absBV(x - 1)
    * } else {
-   *   1 + absInt(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
+   *   1 + absBV(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
    * }) ensuring (_ >= 0)
    */
-  def typedAbsInt2IntegerFun: TypedFunDef = {
-    val x = FreshIdentifier("x", Int32Type, alwaysShowUniqueID = true)
-    val absFun = new FunDef(FreshIdentifier("absInt", alwaysShowUniqueID = true), Seq(), Seq(ValDef(x)), IntegerType)
-    absFun.body = Some(IfExpr(
-      Equals(Variable(x), IntLiteral(0)),
-      InfiniteIntegerLiteral(0),
-      IfExpr(
-        GreaterThan(Variable(x), IntLiteral(0)),
-        Plus(InfiniteIntegerLiteral(1), FunctionInvocation(absFun.typed, Seq(BVMinus(Variable(x), IntLiteral(1))))),
-        Plus(InfiniteIntegerLiteral(1), FunctionInvocation(absFun.typed, Seq(BVUMinus(BVPlus(Variable(x), IntLiteral(1))))))
-      )))
-    val res = FreshIdentifier("res", IntegerType, alwaysShowUniqueID = true)
-    absFun.postcondition = Some(Lambda(Seq(ValDef(res)), GreaterEquals(Variable(res), InfiniteIntegerLiteral(0))))
-    absFun.typed
-  }
+  def bvAbs2Integer(tpe: BVType): TypedFunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
+    val funID = FreshIdentifier("intAbs2Integer")
+    val tfd = mkFunDef(funID)()(_ => (
+      Seq("x" :: Int32Type), IntegerType, { case Seq(x) =>
+        Ensuring(if_ (x === E(0)) {
+          E(BigInt(0))
+        } else_ {
+          if_ (x > E(0)) {
+            E(BigInt(1)) + E(funID)()(x - E(1))
+          } else_ {
+            E(BigInt(1)) + E(funID)()(-(x + E(1)))
+          }
+        }, \("res" :: IntegerType)(res => res >= E(BigInt(0))))
+      })).typed
+    functions += tfd.fd
+    tfd
+  })
 
-  private val fullCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
+  private val fullCache: MutableMap[Type, Identifier] = MutableMap.empty
 
   /* Fully recursive size computation
    *
    * Computes (positive) size of leon types by summing up all sub-elements
    * accessible in the type definition.
    */
-  def fullSize(expr: Expr) : Expr = {
-    def funDef(ct: ClassType, cases: ClassType => Seq[MatchCase]): FunDef = {
-      // we want to reuse generic size functions for sub-types
-      val classDef = ct.root.classDef
-      val argumentType = classDef.typed
-      val typeParams = classDef.tparams.map(_.tp)
-
-      fullCache.get(argumentType) match {
-        case Some(fd) => fd
+  def fullSize(expr: Expr): Expr = expr.getType match {
+    case (adt: ADTType) =>
+      val rootType = adt.getADT.root.toType
+      val fid = fullCache.get(rootType) match {
+        case Some(id) => id
         case None =>
-          val argument = ValDef(FreshIdentifier("x", argumentType, true))
-          val formalTParams = typeParams.map(TypeParameterDef)
-          val fd = new FunDef(FreshIdentifier("fullSize", alwaysShowUniqueID = true), formalTParams, Seq(argument), IntegerType)
-          fullCache(argumentType) = fd
+          val id = FreshIdentifier("fullSize$" + adt.id.name)
+          fullCache += rootType -> id
 
-          val body = simplifyLets(matchToIfThenElse(matchExpr(argument.toVariable, cases(argumentType))))
-          val postId = FreshIdentifier("res", IntegerType)
-          val postcondition = Lambda(Seq(ValDef(postId)), GreaterThan(Variable(postId), InfiniteIntegerLiteral(0)))
+          // we want to reuse generic size functions for sub-types
+          val definition = rootType.getADT.definition
+          val tparams = definition.tparams.map(_.tp)
 
-          fd.body = Some(body)
-          fd.postcondition = Some(postcondition)
-          fd
+          val v = Variable(FreshIdentifier("x"), rootType)
+          functions += new FunDef(
+            id,
+            definition.tparams,
+            Seq(v.toVal),
+            IntegerType,
+            Ensuring(MatchExpr(v, (definition match {
+              case sort: ADTSort => sort.constructors
+              case cons: ADTConstructor => Seq(cons)
+            }).map { cons =>
+              val arguments = cons.fields.map(_.freshen)
+              val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
+              val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft[Expr](IntegerLiteral(1))(_ + _)
+              MatchCase(ADTPattern(None, rootType, argumentPatterns), None, rhs)
+            }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
+            Set.empty
+          )
+
+          id
       }
-    }
 
-    def caseClassType2MatchCase(c: CaseClassType): MatchCase = {
-      val arguments = c.fields.map(vd => FreshIdentifier(vd.id.name, vd.getType))
-      val argumentPatterns = arguments.map(id => WildcardPattern(Some(id)))
-      val sizes = arguments.map(id => fullSize(Variable(id)))
-      val result = sizes.foldLeft[Expr](InfiniteIntegerLiteral(1))(Plus)
-      purescala.Extractors.SimpleCase(CaseClassPattern(None, c, argumentPatterns), result)
-    }
+      FunctionInvocation(fid, adt.tps, Seq(expr))
 
-    expr.getType match {
-      case (ct: ClassType) =>
-        val fd = funDef(ct.root, {
-          case (act: AbstractClassType) => act.knownCCDescendants map caseClassType2MatchCase
-          case (cct: CaseClassType) => Seq(caseClassType2MatchCase(cct))
-        })
-        FunctionInvocation(TypedFunDef(fd, ct.tps), Seq(expr))
-      case TupleType(argTypes) => argTypes.zipWithIndex.map({
-        case (_, index) => fullSize(tupleSelect(expr, index + 1, true))
-      }).foldLeft[Expr](InfiniteIntegerLiteral(0))(plus)
-      case IntegerType =>
-        FunctionInvocation(typedAbsBigIntFun, Seq(expr))
-      case Int32Type =>
-        FunctionInvocation(typedAbsInt2IntegerFun, Seq(expr))
-      case _ => InfiniteIntegerLiteral(0)
-    }
+    case TupleType(argTypes) => argTypes.zipWithIndex.map({
+      case (_, index) => fullSize(tupleSelect(expr, index + 1, true))
+    }).foldLeft[Expr](IntegerLiteral(0))(_ + _)
+
+    case IntegerType =>
+      integerAbs.applied(Seq(expr))
+
+    case bv @ BVType(_) =>
+      bvAbs2Integer(bv).applied(Seq(expr))
+
+    case _ => IntegerLiteral(0)
   }
 
-  private val outerCache: MutableMap[TypeTree, FunDef] = MutableMap.empty
-
   object ContainerType {
-    def unapply(c: ClassType): Option[(CaseClassType, Seq[(Identifier, TypeTree)])] = c match {
-      case cct @ CaseClassType(ccd, _) =>
-        if (cct.fields.exists(arg => purescala.TypeOps.isSubtypeOf(arg.getType, cct.root))) None
-        else if (ccd.hasParent && ccd.parent.get.knownDescendants.size > 1) None
-        else Some((cct, ccd.fields.map(arg => arg.id -> arg.getType)))
+    def unapply(c: ADTType): Option[Seq[ValDef]] = c.getADT match {
+      case tcons: TypedADTConstructor =>
+        if (tcons.fields.exists(vd => isSubtypeOf(vd.tpe, tcons.root.toType))) None
+        else if (tcons.sort.isDefined && tcons.sort.get.constructors.size > 1) None
+        else Some(tcons.fields)
       case _ => None
     }
   }
 
-  def flatTypesPowerset(tpe: TypeTree): Set[Expr => Expr] = {
+  def flatTypesPowerset(tpe: Type): Set[Expr => Expr] = {
     def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
       l.toSet.subsets.filter(_.nonEmpty).map{
-        (reconss : Set[Expr => Expr]) => (e : Expr) =>
+        (reconss: Set[Expr => Expr]) => (e : Expr) =>
           tupleWrap(reconss.toSeq map { f => f(e) })
       }.toSet
     }
 
-    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match  {
-      case ContainerType(cct, fields) =>
-        powerSetToFunSet(fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
-          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
-        })
-      case TupleType(tpes) =>
-        powerSetToFunSet(tpes.indices.flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
-        })
-      case _ => Set((e: Expr) => e)
-    }
-
-    rec(tpe)
+    powerSetToFunSet(flatTypes(tpe))
   }
 
-  def flatType(tpe: TypeTree): Set[Expr => Expr] = {
-    def rec(tpe: TypeTree): Set[Expr => Expr] = tpe match {
-      case ContainerType(cct, fields) =>
-        fields.zipWithIndex.flatMap { case ((fieldId, fieldTpe), index) =>
-          rec(fieldTpe).map(recons => (e: Expr) => recons(caseClassSelector(cct, e, fieldId)))
+  def flatTypes(tpe: Type): Set[Expr => Expr] = {
+    def rec(tpe: Type): Set[Expr => Expr] = tpe match {
+      case ContainerType(fields) =>
+        fields.flatMap { case vd =>
+          rec(vd.tpe).map(recons => (e: Expr) => recons(adtSelector(e, vd.id)))
         }.toSet
       case TupleType(tpes) =>
         tpes.indices.flatMap { case index =>
@@ -183,80 +174,25 @@ trait StructuralSize {
         }.toSet
       case _ => Set((e: Expr) => e)
     }
+
     rec(tpe)
   }
 
-  /* Recursively computes outer datastructure size
-   *
-   * Computes the structural size of a datastructure but only considers
-   * the outer-most datatype definition.
-   *
-   * eg. for List[List[T]], the inner list size is not considered
-   */
-  def outerSize(expr: Expr) : Expr = {
-    def dependencies(ct: ClassType): Set[ClassType] = {
-      def deps(ct: ClassType): Set[ClassType] = ct.fieldsTypes.collect { case ct: ClassType => ct.root }.toSet
-      utils.fixpoint((cts: Set[ClassType]) => cts ++ cts.flatMap(deps))(Set(ct))
-    }
-
-    // A hacky way for handling memoized programs: why is this happening
-    /*val se = expr match {
-      case f@FunctionInvocation(TypedFunDef(fd, _), Seq(arg)) if fd.id.name == "*" => arg
-      case e => e
-    }*/
-    flatType(expr.getType).foldLeft[Expr](InfiniteIntegerLiteral(0)) { case (i, f) =>
-      val e = f(expr)
-      plus(i, e.getType match {
-        case ct: ClassType =>
-          val root = ct.root
-          val fd = outerCache.getOrElse(root.classDef.typed, {
-            val tcd = root.classDef.typed
-            val id = FreshIdentifier("x", tcd, true)
-            val fd = new FunDef(FreshIdentifier("outerSize", alwaysShowUniqueID = true),
-              root.classDef.tparams,
-              Seq(ValDef(id)),
-              IntegerType)
-            outerCache(tcd) = fd
-
-            fd.body = Some(MatchExpr(Variable(id), tcd.knownCCDescendants map { cct =>
-              val args = cct.fields.map(_.id.freshen)
-              purescala.Extractors.SimpleCase(
-                CaseClassPattern(None, cct, args.map(id => WildcardPattern(Some(id)))),
-                args.foldLeft[Expr](InfiniteIntegerLiteral(1)) { case (e, id) =>
-                  plus(e, id.getType match {
-                    case ct: ClassType if dependencies(tcd)(ct.root) => outerSize(Variable(id))
-                    case _ => InfiniteIntegerLiteral(0)
-                  })
-                })
-            }))
-
-            val res = FreshIdentifier("res", IntegerType, true)
-            fd.postcondition = Some(Lambda(Seq(ValDef(res)), GreaterEquals(Variable(res), InfiniteIntegerLiteral(0))))
-            fd
-          })
-
-          FunctionInvocation(fd.typed(root.tps), Seq(e))
-
-        case _ => InfiniteIntegerLiteral(0)
-      })
-    }
-  }
-
-  def lexicographicDecreasing(s1: Seq[Expr], s2: Seq[Expr], strict: Boolean, sizeOfOneExpr: Expr => Expr): Expr = {
-    // Note: The Equal and GreaterThan ASTs work for both BigInt and Bitvector
+  def lexicographicallySmaller(s1: Seq[Expr], s2: Seq[Expr], strict: Boolean, sizeOfOneExpr: Expr => Expr): Expr = {
+    // Note: The Equal and LessThan ASTs work for both BigInt and Bitvector
 
     val sameSizeExprs = for ((arg1, arg2) <- s1 zip s2) yield Equals(sizeOfOneExpr(arg1), sizeOfOneExpr(arg2))
 
-    val greaterBecauseGreaterAtFirstDifferentPos =
+    val lessBecauseLessAtFirstDifferentPos =
       orJoin(for (firstDifferent <- 0 until scala.math.min(s1.length, s2.length)) yield and(
           andJoin(sameSizeExprs.take(firstDifferent)),
-          GreaterThan(sizeOfOneExpr(s1(firstDifferent)), sizeOfOneExpr(s2(firstDifferent)))
+          LessThan(sizeOfOneExpr(s1(firstDifferent)), sizeOfOneExpr(s2(firstDifferent)))
       ))
 
     if (s1.length > s2.length || (s1.length == s2.length && !strict)) {
-      or(andJoin(sameSizeExprs), greaterBecauseGreaterAtFirstDifferentPos)
+      or(andJoin(sameSizeExprs), lessBecauseLessAtFirstDifferentPos)
     } else {
-      greaterBecauseGreaterAtFirstDifferentPos
+      lessBecauseLessAtFirstDifferentPos
     }
   }
 }

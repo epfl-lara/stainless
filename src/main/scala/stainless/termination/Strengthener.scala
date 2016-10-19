@@ -1,75 +1,90 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package termination
 
-import purescala.Path
-import purescala.Expressions._
-import purescala.Types._
-import purescala.ExprOps._
-import purescala.Common._
-import purescala.Definitions._
-import purescala.Constructors._
-
+import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
-trait Strengthener { self : RelationComparator =>
+trait Strengthener { self: OrderingRelation =>
 
-  val checker: TerminationChecker
+  val checker: ProcessingPipeline
+  import checker._
+  import program._
+  import program.trees._
+  import program.symbols._
+
+  private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
+
+  private object postStrengthener extends IdentitySymbolTransformer {
+    // we can shortcut some transformations as we know `transformer` is the identity
+    override def transform(syms: Symbols): Symbols =
+      super.transform(syms).withFunctions(strengthenedPost.flatMap {
+        case (fd, post @ Some(_)) => Some(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post)))
+        case _ => None
+      }.toSeq)
+  }
+
+  checker.registerTransformer(postStrengthener)
 
   implicit object CallGraphOrdering extends Ordering[FunDef] {
     def compare(a: FunDef, b: FunDef): Int = {
-      val aCallsB = checker.program.callGraph.transitivelyCalls(a, b)
-      val bCallsA = checker.program.callGraph.transitivelyCalls(b, a)
+      val aCallsB = transitivelyCalls(a, b)
+      val bCallsA = transitivelyCalls(b, a)
       if (aCallsB && !bCallsA) -1
       else if (bCallsA && !aCallsB) 1
       else 0
     }
   }
 
-  private val strengthenedPost : MutableSet[FunDef] = MutableSet.empty
+  def strengthenPostconditions(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
+    ctx.reporter.debug("- Strengthening postconditions")
 
-  def strengthenPostconditions(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
     // Strengthen postconditions on all accessible functions by adding size constraints
-    val callees : Set[FunDef] = funDefs.flatMap(fd => checker.program.callGraph.transitiveCallees(fd))
-    val sortedCallees : Seq[FunDef] = callees.toSeq.sorted
+    val callees: Set[FunDef] = funDefs.flatMap(fd => transitiveCallees(fd))
+    val sortedCallees: Seq[FunDef] = callees.toSeq.sorted
 
-    for (funDef <- sortedCallees if !strengthenedPost(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
+    // Note that we don't try to add postconditions to the entire SCC as the case of
+    // a stronger post existing for a single function within the SCC seems more probable
+    // than having weird inter-dependencies between different functions in the SCC
+    for (fd <- sortedCallees
+         if fd.body.isDefined && !strengthenedPost.isDefinedAt(fd) && checker.terminates(fd).isGuaranteed) {
+
+      strengthenedPost(fd) = None
+
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
-        val old = funDef.postcondition
         val postcondition = {
-          val res = FreshIdentifier("res", funDef.returnType, true)
-          val post = old.map{application(_, Seq(Variable(res)))}.getOrElse(BooleanLiteral(true))
-          val sizePost = cmp(funDef.params.map(_.toVariable), Seq(res.toVariable))
-          Lambda(Seq(ValDef(res)), and(post, sizePost))
+          val res = ValDef(FreshIdentifier("res"), fd.returnType)
+          val post = fd.postcondition.map(application(_, Seq(res.toVariable))).getOrElse(BooleanLiteral(true))
+          val sizePost = cmp(Seq(res.toVariable), fd.params.map(_.toVariable))
+          Lambda(Seq(res), and(post, sizePost))
         }
 
-        funDef.postcondition = Some(postcondition)
+        val api = transformedAPI(new IdentitySymbolTransformer {
+          override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
+            Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))))
+          }
+        })
 
-        val prec = matchToIfThenElse(funDef.precOrTrue)
-        val body = matchToIfThenElse(funDef.body.get)
-        val post = matchToIfThenElse(postcondition)
-        val formula = implies(prec, application(post, Seq(body)))
+        val formula = implies(fd.precOrTrue, application(postcondition, Seq(fd.body.get)))
 
         // @nv: one must also check satisfiability here as if both formula and
         //      !formula are UNSAT, we will proceed to invalid strenghtening
-        if (!solver.maybeSAT(formula) || !solver.definitiveALL(formula)) {
-          funDef.postcondition = old
-          false
-        } else {
+        if (exprOps.variablesOf(formula).nonEmpty && api.solveVALID(formula).getOrElse(false)) {
+          strengthenedPost(fd) = Some(postcondition)
           true
+        } else {
+          false
         }
       }
 
       // test if size is smaller or equal to input
-      val weekConstraintHolds = strengthen(self.softDecreasing)
+      val weekConstraintHolds = strengthen(self.lessEquals)
 
       if (weekConstraintHolds) {
         // try to improve postcondition with strictly smaller
-        strengthen(self.sizeDecreasing)
+        strengthen(self.lessThan)
       }
-
-      strengthenedPost += funDef
     }
   }
 
@@ -86,41 +101,40 @@ trait Strengthener { self : RelationComparator =>
 
   def applicationConstraint(fd: FunDef, id: Identifier, arg: Expr, args: Seq[Expr]): Expr = arg match {
     case Lambda(fargs, body) => appConstraint.get(fd -> id) match {
-      case Some(StrongDecreasing) => self.sizeDecreasing(args, fargs.map(_.toVariable))
-      case Some(WeakDecreasing) => self.softDecreasing(args, fargs.map(_.toVariable))
+      case Some(StrongDecreasing) => self.lessThan(fargs.map(_.toVariable), args)
+      case Some(WeakDecreasing) => self.lessEquals(fargs.map(_.toVariable), args)
       case _ => BooleanLiteral(true)
     }
     case _ => BooleanLiteral(true)
   }
 
-  def strengthenApplications(funDefs: Set[FunDef])(implicit solver: Processor with Solvable) {
-    val transitiveFunDefs = funDefs ++ funDefs.flatMap(checker.program.callGraph.transitiveCallees)
+  def strengthenApplications(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
+    ctx.reporter.debug("- Strengthening applications")
+
+    val transitiveFunDefs = funDefs ++ funDefs.flatMap(transitiveCallees)
     val sortedFunDefs = transitiveFunDefs.toSeq.sorted
 
-    for (funDef <- sortedFunDefs if !strengthenedApp(funDef) && funDef.hasBody && checker.terminates(funDef).isGuaranteed) {
+    for (fd <- sortedFunDefs if fd.body.isDefined && !strengthenedApp(fd) && checker.terminates(fd).isGuaranteed) {
 
-      val appCollector = new CollectorWithPaths[(Identifier,Path,Seq[Expr])] {
-        def collect(e: Expr, path: Path): Option[(Identifier, Path, Seq[Expr])] = e match {
-          case Application(Variable(id), args) => Some((id, path, args))
-          case _ => None
-        }
+      val appCollector = CollectorWithPC(program) {
+        case (Application(v: Variable, args), path) => (path, v, args)
       }
 
-      val applications = appCollector.traverse(funDef).distinct
+      val applications = appCollector.collect(fd).distinct
 
-      val funDefArgs = funDef.params.map(_.toVariable)
+      val fdArgs = fd.params.map(_.toVariable)
 
-      val allFormulas = for ((id, path, appArgs) <- applications) yield {
-        val soft = path implies self.softDecreasing(funDefArgs, appArgs)
-        val hard = path implies self.sizeDecreasing(funDefArgs, appArgs)
-        id -> ((soft, hard))
+      val allFormulas = for ((path, v, appArgs) <- applications) yield {
+        val soft = path implies self.lessEquals(appArgs, fdArgs)
+        val hard = path implies self.lessThan(appArgs, fdArgs)
+        v -> ((soft, hard))
       }
 
       val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip)
 
-      val constraints = for ((id, (weakFormulas, strongFormulas)) <- formulaMap) yield id -> {
-        if (solver.definitiveALL(andJoin(weakFormulas.toSeq))) {
-          if (solver.definitiveALL(andJoin(strongFormulas.toSeq))) {
+      val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
+        if (solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
+          if (solveVALID(andJoin(strongFormulas.toSeq)).contains(true)) {
             StrongDecreasing
           } else {
             WeakDecreasing
@@ -130,61 +144,57 @@ trait Strengthener { self : RelationComparator =>
         }
       }
 
-      val funDefHOArgs = funDef.params.map(_.id).filter(_.getType.isInstanceOf[FunctionType]).toSet
+      val fdHOArgs = fdArgs.filter(_.tpe.isInstanceOf[FunctionType]).toSet
 
-      val fiCollector = new CollectorWithPaths[(Path, Seq[Expr], Seq[(Identifier,(FunDef, Identifier))])] {
-        def collect(e: Expr, path: Path): Option[(Path, Seq[Expr], Seq[(Identifier,(FunDef, Identifier))])] = e match {
-          case FunctionInvocation(tfd, args) if (funDefHOArgs intersect args.collect({ case Variable(id) => id }).toSet).nonEmpty =>
-            Some((path, args, (args zip tfd.fd.params).collect {
-              case (Variable(id), vd) if funDefHOArgs(id) => id -> ((tfd.fd, vd.id))
-            }))
-          case _ => None
-        }
+      val fiCollector = CollectorWithPC(program) {
+        case (fi @ FunctionInvocation(_, _, args), path)
+        if (fdHOArgs intersect args.collect { case v: Variable => v }.toSet).nonEmpty =>
+          val fd = fi.tfd.fd
+          (path, args, (args zip fd.params).collect {
+            case (v: Variable, vd) if fdHOArgs(v) => v -> ((fd, vd.id))
+          })
       }
 
-      val invocations = fiCollector.traverse(funDef)
-      val id2invocations : Seq[(Identifier, ((FunDef, Identifier), Path, Seq[Expr]))] =
-        for {
-          p <- invocations
-          c <- p._3
-        } yield c._1 -> (c._2, p._1, p._2)
-      val invocationMap: Map[Identifier, Seq[((FunDef, Identifier), Path, Seq[Expr])]] =
-        id2invocations.groupBy(_._1).mapValues(_.map(_._2))
+      val invocations = fiCollector.collect(fd)
+      val var2invocations: Seq[(Variable, ((FunDef, Identifier), Path, Seq[Expr]))] =
+        for ((path, args, mapping) <- invocations; (v, p) <- mapping) yield v -> (p, path, args)
+      val invocationMap: Map[Variable, Seq[((FunDef, Identifier), Path, Seq[Expr])]] =
+        var2invocations.groupBy(_._1).mapValues(_.map(_._2))
 
-      def constraint(id: Identifier, passings: Seq[((FunDef, Identifier), Path, Seq[Expr])]): SizeConstraint = {
-        if (constraints.get(id) == Some(NoConstraint)) NoConstraint
+      def constraint(v: Variable, passings: Seq[((FunDef, Identifier), Path, Seq[Expr])]): SizeConstraint = {
+        if (constraints.get(v) == Some(NoConstraint)) NoConstraint
         else if (passings.exists(p => appConstraint.get(p._1) == Some(NoConstraint))) NoConstraint
-        else passings.foldLeft[SizeConstraint](constraints.getOrElse(id, StrongDecreasing)) {
+        else passings.foldLeft[SizeConstraint](constraints.getOrElse(v, StrongDecreasing)) {
           case (constraint, (key, path, args)) =>
 
-            lazy val strongFormula = path implies self.sizeDecreasing(funDefArgs, args)
-            lazy val weakFormula = path implies self.softDecreasing(funDefArgs, args)
+            lazy val strongFormula = path implies self.lessThan(args, fdArgs)
+            lazy val weakFormula = path implies self.lessEquals(args, fdArgs)
 
             (constraint, appConstraint.get(key)) match {
               case (_, Some(NoConstraint)) => scala.sys.error("Whaaaat!?!? This shouldn't happen...")
               case (_, None) => NoConstraint
               case (NoConstraint, _) => NoConstraint
               case (StrongDecreasing | WeakDecreasing, Some(StrongDecreasing)) =>
-                if (solver.definitiveALL(weakFormula)) StrongDecreasing
+                if (solveVALID(weakFormula).contains(true)) StrongDecreasing
                 else NoConstraint
               case (StrongDecreasing, Some(WeakDecreasing)) =>
-                if (solver.definitiveALL(strongFormula)) StrongDecreasing
-                else if (solver.definitiveALL(weakFormula)) WeakDecreasing
+                if (solveVALID(strongFormula).contains(true)) StrongDecreasing
+                else if (solveVALID(weakFormula).contains(true)) WeakDecreasing
                 else NoConstraint
               case (WeakDecreasing, Some(WeakDecreasing)) =>
-                if (solver.definitiveALL(weakFormula)) WeakDecreasing
+                if (solveVALID(weakFormula).contains(true)) WeakDecreasing
                 else NoConstraint
             }
         }
       }
 
-      val outers = invocationMap.mapValues(_.filter(_._1._1 != funDef))
-      funDefHOArgs.foreach { id => appConstraint(funDef -> id) = constraint(id, outers.getOrElse(id, Seq.empty)) }
+      val outers = invocationMap.mapValues(_.filter(_._1._1 != fd))
+      for (v <- fdHOArgs) appConstraint(fd -> v.id) = constraint(v, outers.getOrElse(v, Seq.empty))
 
-      val selfs = invocationMap.mapValues(_.filter(_._1._1 == funDef))
-      funDefHOArgs.foreach { id => appConstraint(funDef -> id) = constraint(id, selfs.getOrElse(id, Seq.empty)) }
+      val selfs = invocationMap.mapValues(_.filter(_._1._1 == fd))
+      for (v <- fdHOArgs) appConstraint(fd -> v.id) = constraint(v, selfs.getOrElse(v, Seq.empty))
 
-      strengthenedApp += funDef
+      strengthenedApp += fd
     }
   }
 }

@@ -8,8 +8,7 @@ trait Trees
      with Definitions
      with Expressions
      with Extractors
-     with Printers
-     with TreeOps {
+     with Printers {
 
   object patternOps extends {
     protected val sourceTrees: Trees.this.type = Trees.this

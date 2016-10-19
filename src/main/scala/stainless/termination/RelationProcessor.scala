@@ -1,49 +1,47 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package termination
 
-import leon.purescala.Expressions._
-import leon.purescala.Constructors._
-import leon.purescala.Definitions._
+import inox.utils._
 
-class RelationProcessor(
-    val checker: TerminationChecker,
-    val modules: RelationBuilder with RelationComparator with Strengthener with StructuralSize
-  ) extends Processor with Solvable {
+trait RelationProcessor extends OrderingProcessor {
+  val ordering: OrderingRelation with Strengthener with RelationBuilder {
+    val checker: RelationProcessor.this.checker.type
+  }
 
-  val name: String = "Relation Processor " + modules.comparisonMethod
+  val name: String = "Relation Processor " + ordering.description
+
+  import checker._
+  import ordering._
+  import program.trees._
+  import program.symbols._
 
   def run(problem: Problem): Option[Seq[Result]] = {
-    if (!modules.isApplicableFor(problem)) return None
-    
-    reporter.debug("- Strengthening postconditions")
-    modules.strengthenPostconditions(problem.funSet)(this)
+    strengthenPostconditions(problem.funSet)
+    strengthenApplications(problem.funSet)
 
-    reporter.debug("- Strengthening applications")
-    modules.strengthenApplications(problem.funSet)(this)
-
-    val formulas = problem.funDefs.map({ funDef =>
-      funDef -> modules.getRelations(funDef).collect({
-        case Relation(_, path, FunctionInvocation(tfd, args), _) if problem.funSet(tfd.fd) =>
+    val formulas = problem.funDefs.map { funDef =>
+      funDef -> ordering.getRelations(funDef).collect {
+        case Relation(_, path, fi @ FunctionInvocation(_, _, args), _) if problem.funSet(fi.tfd.fd) =>
           val args0 = funDef.params.map(_.toVariable)
           def constraint(expr: Expr) = path implies expr
-          val greaterThan = modules.sizeDecreasing(args0, args)
-          val greaterEquals = modules.softDecreasing(args0, args)
-          (tfd.fd, (constraint(greaterThan), constraint(greaterEquals)))
-      })
-    })
+          val lessThan = ordering.lessThan(args, args0)
+          val lessEquals = ordering.lessEquals(args, args0)
+          (fi.tfd.fd, (constraint(lessThan), constraint(lessEquals)))
+      }
+    }
 
     sealed abstract class Result
     case object Success extends Result
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
-    reporter.debug("- Searching for structural size decrease")
+    reporter.debug("- Searching for size decrease")
     val decreasing = formulas.map({ case (fd, formulas) =>
       val solved = formulas.map({ case (fid, (gt, ge)) =>
-        if (definitiveALL(gt)) Success
-        else if (definitiveALL(ge)) Dep(Set(fid))
+        if (solveVALID(gt).contains(true)) Success
+        else if (solveVALID(ge).contains(true)) Dep(Set(fid))
         else Failure
       })
 
@@ -69,7 +67,12 @@ class RelationProcessor(
 
       val ok = decreasing.collect({ case (fd, Success) => fd })
       val nok = decreasing.collect({ case (fd, Dep(fds)) => fd -> fds }).toList
-      val (allOk, allNok) = fix(currentReducing, ok.toSet, nok)
+      val (allOk, allNok) = fixpoint[(Set[FunDef], List[(FunDef, Set[FunDef])])] { case (fds, deps) =>
+        val (okDeps, nokDeps) = deps.partition({ case (fd, deps) => deps.subsetOf(fds) })
+        val newFds = fds ++ okDeps.map(_._1)
+        (newFds, nokDeps)
+      } ((ok.toSet, nok))
+
       (allOk, allNok.map(_._1).toSet ++ decreasing.collect({ case (fd, Failure) => fd }))
     }
 
