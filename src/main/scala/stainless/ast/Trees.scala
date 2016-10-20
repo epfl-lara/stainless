@@ -10,6 +10,9 @@ trait Trees
      with Extractors
      with Printers {
 
+  type Symbol = ast.Symbol
+  type SymbolIdentifier = ast.SymbolIdentifier
+
   object patternOps extends {
     protected val sourceTrees: Trees.this.type = Trees.this
     protected val targetTrees: Trees.this.type = Trees.this

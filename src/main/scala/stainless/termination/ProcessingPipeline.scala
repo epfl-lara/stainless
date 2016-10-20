@@ -38,11 +38,9 @@ trait ProcessingPipeline extends TerminationChecker { self =>
 
   protected val processors: List[Processor { val checker: self.type }]
 
-  protected val encoder: inox.ast.SymbolTransformer {
-    val transformer: ast.TreeTransformer {
-      val s: program.trees.type
-      val t: stainless.trees.type
-    }
+  protected val encoder: ast.TreeTransformer {
+    val s: program.trees.type
+    val t: stainless.trees.type
   }
 
   object programEncoder extends {
@@ -50,18 +48,13 @@ trait ProcessingPipeline extends TerminationChecker { self =>
     val t: stainless.trees.type = stainless.trees
   } with inox.ast.ProgramEncoder {
     val encoder = self.encoder
-    val decoder = new inox.ast.SymbolTransformer {
-      val transformer = new ast.TreeTransformer {
-        val s: stainless.trees.type = stainless.trees
-        val t: program.trees.type = program.trees
+    object decoder extends ast.TreeTransformer {
+      val s: stainless.trees.type = stainless.trees
+      val t: program.trees.type = program.trees
 
-        val deconstructor: ast.TreeDeconstructor {
-          val s: stainless.trees.type
-          val t: program.trees.type
-        } = new ast.TreeDeconstructor {
-          protected val s: stainless.trees.type = stainless.trees
-          protected val t: program.trees.type = program.trees
-        }
+      object deconstructor extends ast.TreeDeconstructor {
+        protected val s: stainless.trees.type = stainless.trees
+        protected val t: program.trees.type = program.trees
       }
     }
   }
@@ -71,44 +64,42 @@ trait ProcessingPipeline extends TerminationChecker { self =>
     type S <: inox.solvers.combinators.TimeoutSolver { val program: p.type }
   } = solvers.SolverFactory(p, opts).withTimeout(1.seconds)
 
-  private def solverFactory(transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+  private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     solvers.SolverFactory.getFromSettings(program, options)(
       inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
         evaluators.Evaluator(programEncoder.targetProgram, options)
-      ), programEncoder >> solvers.InoxEncoder(programEncoder.targetProgram))
+      ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram))
   }
 
-  private def solverAPI(transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+  private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     inox.solvers.SimpleSolverAPI(solverFactory(transformer))
   }
 
-  /** /!\ WARNING /!\
-    * We can't use a [[SymbolIdentity]] here as we're counting on [[transformFunction]] to
-    * get called during the transformation of the symbols!
-    */
-  private object withoutPosts extends inox.ast.SymbolTransformer {
-    val transformer = new IdentityTreeTransformer {}
+  private object withoutPosts extends inox.ast.SimpleSymbolTransformer {
+    val s: trees.type = trees
+    val t: trees.type = trees
 
-    // we can shortcut some transformations as we know `transformer` is the identity
-    override protected def transformFunction(fd: FunDef): FunDef = {
+    protected def transformFunction(fd: FunDef): FunDef = {
       if (true /* FIXME: dangerous ?? */) fd
       else fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
     }
+
+    protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
   }
 
-  private var transformers: inox.ast.SymbolTransformer { val transformer: SelfTransformer } = withoutPosts
+  private var transformers: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type } = withoutPosts
 
   private[termination] def registerTransformer(
-    transformer: inox.ast.SymbolTransformer { val transformer: SelfTransformer }
+    transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }
   ): Unit = transformers = transformers compose transformer
 
   def solveVALID(e: Expr) = solverAPI(transformers).solveVALID(e)
-  def solveVALID(e: Expr, t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+  def solveVALID(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     solverAPI(transformers compose t).solveVALID(e)
   }
 
   def solveSAT(e: Expr) = solverAPI(transformers).solveSAT(e)
-  def solveSAT(e: Expr, t: inox.ast.SymbolTransformer { val transformer: SelfTransformer }) = {
+  def solveSAT(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     solverAPI(transformers compose t).solveSAT(e)
   }
 

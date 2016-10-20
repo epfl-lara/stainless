@@ -14,6 +14,7 @@ import core.Types._
 import core.Flags._
 import util.Positions._
 
+import stainless.ast.SymbolIdentifier
 import inox.ast.{Identifier, FreshIdentifier}
 import xlang.{trees => xt}
 
@@ -100,12 +101,12 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     def isLazy(s: Symbol): Boolean = lazyVars(s)
   }
 
-  private var symbolToIdentifier = Map[Symbol, Identifier]()
-  def getIdentifier(sym: Symbol): Identifier = symbolToIdentifier.get(sym) match {
+  private var symbolToIdentifier = Map[Symbol, SymbolIdentifier]()
+  def getIdentifier(sym: Symbol): SymbolIdentifier = symbolToIdentifier.get(sym) match {
     case Some(id) => id
     case None =>
       val name = sym.name.toString
-      val id = FreshIdentifier(if (name.endsWith("$")) name.init else name)
+      val id = SymbolIdentifier(if (name.endsWith("$")) name.init else name)
       symbolToIdentifier += sym -> id
       id
   }
@@ -254,6 +255,8 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
     (module, allClasses, allFunctions)
   }
+
+  private val invSymbol = stainless.ast.Symbol("inv")
 
   private def extractClass(td: tpd.TypeDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = td.symbol
@@ -423,7 +426,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     }
 
     val optInv = if (invariants.isEmpty) None else Some {
-      new xt.FunDef(FreshIdentifier("inv"), Seq.empty, Seq.empty, xt.BooleanType,
+      new xt.FunDef(SymbolIdentifier(invSymbol), Seq.empty, Seq.empty, xt.BooleanType,
         if (invariants.size == 1) invariants.head else xt.And(invariants),
         Set(xt.IsInvariant)
       )
@@ -436,7 +439,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       tparams,
       parent,
       fields,
-      allMethods.map(_.id),
+      allMethods.map(_.id.asInstanceOf[SymbolIdentifier]),
       flags
     ).setPos(sym.pos), allMethods)
   }

@@ -1,6 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package stainless.intermediate
+package stainless
+package intermediate
 
 package object oo {
 

@@ -41,23 +41,18 @@ object TerminationChecker {
       val options = opts
       import p.trees._
 
-      object encoder extends inox.ast.SymbolTransformer {
-        object transformer extends {
-          val s: p.trees.type = p.trees
-          val t: stainless.trees.type = stainless.trees
-        } with ast.TreeTransformer {
-          override def transform(e: s.Expr): t.Expr = e match {
-            case s.Decreases(measure, body) => transform(body)
-            case _ => super.transform(e)
-          }
+      object encoder extends {
+        val s: p.trees.type = p.trees
+        val t: stainless.trees.type = stainless.trees
+      } with ast.TreeTransformer {
+        override def transform(e: s.Expr): t.Expr = e match {
+          case s.Decreases(measure, body) => transform(body)
+          case _ => super.transform(e)
+        }
 
-          val deconstructor: ast.TreeDeconstructor {
-            val s: p.trees.type
-            val t: stainless.trees.type
-          } = new ast.TreeDeconstructor {
-            protected val s: p.trees.type = p.trees
-            protected val t: stainless.trees.type = stainless.trees
-          }
+        object deconstructor extends ast.TreeDeconstructor {
+          protected val s: p.trees.type = p.trees
+          protected val t: stainless.trees.type = stainless.trees
         }
       }
 

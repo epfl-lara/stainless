@@ -93,7 +93,7 @@ trait Trees extends holes.Trees { self =>
     val tparams: Seq[TypeParameterDef],
     val parent: Option[Identifier],
     val fields: Seq[ValDef],
-    val methods: Seq[Identifier],
+    val methods: Seq[SymbolIdentifier],
     val flags: Set[Flag]
   ) extends Definition {
 
@@ -148,9 +148,7 @@ trait Trees extends holes.Trees { self =>
         super.asString
     }
 
-    override def transform(trans: SelfTransformer): Symbols = new SymbolTransformer {
-      val transformer: trans.type = trans
-    }.transform(this)
+    override def transform(trans: SelfTransformer): Symbols = SymbolTransformer(trans).transform(this)
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
       case sym: AbstractSymbols => classes == sym.classes
@@ -161,6 +159,8 @@ trait Trees extends holes.Trees { self =>
 
     def withClasses(classes: Seq[ClassDef]): Symbols
   }
+
+  case object IsMethod extends Flag("method", Seq.empty)
 
 
   /* ========================================
@@ -299,16 +299,33 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
   }
 }
 
-trait SymbolTransformer extends inox.ast.SymbolTransformer {
-  val transformer: inox.ast.TreeTransformer { val s: Trees; val t: Trees }
+trait SimpleSymbolTransformer extends inox.ast.SimpleSymbolTransformer {
+  val s: Trees
+  val t: Trees
 
-  override def transform(syms: s.Symbols): t.Symbols =
-    super.transform(syms).withClasses(syms.classes.values.toSeq.map(cd => new t.ClassDef(
+  protected def transformClass(cd: s.ClassDef): t.ClassDef
+
+  override def transform(syms: s.Symbols): t.Symbols = super.transform(syms)
+    .withClasses(syms.classes.values.toSeq.map(transformClass))
+}
+
+object SymbolTransformer {
+  def apply(trans: inox.ast.TreeTransformer { val s: Trees; val t: Trees }): inox.ast.SymbolTransformer {
+    val s: trans.s.type
+    val t: trans.t.type
+  } = new SimpleSymbolTransformer {
+    val s: trans.s.type = trans.s
+    val t: trans.t.type = trans.t
+
+    protected def transformFunction(fd: s.FunDef): t.FunDef = trans.transform(fd)
+    protected def transformADT(adt: s.ADTDefinition): t.ADTDefinition = trans.transform(adt)
+    protected def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,
-      transformTypeParams(cd.tparams),
+      trans.transformTypeParams(cd.tparams),
       cd.parent,
-      cd.fields.map(vd => transformer.transform(vd)),
+      cd.fields.map(vd => trans.transform(vd)),
       cd.methods,
-      cd.flags.map(f => transformer.transform(f))
-    )))
+      cd.flags.map(f => trans.transform(f))
+    )
+  }
 }
