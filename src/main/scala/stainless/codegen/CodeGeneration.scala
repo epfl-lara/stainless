@@ -16,8 +16,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 case class CompilationException(msg: String) extends Exception(msg)
 
-object optInstrumentFields extends inox.FlagOptionDef(
-  "instrument", "Instrument ADT field access during code generation", false)
+object optInstrumentFields extends inox.FlagOptionDef("instrument", false)
 
 trait CodeGeneration { self: CompilationUnit =>
   import program._

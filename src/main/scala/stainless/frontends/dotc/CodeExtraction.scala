@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package frontends.dotty
+package frontends.dotc
 
 import dotty.tools.dotc._
 import ast.tpd
@@ -20,7 +20,9 @@ import xlang.{trees => xt}
 
 import scala.language.implicitConversions
 
-class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends ASTExtractors {
+class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit val ctx: Context)
+  extends ASTExtractors {
+
   import AuxiliaryExtractors._
   import ExpressionExtractors._
   import StructuralExtractors._
@@ -63,7 +65,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     tparams: Map[Symbol, xt.TypeParameter] = Map(),
     vars: Map[Symbol, () => xt.Variable] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
-    lazyVars: Set[Symbol] = Set(),
     localFuns: Map[Symbol, xt.LocalFunDef] = Map(),
     isExtern: Boolean = false
   ) {
@@ -71,7 +72,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       copy(this.tparams ++ that.tparams,
            this.vars ++ that.vars,
            this.mutableVars ++ that.mutableVars,
-           this.lazyVars ++ that.lazyVars,
            this.localFuns ++ that.localFuns,
            this.isExtern || that.isExtern)
     }
@@ -97,18 +97,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     def withLocalFun(s: Symbol, lf: xt.LocalFunDef) = {
       copy(localFuns = this.localFuns + (s -> lf))
     }
-
-    def isLazy(s: Symbol): Boolean = lazyVars(s)
-  }
-
-  private var symbolToIdentifier = Map[Symbol, SymbolIdentifier]()
-  def getIdentifier(sym: Symbol): SymbolIdentifier = symbolToIdentifier.get(sym) match {
-    case Some(id) => id
-    case None =>
-      val name = sym.name.toString
-      val id = SymbolIdentifier(if (name.endsWith("$")) name.init else name)
-      symbolToIdentifier += sym -> id
-      id
   }
 
   // used for refined type extraction
@@ -233,7 +221,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     assert(functions.isEmpty, "Packages shouldn't contain functions")
 
     val pkg = xt.PackageDef(
-      getIdentifier(pd.symbol),
+      symbols.getIdentifier(pd.symbol),
       imports,
       classes,
       subs
@@ -246,7 +234,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(td.rhs.asInstanceOf[tpd.Template].body)
 
     val module = xt.ModuleDef(
-      getIdentifier(td.symbol),
+      symbols.getIdentifier(td.symbol),
       imports,
       classes,
       functions,
@@ -260,7 +248,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
   private def extractClass(td: tpd.TypeDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = td.symbol
-    val id = getIdentifier(sym)
+    val id = symbols.getIdentifier(sym)
 
     val tparamsMap = sym.asClass.typeParams.map { sym =>
       sym -> xt.TypeParameter.fresh(sym.showName)
@@ -268,7 +256,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
     val parent = sym.info.parents.headOption match {
       case Some(tpe) if tpe.typeSymbol == defn.ObjectClass => None
-      case Some(tp @ TypeRef(_, _)) => Some(getIdentifier(tp.symbol))
+      case Some(tp @ TypeRef(_, _)) => Some(symbols.getIdentifier(tp.symbol))
       case _ => None
     }
 
@@ -465,7 +453,10 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
     val nctx = dctx.copy(tparams = dctx.tparams ++ tparams.toMap)
 
     val (newParams, fctx) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
-      val vd = xt.ValDef(FreshIdentifier(param.symbol.name.toString), stainlessType(param.tpe)(dctx, param.pos)).setPos(sym.pos)
+      val vd = xt.ValDef(
+        FreshIdentifier(param.symbol.name.toString).setPos(sym.pos),
+        stainlessType(param.tpe)(dctx, param.pos)
+      ).setPos(sym.pos)
       val expr = () => vd.toVariable /* TODO param match {
         case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq.empty)
         case _ => () => vd.toVariable
@@ -478,13 +469,13 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
     var flags = annotationsOf(sym).toSet ++ (if (sym is Implicit) Some(xt.Inline) else None)
 
-    val id = getIdentifier(sym)
+    val id = symbols.getIdentifier(sym)
 
     // If this is a lazy field definition, drop the assignment/ accessing
     val body =
       if (!(flags contains xt.IsField(true))) rhs
       else rhs match {
-        case Block(List(Assign(_, realBody)),_ ) => realBody
+        case Block(List(Assign(_, realBody)), _) => realBody
         case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
       }
 
@@ -603,7 +594,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         val ct = extractType(tp).asInstanceOf[xt.ClassType]
         (xt.ADTPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
       } else {
-        val id = getIdentifier(sym)
+        val id = symbols.getIdentifier(sym)
         val tparams = tps.map(extractType)
         (xt.UnapplyPattern(binder, id, tparams, subPatterns).setPos(t.pos), nctx)
       }
@@ -612,7 +603,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       val sym = un.symbol
       val (subPatterns, subDctx) = pats.map(extractPattern(_)).unzip
       val nctx = subDctx.foldLeft(dctx)(_ union _)
-      (xt.UnapplyPattern(binder, getIdentifier(sym), Seq.empty, subPatterns).setPos(p.pos), nctx)
+      (xt.UnapplyPattern(binder, symbols.getIdentifier(sym), Seq.empty, subPatterns).setPos(p.pos), nctx)
 
     case _ =>
       outOfSubsetError(p, "Unsupported pattern: "+p)
@@ -933,7 +924,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
           case Some(builder) =>
             builder().setPos(ex.pos)
           case None =>
-            xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty)
+            xt.FunctionInvocation(symbols.getIdentifier(sym), Seq.empty, Seq.empty)
         }
 
       /* TODO: holes
@@ -987,13 +978,13 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
         val somePairs = pairs.map { case (key, value) =>
           key -> xt.ClassConstructor(
-            xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(value),
+            xt.ClassType(symbols.getIdentifier(someSymbol), Seq(to)).setPos(value),
             Seq(value)
           ).setPos(value)
         }
 
         val dflt = xt.ClassConstructor(
-          xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+          xt.ClassType(symbols.getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
           Seq.empty
         ).setPos(tr.pos)
 
@@ -1071,8 +1062,8 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
 
       case Apply(TypeApply(ExSymbol("stainless", "collection", "List$", "apply"), Seq(tpt)), args) =>
         val tpe = extractType(tpt)
-        val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe))
-        val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(tpe))
+        val cons = xt.ClassType(symbols.getIdentifier(consSymbol), Seq(tpe))
+        val nil  = xt.ClassType(symbols.getIdentifier(nilSymbol),  Seq(tpe))
         extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(tr.pos)) {
           case (e, ls) => xt.ClassConstructor(cons, Seq(e, ls)).setPos(e)
         }
@@ -1092,7 +1083,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
         case None =>
           dctx.localFuns.get(sym) match {
             case None =>
-              xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), args.map(extractTree))
+              xt.FunctionInvocation(symbols.getIdentifier(sym), tps.map(extractType), args.map(extractTree))
             case Some(localFun) =>
               xt.ApplyLetRec(localFun.name.toVariable, localFun.tparams, args map extractTree)
           }
@@ -1102,10 +1093,11 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
             if (sym.is(Method) && sym.is(Synthetic) && sym.name.toString == "apply") {
               xt.ClassConstructor(ct, args map extractTree)
             } else if (sym.is(Method)) {
-              xt.MethodInvocation(extractTree(lhs), getIdentifier(sym), tps map extractType, args map extractTree)
+              val id = symbols.getIdentifier(sym)
+              xt.MethodInvocation(extractTree(lhs), id, tps map extractType, args map extractTree)
             } else args match {
-              case Seq() => xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
-              case Seq(rhs) => xt.FieldAssignment(extractTree(lhs), getIdentifier(sym), extractTree(rhs))
+              case Seq() => xt.ClassSelector(extractTree(lhs), symbols.getIdentifier(sym))
+              case Seq(rhs) => xt.FieldAssignment(extractTree(lhs), symbols.getIdentifier(sym), extractTree(rhs))
               case _ => outOfSubsetError(tr, "Unexpected call")
             }
 
@@ -1241,7 +1233,7 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       }).copiedFrom(ct)
 
     case tt @ TypeRef(_, _) if tt.classSymbol.exists =>
-      xt.ClassType(getIdentifier(tt.symbol),
+      xt.ClassType(symbols.getIdentifier(tt.symbol),
         tt.typeParams.map(info => xt.TypeParameter(getIdentifier(info.paramName))))
 
     case tt @ TypeRef(prefix, name) if prefix.classSymbol.typeParams.exists(_.name == name) =>
@@ -1271,25 +1263,6 @@ class CodeExtraction(inoxCtx: inox.Context)(implicit val ctx: Context) extends A
       } else {
         extractType(tp.stripTypeVar)
       }
-
-    /*
-    case tr @ TypeRef(_, sym, tps) =>
-      val leontps = tps.map(extractType)
-
-      if (sym.isAbstractType) {
-        if(dctx.tparams contains sym) {
-          dctx.tparams(sym)
-        } else {
-          outOfSubsetError(pos, "Unknown type parameter "+sym)
-        }
-      } else {
-        getClassType(sym, leontps)
-      }
-
-
-    case SingleType(_, sym) =>
-      getClassType(sym.moduleClass, Nil)
-    */
 
     case AnnotatedType(tpe, _) => extractType(tpe)
 

@@ -17,8 +17,6 @@ package object annotation {
   @ignore
   class extern     extends Annotation
   @ignore
-  class inline     extends Annotation
-  @ignore
   class internal   extends Annotation
 
   // Orb annotations

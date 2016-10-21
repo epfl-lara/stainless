@@ -43,7 +43,7 @@ object SolverFactory {
                      (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
                        enc: inox.ast.ProgramEncoder { val sourceProgram: p.type; val t: inox.trees.type }):
                       SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
-    val names = opts.findOptionOrDefault(inox.InoxOptions.optSelectedSolvers).toSeq
+    val names = opts.findOptionOrDefault(inox.optSelectedSolvers).toSeq
     getFromNames(names)(p, opts)(ev, enc)
   }
 

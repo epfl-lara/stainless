@@ -5,8 +5,7 @@ package evaluators
 
 import inox.evaluators.{DeterministicEvaluator, SolvingEvaluator}
 
-object optCodeGen extends inox.FlagOptionDef(
-  "codegen", "Use code generating evaluator", false)
+object optCodeGen extends inox.FlagOptionDef("codegen", false)
 
 object Evaluator {
   def apply(p: StainlessProgram, opts: inox.Options):

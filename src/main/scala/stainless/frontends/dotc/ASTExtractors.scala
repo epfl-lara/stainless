@@ -1,5 +1,5 @@
 package stainless
-package frontends.dotty
+package frontends.dotc
 
 import dotty.tools.dotc._
 import ast.tpd
