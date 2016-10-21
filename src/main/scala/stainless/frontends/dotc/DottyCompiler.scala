@@ -15,7 +15,6 @@ class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
   override def phases: List[List[Phase]] = List(
     List(new FrontEnd),
     List(new PostTyper),
-    List(new FirstTransform),
     List(extraction)
   )
 }

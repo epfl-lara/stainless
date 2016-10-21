@@ -398,8 +398,8 @@ trait ASTExtractors {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case ExCall(Some(rec),
           ExSymbol("scala", "Predef$", "Ensuring", "ensuring") |
-          ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring", "ensuring"),
-          Seq(), Seq(contract)
+          ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring", "ensuring"),
+          _, Seq(contract)
         ) => Some((rec, contract))
         case _ => None
       }
