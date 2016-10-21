@@ -11,7 +11,7 @@ trait Trees extends imperative.Trees { self =>
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case Hole(tp) => p"???[$tp]"
-    case _ => super.pp(tree)
+    case _ => super.ppBody(tree)
   }
 
   override val deconstructor: TreeDeconstructor {
