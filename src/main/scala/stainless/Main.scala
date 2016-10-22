@@ -14,17 +14,9 @@ object Main extends inox.MainHelpers {
 
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
-    val compiler = new frontends.dotc.DottyCompiler(inoxCtx)
+    val compilerArgs = args.toList.filterNot(_.startsWith("--")) ++ Build.libraryFiles
 
-    val driver = new Driver {
-      def newCompiler(implicit ctx: Context) = compiler
-    }
-
-    val compilerArgs = args.filterNot(_.startsWith("--")) ++ Build.libraryFiles
-    driver.process(compilerArgs)
-
-    val program = compiler.extraction.getProgram
-    val structure = compiler.extraction.getStructure
+    val (structure, program) = frontends.scalac.ScalaCompiler(inoxCtx, compilerArgs)
 
     for (pd <- structure) {
       println(pd.asString(program.printerOpts))

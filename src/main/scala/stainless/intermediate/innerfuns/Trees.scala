@@ -4,7 +4,7 @@ package stainless
 package intermediate
 package innerfuns
 
-trait Trees extends stainless.ast.Trees { self =>
+trait Trees extends intermediate.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)
 
@@ -64,7 +64,7 @@ trait Trees extends stainless.ast.Trees { self =>
   } with ExprOps
 }
 
-trait TreeDeconstructor extends ast.TreeDeconstructor {
+trait TreeDeconstructor extends intermediate.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
@@ -102,7 +102,7 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
 
 }
 
-trait ExprOps extends ast.ExprOps {
+trait ExprOps extends intermediate.ExprOps {
   protected val trees: Trees
   import trees._
   /** Returns functions in directly nested LetDefs */

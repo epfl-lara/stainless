@@ -20,38 +20,31 @@ trait ASTExtractors {
     rootMirror.getClassByName(newTermName(str))
   }
 
-  def annotationsOf(s: Symbol): Map[String, Seq[Option[Any]]] = {
-    val actualSymbol = s.accessedOrSelf
+  protected lazy val tuple2Sym   = classFromName("scala.Tuple2")
+  protected lazy val tuple3Sym   = classFromName("scala.Tuple3")
+  protected lazy val tuple4Sym   = classFromName("scala.Tuple4")
+  protected lazy val tuple5Sym   = classFromName("scala.Tuple5")
+  protected lazy val scalaMapSym = classFromName("scala.collection.immutable.Map")
+  protected lazy val scalaSetSym = classFromName("scala.collection.immutable.Set")
+  protected lazy val setSym      = classFromName("stainless.lang.Set")
+  protected lazy val mapSym      = classFromName("stainless.lang.Map")
+  protected lazy val bagSym      = classFromName("stainless.lang.Bag")
+  protected lazy val realSym     = classFromName("stainless.lang.Real")
 
-    (for {
-      a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
-      name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
-      if (name startsWith "stainless.annotation.")
-    } yield {
-      val args = a.args.map {
-        case Literal(x) => Some(x.value)
-        case _ => None
-      }
-      (name.split("\\.", 3)(2), args)
-    }).toMap
-  }
+  protected lazy val optionSymbol = classFromName("stainless.lang.Option")
+  protected lazy val someSymbol   = classFromName("stainless.lang.Some")
+  protected lazy val noneSymbol   = classFromName("stainless.lang.None")
 
-  protected lazy val tuple2Sym          = classFromName("scala.Tuple2")
-  protected lazy val tuple3Sym          = classFromName("scala.Tuple3")
-  protected lazy val tuple4Sym          = classFromName("scala.Tuple4")
-  protected lazy val tuple5Sym          = classFromName("scala.Tuple5")
-  protected lazy val scalaMapSym        = classFromName("scala.collection.immutable.Map")
-  protected lazy val scalaSetSym        = classFromName("scala.collection.immutable.Set")
-  protected lazy val setSym             = classFromName("stainless.lang.Set")
-  protected lazy val mapSym             = classFromName("stainless.lang.Map")
-  protected lazy val bagSym             = classFromName("stainless.lang.Bag")
-  protected lazy val realSym            = classFromName("stainless.lang.Real")
-  protected lazy val optionClassSym     = classFromName("scala.Option")
+  protected lazy val listSymbol = classFromName("stainless.collection.List")
+  protected lazy val consSymbol = classFromName("stainless.collection.Cons")
+  protected lazy val nilSymbol  = classFromName("stainless.collection.Nil")
+
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
   protected lazy val byNameSym          = classFromName("scala.<byname>")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
+
   protected def functionTraitSym(i:Int) = {
     require(0 <= i && i <= 22)
     classFromName("scala.Function" + i)
@@ -101,19 +94,12 @@ trait ASTExtractors {
     getResolvedTypeSym(sym) == scalaMapSym
   }
 
-  def isOptionClassSym(sym: Symbol) : Boolean = {
-    sym == optionClassSym || sym == someClassSym
-  }
-
   def isFunction(sym: Symbol, i: Int) : Boolean =
     0 <= i && i <= 22 && sym == functionTraitSym(i)
 
   def isArrayClassSym(sym: Symbol): Boolean = sym == arraySym
 
-  def hasIntType(t: Tree) = {
-   val tpe = t.tpe.widen
-   tpe =:= IntClass.tpe
-  }
+  def hasIntType(t: Tree) = t.tpe.widen =:= IntClass.tpe
 
   def hasNumericType(t: Tree): Boolean = hasBigIntType(t) || hasIntType(t) || hasRealType(t)
 
@@ -122,6 +108,8 @@ trait ASTExtractors {
   def hasStringType(t: Tree) = isStringSym(t.tpe.typeSymbol)
 
   def hasRealType(t: Tree) = isRealSym(t.tpe.typeSymbol)
+
+  def hasBooleanType(t: Tree) = t.tpe.widen =:= BooleanClass.tpe
 
   /** A set of helpers for extracting trees.*/
   object ExtractorHelpers {
@@ -274,6 +262,15 @@ trait ASTExtractors {
       def unapply(tree: Apply): Option[Tree] = tree match {
         case Apply(ExSelected("scala", "Predef", "require"), contractBody :: Nil) =>
          Some(contractBody)
+        case _ => None
+      }
+    }
+
+    /** Extracts the 'decreases' contract for an expression (should be right after 'require') */
+    object ExDecreasesExpression {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(ExSelected("stainless", "lang", "decreases"), Seq(arg)) =>
+          Some(arg)
         case _ => None
       }
     }
@@ -543,12 +540,7 @@ trait ASTExtractors {
       def unapply(dd: DefDef): Option[(Symbol, Seq[Symbol], Seq[ValDef], Type, Tree)] = dd match {
         case DefDef(_, name, tparams, vparamss, tpt, rhs) if name != nme.CONSTRUCTOR && !dd.symbol.isAccessor =>
           if (dd.symbol.isSynthetic && dd.symbol.isImplicit && dd.symbol.isMethod) {
-            // Check that the class it was generated from is not ignored
-            if (annotationsOf(tpt.symbol).isDefinedAt("ignore")) {
-              None
-            } else {
-              Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
-            }
+            None // FIXME: what were we extracting here ??
           } else if (!dd.symbol.isSynthetic) {
             Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
           } else {
@@ -579,6 +571,7 @@ trait ASTExtractors {
         case _ => None
       }
     }
+
     object ExMutableFieldDef {
 
       /** Matches a definition of a strict var field inside a class constructor */
@@ -628,7 +621,7 @@ trait ASTExtractors {
        *  as it does not contain the body of the lazy definition.
        *  It is here just to signify a Definition acceptable by Leon
        */
-      def unapply(vd : ValDef) : Boolean = {
+      def unapply(vd: ValDef) : Boolean = {
         val sym = vd.symbol
         vd match {
           case ValDef(mods, name, tpt, rhs) if (
@@ -1054,7 +1047,7 @@ trait ASTExtractors {
 
     object ExIsInstanceOf {
       def unapply(tree: TypeApply) : Option[(Tree, Tree)] = tree match {
-        case TypeApply(Select(t, isInstanceOfName), typeTree :: Nil) if isInstanceOfName.toString == "isInstanceOf" => Some((typeTree, t))
+        case TypeApply(Select(t, isInstanceOfName), typeTree :: Nil) if isInstanceOfName.toString == "isInstanceOf" => Some((t, typeTree))
         case _ => None
       }
     }
@@ -1125,26 +1118,32 @@ trait ASTExtractors {
     }
 
     object ExCall {
-      def unapply(tree: Tree): Option[(Tree, Symbol, Seq[Tree], Seq[Tree])] = tree match {
-        // foo / foo[T]
-        case ExParameterLessCall(t, s, tps) =>
-          Some((t, s, tps, Nil))
+      def unapply(tree: Tree): Option[(Option[Tree], Symbol, Seq[Tree], Seq[Tree])] = tree match {
+        // foo
+        case Select(qualifier, _) =>
+          Some((Some(qualifier), tree.symbol, Nil, Nil))
 
         // foo(args)
-        case Apply(i: Ident, args) =>
-          Some((i, i.symbol, Nil, args))
+        case Apply(id: Ident, args) =>
+          Some((None, id.symbol, Nil, args))
 
-        // foo(args1)(args2)
-        case Apply(Apply(i: Ident, args1), args2) =>
-          Some((i, i.symbol, Nil, args1 ++ args2))
+        // a.foo(args)
+        case Apply(s @ Select(qualifier, _), args) =>
+          Some((Some(qualifier), s.symbol, Nil, args))
 
-        // foo[T](args)
-        case Apply(ExParameterLessCall(t, s, tps), args) =>
-          Some((t, s, tps, args))
+        // foo[T]
+        case TypeApply(id: Ident, tps) =>
+          Some((None, id.symbol, tps, Nil))
 
-        // foo[T](args1)(args2)
-        case Apply(Apply(ExParameterLessCall(t, s, tps), args1), args2) =>
-          Some((t, s, tps, args1 ++ args2))
+        // a.foo[T]
+        case TypeApply(s @ Select(t, _), tps) =>
+          Some((Some(t), s.symbol, tps, Nil))
+
+        case Apply(ExCall(caller, sym, tps, args), newArgs) =>
+          Some((caller, sym, tps, args ++ newArgs))
+
+        case TypeApply(ExCall(caller, sym, tps, args), newTps) =>
+          Some((caller, sym, tps ++ newTps, args))
 
         case _ => None
       }

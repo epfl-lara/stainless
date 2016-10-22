@@ -45,9 +45,17 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     }
   }
 
-  private def annotationsOf(sym: Symbol): Set[xt.Flag] = sym.annotations.map { annot =>
-    xt.extractFlag(annot.symbol.fullName.toString, annot.arguments.map(tree => extractTree(tree)(DefContext())))
-  }.toSet
+  private def annotationsOf(sym: Symbol): Set[xt.Flag] = {
+    val actualSymbol = sym // .accessedOrSelf
+    (for {
+      a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
+      name = a.symbol.fullName.toString.replace("\\.package$\\.", ".")
+      if name startsWith "stainless.annotation."
+      shortName = name drop "stainless.annotation.".length
+    } yield {
+      xt.extractFlag(shortName, a.arguments.map(extractTree(_)(DefContext())))
+    }).toSet
+  }
 
   /** An exception thrown when non-stainless compatible code is encountered. */
   sealed class ImpureCodeEncounteredException(val pos: Position, msg: String, val ot: Option[tpd.Tree])

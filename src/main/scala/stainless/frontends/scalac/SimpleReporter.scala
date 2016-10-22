@@ -1,17 +1,16 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package frontends.scalac
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.reporters.AbstractReporter
 
 import scala.reflect.internal.util.{Position, NoPosition, FakePos, StringOps}
-import utils.{Position => LeonPosition, NoPosition => LeonNoPosition, OffsetPosition => LeonOffsetPosition}
 
 /** This implements a reporter that calls the callback with every line that a
-regular ConsoleReporter would display. */
-class SimpleReporter(val settings: Settings, reporter: leon.Reporter) extends AbstractReporter {
+  * regular ConsoleReporter would display. */
+class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends AbstractReporter {
   final val ERROR_LIMIT = 5
 
   private def label(severity: Severity): String = severity match {
@@ -29,7 +28,7 @@ class SimpleReporter(val settings: Settings, reporter: leon.Reporter) extends Ab
     StringOps.countElementsAsString(severity.count, label(severity))
 
   /** Prints the message. */
-  def printMessage(msg: String, pos: LeonPosition, severity: Severity) {
+  def printMessage(msg: String, pos: inox.utils.Position, severity: Severity) {
     severity match {
       case ERROR =>
         reporter.error(pos, msg)
@@ -47,11 +46,11 @@ class SimpleReporter(val settings: Settings, reporter: leon.Reporter) extends Ab
               else posIn
     pos match {
       case FakePos(fmsg) =>
-        printMessage(fmsg+" "+msg, LeonNoPosition, severity)
+        printMessage(fmsg+" "+msg, inox.utils.NoPosition, severity)
       case NoPosition =>
-        printMessage(msg, LeonNoPosition, severity)
+        printMessage(msg, inox.utils.NoPosition, severity)
       case _ =>
-        val lpos = LeonOffsetPosition(pos.line, pos.column, pos.point, pos.source.file.file)
+        val lpos = inox.utils.OffsetPosition(pos.line, pos.column, pos.point, pos.source.file.file)
         printMessage(msg, lpos, severity)
     }
   }

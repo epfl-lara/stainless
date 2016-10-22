@@ -1,26 +1,26 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package frontends.scalac
 
 import scala.tools.nsc._
 
-trait LeonExtraction extends SubComponent with CodeExtraction {
+trait StainlessExtraction extends SubComponent with CodeExtraction {
   import global._
 
-  val phaseName = "leon"
+  val phaseName = "stainless"
 
   var units: List[CompilationUnit] = Nil
   
-  implicit val ctx: LeonContext
+  implicit val ctx: inox.Context
 
   var imports : Map[RefTree,List[Import]] = Map()
   
-  def setImports( imports : Map[RefTree,List[Import]] ) {  
+  def setImports(imports : Map[RefTree, List[Import]]) {
     this.imports = imports
   }
-  
-  def compiledProgram = {
+
+  def extractProgram = {
     new Extraction(units).extractProgram
   }
 

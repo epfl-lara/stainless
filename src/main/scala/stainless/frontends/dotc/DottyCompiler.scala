@@ -7,6 +7,7 @@ import dotty.tools.dotc._
 import dotty.tools.dotc.typer._
 import dotty.tools.dotc.transform._
 import dotty.tools.dotc.core.Phases._
+import dotty.tools.dotc.core.Contexts._
 
 class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
 
@@ -17,4 +18,26 @@ class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
     List(new PostTyper),
     List(extraction)
   )
+}
+
+object DottyCompiler {
+  def apply(ctx: inox.Context, compilerOpts: List[String]): (
+    List[xlang.trees.PackageDef],
+    Program { val trees: xlang.trees.type }
+  ) = {
+    val timer = ctx.timers.frontend.start()
+
+    val compiler = new DottyCompiler(ctx)
+    val driver = new Driver {
+      def newCompiler(implicit ctx: Context) = compiler
+    }
+    driver.process(compilerOpts.toArray)
+
+    timer.stop()
+
+    val program = compiler.extraction.getProgram
+    val structure = compiler.extraction.getStructure
+
+    (structure, program)
+  }
 }

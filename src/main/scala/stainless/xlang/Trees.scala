@@ -13,14 +13,13 @@ trait Trees extends oo.Trees { self =>
 
   case object Ignore extends Flag("ignore", Seq.empty)
   case object Inline extends Flag("inline", Seq.empty)
+  case object Extern extends Flag("extern", Seq.empty)
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
-    case ("stainless.annotation.package$.ignore", Seq()) => Ignore
-    case ("stainless.annotation.package$.inline", Seq()) => Inline
-    case _ => super.extractFlag(
-      if (name.startsWith("stainless.annotation.package$.")) name drop 30 else name,
-      args
-    )
+    case ("ignore", Seq()) => Ignore
+    case ("inline", Seq()) => Inline
+    case ("extern", Seq()) => Extern
+    case _ => super.extractFlag(name, args)
   }
 
   /** $encodingof `import some.package.Path` or `import some.package.path._` */

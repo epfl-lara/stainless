@@ -35,6 +35,18 @@ package object lang {
   @ignore def forall[A,B,C,D](p: (A,B,C,D) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B,C,D,E](p: (A,B,C,D,E) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
 
+  @ignore def decreases(rank: BigInt): Unit = ()
+  @ignore def decreases(rank: (BigInt, BigInt)): Unit = ()
+  @ignore def decreases(rank: (BigInt, BigInt, BigInt)): Unit = ()
+  @ignore def decreases(rank: (BigInt, BigInt, BigInt, BigInt)): Unit = ()
+  @ignore def decreases(rank: (BigInt, BigInt, BigInt, BigInt, BigInt)): Unit = ()
+
+  @ignore def decreases(rank: Int): Unit = ()
+  @ignore def decreases(rank: (Int, Int)): Unit = ()
+  @ignore def decreases(rank: (Int, Int, Int)): Unit = ()
+  @ignore def decreases(rank: (Int, Int, Int, Int)): Unit = ()
+  @ignore def decreases(rank: (Int, Int, Int, Int, Int)): Unit = ()
+
   @ignore
   implicit class WhileDecorations(u: Unit) {
     def invariant(x: Boolean): Unit = {

@@ -15,6 +15,7 @@ trait Trees extends ast.Trees { self =>
   case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = measure.getType match {
       case IntegerType | BVType(_) => body.getType
+      case TupleType(tps) if tps.forall { case IntegerType | BVType(_) => true case _ => false } => body.getType
       case _ => Untyped
     }
   }
