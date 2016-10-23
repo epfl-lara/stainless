@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package intermediate
+package extraction
 package holes
 
 trait Trees extends imperative.Trees { self =>
@@ -14,12 +14,13 @@ trait Trees extends imperative.Trees { self =>
     case _ => super.ppBody(tree)
   }
 
-  override val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  } = new TreeDeconstructor {
-    protected val s: self.type = self
-    protected val t: self.type = self
+  override def getDeconstructor(that: inox.ast.Trees) = that match {
+    case tree: Trees => new TreeDeconstructor {
+      protected val s: self.type = self
+      protected val t: tree.type = tree
+    }.asInstanceOf[inox.ast.TreeDeconstructor { val s: self.type; val t: that.type }]
+
+    case _ => super.getDeconstructor(that)
   }
 }
 

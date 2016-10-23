@@ -5,7 +5,7 @@ package frontends.scalac
 
 import stainless.ast.SymbolIdentifier
 import inox.ast.{Identifier, FreshIdentifier}
-import xlang.{trees => xt}
+import extraction.xlang.{trees => xt}
 
 import scala.reflect.internal.util._
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}

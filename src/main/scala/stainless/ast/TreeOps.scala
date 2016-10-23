@@ -3,13 +3,12 @@
 package stainless
 package ast
 
-trait TreeTransformer extends inox.ast.TreeTransformer {
+trait TreeTransformer extends inox.ast.TreeTransformer { self =>
   val s: Trees
   val t: Trees
 
-  val deconstructor: TreeDeconstructor {
-    val s: TreeTransformer.this.s.type
-    val t: TreeTransformer.this.t.type
+  override lazy val deconstructor: TreeDeconstructor { val s: self.s.type; val t: self.t.type } = {
+    s.getDeconstructor(t).asInstanceOf[TreeDeconstructor { val s: self.s.type; val t: self.t.type }]
   }
 
   def transform(pat: s.Pattern): t.Pattern = {

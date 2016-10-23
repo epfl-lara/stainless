@@ -9,6 +9,8 @@ import dotty.tools.dotc.transform._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
+import extraction.xlang.{trees => xt}
+
 class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
 
   val extraction = new StainlessExtraction(inoxCtx)
@@ -22,8 +24,8 @@ class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
 
 object DottyCompiler {
   def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xlang.trees.PackageDef],
-    Program { val trees: xlang.trees.type }
+    List[xt.PackageDef],
+    Program { val trees: xt.type }
   ) = {
     val timer = ctx.timers.frontend.start()
 

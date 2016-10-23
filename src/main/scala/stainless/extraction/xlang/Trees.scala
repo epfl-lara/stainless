@@ -1,9 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
+package extraction
 package xlang
-
-import stainless.intermediate.oo
 
 trait Trees extends oo.Trees { self =>
 
@@ -99,14 +98,14 @@ trait Trees extends oo.Trees { self =>
     case _ => super.ppBody(tree)
   }
 
-  override val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  } = new TreeDeconstructor {
-    protected val s: self.type = self
-    protected val t: self.type = self
-  }
+  override def getDeconstructor(that: inox.ast.Trees) = that match {
+    case tree: Trees => new TreeDeconstructor {
+      protected val s: self.type = self
+      protected val t: tree.type = tree
+    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
 
+    case _ => super.getDeconstructor(that)
+  }
 }
 
 trait TreeDeconstructor extends oo.TreeDeconstructor {

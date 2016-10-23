@@ -39,11 +39,6 @@ trait InoxEncoder extends ProgramEncoder {
     val s: InoxEncoder.this.s.type = InoxEncoder.this.s
     val t: InoxEncoder.this.t.type = InoxEncoder.this.t
 
-    object deconstructor extends {
-      val s: TreeEncoder.this.s.type = TreeEncoder.this.s
-      val t: TreeEncoder.this.t.type = TreeEncoder.this.t
-    } with TreeDeconstructor
-
     import sourceProgram.symbols._
 
     override def transform(e: s.Expr): t.Expr = e match {
@@ -114,11 +109,6 @@ trait InoxEncoder extends ProgramEncoder {
   protected class TreeDecoder extends TreeTransformer {
     val s: InoxEncoder.this.t.type = InoxEncoder.this.t
     val t: InoxEncoder.this.s.type = InoxEncoder.this.s
-
-    object deconstructor extends {
-      val s: TreeDecoder.this.s.type = TreeDecoder.this.s
-      val t: TreeDecoder.this.t.type = TreeDecoder.this.t
-    } with TreeDeconstructor
 
     /** Transform back from encoded array ADTs into stainless arrays.
       * Note that this translation should only occur on models returned by

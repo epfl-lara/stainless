@@ -49,11 +49,6 @@ object TerminationChecker {
           case s.Decreases(measure, body) => transform(body)
           case _ => super.transform(e)
         }
-
-        object deconstructor extends ast.TreeDeconstructor {
-          protected val s: p.trees.type = p.trees
-          protected val t: stainless.trees.type = stainless.trees
-        }
       }
 
       object integerOrdering extends {

@@ -1,10 +1,10 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package intermediate
+package extraction
 package innerfuns
 
-trait Trees extends intermediate.Trees { self =>
+trait Trees extends extraction.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)
 
@@ -51,12 +51,13 @@ trait Trees extends intermediate.Trees { self =>
     case _ => super.requiresBraces(ex, within)
   }
 
-  override val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  } = new TreeDeconstructor {
-    protected val s: self.type = self
-    protected val t: self.type = self
+  override def getDeconstructor(that: inox.ast.Trees) = that match {
+    case tree: Trees => new TreeDeconstructor {
+      protected val s: self.type = self
+      protected val t: tree.type = tree
+    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+
+    case _ => super.getDeconstructor(that)
   }
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
@@ -64,7 +65,7 @@ trait Trees extends intermediate.Trees { self =>
   } with ExprOps
 }
 
-trait TreeDeconstructor extends intermediate.TreeDeconstructor {
+trait TreeDeconstructor extends extraction.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
@@ -102,7 +103,7 @@ trait TreeDeconstructor extends intermediate.TreeDeconstructor {
 
 }
 
-trait ExprOps extends intermediate.ExprOps {
+trait ExprOps extends extraction.ExprOps {
   protected val trees: Trees
   import trees._
   /** Returns functions in directly nested LetDefs */

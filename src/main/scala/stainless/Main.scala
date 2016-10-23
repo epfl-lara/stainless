@@ -7,6 +7,10 @@ import dotty.tools.dotc.core.Contexts._
 
 object Main extends inox.MainHelpers {
 
+  val components: Map[inox.FlagOptionDef, Component] = Map(
+
+  )
+
   override protected def getOptions = super.getOptions ++ Map(
     evaluators.optCodeGen -> "Use code generating evaluator",
     codegen.optInstrumentFields -> "Instrument ADT field access during code generation"

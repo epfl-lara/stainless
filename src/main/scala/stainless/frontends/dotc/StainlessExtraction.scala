@@ -9,15 +9,17 @@ import dotty.tools.dotc.core.Contexts._
 
 import scala.collection.mutable.ListBuffer
 
+import extraction.xlang.{trees => xt}
+
 class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
 
   def phaseName: String = "stainless extraction"
 
   val symbols = new SymbolsContext
 
-  private val packages  = new ListBuffer[xlang.trees.PackageDef]
-  private val classes   = new ListBuffer[xlang.trees.ClassDef]
-  private val functions = new ListBuffer[xlang.trees.FunDef]
+  private val packages  = new ListBuffer[xt.PackageDef]
+  private val classes   = new ListBuffer[xt.ClassDef]
+  private val functions = new ListBuffer[xt.FunDef]
 
   def run(implicit ctx: Context): Unit = {
     val extraction = new CodeExtraction(inoxCtx, symbols)
@@ -37,11 +39,11 @@ class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
     }
   }
 
-  def getStructure: List[xlang.trees.PackageDef] = packages.toList
+  def getStructure: List[xt.PackageDef] = packages.toList
 
-  def getProgram: Program { val trees: xlang.trees.type } = new inox.Program {
+  def getProgram: Program { val trees: xt.type } = new inox.Program {
     val ctx = inoxCtx
-    val trees: xlang.trees.type = xlang.trees
-    val symbols = xlang.trees.NoSymbols.withClasses(classes).withFunctions(functions)
+    val trees: xt.type = xt
+    val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
   }
 }

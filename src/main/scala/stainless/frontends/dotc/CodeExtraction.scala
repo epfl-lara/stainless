@@ -16,7 +16,7 @@ import util.Positions._
 
 import stainless.ast.SymbolIdentifier
 import inox.ast.{Identifier, FreshIdentifier}
-import xlang.{trees => xt}
+import extraction.xlang.{trees => xt}
 
 import scala.language.implicitConversions
 

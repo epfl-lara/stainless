@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package intermediate
+package extraction
 package oo
 
 trait MethodLifting extends inox.ast.SymbolTransformer { self =>
@@ -84,11 +84,6 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
     class BaseTransformer extends ast.TreeTransformer {
       val s: self.s.type = self.s
       val t: self.t.type = self.t
-
-      object deconstructor extends holes.TreeDeconstructor {
-        protected val s: self.s.type = self.s
-        protected val t: self.t.type = self.t
-      }
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.MethodInvocation(rec, id, tps, args) =>

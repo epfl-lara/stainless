@@ -51,11 +51,6 @@ trait ProcessingPipeline extends TerminationChecker { self =>
     object decoder extends ast.TreeTransformer {
       val s: stainless.trees.type = stainless.trees
       val t: program.trees.type = program.trees
-
-      object deconstructor extends ast.TreeDeconstructor {
-        protected val s: stainless.trees.type = stainless.trees
-        protected val t: program.trees.type = program.trees
-      }
     }
   }
 

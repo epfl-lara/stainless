@@ -3,6 +3,7 @@
 package stainless
 package frontends.scalac
 
+import extraction.xlang.{trees => xt}
 import scala.tools.nsc.{Global, Settings => NSCSettings,CompilerCommand}
 import scala.reflect.internal.Positions
 
@@ -50,8 +51,8 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
 
 object ScalaCompiler {
   def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xlang.trees.PackageDef],
-    Program { val trees: xlang.trees.type }
+    List[xt.PackageDef],
+    Program { val trees: xt.type }
   ) = {
     val timer = ctx.timers.frontend.start()
 

@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package intermediate
+package extraction
 
 package object oo {
 
@@ -11,5 +11,10 @@ package object oo {
       adts: Map[Identifier, ADTDefinition],
       classes: Map[Identifier, ClassDef]
     ) extends ObjectSymbols
+  }
+
+  object extractor extends MethodLifting {
+    val s: trees.type = trees
+    val t: holes.trees.type = holes.trees
   }
 }

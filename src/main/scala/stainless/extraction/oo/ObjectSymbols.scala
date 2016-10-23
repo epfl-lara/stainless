@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package intermediate
+package extraction
 package oo
 
 trait ObjectSymbols { self: Trees =>

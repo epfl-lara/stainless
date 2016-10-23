@@ -137,12 +137,17 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
 
 trait Extractors extends inox.ast.Extractors { self: Trees =>
 
-  override val deconstructor: TreeDeconstructor {
-    val s: self.type
-    val t: self.type
-  } = new TreeDeconstructor {
-    protected val s: self.type = self
-    protected val t: self.type = self
+  override def getDeconstructor(that: inox.ast.Trees) = that match {
+    case tree: Trees => new TreeDeconstructor {
+      protected val s: self.type = self
+      protected val t: tree.type = tree
+    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+
+    case _ => super.getDeconstructor(that)
+  }
+
+  override val deconstructor: TreeDeconstructor { val s: self.type; val t: self.type } = {
+    getDeconstructor(self).asInstanceOf[TreeDeconstructor { val s: self.type; val t: self.type }]
   }
 
   object PatternExtractor extends {
