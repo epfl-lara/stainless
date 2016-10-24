@@ -8,13 +8,15 @@ import dotty.tools.dotc.core.Contexts._
 object Main extends inox.MainHelpers {
 
   val components: Seq[Component] = Seq(
+    verification.VerificationComponent,
     termination.TerminationComponent
   )
 
   override protected def getOptions = super.getOptions ++ Map(
     optFunctions -> "Only consider functions s1,s2,...",
     evaluators.optCodeGen -> "Use code generating evaluator",
-    codegen.optInstrumentFields -> "Instrument ADT field access during code generation"
+    codegen.optInstrumentFields -> "Instrument ADT field access during code generation",
+    verification.optParallelVCs -> "Check verification conditions in parallel"
   ) ++ components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> component.description
