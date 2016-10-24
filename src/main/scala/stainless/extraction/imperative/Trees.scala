@@ -110,8 +110,6 @@ trait Trees extends innerfuns.Trees { self =>
 
 
 trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
-  import inox.ast.Identifier
-
   protected val s: Trees
   protected val t: Trees
 

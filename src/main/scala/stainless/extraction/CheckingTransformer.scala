@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import inox.ast.Identifier
-
 case class CheckFailedError(msg: String) extends Exception(s"Lowering failed on $msg")
 
 trait CheckingTransformer extends ast.TreeTransformer {

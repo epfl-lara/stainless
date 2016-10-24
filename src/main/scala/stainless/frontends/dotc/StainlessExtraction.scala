@@ -17,7 +17,7 @@ class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
 
   val symbols = new SymbolsContext
 
-  private val packages  = new ListBuffer[xt.PackageDef]
+  private val units     = new ListBuffer[xt.UnitDef]
   private val classes   = new ListBuffer[xt.ClassDef]
   private val functions = new ListBuffer[xt.FunDef]
 
@@ -29,8 +29,8 @@ class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
 
     tree match {
       case pd @ PackageDef(_, _) =>
-        val (pkg, allClasses, allFunctions) = extraction.extractPackage(pd)
-        packages += pkg
+        val (unit, allClasses, allFunctions) = extraction.extractPackage(pd)
+        units += unit
         classes ++= allClasses
         functions ++= allFunctions
 
@@ -39,7 +39,7 @@ class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
     }
   }
 
-  def getStructure: List[xt.PackageDef] = packages.toList
+  def getStructure: List[xt.UnitDef] = units.toList
 
   def getProgram: Program { val trees: xt.type } = new inox.Program {
     val ctx = inoxCtx

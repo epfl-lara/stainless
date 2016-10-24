@@ -51,7 +51,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
 
 object ScalaCompiler {
   def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.PackageDef],
+    List[xt.UnitDef],
     Program { val trees: xt.type }
   ) = {
     val timer = ctx.timers.frontend.start()

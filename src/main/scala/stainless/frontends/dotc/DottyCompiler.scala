@@ -24,7 +24,7 @@ class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
 
 object DottyCompiler {
   def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.PackageDef],
+    List[xt.UnitDef],
     Program { val trees: xt.type }
   ) = {
     val timer = ctx.timers.frontend.start()

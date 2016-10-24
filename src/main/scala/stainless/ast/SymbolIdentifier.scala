@@ -18,15 +18,15 @@ object Symbol {
   def apply(name: String) = new Symbol(name, counter.nextGlobal)
 }
 
-class SymbolIdentifier private(id: inox.ast.Identifier, val symbol: Symbol)
-  extends inox.ast.Identifier(id.name, id.globalId, id.id, alwaysShowUniqueID = false)
+class SymbolIdentifier private(id: Identifier, val symbol: Symbol)
+  extends Identifier(id.name, id.globalId, id.id, alwaysShowUniqueID = false)
 
 object SymbolIdentifier {
   def apply(name: String): SymbolIdentifier = {
-    new SymbolIdentifier(inox.ast.FreshIdentifier(name), Symbol(name))
+    new SymbolIdentifier(FreshIdentifier(name), Symbol(name))
   }
 
   def apply(sym: Symbol): SymbolIdentifier = {
-    new SymbolIdentifier(inox.ast.FreshIdentifier(sym.name), sym)
+    new SymbolIdentifier(FreshIdentifier(sym.name), sym)
   }
 }

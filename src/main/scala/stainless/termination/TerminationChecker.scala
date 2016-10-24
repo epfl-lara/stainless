@@ -20,7 +20,7 @@ trait TerminationChecker {
     override def isGuaranteed: Boolean = true
   }
 
-  abstract class NonTerminating extends TerminationGuarantee {
+  sealed abstract class NonTerminating extends TerminationGuarantee {
     override def isGuaranteed: Boolean = false
   }
 

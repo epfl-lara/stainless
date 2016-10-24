@@ -4,7 +4,6 @@ package stainless
 package frontends.scalac
 
 import stainless.ast.SymbolIdentifier
-import inox.ast.{Identifier, FreshIdentifier}
 import extraction.xlang.{trees => xt}
 
 import scala.reflect.internal.util._
@@ -50,7 +49,7 @@ trait CodeExtraction extends ASTExtractors {
     throw new ImpureCodeEncounteredException(t.pos, msg, Some(t))
   }
 
-  class Extraction(units: List[CompilationUnit]) {
+  class Extraction(compilationUnits: List[CompilationUnit]) {
 
     private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
     private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
@@ -122,23 +121,23 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    def extractProgram: (List[xt.PackageDef], Program { val trees: xt.type }) = {
-      val packages  = new ListBuffer[xt.PackageDef]
+    def extractProgram: (List[xt.UnitDef], Program { val trees: xt.type }) = {
+      val units     = new ListBuffer[xt.UnitDef]
       val classes   = new ListBuffer[xt.ClassDef]
       val functions = new ListBuffer[xt.FunDef]
 
-      for (u <- units) u.body match {
+      for (u <- compilationUnits) u.body match {
         // package object
         case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
-          val (pkg, allClasses, allFunctions) = extractPackage(pd)
-          packages += pkg
+          val (unit, allClasses, allFunctions) = extractPackage(u, pd)
+          units += unit
           classes ++= allClasses
           functions ++= allFunctions
 
         // normal package
         case pd @ PackageDef(refTree, lst) =>
-          val (pkg, allClasses, allFunctions) = extractPackage(pd)
-          packages += pkg
+          val (unit, allClasses, allFunctions) = extractPackage(u, pd)
+          units += unit
           classes ++= allClasses
           functions ++= allFunctions
 
@@ -151,7 +150,7 @@ trait CodeExtraction extends ASTExtractors {
         val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
       }
 
-      (packages.toList, program)
+      (units.toList, program)
     }
 
     // This one never fails, on error, it returns Untyped
@@ -169,14 +168,14 @@ trait CodeExtraction extends ASTExtractors {
       Seq[xt.Import],
       Seq[Identifier],
       Seq[Identifier],
-      Seq[xt.DefSet],
+      Seq[xt.ModuleDef],
       Seq[xt.ClassDef],
       Seq[xt.FunDef]
     ) = {
-      var imports   : Seq[xt.Import]  = Seq.empty
-      var classes   : Seq[Identifier] = Seq.empty
-      var functions : Seq[Identifier] = Seq.empty
-      var subs      : Seq[xt.DefSet]  = Seq.empty
+      var imports   : Seq[xt.Import]    = Seq.empty
+      var classes   : Seq[Identifier]   = Seq.empty
+      var functions : Seq[Identifier]   = Seq.empty
+      var subs      : Seq[xt.ModuleDef] = Seq.empty
 
       var allClasses   : Seq[xt.ClassDef] = Seq.empty
       var allFunctions : Seq[xt.FunDef]   = Seq.empty
@@ -221,12 +220,6 @@ trait CodeExtraction extends ASTExtractors {
           functions :+= fd.id
           allFunctions :+= fd
 
-        case pd @ PackageDef(_, _) =>
-          val (pkg, newClasses, newFunctions) = extractPackage(pd)
-          subs :+= pkg
-          allClasses ++= newClasses
-          allFunctions ++= newFunctions
-
         case other =>
           reporter.warning(other.pos, "Could not extract tree in static container: " + other)
       }
@@ -234,18 +227,19 @@ trait CodeExtraction extends ASTExtractors {
       (imports, classes, functions, subs, allClasses, allFunctions)
     }
 
-    def extractPackage(pd: PackageDef): (xt.PackageDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+    def extractPackage(u: CompilationUnit, pd: PackageDef): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
       val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(pd.stats)
       assert(functions.isEmpty, "Packages shouldn't contain functions")
 
-      val pkg = xt.PackageDef(
+      val unit = xt.UnitDef(
         getIdentifier(pd.symbol),
         imports,
         classes,
-        subs
+        subs,
+        !(Build.libraryFiles contains u.source.file.absolute.path)
       ).setPos(pd.pos)
 
-      (pkg, allClasses, allFunctions)
+      (unit, allClasses, allFunctions)
     }
 
     private def extractObject(obj: ClassDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {

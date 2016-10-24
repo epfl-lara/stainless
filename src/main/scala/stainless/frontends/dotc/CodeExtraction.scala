@@ -15,7 +15,6 @@ import core.Flags._
 import util.Positions._
 
 import stainless.ast.SymbolIdentifier
-import inox.ast.{Identifier, FreshIdentifier}
 import extraction.xlang.{trees => xt}
 
 import scala.language.implicitConversions
@@ -152,14 +151,14 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     Seq[xt.Import],
     Seq[Identifier],
     Seq[Identifier],
-    Seq[xt.DefSet],
+    Seq[xt.ModuleDef],
     Seq[xt.ClassDef],
     Seq[xt.FunDef]
   ) = {
-    var imports   : Seq[xt.Import]  = Seq.empty
-    var classes   : Seq[Identifier] = Seq.empty
-    var functions : Seq[Identifier] = Seq.empty
-    var subs      : Seq[xt.DefSet]  = Seq.empty
+    var imports   : Seq[xt.Import]    = Seq.empty
+    var classes   : Seq[Identifier]   = Seq.empty
+    var functions : Seq[Identifier]   = Seq.empty
+    var subs      : Seq[xt.ModuleDef] = Seq.empty
 
     var allClasses   : Seq[xt.ClassDef] = Seq.empty
     var allFunctions : Seq[xt.FunDef]   = Seq.empty
@@ -211,12 +210,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         functions :+= fd.id
         allFunctions :+= fd
 
-      case pd @ PackageDef(_, _) =>
-        val (pkg, newClasses, newFunctions) = extractPackage(pd)
-        subs :+= pkg
-        allClasses ++= newClasses
-        allFunctions ++= newFunctions
-
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
@@ -224,18 +217,19 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     (imports, classes, functions, subs, allClasses, allFunctions)
   }
 
-  def extractPackage(pd: tpd.PackageDef): (xt.PackageDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+  def extractPackage(pd: tpd.PackageDef): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(pd.stats)
     assert(functions.isEmpty, "Packages shouldn't contain functions")
 
-    val pkg = xt.PackageDef(
+    val unit = xt.UnitDef(
       symbols.getIdentifier(pd.symbol),
       imports,
       classes,
-      subs
+      subs,
+      false // FIXME see [[frontends.scalac.CodeExtraction]]!
     ).setPos(pd.pos)
 
-    (pkg, allClasses, allFunctions)
+    (unit, allClasses, allFunctions)
   }
 
   private def extractObject(td: tpd.TypeDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {

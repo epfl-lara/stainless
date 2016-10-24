@@ -24,18 +24,24 @@ trait Trees extends oo.Trees { self =>
   /** $encodingof `import some.package.Path` or `import some.package.path._` */
   case class Import(path: Seq[String], isWildcard: Boolean) extends Tree
 
-  /** Represents a static collection of definitions.
-    *
-    * @see [[PackageDef]] - corresponds to scala packages
-    * @see [[ModuleDef]]  - corresponds to scala objects
-    */
-  sealed trait DefSet extends Tree
-
   /** $encodingof `package name; ...` */
-  case class PackageDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], subs: Seq[DefSet]) extends DefSet
+  case class UnitDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], modules: Seq[ModuleDef], isMain: Boolean) extends Tree {
+    def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes 
+
+    def allFunctions(implicit s: Symbols): Seq[Identifier] =
+      classes.flatMap(s.getClass(_).methods) ++
+      modules.flatMap(_.allFunctions)
+  }
 
   /** $encodingof `object name { ... }` */
-  case class ModuleDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], functions: Seq[Identifier], subs: Seq[DefSet]) extends DefSet
+  case class ModuleDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], functions: Seq[Identifier], modules: Seq[ModuleDef]) extends Tree {
+    def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes
+
+    def allFunctions(implicit s: Symbols): Seq[Identifier] =
+      classes.flatMap(s.getClass(_).methods) ++
+      modules.flatMap(_.allFunctions) ++
+      functions
+  }
 
   protected def classes(cls: Seq[Identifier]): PrintWrapper = {
     implicit pctx: PrinterContext =>
@@ -50,7 +56,7 @@ trait Trees extends oo.Trees { self =>
       p"import ${path.mkString(".")}"
       if (isWildcard) p"._"
 
-    case PackageDef(id, imports, cls, subs) =>
+    case UnitDef(id, imports, cls, subs, _) =>
       p"""|package $id
           |"""
 

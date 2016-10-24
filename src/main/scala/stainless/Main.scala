@@ -7,14 +7,18 @@ import dotty.tools.dotc.core.Contexts._
 
 object Main extends inox.MainHelpers {
 
-  val components: Map[inox.FlagOptionDef, Component] = Map(
-
+  val components: Seq[Component] = Seq(
+    termination.TerminationComponent
   )
 
   override protected def getOptions = super.getOptions ++ Map(
+    optFunctions -> "Only consider functions s1,s2,...",
     evaluators.optCodeGen -> "Use code generating evaluator",
     codegen.optInstrumentFields -> "Instrument ADT field access during code generation"
-  )
+  ) ++ components.map { component =>
+    val option = new inox.FlagOptionDef(component.name, false)
+    option -> component.description
+  }
 
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
@@ -22,8 +26,14 @@ object Main extends inox.MainHelpers {
 
     val (structure, program) = frontends.scalac.ScalaCompiler(inoxCtx, compilerArgs)
 
-    for (pd <- structure) {
-      println(pd.asString(program.printerOpts))
+    for (c <- components) {
+      val active = inoxCtx.options.options.collectFirst {
+        case inox.OptionValue(o, value: Boolean) if o.name == c.name => value
+      }.getOrElse(false)
+
+      if (active) {
+        c(structure, program)
+      }
     }
   }
 }
