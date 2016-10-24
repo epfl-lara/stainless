@@ -1,96 +1,99 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package verification
 
-import purescala.Expressions._
-import purescala.ExprOps._
-import purescala.Types._
-import purescala.Definitions._
-import purescala.Constructors._
-
-class InductionTactic(vctx: VerificationContext) extends DefaultTactic(vctx) {
+trait InductionTactic extends DefaultTactic {
   override val description = "Induction tactic for suitable functions"
 
-  val reporter = vctx.reporter
+  import program._
+  import program.trees._
+  import program.symbols._
 
-  private def firstAbsClassDef(args: Seq[ValDef]): Option[(AbstractClassType, ValDef)] = {
+  private def firstSort(args: Seq[ValDef]): Option[(TypedADTSort, ValDef)] = {
     args.map(vd => (vd.getType, vd)).collect {
-      case (act: AbstractClassType, vd) => (act, vd)
+      case (adt: ADTType, vd) if adt.getADT.definition.isSort => (adt.getADT.toSort, vd)
     }.headOption
   }
 
-  private def selectorsOfParentType(parentType: ClassType, cct: CaseClassType, expr: Expr): Seq[Expr] = {
-    val childrenOfSameType = (cct.classDef.fields zip cct.fieldsTypes).collect { case (vd, tpe) if tpe == parentType => vd }
-    for (field <- childrenOfSameType) yield {
-      caseClassSelector(cct, expr, field.id)
-    }
+  private def selectorsOfParentType(tsort: TypedADTSort, tcons: TypedADTConstructor, expr: Expr): Seq[Expr] = {
+    val childrenOfSameType = tcons.fields.collect { case vd if vd.tpe == tsort.toType => vd }
+    for (field <- childrenOfSameType) yield adtSelector(expr, field.id)
   }
 
-  override def generatePostconditions(fd: FunDef): Seq[VC] = {
-    (fd.body, firstAbsClassDef(fd.params), fd.postcondition) match {
-      case (Some(body), Some((parentType, arg)), Some(post)) =>
-        for (cct <- parentType.knownCCDescendants) yield {
-          val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
+  override def generatePostconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+    val fd = getFunction(id)
+    (fd.body, firstSort(fd.params), fd.postcondition) match {
+      case (Some(body), Some((tsort, arg)), Some(post)) =>
+        for (tcons <- tsort.constructors) yield {
+          val selectors = selectorsOfParentType(tsort, tcons, arg.toVariable)
 
           val subCases = selectors.map { sel =>
-            replace(Map(arg.toVariable -> sel),
-              implies(fd.precOrTrue, application(post, Seq(body)))
-            )
+            exprOps.replace(Map(arg.toVariable -> sel), implies(fd.precOrTrue, application(post, Seq(body))))
           }
 
           val vc = implies(
-            and(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue),
+            and(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue),
             implies(andJoin(subCases), application(post, Seq(body)))
           )
 
-          VC(vc, fd, VCKinds.Info(VCKinds.Postcondition, s"ind. on ${arg.asString} / ${cct.classDef.id.asString}")).setPos(fd)
+          val kind = VCKind.Info(VCKind.Postcondition, s"ind. on ${arg.asString} / ${tcons.id.asString}")
+          VC(program)(vc, id, kind).setPos(fd)
         }
 
       case (body, _, post) =>
         if (post.isDefined && body.isDefined) {
-          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+          ctx.reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
         }
-        super.generatePostconditions(fd)
+        super.generatePostconditions(id)
     }
   }
 
-  override def generatePreconditions(fd: FunDef): Seq[VC] = {
-    (fd.body, firstAbsClassDef(fd.params)) match {
-      case (Some(b), Some((parentType, arg))) =>
+  override def generatePreconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+    val fd = getFunction(id)
+    (fd.body, firstSort(fd.params)) match {
+      case (Some(b), Some((tsort, arg))) =>
         val body = b
 
-        val calls = collectWithPC {
-          case fi @ FunctionInvocation(tfd, _) if tfd.hasPrecondition => (fi, tfd.precondition.get)
-        }(body)
+        val calls = transformers.CollectorWithPC(program) {
+          case (fi: FunctionInvocation, path) if fi.tfd.hasPrecondition => (fi, path)
+        }.collect(body)
 
         for {
-          ((fi @ FunctionInvocation(tfd, args), pre), path) <- calls
-          cct <- parentType.knownCCDescendants
+          (fi @ FunctionInvocation(_, _, args), path) <- calls
+          pre = fi.tfd.precondition.get
+          tcons <- tsort.constructors
         } yield {
-          val selectors = selectorsOfParentType(parentType, cct, arg.toVariable)
+          val selectors = selectorsOfParentType(tsort, tcons, arg.toVariable)
 
           val subCases = selectors.map { sel =>
-            replace(Map(arg.toVariable -> sel),
-              implies(fd.precOrTrue, tfd.withParamSubst(args, pre))
+            exprOps.replace(Map(arg.toVariable -> sel),
+              implies(fd.precOrTrue, fi.tfd.withParamSubst(args, pre))
             )
           }
 
           val vc = path
-            .withConds(Seq(IsInstanceOf(arg.toVariable, cct), fd.precOrTrue) ++ subCases)
-            .implies(tfd.withParamSubst(args, pre))
+            .withConds(Seq(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue) ++ subCases)
+            .implies(fi.tfd.withParamSubst(args, pre))
 
           // Crop the call to display it properly
           val fiS = sizeLimit(fi.asString, 25)
 
-          VC(vc, fd, VCKinds.Info(VCKinds.Precondition, s"call $fiS, ind. on (${arg.asString} : ${cct.classDef.id.asString})")).setPos(fi)
+          val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
+          VC(program)(vc, id, kind).setPos(fi)
         }
 
       case (body, _) =>
         if (body.isDefined) {
-          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+          ctx.reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
         }
-        super.generatePreconditions(fd)
+        super.generatePreconditions(id)
     }
+  }
+}
+
+object InductionTactic {
+  def apply(p: StainlessProgram): InductionTactic { val program: p.type } = new InductionTactic {
+    val program: p.type = p
   }
 }

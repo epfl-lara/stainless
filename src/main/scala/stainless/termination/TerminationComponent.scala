@@ -42,7 +42,7 @@ object TerminationComponent extends SimpleComponent {
 
     // output the report
 
-    var t = Table("Termination summary")
+    var t = Table("Termination Summary")
 
     for ((fd, g) <- results) t += Row(Seq(
       Cell(asString(fd.id)),

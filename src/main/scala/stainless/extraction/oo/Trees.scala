@@ -149,7 +149,12 @@ trait Trees extends holes.Trees { self =>
         super.asString
     }
 
-    override def transform(trans: SelfTransformer): Symbols = SymbolTransformer(trans).transform(this)
+    override def transform(t: inox.ast.TreeTransformer { val s: self.type }): t.t.Symbols = t.t match {
+      case tree: Trees =>
+        val tt = t.asInstanceOf[inox.ast.TreeTransformer { val s: self.type; val t: tree.type }]
+        SymbolTransformer(tt).transform(this).asInstanceOf[t.t.Symbols]
+      case _ => super.transform(t)
+    }
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
       case sym: AbstractSymbols => classes == sym.classes

@@ -1,25 +1,21 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon
+package stainless
 package verification
 
-import purescala.Definitions._
-import purescala.Expressions._
+trait Tactic {
+  val program: Program
+  val description: String
 
-abstract class Tactic(vctx: VerificationContext) {
-  val description : String
-
-  implicit val ctx = vctx
-
-  def generateVCs(fd: FunDef): Seq[VC] = {
-    generatePostconditions(fd) ++
-    generatePreconditions(fd) ++
-    generateCorrectnessConditions(fd)
+  def generateVCs(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+    generatePostconditions(id) ++
+    generatePreconditions(id) ++
+    generateCorrectnessConditions(id)
   }
 
-  def generatePostconditions(function: FunDef): Seq[VC]
-  def generatePreconditions(function: FunDef): Seq[VC]
-  def generateCorrectnessConditions(function: FunDef): Seq[VC]
+  def generatePostconditions(id: Identifier): Seq[VC { val trees: program.trees.type }]
+  def generatePreconditions(id: Identifier): Seq[VC { val trees: program.trees.type }]
+  def generateCorrectnessConditions(id: Identifier): Seq[VC { val trees: program.trees.type }]
 
   protected def sizeLimit(s: String, limit: Int) = {
     require(limit > 3)
