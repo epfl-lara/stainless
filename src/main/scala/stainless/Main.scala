@@ -28,14 +28,18 @@ object Main extends inox.MainHelpers {
 
     val (structure, program) = frontends.scalac.ScalaCompiler(inoxCtx, compilerArgs)
 
-    for (c <- components) {
-      val active = inoxCtx.options.options.collectFirst {
+    val activeComponents = components.filter { c =>
+      inoxCtx.options.options.collectFirst {
         case inox.OptionValue(o, value: Boolean) if o.name == c.name => value
       }.getOrElse(false)
-
-      if (active) {
-        c(structure, program)
-      }
     }
+
+    val toExecute = if (activeComponents.isEmpty) {
+      Seq(verification.VerificationComponent)
+    } else {
+      activeComponents
+    }
+
+    for (c <- toExecute) c(structure, program)
   }
 }
