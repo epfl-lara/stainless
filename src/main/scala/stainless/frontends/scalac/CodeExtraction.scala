@@ -52,12 +52,22 @@ trait CodeExtraction extends ASTExtractors {
 
   class Extraction(units: List[CompilationUnit]) {
 
+    private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
     private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
     private def getIdentifier(sym: Symbol): SymbolIdentifier = symbolToIdentifier.get(sym) match {
       case Some(id) => id
       case None =>
-        val name = sym.name.toString
-        val id = SymbolIdentifier(if (name.endsWith("$")) name.init else name)
+        val top = sym.overrideChain.last
+        val symbol = symbolToSymbol.get(top) match {
+          case Some(symbol) => symbol
+          case None =>
+            val name = sym.name.toString.trim
+            val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
+            symbolToSymbol += top -> symbol
+            symbol
+        }
+
+        val id = SymbolIdentifier(symbol)
         symbolToIdentifier += sym -> id
         id
     }
