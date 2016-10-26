@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon._
-import leon.lang._
-import leon.proof._
+import stainless._
+import stainless.lang._
+import stainless.proof._
 
 object FoldAssociative {
 

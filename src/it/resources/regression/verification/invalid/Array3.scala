@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 object Array3 {
   def find(c: Array[Int], i: Int): Int = {

@@ -1,4 +1,4 @@
-import leon.collection._
+import stainless.collection._
 
 object ADTWithArray1 {
 

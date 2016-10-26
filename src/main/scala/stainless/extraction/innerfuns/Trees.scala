@@ -15,18 +15,19 @@ trait Trees extends extraction.Trees { self =>
   }
 
   case class ApplyLetRec(fun: Variable, tparams: Seq[TypeParameterDef], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = {
-      import s._
-      fun.getType match {
-        case FunctionType(from, to) =>
-          canBeSubtypeOf(tupleTypeWrap(args.map(_.getType)), tupleTypeWrap(from)) match {
-            case Some(map) if map.keySet subsetOf tparams.toSet.map((td: TypeParameterDef ) => td.tp) =>
-              instantiateType(to, map)
-            case _ => Untyped
-          }
-        case _ =>
-          Untyped
-      }
+    def tps(implicit s: Symbols): Option[Seq[Type]] = fun.tpe match {
+      case FunctionType(from, to) =>
+        s.canBeSubtypeOf(s.tupleTypeWrap(args.map(_.getType)), s.tupleTypeWrap(from)) match {
+          case Some(map) if map.keySet subsetOf tparams.map(_.tp).toSet =>
+            Some(tparams.map(tdef => map(tdef.tp)))
+          case _ => None
+        }
+      case _ => None
+    }
+
+    protected def computeType(implicit s: Symbols): Type = (fun.tpe, tps) match {
+      case (FunctionType(_, to), Some(tps)) => s.instantiateType(to, (tparams.map(_.tp) zip tps).toMap)
+      case _ => Untyped
     }
   }
 

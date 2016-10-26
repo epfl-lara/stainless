@@ -1,4 +1,4 @@
-import leon.lang._
+import stainless.lang._
 
 object ADTInvariants2 {
   case class Pos(i: BigInt) {

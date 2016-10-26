@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon._
+import stainless.lang._
+import stainless._
 
 object Formulas {
   abstract class Expr

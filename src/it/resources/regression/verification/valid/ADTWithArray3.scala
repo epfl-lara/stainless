@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 /*
  * Not sure what is wrong there, but the ArrayEncoding used to

@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 object MapGetPlus {
   def test1(a: Map[BigInt, BigInt]) = {

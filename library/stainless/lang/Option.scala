@@ -20,7 +20,7 @@ sealed abstract class Option[T] {
     case None()  => default
   }
 
-  def orElse(or: =>Option[T]) = { this match {
+  def orElse(or: => Option[T]) = { this match {
     case Some(v) => this
     case None() => or
   }} ensuring {

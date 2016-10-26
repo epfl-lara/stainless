@@ -1,4 +1,4 @@
-import leon.annotation._
+import stainless.annotation._
 
 object SpecWithExtern {
 
@@ -13,7 +13,7 @@ object SpecWithExtern {
     l
   } ensuring(res => (res >= l && res <= h))
 
-  //postcondition is wrong, but if leon considers 
+  //postcondition is wrong, but if stainless considers 
   //actual body of randomBetween it would be correct
   def wrongProp(): Int = {
     randomBetween(0, 10)

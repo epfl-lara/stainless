@@ -50,6 +50,9 @@ package object extraction {
     ) extends SimpleSymbols with AbstractSymbols
   }
 
+  case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)
+    extends Exception(msg)
+
   val extractor: inox.ast.SymbolTransformer {
     val s: xlang.trees.type
     val t: trees.type

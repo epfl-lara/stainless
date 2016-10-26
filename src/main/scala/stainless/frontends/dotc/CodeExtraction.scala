@@ -48,7 +48,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     val actualSymbol = sym // .accessedOrSelf
     (for {
       a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
-      name = a.symbol.fullName.toString.replace("\\.package$\\.", ".")
+      name = a.symbol.fullName.toString.replaceAll("\\.package$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
     } yield {

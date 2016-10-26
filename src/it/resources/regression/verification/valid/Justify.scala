@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon.lang.synthesis._
-import leon.collection._
+import stainless.lang._
+import stainless.lang.synthesis._
+import stainless.collection._
 
 object Justify {
   /*

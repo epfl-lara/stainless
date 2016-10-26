@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 object HOInvocations2 {
   def switch(x: Int, f: (Int) => Int, g: (Int) => Int) = if(x > 0) f else g

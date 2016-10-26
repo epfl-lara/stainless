@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon.lang.synthesis._
+import stainless.lang._
+import stainless.lang.synthesis._
 
 object Choose2 {
 

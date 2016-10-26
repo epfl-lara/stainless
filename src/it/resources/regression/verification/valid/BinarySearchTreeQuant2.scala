@@ -1,5 +1,5 @@
-import leon.lang._
-import leon.collection._
+import stainless.lang._
+import stainless.collection._
 
 object BSTSimpler2 {
 

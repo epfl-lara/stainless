@@ -1118,34 +1118,41 @@ trait ASTExtractors {
     }
 
     object ExCall {
-      def unapply(tree: Tree): Option[(Option[Tree], Symbol, Seq[Tree], Seq[Tree])] = tree match {
-        // foo
-        case Select(qualifier, _) =>
-          Some((Some(qualifier), tree.symbol, Nil, Nil))
+      def unapply(tree: Tree): Option[(Option[Tree], Symbol, Seq[Tree], Seq[Tree])] = {
+        val res = tree match {
+          // a.foo
+          case Select(qualifier, _) =>
+            Some((Some(qualifier), tree.symbol, Nil, Nil))
 
-        // foo(args)
-        case Apply(id: Ident, args) =>
-          Some((None, id.symbol, Nil, args))
+          // foo(args)
+          case Apply(id: Ident, args) =>
+            Some((None, id.symbol, Nil, args))
 
-        // a.foo(args)
-        case Apply(s @ Select(qualifier, _), args) =>
-          Some((Some(qualifier), s.symbol, Nil, args))
+          // a.foo(args)
+          case Apply(s @ Select(qualifier, _), args) =>
+            Some((Some(qualifier), s.symbol, Nil, args))
 
-        // foo[T]
-        case TypeApply(id: Ident, tps) =>
-          Some((None, id.symbol, tps, Nil))
+          // foo[T]
+          case TypeApply(id: Ident, tps) =>
+            Some((None, id.symbol, tps, Nil))
 
-        // a.foo[T]
-        case TypeApply(s @ Select(t, _), tps) =>
-          Some((Some(t), s.symbol, tps, Nil))
+          // a.foo[T]
+          case TypeApply(s @ Select(t, _), tps) =>
+            Some((Some(t), s.symbol, tps, Nil))
 
-        case Apply(ExCall(caller, sym, tps, args), newArgs) =>
-          Some((caller, sym, tps, args ++ newArgs))
+          case Apply(ExCall(caller, sym, tps, args), newArgs) =>
+            Some((caller, sym, tps, args ++ newArgs))
 
-        case TypeApply(ExCall(caller, sym, tps, args), newTps) =>
-          Some((caller, sym, tps ++ newTps, args))
+          case TypeApply(ExCall(caller, sym, tps, args), newTps) =>
+            Some((caller, sym, tps ++ newTps, args))
 
-        case _ => None
+          case _ => None
+        }
+
+        res.map { case (rec, sym, tps, args) =>
+          val newRec = rec.filter(r => r.symbol == null || (!r.symbol.isModule && !r.symbol.isModuleClass))
+          (newRec, sym, tps, args)
+        }
       }
     }
 

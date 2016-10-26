@@ -30,7 +30,8 @@ trait RelationBuilder { self: Strengthener =>
     case _ => {
       object collector extends CollectorWithPC {
         type Result = Relation
-        val program: self.checker.program.type = self.checker.program
+        val trees: self.checker.program.trees.type = self.checker.program.trees
+        val symbols: self.checker.program.symbols.type = self.checker.program.symbols
 
         var inLambda: Boolean = false
 

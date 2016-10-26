@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.annotation._
-import leon.lang.synthesis._
-import leon.lang._
+import stainless.annotation._
+import stainless.lang.synthesis._
+import stainless.lang._
 
 object Choose1 {
     sealed abstract class List

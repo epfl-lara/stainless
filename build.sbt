@@ -103,7 +103,7 @@ testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "69c2bf47cfcee200c9167696601f510b0d5a5615")
+lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "a81517e53ca7fb6ba56ae9ab092524b9560355c3")
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
@@ -115,7 +115,7 @@ lazy val root = (project in file("."))
 //    parallelExecution := false
 //  )) : _*)
 //  .dependsOn(bonsai)
-  .dependsOn(inox)
+  .dependsOn(inox % "compile->compile;it->it")
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 

@@ -15,9 +15,8 @@ trait Trees extends holes.Trees { self =>
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = receiver.getType match {
-      case ct: ClassType => (s.lookupFunction(id, tps), s.lookupClass(id)) match {
-        case (Some(tfd), Some(cd)) =>
-          s.instantiateType(tfd.returnType, (cd.typeArgs zip ct.tps).toMap)
+      case ct: ClassType => (s.lookupFunction(id, tps), s.lookupClass(ct.id)) match {
+        case (Some(tfd), Some(cd)) => s.instantiateType(tfd.returnType, (cd.typeArgs zip ct.tps).toMap)
         case _ => Untyped
       }
       case _ => Untyped
@@ -109,6 +108,15 @@ trait Trees extends holes.Trees { self =>
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
     def typed(implicit s: Symbols): TypedClassDef = typed(tparams.map(_.tp))
+
+    def copy(
+      id: Identifier = this.id,
+      tparams: Seq[TypeParameterDef] = this.tparams,
+      parent: Option[Identifier] = this.parent,
+      fields: Seq[ValDef] = this.fields,
+      methods: Seq[SymbolIdentifier] = this.methods,
+      flags: Set[Flag] = this.flags
+    ): ClassDef = new ClassDef(id, tparams, parent, fields, methods, flags)
   }
 
   case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
@@ -166,6 +174,8 @@ trait Trees extends holes.Trees { self =>
     def withClasses(classes: Seq[ClassDef]): Symbols
   }
 
+  case object IsInvariant extends Flag("invariant", Seq.empty)
+  case object IsAbstract extends Flag("abstract", Seq.empty)
   case object IsMethod extends Flag("method", Seq.empty)
 
 
@@ -223,6 +233,8 @@ trait Trees extends holes.Trees { self =>
       }
 
     case This(_) => p"this"
+
+    case (tcd: TypedClassDef) => p"typed class ${tcd.id}[${tcd.tps}]"
 
     case _ => super.ppBody(tree)
   }
@@ -302,6 +314,13 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
       (tps, tps => t.ClassType(id, tps))
 
     case _ => super.deconstruct(tpe)
+  }
+
+  override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
+    case s.IsInvariant => (Seq(), Seq(), (_, _) => t.IsInvariant)
+    case s.IsAbstract => (Seq(), Seq() ,(_, _) => t.IsAbstract)
+    case s.IsMethod => (Seq(), Seq(), (_, _) => t.IsMethod)
+    case _ => super.deconstruct(f)
   }
 }
 

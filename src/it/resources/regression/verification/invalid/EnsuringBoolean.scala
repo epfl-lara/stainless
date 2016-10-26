@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon._
-import leon.lang._
-import leon.annotation._
+import stainless._
+import stainless.lang._
+import stainless.annotation._
 import scala.language.postfixOps 
 object EnsuringBoolean {
   def congR(x: BigInt)(implicit mod: BigInt): Unit = {

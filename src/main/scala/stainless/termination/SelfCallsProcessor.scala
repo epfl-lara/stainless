@@ -31,7 +31,8 @@ trait SelfCallsProcessor extends Processor {
 
     object collector extends CollectorWithPC {
       type Result = Boolean
-      val program: checker.program.type = checker.program
+      val trees: checker.program.trees.type = checker.program.trees
+      val symbols: checker.program.symbols.type = checker.program.symbols
 
       override protected def rec(e: Expr, env: Path): Expr = e match {
         case l: Lambda => l // ignore body

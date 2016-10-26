@@ -1,8 +1,8 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon.proof._
-import leon.collection._
+import stainless.lang._
+import stainless.proof._
+import stainless.collection._
 
 object Lists5 {
   abstract class Option[T]

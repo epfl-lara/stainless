@@ -1,10 +1,10 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-package leon.monads.predicate
+package stainless.monads.predicate
 
-import leon.collection._
-import leon.lang._
-import leon.annotation._
+import stainless.collection._
+import stainless.lang._
+import stainless.annotation._
 
 object Predicate {
 

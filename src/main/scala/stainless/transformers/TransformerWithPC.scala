@@ -4,9 +4,9 @@ package stainless
 package transformers
 
 trait TransformerWithPC extends inox.transformers.TransformerWithPC {
-  val program: Program
-  import program.trees._
-  import program.symbols._
+  val trees: ast.Trees
+  import trees._
+  import symbols._
 
   override protected def rec(e: Expr, path: Path): Expr = e match {
     case Ensuring(req @ Require(pre, body), l @ Lambda(Seq(vd), post)) =>

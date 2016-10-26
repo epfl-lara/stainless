@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 object Sets1 {
   def set(i: Int): Int => Boolean = x => x == i

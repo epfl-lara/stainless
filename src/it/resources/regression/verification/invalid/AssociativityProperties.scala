@@ -1,4 +1,4 @@
-import leon.lang._
+import stainless.lang._
 
 object AssociativityProperties {
 

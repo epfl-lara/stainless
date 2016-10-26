@@ -53,29 +53,55 @@ trait CodeExtraction extends ASTExtractors {
 
     private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
     private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
-    private def getIdentifier(sym: Symbol): SymbolIdentifier = symbolToIdentifier.get(sym) match {
-      case Some(id) => id
-      case None =>
-        val top = sym.overrideChain.last
-        val symbol = symbolToSymbol.get(top) match {
-          case Some(symbol) => symbol
-          case None =>
-            val name = sym.name.toString.trim
-            val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
-            symbolToSymbol += top -> symbol
-            symbol
-        }
+    private def getIdentifier(s: Symbol): SymbolIdentifier = {
+      val sym = s.accessedOrSelf
+      symbolToIdentifier.get(sym) match {
+        case Some(id) => id
+        case None =>
+          val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+          val symbol = symbolToSymbol.get(top) match {
+            case Some(symbol) => symbol
+            case None =>
+              val name = sym.name.toString.trim
+              val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
+              symbolToSymbol += top -> symbol
+              symbol
+          }
 
-        val id = SymbolIdentifier(symbol)
-        symbolToIdentifier += sym -> id
-        id
+          val id = SymbolIdentifier(symbol)
+          symbolToIdentifier += sym -> id
+          id
+      }
+    }
+
+    private val symbolToTypeParams: MutableMap[Symbol, Seq[xt.TypeParameter]] = MutableMap.empty
+    private def getTypeParams(sym: Symbol): Seq[xt.TypeParameter] = {
+      val root: Symbol = {
+        def rec(sym: Symbol): Symbol = sym.tpe.parents.headOption match {
+          case Some(tpe) if ignoreClasses(tpe) => sym
+          case Some(TypeRef(_, parentSym, tps)) => rec(parentSym)
+          case _ => outOfSubsetError(sym.pos, "Unexpected parent type " + sym.tpe)
+        }
+        rec(sym)
+      }
+
+      symbolToTypeParams.get(root) match {
+        case Some(tparams) => tparams
+        case None =>
+          val tparams = root.tpe match {
+            case TypeRef(_, _, tps) => extractTypeParams(tps).map(sym => xt.TypeParameter.fresh(sym.name.toString))
+            case _ => Nil
+          }
+          symbolToTypeParams += root -> tparams
+          tparams
+      }
     }
 
     private def annotationsOf(sym: Symbol): Set[xt.Flag] = {
       val actualSymbol = sym.accessedOrSelf
       (for {
         a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
-        name = a.atp.safeToString.replace("\\.package\\.", ".")
+        name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
         if name startsWith "stainless.annotation."
         shortName = name drop "stainless.annotation.".length
       } yield {
@@ -85,7 +111,7 @@ trait CodeExtraction extends ASTExtractors {
 
     case class DefContext(
       tparams: Map[Symbol, xt.TypeParameter] = Map(),
-      vars: Map[Symbol, () => xt.Variable] = Map(),
+      vars: Map[Symbol, () => xt.Expr] = Map(),
       mutableVars: Map[Symbol, () => xt.Variable] = Map(),
       localFuns: Map[Symbol, xt.LocalFunDef] = Map(),
       isExtern: Boolean = false
@@ -100,7 +126,7 @@ trait CodeExtraction extends ASTExtractors {
 
       def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
-      def withNewVars(nvars: Traversable[(Symbol, () => xt.Variable)]) = {
+      def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
         copy(vars = vars ++ nvars)
       }
 
@@ -187,6 +213,9 @@ trait CodeExtraction extends ASTExtractors {
         case t if (annotationsOf(t.symbol) contains xt.Ignore) || (t.symbol.isSynthetic) =>
           // ignore
 
+        case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
+          // ignore (can't be @ignored because of the dotty compiler)
+
         case ExConstructorDef() =>
           // ignore
 
@@ -257,25 +286,33 @@ trait CodeExtraction extends ASTExtractors {
       (module, allClasses, allFunctions)
     }
 
+    private val ignoreClasses = Set(
+      ObjectClass.tpe,
+      SerializableClass.tpe,
+      ProductRootClass.tpe,
+      AnyRefClass.tpe
+    )
+
     private val invSymbol = stainless.ast.Symbol("inv")
 
     private def extractClass(cd: ClassDef): (xt.ClassDef, Seq[xt.FunDef]) = {
       val sym = cd.symbol
       val id = getIdentifier(sym)
 
-      val tparamsMap = sym.tpe match {
-        case TypeRef(_, _, tps) => extractTypeParams(tps)
-        case _ => Nil
-      }
-
       val parent = sym.tpe.parents.headOption match {
-        case Some(tpe) if tpe.typeSymbol == definitions.ObjectClass => None
+        case Some(tpe) if ignoreClasses(tpe) => None
         case Some(TypeRef(_, parentSym, tps)) => Some(getIdentifier(parentSym))
         case _ => None
       }
 
-      val tparams = tparamsMap.map(t => xt.TypeParameterDef(t._2))
-      val tpCtx = DefContext((tparamsMap.map(_._1) zip tparams.map(_.tp)).toMap)
+      val tparams = getTypeParams(sym)
+
+      val tparamsSyms = sym.tpe match {
+        case TypeRef(_, _, tps) => extractTypeParams(tps)
+        case _ => Nil
+      }
+
+      val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
 
       val flags = annotationsOf(sym) ++ (if (sym.isAbstractClass) Some(xt.IsAbstract) else None)
 
@@ -289,10 +326,10 @@ trait CodeExtraction extends ASTExtractors {
         case df @ DefDef(_, name, _, _, _, _)
         if df.symbol.isAccessor && df.symbol.isParamAccessor && !name.endsWith("_$eq") => df.symbol
       }
-        
+
       val fields = (symbols zip vds).map { case (sym, vd) =>
         val tpe = stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
-        val id = freshId(vd.symbol)
+        val id = getIdentifier(sym)
         if (vd.symbol.isMutable) xt.VarDef(id, tpe).setPos(sym.pos)
         else xt.ValDef(id, tpe).setPos(sym.pos)
       }
@@ -350,11 +387,11 @@ trait CodeExtraction extends ASTExtractors {
         )
       )
 
-      val allMethods = methods ++ optInv
+      val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags + xt.IsMethod))
 
       val xcd = new xt.ClassDef(
         id,
-        tparams,
+        tparams.map(tp => xt.TypeParameterDef(tp)),
         parent,
         fields,
         allMethods.map(_.id.asInstanceOf[SymbolIdentifier]),
@@ -400,16 +437,15 @@ trait CodeExtraction extends ASTExtractors {
     private def extractFunction(sym: Symbol, tparams: Seq[Symbol], vparams: Seq[ValDef], rhs: Tree)(implicit dctx: DefContext): xt.FunDef = {
       // Type params of the function itself
       val extparams = extractTypeParams(sym.typeParams.map(_.tpe))
+      val ntparams = extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString))
 
-      val nctx = dctx.copy(tparams = dctx.tparams ++ extparams.toMap)
+      val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
       val newParams = sym.info.paramss.flatten.map { sym =>
         val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
         val tpe = if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe) else ptpe
         xt.ValDef(FreshIdentifier(sym.name.toString).setPos(sym.pos), tpe).setPos(sym.pos)
       }
-
-      val tparamsDef = extparams.map(t => xt.TypeParameterDef(t._2))
 
       val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
@@ -426,9 +462,13 @@ trait CodeExtraction extends ASTExtractors {
           case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
         }
 
+      val paramsMap = (vparams.map(_.symbol) zip newParams).map { case (s, vd) =>
+        s -> (if (s.isByNameParam) () => xt.Application(vd.toVariable, Seq()) else () => vd.toVariable)
+      }.toMap
+
       val fctx = dctx
-        .withNewVars((sym.info.paramss.flatten zip newParams.map(vd => () => vd.toVariable)).toMap)
-        .copy(tparams = dctx.tparams ++ (tparams zip extparams.map(_._2)))
+        .withNewVars(paramsMap)
+        .copy(tparams = dctx.tparams ++ (tparams zip ntparams))
         .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
 
       val finalBody = if (rhs == EmptyTree) {
@@ -453,7 +493,7 @@ trait CodeExtraction extends ASTExtractors {
 
       new xt.FunDef(
         id,
-        tparamsDef,
+        ntparams.map(tp => xt.TypeParameterDef(tp)),
         newParams,
         returnType,
         fullBody,
@@ -461,9 +501,9 @@ trait CodeExtraction extends ASTExtractors {
       ).setPos(sym.pos)
     }
 
-    private def extractTypeParams(tps: Seq[Type]): Seq[(Symbol, xt.TypeParameter)] = tps.flatMap {
+    private def extractTypeParams(tps: Seq[Type]): Seq[Symbol] = tps.flatMap {
       case TypeRef(_, sym, Nil) =>
-        Some(sym -> xt.TypeParameter.fresh(sym.name.toString))
+        Some(sym)
       case t =>
         outOfSubsetError(t.typeSymbol.pos, "Unhandled type for parameter: "+t)
         None
@@ -603,7 +643,7 @@ trait CodeExtraction extends ASTExtractors {
         val fd = extractFunction(sym, tparams, params, b)
 
         val letRec = xt.LocalFunDef(
-          xt.ValDef(fd.id, extractType(ret)(dctx, d.pos)).setPos(d.pos),
+          xt.ValDef(fd.id, fd.returnType).setPos(d.pos),
           fd.tparams,
           xt.Lambda(fd.params, fd.fullBody).setPos(d.pos)
         )
@@ -910,7 +950,7 @@ trait CodeExtraction extends ASTExtractors {
 
         case Some(lhs) => extractType(lhs) match {
           case ct: xt.ClassType =>
-            if (sym.isMethod) xt.MethodInvocation(
+            if (sym.accessedOrSelf.isMethod) xt.MethodInvocation(
               extractTree(lhs),
               getIdentifier(sym),
               tps.map(extractType),
@@ -946,7 +986,55 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.ArrayType(_), "updated", Seq(index, value)) => xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
             case (xt.ArrayType(_), "clone",   Seq())             => extractTree(lhs)
 
-            // TODO: maps ??
+            case (xt.MapType(_, to), "apply", Seq(rhs)) =>
+              val (l, r) = (extractTree(lhs), extractTree(rhs))
+              val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos)
+              xt.Assert(
+                xt.IsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe).setPos(tr.pos),
+                Some("Map undefined at this index"),
+                xt.ClassSelector(
+                  xt.AsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe),
+                  getIdentifier(someSymbol.caseFieldAccessors.head)
+                ).setPos(tr.pos)
+              )
+
+            case (xt.MapType(_, to), "isDefinedAt" | "contains", Seq(rhs)) =>
+              xt.Equals(
+                xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
+                xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(noneSymbol).setPos(tr.pos), Seq(to)),
+                  Seq()
+                ).setPos(tr.pos)
+              )
+
+            case (xt.MapType(_, to), "updated" | "+", Seq(key, value)) =>
+              xt.MapUpdated(
+                extractTree(lhs), extractTree(key),
+                xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos),
+                  Seq(extractTree(value))
+                ).setPos(tr.pos)
+              )
+
+            case (xt.MapType(_, to), "+", Seq(rhs)) =>
+              val value = extractTree(rhs)
+              xt.MapUpdated(
+                extractTree(lhs), xt.TupleSelect(value, 1).setPos(tr.pos),
+                xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos),
+                  Seq(xt.TupleSelect(value, 2).setPos(tr.pos))
+                ).setPos(tr.pos)
+              )
+
+            case (xt.MapType(_, to), "++", Seq(rhs)) =>
+              extractTree(rhs) match {
+                case xt.FiniteMap(pairs,  default, keyType) =>
+                  pairs.foldLeft(extractTree(lhs)) { case (map, (k, v)) =>
+                    xt.MapUpdated(map, k, v).setPos(tr.pos)
+                  }
+
+                case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
+              }
 
             case (_, "-",   Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
             case (_, "*",   Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
@@ -1009,7 +1097,7 @@ trait CodeExtraction extends ASTExtractors {
         xt.BagType(extractType(btt))
 
       case TypeRef(_, sym, List(ftt,ttt)) if isMapSym(sym) =>
-        xt.MapType(extractType(ftt), extractType(ttt))
+        xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))))
 
       case TypeRef(_, sym, List(t1,t2)) if isTuple2(sym) =>
         xt.TupleType(Seq(extractType(t1),extractType(t2)))
@@ -1035,7 +1123,7 @@ trait CodeExtraction extends ASTExtractors {
         extractType(tps.head)
 
       case TypeRef(_, sym, _) if sym.isAbstractType =>
-        if(dctx.tparams contains sym) {
+        if (dctx.tparams contains sym) {
           dctx.tparams(sym)
         } else {
           outOfSubsetError(pos, "Unknown type parameter "+sym)
@@ -1047,8 +1135,11 @@ trait CodeExtraction extends ASTExtractors {
       case tt: ThisType =>
         xt.ClassType(getIdentifier(tt.sym), tt.sym.typeParams.map(dctx.tparams))
 
-      case SingleType(_, sym) =>
+      case SingleType(pre, sym) if sym.isModule =>
         xt.ClassType(getIdentifier(sym.moduleClass), Nil)
+
+      case SingleType(_, sym) if sym.isTerm =>
+        extractType(tpt.widen)
 
       case RefinedType(parents, defs) if defs.isEmpty =>
         /**
@@ -1060,13 +1151,7 @@ trait CodeExtraction extends ASTExtractors {
          * Scala might infer a type for C such as: Product with Serializable with C
          * we generalize to the first known type, e.g. C.
          */
-        parents.flatMap { ptpe =>
-          try {
-            Some(extractType(ptpe))
-          } catch {
-            case e: ImpureCodeEncounteredException =>
-              None
-        }}.headOption match {
+        parents.filter(ptpe => !ignoreClasses(ptpe)).headOption.map(extractType) match {
           case Some(tpe) =>
             tpe
 

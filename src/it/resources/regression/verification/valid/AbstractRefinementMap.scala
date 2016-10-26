@@ -1,6 +1,6 @@
-import leon.annotation._
-import leon.collection._
-import leon.lang._
+import stainless.annotation._
+import stainless.collection._
+import stainless.lang._
 
 object AbstractRefinementMap {
 

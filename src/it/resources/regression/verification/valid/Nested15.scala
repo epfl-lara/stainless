@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.collection._
+import stainless.collection._
 
 object Nested15 {
 

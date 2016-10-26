@@ -13,7 +13,11 @@ trait Component {
     val t: extraction.trees.type
   }
 
-  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Unit
+  trait Report {
+    def emit(): Unit
+  }
+
+  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report
 }
 
 object optFunctions extends inox.OptionDef[Seq[String]] {
@@ -26,7 +30,7 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
 trait SimpleComponent extends Component { self =>
   val trees: ast.Trees
 
-  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Unit = {
+  def extract(program: Program { val trees: xt.type }): Program { val trees: self.trees.type } = {
     val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
       val s: extraction.trees.type = extraction.trees
       val t: self.trees.type = self.trees
@@ -36,7 +40,11 @@ trait SimpleComponent extends Component { self =>
       (l, r) => l.lowering andThen r
     }
 
-    val extracted = program.transform(extraction.extractor andThen lowering)
+    program.transform(extraction.extractor andThen lowering)
+  }
+
+  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report = {
+    val extracted = extract(program)
 
     val mainFunctions = units.filter(_.isMain).flatMap(_.allFunctions(program.symbols))
     val functions = program.ctx.options.findOption(optFunctions) match {
@@ -47,5 +55,5 @@ trait SimpleComponent extends Component { self =>
     apply(functions, extracted)
   }
 
-  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }): Unit
+  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }): Report
 }

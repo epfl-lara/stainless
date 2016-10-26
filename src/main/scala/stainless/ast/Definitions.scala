@@ -7,6 +7,13 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
+  case object Extern extends Flag("extern", Seq.empty)
+
+  override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+    case ("extern", Seq()) => Extern
+    case _ => super.extractFlag(name, args)
+  }
+
   type Symbols >: Null <: AbstractSymbols
 
   trait AbstractSymbols

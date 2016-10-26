@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon.annotation._
+import stainless.lang._
+import stainless.annotation._
 
 object AssociativeList { 
   sealed abstract class KeyValuePairAbs

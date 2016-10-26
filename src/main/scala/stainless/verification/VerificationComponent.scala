@@ -19,7 +19,52 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionVerification
 
-  def apply(funs: Seq[Identifier], p: StainlessProgram): Unit = {
+  trait VerificationReport extends Report { self =>
+    val program: Program { val trees: stainless.trees.type }
+    val results: Map[VC { val trees: program.trees.type }, VCResult { val program: self.program.type }]
+
+    import program._
+
+    lazy val vrs = results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
+
+    lazy val totalConditions = vrs.size
+    lazy val totalTime = vrs.map(_._2.time.getOrElse(0l)).sum
+    lazy val totalValid = vrs.count(_._2.isValid)
+    lazy val totalInvalid = vrs.count(_._2.isInvalid)
+    lazy val totalUnknown = vrs.count(_._2.isInconclusive)
+
+    def emit(): Unit = {
+      if (totalConditions > 0) {
+        var t = Table("Verification Summary")
+
+        t ++= vrs.map { case (vc, vr) =>
+          Row(Seq(
+            Cell(vc.fd),
+            Cell(vc.kind.name),
+            Cell(vc.getPos),
+            Cell(vr.status),
+            Cell(vr.solver.map(_.name).getOrElse("")),
+            Cell(vr.time.map(t => f"${t/1000d}%3.3f").getOrElse(""))
+          ))
+        }
+
+        t += Separator
+
+        t += Row(Seq(
+          Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown: $totalUnknown%-4d", 5),
+          Cell(f"${totalTime/1000d}%7.3f", align = Right)
+        ))
+
+        ctx.reporter.info(t.render)
+      } else {
+        ctx.reporter.info("No verification conditions were analyzed.")
+      }
+    }
+  }
+
+  def check(funs: Seq[Identifier], p: StainlessProgram):
+            Map[VC { val trees: p.trees.type }, VCResult { val program: p.type }] = {
+
     import p._
     import p.trees._
     import p.symbols._
@@ -33,40 +78,15 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    val results = VerificationChecker.verify(p)(funs)
+    VerificationChecker.verify(p)(funs)
+  }
 
-    val vrs = results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
+  def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {
+    val res = check(funs, p)
 
-    lazy val totalConditions = vrs.size
-    lazy val totalTime = vrs.map(_._2.time.getOrElse(0l)).sum
-    lazy val totalValid = vrs.count(_._2.isValid)
-    lazy val totalInvalid = vrs.count(_._2.isInvalid)
-    lazy val totalUnknown = vrs.count(_._2.isInconclusive)
-
-    if (totalConditions > 0) {
-      var t = Table("Verification Summary")
-
-      t ++= vrs.map { case (vc, vr) =>
-        Row(Seq(
-          Cell(vc.fd),
-          Cell(vc.kind.name),
-          Cell(vc.getPos),
-          Cell(vr.status),
-          Cell(vr.solver.map(_.name).getOrElse("")),
-          Cell(vr.time.map(t => f"${t/1000d}%3.3f").getOrElse(""))
-        ))
-      }
-
-      t += Separator
-
-      t += Row(Seq(
-        Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown: $totalUnknown%-4d", 5),
-        Cell(f"${totalTime/1000d}%7.3f", align = Right)
-      ))
-
-      ctx.reporter.info(t.render)
-    } else {
-      ctx.reporter.info("No verification conditions were analyzed.")
+    new VerificationReport {
+      val program: p.type = p
+      val results = res
     }
   }
 }

@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
-import leon.proof._
+import stainless.lang._
+import stainless.proof._
 
 object Lists3 {
   abstract class List[T]

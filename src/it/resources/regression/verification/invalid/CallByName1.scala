@@ -1,6 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
-import leon.lang._
+import stainless.lang._
 
 object CallByName1 {
   def byName1(i: Int, a: => Int): Int = {

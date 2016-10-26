@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 
-import leon.lang._
+import stainless.lang._
 
 object Composition {
   def passing_1(f: (Int) => Int, g: (Int) => Int, x: Int): Int = {

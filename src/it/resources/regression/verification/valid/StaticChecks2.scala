@@ -1,4 +1,4 @@
-import leon.lang.StaticChecks._
+import stainless.lang.StaticChecks._
 
 object StaticChecks2 {
 
