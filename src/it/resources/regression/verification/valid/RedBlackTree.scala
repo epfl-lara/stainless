@@ -82,7 +82,7 @@ object RedBlackTree {
     require(redNodesHaveBlackChildren(t) && blackBalanced(t))
     makeBlack(ins(x, t))
   } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res) && blackBalanced(res))
-  
+
   def balance(c: Color, a: Tree, x: BigInt, b: Tree): Tree = {
     Node(c,a,x,b) match {
       case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 

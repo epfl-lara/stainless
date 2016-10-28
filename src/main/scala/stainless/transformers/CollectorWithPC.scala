@@ -3,7 +3,7 @@
 package stainless
 package transformers
 
-trait CollectorWithPC extends inox.transformers.CollectorWithPC with TransformerWithPC
+trait CollectorWithPC extends TransformerWithPC with inox.transformers.CollectorWithPC
 
 object CollectorWithPC {
   def apply[T](t: ast.Trees)
