@@ -28,6 +28,11 @@ trait TransformerWithPC extends inox.transformers.TransformerWithPC {
       val sbody = rec(body, path withCond spre)
       Require(spre, sbody).copiedFrom(e)
 
+    case Assert(pred, err, body) =>
+      val spred = rec(pred, path)
+      val sbody = rec(body, path withCond spred)
+      Assert(spred, err, sbody).copiedFrom(e)
+
     case MatchExpr(scrut, cases) =>
       val rs = rec(scrut, path)
 

@@ -9,6 +9,28 @@ trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program
   val t: inox.trees.type = inox.trees
 
+  override protected def encodedProgram: inox.Program { val trees: t.type } = {
+    import sourceProgram.trees._
+    import sourceProgram.symbols._
+
+    inox.InoxProgram(sourceProgram.ctx, t.NoSymbols
+      .withADTs(sourceProgram.symbols.adts.values.toSeq.map(encoder.transform))
+      .withFunctions(sourceProgram.symbols.functions.values.toSeq.map { fd =>
+        if (fd.flags contains Extern) {
+          val Lambda(Seq(vd), post) = fd.postOrTrue
+          encoder.transform(fd.copy(fullBody = fd.precondition match {
+            case Some(pre) =>
+              Require(pre, Choose(vd, post))
+
+            case None =>
+              Choose(vd, post)
+          }, flags = fd.flags - Extern))
+        } else {
+          encoder.transform(fd)
+        }
+      }))
+  }
+
   import t.dsl._
 
   protected val arrayID = FreshIdentifier("array")
@@ -45,8 +67,8 @@ trait InoxEncoder extends ProgramEncoder {
       case m: s.MatchExpr =>
         transform(matchToIfThenElse(m))
 
-      case s.NoTree(_) =>
-        throw inox.FatalError("Unexpected tree: " + e)
+      case s.NoTree(tpe) =>
+        throw new inox.FatalError("Unexpected empty tree: " + e)
 
       case s.Error(tpe, desc) =>
         t.Variable(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e)
@@ -71,16 +93,18 @@ trait InoxEncoder extends ProgramEncoder {
           t.FiniteMap(
             elems.zipWithIndex.map { case (e, i) => t.IntLiteral(i) -> transform(e) },
             transform(simplestValue(base)),
-            t.Int32Type),
+            t.Int32Type,
+            transform(base)),
           t.IntLiteral(elems.size)
         ))
 
-      case s.LargeArray(elems, dflt, size) =>
+      case s.LargeArray(elems, dflt, size, base) =>
         t.ADT(t.ADTType(arrayID, Seq(transform(dflt.getType))), Seq(
           t.FiniteMap(
             elems.toSeq.map(p => t.IntLiteral(p._1) -> transform(p._2)),
             transform(dflt),
-            t.Int32Type),
+            t.Int32Type,
+            transform(base)),
           transform(size)
         ))
 
@@ -123,18 +147,19 @@ trait InoxEncoder extends ProgramEncoder {
     override def transform(e: s.Expr): t.Expr = e match {
       case s.ADT(
         s.ADTType(`arrayID`, Seq(base)),
-        Seq(s.FiniteMap(elems, dflt, _), s.IntLiteral(size))
+        Seq(s.FiniteMap(elems, dflt, _, _), s.IntLiteral(size))
       ) if size <= 10 =>
         val elemsMap = elems.toMap
         t.FiniteArray((0 until size).toSeq.map {
           i => transform(elemsMap.getOrElse(s.IntLiteral(i), dflt))
         }, transform(base))
 
-      case s.ADT(s.ADTType(`arrayID`, Seq(base)), Seq(s.FiniteMap(elems, dflt, _), size)) =>
+      case s.ADT(s.ADTType(`arrayID`, Seq(base)), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
         t.LargeArray(
           elems.map { case (s.IntLiteral(i), e) => i -> transform(e) }.toMap,
           transform(dflt),
-          transform(size)
+          transform(size),
+          transform(base)
         )
 
       case _ => super.transform(e)

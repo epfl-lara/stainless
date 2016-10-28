@@ -3,22 +3,10 @@
 package stainless
 package verification
 
-/** This is just to hold some history information. */
-trait VC extends inox.utils.Positioned {
-  val trees: ast.Trees
-  val condition: trees.Expr
-  val fd: Identifier
-  val kind: VCKind
-}
+import inox.solvers.Solver
 
-object VC {
-  def apply(p: Program)(cond: p.trees.Expr, fid: Identifier, vckind: VCKind) = new VC {
-    val trees: p.trees.type = p.trees
-    val condition = cond
-    val fd = fid
-    val kind = vckind
-  }
-}
+/** This is just to hold some history information. */
+case class VC[T <: ast.Trees](condition: T#Expr, fd: Identifier, kind: VCKind) extends inox.utils.Positioned
 
 /*
 case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
@@ -53,13 +41,13 @@ object VCKind {
   case object Assert          extends VCKind("body assertion", "assert.")
   case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
   case object ArrayUsage      extends VCKind("array usage", "arr. use")
+  case object MapUsage        extends VCKind("map usage", "map use")
   case object DivisionByZero  extends VCKind("division by zero", "div 0")
   case object ModuloByZero    extends VCKind("modulo by zero", "mod 0")
   case object RemainderByZero extends VCKind("remainder by zero", "rem 0")
   case object CastError       extends VCKind("cast correctness", "cast")
   case object PostTactVC      extends VCKind("Postcondition Tactic", "tact")
 }
-
 
 sealed abstract class VCStatus[+Model](val name: String) {
   override def toString = name
@@ -74,56 +62,13 @@ object VCStatus {
   case object Crashed extends VCStatus[Nothing]("crashed")
 }
 
-trait VCResult {
-  val program: Program
-  import program._
-  import program.trees._
-  import program.symbols.{asString => _, _}
-
-  val status: VCStatus[Map[ValDef, Expr]]
-  val solver: Option[inox.solvers.Solver]
-  val time: Option[Long]
-
+case class VCResult[T <: ast.Trees](
+  status: VCStatus[Map[T#ValDef, T#Expr]],
+  solver: Option[Solver],
+  time: Option[Long]
+) {
   def isValid   = status == VCStatus.Valid
   def isInvalid = status.isInstanceOf[VCStatus.Invalid[_]]
   def isInconclusive = !isValid && !isInvalid
-
-  def report(): Unit = status match {
-    case VCStatus.Valid =>
-      ctx.reporter.info(" => VALID")
-
-    case VCStatus.Invalid(cex) =>
-      ctx.reporter.warning(" => INVALID")
-      ctx.reporter.warning("Found counter-example:")
-
-      val strings = cex.toSeq.sortBy(_._1.id.name).map {
-        case (id, v) => (asString(id), v.asString)
-      }
-
-      if (strings.nonEmpty) {
-        val max = strings.map(_._1.length).max
-
-        for ((id, v) <- strings) {
-          ctx.reporter.warning(("  %-"+max+"s -> %s").format(id, v))
-        }
-      } else {
-        ctx.reporter.warning(f"  (Empty counter-example)")
-      }
-
-    case _ =>
-      ctx.reporter.warning(" => " + status.name.toUpperCase)
-  }
 }
 
-object VCResult {
-  def apply(p: Program)
-           (res: VCStatus[Map[p.trees.ValDef, p.trees.Expr]], s: Option[inox.solvers.Solver], t: Option[Long]):
-            VCResult { val program: p.type } = {
-    new VCResult {
-      val program: p.type = p
-      val status = res
-      val solver = s
-      val time = t
-    }
-  }
-}

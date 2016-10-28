@@ -990,7 +990,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         Seq.empty
       ).setPos(tr.pos)
 
-      xt.FiniteMap(somePairs, dflt, extractType(tptFrom))
+      val optTo = xt.ClassType(symbols.getIdentifier(optionSymbol), Seq(to))
+      xt.FiniteMap(somePairs, dflt, extractType(tptFrom), optTo)
 
     case Apply(TypeApply(
       ExSymbol("stainless", "lang", "Set$", "apply"),
@@ -1025,7 +1026,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       ExSymbol("scala", "Array", "fill"),
       Seq(baseType)
     ), Seq(length)), Seq(dflt)), _) =>
-      xt.LargeArray(Map.empty, extractTree(dflt), extractTree(length))
+      xt.LargeArray(Map.empty, extractTree(dflt), extractTree(length), extractType(baseType))
 
     case If(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))

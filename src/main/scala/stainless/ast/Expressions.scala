@@ -222,11 +222,14 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param default Default value for indexes not in the [[elems]] map
     * @param size    Array length
     */
-  case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr) extends Expr with CachingTyped {
+  case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr, base: Type) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
       if (size.getType == Int32Type) {
-        val bound = s.leastUpperBound((default +: elems.values.toSeq).map(_.getType)).getOrElse(Untyped)
-        ArrayType(bound).unveilUntyped
+        ArrayType(checkParamTypes(
+          (default +: elems.values.toSeq).map(_.getType),
+          List.fill(elems.size + 1)(base),
+          base
+        )).unveilUntyped
       } else {
         Untyped
       }

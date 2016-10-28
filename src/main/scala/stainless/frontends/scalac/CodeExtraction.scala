@@ -53,8 +53,8 @@ trait CodeExtraction extends ASTExtractors {
 
     private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
     private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
-    private def getIdentifier(s: Symbol): SymbolIdentifier = {
-      val sym = s.accessedOrSelf
+    private def getIdentifier(sym: Symbol): SymbolIdentifier = {
+      //val sym = s.accessedOrSelf.orElse(s)
       symbolToIdentifier.get(sym) match {
         case Some(id) => id
         case None =>
@@ -113,7 +113,7 @@ trait CodeExtraction extends ASTExtractors {
       tparams: Map[Symbol, xt.TypeParameter] = Map(),
       vars: Map[Symbol, () => xt.Expr] = Map(),
       mutableVars: Map[Symbol, () => xt.Variable] = Map(),
-      localFuns: Map[Symbol, xt.LocalFunDef] = Map(),
+      localFuns: Map[Symbol, (xt.ValDef, Seq[xt.TypeParameterDef])] = Map(),
       isExtern: Boolean = false
     ){
       def union(that: DefContext) = {
@@ -142,41 +142,50 @@ trait CodeExtraction extends ASTExtractors {
         copy(mutableVars = mutableVars ++ nvars)
       }
 
-      def withLocalFun(s: Symbol, lf: xt.LocalFunDef) = {
-        copy(localFuns = this.localFuns + (s -> lf))
+      def withLocalFun(sym: Symbol, vd: xt.ValDef, tparams: Seq[xt.TypeParameterDef]) = {
+        copy(localFuns = this.localFuns + (sym -> ((vd, tparams))))
       }
     }
 
     def extractProgram: (List[xt.UnitDef], Program { val trees: xt.type }) = {
-      val units     = new ListBuffer[xt.UnitDef]
-      val classes   = new ListBuffer[xt.ClassDef]
-      val functions = new ListBuffer[xt.FunDef]
+      val unitsAcc     = new ListBuffer[xt.UnitDef]
+      val classesAcc   = new ListBuffer[xt.ClassDef]
+      val functionsAcc = new ListBuffer[xt.FunDef]
 
-      for (u <- compilationUnits) u.body match {
-        // package object
-        case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
-          val (unit, allClasses, allFunctions) = extractPackage(u, pd)
-          units += unit
-          classes ++= allClasses
-          functions ++= allFunctions
+      for (u <- compilationUnits) {
+        val (id, stats) = u.body match {
+          // package object
+          case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
+            (FreshIdentifier(extractRef(inner).mkString("$")), pd.stats)
 
-        // normal package
-        case pd @ PackageDef(refTree, lst) =>
-          val (unit, allClasses, allFunctions) = extractPackage(u, pd)
-          units += unit
-          classes ++= allClasses
-          functions ++= allFunctions
+          case pd @ PackageDef(refTree, lst) =>
+            (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
 
-        case _ => outOfSubsetError(u.body, "Unexpected unit body")
+          case _ => outOfSubsetError(u.body, "Unexpected unit body")
+        }
+
+        val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
+        assert(functions.isEmpty, "Packages shouldn't contain functions")
+
+        unitsAcc += xt.UnitDef(
+          id,
+          imports,
+          classes,
+          subs,
+          !(Build.libraryFiles contains u.source.file.absolute.path)
+        ).setPos(u.body.pos)
+
+        classesAcc ++= allClasses
+        functionsAcc ++= allFunctions
       }
 
       val program: Program { val trees: xt.type } = new inox.Program {
         val trees: xt.type = xt
         val ctx = self.ctx
-        val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
+        val symbols = xt.NoSymbols.withClasses(classesAcc).withFunctions(functionsAcc)
       }
 
-      (units.toList, program)
+      (unitsAcc.toList, program)
     }
 
     // This one never fails, on error, it returns Untyped
@@ -256,12 +265,12 @@ trait CodeExtraction extends ASTExtractors {
       (imports, classes, functions, subs, allClasses, allFunctions)
     }
 
-    def extractPackage(u: CompilationUnit, pd: PackageDef): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+    def extractPackage(id: Identifier, u: CompilationUnit, pd: PackageDef): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
       val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(pd.stats)
       assert(functions.isEmpty, "Packages shouldn't contain functions")
 
       val unit = xt.UnitDef(
-        getIdentifier(pd.symbol),
+        id,
         imports,
         classes,
         subs,
@@ -412,6 +421,10 @@ trait CodeExtraction extends ASTExtractors {
       rec(e).reverseMap(_.toString)
     }
 
+    private def extractRef(ref: RefTree): List[String] = {
+      (getSelectChain(ref.qualifier) :+ ref.name.toString).filter(_ != "<empty>")
+    }
+
     private def extractImports(i: Import): Seq[xt.Import] = {
       val Import(expr, sels) = i
 
@@ -431,13 +444,17 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    // trim because sometimes Scala names end with a trailing space, looks nicer without the space
-    private def freshId(sym: Symbol): Identifier = FreshIdentifier(sym.name.toString.trim)
+    private def extractFunction(
+      sym: Symbol,
+      tparams: Seq[Symbol],
+      vparams: Seq[ValDef],
+      rhs: Tree,
+      typeParams: Option[Seq[xt.TypeParameter]] = None
+    )(implicit dctx: DefContext): xt.FunDef = {
 
-    private def extractFunction(sym: Symbol, tparams: Seq[Symbol], vparams: Seq[ValDef], rhs: Tree)(implicit dctx: DefContext): xt.FunDef = {
       // Type params of the function itself
       val extparams = extractTypeParams(sym.typeParams.map(_.tpe))
-      val ntparams = extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString))
+      val ntparams = typeParams.getOrElse(extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString)))
 
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
@@ -566,14 +583,16 @@ trait CodeExtraction extends ASTExtractors {
       case ExUnitLiteral()     => (xt.LiteralPattern(binder, xt.UnitLiteral()),     dctx)
       case ExStringLiteral(s)  => (xt.LiteralPattern(binder, xt.StringLiteral(s)),  dctx)
 
-      case up @ ExUnapplyPattern(s, args) =>
+      case up @ ExUnapplyPattern(t, args) =>
         val (sub, ctx) = args.map (extractPattern(_)).unzip
         val nctx = ctx.foldLeft(dctx)(_ union _)
-        val id = getIdentifier(s)
+        val id = getIdentifier(t.symbol)
+        val tps = t match {
+          case TypeApply(_, tps) => tps.map(extractType)
+          case _ => Seq.empty
+        }
 
-        // TODO: get types!
-
-        (xt.UnapplyPattern(binder, id, Seq.empty, sub).setPos(up.pos), ctx.foldLeft(dctx)(_ union _))
+        (xt.UnapplyPattern(binder, id, tps, sub).setPos(up.pos), ctx.foldLeft(dctx)(_ union _))
 
       case _ =>
         outOfSubsetError(p, "Unsupported pattern: " + p)
@@ -604,60 +623,84 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    private def extractBlock(es: List[Tree])(implicit dctx: DefContext): xt.Expr = es match {
-      case Nil => xt.UnitLiteral()
+    private def extractBlock(es: List[Tree])(implicit dctx: DefContext): xt.Expr = {
+      val fctx = es.collect {
+        case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams)
+      }.foldLeft(dctx) { case (dctx, (sym, tparams)) =>
+        val extparams = extractTypeParams(sym.typeParams.map(_.tpe))
+        val tparams = extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString))
+        val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip tparams).toMap)
 
-      case (e @ ExAssertExpression(contract, oerr)) :: xs =>
-        val const = extractTree(contract)
-        val b     = extractBlock(xs)
-        xt.Assert(const, oerr, b).setPos(e.pos)
+        val paramTypes = sym.info.paramss.flatten.map { sym =>
+          val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
+          if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe) else ptpe
+        }
+        val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
+        val name = xt.ValDef(
+          getIdentifier(sym),
+          xt.FunctionType(paramTypes, returnType).setPos(sym.pos)
+        ).setPos(sym.pos)
 
-      case (e @ ExRequiredExpression(contract)) :: xs =>
-        val pre = extractTree(contract)
-        val b   = extractBlock(xs)
-        xt.Require(pre, b).setPos(e.pos)
+        dctx.withLocalFun(sym, name, tparams.map(tp => xt.TypeParameterDef(tp)))
+      }
 
-      case (e @ ExDecreasesExpression(rank)) :: xs =>
-        val r = extractTree(rank)
-        val b = extractBlock(xs)
-        xt.Decreases(r, b).setPos(e.pos)
-
-      case (v @ ValDef(_, name, tpt, _)) :: xs =>
-        val vd = if (!v.symbol.isMutable) {
-          xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+      val (vds, vctx) = es.collect {
+        case v @ ValDef(_, name, tpt, _) => (v.symbol, name, tpt)
+      }.foldLeft((Map.empty[Symbol, xt.ValDef], fctx)) { case ((vds, dctx), (sym, name, tpt)) =>
+        if (!sym.isMutable) {
+          val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)(dctx)).setPos(sym.pos)
+          (vds + (sym -> vd), dctx.withNewVar(sym, () => vd.toVariable))
         } else {
-          xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)).setPos(v.pos)
+          val vd = xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)(dctx)).setPos(sym.pos)
+          (vds + (sym -> vd), dctx.withNewMutableVar(sym, () => vd.toVariable))
         }
+      }
 
-        val restTree = extractBlock(xs) {
-          if (!v.symbol.isMutable) {
-            dctx.withNewVar(v.symbol, () => vd.toVariable)
-          } else {
-            dctx.withNewMutableVar(v.symbol, () => vd.toVariable)
+      def rec(es: List[Tree]): xt.Expr = es match {
+        case Nil => xt.UnitLiteral()
+
+        case (e @ ExAssertExpression(contract, oerr)) :: xs =>
+          val const = extractTree(contract)(vctx)
+          val b     = rec(xs)
+          xt.Assert(const, oerr, b).setPos(e.pos)
+
+        case (e @ ExRequiredExpression(contract)) :: xs =>
+          val pre = extractTree(contract)(vctx)
+          val b   = rec(xs)
+          xt.Require(pre, b).setPos(e.pos)
+
+        case (e @ ExDecreasesExpression(rank)) :: xs =>
+          val r = extractTree(rank)(vctx)
+          val b = rec(xs)
+          xt.Decreases(r, b).setPos(e.pos)
+
+        case (d @ ExFunctionDef(sym, tparams, vparams, tpt, rhs)) :: xs =>
+          val (vd, tdefs) = vctx.localFuns(sym)
+          val fd = extractFunction(sym, tparams, vparams, rhs, typeParams = Some(tdefs.map(_.tp)))(vctx)
+          val letRec = xt.LocalFunDef(vd, tdefs, xt.Lambda(fd.params, fd.fullBody).setPos(d.pos))
+
+          rec(xs) match {
+            case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.pos)
+            case other => xt.LetRec(Seq(letRec), other).setPos(d.pos)
           }
-        }
 
-        xt.Let(vd, extractTree(v.rhs), restTree).setPos(v.pos)
+        case (v @ ValDef(_, name, tpt, _)) :: xs =>
+          xt.Let(vds(v.symbol), extractTree(v.rhs)(vctx), rec(xs)).setPos(v.pos)
 
-      case (d @ ExFunctionDef(sym, tparams, params, ret, b)) :: xs =>
-        val fd = extractFunction(sym, tparams, params, b)
+        case x :: Nil =>
+          extractTree(x)(vctx)
 
-        val letRec = xt.LocalFunDef(
-          xt.ValDef(fd.id, fd.returnType).setPos(d.pos),
-          fd.tparams,
-          xt.Lambda(fd.params, fd.fullBody).setPos(d.pos)
-        )
+        case x :: _ =>
+          outOfSubsetError(x, "Unexpected head of block")
+      }
 
-        extractBlock(xs)(dctx.withLocalFun(sym, letRec)) match {
-          case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.pos)
-          case other => xt.LetRec(Seq(letRec), other).setPos(d.pos)
-        }
+      rec(es)
+    }
 
-      case x :: Nil =>
-        extractTree(x)
-
-      case x :: _ =>
-        outOfSubsetError(x, "Unexpected head of block")
+    private def extractArgs(sym: Symbol, args: Seq[Tree])(implicit dctx: DefContext): Seq[xt.Expr] = {
+      (sym.paramLists.flatten zip args.map(extractTree)).map {
+        case (sym, e) => if (sym.isByNameParam) xt.Lambda(Seq.empty, e) else e
+      }
     }
 
     private def extractTree(tr: Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
@@ -674,7 +717,10 @@ trait CodeExtraction extends ASTExtractors {
           case l: xt.Lambda => l
           case other =>
             val vd = xt.ValDef(FreshIdentifier("res"), tpe).setPos(post)
-            xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable))).setPos(post)
+            xt.Lambda(Seq(vd), extractType(contract) match {
+              case xt.BooleanType => post
+              case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
+            }).setPos(post)
         }
 
         xt.Ensuring(b, closure)
@@ -801,7 +847,7 @@ trait CodeExtraction extends ASTExtractors {
         dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
           case Some(builder) => builder().setPos(ex.pos)
           case None => dctx.localFuns.get(sym) match {
-            case Some(f) => xt.ApplyLetRec(f.name.toVariable, f.tparams, Seq.empty)
+            case Some((vd, tparams)) => xt.ApplyLetRec(vd.toVariable, tparams, Seq.empty)
             case None => xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty)
           }
         }
@@ -863,7 +909,8 @@ trait CodeExtraction extends ASTExtractors {
           Seq.empty
         ).setPos(tr.pos)
 
-        xt.FiniteMap(somePairs, dflt, extractType(tptFrom))
+        val optTo = xt.ClassType(getIdentifier(optionSymbol), Seq(to))
+        xt.FiniteMap(somePairs, dflt, extractType(tptFrom), optTo)
 
       case ExFiniteSet(tpt, args) =>
         xt.FiniteSet(args.map(extractTree), extractType(tpt))
@@ -887,16 +934,22 @@ trait CodeExtraction extends ASTExtractors {
       case ExUMinus(e)     => xt.UMinus(extractTree(e))
       case ExBVNot(e)      => xt.BVNot(extractTree(e))
 
-      case ExNotEquals(l, r) =>
-        xt.Not(xt.Equals(extractTree(l), extractTree(r)).setPos(tr.pos))
+      case ExNotEquals(l, r) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
+        case (xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
+        case (e, xt.IntegerType, xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
+        case (e1, _, e2, _) => xt.Equals(e1, e2)
+      }).setPos(tr.pos))
 
-      case ExEquals(l, r) =>
-        xt.Equals(extractTree(l), extractTree(r))
+      case ExEquals(l, r) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
+        case (xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
+        case (e, xt.IntegerType, xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
+        case (e1, _, e2, _) => xt.Equals(e1, e2)
+      }
 
       case ExArrayFill(baseType, length, defaultValue) =>
         val lengthRec = extractTree(length)
         val defaultValueRec = extractTree(defaultValue)
-        xt.LargeArray(Map.empty, extractTree(defaultValue), extractTree(length))
+        xt.LargeArray(Map.empty, extractTree(defaultValue), extractTree(length), extractType(baseType))
 
       case ExIfThenElse(t1,t2,t3) =>
         xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
@@ -929,11 +982,11 @@ trait CodeExtraction extends ASTExtractors {
 
       case l @ ExListLiteral(tpe, elems) =>
         val rtpe = extractType(tpe)
-        val cons = xt.ADTType(getIdentifier(consSymbol), Seq(rtpe))
-        val nil  = xt.ADTType(getIdentifier(nilSymbol),  Seq(rtpe))
+        val cons = xt.ClassType(getIdentifier(consSymbol), Seq(rtpe))
+        val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(rtpe))
 
-        elems.foldRight(xt.ADT(nil, Seq())) {
-          case (e, ls) => xt.ADT(cons, Seq(extractTree(e), ls))
+        elems.foldRight(xt.ClassConstructor(nil, Seq())) {
+          case (e, ls) => xt.ClassConstructor(cons, Seq(extractTree(e), ls))
         }
 
       case ExImplies(lhs, rhs) =>
@@ -943,18 +996,18 @@ trait CodeExtraction extends ASTExtractors {
         case None =>
           dctx.localFuns.get(sym) match {
             case None =>
-              xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), args.map(extractTree))
-            case Some(f) =>
-              xt.ApplyLetRec(f.name.toVariable, f.tparams, args.map(extractTree))
+              xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), extractArgs(sym, args))
+            case Some((vd, tparams)) =>
+              xt.ApplyLetRec(vd.toVariable, tparams, extractArgs(sym, args))
           }
 
         case Some(lhs) => extractType(lhs) match {
           case ct: xt.ClassType =>
-            if (sym.accessedOrSelf.isMethod) xt.MethodInvocation(
+            if (sym.accessedOrSelf.isMethod || sym.owner.isAbstract) xt.MethodInvocation(
               extractTree(lhs),
               getIdentifier(sym),
               tps.map(extractType),
-              args.map(extractTree)
+              extractArgs(sym, args)
             ) else args match {
               case Seq() => xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
               case Seq(rhs) => xt.FieldAssignment(extractTree(lhs), getIdentifier(sym), extractTree(rhs))
@@ -986,7 +1039,7 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.ArrayType(_), "updated", Seq(index, value)) => xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
             case (xt.ArrayType(_), "clone",   Seq())             => extractTree(lhs)
 
-            case (xt.MapType(_, to), "apply", Seq(rhs)) =>
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "apply", Seq(rhs)) =>
               val (l, r) = (extractTree(lhs), extractTree(rhs))
               val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos)
               xt.Assert(
@@ -998,7 +1051,7 @@ trait CodeExtraction extends ASTExtractors {
                 ).setPos(tr.pos)
               )
 
-            case (xt.MapType(_, to), "isDefinedAt" | "contains", Seq(rhs)) =>
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "isDefinedAt" | "contains", Seq(rhs)) =>
               xt.Equals(
                 xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
                 xt.ClassConstructor(
@@ -1007,7 +1060,7 @@ trait CodeExtraction extends ASTExtractors {
                 ).setPos(tr.pos)
               )
 
-            case (xt.MapType(_, to), "updated" | "+", Seq(key, value)) =>
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "updated" | "+", Seq(key, value)) =>
               xt.MapUpdated(
                 extractTree(lhs), extractTree(key),
                 xt.ClassConstructor(
@@ -1016,7 +1069,7 @@ trait CodeExtraction extends ASTExtractors {
                 ).setPos(tr.pos)
               )
 
-            case (xt.MapType(_, to), "+", Seq(rhs)) =>
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "+", Seq(rhs)) =>
               val value = extractTree(rhs)
               xt.MapUpdated(
                 extractTree(lhs), xt.TupleSelect(value, 1).setPos(tr.pos),
@@ -1026,9 +1079,9 @@ trait CodeExtraction extends ASTExtractors {
                 ).setPos(tr.pos)
               )
 
-            case (xt.MapType(_, to), "++", Seq(rhs)) =>
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "++", Seq(rhs)) =>
               extractTree(rhs) match {
-                case xt.FiniteMap(pairs,  default, keyType) =>
+                case xt.FiniteMap(pairs,  default, keyType, valueType) =>
                   pairs.foldLeft(extractTree(lhs)) { case (map, (k, v)) =>
                     xt.MapUpdated(map, k, v).setPos(tr.pos)
                   }

@@ -27,30 +27,31 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       //println("pc: " + pc)
       //println("free: " + free.map(_.uniqueName))
 
-      val reqPC = pc.filterByIds(free.toSet.map((f: ValDef) => f.id))
+      val reqPC = pc.filterByIds(free.map(_.id).toSet)
 
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
-      val freshVals = (args ++ free).map{ case ValDef(id, tpe) =>
-        ValDef(id.freshen, instantiateType(tpe, tparamsMap))
+      val freshVals = (args ++ free).map { vd =>
+        val tvd = vd.copy(tpe = instantiateType(vd.tpe, tparamsMap))
+        tvd -> tvd.freshen
       }
-      val freeMap = (args ++ free).zip(freshVals).toMap
-      val freshParams = (args ++ free).filterNot(v => reqPC.isBound(v.id)).map(v => freeMap(v))
 
-      val instBody = instantiateType(
-        withPath(body, reqPC),
-        tparamsMap
-      )
+      val freeMap = freshVals.toMap
+      val freshParams = freshVals.filterNot(p => reqPC.isBound(p._1.id)).map(_._2)
+
+      val instBody = instantiateType(withPath(body, reqPC), tparamsMap)
 
       val fullBody = exprOps.preMap {
+        case v: Variable => freeMap.get(v.toVal).map(_.toVariable)
+
         case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
           Some(Let(freeMap(id), v, r).copiedFrom(let))
 
         case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to)), tparams, args) if v == name =>
           val ntps = app.tps.getOrElse {
             throw MissformedStainlessCode(app, "Couldn't find type parameter instantiation")
-          }
+          } ++ tpFresh.map(_.tp)
           val nargs = args ++ freshParams.drop(args.length).map(_.toVariable)
           Some(FunctionInvocation(id, ntps, nargs).copiedFrom(app))
 
@@ -58,17 +59,13 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       }(instBody)
 
       val newFd = new s.FunDef(
-        name.id.freshen,
+        name.id,
         tparams ++ tpFresh,
         freshParams,
         instantiateType(body.getType, tparamsMap),
         fullBody,
         Set() /// FIXME add flag for inner?
       )
-
-      //HACK to make sure substitution happened even in nested fundef
-      // FIXME: WTF is this??
-      //newFd.fullBody = replaceFromIDs(freeMap.map(p => (p._1, p._2.toVariable)), newFd.fullBody)
 
       FunSubst(newFd, freeMap, tparamsMap)
     }
@@ -129,33 +126,34 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedWithPaths.map {
-        case (inner, pc) => inner.name -> closeFd(inner, fd, pc, transFree(inner.name.id).map(_.toVal))
+        case (inner, pc) => inner.name.id -> closeFd(inner, fd, pc, transFree(inner.name.id).map(_.toVal))
       }
 
       trait ClosingTransformer extends ast.TreeTransformer {
         val s: self.s.type = self.s
         val subst: FunSubst
 
-        lazy val FunSubst(fd, callerMap, callerTMap) = subst
+        lazy val FunSubst(_, callerMap, callerTMap) = subst
 
         override def transform(e: s.Expr): t.Expr = e match {
-          case app @ ApplyLetRec(fun, tparams, args) if closed contains fun.toVal =>
-            val FunSubst(newCallee, calleeMap, calleeTMap) = closed(fun.toVal)
+          case app @ ApplyLetRec(fun, tparams, args) if closed contains fun.id =>
+            val FunSubst(newCallee, calleeMap, calleeTMap) = closed(fun.id)
 
             // This needs some explanation.
             // Say we have caller and callee. First we find the param. substitutions of callee
             // (say old -> calleeNew) and reverse them. So we have a mapping (calleeNew -> old).
             // We also have the caller mapping, (old -> callerNew).
             // So we pass the callee parameters through these two mappings to get the caller parameters.
-            val mapReverse = calleeMap map { _.swap }
-            val extraArgs = newCallee.params.drop(args.size).map { vd =>
-              callerMap(mapReverse(vd)).toVariable
-            }
 
-            // Similarly for type params
             val tReverse = calleeTMap map { _.swap }
             val tOrigExtraOrdered = newCallee.tparams.map{_.tp}.drop(tparams.size).map(tReverse)
             val tFinalExtra: Seq[TypeParameter] = tOrigExtraOrdered.map(tp => callerTMap(tp))
+            val tparamsMap = (newCallee.tparams.map(_.tp).drop(tparams.size) zip tFinalExtra).toMap
+
+            val mapReverse = calleeMap map { _.swap }
+            val extraArgs = newCallee.params.drop(args.size).map { vd =>
+              instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
+            }
 
             val tps = app.tps.getOrElse {
               throw MissformedStainlessCode(app, "Couldn't find type parameter instantiation")
@@ -190,14 +188,11 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
       val newFd = closing.transform(fd)
 
-      val closedFds = closed.values.toSeq.map { case fs: FunSubst =>
-        object transformer extends ClosingTransformer {
+      val closedFds = closed.values.toList.map { case fs @ FunSubst(fd, _, _) =>
+        fd.copy(fullBody = new ClosingTransformer {
           val t: self.s.type = self.s
           val subst = fs
-        }
-
-        val fullBody = transformer.transform(fs.fd.fullBody)
-        fd.copy(fullBody = fullBody)
+        }.transform(fd.fullBody))
       }
 
       // Recursively close new functions

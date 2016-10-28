@@ -21,7 +21,7 @@ class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
     val (funss, program) = extract(fs.map(_.getPath))
 
     for ((name, funs) <- funss) {
-      test(name) { ctx =>
+      test(s"$cat/$name") { ctx =>
         val report = VerificationComponent.apply(funs, program)
         val out = Output(report, program.ctx.reporter)
         block(out)

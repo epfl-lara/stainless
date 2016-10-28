@@ -22,6 +22,11 @@ object Main extends inox.MainHelpers {
     option -> component.description
   }
 
+  override protected def getDebugSections = super.getDebugSections ++ Set(
+    verification.DebugSectionVerification,
+    termination.DebugSectionTermination
+  )
+
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
     val compilerArgs = args.toList.filterNot(_.startsWith("--")) ++ Build.libraryFiles
@@ -40,6 +45,6 @@ object Main extends inox.MainHelpers {
       activeComponents
     }
 
-    for (c <- toExecute) c(structure, program)
+    for (c <- toExecute) c(structure, program).emit()
   }
 }

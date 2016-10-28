@@ -10,18 +10,18 @@ trait DefaultTactic extends Tactic {
   import program.trees._
   import program.symbols._
 
-  def generatePostconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+  def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
         val vc = Implies(fd.precOrTrue, Application(post, Seq(body)))
-        Seq(VC(program)(vc, id, VCKind.Postcondition).setPos(post))
+        Seq(VC(vc, id, VCKind.Postcondition).setPos(post))
       case _ =>
         Nil
     }
   }
 
-  def generatePreconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+  def generatePreconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
 
     val calls = transformers.CollectorWithPC(program) {
@@ -32,11 +32,11 @@ trait DefaultTactic extends Tactic {
       val pre = fi.tfd.withParamSubst(args, fi.tfd.precondition.get)
       val vc = path implies pre
       val fiS = sizeLimit(fi.asString, 40)
-      VC(program)(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS")).setPos(fi)
+      VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS")).setPos(fi)
     }
   }
 
-  def generateCorrectnessConditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+  def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
 
     def eToVCKind(e: Expr) = e match {
       case _ : MatchExpr =>
@@ -45,6 +45,8 @@ trait DefaultTactic extends Tactic {
       case Assert(_, Some(err), _) =>
         if (err.startsWith("Array ")) {
           VCKind.ArrayUsage
+        } else if (err.startsWith("Map ")) {
+          VCKind.MapUsage
         } else if (err.startsWith("Division ")) {
           VCKind.DivisionByZero
         } else if (err.startsWith("Modulo ")) {
@@ -74,7 +76,7 @@ trait DefaultTactic extends Tactic {
     }.collect(getFunction(id).fullBody)
 
     calls.map { case (e, correctnessCond) =>
-      VC(program)(correctnessCond, id, eToVCKind(e)).setPos(e)
+      VC(correctnessCond, id, eToVCKind(e)).setPos(e)
     }
   }
 }

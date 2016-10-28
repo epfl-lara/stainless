@@ -34,7 +34,13 @@ trait Trees extends holes.Trees { self =>
   /** $encodingof `expr.selector` */
   case class ClassSelector(expr: Expr, selector: Identifier) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = expr.getType match {
-      case ct: ClassType => ct.getField(selector).map(_.tpe).getOrElse(Untyped)
+      case ct: ClassType =>
+        ct.getField(selector).map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
+          case (Some(fd), Some(tcd)) =>
+            Some(s.instantiateType(fd.returnType, (tcd.cd.tparams.map(_.tp) zip tcd.tps).toMap))
+          case _ =>
+            None
+        }).getOrElse(Untyped)
       case _ => Untyped
     }
   }

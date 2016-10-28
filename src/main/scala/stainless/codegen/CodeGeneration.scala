@@ -685,7 +685,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeVirtual(BagClass, "difference", s"(L$BagClass;)L$BagClass;")
 
     // Maps
-    case FiniteMap(ss, dflt, _) =>
+    case FiniteMap(ss, dflt, _, _) =>
       mkExpr(dflt, ch)
       ch << New(MapClass) << DUP
       ch << InvokeSpecial(MapClass, constructorName, s"(L$ObjectClass;)V")
@@ -1020,7 +1020,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << storeInstr
       }
 
-    case a @ LargeArray(elems, default, size) =>
+    case a @ LargeArray(elems, default, size, base) =>
       mkExpr(size, ch)
 
       val storeInstr = a.getType match {

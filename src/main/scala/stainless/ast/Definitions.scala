@@ -39,23 +39,29 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   implicit class StainlessFunDef(fd: FunDef) {
     @inline def precondition(implicit s: Symbols): Option[Expr] = s.getPrecondition(fd)
-    @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
     @inline def hasPrecondition(implicit s: Symbols): Boolean = precondition.isDefined
+    @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
 
     @inline def postcondition(implicit s: Symbols): Option[Expr] = s.getPostcondition(fd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
+    @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
+      Lambda(Seq(ValDef(FreshIdentifier("res", true), fd.returnType)), BooleanLiteral(true))
+    }
   }
 
   implicit class StainlessTypedFunDef(tfd: TypedFunDef) {
     @inline def precondition(implicit s: Symbols): Option[Expr] = s.getPrecondition(tfd)
-    @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
     @inline def hasPrecondition(implicit s: Symbols): Boolean = precondition.isDefined
+    @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(tfd)
 
     @inline def postcondition(implicit s: Symbols): Option[Expr] = s.getPostcondition(tfd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
+    @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
+      Lambda(Seq(ValDef(FreshIdentifier("res", true), tfd.returnType)), BooleanLiteral(true))
+    }
   }
 }

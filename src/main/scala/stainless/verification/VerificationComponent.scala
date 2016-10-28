@@ -21,7 +21,7 @@ object VerificationComponent extends SimpleComponent {
 
   trait VerificationReport extends Report { self =>
     val program: Program { val trees: stainless.trees.type }
-    val results: Map[VC { val trees: program.trees.type }, VCResult { val program: self.program.type }]
+    val results: Map[VC[program.trees.type], VCResult[program.trees.type]]
 
     import program._
 
@@ -62,12 +62,16 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
-  def check(funs: Seq[Identifier], p: StainlessProgram):
-            Map[VC { val trees: p.trees.type }, VCResult { val program: p.type }] = {
+  def check(funs: Seq[Identifier], p: StainlessProgram): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
+    val np = p.transform(new AssertionInjector {
+      val s: p.trees.type = p.trees
+      val t: p.trees.type = p.trees
+      val symbols: p.symbols.type = p.symbols
+    })
 
-    import p._
-    import p.trees._
-    import p.symbols._
+    import np._
+    import np.trees._
+    import np.symbols._
 
     val toVerify = funs.sortBy(getFunction(_).getPos)
 
@@ -78,7 +82,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    VerificationChecker.verify(p)(funs)
+    VerificationChecker.verify(np)(funs)
   }
 
   def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {

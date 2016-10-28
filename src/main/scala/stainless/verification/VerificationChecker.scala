@@ -18,15 +18,13 @@ trait VerificationChecker { self =>
 
   implicit val debugSection = DebugSectionVerification
 
-  type VC = verification.VC { val trees: program.trees.type }
-  def VC(condition: Expr, fd: Identifier, kind: VCKind) =
-    verification.VC(program)(condition, fd, kind)
+  type VC = verification.VC[program.trees.type]
+  val VC = verification.VC
 
-  type VCStatus = verification.VCStatus[Map[ValDef, Expr]]
+  type VCStatus = verification.VCStatus[program.trees.type]
 
-  type VCResult = verification.VCResult { val program: self.program.type }
-  def VCResult(status: VCStatus, solver: Option[Solver], time: Option[Long]) =
-    verification.VCResult(program)(status, solver, time)
+  type VCResult = verification.VCResult[program.trees.type]
+  val VCResult = verification.VCResult
 
   protected def getTactic(fd: FunDef): Tactic { val program: self.program.type }
   protected def getFactory: SolverFactory { val program: self.program.type }
@@ -58,7 +56,7 @@ trait VerificationChecker { self =>
     }).flatten
   }
 
-  private lazy val unknownResult = VCResult(VCStatus.Unknown, None, None)
+  private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
   private lazy val parallelCheck = ctx.options.findOptionOrDefault(optParallelVCs)
 
   def checkVCs(vcs: Seq[VC], sf: SolverFactory { val program: self.program.type }, stopWhen: VCResult => Boolean = _ => false): Map[VC, VCResult] = {
@@ -106,7 +104,7 @@ trait VerificationChecker { self =>
 
       val time = timer.stop()
 
-      val vcres = res match {
+      val vcres: VCResult = res match {
         case _ if ctx.interruptManager.isInterrupted =>
           VCResult(VCStatus.Cancelled, Some(s), Some(time))
 
@@ -127,8 +125,33 @@ trait VerificationChecker { self =>
       }
 
       ctx.reporter.synchronized {
-        if (parallelCheck) ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
-        vcres.report()
+        if (parallelCheck)
+          ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
+
+        vcres.status match {
+          case VCStatus.Valid =>
+            ctx.reporter.info(" => VALID")
+
+          case VCStatus.Invalid(cex) =>
+            ctx.reporter.warning(" => INVALID")
+            ctx.reporter.warning("Found counter-example:")
+
+            val strings = cex.toSeq.sortBy(_._1.id.name).map {
+              case (id, v) => (id.asString, v.asString)
+            }
+
+            if (strings.nonEmpty) {
+              val max = strings.map(_._1.length).max
+              for ((id, v) <- strings) {
+                ctx.reporter.warning(("  %-"+max+"s -> %s").format(id, v))
+              }
+            } else {
+              ctx.reporter.warning("  (Empty counter-example)")
+            }
+
+          case status =>
+            ctx.reporter.warning(" => " + status.name.toUpperCase)
+        }
       }
 
       vcres
@@ -139,8 +162,7 @@ trait VerificationChecker { self =>
 }
 
 object VerificationChecker {
-  def verify(p: StainlessProgram)(funs: Seq[Identifier]):
-             Map[VC { val trees: p.trees.type }, VCResult { val program: p.type }] = {
+  def verify(p: StainlessProgram)(funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
     object checker extends VerificationChecker {
       val program: p.type = p
 

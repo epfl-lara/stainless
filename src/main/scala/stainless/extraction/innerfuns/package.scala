@@ -12,13 +12,8 @@ package object innerfuns {
     ) extends SimpleSymbols with AbstractSymbols
   }
 
-  // FIXME: This transformer will crash if it encounters an AST from `innerfuns.Trees`.
-  //        This is a temporary place-holder until innerfuns extraction has been ported from Leon.
-  val extractor: inox.ast.SymbolTransformer {
-    val s: trees.type
-    val t: extraction.trees.type
-  } = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  object extractor extends FunctionClosure {
     val s: trees.type = trees
     val t: extraction.trees.type = extraction.trees
-  })
+  }
 }

@@ -77,7 +77,7 @@ trait Printers extends inox.ast.Printers { self: Trees =>
         p"Array($elems)"
       }
 
-    case LargeArray(elems, default, size) =>
+    case LargeArray(elems, default, size, base) =>
       if (elems.isEmpty) {
         p"Array($default, ..., $default) (of size $size)"
       } else {

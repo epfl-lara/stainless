@@ -178,7 +178,7 @@ trait CompilationUnit extends CodeGeneration {
       }
       b
 
-    case m @ FiniteMap(els, dflt, _) =>
+    case m @ FiniteMap(els, dflt, _, _) =>
       val m = new stainless.codegen.runtime.Map(valueToJVM(dflt))
       for ((k,v) <- els) {
         m.insert(valueToJVM(k), valueToJVM(v))
@@ -223,7 +223,7 @@ trait CompilationUnit extends CodeGeneration {
           allocArray(valueToJVM)
       }
 
-    case a @ LargeArray(elems, default, IntLiteral(size)) =>
+    case a @ LargeArray(elems, default, IntLiteral(size), base) =>
       import scala.reflect.ClassTag
 
       def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
@@ -317,7 +317,7 @@ trait CompilationUnit extends CodeGeneration {
         (jvmToValue(key, from), jvmToValue(value, to))
       }.toSeq
       val default = jvmToValue(map.default, to)
-      FiniteMap(pairs, default, from)
+      FiniteMap(pairs, default, from, to)
 
     case (lambda: runtime.Lambda, _: FunctionType) =>
       val cls = lambda.getClass

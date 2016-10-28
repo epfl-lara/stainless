@@ -341,9 +341,9 @@ trait ASTExtractors {
 
     /** Returns the arguments of an unapply pattern */
     object ExUnapplyPattern {
-      def unapply(tree: Tree): Option[(Symbol, Seq[Tree])] = tree match {
+      def unapply(tree: Tree): Option[(Tree, Seq[Tree])] = tree match {
         case UnApply(Apply(s, _), args) =>
-          Some((s.symbol, args))
+          Some((s, args))
         case _ => None
       }
     }
@@ -605,7 +605,7 @@ trait ASTExtractors {
             // Since scalac uses the accessor symbol all over the place, we pass that instead:
             Some( (sym.getterIn(sym.owner),tpt.tpe,rhs) )
           // Unimplemented fields
-          case df@DefDef(_, name, _, _, tpt, _) if (
+          case df @ DefDef(_, name, _, _, tpt, _) if (
             sym.isStable && sym.isAccessor && sym.name != nme.CONSTRUCTOR &&
             sym.accessed == NoSymbol // This is to exclude fields with implementation
           ) =>

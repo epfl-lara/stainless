@@ -17,7 +17,7 @@ trait Trees extends extraction.Trees { self =>
   case class ApplyLetRec(fun: Variable, tparams: Seq[TypeParameterDef], args: Seq[Expr]) extends Expr with CachingTyped {
     def tps(implicit s: Symbols): Option[Seq[Type]] = fun.tpe match {
       case FunctionType(from, to) =>
-        s.canBeSubtypeOf(s.tupleTypeWrap(args.map(_.getType)), s.tupleTypeWrap(from)) match {
+        s.canBeSupertypeOf(s.tupleTypeWrap(from), s.tupleTypeWrap(args.map(_.getType))) match {
           case Some(map) if map.keySet subsetOf tparams.map(_.tp).toSet =>
             Some(tparams.map(tdef => map(tdef.tp)))
           case _ => None
@@ -34,7 +34,7 @@ trait Trees extends extraction.Trees { self =>
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
       defs foreach { case (LocalFunDef(name, tparams, Lambda(args, body))) =>
-        p"""|def $name[$tparams]($args) = {
+        p"""|def ${name.id}[$tparams]($args) = {
             |  $body"
             |}
             |"""
@@ -42,7 +42,7 @@ trait Trees extends extraction.Trees { self =>
       p"$body"
 
     case ApplyLetRec(fun, tparams, args) =>
-      p"$fun[$tparams]($args)"
+      p"${fun.id}[$tparams]($args)"
 
     case _ => super.ppBody(tree)
   }

@@ -18,10 +18,10 @@ trait InductionTactic extends DefaultTactic {
 
   private def selectorsOfParentType(tsort: TypedADTSort, tcons: TypedADTConstructor, expr: Expr): Seq[Expr] = {
     val childrenOfSameType = tcons.fields.collect { case vd if vd.tpe == tsort.toType => vd }
-    for (field <- childrenOfSameType) yield adtSelector(expr, field.id)
+    for (field <- childrenOfSameType) yield adtSelector(AsInstanceOf(expr, tcons.toType), field.id)
   }
 
-  override def generatePostconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+  override def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.body, firstSort(fd.params), fd.postcondition) match {
       case (Some(body), Some((tsort, arg)), Some(post)) =>
@@ -38,7 +38,7 @@ trait InductionTactic extends DefaultTactic {
           )
 
           val kind = VCKind.Info(VCKind.Postcondition, s"ind. on ${arg.asString} / ${tcons.id.asString}")
-          VC(program)(vc, id, kind).setPos(fd)
+          VC(vc, id, kind).setPos(fd)
         }
 
       case (body, _, post) =>
@@ -49,7 +49,7 @@ trait InductionTactic extends DefaultTactic {
     }
   }
 
-  override def generatePreconditions(id: Identifier): Seq[VC { val trees: program.trees.type }] = {
+  override def generatePreconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.body, firstSort(fd.params)) match {
       case (Some(b), Some((tsort, arg))) =>
@@ -80,7 +80,7 @@ trait InductionTactic extends DefaultTactic {
           val fiS = sizeLimit(fi.asString, 25)
 
           val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
-          VC(program)(vc, id, kind).setPos(fi)
+          VC(vc, id, kind).setPos(fi)
         }
 
       case (body, _) =>

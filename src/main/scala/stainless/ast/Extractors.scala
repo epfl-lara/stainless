@@ -111,10 +111,10 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.FiniteArray(elems, base) =>
       (Seq(), elems, Seq(base), (_, es, tps) => t.FiniteArray(es, tps.head))
 
-    case s.LargeArray(elems, default, size) =>
+    case s.LargeArray(elems, default, size, base) =>
       val (keys, values) = elems.toSeq.unzip
-      (Seq(), values :+ default :+ size, Seq(), {
-        case (_, es :+ nd :+ ns, _) => t.LargeArray((keys zip es).toMap, nd, ns)
+      (Seq(), values :+ default :+ size, Seq(base), {
+        case (_, es :+ nd :+ ns, tps) => t.LargeArray((keys zip es).toMap, nd, ns, tps.head)
       })
 
     case s.ArraySelect(array, index) =>
