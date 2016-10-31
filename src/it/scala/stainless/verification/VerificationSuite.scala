@@ -8,7 +8,7 @@ import org.scalatest._
 class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
 
   override val configurations = Seq(
-    Seq()
+    Seq(optFailEarly(true))
   )
 
   val component = VerificationComponent
@@ -22,8 +22,9 @@ class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
 
     for ((name, funs) <- funss) {
       test(s"$cat/$name") { ctx =>
-        val report = VerificationComponent.apply(funs, program)
-        val out = Output(report, program.ctx.reporter)
+        val newProgram = program.withContext(ctx)
+        val report = VerificationComponent.apply(funs, newProgram)
+        val out = Output(report, ctx.reporter)
         block(out)
       }
     }
@@ -40,7 +41,6 @@ class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
 
   protected def testInvalid() = mkTests("invalid") { output =>
     val Output(report, _) = output
-    assert(report.totalUnknown === 0, "There should not be unknown verification conditions.")
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
 

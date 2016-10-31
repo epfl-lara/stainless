@@ -16,7 +16,8 @@ object Main extends inox.MainHelpers {
     optFunctions -> "Only consider functions s1,s2,...",
     evaluators.optCodeGen -> "Use code generating evaluator",
     codegen.optInstrumentFields -> "Instrument ADT field access during code generation",
-    verification.optParallelVCs -> "Check verification conditions in parallel"
+    verification.optParallelVCs -> "Check verification conditions in parallel",
+    verification.optFailEarly -> "Halt verification as soon as a check fails"
   ) ++ components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> component.description

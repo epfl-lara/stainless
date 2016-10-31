@@ -33,7 +33,7 @@ sealed abstract class VCKind(val name: String, val abbrv: String) {
 
 object VCKind {
   case class Info(k: VCKind, info: String) extends VCKind(k.abbrv+" ("+info+")", k.abbrv) {
-    override def underlying = k
+    override def underlying = k.underlying
   }
 
   case object Precondition    extends VCKind("precondition", "precond.")
@@ -46,7 +46,7 @@ object VCKind {
   case object ModuloByZero    extends VCKind("modulo by zero", "mod 0")
   case object RemainderByZero extends VCKind("remainder by zero", "rem 0")
   case object CastError       extends VCKind("cast correctness", "cast")
-  case object PostTactVC      extends VCKind("Postcondition Tactic", "tact")
+  case object PostTactic      extends VCKind("postcondition tactic", "tact")
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

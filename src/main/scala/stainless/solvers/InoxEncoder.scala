@@ -52,6 +52,7 @@ trait InoxEncoder extends ProgramEncoder {
     )
   }
 
+  protected override val extraFunctions: Seq[t.FunDef] = Seq(arrayInvariant)
   protected override val extraADTs: Seq[t.ADTDefinition] = Seq(arrayADT)
 
   val encoder: TreeEncoder

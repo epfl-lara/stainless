@@ -14,7 +14,7 @@ trait DefaultTactic extends Tactic {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val vc = Implies(fd.precOrTrue, Application(post, Seq(body)))
+        val vc = implies(fd.precOrTrue, application(post, Seq(body)))
         Seq(VC(vc, id, VCKind.Postcondition).setPos(post))
       case _ =>
         Nil

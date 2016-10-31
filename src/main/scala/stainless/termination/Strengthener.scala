@@ -13,6 +13,7 @@ trait Strengthener { self: OrderingRelation =>
   import program._
   import program.trees._
   import program.symbols._
+  import CallGraphOrderings._
 
   private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
 
@@ -26,16 +27,6 @@ trait Strengthener { self: OrderingRelation =>
   }
 
   checker.registerTransformer(postStrengthener)
-
-  implicit object CallGraphOrdering extends Ordering[FunDef] {
-    def compare(a: FunDef, b: FunDef): Int = {
-      val aCallsB = transitivelyCalls(a, b)
-      val bCallsA = transitivelyCalls(b, a)
-      if (aCallsB && !bCallsA) -1
-      else if (bCallsA && !aCallsB) 1
-      else 0
-    }
-  }
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
     ctx.reporter.debug("- Strengthening postconditions")

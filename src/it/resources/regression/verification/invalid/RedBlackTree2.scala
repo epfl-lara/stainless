@@ -3,7 +3,7 @@
 import stainless.annotation._
 import stainless.lang._
 
-object RedBlackTree { 
+object RedBlackTree2 { 
   sealed abstract class Color
   case class Red() extends Color
   case class Black() extends Color
@@ -82,17 +82,8 @@ object RedBlackTree {
     }
   } ensuring (res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
 
-  def buggyBalance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
-    Node(c,a,x,b) match {
-      case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 
-        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),Node(Red(),a,xV,Node(Red(),b,yV,c)),zV,d) => 
-        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),a,xV,Node(Red(),Node(Red(),b,yV,c),zV,d)) => 
-        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),a,xV,Node(Red(),b,yV,Node(Red(),c,zV,d))) => 
-        Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      // case Node(c,a,xV,b) => Node(c,a,xV,b)
-    }
-  } ensuring (res => content(res) == content(Node(c,a,x,b)))
+  def buggyAdd(x: Int, t: Tree): Tree = {
+    require(redNodesHaveBlackChildren(t))
+    ins(x, t)
+  } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res))
 }

@@ -10,6 +10,7 @@ trait ProcessingPipeline extends TerminationChecker { self =>
   import program._
   import program.trees._
   import program.symbols._
+  import CallGraphOrderings._
 
   trait Problem {
     def funSet: Set[FunDef]
@@ -108,25 +109,23 @@ trait ProcessingPipeline extends TerminationChecker { self =>
 
   implicit object ProblemOrdering extends Ordering[(Problem, Int)] {
     def compare(a: (Problem, Int), b: (Problem, Int)): Int = {
-      val ((aProblem, aIndex), (bProblem, bIndex)) = (a,b)
-      val (aDefs, bDefs) = (aProblem.funSet, bProblem.funSet)
-
-      val aCallees: Set[FunDef] = aDefs.flatMap(transitiveCallees)
-      val bCallees: Set[FunDef] = bDefs.flatMap(transitiveCallees)
-
-      lazy val aCallers: Set[FunDef] = aDefs.flatMap(transitiveCallers)
-      lazy val bCallers: Set[FunDef] = bDefs.flatMap(transitiveCallers)
-
-      val aCallsB = bDefs.subsetOf(aCallees)
-      val bCallsA = aDefs.subsetOf(bCallees)
-
-      if (aCallsB && !bCallsA) {
-        -1
-      } else if (bCallsA && !aCallsB) {
-        1
+      val comp = componentOrdering.compare(a._1.funSet, b._1.funSet)
+      if (comp != 0) {
+        comp
       } else {
+        val ((aProblem, aIndex), (bProblem, bIndex)) = (a,b)
+        val (aDefs, bDefs) = (aProblem.funSet, bProblem.funSet)
+
+        val aCallees: Set[FunDef] = aDefs.flatMap(transitiveCallees)
+        val bCallees: Set[FunDef] = bDefs.flatMap(transitiveCallees)
+
         val smallerPool = bCallees.size compare aCallees.size
-        if (smallerPool != 0) smallerPool else {
+        if (smallerPool != 0) {
+          smallerPool 
+        } else {
+          val aCallers: Set[FunDef] = aDefs.flatMap(transitiveCallers)
+          val bCallers: Set[FunDef] = bDefs.flatMap(transitiveCallers)
+
           val largerImpact = aCallers.size compare bCallers.size
           if (largerImpact != 0) largerImpact else {
             bIndex compare aIndex
