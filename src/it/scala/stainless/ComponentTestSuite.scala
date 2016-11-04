@@ -10,7 +10,7 @@ trait ComponentTestSuite extends inox.TestSuite {
     val reporter = new inox.TestSilentReporter
 
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = frontends.scalac.ScalaCompiler(ctx, files.toList ++ Build.libraryFiles)
+    val (structure, program) = frontends.scalac.ScalaCompiler(ctx, Build.libraryFiles ++ files.toList)
     val exProgram = component.extract(program)
 
     (for (u <- structure if u.isMain) yield (u.id.name, u.allFunctions(program.symbols)), exProgram)

@@ -6,7 +6,7 @@ package innerfuns
 
 trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
   val s: Trees
-  val t: extraction.Trees
+  val t: inlining.Trees
 
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._

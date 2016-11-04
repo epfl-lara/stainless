@@ -3,7 +3,7 @@
 package stainless
 package extraction
 
-package object innerfuns {
+package object inlining {
   
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
@@ -12,8 +12,8 @@ package object innerfuns {
     ) extends SimpleSymbols with AbstractSymbols
   }
 
-  object extractor extends FunctionClosure {
+  object extractor extends FunctionInlining {
     val s: trees.type = trees
-    val t: inlining.trees.type = inlining.trees
+    val t: extraction.trees.type = extraction.trees
   }
 }

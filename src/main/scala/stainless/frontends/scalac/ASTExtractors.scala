@@ -430,63 +430,6 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches an abstract class or a trait with no type parameters, no
-      * constructor args (in the case of a class), no implementation details,
-      * no abstract members. */
-    object ExAbstractClass {
-      def unapply(cd: ClassDef): Option[(String, Symbol, Template)] = cd match {
-        // abstract class
-        case ClassDef(_, name, tparams, impl) if cd.symbol.isAbstractClass => Some((name.toString, cd.symbol, impl))
-
-        case _ => None
-      }
-    }
-
-    /** Returns true if the class definition is a case class */
-    private def isCaseClass(cd: ClassDef): Boolean = {
-      cd.symbol.isCase && !cd.symbol.isAbstractClass && cd.impl.body.size >= 8
-    }
-
-    /** Returns true if the class definition is an implicit class */
-    private def isImplicitClass(cd: ClassDef): Boolean = {
-      cd.symbol.isImplicit
-    }
-
-    object ExCaseClass {
-      def unapply(cd: ClassDef): Option[(String,Symbol,Seq[(Symbol,ValDef)], Template)] = cd match {
-        case ClassDef(_, name, tparams, impl) if isCaseClass(cd) || isImplicitClass(cd) => {
-          val constructor: DefDef = impl.children.find {
-            case ExConstructorDef() => true
-            case _ => false
-          }.get.asInstanceOf[DefDef]
-
-          val valDefs = constructor.vparamss.flatten
-          //println("valDefs: " + valDefs)
-
-          //impl.children foreach println
-
-          val symbols = impl.children.collect {
-            case df@DefDef(_, name, _, _, _, _) if
-              df.symbol.isAccessor && df.symbol.isParamAccessor
-              && !name.endsWith("_$eq") => df.symbol
-          }
-          //println("symbols: " + symbols)
-          //println("symbols accessed: " + symbols.map(_.accessed))
-
-          //if (symbols.size != valDefs.size) {
-          //  println(" >>>>> " + cd.name)
-          //  symbols foreach println
-          //  valDefs foreach println
-          //}
-
-          val args = symbols zip valDefs
-
-          Some((name.toString, cd.symbol, args, impl))
-        }
-        case _ => None
-      }
-    }
-
     object ExCaseObject {
       def unapply(s: Select): Option[Symbol] = {
         if (s.tpe.typeSymbol.isModuleClass) {
@@ -761,7 +704,7 @@ trait ASTExtractors {
     object ExArrayUpdated {
       def unapply(tree: Apply): Option[(Tree,Tree,Tree)] = tree match {
         case Apply(
-              Apply(TypeApply(Select(Apply(ExSelected("scala", "Predef", s), Seq(lhs)), n), _), Seq(index, value)),
+              Apply(TypeApply(Select(Apply(ExSymbol("scala", "Predef", s), Seq(lhs)), n), _), Seq(index, value)),
               List(Apply(_, _))) if (s.toString contains "Array") && (n.toString == "updated") => Some((lhs, index, value))
         case _ => None
       }

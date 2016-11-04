@@ -99,7 +99,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         .foldLeft((symbols, Map.empty[Identifier, FunOverride])) {
           case ((symbols, mapping), (_, _, _: ValOverride)) => (symbols, mapping)
           case ((symbols, mapping), (cd, sym, o: FunOverride)) =>
-            val fs = funs(o).toSeq
+            val fs = funs(o).toList
             val optInv = fs.filter(p => symbols.getFunction(p._1).flags contains IsInvariant) match {
               case ((id, _)) :: rest if o.fid.isEmpty => Some(new FunDef(
                 id.freshen,
@@ -116,7 +116,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
             val optCd = optInv.map(fd => cd.copy(flags = cd.flags + HasADTInvariant(fd.id)))
             val newSymbols = symbols.withFunctions(optInv.toSeq).withClasses(optCd.toSeq)
-            val newMapping = mapping ++ fs
+            val newMapping = mapping ++ fs ++ optInv.map(fd => fd.id -> o.copy(fid = Some(fd.id)))
 
             (newSymbols, newMapping)
         }
@@ -155,7 +155,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    def makeFunction(cid: Identifier, fid: Identifier, children: Set[Override]): t.FunDef = {
+    def makeFunction(cid: Identifier, fid: Identifier, cos: Set[Override]): t.FunDef = {
       val fd = newSymbols.getFunction(fid)
       val tparamsSeq = newSymbols.getClass(cid).tparams.map(tp => tp -> tp.freshen)
       val adtTparams = tparamsSeq.map(_._2)
@@ -179,7 +179,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       val pre = conditionFor(cid, arg.toVariable)
 
-      val subCalls = (for (co <- children.toSeq) yield {
+      val subCalls = (for (co <- cos.toSeq) yield {
         firstOverrides(co).toSeq.map { case (cid, either) =>
           val thiss = if (aid != cid && classToConstructors(cid) == Set(cid)) {
             t.AsInstanceOf(arg.toVariable, t.ADTType(cid, tps))
@@ -200,13 +200,20 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       val returnType = transformer.transform(fd.returnType)
 
-      def fullyOverrides(o: Override): Boolean = o match {
-        case FunOverride(_, Some(_), _) => true
-        case FunOverride(_, _, children) => children.forall(fullyOverrides)
-        case ValOverride(_, _) => true
+      val notFullyOverriden: Boolean = {
+        def rec(o: Override): Boolean = o match {
+          case FunOverride(_, Some(_), _) => true
+          case FunOverride(_, _, children) => children.forall(rec)
+          case ValOverride(_, _) => true
+        }
+
+        val coMap = cos.map(co => co.cid -> co).toMap
+        children.getOrElse(cid, Set.empty).exists {
+          ccid => !(coMap contains ccid) || !rec(coMap(ccid))
+        }
       }
 
-      val (conds, elze) = if (subCalls.isEmpty || children.exists(co => !fullyOverrides(co))) {
+      val (conds, elze) = if (subCalls.isEmpty || notFullyOverriden) {
         val elze = fd.body(newSymbols) match {
           case Some(body) => transformer.transform(body)
           case None => t.NoTree(returnType)
@@ -217,10 +224,10 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         (conds, elze)
       }
 
-      val precondition = exprOps.preconditionOf(fd.fullBody) match {
+      val precondition = (exprOps.preconditionOf(fd.fullBody) match {
         case Some(p) => Some(t.And(transformer.transform(p), pre))
         case None => Some(pre)
-      }
+      }).filterNot(_ == t.BooleanLiteral(true))
 
       val body = conds.foldRight(elze) { case ((cond, res), elze) => t.IfExpr(cond, res, elze) }
       val postcondition = exprOps.postconditionOf(fd.fullBody).map(transformer.transform)
@@ -278,6 +285,14 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         transformer.transform(fd)
       }).toSeq
 
-    t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)
+    val res = t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)
+
+    for (fd <- res.functions.values) {
+      if (fd.fullBody.getType(res) == t.Untyped) {
+        println(res.explainTyping(fd.fullBody)(t.PrinterOptions(printUniqueIds = true, symbols = Some(res))))
+      }
+    }
+
+    res
   }
 }

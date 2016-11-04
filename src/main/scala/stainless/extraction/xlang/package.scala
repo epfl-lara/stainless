@@ -26,7 +26,7 @@ package object xlang {
 
     def transformFunction(fd: s.FunDef): t.FunDef = transformer.transform(fd.copy(
       flags = fd.flags.filter {
-        case s.IsField(_) | s.Ignore | s.Inline => false
+        case s.IsField(_) | s.Ignore => false
         case _ => true
       }))
 

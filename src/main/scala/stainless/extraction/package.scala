@@ -11,8 +11,9 @@ package stainless
   * types that can appear once extraction and pre-processing has finished.
   *
   * The hierarhcy is
-  *   extraction < innerfuns < imperative < holes < oo < xlang
+  *   extraction < inlining < innerfuns < imperative < holes < oo < xlang
   *
+  * Inlining adds support for function inlining.
   * Innerfuns adds inner functions.
   * Imperative adds imperative features.
   * Holes adds the hole (???) synthesis construct.
@@ -60,5 +61,6 @@ package object extraction {
       oo.extractor         andThen
       holes.extractor      andThen
       imperative.extractor andThen
-      innerfuns.extractor
+      innerfuns.extractor  andThen
+      inlining.extractor
 }

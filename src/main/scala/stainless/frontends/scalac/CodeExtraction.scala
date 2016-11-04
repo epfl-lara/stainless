@@ -102,11 +102,16 @@ trait CodeExtraction extends ASTExtractors {
       (for {
         a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
         name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
-        if name startsWith "stainless.annotation."
-        shortName = name drop "stainless.annotation.".length
       } yield {
-        xt.extractFlag(shortName, a.args.map(extractTree(_)(DefContext())))
-      }).toSet
+        if (name startsWith "stainless.annotation.") {
+          val shortName = name drop "stainless.annotation.".length
+          Some(xt.extractFlag(shortName, a.args.map(extractTree(_)(DefContext()))))
+        } else if (name == "inline") {
+          Some(xt.extractFlag(name, a.args.map(extractTree(_)(DefContext()))))
+        } else {
+          None
+        }
+      }).flatten.toSet
     }
 
     case class DefContext(
@@ -225,7 +230,9 @@ trait CodeExtraction extends ASTExtractors {
         case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
           // ignore (can't be @ignored because of the dotty compiler)
 
-        case ExConstructorDef() =>
+        case ExConstructorDef() 
+           | ExLazyFieldDef()
+           | ExFieldAccessorFunction() =>
           // ignore
 
         case i @ Import(_, _) =>
@@ -691,7 +698,7 @@ trait CodeExtraction extends ASTExtractors {
           extractTree(x)(vctx)
 
         case x :: _ =>
-          outOfSubsetError(x, "Unexpected head of block")
+          outOfSubsetError(x, "Unexpected head of block " + es)
       }
 
       rec(es)
@@ -1003,7 +1010,11 @@ trait CodeExtraction extends ASTExtractors {
 
         case Some(lhs) => extractType(lhs) match {
           case ct: xt.ClassType =>
-            if (sym.accessedOrSelf.isMethod || sym.owner.isAbstract) xt.MethodInvocation(
+            val isMethod = sym.isMethod &&
+              !sym.isCaseAccessor && !sym.accessedOrSelf.isCaseAccessor &&
+              !(sym.isAccessor && sym.owner.isImplicit)
+
+            if (isMethod) xt.MethodInvocation(
               extractTree(lhs),
               getIdentifier(sym),
               tps.map(extractType),
@@ -1039,6 +1050,9 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.ArrayType(_), "updated", Seq(index, value)) => xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
             case (xt.ArrayType(_), "clone",   Seq())             => extractTree(lhs)
 
+            case (xt.MapType(_, _), "get", Seq(rhs)) =>
+              xt.MapApply(extractTree(lhs), extractTree(rhs))
+
             case (xt.MapType(_, xt.ClassType(_, Seq(to))), "apply", Seq(rhs)) =>
               val (l, r) = (extractTree(lhs), extractTree(rhs))
               val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos)
@@ -1052,13 +1066,13 @@ trait CodeExtraction extends ASTExtractors {
               )
 
             case (xt.MapType(_, xt.ClassType(_, Seq(to))), "isDefinedAt" | "contains", Seq(rhs)) =>
-              xt.Equals(
+              xt.Not(xt.Equals(
                 xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
                 xt.ClassConstructor(
                   xt.ClassType(getIdentifier(noneSymbol).setPos(tr.pos), Seq(to)),
                   Seq()
                 ).setPos(tr.pos)
-              )
+              ).setPos(tr.pos))
 
             case (xt.MapType(_, xt.ClassType(_, Seq(to))), "updated" | "+", Seq(key, value)) =>
               xt.MapUpdated(
@@ -1089,6 +1103,14 @@ trait CodeExtraction extends ASTExtractors {
                 case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
               }
 
+            case (xt.MapType(_, xt.ClassType(_, Seq(to))), "getOrElse", Seq(key, orElse)) =>
+              xt.MethodInvocation(
+                xt.MapApply(extractTree(lhs), extractTree(key)).setPos(tr.pos),
+                getIdentifier(optionSymbol.tpe.member(TermName("getOrElse"))),
+                Seq.empty,
+                Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
+              )
+
             case (_, "-",   Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
             case (_, "*",   Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
             case (_, "%",   Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
@@ -1117,7 +1139,7 @@ trait CodeExtraction extends ASTExtractors {
       }
 
       // default behaviour is to complain :)
-      case _ => outOfSubsetError(tr, "Could not extract as (Scala tree of type "+tr.getClass+")")
+      case _ => outOfSubsetError(tr, "Could not extract " + tr + " (Scala tree of type "+tr.getClass+")")
     }).setPos(tr.pos)
 
     private def extractType(t: Tree)(implicit dctx: DefContext): xt.Type = {

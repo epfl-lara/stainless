@@ -4,7 +4,7 @@ package stainless
 package extraction
 package innerfuns
 
-trait Trees extends extraction.Trees { self =>
+trait Trees extends inlining.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda)
 
@@ -66,7 +66,7 @@ trait Trees extends extraction.Trees { self =>
   } with ExprOps
 }
 
-trait TreeDeconstructor extends extraction.TreeDeconstructor {
+trait TreeDeconstructor extends inlining.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 

@@ -8,11 +8,9 @@ trait Trees extends oo.Trees { self =>
 
   case class IsField(isLazy: Boolean) extends Flag("field", Seq(isLazy))
   case object Ignore extends Flag("ignore", Seq.empty)
-  case object Inline extends Flag("inline", Seq.empty)
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
     case ("ignore", Seq()) => Ignore
-    case ("inline", Seq()) => Inline
     case ("extern", Seq()) => Extern
     case _ => super.extractFlag(name, args)
   }
@@ -117,9 +115,7 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
     case s.IsField(b) => (Seq(), Seq(), (_, _) => t.IsField(b))
-    case s.IsAbstract => (Seq(), Seq(), (_, _) => t.IsAbstract)
     case s.Ignore => (Seq(), Seq(), (_, _) => t.Ignore)
-    case s.Inline => (Seq(), Seq(), (_, _) => t.Inline)
     case _ => super.deconstruct(f)
   }
 }

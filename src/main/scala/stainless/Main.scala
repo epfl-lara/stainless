@@ -30,7 +30,7 @@ object Main extends inox.MainHelpers {
 
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
-    val compilerArgs = args.toList.filterNot(_.startsWith("--")) ++ Build.libraryFiles
+    val compilerArgs = Build.libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
     val (structure, program) = frontends.scalac.ScalaCompiler(inoxCtx, compilerArgs)
 
