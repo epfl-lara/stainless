@@ -11,7 +11,7 @@ object AndTest {
    def precond(y : BigInt) = y < 0
 
    /**
-    * Leon should find a counter-example here.
+    * Stainless should find a counter-example here.
    **/
    def foo(y: BigInt) : Boolean = {
      require(precond(y))
