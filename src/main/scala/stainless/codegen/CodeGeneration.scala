@@ -501,10 +501,10 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case Let(vd, d, v) if vd.toVariable == v => // Optimization for local variables.
       mkExpr(d, ch)
-      
+
     case Let(vd, d, Let(vd2, v, v2)) if vd.toVariable == v && vd2.toVariable == v2 => // Optimization for local variables.
       mkExpr(d, ch)
-      
+
     case Let(vd,d,b) =>
       mkExpr(d, ch)
       val slot = ch.getFreshVar
@@ -686,8 +686,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
     // Maps
     case FiniteMap(ss, dflt, _, _) =>
-      mkExpr(dflt, ch)
       ch << New(MapClass) << DUP
+      mkBoxedExpr(dflt, ch)
       ch << InvokeSpecial(MapClass, constructorName, s"(L$ObjectClass;)V")
       for((f,t) <- ss) {
         ch << DUP
@@ -879,18 +879,19 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << InvokeVirtual(BitVectorClass, "mod", s"(L$BitVectorClass;)L$BitVectorClass;")
       }
 
-    case UMinus(e) => e.getType match {
-      case IntegerType =>
-        mkExpr(e, ch)
-        ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
-      case Int32Type =>
-        mkExpr(e, ch)
-        ch << INEG
-      case BVType(_) =>
-        ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
-      case RealType =>
-        ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
-    }
+    case UMinus(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case IntegerType =>
+          ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
+        case Int32Type =>
+          mkExpr(e, ch)
+          ch << INEG
+        case BVType(_) =>
+          ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
+        case RealType =>
+          ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
+      }
 
     case BVNot(e) =>
       mkExpr(e, ch)
@@ -1278,7 +1279,7 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << If_ICmpEq(thenn) << Goto(elze)
 
         case _ =>
-          ch << InvokeVirtual(s"$ObjectClass", "equals", s"(L$ObjectClass;)Z")
+          ch << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z")
           ch << IfEq(elze) << Goto(thenn)
       }
 
