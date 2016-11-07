@@ -44,27 +44,24 @@ trait ProcessingPipeline extends TerminationChecker { self =>
     val t: stainless.trees.type
   }
 
-  object programEncoder extends {
-    val sourceProgram: program.type = program
-    val t: stainless.trees.type = stainless.trees
-  } with inox.ast.ProgramEncoder {
-    val encoder = self.encoder
-    object decoder extends ast.TreeTransformer {
-      val s: stainless.trees.type = stainless.trees
-      val t: program.trees.type = program.trees
-    }
-  }
-
-  protected def getSolver(p: StainlessProgram, opts: inox.Options): inox.solvers.SolverFactory {
-    val program: p.type
-    type S <: inox.solvers.combinators.TimeoutSolver { val program: p.type }
-  } = solvers.SolverFactory(p, opts).withTimeout(1.seconds)
-
   private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
+    val transformEncoder = inox.ast.ProgramEncoder(program)(transformer)
+    val programEncoder = transformEncoder andThen (new {
+      val sourceProgram: transformEncoder.targetProgram.type = transformEncoder.targetProgram
+      val t: stainless.trees.type = stainless.trees
+    } with inox.ast.ProgramEncoder {
+      val encoder = self.encoder
+      object decoder extends ast.TreeTransformer {
+        val s: stainless.trees.type = stainless.trees
+        val t: trees.type = trees
+      }
+    })
+
     solvers.SolverFactory.getFromSettings(program, options)(
       inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
         evaluators.Evaluator(programEncoder.targetProgram, options)
-      ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram))
+      ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram)
+    ).withTimeout(1.seconds)
   }
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
@@ -273,9 +270,18 @@ trait ProcessingPipeline extends TerminationChecker { self =>
     }
 
     for ((reason, results) <- it; result <- results) result match {
-      case Cleared(fd) => clearedMap(fd) = reason
-      case Broken(fd, args) => brokenMap(fd) = (reason, args)
-      case MaybeBroken(fd, args) => maybeBrokenMap(fd) = (reason, args)
+      case Cleared(fd) =>
+        reporter.info(s"Result for ${fd.id}")
+        reporter.info(s" => CLEARED ($reason)")
+        clearedMap(fd) = reason
+      case Broken(fd, args) =>
+        reporter.info(s"Result for ${fd.id}")
+        reporter.info(s" => BROKEN (for call ${fd.id}(${args.map(_.asString).mkString(",")})")
+        brokenMap(fd) = (reason, args)
+      case MaybeBroken(fd, args) =>
+        reporter.info(s"Result for ${fd.id}")
+        reporter.info(s" => MAYBE BROKEN (for call ${fd.id}(${args.map(_.asString).mkString(",")})")
+        maybeBrokenMap(fd) = (reason, args)
     }
 
     terminationProblems.flatMap(_.funDefs).toSet

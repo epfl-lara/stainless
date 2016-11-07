@@ -25,19 +25,39 @@ object MergeSort2 {
         else Cons(y, merge(l1, ys))
       case _ => l1 ++ l2
     }
-  } ensuring (res => isSorted(res) && bag(res) == bag(l1) ++ bag(l2))
+  } ensuring { res =>
+    isSorted(res) &&
+    bag(res) == bag(l1) ++ bag(l2) &&
+    res.size == l1.size + l2.size
+  }
 
-  def split(list: List[BigInt]): (List[BigInt], List[BigInt]) = (list match {
-    case Cons(x1, Cons(x2, xs)) =>
-      val (s1, s2) = split(xs)
-      (Cons(x1, s1), Cons(x2, s2))
-    case _ => (list, Nil[BigInt]())
-  }) ensuring (res => bag(res._1) ++ bag(res._2) == bag(list))
+  def split(list: List[BigInt]): (List[BigInt], List[BigInt]) = {
+    require(list.size > 1)
+    list match {
+      case Cons(x, xs) if xs.size <= 2 =>
+        (List(x), xs)
+      case Cons(x1, Cons(x2, xs)) =>
+        val (s1, s2) = split(xs)
+        (Cons(x1, s1), Cons(x2, s2))
+    }
+  } ensuring { res =>
+    bag(res._1) ++ bag(res._2) == bag(list) &&
+    res._1.size + res._2.size == list.size &&
+    res._1.size > 0 &&
+    res._2.size > 0
+  }
 
-  def mergeSort(list: List[BigInt]): List[BigInt] = (list match {
-    case Cons(_, Cons(_, _)) =>
-      val (s1, s2) = split(list)
-      merge(mergeSort(s1), mergeSort(s2))
-    case _ => list
-  }) ensuring (res => isSorted(res) && bag(res) == bag(list))
+  def mergeSort(list: List[BigInt]): List[BigInt] = {
+    decreases(list.size)
+    list match {
+      case Cons(_, Cons(_, _)) =>
+        val (s1, s2) = split(list)
+        merge(mergeSort(s1), mergeSort(s2))
+      case _ => list
+    }
+  } ensuring { res =>
+    isSorted(res) &&
+    bag(res) == bag(list) &&
+    res.size == list.size
+  }
 }

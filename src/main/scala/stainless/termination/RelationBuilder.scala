@@ -40,6 +40,7 @@ trait RelationBuilder { self: Strengthener =>
           //      a transformed program. However, special care would need to be taken to make sure
           //      FunDef pointers make sense, so I'm keeping this hacky solution for know.
           case FunctionInvocation(id, tps, args) =>
+            accumulate(e, path)
             val funDef = getFunction(id)
             FunctionInvocation(id, tps, (funDef.params.map(_.id) zip args) map { case (id, arg) =>
               rec(arg, path withCond self.applicationConstraint(funDef, id, arg, args))

@@ -285,14 +285,6 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         transformer.transform(fd)
       }).toSeq
 
-    val res = t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)
-
-    for (fd <- res.functions.values) {
-      if (fd.fullBody.getType(res) == t.Untyped) {
-        println(res.explainTyping(fd.fullBody)(t.PrinterOptions(printUniqueIds = true, symbols = Some(res))))
-      }
-    }
-
-    res
+    t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)
   }
 }

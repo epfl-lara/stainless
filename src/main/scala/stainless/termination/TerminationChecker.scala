@@ -26,7 +26,6 @@ trait TerminationChecker {
 
   case class LoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
   case class MaybeLoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
-
   case class CallsNonTerminating(calls: Set[FunDef]) extends NonTerminating
 
   case object NoGuarantee extends TerminationGuarantee {
@@ -35,92 +34,91 @@ trait TerminationChecker {
 }
 
 object TerminationChecker {
-  def apply(p: TerminationProgram, opts: inox.Options): TerminationChecker { val program: p.type } = {
-    new ProcessingPipeline { self =>
-      val program: p.type = p
-      val options = opts
-      import p.trees._
+  def apply(p: TerminationProgram, opts: inox.Options): TerminationChecker { val program: p.type } = new {
+    val program: p.type = p
+    val options = opts
+  } with ProcessingPipeline { self =>
+    import p.trees._
 
-      object encoder extends {
-        val s: p.trees.type = p.trees
-        val t: stainless.trees.type = stainless.trees
-      } with ast.TreeTransformer {
-        override def transform(e: s.Expr): t.Expr = e match {
-          case s.Decreases(measure, body) => transform(body)
-          case _ => super.transform(e)
-        }
+    object encoder extends {
+      val s: p.trees.type = p.trees
+      val t: stainless.trees.type = stainless.trees
+    } with ast.TreeTransformer {
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.Decreases(measure, body) => transform(body)
+        case _ => super.transform(e)
       }
-
-      object integerOrdering extends {
-        val checker: self.type = self
-      } with SumOrdering
-        with StructuralSize
-        with Strengthener
-        with RelationBuilder
-        with ChainBuilder
-
-      object lexicographicOrdering extends {
-        val checker: self.type = self
-      } with LexicographicOrdering
-        with StructuralSize
-        with Strengthener
-        with RelationBuilder
-
-      object bvOrdering extends {
-        val checker: self.type = self
-      } with BVOrdering
-        with StructuralSize
-        with Strengthener
-        with RelationBuilder
-
-      object recursionProcessor extends {
-        val checker: self.type = self
-        val builder: integerOrdering.type = integerOrdering
-      } with RecursionProcessor
-
-      object selfCallsProcessor extends {
-        val checker: self.type = self
-      } with SelfCallsProcessor
-
-      object decreasesProcessor extends {
-        val checker: self.type = self
-      } with DecreasesProcessor
-
-      object integerProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with RelationProcessor
-
-      object lexicographicProcessor extends {
-        val checker: self.type = self
-        val ordering: lexicographicOrdering.type = lexicographicOrdering
-      } with RelationProcessor
-
-      object bvProcessor extends {
-        val checker: self.type = self
-        val ordering: bvOrdering.type = bvOrdering
-      } with RelationProcessor
-
-      object chainProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with ChainProcessor
-
-      object loopProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with LoopProcessor
-
-      val processors = List(
-        recursionProcessor,
-        selfCallsProcessor,
-        decreasesProcessor,
-        integerProcessor,
-        lexicographicProcessor,
-        bvProcessor,
-        chainProcessor,
-        loopProcessor
-      )
     }
+
+    object integerOrdering extends {
+      val checker: self.type = self
+    } with SumOrdering
+      with StructuralSize
+      with Strengthener
+      with RelationBuilder
+      with ChainBuilder
+
+    object lexicographicOrdering extends {
+      val checker: self.type = self
+    } with LexicographicOrdering
+      with StructuralSize
+      with Strengthener
+      with RelationBuilder
+
+    object bvOrdering extends {
+      val checker: self.type = self
+    } with BVOrdering
+      with StructuralSize
+      with Strengthener
+      with RelationBuilder
+
+    object recursionProcessor extends {
+      val checker: self.type = self
+      val builder: integerOrdering.type = integerOrdering
+    } with RecursionProcessor
+
+    object selfCallsProcessor extends {
+      val checker: self.type = self
+    } with SelfCallsProcessor
+
+    object decreasesProcessor extends {
+      val checker: self.type = self
+    } with DecreasesProcessor
+
+    object integerProcessor extends {
+      val checker: self.type = self
+      val ordering: integerOrdering.type = integerOrdering
+    } with RelationProcessor
+
+    object lexicographicProcessor extends {
+      val checker: self.type = self
+      val ordering: lexicographicOrdering.type = lexicographicOrdering
+    } with RelationProcessor
+
+    object bvProcessor extends {
+      val checker: self.type = self
+      val ordering: bvOrdering.type = bvOrdering
+    } with RelationProcessor
+
+    object chainProcessor extends {
+      val checker: self.type = self
+      val ordering: integerOrdering.type = integerOrdering
+    } with ChainProcessor
+
+    object loopProcessor extends {
+      val checker: self.type = self
+      val ordering: integerOrdering.type = integerOrdering
+    } with LoopProcessor
+
+    val processors = List(
+      recursionProcessor,
+      selfCallsProcessor,
+      decreasesProcessor,
+      integerProcessor,
+      lexicographicProcessor,
+      bvProcessor,
+      chainProcessor,
+      loopProcessor
+    )
   }
 }

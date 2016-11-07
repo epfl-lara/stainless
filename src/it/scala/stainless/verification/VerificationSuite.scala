@@ -30,7 +30,7 @@ class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
     }
   }
 
-  protected def testValid() = mkTests("valid") { output =>
+  mkTests("valid") { output =>
     val Output(report, reporter) = output 
     for ((vc, vr) <- report.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
@@ -39,27 +39,8 @@ class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
     reporter.terminateIfError()
   }
 
-  protected def testInvalid() = mkTests("invalid") { output =>
+  mkTests("invalid") { output =>
     val Output(report, _) = output
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
-  }
-
-  protected def testUnknown() = mkTests("unknown") { output =>
-    val Output(report, reporter) = output
-    for ((vc, vr) <- report.vrs if vr.isInvalid)
-      fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-    assert(report.totalUnknown > 0, "There should be at least one unknown verification condition.")
-    reporter.terminateIfError()
-  }
-
-  protected def testAll() = {
-    testValid()
-    testInvalid()
-    testUnknown()
-  }
-
-  override def run(testName: Option[String], args: Args): Status = {
-    testAll()
-    super.run(testName, args)
   }
 }

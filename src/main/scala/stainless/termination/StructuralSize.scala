@@ -7,17 +7,23 @@ import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 trait StructuralSize {
 
-  val checker: TerminationChecker
+  val checker: ProcessingPipeline
   import checker.program.trees._
   import checker.program.symbols._
   import dsl._
 
   private val functions: ListBuffer[FunDef] = new ListBuffer[FunDef]
-  def sizeFunctions: Seq[FunDef] = functions.toSeq
+
+  checker.registerTransformer(new inox.ast.SymbolTransformer {
+    val s: trees.type = trees
+    val t: trees.type = trees
+
+    def transform(s: Symbols): Symbols = s.withFunctions(functions.toSeq)
+  })
 
   /* Absolute value for BigInt type
    *
-   * def absBigInt(x: BigInt): BigInt = if (x >= 0) x else -x
+   * def integerAbs(x: BigInt): BigInt = if (x >= 0) x else -x
    */
   val integerAbs: TypedFunDef = mkFunDef(FreshIdentifier("integerAbs"))()(_ => (
     Seq("x" :: IntegerType), IntegerType, { case Seq(x) =>
@@ -36,7 +42,7 @@ trait StructuralSize {
    * To avoid -Integer.MIN_VALUE overflow, we use negative absolute value
    * for bitvector integers.
    *
-   * def absBV(x: BV): BV = if (x >= 0) -x else x
+   * def bvAbs(x: BV): BV = if (x >= 0) -x else x
    */
   def bvAbs(tpe: BVType): TypedFunDef = bvCache.getOrElseUpdate(tpe, {
     val tfd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ => (
@@ -59,25 +65,25 @@ trait StructuralSize {
    * through SMT solvers is waaaaay too slow. Recursivity requires the
    * postcondition for verification efforts to succeed.
    *
-   * def absBV(x: BV): BigInt = (if (x == 0) {
+   * def bvAbs2Integer(x: BV): BigInt = (if (x == 0) {
    *   BigInt(0)
    * } else if (x > 0) {
-   *   1 + absBV(x - 1)
+   *   1 + bvAbs2Integer(x - 1)
    * } else {
-   *   1 + absBV(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
+   *   1 + bvAbs2Integer(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
    * }) ensuring (_ >= 0)
    */
   def bvAbs2Integer(tpe: BVType): TypedFunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
-    val funID = FreshIdentifier("intAbs2Integer")
+    val funID = FreshIdentifier("bvAbs2Integer$" + tpe.size)
     val tfd = mkFunDef(funID)()(_ => (
       Seq("x" :: Int32Type), IntegerType, { case Seq(x) =>
         Ensuring(if_ (x === E(0)) {
           E(BigInt(0))
         } else_ {
           if_ (x > E(0)) {
-            E(BigInt(1)) + E(funID)()(x - E(1))
+            E(BigInt(1)) + E(funID)(x - E(1))
           } else_ {
-            E(BigInt(1)) + E(funID)()(-(x + E(1)))
+            E(BigInt(1)) + E(funID)(-(x + E(1)))
           }
         }, \("res" :: IntegerType)(res => res >= E(BigInt(0))))
       })).typed
@@ -94,7 +100,8 @@ trait StructuralSize {
    */
   def fullSize(expr: Expr): Expr = expr.getType match {
     case (adt: ADTType) =>
-      val rootType = adt.getADT.root.toType
+      val root = adt.getADT.definition.root
+      val rootType = root.typed.toType
       val fid = fullCache.get(rootType) match {
         case Some(id) => id
         case None =>
@@ -102,23 +109,22 @@ trait StructuralSize {
           fullCache += rootType -> id
 
           // we want to reuse generic size functions for sub-types
-          val definition = rootType.getADT.definition
-          val tparams = definition.tparams.map(_.tp)
+          val tparams = root.tparams.map(_.tp)
 
           val v = Variable(FreshIdentifier("x"), rootType)
           functions += new FunDef(
             id,
-            definition.tparams,
+            root.tparams,
             Seq(v.toVal),
             IntegerType,
-            Ensuring(MatchExpr(v, (definition match {
+            Ensuring(MatchExpr(v, (root match {
               case sort: ADTSort => sort.constructors
               case cons: ADTConstructor => Seq(cons)
             }).map { cons =>
               val arguments = cons.fields.map(_.freshen)
               val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft[Expr](IntegerLiteral(1))(_ + _)
-              MatchCase(ADTPattern(None, rootType, argumentPatterns), None, rhs)
+              MatchCase(ADTPattern(None, cons.typed(tparams).toType, argumentPatterns), None, rhs)
             }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
             Set.empty
           )
