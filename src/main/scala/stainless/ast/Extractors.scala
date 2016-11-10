@@ -45,6 +45,8 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), Seq(body, pred), Seq(), (_, es, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
     case s.Assert(pred, error, body) =>
       (Seq(), Seq(pred, body), Seq(), (_, es, _) => t.Assert(es(0), error, es(1)))
+    case s.Pre(f) =>
+      (Seq(), Seq(f), Seq(), (_, es, _) => t.Pre(es.head))
 
     case s.MatchExpr(scrut, cases) =>
 

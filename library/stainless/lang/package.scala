@@ -27,13 +27,42 @@ package object lang {
       if (underlying) that else true
     }
   }
+
   @inline def because(b: Boolean) = b
-  
+
   @ignore def forall[A](p: A => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B](p: (A,B) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B,C](p: (A,B,C) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B,C,D](p: (A,B,C,D) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B,C,D,E](p: (A,B,C,D,E) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
+
+  implicit class FunctionSpecs1[A,R](f: A => R) {
+    @ignore def pre: A => Boolean = sys.error("Can't execute first-class contract")
+    def requires(p: A => Boolean): Boolean = forall((a: A) => p(a) ==> f.pre(a))
+    def ensures(p: (A,R) => Boolean): Boolean = forall((a: A) => f.pre(a) ==> p(a,f(a)))
+  }
+
+  implicit class FunctionSpecs2[A,B,R](f: (A,B) => R) {
+    @ignore def pre: (A,B) => Boolean = sys.error("Can't execute first-class contract")
+    def requires(p: (A,B) => Boolean): Boolean = forall((a: A, b: B) => p(a,b) ==> f.pre(a,b))
+    def ensures(p: (A,B,R) => Boolean): Boolean = forall((a: A, b: B) => f.pre(a,b) ==> p(a,b,f(a,b)))
+  }
+
+  implicit class FunctionSpecs3[A,B,C,R](f: (A,B,C) => R) {
+    @ignore def pre: (A,B,C) => Boolean = sys.error("Can't execute first-class contract")
+    def requires(p: (A,B,C) => Boolean): Boolean =
+      forall((a: A, b: B, c: C) => p(a,b,c) ==> f.pre(a,b,c))
+    def ensures(p: (A,B,C,R) => Boolean): Boolean =
+      forall((a: A, b: B, c: C) => f.pre(a,b,c) ==> p(a,b,c,f(a,b,c)))
+  }
+
+  implicit class FunctionSpecs4[A,B,C,D,R](f: (A,B,C,D) => R) {
+    @ignore def pre: (A,B,C,D) => Boolean = sys.error("Can't execute first-class contract")
+    def requires(p: (A,B,C,D) => Boolean): Boolean =
+      forall((a: A, b: B, c: C, d: D) => p(a,b,c,d) ==> f.pre(a,b,c,d))
+    def ensures(p: (A,B,C,D,R) => Boolean): Boolean =
+      forall((a: A, b: B, c: C, d: D) => f.pre(a,b,c,d) ==> p(a,b,c,d,f(a,b,c,d)))
+  }
 
   @ignore def decreases(rank: BigInt): Unit = ()
   @ignore def decreases(rank: (BigInt, BigInt)): Unit = ()
