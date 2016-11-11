@@ -1,0 +1,3 @@
+-J-Xss64M
+-J-Xms1024M
+-J-Xmx8G

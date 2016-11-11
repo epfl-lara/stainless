@@ -87,7 +87,10 @@ trait InoxEncoder extends ProgramEncoder {
         throw new inox.FatalError("Unexpected empty tree: " + e)
 
       case s.Error(tpe, desc) =>
-        t.Variable(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e)
+        t.Choose(
+          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e),
+          t.BooleanLiteral(false).copiedFrom(e)
+        )
 
       case s.Require(pred, body) =>
         t.Assume(transform(pred), transform(body)).copiedFrom(e)
@@ -139,12 +142,7 @@ trait InoxEncoder extends ProgramEncoder {
 
       case s.Application(caller, args) => caller.getType match {
         case s.FunctionType(from, to) if from.nonEmpty =>
-          val tcaller = transform(caller)
-          val targs = args map transform
-          t.Assume(
-            t.Application(t.ADTSelector(tcaller, pres(from.size)), targs),
-            t.Application(t.ADTSelector(tcaller, fs(from.size)), targs)
-          )
+          t.Application(t.ADTSelector(transform(caller), fs(from.size)), args map transform)
 
         case _ => super.transform(e)
       }

@@ -273,4 +273,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       case b => path withShared (Seq(b), spec)
     }
   }
+
+
+  /* ====================
+   * Weakest precondition
+   * ==================== */
+
+  def weakestPrecondition(e: Expr): Expr = e
 }

@@ -6,6 +6,10 @@ trait ComponentTestSuite extends inox.TestSuite {
 
   val component: SimpleComponent
 
+  override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
+    Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(150))
+  )
+
   def extract(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
     val reporter = new inox.TestSilentReporter
 

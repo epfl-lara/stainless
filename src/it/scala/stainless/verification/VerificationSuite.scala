@@ -7,9 +7,9 @@ import org.scalatest._
 
 class VerificationSuite extends ComponentTestSuite with inox.ResourceUtils {
 
-  override val configurations = Seq(
-    Seq(optFailEarly(true))
-  )
+  override def configurations = super.configurations.map {
+    seq => optFailEarly(true) +: seq
+  }
 
   val component = VerificationComponent
 
