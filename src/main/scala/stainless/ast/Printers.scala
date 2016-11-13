@@ -31,6 +31,9 @@ trait Printers extends inox.ast.Printers { self: Trees =>
           |  $post
           |}"""
 
+    case Pre(f) =>
+      p"$f.pre"
+
     case MatchExpr(s, cases) =>
       optP {
         p"""|$s match {

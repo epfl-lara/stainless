@@ -234,6 +234,21 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda])
   }
 
+  def funRequires(f: Expr, p: Expr) = {
+    val FunctionType(from, to) = f.getType
+    assert(from.nonEmpty, "Can't build `requires` for function without arguments")
+    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+    val vars = vds.map(_.toVariable)
+    Forall(vds, Implies(Application(p, vars), Application(Pre(f), vars)))
+  }
+
+  def funEnsures(f: Expr, p: Expr) = {
+    val FunctionType(from, to) = f.getType
+    assert(from.nonEmpty, "Can't build `ensures` for function without arguments")
+    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+    val vars = vds.map(_.toVariable)
+    Forall(vds, Implies(Application(Pre(f), vars), Application(p, vars :+ Application(f, vars))))
+  }
 
   /* =================
    * Path manipulation
@@ -279,5 +294,41 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
    * Weakest precondition
    * ==================== */
 
-  def weakestPrecondition(e: Expr): Expr = e
+  def weakestPrecondition(e: Expr): Expr = {
+    object injector extends verification.AssertionInjector {
+      val s: trees.type = trees
+      val t: trees.type = trees
+      val symbols: self.symbols.type = self.symbols
+    }
+
+    val withAssertions = injector.transform(e)
+
+    object collector extends transformers.CollectorWithPC {
+      val trees: self.trees.type = self.trees
+      val symbols: self.symbols.type = self.symbols
+      type Result = Expr
+
+      override protected def rec(e: Expr, path: Path): Expr = e match {
+        case _: Lambda => e
+        case _ => super.rec(e, path)
+      }
+
+      protected def step(e: Expr, path: Path): List[Expr] = e match {
+        case Assert(pred, _, _) => List(path implies pred)
+        case Require(pred, _) => List(path implies pred)
+
+        case fi @ FunctionInvocation(_, _, args) =>
+          val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
+          List(path implies pred)
+
+        case Application(caller, args) =>
+          List(path implies Application(Pre(caller), args))
+
+        case _ => Nil
+      }
+    }
+
+    val conditions = collector.collect(withAssertions)
+    andJoin(conditions)
+  }
 }

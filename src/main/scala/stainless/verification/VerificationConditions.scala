@@ -8,24 +8,6 @@ import inox.solvers.Solver
 /** This is just to hold some history information. */
 case class VC[T <: ast.Trees](condition: T#Expr, fd: Identifier, kind: VCKind) extends inox.utils.Positioned
 
-/*
-case class VC(condition: Expr, fd: FunDef, kind: VCKind) extends Positioned {
-  override def toString = {
-    fd.id.name +" - " +kind.toString
-  }
-  // If the two functions are the same but have different positions, used to transfer one to the other.
-  def copyTo(newFun: FunDef) = {
-    val thisPos = this.getPos
-    val newPos = ExprOps.lookup(_.getPos == thisPos, _.getPos)(fd.fullBody, newFun.fullBody) match {
-      case Some(position) => position
-      case None => newFun.getPos
-    }
-    val newCondition = ExprOps.lookup(condition == _, i => i)(fd.fullBody, newFun.fullBody).getOrElse(condition)
-    VC(newCondition, newFun, kind).setPos(newPos)
-  }
-}
-*/
-
 sealed abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name
   def underlying = this
@@ -37,6 +19,7 @@ object VCKind {
   }
 
   case object Precondition    extends VCKind("precondition", "precond.")
+  case object LambdaPre       extends VCKind("lambda precondition", "lambda pre.")
   case object Postcondition   extends VCKind("postcondition", "postcond.")
   case object Assert          extends VCKind("body assertion", "assert.")
   case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")

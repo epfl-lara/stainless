@@ -11,7 +11,7 @@ trait LoopProcessor extends OrderingProcessor {
     val checker: LoopProcessor.this.checker.type
   }
 
-  val depth: Int = 10
+  val depth: Int = 4
 
   val name: String = "Loop Processor"
 

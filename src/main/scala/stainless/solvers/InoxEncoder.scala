@@ -159,11 +159,15 @@ trait InoxEncoder extends ProgramEncoder {
       }
 
       case s.Lambda(args, body) if args.nonEmpty =>
-        val tfrom = args.map(vd => transform(vd.tpe))
+        val fArgs = args map transform
         val preArgs = args.map(vd => transform(vd.freshen))
-        t.ADT(t.ADTType(funIDs(args.size), tfrom :+ transform(body.getType)), Seq(
+
+        t.ADT(t.ADTType(funIDs(args.size), fArgs.map(_.tpe) :+ transform(body.getType)), Seq(
           super.transform(e),
-          t.Lambda(preArgs, t.BooleanLiteral(true) /* FIXME */)
+          t.Lambda(preArgs, t.exprOps.replaceFromSymbols(
+            (fArgs.map(_.toVariable) zip preArgs.map(_.toVariable)).toMap,
+            transform(weakestPrecondition(body))
+          ))
         ))
 
       case _ => super.transform(e)

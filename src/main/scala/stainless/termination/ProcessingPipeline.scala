@@ -6,7 +6,7 @@ package termination
 import scala.concurrent.duration._
 import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
 
-trait ProcessingPipeline extends TerminationChecker { self =>
+trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptible { self =>
   import program._
   import program.trees._
   import program.symbols._
@@ -31,6 +31,14 @@ trait ProcessingPipeline extends TerminationChecker { self =>
       lazy val funSet = funDefs.toSet
     }
   }
+
+  ctx.interruptManager.registerForInterrupts(this)
+
+  private var _interrupted: Boolean = false
+  private[termination] def interrupted: Boolean = _interrupted
+
+  def interrupt(): Unit = { _interrupted = true }
+  def recoverInterrupt(): Unit = { _interrupted = false }
 
   sealed abstract class Result(funDef: FunDef)
   case class Cleared(funDef: FunDef) extends Result(funDef)
@@ -196,7 +204,9 @@ trait ProcessingPipeline extends TerminationChecker { self =>
           NoGuarantee
         } else {
           clearedMap.get(funDef).map(Terminates).getOrElse(
-            if (!running) {
+            if (interrupted) {
+              NoGuarantee
+            } else if (!running) {
               val verified = verifyTermination(funDef)
               for (fd <- verified) terminates(fd) // fill in terminationMap
               terminates(funDef)
@@ -269,7 +279,7 @@ trait ProcessingPipeline extends TerminationChecker { self =>
       }
     }
 
-    for ((reason, results) <- it; result <- results) result match {
+    for ((reason, results) <- it; result <- results if !interrupted) result match {
       case Cleared(fd) =>
         reporter.info(s"Result for ${fd.id}")
         reporter.info(s" => CLEARED ($reason)")
@@ -284,6 +294,8 @@ trait ProcessingPipeline extends TerminationChecker { self =>
         maybeBrokenMap(fd) = (reason, args)
     }
 
-    terminationProblems.flatMap(_.funDefs).toSet
+    val verified = terminationProblems.flatMap(_.funDefs).toSet.filter(!isProblem(_))
+    problems.clear()
+    verified
   }
 }

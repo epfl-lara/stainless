@@ -59,6 +59,9 @@ trait DefaultTactic extends Tactic {
           VCKind.Assert
         }
 
+      case Application(_, _) =>
+        VCKind.LambdaPre
+
       case _ =>
         VCKind.Assert
     }
@@ -73,6 +76,9 @@ trait DefaultTactic extends Tactic {
 
       case (a @ Assert(cond, _, _), path) =>
         (a, path implies cond)
+
+      case (app @ Application(caller, args), path) =>
+        (app, path implies Application(Pre(caller), args))
     }.collect(getFunction(id).fullBody)
 
     calls.map { case (e, correctnessCond) =>
