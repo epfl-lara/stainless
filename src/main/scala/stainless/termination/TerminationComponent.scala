@@ -60,7 +60,7 @@ object TerminationComponent extends SimpleComponent {
       t += Separator
 
       t += Row(Seq(Cell(
-        f"Analysis time: $time%7.3f",
+        f"Analysis time: ${time/1000d}%7.3f",
         spanning = 2
       )))
 

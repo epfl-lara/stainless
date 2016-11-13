@@ -69,7 +69,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
         evaluators.Evaluator(programEncoder.targetProgram, options)
       ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram)
-    ).withTimeout(1.seconds)
+    ).withTimeout(1.5.seconds)
   }
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
@@ -81,8 +81,11 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val t: trees.type = trees
 
     protected def transformFunction(fd: FunDef): FunDef = {
-      if (true /* FIXME: dangerous ?? */) fd
-      else fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
+      if (isProblem(fd, ignoreSCC = true)) {
+        fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
+      } else {
+        fd
+      }
     }
 
     protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
@@ -150,9 +153,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   private val unsolved     : MutableSet[Problem] = MutableSet.empty
   private val dependencies : MutableSet[Problem] = MutableSet.empty
 
-  def isProblem(fd: FunDef): Boolean = {
+  def isProblem(fd: FunDef, ignoreSCC: Boolean = false): Boolean = {
     lazy val callees = transitiveCallees(fd)
-    lazy val problemDefs = problems.flatMap(_._1.funDefs).toSet
+    lazy val problemDefs = (if (ignoreSCC) problems.drop(1) else problems).flatMap(_._1.funDefs).toSet
     unsolved.exists(_.contains(fd)) ||
     dependencies.exists(_.contains(fd)) || 
     unsolved.exists(_.funDefs exists callees) ||
