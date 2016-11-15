@@ -4,11 +4,13 @@ import stainless.lang._
 
 object AbstractRefinementMap {
 
-  case class ~>[A,B](private val f: A => B, pre: A => Boolean, ens: B => Boolean) {
-    require(forall((x: A) => pre(x) ==> ens(f(x))))
+  case class ~>[A,B](private val f: A => B, ens: B => Boolean) {
+    require(forall((x: B) => ens.pre(x)) && forall((x: A) => f.pre(x) ==> ens(f(x))))
+
+    lazy val pre = f.pre
 
     def apply(x: A): B = {
-      require(pre(x))
+      require(f.pre(x))
       f(x)
     } ensuring(ens)
   }
