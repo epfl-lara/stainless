@@ -69,7 +69,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
         evaluators.Evaluator(programEncoder.targetProgram, options)
       ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram)
-    ).withTimeout(1.5.seconds)
+    ).withTimeout(2.seconds)
   }
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
