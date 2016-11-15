@@ -12,6 +12,8 @@ object VerificationComponent extends SimpleComponent {
 
   val trees: stainless.trees.type = stainless.trees
 
+  type Report = VerificationReport
+
   val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
@@ -19,7 +21,7 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionVerification
 
-  trait VerificationReport extends Report { self =>
+  trait VerificationReport extends AbstractReport { self =>
     val program: Program { val trees: stainless.trees.type }
     val results: Map[VC[program.trees.type], VCResult[program.trees.type]]
 

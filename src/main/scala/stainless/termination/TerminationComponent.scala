@@ -11,6 +11,8 @@ object TerminationComponent extends SimpleComponent {
 
   val trees: termination.trees.type = termination.trees
 
+  type Report = TerminationReport
+
   val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
@@ -21,7 +23,7 @@ object TerminationComponent extends SimpleComponent {
     }
   })
 
-  trait TerminationReport extends Report {
+  trait TerminationReport extends AbstractReport {
     val checker: TerminationChecker {
       val program: Program { val trees: termination.trees.type }
     }

@@ -8,12 +8,14 @@ trait Component {
   val name: String
   val description: String
 
+  type Report <: AbstractReport
+
   val lowering: inox.ast.SymbolTransformer {
     val s: extraction.trees.type
     val t: extraction.trees.type
   }
 
-  trait Report {
+  trait AbstractReport {
     def emit(): Unit
   }
 

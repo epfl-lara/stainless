@@ -2,7 +2,7 @@
 
 package stainless
 
-trait ComponentTestSuite extends inox.TestSuite {
+trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
 
   val component: SimpleComponent
 
@@ -18,5 +18,25 @@ trait ComponentTestSuite extends inox.TestSuite {
     val exProgram = component.extract(program)
 
     (for (u <- structure if u.isMain) yield (u.id.name, u.allFunctions(program.symbols)), exProgram)
+  }
+
+  val ignored: Set[String] = Set.empty
+
+  def testAll(dir: String)(block: (component.Report, inox.Reporter) => Unit): Unit = {
+    val fs = resourceFiles(s"regression/$dir", _.endsWith(".scala")).toList
+
+    val (funss, program) = extract(fs.map(_.getPath))
+
+    for ((name, funs) <- funss) {
+      if (ignored(s"$dir/$name")) {
+        ignore(s"$dir/$name")(_ => ())
+      } else {
+        test(s"$dir/$name") { ctx =>
+          val newProgram = program.withContext(ctx)
+          val report = component.apply(funs, newProgram)
+          block(report, ctx.reporter)
+        }
+      }
+    }
   }
 }

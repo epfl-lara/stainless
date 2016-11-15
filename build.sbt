@@ -47,6 +47,21 @@ clean := {
   }
 }
 
+lazy val nParallel = {
+  val p = System.getProperty("parallel")
+  if (p ne null) {
+    try {
+      p.toInt
+    } catch {
+      case nfe: NumberFormatException => 1
+    }
+  } else {
+    1
+  }
+}
+
+concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel)
+
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
 script := {
@@ -111,8 +126,8 @@ lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(Defaults.itSettings : _*)
   .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-    logBuffered := false,
-    parallelExecution := false
+    logBuffered := (nParallel > 1),
+    parallelExecution := (nParallel > 1)
   )) : _*)
   .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(dotty)
