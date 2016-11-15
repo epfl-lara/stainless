@@ -19,12 +19,14 @@ object Closures2 {
     s2(1) && s2(2) && s2(3) && s2(4)
   }.holds
 
+  /*
   def test2(): Boolean = {
     val s1 = set123()
     val s2 = intersection(s1, union(set(1), set(3)))
     val s3 = diff(s1, s2)
     s3(2) && !s3(1) && !s3(3)
   }.holds
+  */
 
   def test3(): Boolean = {
     val s1 = set123()

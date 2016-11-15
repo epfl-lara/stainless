@@ -29,8 +29,11 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           fullBody = exprOps.postMap({
             case fi @ FunctionInvocation(_, _, args) =>
               val tfd = fi.tfd
-              if (tfd.fd.flags contains Inline) Some(tfd.withParamSubst(args, tfd.fullBody))
-              else None
+              if (tfd.fd.flags contains Inline) {
+                Some(exprOps.freshenLocals(tfd.withParamSubst(args, tfd.fullBody)))
+              } else {
+                None
+              }
             case _ => None
           }, applyRec = true) (fd.fullBody),
           flags = fd.flags - Inline

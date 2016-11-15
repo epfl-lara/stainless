@@ -89,7 +89,7 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Error(tpe, desc) =>
         t.Choose(
           t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e),
-          t.BooleanLiteral(false).copiedFrom(e)
+          t.BooleanLiteral(true).copiedFrom(e)
         )
 
       case s.Require(pred, body) =>

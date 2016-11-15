@@ -30,16 +30,22 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
         case FunctionInvocation(id, _, _) => preRefs(id)
         case _ => false
       } (fd.precOrTrue)) {
-        val preExtensions = fd.params.flatMap(vd => vd.tpe match {
-          case FunctionType(from, to) if from.nonEmpty =>
+        def requires(e: Expr): Expr = e.getType match {
+          case FunctionType(from, to) =>
             val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
-            Some(funRequires(vd.toVariable, Lambda(vds, BooleanLiteral(true))))
-          case _ =>
-            None
-        })
+            val req = if (from.nonEmpty) {
+              funRequires(e, Lambda(vds, BooleanLiteral(true)))
+            } else {
+              BooleanLiteral(true)
+            }
+            and(req, forall(vds, requires(application(e, vds.map(_.toVariable)))))
+          case _ => BooleanLiteral(true)
+        }
 
-        if (preExtensions.nonEmpty) {
-          val newPre = andJoin(fd.precondition.toSeq ++ preExtensions)
+        val preExtension = andJoin(fd.params.map(vd => requires(vd.toVariable)))
+
+        if (preExtension != BooleanLiteral(true)) {
+          val newPre = andJoin(preExtension +: fd.precondition.toSeq)
           fd.copy(fullBody = exprOps.withPrecondition(fd.fullBody, Some(newPre)))
         } else {
           fd
