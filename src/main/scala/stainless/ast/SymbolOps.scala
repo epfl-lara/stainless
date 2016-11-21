@@ -14,6 +14,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees.exprOps._
   import symbols._
 
+  override protected def isImpureExpr(expr: Expr): Boolean = expr match {
+    case (_: Require) | (_: Ensuring) => true
+    case _ => super.isImpureExpr(expr)
+  }
+
   /** Recursively transforms a pattern on a boolean formula expressing the conditions for the input expression, possibly including name binders
     *
     * For example, the following pattern on the input `i`
@@ -309,8 +314,13 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       type Result = Expr
 
       override protected def rec(e: Expr, path: Path): Expr = e match {
-        case _: Lambda => e
-        case _ => super.rec(e, path)
+        case _: Lambda =>
+          e
+        case _: Require =>
+          accumulate(e, path)
+          e
+        case _ =>
+          super.rec(e, path)
       }
 
       protected def step(e: Expr, path: Path): List[Expr] = e match {

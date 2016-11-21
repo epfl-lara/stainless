@@ -759,7 +759,7 @@ trait CodeGeneration { self: CompilationUnit =>
       mkUnbox(app.getType, ch)
 
     case lambda @ Lambda(args, body) =>
-      val (l, mapping) = normalizeStructure(lambda)
+      val (l: Lambda, mapping) = normalizeStructure(lambda)
       val (afName, closures, tparams, consSig) = compileLambda(l)
 
       ch << New(afName) << DUP
