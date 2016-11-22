@@ -36,7 +36,9 @@ trait ChainProcessor extends OrderingProcessor {
       None
     } else {
       val funDef = loopPoints.headOption getOrElse {
-        chainsMap.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.get
+        chainsMap.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.getOrElse {
+          reporter.fatalError("Couldn't find chain set")
+        }
       }
 
       val chains = chainsMap(funDef)._2
