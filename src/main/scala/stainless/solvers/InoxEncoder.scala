@@ -223,9 +223,20 @@ trait InoxEncoder extends ProgramEncoder {
           preBody
         ))
 
-        newPre match {
-          case t.BooleanLiteral(true) => transform(f)
-          case _ => t.Lambda(fArgs map transform, t.Require(newPre, transform(fBody)))
+        def simplePre(pre: t.Expr): Boolean = {
+          def rec(pre: t.Expr): Boolean = pre match {
+            case t.IfExpr(cond, thenn, elze) if thenn == t.BooleanLiteral(true) => rec(elze)
+            case t.BooleanLiteral(true) => true
+            case _ => false
+          }
+
+          rec(sourceProgram.symbols.simplifyByConstructors(pre))
+        }
+
+        if (simplePre(newPre)) {
+          transform(f)
+        } else {
+          t.Lambda(fArgs map transform, t.Require(newPre, transform(fBody)))
         }
 
       case _ => super.transform(e)

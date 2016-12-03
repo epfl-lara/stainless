@@ -14,8 +14,10 @@ object SolverFactory {
   def getFromName(name: String)
                  (p: Program, opts: inox.Options)
                  (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                   enc: inox.ast.ProgramEncoder { val sourceProgram: p.type; val t: inox.trees.type }):
-                  SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                  enc: inox.ast.ProgramTransformer {
+                    val sourceProgram: p.type
+                    val targetProgram: inox.InoxProgram
+                  }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     if (inox.solvers.SolverFactory.solvers(name)) {
       inox.solvers.SolverFactory.getFromName(name)(p, opts)(ev, enc)
     } else {
@@ -28,8 +30,10 @@ object SolverFactory {
   def getFromNames(names: Seq[String])
                   (p: Program, opts: inox.Options)
                   (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                    enc: inox.ast.ProgramEncoder { val sourceProgram: p.type; val t: inox.trees.type }):
-                   SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                   enc: inox.ast.ProgramTransformer {
+                     val sourceProgram: p.type
+                     val targetProgram: inox.InoxProgram
+                   }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     names match {
       case Seq() => throw new inox.FatalError("No selected solver")
       case Seq(single) => getFromName(single)(p, opts)(ev, enc)
@@ -41,8 +45,10 @@ object SolverFactory {
 
   def getFromSettings(p: Program, opts: inox.Options)
                      (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                       enc: inox.ast.ProgramEncoder { val sourceProgram: p.type; val t: inox.trees.type }):
-                      SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                      enc: inox.ast.ProgramTransformer {
+                        val sourceProgram: p.type
+                        val targetProgram: inox.InoxProgram
+                      }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     val names = opts.findOptionOrDefault(inox.optSelectedSolvers).toSeq
     getFromNames(names)(p, opts)(ev, enc)
   }
