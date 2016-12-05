@@ -80,11 +80,11 @@ script := {
 
     val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
     IO.write(scriptFile, s"""|#!/bin/bash --posix
-                            |
-                            |SCALACLASSPATH=$paths
-                            |
-                            |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
-                            |""".stripMargin)
+                             |
+                             |SCALACLASSPATH=$paths
+                             |
+                             |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
+                             |""".stripMargin)
     scriptFile.setExecutable(true)
   } catch {
     case e: Throwable =>
@@ -118,7 +118,7 @@ testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "a030410e46eb50c0604e69914d4d9dcb014de0a2")
+lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "86e91b4e08dbe733a9139074e390b8c2db1eb70a")
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
@@ -129,6 +129,7 @@ lazy val root = (project in file("."))
     logBuffered := (nParallel > 1),
     parallelExecution := (nParallel > 1)
   )) : _*)
+  .settings(compile <<= (compile in Compile) dependsOn script)
   .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(dotty)
   .dependsOn(cafebabe)
