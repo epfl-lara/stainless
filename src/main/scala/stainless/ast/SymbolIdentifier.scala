@@ -3,7 +3,11 @@
 package stainless
 package ast
 
-class Symbol private(val name: String, private val id: Int) {
+class Symbol private(val path: Seq[String], private val id: Int) {
+  def this(name: String, id: Int) = this(name.split("\\.").toSeq, id)
+
+  val name: String = path.mkString(".")
+
   override def equals(that: Any): Boolean = that match {
     case s: Symbol => id == s.id
     case _ => false
@@ -27,6 +31,8 @@ object SymbolIdentifier {
   }
 
   def apply(sym: Symbol): SymbolIdentifier = {
-    new SymbolIdentifier(FreshIdentifier(sym.name), sym)
+    new SymbolIdentifier(FreshIdentifier(sym.path.last), sym)
   }
+
+  def unapply(id: SymbolIdentifier): Option[String] = Some(id.symbol.name)
 }

@@ -62,7 +62,7 @@ trait CodeExtraction extends ASTExtractors {
           val symbol = symbolToSymbol.get(top) match {
             case Some(symbol) => symbol
             case None =>
-              val name = sym.name.toString.trim
+              val name = sym.fullName.toString.trim
               val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
               symbolToSymbol += top -> symbol
               symbol

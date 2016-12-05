@@ -3,7 +3,10 @@
 package stainless
 package ast
 
+import scala.reflect._
 import scala.collection.mutable.{Map => MutableMap}
+
+import scala.language.dynamics
 
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
@@ -35,6 +38,20 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def getPostcondition(fd: FunDef): Option[Expr] = getPostcondition(fd.typed)
     def getPostcondition(tfd: TypedFunDef): Option[Expr] =
       postCache.getOrElseUpdate(tfd, exprOps.postconditionOf(tfd.fullBody))
+
+    object lookup {
+      private def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
+        case SymbolIdentifier(`name`) => true
+        case _ => false
+      }).map(_._2)
+
+      def apply[T <: Definition : ClassTag](name: String): T =
+        if (classTag[ADTDefinition].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
+          find(name, adts).getOrElse(throw ADTLookupException(FreshIdentifier(name))).asInstanceOf[T]
+        } else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
+          find(name, functions).getOrElse(throw FunctionLookupException(FreshIdentifier(name))).asInstanceOf[T]
+        } else sys.error("Unexpected lookup of type " + classTag[T])
+    }
   }
 
   implicit class StainlessFunDef(fd: FunDef) {
@@ -63,5 +80,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), tfd.returnType)), BooleanLiteral(true))
     }
+  }
+
+  implicit class StainlessLookup(val p: Program { val trees: self.type }) {
+    def lookup[T <: Definition : ClassTag](name: String): T = p.symbols.lookup[T](name)
   }
 }
