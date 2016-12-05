@@ -28,6 +28,11 @@ object Main extends inox.MainHelpers {
     termination.DebugSectionTermination
   )
 
+  override protected def displayVersion(reporter: inox.Reporter) = {
+    reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
+    reporter.info("")
+  }
+
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
     val compilerArgs = Build.libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
