@@ -12,6 +12,7 @@ object Main extends inox.MainHelpers {
     termination.TerminationComponent
   )
 
+  case object Pipelines extends Category
   case object Verification extends Category
 
   override protected def getOptions = super.getOptions ++ Map(
@@ -22,8 +23,10 @@ object Main extends inox.MainHelpers {
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails")
   ) ++ components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
-    option -> Description(General, component.description)
+    option -> Description(Pipelines, component.description)
   }
+
+  override protected def getCategories = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
@@ -32,7 +35,6 @@ object Main extends inox.MainHelpers {
 
   override protected def displayVersion(reporter: inox.Reporter) = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
-    reporter.info("")
   }
 
   def main(args: Array[String]): Unit = {
