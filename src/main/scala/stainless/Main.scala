@@ -12,21 +12,30 @@ object Main extends inox.MainHelpers {
     termination.TerminationComponent
   )
 
+  case object Pipelines extends Category
+  case object Verification extends Category
+
   override protected def getOptions = super.getOptions ++ Map(
-    optFunctions -> "Only consider functions s1,s2,...",
-    evaluators.optCodeGen -> "Use code generating evaluator",
-    codegen.optInstrumentFields -> "Instrument ADT field access during code generation",
-    verification.optParallelVCs -> "Check verification conditions in parallel",
-    verification.optFailEarly -> "Halt verification as soon as a check fails"
+    optFunctions -> Description(General, "Only consider functions s1,s2,..."),
+    evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
+    codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
+    verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
+    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails")
   ) ++ components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
-    option -> component.description
+    option -> Description(Pipelines, component.description)
   }
+
+  override protected def getCategories = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
     termination.DebugSectionTermination
   )
+
+  override protected def displayVersion(reporter: inox.Reporter) = {
+    reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
+  }
 
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
