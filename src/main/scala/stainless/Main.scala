@@ -12,15 +12,17 @@ object Main extends inox.MainHelpers {
     termination.TerminationComponent
   )
 
+  case object Verification extends Category
+
   override protected def getOptions = super.getOptions ++ Map(
-    optFunctions -> "Only consider functions s1,s2,...",
-    evaluators.optCodeGen -> "Use code generating evaluator",
-    codegen.optInstrumentFields -> "Instrument ADT field access during code generation",
-    verification.optParallelVCs -> "Check verification conditions in parallel",
-    verification.optFailEarly -> "Halt verification as soon as a check fails"
+    optFunctions -> Description(General, "Only consider functions s1,s2,..."),
+    evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
+    codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
+    verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
+    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails")
   ) ++ components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
-    option -> component.description
+    option -> Description(General, component.description)
   }
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
