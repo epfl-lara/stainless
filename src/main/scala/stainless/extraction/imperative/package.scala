@@ -12,13 +12,25 @@ package object imperative {
     ) extends SimpleSymbols with AbstractSymbols
   }
 
-  // FIXME: This transformer will crash if it encounters an AST from `imperative.Trees`.
-  //        This is a temporary place-holder until imperative extraction has been ported from Leon.
-  val extractor: inox.ast.SymbolTransformer {
-    val s: trees.type
-    val t: innerfuns.trees.type
-  } = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  object globalState extends {
+    val s: trees.type = trees
+    val t: trees.type = trees
+  } with GlobalStateIntroduction
+
+  object antiAliasing extends {
+    val s: trees.type = trees
+    val t: trees.type = trees
+  } with AntiAliasing
+
+  object imperativeElimination extends {
+    val s: trees.type = trees
+    val t: trees.type = trees
+  } with ImperativeCodeElimination
+
+  object cleanup extends {
     val s: trees.type = trees
     val t: innerfuns.trees.type = innerfuns.trees
-  })
+  } with ImperativeCleanup
+
+  val extractor = globalState andThen antiAliasing andThen imperativeElimination andThen cleanup
 }

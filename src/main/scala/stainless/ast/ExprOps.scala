@@ -105,12 +105,17 @@ trait ExprOps extends inox.ast.ExprOps {
   }
 
   /** Returns the postcondition of an expression wrapped in Option */
-  def postconditionOf(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)      => postconditionOf(b).map(Let(i, e, _).copiedFrom(expr))
+  def postconditionOf(expr: Expr): Option[Lambda] = expr match {
+    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(l)))
     case Ensuring(_, post) => Some(post)
     case _                 => None
   }
 
   /** Returns a tuple of precondition, the raw body and the postcondition of an expression */
   def breakDownSpecs(e: Expr) = (preconditionOf(e), withoutSpec(e), postconditionOf(e))
+
+  /** Reconstructs an expression given a (pre, body, post) tuple deconstructed by [[breakDownSpecs]] */
+  def reconstructSpecs(pre: Option[Expr], body: Option[Expr], post: Option[Lambda], resultType: Type) = {
+    withPostcondition(withPrecondition(body.getOrElse(NoTree(resultType)), pre), post)
+  }
 }

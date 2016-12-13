@@ -68,6 +68,72 @@ trait Trees extends innerfuns.Trees { self =>
     }
   }
 
+  /** $encodingof `old(v)` */
+  case class Old(v: Variable) extends Expr {
+    def getType(implicit s: Symbols): Type = v.tpe
+  }
+
+  /** $encodingof `old(this)` */
+  case class OldThis(ct: ClassType) extends Expr {
+    def getType(implicit s: Symbols): Type = ct
+  }
+
+
+  sealed abstract class FunAbstraction(
+    val id: Identifier,
+    val tparams: Seq[TypeParameterDef],
+    val params: Seq[ValDef],
+    val returnType: Type,
+    val body: Expr,
+    val flags: Set[Flag]
+  ) {
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      params: Seq[ValDef] = params,
+      returnType: Type = returnType,
+      body: Expr = body,
+      flags: Set[Flag] = flags
+    ): FunAbstraction
+  }
+
+  case class Outer(fd: FunDef) extends FunAbstraction(
+    fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags) {
+
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      params: Seq[ValDef] = params,
+      returnType: Type = returnType,
+      body: Expr = fullBody,
+      flags: Set[Flag] = flags
+    ): Outer = Outer(fd.copy(
+      id = id,
+      tparams = tparams,
+      params = params,
+      returnType = returnType,
+      fullBody = body,
+      flags = flags
+    ))
+  }
+
+  case class Inner(fd: LocalFunDef) extends FunAbstraction(
+    fd.name.id, fd.tparams, fd.body.params, fd.name.getType.asInstanceOf[FunctionType].to, fd.body.body, Set.empty) {
+
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      params: Seq[ValDef] = params,
+      returnType: Type = returnType,
+      body: Expr = body,
+      flags: Set[Flag] = flags
+    ): Inner = Inner(fd.copy(
+      name = name.copy(id = id, tpe = FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType)),
+      tparams = tparams,
+      body = Lambda(params, fullBody).copiedFrom(fullBody)
+    ))
+  }
+
 
   class VarDef(id: Identifier, tpe: Type) extends ValDef(id, tpe) {
     override val flags: Set[Flag] = Set(IsVar)
