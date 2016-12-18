@@ -155,6 +155,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
     }
 
+    object default extends BaseTransformer
+
     def makeFunction(cid: Identifier, fid: Identifier, cos: Set[Override]): t.FunDef = {
       val fd = newSymbols.getFunction(fid)
       val tparamsSeq = newSymbols.getClass(cid).tparams.map(tp => tp -> tp.freshen)
@@ -162,8 +164,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       val tparamsMap = tparamsSeq.map(p => p._1.tp -> p._2.tp).toMap
 
       val aid = approximate(cid)
-      val tps = adtTparams.map(tdef => t.TypeParameter(tdef.id))
-      val arg = t.ValDef(FreshIdentifier("thiss"), t.ADTType(aid, tps))
+      val tps = adtTparams.map(tdef => default.transform(tdef).tp)
+      val arg = t.ValDef(FreshIdentifier("thiss"), t.ADTType(aid, tps), Set.empty)
 
       object transformer extends BaseTransformer {
         override def transform(e: s.Expr): t.Expr = e match {
@@ -238,15 +240,13 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       new t.FunDef(
         fd.id,
-        transformer.transformTypeParams(adtTparams ++ fd.tparams),
-        arg +: fd.params.map(transformer.transform),
+        (adtTparams ++ fd.tparams) map transformer.transform,
+        arg +: (fd.params map transformer.transform),
         returnType,
         fullBody,
         (fd.flags - IsMethod - IsInvariant - IsAbstract) map transformer.transform
       )
     }
-
-    object transformer extends BaseTransformer
 
     val sortClasses = newSymbols.classes.values
       .filter(cd => cd.parent.isEmpty && children.getOrElse(cd.id, Set.empty).nonEmpty)
@@ -257,9 +257,9 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
     val sorts: Seq[t.ADTSort] = sortClasses.map(cd => new t.ADTSort(
       cd.id,
-      transformer.transformTypeParams(cd.tparams),
+      cd.tparams map default.transform,
       classToConstructors(cd.id).toSeq,
-      (cd.flags - IsAbstract) map transformer.transform
+      (cd.flags - IsAbstract) map default.transform
     )).toSeq
 
     val consClasses = newSymbols.classes.values
@@ -271,10 +271,10 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
     val cons: Seq[t.ADTConstructor] = consClasses.map(cd => new t.ADTConstructor(
       cd.id,
-      transformer.transformTypeParams(cd.tparams),
+      cd.tparams map default.transform,
       if (classToParent(cd.id) == cd.id) None else Some(classToParent(cd.id)),
-      cd.fields map transformer.transform,
-      cd.flags map transformer.transform
+      cd.fields map default.transform,
+      cd.flags map default.transform
     )).toSeq
 
     val functions: Seq[t.FunDef] = newSymbols.functions.values
@@ -282,7 +282,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         val o = functionToOverrides(fd.id)
         makeFunction(o.cid, fd.id, o.children)
       } else {
-        transformer.transform(fd)
+        default.transform(fd)
       }).toSeq
 
     t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)

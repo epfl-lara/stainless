@@ -10,6 +10,7 @@ object StaticChecks {
     def ensuring(cond: (A) => Boolean): A = x
   }
 
+  @library
   implicit def any2Ensuring[A](x: A): Ensuring[A] = Ensuring(x)
 
 }

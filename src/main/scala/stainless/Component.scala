@@ -31,6 +31,7 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
 
 trait SimpleComponent extends Component { self =>
   val trees: ast.Trees
+  import trees._
 
   def extract(program: Program { val trees: xt.type }): Program { val trees: self.trees.type } = {
     val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
@@ -47,11 +48,12 @@ trait SimpleComponent extends Component { self =>
 
   def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report = {
     val extracted = extract(program)
+    import extracted._
 
-    val mainFunctions = units.filter(_.isMain).flatMap(_.allFunctions(program.symbols))
-    val functions = program.ctx.options.findOption(optFunctions) match {
-      case Some(names) => mainFunctions.filter(id => names contains id.name)
-      case None => mainFunctions
+    val nonLibrary = symbols.functions.values.filterNot(_.flags contains "library").map(_.id).toSeq
+    val functions = ctx.options.findOption(optFunctions) match {
+      case Some(names) => nonLibrary.filter(id => names contains id.name)
+      case None => nonLibrary
     }
 
     apply(functions, extracted)

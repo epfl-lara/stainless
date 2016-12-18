@@ -18,6 +18,8 @@ package object annotation {
   class extern     extends Annotation
   @ignore
   class internal   extends Annotation
+  @ignore
+  class pure       extends Annotation
 
   // Orb annotations
   @ignore

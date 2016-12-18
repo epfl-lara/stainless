@@ -14,7 +14,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       })
     case s.WildcardPattern(binder) =>
       (binder.map(_.toVariable).toSeq, Seq(), Seq(), Seq(), (vs, _, _, _) => {
-        t.WildcardPattern((vs.headOption.map(_.toVal)))
+        t.WildcardPattern(vs.headOption.map(_.toVal))
       })
     case s.ADTPattern(binder, ct, subs) =>
       (binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, (vs, _, tps, pats) => {
@@ -131,13 +131,14 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case _ => super.deconstruct(expr)
   }
 
-  override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[t.Type] => t.Type) = tpe match {
-    case s.ArrayType(base) => (Seq(base), tps => t.ArrayType(tps(0)))
+  override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[s.Flag], (Seq[t.Type], Seq[t.Flag]) => t.Type) = tpe match {
+    case s.ArrayType(base) => (Seq(base), Seq(), (tps, _) => t.ArrayType(tps(0)))
     case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
     case s.Extern => (Seq(), Seq(), (_, _) => t.Extern)
+    case s.Derived(id) => (Seq(), Seq(), (_, _) => t.Derived(id))
     case _ => super.deconstruct(f)
   }
 }

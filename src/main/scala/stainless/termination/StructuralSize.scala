@@ -111,7 +111,7 @@ trait StructuralSize {
           // we want to reuse generic size functions for sub-types
           val tparams = root.tparams.map(_.tp)
 
-          val v = Variable(FreshIdentifier("x"), rootType)
+          val v = Variable.fresh("x", rootType)
           functions += new FunDef(
             id,
             root.tparams,

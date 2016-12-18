@@ -5,7 +5,7 @@ package ast
 
 trait Printers extends inox.ast.Printers { self: Trees =>
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case NoTree(tpe) =>
       p"<empty tree>[$tpe]"
 

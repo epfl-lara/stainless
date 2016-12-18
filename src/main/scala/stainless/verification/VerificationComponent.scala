@@ -65,11 +65,7 @@ object VerificationComponent extends SimpleComponent {
   }
 
   def check(funs: Seq[Identifier], p: StainlessProgram): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
-    val np = p.transform(new AssertionInjector {
-      val s: p.trees.type = p.trees
-      val t: p.trees.type = p.trees
-      val symbols: p.symbols.type = p.symbols
-    })
+    val np = AssertionInjector(p)
 
     import np._
     import np.trees._

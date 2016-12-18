@@ -15,20 +15,22 @@ trait InoxEncoder extends ProgramEncoder {
 
     inox.InoxProgram(sourceProgram.ctx, t.NoSymbols
       .withADTs(sourceProgram.symbols.adts.values.toSeq.map(encoder.transform))
-      .withFunctions(sourceProgram.symbols.functions.values.toSeq.map { fd =>
-        if (fd.flags contains Extern) {
-          val Lambda(Seq(vd), post) = fd.postOrTrue
-          encoder.transform(fd.copy(fullBody = fd.precondition match {
-            case Some(pre) =>
-              Require(pre, Choose(vd, post))
+      .withFunctions(sourceProgram.symbols.functions.values.toSeq
+        .map(fd => fd.copy(flags = fd.flags.filter { case Derived(_) => false case _ => true }))
+        .map { fd =>
+          if (fd.flags contains Extern) {
+            val Lambda(Seq(vd), post) = fd.postOrTrue
+            encoder.transform(fd.copy(fullBody = fd.precondition match {
+              case Some(pre) =>
+                Require(pre, Choose(vd, post))
 
-            case None =>
-              Choose(vd, post)
-          }, flags = fd.flags - Extern))
-        } else {
-          encoder.transform(fd)
-        }
-      }))
+              case None =>
+                Choose(vd, post)
+            }, flags = fd.flags - Extern))
+          } else {
+            encoder.transform(fd)
+          }
+        }))
   }
 
   import t.dsl._
@@ -45,9 +47,9 @@ trait InoxEncoder extends ProgramEncoder {
   }
 
   protected val arrayADT: t.ADTConstructor = {
-    val tdef = t.TypeParameterDef(t.TypeParameter(FreshIdentifier("A")))
+    val tdef = t.TypeParameterDef(t.TypeParameter.fresh("A"))
     new t.ADTConstructor(arrayID, Seq(tdef), None,
-      Seq(t.ValDef(arr, t.MapType(t.Int32Type, tdef.tp)), t.ValDef(size, t.Int32Type)),
+      Seq(t.ValDef(arr, t.MapType(t.Int32Type, tdef.tp), Set.empty), t.ValDef(size, t.Int32Type, Set.empty)),
       Set(t.HasADTInvariant(arrayInvariantID))
     )
   }
@@ -61,8 +63,8 @@ trait InoxEncoder extends ProgramEncoder {
   protected val funADTs: Seq[t.ADTConstructor] = (1 to maxArgs).map {
     i => mkConstructor(funIDs(i))((1 to i).map(j => "A" + j) :+ "R" : _*)(None) {
       case argTps :+ resTpe => Seq(
-        t.ValDef(fs(i), t.FunctionType(argTps, resTpe)),
-        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType))
+        t.ValDef(fs(i), t.FunctionType(argTps, resTpe), Set.empty),
+        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType), Set.empty)
       )
     }
   }
@@ -88,7 +90,7 @@ trait InoxEncoder extends ProgramEncoder {
 
       case s.Error(tpe, desc) =>
         t.Choose(
-          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e),
+          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe), Set.empty).copiedFrom(e),
           t.BooleanLiteral(true).copiedFrom(e)
         )
 
@@ -96,12 +98,12 @@ trait InoxEncoder extends ProgramEncoder {
         t.Assume(transform(pred), transform(body)).copiedFrom(e)
 
       case s.Ensuring(s.Require(pred, body), s.Lambda(Seq(res), post)) =>
-        val vd = t.ValDef(res.id, transform(res.tpe))
+        val vd = t.ValDef(res.id, transform(res.tpe), Set.empty)
         t.Assume(transform(pred),
           t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable)))
 
       case s.Ensuring(body, s.Lambda(Seq(res), post)) =>
-        val vd = t.ValDef(res.id, transform(res.tpe))
+        val vd = t.ValDef(res.id, transform(res.tpe), Set.empty)
         t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable))
 
       case s.Assert(pred, error, body) =>
@@ -152,7 +154,7 @@ trait InoxEncoder extends ProgramEncoder {
           val tfrom = from map transform
           t.ADT(t.ADTType(funIDs(from.size), tfrom :+ t.BooleanType), Seq(
             t.ADTSelector(transform(f), pres(from.size)),
-            t.Lambda(tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe)), t.BooleanLiteral(true))
+            t.Lambda(tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe, Set.empty)), t.BooleanLiteral(true))
           ))
 
         case _ => t.Lambda(Seq.empty, t.BooleanLiteral(true))

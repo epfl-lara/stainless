@@ -12,19 +12,14 @@ package object imperative {
     ) extends SimpleSymbols with AbstractSymbols
   }
 
-  object globalState extends {
-    val s: trees.type = trees
-    val t: trees.type = trees
-  } with GlobalStateIntroduction
+  case class ImperativeEliminationException(pos: inox.utils.Position, msg: String) extends Exception(msg)
 
   object antiAliasing extends {
-    val s: trees.type = trees
-    val t: trees.type = trees
+    val trees: imperative.trees.type = imperative.trees
   } with AntiAliasing
 
   object imperativeElimination extends {
-    val s: trees.type = trees
-    val t: trees.type = trees
+    val trees: imperative.trees.type = imperative.trees
   } with ImperativeCodeElimination
 
   object cleanup extends {
@@ -32,5 +27,5 @@ package object imperative {
     val t: innerfuns.trees.type = innerfuns.trees
   } with ImperativeCleanup
 
-  val extractor = globalState andThen antiAliasing andThen imperativeElimination andThen cleanup
+  val extractor = antiAliasing andThen imperativeElimination andThen cleanup
 }

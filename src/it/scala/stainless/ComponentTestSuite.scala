@@ -17,7 +17,22 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val (structure, program) = frontends.scalac.ScalaCompiler(ctx, Build.libraryFiles ++ files.toList)
     val exProgram = component.extract(program)
 
-    (for (u <- structure if u.isMain) yield (u.id.name, u.allFunctions(program.symbols)), exProgram)
+    assert(reporter.lastErrors.isEmpty)
+
+    (for (u <- structure if u.isMain) yield {
+      val unitFuns = u.allFunctions(program.symbols)
+      val allFuns = inox.utils.fixpoint { (funs: Set[Identifier]) =>
+        funs ++ exProgram.symbols.functions.values.flatMap { fd =>
+          val source = fd.flags.collect { case component.trees.Derived(id) => id }.toSet
+          if ((source intersect funs).nonEmpty) {
+            Some(fd.id)
+          } else {
+            None
+          }
+        }
+      } (unitFuns.toSet)
+      (u.id.name, allFuns.toSeq)
+    }, exProgram)
   }
 
   val ignored: Set[String] = Set.empty

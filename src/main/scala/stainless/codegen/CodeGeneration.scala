@@ -203,7 +203,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case ArrayType(base) =>
       "[" + typeToJVM(base)
 
-    case TypeParameter(_) =>
+    case _: TypeParameter =>
       "L" + ObjectClass + ";"
     
     case StringType =>
@@ -555,7 +555,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
       for ((a, vd) <- as zip cons.fields) {
         vd.tpe match {
-          case TypeParameter(_) =>
+          case _: TypeParameter =>
             mkBoxedExpr(a, ch)
           case _ =>
             mkExpr(a, ch)
@@ -731,7 +731,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
       for((a, vd) <- as zip tfd.fd.params) {
         vd.getType match {
-          case TypeParameter(_) =>
+          case _: TypeParameter =>
             mkBoxedExpr(a, ch)
           case _ =>
             mkExpr(a, ch)
@@ -741,7 +741,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeStatic(cn, mn, ms)
 
       (tfd.fd.returnType, tfd.returnType) match {
-        case (TypeParameter(_), tpe)  =>
+        case (_: TypeParameter, tpe)  =>
           mkUnbox(tpe, ch)
         case _ =>
       }
@@ -767,7 +767,7 @@ trait CodeGeneration { self: CompilationUnit =>
         if (id == tpsID) {
           loadTypes(tparams, ch)
         } else {
-          val closure = mapping.collectFirst { case (Variable(`id`, _), e) => e }.get
+          val closure = mapping.collectFirst { case (Variable(`id`, _, _), e) => e }.get
           mkExpr(closure, ch)
         }
       }
@@ -1452,7 +1452,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << GetField(cName, f.id.name, typeToJVM(f.getType))
 
         f.getType match {
-          case TypeParameter(_) =>
+          case _: TypeParameter =>
             mkUnbox(expType, ch)
           case _ =>
         }

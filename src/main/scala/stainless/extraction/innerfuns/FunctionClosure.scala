@@ -48,7 +48,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
           Some(Let(freeMap(id), v, r).copiedFrom(let))
 
-        case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to)), tparams, args) if v == name =>
+        case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to), _), tparams, args) if v == name =>
           val ntps = app.tps.getOrElse {
             throw MissformedStainlessCode(app, "Couldn't find type parameter instantiation")
           } ++ tpFresh.map(_.tp)
@@ -64,7 +64,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         freshParams,
         instantiateType(name.tpe.asInstanceOf[FunctionType].to, tparamsMap),
         fullBody,
-        Set() /// FIXME add flag for inner?
+        name.flags ++ outer.flags + Derived(outer.id)
       )
 
       FunSubst(newFd, freeMap, tparamsMap)

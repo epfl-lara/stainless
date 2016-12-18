@@ -45,7 +45,7 @@ trait Strengthener { self: OrderingRelation =>
 
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val postcondition = {
-          val res = ValDef(FreshIdentifier("res"), fd.returnType)
+          val res = ValDef(FreshIdentifier("res"), fd.returnType, Set.empty)
           val post = fd.postcondition.map(application(_, Seq(res.toVariable))).getOrElse(BooleanLiteral(true))
           val sizePost = cmp(Seq(res.toVariable), fd.params.map(_.toVariable))
           Lambda(Seq(res), and(post, sizePost))

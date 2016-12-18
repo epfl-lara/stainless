@@ -39,6 +39,24 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
               BooleanLiteral(true)
             }
             and(req, forall(vds, requires(application(e, vds.map(_.toVariable)))))
+
+          case TupleType(tps) =>
+            andJoin(tps.indices.map(i => requires(TupleSelect(e, i + 1))))
+
+          case adt: ADTType => adt.getADT match {
+            case tcons: TypedADTConstructor =>
+              andJoin(tcons.fields.map(vd => requires(ADTSelector(e, vd.id))))
+
+            case tsort: TypedADTSort =>
+              if (tsort.definition.isInductive) {
+                BooleanLiteral(true)
+              } else {
+                andJoin(tsort.constructors.map { tcons =>
+                  Implies(IsInstanceOf(e, tcons.toType), requires(AsInstanceOf(e, tcons.toType)))
+                })
+              }
+          }
+
           case _ => BooleanLiteral(true)
         }
 

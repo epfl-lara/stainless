@@ -131,7 +131,8 @@ trait ASTExtractors {
     /** Returns the full dot-separated names of the symbol as a list of strings */
     object ExSymbol {
       def unapplySeq(t: Tree): Option[Seq[String]] = {
-        Some(t.symbol.fullName.toString.split('.').toSeq)
+        if (t.symbol == null) None
+        else Some(t.symbol.fullName.toString.split('.').toSeq)
       }
     }
 
@@ -279,7 +280,7 @@ trait ASTExtractors {
       *
       * @see [[ExRequiresExpression]], [[ExEnsuresExpression]], [[ExPreExpression]] */
     object ExFunctionSpecs {
-      def unapply(tree: Apply): Option[Tree] = tree match {
+      def unapply(tree: Tree): Option[Tree] = tree match {
         case Apply(TypeApply(
           ExSymbol("stainless", "lang", "FunctionSpecs1"),
           Seq(_, _)
@@ -300,12 +301,10 @@ trait ASTExtractors {
           Seq(_, _, _, _, _)
         ), Seq(f)) => Some(f)
 
-        /*
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs5"),
-          Seq(_, _, _, _, _, _)
-        ), Seq(f)) => Some(f)
-        */
+        case Select(ExSymbol("stainless", "lang", "FunctionSpecs1"), ExNamed("f")) => Some(tree)
+        case Select(ExSymbol("stainless", "lang", "FunctionSpecs2"), ExNamed("f")) => Some(tree)
+        case Select(ExSymbol("stainless", "lang", "FunctionSpecs3"), ExNamed("f")) => Some(tree)
+        case Select(ExSymbol("stainless", "lang", "FunctionSpecs4"), ExNamed("f")) => Some(tree)
 
         case _ => None
       }

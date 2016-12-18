@@ -16,9 +16,10 @@ trait TreeTransformer extends inox.ast.TreeTransformer { self =>
 
     var changed = false
     val newVs = for (v <- vs) yield {
-      val newV = transformVariable(v)
-      if (v ne newV) changed = true
-      newV
+      val vd = v.toVal
+      val newVd = transform(vd)
+      if (vd ne newVd) changed = true
+      newVd.toVariable
     }
 
     val newEs = for (e <- es) yield {

@@ -57,7 +57,7 @@ trait Trees extends holes.Trees { self =>
 
     def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
-        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _) => vd }.orElse(tcd.parent.flatMap(rec))
+        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }.orElse(tcd.parent.flatMap(rec))
       lookupClass.flatMap(rec)
     }
   }
@@ -315,10 +315,8 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case _ => super.deconstruct(e)
   }
 
-  override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[t.Type] => t.Type) = tpe match {
-    case s.ClassType(id, tps) =>
-      (tps, tps => t.ClassType(id, tps))
-
+  override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[s.Flag], (Seq[t.Type], Seq[t.Flag]) => t.Type) = tpe match {
+    case s.ClassType(id, tps) => (tps, Seq(), (tps, _) => t.ClassType(id, tps))
     case _ => super.deconstruct(tpe)
   }
 
@@ -352,7 +350,7 @@ object SymbolTransformer {
     protected def transformADT(adt: s.ADTDefinition): t.ADTDefinition = trans.transform(adt)
     protected def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,
-      trans.transformTypeParams(cd.tparams),
+      cd.tparams.map(tdef => trans.transform(tdef)),
       cd.parent,
       cd.fields.map(vd => trans.transform(vd)),
       cd.methods,
