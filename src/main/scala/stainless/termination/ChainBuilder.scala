@@ -52,9 +52,15 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
       def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[ValDef, Expr]): Path = {
         val Relation(_, path, FunctionInvocation(id, tps, args), _) = relations.head
         val tfd = getFunction(id, tps.map(funDef.instantiate))
+        val instPath = path.instantiate(funDef.tpSubst)
 
-        val newPath = path.instantiate(funDef.tpSubst).map(replaceFromSymbols(subst, _))
-        lazy val newArgs = args.map(e => replaceFromSymbols(subst, funDef.instantiate(e)))
+        val freshBindings = instPath.bound.map(vd => vd.freshen)
+        val freshSubst = (instPath.bound zip freshBindings).toMap
+        val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
+
+        val newPath = instPath.map(freshSubst, replaceFromSymbols(newSubst, _))
+
+        lazy val newArgs = args.map(e => replaceFromSymbols(newSubst, funDef.instantiate(e)))
 
         newPath merge (relations.tail match {
           case Nil =>
@@ -114,29 +120,6 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
   def getChains(funDef: FunDef): (Set[FunDef], Set[Chain]) = chainCache.get(funDef) match {
     case Some((subloop, chains, signature)) if signature == funDefChainSignature(funDef) => subloop -> chains
     case _ => {
-      val relationConstraints : MutableMap[Relation, SizeConstraint] = MutableMap.empty
-
-      def decreasing(relations: List[Relation]): Boolean = {
-        val constraints = relations.map(relation => relationConstraints.getOrElse(relation, {
-          val Relation(funDef, path, FunctionInvocation(_, _, args), _) = relation
-          val args0 = funDef.params.map(_.toVariable)
-          val constraint = if (solveVALID(path implies lessEquals(args, args0)).contains(true)) {
-            if (solveVALID(path implies lessThan(args, args0)).contains(true)) {
-              StrongDecreasing
-            } else {
-              WeakDecreasing
-            }
-          } else {
-            NoConstraint
-          }
-
-          relationConstraints(relation) = constraint
-          constraint
-        })).toSet
-
-        !constraints(NoConstraint) && constraints(StrongDecreasing)
-      }
-
       def chains(seen: Set[FunDef], chain: List[Relation]) : (Set[FunDef], Set[Chain]) = {
         val Relation(_, _, FunctionInvocation(id, _, _), _) :: _ = chain
         val fd = getFunction(id)
@@ -158,11 +141,11 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
       val (funDefs, allChains) = results.unzip
 
       val loops = funDefs.flatten
-      val filteredChains = allChains.flatten.filter(chain => !decreasing(chain.relations))
+      val resChains = allChains.flatten
 
-      chainCache(funDef) = (loops, filteredChains, funDefChainSignature(funDef))
+      chainCache(funDef) = (loops, resChains, funDefChainSignature(funDef))
 
-      loops -> filteredChains
+      loops -> resChains
     }
   }
 }

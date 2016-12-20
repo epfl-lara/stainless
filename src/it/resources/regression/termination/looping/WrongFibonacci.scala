@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 
-object Test {
+object Fibonacci {
   
   def looping_fib(n: BigInt): BigInt = {
     looping_fib(n-1) + looping_fib(n-2)

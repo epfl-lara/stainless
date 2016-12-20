@@ -123,7 +123,8 @@ trait StructuralSize {
             }).map { cons =>
               val arguments = cons.fields.map(_.freshen)
               val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
-              val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft[Expr](IntegerLiteral(1))(_ + _)
+              val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
+              val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
               MatchCase(ADTPattern(None, cons.typed(tparams).toType, argumentPatterns), None, rhs)
             }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
             Set.empty

@@ -3,10 +3,14 @@
 package stainless
 package termination
 
+import scala.collection.mutable.{Map => MutableMap}
+
 trait ChainProcessor extends OrderingProcessor {
   val ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
     val checker: ChainProcessor.this.checker.type
   }
+
+  val depth: Int = 1
 
   val name: String = "Chain Processor"
 
@@ -25,44 +29,85 @@ trait ChainProcessor extends OrderingProcessor {
     strengthenApplications(problem.funSet)
 
     reporter.debug("- Running ChainBuilder")
-    val chainsMap : Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map {
+    val chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map {
       funDef => funDef -> getChains(funDef)
     }.toMap
 
-    val loopPoints = chainsMap.foldLeft(Set.empty[FunDef]) { case (set, (fd, (fds, chains))) => set ++ fds }
+    val chainConstraints: Map[Chain, SizeConstraint] = {
+      val relationConstraints: MutableMap[Relation, SizeConstraint] = MutableMap.empty
+      
+      chainsMap.flatMap { case (_, (_, chains)) =>
+        chains.map(chain => chain -> {
+          val constraints = chain.relations.map(relation => relationConstraints.getOrElse(relation, {
+            val Relation(funDef, path, FunctionInvocation(_, _, args), _) = relation
+            val args0 = funDef.params.map(_.toVariable)
+            val constraint = if (solveVALID(path implies ordering.lessEquals(args, args0)).contains(true)) {
+              if (solveVALID(path implies ordering.lessThan(args, args0)).contains(true)) {
+                StrongDecreasing
+              } else {
+                WeakDecreasing
+              }
+            } else {
+              NoConstraint
+            }
+
+            relationConstraints(relation) = constraint
+            constraint
+          })).toSet
+
+          if (constraints(NoConstraint)) {
+            NoConstraint
+          } else if (constraints(StrongDecreasing)) {
+            StrongDecreasing
+          } else {
+            WeakDecreasing
+          }
+        })
+      }
+    }
+
+    val filteredChains: Map[FunDef, (Set[FunDef], Set[Chain])] = chainsMap.map { case (fd, (fds, chains)) =>
+      val remainingChains = chains.filter(chain => chainConstraints(chain) != StrongDecreasing)
+      fd -> ((fds, remainingChains))
+    }
+
+    val loopPoints = filteredChains.foldLeft(Set.empty[FunDef]) { case (set, (fd, (fds, chains))) => set ++ fds }
 
     if (loopPoints.size > 1) {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
       None
     } else {
       val funDef = loopPoints.headOption getOrElse {
-        chainsMap.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.getOrElse {
+        filteredChains.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.getOrElse {
           reporter.fatalError("Couldn't find chain set")
         }
       }
 
-      val chains = chainsMap(funDef)._2
+      val chains = filteredChains(funDef)._2
+      val allChains = chainsMap(funDef)._2
+      reporter.debug("- Searching for size decrease")
 
-      val e1s = chains.toSeq.map { chain =>
-        val freshParams = chain.finalParams.map(_.freshen)
-        (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
+      val remaining = (0 to depth).foldLeft(chains) { (cs, index) =>
+        reporter.debug("-+> Iteration #" + index)
+
+        val e1s = cs.toSeq.map { chain =>
+          val freshParams = chain.finalParams.map(_.freshen)
+          (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
+        }
+        val e2 = tupleWrap(funDef.params.map(_.toVariable))
+
+        val formulas = lessThan(e1s, e2)
+        if (formulas.exists(f => solveVALID(f).contains(true))) {
+          Set.empty
+        } else {
+          cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
+        }
       }
-      val e2 = tupleWrap(funDef.params.map(_.toVariable))
 
-      reporter.debug("-+> Searching for size decrease")
-
-      val formulas = lessThan(e1s, e2)
-      if (formulas.exists(f => solveVALID(f).contains(true))) {
+      if (remaining.isEmpty) {
         Some(problem.funDefs map Cleared)
       } else {
-        val maybeReentrant = chains.flatMap(c1 => chains.flatMap(c2 => c1 compose c2)).exists {
-          chain => !solveSAT(chain.loop().toClause).isUNSAT
-        }
-
-        if (!maybeReentrant)
-          Some(problem.funDefs map Cleared)
-        else 
-          None
+        None
       }
     }
   }

@@ -2,7 +2,7 @@
 
 import stainless.lang._
 
-object Numeric {
+object Numeric1 {
   // division by 0 loops
   def looping(x: Int, y: Int): Int = {
     if (x < y) 0

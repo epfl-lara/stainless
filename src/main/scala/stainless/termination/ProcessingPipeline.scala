@@ -81,7 +81,13 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val t: trees.type = trees
 
     protected def transformFunction(fd: FunDef): FunDef = {
-      if (isProblem(fd, ignoreSCC = true)) {
+      // When using the loop processor, it helps to ignore postconditions in the
+      // current SCC as these will sometimes disallow models otherwise
+      val isLoop = problems.headOption.exists {
+        case (_, idx) => processorArray(idx).isInstanceOf[LoopProcessor]
+      }
+
+      if (isProblem(fd, ignoreSCC = !isLoop)) {
         fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
       } else {
         fd

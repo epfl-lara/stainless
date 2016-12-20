@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 
-object Test {
+object OddEven {
 
   def looping_isOdd(n: BigInt): Boolean = {
     looping_isEven(n-1)

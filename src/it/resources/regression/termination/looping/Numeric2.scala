@@ -2,7 +2,7 @@
 
 import stainless.lang._
 
-object Numeric {
+object Numeric2 {
   def looping1(x: Int): Int = looping2(x - 1)
 
   def looping2(x: Int): Int = looping3(x - 1)

@@ -4,7 +4,7 @@ import stainless.annotation._
 
 import scala.language.postfixOps
 
-object Termination {
+object Term {
 
   case class Task(tick: BigInt) {
     require(tick >= 0)

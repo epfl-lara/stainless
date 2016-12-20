@@ -11,7 +11,10 @@ class TerminationSuite extends ComponentTestSuite with inox.ResourceUtils {
     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
   }
 
-  override val ignored = Set("verification/valid/Nested14")
+  override val ignored = Set(
+    "termination/valid/NNF",
+    "verification/valid/Nested14"
+  )
 
   testAll("termination/valid") { (report, _) =>
     val failures = report.results.collect { case (fd, guarantee) if !guarantee.isGuaranteed => fd }

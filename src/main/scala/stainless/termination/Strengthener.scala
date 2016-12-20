@@ -61,7 +61,7 @@ trait Strengthener { self: OrderingRelation =>
 
         // @nv: one must also check satisfiability here as if both formula and
         //      !formula are UNSAT, we will proceed to invalid strenghtening
-        if (exprOps.variablesOf(formula).nonEmpty && solveVALID(formula, strengthener).getOrElse(false)) {
+        if (exprOps.variablesOf(formula).nonEmpty && solveVALID(formula, strengthener).contains(true)) {
           strengthenedPost(fd) = Some(postcondition)
           true
         } else {
@@ -70,9 +70,9 @@ trait Strengthener { self: OrderingRelation =>
       }
 
       // test if size is smaller or equal to input
-      val weekConstraintHolds = strengthen(self.lessEquals)
+      val weakConstraintHolds = strengthen(self.lessEquals)
 
-      if (weekConstraintHolds) {
+      if (weakConstraintHolds) {
         // try to improve postcondition with strictly smaller
         strengthen(self.lessThan)
       }

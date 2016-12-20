@@ -3,7 +3,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-object NNF {
+object NNFSimple {
 
   sealed abstract class Formula
   case class And(lhs: Formula, rhs: Formula) extends Formula
@@ -28,17 +28,14 @@ object NNF {
     case Literal(_) => true
   }
 
-  def nnf(formula: Formula): Formula = (formula match {
+  def nnf(formula: Formula): Formula = formula match {
     case And(lhs, rhs) => And(nnf(lhs), nnf(rhs))
     case Or(lhs, rhs) => Or(nnf(lhs), nnf(rhs))
     case Implies(lhs, rhs) => nnf(Or(Not(lhs), rhs))
-    case Not(And(lhs, rhs)) => Or(nnf(Not(lhs)), nnf(Not(rhs)))
-    case Not(Or(lhs, rhs)) => And(nnf(Not(lhs)), nnf(Not(rhs)))
-    case Not(Implies(lhs, rhs)) => And(nnf(lhs), nnf(Not(rhs)))
     case Not(Not(f)) => nnf(f)
     case Not(Literal(_)) => formula
     case Literal(_) => formula
-  }) ensuring(isNNF(_))
+  }
 
   def isNNF(f: Formula): Boolean = f match {
     case And(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
@@ -73,25 +70,6 @@ object NNF {
       case Literal(i) => Set[BigInt](i)
     }
   }
-
-  def fv(f : Formula) = { vars(nnf(f)) }
-
-  @induct
-  def wrongCommutative(f: Formula) : Boolean = {
-    nnf(simplify(f)) == simplify(nnf(f))
-  } holds
-
-  @induct
-  def simplifyPreservesNNF(f: Formula) : Boolean = {
-    require(isNNF(f))
-    isNNF(simplify(f))
-  } holds
-
-  @induct
-  def nnfIsStable(f: Formula) : Boolean = {
-    require(isNNF(f))
-    nnf(f) == f
-  } holds
 
   @induct
   def simplifyIsStable(f: Formula) : Boolean = {
