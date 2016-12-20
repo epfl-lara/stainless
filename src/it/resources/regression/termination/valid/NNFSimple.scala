@@ -28,11 +28,11 @@ object NNFSimple {
     case Literal(_) => true
   }
 
-  def nnf(formula: Formula): Formula = formula match {
-    case And(lhs, rhs) => And(nnf(lhs), nnf(rhs))
-    case Or(lhs, rhs) => Or(nnf(lhs), nnf(rhs))
-    case Implies(lhs, rhs) => nnf(Or(Not(lhs), rhs))
-    case Not(Not(f)) => nnf(f)
+  def simpleNNF(formula: Formula): Formula = formula match {
+    case Or(lhs, rhs) => Or(simpleNNF(lhs), simpleNNF(rhs))
+    case Implies(lhs, rhs) => simpleNNF(Or(Not(lhs), rhs))
+    case And(lhs, rhs) => formula
+    case Not(Not(f)) => formula
     case Not(Literal(_)) => formula
     case Literal(_) => formula
   }
