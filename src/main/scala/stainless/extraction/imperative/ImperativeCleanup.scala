@@ -18,58 +18,56 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
   def transform(syms: s.Symbols): t.Symbols = {
     implicit val symbols = syms
 
-    object transformer extends {
-      val s: self.s.type = self.s
-      val t: self.t.type = self.t
-    } with inox.ast.TreeTransformer {
-      override def transform(tpe: s.Type): t.Type = tpe match {
-        case s.TypeParameter(id, flags) if flags contains s.IsMutable =>
-          t.TypeParameter(id, (flags - s.IsMutable) map transform).copiedFrom(tpe)
-        case s.TupleType(bases) =>
-          t.tupleTypeWrap(bases map transform filterNot (_ == t.UnitType)).copiedFrom(tpe)
-        case _ => super.transform(tpe)
+    val checkedSyms: t.Symbols = {
+      object checker extends {
+        val s: self.s.type = self.s
+        val t: self.t.type = self.t
+      } with CheckingTransformer {
+        override def transform(tpe: s.Type): t.Type = tpe match {
+          case s.TypeParameter(id, flags) if flags contains s.IsMutable =>
+            t.TypeParameter(id, (flags - s.IsMutable) map transform).copiedFrom(tpe)
+          case _ => super.transform(tpe)
+        }
+
+        override def transform(vd: s.ValDef): t.ValDef = {
+          val (newId, newTpe) = transform(vd.id, vd.tpe)
+          t.ValDef(newId, newTpe, (vd.flags - s.IsVar) map transform).copiedFrom(vd)
+        }
       }
 
-      override def transform(e: s.Expr): t.Expr = e match {
-        case sel @ s.TupleSelect(s.IsTyped(tpl, s.TupleType(bases)), index) =>
-          val realBases = bases map transform
-          if (realBases(index - 1) == t.UnitType) {
-            t.UnitLiteral()
-          } else {
-            val nbUnitsUntilIndex = realBases.take(index).count(_ == t.UnitType)
-            val nbNonUnitsTotal = realBases.count(_ != t.UnitType)
-            if (nbUnitsUntilIndex == 0) super.transform(e)
-            else if (nbNonUnitsTotal == 1) transform(tpl)
-            else t.TupleSelect(transform(tpl), index - nbUnitsUntilIndex).copiedFrom(sel)
-          }
-
-        case tu @ s.Tuple(es) =>
-          val realTypes = es.map(_.getType) map transform
-          if (realTypes exists (_ == t.UnitType)) {
-            t.tupleWrap((es zip realTypes).filter(p => p._2 != t.UnitType).map(p => transform(p._1))).copiedFrom(tu)
-          } else {
-            super.transform(tu)
-          }
-
-        case _ => super.transform(e)
-      }
-
-      override def transform(vd: s.ValDef): t.ValDef = {
-        val (newId, newTpe) = transform(vd.id, vd.tpe)
-        t.ValDef(newId, newTpe, (vd.flags - s.IsVar) map transform).copiedFrom(vd)
-      }
+      t.NoSymbols
+        .withADTs(syms.adts.values.toSeq.map(checker.transform))
+        .withFunctions(syms.functions.values.toSeq.map { fd =>
+          checker.transform(fd.copy(flags = fd.flags - s.IsPure))
+        })
     }
 
-    val untupledSyms = t.NoSymbols
-      .withADTs(syms.adts.values.toSeq.map(transformer.transform))
-      .withFunctions(syms.functions.values.toSeq.map { fd =>
-        transformer.transform(fd.copy(flags = fd.flags - s.IsPure))
-      })
+    val pureUnitSyms: t.Symbols = {
+      import self.t._
+      import checkedSyms._
+
+      object pureUnits extends SelfTreeTransformer {
+        override def transform(e: Expr): Expr = e match {
+          case tu @ Tuple(es) => Tuple(es.map {
+            case IsTyped(e, UnitType) =>
+              val te = transform(e)
+              if (isPure(te)) UnitLiteral().copiedFrom(te) else te
+            case e => transform(e)
+          }).copiedFrom(tu)
+
+          case _ => super.transform(e)
+        }
+      }
+
+      t.NoSymbols
+        .withADTs(checkedSyms.adts.values.toSeq.map(pureUnits.transform))
+        .withFunctions(checkedSyms.functions.values.toSeq.map(pureUnits.transform))
+    }
 
     val simpleSyms = t.NoSymbols
-      .withADTs(untupledSyms.adts.values.toSeq)
-      .withFunctions(untupledSyms.functions.values.toSeq.map { fd =>
-        fd.copy(fullBody = untupledSyms.simplifyLets(fd.fullBody))
+      .withADTs(pureUnitSyms.adts.values.toSeq)
+      .withFunctions(pureUnitSyms.functions.values.toSeq.map { fd =>
+        fd.copy(fullBody = pureUnitSyms.simplifyLets(fd.fullBody))
       })
 
     /*
@@ -78,7 +76,6 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       if (fd.fullBody.getType == t.Untyped) {
         println(explainTyping(fd.fullBody)(t.PrinterOptions(symbols = Some(simpleSyms), printUniqueIds = true)))
       }
-      println(fd)
     }
     */
 
