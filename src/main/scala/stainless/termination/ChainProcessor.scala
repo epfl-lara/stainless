@@ -77,34 +77,39 @@ trait ChainProcessor extends OrderingProcessor {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
       None
     } else {
-      val funDef = loopPoints.headOption getOrElse {
-        filteredChains.collectFirst { case (fd, (fds, chains)) if chains.nonEmpty => fd }.getOrElse {
-          reporter.fatalError("Couldn't find chain set")
-        }
+      val funDefs = if (loopPoints.nonEmpty) {
+        loopPoints
+      } else {
+        filteredChains.collect { case (fd, (fds, chains)) if chains.nonEmpty => fd }
       }
 
-      val chains = filteredChains(funDef)._2
-      val allChains = chainsMap(funDef)._2
-      reporter.debug("- Searching for size decrease")
+      var cleared = false
+      for (funDef <- funDefs if !cleared) {
+        val chains = filteredChains(funDef)._2
+        val allChains = chainsMap(funDef)._2
+        reporter.debug("- Searching for size decrease")
 
-      val remaining = (0 to depth).foldLeft(chains) { (cs, index) =>
-        reporter.debug("-+> Iteration #" + index)
+        val remaining = (0 to depth).foldLeft(chains) { (cs, index) =>
+          reporter.debug("-+> Iteration #" + index)
 
-        val e1s = cs.toSeq.map { chain =>
-          val freshParams = chain.finalParams.map(_.freshen)
-          (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
+          val e1s = cs.toSeq.map { chain =>
+            val freshParams = chain.finalParams.map(_.freshen)
+            (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
+          }
+          val e2 = tupleWrap(funDef.params.map(_.toVariable))
+
+          val formulas = lessThan(e1s, e2)
+          if (cleared || formulas.exists(f => solveVALID(f).contains(true))) {
+            Set.empty
+          } else {
+            cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
+          }
         }
-        val e2 = tupleWrap(funDef.params.map(_.toVariable))
 
-        val formulas = lessThan(e1s, e2)
-        if (formulas.exists(f => solveVALID(f).contains(true))) {
-          Set.empty
-        } else {
-          cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
-        }
+        cleared = remaining.isEmpty
       }
 
-      if (remaining.isEmpty) {
+      if (cleared) {
         Some(problem.funDefs map Cleared)
       } else {
         None
