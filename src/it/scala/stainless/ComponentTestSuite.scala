@@ -7,7 +7,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
   val component: SimpleComponent
 
   override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
-    Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(150))
+    Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(150.seconds))
   )
 
   def extract(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
