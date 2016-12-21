@@ -41,7 +41,7 @@ trait VerificationChecker { self =>
   private def defaultStop(res: VCResult): Boolean = if (failEarly) res.status != VCStatus.Valid else false
 
   def verify(funs: Seq[Identifier], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
-    val sf = getFactory.withTimeout(ctx.options.findOption(inox.optTimeout))
+    val sf = getFactory.withTimeout(ctx.options.findOption(inox.optTimeout).map(_ * 1000))
 
     try {
       ctx.reporter.debug("Generating Verification Conditions...")

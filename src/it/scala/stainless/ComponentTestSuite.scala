@@ -2,6 +2,8 @@
 
 package stainless
 
+import scala.concurrent.duration._
+
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
 
   val component: SimpleComponent
