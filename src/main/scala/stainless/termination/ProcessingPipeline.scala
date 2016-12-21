@@ -38,7 +38,6 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   private[termination] def interrupted: Boolean = _interrupted
 
   def interrupt(): Unit = { _interrupted = true }
-  def recoverInterrupt(): Unit = { _interrupted = false }
 
   sealed abstract class Result(funDef: FunDef)
   case class Cleared(funDef: FunDef) extends Result(funDef)

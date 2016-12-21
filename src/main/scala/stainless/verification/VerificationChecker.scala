@@ -33,12 +33,15 @@ trait VerificationChecker { self =>
   val VCResult = verification.VCResult
 
   protected def getTactic(fd: FunDef): Tactic { val program: self.program.type }
-  protected def getFactory: SolverFactory { val program: self.program.type }
+  protected def getFactory: SolverFactory {
+    val program: self.program.type
+    type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
+  }
 
   private def defaultStop(res: VCResult): Boolean = if (failEarly) res.status != VCStatus.Valid else false
 
   def verify(funs: Seq[Identifier], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
-    val sf = getFactory
+    val sf = getFactory.withTimeout(ctx.options.findOption(inox.optTimeout))
 
     try {
       ctx.reporter.debug("Generating Verification Conditions...")
@@ -82,14 +85,14 @@ trait VerificationChecker { self =>
     val results = if (parallelCheck) {
       for (vc <- vcs.par if !stop && !ctx.interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
-        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.recoverInterrupt()
+        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.reset()
         stop = stopWhen(res)
         vc -> res
       }
     } else {
       for (vc <- vcs if !stop && !ctx.interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
-        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.recoverInterrupt()
+        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.reset()
         stop = stopWhen(res)
         vc -> res
       }
