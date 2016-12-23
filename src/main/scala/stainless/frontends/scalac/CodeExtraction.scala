@@ -727,6 +727,9 @@ trait CodeExtraction extends ASTExtractors {
         val b = extractBlock(es :+ e)
         xt.exprOps.flattenBlocks(b)
 
+      case ExRequiredExpression(body) =>
+        xt.Require(extractTree(body), xt.UnitLiteral().setPos(tr.pos))
+
       case ExEnsuredExpression(body, contract) =>
         val post = extractTree(contract)
         val b = extractTreeOrNoTree(body)
