@@ -29,11 +29,7 @@ resolvers ++= Seq(
 libraryDependencies ++= Seq(
   //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test;it",
-  "com.typesafe.akka" %% "akka-actor" % "2.3.4",
-  "org.ow2.asm" % "asm-all" % "5.0.4",
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.0-rc2",
-  "org.apache.commons" % "commons-lang3" % "3.4"
-  //"com.regblanc" %% "scala-smtlib" % "0.2"
+  "ch.epfl.lara" %% "inox" % "1.0" % "compile->compile;test->test;it->it,test"
 )
 
 lazy val scriptName = "stainless"
@@ -118,7 +114,7 @@ testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "a7370d6cd0536d7fd31db54ee5f47dbb00e7b106")
+//lazy val inox = RootProject(file("../inox"))
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
@@ -130,7 +126,7 @@ lazy val root = (project in file("."))
     parallelExecution := (nParallel > 1)
   )) : _*)
   .settings(compile <<= (compile in Compile) dependsOn script)
-  .dependsOn(inox % "compile->compile;test->test;it->it,test")
+  //.dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 
