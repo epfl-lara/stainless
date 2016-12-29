@@ -29,7 +29,9 @@ resolvers ++= Seq(
 libraryDependencies ++= Seq(
   //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test;it",
-  "ch.epfl.lara" %% "inox" % "1.0" % "compile->compile;test->test;it->it,test"
+  "ch.epfl.lara" %% "inox" % "1.0",
+  "ch.epfl.lara" %% "inox" % "1.0" % "test" classifier "tests",
+  "ch.epfl.lara" %% "inox" % "1.0" % "it" classifier "tests" classifier "it"
 )
 
 lazy val scriptName = "stainless"
