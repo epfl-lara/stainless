@@ -4,8 +4,6 @@ version := "0.1"
 
 organization := "ch.epfl.lara"
 
-val scalaVer = "2.11.8"
-
 scalaVersion := "2.11.8"
 
 scalacOptions ++= Seq(
@@ -20,18 +18,26 @@ site.settings
 
 site.sphinxSupport()
 
+val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
+
+val osArch = System.getProperty("sun.arch.data.model")
+
+unmanagedJars in Runtime += {
+  baseDirectory.value / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
+}
+
 resolvers ++= Seq(
-  "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases"
+  "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
+  "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
 )
 
 libraryDependencies ++= Seq(
   //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test;it",
-  "ch.epfl.lara" %% "inox" % "1.0",
-  "ch.epfl.lara" %% "inox" % "1.0" % "test" classifier "tests",
-  "ch.epfl.lara" %% "inox" % "1.0" % "it" classifier "tests" classifier "it"
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test,it",
+  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
+  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
+  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it"
 )
 
 lazy val scriptName = "stainless"
@@ -65,7 +71,7 @@ lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 script := {
   val s = streams.value
   try {
-    val cps = (dependencyClasspath in Compile).value
+    val cps = (managedClasspath in Runtime).value ++ (unmanagedClasspath in Runtime).value
     val out = (classDirectory      in Compile).value
     val res = (resourceDirectory   in Compile).value
 
@@ -128,7 +134,7 @@ lazy val root = (project in file("."))
     parallelExecution := (nParallel > 1)
   )) : _*)
   .settings(compile <<= (compile in Compile) dependsOn script)
-  //.dependsOn(inox % "compile->compile;test->test;it->it,test")
+//  .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 

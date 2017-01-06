@@ -4,7 +4,7 @@ package stainless.lang
 import stainless.annotation._
 
 object Bag {
-  @library
+  @library @inline
   def empty[T] = Bag[T]()
 
   @ignore
