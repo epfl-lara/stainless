@@ -38,7 +38,9 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
                     Some(Let(v.toVal, body,
                       Assert(application(lambda, Seq(v)), Some("Inlined postcondition"), v)))
                   case _ => None
-                } (exprOps.freshenLocals(tfd.withParamSubst(args, tfd.fullBody))))
+                } (exprOps.freshenLocals((tfd.params zip args).foldRight(tfd.fullBody) {
+                    case ((vd, e), body) => let(vd, e, body)
+                })))
               } else {
                 None
               }
