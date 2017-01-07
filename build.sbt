@@ -34,10 +34,10 @@ resolvers ++= Seq(
 
 libraryDependencies ++= Seq(
   //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-  "org.scalatest" %% "scalatest" % "3.0.1" % "test,it",
   "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
   "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
-  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it"
+  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test,it"
 )
 
 lazy val scriptName = "stainless"
@@ -71,7 +71,10 @@ lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 script := {
   val s = streams.value
   try {
-    val cps = (managedClasspath in Runtime).value ++ (unmanagedClasspath in Runtime).value
+    val cps = (managedClasspath in Runtime).value ++
+      (unmanagedClasspath in Runtime).value ++
+      (internalDependencyClasspath in Runtime).value
+
     val out = (classDirectory      in Compile).value
     val res = (resourceDirectory   in Compile).value
 
