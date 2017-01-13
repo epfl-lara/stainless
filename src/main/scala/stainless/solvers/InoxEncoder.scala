@@ -9,6 +9,8 @@ trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program
   val t: inox.trees.type = inox.trees
 
+  protected implicit val semantics: sourceProgram.Semantics
+
   override protected def encodedProgram: inox.Program { val trees: t.type } = {
     import sourceProgram.trees._
     import sourceProgram.symbols._
@@ -79,6 +81,7 @@ trait InoxEncoder extends ProgramEncoder {
     val s: InoxEncoder.this.s.type = InoxEncoder.this.s
     val t: InoxEncoder.this.t.type = InoxEncoder.this.t
 
+    import sourceProgram._
     import sourceProgram.symbols._
 
     override def transform(e: s.Expr): t.Expr = e match {
@@ -258,6 +261,7 @@ object InoxEncoder {
   def apply(p: StainlessProgram): InoxEncoder { val sourceProgram: p.type } = new {
     val sourceProgram: p.type = p
   } with InoxEncoder {
+    val semantics = p.getSemantics
     object encoder extends TreeEncoder
     object decoder extends TreeDecoder
   }

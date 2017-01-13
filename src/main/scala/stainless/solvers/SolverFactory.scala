@@ -5,7 +5,6 @@ package solvers
 
 import inox.solvers._
 import inox.solvers.combinators._
-import inox.evaluators.{DeterministicEvaluator, SolvingEvaluator}
 
 import evaluators._
 
@@ -13,13 +12,12 @@ object SolverFactory {
 
   def getFromName(name: String)
                  (p: Program, opts: inox.Options)
-                 (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                  enc: inox.ast.ProgramTransformer {
+                 (enc: inox.ast.ProgramTransformer {
                     val sourceProgram: p.type
-                    val targetProgram: inox.InoxProgram
-                  }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                    val targetProgram: StainlessProgram
+                  })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     if (inox.solvers.SolverFactory.solvers(name)) {
-      inox.solvers.SolverFactory.getFromName(name)(p, opts)(ev, enc)
+      inox.solvers.SolverFactory.getFromName(name)(p, opts)(enc andThen InoxEncoder(enc.targetProgram))
     } else {
       sys.error("TODO!")
     }
@@ -29,39 +27,37 @@ object SolverFactory {
   // between all underlying solvers. We count on immutability to ensure sanity here.
   def getFromNames(names: Seq[String])
                   (p: Program, opts: inox.Options)
-                  (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                   enc: inox.ast.ProgramTransformer {
+                  (enc: inox.ast.ProgramTransformer {
                      val sourceProgram: p.type
-                     val targetProgram: inox.InoxProgram
-                   }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                     val targetProgram: StainlessProgram
+                   })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     names match {
       case Seq() => throw new inox.FatalError("No selected solver")
-      case Seq(single) => getFromName(single)(p, opts)(ev, enc)
+      case Seq(single) => getFromName(single)(p, opts)(enc)
       case multiple => PortfolioSolverFactory(p) {
-        multiple.map(name => getFromName(name)(p, opts)(ev, enc))
+        multiple.map(name => getFromName(name)(p, opts)(enc))
       }
     }
   }
 
   def getFromSettings(p: Program, opts: inox.Options)
-                     (ev: DeterministicEvaluator with SolvingEvaluator { val program: p.type },
-                      enc: inox.ast.ProgramTransformer {
+                     (enc: inox.ast.ProgramTransformer {
                         val sourceProgram: p.type
-                        val targetProgram: inox.InoxProgram
-                      }): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
+                        val targetProgram: StainlessProgram
+                      })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     val names = opts.findOptionOrDefault(inox.optSelectedSolvers).toSeq
-    getFromNames(names)(p, opts)(ev, enc)
+    getFromNames(names)(p, opts)(enc)
   }
 
   def apply(name: String, p: StainlessProgram, opts: inox.Options): SolverFactory {
     val program: p.type
     type S <: TimeoutSolver { val program: p.type }
-  } = getFromName(name)(p, opts)(Evaluator(p, opts), InoxEncoder(p))
+  } = getFromName(name)(p, opts)(inox.ast.ProgramEncoder.empty(p))(p.getSemantics)
 
   def apply(p: StainlessProgram, opts: inox.Options): SolverFactory {
     val program: p.type
     type S <: TimeoutSolver { val program: p.type }
-  } = getFromSettings(p, opts)(Evaluator(p, opts), InoxEncoder(p))
+  } = getFromSettings(p, opts)(inox.ast.ProgramEncoder.empty(p))(p.getSemantics)
 
   def default(p: StainlessProgram): SolverFactory {
     val program: p.type

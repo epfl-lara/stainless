@@ -24,7 +24,7 @@ class CodeGenEvaluatorSuite extends EvaluatorSuite {
       }
     }
 
-    EncodingEvaluator.solving(p)(lifter)(CodeGenEvaluator(lifter.targetProgram, ctx.options))
+    EncodingEvaluator(p)(lifter)(CodeGenEvaluator(lifter.targetProgram, ctx.options))
   }
 }
 

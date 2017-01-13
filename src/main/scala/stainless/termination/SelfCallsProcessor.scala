@@ -11,6 +11,7 @@ trait SelfCallsProcessor extends Processor {
   val name: String = "Self Calls Processor"
 
   import checker._
+  import program._
   import program.trees._
   import program.symbols._
 
@@ -21,7 +22,7 @@ trait SelfCallsProcessor extends Processor {
       .filter(fd => fd.body.isDefined && alwaysCalls(fd.body.get, fd.id))
 
     if (nonTerminating.nonEmpty)
-      Some(nonTerminating.map(fd => Broken(fd, fd.params.map(vd => simplestValue(vd.tpe)))))
+      Some(nonTerminating.map(fd => Broken(fd, fd.params.map(_.toVariable))))
     else
       None
   }

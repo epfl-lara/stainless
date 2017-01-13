@@ -150,7 +150,7 @@ object RecursiveEvaluator {
       with inox.evaluators.HasDefaultGlobalContext
       with inox.evaluators.HasDefaultRecContext {
 
-      def getSolver(moreOpts: inox.OptionValue[_]*) = solvers.SolverFactory(p, opts ++ moreOpts)
+      val semantics = p.getSemantics
     }
   }
 

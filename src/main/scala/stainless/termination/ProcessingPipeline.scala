@@ -53,7 +53,8 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
   private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     val transformEncoder = inox.ast.ProgramEncoder(program)(transformer)
-    val programEncoder = transformEncoder andThen (new {
+
+    object programEncoder extends {
       val sourceProgram: transformEncoder.targetProgram.type = transformEncoder.targetProgram
       val t: stainless.trees.type = stainless.trees
     } with inox.ast.ProgramEncoder {
@@ -62,13 +63,12 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
         val s: stainless.trees.type = stainless.trees
         val t: trees.type = trees
       }
-    })
+    }
 
-    solvers.SolverFactory.getFromSettings(program, options)(
-      inox.evaluators.EncodingEvaluator.solving(self.program)(programEncoder)(
-        evaluators.Evaluator(programEncoder.targetProgram, options)
-      ), programEncoder andThen solvers.InoxEncoder(programEncoder.targetProgram)
-    ).withTimeout(2.5.seconds)
+    val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
+    solvers.SolverFactory
+      .getFromSettings(p, options)(programEncoder)(p.getSemantics(programEncoder))
+      .withTimeout(2.5.seconds)
   }
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {

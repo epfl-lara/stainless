@@ -149,7 +149,7 @@ object CodeGenEvaluator {
       val program: p.type = p
       val options = opts
     } with CodeGenEvaluator {
-      def getSolver(moreOpts: inox.OptionValue[_]*) = solvers.SolverFactory(p, opts ++ moreOpts)
+      lazy val semantics = p.getSemantics
     }
   }
 
