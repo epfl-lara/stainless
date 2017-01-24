@@ -118,6 +118,11 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 )
 
+lazy val commonIntegrationTestSettings: Seq[Setting[_]] = Seq(
+  scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "it/scala",
+  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "it/resources"
+)
+
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
@@ -127,9 +132,10 @@ lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83
 
 lazy val core = (project in file("core"))
   .configs(IntegrationTest)
-  .settings(name := "stainless")
+  .settings(name := "stainless-core")
   .settings(commonSettings)
   .settings(Defaults.itSettings : _*)
+  .settings(commonIntegrationTestSettings)
   .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
     logBuffered := (nParallel > 1),
     parallelExecution := (nParallel > 1)
@@ -139,5 +145,11 @@ lazy val core = (project in file("core"))
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 
+//lazy val scalac = (project in file("scalac"))
+//  .settings(name := "stainless-scalac")
+//  .settings(commonSettings)
+
 lazy val root = (project in file("."))
+//  .dependsOn(scalac)
   .aggregate(core)
+//  .aggregate(scalac)
