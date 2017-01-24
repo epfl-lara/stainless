@@ -1,55 +1,8 @@
-name := "stainless"
-
-version := "0.1"
-
-organization := "ch.epfl.lara"
-
-scalaVersion := "2.11.8"
-
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-unchecked",
-  "-feature"
-)
-
-scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt")
-
-site.settings
-
-site.sphinxSupport()
-
 val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
-
 val osArch = System.getProperty("sun.arch.data.model")
 
-unmanagedJars in Runtime += {
-  baseDirectory.value / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
-}
-
-resolvers ++= Seq(
-  "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-  "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
-  "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
-)
-
-libraryDependencies ++= Seq(
-  //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
-  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
-  "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
-  "org.scalatest" %% "scalatest" % "3.0.1" % "test,it"
-)
-
-lazy val scriptName = "stainless"
-
+val scriptName = "stainless"
 lazy val scriptFile = file(".") / scriptName
-
-clean := {
-  clean.value
-  if (scriptFile.exists && scriptFile.isFile) {
-    scriptFile.delete
-  }
-}
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -64,64 +17,107 @@ lazy val nParallel = {
   }
 }
 
-concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel)
-
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
-script := {
-  val s = streams.value
-  try {
-    val cps = (managedClasspath in Runtime).value ++
-      (unmanagedClasspath in Runtime).value ++
-      (internalDependencyClasspath in Runtime).value
 
-    val out = (classDirectory      in Compile).value
-    val res = (resourceDirectory   in Compile).value
+lazy val commonSettings: Seq[Setting[_]] = Seq(
+  version := "0.1",
+  organization := "ch.epfl.lara",
+  scalaVersion := "2.11.8",
 
-    if (scriptFile.exists) {
-      s.log.info("Regenerating '" + scriptFile.getName + "' script")
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-unchecked",
+    "-feature"
+  ),
+  scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt"),
+
+//  site.settings,
+//  site.sphinxSupport(),
+
+  unmanagedJars in Runtime += {
+    baseDirectory.value / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
+  },
+
+  resolvers ++= Seq(
+    "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
+    "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
+    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
+  ),
+
+  libraryDependencies ++= Seq(
+    //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
+    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
+    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
+    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
+    "org.scalatest" %% "scalatest" % "3.0.1" % "test,it"
+  ),
+
+  clean := {
+    clean.value
+    if (scriptFile.exists && scriptFile.isFile) {
       scriptFile.delete
-    } else {
-      s.log.info("Generating '" + scriptFile.getName + "' script")
     }
+  },
 
-    val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
-    IO.write(scriptFile, s"""|#!/bin/bash --posix
-                             |
-                             |SCALACLASSPATH=$paths
-                             |
-                             |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
-                             |""".stripMargin)
-    scriptFile.setExecutable(true)
-  } catch {
-    case e: Throwable =>
-      s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
-  }
-}
+  concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel),
 
-sourceGenerators in Compile <+= Def.task {
-  val libraryFiles = ((baseDirectory.value / "library") ** "*.scala").getPaths
-  val build = (sourceManaged in Compile).value / "stainless" / "Build.scala"
-  IO.write(build, s"""|package stainless
-                      |
-                      |object Build {
-                      |  val baseDirectory = \"\"\"${baseDirectory.value.toString}\"\"\"
-                      |  val libraryFiles = List(
-                        ${libraryFiles
-                          .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
-                          .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
-                      |  )
-                      |}""".stripMargin)
-  Seq(build)
-}
+  script := {
+    val s = streams.value
+    try {
+      val cps = (managedClasspath in Runtime).value ++
+        (unmanagedClasspath in Runtime).value ++
+        (internalDependencyClasspath in Runtime).value
 
-sourcesInBase in Compile := false
+      val out = (classDirectory      in Compile).value
+      val res = (resourceDirectory   in Compile).value
 
-Keys.fork in run := true
+      if (scriptFile.exists) {
+        s.log.info("Regenerating '" + scriptFile.getName + "' script")
+        scriptFile.delete
+      } else {
+        s.log.info("Generating '" + scriptFile.getName + "' script")
+      }
 
-testOptions in Test := Seq(Tests.Argument("-oDF"))
+      val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
+      IO.write(scriptFile, s"""|#!/bin/bash --posix
+                               |
+                               |SCALACLASSPATH=$paths
+                               |
+                               |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
+                               |""".stripMargin)
+      scriptFile.setExecutable(true)
+    } catch {
+      case e: Throwable =>
+        s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
+    }
+  },
 
-testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
+  sourceGenerators in Compile <+= Def.task {
+    val libraryFiles = ((root.base / "library") ** "*.scala").getPaths
+    val build = (sourceManaged in Compile).value / "stainless" / "Build.scala"
+    IO.write(build, s"""|package stainless
+                        |
+                        |object Build {
+                        |  val baseDirectory = \"\"\"${root.base.getAbsolutePath}\"\"\"
+                        |  val libraryFiles = List(
+                          ${libraryFiles
+      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
+      .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
+                        |  )
+                        |}""".stripMargin)
+    Seq(build)
+  },
+
+  sourcesInBase in Compile := false,
+
+  Keys.fork in run := true,
+
+  testOptions in Test := Seq(Tests.Argument("-oDF")),
+
+  testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
+)
+
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
@@ -129,8 +125,10 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
-lazy val root = (project in file("."))
+lazy val core = (project in file("core"))
   .configs(IntegrationTest)
+  .settings(name := "stainless")
+  .settings(commonSettings)
   .settings(Defaults.itSettings : _*)
   .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
     logBuffered := (nParallel > 1),
@@ -141,3 +139,5 @@ lazy val root = (project in file("."))
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 
+lazy val root = (project in file("."))
+  .aggregate(core)
