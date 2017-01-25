@@ -1,9 +1,6 @@
 val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val scriptName = "stainless"
-lazy val scriptFile = file(".") / scriptName
-
 lazy val nParallel = {
   val p = System.getProperty("parallel")
   if (p ne null) {
@@ -17,7 +14,7 @@ lazy val nParallel = {
   }
 }
 
-lazy val frontendClass = taskKey[String]("The name of the compiler wrapper used to extract stainless trees")
+lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
@@ -57,45 +54,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   ),
 
-  clean := {
-    clean.value
-    if (scriptFile.exists && scriptFile.isFile) {
-      scriptFile.delete
-    }
-  },
-
   concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel),
-
-  script := {
-    val s = streams.value
-    try {
-      val cps = (managedClasspath in Runtime).value ++
-        (unmanagedClasspath in Runtime).value ++
-        (internalDependencyClasspath in Runtime).value
-
-      val out = (classDirectory      in Compile).value
-      val res = (resourceDirectory   in Compile).value
-
-      if (scriptFile.exists) {
-        s.log.info("Regenerating '" + scriptFile.getName + "' script")
-        scriptFile.delete
-      } else {
-        s.log.info("Generating '" + scriptFile.getName + "' script")
-      }
-
-      val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
-      IO.write(scriptFile, s"""|#!/bin/bash --posix
-                               |
-                               |SCALACLASSPATH=$paths
-                               |
-                               |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
-                               |""".stripMargin)
-      scriptFile.setExecutable(true)
-    } catch {
-      case e: Throwable =>
-        s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
-    }
-  },
 
   sourcesInBase in Compile := false,
 
@@ -137,9 +96,60 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
       .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
                        |  )
                        |
-                       |  $extractFromSourceSig = frontends.${frontendClass.value}(ctx, compilerOpts)
+                       |  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
+                       |    List[xt.UnitDef],
+                       |    Program { val trees: xt.type }
+                       |  ) = frontends.${frontendClass.value}(ctx, compilerOpts)
                        |}""".stripMargin)
     Seq(main)
+  }
+)
+
+val scriptSettings: Seq[Setting[_]] = Seq(
+  compile <<= (compile in Compile) dependsOn script,
+
+  clean := {
+    clean.value
+    val scriptFile = root.base / "bin" / name.value
+    if (scriptFile.exists && scriptFile.isFile) {
+      scriptFile.delete
+    }
+  },
+
+  script := {
+    val s = streams.value
+    try {
+      val binDir = root.base / "bin"
+      binDir.mkdirs
+
+      val scriptFile = binDir / name.value
+
+      val cps = (managedClasspath in Runtime).value ++
+        (unmanagedClasspath in Runtime).value ++
+        (internalDependencyClasspath in Runtime).value
+
+      val out = (classDirectory      in Compile).value
+      val res = (resourceDirectory   in Compile).value
+
+      if (scriptFile.exists) {
+        s.log.info("Regenerating '" + scriptFile.getName + "' script")
+        scriptFile.delete
+      } else {
+        s.log.info("Generating '" + scriptFile.getName + "' script")
+      }
+
+      val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
+      IO.write(scriptFile, s"""|#!/bin/bash --posix
+                               |
+                               |SCALACLASSPATH=$paths
+                               |
+                               |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
+                               |""".stripMargin)
+      scriptFile.setExecutable(true)
+    } catch {
+      case e: Throwable =>
+        s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
+    }
   }
 )
 
@@ -154,7 +164,6 @@ lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
-  .settings(compile <<= (compile in Compile) dependsOn script)
 //  .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(cafebabe)
 
@@ -171,18 +180,16 @@ def frontendProject(proj: Project, _frontendClass: String): Project = proj
   )) : _*)
 
 lazy val `stainless-scalac` = frontendProject(project in file("scalac"), "scalac.ScalaCompiler")
-  .settings(
-    name := "stainless-scalac",
-    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
-  )
+  .settings(name := "stainless-scalac", scriptSettings)
+  .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
 
 lazy val `stainless-dotty-frontend` = frontendProject(project in file("dotty"), "dotc.DottyCompiler")
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(dotty % "provided")
 
+// TODO: Point this project somewhere, otherwise it will write output into /stainless-dotty, which we don't want.
 lazy val `stainless-dotty` = project
-  .settings(artifactSettings)
-  .settings(name := "stainless-dotty")
+  .settings(name := "stainless-dotty", artifactSettings, scriptSettings)
   .dependsOn(`stainless-dotty-frontend`)
   .dependsOn(dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
   .aggregate(`stainless-dotty-frontend`)
