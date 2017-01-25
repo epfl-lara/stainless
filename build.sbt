@@ -17,6 +17,8 @@ lazy val nParallel = {
   }
 }
 
+lazy val frontendClass = taskKey[String]("The name of the compiler wrapper used to extract stainless trees")
+
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
 
@@ -32,6 +34,7 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
   ),
   scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt"),
 
+  // TODO: Reenable site.settings
 //  site.settings,
 //  site.sphinxSupport(),
 
@@ -49,8 +52,7 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
     //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
     "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
     "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
-    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "test,it"
+    "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   ),
 
   clean := {
@@ -93,22 +95,6 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
     }
   },
 
-  sourceGenerators in Compile <+= Def.task {
-    val libraryFiles = ((root.base / "library") ** "*.scala").getPaths
-    val build = (sourceManaged in Compile).value / "stainless" / "Build.scala"
-    IO.write(build, s"""|package stainless
-                        |
-                        |object Build {
-                        |  val baseDirectory = \"\"\"${root.base.getAbsolutePath}\"\"\"
-                        |  val libraryFiles = List(
-                          ${libraryFiles
-      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
-      .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
-                        |  )
-                        |}""".stripMargin)
-    Seq(build)
-  },
-
   sourcesInBase in Compile := false,
 
   Keys.fork in run := true,
@@ -118,9 +104,37 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 )
 
-lazy val commonIntegrationTestSettings: Seq[Setting[_]] = Seq(
+lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
+  libraryDependencies ++= Seq(
+    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
+    "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
+  ),
+
   scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "it/scala",
-  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "it/resources"
+  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "it/resources",
+
+  sourceGenerators in Compile <+= Def.task {
+    val libraryFiles = ((root.base / "library") ** "*.scala").getPaths
+    val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
+    val extractFromSourceSig = """def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
+                                 |    List[xt.UnitDef],
+                                 |    Program { val trees: xt.type }
+                                 |  )""".stripMargin
+    IO.write(main, s"""|package stainless
+                       |
+                       |import extraction.xlang.{trees => xt}
+                       |
+                       |object Main extends MainHelpers {
+                       |  val libraryFiles = List(
+                          ${libraryFiles
+      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
+      .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
+                       |  )
+                       |
+                       |  $extractFromSourceSig = frontends.${frontendClass.value}(ctx, compilerOpts)
+                       |}""".stripMargin)
+    Seq(main)
+  }
 )
 
 
@@ -131,25 +145,29 @@ lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
 lazy val core = (project in file("core"))
-  .configs(IntegrationTest)
   .settings(name := "stainless-core")
   .settings(commonSettings)
-  .settings(Defaults.itSettings : _*)
-  .settings(commonIntegrationTestSettings)
-  .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-    logBuffered := (nParallel > 1),
-    parallelExecution := (nParallel > 1)
-  )) : _*)
   .settings(compile <<= (compile in Compile) dependsOn script)
 //  .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(dotty)
   .dependsOn(cafebabe)
 
-//lazy val scalac = (project in file("scalac"))
-//  .settings(name := "stainless-scalac")
-//  .settings(commonSettings)
+def frontendProject(proj: Project, _name: String, _frontendClass: String): Project =
+  proj
+    .dependsOn(core)
+    .configs(IntegrationTest)
+    .settings(name := _name, frontendClass := _frontendClass)
+    .settings(commonSettings)
+    .settings(Defaults.itSettings : _*)
+    .settings(commonFrontendSettings)
+    .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
+      logBuffered := (nParallel > 1),
+      parallelExecution := (nParallel > 1)
+    )) : _*)
+
+lazy val scalac = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
 
 lazy val root = (project in file("."))
-//  .dependsOn(scalac)
+  .dependsOn(scalac)
   .aggregate(core)
-//  .aggregate(scalac)
+  .aggregate(scalac)

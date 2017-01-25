@@ -16,7 +16,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val reporter = new inox.TestSilentReporter
 
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = frontends.scalac.ScalaCompiler(ctx, Build.libraryFiles ++ files.toList)
+    val (structure, program) = Main.extractFromSource(ctx, Main.libraryFiles ++ files.toList)
     val exProgram = component.extract(program)
 
     assert(reporter.lastErrors.isEmpty)

@@ -177,7 +177,7 @@ trait CodeExtraction extends ASTExtractors {
           imports,
           classes,
           subs,
-          !(Build.libraryFiles contains u.source.file.absolute.path)
+          !(Main.libraryFiles contains u.source.file.absolute.path)
         ).setPos(u.body.pos)
 
         classesAcc ++= allClasses
@@ -281,7 +281,7 @@ trait CodeExtraction extends ASTExtractors {
         imports,
         classes,
         subs,
-        !(Build.libraryFiles contains u.source.file.absolute.path)
+        !(Main.libraryFiles contains u.source.file.absolute.path)
       ).setPos(pd.pos)
 
       (unit, allClasses, allFunctions)

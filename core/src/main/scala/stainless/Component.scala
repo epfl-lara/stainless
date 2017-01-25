@@ -39,7 +39,7 @@ trait SimpleComponent extends Component { self =>
       val t: self.trees.type = self.trees
     })
 
-    val lowering = Main.components.filterNot(_ == this).foldRight(checker) {
+    val lowering = MainHelpers.components.filterNot(_ == this).foldRight(checker) {
       (l, r) => l.lowering andThen r
     }
 

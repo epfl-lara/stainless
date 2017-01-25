@@ -2,15 +2,18 @@
 
 package stainless
 
-import dotty.tools.dotc._
-import dotty.tools.dotc.core.Contexts._
+import extraction.xlang.{trees => xt}
 
-object Main extends inox.MainHelpers {
-
+object MainHelpers {
   val components: Seq[Component] = Seq(
     verification.VerificationComponent,
     termination.TerminationComponent
   )
+}
+
+trait MainHelpers extends inox.MainHelpers {
+
+  val components = MainHelpers.components
 
   case object Pipelines extends Category
   case object Verification extends Category
@@ -21,7 +24,7 @@ object Main extends inox.MainHelpers {
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails")
-  ) ++ components.map { component =>
+  ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
   }
@@ -37,11 +40,18 @@ object Main extends inox.MainHelpers {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
   }
 
+  /* NOTE: Should be implemented by a generated Main class in each compiler-specific project: */
+  val libraryFiles: List[String]
+  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
+    List[xt.UnitDef],
+    Program { val trees: xt.type }
+  )
+
   def main(args: Array[String]): Unit = {
     val inoxCtx = setup(args)
-    val compilerArgs = Build.libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
+    val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
-    val (structure, program) = frontends.scalac.ScalaCompiler(inoxCtx, compilerArgs)
+    val (structure, program) = extractFromSource(inoxCtx, compilerArgs)
 
     val activeComponents = components.filter { c =>
       inoxCtx.options.options.collectFirst {
