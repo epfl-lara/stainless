@@ -110,6 +110,10 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
     "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
+  /** 
+    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
+    *   sbt project. You can temporarily disable the following two lines when importing the project.
+    */
   scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "it/scala",
   resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "it/resources",
 
@@ -145,7 +149,7 @@ lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
 
-lazy val core = (project in file("core"))
+lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
   .settings(compile <<= (compile in Compile) dependsOn script)
@@ -153,7 +157,7 @@ lazy val core = (project in file("core"))
   .dependsOn(cafebabe)
 
 def frontendProject(proj: Project, _name: String, _frontendClass: String): Project = proj
-  .dependsOn(core)
+  .dependsOn(`stainless-core`)
   .configs(IntegrationTest)
   .settings(name := _name, frontendClass := _frontendClass)
   .settings(commonSettings)
@@ -164,15 +168,15 @@ def frontendProject(proj: Project, _name: String, _frontendClass: String): Proje
     parallelExecution := (nParallel > 1)
   )) : _*)
 
-lazy val stainlessScalac = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
+lazy val `stainless-scalac` = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
   .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
 
-lazy val stainlessDotty = frontendProject(project in file("dotty"), "stainless-dotty", "dotc.DottyCompiler")
+lazy val `stainless-dotty` = frontendProject(project in file("dotty"), "stainless-dotty", "dotc.DottyCompiler")
   .dependsOn(dotty)
 
 lazy val root = (project in file("."))
-  .dependsOn(stainlessScalac)
-  .dependsOn(stainlessDotty)
-  .aggregate(core)
-  .aggregate(stainlessScalac)
-  .aggregate(stainlessDotty)
+  .dependsOn(`stainless-scalac`)
+  .dependsOn(`stainless-dotty`)
+  .aggregate(`stainless-core`)
+  .aggregate(`stainless-scalac`)
+  .aggregate(`stainless-dotty`)
