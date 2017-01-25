@@ -144,30 +144,35 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
+
 lazy val core = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
   .settings(compile <<= (compile in Compile) dependsOn script)
 //  .dependsOn(inox % "compile->compile;test->test;it->it,test")
-  .dependsOn(dotty)
   .dependsOn(cafebabe)
 
-def frontendProject(proj: Project, _name: String, _frontendClass: String): Project =
-  proj
-    .dependsOn(core)
-    .configs(IntegrationTest)
-    .settings(name := _name, frontendClass := _frontendClass)
-    .settings(commonSettings)
-    .settings(Defaults.itSettings : _*)
-    .settings(commonFrontendSettings)
-    .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-      logBuffered := (nParallel > 1),
-      parallelExecution := (nParallel > 1)
-    )) : _*)
+def frontendProject(proj: Project, _name: String, _frontendClass: String): Project = proj
+  .dependsOn(core)
+  .configs(IntegrationTest)
+  .settings(name := _name, frontendClass := _frontendClass)
+  .settings(commonSettings)
+  .settings(Defaults.itSettings : _*)
+  .settings(commonFrontendSettings)
+  .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
+    logBuffered := (nParallel > 1),
+    parallelExecution := (nParallel > 1)
+  )) : _*)
 
-lazy val scalac = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
+lazy val stainlessScalac = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
+  .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
+
+lazy val stainlessDotty = frontendProject(project in file("dotty"), "stainless-dotty", "dotc.DottyCompiler")
+  .dependsOn(dotty)
 
 lazy val root = (project in file("."))
-  .dependsOn(scalac)
+  .dependsOn(stainlessScalac)
+  .dependsOn(stainlessDotty)
   .aggregate(core)
-  .aggregate(scalac)
+  .aggregate(stainlessScalac)
+  .aggregate(stainlessDotty)
