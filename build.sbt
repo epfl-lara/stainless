@@ -22,11 +22,13 @@ lazy val frontendClass = taskKey[String]("The name of the compiler wrapper used 
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
 
-lazy val commonSettings: Seq[Setting[_]] = Seq(
+lazy val artifactSettings: Seq[Setting[_]] = Seq(
   version := "0.1",
   organization := "ch.epfl.lara",
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.11.8"
+)
 
+lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
@@ -156,10 +158,10 @@ lazy val `stainless-core` = (project in file("core"))
 //  .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(cafebabe)
 
-def frontendProject(proj: Project, _name: String, _frontendClass: String): Project = proj
+def frontendProject(proj: Project, _frontendClass: String): Project = proj
   .dependsOn(`stainless-core`)
   .configs(IntegrationTest)
-  .settings(name := _name, frontendClass := _frontendClass)
+  .settings(frontendClass := _frontendClass)
   .settings(commonSettings)
   .settings(Defaults.itSettings : _*)
   .settings(commonFrontendSettings)
@@ -168,15 +170,23 @@ def frontendProject(proj: Project, _name: String, _frontendClass: String): Proje
     parallelExecution := (nParallel > 1)
   )) : _*)
 
-lazy val `stainless-scalac` = frontendProject(project in file("scalac"), "stainless-scalac", "scalac.ScalaCompiler")
-  .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
+lazy val `stainless-scalac` = frontendProject(project in file("scalac"), "scalac.ScalaCompiler")
+  .settings(
+    name := "stainless-scalac",
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value
+  )
 
-lazy val `stainless-dotty` = frontendProject(project in file("dotty"), "stainless-dotty", "dotc.DottyCompiler")
-  .dependsOn(dotty)
+lazy val `stainless-dotty-frontend` = frontendProject(project in file("dotty"), "dotc.DottyCompiler")
+  .settings(name := "stainless-dotty-frontend")
+  .dependsOn(dotty % "provided")
+
+lazy val `stainless-dotty` = project
+  .settings(artifactSettings)
+  .settings(name := "stainless-dotty")
+  .dependsOn(`stainless-dotty-frontend`)
+  .dependsOn(dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
+  .aggregate(`stainless-dotty-frontend`)
 
 lazy val root = (project in file("."))
-  .dependsOn(`stainless-scalac`)
-  .dependsOn(`stainless-dotty`)
-  .aggregate(`stainless-core`)
-  .aggregate(`stainless-scalac`)
-  .aggregate(`stainless-dotty`)
+  .dependsOn(`stainless-scalac`, `stainless-dotty`)
+  .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
