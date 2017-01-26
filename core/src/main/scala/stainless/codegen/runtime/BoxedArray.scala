@@ -28,12 +28,13 @@ final class BoxedArray private(private val box: Box) {
   }
 
   override def equals(that: Any): Boolean = that match {
-    case b: BoxedArray => box == b.box
+    case b: BoxedArray => box.array.toSeq == b.box.array.toSeq
+    case (a: Array[_]) => box.array.toSeq == a.toSeq
     case _ => false
   }
 
-  override def hashCode: Int = box.hashCode
+  override def hashCode: Int = box.array.toSeq.hashCode
 
-  override def toString: String = box.array.toString
+  override def toString: String = box.array.toSeq.mkString("[", ",", "]")
 }
 

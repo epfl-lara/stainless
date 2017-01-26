@@ -51,6 +51,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val t: stainless.trees.type
   }
 
+  protected implicit val semanticsProvider: inox.SemanticsProvider { val trees: program.trees.type } =
+    encodingSemantics(program.trees)(encoder)
+
   private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     val transformEncoder = inox.ast.ProgramEncoder(program)(transformer)
 
@@ -67,7 +70,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
     val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
     solvers.SolverFactory
-      .getFromSettings(p, options)(programEncoder)(p.getSemantics(programEncoder))
+      .getFromSettings(p, options)(programEncoder)(p.getSemantics)
       .withTimeout(2.5.seconds)
   }
 

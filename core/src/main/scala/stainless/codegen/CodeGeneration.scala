@@ -12,7 +12,7 @@ import cafebabe.Flags._
 
 import inox.utils._
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 case class CompilationException(msg: String) extends Exception(msg)
 
@@ -38,7 +38,8 @@ trait CodeGeneration { self: CompilationUnit =>
     vars    : Map[Identifier, Int],
     args    : Map[Identifier, Int],
     fields  : Map[Identifier, (String,String,String)],
-    val tps : Seq[TypeParameter]
+    val params  : Seq[ValDef],
+    val tparams : Seq[TypeParameter]
   ) {
     /** Fetches the offset of a local variable/ parameter from its identifier */
     def varToLocal(v: Identifier): Option[Int] = vars.get(v)
@@ -48,21 +49,28 @@ trait CodeGeneration { self: CompilationUnit =>
     def varToField(v: Identifier): Option[(String,String,String)] = fields.get(v)
 
     /** Adds some extra variables to the mapping */
-    def withVars(newVars: Map[Identifier, Int]) = new Locals(vars ++ newVars, args, fields, tps)
+    def withVars(newVars: Map[Identifier, Int]) = new Locals(vars ++ newVars, args, fields, params, tparams)
 
     /** Adds an extra variable to the mapping */
-    def withVar(nv: (Identifier, Int)) = new Locals(vars + nv, args, fields, tps)
+    def withVar(nv: (Identifier, Int)) = new Locals(vars + nv, args, fields, params, tparams)
 
-    def withArgs(newArgs: Map[Identifier, Int]) = new Locals(vars, args ++ newArgs, fields, tps)
+    def withArgs(newArgs: Map[Identifier, Int]) = new Locals(vars, args ++ newArgs, fields, params, tparams)
 
-    def withFields(newFields: Map[Identifier,(String,String,String)]) = new Locals(vars, args, fields ++ newFields, tps)
+    def withFields(newFields: Map[Identifier,(String,String,String)]) = new Locals(vars, args, fields ++ newFields, params, tparams)
 
-    def withTypes(newTps: Seq[TypeParameter]) = new Locals(vars, args, fields, tps ++ newTps)
+    def withParameters(newParams: Seq[ValDef]) = new Locals(vars, args, fields, params ++ newParams, tparams)
+    def withTypeParameters(newTps: Seq[TypeParameter]) = new Locals(vars, args, fields, params, tparams ++ newTps)
 
-    override def toString = "Locals("+vars + ", " + args + ", " + fields + ", " + tps + ")"
+    def substitute(subst: Map[Identifier, Identifier]) = new Locals(
+      vars.map(p => subst.getOrElse(p._1, p._1) -> p._2),
+      args.map(p => subst.getOrElse(p._1, p._1) -> p._2),
+      fields.map(p => subst.getOrElse(p._1, p._1) -> p._2),
+      params, tparams)
+
+    override def toString = "Locals("+vars + ", " + args + ", " + fields + ", " + params + ", " + tparams + ")"
   }
 
-  object NoLocals extends Locals(Map.empty, Map.empty, Map.empty, Seq.empty)
+  object NoLocals extends Locals(Map.empty, Map.empty, Map.empty, Seq.empty, Seq.empty)
 
   lazy val monitorID = FreshIdentifier("__$monitor")
   lazy val tpsID     = FreshIdentifier("__$tps")
@@ -87,7 +95,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val ADTClass                  = "stainless/codegen/runtime/ADT"
   private[codegen] val LambdaClass               = "stainless/codegen/runtime/Lambda"
   private[codegen] val FiniteLambdaClass         = "stainless/codegen/runtime/FiniteLambda"
-  private[codegen] val ErrorClass                = "stainless/codegen/runtime/StainlessCodeGenRuntimeException"
+  private[codegen] val ErrorClass                = "stainless/codegen/runtime/CodeGenRuntimeException"
   private[codegen] val ChooseEntryPointClass     = "stainless/codegen/runtime/ChooseEntryPoint"
   private[codegen] val GenericValuesClass        = "stainless/codegen/runtime/GenericValues"
   private[codegen] val MonitorClass              = "stainless/codegen/runtime/Monitor"
@@ -264,7 +272,9 @@ trait CodeGeneration { self: CompilationUnit =>
         )
     }
 
-    val locals = NoLocals.withVars(newMapping).withTypes(funDef.tparams.map(_.tp))
+    val locals = NoLocals.withVars(newMapping)
+      .withParameters(funDef.params)
+      .withTypeParameters(funDef.tparams.map(_.tp))
 
     if (recordInvocations) {
       load(monitorID, ch)(locals)
@@ -280,7 +290,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case _ =>
         ch << ARETURN
     }
-    
+
     ch.freeze
   }
 
@@ -288,162 +298,238 @@ trait CodeGeneration { self: CompilationUnit =>
 
   protected def jvmClassNameToLambda(className: String): Option[Lambda] = lambdaClasses.getA(className)
 
-  protected def compileLambda(l: Lambda): (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
+  private val typeParams: ListBuffer[TypeParameter] = new ListBuffer[TypeParameter]
+
+  protected def compileLambda(l: Lambda, params: Seq[ValDef], tparams: Seq[TypeParameter], pre: Boolean = false):
+                             (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
     assert(normalizeStructure(l)._1 == l)
 
-    val tparams: Seq[TypeParameter] = typeParamsOf(l).toSeq.sortBy(_.id.uniqueName)
+    val containsChoose = exprOps.exists { case _: Choose => true case _ => false } (l)
 
-    val closedVars = variablesOf(l).toSeq.sortBy(_.id.uniqueName)
-    val closuresWithoutMonitor = closedVars.map(v => v -> typeToJVM(v.tpe))
-    val closures = (monitorID -> s"L$MonitorClass;") +:
-      ((if (tparams.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++
-      closuresWithoutMonitor.map(p => p._1.id -> p._2))
-
-    val afName = lambdaClasses.cachedB(l) {
-      val afId = FreshIdentifier("Stainless$CodeGen$Lambda$")
-      val afName = afId.uniqueName
-
-      val cf = new ClassFile(afName, Some(LambdaClass))
-
-      cf.setFlags((
-        CLASS_ACC_SUPER |
-        CLASS_ACC_PUBLIC |
-        CLASS_ACC_FINAL
-      ).asInstanceOf[U2])
-
-      if (closures.isEmpty) {
-        cf.addDefaultConstructor
-      } else {
-        for ((id, jvmt) <- closures) {
-          val fh = cf.addField(jvmt, id.uniqueName)
-          fh.setFlags((
-            FIELD_ACC_PUBLIC |
-            FIELD_ACC_FINAL
-          ).asInstanceOf[U2])
+    val (tps, instTps, lambda) = if (containsChoose) {
+      (tparams, tparams, l)
+    } else {
+      var tpParams = typeParams.toList
+      var tpSubst: Map[TypeParameter, TypeParameter] = Map.empty
+      def subst(tp: TypeParameter): TypeParameter = tpSubst.getOrElse(tp, {
+        val fresh = tpParams match {
+          case x :: xs =>
+            tpParams = xs
+            x
+          case Nil =>
+            val tp = TypeParameter.fresh("Tp")
+            typeParams += tp
+            tp
         }
+        tpSubst += tp -> fresh
+        fresh
+      })
 
-        val cch = cf.addConstructor(closures.map(_._2).toList).codeHandler
-
-        cch << ALoad(0)
-        cch << InvokeSpecial(LambdaClass, constructorName, "()V")
-
-        var c = 1
-        for ((id, jvmt) <- closures) {
-          cch << ALoad(0)
-          cch << (jvmt match {
-            case "I" | "Z" => ILoad(c)
-            case _ => ALoad(c)
-          })
-          cch << PutField(afName, id.uniqueName, jvmt)
-          c += 1
+      object normalizer extends {
+        val s: program.trees.type = program.trees
+        val t: program.trees.type = program.trees
+      } with inox.ast.TreeTransformer {
+        override def transform(tpe: Type): Type = tpe match {
+          case tp: TypeParameter => subst(tp)
+          case _ => super.transform(tpe)
         }
-
-        cch << RETURN
-        cch.freeze
       }
 
-      val argMapping = l.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
-      val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
-      val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping).withTypes(tparams)
-
-      locally {
-        val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
-
-        apm.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val apch = apm.codeHandler
-
-        mkBoxedExpr(l.body, apch)(newLocals)
-
-        apch << ARETURN
-
-        apch.freeze
-      }
-
-      locally {
-        val emh = cf.addMethod("Z", "equals", s"L$ObjectClass;")
-        emh.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val ech = emh.codeHandler
-
-        val notRefEq = ech.getFreshLabel("notrefeq")
-        val notEq = ech.getFreshLabel("noteq")
-        val castSlot = ech.getFreshVar
-
-        // If references are equal, trees are equal.
-        ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
-
-        // We check the type (this also checks against null)....
-        ech << ALoad(1) << InstanceOf(afName) << IfEq(notEq)
-
-        // ...finally, we compare fields one by one, shortcircuiting on disequalities.
-        if(closures.nonEmpty) {
-          ech << ALoad(1) << CheckCast(afName) << AStore(castSlot)
-
-          for((id,jvmt) <- closures) {
-            ech << ALoad(0) << GetField(afName, id.uniqueName, jvmt)
-            ech << ALoad(castSlot) << GetField(afName, id.uniqueName, jvmt)
-
-            jvmt match {
-              case "I" | "Z" =>
-                ech << If_ICmpNe(notEq)
-
-              case ot =>
-                ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
-            }
-          }
-        }
-
-        ech << Ldc(1) << IRETURN << Label(notEq) << Ldc(0) << IRETURN
-        ech.freeze
-      }
-
-      locally {
-        val hashFieldName = "$leon$hashCode"
-        cf.addField("I", hashFieldName).setFlags(FIELD_ACC_PRIVATE)
-        val hmh = cf.addMethod("I", "hashCode", "")
-        hmh.setFlags((
-          METHOD_ACC_PUBLIC |
-          METHOD_ACC_FINAL
-        ).asInstanceOf[U2])
-
-        val hch = hmh.codeHandler
-
-        val wasNotCached = hch.getFreshLabel("wasNotCached")
-
-        hch << ALoad(0) << GetField(afName, hashFieldName, "I") << DUP
-        hch << IfEq(wasNotCached)
-        hch << IRETURN
-        hch << Label(wasNotCached) << POP
-
-        hch << Ldc(closuresWithoutMonitor.size) << NewArray(s"$ObjectClass")
-        for (((v, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
-          hch << DUP << Ldc(i)
-          hch << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
-          mkBox(v.tpe, hch)
-          hch << AASTORE
-        }
-
-        hch << Ldc(afName.hashCode)
-        hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
-        hch << ALoad(0) << SWAP << PutField(afName, hashFieldName, "I")
-        hch << IRETURN
-
-        hch.freeze
-      }
-
-      loader.register(cf)
-
-      afName
+      val lambda = normalizer.transform(l).asInstanceOf[Lambda]
+      val (instTps, tps) = tpSubst.toSeq.sortBy(_._2.id.uniqueName).unzip
+      (tps, instTps, lambda)
     }
 
-    (afName, closures, tparams, "(" + closures.map(_._2).mkString("") + ")V")
+    val closedVars = variablesOf(lambda).toSeq.sortBy(_.id.uniqueName)
+
+    val closuresWithoutMonitor = closedVars.map(v => v -> typeToJVM(v.tpe))
+    val closures = (monitorID -> s"L$MonitorClass;") +:
+      ((if (tps.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++
+      closuresWithoutMonitor.map(p => p._1.id -> p._2))
+
+    val afName = lambdaClasses.getB(lambda) match {
+      case Some(afName) => afName
+      case None =>
+        val afId = FreshIdentifier("Stainless$CodeGen$Lambda$")
+        val afName = afId.uniqueName
+        lambdaClasses += lambda -> afName
+
+        val cf = new ClassFile(afName, Some(LambdaClass))
+
+        cf.setFlags((
+          CLASS_ACC_SUPER |
+          CLASS_ACC_PUBLIC |
+          CLASS_ACC_FINAL
+        ).asInstanceOf[U2])
+
+        if (closures.isEmpty) {
+          cf.addDefaultConstructor
+        } else {
+          for ((id, jvmt) <- closures) {
+            val fh = cf.addField(jvmt, id.uniqueName)
+            fh.setFlags((
+              FIELD_ACC_PUBLIC |
+              FIELD_ACC_FINAL
+            ).asInstanceOf[U2])
+          }
+
+          val cch = cf.addConstructor(closures.map(_._2).toList).codeHandler
+
+          cch << ALoad(0)
+          cch << InvokeSpecial(LambdaClass, constructorName, "()V")
+
+          var c = 1
+          for ((id, jvmt) <- closures) {
+            cch << ALoad(0)
+            cch << (jvmt match {
+              case "I" | "Z" => ILoad(c)
+              case _ => ALoad(c)
+            })
+            cch << PutField(afName, id.uniqueName, jvmt)
+            c += 1
+          }
+
+          cch << RETURN
+          cch.freeze
+        }
+
+        val argMapping = lambda.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
+        val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
+        val baseLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
+
+        val newLocals = if (containsChoose) {
+          baseLocals.withParameters(params ++ l.args).withTypeParameters(tps)
+        } else {
+          baseLocals
+        }
+
+        locally {
+          val pm = cf.addMethod(s"L$LambdaClass;", "pre", "")
+
+          pm.setFlags((
+            METHOD_ACC_PUBLIC |
+            METHOD_ACC_FINAL
+          ).asInstanceOf[U2])
+
+          val pch = pm.codeHandler
+
+          val preLocals = NoLocals.withFields(closureMapping)
+            .withParameters(params)
+            .withTypeParameters(tparams)
+
+          val preLambda = if (pre) {
+            lambda.copy(body = BooleanLiteral(true))
+          } else {
+            lambda.copy(body = weakestPrecondition(lambda.body))
+          }
+
+          mkLambda(preLambda, pch, pre = true)(preLocals)
+
+          pch << ARETURN
+
+          pch.freeze
+        }
+
+        locally {
+          val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
+
+          apm.setFlags((
+            METHOD_ACC_PUBLIC |
+            METHOD_ACC_FINAL
+          ).asInstanceOf[U2])
+
+          val apch = apm.codeHandler
+
+          mkBoxedExpr(lambda.body, apch)(newLocals)
+
+          apch << ARETURN
+
+          apch.freeze
+        }
+
+        locally {
+          val emh = cf.addMethod("Z", "equals", s"L$ObjectClass;")
+          emh.setFlags((
+            METHOD_ACC_PUBLIC |
+            METHOD_ACC_FINAL
+          ).asInstanceOf[U2])
+
+          val ech = emh.codeHandler
+
+          val notRefEq = ech.getFreshLabel("notrefeq")
+          val notEq = ech.getFreshLabel("noteq")
+          val castSlot = ech.getFreshVar
+
+          // If references are equal, trees are equal.
+          ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
+
+          // We check the type (this also checks against null)....
+          ech << ALoad(1) << InstanceOf(afName) << IfEq(notEq)
+
+          // ...finally, we compare fields one by one, shortcircuiting on disequalities.
+          if (closures.nonEmpty) {
+            ech << ALoad(1) << CheckCast(afName) << AStore(castSlot)
+
+            for ((v, jvmt) <- closuresWithoutMonitor) {
+              ech << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
+              mkArrayBox(v.tpe, ech)
+
+              ech << ALoad(castSlot) << GetField(afName, v.id.uniqueName, jvmt)
+
+              v.tpe match {
+                case ValueType() =>
+                  ech << If_ICmpNe(notEq)
+
+                case ot =>
+                  ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
+              }
+            }
+          }
+
+          ech << Ldc(1) << IRETURN << Label(notEq) << Ldc(0) << IRETURN
+          ech.freeze
+        }
+
+        locally {
+          val hashFieldName = "$leon$hashCode"
+          cf.addField("I", hashFieldName).setFlags(FIELD_ACC_PRIVATE)
+          val hmh = cf.addMethod("I", "hashCode", "")
+          hmh.setFlags((
+            METHOD_ACC_PUBLIC |
+            METHOD_ACC_FINAL
+          ).asInstanceOf[U2])
+
+          val hch = hmh.codeHandler
+
+          val wasNotCached = hch.getFreshLabel("wasNotCached")
+
+          hch << ALoad(0) << GetField(afName, hashFieldName, "I") << DUP
+          hch << IfEq(wasNotCached)
+          hch << IRETURN
+          hch << Label(wasNotCached) << POP
+
+          hch << Ldc(closuresWithoutMonitor.size) << NewArray(s"$ObjectClass")
+          for (((v, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
+            hch << DUP << Ldc(i)
+            hch << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
+            mkBox(v.tpe, hch)
+            hch << AASTORE
+          }
+
+          hch << Ldc(afName.hashCode)
+          hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
+          hch << ALoad(0) << SWAP << PutField(afName, hashFieldName, "I")
+          hch << IRETURN
+
+          hch.freeze
+        }
+
+        loader.register(cf)
+
+        afName
+    }
+
+    (afName, closures, instTps, "(" + closures.map(_._2).mkString("") + ")V")
   }
 
   // also makes tuples with 0/1 args
@@ -468,13 +554,13 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << DUP << Ldc(idx) << Ldc(registerType(tpe)) << IASTORE
       }
 
-      if (locals.tps.nonEmpty) {
+      if (locals.tparams.nonEmpty) {
         load(monitorID, ch)
         ch << SWAP
 
-        ch << Ldc(locals.tps.size)
+        ch << Ldc(locals.tparams.size)
         ch << NewArray.primitive("T_INT")
-        for ((tpe,idx) <- locals.tps.zipWithIndex) {
+        for ((tpe,idx) <- locals.tparams.zipWithIndex) {
           ch << DUP << Ldc(idx) << Ldc(registerType(tpe)) << IASTORE
         }
 
@@ -508,15 +594,14 @@ trait CodeGeneration { self: CompilationUnit =>
     case Let(vd,d,b) =>
       mkExpr(d, ch)
       val slot = ch.getFreshVar
-      val instr = vd.tpe match {
+      ch << (vd.tpe match {
         case ValueType() =>
           if (slot > 127) {
             println("Error while converting one more slot which is too much " + e)
           }
           IStore(slot)
         case _ => AStore(slot)
-      }
-      ch << instr
+      })
       mkExpr(b, ch)(locals.withVar(vd.id -> slot))
 
     case IntLiteral(v) =>
@@ -573,8 +658,10 @@ trait CodeGeneration { self: CompilationUnit =>
         load(monitorID, ch)
         ch << SWAP // stack: (monitor, adt)
 
-        loadTypes(tfd.tps, ch)
-        ch << SWAP // stack: (monitor, tps, adt)
+        if (tfd.tps.nonEmpty) {
+          loadTypes(tfd.tps, ch)
+          ch << SWAP // stack: (monitor, tps, adt)
+        }
 
         ch << InvokeStatic(cn, mn, ms)
 
@@ -729,7 +816,7 @@ trait CodeGeneration { self: CompilationUnit =>
       load(monitorID, ch)
       loadTypes(tfd.tps, ch)
 
-      for((a, vd) <- as zip tfd.fd.params) {
+      for ((a, vd) <- as zip tfd.fd.params) {
         vd.getType match {
           case _: TypeParameter =>
             mkBoxedExpr(a, ch)
@@ -758,20 +845,12 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
       mkUnbox(app.getType, ch)
 
-    case lambda @ Lambda(args, body) =>
-      val (l: Lambda, mapping) = normalizeStructure(lambda)
-      val (afName, closures, tparams, consSig) = compileLambda(l)
+    case Pre(f) =>
+      mkExpr(f, ch)
+      ch << InvokeVirtual(LambdaClass, "pre", s"()L$LambdaClass;")
 
-      ch << New(afName) << DUP
-      for ((id,jvmt) <- closures) {
-        if (id == tpsID) {
-          loadTypes(tparams, ch)
-        } else {
-          val closure = mapping.collectFirst { case (Variable(`id`, _, _), e) => e }.get
-          mkExpr(closure, ch)
-        }
-      }
-      ch << InvokeSpecial(afName, constructorName, consSig)
+    case lambda: Lambda =>
+      mkLambda(lambda, ch, pre = false)
 
     // String processing =>
     case StringConcat(l, r) =>
@@ -885,7 +964,6 @@ trait CodeGeneration { self: CompilationUnit =>
         case IntegerType =>
           ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
         case Int32Type =>
-          mkExpr(e, ch)
           ch << INEG
         case BVType(_) =>
           ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
@@ -982,13 +1060,9 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(a, ch)
       ch << DUP
       ch << ARRAYLENGTH
-      val storeInstr = a.getType match {
-        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
-        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
-      }
+
+      val storeInstr = mkNewArray(a.getType, ch)
+
       //srcArrary and targetArray is on the stack
       ch << DUP_X1 //insert targetArray under srcArray
       ch << Ldc(0) << SWAP //srcArray, 0, targetArray
@@ -1006,13 +1080,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case a @ FiniteArray(elems, _) =>
       ch << Ldc(elems.size)
 
-      val storeInstr = a.getType match {
-        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
-        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
-      }
+      val storeInstr = mkNewArray(a.getType, ch)
 
       // Replace present elements with correct value
       for ((v, i) <- elems.zipWithIndex ) {
@@ -1024,12 +1092,10 @@ trait CodeGeneration { self: CompilationUnit =>
     case a @ LargeArray(elems, default, size, base) =>
       mkExpr(size, ch)
 
-      val storeInstr = a.getType match {
-        case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-        case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-        case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
-        case ArrayType(other) => ch << NewArray(typeToJVM(other)); AASTORE
-        case other => throw CompilationException(s"Cannot compile finite array expression whose type is $other.")
+      val storeInstr = mkNewArray(a.getType, ch)
+      val (varLoad, varStore) = base match {
+        case ValueType() => (ILoad(_), IStore(_))
+        case _ => (ALoad(_), AStore(_))
       }
 
       val loop = ch.getFreshLabel("array_loop")
@@ -1037,7 +1103,10 @@ trait CodeGeneration { self: CompilationUnit =>
       val dfltSlot = ch.getFreshVar
 
       mkExpr(default, ch)
-      ch << AStore(dfltSlot)
+      ch << (base match {
+        case ValueType() => IStore(dfltSlot)
+        case _ => AStore(dfltSlot)
+      })
 
       ch << Ldc(0)
       // (array, index)
@@ -1048,7 +1117,10 @@ trait CodeGeneration { self: CompilationUnit =>
       // (array, index, index, length)
       ch << If_ICmpGe(loopOut) << DUP2
       // (array, index, array, index)
-      ch << ALoad(dfltSlot)
+      ch << (base match {
+        case ValueType() => ILoad(dfltSlot)
+        case _ => ALoad(dfltSlot)
+      })
       ch << storeInstr
       ch << Ldc(1) << IADD << Goto(loop)
       ch << Label(loopOut) << POP
@@ -1068,12 +1140,12 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << ATHROW
 
     case forall @ Forall(fargs, body) =>
-      val id = registerForall(forall, locals.tps)
+      val id = registerForall(forall, locals.tparams)
       val args = variablesOf(forall).toSeq.sortBy(_.id.uniqueName)
 
       load(monitorID, ch)
       ch << Ldc(id)
-      if (locals.tps.nonEmpty) {
+      if (locals.tparams.nonEmpty) {
         load(tpsID, ch)
       } else {
         ch << Ldc(0) << NewArray.primitive("T_INT")
@@ -1093,25 +1165,24 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeVirtual(MonitorClass, "onForallInvocation", s"(I[I[L$ObjectClass;)Z")
 
     case choose: Choose =>
-      val id = registerChoose(choose, locals.tps)
-      val args = variablesOf(choose).toSeq.sortBy(_.id.uniqueName)
+      val id = registerChoose(choose, locals.params, locals.tparams)
 
       load(monitorID, ch)
       ch << Ldc(id)
-      if (locals.tps.nonEmpty) {
+      if (locals.tparams.nonEmpty) {
         load(tpsID, ch)
       } else {
         ch << Ldc(0) << NewArray.primitive("T_INT")
       }
 
-      ch << Ldc(args.size)
+      ch << Ldc(locals.params.size)
       ch << NewArray(ObjectClass)
 
-      for ((v, i) <- args.zipWithIndex) {
+      for ((vd, i) <- locals.params.zipWithIndex) {
         ch << DUP
         ch << Ldc(i)
-        mkExpr(v, ch)
-        mkBox(v.tpe, ch)
+        mkExpr(vd.toVariable, ch)
+        mkBox(vd.tpe, ch)
         ch << AASTORE
       }
 
@@ -1141,6 +1212,54 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Label(fl) << POP << Ldc(0) << Label(al)
 
     case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
+  }
+
+  private[codegen] def mkLambda(lambda: Lambda, ch: CodeHandler, pre: Boolean = false)(implicit locals: Locals): Unit = {
+    val vars = variablesOf(lambda).toSeq
+    val freshVars = vars.map(_.freshen)
+
+    val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(replaceFromSymbols((vars zip freshVars).toMap, lambda)))
+    val (afName, closures, tparams, consSig) = compileLambda(l, locals.params, locals.tparams, pre = pre)
+    val closureTypes = variablesOf(l).map(v => v.id -> v.tpe).toMap
+
+    val freshLocals = locals.substitute((vars zip freshVars).map(p => p._1.id -> p._2.id).toMap)
+
+    val newLocals = deps.foldLeft(freshLocals) { case (locals, (v, e)) =>
+      mkExpr(e, ch)(locals)
+      val slot = ch.getFreshVar
+      ch << (v.tpe match {
+        case ValueType() =>
+          if (slot > 127) {
+            println("Error while converting one more slot which is too much " + e)
+          }
+          IStore(slot)
+        case _ => AStore(slot)
+      })
+      locals.withVar(v.id -> slot)
+    }
+
+    ch << New(afName) << DUP
+    for ((id,jvmt) <- closures) {
+      if (id == tpsID) {
+        loadTypes(tparams, ch)
+      } else {
+        load(id, ch, closureTypes.get(id))(newLocals)
+      }
+    }
+    ch << InvokeSpecial(afName, constructorName, consSig)
+  }
+
+  private[codegen] def mkNewArray(tpe: Type, ch: CodeHandler): AbstractByteCode = tpe match {
+    case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
+    case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+    case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+    case ArrayType(base) =>
+      val jvmt = typeToJVM(base)
+      assert(jvmt.head == 'L' && jvmt.last == ';', "Unexpected jvm type for array type " + tpe)
+      val clsName = jvmt.init.tail // drop leading "L" and tailing ";"
+      ch << NewArray(clsName)
+      AASTORE
+    case other => throw new CompilationException("Cannot construct array for non-array-type " + tpe)
   }
 
   // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
@@ -1241,6 +1360,11 @@ trait CodeGeneration { self: CompilationUnit =>
       throw new CompilationException("Unsupported type in unboxing : " + tpe)
   }
 
+  private[codegen] def mkArrayBox(tp: Type, ch: CodeHandler): Unit = tp match {
+    case at: ArrayType => mkBox(at, ch)
+    case _ =>
+  }
+
   private[codegen] def mkBranch(cond: Expr, thenn: String, elze: String, ch: CodeHandler, canDelegateToMkExpr: Boolean = true)
                                (implicit locals: Locals): Unit = cond match {
     case BooleanLiteral(true) =>
@@ -1273,6 +1397,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case Equals(l,r) =>
       mkExpr(l, ch)
+      mkArrayBox(l.getType, ch)
+
       mkExpr(r, ch)
       l.getType match {
         case ValueType() =>
@@ -1371,11 +1497,10 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << ALoad(0) << GetField(afName, nme, tpe)
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
-            val instr = tpe match {
+            ch << (tpe match {
               case Some(ValueType()) => ILoad(slot)
               case _ => ALoad(slot)
-            }
-            ch << instr
+            })
           case None => throw CompilationException("Unknown variable : " + id)
         }
       }
@@ -1437,7 +1562,7 @@ trait CodeGeneration { self: CompilationUnit =>
     val cons = tcons.definition
     cons.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
-        val expType = tcons.fields(i).getType
+        val expType = tcons.fields(i).tpe
 
         val cName = defToJVMName(cons)
         if (doInstrument) {
@@ -1449,9 +1574,9 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << IOR
           ch << PutField(cName, instrumentedField, "I")
         }
-        ch << GetField(cName, f.id.name, typeToJVM(f.getType))
+        ch << GetField(cName, f.id.name, typeToJVM(f.tpe))
 
-        f.getType match {
+        f.tpe match {
           case _: TypeParameter =>
             mkUnbox(expType, ch)
           case _ =>
@@ -1618,11 +1743,13 @@ trait CodeGeneration { self: CompilationUnit =>
         for (vd <- cons.fields) {
           ech << ALoad(0)
           instrumentedGetField(ech, adt, vd.id)(newLocs)
+          mkArrayBox(vd.tpe, ech)
+
           ech << ALoad(castSlot)
           instrumentedGetField(ech, adt, vd.id)(newLocs)
 
-          typeToJVM(vd.getType) match {
-            case "I" | "Z" =>
+          vd.tpe match {
+            case ValueType() =>
               ech << If_ICmpNe(notEq)
 
             case ot =>

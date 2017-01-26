@@ -33,7 +33,7 @@ trait CodeGenEvaluator
   import program.trees._
   import program.symbols._
 
-  class Monitor extends runtime.Monitor {
+  class Monitor(model: program.Model) extends runtime.Monitor {
     private[this] var calls = 0
 
     def onInvocation(): Unit = {
@@ -57,20 +57,26 @@ trait CodeGenEvaluator
     def onChooseInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): AnyRef = {
       //ctx.reporter.debug("Executing choose (codegen)")
 
-      val (tparams, choose) = getChoose(id)
+      val (params, tparams, choose) = getChoose(id)
 
       val newTypes = tps.toSeq.map(getType)
       val tpMap = (tparams zip newTypes).toMap
 
       val tpChoose = instantiateType(choose, tpMap)
-      val vars = exprOps.variablesOf(tpChoose).toSeq.sortBy(_.id.uniqueName)
 
-      val inputsMap = (vars zip inputs.toSeq).map {
-        case (v, ref) => v -> jvmToValue(ref, v.tpe)
+      val inputsMap = (params zip inputs.toSeq).map {
+        case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.tpe)
       }.toMap
 
       val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
-      val res = self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
+
+      val res = try {
+        self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
+      } catch {
+        case e: java.lang.RuntimeException =>
+          throw new runtime.CodeGenRuntimeException(e.getMessage)
+      }
+
       valueToJVM(res)(this)
     }
 
@@ -90,13 +96,20 @@ trait CodeGenEvaluator
       }.toMap
 
       val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)
-      val BooleanLiteral(res) = self.onForallInvocation(groundForall.asInstanceOf[Forall])
+
+      val BooleanLiteral(res) = try {
+        self.onForallInvocation(groundForall.asInstanceOf[Forall])
+      } catch {
+        case e: java.lang.RuntimeException =>
+          throw new runtime.CodeGenRuntimeException(e.getMessage)
+      }
+
       res
     }
   }
 
-  def eval(expr: Expr, model: Map[ValDef, Expr]) = {
-    compile(expr, model.toSeq.map(_._1)).map { e =>
+  def eval(expr: Expr, model: program.Model) = {
+    compile(expr, model.vars.toSeq.map(_._1)).map { e =>
       val timer = ctx.timers.evaluators.codegen.runtime.start()
       val res = e(model)
       timer.stop()
@@ -118,11 +131,11 @@ trait CodeGenEvaluator
   }
 
   override def compile(expr: Expr, args: Seq[ValDef]) = {
-    compileExpr(expr, args).map(ce => (model: Map[ValDef, Expr]) => {
-      if (args.exists(arg => !model.isDefinedAt(arg))) {
+    compileExpr(expr, args).map(ce => (model: program.Model) => {
+      if (args.exists(arg => !model.vars.isDefinedAt(arg))) {
         EvaluationResults.EvaluatorError("Model undefined for free arguments")
       } else try {
-        EvaluationResults.Successful(ce.eval(model)(new Monitor))
+        EvaluationResults.Successful(ce.eval(model)(new Monitor(model)))
       } catch {
         case e: ArithmeticException =>
           EvaluationResults.RuntimeError(e.getMessage)

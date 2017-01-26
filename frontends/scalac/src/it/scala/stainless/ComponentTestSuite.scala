@@ -37,7 +37,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     }, exProgram)
   }
 
-  val ignored: Set[String] = Set.empty
+  def ignored: Set[String] = Set.empty
+
+  private[this] lazy val ignoredSet = ignored
 
   def testAll(dir: String)(block: (component.Report, inox.Reporter) => Unit): Unit = {
     val fs = resourceFiles(s"regression/$dir", _.endsWith(".scala")).toList
@@ -45,7 +47,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val (funss, program) = extract(fs.map(_.getPath))
 
     for ((name, funs) <- funss) {
-      if (ignored(s"$dir/$name")) {
+      if (ignoredSet(s"$dir/$name")) {
         ignore(s"$dir/$name")(_ => ())
       } else {
         test(s"$dir/$name") { ctx =>

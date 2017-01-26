@@ -58,9 +58,9 @@ trait CompilationUnit extends CodeGeneration {
       }
     }
 
-    def eval(model: Map[ValDef, Expr])(monitor: Monitor): Expr = {
+    def eval(model: program.Model)(monitor: Monitor): Expr = {
       try { 
-        evalFromJVM(argsToJVM(args.map(model), monitor), monitor)
+        evalFromJVM(argsToJVM(args.map(model.vars), monitor), monitor)
       } catch {
         case ite: InvocationTargetException => throw ite.getCause
       }
@@ -81,11 +81,11 @@ trait CompilationUnit extends CodeGeneration {
       id
   }
 
-  private[this] var runtimeChooseMap = Map[Int, (Seq[TypeParameter], Choose)]()
-  protected def getChoose(id: Int): (Seq[TypeParameter], Choose) = runtimeChooseMap(id)
-  protected def registerChoose(c: Choose, tps: Seq[TypeParameter]): Int = {
+  private[this] var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
+  protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = runtimeChooseMap(id)
+  protected def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = {
     val id = runtimeCounter.nextGlobal
-    runtimeChooseMap += id -> (tps, c)
+    runtimeChooseMap += id -> (params, tps, c)
     id
   }
 
@@ -187,12 +187,14 @@ trait CompilationUnit extends CodeGeneration {
       }
       m
 
-    case l @ Lambda(args, body) =>
-      val (afName, closures, tparams, consSig) = compileLambda(l)
+    case lambda: Lambda =>
+      val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda))
+      val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty, Seq.empty)
+      val depsMap = deps.map(p => p._1.id -> valueToJVM(p._2)).toMap
       val args = closures.map { case (id, _) =>
         if (id == monitorID) monitor
         else if (id == tpsID) typeParamsOf(l).toSeq.sortBy(_.id.uniqueName).map(registerType).toArray
-        else throw CompilationException(s"Unexpected closure $id in Lambda compilation")
+        else depsMap(id)
       }
 
       val lc = loader.loadClass(afName)
@@ -277,7 +279,7 @@ trait CompilationUnit extends CodeGeneration {
     case (c: java.lang.String, StringType) =>
       StringLiteral(c)
 
-    case (cons: runtime.ADTConstructor, adt: ADTType) =>
+    case (cons: runtime.ADT, adt: ADTType) =>
       val fields = cons.productElements()
 
       // identify case class type of ct
@@ -323,15 +325,35 @@ trait CompilationUnit extends CodeGeneration {
 
     case (lambda: runtime.Lambda, _: FunctionType) =>
       val cls = lambda.getClass
-
       val l = jvmClassNameToLambda(cls.getName).get
-      val closures = exprOps.variablesOf(l).toSeq.sortBy(_.id.uniqueName)
+
+      val tparams: Seq[TypeParameter] = {
+        var tpSet: Set[TypeParameter] = Set.empty
+        object collector extends TreeTraverser {
+          override def traverse(tpe: Type): Unit = tpe match {
+            case tp: TypeParameter => tpSet += tp
+            case _ => super.traverse(tpe)
+          }
+        }
+        collector.traverse(l)
+        tpSet.toSeq.sortBy(_.id.uniqueName)
+      }
+
+      val tpLambda = if (tparams.isEmpty) {
+        l
+      } else {
+        val arr = lambda.getClass.getField(tpsID.uniqueName).get(lambda).asInstanceOf[Array[Int]]
+        val tps = arr.toSeq.map(getType)
+        instantiateType(l, (tparams zip tps).toMap)
+      }
+
+      val closures = exprOps.variablesOf(tpLambda).toSeq.sortBy(_.id.uniqueName)
       val closureVals = closures.map { v =>
         val fieldVal = lambda.getClass.getField(v.id.uniqueName).get(lambda)
         jvmToValue(fieldVal, v.tpe)
       }
 
-      exprOps.replaceFromSymbols((closures zip closureVals).toMap, l)
+      exprOps.replaceFromSymbols((closures zip closureVals).toMap, tpLambda)
 
     case (_, UnitType) =>
       UnitLiteral()

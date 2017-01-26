@@ -2,7 +2,7 @@
 
 package stainless.codegen.runtime
 
-trait ADTConstructor {
+trait ADT {
   def __getRead(): Int
 
   def productElements(): Array[AnyRef]

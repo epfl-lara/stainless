@@ -5,11 +5,17 @@ package verification
 
 import org.scalatest._
 
-class VerificationSuite extends ComponentTestSuite {
+trait VerificationSuite extends ComponentTestSuite {
 
   override def configurations = super.configurations.map {
     seq => optFailEarly(true) +: seq
   }
+
+  override def ignored = super.ignored ++ Set(
+    "verification/valid/Extern1",
+    "verification/valid/Extern2",
+    "verification/invalid/SpecWithExtern"
+  )
 
   val component = VerificationComponent
 
@@ -25,3 +31,38 @@ class VerificationSuite extends ComponentTestSuite {
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
 }
+
+class SMTZ3VerificationSuite extends VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.solvers.optCheckModels(true)
+    ) ++ seq
+  }
+}
+
+class CodeGenVerificationSuite extends VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.solvers.unrolling.optFeelingLucky(true),
+      inox.solvers.optCheckModels(true),
+      evaluators.optCodeGen(true)
+    ) ++ seq
+  }
+}
+
+class SMTCVC4VerificationSuite extends VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-cvc4")),
+      inox.solvers.optCheckModels(true),
+      evaluators.optCodeGen(true)
+    ) ++ seq
+  }
+
+  override def ignored = super.ignored ++ Set(
+    "verification/valid/Overrides"
+  )
+}
+

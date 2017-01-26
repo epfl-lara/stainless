@@ -23,8 +23,13 @@ final class Bag private(private val underlying: MutableMap[AnyRef, BigInt]) {
     nb
   }
 
+  def union(that: Bag): Bag =
+    new Bag(MutableMap.empty ++ (underlying.keySet ++ that.underlying.keySet).map {
+      k => k -> (get(k).add(that.get(k)))
+    })
+
   def intersect(that: Bag): Bag =
-    new Bag(MutableMap.empty ++ (underlying.keys.toSet intersect that.underlying.keys.toSet).map {
+    new Bag(MutableMap.empty ++ (underlying.keySet intersect that.underlying.keySet).map {
       key => key -> underlying(key).add(that.underlying(key))
     })
   

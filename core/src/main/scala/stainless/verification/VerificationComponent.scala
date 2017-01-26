@@ -23,7 +23,7 @@ object VerificationComponent extends SimpleComponent {
 
   trait VerificationReport extends AbstractReport { self =>
     val program: Program { val trees: stainless.trees.type }
-    val results: Map[VC[program.trees.type], VCResult[program.trees.type]]
+    val results: Map[VC[program.trees.type], VCResult[program.Model]]
 
     import program._
 
@@ -64,12 +64,13 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
-  def check(funs: Seq[Identifier], p: StainlessProgram): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
-    val np = AssertionInjector(p)
+  def check(funs: Seq[Identifier], p: StainlessProgram): Map[VC[p.trees.type], VCResult[p.Model]] = {
+    val injector = AssertionInjector(p)
+    val encoder = inox.ast.ProgramEncoder(p)(injector)
 
-    import np._
-    import np.trees._
-    import np.symbols._
+    import encoder.targetProgram._
+    import encoder.targetProgram.trees._
+    import encoder.targetProgram.symbols._
 
     val toVerify = funs.sortBy(getFunction(_).getPos)
 
@@ -80,7 +81,11 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    VerificationChecker.verify(np)(funs)
+    VerificationChecker.verify(encoder.targetProgram)(funs).mapValues {
+      case VCResult(VCStatus.Invalid(model), s, t) =>
+        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+      case res => res.asInstanceOf[VCResult[p.Model]]
+    }
   }
 
   def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {

@@ -84,13 +84,13 @@ object RedBlackTree {
 
   def buggyBalance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
     Node(c,a,x,b) match {
-      case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 
+      case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) =>
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),Node(Red(),a,xV,Node(Red(),b,yV,c)),zV,d) => 
+      case Node(Black(),Node(Red(),a,xV,Node(Red(),b,yV,c)),zV,d) =>
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),a,xV,Node(Red(),Node(Red(),b,yV,c),zV,d)) => 
+      case Node(Black(),a,xV,Node(Red(),Node(Red(),b,yV,c),zV,d)) =>
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
-      case Node(Black(),a,xV,Node(Red(),b,yV,Node(Red(),c,zV,d))) => 
+      case Node(Black(),a,xV,Node(Red(),b,yV,Node(Red(),c,zV,d))) =>
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
       // case Node(c,a,xV,b) => Node(c,a,xV,b)
     }

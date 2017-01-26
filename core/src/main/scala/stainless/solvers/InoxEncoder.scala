@@ -160,7 +160,8 @@ trait InoxEncoder extends ProgramEncoder {
             t.Lambda(tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe, Set.empty)), t.BooleanLiteral(true))
           ))
 
-        case _ => t.Lambda(Seq.empty, t.BooleanLiteral(true))
+        case _ =>
+          t.Lambda(Seq.empty, t.BooleanLiteral(true))
       }
 
       case s.Lambda(args, body) if args.nonEmpty =>

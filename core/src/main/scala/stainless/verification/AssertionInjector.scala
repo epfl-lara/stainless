@@ -82,27 +82,23 @@ trait AssertionInjector extends ast.TreeTransformer {
 }
 
 object AssertionInjector {
-  def apply(p: Program): Program { val trees: p.trees.type } = {
-    val t: inox.ast.SymbolTransformer {
-      val s: p.trees.type
-      val t: p.trees.type
-    } = new inox.ast.SymbolTransformer {
-      val s: p.trees.type = p.trees
-      val t: p.trees.type = p.trees
+  def apply(p: Program): inox.ast.SymbolTransformer {
+    val s: p.trees.type
+    val t: p.trees.type
+  } = new inox.ast.SymbolTransformer {
+    val s: p.trees.type = p.trees
+    val t: p.trees.type = p.trees
 
-      def transform(syms: s.Symbols): t.Symbols = {
-        object injector extends AssertionInjector {
-          val s: p.trees.type = p.trees
-          val t: p.trees.type = p.trees
-          val symbols: p.symbols.type = p.symbols
-        }
-
-        t.NoSymbols
-          .withFunctions(syms.functions.values.toSeq.map(injector.transform))
-          .withADTs(syms.adts.values.toSeq.map(injector.transform))
+    def transform(syms: s.Symbols): t.Symbols = {
+      object injector extends AssertionInjector {
+        val s: p.trees.type = p.trees
+        val t: p.trees.type = p.trees
+        val symbols: p.symbols.type = p.symbols
       }
-    }
 
-    p.transform(t)//: inox.ast.SymbolTransformer { val s: p.trees.type })
+      t.NoSymbols
+        .withFunctions(syms.functions.values.toSeq.map(injector.transform))
+        .withADTs(syms.adts.values.toSeq.map(injector.transform))
+    }
   }
 }

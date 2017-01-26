@@ -23,11 +23,11 @@ final class Tuple (_elems: Array[AnyRef]) {
   def getArity(): Int = elements.length
 
   override def equals(that: Any): Boolean = that match {
-    case tpl: Tuple => elements == tpl.elements
+    case tpl: Tuple => elements.toSeq == tpl.elements.toSeq
     case _ => false
   }
 
-  override def hashCode: Int = elements.hashCode
+  override def hashCode: Int = elements.toSeq.hashCode
 
-  override def toString: String = elements.mkString("(", ", ", ")")
+  override def toString: String = elements.toSeq.mkString("(", ", ", ")")
 }

@@ -27,9 +27,9 @@ trait VerificationChecker { self =>
   type VC = verification.VC[program.trees.type]
   val VC = verification.VC
 
-  type VCStatus = verification.VCStatus[program.trees.type]
+  type VCStatus = verification.VCStatus[program.Model]
 
-  type VCResult = verification.VCResult[program.trees.type]
+  type VCResult = verification.VCResult[program.Model]
   val VCResult = verification.VCResult
 
   protected def getTactic(fd: FunDef): Tactic { val program: self.program.type }
@@ -155,19 +155,7 @@ trait VerificationChecker { self =>
           case VCStatus.Invalid(cex) =>
             ctx.reporter.warning(" => INVALID")
             ctx.reporter.warning("Found counter-example:")
-
-            val strings = cex.toSeq.sortBy(_._1.id.name).map {
-              case (id, v) => (id.asString, v.asString)
-            }
-
-            if (strings.nonEmpty) {
-              val max = strings.map(_._1.length).max
-              for ((id, v) <- strings) {
-                ctx.reporter.warning(("  %-"+max+"s -> %s").format(id, v))
-              }
-            } else {
-              ctx.reporter.warning("  (Empty counter-example)")
-            }
+            ctx.reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
 
           case status =>
             ctx.reporter.warning(" => " + status.name.toUpperCase)
@@ -183,7 +171,7 @@ trait VerificationChecker { self =>
 
 object VerificationChecker {
   def verify(p: StainlessProgram, opts: inox.Options)
-            (funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
+            (funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
     object checker extends VerificationChecker {
       val program: p.type = p
       val options = opts
@@ -204,7 +192,7 @@ object VerificationChecker {
     checker.verify(funs)
   }
 
-  def verify(p: StainlessProgram)(funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.trees.type]] = {
+  def verify(p: StainlessProgram)(funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
     verify(p, p.ctx.options)(funs)
   }
 }

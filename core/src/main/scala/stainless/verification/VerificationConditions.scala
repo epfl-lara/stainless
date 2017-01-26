@@ -45,8 +45,8 @@ object VCStatus {
   case object Crashed extends VCStatus[Nothing]("crashed")
 }
 
-case class VCResult[T <: ast.Trees](
-  status: VCStatus[Map[T#ValDef, T#Expr]],
+case class VCResult[+Model](
+  status: VCStatus[Model],
   solver: Option[Solver],
   time: Option[Long]
 ) {

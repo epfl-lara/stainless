@@ -41,7 +41,7 @@ trait LoopProcessor extends OrderingProcessor {
 
         solveSAT(path and equality(srcTuple, resTuple)) match {
           case inox.solvers.SolverResponses.SatWithModel(model) =>
-            val args = chain.fd.params.map(vd => model(vd))
+            val args = chain.fd.params.map(vd => model.vars(vd))
             val res = if (chain.relations.exists(_.inLambda)) MaybeBroken(chain.fd, args) else Broken(chain.fd, args)
             nonTerminating(chain.fd) = res
           case _ =>
