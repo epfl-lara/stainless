@@ -123,7 +123,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   /** Rewrites all pattern-matching expressions into if-then-else expressions
     * Introduces additional error conditions. Does not introduce additional variables.
     */
-  def matchToIfThenElse(expr: Expr): Expr = {
+  def matchToIfThenElse(expr: Expr, assumeExhaustive: Boolean = true): Expr = {
 
     def rewritePM(e: Expr): Option[Expr] = e match {
       case m @ MatchExpr(scrut, cases) =>
@@ -140,7 +140,14 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           (realCond.toClause, newRhs, cse)
         }
 
-        val bigIte = condsAndRhs.foldRight[Expr](Error(m.getType, "Match is non-exhaustive").copiedFrom(m))((p1, ex) => {
+        val (branches, elze) = if (assumeExhaustive) {
+          val (cases :+ ((_, rhs, _))) = condsAndRhs
+          (cases, rhs)
+        } else {
+          (condsAndRhs, Error(m.getType, "Match is non-exhaustive").copiedFrom(m))
+        }
+
+        val bigIte = branches.foldRight(elze)((p1, ex) => {
           if(p1._1 == BooleanLiteral(true)) {
             p1._2
           } else {

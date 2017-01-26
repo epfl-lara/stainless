@@ -188,7 +188,7 @@ trait CompilationUnit extends CodeGeneration {
       m
 
     case lambda: Lambda =>
-      val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda))
+      val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false))
       val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty, Seq.empty)
       val depsMap = deps.map(p => p._1.id -> valueToJVM(p._2)).toMap
       val args = closures.map { case (id, _) =>

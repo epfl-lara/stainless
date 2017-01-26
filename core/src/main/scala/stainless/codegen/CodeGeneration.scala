@@ -1202,7 +1202,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << ACONST_NULL
 
     case m : MatchExpr =>
-      mkExpr(matchToIfThenElse(m), ch)
+      mkExpr(matchToIfThenElse(m, assumeExhaustive = false), ch)
 
     case b if b.getType == BooleanType && canDelegateToMkBranch =>
       val fl = ch.getFreshLabel("boolfalse")
@@ -1218,7 +1218,11 @@ trait CodeGeneration { self: CompilationUnit =>
     val vars = variablesOf(lambda).toSeq
     val freshVars = vars.map(_.freshen)
 
-    val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(replaceFromSymbols((vars zip freshVars).toMap, lambda)))
+    val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(
+      replaceFromSymbols((vars zip freshVars).toMap, lambda),
+      assumeExhaustive = false
+    ))
+
     val (afName, closures, tparams, consSig) = compileLambda(l, locals.params, locals.tparams, pre = pre)
     val closureTypes = variablesOf(l).map(v => v.id -> v.tpe).toMap
 
