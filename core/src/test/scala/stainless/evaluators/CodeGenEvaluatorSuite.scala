@@ -13,12 +13,12 @@ class CodeGenEvaluatorSuite extends EvaluatorSuite {
       val sourceProgram: p.type = p
       val t: stainless.trees.type = stainless.trees
 
-      object encoder extends inox.ast.TreeTransformer {
+      object encoder extends ast.TreeTransformer {
         val s: inox.trees.type = inox.trees
         val t: stainless.trees.type = stainless.trees
       }
 
-      object decoder extends inox.ast.TreeTransformer {
+      object decoder extends ast.TreeTransformer {
         val s: stainless.trees.type = stainless.trees
         val t: inox.trees.type = inox.trees
       }

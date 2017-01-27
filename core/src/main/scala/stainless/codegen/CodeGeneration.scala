@@ -328,7 +328,7 @@ trait CodeGeneration { self: CompilationUnit =>
       object normalizer extends {
         val s: program.trees.type = program.trees
         val t: program.trees.type = program.trees
-      } with inox.ast.TreeTransformer {
+      } with ast.TreeTransformer {
         override def transform(tpe: Type): Type = tpe match {
           case tp: TypeParameter => subst(tp)
           case _ => super.transform(tpe)
