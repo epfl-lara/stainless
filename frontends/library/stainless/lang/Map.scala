@@ -4,7 +4,7 @@ package stainless.lang
 import stainless.annotation._
 
 object Map {
-  @library
+  @library @inline
   @isabelle.function(term = "Map.empty")
   def empty[A,B] = Map[A,B]()
 

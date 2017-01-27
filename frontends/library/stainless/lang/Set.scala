@@ -4,7 +4,7 @@ package stainless.lang
 import stainless.annotation._
 
 object Set {
-  @library
+  @library @inline
   def empty[T] = Set[T]()
 
   @ignore
