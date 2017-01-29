@@ -14,7 +14,8 @@ trait VerificationSuite extends ComponentTestSuite {
   override def ignored = super.ignored ++ Set(
     "verification/valid/Extern1",
     "verification/valid/Extern2",
-    "verification/invalid/SpecWithExtern"
+    "verification/invalid/SpecWithExtern",
+    "verification/invalid/BinarySearchTreeQuant"
   )
 
   val component = VerificationComponent
