@@ -151,6 +151,9 @@ trait CodeGenEvaluator
 
         case e: java.lang.StackOverflowError =>
           EvaluationResults.RuntimeError("Stack overflow")
+
+        case e: java.lang.OutOfMemoryError =>
+          EvaluationResults.RuntimeError("Out of memory")
       }
     })
   }

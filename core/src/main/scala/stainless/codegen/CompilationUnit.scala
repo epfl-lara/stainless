@@ -206,52 +206,67 @@ trait CompilationUnit extends CodeGeneration {
     case f @ IsTyped(FiniteArray(elems, base), ArrayType(underlying)) =>
       import scala.reflect.ClassTag
 
-      def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
-        val arr = new Array[A](elems.size)
-        for ((v, index) <- elems.zipWithIndex) {
-          arr(index) = f(v)
+      if (smallArrays) {
+        def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
+          val arr = new Array[A](elems.size)
+          for ((v, index) <- elems.zipWithIndex) {
+            arr(index) = f(v)
+          }
+          arr
+        }
+
+        underlying match {
+          case Int32Type =>
+            allocArray { case IntLiteral(v) => v }
+          case BooleanType =>
+            allocArray { case BooleanLiteral(b) => b }
+          case UnitType =>
+            allocArray { case UnitLiteral() => true }
+          case CharType =>
+            allocArray { case CharLiteral(c) => c }
+          case _ =>
+            allocArray(valueToJVM)
+        }
+      } else {
+        val arr = new runtime.BigArray(elems.size)
+        for ((e,i) <- elems.zipWithIndex) {
+          arr.insert(i, valueToJVM(e))
         }
         arr
-      }
-
-      underlying match {
-        case Int32Type =>
-          allocArray { case IntLiteral(v) => v }
-        case BooleanType =>
-          allocArray { case BooleanLiteral(b) => b }
-        case UnitType =>
-          allocArray { case UnitLiteral() => true }
-        case CharType =>
-          allocArray { case CharLiteral(c) => c }
-        case _ =>
-          allocArray(valueToJVM)
       }
 
     case a @ LargeArray(elems, default, IntLiteral(size), base) =>
       import scala.reflect.ClassTag
 
-      def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
-        val arr = new Array[A](size)
-        val d = f(default)
-        for (i <- 0 until size) arr(i) = d
-        for ((index, v) <- elems) arr(index) = f(v)
+      if (smallArrays) {
+        def allocArray[A: ClassTag](f: Expr => A): Array[A] = {
+          val arr = new Array[A](size)
+          val d = f(default)
+          for (i <- 0 until size) arr(i) = d
+          for ((index, v) <- elems) arr(index) = f(v)
+          arr
+        }
+
+        val ArrayType(underlying) = a.getType
+        underlying match {
+          case Int32Type =>
+            allocArray { case IntLiteral(v) => v }
+          case BooleanType =>
+            allocArray { case BooleanLiteral(b) => b }
+          case UnitType =>
+            allocArray { case UnitLiteral() => true }
+          case CharType =>
+            allocArray { case CharLiteral(c) => c }
+          case _ =>
+            allocArray(valueToJVM)
+        }
+      } else {
+        val arr = new runtime.BigArray(size, valueToJVM(default))
+        for ((i,e) <- elems) {
+          arr.insert(i, valueToJVM(e))
+        }
         arr
       }
-
-      val ArrayType(underlying) = a.getType
-      underlying match {
-        case Int32Type =>
-          allocArray { case IntLiteral(v) => v }
-        case BooleanType =>
-          allocArray { case BooleanLiteral(b) => b }
-        case UnitType =>
-          allocArray { case UnitLiteral() => true }
-        case CharType =>
-          allocArray { case CharLiteral(c) => c }
-        case _ =>
-          allocArray(valueToJVM)
-      }
-
 
     case _ =>
       throw CompilationException(s"Unexpected expression $e in valueToJVM")
@@ -358,9 +373,20 @@ trait CompilationUnit extends CodeGeneration {
     case (_, UnitType) =>
       UnitLiteral()
 
-    case (ar: Array[_], ArrayType(base)) =>
+    case (ar: Array[_], ArrayType(base)) if smallArrays =>
       val elems = for (e <- ar.toSeq) yield jvmToValue(e.asInstanceOf[AnyRef], base)
       FiniteArray(elems, base)
+
+    case (ar: runtime.BigArray, ArrayType(base)) =>
+      val elems = ar.getElements.map { case (index: Int, value) =>
+        index -> jvmToValue(value, base)
+      }.toSeq.sortBy(_._1)
+      if (elems.size == ar.size) {
+        FiniteArray(elems.map(_._2), base)
+      } else {
+        val default = jvmToValue(ar.default, base)
+        LargeArray(elems.toMap, default, IntLiteral(ar.size), base)
+      }
 
     case _ =>
       throw CompilationException("Unsupported return value : " + e.getClass +" while expecting "+tpe)

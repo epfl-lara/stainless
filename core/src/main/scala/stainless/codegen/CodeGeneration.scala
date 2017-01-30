@@ -17,6 +17,7 @@ import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 case class CompilationException(msg: String) extends Exception(msg)
 
 object optInstrumentFields extends inox.FlagOptionDef("instrument", false)
+object optSmallArrays extends inox.FlagOptionDef("smallarrays", false)
 
 trait CodeGeneration { self: CompilationUnit =>
   import program._
@@ -28,6 +29,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   lazy val ignoreContracts = options.findOptionOrDefault(inox.evaluators.optIgnoreContracts)
   lazy val doInstrument = options.findOptionOrDefault(optInstrumentFields)
+  lazy val smallArrays = options.findOptionOrDefault(optSmallArrays)
   lazy val recordInvocations = maxSteps >= 0
 
   /** A class providing information about the status of parameters in the function that is being currently compiled.
@@ -89,12 +91,12 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val SetClass                  = "stainless/codegen/runtime/Set"
   private[codegen] val BagClass                  = "stainless/codegen/runtime/Bag"
   private[codegen] val MapClass                  = "stainless/codegen/runtime/Map"
+  private[codegen] val ArrayClass                = "stainless/codegen/runtime/BigArray"
   private[codegen] val BigIntClass               = "stainless/codegen/runtime/BigInt"
   private[codegen] val BitVectorClass            = "stainless/codegen/runtime/BitVector"
   private[codegen] val RationalClass             = "stainless/codegen/runtime/Rational"
   private[codegen] val ADTClass                  = "stainless/codegen/runtime/ADT"
   private[codegen] val LambdaClass               = "stainless/codegen/runtime/Lambda"
-  private[codegen] val FiniteLambdaClass         = "stainless/codegen/runtime/FiniteLambda"
   private[codegen] val ErrorClass                = "stainless/codegen/runtime/CodeGenRuntimeException"
   private[codegen] val ChooseEntryPointClass     = "stainless/codegen/runtime/ChooseEntryPoint"
   private[codegen] val GenericValuesClass        = "stainless/codegen/runtime/GenericValues"
@@ -209,7 +211,8 @@ trait CodeGeneration { self: CompilationUnit =>
       "L" + LambdaClass + ";"
 
     case ArrayType(base) =>
-      "[" + typeToJVM(base)
+      if (smallArrays) "[" + typeToJVM(base)
+      else "L" + ArrayClass + ";"
 
     case _: TypeParameter =>
       "L" + ObjectClass + ";"
@@ -537,7 +540,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << New(TupleClass) << DUP
     ch << Ldc(es.size)
     ch << NewArray(s"$ObjectClass")
-    for((e,i) <- es.zipWithIndex) {
+    for ((e,i) <- es.zipWithIndex) {
       ch << DUP
       ch << Ldc(i)
       mkBoxedExpr(e, ch)
@@ -776,7 +779,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << New(MapClass) << DUP
       mkBoxedExpr(dflt, ch)
       ch << InvokeSpecial(MapClass, constructorName, s"(L$ObjectClass;)V")
-      for((f,t) <- ss) {
+      for ((f,t) <- ss) {
         ch << DUP
         mkBoxedExpr(f, ch)
         mkBoxedExpr(t, ch)
@@ -1043,92 +1046,132 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case ArrayLength(a) =>
       mkExpr(a, ch)
-      ch << ARRAYLENGTH
+      if (smallArrays) {
+        ch << ARRAYLENGTH
+      } else {
+        ch << InvokeVirtual(ArrayClass, "size", "()I")
+      }
 
     case as @ ArraySelect(a,i) =>
       mkExpr(a, ch)
       mkExpr(i, ch)
-      ch << (as.getType match {
-        case Untyped => throw CompilationException("Cannot compile untyped array access.")
-        case CharType => CALOAD
-        case Int32Type => IALOAD
-        case BooleanType => BALOAD
-        case _ => AALOAD
-      })
+      if (smallArrays) {
+        ch << (as.getType match {
+          case Untyped => throw CompilationException("Cannot compile untyped array access.")
+          case CharType => CALOAD
+          case Int32Type => IALOAD
+          case BooleanType => BALOAD
+          case _ => AALOAD
+        })
+      } else {
+        ch << InvokeVirtual(ArrayClass, "get", s"(I)L$ObjectClass;")
+        mkUnbox(as.getType, ch)
+      }
 
     case au @ ArrayUpdated(a, i, v) =>
-      mkExpr(a, ch)
-      ch << DUP
-      ch << ARRAYLENGTH
+      if (smallArrays) {
+        mkExpr(a, ch)
+        ch << DUP
+        ch << ARRAYLENGTH
 
-      val storeInstr = mkNewArray(a.getType, ch)
+        val storeInstr = mkNewArray(a.getType, ch)
 
-      //srcArrary and targetArray is on the stack
-      ch << DUP_X1 //insert targetArray under srcArray
-      ch << Ldc(0) << SWAP //srcArray, 0, targetArray
-      ch << DUP << ARRAYLENGTH //targetArray, length on stack
-      ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
-      ch << InvokeStatic("java/lang/System", "arraycopy", s"(L$ObjectClass;IL$ObjectClass;II)V")
+        //srcArrary and targetArray is on the stack
+        ch << DUP_X1 //insert targetArray under srcArray
+        ch << Ldc(0) << SWAP //srcArray, 0, targetArray
+        ch << DUP << ARRAYLENGTH //targetArray, length on stack
+        ch << Ldc(0) << SWAP //final arguments: src, 0, target, 0, length
+        ch << InvokeStatic("java/lang/System", "arraycopy", s"(L$ObjectClass;IL$ObjectClass;II)V")
 
-      //targetArray remains on the stack
-      ch << DUP
-      mkExpr(i, ch)
-      mkExpr(v, ch)
-      ch << storeInstr
-      //returns targetArray
-
-    case a @ FiniteArray(elems, _) =>
-      ch << Ldc(elems.size)
-
-      val storeInstr = mkNewArray(a.getType, ch)
-
-      // Replace present elements with correct value
-      for ((v, i) <- elems.zipWithIndex ) {
-        ch << DUP << Ldc(i)
+        //targetArray remains on the stack
+        ch << DUP
+        mkExpr(i, ch)
         mkExpr(v, ch)
         ch << storeInstr
+        //returns targetArray
+      } else {
+        mkExpr(a, ch)
+        mkExpr(i, ch)
+        mkExpr(v, ch)
+        ch << InvokeVirtual(ArrayClass, "updated", s"(IL$ObjectClass;)L$ArrayClass;")
+      }
+
+    case a @ FiniteArray(elems, _) =>
+      if (smallArrays) {
+        ch << Ldc(elems.size)
+        val storeInstr = mkNewArray(a.getType, ch)
+
+        // Replace present elements with correct value
+        for ((v, i) <- elems.zipWithIndex ) {
+          ch << DUP << Ldc(i)
+          mkExpr(v, ch)
+          ch << storeInstr
+        }
+      } else {
+        ch << New(ArrayClass) << DUP << Ldc(elems.size)
+        ch << InvokeSpecial(ArrayClass, constructorName, "(I)V")
+        for ((e,i) <- elems.zipWithIndex) {
+          ch << DUP
+          ch << Ldc(i)
+          mkBoxedExpr(e, ch)
+          ch << InvokeVirtual(ArrayClass, "insert", s"(IL$ObjectClass;)V")
+        }
       }
 
     case a @ LargeArray(elems, default, size, base) =>
-      mkExpr(size, ch)
+      if (smallArrays) {
+        mkExpr(size, ch)
 
-      val storeInstr = mkNewArray(a.getType, ch)
-      val (varLoad, varStore) = base match {
-        case ValueType() => (ILoad(_), IStore(_))
-        case _ => (ALoad(_), AStore(_))
-      }
+        val storeInstr = mkNewArray(a.getType, ch)
+        val (varLoad, varStore) = base match {
+          case ValueType() => (ILoad(_), IStore(_))
+          case _ => (ALoad(_), AStore(_))
+        }
 
-      val loop = ch.getFreshLabel("array_loop")
-      val loopOut = ch.getFreshLabel("array_loop_out")
-      val dfltSlot = ch.getFreshVar
+        val loop = ch.getFreshLabel("array_loop")
+        val loopOut = ch.getFreshLabel("array_loop_out")
+        val dfltSlot = ch.getFreshVar
 
-      mkExpr(default, ch)
-      ch << (base match {
-        case ValueType() => IStore(dfltSlot)
-        case _ => AStore(dfltSlot)
-      })
+        mkExpr(default, ch)
+        ch << (base match {
+          case ValueType() => IStore(dfltSlot)
+          case _ => AStore(dfltSlot)
+        })
 
-      ch << Ldc(0)
-      // (array, index)
-      ch << Label(loop)
-      ch << DUP2 << SWAP
-      // (array, index, index, array)
-      ch << ARRAYLENGTH
-      // (array, index, index, length)
-      ch << If_ICmpGe(loopOut) << DUP2
-      // (array, index, array, index)
-      ch << (base match {
-        case ValueType() => ILoad(dfltSlot)
-        case _ => ALoad(dfltSlot)
-      })
-      ch << storeInstr
-      ch << Ldc(1) << IADD << Goto(loop)
-      ch << Label(loopOut) << POP
-
-      for ((i,v) <- elems) {
-        ch << DUP << Ldc(i)
-        mkExpr(v, ch)
+        ch << Ldc(0)
+        // (array, index)
+        ch << Label(loop)
+        ch << DUP2 << SWAP
+        // (array, index, index, array)
+        ch << ARRAYLENGTH
+        // (array, index, index, length)
+        ch << If_ICmpGe(loopOut) << DUP2
+        // (array, index, array, index)
+        ch << (base match {
+          case ValueType() => ILoad(dfltSlot)
+          case _ => ALoad(dfltSlot)
+        })
         ch << storeInstr
+        ch << Ldc(1) << IADD << Goto(loop)
+        ch << Label(loopOut) << POP
+
+        for ((i,v) <- elems) {
+          ch << DUP << Ldc(i)
+          mkExpr(v, ch)
+          ch << storeInstr
+        }
+      } else {
+        ch << New(ArrayClass) << DUP
+        mkExpr(size, ch)
+        mkBoxedExpr(default, ch)
+        ch << InvokeSpecial(ArrayClass, constructorName, s"(IL$ObjectClass;)V")
+
+        for ((i,e) <- elems) {
+          ch << DUP
+          ch << Ldc(i)
+          mkBoxedExpr(e, ch)
+          ch << InvokeVirtual(ArrayClass, "insert", s"(IL$ObjectClass;)V")
+        }
       }
 
 
@@ -1284,7 +1327,7 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
-    case at @ ArrayType(et) =>
+    case at @ ArrayType(et) if smallArrays =>
       ch << New(BoxedArrayClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
@@ -1305,8 +1348,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case CharType =>
       ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
-    case at @ ArrayType(et) =>
+    case at @ ArrayType(et) if smallArrays =>
       ch << New(BoxedArrayClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedArrayClass, constructorName, s"(${typeToJVM(at)})V")
+
     case _ =>
   }
 
@@ -1349,15 +1393,19 @@ trait CodeGeneration { self: CompilationUnit =>
     case tp : TypeParameter =>
 
     case tp @ ArrayType(base) =>
-      ch << CheckCast(BoxedArrayClass)
-      base match {
-        case Int32Type =>
-          ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
-        case BooleanType =>
-          ch << InvokeVirtual(BoxedArrayClass, "booleanArray", s"()${typeToJVM(tp)}")
-        case _ =>
-          ch << InvokeVirtual(BoxedArrayClass, "anyRefArray", s"()[L$ObjectClass;")
-          ch << CheckCast(typeToJVM(tp))
+      if (smallArrays) {
+        ch << CheckCast(BoxedArrayClass)
+        base match {
+          case Int32Type =>
+            ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
+          case BooleanType =>
+            ch << InvokeVirtual(BoxedArrayClass, "booleanArray", s"()${typeToJVM(tp)}")
+          case _ =>
+            ch << InvokeVirtual(BoxedArrayClass, "anyRefArray", s"()[L$ObjectClass;")
+            ch << CheckCast(typeToJVM(tp))
+        }
+      } else {
+        ch << CheckCast(ArrayClass)
       }
 
     case _ =>
@@ -1365,7 +1413,7 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private[codegen] def mkArrayBox(tp: Type, ch: CodeHandler): Unit = tp match {
-    case at: ArrayType => mkBox(at, ch)
+    case at: ArrayType if smallArrays => mkBox(at, ch)
     case _ =>
   }
 
