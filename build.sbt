@@ -18,7 +18,6 @@ lazy val frontendClass = settingKey[String]("The name of the compiler wrapper us
 
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
-
 lazy val artifactSettings: Seq[Setting[_]] = Seq(
   version := "0.1",
   organization := "ch.epfl.lara",
@@ -31,6 +30,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-unchecked",
     "-feature"
   ),
+
   scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt"),
 
   // TODO: Reenable site.settings
@@ -75,11 +75,11 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
     *   sbt project. You can temporarily disable the following two lines when importing the project.
     */
-  scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "it/scala",
-  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "it/resources",
+  scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "frontends/it/scala",
+  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "frontends/it/resources",
 
   sourceGenerators in Compile <+= Def.task {
-    val libraryFiles = ((root.base / "library") ** "*.scala").getPaths
+    val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
     val extractFromSourceSig = """def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
                                  |    List[xt.UnitDef],
@@ -179,21 +179,21 @@ def frontendProject(proj: Project, _frontendClass: String): Project = proj
     parallelExecution := (nParallel > 1)
   )) : _*)
 
-lazy val `stainless-scalac` = frontendProject(project in file("scalac"), "scalac.ScalaCompiler")
+lazy val `stainless-scalac` = frontendProject(project in file("frontends/scalac"), "scalac.ScalaCompiler")
   .settings(name := "stainless-scalac", scriptSettings)
   .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
 
-lazy val `stainless-dotty-frontend` = frontendProject(project in file("dotty"), "dotc.DottyCompiler")
+lazy val `stainless-dotty-frontend` = frontendProject(project in file("frontends/dotty"), "dotc.DottyCompiler")
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(dotty % "provided")
 
-// TODO: Point this project somewhere, otherwise it will write output into /stainless-dotty, which we don't want.
-lazy val `stainless-dotty` = project
+lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(name := "stainless-dotty", artifactSettings, scriptSettings)
   .dependsOn(`stainless-dotty-frontend`)
   .dependsOn(dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
   .aggregate(`stainless-dotty-frontend`)
 
 lazy val root = (project in file("."))
+  .settings(sourcesInBase in Compile := false)
   .dependsOn(`stainless-scalac`, `stainless-dotty`)
   .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
