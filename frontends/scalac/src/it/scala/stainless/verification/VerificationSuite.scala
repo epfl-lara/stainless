@@ -63,7 +63,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
   }
 
   override def ignored = super.ignored ++ Set(
-    "verification/valid/Overrides"
+    "verification/valid/Overrides",
+    "verification/valid/Array1",
+    "verification/valid/Array6"
   )
 }
 
