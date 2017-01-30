@@ -71,13 +71,6 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
     "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
-  /** 
-    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
-    *   sbt project. You can temporarily disable the following two lines when importing the project.
-    */
-  scalaSource       in IntegrationTest := root.base.getAbsoluteFile / "frontends/it/scala",
-  resourceDirectory in IntegrationTest := root.base.getAbsoluteFile / "frontends/it/resources",
-
   sourceGenerators in Compile <+= Def.task {
     val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
@@ -103,7 +96,10 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
                        |}""".stripMargin)
     Seq(main)
   }
-)
+) ++ Defaults.itSettings ++ inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
+  logBuffered := (nParallel > 1),
+  parallelExecution := (nParallel > 1)
+))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
   compile <<= (compile in Compile) dependsOn script,
@@ -167,31 +163,33 @@ lazy val `stainless-core` = (project in file("core"))
 //  .dependsOn(inox % "compile->compile;test->test;it->it,test")
   .dependsOn(cafebabe)
 
-def frontendProject(proj: Project, _frontendClass: String): Project = proj
+lazy val `stainless-scalac` = (project in file("frontends/scalac"))
+  .settings(
+    name := "stainless-scalac",
+    frontendClass := "scalac.ScalaCompiler",
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
   .dependsOn(`stainless-core`)
   .configs(IntegrationTest)
-  .settings(frontendClass := _frontendClass)
-  .settings(commonSettings)
-  .settings(Defaults.itSettings : _*)
-  .settings(commonFrontendSettings)
-  .settings(inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-    logBuffered := (nParallel > 1),
-    parallelExecution := (nParallel > 1)
-  )) : _*)
+  .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
-lazy val `stainless-scalac` = frontendProject(project in file("frontends/scalac"), "scalac.ScalaCompiler")
-  .settings(name := "stainless-scalac", scriptSettings)
-  .settings(libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
-
-lazy val `stainless-dotty-frontend` = frontendProject(project in file("frontends/dotty"), "dotc.DottyCompiler")
+lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .settings(name := "stainless-dotty-frontend")
-  .dependsOn(dotty % "provided")
+  .dependsOn(`stainless-core`, dotty % "provided")
+  .settings(commonSettings)
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
-  .settings(name := "stainless-dotty", artifactSettings, scriptSettings)
-  .dependsOn(`stainless-dotty-frontend`)
-  .dependsOn(dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
+  .settings(
+    name := "stainless-dotty",
+    frontendClass := "dotc.DottyCompiler",
+    /** 
+      * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
+      *   sbt project. You can temporarily disable the following two lines when importing the project.
+      */
+    unmanagedResourceDirectories in IntegrationTest += file(".") / "frontends" / "scalac" / "it" / "resources")
+  .dependsOn(`stainless-dotty-frontend`, dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
   .aggregate(`stainless-dotty-frontend`)
+  .configs(IntegrationTest)
+  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
 
 lazy val root = (project in file("."))
   .settings(sourcesInBase in Compile := false)
