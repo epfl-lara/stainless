@@ -49,8 +49,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   libraryDependencies ++= Seq(
     //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT",
-    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "test" classifier "tests",
+    "ch.epfl.lara" %% "inox" % "1.0.1",
+    "ch.epfl.lara" %% "inox" % "1.0.1" % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   ),
 
@@ -67,7 +67,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
   libraryDependencies ++= Seq(
-    "ch.epfl.lara" %% "inox" % "1.0-SNAPSHOT" % "it" classifier "tests" classifier "it",
+    "ch.epfl.lara" %% "inox" % "1.0.1" % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
