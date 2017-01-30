@@ -1092,7 +1092,7 @@ trait CodeGeneration { self: CompilationUnit =>
       } else {
         mkExpr(a, ch)
         mkExpr(i, ch)
-        mkExpr(v, ch)
+        mkBoxedExpr(v, ch)
         ch << InvokeVirtual(ArrayClass, "updated", s"(IL$ObjectClass;)L$ArrayClass;")
       }
 
