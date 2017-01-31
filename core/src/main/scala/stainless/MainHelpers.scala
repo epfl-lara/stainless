@@ -40,6 +40,8 @@ trait MainHelpers extends inox.MainHelpers {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
   }
 
+  override protected def getName: String = "stainless"
+
   /* NOTE: Should be implemented by a generated Main class in each compiler-specific project: */
   val libraryFiles: List[String]
   def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
