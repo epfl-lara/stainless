@@ -48,7 +48,6 @@ object MergeSort2 {
   }
 
   def mergeSort(list: List[BigInt]): List[BigInt] = {
-    decreases(list.size)
     list match {
       case Cons(_, Cons(_, _)) =>
         val (s1, s2) = split(list)

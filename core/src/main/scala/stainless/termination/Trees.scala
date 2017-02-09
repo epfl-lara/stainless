@@ -60,28 +60,38 @@ trait Trees extends ast.Trees { self =>
   implicit class TerminationTypedFunDef(tfd: TypedFunDef) {
     def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
   }
+
+
+  /* ========================================
+   *                PRINTERS
+   * ======================================== */
+
+  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+    case Decreases(rank, body) =>
+      p"""|decreases($rank)
+          |$body"""
+    case _ => super.ppBody(tree)
+  }
+
+  override protected def isSimpleExpr(e: Expr): Boolean = e match {
+    case (_: Decreases) => false
+    case _ => super.isSimpleExpr(e)
+  }
+
+  override protected def noBracesSub(e: Tree): Seq[Expr] = e match {
+    case Decreases(_, bd) => Seq(bd)
+    case _ => super.noBracesSub(e)
+  }
+
+  override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
+    case (_, Some(_: Decreases)) => false
+    case _ => super.requiresParentheses(ex, within)
+  }
 }
 
 trait ExprOps extends ast.ExprOps {
   protected val trees: Trees
   import trees._
-
-  override def withBody(expr: Expr, body: Expr): Expr = expr match {
-    case Require(pre, dec @ Decreases(measure, _)) =>
-      Require(pre, Decreases(measure, body).copiedFrom(dec)).copiedFrom(expr)
-    case Ensuring(req @ Require(pre, dec @ Decreases(measure, _)), post) =>
-      Ensuring(Require(pre, Decreases(measure, body).copiedFrom(dec)).copiedFrom(req), post).copiedFrom(expr)
-    case Ensuring(dec @ Decreases(measure, _), post) =>
-      Ensuring(Decreases(measure, body).copiedFrom(dec), post).copiedFrom(expr)
-    case _ => super.withBody(expr, body)
-  }
-
-  override def withoutSpec(expr: Expr): Option[Expr] = expr match {
-    case Require(_, Decreases(_, b))              => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Require(_, Decreases(_, b)), _) => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Decreases(_, b), _)             => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case _                                        => super.withoutSpec(expr)
-  }
 
   /** Returns the measure associated to an expression wrapped in an Option */
   def measureOf(expr: Expr): Option[Expr] = expr match {
