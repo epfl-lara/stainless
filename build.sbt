@@ -1,6 +1,8 @@
 val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
+val inoxVersion = "1.0.2"
+
 lazy val nParallel = {
   val p = System.getProperty("parallel")
   if (p ne null) {
@@ -49,8 +51,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   libraryDependencies ++= Seq(
     //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-    "ch.epfl.lara" %% "inox" % "1.0.1",
-    "ch.epfl.lara" %% "inox" % "1.0.1" % "test" classifier "tests",
+    "ch.epfl.lara" %% "inox" % inoxVersion,
+    "ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   ),
 
@@ -67,7 +69,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
   libraryDependencies ++= Seq(
-    "ch.epfl.lara" %% "inox" % "1.0.1" % "it" classifier "tests" classifier "it",
+    "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
@@ -160,7 +162,7 @@ lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
-//  .dependsOn(inox % "compile->compile;test->test;it->it,test")
+//  .dependsOn(inox % "compile->compile;test->test")
   .dependsOn(cafebabe)
 
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
