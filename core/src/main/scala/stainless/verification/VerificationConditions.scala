@@ -43,6 +43,7 @@ object VCStatus {
   case object Timeout extends VCStatus[Nothing]("timeout")
   case object Cancelled extends VCStatus[Nothing]("cancelled")
   case object Crashed extends VCStatus[Nothing]("crashed")
+  case object Unsupported extends VCStatus[Nothing]("unsupported")
 }
 
 case class VCResult[+Model](

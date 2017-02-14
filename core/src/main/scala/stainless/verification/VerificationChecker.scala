@@ -118,31 +118,41 @@ trait VerificationChecker { self =>
 
       val timer = ctx.timers.verification.start()
 
-      s.assertCnstr(Not(cond))
+      val vcres = try {
+        s.assertCnstr(Not(cond))
 
-      val res = s.check(Model)
+        val res = s.check(Model)
+
+        val time = timer.stop()
+
+        res match {
+          case _ if ctx.interruptManager.isInterrupted =>
+            VCResult(VCStatus.Cancelled, Some(s), Some(time))
+
+          case Unknown =>
+            VCResult(s match {
+              case ts: inox.solvers.combinators.TimeoutSolver => ts.optTimeout match {
+                case Some(t) if t < time => VCStatus.Timeout
+                case _ => VCStatus.Unknown
+              }
+              case _ => VCStatus.Unknown
+            }, Some(s), Some(time))
+
+          case Unsat =>
+            VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+
+          case SatWithModel(model) =>
+            VCResult(VCStatus.Invalid(model), s.getResultSolver, Some(time))
+        }
+      } catch {
+        case u: Unsupported =>
+          val t = timer.selfTimer.get
+          val time = if (t.isRunning) t.stop else t.runs.last
+          ctx.reporter.warning(u.getMessage)
+          VCResult(VCStatus.Unsupported, Some(s), Some(time))
+      }
 
       val time = timer.stop()
-
-      val vcres: VCResult = res match {
-        case _ if ctx.interruptManager.isInterrupted =>
-          VCResult(VCStatus.Cancelled, Some(s), Some(time))
-
-        case Unknown =>
-          VCResult(s match {
-            case ts: inox.solvers.combinators.TimeoutSolver => ts.optTimeout match {
-              case Some(t) if t < time => VCStatus.Timeout
-              case _ => VCStatus.Unknown
-            }
-            case _ => VCStatus.Unknown
-          }, Some(s), Some(time))
-
-        case Unsat =>
-          VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
-
-        case SatWithModel(model) =>
-          VCResult(VCStatus.Invalid(model), s.getResultSolver, Some(time))
-      }
 
       ctx.reporter.synchronized {
         if (parallelCheck)
