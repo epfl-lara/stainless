@@ -69,9 +69,14 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     }
 
     val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
+    val timeout = ctx.options.findOption(inox.optTimeout) match {
+      case Some(to) => to / 100
+      case None => 2.5.seconds
+    }
+
     solvers.SolverFactory
       .getFromSettings(p, options)(programEncoder)(p.getSemantics)
-      .withTimeout(2.5.seconds)
+      .withTimeout(timeout)
   }
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
