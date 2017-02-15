@@ -5,6 +5,8 @@ package termination
 
 object DebugSectionTermination extends inox.DebugSection("termination")
 
+object optIgnorePosts extends inox.FlagOptionDef("ignoreposts", false)
+
 trait TerminationChecker {
   val program: Program { val trees: Trees }
   val options: inox.Options

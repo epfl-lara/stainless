@@ -12,6 +12,8 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   import program.symbols._
   import CallGraphOrderings._
 
+  private[termination] lazy val ignorePosts = ctx.options.findOptionOrDefault(optIgnorePosts)
+
   trait Problem {
     def funSet: Set[FunDef]
     def funDefs: Seq[FunDef]
@@ -94,7 +96,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
         case (_, idx) => processorArray(idx).isInstanceOf[LoopProcessor]
       }
 
-      if (isProblem(fd, ignoreSCC = !isLoop)) {
+      if (isProblem(fd, ignoreSCC = !isLoop) || ignorePosts) {
         fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
       } else {
         fd
@@ -108,16 +110,16 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
   private[termination] def registerTransformer(
     transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }
-  ): Unit = transformers = transformers compose transformer
+  ): Unit = transformers = transformers andThen transformer
 
   def solveVALID(e: Expr) = solverAPI(transformers).solveVALID(e)
   def solveVALID(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    solverAPI(transformers compose t).solveVALID(e)
+    solverAPI(transformers andThen t).solveVALID(e)
   }
 
   def solveSAT(e: Expr) = solverAPI(transformers).solveSAT(e)
   def solveSAT(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    solverAPI(transformers compose t).solveSAT(e)
+    solverAPI(transformers andThen t).solveSAT(e)
   }
 
   private lazy val processorArray: Array[Processor { val checker: self.type }] = {

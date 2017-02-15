@@ -17,6 +17,7 @@ trait MainHelpers extends inox.MainHelpers {
 
   case object Pipelines extends Category
   case object Verification extends Category
+  case object Termination extends Category
 
   override protected def getOptions = super.getOptions ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
@@ -26,7 +27,8 @@ trait MainHelpers extends inox.MainHelpers {
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
-      "  - termination: each solver call takes at most n / 100 seconds")
+      "  - termination: each solver call takes at most n / 100 seconds"),
+    termination.optIgnorePosts -> Description(Termination, "Ignore postconditions during termination checking")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
