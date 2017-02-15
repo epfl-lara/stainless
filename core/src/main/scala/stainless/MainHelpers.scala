@@ -23,10 +23,10 @@ trait MainHelpers extends inox.MainHelpers {
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
-    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails")
+    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
-      "  - each proof attempt in verification takes at most n seconds\n" +
-      "  - each solver call takes at most n / 100 seconds in termination")
+      "  - verification: each proof attempt takes at most n seconds\n" +
+      "  - termination: each solver call takes at most n / 100 seconds")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
