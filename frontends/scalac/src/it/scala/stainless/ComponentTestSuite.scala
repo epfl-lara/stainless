@@ -37,9 +37,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     }, exProgram)
   }
 
-  def ignored: Set[String] = Set.empty
-
-  private[this] lazy val ignoredSet = ignored
+  def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
   def testAll(dir: String)(block: (component.Report, inox.Reporter) => Unit): Unit = {
     val fs = resourceFiles(s"regression/$dir", _.endsWith(".scala")).toList
@@ -47,14 +45,10 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val (funss, program) = extract(fs.map(_.getPath))
 
     for ((name, funs) <- funss) {
-      if (ignoredSet(s"$dir/$name")) {
-        ignore(s"$dir/$name")(_ => ())
-      } else {
-        test(s"$dir/$name") { ctx =>
-          val newProgram = program.withContext(ctx)
-          val report = component.apply(funs, newProgram)
-          block(report, ctx.reporter)
-        }
+      test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
+        val newProgram = program.withContext(ctx)
+        val report = component.apply(funs, newProgram)
+        block(report, ctx.reporter)
       }
     }
   }

@@ -11,12 +11,13 @@ trait VerificationSuite extends ComponentTestSuite {
     seq => optFailEarly(true) +: seq
   }
 
-  override def ignored = super.ignored ++ Set(
-    "verification/valid/Extern1",
-    "verification/valid/Extern2",
-    "verification/invalid/SpecWithExtern",
-    "verification/invalid/BinarySearchTreeQuant"
-  )
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    case "verification/valid/Extern1" => Ignore
+    case "verification/valid/Extern2" => Ignore
+    case "verification/invalid/SpecWithExtern" => Ignore
+    case "verification/invalid/BinarySearchTreeQuant" => Ignore
+    case _ => super.filter(ctx, name)
+  }
 
   val component = VerificationComponent
 
@@ -41,10 +42,11 @@ class SMTZ3VerificationSuite extends VerificationSuite {
     ) ++ seq
   }
 
-  override def ignored = super.ignored ++ Set(
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
-    "verification/valid/MergeSort2"
-  )
+    case "verification/valid/MergeSort2" => Ignore
+    case _ => super.filter(ctx, name)
+  }
 }
 
 class CodeGenVerificationSuite extends VerificationSuite {
@@ -57,10 +59,11 @@ class CodeGenVerificationSuite extends VerificationSuite {
     ) ++ seq
   }
 
-  override def ignored = super.ignored ++ Set(
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
-    "verification/valid/MergeSort2"
-  )
+    case "verification/valid/MergeSort2" => Ignore
+    case _ => super.filter(ctx, name)
+  }
 }
 
 class SMTCVC4VerificationSuite extends VerificationSuite {
@@ -72,9 +75,10 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     ) ++ seq
   }
 
-  override def ignored = super.ignored ++ Set(
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Requires non-linear resonning, unsupported by CVC4
-    "verification/valid/Overrides"
-  )
+    case "verification/valid/Overrides" => Ignore
+    case _ => super.filter(ctx, name)
+  }
 }
 

@@ -46,7 +46,10 @@ trait Strengthener { self: OrderingRelation =>
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val postcondition = {
           val res = ValDef(FreshIdentifier("res"), fd.returnType, Set.empty)
-          val post = fd.postcondition.map(application(_, Seq(res.toVariable))).getOrElse(BooleanLiteral(true))
+          val post = fd.postcondition match {
+            case Some(post) if !ignorePosts => application(post, Seq(res.toVariable))
+            case _ => BooleanLiteral(true)
+          }
           val sizePost = cmp(Seq(res.toVariable), fd.params.map(_.toVariable))
           Lambda(Seq(res), and(post, sizePost))
         }
@@ -59,8 +62,8 @@ trait Strengthener { self: OrderingRelation =>
           }
         }
 
-        // @nv: one must also check satisfiability here as if both formula and
-        //      !formula are UNSAT, we will proceed to invalid strenghtening
+        // @nv: one must also check that variablesOf(formula) is non-empty as
+        //      we may proceed to invalid strenghtening otherwise
         if (exprOps.variablesOf(formula).nonEmpty && solveVALID(formula, strengthener).contains(true)) {
           strengthenedPost(fd) = Some(postcondition)
           true

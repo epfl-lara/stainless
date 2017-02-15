@@ -3,6 +3,8 @@
 package stainless
 package termination
 
+import scala.concurrent.duration._
+
 class TerminationSuite extends ComponentTestSuite with inox.ResourceUtils {
 
   val component = TerminationComponent
@@ -11,10 +13,13 @@ class TerminationSuite extends ComponentTestSuite with inox.ResourceUtils {
     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
   }
 
-  override val ignored = Set(
-    "termination/valid/NNF",
-    "verification/valid/Nested14"
-  )
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    case "termination/valid/NNF" => Skip
+    case "verification/valid/Nested14" => Ignore
+    // smt-z3 crashes on some permutations of the MergeSort2 problem encoding due to Bags...
+    case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
+    case _ => super.filter(ctx, name)
+  }
 
   testAll("termination/valid") { (report, _) =>
     val failures = report.results.collect { case (fd, guarantee) if !guarantee.isGuaranteed => fd }
@@ -39,5 +44,4 @@ class TerminationSuite extends ComponentTestSuite with inox.ResourceUtils {
     val notGuaranteed = guaranteed.filterNot(_._2.isGuaranteed)
     assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_._1.id) + " should terminate")
   }
-
 }

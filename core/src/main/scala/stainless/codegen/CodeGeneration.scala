@@ -674,12 +674,12 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Label(ok)
       }
 
-    case IsInstanceOf(e, adt) =>
+    case IsInstanceOf(e, adt: ADTType) =>
       val (ccName, _) = getADTInfo(adt.getADT.definition)
       mkExpr(e, ch)
       ch << InstanceOf(ccName)
 
-    case AsInstanceOf(e, adt) =>
+    case AsInstanceOf(e, adt: ADTType) =>
       val (ccName, _) = getADTInfo(adt.getADT.definition)
       mkExpr(e, ch)
       ch << CheckCast(ccName)
