@@ -3,60 +3,34 @@
 Getting Started
 ===============
 
-Web Interface
--------------
+Stainless is currently only available as a command line tool,
+which exposes most of the functionality. See :ref:`installation`
+for some installation documentation.
 
-The simplest way to try out Leon is to use it through the
-web interface http://leon.epfl.ch. The web interface uses
-standard Javascript and should run in most browsers,
-including Chrome and Firefox. 
-
-The web interface requires you to enter your entire program
-into the single web editor buffer. For example, you can
-paste into the editor the definition of the following `max`
-function on unbounded integers:
-
-.. code-block:: scala
-
-  object Max {
-    def max(x: BigInt, y: BigInt): BigInt = {
-      if (x <= y) y
-      else x
-    } ensuring(res => x <= res && y <= res)
-  }
-
-The above program should verify. If you change `y <= res`
-into `y < res`, Leon should report a counterexample; try
-clicking on the names of parameters `x` and `y` as well
-as various parts in the `ensuring` clause.
-
-You can also **select from a number of provided examples**,
-and then edit them subsequently.  Selecting a different
-sample program from the web interface will erase the
-previously entered program.
-
-The web interface fixes particular settings including the
-timeout values for verification and synthesis tasks. For
-longer tasks we currently recommend using the command line.
-
-Command Line
-------------
-
-Leon can be used as a command line tool, which exposes most
-of the functionality. To see the main options, use 
+Stainless compilation will generate two scripts for you, namely
+`bin/stainless-scalac` and `bin/stainless-dotty`. The dotty
+frontend is experimental for now so lets start by introducing
+a soft-link from `bin/stainless-scalac` to `stainless`
 
 .. code-block:: bash
 
-  ./leon --help
+  $ ln -s bin/stainless-scalac stainless
 
-in your command line shell while in the top-level Leon directory.
-
-You can try some of the examples from the `testcases/` directory 
-distributed with Leon:
+To see the main options, use
 
 .. code-block:: bash
 
-    $ ./leon --solvers=smt-cvc4 ./testcases/verification/sas2011-testcases/RedBlackTree.scala
+  $ ./stainless --help
+
+in your command line shell while in the top-level Stainless directory.
+You may also wish to consult :ref:`cmdlineoptions` options.
+
+You can try some of the examples from `fontends/scalac/src/it/resources/regression/`
+distributed with Stainless:
+
+.. code-block:: bash
+
+  $ ./stainless --solvers=smt-cvc4 frontends/scalac/src/it/resources/regression/verification/invalid/RedBlackTree.scala
 
 and get something like this
 
@@ -90,14 +64,3 @@ and get something like this
  ║ total: 21     valid: 17     invalid: 4      unknown 0                                6.762 ║
  ╚════════════════════════════════════════════════════════════════════════════════════════════╝
 
-
-For more details on how to build Leon from sources that can
-be used directly from the shell, see
-:ref:`installation`.  In addition to invoking `./leon --help` you
-may wish to consult :ref:`cmdlineoptions` options.
-
-Some benchmarks may contain Scala code that is ignored by verifier, but contributes
-to running the benchmark. To start a Leon program with Scala, just compile it together
-with Leon libraries inside the `library/` directory of Leon distribution. The scripts
-`scalacleon` and `scalaleon` attempt to automate this for simple cases and need to be
-invoked from the Leon installation directory.
