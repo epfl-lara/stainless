@@ -40,7 +40,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 //  site.sphinxSupport(),
 
   unmanagedJars in Runtime += {
-    baseDirectory.value / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
+    root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
   },
 
   resolvers ++= Seq(
