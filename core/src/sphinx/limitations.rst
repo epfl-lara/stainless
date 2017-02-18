@@ -3,7 +3,7 @@
 Limitations of Verification
 ---------------------------
 
-A goal of Leon is to ensure that proven properties hold in
+A goal of Stainless is to ensure that proven properties hold in
 all program executions so that, for example, verified programs
 do not crash and all of the preconditions and postconditions
 are true in all executions.
@@ -18,7 +18,7 @@ discrepancy exists and provide suggested workarounds.
 Out of Memory Errors
 ^^^^^^^^^^^^^^^^^^^^
 
-By default Leon assumes that unbounded data types can
+By default Stainless assumes that unbounded data types can
 be arbitrarily large and that all well-founded recursive
 functions have enough stack space to finish their computation.
 Thus a verified program may crash at run-time due to:
@@ -30,7 +30,7 @@ Algebraic data types are assumed to be arbitrarily large.
 In any given execution, there will be actual bounds on the
 total available memory, so the program could crash with out
 of memory error when trying to allocate another value of
-algebraic data type. 
+algebraic data type.
 
 For a safety critical application you may wish to resort to
 tail-recursive programs only, and also write preconditions

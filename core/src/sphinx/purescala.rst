@@ -3,11 +3,11 @@
 Pure Scala
 ==========
 
-The input to Leon is a purely functional **subset** of `Scala
+The input to Stainless is a purely functional **subset** of `Scala
 <http://www.scala-lang.org/>`_, which we call 
-**Pure Scala**. Constructs specific for Leon are defined inside
-Leon's libraries in package `leon` and its subpackages. Leon
-invokes standard `scalac` compiler on the input file, then
+**Pure Scala**. Constructs specific for Stainless are defined inside
+Stainless's libraries in package `stainless` and its subpackages.
+Stainless invokes standard `scalac` compiler on the input file, then
 performs additional checks to ensure that the given program
 belongs to Pure Scala.
 
@@ -18,29 +18,26 @@ Pure Scala supports two kinds of top-level declarations:
 
 .. code-block:: scala
 
-   abstract class MyList
-   case object MyEmpty extends MyList
-   case class MyCons(elem: BigInt, rest: MyList) extends MyList
+  abstract class MyList
+  case object MyEmpty extends MyList
+  case class MyCons(elem: BigInt, rest: MyList) extends MyList
 
 2. Objects/modules, for grouping classes and functions
 
 .. code-block:: scala
 
-   object Specs {
-      def increment(a: BigInt): BigInt = {
-         a + 1
-      }
+  object Specs {
+     def increment(a: BigInt): BigInt = {
+        a + 1
+     }
 
-      case class Identifier(id: BigInt)
-   }
-
-.. _adts:
-
+     case class Identifier(id: BigInt)
+  }
 
 Boolean
 #######
 
-Booleans are used to express truth conditions in Leon.
+Booleans are used to express truth conditions in Stainless.
 Unlike some proof assistants, there is no separation 
 at the type level between
 Boolean values and the truth conditions of conjectures
@@ -57,18 +54,18 @@ is also present.
   a || b
   a == b
   !a
-  a ==> b // Leon syntax for boolean implication
+  a ==> b // Stainless syntax for boolean implication
 
-Leon uses short-circuit interpretation of `&&`, `||`, and `==>`, 
+Stainless uses short-circuit interpretation of `&&`, `||`, and `==>`, 
 which evaluates the second argument only when needed:
 
 .. code-block:: scala
 
-  a && b   === if (a) b else false
+  a && b  === if (a) b else false
 
-  a || b   === if (a) true else b
+  a || b  === if (a) true else b
 
-  a ==> b  === if (a) b else true
+  a ==> b === if (a) b else true
 
 This aspect is important because of:
 
@@ -91,7 +88,7 @@ ADT roots need to be defined as abstract, unless the ADT is defined with only on
 
 .. code-block:: scala
 
- abstract class MyType
+  abstract class MyType
 
 An abstract class can be extended by other abstract classes.
 
@@ -102,11 +99,11 @@ The abstract root can also be extended by a case-class, defining several fields:
 
 .. code-block:: scala
 
- case class MyCase1(f: Type, f2: MyType) extends MyType
- case class MyCase2(f: Int) extends MyType
+  case class MyCase1(f: Type, f2: MyType) extends MyType
+  case class MyCase2(f: Int) extends MyType
 
 .. note::
- You can also define single case-class, for Tuple-like structures.
+  You can also define single case-class, for Tuple-like structures.
 
 Case Objects
 ************
@@ -115,35 +112,36 @@ It is also possible to defined case objects, without fields:
 
 .. code-block:: scala
 
- case object BaseCase extends MyType
+  case object BaseCase extends MyType
 
 
 Generics
 --------
 
-Leon supports type parameters for classes and functions.
+Stainless supports type parameters for classes and functions.
 
 .. code-block:: scala
 
- object Test {
-   abstract class List[T]
-   case class Cons[T](hd: T, tl: List[T]) extends List[T]
-   case class Nil[T]() extends List[T]
-
-   def contains[T](l: List[T], el: T) = { ... }
- }
+  object Test {
+    abstract class List[T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case class Nil[T]() extends List[T]
+ 
+    def contains[T](l: List[T], el: T) = { ... }
+  }
 
 
 .. note::
- Type parameters are always **invariant**. It is not possible to define ADTs like:
+  Type parameters are always **invariant**. It is not possible to define ADTs like:
+ 
+  .. code-block:: scala
+ 
+    abstract class List[T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case object Nil extends List[Nothing]
 
- .. code-block:: scala
-
-  abstract class List[T]
-  case class Cons[T](hd: T, tl: List[T]) extends List[T]
-  case object Nil extends List[Nothing]
-
- Leon in fact restricts type parameters to "simple hierarchies", where subclasses define the same type parameters in the same order.
+  Stainless in fact restricts type parameters to "simple hierarchies",
+  where subclasses define the same type parameters in the same order.
 
 Methods
 -------
@@ -152,13 +150,13 @@ You can define methods in classes.
 
 .. code-block:: scala
 
- abstract class List[T] {
-   def contains(e: T) = { .. }
- }
- case class Cons[T](hd: T, tl: List[T]) extends List[T]
- case object Nil extends List[Nothing]
-
- def test(a: List[Int]) = a.contains(42)
+  abstract class List[T] {
+    def contains(e: T) = { .. }
+  }
+  case class Cons[T](hd: T, tl: List[T]) extends List[T]
+  case object Nil extends List[Nothing]
+ 
+  def test(a: List[Int]) = a.contains(42)
 
 It is possible to define abstract methods in abstract classes and implement them in case classes.
 It is also possible to override methods.
@@ -191,7 +189,7 @@ It is not possible, however, to call methods of a superclass with the ``super`` 
 Specifications
 --------------
 
-Leon supports three kinds of specifications to functions and methods:
+Stainless supports three kinds of specifications to functions and methods:
 
 Preconditions
 *************
@@ -200,10 +198,10 @@ Preconditions constraint the argument and is expressed using `require`. It shoul
 
 .. code-block:: scala
 
- def foo(a: Int, b: Int) = {
-   require(a > b)
-   ...
- }
+  def foo(a: Int, b: Int) = {
+    require(a > b)
+    ...
+  }
 
 Postconditions
 **************
@@ -212,9 +210,9 @@ Postconditions constraint the resulting value, and is expressed using `ensuring`
 
 .. code-block:: scala
 
- def foo(a: Int): Int = {
-   a + 1
- } ensuring { res => res > a }
+  def foo(a: Int): Int = {
+    a + 1
+  } ensuring { res => res > a }
 
 Body Assertsions
 ****************
@@ -223,66 +221,66 @@ Assertions constrain intermediate expressions within the body of a function.
 
 .. code-block:: scala
 
- def foo(a: Int): Int = {
-   val b = -a
-   assert(a >= 0 || b >= 0, "This will fail for -2^31")
-   a + 1
- }
+  def foo(a: Int): Int = {
+    val b = -a
+    assert(a >= 0 || b >= 0, "This will fail for -2^31")
+    a + 1
+  }
 
 The error description (last argument of ``assert``) is optional.
 
 Expressions
 -----------
 
-Leon supports most purely-functional Scala expressions:
+Stainless supports most purely-functional Scala expressions:
 
 Pattern matching
 ****************
 
 .. code-block:: scala
 
- expr match {
-   // Simple (nested) patterns:
-   case CaseClass( .. , .. , ..) => ...
-   case v @ CaseClass( .. , .. , ..) => ...
-   case v : CaseClass => ...
-   case (t1, t2) => ...
-   case 42 => ...
-   case _ => ...
-
-   // can also be guarded, e.g.
-   case CaseClass(a, b, c) if a > b => ...
- }
+  expr match {
+    // Simple (nested) patterns:
+    case CaseClass( .. , .. , ..) => ...
+    case v @ CaseClass( .. , .. , ..) => ...
+    case v : CaseClass => ...
+    case (t1, t2) => ...
+    case 42 => ...
+    case _ => ...
+ 
+    // can also be guarded, e.g.
+    case CaseClass(a, b, c) if a > b => ...
+  }
 
 Custom pattern matching with ``unapply`` methods are also supported:
 
 .. code-block:: scala
 
- object :: {
-   def unapply[A](l: List[A]): Option[(A, List[A])] = l match {
-     case Nil() => None()
-     case Cons(x, xs) => Some((x, xs))
-   }
- }
-  
- def empty[A](l: List[A]) = l match {
-   case x :: xs => false
-   case Nil() => true
- }
+  object :: {
+    def unapply[A](l: List[A]): Option[(A, List[A])] = l match {
+      case Nil() => None()
+      case Cons(x, xs) => Some((x, xs))
+    }
+  }
+
+  def empty[A](l: List[A]) = l match {
+    case x :: xs => false
+    case Nil() => true
+  }
 
 Values
 ******
 
 .. code-block:: scala
 
- val x = ...
-
- val (x, y) = ...
-
- val Cons(h, _) = ...
+  val x = ...
+ 
+  val (x, y) = ...
+ 
+  val Cons(h, _) = ...
 
 .. note::
- The latter two cases are actually syntactic sugar for pattern matching with one case.
+  The latter two cases are actually syntactic sugar for pattern matching with one case.
 
 
 Inner Functions
@@ -290,13 +288,13 @@ Inner Functions
 
 .. code-block:: scala
 
- def foo(x: Int) = {
-   val y = x + 1
-   def bar(z: Int) = {
-      z + y
-   }
-   bar(42)
- }
+  def foo(x: Int) = {
+    val y = x + 1
+    def bar(z: Int) = {
+       z + y
+    }
+    bar(42)
+  }
 
 
 Predefined Types
@@ -307,9 +305,9 @@ TupleX
 
 .. code-block:: scala
 
- val x = (1,2,3)
- val y = 1 -> 2 // alternative Scala syntax for Tuple2
- x._1 // == 1
+  val x = (1,2,3)
+  val y = 1 -> 2 // alternative Scala syntax for Tuple2
+  x._1 // == 1
 
 
 Int
@@ -317,17 +315,17 @@ Int
 
 .. code-block:: scala
 
- a + b
- a - b
- -a
- a * b
- a / b
- a % b // a modulo b
- a < b
- a <= b
- a > b
- a >= b
- a == b
+  a + b
+  a - b
+  -a
+  a * b
+  a / b
+  a % b // a modulo b
+  a < b
+  a <= b
+  a > b
+  a >= b
+  a == b
 
 .. note::
  Integers are treated as 32bits integers and are subject to overflows.
@@ -337,23 +335,23 @@ BigInt
 
 .. code-block:: scala
 
- val a = BigInt(2)
- val b = BigInt(3)
-
- -a
- a + b
- a - b
- a * b
- a / b
- a % b // a modulo b
- a < b
- a > b
- a <= b
- a >= b
- a == b
+  val a = BigInt(2)
+  val b = BigInt(3)
+ 
+  -a
+  a + b
+  a - b
+  a * b
+  a / b
+  a % b // a modulo b
+  a < b
+  a > b
+  a <= b
+  a >= b
+  a == b
 
 .. note::
- BigInt are mathematical integers (arbitrary size, no overflows).
+  BigInt are mathematical integers (arbitrary size, no overflows).
 
 Real
 ####
@@ -363,19 +361,19 @@ extension to Scala which is meant to write programs closer to their true semanti
 
 .. code-block:: scala
 
- val a: Real = Real(2)
- val b: Real = Real(3, 5) // 3/5
-
- -a
- a + b
- a - b
- a * b
- a / b
- a < b
- a > b
- a <= b
- a >= b
- a == b
+  val a: Real = Real(2)
+  val b: Real = Real(3, 5) // 3/5
+ 
+  -a
+  a + b
+  a - b
+  a * b
+  a / b
+  a < b
+  a > b
+  a <= b
+  a >= b
+  a == b
 
 .. note::
   Real have infinite precision, which means their properties differ from ``Double``.
@@ -395,16 +393,16 @@ Set
 
 .. code-block:: scala
 
- import leon.lang.Set // Required to have support for Sets
-
- val s1 = Set(1,2,3,1)
- val s2 = Set[Int]()
-
- s1 ++ s2 // Set union
- s1 & s2  // Set intersection
- s1 -- s2 // Set difference
- s1 subsetOf s2
- s1 contains 42
+  import stainless.lang.Set // Required to have support for Sets
+ 
+  val s1 = Set(1,2,3,1)
+  val s2 = Set[Int]()
+ 
+  s1 ++ s2 // Set union
+  s1 & s2  // Set intersection
+  s1 -- s2 // Set difference
+  s1 subsetOf s2
+  s1 contains 42
 
 
 Functional Array
@@ -412,11 +410,11 @@ Functional Array
 
 .. code-block:: scala
 
- val a = Array(1,2,3)
-
- a(index)
- a.updated(index, value)
- a.length
+  val a = Array(1,2,3)
+ 
+  a(index)
+  a.updated(index, value)
+  a.length
 
 
 Map
@@ -424,18 +422,18 @@ Map
 
 .. code-block:: scala
 
- import leon.lang.Map // Required to have support for Maps
-
- val  m = Map[Int, Boolean](42 -> false)
-
- m(index)
- m isDefinedAt index
- m contains index
- m.updated(index, value)
- m + (index -> value)
- m + (value, index)
- m.get(index)
- m.getOrElse(index, value2)
+  import stainless.lang.Map // Required to have support for Maps
+ 
+  val  m = Map[Int, Boolean](42 -> false)
+ 
+  m(index)
+  m isDefinedAt index
+  m contains index
+  m.updated(index, value)
+  m + (index -> value)
+  m + (value, index)
+  m.get(index)
+  m.getOrElse(index, value2)
 
 
 Function
@@ -443,18 +441,18 @@ Function
 
 .. code-block:: scala
 
- val f1 = (x: Int) => x + 1                 // simple anonymous function
-
- val y  = 2
- val f2 = (x: Int) => f1(x) + y             // closes over `f1` and `y`
- val f3 = (x: Int) => if (x < 0) f1 else f2 // anonymous function returning another function
-
- list.map(f1)      // functions can be passed around ...
- list.map(f3(1) _) // ... and partially applied
+  val f1 = (x: Int) => x + 1                 // simple anonymous function
+ 
+  val y  = 2
+  val f2 = (x: Int) => f1(x) + y             // closes over `f1` and `y`
+  val f3 = (x: Int) => if (x < 0) f1 else f2 // anonymous function returning another function
+ 
+  list.map(f1)      // functions can be passed around ...
+  list.map(f3(1) _) // ... and partially applied
 
 .. note::
- No operators are defined on function-typed expressions, so specification is
- currently quite limited.
+  No operators are defined on function-typed expressions, so specification is
+  currently quite limited.
 
 
 Symbolic Input-Output examples
@@ -466,7 +464,7 @@ it may be easier to provide a set of IO-examples. On the other hand,
 IO-examples can never cover all the possible executions of a function,
 and are thus weaker than a formal specification. 
 
-Leon provides a powerful compromise between these two extremes.
+Stainless provides a powerful compromise between these two extremes.
 It introduces *symbolic IO-examples*, expressed through a specialized ``passes``
 construct, which resembles pattern-matching:
 

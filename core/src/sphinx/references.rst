@@ -3,7 +3,10 @@
 References
 ==========
 
-The Leon system is documented in several papers and talks, which provide additional information on the algorithms and techniques we used in Leon.
+The Stainless/Inox stack has emerged as a cleaner and leaner version of the Leon
+synthesis and verification framework. Leon is documented in several
+papers and talks, which provide additional information on the algorithms
+and techniques we used in Leon (and now Stainless/Inox).
 
 
 Videos

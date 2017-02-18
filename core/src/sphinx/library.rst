@@ -1,16 +1,16 @@
 .. _library:
 
-Leon Library
-============
+Stainless Library
+=================
 
-Leon defines its own library with some core data types and
+Stainless defines its own library with some core data types and
 operations on them, which work with the fragment supported
-by Leon. One of the reasons for a separate library is to
+by Stainless. One of the reasons for a separate library is to
 ensure that these operations can be correctly mapped to
 mathematical functions and relations inside of SMT solvers,
 largely defined by the SMT-LIB standard (see
 http://www.smt-lib.org/). Thus for some data types, such as
-``BigInt``, Leon provides a dedicated mapping to support reasoning.
+``BigInt``, Stainless provides a dedicated mapping to support reasoning.
 (If you are a fan
 of growing the language only through libraries, keep in mind that 
 growing operations together with the ability to reason about them
@@ -19,69 +19,63 @@ is a process slower than putting together
 libraries of unverified code--efficient automation of reasoning about a 
 single decidable theory generally results in multiple research papers.)
 For other operations (e.g., `List[T]`), the library
-is much like Leon user-defined code, but specifies some
+is much like Stainless user-defined code, but specifies some
 useful preconditions and postconditions of the operations, thus
 providing reasoning abilities using mechanisms entirely available
 to the user.
 
-To use Leon's libraries, you need to use the appropriate
-`import` directive at the top of Leon's compilation units.
+To use Stainless' libraries, you need to use the appropriate
+`import` directive at the top of Stainless' compilation units.
 Here is a quick summary of what to import. 
 For the most up-to-date version of the library,
-please consult the ``library/`` directory in your Leon
+please consult the ``library/`` directory in your Stainless
 distribution.
 
 +--------------------------------+----------------------------------------------------+
 | Package to import              | What it gives access to                            |
 +================================+====================================================+
-| `leon.annotation`              | Leon annotations, e.g. @induct                     |
+| `stainless.annotation._`       | Stainless annotations, e.g. @induct                |
 +--------------------------------+----------------------------------------------------+
-| `leon.lang`                    | `Map`, `Set`, `holds`, `passes`, `invariant`       |
+| `stainless.lang._`             | `Map`, `Set`, `holds`, `passes`, `invariant`       |
 +--------------------------------+----------------------------------------------------+
-| `leon.collection._`            | List[T] and subclasses, Option[T] and subclasses   |
-+--------------------------------+----------------------------------------------------+
-| `leon.lang.string`             | String                                             |
-+--------------------------------+----------------------------------------------------+
-| `leon.lang.xlang`              | epsilon                                            |
-+--------------------------------+----------------------------------------------------+
-| `leon.lang.synthesis`          | choose, ???, ?, ?!                                 |
+| `stainless.collection._`       | List[T] and subclasses, Option[T] and subclasses   |
 +--------------------------------+----------------------------------------------------+
 
 To learn more, we encourage you to
-look in the `library/` subdirectory of Leon distribution.
+look in the `library/` subdirectory of Stainless distribution.
 
 Annotations
 -----------
 
-Leon provides some special annotations in the package ``leon.annotation``,
-which instruct Leon to handle some functions or objects in a specialized way.
+Stainless provides some special annotations in the package ``stainless.annotation``,
+which instruct Stainless to handle some functions or objects in a specialized way.
 
-+-------------------+---------------------------------------------------+
-| Annotation        | Meaning                                           |
-+===================+===================================================+
-| ``@library``      | Treat this object/function as library, don't try  |
-|                   | to verify its specification. Can be overriden by  |
-|                   | including a function name in the ``--functions``  |
-|                   | command line option.                              |
-+-------------------+---------------------------------------------------+
-| ``@induct``       | Use the inductive tactic when generating          |
-|                   | verification conditions.                          |
-+-------------------+---------------------------------------------------+
-| ``@ignore``       | Ignore this definition when extracting Leon trees.|
-|                   | This annotation is useful to define functions     |
-|                   | that are not in Leon's language but will be       |
-|                   | hard-coded into specialized trees, or to include  |
-|                   | code written in full Scala which is not verifiable|
-|                   | by Leon.                                          |
-+-------------------+---------------------------------------------------+
-| ``@inline``       | Inline this function. Leon will refuse to inline  |
-|                   | (mutually) recursive functions.                   |
-+-------------------+---------------------------------------------------+
++-------------------+--------------------------------------------------------+
+| Annotation        | Meaning                                                |
++===================+========================================================+
+| ``@library``      | Treat this object/function as library, don't try       |
+|                   | to verify its specification. Can be overriden by       |
+|                   | including a function name in the ``--functions``       |
+|                   | command line option.                                   |
++-------------------+--------------------------------------------------------+
+| ``@induct``       | Use the inductive tactic when generating               |
+|                   | verification conditions.                               |
++-------------------+--------------------------------------------------------+
+| ``@ignore``       | Ignore this definition when extracting Stainless trees.|
+|                   | This annotation is useful to define functions          |
+|                   | that are not in Stainless's language but will be       |
+|                   | hard-coded into specialized trees, or to include       |
+|                   | code written in full Scala which is not verifiable     |
+|                   | by Stainless.                                          |
++-------------------+--------------------------------------------------------+
+| ``@inline``       | Inline this function. Stainless will refuse to inline  |
+|                   | (mutually) recursive functions.                        |
++-------------------+--------------------------------------------------------+
 
 List[T]
 -------
 
-As there is no special support for Lists in SMT solvers, Leon Lists are encoded
+As there is no special support for Lists in SMT solvers, Stainless Lists are encoded
 as an ordinary algebraic data type:
 
 .. code-block:: scala
@@ -94,7 +88,7 @@ as an ordinary algebraic data type:
 List API
 ********
 
-Leon Lists support a rich and strongly specified API.
+Stainless Lists support a rich and strongly specified API.
 
 +---------------------------------------------------+---------------------------------------------------+
 | Method signature for ``List[T]``                  | Short description                                 |
@@ -228,13 +222,6 @@ Leon Lists support a rich and strongly specified API.
 |                                                   | predicate ``p``                                   |
 +---------------------------------------------------+---------------------------------------------------+
 
-List.apply(e: T*)
-*****************
-
-It is possible to create Lists with varargs like in regular Scala,
-for example ``List(1,2,3)`` or ``List()``. This expression will be 
-desugared into a series of applications of ``Cons``.
-
 Additional operations on Lists
 ******************************
 
@@ -259,7 +246,7 @@ The object ``ListOps`` offers this additional operations:
 Theorems on Lists
 *****************
 
-The following theorems on Lists have been proven by Leon and are included 
+The following theorems on Lists have been proven by Stainless and are included 
 in the object ``ListSpecs``:
 
 +---------------------------------------------------------------+--------------------------------------------------------+
@@ -288,8 +275,8 @@ in the object ``ListSpecs``:
 Set[T], Map[T]
 --------------
 
-Leon uses its own Sets and Maps, which are defined in the ``leon.lang`` package.
-However, these classes are are not implemented within Leon.
+Stainless uses its own Sets and Maps, which are defined in the ``stainless.lang`` package.
+However, these classes are are not implemented within Stainless.
 Instead, they are parsed into specialized trees.
 Methods of these classes are mapped to specialized trees within SMT solvers.
 For code generation, we rely on Java Sets and Maps.
@@ -298,7 +285,7 @@ The API of these classes is a subset of the Scala API and can be found
 in the :ref:`purescala` section.
 
 Additionally, the following functions for Sets are provided in the
-``leon.collection`` package:
+``stainless.collection`` package:
 
 
 +-----------------------------------------------------------+-------------------------------------------+

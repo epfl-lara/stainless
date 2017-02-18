@@ -8,33 +8,33 @@ it is a tool that takes as input the source code of a program with
 specifications as annotations and attempt to prove --- or disprove --- their
 validity.
 
-One of the core module of Leon is a verifier for the subset of Scala described
+One of the core module of Stainless is a verifier for the subset of Scala described
 in the sections :ref:`Pure Scala <purescala>` and :ref:`XLang <xlang>`. In this
 section we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
-by Leon. We also discuss how Leon can be used to prove mathematical theorems.
+by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.
 
 Verification conditions
 -----------------------
 
-Given an input program, Leon generates individual verification conditions
+Given an input program, Stainless generates individual verification conditions
 corresponding to different properties of the program. A program is correct if
 all of the generated verification conditions are ``valid``. The validity of some
 conditions depends on the validity of other conditions --- typically a
 postcondition is ``valid`` assuming the precondition is ``valid``.
 
-For each function, Leon attempts to verify its contract, if there is one. A
+For each function, Stainless attempts to verify its contract, if there is one. A
 *contract* is the combination of a *precondition* and a *postcondition*. A
 function meets its contract if for any input parameter that passes the
 precondition, the postcondition holds after executing the function.
 Preconditions and postconditions are annotations given by the user --- they are
 the specifications and hence cannot be inferred by a tool and must be provided.
 
-In addition to user-provided contracts, Leon will also generate a few safety
+In addition to user-provided contracts, Stainless will also generate a few safety
 verification conditions of its own. It will check that all of the array
 accesses are within proper bounds, and that pattern matching always covers all
 possible cases, even given complex precondition. The latter is different from
-the Scala compiler checks on pattern matching exhaustiveness, as Leon considers
+the Scala compiler checks on pattern matching exhaustiveness, as Stainless considers
 information provided by (explicit or implicit) preconditions to the ``match``
 expression.
 
@@ -64,36 +64,36 @@ types of :math:`x` and :math:`r` are respectively ``A`` and ``B``. We write
 :math:`\mbox{expr}(a)` to mean the substitution in :math:`\mbox{expr}` of its
 free variable by :math:`a`.
 
-Leon attempts to prove the following theorem:
+Stainless attempts to prove the following theorem:
 
 .. math::
 
   \forall x. \mbox{prec}(x) \implies \mbox{post}(x, \mbox{body}(x))
 
-If Leon is able to prove the above theorem, it returns ``valid`` for the
+If Stainless is able to prove the above theorem, it returns ``valid`` for the
 function ``f``. This gives you a guarantee that the function ``f`` is correct
 with respect to its contract.
 
-However, if the theorem is not valid, Leon will return a counterexample to the
+However, if the theorem is not valid, Stainless will return a counterexample to the
 theorem. The negation of the theorem is:
 
 .. math::
 
   \exists x. \mbox{prec}(x) \land \neg \mbox{post}(x, \mbox{body}(x))
 
-and to prove the validity of the negation, Leon finds a witness :math:`x` --- a
+and to prove the validity of the negation, Stainless finds a witness :math:`x` --- a
 counterexample --- such that the precondition is verified and the postcondition
 is not.
 
 The general problem of verification is undecidable for a Turing-complete
-language, and the Leon language is Turing-complete. So Leon has to be
-incomplete in some sense. Generally, Leon will eventually find a counterexample
+language, and the Stainless language is Turing-complete. So Stainless has to be
+incomplete in some sense. Generally, Stainless will eventually find a counterexample
 if one exists. However, in practice some program structures require too many
-unrollings and Leon is likely to timeout (or being out of memory) before
+unrollings and Stainless is likely to timeout (or being out of memory) before
 finding the counterexample.  When the postcondition is valid, it could also
-happen that Leon keeps unrolling the program forever, without being able to
+happen that Stainless keeps unrolling the program forever, without being able to
 prove the correctness. We discuss the exact conditions for this in the
-chapter on Leon's algorithms.
+chapter on Stainless's algorithms.
 
 Preconditions
 *************
@@ -134,20 +134,20 @@ when the call site is inside an if expression:
 
 The path condition on :math:`x` would include the fact that :math:`x > 0`. This
 path condition is then used as a precondition of proving the validity of the
-call to :math:`\mbox{f}`. Formally, for each such call site, Leon will attempt
+call to :math:`\mbox{f}`. Formally, for each such call site, Stainless will attempt
 to prove the following theorem:
 
 .. math::
 
    \forall x. \mbox{pc}(x) \implies \mbox{prec}(\mbox{e}(x))
 
-Leon will generates one such theorem for each static call site of a function with
+Stainless will generates one such theorem for each static call site of a function with
 a precondition.
 
 .. note::
 
-   Leon only assumes an open program model, where any function could be called from
-   outside of the given program. In particular, Leon will not derive a precondition
+   Stainless only assumes an open program model, where any function could be called from
+   outside of the given program. In particular, Stainless will not derive a precondition
    to a function based on known information in the context of the calls, such as
    knowing that the function is always given positive parameters. Any information needed
    to prove the postcondition will have to be provide as part of the precondition
@@ -156,7 +156,7 @@ a precondition.
 Loop invariants
 ***************
 
-Leon supports annotations for loop invariants in :ref:`XLang <xlang>`. To
+Stainless supports annotations for loop invariants in :ref:`XLang <xlang>`. To
 simplify the presentation we will assume a single variable :math:`x` is in
 scope, but the definitions generalize to any number of variables. Given the
 following program:
@@ -178,14 +178,14 @@ A loop invariant must hold:
   (2) after each completion of the body
   (3) right after exiting the loop (when the condition turns false)
 
-Leon will prove point (1) and (2) above. Together, and by induction, they imply
+Stainless will prove point (1) and (2) above. Together, and by induction, they imply
 that point (3) holds as well.
 
 Array access safety
 *******************
 
-Leon generates verification conditions for the safety of array accesses. For
-each array variable, Leon carries along a symbolic information on its length.
+Stainless generates verification conditions for the safety of array accesses. For
+each array variable, Stainless carries along a symbolic information on its length.
 This information is used to prove that each expression used as an index in the
 array is strictly smaller than that length. The expression is also checked to
 be positive.
@@ -193,8 +193,8 @@ be positive.
 Pattern matching exhaustiveness
 *******************************
 
-Leon verifies that pattern matching is exhaustive. The regular Scala compiler
-only considers the types of expression involved in pattern matching, but Leon
+Stainless verifies that pattern matching is exhaustive. The regular Scala compiler
+only considers the types of expression involved in pattern matching, but Stainless
 will consider information such as precondition to formally prove the
 exhaustiveness of pattern matching.
 
@@ -213,7 +213,7 @@ As an example, the following code should issue a warning with Scala:
      }
    }
 
-But Leon will prove that the pattern matching is actually exhaustive,
+But Stainless will prove that the pattern matching is actually exhaustive,
 relying on the given precondition.
 
 Pretty-printing

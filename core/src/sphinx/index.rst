@@ -1,4 +1,4 @@
-.. Leon documentation master file, created by
+.. Stainless documentation master file, created by
    sphinx-quickstart on Fri Feb 27 13:23:31 2015.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
@@ -17,15 +17,10 @@ Contents:
    tutorial
    purescala
    library
-   xlang
+   imperative
    verification
-   resourcebounds
    neon
-   isabelle
    limitations
-   synthesis
-   repair
-   genc
    options
    faq
    references

@@ -4,20 +4,20 @@ Proving Theorems
 ================
 
 Verifying the contract of a function is really proving a mathematical
-theorem. Leon can be seen as a (mostly) automated theorem prover. It is
-automated in the sense that once the property stated, Leon will proceed with searching
+theorem. Stainless can be seen as a (mostly) automated theorem prover. It is
+automated in the sense that once the property stated, Stainless will proceed with searching
 for a proof without any user interaction. In practice however, many theorems will be fairly
-difficult to prove, and it is possible for the user to provide hints to Leon.
+difficult to prove, and it is possible for the user to provide hints to Stainless.
 
 Hints typically take the form of simpler properties that combine in order to prove
 more complicated ones. In the remaining subsections we provide code patterns and introduce
-simple domain-specific language operators that can help in constructing complex Leon proofs.
+simple domain-specific language operators that can help in constructing complex Stainless proofs.
 
 A practical introduction to proofs
 ----------------------------------
 
 When writing logical propositions such as preconditions or
-postconditions in Leon, one is basically writing Boolean
+postconditions in Stainless, one is basically writing Boolean
 predicates. They can be as simple as testing whether a list is empty
 or not, to more complex combinations of properties.  Lemmas or
 theorems are simply logical tautologies, that is, propositions that
@@ -27,7 +27,7 @@ return ``true`` for all their inputs.
 To make this more concrete, let's take a simple lemma as an
 example [#example-dir]_. Here we want to prove that the append operation (``++``) on
 lists preserves the content of the two lists being concatenated. This
-proposition is relatively straightforward and Leon is able to verify
+proposition is relatively straightforward and Stainless is able to verify
 that it always holds.
 
 .. code-block:: scala
@@ -45,7 +45,7 @@ Here we wrote ``.holds`` which is a method implicitly available on ``Boolean``
 that ensure the returned value is ``true``. It is equivalent to writing
 ``ensuring { res => res }``.
 
-Now let's look at another example that looks trivial but for which Leon
+Now let's look at another example that looks trivial but for which Stainless
 actually needs some help with the proof: we want to prove that adding ``Nil``
 at the end of a list has no effect.
 
@@ -61,10 +61,10 @@ at the end of a list has no effect.
     }
 
 If you try to verify this last example you'll face a delicate
-situation: Leon runs indeterminately until it is either killed or
+situation: Stainless runs indeterminately until it is either killed or
 times out. But why does this happen?  The proposition doesn't seems
 more complicated than ``appendContent``. Perhaps even more
-surprisingly, Leon *is* able to verify the following:
+surprisingly, Stainless *is* able to verify the following:
 
 .. code-block:: scala
 
@@ -73,10 +73,10 @@ surprisingly, Leon *is* able to verify the following:
     }.holds
 
 How is this possible?  The two propositions are completely symmetric!
-The problem is that Leon doesn't know anything about lists, a priori.
+The problem is that Stainless doesn't know anything about lists, a priori.
 It can only reason about lists thanks to their definition in terms of
 the case classes ``Cons`` and ``Nil`` and associated methods such as
-``++``.  In particular, Leon doesn't know that ``Nil`` represents the
+``++``.  In particular, Stainless doesn't know that ``Nil`` represents the
 empty list, and hence that appending it to some other list is a no-op.
 What then, is the difference between the two examples above?  To
 answer this question, we need to have a look at the definition of the
@@ -91,7 +91,7 @@ answer this question, we need to have a look at the definition of the
 
 Note that the implementation of ``++`` is recursive in its first
 argument ``this`` but *not* in its second argument ``that``.  This is
-why Leon was able to verify ``leftUnitAppend`` easily: it is true *by
+why Stainless was able to verify ``leftUnitAppend`` easily: it is true *by
 definition*, i.e. ``Nil() ++ l1`` is actually defined to be ``l1``.
 What about the symmetric case?  How is ``l1 ++ Nil()`` defined?  Well,
 it depends on whether ``l1`` is the empty list or not.  So in order to
@@ -116,17 +116,17 @@ of the definition of ``++``:
       }.holds
     }
 
-With this new implementation of the ``rightUnitAppend`` lemma, Leon is capable
+With this new implementation of the ``rightUnitAppend`` lemma, Stainless is capable
 of verifying that it holds. If you look closely at it, you can distinguish three
 parts:
 
 1. the claim we want to prove ``l1 ++ Nil() == l1``;
 2. ``because``, which is just some syntactic sugar for conjunction -- remember,
    every proposition is a Boolean formula;
-3. and a recursion on ``l1`` that serves as a hint for Leon to perform
+3. and a recursion on ``l1`` that serves as a hint for Stainless to perform
    induction.
 
-The recursion is based here on pattern matching, which Leon will also check for
+The recursion is based here on pattern matching, which Stainless will also check for
 exhaustiveness.  It has essentially the same structure as
 the implementation of ``++``: the base case is when ``l1`` is the empty list
 and the inductive case is performed on ``Cons`` objects.
@@ -136,25 +136,25 @@ Techniques for proving non-trivial propositions
 -----------------------------------------------
 
 In the previous section we saw that "proof hints" can improve the odds
-of Leon successfully verifying a given proposition.  In this section
+of Stainless successfully verifying a given proposition.  In this section
 we will have a closer look at what constitutes such a proof and
 discuss a few techniques for writing them.
 
 As mentioned earlier, propositions are represented by Boolean
-expressions in Leon.  But how are proofs represented?  They are just
+expressions in Stainless.  But how are proofs represented?  They are just
 Boolean expressions as well [#props-not-types]_. The difference
 between propositions and proofs is not their representation, but how
-they are used by Leon.  Intuitively, a proof ``p: Boolean`` for a
+they are used by Stainless.  Intuitively, a proof ``p: Boolean`` for a
 proposition ``x: Boolean`` is an expression such that
 
- 1. Leon is able to verify ``p``, and
- 2. Leon is able to verify that ``p`` implies ``x``.
+ 1. Stainless is able to verify ``p``, and
+ 2. Stainless is able to verify that ``p`` implies ``x``.
 
 This is what we mean when we say that proofs are "hints".  Typically,
 a proof ``p`` of a proposition ``x`` is a more complex-looking but
 equivalent version of ``x``, i.e. an expression such that ``p == x``.
 This might seem a bit counter-intuitive: why should it be easier for
-Leon to verify an equivalent but more complex expression?  The answer
+Stainless to verify an equivalent but more complex expression?  The answer
 is that the more complex version may consist of sub-expressions that
 more closely resemble the definitions of functions used in ``x``.  We
 have already seen an example of this principle in the previous
@@ -177,7 +177,7 @@ check that indeed ``x == p``, and hence the overall result of
 ``rightUnitAppend`` is equivalent to ``x`` (recall that ``because`` is
 just an alias of ``&&``, so ``(x because p) == (x && x) == x``).
 However, the proof term ``p`` closely resembles the definition of
-``++`` and its sub-expressions are easier to verify for Leon than
+``++`` and its sub-expressions are easier to verify for Stainless than
 ``x`` itself.  The only non-trivial expression is the recursive call
 to ``rightUnitAppend(xs)``, which serves as the inductive hypothesis.
 We will discuss induction in more detail in Section
@@ -189,7 +189,7 @@ Divide and Conquer
 
 Before we delve into the details of particular proof techniques, it is
 worth revisiting a guiding principle for writing proofs -- whether it
-be in Leon, by hand, or using some other form of mechanized proof
+be in Stainless, by hand, or using some other form of mechanized proof
 checker -- namely to *modularize* proofs, i.e. to split the proofs of
 complex propositions into manageable *sub-goals*.  This can be
 achieved in various ways.
@@ -229,12 +229,12 @@ While it is good practice to factor common propositions into helper
 lemmas, one sometimes wants to verify simple, specific sub-goals in a
 proof without going through the trouble of introducing an additional
 method.  This is especially true while one is exploring the branches
-of a case analysis or wants to quickly check whether Leon is able to
+of a case analysis or wants to quickly check whether Stainless is able to
 prove a seemingly trivial statement automatically (we will see
 examples of such situations in the coming sections).  For such cases,
 one can use the ``check`` function from ``leon.proof``.  The ``check``
 function behaves as the identity function on Booleans but additionally
-assumes its argument in its precondition.  As a result, Leon will
+assumes its argument in its precondition.  As a result, Stainless will
 check that ``x`` holds while verifying the call to ``check(x)``.
 For example, when verifying the following function:
 
@@ -246,7 +246,7 @@ For example, when verifying the following function:
       check(x >= 0 || x < 0) && check(x + 0 == 0)
     }
 
-Leon will check (separately) that ``x >= 0 || x < 0`` and ``x + 0 ==
+Stainless will check (separately) that ``x >= 0 || x < 0`` and ``x + 0 ==
 0`` hold for all ``x``, even though the function ``foo`` does not
 specify any pre or postconditions, and report a counter example for
 the second case::
@@ -267,13 +267,13 @@ Induction
 *********
 
 The vast majority of functional programs are written as functions over
-:ref:`adts` (ADTs), and consequently, Leon comes with some special
-support for verifying properties of ADTs.  Among other things, Leon
+:ref:`adts` (ADTs), and consequently, Stainless comes with some special
+support for verifying properties of ADTs.  Among other things, Stainless
 provides an annotation ``@induct``, which can be used to automatically
 prove postconditions of recursive functions defined on ADTs by way of
 *structural induction*.  We have already seen an example of such an
 inductive property, namely ``rightUnitAppend``.  In fact, using
-``@induct``, Leon is able to prove ``rightUnitAppend`` directly:
+``@induct``, Stainless is able to prove ``rightUnitAppend`` directly:
 
 .. code-block:: scala
 
@@ -285,8 +285,8 @@ inductive property, namely ``rightUnitAppend``.  In fact, using
     }.holds
 
 This is possible because the inductive step follows (more or less)
-directly from the inductive hypothesis and Leon can verify the base
-case automatically.  However, Leon may fail to verify more complex
+directly from the inductive hypothesis and Stainless can verify the base
+case automatically.  However, Stainless may fail to verify more complex
 functions with non-trivial base cases or inductive steps.  In such
 cases, one may still try to provide proof hints by performing *manual
 case analysis*.  Consider the following lemma about list reversal:
@@ -302,7 +302,7 @@ case analysis*.  Consider the following lemma about list reversal:
       }.holds
     }
 
-Leon is unable to verify ``reverseReverse`` even using ``@induct``.
+Stainless is unable to verify ``reverseReverse`` even using ``@induct``.
 So let's try and prove the lemma using manual case analysis.  We start
 by adding an "unrolled" version of the proposition and inserting calls
 to ``check`` in each branch of the resulting pattern match:
@@ -321,7 +321,7 @@ to ``check`` in each branch of the resulting pattern match:
 Clearly, the two versions of the lemma are equivalent: all we did was
 expand the proposition using a pattern match and add some calls to
 ``check`` (remember ``check`` acts as the identity function on its
-argument).  Let's see what output Leon produces for the expanded
+argument).  Let's see what output Stainless produces for the expanded
 version::
 
     [  Info  ]  - Now considering 'postcondition' VC for reverseReverse @615:5...
@@ -333,13 +333,13 @@ version::
     [  Info  ]  - Now considering 'match exhaustiveness' VC for reverseReverse @616:7...
     [  Info  ]  => VALID
 
-As expected, Leon failed to verify the expanded version.  However, we
+As expected, Stainless failed to verify the expanded version.  However, we
 get some additional information due to the extra pattern match and the
-calls to ``check``.  In particular, Leon tells us that the match is
+calls to ``check``.  In particular, Stainless tells us that the match is
 exhaustive, which means we covered all the cases in our case analysis
--- that's certainly a good start.  Leon was also able to automatically
+-- that's certainly a good start.  Stainless was also able to automatically
 verify the base case, so we can either leave the call to ``check`` as
-is, or replace it by ``trivial``.  Unfortunately, Leon wasn't able to
+is, or replace it by ``trivial``.  Unfortunately, Stainless wasn't able to
 verify the inductive step, something is missing.  Let's try to
 manually reduce the inductive case and see where we get.
 
@@ -358,7 +358,7 @@ And now we're stuck.  We can't apply the inductive hypothesis here,
 nor can we reduce the inductive case further, unless we perform
 case analysis on ``xs``, which would grow the term further without
 changing its shape.  To make any headway, we need to use an additional
-property of ``reverse``, given by the following lemma (which Leon *is*
+property of ``reverse``, given by the following lemma (which Stainless *is*
 able to prove using ``@induct``):
 
 .. code-block:: scala
@@ -388,11 +388,11 @@ prepending ``t``.  Using this lemma, we can write the proof of
       }
     }.holds
 
-Leon is able to verify this version of the lemma.  Note that Leon
+Stainless is able to verify this version of the lemma.  Note that Stainless
 doesn't actually require us to include the two equations as they are
 equivalent to the applications ``snocReverse(xs.reverse, x)`` and
 ``reverseReverse(xs)``.  Similarly, the call to ``check`` is somewhat
-redundant now that Leon is able to verify the entire proof.  We could
+redundant now that Stainless is able to verify the entire proof.  We could
 thus "simplify" the above to
 
 .. code-block:: scala
@@ -412,7 +412,7 @@ will see how readability can be improved even further through the use
 of a DSL for equational reasoning.
 
 So far, we have only considered structurally inductive proofs.
-However, Leon is also able to verify proofs using *natural induction*
+However, Stainless is also able to verify proofs using *natural induction*
 -- the form of induction that is perhaps more familiar to most
 readers.  Consider the following definition of the exponential
 function :math:`exp(x, y) = x^y` over integers:
@@ -439,7 +439,7 @@ the exponential :math:`x^y` is again a positive number.
       exp(x, y) >= 0
     }
 
-Since Leon doesn't know anything about exponentials, it isn't able to
+Since Stainless doesn't know anything about exponentials, it isn't able to
 verify the lemma without hints.  As with the previous example, we
 start writing our inductive proof by expanding the top-level ``if``
 statement in the definition of ``exp``.
@@ -455,7 +455,7 @@ statement in the definition of ``exp``.
       }
     }.holds
 
-Leon was able to verify the first two (base) cases, but not the
+Stainless was able to verify the first two (base) cases, but not the
 inductive step, so let's continue unfolding ``exp`` for that case.
 
 .. code-block:: scala
@@ -469,7 +469,7 @@ inductive step, so let's continue unfolding ``exp`` for that case.
     }
   }.holds
 
-Although Leon still isn't able to verify the lemma, we now see a way
+Although Stainless still isn't able to verify the lemma, we now see a way
 to prove the inductive step: ``x`` is positive (by the second
 precondition) and so is ``exp(x, y - 1)`` (by the inductive
 hypothesis).  Hence the product ``x * exp(x, y - 1)`` is again
@@ -488,8 +488,8 @@ positive.
     }
   }.holds
 
-With these hints, Leon is able to verify the proof.  Again, we could
-shorten the proof by omitting inequalities that Leon can infer
+With these hints, Stainless is able to verify the proof.  Again, we could
+shorten the proof by omitting inequalities that Stainless can infer
 directly, albeit at the expense of readability.
 
 .. code-block:: scala
@@ -535,7 +535,7 @@ certainly a common case among the sorts of propositions about
 functions and data structures one might wish to prove.  The proofs of
 such propositions typically involve some form of *relational
 reasoning*, i.e. reasoning involving properties (such as transitivity,
-reflexivity or symmetry) of the relations in question.  Leon knows
+reflexivity or symmetry) of the relations in question.  Stainless knows
 about these properties for built-in relations such as ``==`` or orders
 on numbers.  For user-defined relations, they first need to be
 established as lemmas.  In this section, we discuss how to make
@@ -543,15 +543,15 @@ effective use of built-in relations, but the general principles extend
 to their user-defined counterparts.
 
 When working with simple structural equality, we can rely on the default ``==``
-operator and Leon will happily understand when the reflexivity, symmetry and
+operator and Stainless will happily understand when the reflexivity, symmetry and
 transitivity properties apply and use them to conclude bigger proofs. Similarly,
-when working on ``BigInt``, Leon knows about reflexivity, antisymmetry and
+when working on ``BigInt``, Stainless knows about reflexivity, antisymmetry and
 transitivity over ``>=`` or ``<=``, and also antireflexivity, antisymmetry
 and transitivity of ``>`` and ``<``.
 
-However, even for relatively simple proofs about ADTs, Leon needs
+However, even for relatively simple proofs about ADTs, Stainless needs
 hints when combining, say equality, with user-defined operations, such
-as ``++`` or ``reverse`` on lists.  For example, Leon is not able to
+as ``++`` or ``reverse`` on lists.  For example, Stainless is not able to
 verify that the following holds for arbitrary pairs of lists ``l1``
 and ``l2``:
 
@@ -559,12 +559,12 @@ and ``l2``:
 
     (l1 ++ l2).reverse == l2.reverse ++ l1.reverse
 
-The hard part of giving hints to Leon is often to find them in the
+The hard part of giving hints to Stainless is often to find them in the
 first place.  Here we can apply a general principle on top of
 structural induction (as discussed in the previous section): we start
 from the left-hand side of an equation and build a chain of
 intermediate equations to the right-hand side.  Using ``check``
-statements we can identify where Leon times out and hence potentially
+statements we can identify where Stainless times out and hence potentially
 needs hints.
 
 .. code-block:: scala
@@ -586,11 +586,11 @@ needs hints.
       }
     }.holds
 
-If we run the above code with a decent timeout, Leon reports four
+If we run the above code with a decent timeout, Stainless reports four
 *UNKNOWN* cases: the postcondition of the ``reverseAppend`` function itself and
 checks number 2, 6 and 7.
 
- * Check #2 fails because, as we saw earlier, Leon is not capable of
+ * Check #2 fails because, as we saw earlier, Stainless is not capable of
    guessing the ``rightUnitAppend`` lemma by itself.  We fix this case
    by simply instantiating the lemma, i.e. by appending ``&&
    rightUnitAppend(l2.reverse)`` to the base case.
@@ -660,12 +660,12 @@ The idea is to group statements in a block
 additional hint is required, we can use ``trivial`` which simply stands for
 ``true``.
 
-Additionally, by using this DSL, we get the same feedback granularity from Leon
+Additionally, by using this DSL, we get the same feedback granularity from Stainless
 as if we had used ``check`` statements. This way we can construct proofs based
 on equality more easily and directly identify where hints are vital.
 
 One shortcoming of the relational reasoning DSL is that it relies on
-Leon's knowledge of the relational properties of the built-in
+Stainless' knowledge of the relational properties of the built-in
 relations, and in particular those of equality.  Consequently is works
 badly (if at all) with user-defined relations.  However, since the DSL
 is defined as a library (in ``library/proof/package.scala``), it can
@@ -682,7 +682,7 @@ Limits of the approach: HOFs, quantifiers and termination
 
 While the techniques discussed in this section are useful in general,
 their applicability has of course its limitations in practice.  These
-limitations are mostly due to Leon's limited support for certain
+limitations are mostly due to Stainless' limited support for certain
 language constructs, such as higher-order functions (HOFs) or
 quantifiers (which in turn is due, mostly, to the limited support of
 the corresponding theories in the underlying SMT solvers).
@@ -717,14 +717,14 @@ defined on lists and makes crucial use of HOFs:
     }.holds
 
 A rather different, more general issue that arises when proving
-propositions using Leon is related to *termination checking*.  When
+propositions using Stainless is related to *termination checking*.  When
 verifying inductive proofs (and more generally the postconditions of
-recursive methods), Leon assumes that the corresponding proofs are
+recursive methods), Stainless assumes that the corresponding proofs are
 *well-founded*, or equivalently, that the corresponding recursive
-methods terminate on all inputs.  Yet Leon does not -- by default --
+methods terminate on all inputs.  Yet Stainless does not -- by default --
 check that this is the case.  It is thus possible -- and indeed rather
 easy -- to write bogus proofs (intentionally or accidentally) which
-Leon recognizes as valid, but which are not well-founded.  Consider
+Stainless recognizes as valid, but which are not well-founded.  Consider
 the following lemma, which apparently establishes that all lists are
 empty:
 
@@ -736,7 +736,7 @@ empty:
 
     object NotWellFounded {
 
-      // This proof is not well-founded.  Since Leon doesn't run the
+      // This proof is not well-founded.  Since Stainless doesn't run the
       // termination checker by default, it will accept the proof as
       // valid.
       def allListsAreEmpty[T](xs: List[T]): Boolean = {
@@ -749,7 +749,7 @@ empty:
       }.holds
     }
 
-Leon has (experimental) support for termination checking, which can be
+Stainless has support for termination checking, which can be
 enabled using the ``--termination`` command line option to minimize
 the risk of accidentally writing bogus proofs such as the one above.
 
@@ -827,7 +827,7 @@ The constructor of the class ``Empty[A]`` takes no arguments; it
 represents an "empty" measure that evaluates to 0 when applied to any
 set of values of type ``A``.  The constructor of ``Cons[A]``, on the
 other hand, takes three parameters: a value ``x``, its associated
-weight ``w`` expressed as a ``Rational`` (since Leon doesn't quite yet
+weight ``w`` expressed as a ``Rational`` (since Stainless doesn't quite yet
 support real numbers out of the box), and another measure ``m`` on
 ``A``.  The value ``Cons(x, w, m)`` represents the measure obtained by
 adding to ``m`` the "single-point" measure that evaluates to ``w`` at
@@ -866,10 +866,10 @@ The defining operation on a measure ``m`` is its evaluation ``m(xs)``
 subset of the "space" ``A``.  The value of ``m`` should be a positive
 rational for any such set ``xs``, provided ``m.isMeasure`` holds.
 This suggests ``_.isPositive`` as the postcondition for ``apply``,
-but simply claiming that the result is positive is not enough for Leon
+but simply claiming that the result is positive is not enough for Stainless
 to verify this postcondition.
 
-We can provide the necessary hint to Leon by performing structural
+We can provide the necessary hint to Stainless by performing structural
 induction on ``this`` inside the postcondition as follows:
 
 .. code-block:: scala
@@ -892,14 +892,14 @@ induction on ``this`` inside the postcondition as follows:
 
 Notice the similarity between the pattern match in the body of the
 ``apply`` function and that in the postcondition.  With this hint,
-Leon is able to verify the postcondition.
+Stainless is able to verify the postcondition.
 
 
 A complex example: additivity of measures
 -----------------------------------------
 
 Using the principles and techniques discussed so far, one can prove
-quite advanced propositions using Leon.  Returning to the
+quite advanced propositions using Stainless.  Returning to the
 measure-theoretic example from the previous section, we would like to
 prove that our implementation of measures is properly *additive*.
 Formally, a measure :math:`\mu \colon A \to \mathbb{R}` on a countable
@@ -911,7 +911,7 @@ set :math:`A` must fulfill the following additivity property
    \forall A_1, A_2 \subseteq A . A_1 \cap A_2 = \emptyset \Rightarrow
    \mu(A_1 \cup A_2) = \mu(A_1) + \mu(A_2)
 
-which we can express in Leon as
+which we can express in Stainless as
 
 .. code-block:: scala
 
@@ -923,7 +923,7 @@ which we can express in Leon as
 We can prove this property using structural induction on the parameter
 ``m``, case analysis on the parameters ``xs`` and ``ys``, equational
 reasoning, and properties of rational numbers (in the form of
-user-defined lemmas) as well as sets (using Leon's built-in support).
+user-defined lemmas) as well as sets (using Stainless's built-in support).
 
 .. code-block:: scala
 
@@ -954,7 +954,7 @@ user-defined lemmas) as well as sets (using Leon's built-in support).
 
 The full proof (including the proofs of all helper lemmas) as well as
 its generalization to *sub-additivity* can be found in the
-``testcases/verification/proof/measure/`` directory of the Leon
+``testcases/verification/proof/measure/`` directory of the Stainless
 distribution [#example-dir]_.
 
 
@@ -964,15 +964,15 @@ Quick Recap
 Let's summarize what we've learned here. To write proofs efficiently,
 it's good to keep the following in mind:
 
-1. Always use a proper timeout and ask Leon for more information about
+1. Always use a proper timeout and ask Stainless for more information about
    what he tries to verify, e.g. ``--timeout=5 --debug=verification``.
 
 2. Use ``@induct`` when working on structurally inductive proofs to
-   get a more precise feedback from Leon: this will decompose the
+   get a more precise feedback from Stainless: this will decompose the
    proof into a base case and an inductive case for the first argument
    of the function under consideration.
 
-   If Leon isn't able to verify the proof using ``@induct``, try
+   If Stainless isn't able to verify the proof using ``@induct``, try
    performing manual case analysis.
 
 3. Modularize your proofs and verify *sub-goals*!
@@ -988,13 +988,13 @@ it's good to keep the following in mind:
 .. rubric:: Footnotes
 
 .. [#example-dir] The source code of this example and all other in
-   this chapter are included in the Leon distribution.  Examples about
+   this chapter are included in the Stainless distribution.  Examples about
    lists can be found in ``library/collection/List.scala``, the other
    examples are located in the ``testcases/verification/proof/``
    directory.
 
 .. [#props-not-types] Perhaps surprisingly, propositions and proofs
-   live in the same universe in Leon.  This is contrary to
+   live in the same universe in Stainless.  This is contrary to
    e.g. type-theoretic proof assistants where propositions are
    represented by types and proofs are terms inhabiting such types.
 
