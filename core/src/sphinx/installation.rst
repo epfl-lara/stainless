@@ -1,4 +1,4 @@
-.. _installation: installation.rst
+.. _installation:
 
 Installing Stainless
 ====================

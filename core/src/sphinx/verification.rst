@@ -9,7 +9,7 @@ specifications as annotations and attempt to prove --- or disprove --- their
 validity.
 
 One of the core module of Stainless is a verifier for the subset of Scala described
-in the sections :ref:`Pure Scala <purescala>` and :ref:`XLang <xlang>`. In this
+in the sections `Pure Scala <purescala.rst>`_ and `Imperative <imperative.rst>`_. In this
 section we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
 by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.
@@ -156,7 +156,7 @@ a precondition.
 Loop invariants
 ***************
 
-Stainless supports annotations for loop invariants in :ref:`XLang <xlang>`. To
+Stainless supports annotations for loop invariants in `Imperative <imperative.rst>`_. To
 simplify the presentation we will assume a single variable :math:`x` is in
 scope, but the definitions generalize to any number of variables. Given the
 following program:

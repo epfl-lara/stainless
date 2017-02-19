@@ -3,11 +3,11 @@
 Imperative
 ==========
 
-To complement the core :ref:`Pure Scala <purescala>` language, Stainless
+To complement the core `Pure Scala <purescala.rst>`_ language, Stainless
 proposes a few extensions to that core language.
 
 On the technical side, these extensions do not have specific treatment in the
-back-end of Stainless. Instead, they are desugared into :ref:`Pure Scala <purescala>`
+back-end of Stainless. Instead, they are desugared into `Pure Scala <purescala.rst>`_
 constructs during a preprocessing phase in the Stainless front-end.
 
 Imperative Code
@@ -38,7 +38,7 @@ You can use Scala variables with a few restrictions. The variables can only be
 declared and used locally, no variable declaration outside of a function body.
 There is also support for variables in case classes constructors. Imperative support
 introduces the possibility to use sequences of expressions (blocks) -- a
-feature not available in :ref:`Pure Scala <purescala>`, where you're only
+feature not available in `Pure Scala <purescala.rst>`_, where you're only
 option is a sequence of ``val`` which essentially introduce nested ``let``
 declarations.
 

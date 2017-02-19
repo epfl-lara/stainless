@@ -4,13 +4,14 @@ Getting Started
 ===============
 
 Stainless is currently only available as a command line tool,
-which exposes most of the functionality. See `installation`_
-for some installation documentation.
+which exposes most of the functionality. See the
+`installation documentation <installation.rst>`_
+for more information.
 
 Stainless compilation will generate two scripts for you, namely
-`bin/stainless-scalac` and `bin/stainless-dotty`. The dotty
+``bin/stainless-scalac`` and ``bin/stainless-dotty``. The dotty
 frontend is experimental for now so lets start by introducing
-a soft-link from `bin/stainless-scalac` to `stainless`
+a soft-link from ``bin/stainless-scalac`` to ``stainless``
 
 .. code-block:: bash
 
@@ -23,9 +24,9 @@ To see the main options, use
   $ ./stainless --help
 
 in your command line shell while in the top-level Stainless directory.
-You may also wish to consult :ref:`cmdlineoptions` options.
+You may also wish to consult the `available command-line options <cmdlineoptions.rst>`_.
 
-You can try some of the examples from `fontends/scalac/src/it/resources/regression/`
+You can try some of the examples from ``fontends/scalac/src/it/resources/regression/``
 distributed with Stainless:
 
 .. code-block:: bash

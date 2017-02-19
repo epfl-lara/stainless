@@ -21,7 +21,7 @@ Stainless attempts to strike a delicate balance between the
 convenience of use on the one hand and the simplicity of
 reasoning on the other hand. Stainless supports verification
 of Scala programs by applying a succession of semantic-preserving
-transformations to the `Pure Scala <purescala>` fragment until
+transformations to the `Pure Scala <purescala.rst>`_ fragment until
 it fits into the fragment supported by
 `Inox <https://github.com/epfl-lara/inox>`_.
 The Pure Scala fragment is at the core of
@@ -36,10 +36,9 @@ Stainless also comes with a simple library of useful data types, which
 are designed to work well with automated reasoning and Stainless's
 language fragment.
 
-In addition to this pure fragment, Stainless supports the
-:ref:`XLang <xlang>` extension, which enables Stainless to work
-on a richer subset of Scala, including imperative features.
-Features introduced by :ref:`XLang <xlang>` are handled by
+In addition to this pure fragment, Stainless supports certain
+`imperative <imperative.rst>`_ features.
+Features thus introduced are handled by
 translation into Pure Scala concepts. They are often more
 than just syntactic sugar, because some of them require
 significant modification of the original program, such as
@@ -50,8 +49,8 @@ e.g. concurrency with a shared mutable heap, though it might
 support more manageable forms of concurrency in the future.
 
 If you would like to use Stainless now, check the
-:ref:`Getting Started <gettingstarted>`
-section and try our :ref:`Tutorial <tutorial>`.
+`Getting Started <gettingstarted.rst>`_
+section and try our `Tutorial <tutorial.rst>`_.
 To learn more about the functionality that Stainless provides, read on below.
 
 Software Verification
@@ -92,8 +91,8 @@ following:
 Stainless will also verify for each call site that the precondition of the invoked
 function cannot be violated.
 
-Stainless supports verification of a significant part of the Scala language, described in the
-sections :ref:`Pure Scala <purescala>` and :ref:`XLang <xlang>`.
+Stainless supports verification of a significant part of the Scala language, described in
+`Pure Scala <purescala.rst>`_ and `Imperative <imperative.rst>`_.
 
 Program Termination
 -------------------
