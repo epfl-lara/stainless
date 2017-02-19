@@ -114,7 +114,7 @@ they are human readable in their source form.
 Using Stainless in Eclipse
 --------------------------
 
-** Untested! **
+**Untested!**
 
 You first need to tell sbt to globally include the Eclipse plugin in its known plugins.
 To do so type 
