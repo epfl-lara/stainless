@@ -4,7 +4,7 @@ Getting Started
 ===============
 
 Stainless is currently only available as a command line tool,
-which exposes most of the functionality. See :ref:`installation`
+which exposes most of the functionality. See `installation`_
 for some installation documentation.
 
 Stainless compilation will generate two scripts for you, namely
