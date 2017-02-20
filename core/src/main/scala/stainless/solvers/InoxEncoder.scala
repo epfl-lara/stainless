@@ -62,13 +62,19 @@ trait InoxEncoder extends ProgramEncoder {
   protected val pres = (1 to maxArgs).map(i => i -> FreshIdentifier("pre")).toMap
   protected val fs   = (1 to maxArgs).map(i => i -> FreshIdentifier("f")).toMap
 
-  protected val funADTs: Seq[t.ADTConstructor] = (1 to maxArgs).map {
-    i => mkConstructor(funIDs(i))((1 to i).map(j => "A" + j) :+ "R" : _*)(None) {
-      case argTps :+ resTpe => Seq(
-        t.ValDef(fs(i), t.FunctionType(argTps, resTpe), Set.empty),
-        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType), Set.empty)
-      )
-    }
+  protected val funADTs: Seq[t.ADTConstructor] = (1 to maxArgs).map { i =>
+    val tparams @ (argTps :+ resTpe) = (1 to i).map {
+      j => t.TypeParameter(FreshIdentifier("A" + j), Set(t.Variance(Some(false)))) // contravariant
+    } :+ t.TypeParameter(FreshIdentifier("R"), Set(t.Variance(Some(true)))) // covariant
+
+    new t.ADTConstructor(
+      funIDs(i),
+      tparams.map(tp => t.TypeParameterDef(tp)),
+      None,
+      Seq(t.ValDef(fs(i), t.FunctionType(argTps, resTpe), Set.empty),
+        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType), Set.empty)),
+      Set.empty
+    )
   }
 
   protected override val extraFunctions: Seq[t.FunDef] = Seq(arrayInvariant)
