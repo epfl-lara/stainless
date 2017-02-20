@@ -106,7 +106,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     require(cases.nonEmpty)
 
     protected def computeType(implicit s: Symbols): Type =
-      s.leastUpperBound(cases.map(_.rhs.getType)).getOrElse(Untyped).unveilUntyped
+      s.leastUpperBound(cases.map(_.rhs.getType))
   }
 
   /** $encodingof `case pattern [if optGuard] => rhs`
@@ -260,7 +260,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `array.updated(index, value)` */
   case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type) => ArrayType(s.leastUpperBound(base, value.getType).getOrElse(Untyped)).unveilUntyped
+      case (ArrayType(base), Int32Type) => ArrayType(s.leastUpperBound(base, value.getType)).unveilUntyped
       case _ => Untyped
     }
   }

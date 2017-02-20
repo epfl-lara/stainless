@@ -22,8 +22,8 @@ trait Trees extends inlining.Trees { self =>
   case class ApplyLetRec(fun: Variable, tparams: Seq[TypeParameter], args: Seq[Expr]) extends Expr with CachingTyped {
     def tps(implicit s: Symbols): Option[Seq[Type]] = fun.tpe match {
       case FunctionType(from, to) =>
-        s.canBeSupertypeOf(tupleTypeWrap(from), tupleTypeWrap(args.map(_.getType))) match {
-          case Some(map) if map.keySet subsetOf tparams.toSet =>
+        s.instantiation_>:(tupleTypeWrap(from), tupleTypeWrap(args.map(_.getType))) match {
+          case Some(map) if map.filterNot(p => p._1 == p._2).keySet subsetOf tparams.toSet =>
             Some(tparams.map(map))
           case _ => None
         }

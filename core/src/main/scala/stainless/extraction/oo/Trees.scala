@@ -257,42 +257,76 @@ trait TypeOps extends ast.TypeOps {
   protected val trees: Trees
   import trees._
 
-  override def typeBound(t1: Type, t2: Type, isLub: Boolean, allowSub: Boolean)
-                        (implicit freeParams: Seq[TypeParameter]): Option[(Type, Map[TypeParameter, Type])] = {
-    (t1, t2) match {
-      case (ct: ClassType, _) if ct.lookupClass.isEmpty => None
-      case (_, ct: ClassType) if ct.lookupClass.isEmpty => None
-
-      case (ct1: ClassType, ct2: ClassType) =>
-        val cd1 = ct1.tcd.cd
-        val cd2 = ct2.tcd.cd
-        val bound: Option[ClassDef] = if (allowSub) {
-          val an1 = cd1 +: cd1.ancestors
-          val an2 = cd2 +: cd2.ancestors
-          if (isLub) {
-            (an1.reverse zip an2.reverse)
-              .takeWhile(((_: ClassDef) == (_: ClassDef)).tupled)
-              .lastOption.map(_._1)
-          } else {
-            if (an1.contains(cd2)) Some(cd1)
-            else if (an2.contains(cd1)) Some(cd2)
-            else None
-          }
-        } else {
-          if (cd1 == cd2) Some(cd1) else None
-        }
-
+  override protected def instantiationConstraints(toInst: Type, bound: Type, isUpper: Boolean): Seq[Subtyping] = (toInst, bound) match {
+    case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
+    case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
+    case (ct1: ClassType, ct2: ClassType) =>
+      val cd1 = ct1.tcd.cd
+      val cd2 = ct2.tcd.cd
+      val (cl, ch) = if (isUpper) (cd1, cd2) else (cd2, cd1)
+      if (!((cl == ch) || (cl.ancestors contains ch))) unsolvable
+      else {
         for {
-          cd <- bound
-          (subs, map) <- flattenTypeMappings((ct1.tps zip ct2.tps).map { case (tp1, tp2) =>
-            typeBound(tp1, tp2, isLub, allowSub = false)
-          })
-        } yield (cd.typed(subs).toType, map)
+          (tp, (t1, t2)) <- cd1.typeArgs zip (ct1.tps zip ct2.tps)
+          variance <- if (tp.isCovariant) Seq(isUpper) else if (tp.isContravariant) Seq(!isUpper) else Seq(true, false)
+          constr <- instantiationConstraints(t1, t2, variance)
+        } yield constr
+      }
 
-      case _ => super.typeBound(t1, t2, isLub, allowSub)
-    }
+    case _ => super.instantiationConstraints(toInst, bound, isUpper)
   }
 
+  override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = (tp1, tp2) match {
+    case (ct: ClassType, _) if ct.lookupClass.isEmpty => Untyped
+    case (_, ct: ClassType) if ct.lookupClass.isEmpty => Untyped
+    case (ct1: ClassType, ct2: ClassType) =>
+      if (ct1.tps.size != ct2.tps.size) Untyped
+      else {
+        val cd1 = ct1.tcd.cd
+        val cd2 = ct2.tcd.cd
+        val an1 = cd1 +: cd1.ancestors
+        val an2 = cd2 +: cd2.ancestors
+
+        val tps = (cd1.typeArgs zip (ct1.tps zip ct2.tps)).map { case (tp, (t1, t2)) =>
+          if (tp.isCovariant) typeBound(t1, t2, upper)
+          else if (tp.isContravariant) typeBound(t1, t2, !upper)
+          else if (t1 == t2) t1
+          else Untyped
+        }
+
+        val bound = if (upper) {
+          // Upper bound
+          (an1.reverse zip an2.reverse)
+            .takeWhile(((_: ClassDef) == (_: ClassDef)).tupled)
+            .lastOption.map(_._1)
+        } else {
+          // Lower bound
+          if (an1 contains cd2) Some(cd1)
+          else if (an2 contains cd1) Some(cd2)
+          else None
+        }
+
+        bound.map(_.typed(tps).toType).getOrElse(Untyped).unveilUntyped
+      }
+
+    case _ => super.typeBound(tp1, tp2, upper)
+  }
+
+  override protected def unificationConstraints(t1: Type, t2: Type, free: Seq[TypeParameter]): List[(TypeParameter, Type)] = (t1, t2) match {
+    case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
+    case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
+    case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
+      (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case _ => super.unificationConstraints(t1, t2, free)
+  }
+
+  override protected def unificationSolution(const: List[(Type, Type)]): List[(TypeParameter, Type)] = const match {
+    case (ct: ClassType, _) :: tl if ct.lookupClass.isEmpty => unsolvable
+    case (_, ct: ClassType) :: tl if ct.lookupClass.isEmpty => unsolvable
+    case (ct1: ClassType, ct2: ClassType) :: tl if ct1.tcd.cd == ct2.tcd.cd =>
+      unificationSolution((ct1.tps zip ct2.tps).toList ++ tl)
+    case _ => super.unificationSolution(const)
+  }
 }
 
 trait TreeDeconstructor extends holes.TreeDeconstructor {

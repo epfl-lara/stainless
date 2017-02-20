@@ -1,7 +1,7 @@
 val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2"
+val inoxVersion = "1.0.2-41f88"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -162,7 +162,7 @@ lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
-//  .dependsOn(inox % "compile->compile;test->test")
+  //.dependsOn(inox % "compile->compile;test->test")
   .dependsOn(cafebabe)
 
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
@@ -171,6 +171,7 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
     frontendClass := "scalac.ScalaCompiler",
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
   .dependsOn(`stainless-core`)
+  //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
