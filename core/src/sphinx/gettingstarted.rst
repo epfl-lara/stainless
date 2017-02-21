@@ -24,7 +24,7 @@ To see the main options, use
   $ ./stainless --help
 
 in your command line shell while in the top-level Stainless directory.
-You may also wish to consult the `available command-line options <cmdlineoptions.rst>`_.
+You may also wish to consult the `available command-line options <options.rst>`_.
 
 You can try some of the examples from ``fontends/scalac/src/it/resources/regression/``
 distributed with Stainless:
