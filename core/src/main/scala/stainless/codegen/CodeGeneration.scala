@@ -303,45 +303,38 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private val typeParams: ListBuffer[TypeParameter] = new ListBuffer[TypeParameter]
 
-  protected def compileLambda(l: Lambda, params: Seq[ValDef], tparams: Seq[TypeParameter], pre: Boolean = false):
+  protected def compileLambda(l: Lambda, params: Seq[ValDef], pre: Boolean = false):
                              (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
     assert(normalizeStructure(l)._1 == l)
 
-    val containsChoose = exprOps.exists { case _: Choose => true case _ => false } (l)
-
-    val (tps, instTps, lambda) = if (containsChoose) {
-      (tparams, tparams, l)
-    } else {
-      var tpParams = typeParams.toList
-      var tpSubst: Map[TypeParameter, TypeParameter] = Map.empty
-      def subst(tp: TypeParameter): TypeParameter = tpSubst.getOrElse(tp, {
-        val fresh = tpParams match {
-          case x :: xs =>
-            tpParams = xs
-            x
-          case Nil =>
-            val tp = TypeParameter.fresh("Tp")
-            typeParams += tp
-            tp
-        }
-        tpSubst += tp -> fresh
-        fresh
-      })
-
-      object normalizer extends {
-        val s: program.trees.type = program.trees
-        val t: program.trees.type = program.trees
-      } with ast.TreeTransformer {
-        override def transform(tpe: Type): Type = tpe match {
-          case tp: TypeParameter => subst(tp)
-          case _ => super.transform(tpe)
-        }
+    var tpParams = typeParams.toList
+    var tpSubst: Map[TypeParameter, TypeParameter] = Map.empty
+    def subst(tp: TypeParameter): TypeParameter = tpSubst.getOrElse(tp, {
+      val fresh = tpParams match {
+        case x :: xs =>
+          tpParams = xs
+          x
+        case Nil =>
+          val tp = TypeParameter.fresh("Tp")
+          typeParams += tp
+          tp
       }
+      tpSubst += tp -> fresh
+      fresh
+    })
 
-      val lambda = normalizer.transform(l).asInstanceOf[Lambda]
-      val (instTps, tps) = tpSubst.toSeq.sortBy(_._2.id.uniqueName).unzip
-      (tps, instTps, lambda)
+    object normalizer extends {
+      val s: program.trees.type = program.trees
+      val t: program.trees.type = program.trees
+    } with ast.TreeTransformer {
+      override def transform(tpe: Type): Type = tpe match {
+        case tp: TypeParameter => subst(tp)
+        case _ => super.transform(tpe)
+      }
     }
+
+    val lambda = normalizer.transform(l).asInstanceOf[Lambda]
+    val (tparams, tps) = tpSubst.toSeq.sortBy(_._2.id.uniqueName).unzip
 
     val closedVars = variablesOf(lambda).toSeq.sortBy(_.id.uniqueName)
 
@@ -398,13 +391,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
         val argMapping = lambda.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
         val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
-        val baseLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
-
-        val newLocals = if (containsChoose) {
-          baseLocals.withParameters(params ++ l.args).withTypeParameters(tps)
-        } else {
-          baseLocals
-        }
+        val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
+          .withParameters(params ++ l.args).withTypeParameters(tps)
 
         locally {
           val pm = cf.addMethod(s"L$LambdaClass;", "pre", "")
@@ -418,7 +406,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
           val preLocals = NoLocals.withFields(closureMapping)
             .withParameters(params)
-            .withTypeParameters(tparams)
+            .withTypeParameters(tps)
 
           val preLambda = if (pre) {
             lambda.copy(body = BooleanLiteral(true))
@@ -532,7 +520,7 @@ trait CodeGeneration { self: CompilationUnit =>
         afName
     }
 
-    (afName, closures, instTps, "(" + closures.map(_._2).mkString("") + ")V")
+    (afName, closures, tparams, "(" + closures.map(_._2).mkString("") + ")V")
   }
 
   // also makes tuples with 0/1 args
@@ -1266,7 +1254,7 @@ trait CodeGeneration { self: CompilationUnit =>
       assumeExhaustive = false
     ))
 
-    val (afName, closures, tparams, consSig) = compileLambda(l, locals.params, locals.tparams, pre = pre)
+    val (afName, closures, tparams, consSig) = compileLambda(l, locals.params, pre = pre)
     val closureTypes = variablesOf(l).map(v => v.id -> v.tpe).toMap
 
     val freshLocals = locals.substitute((vars zip freshVars).map(p => p._1.id -> p._2.id).toMap)

@@ -189,11 +189,11 @@ trait CompilationUnit extends CodeGeneration {
 
     case lambda: Lambda =>
       val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false))
-      val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty, Seq.empty)
+      val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
       val depsMap = deps.map(p => p._1.id -> valueToJVM(p._2)).toMap
       val args = closures.map { case (id, _) =>
         if (id == monitorID) monitor
-        else if (id == tpsID) typeParamsOf(l).toSeq.sortBy(_.id.uniqueName).map(registerType).toArray
+        else if (id == tpsID) tparams.map(registerType).toArray
         else depsMap(id)
       }
 
@@ -343,15 +343,15 @@ trait CompilationUnit extends CodeGeneration {
       val l = jvmClassNameToLambda(cls.getName).get
 
       val tparams: Seq[TypeParameter] = {
-        var tpSet: Set[TypeParameter] = Set.empty
+        var tpSeq: Seq[TypeParameter] = Seq.empty
         object collector extends TreeTraverser {
           override def traverse(tpe: Type): Unit = tpe match {
-            case tp: TypeParameter => tpSet += tp
+            case tp: TypeParameter => tpSeq :+= tp
             case _ => super.traverse(tpe)
           }
         }
         collector.traverse(l)
-        tpSet.toSeq.sortBy(_.id.uniqueName)
+        tpSeq.distinct
       }
 
       val tpLambda = if (tparams.isEmpty) {
