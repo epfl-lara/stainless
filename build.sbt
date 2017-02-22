@@ -1,7 +1,7 @@
 val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2-a44c8"
+val inoxVersion = "1.0.2-2-gb5fdc3d"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
