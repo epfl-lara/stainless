@@ -25,6 +25,7 @@ last.log
 *.log
 smt-sessions/
 tip-sessions/
+pri-sessions/
 stainless.out/
 repairs.dat
 tmp
