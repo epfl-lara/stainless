@@ -139,7 +139,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
       val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
       IO.write(scriptFile, s"""|#!/bin/bash --posix
                                |
-                               |SCALACLASSPATH=$paths
+                               |SCALACLASSPATH="$paths"
                                |
                                |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
                                |""".stripMargin)
