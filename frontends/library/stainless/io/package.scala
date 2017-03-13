@@ -2,9 +2,9 @@
 
 package stainless
 
-package object io {
+import stainless.annotation._
 
-  import stainless.annotation._
+package object io {
 
   @library
   case class State(var seed: BigInt)
