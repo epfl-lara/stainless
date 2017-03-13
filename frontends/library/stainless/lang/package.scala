@@ -69,17 +69,17 @@ package object lang {
       forall((a: A, b: B, c: C, d: D) => f.pre(a,b,c,d) ==> p(a,b,c,d,f(a,b,c,d)))
   }
 
-  @ignore def decreases(rank: BigInt): Unit = ()
-  @ignore def decreases(rank: (BigInt, BigInt)): Unit = ()
-  @ignore def decreases(rank: (BigInt, BigInt, BigInt)): Unit = ()
-  @ignore def decreases(rank: (BigInt, BigInt, BigInt, BigInt)): Unit = ()
-  @ignore def decreases(rank: (BigInt, BigInt, BigInt, BigInt, BigInt)): Unit = ()
+  @ignore def decreases(r1: BigInt): Unit = ()
+  @ignore def decreases(r1: BigInt, r2: BigInt): Unit = ()
+  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt): Unit = ()
+  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt, r4: BigInt): Unit = ()
+  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt, r4: BigInt, r5: BigInt): Unit = ()
 
-  @ignore def decreases(rank: Int): Unit = ()
-  @ignore def decreases(rank: (Int, Int)): Unit = ()
-  @ignore def decreases(rank: (Int, Int, Int)): Unit = ()
-  @ignore def decreases(rank: (Int, Int, Int, Int)): Unit = ()
-  @ignore def decreases(rank: (Int, Int, Int, Int, Int)): Unit = ()
+  @ignore def decreases(r1: Int): Unit = ()
+  @ignore def decreases(r1: Int, r2: Int): Unit = ()
+  @ignore def decreases(r1: Int, r2: Int, r3: Int): Unit = ()
+  @ignore def decreases(r1: Int, r2: Int, r3: Int, r4: Int): Unit = ()
+  @ignore def decreases(r1: Int, r2: Int, r3: Int, r4: Int, r5: Int): Unit = ()
 
   @ignore
   implicit class WhileDecorations(u: Unit) {

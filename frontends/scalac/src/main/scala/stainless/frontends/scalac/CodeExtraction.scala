@@ -679,10 +679,10 @@ trait CodeExtraction extends ASTExtractors {
           val b   = rec(xs)
           xt.Require(pre, b).setPos(e.pos)
 
-        case (e @ ExDecreasesExpression(rank)) :: xs =>
-          val r = extractTree(rank)(vctx)
+        case (e @ ExDecreasesExpression(ranks)) :: xs =>
+          val rs = ranks.map(extractTree(_)(vctx))
           val b = rec(xs)
-          xt.Decreases(r, b).setPos(e.pos)
+          xt.Decreases(xt.tupleWrap(rs), b).setPos(e.pos)
 
         case (d @ ExFunctionDef(sym, tparams, vparams, tpt, rhs)) :: xs =>
           val (vd, tdefs) = vctx.localFuns(sym)

@@ -269,9 +269,9 @@ trait ASTExtractors {
 
     /** Extracts the 'decreases' contract for an expression (should be right after 'require') */
     object ExDecreasesExpression {
-      def unapply(tree: Apply): Option[Tree] = tree match {
-        case Apply(ExSelected("stainless", "lang", "package", "decreases"), Seq(arg)) =>
-          Some(arg)
+      def unapply(tree: Apply): Option[Seq[Tree]] = tree match {
+        case Apply(ExSelected("stainless", "lang", "package", "decreases"), args) =>
+          Some(args)
         case _ => None
       }
     }
