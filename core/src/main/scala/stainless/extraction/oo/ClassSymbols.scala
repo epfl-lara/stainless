@@ -4,13 +4,13 @@ package stainless
 package extraction
 package oo
 
-trait ObjectSymbols { self: Trees =>
+trait ClassSymbols { self: Trees =>
 
   val Symbols: (Map[Identifier, FunDef], Map[Identifier, ADTDefinition], Map[Identifier, ClassDef]) => Symbols
 
   val NoSymbols = Symbols(Map.empty, Map.empty, Map.empty)
 
-  abstract class ObjectSymbols extends AbstractSymbols { self: Symbols =>
+  abstract class ClassSymbols extends AbstractSymbols { self: Symbols =>
 
     def withFunctions(functions: Seq[FunDef]): Symbols = Symbols(
       this.functions ++ functions.map(fd => fd.id -> fd),

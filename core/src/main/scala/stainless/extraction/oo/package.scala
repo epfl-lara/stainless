@@ -5,12 +5,12 @@ package extraction
 
 package object oo {
 
-  object trees extends Trees with ObjectSymbols {
+  object trees extends Trees with ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition],
       classes: Map[Identifier, ClassDef]
-    ) extends ObjectSymbols
+    ) extends ClassSymbols
   }
 
   object extractor extends MethodLifting {

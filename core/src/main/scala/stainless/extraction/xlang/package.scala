@@ -5,12 +5,12 @@ package extraction
 
 package object xlang {
 
-  object trees extends xlang.Trees with oo.ObjectSymbols {
+  object trees extends xlang.Trees with oo.ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition],
       classes: Map[Identifier, ClassDef]
-    ) extends ObjectSymbols with AbstractSymbols
+    ) extends ClassSymbols with AbstractSymbols
   }
 
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from
