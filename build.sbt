@@ -28,10 +28,12 @@ lazy val frontendClass = settingKey[String]("The name of the compiler wrapper us
 
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
+lazy val scalaVersionSetting: Setting[_] = scalaVersion := "2.11.8"
+
 lazy val artifactSettings: Seq[Setting[_]] = Seq(
   version := "0.1",
   organization := "ch.epfl.lara",
-  scalaVersion := "2.11.8"
+  scalaVersionSetting
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -206,6 +208,6 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
 
 lazy val root = (project in file("."))
-  .settings(sourcesInBase in Compile := false)
+  .settings(scalaVersionSetting, sourcesInBase in Compile := false)
   .dependsOn(`stainless-scalac`, `stainless-dotty`)
   .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
