@@ -2,6 +2,7 @@ val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase
 val osArch = System.getProperty("sun.arch.data.model")
 
 val inoxVersion = "1.0.2-2-gb5fdc3d"
+val dottyVersion = "0.1.1-20170312-b319440-NIGHTLY"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -155,7 +156,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 //lazy val inox = RootProject(file("../inox"))
-lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
+//lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
 
@@ -177,7 +178,8 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .settings(name := "stainless-dotty-frontend")
-  .dependsOn(`stainless-core`, dotty % "provided")
+  .dependsOn(`stainless-core`)
+  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
   .settings(commonSettings)
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
@@ -189,7 +191,9 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
       *   sbt project. You can temporarily disable the following two lines when importing the project.
       */
     unmanagedResourceDirectories in IntegrationTest += file(".") / "frontends" / "scalac" / "it" / "resources")
-  .dependsOn(`stainless-dotty-frontend`, dotty)  // Should truly depend on dotty, overriding the "provided" modifier above
+  .dependsOn(`stainless-dotty-frontend`)
+  // Should truly depend on dotty, overriding the "provided" modifier above:
+  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
   .aggregate(`stainless-dotty-frontend`)
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)

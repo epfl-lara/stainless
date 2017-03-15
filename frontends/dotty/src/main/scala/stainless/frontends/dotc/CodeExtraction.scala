@@ -1220,7 +1220,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       xt.ArrayType(extractType(btt))
     */
 
-    case defn.FunctionOf(from, to) =>
+    case defn.FunctionOf(from, to, _) =>
       xt.FunctionType(from map extractType, extractType(to))
 
     case tt @ ThisType(tr) =>
@@ -1253,7 +1253,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
 
     case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => extractType(tp)
     case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => extractType(tp)
-    case ot: OrType => extractType(ot.approximateUnion)
+    case ot: OrType => extractType(ot.join)
 
     case pp @ PolyParam(binder, num) =>
       dctx.tparams.collectFirst { case (k, v) if k.name == pp.paramName => v }.getOrElse {
