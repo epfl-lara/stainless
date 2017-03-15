@@ -48,7 +48,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     val actualSymbol = sym // .accessedOrSelf
     (for {
       a <- actualSymbol.annotations ++ actualSymbol.owner.annotations
-      name = a.symbol.fullName.toString.replaceAll("\\.package$\\.", ".")
+      name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
     } yield {
@@ -455,7 +455,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
 
     val nctx = dctx.copy(tparams = dctx.tparams ++ tparams.toMap)
 
-    val (newParams, fctx) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
+    val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
       val vd = xt.ValDef(
         FreshIdentifier(param.symbol.name.toString).setPos(param.pos),
         stainlessType(param.tpe)(dctx, param.pos),
@@ -482,6 +482,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         case Block(List(Assign(_, realBody)), _) => realBody
         case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
       }
+
+    val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
 
     val finalBody = if (rhs == tpd.EmptyTree) {
       flags += xt.IsAbstract
