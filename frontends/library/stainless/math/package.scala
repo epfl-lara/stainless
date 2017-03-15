@@ -17,4 +17,6 @@ package object math {
   @library
   def max(i1: BigInt, i2: BigInt) = if (i1 >= i2) i1 else i2
 
+  @library
+  def abs(n: BigInt) = if(n < 0) -n else n
 }
