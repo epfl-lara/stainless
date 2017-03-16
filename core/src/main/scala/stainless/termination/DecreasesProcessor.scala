@@ -42,6 +42,8 @@ trait DecreasesProcessor extends Processor {
     val fds = problem.funDefs
     val fdIds = problem.funSet.map(_.id)
 
+    //println("Functions with measures: "+fds.filter( _.measure.isDefined).map(_.id))
+
     if (fds.exists { _.measure.isDefined }) {
       /*if (hasClosures) {
         reporter.error("Cannot use `decreases` in the presence of first-class functions")
@@ -72,7 +74,7 @@ trait DecreasesProcessor extends Processor {
         } else {
           // (b) check if the measure decreases for recursive calls
           // remove certain function invocations from the body
-          val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, problem.funSet)
+          val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, fd, problem.funSet)
           val decRes = recCallsWithPath match {
             case None =>
               // here, we cannot prove termination of the function as it calls a recursive function
@@ -144,11 +146,13 @@ trait DecreasesProcessor extends Processor {
    * call does not have decrease measure, it inlines the body if it is not self-recusive,
    * and collects the path in the inlined version.
    */
-  def collectRecursiveCallsWithPaths(rootExpr: Expr, scc: Set[FunDef]): Option[Seq[(FunctionInvocation, Path)]] = {
+  def collectRecursiveCallsWithPaths(rootExpr: Expr, rootfun: FunDef, scc: Set[FunDef]): Option[Seq[(FunctionInvocation, Path)]] = {
+
     def rec(expr: Expr, initPath: Path, seen: Set[FunDef]): Option[Seq[(FunctionInvocation, Path)]] = {
+
       val recCallsWithPath = transformers.CollectorWithPC(program) {
         case (fi @ FunctionInvocation(id, _, _), path) if scc(getFunction(id)) => (fi, path)
-      } collect (rootExpr, initPath)
+      } collect (expr, initPath)
 
       val optSeqs = recCallsWithPath map {
         case cp @ (FunctionInvocation(callee, _, _), _) if getFunction(callee).measure.isDefined =>
@@ -169,6 +173,6 @@ trait DecreasesProcessor extends Processor {
       }
     }
 
-    rec(rootExpr, Path.empty, Set.empty)
+    rec(rootExpr, Path.empty, Set(rootfun))
   }
 }

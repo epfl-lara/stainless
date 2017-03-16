@@ -24,7 +24,6 @@ trait Trees extends ast.Trees { self =>
     protected val trees: self.type = self
   } with ExprOps
 
-
   /* ========================================
    *              EXTRACTORS
    * ======================================== */
@@ -37,7 +36,6 @@ trait Trees extends ast.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
-
 
   /* ========================================
    *              DEFINITIONS
@@ -60,7 +58,6 @@ trait Trees extends ast.Trees { self =>
   implicit class TerminationTypedFunDef(tfd: TypedFunDef) {
     def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
   }
-
 
   /* ========================================
    *                PRINTERS
@@ -95,7 +92,8 @@ trait ExprOps extends ast.ExprOps {
 
   /** Returns the measure associated to an expression wrapped in an Option */
   def measureOf(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr))
+    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr)) // TODO: this case seems to overdo stuff that cannot happen (Ravi)
+    case Decreases(m, _)                          => Some(m)
     case Require(_, Decreases(m, _))              => Some(m)
     case Ensuring(Require(_, Decreases(m, _)), _) => Some(m)
     case Ensuring(Decreases(m, _), _)             => Some(m)
