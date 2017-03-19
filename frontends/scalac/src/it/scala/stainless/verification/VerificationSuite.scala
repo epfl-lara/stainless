@@ -14,6 +14,7 @@ trait VerificationSuite extends ComponentTestSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     case "verification/valid/Extern1" => Ignore
     case "verification/valid/Extern2" => Ignore
+    case "verification/valid/ChooseLIA" => Ignore
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case _ => super.filter(ctx, name)

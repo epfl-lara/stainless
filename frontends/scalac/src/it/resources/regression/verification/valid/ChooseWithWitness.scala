@@ -3,7 +3,7 @@
 import stainless.annotation._
 import stainless.lang._
 
-object Choose1 {
+object ChooseWithWitness {
     sealed abstract class List
     case class Cons(head: Int, tail: List) extends List
     case class Nil() extends List
