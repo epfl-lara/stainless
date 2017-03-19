@@ -1,7 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless.lang._
-import stainless.lang.synthesis._
 import stainless.collection._
 
 object Justify {

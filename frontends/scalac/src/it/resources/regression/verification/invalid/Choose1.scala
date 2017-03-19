@@ -1,7 +1,6 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless.annotation._
-import stainless.lang.synthesis._
 import stainless.lang._
 
 object Choose1 {
