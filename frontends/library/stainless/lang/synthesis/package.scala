@@ -12,17 +12,6 @@ package object synthesis {
   private def noImpl = throw new RuntimeException("Synthesis construct implementation not supported")
 
   @ignore
-  def choose[A](predicate: A => Boolean): A = noImpl
-  @ignore
-  def choose[A, B](predicate: (A, B) => Boolean): (A, B) = noImpl
-  @ignore
-  def choose[A, B, C](predicate: (A, B, C) => Boolean): (A, B, C) = noImpl
-  @ignore
-  def choose[A, B, C, D](predicate: (A, B, C, D) => Boolean): (A, B, C, D) = noImpl
-  @ignore
-  def choose[A, B, C, D, E](predicate: (A, B, C, D, E) => Boolean): (A, B, C, D, E) = noImpl      
-
-  @ignore
   def ???[T]: T = noImpl
 
   @ignore

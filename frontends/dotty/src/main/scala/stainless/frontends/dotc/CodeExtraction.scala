@@ -955,7 +955,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       WithOracle(newOracles, cBody)
     */
 
-    case Apply(TypeApply(ExSymbol("stainless", "lang", "synthesis", "choose"), Seq(tpt)), Seq(pred)) =>
+    case Apply(TypeApply(ExSymbol("stainless", "lang", "choose"), Seq(tpt)), Seq(pred)) =>
       extractTree(pred) match {
         case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)
         case e => extractType(tpt) match {

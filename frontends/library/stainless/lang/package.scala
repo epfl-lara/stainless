@@ -69,6 +69,12 @@ package object lang {
       forall((a: A, b: B, c: C, d: D) => f.pre(a,b,c,d) ==> p(a,b,c,d,f(a,b,c,d)))
   }
 
+  @ignore def choose[A](predicate: A => Boolean): A = sys.error("Can't execute non-deterministic choose")
+  @ignore def choose[A,B](predicate: (A,B) => Boolean): (A,B) = sys.error("Can't execute non-deterministic choose")
+  @ignore def choose[A,B,C](predicate: (A,B,C) => Boolean): (A,B,C) = sys.error("Can't execute non-deterministic choose")
+  @ignore def choose[A,B,C,D](predicate: (A,B,C,D) => Boolean): (A,B,C,D) = sys.error("Can't execute non-deterministic choose")
+  @ignore def choose[A,B,C,D,E](predicate: (A,B,C,D,E) => Boolean): (A,B,C,D,E) = sys.error("Can't execute non-deterministic choose")
+
   @ignore def decreases(r1: BigInt): Unit = ()
   @ignore def decreases(r1: BigInt, r2: BigInt): Unit = ()
   @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt): Unit = ()

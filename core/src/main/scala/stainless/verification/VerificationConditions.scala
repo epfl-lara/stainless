@@ -29,7 +29,8 @@ object VCKind {
   case object ModuloByZero    extends VCKind("modulo by zero", "mod 0")
   case object RemainderByZero extends VCKind("remainder by zero", "rem 0")
   case object CastError       extends VCKind("cast correctness", "cast")
-  case object PostTactic      extends VCKind("postcondition tactic", "tact")
+  case object PostTactic      extends VCKind("postcondition tactic", "tact.")
+  case object Choose          extends VCKind("choose satisfiability", "choose")
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

@@ -725,7 +725,7 @@ trait ASTExtractors {
     object ExChooseExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
         case a @ Apply(
-              TypeApply(s @ ExSymbol("stainless", "lang", "synthesis", "choose"), types),
+              TypeApply(s @ ExSymbol("stainless", "lang", "choose"), types),
               predicate :: Nil) =>
             Some(predicate)
         case _ => None

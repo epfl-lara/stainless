@@ -6,6 +6,7 @@ object GuessNumber {
   case class State(var seed: BigInt)
 
   def random(min: Int, max: Int)(implicit state: State): Int = {
+    require(min <= max)
     state.seed += 1
     choose((x: Int) => min <= x && x <= max)
   }

@@ -19,16 +19,26 @@ object Choose1 {
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
 
+    def createListOfSize(i: BigInt): List = {
+      require(i >= 0)
+
+      if (i == BigInt(0)) {
+        Nil()
+      } else {
+        Cons(0, createListOfSize(i - 1))
+      }
+    } ensuring ( size(_) == i )
+
     def listOfSize(i: BigInt): List = {
       require(i >= 0)
 
       if (i == BigInt(0)) {
         Nil()
       } else {
+        assert(size(createListOfSize(i)) == i) // provides choose quantification with a matcher
         choose { (res: List) => size(res) == i }
       }
     } ensuring ( size(_) == i )
-
 
     def listOfSize2(i: BigInt): List = {
       require(i >= 0)

@@ -59,7 +59,10 @@ trait DefaultTactic extends Tactic {
           VCKind.Assert
         }
 
-      case Application(_, _) =>
+      case _: Choose =>
+        VCKind.Choose
+
+      case _: Application =>
         VCKind.LambdaPre
 
       case _ =>
@@ -79,6 +82,9 @@ trait DefaultTactic extends Tactic {
 
       case (app @ Application(caller, args), path) =>
         (app, path implies Application(Pre(caller), args))
+
+      case (c @ Choose(res, pred), path) =>
+        (c, path implies Not(Forall(Seq(res), Not(pred))))
     }.collect(getFunction(id).fullBody)
 
     calls.map { case (e, correctnessCond) =>
