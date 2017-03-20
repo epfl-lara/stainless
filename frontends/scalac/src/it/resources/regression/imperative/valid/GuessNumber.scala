@@ -6,10 +6,13 @@ object GuessNumber {
 
   case class State(var seed: BigInt)
 
+  def between(a: Int, x: Int, b: Int): Boolean = a <= x && x <= b
+
   def random(min: Int, max: Int)(implicit state: State): Int = {
     require(min <= max)
     state.seed += 1
-    choose((x: Int) => min <= x && x <= max)
+    assert(between(min, min, max))
+    choose((x: Int) => between(min, x, max))
   }
   
   def main()(implicit state: State): Unit = {
