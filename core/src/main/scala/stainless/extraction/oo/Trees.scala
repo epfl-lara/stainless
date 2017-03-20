@@ -257,20 +257,19 @@ trait TypeOps extends ast.TypeOps {
   protected val trees: Trees
   import trees._
 
-  override protected def instantiationConstraints(toInst: Type, bound: Type, isUpper: Boolean): Seq[Subtyping] = (toInst, bound) match {
-    case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
-    case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
+  override protected def instantiationConstraints(toInst: Type, bound: Type, isUpper: Boolean): Constraint = (toInst, bound) match {
+    case (ct: ClassType, _) if ct.lookupClass.isEmpty => False
+    case (_, ct: ClassType) if ct.lookupClass.isEmpty => False
     case (ct1: ClassType, ct2: ClassType) =>
       val cd1 = ct1.tcd.cd
       val cd2 = ct2.tcd.cd
       val (cl, ch) = if (isUpper) (cd1, cd2) else (cd2, cd1)
-      if (!((cl == ch) || (cl.ancestors contains ch))) unsolvable
+      if (!((cl == ch) || (cl.ancestors contains ch))) False
       else {
-        for {
+        Conjunction(for {
           (tp, (t1, t2)) <- cd1.typeArgs zip (ct1.tps zip ct2.tps)
           variance <- if (tp.isCovariant) Seq(isUpper) else if (tp.isContravariant) Seq(!isUpper) else Seq(true, false)
-          constr <- instantiationConstraints(t1, t2, variance)
-        } yield constr
+        } yield instantiationConstraints(t1, t2, variance))
       }
 
     case _ => super.instantiationConstraints(toInst, bound, isUpper)
