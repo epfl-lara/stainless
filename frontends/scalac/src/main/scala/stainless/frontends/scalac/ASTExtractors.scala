@@ -750,11 +750,11 @@ trait ASTExtractors {
     }
 
     object ExForallExpression {
-      def unapply(tree: Apply) : Option[(List[(Tree, Symbol)], Tree)] = tree match {
+      def unapply(tree: Apply) : Option[Tree] = tree match {
         case a @ Apply(
-            TypeApply(s @ ExSymbol("stainless", "lang", "forall"), types),
-            Function(vds, predicateBody) :: Nil) =>
-          Some((types zip vds.map(_.symbol), predicateBody))
+            TypeApply(s @ ExSymbol("stainless", "lang", "forall"), _),
+            predicate :: Nil) =>
+          Some(predicate)
         case _ => None
       }
     }

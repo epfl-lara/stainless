@@ -908,17 +908,17 @@ trait CodeExtraction extends ASTExtractors {
         val exBody = extractTree(body)(dctx.withNewVars(newVars))
         xt.Lambda(vds, exBody)
 
-      case ExForallExpression(args, body) =>
-        val vds = args map { case (tpt, sym) =>
-          xt.ValDef(FreshIdentifier(sym.name.toString), extractType(tpt), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
+      case ExForallExpression(contract) =>
+        extractTree(contract) match {
+          case l: xt.Lambda => xt.Forall(l.args, l.body).setPos(l)
+          case pred => extractType(contract) match {
+            case xt.FunctionType(from, to) =>
+              val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))
+              xt.Lambda(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred)).setPos(pred)
+            case _ => 
+              outOfSubsetError(tr, "Unsupported forall definition: " + tr)
+          }
         }
-
-        val newVars = (args zip vds).map { case ((_, sym), lvd) =>
-          sym -> (() => lvd.toVariable)
-        }
-
-        val exBody = extractTree(body)(dctx.withNewVars(newVars))
-        xt.Forall(vds, exBody)
 
       case ExFiniteMap(tptFrom, tptTo, args) =>
         val to = extractType(tptTo)
@@ -1064,6 +1064,7 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.SetType(_), "+",  Seq(rhs)) => xt.SetAdd(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "++", Seq(rhs)) => xt.SetUnion(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "&",  Seq(rhs)) => xt.SetIntersection(extractTree(lhs), extractTree(rhs))
+            case (xt.SetType(_), "-", Seq(rhs))  => xt.SetDifference(extractTree(lhs), xt.FiniteSet(Seq(extractTree(rhs)), tpe))
             case (xt.SetType(_), "--", Seq(rhs)) => xt.SetDifference(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "subsetOf", Seq(rhs)) => xt.SubsetOf(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "contains", Seq(rhs)) => xt.ElementOfSet(extractTree(rhs), extractTree(lhs))
