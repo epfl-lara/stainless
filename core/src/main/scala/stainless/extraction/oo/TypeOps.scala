@@ -34,6 +34,9 @@ trait TypeOps extends ast.TypeOps {
         } yield instantiationConstraints(t1, t2, variance))
       }
 
+    case (TypeBounds(lo, hi), tpe) => instantiationConstraints(if (isUpper) hi else lo, tpe, isUpper)
+    case (tpe, TypeBounds(lo, hi)) => instantiationConstraints(tpe, if (isUpper) hi else lo, isUpper)
+
     case (UnionType(tps), _) if isUpper => Conjunction(tps.map(instantiationConstraints(_, bound, true)))
     case (IntersectionType(tps), _) if isUpper => Disjunction(tps.map(instantiationConstraints(_, bound, true)))
 
@@ -148,6 +151,9 @@ trait TypeOps extends ast.TypeOps {
 
       bound.map(_.typed(adt1.tps).toType)
 
+    case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
+    case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
+
     case (tp, AnyType) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType else tp)
     case (AnyType, tp) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType else tp)
     case (NothingType, tp) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType)
@@ -180,15 +186,37 @@ trait TypeOps extends ast.TypeOps {
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
     case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
       (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
+    case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
     case _ => super.unificationConstraints(t1, t2, free)
   }
 
   override protected def unificationSolution(const: List[(Type, Type)]): List[(TypeParameter, Type)] = const match {
     case (ct: ClassType, _) :: tl if ct.lookupClass.isEmpty => unsolvable
     case (_, ct: ClassType) :: tl if ct.lookupClass.isEmpty => unsolvable
-    case (ct1: ClassType, ct2: ClassType) :: tl if ct1.tcd.cd == ct2.tcd.cd =>
-      unificationSolution((ct1.tps zip ct2.tps).toList ++ tl)
+    case (ClassType(id1, tps1), ClassType(id2, tps2)) :: tl if id1 == id2 =>
+      unificationSolution((tps1 zip tps2).toList ++ tl)
     case _ => super.unificationSolution(const)
+  }
+
+  def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {
+    class Freshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
+      val s: trees.type = trees
+      val t: trees.type = trees
+
+      override def transform(tpe: s.Type): t.Type = tpe match {
+        case tp: TypeParameter if mapping contains tp => mapping(tp)
+        case _ => super.transform(tpe)
+      }
+    }
+
+    val tpMap = tps.foldLeft(Map[TypeParameter, TypeParameter]()) { case (tpMap, tp) =>
+      val freshener = new Freshener(tpMap)
+      val freshTp = freshener.transform(tp.freshen).asInstanceOf[TypeParameter]
+      tpMap + (tp -> freshTp)
+    }
+
+    tps.map(tpMap)
   }
 }
 

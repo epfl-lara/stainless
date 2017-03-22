@@ -6,14 +6,15 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Definitions extends ast.Definitions { self: Trees =>
+// Note: we can't extend `ast.Definitions` here as termination.Trees
+// extends the bounds on `type Symbols`...
+trait Definitions extends extraction.Trees { self: Trees =>
 
   class ClassDef(
     val id: Identifier,
     val tparams: Seq[TypeParameterDef],
     val parents: Seq[ClassType],
     val fields: Seq[ValDef],
-    val methods: Seq[SymbolIdentifier],
     val flags: Set[Flag]
   ) extends Definition {
 
@@ -33,6 +34,16 @@ trait Definitions extends ast.Definitions { self: Trees =>
       allAncestors.map(_.cd).distinct.map(typedMap)
     }
 
+    def children(implicit s: Symbols): Seq[ClassDef] =
+      s.classes.values.filter(_.parents.exists(_.id == id)).toSeq
+
+    def descendants(implicit s: Symbols): Seq[ClassDef] =
+      children.flatMap(cd => cd +: cd.descendants).distinct
+
+    def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
+      s.functions.values.filter(_.flags contains IsMethodOf(id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
+    }
+
     def typeArgs = tparams map (_.tp)
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
@@ -43,9 +54,8 @@ trait Definitions extends ast.Definitions { self: Trees =>
       tparams: Seq[TypeParameterDef] = this.tparams,
       parents: Seq[ClassType] = this.parents,
       fields: Seq[ValDef] = this.fields,
-      methods: Seq[SymbolIdentifier] = this.methods,
       flags: Set[Flag] = this.flags
-    ): ClassDef = new ClassDef(id, tparams, parents, fields, methods, flags)
+    ): ClassDef = new ClassDef(id, tparams, parents, fields, flags)
   }
 
   case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
@@ -61,17 +71,16 @@ trait Definitions extends ast.Definitions { self: Trees =>
       tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, tpMap)))
     }
 
-    lazy val children: Seq[TypedClassDef] =
-      symbols.classes.values
-        .filter(_.parents.exists(_.id == id))
-        .flatMap { cd =>
-          val pct = cd.parents.find(_.id == id).get
-          symbols.unify(pct, ClassType(id, tps), cd.typeArgs).map { tpSubst =>
-            symbols.instantiateType(ClassType(cd.id, cd.typeArgs), tpSubst.toMap).asInstanceOf[ClassType].tcd
-          }
-        }.toSeq
+    lazy val children: Seq[TypedClassDef] = cd.children.flatMap { cd =>
+      val pct = cd.parents.find(_.id == id).get
+      symbols.unify(pct, ClassType(id, tps), cd.typeArgs).map { tpSubst =>
+        val bound = tpSubst.map(_._1).toSet
+        val fullSubst = tpSubst.toMap ++ cd.typeArgs.filterNot(bound).map(tp => tp -> tp.bounds)
+        symbols.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd
+      }
+    }
 
-    lazy val descendants: Seq[TypedClassDef] = children.flatMap(tcd => tcd +: tcd.descendants)
+    lazy val descendants: Seq[TypedClassDef] = children.flatMap(tcd => tcd +: tcd.descendants).distinct
 
     lazy val fields: Seq[ValDef] = {
       lazy val tmap = (cd.typeArgs zip tps).toMap
@@ -123,5 +132,17 @@ trait Definitions extends ast.Definitions { self: Trees =>
 
   case object IsInvariant extends Flag("invariant", Seq.empty)
   case object IsAbstract extends Flag("abstract", Seq.empty)
-  case object IsMethod extends Flag("method", Seq.empty)
+  case object IsSealed extends Flag("sealed", Seq.empty)
+  case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
+  case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
+
+  implicit class TypeParameterWithBounds(tp: TypeParameter) {
+    def bounds: TypeBounds = {
+      tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi) }
+        .getOrElse(TypeBounds(NothingType, AnyType))
+    }
+
+    def lowerBound: Type = bounds.lo
+    def upperBound: Type = bounds.hi
+  }
 }

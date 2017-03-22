@@ -80,21 +80,6 @@ trait Trees extends oo.Trees { self =>
                                 |"""
       p"|}"
 
-    case cd: ClassDef =>
-      p"class ${cd.id}"
-      p"${nary(cd.tparams, ", ", "[", "]")}"
-      if (cd.fields.nonEmpty) p"(${cd.fields})"
-
-      cd.parent.foreach { id =>
-        p" extends $id${nary(cd.tparams, ", ", "[", "]")}"
-      }
-
-      if (cd.methods.nonEmpty) {
-        p""" {
-            |  ${functions(cd.methods)}
-            |}"""
-      }
-
     case _ => super.ppBody(tree)
   }
 

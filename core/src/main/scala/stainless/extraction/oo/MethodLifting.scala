@@ -6,51 +6,21 @@ package oo
 
 trait MethodLifting extends inox.ast.SymbolTransformer { self =>
   val s: Trees
-  val t: holes.Trees
+  val t: Trees
 
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._
 
     val children: Map[Identifier, Set[Identifier]] =
       symbols.classes.values
-        .filter(_.parent.isDefined)
-        .groupBy(_.parent.get)
-        .mapValues(_.map(_.id).toSet)
+        .flatMap(cd => cd.parents.map(_ -> cd))
+        .groupBy(_._1.id)
+        .mapValues(_.map(_._2.id).toSet)
 
     val descendants: Map[Identifier, Set[Identifier]] =
       inox.utils.fixpoint { (map: Map[Identifier, Set[Identifier]]) =>
         map.map { case (p, desc) => p -> (desc ++ desc.flatMap(map.getOrElse(_, Set.empty))) }
       } (children)
-
-    val classToParent: Map[Identifier, Identifier] = symbols.classes.values.map {
-      cd => cd.id -> cd.root(symbols).id
-    }.toMap
-
-    val classToConstructors: Map[Identifier, Set[Identifier]] = {
-      def rec(id: Identifier): Set[Identifier] = {
-        val cs = children.getOrElse(id, Set.empty)
-        if (cs.isEmpty) Set(id) else cs.flatMap(rec)
-      }
-      symbols.classes.values.map(cd => cd.id -> rec(cd.id)).toMap
-    }
-
-    def approximate(id: Identifier) = if (classToConstructors(id) == Set(id)) id else classToParent(id)
-
-    def conditionFor(id: Identifier, v: t.Variable): t.Expr = {
-      val cons = classToConstructors(id)
-      if (classToConstructors(classToParent(id)) == cons) {
-        t.BooleanLiteral(true)
-      } else {
-        val t.ADTType(aid, tps) = v.tpe
-        if (id == aid) {
-          t.BooleanLiteral(true)
-        } else cons.toSeq.map(id => t.IsInstanceOf(v, t.ADTType(id, tps))) match {
-          case Seq() => t.BooleanLiteral(true)
-          case Seq(elem) => elem
-          case multiple => t.And(multiple)
-        }
-      }
-    }
 
     sealed trait Override { val cid: Identifier }
     case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Set[Override]) extends Override
@@ -62,10 +32,10 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       def firstSymbol(cid: Identifier, vd: ValDef): Option[Symbol] = {
         val cd = symbols.getClass(cid)
-        cd.methods.find { id =>
+        cd.methods(symbols).find { id =>
           val fd = symbols.getFunction(id)
           fd.tparams.isEmpty && fd.params.isEmpty && fd.id.name == vd.id.name
-        }.map(_.symbol).orElse(cd.parent.flatMap(firstSymbol(_, vd)))
+        }.map(_.symbol).orElse(cd.parents.reverse.view.flatMap(ct => firstSymbol(ct.id, vd)).headOption)
       }
 
       def rec(id: Identifier): Map[Symbol, Override] = {
@@ -77,7 +47,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
           cids.map(rec)
         }
 
-        val newOverrides = cd.methods.map { fid =>
+        val newOverrides = cd.methods(symbols).map { fid =>
           fid.symbol -> FunOverride(id, Some(fid), ctrees.flatMap(_.get(fid.symbol)))
         }.toMap
 
@@ -94,7 +64,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
 
       symbols.classes.values
-        .filter(_.parent.isEmpty)
+        .filter(_.parents.isEmpty)
         .flatMap(cd => rec(cd.id).map(p => (cd, p._1, p._2)))
         .foldLeft((symbols, Map.empty[Identifier, FunOverride])) {
           case ((symbols, mapping), (_, _, _: ValOverride)) => (symbols, mapping)
@@ -107,7 +77,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
                 Seq.empty,
                 BooleanType,
                 BooleanLiteral(true),
-                Set(IsInvariant, IsMethod)
+                Set(IsInvariant, IsMethodOf(cd.id))
               ))
 
               case x :: xs => Some(symbols.getFunction(o.fid.get))
@@ -130,7 +100,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
     // @nv: this has to be a class for some weird reason, otherwise the scala compiler
     //      will give you random errors until you set fire to yourself
-    class BaseTransformer extends ast.TreeTransformer {
+    class BaseTransformer extends oo.TreeTransformer {
       val s: self.s.type = self.s
       val t: self.t.type = self.t
 
@@ -139,33 +109,20 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
           val s.ClassType(_, ctps) = rec.getType(newSymbols)
           t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform)
 
-        case s.ClassConstructor(ct: s.ClassType, args) =>
-          val tpe = transform(ct).asInstanceOf[t.ADTType]
-          t.ADT(tpe, args map transform)
-
-        case s.ClassSelector(expr, selector) =>
-          t.ADTSelector(transform(expr), selector)
-
         case _ => super.transform(e)
-      }
-
-      override def transform(tpe: s.Type): t.Type = tpe match {
-        case s.ClassType(id, tps) => t.ADTType(approximate(id), tps map transform)
-        case _ => super.transform(tpe)
       }
     }
 
     object default extends BaseTransformer
 
     def makeFunction(cid: Identifier, fid: Identifier, cos: Set[Override]): t.FunDef = {
+      val cd = newSymbols.getClass(cid)
       val fd = newSymbols.getFunction(fid)
-      val tparamsSeq = newSymbols.getClass(cid).tparams.map(tp => tp -> tp.freshen)
-      val adtTparams = tparamsSeq.map(_._2)
-      val tparamsMap = tparamsSeq.map(p => p._1.tp -> p._2.tp).toMap
+      val tpSeq = newSymbols.freshenTypeParams(cd.typeArgs)
+      val tpMap = (cd.typeArgs zip tpSeq).toMap
 
-      val aid = approximate(cid)
-      val tps = adtTparams.map(tdef => default.transform(tdef).tp)
-      val arg = t.ValDef(FreshIdentifier("thiss"), t.ADTType(aid, tps), Set.empty)
+      val tcd = s.ClassType(cid, tpSeq).tcd(newSymbols)
+      val arg = t.ValDef(FreshIdentifier("thiss"), default.transform(tcd.toType))
 
       object transformer extends BaseTransformer {
         override def transform(e: s.Expr): t.Expr = e match {
@@ -174,35 +131,29 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
 
         override def transform(tpe: s.Type): t.Type = tpe match {
-          case tp: s.TypeParameter if tparamsMap contains tp => super.transform(tparamsMap(tp))
+          case tp: s.TypeParameter if tpMap contains tp => super.transform(tpMap(tp))
           case _ => super.transform(tpe)
         }
       }
 
-      val pre = conditionFor(cid, arg.toVariable)
-
       val subCalls = (for (co <- cos.toSeq) yield {
         firstOverrides(co).toSeq.map { case (cid, either) =>
-          val thiss = if (aid != cid && classToConstructors(cid) == Set(cid)) {
-            t.AsInstanceOf(arg.toVariable, t.ADTType(cid, tps))
-          } else {
-            arg.toVariable
-          }
-
-          (conditionFor(cid, arg.toVariable), either match {
+          val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
+          val thiss = t.AsInstanceOf(arg.toVariable, descType)
+          (t.IsInstanceOf(arg.toVariable, descType), either match {
             case Left(nfd) => t.FunctionInvocation(
               nfd.id,
-              (adtTparams ++ fd.tparams).map(tdef => transformer.transform(tdef.tp)),
+              descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
               thiss +: fd.params.map(vd => transformer.transform(vd.toVariable))
             )
-            case Right(vd) => t.ADTSelector(thiss, vd.id)
+            case Right(vd) => t.ClassSelector(thiss, vd.id)
           })
         }
       }).flatten
 
       val returnType = transformer.transform(fd.returnType)
 
-      val notFullyOverriden: Boolean = {
+      val notFullyOverriden: Boolean = !(newSymbols.getClass(cid).flags contains IsSealed) || {
         def rec(o: Override): Boolean = o match {
           case FunOverride(_, Some(_), _) => true
           case FunOverride(_, _, children) => children.forall(rec)
@@ -226,11 +177,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         (conds, elze)
       }
 
-      val precondition = (exprOps.preconditionOf(fd.fullBody) match {
-        case Some(p) => Some(t.And(transformer.transform(p), pre))
-        case None => Some(pre)
-      }).filterNot(_ == t.BooleanLiteral(true))
-
+      val precondition = exprOps.preconditionOf(fd.fullBody).map(transformer.transform)
       val body = conds.foldRight(elze) { case ((cond, res), elze) => t.IfExpr(cond, res, elze) }
       val postcondition = exprOps.postconditionOf(fd.fullBody).map(transformer.transform)
       val fullBody = t.exprOps.withPostcondition(
@@ -240,51 +187,25 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       new t.FunDef(
         fd.id,
-        (adtTparams ++ fd.tparams) map transformer.transform,
+        (tpSeq.map(s.TypeParameterDef(_)) ++ fd.tparams) map transformer.transform,
         arg +: (fd.params map transformer.transform),
         returnType,
         fullBody,
-        (fd.flags - IsMethod - IsInvariant - IsAbstract) map transformer.transform
+        (fd.flags - IsMethodOf(cid) - IsInvariant - IsAbstract) map transformer.transform
       )
     }
 
-    val sortClasses = newSymbols.classes.values
-      .filter(cd => cd.parent.isEmpty && children.getOrElse(cd.id, Set.empty).nonEmpty)
-
-    for (cd <- sortClasses if !(cd.flags contains IsAbstract)) {
-      throw MissformedStainlessCode(cd, "Non-abstract sort")
-    }
-
-    val sorts: Seq[t.ADTSort] = sortClasses.map(cd => new t.ADTSort(
-      cd.id,
-      cd.tparams map default.transform,
-      classToConstructors(cd.id).toSeq,
-      (cd.flags - IsAbstract) map default.transform
-    )).toSeq
-
-    val consClasses = newSymbols.classes.values
-      .filter(cd => children.getOrElse(cd.id, Set.empty).isEmpty)
-
-    for (cd <- consClasses if cd.flags contains IsAbstract) {
-      throw MissformedStainlessCode(cd, "Abstract constructor")
-    }
-
-    val cons: Seq[t.ADTConstructor] = consClasses.map(cd => new t.ADTConstructor(
-      cd.id,
-      cd.tparams map default.transform,
-      if (classToParent(cd.id) == cd.id) None else Some(classToParent(cd.id)),
-      cd.fields map default.transform,
-      cd.flags map default.transform
-    )).toSeq
-
     val functions: Seq[t.FunDef] = newSymbols.functions.values
-      .map(fd => if (fd.flags(IsMethod)) {
+      .map(fd => if (fd.flags exists { case IsMethodOf(_) => true case _ => false }) {
         val o = functionToOverrides(fd.id)
         makeFunction(o.cid, fd.id, o.children)
       } else {
         default.transform(fd)
       }).toSeq
 
-    t.NoSymbols.withFunctions(functions).withADTs(sorts ++ cons)
+    val classes: Seq[t.ClassDef] = newSymbols.classes.values
+      .map(cd => default.transform(cd)).toSeq
+
+    t.NoSymbols.withFunctions(functions).withClasses(classes)
   }
 }

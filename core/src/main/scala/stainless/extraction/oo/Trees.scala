@@ -9,7 +9,7 @@ import scala.collection.mutable.{Map => MutableMap}
 trait Trees extends holes.Trees with Definitions { self =>
 
   /* ========================================
-   *         EXPRESSIONS AND TYPES
+   *              EXPRESSIONS
    * ======================================== */
 
   /** $encodingof `receiver.id[tps](args)` */
@@ -50,6 +50,11 @@ trait Trees extends holes.Trees with Definitions { self =>
     def getType(implicit s: Symbols): Type = ct
   }
 
+
+  /* ========================================
+   *                 TYPES
+   * ======================================== */
+
   /** Type associated to instances of [[ClassConstructor]] */
   case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
@@ -57,7 +62,8 @@ trait Trees extends holes.Trees with Definitions { self =>
 
     def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
-        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }.orElse(tcd.parent.flatMap(rec))
+        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }.headOption
+          .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
       lookupClass.flatMap(rec)
     }
   }
@@ -87,6 +93,9 @@ trait Trees extends holes.Trees with Definitions { self =>
 
     override def hashCode: Int = tps.toSet.hashCode()
   }
+
+  /** $encodingof `_ :> lo <: hi` */
+  case class TypeBounds(lo: Type, hi: Type) extends Type
 
 
   /* ========================================
@@ -133,14 +142,16 @@ trait Trees extends holes.Trees with Definitions { self =>
       p"${nary(cd.tparams, ", ", "[", "]")}"
       if (cd.fields.nonEmpty) p"(${cd.fields})"
 
-      cd.parent.foreach { id =>
-        p" extends $id${nary(cd.tparams, ", ", "[", "]")}"
+      if (cd.parents.nonEmpty) {
+        p" extends ${nary(cd.parents, " with ")}"
       }
 
-      if (cd.methods.nonEmpty) {
-        p""" {
-            |  ${functions(cd.methods)}
-            |}"""
+      ctx.opts.symbols.foreach { implicit s =>
+        if (cd.methods.nonEmpty) {
+          p""" {
+              |  ${functions(cd.methods)}
+              |}"""
+        }
       }
 
     case ClassConstructor(ct, args) =>
@@ -192,15 +203,35 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
 
   override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[s.Flag], (Seq[t.Type], Seq[t.Flag]) => t.Type) = tpe match {
     case s.ClassType(id, tps) => (tps, Seq(), (tps, _) => t.ClassType(id, tps))
+    case s.AnyType => (Seq(), Seq(), (_, _) => t.AnyType)
+    case s.NothingType => (Seq(), Seq(), (_, _) => t.NothingType)
+    case s.UnionType(tps) => (tps, Seq(), (tps, _) => t.UnionType(tps))
+    case s.IntersectionType(tps) => (tps, Seq(), (tps, _) => t.IntersectionType(tps))
+    case s.TypeBounds(lo, hi) => (Seq(lo, hi), Seq(), (tps, _) => t.TypeBounds(tps(0), tps(1)))
     case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
     case s.IsInvariant => (Seq(), Seq(), (_, _) => t.IsInvariant)
     case s.IsAbstract => (Seq(), Seq() ,(_, _) => t.IsAbstract)
-    case s.IsMethod => (Seq(), Seq(), (_, _) => t.IsMethod)
+    case s.IsSealed => (Seq(), Seq(), (_, _) => t.IsSealed)
+    case s.IsMethodOf(id) => (Seq(), Seq(), (_, _) => t.IsMethodOf(id))
+    case s.Bounds(lo, hi) => (Seq(), Seq(lo, hi), (_, tps) => t.Bounds(tps(0), tps(1)))
     case _ => super.deconstruct(f)
   }
+}
+
+trait TreeTransformer extends ast.TreeTransformer {
+  val s: Trees
+  val t: Trees
+
+  def transform(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
+    cd.id,
+    cd.tparams.map(tdef => transform(tdef)),
+    cd.parents.map(ct => transform(ct).asInstanceOf[t.ClassType]),
+    cd.fields.map(vd => transform(vd)),
+    cd.flags.map(f => transform(f))
+  )
 }
 
 trait SimpleSymbolTransformer extends inox.ast.SimpleSymbolTransformer {
@@ -226,9 +257,8 @@ object SymbolTransformer {
     protected def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,
       cd.tparams.map(tdef => trans.transform(tdef)),
-      cd.parent,
+      cd.parents.map(ct => trans.transform(ct).asInstanceOf[t.ClassType]),
       cd.fields.map(vd => trans.transform(vd)),
-      cd.methods,
       cd.flags.map(f => trans.transform(f))
     )
   }

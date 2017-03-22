@@ -38,9 +38,8 @@ package object xlang {
     def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,
       cd.tparams.map(tdef => transformer.transform(tdef)),
-      cd.parent,
+      cd.parents.map(ct => transformer.transform(ct).asInstanceOf[t.ClassType]),
       cd.fields.map(vd => transformer.transform(vd)),
-      cd.methods,
       (cd.flags - s.Ignore).map(f => transformer.transform(f))
     )
   }
