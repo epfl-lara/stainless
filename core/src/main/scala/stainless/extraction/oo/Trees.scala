@@ -50,6 +50,22 @@ trait Trees extends holes.Trees with Definitions { self =>
     def getType(implicit s: Symbols): Type = ct
   }
 
+  /** $encodingof `super` */
+  case class Super(ct: ClassType) extends Expr {
+    def getType(implicit s: Symbols): Type = ct
+  }
+
+
+  /* ========================================
+   *              EXPRESSIONS
+   * ======================================== */
+
+  /* Pattern encoding `case binder @ ct(subPatterns...) =>`
+   *
+   * If [[binder]] is empty, consider a wildcard `_` in its place.
+   */
+  case class ClassPattern(binder: Option[ValDef], tpe: ClassType, subPatterns: Seq[Pattern]) extends Pattern
+
 
   /* ========================================
    *                 TYPES
@@ -75,7 +91,7 @@ trait Trees extends holes.Trees with Definitions { self =>
   case object NothingType extends Type
 
   /** $encodingof `tp1 | ... | tpN` */
-  case class UnionType(tps: Seq[Type]) extends Type {
+  private[oo] case class UnionType(tps: Seq[Type]) extends Type {
     override def equals(that: Any): Boolean = that match {
       case ut: UnionType => tps.toSet == ut.tps.toSet
       case _ => false
@@ -85,7 +101,7 @@ trait Trees extends holes.Trees with Definitions { self =>
   }
 
   /** $encodingof `tp1 & ... & tpN` */
-  case class IntersectionType(tps: Seq[Type]) extends Type {
+  private[oo] case class IntersectionType(tps: Seq[Type]) extends Type {
     override def equals(that: Any): Boolean = that match {
       case it: IntersectionType => tps.toSet == it.tps.toSet
       case _ => false

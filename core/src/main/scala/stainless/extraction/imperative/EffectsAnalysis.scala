@@ -59,7 +59,7 @@ trait EffectsAnalysis {
   private lazy val inners = outers.flatMap(fd => exprOps.collect[Inner] {
     case LetRec(fds, _) => fds.map(Inner(_)).toSet
     case _ => Set.empty
-  } (fd.body))
+  } (fd.fullBody))
 
   private lazy val locals: Map[Variable, FunAbstraction] = inners.map(inner => inner.fd.name.toVariable -> inner).toMap
 
@@ -67,7 +67,7 @@ trait EffectsAnalysis {
   private lazy val effects: Map[FunAbstraction, Set[Variable]] = {
     inox.utils.fixpoint { (effects: Map[FunAbstraction, Set[Variable]]) =>
       effects.keys.map(fd => fd -> {
-        exprOps.withoutSpec(fd.body).map(body => expressionEffects(body, effects)).getOrElse(Set.empty)
+        exprOps.withoutSpec(fd.fullBody).map(body => expressionEffects(body, effects)).getOrElse(Set.empty)
       }).toMap
     } ((outers ++ inners).map(fd => fd -> Set.empty[Variable]).toMap)
   }
@@ -106,7 +106,7 @@ trait EffectsAnalysis {
     val secondLevelMutated: Set[Variable] = {
       val calls = exprOps.collect[(FunAbstraction, Seq[Expr])] {
         case fi @ FunctionInvocation(_, _, args) => Set(Outer(fi.tfd.fd) -> args)
-        case ApplyLetRec(v, _, args) => Set(locals(v) -> args)
+        case ApplyLetRec(v, _, _, args) => Set(locals(v) -> args)
         case _ => Set.empty
       } (expr)
 

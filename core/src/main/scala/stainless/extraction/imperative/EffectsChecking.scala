@@ -18,7 +18,7 @@ trait EffectsChecking { self =>
       checkEffectsLocations(fd)
 
       val bindings = vds ++ fd.params
-      exprOps.withoutSpec(fd.body).foreach { bd =>
+      exprOps.withoutSpec(fd.fullBody).foreach { bd =>
 
         // check return value
         effects.getReturnedExpressions(bd).foreach { expr =>
@@ -89,19 +89,19 @@ trait EffectsChecking { self =>
 
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = {
-      exprOps.postconditionOf(fd.body).foreach { case post @ Lambda(vds, body) =>
+      exprOps.postconditionOf(fd.fullBody).foreach { case post @ Lambda(vds, body) =>
         val bodyEffects = effects(body)
         if (bodyEffects.nonEmpty)
           throw ImperativeEliminationException(post.getPos, "Postcondition has effects on: " + bodyEffects.head)
       }
 
-      exprOps.preconditionOf(fd.body).foreach { pre =>
+      exprOps.preconditionOf(fd.fullBody).foreach { pre =>
         val preEffects = effects(pre)
         if (preEffects.nonEmpty)
           throw ImperativeEliminationException(pre.getPos, "Precondition has effects on: " + preEffects.head)
       }
 
-      exprOps.withoutSpec(fd.body).foreach { body =>
+      exprOps.withoutSpec(fd.fullBody).foreach { body =>
         exprOps.preTraversal {
           case Assert(pred, _, _) =>
             val predEffects = effects(pred)

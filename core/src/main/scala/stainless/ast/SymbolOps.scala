@@ -51,7 +51,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           bind(ob, in)
 
         case InstanceOfPattern(ob, adt) =>
-          val tadt = adt.getADT
+          val tadt = adt.asInstanceOf[ADTType].getADT
           if (tadt.root == tadt) {
             bind(ob, in)
           } else {
@@ -112,7 +112,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           case (e, p) => mapForPattern(e, p)
         }.toMap
 
-      case InstanceOfPattern(b, adt) =>
+      case InstanceOfPattern(b, adt: ADTType) =>
         bindIn(b, Some(adt))
 
       case other =>

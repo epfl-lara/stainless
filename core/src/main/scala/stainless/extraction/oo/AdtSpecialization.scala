@@ -79,7 +79,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         case s.IsInstanceOf(e, s.ClassType(id, tps)) if candidates(id) =>
           val te = transform(e)
           val ttps = tps map transform
-          t.andJoin(classToConstructors(id).toSeq.map {
+          t.orJoin(classToConstructors(id).toSeq.map {
             id => t.IsInstanceOf(te, t.ADTType(id, ttps))
           })
 
@@ -89,9 +89,38 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         }
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
-          t.ADT(t.ADTType(approximate(id), tps map transform), args map transform)
+          t.ADT(t.ADTType(id, tps map transform), args map transform)
+
+        case s.MatchExpr(scrut, cases) =>
+          super.transform(s.MatchExpr(scrut, for (cse <- cases) yield {
+            var binders: Seq[ValDef] = Seq.empty
+            val newPattern = s.patternOps.postMap {
+              case s.InstanceOfPattern(b, tpe @ s.ClassType(id, _)) if candidates(id) && approximate(id) != id =>
+                val ob = b.getOrElse(s.ValDef(FreshIdentifier("x", true), tpe))
+                binders :+= ob
+                Some(s.WildcardPattern(b))
+              case _ => None
+            } (cse.pattern)
+
+            val bindGuards = binders.map(vd => s.IsInstanceOf(vd.toVariable, vd.tpe))
+            val newGuard = s.andJoin(cse.optGuard.toSeq ++ bindGuards) match {
+              case s.BooleanLiteral(true) => None
+              case cond => Some(cond)
+            }
+
+            val subst = binders.map(vd => vd.toVariable -> s.AsInstanceOf(vd.toVariable, vd.tpe)).toMap
+            val newRhs = s.exprOps.replaceFromSymbols(subst, cse.rhs)
+
+            s.MatchCase(newPattern, newGuard, newRhs)
+          }))
 
         case _ => super.transform(e)
+      }
+
+      override def transform(pat: s.Pattern): t.Pattern = pat match {
+        case s.ClassPattern(binder, s.ClassType(id, tps), subs) if candidates(id) =>
+          t.ADTPattern(binder map transform, t.ADTType(id, tps map transform), subs map transform).copiedFrom(pat)
+        case _ => super.transform(pat)
       }
 
       override def transform(tpe: s.Type): t.Type = tpe match {
@@ -106,22 +135,22 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         case (ovd, vd) => ovd.tpe match {
           case s.ClassType(id, tps) if candidates(id) && approximate(id) != id =>
             val ttps = tps map transformer.transform
-            classToConstructors(id).toSeq.map(id => t.IsInstanceOf(vd.toVariable, t.ADTType(id, ttps)))
-          case _ => Seq.empty
+            Some(t.orJoin(classToConstructors(id).toSeq.map {
+              id => t.IsInstanceOf(vd.toVariable, t.ADTType(id, ttps))
+            }))
+          case _ => None
         }
       }
 
-      val fullPre = (tpePres ++ fd.precondition(symbols).map(transformer.transform)) match {
-        case Seq() => None
-        case multiple => Some(t.andJoin(multiple))
-      }
+      val pre = t.andJoin(tpePres ++ fd.precondition(symbols).map(transformer.transform))
+      val optPre = if (pre == t.BooleanLiteral(true)) None else Some(pre)
 
       new t.FunDef(
         fd.id,
         fd.tparams.map(transformer.transform),
         fd.params.map(transformer.transform),
         transformer.transform(fd.returnType),
-        t.exprOps.withPrecondition(transformer.transform(fd.fullBody), fullPre),
+        t.exprOps.withPrecondition(transformer.transform(fd.fullBody), optPre),
         fd.flags.map(transformer.transform)
       ).setPos(fd.getPos)
     }.toSeq

@@ -48,10 +48,8 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
           Some(Let(freeMap(id), v, r).copiedFrom(let))
 
-        case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to), _), tparams, args) if v == name =>
-          val ntps = app.tps.getOrElse {
-            throw MissformedStainlessCode(app, "Couldn't find type parameter instantiation")
-          } ++ tpFresh.map(_.tp)
+        case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to), _), tparams, tps, args) if v == name =>
+          val ntps = tps ++ tpFresh.map(_.tp)
           val nargs = args ++ freshParams.drop(args.length).map(_.toVariable)
           Some(FunctionInvocation(id, ntps, nargs).copiedFrom(app))
 
@@ -136,7 +134,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         lazy val FunSubst(_, callerMap, callerTMap) = subst
 
         override def transform(e: s.Expr): t.Expr = e match {
-          case app @ ApplyLetRec(fun, tparams, args) if closed contains fun.id =>
+          case app @ ApplyLetRec(fun, tparams, tps, args) if closed contains fun.id =>
             val FunSubst(newCallee, calleeMap, calleeTMap) = closed(fun.id)
 
             // This needs some explanation.
@@ -153,10 +151,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
             val mapReverse = calleeMap map { _.swap }
             val extraArgs = newCallee.params.drop(args.size).map { vd =>
               instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
-            }
-
-            val tps = app.tps.getOrElse {
-              throw MissformedStainlessCode(app, "Couldn't find type parameter instantiation")
             }
 
             t.FunctionInvocation(

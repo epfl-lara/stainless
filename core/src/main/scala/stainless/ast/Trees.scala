@@ -8,7 +8,8 @@ trait Trees
      with Definitions
      with Expressions
      with Extractors
-     with Printers {
+     with Printers
+     with TreeOps {
 
   type Symbol = ast.Symbol
   type SymbolIdentifier = ast.SymbolIdentifier

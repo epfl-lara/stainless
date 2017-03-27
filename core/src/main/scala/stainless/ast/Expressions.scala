@@ -136,7 +136,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     *
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
-  case class InstanceOfPattern(binder: Option[ValDef], tpe: ADTType) extends Pattern {
+  case class InstanceOfPattern(binder: Option[ValDef], tpe: Type) extends Pattern {
     val subPatterns = Seq()
   }
 

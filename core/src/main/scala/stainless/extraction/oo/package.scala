@@ -13,8 +13,20 @@ package object oo {
     ) extends ClassSymbols
   }
 
-  object extractor extends MethodLifting {
+  object methods extends MethodLifting {
+    val s: trees.type = trees
+    val t: trees.type = trees
+  }
+
+  object adts extends AdtSpecialization {
+    val s: trees.type = trees
+    val t: trees.type = trees
+  }
+
+  object encoding extends TypeEncoding {
     val s: trees.type = trees
     val t: holes.trees.type = holes.trees
   }
+
+  val extractor = methods andThen adts andThen encoding
 }

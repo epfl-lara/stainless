@@ -74,69 +74,6 @@ trait Trees extends innerfuns.Trees { self =>
   }
 
 
-  /** Abstraction over [[FunDef]] and [[LocalFunDef]] to provide a unified interface to both
-    * of them as these are generally not distinguished during imperative code elimination. */
-  sealed abstract class FunAbstraction(
-    val id: Identifier,
-    val tparams: Seq[TypeParameterDef],
-    val params: Seq[ValDef],
-    val returnType: Type,
-    val body: Expr,
-    val flags: Set[Flag]
-  ) extends inox.utils.Positioned {
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      body: Expr = body,
-      flags: Set[Flag] = flags
-    ): FunAbstraction
-
-    def toFun: FunDef = asInstanceOf[Outer].fd
-    def toLocal: LocalFunDef = asInstanceOf[Inner].fd
-  }
-
-  case class Outer(fd: FunDef)(implicit s: Symbols) extends FunAbstraction(
-    fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags) {
-    setPos(fd)
-
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      body: Expr = body,
-      flags: Set[Flag] = flags
-    ): Outer = Outer(fd.copy(
-      id = id,
-      tparams = tparams,
-      params = params,
-      returnType = returnType,
-      fullBody = body,
-      flags = flags
-    ))
-  }
-
-  case class Inner(fd: LocalFunDef)(implicit s: Symbols) extends FunAbstraction(
-    fd.name.id, fd.tparams, fd.body.args, fd.name.getType.asInstanceOf[FunctionType].to, fd.body.body, Set.empty) {
-    setPos(fd.name)
-
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      body: Expr = body,
-      flags: Set[Flag] = flags
-    ): Inner = Inner(fd.copy(
-      name = fd.name.copy(id = id, tpe = FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType)),
-      tparams = tparams,
-      body = Lambda(params, body).copiedFrom(body)
-    ))
-  }
-
-
   object VarDef {
     def apply(id: Identifier, tpe: Type, flags: Set[Flag]): ValDef = ValDef(id, tpe, flags + IsVar)
     def unapply(d: Definition): Option[(Identifier, Type, Set[Flag])] = d match {

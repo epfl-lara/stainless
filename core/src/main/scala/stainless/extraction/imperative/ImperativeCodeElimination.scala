@@ -127,7 +127,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           )
 
           val newBody = Some(IfExpr(cond,
-            Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
+            Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
             UnitLiteral().copiedFrom(wh)).copiedFrom(wh))
           val newPost = Some(Lambda(
             Seq(ValDef(FreshIdentifier("bodyRes"), UnitType, Set.empty).copiedFrom(wh)),
@@ -135,7 +135,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           ).copiedFrom(wh))
 
           val fullBody = Lambda(Seq.empty, reconstructSpecs(optInv, newBody, newPost, UnitType)).copiedFrom(wh)
-          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq()).setPos(wh)).setPos(wh)
+          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).setPos(wh)).setPos(wh)
           toFunction(newExpr)
 
         case Block(Seq(), expr) =>
@@ -175,7 +175,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           )
 
         //a function invocation can update variables in scope.
-        case alr @ ApplyLetRec(fun, tparams, args) if localsMapping contains fun =>
+        case alr @ ApplyLetRec(fun, tparams, tps, args) if localsMapping contains fun =>
           val (recArgs, argScope, argFun) = args.foldRight((Seq[Expr](), (body: Expr) => body, Map[Variable, Variable]())) { (arg, acc) =>
             val (accArgs, accScope, accFun) = acc
             val (argVal, argScope, argFun) = toFunction(arg)
@@ -187,7 +187,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val newReturnType = TupleType(fun.tpe.asInstanceOf[FunctionType].to +: modifiedVars.map(_.tpe))
           val newInvoc = ApplyLetRec(
             fun.copy(tpe = FunctionType(recArgs.map(_.getType) ++ modifiedVars.map(_.tpe), newReturnType)),
-            tparams, recArgs ++ modifiedVars
+            tparams, tps, recArgs ++ modifiedVars
           ).setPos(alr)
 
           val freshVars = modifiedVars.map(_.freshen)
@@ -208,14 +208,14 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         case LetRec(Seq(fd), b) =>
           val inner = Inner(fd)
-          val (pre, body, post) = breakDownSpecs(inner.body)
+          val (pre, body, post) = breakDownSpecs(inner.fullBody)
 
           def fdWithoutSideEffects = {
             val newBody = body.map { bd =>
               val (fdRes, fdScope, _) = toFunction(bd)
               fdScope(fdRes)
             }
-            val newFd = inner.copy(body = reconstructSpecs(pre, newBody, post, inner.returnType))
+            val newFd = inner.copy(fullBody = reconstructSpecs(pre, newBody, post, inner.returnType))
             val (bodyRes, bodyScope, bodyFun) = toFunction(b)
             (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).setPos(fd).copiedFrom(expr), bodyFun)
           }
@@ -227,11 +227,11 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
               //returning it simplifies the code (more consistent) and should
               //not have a big impact on performance
               val modifiedVars: Seq[Variable] = {
-                val freeVars = variablesOf(inner.body)
+                val freeVars = variablesOf(inner.fullBody)
                 val transitiveVars = collect[Variable] {
-                  case ApplyLetRec(fun, _, _) => state.localsMapping.get(fun).map(p => p._2.toSet).getOrElse(Set())
+                  case ApplyLetRec(fun, _, _, _) => state.localsMapping.get(fun).map(p => p._2.toSet).getOrElse(Set())
                   case _ => Set()
-                } (inner.body)
+                } (inner.fullBody)
                 (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq
               }
 
@@ -295,7 +295,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
                 val newFd = inner.copy(
                   params = newParams,
-                  body = reconstructSpecs(newPre, Some(newBody), newPost, newReturnType),
+                  fullBody = reconstructSpecs(newPre, Some(newBody), newPost, newReturnType),
                   returnType = newReturnType
                 )
 
