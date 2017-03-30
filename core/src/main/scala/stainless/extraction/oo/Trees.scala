@@ -217,6 +217,15 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case _ => super.deconstruct(e)
   }
 
+  override def deconstruct(pattern: s.Pattern): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], Seq[s.Pattern], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type], Seq[t.Pattern]) => t.Pattern) = pattern match {
+    case s.ClassPattern(binder, ct, subs) =>
+      (binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, (vs, _, tps, subs) => {
+        t.ClassPattern(vs.headOption.map(_.toVal), tps.head.asInstanceOf[t.ClassType], subs)
+      })
+
+    case _ => super.deconstruct(pattern)
+  }
+
   override def deconstruct(tpe: s.Type): (Seq[s.Type], Seq[s.Flag], (Seq[t.Type], Seq[t.Flag]) => t.Type) = tpe match {
     case s.ClassType(id, tps) => (tps, Seq(), (tps, _) => t.ClassType(id, tps))
     case s.AnyType => (Seq(), Seq(), (_, _) => t.AnyType)

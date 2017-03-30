@@ -256,12 +256,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       sym -> xt.TypeParameter.fresh(sym.showName)
     }
 
-    val parent = sym.info.parents.headOption match {
-      case Some(tpe) if tpe.typeSymbol == defn.ObjectClass => None
-      case Some(tp @ TypeRef(_, _)) => Some(symbols.getIdentifier(tp.symbol))
-      case _ => None
-    }
-
     // TODO: checks!!
     /*
       if seenClasses contains parentSym =>
@@ -303,6 +297,12 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
 
     val tparams = tparamsMap.map(t => xt.TypeParameterDef(t._2))
     val tpCtx = DefContext((tparamsMap.map(_._1) zip tparams.map(_.tp)).toMap)
+
+    val parents = template.parents.flatMap(p => p.tpe match {
+      case tpe if tpe.typeSymbol == defn.ObjectClass => None
+      case tp @ TypeRef(_, _) => Some(extractType(tp)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
+      case _ => None
+    })
 
     val flags = annotationsOf(sym) ++ (if (sym is Abstract) Some(xt.IsAbstract) else None)
 
@@ -424,14 +424,13 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       )
     }
 
-    val allMethods = methods ++ optInv
+    val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags + xt.IsMethodOf(id)))
 
     (new xt.ClassDef(
       id,
       tparams,
-      parent,
+      parents,
       fields,
-      allMethods.map(_.id.asInstanceOf[SymbolIdentifier]),
       flags
     ).setPos(sym.pos), allMethods)
   }
@@ -558,7 +557,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       // case Obj =>
       extractType(s) match {
         case ct: xt.ClassType =>
-          (xt.ADTPattern(binder, ct, Seq()).setPos(p.pos), dctx)
+          (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
           outOfSubsetError(s, "Invalid type "+s.tpe+" for .isInstanceOf")
       }
@@ -568,7 +567,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         case ct: xt.ClassType =>
           val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
           val nctx = subDctx.foldLeft(dctx)(_ union _)
-          (xt.ADTPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
+          (xt.ClassPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
 
         case xt.TupleType(argsTpes) =>
           val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
@@ -597,7 +596,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       if (sym.owner.exists && sym.owner.is(Synthetic) &&
           sym.owner.companionClass.exists && sym.owner.companionClass.is(Case)) {
         val ct = extractType(tp).asInstanceOf[xt.ClassType]
-        (xt.ADTPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
+        (xt.ClassPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
       } else {
         val id = symbols.getIdentifier(sym)
         val tparams = tps.map(extractType)
@@ -1094,7 +1093,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
           case None =>
             xt.FunctionInvocation(symbols.getIdentifier(sym), tps.map(extractType), args.map(extractTree))
           case Some(localFun) =>
-            xt.ApplyLetRec(localFun.name.toVariable, localFun.tparams.map(_.tp), args map extractTree)
+            xt.ApplyLetRec(localFun.name.toVariable, localFun.tparams.map(_.tp), tps.map(extractType), args map extractTree)
         }
 
       case Some(lhs) => extractType(lhs) match {

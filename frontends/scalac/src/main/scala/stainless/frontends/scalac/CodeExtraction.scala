@@ -315,12 +315,6 @@ trait CodeExtraction extends ASTExtractors {
       val sym = cd.symbol
       val id = getIdentifier(sym)
 
-      val parent = sym.tpe.parents.headOption match {
-        case Some(tpe) if ignoreClasses(tpe) => None
-        case Some(TypeRef(_, parentSym, tps)) => Some(getIdentifier(parentSym))
-        case _ => None
-      }
-
       val tparams = getTypeParams(sym)
 
       val tparamsSyms = sym.tpe match {
@@ -329,6 +323,12 @@ trait CodeExtraction extends ASTExtractors {
       }
 
       val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
+
+      val parents = cd.impl.parents.flatMap(p => p.tpe match {
+        case tpe if ignoreClasses(tpe) => None
+        case tp @ TypeRef(_, _, _) => Some(extractType(tp)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
+        case _ => None
+      })
 
       val flags = annotationsOf(sym) ++ (if (sym.isAbstractClass) Some(xt.IsAbstract) else None)
 
@@ -404,14 +404,13 @@ trait CodeExtraction extends ASTExtractors {
         )
       )
 
-      val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags + xt.IsMethod))
+      val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags + xt.IsMethodOf(id)))
 
       val xcd = new xt.ClassDef(
         id,
         tparams.map(tp => xt.TypeParameterDef(tp)),
-        parent,
+        parents,
         fields,
-        allMethods.map(_.id.asInstanceOf[SymbolIdentifier]),
         flags
       ).setPos(sym.pos)
 
@@ -562,7 +561,7 @@ trait CodeExtraction extends ASTExtractors {
         // case Obj =>
         extractType(s) match {
           case ct: xt.ClassType =>
-            (xt.ADTPattern(binder, ct, Seq()).setPos(p.pos), dctx)
+            (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
           case _ =>
             outOfSubsetError(s, "Invalid type "+s.tpe+" for .isInstanceOf")
         }
@@ -572,7 +571,7 @@ trait CodeExtraction extends ASTExtractors {
           case ct: xt.ClassType =>
             val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
             val nctx = subDctx.foldLeft(dctx)(_ union _)
-            (xt.ADTPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
+            (xt.ClassPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
 
           case xt.TupleType(argsTpes) =>
             val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
@@ -879,7 +878,9 @@ trait CodeExtraction extends ASTExtractors {
         dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
           case Some(builder) => builder().setPos(ex.pos)
           case None => dctx.localFuns.get(sym) match {
-            case Some((vd, tparams)) => xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), Seq.empty)
+            case Some((vd, tparams)) =>
+              assert(tparams.isEmpty, "Unexpected application " + ex + " without type parameters")
+              xt.ApplyLetRec(vd.toVariable, Seq.empty, Seq.empty, Seq.empty)
             case None => xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty)
           }
         }
@@ -1031,7 +1032,7 @@ trait CodeExtraction extends ASTExtractors {
             case None =>
               xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), extractArgs(sym, args))
             case Some((vd, tparams)) =>
-              xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), extractArgs(sym, args))
+              xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), tps.map(extractType), extractArgs(sym, args))
           }
 
         case Some(lhs) => extractType(lhs) match {

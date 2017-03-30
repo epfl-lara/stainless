@@ -48,48 +48,50 @@ trait Trees extends inlining.Trees { self =>
       returnType: Type = returnType,
       fullBody: Expr = fullBody,
       flags: Set[Flag] = flags
-    ): FunAbstraction
+    ): FunAbstraction = to(self)(id, tparams, params, returnType, fullBody, flags)
+
+    def to(t: Trees)(
+      id: Identifier,
+      tparams: Seq[t.TypeParameterDef],
+      params: Seq[t.ValDef],
+      returnType: t.Type,
+      fullBody: t.Expr,
+      flags: Set[t.Flag]
+    ): t.FunAbstraction
 
     def toFun: FunDef = asInstanceOf[Outer].fd
     def toLocal: LocalFunDef = asInstanceOf[Inner].fd
   }
 
-  case class Outer(fd: FunDef)(implicit s: Symbols) extends FunAbstraction(
+  case class Outer(fd: FunDef) extends FunAbstraction(
     fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags) {
     setPos(fd)
 
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      fullBody: Expr = fullBody,
-      flags: Set[Flag] = flags
-    ): Outer = Outer(fd.copy(
-      id = id,
-      tparams = tparams,
-      params = params,
-      returnType = returnType,
-      fullBody = fullBody,
-      flags = flags
-    ))
+    def to(t: Trees)(
+      id: Identifier,
+      tparams: Seq[t.TypeParameterDef],
+      params: Seq[t.ValDef],
+      returnType: t.Type,
+      fullBody: t.Expr,
+      flags: Set[t.Flag]
+    ): t.Outer = t.Outer(new t.FunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(fd))
   }
 
-  case class Inner(fd: LocalFunDef)(implicit s: Symbols) extends FunAbstraction(
-    fd.name.id, fd.tparams, fd.body.args, fd.name.getType.asInstanceOf[FunctionType].to, fd.body.body, Set.empty) {
+  case class Inner(fd: LocalFunDef) extends FunAbstraction(
+    fd.name.id, fd.tparams, fd.body.args, fd.name.tpe.asInstanceOf[FunctionType].to, fd.body.body, fd.name.flags) {
     setPos(fd.name)
 
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      fullBody: Expr = fullBody,
-      flags: Set[Flag] = flags
-    ): Inner = Inner(fd.copy(
-      name = fd.name.copy(id = id, tpe = FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType)),
-      tparams = tparams,
-      body = Lambda(params, fullBody).copiedFrom(fullBody)
+    def to(t: Trees)(
+      id: Identifier,
+      tparams: Seq[t.TypeParameterDef],
+      params: Seq[t.ValDef],
+      returnType: t.Type,
+      fullBody: t.Expr,
+      flags: Set[t.Flag]
+    ): t.Inner = t.Inner(new t.LocalFunDef(
+      t.ValDef(id, t.FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType), flags).copiedFrom(fd.name),
+      tparams,
+      t.Lambda(params, fullBody).copiedFrom(fullBody)
     ))
   }
 
