@@ -74,29 +74,6 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    private val symbolToTypeParams: MutableMap[Symbol, Seq[xt.TypeParameter]] = MutableMap.empty
-    private def getTypeParams(sym: Symbol): Seq[xt.TypeParameter] = {
-      val root: Symbol = {
-        def rec(sym: Symbol): Symbol = sym.tpe.parents.headOption match {
-          case Some(tpe) if ignoreClasses(tpe) => sym
-          case Some(TypeRef(_, parentSym, tps)) => rec(parentSym)
-          case _ => outOfSubsetError(sym.pos, "Unexpected parent type " + sym.tpe)
-        }
-        rec(sym)
-      }
-
-      symbolToTypeParams.get(root) match {
-        case Some(tparams) => tparams
-        case None =>
-          val tparams = root.tpe match {
-            case TypeRef(_, _, tps) => extractTypeParams(tps).map(sym => xt.TypeParameter.fresh(sym.name.toString))
-            case _ => Nil
-          }
-          symbolToTypeParams += root -> tparams
-          tparams
-      }
-    }
-
     private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Set[xt.Flag] = {
       val actualSymbol = sym.accessedOrSelf
       (for {
@@ -315,12 +292,12 @@ trait CodeExtraction extends ASTExtractors {
       val sym = cd.symbol
       val id = getIdentifier(sym)
 
-      val tparams = getTypeParams(sym)
-
       val tparamsSyms = sym.tpe match {
-        case TypeRef(_, _, tps) => extractTypeParams(tps)
+        case TypeRef(_, _, tps) => typeParamSymbols(tps)
         case _ => Nil
       }
+
+      val tparams = extractTypeParams(tparamsSyms)
 
       val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
 
@@ -460,8 +437,8 @@ trait CodeExtraction extends ASTExtractors {
     )(implicit dctx: DefContext): xt.FunDef = {
 
       // Type params of the function itself
-      val extparams = extractTypeParams(sym.typeParams.map(_.tpe))
-      val ntparams = typeParams.getOrElse(extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString)))
+      val extparams = typeParamSymbols(sym.typeParams.map(_.tpe))
+      val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
@@ -526,12 +503,17 @@ trait CodeExtraction extends ASTExtractors {
       ).setPos(sym.pos)
     }
 
-    private def extractTypeParams(tps: Seq[Type]): Seq[Symbol] = tps.flatMap {
+    private def typeParamSymbols(tps: Seq[Type]): Seq[Symbol] = tps.flatMap {
       case TypeRef(_, sym, Nil) =>
         Some(sym)
       case t =>
         outOfSubsetError(t.typeSymbol.pos, "Unhandled type for parameter: "+t)
         None
+    }
+
+    private def extractTypeParams(syms: Seq[Symbol]): Seq[xt.TypeParameter] = syms.map { sym =>
+      val variance = if (sym.isCovariant) Some(xt.Variance(true)) else if (sym.isContravariant) Some(xt.Variance(false)) else None
+      xt.TypeParameter(FreshIdentifier(sym.name.toString), variance.toSet)
     }
 
     private def extractPattern(p: Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {
@@ -635,8 +617,8 @@ trait CodeExtraction extends ASTExtractors {
       val fctx = es.collect {
         case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams)
       }.foldLeft(dctx) { case (dctx, (sym, tparams)) =>
-        val extparams = extractTypeParams(sym.typeParams.map(_.tpe))
-        val tparams = extparams.map(sym => xt.TypeParameter.fresh(sym.name.toString))
+        val extparams = typeParamSymbols(sym.typeParams.map(_.tpe))
+        val tparams = extractTypeParams(extparams)
         val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip tparams).toMap)
 
         val paramTypes = sym.info.paramss.flatten.map { sym =>
@@ -1182,7 +1164,8 @@ trait CodeExtraction extends ASTExtractors {
       case tpe if tpe == IntClass.tpe     => xt.Int32Type
       case tpe if tpe == BooleanClass.tpe => xt.BooleanType
       case tpe if tpe == UnitClass.tpe    => xt.UnitType
-      case tpe if tpe == NothingClass.tpe => xt.Untyped
+      case tpe if tpe == AnyClass.tpe     => xt.AnyType
+      case tpe if tpe == NothingClass.tpe => xt.NothingType
 
       case ct: ConstantType => extractType(ct.value.tpe)
 

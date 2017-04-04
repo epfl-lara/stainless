@@ -61,14 +61,14 @@ trait Definitions extends extraction.Trees { self: Trees =>
   case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
     lazy val id: Identifier = cd.id
 
-    private lazy val tpMap: Map[TypeParameter, Type] = (cd.typeArgs zip tps).toMap
+    lazy val typeMap: Map[TypeParameter, Type] = (cd.typeArgs zip tps).toMap
 
     lazy val parents: Seq[TypedClassDef] = cd.parents.flatMap {
-      tpe => symbols.instantiateType(tpe, tpMap).asInstanceOf[ClassType].lookupClass
+      tpe => symbols.instantiateType(tpe, typeMap).asInstanceOf[ClassType].lookupClass
     }
 
     lazy val ancestors: Seq[TypedClassDef] = cd.ancestors.map {
-      tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, tpMap)))
+      tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, typeMap)))
     }
 
     lazy val children: Seq[TypedClassDef] = cd.children.flatMap { cd =>

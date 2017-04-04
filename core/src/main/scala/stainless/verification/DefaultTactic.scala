@@ -83,7 +83,7 @@ trait DefaultTactic extends Tactic {
       case (app @ Application(caller, args), path) =>
         (app, path implies Application(Pre(caller), args))
 
-      case (c @ Choose(res, pred), path) =>
+      case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
         (c, path implies Not(Forall(Seq(res), Not(pred))))
     }.collect(getFunction(id).fullBody)
 

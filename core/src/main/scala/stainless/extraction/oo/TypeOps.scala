@@ -21,8 +21,8 @@ trait TypeOps extends ast.TypeOps {
       }.getOrElse(False)
 
     // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if adt.lookupADT.isEmpty => False
-    case (_, adt: ADTType) if adt.lookupADT.isEmpty => False
+    case (adt: ADTType, _) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => False
+    case (_, adt: ADTType) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => False
     case (adt1: ADTType, adt2: ADTType) =>
       val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
       val (dl, du) = if (isUpper) (d1, d2) else (d2, d1)
@@ -57,30 +57,36 @@ trait TypeOps extends ast.TypeOps {
   protected def unionType(tps: Seq[Type]): Type = tps match {
     case Seq() => NothingType
     case Seq(tp) => tp
-    case _ =>
-      tps.flatMap(tp => tps.map(tp2 => tp -> tp2)).view.flatMap {
+    case tp1 +: tps =>
+      tps.map(tp => tp1 -> tp).view.flatMap {
         case (tp1, tp2) => typeBound(tp1, tp2, true) match {
           case _: UnionType => None
           case ntpe => Some((tp1, tp2, ntpe))
         }
       }.headOption match {
         case Some((tp1, tp2, ntpe)) => unionType(ntpe +: tps.filter(tp => tp != tp1 && tp != tp2))
-        case None => UnionType(tps)
+        case None => unionType(tps) match {
+          case UnionType(tps) => UnionType(tp1 +: tps)
+          case tp2 => UnionType(Seq(tp1, tp2))
+        }
       }
   }
 
   protected def intersectionType(tps: Seq[Type]): Type = tps match {
     case Seq() => AnyType
     case Seq(tp) => tp
-    case _ =>
-      tps.flatMap(tp => tps.map(tp2 => tp -> tp2)).view.flatMap {
+    case tp1 +: tps =>
+      tps.map(tp => tp1 -> tp).view.flatMap {
         case (tp1, tp2) => typeBound(tp1, tp2, false) match {
           case _: IntersectionType => None
           case ntpe => Some((tp1, tp2, ntpe))
         }
       }.headOption match {
         case Some((tp1, tp2, ntpe)) => intersectionType(ntpe +: tps.filter(tp => tp != tp1 && tp != tp2))
-        case None => IntersectionType(tps)
+        case None => intersectionType(tps) match {
+          case IntersectionType(tps) => IntersectionType(tp1 +: tps)
+          case tp2 => IntersectionType(Seq(tp1, tp2))
+        }
       }
   }
 
@@ -133,8 +139,8 @@ trait TypeOps extends ast.TypeOps {
       }
 
     // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if adt.lookupADT.isEmpty => Some(Untyped)
-    case (_, adt: ADTType) if adt.lookupADT.isEmpty => Some(Untyped)
+    case (adt: ADTType, _) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => Some(Untyped)
+    case (_, adt: ADTType) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => Some(Untyped)
     case (adt1: ADTType, adt2: ADTType) if adt1.tps == adt2.tps => // invariant!
       val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
       val (an1, an2) = (Seq(d1, d1.root), Seq(d2, d2.root))

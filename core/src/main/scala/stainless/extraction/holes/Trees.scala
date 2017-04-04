@@ -34,5 +34,4 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
     case other =>
       super.deconstruct(other)
   }
-
 }

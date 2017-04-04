@@ -41,12 +41,11 @@ trait Trees extends innerfuns.Trees { self =>
       }
 
       obj.getType match {
-        case ct: ADTType => (ct.lookupADT.get match {
-          case at: TypedADTSort =>
-            at.constructors.flatMap(fromConstr)
-          case ac: TypedADTConstructor =>
-            fromConstr(ac).toSeq
-        }).headOption.getOrElse(Untyped)
+        case ct: ADTType =>
+          ct.getField(selector)
+            .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
+            .map(_ => UnitType)
+            .getOrElse(Untyped)
 
         case _ => Untyped
       }

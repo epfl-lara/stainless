@@ -15,8 +15,12 @@ trait Trees extends holes.Trees with Definitions { self =>
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = receiver.getType match {
-      case ct: ClassType => (s.lookupFunction(id, tps), s.lookupClass(ct.id)) match {
-        case (Some(tfd), Some(cd)) => s.instantiateType(tfd.returnType, (cd.typeArgs zip ct.tps).toMap)
+      case ct: ClassType => (s.lookupFunction(id, tps), ct.lookupClass) match {
+        case (Some(tfd), Some(tcd)) =>
+          tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
+            .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
+            .map(tcd => s.instantiateType(tfd.returnType, tcd.typeMap))
+            .getOrElse(Untyped)
         case _ => Untyped
       }
       case _ => Untyped
@@ -71,16 +75,32 @@ trait Trees extends holes.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
-  /** Type associated to instances of [[ClassConstructor]] */
-  case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
+  /** Type associated to instances of [[ClassConstructor]]
+    * 
+    * Note: this class MUST extend `ADTType` in order for `FieldAssignment` to typecheck! */
+  class ClassType(id: Identifier, tps: Seq[Type]) extends ADTType(id, tps) {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
     def tcd(implicit s: Symbols): TypedClassDef = s.getClass(id, tps)
 
-    def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
+    override def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
-        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }.headOption
+        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }
           .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
       lookupClass.flatMap(rec)
+    }
+
+    override def copy(id: Identifier = id, tps: Seq[Type] = tps) = new ClassType(id, tps)
+    override def equals(that: Any): Boolean = that match {
+      case ct: ClassType => id == ct.id && tps == ct.tps
+      case _ => false
+    }
+  }
+
+  object ClassType {
+    def apply(id: Identifier, tps: Seq[Type]): ClassType = new ClassType(id, tps)
+    def unapply(tpe: Type): Option[(Identifier, Seq[Type])] = tpe match {
+      case ct: ClassType => Some((ct.id, ct.tps))
+      case _ => None
     }
   }
 
@@ -170,6 +190,29 @@ trait Trees extends holes.Trees with Definitions { self =>
         }
       }
 
+    case ClassType(id, tps) =>
+      p"${id}${nary(tps, ", ", "[", "]")}"
+
+    case AnyType =>
+      p"Any"
+
+    case NothingType =>
+      p"Nothing"
+
+    case UnionType(tps) =>
+      var first = true
+      for (tp <- tps) {
+        if (!first) p"${" | "}" // weird construction because of stripMargin
+        first = false
+        p"$tp"
+      }
+
+    case IntersectionType(tps) =>
+      p"${nary(tps, " & ")}"
+
+    case TypeBounds(lo, hi) =>
+      p"_ >: $lo <: $hi"
+
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
 
@@ -184,6 +227,11 @@ trait Trees extends holes.Trees with Definitions { self =>
       }
 
     case This(_) => p"this"
+
+    case ClassPattern(ob, ct, subs) =>
+      ob foreach (vd => p"${vd.toVariable} @ ")
+      printNameWithPath(ct.id) // no type parameters in patterns
+      p"($subs)"
 
     case (tcd: TypedClassDef) => p"typed class ${tcd.id}[${tcd.tps}]"
 

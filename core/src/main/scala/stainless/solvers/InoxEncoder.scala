@@ -18,7 +18,7 @@ trait InoxEncoder extends ProgramEncoder {
     inox.InoxProgram(sourceProgram.ctx, t.NoSymbols
       .withADTs(sourceProgram.symbols.adts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
-        .map(fd => fd.copy(flags = fd.flags.filter { case Derived(_) => false case _ => true }))
+        .map(fd => fd.copy(flags = fd.flags.filter { case Derived(_) | Unchecked => false case _ => true }))
         .map { fd =>
           if (fd.flags contains Extern) {
             val Lambda(Seq(vd), post) = fd.postOrTrue
@@ -64,8 +64,8 @@ trait InoxEncoder extends ProgramEncoder {
 
   protected val funADTs: Seq[t.ADTConstructor] = (1 to maxArgs).map { i =>
     val tparams @ (argTps :+ resTpe) = (1 to i).map {
-      j => t.TypeParameter(FreshIdentifier("A" + j), Set(t.Variance(Some(false)))) // contravariant
-    } :+ t.TypeParameter(FreshIdentifier("R"), Set(t.Variance(Some(true)))) // covariant
+      j => t.TypeParameter(FreshIdentifier("A" + j), Set(t.Variance(false))) // contravariant
+    } :+ t.TypeParameter(FreshIdentifier("R"), Set(t.Variance(true))) // covariant
 
     new t.ADTConstructor(
       funIDs(i),
@@ -95,13 +95,16 @@ trait InoxEncoder extends ProgramEncoder {
         transform(matchToIfThenElse(m))
 
       case s.NoTree(tpe) =>
-        throw new inox.FatalError("Unexpected empty tree: " + e)
+        t.Choose(
+          t.ValDef(FreshIdentifier("empty", true), transform(tpe)).copiedFrom(e),
+          t.BooleanLiteral(true).copiedFrom(e)
+        ).copiedFrom(e)
 
       case s.Error(tpe, desc) =>
         t.Choose(
           t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe), Set.empty).copiedFrom(e),
           t.BooleanLiteral(true).copiedFrom(e)
-        )
+        ).copiedFrom(e)
 
       case s.Require(pred, body) =>
         t.Assume(transform(pred), transform(body)).copiedFrom(e)
@@ -191,6 +194,10 @@ trait InoxEncoder extends ProgramEncoder {
       case s.FunctionType(from, to) if from.nonEmpty =>
         t.ADTType(funIDs(from.size), from.map(transform) :+ transform(to))
       case _ => super.transform(tpe)
+    }
+
+    override def transform(vd: s.ValDef): t.ValDef = {
+      super.transform(vd.copy(flags = vd.flags - s.Unchecked).copiedFrom(vd))
     }
   }
 
