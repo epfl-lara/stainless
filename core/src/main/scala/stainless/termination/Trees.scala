@@ -92,7 +92,10 @@ trait ExprOps extends ast.ExprOps {
 
   /** Returns the measure associated to an expression wrapped in an Option */
   def measureOf(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr)) // TODO: this case seems to overdo stuff that cannot happen (Ravi)
+    // @nv: we allow lets to wrap decreases (and other contracts) to facilitate
+    //      certain program transformations (eg. FunctionClosure) and avoid
+    //      repeating the let chains in each contract and body
+    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr))
     case Decreases(m, _)                          => Some(m)
     case Require(_, Decreases(m, _))              => Some(m)
     case Ensuring(Require(_, Decreases(m, _)), _) => Some(m)

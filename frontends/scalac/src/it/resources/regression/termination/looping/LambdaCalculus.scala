@@ -12,7 +12,7 @@ object LambdaCalculus {
   
   def fv(t: Term): Set[BigInt] = t match {
     case Var(x) => Set(x)
-    case Abs(x, body) => fv(body) ++ Set(x)
+    case Abs(x, body) => fv(body) -- Set(x)
     case App(func, arg) => fv(func) ++ fv(arg)
   }
   

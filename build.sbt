@@ -1,7 +1,14 @@
-val osName = if (Option(System.getProperty("os.name")).getOrElse("").toLowerCase contains "win") "win" else "unix"
+
+val osInf = Option(System.getProperty("os.name")).getOrElse("")
+
+val isUnix    = osInf.indexOf("nix") >= 0 || osInf.indexOf("nux") >= 0
+val isWindows = osInf.indexOf("Win") >= 0
+val isMac     = osInf.indexOf("Mac") >= 0
+
+val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2-2-gb5fdc3d"
+val inoxVersion = "1.0.2-30-g33ee731"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -139,7 +146,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
       val paths = (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
       IO.write(scriptFile, s"""|#!/bin/bash --posix
                                |
-                               |SCALACLASSPATH=$paths
+                               |SCALACLASSPATH="$paths"
                                |
                                |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
                                |""".stripMargin)
