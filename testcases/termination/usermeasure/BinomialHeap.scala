@@ -1,5 +1,8 @@
-package termination
-import leon.lang._
+package termination.usermeasure
+
+import stainless.lang._
+import stainless.math._
+import stainless.lang._
 
 object BinomialHeap {
   //sealed abstract class TreeNode
