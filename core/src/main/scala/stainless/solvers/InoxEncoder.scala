@@ -132,7 +132,7 @@ trait InoxEncoder extends ProgramEncoder {
         ))
 
       case s.LargeArray(elems, dflt, size, base) =>
-        t.ADT(t.ADTType(arrayID, Seq(transform(dflt.getType))), Seq(
+        t.ADT(t.ADTType(arrayID, Seq(transform(base))), Seq(
           t.FiniteMap(
             elems.toSeq.map(p => t.IntLiteral(p._1) -> transform(p._2)),
             transform(dflt),
