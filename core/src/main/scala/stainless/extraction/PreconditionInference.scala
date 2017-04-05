@@ -29,7 +29,7 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
         case Pre(_) => true
         case FunctionInvocation(id, _, _) => preRefs(id)
         case _ => false
-      } (fd.precOrTrue)) {
+      } (fd.fullBody)) {
         def requires(e: Expr): Expr = e.getType match {
           case FunctionType(from, to) =>
             val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))

@@ -54,7 +54,7 @@ package object extraction {
   case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
-  object preconditionInferrence extends {
+  object preconditionInference extends {
     val trees: extraction.trees.type = extraction.trees
   } with PreconditionInference
 
@@ -67,5 +67,5 @@ package object extraction {
       imperative.extractor andThen
       innerfuns.extractor  andThen
       inlining.extractor   andThen
-      preconditionInferrence
+      preconditionInference
 }

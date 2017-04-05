@@ -75,20 +75,9 @@ trait CodeExtraction extends ASTExtractors {
     }
 
     private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Set[xt.Flag] = {
-      val actualSymbol = sym.accessedOrSelf
-      (for {
-        a <- actualSymbol.annotations ++ (if (!ignoreOwner) actualSymbol.owner.annotations else Set.empty)
-        name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
-      } yield {
-        if (name startsWith "stainless.annotation.") {
-          val shortName = name drop "stainless.annotation.".length
-          Some(xt.extractFlag(shortName, a.args.map(extractTree(_)(DefContext()))))
-        } else if (name == "inline") {
-          Some(xt.extractFlag(name, a.args.map(extractTree(_)(DefContext()))))
-        } else {
-          None
-        }
-      }).flatten.toSet
+      getAnnotations(sym, ignoreOwner).map { case (name, args) =>
+        xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
+      }.toSet
     }
 
     case class DefContext(
@@ -201,7 +190,7 @@ trait CodeExtraction extends ASTExtractors {
         case EmptyTree =>
           // ignore
 
-        case t if (annotationsOf(t.symbol) contains xt.Ignore) || (t.symbol.isSynthetic) =>
+        case t if annotationsOf(t.symbol) contains xt.Ignore =>
           // ignore
 
         case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
@@ -241,6 +230,9 @@ trait CodeExtraction extends ASTExtractors {
           val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(DefContext())
           functions :+= fd.id
           allFunctions :+= fd
+
+        case t if t.symbol.isSynthetic =>
+          // ignore
 
         case other =>
           reporter.warning(other.pos, "Could not extract tree in static container: " + other)
@@ -337,7 +329,7 @@ trait CodeExtraction extends ASTExtractors {
         case EmptyTree =>
           // ignore
 
-        case t if (annotationsOf(t.symbol) contains xt.Ignore) || (t.symbol.isSynthetic) =>
+        case t if annotationsOf(t.symbol) contains xt.Ignore =>
           // ignore
 
         case ExRequiredExpression(body) =>
@@ -364,7 +356,7 @@ trait CodeExtraction extends ASTExtractors {
         case ValDef(_, _, _, _) =>
           // ignore (corresponds to constructor fields)
 
-        case d if (d.symbol.isImplicit && d.symbol.isSynthetic) =>
+        case d if d.symbol.isSynthetic =>
           // ignore
 
         case d if d.symbol.isVar =>
@@ -454,8 +446,8 @@ trait CodeExtraction extends ASTExtractors {
       val id = getIdentifier(sym)
 
       var flags = annotationsOf(sym).toSet ++
-        (if (sym.isImplicit) Some(xt.Inline) else None) ++
-        (if (sym.isAccessor) Some(xt.IsField(sym.isLazy)) else None)
+        (if (sym.isImplicit) Set(xt.Inline, xt.Implicit) else Set()) ++
+        (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
 
       val body =
         if (!(flags contains xt.IsField(true))) rhs
@@ -940,7 +932,7 @@ trait CodeExtraction extends ASTExtractors {
             (xt.TupleSelect(ex, 1), xt.TupleSelect(ex, 2))
         }, extractType(tpt))
 
-      case ExCaseClassConstruction(tpt, args) =>
+      case ExClassConstruction(tpt, args) =>
         extractType(tpt) match {
           case ct: xt.ClassType => xt.ClassConstructor(ct, args.map(extractTree))
           case _ => outOfSubsetError(tr, "Construction of a non-class type.")

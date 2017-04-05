@@ -20,6 +20,23 @@ trait ASTExtractors {
     rootMirror.getClassByName(newTermName(str))
   }
 
+  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Map[String, Seq[Tree]] = {
+    val actualSymbol = sym.accessedOrSelf
+    (for {
+      a <- actualSymbol.annotations ++ (if (!ignoreOwner) actualSymbol.owner.annotations else Set.empty)
+      name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
+    } yield {
+      if (name startsWith "stainless.annotation.") {
+        val shortName = name drop "stainless.annotation.".length
+        Some(shortName, a.args)
+      } else if (name == "inline") {
+        Some(name, a.args)
+      } else {
+        None
+      }
+    }).flatten.toMap
+  }
+
   protected lazy val tuple2Sym   = classFromName("scala.Tuple2")
   protected lazy val tuple3Sym   = classFromName("scala.Tuple3")
   protected lazy val tuple4Sym   = classFromName("scala.Tuple4")
@@ -536,14 +553,18 @@ trait ASTExtractors {
     }
 
     object ExFunctionDef {
-      /** Matches a function with a single list of arguments,
-        * and regardless of its visibility.
-        */
+      /** Matches a function with a single list of arguments, and regardless of its visibility. */
       def unapply(dd: DefDef): Option[(Symbol, Seq[Symbol], Seq[ValDef], Type, Tree)] = dd match {
         case DefDef(_, name, tparams, vparamss, tpt, rhs) if name != nme.CONSTRUCTOR && !dd.symbol.isAccessor =>
-          if (dd.symbol.isSynthetic && dd.symbol.isImplicit && dd.symbol.isMethod) {
-            None // FIXME: what were we extracting here ??
-          } else if (!dd.symbol.isSynthetic) {
+          if ((
+            // extract implicit class construction functions
+            dd.symbol.isSynthetic &&
+            dd.symbol.isImplicit &&
+            dd.symbol.isMethod &&
+            !(getAnnotations(tpt.symbol) contains "ignore")
+          ) || (
+            !dd.symbol.isSynthetic
+          )) {
             Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
           } else {
             None
@@ -944,11 +965,10 @@ trait ASTExtractors {
       }
     }
 
-    object ExCaseClassConstruction {
+    object ExClassConstruction {
       def unapply(tree: Apply): Option[(Tree,Seq[Tree])] = tree match {
-        case Apply(s @ Select(New(tpt), n), args) if n == nme.CONSTRUCTOR => {
+        case Apply(s @ Select(New(tpt), n), args) if n == nme.CONSTRUCTOR =>
           Some((tpt, args))
-        }
         case _ => None
       }
     }

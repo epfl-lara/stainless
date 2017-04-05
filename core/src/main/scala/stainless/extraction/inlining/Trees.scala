@@ -7,6 +7,7 @@ package inlining
 trait Trees extends extraction.Trees { self =>
 
   case object Inline extends Flag("inline", Seq())
+  case object Implicit extends Flag("implicit", Seq())
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
     case ("inline", Seq()) => Inline
@@ -29,6 +30,7 @@ trait TreeDeconstructor extends extraction.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
     case s.Inline => (Seq(), Seq(), (_, _) => t.Inline)
+    case s.Implicit => (Seq(), Seq(), (_, _) => t.Implicit)
     case _ => super.deconstruct(f)
   }
 }
