@@ -741,7 +741,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         val baseSimple = funs.filter(isSimpleFunction).toSet
         val fixSimple = inox.utils.fixpoint { (funs: Set[s.FunAbstraction]) =>
           funs.filter(fun => newGraph.transitiveSucc(fun) subsetOf funs)
-        } (baseSimple)
+        } (baseSimple ++ functions.values.collect { case SimpleInfo(fun, _) => fun })
 
         val newFunctions = functions ++ funs.map(fun => fun.id -> {
           if (fixSimple(fun)) {
