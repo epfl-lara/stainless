@@ -92,12 +92,6 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
     }
 
-    for (fd <- newSymbols.functions.values) {
-      if (!newSymbols.isSubtypeOf(fd.fullBody.getType(newSymbols), fd.returnType)) {
-        println(newSymbols.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true)))
-      }
-    }
-
     def firstOverrides(o: Override): Seq[(Identifier, Either[FunDef, ValDef])] = o match {
       case FunOverride(cid, Some(id), _) => Seq(cid -> Left(newSymbols.getFunction(id)))
       case FunOverride(_, _, children) => children.toSeq.flatMap(firstOverrides)
@@ -112,9 +106,6 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.MethodInvocation(rec, id, tps, args) =>
-          if (rec.getType(newSymbols) == Untyped) {
-            println(newSymbols.explainTyping(rec)(PrinterOptions()))
-          }
           val s.ClassType(_, ctps) = rec.getType(newSymbols)
           t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform)
 

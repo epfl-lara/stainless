@@ -399,8 +399,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           }
         }))
 
-        println(fieldFunction)
-
         vd.id -> fieldFunction
       }
     }.toMap
@@ -609,7 +607,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               }
             }
           }))
-        println(fd)
         unapplyClassCache += id -> fd
         fd.id
     }
@@ -970,9 +967,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         }
 
         val newParams = fd.params.map(scope.transform(_))
-
-        println(fd.params.map(_.tpe), fd.params.map(vd => isObject(vd.tpe)))
-        println(fd.params.map(_.tpe.getClass))
 
         val paramConds = (newParams zip fd.params.map(_.tpe)).map { case (vd, tpe) =>
           if (!isObject(tpe)) t.BooleanLiteral(true)
