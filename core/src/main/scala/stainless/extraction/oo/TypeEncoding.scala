@@ -811,8 +811,11 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             unifyTypes(transform(arg), transform(arg.getType(symbols)), appScope.transform(vd.tpe))
           } ++ tps.map(encodeType)
 
+          val vd @ t.ValDef(id, FunctionType(from, to), flags) = appScope.transform(v.toVal)
+          val nvd = vd.copy(tpe = FunctionType(from ++ tparams.map(_ => tpe), to))
+
           unifyTypes(
-            t.ApplyLetRec(transform(v.toVal).toVariable, Seq(), Seq(), newArgs),
+            t.ApplyLetRec(nvd.toVariable, Seq(), Seq(), newArgs),
             appScope.transform(fun.returnType),
             transform(app.getType(symbols))
           )

@@ -191,13 +191,10 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
       defs.flatMap(_.tparams).map(_.tp),
       (vs, es, tps) => {
         var restTps = tps
-        var restFuns = defs
         t.LetRec(
-          vs.zip(es.init).map{ case (v, e) =>
-            val howMany = defs.head.tparams.size
-            val (tps, rest) = restTps splitAt howMany
-            restTps = restTps drop howMany
-            restFuns = restFuns.tail
+          (vs zip es.init zip defs).map { case ((v, e), d) =>
+            val (tps, rest) = restTps splitAt d.tparams.size
+            restTps = rest
             t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
           },
           es.last
@@ -207,7 +204,7 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
     case s.ApplyLetRec(fun, tparams, tps, args) =>
       (Seq(fun), args, tparams ++ tps, (vs, es, tps) => {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
-        t.ApplyLetRec(vs.head, tparams.map(_.asInstanceOf[t.TypeParameter]), tps, es)
+        t.ApplyLetRec(vs.head, ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es)
       })
 
     case other =>
