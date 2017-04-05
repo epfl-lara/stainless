@@ -13,6 +13,7 @@ object Methods {
   }
   
   case class C(x: BigInt) extends B {
+    require(x >= 0)
     val y = BigInt(42)
     override def foo(i: BigInt) = {
       x + y + (if (i>0) i else -i)
