@@ -118,14 +118,14 @@ trait StructuralSize {
             Seq(v.toVal),
             IntegerType,
             Ensuring(MatchExpr(v, (root match {
-              case sort: ADTSort => sort.constructors
-              case cons: ADTConstructor => Seq(cons)
+              case sort: ADTSort => sort.typed(tparams).constructors
+              case cons: ADTConstructor => Seq(cons.typed(tparams))
             }).map { cons =>
               val arguments = cons.fields.map(_.freshen)
               val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
               val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
-              MatchCase(ADTPattern(None, cons.typed(tparams).toType, argumentPatterns), None, rhs)
+              MatchCase(ADTPattern(None, cons.toType, argumentPatterns), None, rhs)
             }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
             Set.empty
           )
