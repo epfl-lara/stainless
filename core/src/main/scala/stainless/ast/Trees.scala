@@ -8,8 +8,7 @@ trait Trees
      with Definitions
      with Expressions
      with Extractors
-     with Printers
-     with TreeOps {
+     with TreeOps { self =>
 
   type Symbol = ast.Symbol
   type SymbolIdentifier = ast.SymbolIdentifier
@@ -27,4 +26,6 @@ trait Trees
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
     protected val trees: Trees.this.type = Trees.this
   } with ExprOps
+
+  val printer: Printer { val trees: self.type }
 }

@@ -146,11 +146,12 @@ trait Trees extends holes.Trees with Definitions { self =>
 
     case _ => super.getDeconstructor(that)
   }
+}
 
 
-  /* ========================================
-   *               PRINTERS
-   * ======================================== */
+trait Printer extends holes.Printer {
+  protected val trees: Trees
+  import trees._
 
   protected def withSymbols[T <: Tree](elems: Seq[Either[T, Identifier]], header: String)
                                       (implicit ctx: PrinterContext): Unit = {
@@ -244,6 +245,7 @@ trait Trees extends holes.Trees with Definitions { self =>
     case _ => super.requiresParentheses(ex, within)
   }
 }
+
 
 trait TreeDeconstructor extends holes.TreeDeconstructor {
   protected val s: Trees

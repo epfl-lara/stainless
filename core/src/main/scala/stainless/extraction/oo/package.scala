@@ -11,6 +11,8 @@ package object oo {
       adts: Map[Identifier, ADTDefinition],
       classes: Map[Identifier, ClassDef]
     ) extends ClassSymbols
+
+    object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
   object methods extends MethodLifting {

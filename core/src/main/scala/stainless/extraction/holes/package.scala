@@ -10,6 +10,8 @@ package object holes {
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition]
     ) extends SimpleSymbols with AbstractSymbols
+
+    object printer extends Printer { val trees: holes.trees.type = holes.trees }
   }
 
   // FIXME: This transformer will crash if it encounters an AST from `holes.Trees`

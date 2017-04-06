@@ -118,11 +118,11 @@ trait Trees extends innerfuns.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
+}
 
-
-  /* ========================================
-   *               PRINTERS
-   * ======================================== */
+trait Printer extends innerfuns.Printer {
+  protected val trees: Trees
+  import trees._
 
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case Block(exprs, last) =>
@@ -170,7 +170,6 @@ trait Trees extends innerfuns.Trees { self =>
     case _ => super.requiresBraces(ex, within)
   }
 }
-
 
 trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val s: Trees

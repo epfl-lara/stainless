@@ -24,6 +24,10 @@ trait Trees extends extraction.Trees { self =>
   }
 }
 
+trait Printer extends extraction.Printer {
+  protected val trees: Trees
+}
+
 trait TreeDeconstructor extends extraction.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees

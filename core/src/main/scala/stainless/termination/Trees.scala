@@ -58,10 +58,11 @@ trait Trees extends ast.Trees { self =>
   implicit class TerminationTypedFunDef(tfd: TypedFunDef) {
     def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
   }
+}
 
-  /* ========================================
-   *                PRINTERS
-   * ======================================== */
+trait Printer extends ast.Printer {
+  protected val trees: Trees
+  import trees._
 
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case Decreases(rank, body) =>

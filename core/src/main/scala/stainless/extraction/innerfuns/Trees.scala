@@ -123,11 +123,11 @@ trait Trees extends inlining.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
+}
 
-
-  /* ========================================
-   *               PRINTERS
-   * ======================================== */
+trait Printer extends inlining.Printer {
+  protected val trees: Trees
+  import trees._
 
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>

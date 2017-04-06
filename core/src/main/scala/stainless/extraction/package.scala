@@ -38,6 +38,9 @@ package object extraction {
     } with ExprOps
   }
 
+  /** Unifies all stainless tree printers */
+  trait Printer extends ast.Printer with termination.Printer
+
   /** Unifies all stainless tree extractors */
   trait TreeDeconstructor extends ast.TreeDeconstructor with termination.TreeDeconstructor
 
@@ -49,6 +52,8 @@ package object extraction {
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition]
     ) extends SimpleSymbols with AbstractSymbols
+
+    object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
   case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)

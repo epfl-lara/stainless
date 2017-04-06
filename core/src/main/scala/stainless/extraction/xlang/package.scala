@@ -11,6 +11,8 @@ package object xlang {
       adts: Map[Identifier, ADTDefinition],
       classes: Map[Identifier, ClassDef]
     ) extends ClassSymbols with AbstractSymbols
+
+    object printer extends Printer { val trees: xlang.trees.type = xlang.trees }
   }
 
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from

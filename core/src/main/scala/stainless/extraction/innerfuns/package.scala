@@ -10,6 +10,8 @@ package object innerfuns {
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition]
     ) extends SimpleSymbols with AbstractSymbols
+
+    object printer extends Printer { val trees: innerfuns.trees.type = innerfuns.trees }
   }
 
   object extractor extends FunctionClosure {
