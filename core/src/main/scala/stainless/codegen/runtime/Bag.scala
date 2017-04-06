@@ -8,9 +8,8 @@ final class Bag private(private val underlying: MutableMap[AnyRef, BigInt]) {
   def this() = this(MutableMap.empty)
 
   // Use mutation! Useful at building time.
-  def insert(key: AnyRef): Unit = add(key, BigInt.ONE)
   def insert(key: AnyRef, count: BigInt): Unit = {
-    underlying += key -> (get(key).add(count))
+    underlying += key -> count
   }
 
   def getElements(): Iterable[(AnyRef, BigInt)] = underlying
@@ -18,9 +17,9 @@ final class Bag private(private val underlying: MutableMap[AnyRef, BigInt]) {
   def get(key: AnyRef): BigInt = underlying.getOrElse(key, BigInt.ZERO)
 
   def add(key: AnyRef): Bag = {
-    val nb = new Bag(underlying.clone)
-    nb.insert(key)
-    nb
+    val nm = underlying.clone
+    nm += key -> (get(key).add(BigInt.ONE))
+    new Bag(nm)
   }
 
   def union(that: Bag): Bag =
@@ -30,9 +29,11 @@ final class Bag private(private val underlying: MutableMap[AnyRef, BigInt]) {
 
   def intersect(that: Bag): Bag =
     new Bag(MutableMap.empty ++ (underlying.keySet intersect that.underlying.keySet).map {
-      key => key -> underlying(key).add(that.underlying(key))
+      key => key -> {
+        val (v1, v2) = (underlying(key), that.underlying(key))
+        if (v1.lessThan(v2)) v1 else v2
+      }
     })
-  
 
   def difference(that: Bag): Bag =
     new Bag(MutableMap.empty ++ underlying.toSeq.flatMap { case (key, value) =>
