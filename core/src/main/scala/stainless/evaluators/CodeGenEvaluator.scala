@@ -160,13 +160,14 @@ trait CodeGenEvaluator
 }
 
 object CodeGenEvaluator {
-  def apply(p: StainlessProgram, opts: inox.Options): CodeGenEvaluator { val program: p.type } = {
-    new {
-      val program: p.type = p
+  def apply(p: StainlessProgram, opts: inox.Options): DeterministicEvaluator { val program: p.type } = {
+    val split = FunctionSplitting(p, max = 5000)
+    EncodingEvaluator(p)(split)(new {
+      val program: split.targetProgram.type = split.targetProgram
       val options = opts
     } with CodeGenEvaluator {
-      lazy val semantics = p.getSemantics
-    }
+      lazy val semantics = split.targetProgram.getSemantics
+    })
   }
 
   def default(p: StainlessProgram) = apply(p, p.ctx.options)
