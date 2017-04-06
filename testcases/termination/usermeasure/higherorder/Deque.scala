@@ -132,11 +132,7 @@ object RealTimeDeque {
     def valid = {
         val lenf = f.size
         val lenr = r.size
-        f.finite && r.finite && (lenf <= 2 * lenr + 1 && lenr <= 2 * lenf + 1) &&
-        {
-          val mind = min(2 * lenr - lenf + 2, 2 * lenf - lenr + 2)
-          sf.size <= mind && sr.size <= mind
-        }
+        f.finite && r.finite && (lenf <= 2 * lenr + 1 && lenr <= 2 * lenf + 1)
     }
   }
 
@@ -148,12 +144,9 @@ object RealTimeDeque {
     require {
       val lenf = f.size
       val lenr = r.size
+      f.finite && r.finite &&
       ((lenf - 1 <= 2 * lenr + 1 && lenr <= 2 * lenf + 1) ||
-        (lenf <= 2 * lenr + 1 && lenr - 2 <= 2 * lenf + 1)) &&
-        {
-          val mind = max(min(2 * lenr - lenf + 2, 2 * lenf - lenr + 2), 0)
-          sf.size <= mind && sr.size <= mind
-        }
+          (lenf <= 2 * lenr + 1 && lenr - 2 <= 2 * lenf + 1))
     }
     val lenf = f.size
     val lenr = r.size
