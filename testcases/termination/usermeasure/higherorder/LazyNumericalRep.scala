@@ -6,10 +6,6 @@ import lang._
 import annotation._
 import collection._
 
-/**
- * This benchmark requires an unrollfactor of 5 (for proving resource usage)
- */
-
 object DigitObject {
   sealed abstract class Digit
   case class Zero() extends Digit {
@@ -40,7 +36,7 @@ object LazyNumericalRep {
       decreases(this.size)
       this match {
         case c @ Spine(_, rear, sz) =>
-          sz >= 0 && sz > rear.size && rear.finite  // TODO: note here the exact value of size is not important it should just increase
+          sz >= 0 && sz > rear.size && rear.finite  //  Note here the exact value of size is not important it should just increase
         case _ => true
       }
     }
