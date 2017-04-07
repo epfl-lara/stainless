@@ -37,6 +37,9 @@ trait DecreasesProcessor extends Processor {
   case object TryOther extends FailReason
   case class FailStop(funDef: FunDef) extends FailReason
 
+  private val zero = IntegerLiteral(0)
+  private val tru = BooleanLiteral(true)
+
   // TODO: Should we remove cached predicate before giving it to the solver ?
   def run(problem: Problem): Option[Seq[Result]] = {
     val fds = problem.funDefs
@@ -72,62 +75,77 @@ trait DecreasesProcessor extends Processor {
         }(measure)) {
           Seq(FailStop(fd))
         } else {
-          // (b) check if the measure decreases for recursive calls
-          // remove certain function invocations from the body
-          val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, fd, problem.funSet)
-          val decRes = recCallsWithPath match {
-            case None =>
-              // here, we cannot prove termination of the function as it calls a recursive function
-              reporter.warning(s" ==> INVALID: not all cycles in the SCC have attached measures")
-              Some(TryOther)
-            case Some(seq) => seq.foldLeft(None: Option[FailReason]) {
-              case (acc @ Some(_), _) => acc
-              case (acc, (fi @ FunctionInvocation(id, tps, args), path)) =>
-                val callee = fi.tfd
-                if (!callee.measure.isDefined) {
-                  // here, we cannot prove termination of the function as it calls a self-recursive function
-                  // without a measure.
-                  Some(TryOther)
-                } else {
-                  val callMeasure = replaceFromSymbols((callee.params zip args).toMap, callee.measure.get)
-
-                  if (callMeasure.getType != measure.getType) {
-                    reporter.warning(s" ==> INVALID: recursive call ${fi.asString} uses a different measure type")
-                    Some(TryOther)
-                  } else {
-                    // construct a lexicographic less than check
-                    val lessPred = measure.getType match {
-                      case TupleType(tps) =>
-                        val s = tps.size
-                        (1 until s).foldRight(LessThan(TupleSelect(callMeasure, s), TupleSelect(measure, s)): Expr) {
-                          (i, acc) =>
-                            val m1 = TupleSelect(callMeasure, i)
-                            val m2 = TupleSelect(measure, i)
-                            Or(LessThan(m1, m2), And(Equals(m1, m2), acc))
-                        }
-                      case _ =>
-                        LessThan(callMeasure, measure)
-                    }
-
-                    solveVALID(path implies lessPred) match {
-                      case Some(true) => None
-                      case Some(false) =>
-                        reporter.warning(s" ==> INVALID: measure doesn't decrease for the (transitive) call ${fi.asString}")
-                        Some(TryOther)
-                      case None =>
-                        reporter.warning(s"==> UNKNOWN: measure cannot be shown to decrease for (transitive) call ${fi.asString}")
-                        Some(TryOther)
-                    }
-                  }
-                }
-            }
+          // (b) check if the measure is well-founded
+          val nonneg = measure.getType match {
+            case TupleType(tps) =>
+              And((1 to tps.size).map(i => GreaterEquals(TupleSelect(measure, i), zero)))
+            case _ =>
+              GreaterEquals(measure, zero)
           }
+          solveVALID(nonneg) match {
+            case Some(false) =>
+              reporter.warning(s" ==> INVALID: measure is not well-founded")
+              Seq(TryOther)
+            case None =>
+              reporter.warning(s"==> UNKNOWN: measure cannot be proven to be well-founded")
+              Seq(TryOther)
+            case Some(true) =>
+              // (c) check if the measure decreases for recursive calls
+              // remove certain function invocations from the body
+              val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, fd, problem.funSet)
+              val decRes = recCallsWithPath match {
+                case None =>
+                  // here, we cannot prove termination of the function as it calls a recursive function
+                  reporter.warning(s" ==> INVALID: not all cycles in the SCC have attached measures")
+                  Some(TryOther)
+                case Some(seq) => seq.foldLeft(None: Option[FailReason]) {
+                  case (acc @ Some(_), _) => acc
+                  case (acc, (fi @ FunctionInvocation(id, tps, args), path)) =>
+                    val callee = fi.tfd
+                    if (!callee.measure.isDefined) {
+                      // here, we cannot prove termination of the function as it calls a self-recursive function
+                      // without a measure.
+                      Some(TryOther)
+                    } else {
+                      val callMeasure = replaceFromSymbols((callee.params zip args).toMap, callee.measure.get)
 
-          if (decRes.isEmpty) reporter.debug(s"==> VALID")
-          decRes.toSeq
+                      if (callMeasure.getType != measure.getType) {
+                        reporter.warning(s" ==> INVALID: recursive call ${fi.asString} uses a different measure type")
+                        Some(TryOther)
+                      } else {
+                        // construct a lexicographic less than check
+                        val lessPred = measure.getType match {
+                          case TupleType(tps) =>
+                            val s = tps.size
+                            (1 until s).foldRight(LessThan(TupleSelect(callMeasure, s), TupleSelect(measure, s)): Expr) {
+                              (i, acc) =>
+                                val m1 = TupleSelect(callMeasure, i)
+                                val m2 = TupleSelect(measure, i)
+                                Or(LessThan(m1, m2), And(Equals(m1, m2), acc))
+                            }
+                          case _ =>
+                            LessThan(callMeasure, measure)
+                        }
+
+                        solveVALID(path implies lessPred) match {
+                          case Some(true) => None
+                          case Some(false) =>
+                            reporter.warning(s" ==> INVALID: measure doesn't decrease for the (transitive) call ${fi.asString}")
+                            Some(TryOther)
+                          case None =>
+                            reporter.warning(s"==> UNKNOWN: measure cannot be shown to decrease for (transitive) call ${fi.asString}")
+                            Some(TryOther)
+                        }
+                      }
+                    }
+                }
+              }
+
+              if (decRes.isEmpty) reporter.debug(s"==> VALID")
+              decRes.toSeq
+          }
         }
       }
-
       if (fails.isEmpty) {
         Some(fds.map(Cleared))
       } else if (fails.exists(_.isInstanceOf[FailStop])) {
@@ -169,7 +187,7 @@ trait DecreasesProcessor extends Processor {
 
       optSeqs.foldLeft(Some(Seq.empty): Option[Seq[(FunctionInvocation, Path)]]) {
         case (Some(seq1), Some(seq2)) => Some(seq1 ++ seq2)
-        case _ => None
+        case _                        => None
       }
     }
 
