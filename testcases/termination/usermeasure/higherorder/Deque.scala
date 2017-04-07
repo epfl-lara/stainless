@@ -25,7 +25,7 @@ object RealTimeDeque {
 
     def size = this match {
       case SCons(_, _, sz) if sz > 0 => sz
-      case SNil() => BigInt(0)
+      case _ => BigInt(0)
     }
 
     /**
@@ -36,7 +36,7 @@ object RealTimeDeque {
       this match {
         case c @ SCons(_, _, sz) =>
           val tail = c.stail
-          sz >= 0 && tail.size < sz && tail.finite
+          sz >= 0 && sz == tail.size + 1 && tail.finite
         case SNil() => true
       }
     }
@@ -46,7 +46,7 @@ object RealTimeDeque {
   private case class SNil[T]() extends Stream[T]
 
   def take[T](n: BigInt, l: Stream[T]): Stream[T] = {
-    require(n >= 0)
+    require(n >= 0 && l.finite && l.size >= n)
     decreases(abs(n))
     if(n == 0) SNil[T]()
     else {
@@ -75,7 +75,7 @@ object RealTimeDeque {
   } ensuring(res => res.finite && res.size == l1.size + l2.size)
 
   def drop[T](n: BigInt, l: Stream[T]): Stream[T] = {
-    require(n >= 0)
+    require(n >= 0 && l.finite && l.size >= n)
     decreases(abs(n))
     if (n == 0) l
     else {
@@ -84,7 +84,7 @@ object RealTimeDeque {
         case c @ SCons(x, _, _) => drop(n - 1, c.stail)
       }
     }
-  } ensuring(res => (l.finite ==> res.finite) && res.size == l.size - n)
+  } ensuring(res => res.finite && res.size == l.size - n)
 
   def rotateRev[T](r: Stream[T], f: Stream[T], a: Stream[T]): Stream[T] = {
     require (f.finite && r.finite && a.finite && {
