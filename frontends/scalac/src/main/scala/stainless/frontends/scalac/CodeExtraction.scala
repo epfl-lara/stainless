@@ -302,7 +302,10 @@ trait CodeExtraction extends ASTExtractors {
         case _ => None
       })
 
-      val flags = annotationsOf(sym) ++ (if (sym.isAbstractClass) Some(xt.IsAbstract) else None)
+      val flags = annotationsOf(sym) ++
+        (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
+        (if (sym.isSealed) Some(xt.IsSealed) else None)
+
 
       val constructor = cd.impl.children.find {
         case ExConstructorDef() => true
@@ -896,7 +899,7 @@ trait CodeExtraction extends ASTExtractors {
           case pred => extractType(contract) match {
             case xt.FunctionType(from, to) =>
               val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))
-              xt.Lambda(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred)).setPos(pred)
+              xt.Forall(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred)).setPos(pred)
             case _ => 
               outOfSubsetError(tr, "Unsupported forall definition: " + tr)
           }
@@ -1046,10 +1049,10 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.SetType(_), "+",  Seq(rhs)) => xt.SetAdd(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "++", Seq(rhs)) => xt.SetUnion(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "&",  Seq(rhs)) => xt.SetIntersection(extractTree(lhs), extractTree(rhs))
-            case (xt.SetType(_), "-", Seq(rhs))  => xt.SetDifference(extractTree(lhs), xt.FiniteSet(Seq(extractTree(rhs)), tpe))
             case (xt.SetType(_), "--", Seq(rhs)) => xt.SetDifference(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "subsetOf", Seq(rhs)) => xt.SubsetOf(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "contains", Seq(rhs)) => xt.ElementOfSet(extractTree(rhs), extractTree(lhs))
+            case (xt.SetType(b), "-", Seq(rhs))  => xt.SetDifference(extractTree(lhs), xt.FiniteSet(Seq(extractTree(rhs)), b))
 
             case (xt.BagType(_), "+",   Seq(rhs)) => xt.BagAdd(extractTree(lhs), extractTree(rhs))
             case (xt.BagType(_), "++",  Seq(rhs)) => xt.BagUnion(extractTree(lhs), extractTree(rhs))
