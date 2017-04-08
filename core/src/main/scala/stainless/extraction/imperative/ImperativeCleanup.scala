@@ -70,15 +70,6 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
         fd.copy(fullBody = pureUnitSyms.simplifyLets(fd.fullBody))
       })
 
-    /*
-    for (fd <- simpleSyms.functions.values) {
-      import simpleSyms._
-      if (fd.fullBody.getType == t.Untyped) {
-        println(explainTyping(fd.fullBody)(t.PrinterOptions(symbols = Some(simpleSyms), printUniqueIds = true)))
-      }
-    }
-    */
-
     simpleSyms
   }
 }

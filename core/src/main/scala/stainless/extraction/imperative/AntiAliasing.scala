@@ -415,15 +415,6 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         updateFunction(Outer(fd), Environment.empty).toFun
       })
 
-    /*
-    for (fd <- finalSyms.functions.values) {
-      import finalSyms._
-      if (fd.fullBody.getType == Untyped) {
-        println(explainTyping(fd.fullBody)(PrinterOptions(symbols = Some(finalSyms), printUniqueIds = true)))
-      }
-    }
-    */
-
     finalSyms
   }
 }
