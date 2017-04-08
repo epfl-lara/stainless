@@ -710,6 +710,9 @@ trait CodeExtraction extends ASTExtractors {
         val b = extractBlock(es :+ e)
         xt.exprOps.flattenBlocks(b)
 
+      case ExAssertExpression(e, oerr) =>
+        xt.Assert(extractTree(e), oerr, xt.UnitLiteral().setPos(tr.pos))
+
       case ExRequiredExpression(body) =>
         xt.Require(extractTree(body), xt.UnitLiteral().setPos(tr.pos))
 

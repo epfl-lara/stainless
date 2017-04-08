@@ -480,12 +480,12 @@ trait ASTExtractors {
       * first call in the block). */
     object ExAssertExpression {
       def unapply(tree: Apply): Option[(Tree, Option[String])] = tree match {
-        case Apply(ExSelected("scala", "Predef", "assert"), contractBody :: Nil) =>
-         Some((contractBody, None))
-        case Apply(ExSelected("scala", "Predef", "assert"), contractBody :: (error: Literal) :: Nil) =>
-         Some((contractBody, Some(error.value.stringValue)))
+        case Apply(ExSymbol("scala", "Predef", "assert"), contractBody :: Nil) =>
+          Some((contractBody, None))
+        case Apply(ExSymbol("scala", "Predef", "assert"), contractBody :: (error: Literal) :: Nil) =>
+          Some((contractBody, Some(error.value.stringValue)))
         case _ =>
-         None
+          None
       }
     }
 
