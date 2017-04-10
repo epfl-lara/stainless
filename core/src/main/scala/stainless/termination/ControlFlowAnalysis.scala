@@ -24,6 +24,7 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
   // Abstract values and closures
   sealed abstract class AbsValue
   case class Closure(lam: Lambda) extends AbsValue
+  case class ConsObject(adt: ADT, argvars: Seq[Variable]) extends AbsValue  // the argvars in the object are more like addresses and may not correspond to variables in the program (they are considered escaping)
   case class External() extends AbsValue
 
   case class AbsEnv(store: Map[Variable, Set[AbsValue]]) { // mapping from a set of live variables to their value
@@ -34,24 +35,6 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
           other.store(k).subsetOf(store(k))
       }
     }
-
-    // checks if this > AbsElem
-    /*def greater(other: AbsEnv): Boolean = {
-      var foundLargerTargets = true
-      val geq = other.store.forall {
-        case (k, v) =>
-          if (store.contains(k) && other.store(k).subsetOf(store(k))) {
-            // did we find a strictly larger set?
-            if (!foundLargerTargets)
-              foundLargerTargets = (store(k).size > other.store(k).size)
-            true
-          } else false
-      }
-      if (geq) {
-        foundLargerTargets ||
-          (store.keySet.size > other.store.keySet.size) // we have more bindings than the other store
-      } else false
-    }*/
 
     def join(other: AbsEnv): AbsEnv = {
       val ikeys = store.keySet.intersect(other.store.keySet)
@@ -110,6 +93,20 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
 
   var worklist = List(rootfunid)
 
+  // a mapping from ADTs to argvars (used to represent arguments of each ADT creation by a fresh variable)
+  var adtObjects = Map[ADT,ConsObject]()
+  def getOrCreateObject(adt: ADT): ConsObject = {
+    if (adtObjects.contains(adt))
+      adtObjects(adt)
+    else {
+      // replace each arg by a fresh variable
+      val argvars = (1 to adt.args.size).map{ i => Variable(FreshIdentifier("arg"+i,true), Untyped, immutable.Set[Flag]()) }.toSeq
+      val obj = ConsObject(adt, argvars)
+      adtObjects += (adt -> obj)
+      obj
+    }
+  }
+
   // iteratively process functions from the worklist.
   // (a) at every direct function call, join the arguments passed in with the `in` fact in the summary
   //       -- if the join results in a greater value, add the function back to the worklist
@@ -122,7 +119,7 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
 
   // the order of traversal is very important here, so using a custom traversal
   def analyzeExpr(e: Expr, in: AbsEnv)(implicit currFunId: Identifier): (Set[AbsValue], AbsEnv) = {
-    //println("Considering Expr: "+e)
+    println("Considering Expr: "+e)
     val res : (Set[AbsValue], AbsEnv) = e match {
       case Let(vd, v, body) =>
         val (res, escenv) = analyzeExpr(v, in)
@@ -185,12 +182,49 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         val outesc = currSummary.out
         (currSummary.ret, argesc ++ currSummary.out)
 
+      case adt @ ADT(adttype, args) =>
+        val absres = args.map(analyzeExpr(_, in))
+        val absargs = absres.map(_._1)
+        val argesc = flatten(absres.map(_._2))
+        // create a new object
+        val obj = getOrCreateObject(adt)
+        escapingVars ++= obj.argvars // make all argument variables escaping as they represent addresses that could be live across functions
+        val esc = (obj.argvars zip absargs).toMap ++ argesc.store  // construct an escaping environment
+        (Set(obj), AbsEnv(esc))
+
+      case sel@ADTSelector(adtExpr, selector) =>
+        val (absAdts, esc) = analyzeExpr(adtExpr, in)
+        val resvals = absAdts.flatMap {
+          case ConsObject(cons, argvars) =>
+            val selarg = argvars(sel.selectorIndex)
+            in.store.getOrElse(selarg, Set[AbsValue]())
+
+          case External() => // here, we are dereferencing an external ADT and hence should be external
+            Set[AbsValue](External())
+
+          case _ => Set[AbsValue]() // these are type incompatible entries
+        }
+        (resvals, esc)
+
       case IfExpr(cond, th, el) =>
         val (_, condesc) = analyzeExpr(cond, in)
         val ifres = Seq(th, el).map(ie => analyzeExpr(ie, in))
         val absval = ifres(0)._1 ++ ifres(1)._1 // join the results of then and else branches
         val esc = condesc ++ ifres(0)._2 ++ ifres(1)._2 // join the escape sets
         (absval, esc)
+
+      case MatchExpr(scr, cases) =>
+        val (absscr, scresc) = analyzeExpr(scr, in)
+        val casesres = cases.map{
+          case MatchCase(pat, gud, body) =>
+            val patEnv = in ++ patternBindings(absscr, pat, in)
+            // get esc set of gud
+            val (_, gdesc) = gud.map(analyzeExpr(_, patEnv)).getOrElse((Set(), emptyEnv))
+            // analyze the body
+            val (bvals, besc) = analyzeExpr(body, patEnv)
+            (bvals, gdesc ++ besc)
+        }
+        (casesres.flatMap(_._1).toSet, flatten(casesres.map(_._2)) ++ scresc)
 
       case v : Variable => (in.store.getOrElse(v, Set()), emptyEnv)
 
@@ -212,10 +246,35 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         (Set(), flatten(absres.map(_._2)))
 
       //case Tuple(
-      // TOOD: need to handle data types, tuples, tupleselects, match case sets and maps
+      // TOOD: need to handle, tuples, tupleselects, sets and maps
     }
-    //println(s"Result of $e: ${res._1.mkString(",") } and ${res._2}")
+    println(s"Result of $e: ${res._1.mkString(",") } and ${res._2}")
     res
+  }
+
+  /**
+   * Returns an environment in which pattern variables are bounded correctly to their abstract values
+   */
+  def patternBindings(scr: Set[AbsValue], pat: Pattern, env: AbsEnv): AbsEnv = {
+    pat match {
+      case InstanceOfPattern(Some(binder), _) => AbsEnv(Map(binder.toVariable -> scr))
+      case WildcardPattern(Some(binder)) =>  AbsEnv(Map(binder.toVariable -> scr))
+      case ADTPattern(binderOpt, _, subPats) =>
+        val patstore = scr.flatMap {
+          case ConsObject(_, argvars) =>
+            (subPats zip argvars).flatMap { case (subpat, arg) =>
+                patternBindings(env.store.getOrElse(arg, Set[AbsValue]()), subpat, env).store
+            }
+          case ext@External() =>
+            subPats.flatMap { subpat => patternBindings(Set(ext), subpat, env).store }
+          case _ => Map[Variable, Set[AbsValue]]() // ignore these cases
+        }.toMap
+        AbsEnv(patstore)
+
+      case _ => emptyEnv // no binding can be constructed in these cases
+      // TODO handle Tuple patterns
+    }
+
   }
 
   var externallyEscapingLambdas = Set[Lambda]()
