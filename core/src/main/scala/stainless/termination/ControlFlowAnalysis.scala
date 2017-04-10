@@ -217,7 +217,7 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         val (absscr, scresc) = analyzeExpr(scr, in)
         val casesres = cases.map{
           case MatchCase(pat, gud, body) =>
-            val patEnv = in ++ patternBindings(absscr, pat, in)
+            val patEnv = in ++ patternBindings(absscr, pat, in)            
             // get esc set of gud
             val (_, gdesc) = gud.map(analyzeExpr(_, patEnv)).getOrElse((Set(), emptyEnv))
             // analyze the body
@@ -269,8 +269,10 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
             subPats.flatMap { subpat => patternBindings(Set(ext), subpat, env).store }
           case _ => Map[Variable, Set[AbsValue]]() // ignore these cases
         }.toMap
-        AbsEnv(patstore)
-
+        // add the binding corresponding to binderOpt
+        val resenv = AbsEnv(binderOpt.map(vd => patstore + (vd.toVariable -> scr)).getOrElse(patstore))
+        //println("Binding after ADT pattern: "+resenv)
+        resenv        
       case _ => emptyEnv // no binding can be constructed in these cases
       // TODO handle Tuple patterns
     }
