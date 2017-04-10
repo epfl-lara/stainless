@@ -94,6 +94,13 @@ object TerminationComponent extends SimpleComponent {
     import p.trees._
     import p.symbols._
 
+    // testing CFA
+    funs.foreach { fun =>
+      println("Testing CFA on: "+fun)
+      val cfa = new CICFA(p, fun)
+      cfa.analyze()
+    }
+
     val c = TerminationChecker(p, ctx.options)
 
     val timer = ctx.timers.termination.start()

@@ -28,8 +28,8 @@ trait DecreasesProcessor extends Processor {
   private val zero = IntegerLiteral(0)
   private val tru = BooleanLiteral(true)
 
-  // TODO: Should we remove cached predicate before giving it to the solver ?
   def run(problem: Problem): Option[Seq[Result]] = {
+
     val fds = problem.funDefs
     val fdIds = problem.funSet.map(_.id)
 
