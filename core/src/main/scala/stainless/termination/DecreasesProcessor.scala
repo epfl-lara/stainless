@@ -142,7 +142,7 @@ trait DecreasesProcessor extends Processor {
   }
 
   /**
-   * This method collects all recusive calls with paths. In case the
+   * This method collects all recursive calls with paths (recursive in the sense of dependency graph). In case the
    * call does not have decrease measure, it inlines the body if it is not self-recusive,
    * and collects the path in the inlined version.
    */
@@ -175,4 +175,54 @@ trait DecreasesProcessor extends Processor {
 
     rec(rootExpr, Path.empty, Set(rootfun))
   }
+
+  /**
+   * We (lazily) perform some analysis here to discover Lambdas which can never cause non-termination
+   */
+  class CFAAnalysisInfo(rootfd: FunDef) {
+
+    lazy val transCallers = transitiveCallers(rootfd)  // Note that these are queries over dependency graph
+
+    lazy val cfa = new CICFA(program, rootfd.id)
+    import cfa.program._
+    import cfa.program.trees._
+
+    lazy val lambdasCallingRootFun = {
+      cfa.locallyAppliedLambdas.filter{       // TODO: why we need casting here?
+        case Lambda(_, body) =>
+          // inner function that checks if the Lambda directly invokes rootfd
+          def rec(iner: Expr): Boolean = {
+            case _ : Lambda => false // we can ignore calls inside lambdas
+            case FunctionInvocatoin(calleeid, _, args) =>
+               rootfd.id == calleeid ||  (args exists rec)  // a direct call to rootfd is made
+            case Operator(args, _) =>
+              args exists rec
+          }
+          rec(body)
+      } ++
+        cfa.externallyEscapingLambdas.filter{ case Lambda(_, body) =>
+          exists {
+            case FunctionInvocatoin(calleeid, _, args) => transCallers(functions(calleeid))  // the rootfd can be extracted from this Lambda
+            case _ => false
+          }(body)
+        }
+    }
+
+    lazy val transCreators = lambdasCallingRootFun.flatMap(cfa.creators(_)).flatMap(crid => transitiveCallers(getFunction(crid))).map(_.id)
+
+    /*lazy val externallyInvocableRecursiveCalls = { // set of  function calls that invokes callers of rootfd and are invoked within applied lambdas
+      collect{
+        case l@Lambda(_, body) if externallyAppliedLambdas.contains(l) => // this is a applied lambda
+          collect{
+            case fi@FunctionInvocation(fid, _, _) if transCallers(functions(fid)) => Set(fi) // fi calls a caller of fd within an applied Lambda
+            case _ => Set()
+          }(body)
+        case _ => Set[FunctionInvocation]()
+      }(rootfd.fullBody)
+        // TODO: here it suffices to intersect locallyAppliedlambdas with immediately cyclic lambdas and not mutually cyclic lambdas
+    }
+
+    def isAppliedCyclicLambda(l: Lambda) = appliedCyclicLambdas(l) // only these Lambdas can cause non-termination
+*/
+    }
 }

@@ -118,6 +118,27 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
     }
   }
 
+  var creatorMap = Map[Lambda, MutableSet[Identifier]]()  // functions creating Lambdas
+  def addOrUpdateCreator(l: Lambda, id: Identifier) =
+    if(creatorMap.contains(l))
+      creatorMap(l) += id
+    else creatorMap += (l -> MutableSet(id))
+
+  var appliedLambdas = Set[Lambda]()       // set of lambdas that are applied
+  var externallyEscapingLambdas = Set[Lambda]() // set of lambdas that are passed to an call back (so in principle like applied lambdas in the absence of information about the caller)
+
+  def recordPassedLambdas(args: Set[AbsValue], env: AbsEnv) {
+    externallyEscapingLambdas ++= passedLambdas(args, env)
+  }
+
+  def passedLambdas(vals: Set[AbsValue], env: AbsEnv): Set[Lambda] = {
+    vals.flatMap {
+      case Closure(lam) =>
+        variablesOf(lam).flatMap { v => passedLambdas(env.store(v), env) }.toSet + lam
+      case _ => Set[Lambda]()
+    }
+  }
+
   def freshVars(size: Int) = {
     (1 to size).map { i => Variable(FreshIdentifier("arg" + i, true), Untyped, immutable.Set[Flag]()) }.toSeq
   }
@@ -150,6 +171,8 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
 
         val resabs = targets.map {
           case Closure(lam) =>
+            // record that the lambda is applied
+            appliedLambdas += lam
             // create a new store with mapping for arguments and escaping variables
             val argstore = (lam.args zip absargs).map { case (vd, absval) => vd.toVariable -> absval }.toMap ++
               (in.store.filter { case (k, v) => escapingVars(k) } ++ escenv.store ++ argescenv.store)
@@ -168,6 +191,8 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         (resval, resesc)
 
       case lam @ Lambda(args, body) =>
+        // record the creator of the Lambda
+        addOrUpdateCreator(lam, currFunId)
         // create a new Closure
         val capvars = variablesOf(lam)
         escapingVars ++= capvars // make all captured variables as escaping
@@ -244,7 +269,7 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
           case _ => Set[AbsValue]() // these are type incompatible entries
         }
         (resvals, esc)
-        
+
       case IfExpr(cond, th, el) =>
         val (_, condesc) = analyzeExpr(cond, in)
         val ifres = Seq(th, el).map(ie => analyzeExpr(ie, in))
@@ -317,20 +342,6 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
 
   }
 
-  var externallyEscapingLambdas = Set[Lambda]()
-
-  def recordPassedLambdas(args: Set[AbsValue], env: AbsEnv) {
-    externallyEscapingLambdas ++= passedLambdas(args, env)
-  }
-
-  def passedLambdas(vals: Set[AbsValue], env: AbsEnv): Set[Lambda] = {
-    vals.flatMap {
-      case Closure(lam) =>
-        variablesOf(lam).flatMap { v => passedLambdas(env.store(v), env) }.toSet + lam
-      case _ => Set[Lambda]()
-    }
-  }
-
   def analyze() = {
     while (!worklist.isEmpty) {
       var currfunid = worklist.head
@@ -352,4 +363,14 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
     }
     println("Externally Escaping Lambdas: " + externallyEscapingLambdas.mkString("\n"))
   }
+
+  analyze() // perform the analysis
+
+  /**
+   * Information for the client
+   */
+  val locallyAppliedLambdas = appliedLambdas
+  val externallyInvokableLambdas = externallyEscapingLambdas
+
+  def creators(l: Lambda) = creatorMap(l).toSet
 }
