@@ -39,4 +39,6 @@ object ZipWithAndFibStream {
   val fibstream: SCons = SCons(0, () => SCons(1, () => {
     zipWithFun(_ + _, this.fibstream, this.fibstream.tail)
   }))
+
+  def nthFib(n: BigInt) = nthElem(n, fibstream)
 }

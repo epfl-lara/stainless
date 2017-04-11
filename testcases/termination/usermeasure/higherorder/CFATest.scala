@@ -22,7 +22,7 @@ object CFATest {
     test1(g(()), BigInt(0))
   }
 
-    case class SCons(x: BigInt, tailFun: () => SCons)
+  case class SCons(x: BigInt, tailFun: () => SCons)
 
   def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
     (xs, ys) match {
