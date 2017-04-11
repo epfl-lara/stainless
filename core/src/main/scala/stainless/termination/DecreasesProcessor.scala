@@ -36,11 +36,6 @@ trait DecreasesProcessor extends Processor {
     //println("Functions with measures: "+fds.filter( _.measure.isDefined).map(_.id))
 
     if (fds.exists { _.measure.isDefined }) {
-      /*if (hasClosures) {
-        reporter.error("Cannot use `decreases` in the presence of first-class functions")
-        return None
-      }*/
-
       // Important:
       // Here, we filter only functions that have a measure. This is sound because of the following reasoning.
       // Functions in the scc that do not have a decrease measure either will be inlined if it is not self recursive.
@@ -128,7 +123,6 @@ trait DecreasesProcessor extends Processor {
                     }
                 }
               }
-
               if (decRes.isEmpty) reporter.debug(s"==> VALID")
               decRes.toSeq
           }

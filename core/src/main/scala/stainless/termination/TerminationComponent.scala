@@ -95,11 +95,11 @@ object TerminationComponent extends SimpleComponent {
     import p.symbols._
 
     // testing CFA
-    funs.foreach { fun =>
-      println("Testing CFA on: "+fun)
-      val cfa = new CICFA(p, fun)
-      cfa.analyze()
-    }
+//    funs.foreach { fun =>
+//      println("Testing CFA on: "+fun)
+//      val cfa = new CICFA(p, fun)
+//      cfa.analyze()
+//    }
 
     val c = TerminationChecker(p, ctx.options)
 
