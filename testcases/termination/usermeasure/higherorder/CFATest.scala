@@ -22,6 +22,24 @@ object CFATest {
     test1(g(()), BigInt(0))
   }
 
+    case class SCons(x: BigInt, tailFun: () => SCons)
+
+  def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
+    (xs, ys) match {
+      case (SCons(x, _), SCons(y, _)) =>
+        SCons(f(x, y), () => zipWithFun(f, xs.tailFun(), ys.tailFun()))
+    }
+  }
+
+  // the below functions are non-terminating.
+
+  def test5(f: (Unit => SCons) => SCons, xs: SCons): SCons = {
+    xs match {
+      case SCons(x, tfun) =>
+        f(Unit => test5(f, tfun()))
+    }
+  }
+
   def test4(g: (BigInt => BigInt) => BigInt, x: BigInt): BigInt = {
     val l = (y: BigInt) => test4(g, y)
     g(l)
@@ -31,35 +49,19 @@ object CFATest {
     test4((l: (BigInt => BigInt)) => l(0), 0)
   }
 
-  case class SCons(x: BigInt, tailFun: () => SCons)
-
-  def test5(f: (Unit => SCons) => SCons, xs: SCons): SCons = {
-    xs match {
-      case SCons(x, tfun) =>
-        f(Unit => test5(f, tfun()))
-    }
-  }
-
-  def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
-    (xs, ys) match {
-      case (SCons(x, _), SCons(y, _)) =>
-        SCons(f(x, y), () => zipWithFun(f, xs.tailFun(), ys.tailFun()))
-    }
-  }
-  
   def zipWithFunBuggy(f: (Unit => SCons) => SCons, xs: SCons, ys: SCons): SCons = {
     (xs, ys) match {
       case (SCons(x, _), SCons(y, _)) =>
         f((u: Unit) => zipWithFunBuggy(f, xs.tailFun(), ys.tailFun()))
     }
   }
-  
+
   /**
    * Tests flow through data structures
    */
-  case class GCons[T](x: T) 
+  case class GCons[T](x: T)
   def test6(xs: (Unit => Int) => Int): Int = {
     val intds = GCons(xs)
-    intds.x((u: Unit) => test6(xs))    
+    intds.x((u: Unit) => test6(xs))
   }
 }
