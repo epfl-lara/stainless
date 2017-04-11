@@ -10,11 +10,15 @@ import mutable.{ Map => MutableMap, Set => MutableSet }
 
 import trees._
 import inox._
+
 /**
  * A context-insensitive, field-sensitive control-flow analysis that computes
  * the closures that are passed to call backs of given function.
  */
-class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
+trait CICFA {
+
+  val program: Program { val trees: Trees }
+  val rootfunid: Identifier
 
   import program._
   import program.trees._
@@ -76,26 +80,6 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
   val tabulation = MutableMap[Identifier, Summary]() // summary of each function
-  val functions = program.symbols.functions
-
-  // initialize summaries to identity function from bot to empty
-  // for the root function initialize it to External
-  functions.foreach {
-    case (id, fd) if id != rootfunid =>
-      val bot = AbsEnv(fd.params.map { vd => vd.toVariable -> Set[AbsValue]() }.toMap)
-      tabulation += (id -> Summary(bot, emptyEnv, Set()))
-
-    case (_, fd) =>
-      val init = AbsEnv(fd.params.map { vd => vd.toVariable -> Set[AbsValue](External()) }.toMap)
-      tabulation += (rootfunid -> Summary(init, emptyEnv, Set()))
-  }
-
-  // initialize callers to empty set
-  val callers = functions.map { case (id, fd) => (id -> MutableSet[Identifier]()) }.toMap
-
-  var escapingVars = Set[Variable]()
-
-  var worklist = List(rootfunid)
 
   // a mapping from ADTs to argvars (used to represent arguments of each ADT creation by a fresh variable)
   var objectsMap = Map[Expr, AbsObj]()
@@ -153,6 +137,14 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
   //       -- add all callers of the function to the worklist
   // Repeat this until a fix point is reached
 
+  lazy val functions = program.symbols.functions
+  // initialize callers to empty set
+  lazy val callers = functions.map { case (id, fd) => (id -> MutableSet[Identifier]()) }.toMap
+
+  var escapingVars = Set[Variable]()
+
+  var worklist = List[Identifier]()
+
   // the order of traversal is very important here, so using a custom traversal
   def analyzeExpr(e: Expr, in: AbsEnv)(implicit currFunId: Identifier): (Set[AbsValue], AbsEnv) = {
     //println("Considering Expr: " + e)
@@ -206,7 +198,7 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         val absargs = absres.map(_._1)
         val argesc = flatten(absres.map(_._2))
         val newenv = in ++ argesc
-        val argstore = newenv.store.filter { case (k, _) => escapingVars(k) } ++ (functions(caleeid).params zip absargs).map { case (vd, absvals) => vd.toVariable -> absvals }.toMap
+        val argstore = newenv.store.filter { case (k, _) => escapingVars(k) } ++ (getFunction(caleeid).params zip absargs).map { case (vd, absvals) => vd.toVariable -> absvals }.toMap
         val argenv = AbsEnv(argstore)
 
         val currSummary = tabulation(caleeid)
@@ -343,12 +335,25 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
   }
 
   def analyze() = {
+    // initialize summaries to identity function from bot to empty
+    // for the root function initialize it to External
+    functions.foreach {
+      case (id, fd) if id != rootfunid =>
+        val bot = AbsEnv(fd.params.map { vd => vd.toVariable -> Set[AbsValue]() }.toMap)
+        tabulation += (id -> Summary(bot, emptyEnv, Set()))
+
+      case (_, fd) =>
+        val init = AbsEnv(fd.params.map { vd => vd.toVariable -> Set[AbsValue](External()) }.toMap)
+        tabulation += (rootfunid -> Summary(init, emptyEnv, Set()))
+    }
+    worklist = List(rootfunid)
+
     while (!worklist.isEmpty) {
       var currfunid = worklist.head
       worklist = worklist.tail
 
       val oldSummary = tabulation(currfunid)
-      println(s"Analyzing: $currfunid under ${oldSummary.in}")
+      //println(s"Analyzing: $currfunid under ${oldSummary.in}")
 
       val (newret, newesc) = analyzeExpr(functions(currfunid).fullBody, oldSummary.in)(currfunid)
 
@@ -361,10 +366,8 @@ class CICFA(val program: Program { val trees: Trees }, rootfunid: Identifier) {
         worklist ++= newcallers
       }
     }
-    println("Externally Escaping Lambdas: " + externallyEscapingLambdas.mkString("\n"))
+    //println("Externally Escaping Lambdas: " + externallyEscapingLambdas.mkString("\n"))
   }
-
-  analyze() // perform the analysis
 
   /**
    * Information for the client

@@ -11,7 +11,7 @@ import solvers._
  * Checks terminations of functions using the ranking function specified in the `decreases`
  * construct. For now, it works only on first-order functions.
  */
-trait DecreasesProcessor extends Processor {
+trait DecreasesProcessor extends Processor { self =>
 
   val name: String = "Decreases Processor"
 
@@ -35,109 +35,114 @@ trait DecreasesProcessor extends Processor {
 
     //println("Functions with measures: "+fds.filter( _.measure.isDefined).map(_.id))
 
-    if (fds.exists { _.measure.isDefined }) {
-      // Important:
-      // Here, we filter only functions that have a measure. This is sound because of the following reasoning.
-      // Functions in the scc that do not have a decrease measure either will be inlined if it is not self recursive.
-      // Otherwise, the caller of this function will carry the blame of non-termination.
-      val fails: Seq[FailReason] = fds.filter(_.measure.isDefined).flatMap { fd =>
-        val measure = fd.measure.get
-        reporter.debug(s"- Now considering `decreases` of ${fd.id.name} @${fd.getPos}...")
-        // (a) check if every function in the measure terminates and does not make a recursive call to an SCC.
-        if (exists {
-          case FunctionInvocation(id, _, _) =>
-            if (fdIds(id)) {
-              reporter.warning(s"==> INVALID: `decreases` has recursive call to ${id.name}.")
-              true
-            } else if (!checker.terminates(getFunction(id)).isGuaranteed) {
-              reporter.warning(s"==> INVALID: `decreases` calls non-terminating function ${id.name}.")
-              true
-            } else false
-          case _ =>
-            false
-        }(measure)) {
-          Seq(FailStop(fd))
-        } else {
-          // (b) check if the measure is well-founded
-          val nonneg = measure.getType match {
-            case TupleType(tps) =>
-              And((1 to tps.size).map(i => GreaterEquals(TupleSelect(measure, i), zero)))
+    //val (fdsWithMeasure, fdsWOMeasure) = fds.partition(_.measure.isDefined)
+    // Important:
+    // Here, we filter only functions that have a measure. This is sound because of the following reasoning.
+    // Functions in the scc that do not have a decrease measure either will be inlined if it is not self recursive.
+    // Otherwise, the caller of this function will carry the blame of non-termination.
+    val fails: Seq[FailReason] = fds.flatMap { fd =>
+      reporter.info(s"- Now considering ${fd.id.name} @${fd.getPos}...")
+
+      val checksRes = fd.measure match {
+        case None => true
+        case Some(measure) =>
+          //reporter.debug(s" ==> ${fd.id.name} has a measure ")
+          // perform some sanity checks
+          // (a) check if every function in the measure terminates and does not make a recursive call to an SCC.
+          !(exists {
+            case FunctionInvocation(id, _, _) =>
+              if (fdIds(id)) {
+                reporter.warning(s"==> INVALID: `decreases` has recursive call to ${id.name}.")
+                true
+              } else if (!checker.terminates(getFunction(id)).isGuaranteed) {
+                reporter.warning(s"==> INVALID: `decreases` calls non-terminating function ${id.name}.")
+                true
+              } else false
             case _ =>
-              GreaterEquals(measure, zero)
+              false
+          }(measure)) && {
+            // (b) check if the measure is well-founded
+            val nonneg = measure.getType match {
+              case TupleType(tps) =>
+                And((1 to tps.size).map(i => GreaterEquals(TupleSelect(measure, i), zero)))
+              case _ =>
+                GreaterEquals(measure, zero)
+            }
+            solveVALID(nonneg) match {
+              case Some(false) =>
+                reporter.warning(s" ==> INVALID: measure is not well-founded")
+                false
+              case None =>
+                reporter.warning(s"==> UNKNOWN: measure cannot be proven to be well-founded")
+                false
+              case Some(true) => true
+            }
           }
-          solveVALID(nonneg) match {
-            case Some(false) =>
-              reporter.warning(s" ==> INVALID: measure is not well-founded")
-              Seq(TryOther)
-            case None =>
-              reporter.warning(s"==> UNKNOWN: measure cannot be proven to be well-founded")
-              Seq(TryOther)
-            case Some(true) =>
-              // (c) check if the measure decreases for recursive calls
-              // remove certain function invocations from the body
-              val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, fd, problem.funSet)
-              val decRes = recCallsWithPath match {
-                case None =>
-                  // here, we cannot prove termination of the function as it calls a recursive function
-                  reporter.warning(s" ==> INVALID: not all cycles in the SCC have attached measures")
-                  Some(TryOther)
-                case Some(seq) => seq.foldLeft(None: Option[FailReason]) {
-                  case (acc @ Some(_), _) => acc
-                  case (acc, (fi @ FunctionInvocation(id, tps, args), path)) =>
-                    val callee = fi.tfd
-                    if (!callee.measure.isDefined) {
-                      // here, we cannot prove termination of the function as it calls a self-recursive function
-                      // without a measure.
-                      Some(TryOther)
-                    } else {
-                      val callMeasure = replaceFromSymbols((callee.params zip args).toMap, callee.measure.get)
-
-                      if (callMeasure.getType != measure.getType) {
-                        reporter.warning(s" ==> INVALID: recursive call ${fi.asString} uses a different measure type")
-                        Some(TryOther)
-                      } else {
-                        // construct a lexicographic less than check
-                        val lessPred = measure.getType match {
-                          case TupleType(tps) =>
-                            val s = tps.size
-                            (1 until s).foldRight(LessThan(TupleSelect(callMeasure, s), TupleSelect(measure, s)): Expr) {
-                              (i, acc) =>
-                                val m1 = TupleSelect(callMeasure, i)
-                                val m2 = TupleSelect(measure, i)
-                                Or(LessThan(m1, m2), And(Equals(m1, m2), acc))
-                            }
-                          case _ =>
-                            LessThan(callMeasure, measure)
-                        }
-
-                        solveVALID(path implies lessPred) match {
-                          case Some(true) => None
-                          case Some(false) =>
-                            reporter.warning(s" ==> INVALID: measure doesn't decrease for the (transitive) call ${fi.asString}")
-                            Some(TryOther)
-                          case None =>
-                            reporter.warning(s"==> UNKNOWN: measure cannot be shown to decrease for (transitive) call ${fi.asString}")
-                            Some(TryOther)
-                        }
-                      }
-                    }
-                }
-              }
-              if (decRes.isEmpty) reporter.debug(s"==> VALID")
-              decRes.toSeq
-          }
-        }
       }
-      if (fails.isEmpty) {
-        Some(fds.map(Cleared))
-      } else if (fails.exists(_.isInstanceOf[FailStop])) {
-        //reporter.warning(s"Termiantion failed for SCC: ${fds.map(_.id.name).mkString(",")}")
-        Some(fds.map(Broken(_, Seq())))
+      if (!checksRes) {
+        Seq(FailStop(fd))
       } else {
-        None
+        // (c) check if the measure decreases for recursive calls
+        // remove certain function invocations from the body
+        val recCallsWithPath = collectRecursiveCallsWithPaths(fd.fullBody, fd, problem.funSet)
+        val decRes = recCallsWithPath match {
+          case None =>
+            // here, we cannot prove termination of the function as it calls a recursive function
+            Some(TryOther)
+
+          case Some(seq) if seq.isEmpty => None // nothing to verify
+
+          case Some(seq) if fd.measure.isDefined =>
+            val measure = fd.measure.get
+            seq.foldLeft(None: Option[FailReason]) {
+              case (acc @ Some(_), _) => acc
+              case (acc, (fi @ FunctionInvocation(id, tps, args), path)) =>
+                val callee = fi.tfd
+                /*if (!callee.measure.isDefined) {
+                  Some(TryOther)
+                } else {*/
+                val callMeasure = replaceFromSymbols((callee.params zip args).toMap, callee.measure.get)
+                if (callMeasure.getType != measure.getType) {
+                  reporter.warning(s" ==> INVALID: recursive call ${fi.asString} uses a different measure type")
+                  Some(TryOther)
+                } else {
+                  // construct a lexicographic less than check
+                  val lessPred = measure.getType match {
+                    case TupleType(tps) =>
+                      val s = tps.size
+                      (1 until s).foldRight(LessThan(TupleSelect(callMeasure, s), TupleSelect(measure, s)): Expr) {
+                        (i, acc) =>
+                          val m1 = TupleSelect(callMeasure, i)
+                          val m2 = TupleSelect(measure, i)
+                          Or(LessThan(m1, m2), And(Equals(m1, m2), acc))
+                      }
+                    case _ =>
+                      LessThan(callMeasure, measure)
+                  }
+                  solveVALID(path implies lessPred) match {
+                    case Some(true) => None
+                    case Some(false) =>
+                      reporter.warning(s" ==> INVALID: measure doesn't decrease for the (transitive) call ${fi.asString}")
+                      Some(FailStop(fd))
+                    case None =>
+                      reporter.warning(s"==> UNKNOWN: measure cannot be shown to decrease for (transitive) call ${fi.asString}")
+                      Some(TryOther)
+                  }
+                }
+            }
+          case _ => Some(TryOther)
+        }
+        if (decRes.isEmpty) reporter.debug(s"==> VALID")
+        decRes.toSeq
       }
+    }
+    if (fails.isEmpty) {
+      Some(fds.map(Cleared))
+    } else if (fails.exists(_.isInstanceOf[FailStop])) {
+      //reporter.warning(s"Termiantion failed for SCC: ${fds.map(_.id.name).mkString(",")}")
+      Some(fds.map(Broken(_, Seq())))
     } else {
-      None
+      None // nothing is cleared here, so other phases will apply
     }
   }
 
@@ -148,6 +153,8 @@ trait DecreasesProcessor extends Processor {
    */
   def collectRecursiveCallsWithPaths(rootExpr: Expr, rootfun: FunDef, scc: Set[FunDef]): Option[Seq[(FunctionInvocation, Path)]] = {
 
+    lazy val analysisInfo = new CFAAnalysisInfo(rootfun)
+
     def rec(expr: Expr, initPath: Path, seen: Set[FunDef]): Option[Seq[(FunctionInvocation, Path)]] = {
 
       val recCallsWithPath = transformers.CollectorWithPC(program) {
@@ -157,8 +164,18 @@ trait DecreasesProcessor extends Processor {
       val optSeqs = recCallsWithPath map {
         case cp @ (FunctionInvocation(callee, _, _), _) if getFunction(callee).measure.isDefined =>
           Some(Seq(cp))
-        case cp @ (FunctionInvocation(callee, _, _), _) if seen(getFunction(callee)) =>
+
+        // here, the invocation does not have a measure, but may never be invoked (e.g. if it is inside an uninvocable lambda)
+        case (fi @ FunctionInvocation(callee, _, _), _) if !analysisInfo.invocableCyclicCalls(fi) =>
+          reporter.debug(s" ==> Ignoring the uninvocable recursive call $fi")
+          Some(Seq())
+
+        // here, we have seen a self-recursive function without a measure that can be invoked by rootfun
+        case (fi @ FunctionInvocation(callee, _, _), _) if seen(getFunction(callee)) =>
+          reporter.warning(s" ==> Recursive call $fi does not have attached measures and could be invoked by ${rootfun.id}.")
           None
+
+        // here, we try to inline the callee and see if it is disappears
         case (fi @ FunctionInvocation(callee, tps, args), path) =>
           // here the recursive call does not have a measure but is not self recursive
           // inline the recursive call and get the path to the recursive calls in the body
@@ -181,48 +198,73 @@ trait DecreasesProcessor extends Processor {
    */
   class CFAAnalysisInfo(rootfd: FunDef) {
 
-    lazy val transCallers = transitiveCallers(rootfd)  // Note that these are queries over dependency graph
+    val transCallers = transitiveCallers(rootfd) // Note that these are queries over dependency graph
 
-    lazy val cfa = new CICFA(program, rootfd.id)
-    import cfa.program._
-    import cfa.program.trees._
+    //println("Functions: "+checker.program.symbols.functions)
+    val cfa = new CICFA {
+      val program: checker.program.type = checker.program
+      val rootfunid = rootfd.id
+    }
+    cfa.analyze() // Note: trait initialization should happen before the fields are used
 
-    lazy val lambdasCallingRootFun = {
-      cfa.locallyAppliedLambdas.filter{       // TODO: why we need casting here?
-        case Lambda(_, body) =>
-          // inner function that checks if the Lambda directly invokes rootfd
-          def rec(iner: Expr): Boolean = {
-            case _ : Lambda => false // we can ignore calls inside lambdas
-            case FunctionInvocatoin(calleeid, _, args) =>
-               rootfd.id == calleeid ||  (args exists rec)  // a direct call to rootfd is made
-            case Operator(args, _) =>
-              args exists rec
+    // all lamdbas that may possibly be invoked by rootfd
+    val appliedLambdas = {
+      cfa.locallyAppliedLambdas.toSet ++
+        // all lambdas reachable in the dependency graph from the external lambdas should also be considered applied
+        cfa.externallyEscapingLambdas.flatMap { l =>
+          var llams = Set(l)
+          var callees = Set[Identifier]()
+          // collect all top level lambdas and callees
+          postTraversal {
+            case nl: Lambda => llams += nl
+            case FunctionInvocation(calleeid, _, _) =>
+              callees += calleeid
+            case _ =>
+          }(l.body)
+          // collect all lamdbas in all callees
+          callees.foreach { cid =>
+            transitiveCallees(getFunction(cid)).foreach { tc =>
+              postTraversal {
+                case nl: Lambda => llams += nl
+                case _          =>
+              }(tc.fullBody)
+            }
           }
-          rec(body)
-      } ++
-        cfa.externallyEscapingLambdas.filter{ case Lambda(_, body) =>
-          exists {
-            case FunctionInvocatoin(calleeid, _, args) => transCallers(functions(calleeid))  // the rootfd can be extracted from this Lambda
-            case _ => false
-          }(body)
+          llams
         }
     }
 
-    lazy val transCreators = lambdasCallingRootFun.flatMap(cfa.creators(_)).flatMap(crid => transitiveCallers(getFunction(crid))).map(_.id)
+    val invocableCyclicCalls = {
+      def rec(iner: Expr): Set[FunctionInvocation] = iner match {
+        case l @ Lambda(_, body) if appliedLambdas(l) =>
+          // can recurse into the body of this lambda as it may be applied by rootfd (transitively)
+          rec(body)
 
-    /*lazy val externallyInvocableRecursiveCalls = { // set of  function calls that invokes callers of rootfd and are invoked within applied lambdas
-      collect{
-        case l@Lambda(_, body) if externallyAppliedLambdas.contains(l) => // this is a applied lambda
-          collect{
-            case fi@FunctionInvocation(fid, _, _) if transCallers(functions(fid)) => Set(fi) // fi calls a caller of fd within an applied Lambda
-            case _ => Set()
-          }(body)
-        case _ => Set[FunctionInvocation]()
-      }(rootfd.fullBody)
-        // TODO: here it suffices to intersect locallyAppliedlambdas with immediately cyclic lambdas and not mutually cyclic lambdas
+        case _: Lambda => Set() // do nothing otherwise
+
+        case fi @ FunctionInvocation(calleeid, _, args) if transCallers(getFunction(calleeid)) => // a possible recursive call to rootfd
+          Set(fi) ++ (args flatMap rec).toSet
+
+        case Operator(args, _) =>
+          (args flatMap rec).toSet
+      }
+      rec(rootfd.fullBody)
     }
 
-    def isAppliedCyclicLambda(l: Lambda) = appliedCyclicLambdas(l) // only these Lambdas can cause non-termination
-*/
-    }
+    /*val callsInvokingRootFun: Set[FunctionInvocation] = {
+      cfa.locallyAppliedLambdas.flatMap { l => // TODO: why we need casting here?
+        // inner function that checks if the Lambda directly invokes rootfd
+
+      }.toSet ++
+        cfa.externallyEscapingLambdas.flatMap { l =>
+          def rec(iner: Expr): Set[FunctionInvocation] = iner match {
+            case fi @ FunctionInvocation(calleeid, _, args) if transCallers(functions(calleeid)) => Set(fi) ++ (args flatMap rec).toSet
+            case Operator(args, _) => (args flatMap rec).toSet
+          }
+          rec(l.body)
+        }
+    }*/
+    //val transCallerIds = transitiveCallers(callsInvokingRootFun.map(_.id).toSet.map((id: Identifier) => getFunction(id))).map(_.id)
+  }
+
 }

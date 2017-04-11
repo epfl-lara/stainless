@@ -11,12 +11,12 @@ object ZipWithAndFibStream {
    *  An infinite integer stream.
    *  Technically, the data structure is *not* infinite but the tail has a higher-order function.
    */
-  case class SCons(x: BigInt, tailFun: () => SCons) {    
+  case class SCons(x: BigInt, tailFun: () => SCons) {
     lazy val tail = tailFun()
   }
-  
+
   /**
-   * A generic higher-order `zipWithFun` function. 
+   * A generic higher-order `zipWithFun` function.
    */
   private def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
     (xs, ys) match {
@@ -31,7 +31,7 @@ object ZipWithAndFibStream {
     else {
       nthElem(n - 1, s.tail)
     }
-  } 
+  }
 
   /**
    * Using a `zipWithFun` function to implement a fibonacci stream.
