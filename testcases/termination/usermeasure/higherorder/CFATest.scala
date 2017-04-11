@@ -8,7 +8,7 @@ import collection._
 
 object CFATest {
 
-  /*def test1(f: (Unit => BigInt) => BigInt, xs: BigInt): BigInt = {
+  def test1(f: (Unit => BigInt) => BigInt, xs: BigInt): BigInt = {
     val l = (u: Unit) => xs
     f(l)
   }
@@ -29,7 +29,7 @@ object CFATest {
 
   def baddy() = {
     test4((l: (BigInt => BigInt)) => l(0), 0)
-  }*/
+  }
 
   case class SCons(x: BigInt, tailFun: () => SCons)
 
@@ -39,12 +39,27 @@ object CFATest {
         f(Unit => test5(f, tfun()))
     }
   }
-  
-  /*  def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
+
+  def zipWithFun(f: (BigInt, BigInt) => BigInt, xs: SCons, ys: SCons): SCons = {
     (xs, ys) match {
       case (SCons(x, _), SCons(y, _)) =>
         SCons(f(x, y), () => zipWithFun(f, xs.tailFun(), ys.tailFun()))
     }
-  }*/
-
+  }
+  
+  def zipWithFunBuggy(f: (Unit => SCons) => SCons, xs: SCons, ys: SCons): SCons = {
+    (xs, ys) match {
+      case (SCons(x, _), SCons(y, _)) =>
+        f((u: Unit) => zipWithFunBuggy(f, xs.tailFun(), ys.tailFun()))
+    }
+  }
+  
+  /**
+   * Tests flow through data structures
+   */
+  case class GCons[T](x: T) 
+  def test6(xs: (Unit => Int) => Int): Int = {
+    val intds = GCons(xs)
+    intds.x((u: Unit) => test6(xs))    
+  }
 }
