@@ -165,7 +165,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       cd.id,
       cd.tparams map transformer.transform,
       classToConstructors(cd.id).toSeq,
-      (cd.flags - IsAbstract) map transformer.transform
+      (cd.flags - IsAbstract - IsSealed) map transformer.transform
     )).toSeq
 
     val consClasses = symbols.classes.values.filter { cd =>
@@ -178,7 +178,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       cd.tparams map transformer.transform,
       if (classToParent(cd.id) == cd.id) None else Some(classToParent(cd.id)),
       cd.fields map transformer.transform,
-      cd.flags map transformer.transform
+      (cd.flags - IsSealed) map transformer.transform
     )).toSeq
 
     val classes: Seq[t.ClassDef] = symbols.classes.values

@@ -50,8 +50,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     def mkSeq(es: Seq[Expr]): Expr = es.foldRight(nil())((h, t) => cons(h, t))
     def seqAt(s: Expr, i: Int): Expr =
-      if (i <= 0) s.asInstOf(cons).getField(head)
-      else seqAt(s.asInstOf(cons).getField(tail), i - 1)
+      if (i <= 0) Assume(s.isInstOf(cons), s.asInstOf(cons).getField(head))
+      else Assume(s.isInstOf(cons), seqAt(s.asInstOf(cons).getField(tail), i - 1))
 
     val seqSort  = mkSort(seqID)()(Seq(consID, nilID))
     val consCons = mkConstructor(consID)()(Some(seqID))(_ => Seq(ValDef(head, tpe), ValDef(tail, seq)))
@@ -248,30 +248,32 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case Seq(tp1, tp2) => Seq(
           tp2.isInstOf(top) -> E(true),
           tp1.isInstOf(bot) -> E(true),
-
-          tp1.isInstOf(bool) -> tp2.isInstOf(bool),
-          tp1.isInstOf(int)  -> tp2.isInstOf(int),
-          tp1.isInstOf(bv)   -> (
-            tp2.isInstOf(bv) &&
-            tp1.asInstOf(bv).getField(bvSize) === tp2.asInstOf(bv).getField(bvSize)
-          ),
-          tp1.isInstOf(char) -> tp2.isInstOf(char),
-          tp1.isInstOf(unit) -> tp2.isInstOf(unit),
-          tp1.isInstOf(real) -> tp2.isInstOf(real),
-          tp1.isInstOf(str)  -> tp2.isInstOf(str),
           tp1.isInstOf(cls) -> (
             tp2.isInstOf(cls) &&
-            symbols.classes.values.foldRight(choose("res" :: BooleanType)(_ => E(true)): Expr) {
+            symbols.classes.values.foldRight(
+              IfExpr(andJoin(symbols.classes.values.filter(_.flags contains s.IsSealed).toSeq.map {
+                cd => !(tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId))
+              }), choose("res" :: BooleanType)(_ => E(true)), E(false)): Expr
+            ) {
               case (cd, elze) => IfExpr(
                 tp1.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId),
                 (
-                  tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId) &&
-                  andJoin(cd.typeArgs.zipWithIndex.map { case (tp, i) =>
-                    val Seq(t1, t2) = Seq(tp1, tp2).map(t => seqAt(t.asInstOf(cls).getField(clsTps), i))
-                    if (tp.isCovariant) subtypeOf(t1, t2)
-                    else if (tp.isContravariant) subtypeOf(t2, t1)
-                    else t1 === t2
-                  })
+                  tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId) && {
+                    def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
+                      case tp +: xs =>
+                        val (t1, t2) = (seq1.asInstOf(cons).getField(head), seq2.asInstOf(cons).getField(head))
+                        val cond = if (tp.isCovariant) subtypeOf(t1, t2)
+                          else if (tp.isContravariant) subtypeOf(t2, t1)
+                          else t1 === t2
+                        seq1.isInstOf(cons) &&
+                        seq2.isInstOf(cons) &&
+                        cond &&
+                        rec(xs, seq1.asInstOf(cons).getField(tail), seq2.asInstOf(cons).getField(tail))
+                      case Seq() => E(true)
+                    }
+
+                    rec(cd.typeArgs, tp1.asInstOf(cls).getField(clsTps), tp2.asInstOf(cls).getField(clsTps))
+                  }
                 ) || (
                   orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2)))
                 ),
@@ -290,23 +292,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
                 elze
               )
             }
-          ),
-          tp1.isInstOf(arr) -> (
-            tp2.isInstOf(arr) &&
-            tp1.asInstOf(arr).getField(arrBase) === tp2.asInstOf(arr).getField(arrBase)
-          ),
-          tp1.isInstOf(set) -> (
-            tp2.isInstOf(set) &&
-            tp1.asInstOf(set).getField(setBase) === tp2.asInstOf(set).getField(setBase)
-          ),
-          tp1.isInstOf(bag) -> (
-            tp2.isInstOf(bag) &&
-            tp1.asInstOf(bag).getField(bagBase) === tp2.asInstOf(bag).getField(bagBase)
-          ),
-          tp1.isInstOf(map) -> (
-            tp2.isInstOf(map) &&
-            tp1.asInstOf(map).getField(mapFrom) === tp2.asInstOf(map).getField(mapFrom) &&
-            tp1.asInstOf(map).getField(mapTo) === tp2.asInstOf(map).getField(mapTo)
           ),
           tp1.isInstOf(tpl) -> (
             tp2.isInstOf(tpl) && (
@@ -356,7 +341,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               )
             )
           )
-        ).foldRight(E(false): Expr) {
+        ).foldRight((tp1 === tp2): Expr) {
           case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
         }
       }))
@@ -373,7 +358,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
 
     /* ====================================
-     *     REF-TYPE FIELDS & WRAPPERS
+     *          GET-TYPE FUNCTION
      * ==================================== */
 
     val typeField = FreshIdentifier("getType")
@@ -381,6 +366,43 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       Seq("e" :: obj), tpe, { case Seq(e) => choose("res" :: tpe)(_ => E(true)) }))
 
     val typeOf = (e: Expr) => FunctionInvocation(typeField, Seq(), Seq(e))
+
+
+    /* ====================================
+     *         INSTANCEOF FUNCTION
+     * ==================================== */
+
+    val instanceID = FreshIdentifier("isInstanceOf")
+    val instanceOf = (e1: Expr, e2: Expr) => FunctionInvocation(instanceID, Seq(), Seq(e1, e2))
+
+    val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
+      Seq("e" :: obj, "tp2" :: tpe), BooleanType, {
+        case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
+          tp2.isInstOf(bot) -> E(false),
+          tp2.isInstOf(top) -> E(true),
+          tp2.isInstOf(cls) -> (
+            tp1.isInstOf(cls) &&
+            andJoin(symbols.classes.values.toSeq.filter(_.flags contains s.IsAbstract).map {
+              cd => !(tp1.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId))
+            }) &&
+            subtypeOf(tp1, tp2)
+          ),
+          tp2.isInstOf(adt) -> (
+            tp1.isInstOf(adt) &&
+            andJoin(symbols.adts.values.filter(_.isSort).toSeq.map {
+              d => !(tp1.asInstOf(adt).getField(adtPtr) === IntegerLiteral(d.id.globalId))
+            }) &&
+            subtypeOf(tp1, tp2)
+          )
+        ).foldRight(subtypeOf(tp1, tp2): Expr) {
+          case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
+        })
+      }))
+
+
+    /* ====================================
+     *     REF-TYPE FIELDS & WRAPPERS
+     * ==================================== */
 
     val classFields = symbols.classes.values.flatMap { cd =>
       cd.fields.map { vd =>
@@ -392,7 +414,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         val fieldFunction = mkFunDef(id, Unchecked)()(_ => (Seq(arg), resTpe, {
           case Seq(_) => choose("res" :: resTpe) { res =>
             if (isObject(vd.tpe)) {
-              subtypeOf(typeOf(res), encodeType(vd.tpe))
+              instanceOf(res, encodeType(vd.tpe))
             } else {
               E(true)
             }
@@ -772,7 +794,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           getField(transform(expr), id)
 
         case s.IsInstanceOf(expr, tpe) if isObject(symbols.leastUpperBound(expr.getType(symbols), tpe)) =>
-          subtypeOf(typeOf(transform(expr)), encodeType(tpe))
+          instanceOf(transform(expr), encodeType(tpe))
 
         case s.AsInstanceOf(expr, tpe) if isObject(symbols.leastUpperBound(expr.getType(symbols), tpe)) =>
           val exprType = expr.getType(symbols)
@@ -786,7 +808,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType(symbols)) =>
           let("res" :: tpe, super.transform(e)) { res =>
-            t.Assume(subtypeOf(typeOf(res), encodeType(e.getType(symbols))), res)
+            t.Assume(instanceOf(res, encodeType(e.getType(symbols))), res)
           }
 
         case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
@@ -870,7 +892,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           case s.InstanceOfPattern(ob, tpe) =>
             if (isObject(leastUpperBound(in.getType, tpe))) {
               val v = transform(ob.map(_.toVariable).getOrElse(in))
-              (t.WildcardPattern(ob map transform), subtypeOf(typeOf(v), encodeType(tpe)))
+              (t.WildcardPattern(ob map transform), instanceOf(v, encodeType(tpe)))
             } else {
               (t.InstanceOfPattern(ob map transform, transform(tpe)), t.BooleanLiteral(true))
             }
@@ -973,7 +995,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         val paramConds = (newParams zip fd.params.map(_.tpe)).map { case (vd, tpe) =>
           if (!isObject(tpe)) t.BooleanLiteral(true)
-          else subtypeOf(typeOf(vd.toVariable), encodeType(tpe))
+          else instanceOf(vd.toVariable, encodeType(tpe))
         }
 
         val returnType = scope.transform(fd.returnType)
@@ -992,7 +1014,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         val newPost = {
           val Lambda(Seq(res), body) = post.map(scope.transform(_)).getOrElse(\("res" :: returnType)(_ => E(true)))
           val returnCond = if (isObject(fd.returnType)) {
-            subtypeOf(typeOf(res.toVariable), encodeType(fd.returnType))
+            instanceOf(res.toVariable, encodeType(fd.returnType))
           } else {
             E(true)
           }
@@ -1023,9 +1045,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     val adts: Seq[t.ADTDefinition] = symbols.adts.values.map(d => baseScope.transform(d)).toSeq
 
-    val newSymbols = t.NoSymbols
+    val newSymbols = NoSymbols
       .withFunctions(
-        Seq(subtypeFunction) ++ 
+        Seq(subtypeFunction, instanceFunction) ++ 
         unapplyFunctions ++
         fieldFunctions ++
         unwrapFunctions ++
@@ -1039,13 +1061,45 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         objCons
       ) ++ adts)
 
-    for (fd <- newSymbols.functions.values) {
-      if (!newSymbols.isSubtypeOf(fd.fullBody.getType(newSymbols), fd.returnType)) {
+    def inlineChecks(e: Expr): Expr = {
+      import newSymbols._
+      import exprOps._
+
+      exprOps.postMap {
+        case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
+          ADT(`tpl`, Seq(ADTSelector(_, `tail`))),
+          ADT(`tpl`, Seq(ADTSelector(_, `tail`)))
+        )) => None
+
+        case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
+          ADT(`fun`, Seq(ADTSelector(_, `tail`), _)),
+          ADT(`fun`, Seq(ADTSelector(_, `tail`), _))
+        )) => None
+
+        case fi @ FunctionInvocation(`subtypeID`, Seq(), args @ (Seq(_: ADT, _) | Seq(_, _: ADT))) =>
+          val tfd = fi.tfd
+          val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
+          Some(inlineChecks(simplifyByConstructors(body)))
+
+        case fi @ FunctionInvocation(`instanceID`, Seq(), args @ Seq(_, _: ADT)) =>
+          val tfd = fi.tfd
+          val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
+          Some(inlineChecks(simplifyByConstructors(body)))
+        case _ => None
+      } (e)
+    }
+
+    val finalSymbols = NoSymbols
+      .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd.copy(fullBody = inlineChecks(fd.fullBody))))
+      .withADTs(newSymbols.adts.values.toSeq)
+
+    for (fd <- finalSymbols.functions.values) {
+      if (!finalSymbols.isSubtypeOf(fd.fullBody.getType(finalSymbols), fd.returnType)) {
         println(fd)
-        println(newSymbols.explainTyping(fd.fullBody)(PrinterOptions()))
+        println(finalSymbols.explainTyping(fd.fullBody)(PrinterOptions()))
       }
     }
 
-    newSymbols
+    finalSymbols
   }
 }

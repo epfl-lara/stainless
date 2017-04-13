@@ -72,7 +72,7 @@ trait DefaultTactic extends Tactic {
     // We don't collect preconditions here, because these are handled by generatePreconditions
     val calls = transformers.CollectorWithPC(program) {
       case (m @ MatchExpr(scrut, cases), path) =>
-        (m, path implies orJoin(cases map (matchCaseCondition(scrut, _).toClause)))
+        (m, path implies orJoin(cases map (matchCaseCondition[Path](scrut, _).toClause)))
 
       case (e @ Error(_, _), path) =>
         (e, Not(path.toClause))
