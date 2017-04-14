@@ -302,10 +302,10 @@ trait CodeExtraction extends ASTExtractors {
         case _ => None
       })
 
-      val flags = annotationsOf(sym) ++
+      val annots = annotationsOf(sym)
+      val flags = annots ++
         (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
         (if (sym.isSealed) Some(xt.IsSealed) else None)
-
 
       val constructor = cd.impl.children.find {
         case ExConstructorDef() => true
@@ -379,7 +379,7 @@ trait CodeExtraction extends ASTExtractors {
       val optInv = if (invariants.isEmpty) None else Some(
         new xt.FunDef(SymbolIdentifier(invSymbol), Seq.empty, Seq.empty, xt.BooleanType,
           if (invariants.size == 1) invariants.head else xt.And(invariants),
-          Set(xt.IsInvariant) ++ flags
+          Set(xt.IsInvariant) ++ annots
         )
       )
 
