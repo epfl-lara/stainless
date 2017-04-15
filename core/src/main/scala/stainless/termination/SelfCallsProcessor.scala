@@ -22,7 +22,7 @@ trait SelfCallsProcessor extends Processor {
       .filter(fd => fd.body.isDefined && alwaysCalls(fd.body.get, fd.id))
 
     if (nonTerminating.nonEmpty)
-      Some(nonTerminating.map(fd => Broken(fd, fd.params.map(_.toVariable))))
+      Some(nonTerminating.map(fd => Broken(fd, LoopsGivenInputs(name, fd.params.map(_.toVariable)))))
     else
       None
   }

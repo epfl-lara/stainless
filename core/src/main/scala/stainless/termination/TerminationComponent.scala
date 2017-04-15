@@ -69,6 +69,8 @@ object TerminationComponent extends SimpleComponent {
               s"Possibly non-terminating for call: ${fd.id.asString}(${args.map(_.asString).mkString(",")})"
             case checker.CallsNonTerminating(fds) =>
               s"Calls non-terminating functions: ${fds.map(_.id.asString).mkString(",")}"
+            case checker.DecreasesFailed =>
+              s"Failed decreases check"
             case checker.Terminates(reason) =>
               s"Terminates ($reason)"
             case checker.NoGuarantee =>

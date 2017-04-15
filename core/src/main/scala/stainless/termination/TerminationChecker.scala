@@ -29,6 +29,7 @@ trait TerminationChecker {
   case class LoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
   case class MaybeLoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
   case class CallsNonTerminating(calls: Set[FunDef]) extends NonTerminating
+  case object DecreasesFailed extends NonTerminating
 
   case object NoGuarantee extends TerminationGuarantee {
     override def isGuaranteed: Boolean = false

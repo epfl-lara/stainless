@@ -43,8 +43,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
   sealed abstract class Result(funDef: FunDef)
   case class Cleared(funDef: FunDef) extends Result(funDef)
-  case class Broken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
-  case class MaybeBroken(funDef: FunDef, args: Seq[Expr]) extends Result(funDef)
+  case class Broken(funDef: FunDef, reason: NonTerminating) extends Result(funDef)
 
   protected val processors: List[Processor { val checker: self.type }]
 
@@ -166,9 +165,8 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   private val problems = new PriorityQueue[(Problem, Int)]
   def running = problems.nonEmpty
 
-  private val clearedMap     : MutableMap[FunDef, String]              = MutableMap.empty
-  private val brokenMap      : MutableMap[FunDef, (String, Seq[Expr])] = MutableMap.empty
-  private val maybeBrokenMap : MutableMap[FunDef, (String, Seq[Expr])] = MutableMap.empty
+  private val clearedMap     : MutableMap[FunDef, String]                   = MutableMap.empty
+  private val brokenMap      : MutableMap[FunDef, (String, NonTerminating)] = MutableMap.empty
 
   private val unsolved     : MutableSet[Problem] = MutableSet.empty
   private val dependencies : MutableSet[Problem] = MutableSet.empty
@@ -204,10 +202,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   private def printResult(results: List[Result]) {
     val sb = new StringBuilder()
     sb.append("- Processing Result:\n")
-    for(result <- results) result match {
+    for (result <- results) result match {
       case Cleared(fd) => sb.append(f"    ${fd.id}%-10s Cleared\n")
-      case Broken(fd, args) => sb.append(f"    ${fd.id}%-10s ${"Broken for arguments: " + args.mkString("(", ",", ")")}\n")
-      case MaybeBroken(fd, args) => sb.append(f"    ${fd.id}%-10s ${"HO construct application breaks for arguments: " + args.mkString("(", ",", ")")}\n")
+      case Broken(fd, reason) => sb.append(f"    ${fd.id}%-10s ${"Broken with reason: " + reason}\n")
     }
     reporter.debug(sb.toString)
   }
@@ -216,10 +213,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   def terminates(funDef: FunDef): TerminationGuarantee = {
     val guarantee = {
       terminationMap.get(funDef) orElse
-      brokenMap.get(funDef).map { case (reason, args) => LoopsGivenInputs(reason, args) } orElse
-      maybeBrokenMap.get(funDef).map { case (reason, args) => MaybeLoopsGivenInputs(reason, args)} getOrElse {
+      brokenMap.get(funDef).map(_._2) getOrElse {
         val callees = transitiveCallees(funDef)
-        val broken = brokenMap.keys.toSet ++ maybeBrokenMap.keys
+        val broken = brokenMap.keys.toSet
         val brokenCallees = callees intersect broken
         if (brokenCallees.nonEmpty) {
           CallsNonTerminating(brokenCallees)
@@ -307,14 +303,10 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
         reporter.info(s"Result for ${fd.id}")
         reporter.info(s" => CLEARED ($reason)")
         clearedMap(fd) = reason
-      case Broken(fd, args) =>
+      case Broken(fd, msg) =>
         reporter.info(s"Result for ${fd.id}")
-        reporter.info(s" => BROKEN (for call ${fd.id}(${args.map(_.asString).mkString(",")})")
-        brokenMap(fd) = (reason, args)
-      case MaybeBroken(fd, args) =>
-        reporter.info(s"Result for ${fd.id}")
-        reporter.info(s" => MAYBE BROKEN (for call ${fd.id}(${args.map(_.asString).mkString(",")})")
-        maybeBrokenMap(fd) = (reason, args)
+        reporter.info(s" => BROKEN ($reason) -> $msg")
+        brokenMap(fd) = (reason, msg)
     }
 
     val verified = terminationProblems.flatMap(_.funDefs).toSet.filter(!isProblem(_))
