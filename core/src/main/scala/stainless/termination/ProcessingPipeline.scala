@@ -76,8 +76,13 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       case None => 2.5.seconds
     }
 
+    val allOptions = options ++ Seq(
+      inox.solvers.optSilentErrors(true),
+      inox.solvers.optCheckModels(true)
+    )
+
     solvers.SolverFactory
-      .getFromSettings(p, options)(programEncoder)(p.getSemantics)
+      .getFromSettings(p, allOptions)(programEncoder)(p.getSemantics)
       .withTimeout(timeout)
   }
 
