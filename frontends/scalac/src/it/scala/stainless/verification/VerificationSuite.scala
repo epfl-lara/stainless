@@ -7,6 +7,8 @@ import org.scalatest._
 
 trait VerificationSuite extends ComponentTestSuite {
 
+  val component = VerificationComponent
+
   override def configurations = super.configurations.map {
     seq => optFailEarly(true) +: seq
   }
@@ -19,8 +21,6 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case _ => super.filter(ctx, name)
   }
-
-  val component = VerificationComponent
 
   testAll("verification/valid") { (report, reporter) =>
     for ((vc, vr) <- report.vrs) {

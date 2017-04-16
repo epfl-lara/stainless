@@ -79,7 +79,7 @@ object NNF {
   @induct
   def wrongCommutative(f: Formula) : Boolean = {
     nnf(simplify(f)) == simplify(nnf(f))
-  } holds
+  } // holds
 
   @induct
   def simplifyPreservesNNF(f: Formula) : Boolean = {

@@ -46,11 +46,11 @@ object QuickSort {
     case Cons(x,xs) => if (n==x) Cons(x,equals(n,xs)) else equals(n,xs)
   }
 
-  def quickSort(list:List): List = (list match {
+  def quickSort(list:List): List = list match {
     case Nil() => Nil()
     case Cons(x,Nil()) => list
     case Cons(x,xs) => append(append(quickSort(smaller(x,xs)),Cons(x,equals(x,xs))),quickSort(greater(x,xs)))
-  }) ensuring(res => contents(res) == contents(list)) // && is_sorted(res))
+  }
 
   @ignore
   def main(args: Array[String]): Unit = {

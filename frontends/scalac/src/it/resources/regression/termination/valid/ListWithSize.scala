@@ -16,13 +16,13 @@ object ListWithSize {
     case class IP(fst: Int, snd: Int) extends IntPair
 
     // proved with unrolling=0
-    def size(l: List) : Int = (l match {
-        case Nil() => 0
+    def size(l: List) : BigInt = (l match {
+        case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
     }) ensuring(res => res >= 0)
 
-    def iplSize(l: IntPairList) : Int = (l match {
-      case IPNil() => 0
+    def iplSize(l: IntPairList) : BigInt = (l match {
+      case IPNil() => BigInt(0)
       case IPCons(_, xs) => 1 + iplSize(xs)
     }) ensuring(_ >= 0)
 
@@ -39,8 +39,8 @@ object ListWithSize {
       }
     } ensuring(iplSize(_) == size(l1))
 
-    def sizeTailRec(l: List) : Int = sizeTailRecAcc(l, 0)
-    def sizeTailRecAcc(l: List, acc: Int) : Int = {
+    def sizeTailRec(l: List) : BigInt = sizeTailRecAcc(l, 0)
+    def sizeTailRecAcc(l: List, acc: BigInt) : BigInt = {
      require(acc >= 0)
      l match {
        case Nil() => acc

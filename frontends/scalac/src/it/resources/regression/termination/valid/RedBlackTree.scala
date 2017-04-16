@@ -29,7 +29,6 @@ object RedBlackTree {
       else             balance(c,a,y,ins(x, b))
   }) ensuring (res => (
              (content(res) == content(t) ++ Set(x))
-          && (size(t) <= size(res) && size(res) < size(t) + 2)
               ))
 
   def add(x: Int, t: Tree): Tree = {

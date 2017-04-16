@@ -5,7 +5,7 @@ package termination
 
 import scala.concurrent.duration._
 
-class TerminationSuite extends ComponentTestSuite with inox.ResourceUtils {
+class TerminationSuite extends ComponentTestSuite {
 
   val component = TerminationComponent
 

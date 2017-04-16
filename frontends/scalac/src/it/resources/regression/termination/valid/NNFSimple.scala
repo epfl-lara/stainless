@@ -31,10 +31,7 @@ object NNFSimple {
   def simpleNNF(formula: Formula): Formula = formula match {
     case Or(lhs, rhs) => Or(simpleNNF(lhs), simpleNNF(rhs))
     case Implies(lhs, rhs) => simpleNNF(Or(Not(lhs), rhs))
-    case And(lhs, rhs) => formula
-    case Not(Not(f)) => formula
-    case Not(Literal(_)) => formula
-    case Literal(_) => formula
+    case _ => formula
   }
 
   def isNNF(f: Formula): Boolean = f match {
