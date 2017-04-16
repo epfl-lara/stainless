@@ -11,6 +11,8 @@ trait RelationBuilder { self: Strengthener =>
   import checker.program.trees._
   import checker.program.symbols._
 
+  val cfa: CICFA { val program: checker.program.type }
+
   case class Relation(fd: FunDef, path: Path, call: FunctionInvocation, inLambda: Boolean) {
     override def toString : String = "Relation(" + fd.id + "," + path + ", " +
       call.tfd.id + call.args.mkString("(",",",")") + "," + inLambda + ")"
@@ -46,17 +48,13 @@ trait RelationBuilder { self: Strengthener =>
   def getRelations(funDef: FunDef): Set[Relation] = relationCache.get(funDef) match {
     case Some((relations, signature)) if signature == funDefRelationSignature(funDef) => relations
     case _ => {
-      object cfa extends CICFA {
-        val program: checker.program.type = checker.program
-        val rootfunid = funDef.id
-      }
-      cfa.analyze() // Note: trait initialization should happen before the fields are used
+      val analysis = cfa.analyze(funDef.id)
 
       // all lambdas that may possibly be invoked by funDef
       val appliedLambdas = {
-        cfa.locallyAppliedLambdas.toSet ++
+        analysis.locallyAppliedLambdas.toSet ++
         // all lambdas reachable in the dependency graph from the external lambdas may also be applied
-        cfa.externallyEscapingLambdas.flatMap { l =>
+        analysis.escapingLambdas.flatMap { l =>
           var llams = Set(l)
           var callees = Set[Identifier]()
 

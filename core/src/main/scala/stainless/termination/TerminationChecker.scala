@@ -53,8 +53,13 @@ object TerminationChecker {
       }
     }
 
+    object cfa extends CICFA {
+      val program: self.program.type = self.program
+    }
+
     object integerOrdering extends {
       val checker: self.type = self
+      val cfa: self.cfa.type = self.cfa
     } with SumOrdering
       with StructuralSize
       with Strengthener
@@ -63,6 +68,7 @@ object TerminationChecker {
 
     object lexicographicOrdering extends {
       val checker: self.type = self
+      val cfa: self.cfa.type = self.cfa
     } with LexicographicOrdering
       with StructuralSize
       with Strengthener
@@ -70,6 +76,7 @@ object TerminationChecker {
 
     object bvOrdering extends {
       val checker: self.type = self
+      val cfa: self.cfa.type = self.cfa
     } with BVOrdering
       with StructuralSize
       with Strengthener
