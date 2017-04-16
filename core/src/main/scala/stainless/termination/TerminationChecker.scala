@@ -86,6 +86,7 @@ object TerminationChecker {
 
     object decreasesProcessor extends {
       val checker: self.type = self
+      val builder: integerOrdering.type = integerOrdering
     } with DecreasesProcessor
 
     object integerProcessor extends {

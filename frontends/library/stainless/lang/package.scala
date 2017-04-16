@@ -107,12 +107,12 @@ package object lang {
     def passes(tests : A => B ) : Boolean =
       try { tests(in) == out } catch { case _ : MatchError => true }
   }
-  
+
   @ignore
   def byExample[A, B](in: A, out: B): Boolean = {
     sys.error("Can't execute by example proposition")
   }
-  
+
   implicit class SpecsDecorations[A](val underlying: A) {
     @ignore
     def computes(target: A) = {
@@ -120,7 +120,7 @@ package object lang {
     } ensuring {
       res => res == target
     }
-    
+
     @ignore // Programming by example: ???[String] ask input
     def ask[I](input : I) = {
       underlying
@@ -128,7 +128,7 @@ package object lang {
       (res: A) => byExample(input, res)
     }
   }
-  
+
   implicit class StringDecorations(val underlying: String) {
     @ignore @inline
     def bigLength() = BigInt(underlying.length)
@@ -151,7 +151,7 @@ package object lang {
       }
     }
   }
-  
+
   @library
   def tupleToString[A, B](t: (A, B), mid: String, f: A => String, g: B => String) = {
     f(t._1) + mid + g(t._2)
