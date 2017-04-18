@@ -87,9 +87,9 @@ trait CICFA {
     // for the current function, initialize it to External
     for ((_, fd) <- functions) {
       val env = if (id == fd.id) {
-        AbsEnv(fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
-      } else {
         AbsEnv(fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
+      } else {
+        AbsEnv(fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
       }
       tabulation(fd.id) = Summary(env, emptyEnv, Set())
     }
