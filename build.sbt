@@ -8,7 +8,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2-30-g33ee731"
+val inoxVersion = "1.0.2-70-gf3ae022"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -58,8 +58,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   libraryDependencies ++= Seq(
     //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
-    //"ch.epfl.lara" %% "inox" % inoxVersion,
-    //"ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
+    "ch.epfl.lara" %% "inox" % inoxVersion,
+    "ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
   ),
 
@@ -76,7 +76,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
   libraryDependencies ++= Seq(
-    //"ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
+    "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
@@ -161,8 +161,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "499e6bc96f3e545f0bd5d8c26b9986c902de9e4b")
-  //RootProject(file("../inox"))
+//lazy val inox = RootProject(file("../inox"))
 lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "fb1dbba5e35d1fc7c00250f597b8c796d8c96eda")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
@@ -170,7 +169,7 @@ lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
-  .dependsOn(inox % "compile->compile;test->test")
+//  .dependsOn(inox % "compile->compile;test->test")
   .dependsOn(cafebabe)
 
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
@@ -179,7 +178,7 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
     frontendClass := "scalac.ScalaCompiler",
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
   .dependsOn(`stainless-core`)
-  .dependsOn(inox % "test->test;it->test,it")
+//  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
