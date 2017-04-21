@@ -41,7 +41,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val newSubst = rhsFun + (vd.toVariable -> newVd.toVariable)
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, replaceFromSymbols(newSubst, bodyScope(body))).copiedFrom(expr))
           (bodyRes, scope, newSubst ++ bodyFun)
-   
+
         case Assignment(v, e) =>
           assert(varsInScope.contains(v))
           val newVd = v.toVal.freshen
@@ -118,7 +118,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           }
 
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
-   
+
         case wh @ While(cond, body, optInv) =>
           val name = ValDef(
             FreshIdentifier(parent.id.name + "While").setPos(parent.id),
@@ -312,8 +312,16 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         //TODO: handle vars in scope, just like LetRec
         case ld @ Lambda(params, body) =>
-          val (bodyVal, bodyScope, bodyFun) = toFunction(body)
-          (Lambda(params, bodyScope(bodyVal)).copiedFrom(ld), (e: Expr) => e, Map())
+          val (optPre, lBody) = body match {
+            case Require(pred, body) => (Some(pred), body)
+            case _ => (None, body)
+          }
+          val newPre = optPre.map { pre =>
+            val (res, scope, _) = toFunction(pre)
+            scope(res)
+          }
+          val (bodyVal, bodyScope, bodyFun) = toFunction(lBody)
+          (Lambda(params, withPrecondition(bodyScope(bodyVal), newPre)).copiedFrom(ld), (e: Expr) => e, Map())
 
         case c @ Choose(res, pred) =>
           //Recall that Choose cannot mutate variables from the scope
