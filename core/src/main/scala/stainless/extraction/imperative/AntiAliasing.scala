@@ -245,14 +245,32 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
           case m @ MatchExpr(scrut, cses) if effects.isMutableType(scrut.getType) =>
-            val newScrut = rec(scrut, env)
-            val newCases = cses.map { case mc @ MatchCase(pattern, guard, rhs) =>
-              val newRewritings = mapForPattern(scrut, pattern)
-              val newGuard = guard.map(rec(_, env withRewritings newRewritings))
-              val newRhs = rec(rhs, env withRewritings newRewritings)
-              MatchCase(pattern, newGuard, newRhs).copiedFrom(mc)
+            if (effects(scrut).nonEmpty) {
+              def liftEffects(e: Expr): (Seq[(ValDef, Expr)], Expr) = e match {
+                case ArraySelect(e, i) if effects(i).nonEmpty =>
+                  val (eBindings, eLift) = liftEffects(e)
+                  val vd = ValDef(FreshIdentifier("index", true), Int32Type).copiedFrom(i)
+                  (eBindings :+ (vd -> i), ArraySelect(eLift, vd.toVariable).copiedFrom(e))
+                case _ if effects(e).nonEmpty =>
+                  throw MissformedStainlessCode(m, "Unexpected effects in match scrutinee")
+                case _ => (Seq.empty, e)
+              }
+
+              val (bindings, newScrut) = liftEffects(scrut)
+              val newMatch = bindings.foldRight(MatchExpr(newScrut, cses).copiedFrom(m): Expr) {
+                case ((vd, e), b) => Let(vd, e, b).copiedFrom(m)
+              }
+              rec(newMatch, env)
+            } else {
+              val newScrut = rec(scrut, env)
+              val newCases = cses.map { case mc @ MatchCase(pattern, guard, rhs) =>
+                val newRewritings = mapForPattern(newScrut, pattern)
+                val newGuard = guard.map(rec(_, env withRewritings newRewritings))
+                val newRhs = rec(rhs, env withRewritings newRewritings)
+                MatchCase(pattern, newGuard, newRhs).copiedFrom(mc)
+              }
+              MatchExpr(newScrut, newCases).copiedFrom(m)
             }
-            MatchExpr(newScrut, newCases).copiedFrom(m)
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
