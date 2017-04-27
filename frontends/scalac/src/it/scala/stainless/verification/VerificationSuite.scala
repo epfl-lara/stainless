@@ -60,6 +60,10 @@ class CodeGenVerificationSuite extends VerificationSuite {
     ) ++ seq
   }
 
+  override protected def optionsString(options: inox.Options): String = {
+    super.optionsString(options) + " codegen"
+  }
+
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore

@@ -30,60 +30,10 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
 
     lazy val size: Int = relations.size
 
-    private lazy val inlining : Seq[(Seq[ValDef], Expr)] = {
-      def rec(list: List[Relation], funDef: TypedFunDef, args: Seq[Expr]): Seq[(Seq[ValDef], Expr)] = list match {
-        case Relation(_, _, FunctionInvocation(id, tps, nextArgs), _) :: xs =>
-          val tfd = getFunction(id, tps.map(funDef.instantiate))
-          val subst = funDef.paramSubst(args)
-          val expr = replaceFromSymbols(subst, hoistIte(expandLets(matchToIfThenElse(tfd.body.get))))
-          val mappedArgs = nextArgs.map(e => replaceFromSymbols(subst, tfd.instantiate(e)))
-
-          (tfd.params, expr) +: rec(xs, tfd, mappedArgs)
-        case Nil => Seq.empty
-      }
-
-      val body = hoistIte(expandLets(matchToIfThenElse(fd.body.get)))
-      (fd.params, body) +: rec(relations, fd.typed, fd.params.map(_.toVariable))
+    lazy val loop: (Path, Seq[Expr]) = {
+      val bigRel = relations.reduce(_ compose _)
+      (bigRel.path, bigRel.call.args)
     }
-
-    lazy val finalParams : Seq[ValDef] = inlining.last._1
-
-    def loop(initialArgs: Seq[ValDef] = Seq.empty, finalArgs: Seq[ValDef] = Seq.empty): Path = {
-      def rec(relations: List[Relation], funDef: TypedFunDef, subst: Map[ValDef, Expr]): Path = {
-        val Relation(_, path, FunctionInvocation(id, tps, args), _) = relations.head
-        val tfd = getFunction(id, tps.map(funDef.instantiate))
-        val instPath = path.instantiate(funDef.tpSubst)
-
-        val freshBindings = instPath.bound.map(vd => vd.freshen)
-        val freshSubst = (instPath.bound zip freshBindings).toMap
-        val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
-
-        val newPath = instPath.map(freshSubst, replaceFromSymbols(newSubst, _))
-
-        lazy val newArgs = args.map(e => replaceFromSymbols(newSubst, funDef.instantiate(e)))
-
-        newPath merge (relations.tail match {
-          case Nil =>
-            Path.empty withBindings (finalArgs zip newArgs)
-          case xs =>
-            val freshParams = tfd.params.map(_.freshen)
-            val recPath = rec(xs, tfd, (tfd.params zip freshParams.map(_.toVariable)).toMap)
-            Path.empty withBindings (freshParams zip newArgs) merge recPath
-        })
-      }
-
-      rec(relations, fd.typed, (fd.params zip initialArgs.map(_.toVariable)).toMap)
-    }
-
-    /*
-    def reentrant(other: Chain) : Seq[Expr] = {
-      assert(funDef == other.funDef)
-      val bindingSubst = funDef.params.map(vd => vd.id -> vd.id.freshen).toMap
-      val firstLoop = loop(finalSubst = bindingSubst)
-      val secondLoop = other.loop(initialSubst = bindingSubst)
-      firstLoop ++ secondLoop
-    }
-    */
 
     lazy val cycles : Seq[List[Relation]] = relations.indices.map { index =>
       val (start, end) = relations.splitAt(index)
@@ -104,8 +54,6 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
         (start2, end2) = that.relations.splitAt(i2)
       } yield Chain(start1 ++ end2 ++ start2 ++ end1)
     }
-
-    lazy val inlined: Seq[Expr] = inlining.map(_._2)
   }
 
 

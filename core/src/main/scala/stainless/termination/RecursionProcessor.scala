@@ -35,6 +35,8 @@ trait RecursionProcessor extends Processor {
 
     if (others.exists({ case Relation(_, _, fi, _) => !checker.terminates(fi.tfd.fd).isGuaranteed })) {
       None
+    } else if (recursive.isEmpty) {
+      Some(Cleared(funDef) :: Nil)
     } else {
       val decreases = funDef.params.zipWithIndex.exists { case (arg, index) =>
         recursive.forall { case Relation(_, path, FunctionInvocation(_, _, args), _) =>

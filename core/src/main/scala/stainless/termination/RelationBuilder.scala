@@ -19,18 +19,22 @@ trait RelationBuilder { self: Strengthener =>
 
     def compose(that: Relation): Relation = {
       val tfd = call.tfd
+      val instPath = that.path.instantiate(tfd.tpSubst)
       assert(that.fd == tfd.fd, "Cannot compose relations with incompatible functions")
+
+      val freeVars = instPath.variables -- tfd.params.map(_.toVariable).toSet
+      val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
+
       val freshParams = tfd.params.map(_.freshen)
       val paramPath = Path.empty withBindings (freshParams zip call.args)
       val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-      val instPath = that.path.instantiate(tfd.tpSubst)
       val freshBindings = instPath.bound.map(vd => vd.freshen)
       val freshSubst = (instPath.bound zip freshBindings).toMap
-      val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
+      val newSubst = subst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
-      val newCall = exprOps.replaceFromSymbols(newSubst, that.call).asInstanceOf[FunctionInvocation]
+      val newCall = exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]
 
       Relation(fd, path merge paramPath merge newPath, newCall, inLambda || that.inLambda)
     }
@@ -49,35 +53,6 @@ trait RelationBuilder { self: Strengthener =>
     case Some((relations, signature)) if signature == funDefRelationSignature(funDef) => relations
     case _ => {
       val analysis = cfa.analyze(funDef.id)
-
-      // all lambdas that may possibly be invoked by funDef
-      val appliedLambdas = {
-        analysis.locallyAppliedLambdas.toSet ++
-        // all lambdas reachable in the dependency graph from the external lambdas may also be applied
-        analysis.escapingLambdas.flatMap { l =>
-          var llams = Set(l)
-          var callees = Set[Identifier]()
-
-          // collect all top-level lambdas and callees
-          exprOps.postTraversal {
-            case nl: Lambda => llams += nl
-            case FunctionInvocation(id, _, _) => callees += id
-            case _ =>
-          } (l.body)
-
-          // collect all lambdas in all callees
-          callees.foreach { cid =>
-            transitiveCallees(getFunction(cid)).foreach { tc =>
-              exprOps.postTraversal {
-                case nl: Lambda => llams += nl
-                case _ =>
-              } (tc.fullBody)
-            }
-          }
-
-          llams
-        }
-      }
 
       object collector extends CollectorWithPC {
         type Result = Relation
@@ -98,7 +73,7 @@ trait RelationBuilder { self: Strengthener =>
             })
 
           case l: Lambda =>
-            if (appliedLambdas(l)) {
+            if (analysis.isApplied(l)) {
               val old = inLambda
               inLambda = true
               val res = super.rec(e, path)

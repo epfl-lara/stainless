@@ -12,6 +12,12 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(300.seconds))
   )
 
+  override protected def optionsString(options: inox.Options): String = {
+    "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
+    "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
+    "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
+  }
+
   def extract(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
     val reporter = new inox.TestSilentReporter
 

@@ -31,22 +31,21 @@ trait LoopProcessor extends OrderingProcessor {
 
     (0 to depth).foldLeft(chains) { (cs, index) =>
       reporter.debug("-+> Iteration #" + index)
-      for (chain <- cs if !nonTerminating.isDefinedAt(chain.fd) &&
-          (chain.fd.params zip chain.finalParams).forall(p => p._1.getType == p._2.getType)) {
-        val freshParams = chain.fd.params.map(_.freshen)
-        val path = chain.loop(finalArgs = freshParams)
+      for (chain <- cs if !nonTerminating.isDefinedAt(chain.fd)) {
+        val (path, args) = chain.loop
+        if ((chain.fd.params zip args).forall { case (vd, arg) => isSubtypeOf(arg.getType, vd.tpe) }) {
+          val srcTuple = tupleWrap(chain.fd.params.map(_.toVariable))
+          val resTuple = tupleWrap(args)
 
-        val srcTuple = tupleWrap(chain.fd.params.map(_.toVariable))
-        val resTuple = tupleWrap(freshParams.map(_.toVariable))
-
-        solveSAT(path and equality(srcTuple, resTuple)) match {
-          case inox.solvers.SolverResponses.SatWithModel(model) =>
-            val args = chain.fd.params.map(vd => model.vars(vd))
-            nonTerminating(chain.fd) = Broken(chain.fd,
-              if (chain.relations.exists(_.inLambda)) MaybeLoopsGivenInputs(name, args)
-              else LoopsGivenInputs(name, args)
-            )
-          case _ =>
+          solveSAT(path and equality(srcTuple, resTuple)) match {
+            case inox.solvers.SolverResponses.SatWithModel(model) =>
+              val args = chain.fd.params.map(vd => model.vars(vd))
+              nonTerminating(chain.fd) = Broken(chain.fd,
+                if (chain.relations.exists(_.inLambda)) MaybeLoopsGivenInputs(name, args)
+                else LoopsGivenInputs(name, args)
+              )
+            case _ =>
+          }
         }
       }
 
@@ -59,5 +58,3 @@ trait LoopProcessor extends OrderingProcessor {
       None
   }
 }
-
-// vim: set ts=4 sw=4 et:

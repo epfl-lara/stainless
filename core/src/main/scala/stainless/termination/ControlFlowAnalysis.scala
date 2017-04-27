@@ -3,10 +3,7 @@
 package stainless
 package termination
 
-import scala.concurrent.duration._
-import scala.annotation.tailrec
-import scala.collection._
-import mutable.{Map => MutableMap, Set => MutableSet, ListBuffer}
+import scala.collection.mutable.{Map => MutableMap, Set => MutableSet, ListBuffer}
 
 import trees._
 import inox._
@@ -22,6 +19,34 @@ trait CICFA {
   import program.trees._
   import program.symbols._
   import program.trees.exprOps._
+
+  sealed abstract class Function {
+    def body: Expr
+
+    override def equals(that: Any): Boolean = (this, that) match {
+      case (n1: NamedFunction, n2: NamedFunction) => n1.tfd == n2.tfd
+      case (l1: LambdaFunction, l2: LambdaFunction) => l1.lambda == l2.lambda
+      case _ => false
+    }
+
+    override def hashCode: Int = this match {
+      case n: NamedFunction => n.tfd.hashCode
+      case l: LambdaFunction => l.lambda.hashCode
+    }
+
+    override def toString: String = this match {
+      case n: NamedFunction => n.tfd.id.asString
+      case l: LambdaFunction => l.lambda.asString
+    }
+  }
+
+  implicit class NamedFunction(val tfd: TypedFunDef) extends Function {
+    def body: Expr = tfd.fullBody
+  }
+
+  implicit class LambdaFunction(val lambda: Lambda) extends Function {
+    def body: Expr = lambda.body
+  }
 
   // Abstract values and closures
   sealed abstract class AbsValue
@@ -80,19 +105,29 @@ trait CICFA {
   def analyze(id: Identifier): Analysis = cache.getOrElseUpdate(id, new Analysis(id))
 
   class Analysis(id: Identifier) {
+    val tfd = getFunction(id).typed
+
+    private[this] var failed = false
+
     // summary of each function
-    private val tabulation: MutableMap[Identifier, Summary] = MutableMap.empty
+    private val tabulation: MutableMap[Function, Summary] = MutableMap.empty
+    private val types: MutableMap[Identifier, Seq[Type]] = MutableMap.empty
 
     // initialize summaries to identity function from bot to empty
     // for the current function, initialize it to External
-    for ((_, fd) <- functions) {
-      val env = if (id == fd.id) {
-        AbsEnv(fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
-      } else {
-        AbsEnv(fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
-      }
-      tabulation(fd.id) = Summary(env, emptyEnv, Set())
-    }
+    private def getTabulation(fun: Function): Summary = tabulation.getOrElseUpdate(fun, {
+      Summary(fun match {
+        case n: NamedFunction =>
+          if ((types contains n.tfd.id) && types(n.tfd.id) != n.tfd.tps) failed = true
+          types(n.tfd.id) = n.tfd.tps
+
+          if (id == n.tfd.id) AbsEnv(n.tfd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
+          else AbsEnv(n.tfd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+
+        case l: LambdaFunction =>
+          AbsEnv(l.lambda.args.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+      }, emptyEnv, Set())
+    })
 
     // a mapping from ADTs to argvars (used to represent arguments of each ADT creation by a fresh variable)
     private val objectsMap: MutableMap[Expr, AbsObj] = MutableMap.empty
@@ -101,13 +136,6 @@ trait CICFA {
         case adt: ADT => ConsObject(adt, freshVars(adt.args.size))
         case tp: Tuple => TupleObject(tp, freshVars(tp.exprs.size))
       })
-
-    // functions creating Lambdas
-    private val creatorMap: MutableMap[Lambda, MutableSet[Identifier]] = MutableMap.empty
-    private def addOrUpdateCreator(l: Lambda, id: Identifier): Unit = {
-      val set = creatorMap.getOrElseUpdate(l, MutableSet.empty)
-      set += id
-    }
 
     // set of lambdas that are applied
     private val appliedLambdas: MutableSet[Lambda] = MutableSet.empty
@@ -138,15 +166,16 @@ trait CICFA {
     // Repeat this until a fix point is reached
 
     // initialize callers to empty sets
-    private lazy val callers = functions.map { case (id, fd) => (id -> MutableSet[Identifier]()) }.toMap
+    private val callers: MutableMap[Function, MutableSet[Function]] = MutableMap.empty
+    private def getCallers(fun: Function): MutableSet[Function] = callers.getOrElseUpdate(fun, MutableSet.empty)
 
     private val escapingVars: MutableSet[Variable] = MutableSet.empty
 
-    val worklist = new ListBuffer[Identifier]()
-    worklist += id
+    val worklist = new ListBuffer[Function]()
+    worklist += tfd
 
     // the order of traversal is very important here, so using a custom traversal
-    private def rec(e: Expr, in: AbsEnv)(implicit currFunId: Identifier): (Set[AbsValue], AbsEnv) = {
+    private def rec(e: Expr, in: AbsEnv)(implicit current: Function): (Set[AbsValue], AbsEnv) = {
       //println("Considering Expr: " + e)
       val res: (Set[AbsValue], AbsEnv) = e match {
         case Let(vd, v, body) =>
@@ -162,58 +191,77 @@ trait CICFA {
 
           val resabs = targets.map {
             case Closure(lam) =>
+              getCallers(lam) += current
+
               // record that the lambda is applied
               appliedLambdas += lam
+
               // create a new store with mapping for arguments and escaping variables
-              val argstore = (lam.args zip absargs).map { case (vd, absval) => vd.toVariable -> absval }.toMap ++
-                (in.store.filter { case (k, v) => escapingVars(k) } ++ escenv.store ++ argescenv.store)
-              val (bres, besc) = rec(lam.body, AbsEnv(argstore))
-              (bres, besc)
+              val argstore = in.store.filterKeys(escapingVars) ++
+                (lam.args.map(_.toVariable) zip absargs) ++
+                escenv.store ++
+                argescenv.store
+              val argenv = AbsEnv(argstore)
+
+              val currSummary = getTabulation(lam)
+              if (!currSummary.in.greaterEquals(argenv)) {
+                val join = currSummary.in.join(argenv)
+                // here the input state has changed, so we need to reanalyze the callee
+                // (if it is not already scheduled to be analyzed)
+                if (!worklist.contains(lam))
+                  worklist += lam
+                // update the in fact of the summary
+                tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
+              }
+
+              // use the out fact as a temporary result
+              (currSummary.ret, currSummary.out)
             case _ =>
               // record all lambdas passed to external calls
               recordPassedLambdas(absargs.flatten[AbsValue].toSet, in)
               // invoking an external lambda will result in another external lambda
               (Set(External), emptyEnv)
           }
-          val resval = resabs.foldLeft(Set[AbsValue]()) {
-            case (acc, (resvals, _)) => acc ++ resvals
-          }
+          val resval = resabs.foldLeft(Set[AbsValue]()) { case (acc, (resvals, _)) => acc ++ resvals }
           val resesc = argescenv ++ flatten(resabs.map(_._2).toSeq)
           (resval, resesc)
 
         case lam @ Lambda(args, body) =>
-          // record the creator of the Lambda
-          addOrUpdateCreator(lam, currFunId)
-          // create a new Closure
           val capvars = variablesOf(lam)
           escapingVars ++= capvars // make all captured variables as escaping
-          (Set(Closure(lam)), AbsEnv(in.store.filter(x => capvars(x._1)))) // construct an escaping environment
+          val currSummary = getTabulation(lam)
+          val capenv = AbsEnv(in.store.filterKeys(capvars))
+          if (!currSummary.in.greaterEquals(capenv)) {
+            val join = currSummary.in.join(capenv)
+            tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
+          }
+          (Set(Closure(lam)), AbsEnv(in.store.filterKeys(capvars)))
 
-        case FunctionInvocation(caleeid, tps, args) =>
+        case fi @ FunctionInvocation(_, _, args) =>
+          val tfd = fi.tfd
           // update the callers info
-          callers(caleeid) += currFunId
+          getCallers(tfd) += current
           // (a) join the arguments passed in with the `in` fact in the summary.
           //     If the join results in a greater value, add the function back to the worklist.
           val absres = args.map(rec(_, in))
           val absargs = absres.map(_._1)
           val argesc = flatten(absres.map(_._2))
           val newenv = in ++ argesc
-          val argstore = newenv.store.filter { case (k, _) => escapingVars(k) } ++
-            (getFunction(caleeid).params.map(_.toVariable) zip absargs)
+          val argstore = newenv.store.filterKeys(escapingVars) ++
+            (tfd.params.map(_.toVariable) zip absargs)
           val argenv = AbsEnv(argstore)
 
-          val currSummary = tabulation(caleeid)
+          val currSummary = getTabulation(tfd)
           if (!currSummary.in.greaterEquals(argenv)) {
             val join = currSummary.in.join(argenv)
             // here the input state has changed, so we need to reanalyze the callee
             // (if it is not already scheduled to be analyzed)
-            if (!worklist.contains(caleeid))
-              worklist += caleeid
+            if (!worklist.contains(tfd))
+              worklist += tfd
             // update the in fact of the summary
-            tabulation.update(caleeid, Summary(join, currSummary.out, currSummary.ret))
+            tabulation.update(tfd, Summary(join, currSummary.out, currSummary.ret))
           }
           // use the out fact as a temporary result
-          val outesc = currSummary.out
           (currSummary.ret, argesc ++ currSummary.out)
 
         case adt @ ADT(adttype, args) =>
@@ -275,7 +323,24 @@ trait CICFA {
           val Seq((tval, tesc), (eval, eesc)) = Seq(th, el).map(ie => rec(ie, in))
           (tval ++ eval, condesc ++ tesc ++ eesc)
 
-        case me: MatchExpr => rec(matchToIfThenElse(me), in)
+        case MatchExpr(scrut, cases) =>
+          var resenv: AbsEnv = emptyEnv
+          val absres = for (cse <- cases) yield {
+            val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
+            val realCond = patCond withConds cse.optGuard.toSeq
+            val rhsIn = realCond.elements.foldLeft(in) {
+              case (in, Left((vd, e))) =>
+                val (res, resc) = rec(e, in)
+                resenv ++= resc
+                AbsEnv(in.store + (vd.toVariable -> res))
+              case (in, Right(cond)) =>
+                val (res, resc) = rec(cond, in)
+                resenv ++= resc
+                in
+            }
+            rec(cse.rhs, rhsIn)
+          }
+          (absres.flatMap(_._1).toSet, resenv ++ flatten(absres.map(_._2)))
 
         case v: Variable => (in.store.getOrElse(v, Set()), emptyEnv)
 
@@ -286,7 +351,7 @@ trait CICFA {
           rec(pred, in + (resvd.toVariable -> resb))
           (resb, escb)
 
-        case Require(pred: Expr, body: Expr) =>
+        case Require(pred, body) =>
           // pred cannot have an escaping set
           rec(pred, in)
           rec(body, in)
@@ -309,29 +374,61 @@ trait CICFA {
       res
     }
 
-    while (!worklist.isEmpty) {
-      var cid = worklist.remove(0)
-      val oldSummary = tabulation(cid)
+    while (!worklist.isEmpty && !failed) {
+      var fun = worklist.remove(0)
+      val oldSummary = getTabulation(fun)
       //println(s"Analyzing: $currfunid under ${oldSummary.in}")
 
-      val fd = getFunction(cid)
-      val (newret, newesc) = rec(fd.fullBody, oldSummary.in)(cid)
+      val (newret, newesc) = rec(fun.body, oldSummary.in)(fun)
 
       // if the return value of the function is found to be different from the return value in the tabulation:
       // (a) update the entry in the tabulation to a the new value
       // (b) add all callers of the function to the worklist
       if (!newret.subsetOf(oldSummary.ret) || !oldSummary.out.greaterEquals(newesc)) {
         // update summary
-        tabulation.update(cid, Summary(oldSummary.in, newesc, newret))
+        tabulation.update(fun, Summary(oldSummary.in, newesc, newret))
         // reanalyze all clients with the new summary
-        val newcallers = callers(cid).filterNot(worklist.contains)
+        val newcallers = getCallers(fun).filterNot(worklist.contains)
         worklist ++= newcallers
+
+        if (fun == (tfd: Function)) {
+          def escapingLambdas(rets: Set[AbsValue], seen: Set[AbsValue]): Set[Function] = (rets -- seen).flatMap {
+            case Closure(lam) => Set(lam: Function)
+            case co @ ConsObject(_, vars) =>
+              escapingLambdas(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + co)
+            case to @ TupleObject(_, vars) =>
+              escapingLambdas(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + to)
+            case _ => Set.empty[Function]
+          }
+
+          worklist ++= escapingLambdas(newret, Set.empty).filterNot(worklist.contains)
+        }
       }
     }
 
-    /** Information for the client */
-    val locallyAppliedLambdas = appliedLambdas.toSet
-    val escapingLambdas = externallyEscapingLambdas.toSet
-    def creators(l: Lambda) = creatorMap(l).toSet
+    private val allEscaping: Set[Lambda] = externallyEscapingLambdas.toSet.flatMap { l: Lambda =>
+      var llams = Set(l)
+      var callees = Set[Identifier]()
+
+      exprOps.postTraversal {
+        case nl: Lambda => llams += nl
+        case FunctionInvocation(id, _, _) => callees += id
+        case _ =>
+      } (l.body)
+
+      callees.foreach { cid =>
+        val fd = getFunction(cid)
+        (transitiveCallees(fd) + fd).foreach { tc =>
+          exprOps.postTraversal {
+            case nl: Lambda => llams += nl
+            case _ =>
+          } (tc.fullBody)
+        }
+      }
+
+      llams
+    }
+
+    def isApplied(l: Lambda): Boolean = failed || appliedLambdas(l) || allEscaping(l)
   }
 }

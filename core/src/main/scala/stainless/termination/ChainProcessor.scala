@@ -93,8 +93,8 @@ trait ChainProcessor extends OrderingProcessor {
           reporter.debug("-+> Iteration #" + index)
 
           val e1s = cs.toSeq.map { chain =>
-            val freshParams = chain.finalParams.map(_.freshen)
-            (chain.loop(finalArgs = freshParams), tupleWrap(freshParams.map(_.toVariable)))
+            val (path, args) = chain.loop
+            (path, tupleWrap(args))
           }
           val e2 = tupleWrap(funDef.params.map(_.toVariable))
 

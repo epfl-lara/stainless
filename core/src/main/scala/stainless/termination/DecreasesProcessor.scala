@@ -63,13 +63,13 @@ trait DecreasesProcessor extends Processor { self =>
             case tpe => reporter.fatalError("Unexpected measure type: " + tpe)
           }
 
-          solveVALID(nonNeg(measure)) match {
+          solveVALID(Implies(fd.precondition.getOrElse(BooleanLiteral(true)), nonNeg(measure))) match {
             case Some(true) => true
             case Some(false) =>
-              reporter.warning(s" ==> INVALID: measure is not well-founded")
+              reporter.warning(s" ==> INVALID: measure is not well-founded in ${fd.id}")
               false
             case None =>
-              reporter.warning(s"==> UNKNOWN: measure cannot be proven to be well-founded")
+              reporter.warning(s"==> UNKNOWN: measure cannot be proven to be well-founded in ${fd.id}")
               false
           }
         } && {

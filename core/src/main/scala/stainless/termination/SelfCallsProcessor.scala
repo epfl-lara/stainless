@@ -17,9 +17,9 @@ trait SelfCallsProcessor extends Processor {
 
   def run(problem: Problem) = {
     reporter.debug("- Self calls processor...")
-    
+
     val nonTerminating = problem.funDefs
-      .filter(fd => fd.body.isDefined && alwaysCalls(fd.body.get, fd.id))
+      .filter(fd => alwaysCalls(fd.fullBody, fd.id))
 
     if (nonTerminating.nonEmpty)
       Some(nonTerminating.map(fd => Broken(fd, LoopsGivenInputs(name, fd.params.map(_.toVariable)))))
