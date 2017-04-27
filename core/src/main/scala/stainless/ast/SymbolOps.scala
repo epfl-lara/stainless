@@ -14,10 +14,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees.exprOps._
   import symbols._
 
-  override protected lazy val simplifier = new transformers.SimplifierWithPC {
+  override lazy val simplifier = new transformers.SimplifierWithPC {
     val trees: self.trees.type = self.trees
     val symbols: self.symbols.type = self.symbols
-    val initEnv = CNFPath.empty
+    // @nv: note that we need this to be a def! (see ionx.ast.SymbolOps.simplifier)
+    def initEnv = CNFPath.empty
   }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
