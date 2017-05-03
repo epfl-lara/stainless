@@ -481,11 +481,7 @@ trait CodeExtraction extends ASTExtractors {
         xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
       } catch {
         case e: ImpureCodeEncounteredException =>
-          reporter.error(e.pos, e.getMessage)
-          e.printStackTrace()
-
-          flags += xt.IsAbstract
-          xt.NoTree(returnType)
+          reporter.fatalError(e.pos, e.getMessage)
       }
 
       val fullBody = if (fctx.isExtern) {
