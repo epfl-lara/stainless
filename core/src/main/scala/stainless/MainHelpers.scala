@@ -39,7 +39,8 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
-    termination.DebugSectionTermination
+    termination.DebugSectionTermination,
+    DebugSectionExtraction
   )
 
   override protected def displayVersion(reporter: inox.Reporter) = {

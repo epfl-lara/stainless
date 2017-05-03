@@ -21,6 +21,7 @@ trait CodeExtraction extends ASTExtractors {
   import scala.collection.immutable.Set
 
   lazy val reporter = self.ctx.reporter
+  implicit val debugSection = DebugSectionExtraction
 
   implicit def scalaPosToInoxPos(p: global.Position): inox.utils.Position = {
     if (p == NoPosition) {
@@ -118,7 +119,7 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    def extractProgram: (List[xt.UnitDef], Program { val trees: xt.type }) = {
+    def extractProgram: (List[xt.UnitDef], Program { val trees: xt.type }) = try {
       val unitsAcc     = new ListBuffer[xt.UnitDef]
       val classesAcc   = new ListBuffer[xt.ClassDef]
       val functionsAcc = new ListBuffer[xt.FunDef]
@@ -157,6 +158,15 @@ trait CodeExtraction extends ASTExtractors {
       }
 
       (unitsAcc.toList, program)
+    } catch {
+      case e: ImpureCodeEncounteredException =>
+        reporter.debug(s"Extraction failed because of:")
+        reporter.debug(e.pos, e.getMessage)
+        reporter.debug(s"StackTrace:")
+        for (frame <- e.getStackTrace)
+          reporter.debug(frame)
+
+        reporter.fatalError(e.pos, e.getMessage)
     }
 
     // This one never fails, on error, it returns Untyped
@@ -165,7 +175,7 @@ trait CodeExtraction extends ASTExtractors {
         extractType(tpt)
       } catch {
         case e: ImpureCodeEncounteredException =>
-          e.printStackTrace()
+          reporter.debug(e.pos, "[ignored] " + e.getMessage)
           xt.Untyped
       }
     }
@@ -477,11 +487,8 @@ trait CodeExtraction extends ASTExtractors {
       val finalBody = if (rhs == EmptyTree) {
         flags += xt.IsAbstract
         xt.NoTree(returnType)
-      } else try {
+      } else {
         xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
-      } catch {
-        case e: ImpureCodeEncounteredException =>
-          reporter.fatalError(e.pos, e.getMessage)
       }
 
       val fullBody = if (fctx.isExtern) {
