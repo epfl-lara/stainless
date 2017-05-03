@@ -161,11 +161,7 @@ trait CodeExtraction extends ASTExtractors {
     } catch {
       case e: ImpureCodeEncounteredException =>
         reporter.debug(s"Extraction failed because of:")
-        reporter.debug(e.pos, e.getMessage)
-        reporter.debug(s"StackTrace:")
-        for (frame <- e.getStackTrace)
-          reporter.debug(frame)
-
+        reporter.debug(e.pos, e.getMessage, e)
         reporter.fatalError(e.pos, e.getMessage)
     }
 
