@@ -2,6 +2,8 @@
 
 package object stainless {
 
+  object DebugSectionExtraction extends inox.DebugSection("extraction")
+
   type Program = inox.Program { val trees: ast.Trees }
 
   type StainlessProgram = Program { val trees: stainless.trees.type }
