@@ -56,7 +56,7 @@ trait MainHelpers extends inox.MainHelpers {
     Program { val trees: xt.type }
   )
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = try {
     val inoxCtx = setup(args)
     val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
@@ -79,5 +79,7 @@ trait MainHelpers extends inox.MainHelpers {
     inoxCtx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
       inoxCtx.timers.outputTable(debug)
     }
+  } catch {
+    case _: inox.FatalError => System.exit(1)
   }
 }
