@@ -17,7 +17,7 @@ object ToChurch {
     require(n >= 0 && forall((x: BigInt) => f.pre(x)))
     if (n == 0) id[BigInt] _
     else compose(f, toChurch(n - 1, f))
-  }
+  } ensuring (res => forall((x: BigInt) => res.pre(x)))
 
   def main(x: BigInt): BigInt = {
     if (x >= 0) toChurch(x, succ)(0)

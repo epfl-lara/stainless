@@ -83,6 +83,7 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Requires non-linear resonning, unsupported by CVC4
     case "verification/valid/Overrides" => Ignore
+    case "verification/invalid/Existentials" => Ignore
     case _ => super.filter(ctx, name)
   }
 }

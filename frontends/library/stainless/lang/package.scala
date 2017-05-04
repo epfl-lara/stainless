@@ -38,6 +38,11 @@ package object lang {
   @ignore def forall[A,B,C,D,E](p: (A,B,C,D,E) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
 
   @library
+  implicit class FunctionSpecs0[R](val f: () => R) {
+    @ignore def pre: () => Boolean = sys.error("Can't execute first-class contract")
+  }
+
+  @library
   implicit class FunctionSpecs1[A,R](val f: A => R) {
     @ignore def pre: A => Boolean = sys.error("Can't execute first-class contract")
     def requires(p: A => Boolean): Boolean = forall((a: A) => p(a) ==> f.pre(a))

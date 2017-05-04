@@ -1,4 +1,4 @@
-package sel
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless._
 import lang._

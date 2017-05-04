@@ -1,5 +1,4 @@
-package termination
-package usermeasure.higherorder
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless._
 import lang._
@@ -33,11 +32,11 @@ object FiniteStream {
       case SCons(y, tfun, _) =>
         val tail = tfun()
         if(p(y))
-          SCons(y, () => filter(p, tail), tail.rank + 1)
+          SCons(y, () => filter(p, tail), s.rank)
         else
           filter(p, tail)
       case SNil() =>
         SNil()
     }
-  } ensuring (res => finite(res))
+  } ensuring (res => finite(res) && res.rank <= s.rank)
 }

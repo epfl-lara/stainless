@@ -1,5 +1,5 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
-package termination.usermeasure
+
 import stainless.lang._
 
 object OddEvenComplex {

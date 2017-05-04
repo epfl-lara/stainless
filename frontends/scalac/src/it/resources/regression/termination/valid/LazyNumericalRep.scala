@@ -1,5 +1,4 @@
-package termination
-package usermeasure.higherorder
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless._
 import lang._
@@ -72,7 +71,9 @@ object LazyNumericalRep {
     def finite: Boolean = this.get.finite
   }
   private case class Val(x: NumList) extends NumStream
-  private case class Susp(fun: () => NumList) extends NumStream
+  private case class Susp(fun: () => NumList) extends NumStream {
+    require(fun.pre())
+  }
 
   case class Number(digs: NumStream, schedule: List[NumStream]) {
     def valid = digs.finite
@@ -100,16 +101,18 @@ object LazyNumericalRep {
         val carry = One()
         rear.get match {
           case Tip() =>
-            Spine(Zero(), Val(Spine(carry, rear, 1)), 2)
+            Spine(Zero(), Val(Spine(carry, rear, sz)), sz + 1)
 
           case Spine(Zero(), srearfun, rearsz) =>
+            assert(Spine(Zero(), Val(Spine(carry, srearfun, rearsz)), sz).finite)
             Spine(Zero(), Val(Spine(carry, srearfun, rearsz)), sz)
 
           case s =>
+            assert(Spine(Zero(), Susp(() => incLazy(rear)), sz + 1).finite)
             Spine(Zero(), Susp(() => incLazy(rear)), sz + 1)
         }
     }
-  } ensuring { res => res.finite }
+  } ensuring { res => res.finite && res.size <= xs.size + 1 }
 
   def incNum(w: Number): (NumStream, List[NumStream]) = {
     require(w.valid)

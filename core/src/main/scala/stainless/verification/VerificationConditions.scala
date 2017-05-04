@@ -31,6 +31,7 @@ object VCKind {
   case object CastError       extends VCKind("cast correctness", "cast")
   case object PostTactic      extends VCKind("postcondition tactic", "tact.")
   case object Choose          extends VCKind("choose satisfiability", "choose")
+  case object AdtInvariant    extends VCKind("adt invariant", "adt inv.")
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

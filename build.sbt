@@ -8,7 +8,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2-70-gf3ae022"
+val inoxVersion = "1.0.2-81-g9f77744"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")

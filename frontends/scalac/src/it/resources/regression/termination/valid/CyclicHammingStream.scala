@@ -1,5 +1,3 @@
-package termination
-package usermeasure.higherorder
 
 import stainless._
 import lang._
@@ -69,5 +67,8 @@ object MergeAndHammingNumbers {
   /**
    * `nth` hamming number in O(n) time.
    */
-  def nthHammingNumber(n: BigInt) = nthElem(n, hamstream)
+  def nthHammingNumber(n: BigInt) = {
+    require(n >= 0)
+    nthElem(n, hamstream)
+  }
 }

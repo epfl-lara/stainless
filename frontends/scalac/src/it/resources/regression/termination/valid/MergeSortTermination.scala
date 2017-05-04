@@ -1,7 +1,8 @@
-package termination.usermeasure
+/* Copyright 2009-2016 EPFL, Lausanne */
+
 import stainless.lang._
 
-object MergeSort {
+object MergeSortTermination {
   sealed abstract class List
   case class Cons(head: BigInt, tail: List) extends List
   case class Nil() extends List

@@ -1,5 +1,4 @@
-package termination
-package usermeasure.higherorder
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless._
 import lang._
@@ -34,6 +33,7 @@ object RealTimeQueue {
         val ftail = c.tail
         val rot = () => rotate(ftail, r1, newa)
         SCons[T](x, rot)
+      case _ => SNil()
     }
   }
 

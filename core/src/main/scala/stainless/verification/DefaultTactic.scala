@@ -65,6 +65,9 @@ trait DefaultTactic extends Tactic {
       case _: Application =>
         VCKind.LambdaPre
 
+      case _: ADT =>
+        VCKind.AdtInvariant
+
       case _ =>
         VCKind.Assert
     }
@@ -85,6 +88,9 @@ trait DefaultTactic extends Tactic {
 
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
         (c, path implies Not(Forall(Seq(res), Not(pred))))
+
+      case (a @ ADT(tpe, args), path) if tpe.getADT.hasInvariant =>
+        (a, path implies FunctionInvocation(tpe.getADT.invariant.get.id, tpe.tps, Seq(a)))
     }.collect(getFunction(id).fullBody)
 
     calls.map { case (e, correctnessCond) =>

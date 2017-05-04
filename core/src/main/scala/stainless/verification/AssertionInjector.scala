@@ -69,14 +69,6 @@ trait AssertionInjector extends ast.TreeTransformer {
         super.transform(e)
       ).copiedFrom(e)
 
-    case s.ADT(adt, args) if adt.getADT.invariant.isDefined =>
-      val te = super.transform(e)
-      t.Assert(
-        t.FunctionInvocation(adt.getADT.invariant.get.id, adt.tps map transform, Seq(te)).copiedFrom(e),
-        Some("ADT invariant"),
-        te
-      ).copiedFrom(e)
-
     case _ => super.transform(e)
   }
 }

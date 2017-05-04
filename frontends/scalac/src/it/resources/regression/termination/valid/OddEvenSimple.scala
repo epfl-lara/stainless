@@ -1,9 +1,9 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
-package termination.usermeasure
+
 import stainless.lang._
 import stainless.math._
 
-object Test {
+object OddEvenSimple {
 
   def isOdd(n: BigInt): Boolean = {
     require(n >= 0)

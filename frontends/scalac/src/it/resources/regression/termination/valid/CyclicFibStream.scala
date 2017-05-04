@@ -1,5 +1,4 @@
-package termination
-package usermeasure.higherorder
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 import stainless._
 import lang._
@@ -40,5 +39,8 @@ object ZipWithAndFibStream {
     zipWithFun(_ + _, this.fibstream, this.fibstream.tail)
   }))
 
-  def nthFib(n: BigInt) = nthElem(n, fibstream)
+  def nthFib(n: BigInt) = {
+    require(n >= 0)
+    nthElem(n, fibstream)
+  }
 }

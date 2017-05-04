@@ -299,6 +299,11 @@ trait ASTExtractors {
     object ExFunctionSpecs {
       def unapply(tree: Tree): Option[Tree] = tree match {
         case Apply(TypeApply(
+          ExSymbol("stainless", "lang", "FunctionSpecs0"),
+          Seq(_)
+        ), Seq(f)) => Some(f)
+
+        case Apply(TypeApply(
           ExSymbol("stainless", "lang", "FunctionSpecs1"),
           Seq(_, _)
         ), Seq(f)) => Some(f)
