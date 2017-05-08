@@ -595,7 +595,7 @@ trait CodeGeneration { self: CompilationUnit =>
       })
       mkExpr(b, ch)(locals.withVar(vd.id -> slot))
 
-    case IntLiteral(v) =>
+    case Int32Literal(v) =>
       ch << Ldc(v)
 
     case CharLiteral(v) =>
@@ -966,7 +966,7 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(e, ch)
       e.getType match {
         case Int32Type =>
-          mkExpr(IntLiteral(-1), ch)
+          mkExpr(Int32Literal(-1), ch)
           ch << IXOR
         case BVType(_) =>
           ch << InvokeVirtual(BitVectorClass, "not", s"()L$BitVectorClass;")

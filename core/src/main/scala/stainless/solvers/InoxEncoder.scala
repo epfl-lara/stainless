@@ -128,17 +128,17 @@ trait InoxEncoder extends ProgramEncoder {
       case s.FiniteArray(elems, base) =>
         t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(
-            elems.zipWithIndex.map { case (e, i) => t.IntLiteral(i).copiedFrom(e) -> transform(e) },
+            elems.zipWithIndex.map { case (e, i) => t.Int32Literal(i).copiedFrom(e) -> transform(e) },
             transform(simplestValue(base).copiedFrom(e)),
             t.Int32Type,
             transform(base)),
-          t.IntLiteral(elems.size).copiedFrom(e)
-        )).copiedFrom(e)
+          t.Int32Literal(elems.size).copiedFrom(e)
+        ))
 
       case s.LargeArray(elems, dflt, size, base) =>
         t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(
-            elems.toSeq.map(p => t.IntLiteral(p._1).copiedFrom(e) -> transform(p._2)),
+            elems.toSeq.map(p => t.Int32Literal(p._1).copiedFrom(e) -> transform(p._2)),
             transform(dflt),
             t.Int32Type,
             transform(base)),
@@ -213,24 +213,24 @@ trait InoxEncoder extends ProgramEncoder {
       * the Inox solver, so we can assume that the array adts have the
       * shape:
       * {{{
-      *    Array(FiniteMap(pairs, _, _), IntLiteral(size))
+      *    Array(FiniteMap(pairs, _, _), Int32Literal(size))
       * }}}
-      * where all keys in {{{pairs}}} are IntLiterals. This assumption also
+      * where all keys in {{{pairs}}} are Int32Literals. This assumption also
       * holds on the output of [[SymbolsEncoder#TreeEncoder.transform(Expr)]].
       */
     override def transform(e: s.Expr): t.Expr = e match {
       case s.ADT(
         s.ADTType(`arrayID`, Seq(base)),
-        Seq(s.FiniteMap(elems, dflt, _, _), s.IntLiteral(size))
+        Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
       ) if size <= 10 =>
         val elemsMap = elems.toMap
         t.FiniteArray((0 until size).toSeq.map {
-          i => transform(elemsMap.getOrElse(s.IntLiteral(i).copiedFrom(e), dflt))
+          i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
         }, transform(base)).copiedFrom(e)
 
       case s.ADT(s.ADTType(`arrayID`, Seq(base)), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
         t.LargeArray(
-          elems.map { case (s.IntLiteral(i), e) => i -> transform(e) }.toMap,
+          elems.map { case (s.Int32Literal(i), e) => i -> transform(e) }.toMap,
           transform(dflt),
           transform(size),
           transform(base)
