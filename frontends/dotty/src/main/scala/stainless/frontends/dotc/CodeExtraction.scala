@@ -501,7 +501,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       val lit = xt.IntegerLiteral(BigInt(n.stringValue))
       (xt.LiteralPattern(binder, lit), dctx)
 
-    case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.IntLiteral(i)),     dctx)
+    case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.Int32Literal(i)),   dctx)
     case ExBooleanLiteral(b) => (xt.LiteralPattern(binder, xt.BooleanLiteral(b)), dctx)
     case ExUnitLiteral()     => (xt.LiteralPattern(binder, xt.UnitLiteral()),     dctx)
     case ExStringLiteral(s)  => (xt.LiteralPattern(binder, xt.StringLiteral(s)),  dctx)
@@ -845,7 +845,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       xt.IntegerLiteral(BigInt(cnst.stringValue))
 
     case Apply(ExSymbol("scala", "math", "BigInt$", "int2bigInt"), Seq(t)) => extractTree(t) match {
-      case xt.IntLiteral(n) => xt.IntegerLiteral(BigInt(n))
+      case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
       case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
     }
 
@@ -856,7 +856,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     }
 
     case ExInt32Literal(v) =>
-      xt.IntLiteral(v)
+      xt.Int32Literal(v)
 
     case ExBooleanLiteral(v) =>
       xt.BooleanLiteral(v)
@@ -939,14 +939,14 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     case Select(e, nme.UNARY_~) => xt.BVNot(extractTree(e))
 
     case Apply(Select(l, nme.NE), Seq(r)) => xt.Not((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (lit @ xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e).setPos(tr.pos)
-      case (e, xt.IntegerType, lit @ xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit)).setPos(tr.pos)
+      case (lit @ xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e).setPos(tr.pos)
+      case (e, xt.IntegerType, lit @ xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit)).setPos(tr.pos)
       case (e1, _, e2, _) => xt.Equals(e1, e2).setPos(tr.pos)
     })
 
     case Apply(Select(l, nme.EQ), Seq(r)) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (lit @ xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e)
-      case (e, xt.IntegerType, lit @ xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit))
+      case (lit @ xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e)
+      case (e, xt.IntegerType, lit @ xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit))
       case (e1, _, e2, _) => xt.Equals(e1, e2)
     }
 

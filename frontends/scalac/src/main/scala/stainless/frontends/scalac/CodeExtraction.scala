@@ -568,7 +568,7 @@ trait CodeExtraction extends ASTExtractors {
         val lit = xt.IntegerLiteral(BigInt(n.value.stringValue))
         (xt.LiteralPattern(binder, lit), dctx)
 
-      case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.IntLiteral(i)),     dctx)
+      case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.Int32Literal(i)),   dctx)
       case ExBooleanLiteral(b) => (xt.LiteralPattern(binder, xt.BooleanLiteral(b)), dctx)
       case ExUnitLiteral()     => (xt.LiteralPattern(binder, xt.UnitLiteral()),     dctx)
       case ExStringLiteral(s)  => (xt.LiteralPattern(binder, xt.StringLiteral(s)),  dctx)
@@ -831,7 +831,7 @@ trait CodeExtraction extends ASTExtractors {
 
       case ExIntToBigInt(tree) =>
         extractTree(tree) match {
-          case xt.IntLiteral(n) => xt.IntegerLiteral(BigInt(n))
+          case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
           case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
         }
 
@@ -847,7 +847,7 @@ trait CodeExtraction extends ASTExtractors {
           case _ => outOfSubsetError(tr, "Real not build from literals")
         }
 
-      case ExInt32Literal(v) => xt.IntLiteral(v)
+      case ExInt32Literal(v) => xt.Int32Literal(v)
       case ExBooleanLiteral(v) => xt.BooleanLiteral(v)
       case ExUnitLiteral() => xt.UnitLiteral()
       case ExCharLiteral(c) => xt.CharLiteral(c)
@@ -952,14 +952,14 @@ trait CodeExtraction extends ASTExtractors {
       case ExBVNot(e)      => xt.BVNot(extractTree(e))
 
       case ExNotEquals(l, r) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-        case (xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
-        case (e, xt.IntegerType, xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
+        case (xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
+        case (e, xt.IntegerType, xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
         case (e1, _, e2, _) => xt.Equals(e1, e2)
       }).setPos(tr.pos))
 
       case ExEquals(l, r) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-        case (xt.IntLiteral(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
-        case (e, xt.IntegerType, xt.IntLiteral(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
+        case (xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i), e)
+        case (e, xt.IntegerType, xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i))
         case (e1, _, e2, _) => xt.Equals(e1, e2)
       }
 

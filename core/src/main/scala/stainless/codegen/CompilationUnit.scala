@@ -124,7 +124,7 @@ trait CompilationUnit extends CodeGeneration {
     * reflection needs this anyway.
     */
   def valueToJVM(e: Expr)(implicit monitor: Monitor): AnyRef = e match {
-    case IntLiteral(v) =>
+    case Int32Literal(v) =>
       new java.lang.Integer(v)
 
     case BooleanLiteral(v) =>
@@ -217,7 +217,7 @@ trait CompilationUnit extends CodeGeneration {
 
         underlying match {
           case Int32Type =>
-            allocArray { case IntLiteral(v) => v }
+            allocArray { case Int32Literal(v) => v }
           case BooleanType =>
             allocArray { case BooleanLiteral(b) => b }
           case UnitType =>
@@ -235,7 +235,7 @@ trait CompilationUnit extends CodeGeneration {
         arr
       }
 
-    case a @ LargeArray(elems, default, IntLiteral(size), base) =>
+    case a @ LargeArray(elems, default, Int32Literal(size), base) =>
       import scala.reflect.ClassTag
 
       if (smallArrays) {
@@ -250,7 +250,7 @@ trait CompilationUnit extends CodeGeneration {
         val ArrayType(underlying) = a.getType
         underlying match {
           case Int32Type =>
-            allocArray { case IntLiteral(v) => v }
+            allocArray { case Int32Literal(v) => v }
           case BooleanType =>
             allocArray { case BooleanLiteral(b) => b }
           case UnitType =>
@@ -275,7 +275,7 @@ trait CompilationUnit extends CodeGeneration {
   /** Translates JVM objects back to Stainless values of the appropriate type */
   def jvmToValue(e: AnyRef, tpe: Type): Expr = (e, tpe) match {
     case (i: Integer, Int32Type) =>
-      IntLiteral(i.toInt)
+      Int32Literal(i.toInt)
 
     case (c: runtime.BigInt, IntegerType) =>
       IntegerLiteral(c.toScala)
@@ -385,7 +385,7 @@ trait CompilationUnit extends CodeGeneration {
         FiniteArray(elems.map(_._2), base)
       } else {
         val default = jvmToValue(ar.default, base)
-        LargeArray(elems.toMap, default, IntLiteral(ar.size), base)
+        LargeArray(elems.toMap, default, Int32Literal(ar.size), base)
       }
 
     case _ =>
