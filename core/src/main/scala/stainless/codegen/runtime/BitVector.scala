@@ -6,7 +6,7 @@ import java.math.BigInteger
 
 final class BitVector(private val bits: Array[Boolean]) {
 
-  private def this(bi: BigInteger, size: Int) = this({
+  /*private*/ def this(bi: BigInteger, size: Int) = this({
     def extract(bi: BigInteger): Array[Boolean] = {
       val two = new BigInteger("2")
       (0 until size).map { i => bi.and(two.pow(i)).compareTo(BigInteger.ZERO) > 0 }.toArray
