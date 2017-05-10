@@ -205,9 +205,30 @@ trait ASTExtractors {
       }
     }
 
+    object ExInt8Literal {
+      def unapply(tree: tpd.Literal): Option[Byte] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.ByteClass => Some(c.byteValue)
+        case _ => None
+      }
+    }
+
+    object ExInt16Literal {
+      def unapply(tree: tpd.Literal): Option[Short] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.ShortClass => Some(c.shortValue)
+        case _ => None
+      }
+    }
+
     object ExInt32Literal {
       def unapply(tree: tpd.Literal): Option[Int] = tree match {
         case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.IntClass => Some(c.intValue)
+        case _ => None
+      }
+    }
+
+    object ExInt64Literal {
+      def unapply(tree: tpd.Literal): Option[Long] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.LongClass => Some(c.longValue)
         case _ => None
       }
     }

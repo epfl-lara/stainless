@@ -116,9 +116,11 @@ trait ASTExtractors {
 
   def isArrayClassSym(sym: Symbol): Boolean = sym == arraySym
 
-  def hasIntType(t: Tree) = t.tpe.widen =:= IntClass.tpe
+  private val bvtypes = Set(ByteTpe, ShortTpe, IntTpe, LongTpe)
 
-  def hasNumericType(t: Tree): Boolean = hasBigIntType(t) || hasIntType(t) || hasRealType(t)
+  def hasBVType(t: Tree) = bvtypes contains t.tpe.widen
+
+  def hasNumericType(t: Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t)
 
   def hasBigIntType(t: Tree) = isBigIntSym(t.tpe.typeSymbol)
 
@@ -907,32 +909,43 @@ trait ASTExtractors {
 
     object ExCharLiteral {
       def unapply(tree: Literal): Option[Char] = tree match {
-        case Literal(c @ Constant(i)) if c.tpe == CharClass.tpe => Some(c.charValue)
+        case Literal(c @ Constant(i)) if c.tpe == CharTpe => Some(c.charValue)
+        case _ => None
+      }
+    }
+
+    object ExInt8Literal {
+      def unapply(tree: Literal): Option[Byte] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == ByteTpe => Some(c.byteValue)
+        case _ => None
+      }
+    }
+
+    object ExInt16Literal {
+      def unapply(tree: Literal): Option[Short] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == ShortTpe => Some(c.shortValue)
         case _ => None
       }
     }
 
     object ExInt32Literal {
       def unapply(tree: Literal): Option[Int] = tree match {
-        case Literal(c @ Constant(i)) if c.tpe == IntClass.tpe => Some(c.intValue)
+        case Literal(c @ Constant(i)) if c.tpe == IntTpe => Some(c.intValue)
+        case _ => None
+      }
+    }
+
+    object ExInt64Literal {
+      def unapply(tree: Literal): Option[Long] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == LongTpe => Some(c.longValue)
         case _ => None
       }
     }
 
     object ExUnitLiteral {
       def unapply(tree: Literal): Boolean = tree match {
-        case Literal(c @ Constant(_)) if c.tpe == UnitClass.tpe => true
+        case Literal(c @ Constant(_)) if c.tpe == UnitTpe => true
         case _ => false
-      }
-    }
-
-    object ExSomeConstruction {
-      def unapply(tree: Apply) : Option[(Type,Tree)] = tree match {
-        case Apply(s @ Select(New(tpt), n), arg) if arg.size == 1 && n == nme.CONSTRUCTOR && tpt.symbol.name.toString == "Some" => tpt.tpe match {
-          case TypeRef(_, sym, tpe :: Nil) => Some((tpe, arg.head))
-          case _ => None
-        }
-        case _ => None
       }
     }
 
@@ -1011,7 +1024,7 @@ trait ASTExtractors {
 
     object ExBVNot {
       def unapply(tree: Select): Option[Tree] = tree match {
-        case Select(t, n) if n == nme.UNARY_~ && hasIntType(t) => Some(t)
+        case Select(t, n) if n == nme.UNARY_~ && hasBVType(t) => Some(t)
         case _ => None
       }
     }
