@@ -17,6 +17,16 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
        |
        |} """.stripMargin,
 
+    """|object Longs {
+       |
+       |  def foo(i: Long, j: Long) = i + j
+       |
+       |  def bar(i: Long, j: Long) = i & j
+       |
+       |  def gun(i: Long) = +i
+       |
+       |} """.stripMargin,
+
     """|object IntByte {
        |
        |  def foo(i: Int, j: Byte) = i + j
@@ -33,6 +43,30 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
        |
        |} """.stripMargin,
 
+    """|object IntShort {
+       |
+       |  def foo(i: Int, j: Short) = i + j
+       |
+       |  def bar(i: Int, j: Short) = i & j
+       |
+       |} """.stripMargin,
+
+    """|object ByteShort {
+       |
+       |  def foo(i: Byte, j: Short) = i + j
+       |
+       |} """.stripMargin,
+
+    """|object MixWithLong {
+       |
+       |  def foo(i: Long, j: Int) = i + j
+       |
+       |  def bar(i: Byte, j: Long) = i | j
+       |
+       |  def gun(i: Short, j: Long) = i << j
+       |
+       |} """.stripMargin,
+
     """|object Bytes {
        |
        |  def foo(i: Byte, j: Byte) = i + j
@@ -41,11 +75,14 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
        |
        |  def gun(i: Byte) = -i
        |
+       |  def hun(i: Byte) = +i
+       |
        |} """.stripMargin,
 
     """|object ExplicitCast {
        |
-       |  def foo(i: Int) = bar(i.toByte)
+       |  def foo1(i: Int) = bar(i.toByte)
+       |  def foo2(i: Long) = bar(i.toShort.toByte)
        |
        |  def bar(i: Byte) = i
        |
@@ -53,9 +90,12 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
     """|object ImplicitCast {
        |
-       |  def foo(i: Byte) = bar(i) // implicit b.toInt here
+       |  def foo1(i: Byte) = bar1(i) // implicit i.toInt here
+       |  def foo2(i: Short) = bar1(i) // implicit i.toInt here
+       |  def foo3(i: Short) = bar2(i) // implicit i.toLong here
        |
-       |  def bar(i: Int) = i
+       |  def bar1(i: Int) = i
+       |  def bar2(i: Long) = i
        |
        |} """.stripMargin
   )
@@ -95,11 +135,15 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
   val i8  = V("i", Int8Type)
   val j8  = V("j", Int8Type)
+  val i16 = V("i", Int16Type)
+  val j16 = V("j", Int16Type)
   val i32 = V("i", Int32Type)
   val j32 = V("j", Int32Type)
+  val i64 = V("i", Int64Type)
+  val j64 = V("j", Int64Type)
 
 
-  test("No redundant cast on arithmetic int operations") {
+  test("No redundant cast on arithmetic Int operations") {
     funDefBody("Ints.foo") match {
       case Plus(`i32`, `j32`) => // OK
       case b => fail(s"Expected a simple BV addition, got '$b'")
@@ -116,6 +160,22 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
     }
   }
 
+  test("No redundant cast on arithmetic Long operations") {
+    funDefBody("Longs.foo") match {
+      case Plus(`i64`, `j64`) => // OK
+      case b => fail(s"Expected a simple BV addition, got '$b'")
+    }
+
+    funDefBody("Longs.bar") match {
+      case BVAnd(`i64`, `j64`) => // OK
+      case b => fail(s"Expected a simple BV `&`, got '$b'")
+    }
+
+    funDefBody("Longs.gun") match {
+      case `i64` => // OK
+      case b => fail(s"Expected a simple BV unary plus (which is dropped), got '$b'")
+    }
+  }
 
   test("Explicit cast on binary arithmetic operations involving ints & bytes") {
     funDefBody("IntByte.foo") match {
@@ -131,7 +191,6 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
     // Test symmetry
     funDefBody("ByteInt.foo") match {
-      case Plus(`i8`, `j32`) => fail(s"No explicit cast was inserted")
       case Plus(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
       case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
     }
@@ -139,6 +198,42 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
     funDefBody("ByteInt.bar") match {
       case BVAnd(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
       case b => fail(s"Expected a BV `&` with explicit cast, got '$b'")
+    }
+  }
+
+  test("Explicit cast on binary arithmetic operations involving ints & shorts") {
+    funDefBody("IntShort.foo") match {
+      case Plus(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
+    }
+
+    funDefBody("IntShort.bar") match {
+      case BVAnd(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"Expected a BV addition with explicit casts, got '$b'")
+    }
+  }
+
+  test("Explicit cast on binary arithmetic operations involving bytes & shorts") {
+    funDefBody("ByteShort.foo") match {
+      case Plus(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"Expected a BV addition with explicit casts, got '$b'")
+    }
+  }
+
+  test("Explicit cast on binary arithmetic operations involving Long and other types") {
+    funDefBody("MixWithLong.foo") match {
+      case Plus(`i64`, BVWideningCast(`j32`, Int64Type)) => // OK
+      case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
+    }
+
+    funDefBody("MixWithLong.bar") match {
+      case BVOr(BVWideningCast(`i8`, Int64Type), `j64`) => // OK
+      case b => fail(s"Expected a BV `|` with explicit cast, got '$b'")
+    }
+
+    funDefBody("MixWithLong.gun") match {
+      case BVShiftLeft(BVWideningCast(`i16`, Int32Type), `j64`) => // OK
+      case b => fail(s"Expected a BV << with explicit cast, got '$b'")
     }
   }
 
@@ -157,18 +252,38 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
       case UMinus(BVWideningCast(`i8`, Int32Type)) => // OK
       case b => fail(s"Expected a BV unary minus with widening cast, got '$b'")
     }
+
+    funDefBody("Bytes.hun") match {
+      case BVWideningCast(`i8`, Int32Type) => // OK
+      case b => fail(s"Expected a BV unary + (which is dropped) with widening cast, got '$b'")
+    }
   }
 
   test("Explicit casts should be preserved") {
-    funDefBody("ExplicitCast.foo") match {
+    funDefBody("ExplicitCast.foo1") match {
       case FunCall("bar", Seq(BVNarrowingCast(`i32`, Int8Type))) => // OK
+      case b => fail(s"Expected a function call with one narrowing cast on its only argument, got '$b'")
+    }
+
+    funDefBody("ExplicitCast.foo2") match {
+      case FunCall("bar", Seq(BVNarrowingCast(BVNarrowingCast(`i64`, Int16Type), Int8Type))) => // OK
       case b => fail(s"Expected a function call with one narrowing cast on its only argument, got '$b'")
     }
   }
 
   test("Implicit casts should be preserved") {
-    funDefBody("ImplicitCast.foo") match {
-      case FunCall("bar", Seq(BVWideningCast(`i8`, Int32Type))) => // OK
+    funDefBody("ImplicitCast.foo1") match {
+      case FunCall("bar1", Seq(BVWideningCast(`i8`, Int32Type))) => // OK
+      case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
+    }
+
+    funDefBody("ImplicitCast.foo2") match {
+      case FunCall("bar1", Seq(BVWideningCast(`i16`, Int32Type))) => // OK
+      case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
+    }
+
+    funDefBody("ImplicitCast.foo3") match {
+      case FunCall("bar2", Seq(BVWideningCast(`i16`, Int64Type))) => // OK
       case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
     }
   }
