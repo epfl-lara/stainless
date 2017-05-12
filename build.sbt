@@ -26,6 +26,8 @@ lazy val nParallel = {
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
+// FIXME @nv: dotty compiler needs the scala-library and dotty-library (and maybe some other
+//            dependencies?) so we set them here through stainless' compile-time dependencies.
 lazy val extraClasspath = taskKey[String]("Classpath extensions passed directly to the underlying compiler")
 
 lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash script")

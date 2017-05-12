@@ -34,11 +34,7 @@ object DottyCompiler {
       def newCompiler(implicit ctx: Context) = compiler
     }
 
-    // FIXME (gsps): Adapt sbt run task and stainless script to provide proper scala-library and dotty-library
-    //  classpaths via process args and add them here instead of -usejavacp (which imports unnecessary classpaths).
-    val compilerOpts1 = (if (compilerOpts.contains("-usejavacp")) compilerOpts else "-usejavacp" +: compilerOpts) ++
-      Seq("-Ylog-classpath")
-    driver.process(compilerOpts1.toArray)
+    driver.process(compilerOpts.toArray)
 
     timer.stop()
 
