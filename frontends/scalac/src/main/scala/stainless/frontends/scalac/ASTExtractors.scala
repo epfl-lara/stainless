@@ -298,52 +298,18 @@ trait ASTExtractors {
       * @see [[ExRequiresExpression]], [[ExEnsuresExpression]], [[ExPreExpression]] */
     object ExFunctionSpecs {
       def unapply(tree: Tree): Option[Tree] = tree match {
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs0"),
-          Seq(_)
-        ), Seq(f)) => Some(f)
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs0"), Seq(_)), Seq(f)) => Some(f)
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs1"), Seq(_, _)), Seq(f)) => Some(f)
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs2"), Seq(_, _, _)), Seq(f)) => Some(f)
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs3"), Seq(_, _, _, _)), Seq(f)) => Some(f)
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs4"), Seq(_, _, _, _, _)), Seq(f)) => Some(f)
 
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs1"),
-          Seq(_, _)
-        ), Seq(f)) => Some(f)
-
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs2"),
-          Seq(_, _, _)
-        ), Seq(f)) => Some(f)
-
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs3"),
-          Seq(_, _, _, _)
-        ), Seq(f)) => Some(f)
-
-        case Apply(TypeApply(
-          ExSymbol("stainless", "lang", "FunctionSpecs4"),
-          Seq(_, _, _, _, _)
-        ), Seq(f)) => Some(f)
-
+        case Select(ExSymbol("stainless", "lang", "FunctionSpecs0"), ExNamed("f")) => Some(tree)
         case Select(ExSymbol("stainless", "lang", "FunctionSpecs1"), ExNamed("f")) => Some(tree)
         case Select(ExSymbol("stainless", "lang", "FunctionSpecs2"), ExNamed("f")) => Some(tree)
         case Select(ExSymbol("stainless", "lang", "FunctionSpecs3"), ExNamed("f")) => Some(tree)
         case Select(ExSymbol("stainless", "lang", "FunctionSpecs4"), ExNamed("f")) => Some(tree)
 
-        case _ => None
-      }
-    }
-
-    /** Extracts the 'requires' higher-order contract. */
-    object ExRequiresExpression {
-      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
-        case Apply(Select(ExFunctionSpecs(f), ExNamed("requires")), Seq(pred)) => Some((f, pred))
-        case _ => None
-      }
-    }
-
-    /** Extracts the 'ensures' higher-order contract. */
-    object ExEnsuresExpression {
-      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
-        case Apply(Select(ExFunctionSpecs(f), ExNamed("ensures")), Seq(pred)) => Some((f, pred))
         case _ => None
       }
     }

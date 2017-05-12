@@ -340,7 +340,6 @@ trait CodeExtraction extends ASTExtractors {
           (t.symbol.isSynthetic && !t.symbol.isImplicit)
         ) =>
           // ignore
-          // ignore
 
         case ExRequiredExpression(body) =>
           invariants :+= extractTree(body)(defCtx)
@@ -857,9 +856,7 @@ trait CodeExtraction extends ASTExtractors {
 
       case ExLocally(body) => extractTree(body)
 
-      case ExTyped(e, _) =>
-        // TODO: refine type here?
-        extractTree(e)
+      case ExTyped(e, _) => extractTree(e)
 
       case ex @ ExIdentifier(sym, tpt) =>
         dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
@@ -902,7 +899,7 @@ trait CodeExtraction extends ASTExtractors {
           case pred => extractType(contract) match {
             case xt.FunctionType(from, to) =>
               val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))
-              xt.Forall(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred)).setPos(pred)
+              xt.Forall(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred))
             case _ => 
               outOfSubsetError(tr, "Unsupported forall definition: " + tr)
           }
@@ -1055,7 +1052,7 @@ trait CodeExtraction extends ASTExtractors {
             case (xt.SetType(_), "--", Seq(rhs)) => xt.SetDifference(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "subsetOf", Seq(rhs)) => xt.SubsetOf(extractTree(lhs), extractTree(rhs))
             case (xt.SetType(_), "contains", Seq(rhs)) => xt.ElementOfSet(extractTree(rhs), extractTree(lhs))
-            case (xt.SetType(b), "-", Seq(rhs))  => xt.SetDifference(extractTree(lhs), xt.FiniteSet(Seq(extractTree(rhs)), b))
+            case (xt.SetType(b), "-", Seq(rhs))  => xt.SetDifference(extractTree(lhs), xt.FiniteSet(Seq(extractTree(rhs)), b).setPos(tr.pos))
 
             case (xt.BagType(_), "+",   Seq(rhs)) => xt.BagAdd(extractTree(lhs), extractTree(rhs))
             case (xt.BagType(_), "++",  Seq(rhs)) => xt.BagUnion(extractTree(lhs), extractTree(rhs))
@@ -1078,7 +1075,7 @@ trait CodeExtraction extends ASTExtractors {
                 xt.IsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe).setPos(tr.pos),
                 Some("Map undefined at this index"),
                 xt.ClassSelector(
-                  xt.AsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe),
+                  xt.AsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe).setPos(tr.pos),
                   getIdentifier(someSymbol.caseFieldAccessors.head)
                 ).setPos(tr.pos)
               )
@@ -1087,7 +1084,7 @@ trait CodeExtraction extends ASTExtractors {
               xt.Not(xt.Equals(
                 xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
                 xt.ClassConstructor(
-                  xt.ClassType(getIdentifier(noneSymbol).setPos(tr.pos), Seq(to)),
+                  xt.ClassType(getIdentifier(noneSymbol).setPos(tr.pos), Seq(to)).setPos(tr.pos),
                   Seq()
                 ).setPos(tr.pos)
               ).setPos(tr.pos))
@@ -1191,7 +1188,7 @@ trait CodeExtraction extends ASTExtractors {
         xt.BagType(extractType(btt))
 
       case TypeRef(_, sym, List(ftt,ttt)) if isMapSym(sym) =>
-        xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))))
+        xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))).setPos(pos))
 
       case TypeRef(_, sym, List(t1,t2)) if isTuple2(sym) =>
         xt.TupleType(Seq(extractType(t1),extractType(t2)))

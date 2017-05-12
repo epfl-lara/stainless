@@ -46,7 +46,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
   def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
   def testAll(dir: String)(block: (component.Report, inox.Reporter) => Unit): Unit = {
-    val fs = resourceFiles(s"regression/$dir", _.endsWith(".scala")).toList
+    val fs = resourceFiles(dir, _.endsWith(".scala")).toList
 
     val (funss, program) = extract(fs.map(_.getPath))
 

@@ -8,22 +8,20 @@ import scala.language.implicitConversions
 package object lang {
   import stainless.proof._
 
-  @library
+  @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
-    @inline
     def holds : Boolean = {
       underlying
     } ensuring {
       (res: Boolean) => res
     }
-    @inline
+
     def holds(becauseOfThat: Boolean) = {
       underlying
     } ensuring {
       (res: Boolean) => becauseOfThat && res
     }
 
-    @inline
     def ==>(that: => Boolean): Boolean = {
       if (underlying) that else true
     }

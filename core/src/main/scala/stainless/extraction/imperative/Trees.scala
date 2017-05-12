@@ -32,23 +32,14 @@ trait Trees extends innerfuns.Trees { self =>
 
   /** $encodingof `obj.selector = value` */
   case class FieldAssignment(obj: Expr, selector: Identifier, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = {
-      def fromConstr(tp: TypedADTConstructor): Option[Type] = {
-        tp.fields
-          .find(_.id == selector)
+    protected def computeType(implicit s: Symbols): Type = obj.getType match {
+      case ct: ADTType =>
+        ct.getField(selector)
           .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
           .map(_ => UnitType)
-      }
+          .getOrElse(Untyped)
 
-      obj.getType match {
-        case ct: ADTType =>
-          ct.getField(selector)
-            .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
-            .map(_ => UnitType)
-            .getOrElse(Untyped)
-
-        case _ => Untyped
-      }
+      case _ => Untyped
     }
   }
 
