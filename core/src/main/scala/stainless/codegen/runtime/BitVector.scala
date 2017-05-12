@@ -6,7 +6,7 @@ import java.math.BigInteger
 
 final class BitVector(private val bits: Array[Boolean]) {
 
-  /*private*/ def this(bi: BigInteger, size: Int) = this({
+  def this(bi: BigInteger, size: Int) = this({
     def extract(bi: BigInteger): Array[Boolean] = {
       val two = new BigInteger("2")
       (0 until size).map { i => bi.and(two.pow(i)).compareTo(BigInteger.ZERO) > 0 }.toArray
@@ -21,14 +21,21 @@ final class BitVector(private val bits: Array[Boolean]) {
       }._1.reverse.toArray
     }
   })
-  
-  private def toBigInteger: BigInteger = {
+
+  def this(value: String, size: Int) = this(new BigInteger(value), size)
+  def this(value: Byte, size: Int) = this(new BigInteger(value.toString), size)
+  def this(value: Short, size: Int) = this(new BigInteger(value.toString), size)
+
+  def toBigInteger: BigInteger = {
     val two = new BigInteger("2")
     val res = bits.zipWithIndex.foldLeft(BigInteger.ZERO) {
       case (res, (b, i)) => if (b) res.add(two.pow(i)) else res
     }
     if (bits.last) res.subtract(two.pow(bits.length)) else res
   }
+
+  def toByte: Byte = toBigInteger.byteValueExact
+  def toShort: Short = toBigInteger.byteValueExact
 
   def add(that: BitVector): BitVector = new BitVector(
     (0 until bits.length).foldLeft[(List[Boolean], Boolean)]((Nil, false)) { case ((res, carry), i) =>

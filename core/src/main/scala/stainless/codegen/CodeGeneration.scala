@@ -620,12 +620,11 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case bi @ BVLiteral(_, size) =>
       val value = bi.toBigInt.toString
+      ch << Comment("new bv")
       ch << New(BitVectorClass) << DUP
-      ch << New("java/math/BigInteger") << DUP
-      ch << Ldc(value)
-      ch << InvokeSpecial("java/math/BigInteger", constructorName, "(Ljava/lang/String;)V")
-      ch << Ldc(size.toInt)
-      ch << InvokeSpecial(BitVectorClass, constructorName, "(Ljava/math/BigInteger;I)V")
+      ch << Comment("init bv from string + size: (Ljava/lang/String;I)V")
+      ch << Ldc(value) << Ldc(size)
+      ch << InvokeSpecial(BitVectorClass, constructorName, "(Ljava/lang/String;I)V")
 
     case CharLiteral(v) =>
       ch << Ldc(v)
@@ -635,11 +634,12 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case UnitLiteral() =>
       ch << Ldc(1)
-    
+
     case StringLiteral(v) =>
       ch << Ldc(v)
 
     case IntegerLiteral(v) =>
+      ch << Comment(s"New BigInt(LString;)V")
       ch << New(BigIntClass) << DUP
       ch << Ldc(v.toString)
       ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
@@ -889,190 +889,60 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeStatic(StringOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
 
     // Arithmetic
-    case Plus(l, r) => // TODO refactor arithmetic
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "add", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int8Type | Int16Type =>
-          // Here we assume the user really wants to use BitVector even for Int8/16Types.
-          // We therefore create two BitVector for the operation, then extract the restul
-          // back to the proper literal.
-          println(s"NOT IMPLEMENTED!!!"); ??? // FIXME
-        case Int32Type =>
-          ch << IADD
-        case Int64Type =>
-          ch << LADD
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "add", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "add", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Minus(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "sub", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << ISUB
-        case Int64Type =>
-          ch << LSUB
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "sub", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "sub", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Times(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "mult", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IMUL
-        case Int64Type =>
-          ch << LMUL
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "mult", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "mult", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Division(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IDIV
-        case Int64Type =>
-          ch << LDIV
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "div", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "div", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Remainder(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "rem", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IREM
-        case Int64Type =>
-          ch << LREM
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "rem", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
+    case Plus(l, r)      => mkArithmeticBinary(l, r, ch, IADD, LADD, "add", bvOnly = false)
+    case Minus(l, r)     => mkArithmeticBinary(l, r, ch, ISUB, LSUB, "sub", bvOnly = false)
+    case Times(l, r)     => mkArithmeticBinary(l, r, ch, IMUL, LMUL, "mult", bvOnly = false)
+    case Division(l, r)  => mkArithmeticBinary(l, r, ch, IDIV, LDIV, "div", bvOnly = false)
+    case Remainder(l, r) => mkArithmeticBinary(l, r, ch, IREM, LREM, "rem", bvOnly = false)
 
     case Modulo(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          // stack: (l, r)
-          ch << DUP_X1
-          // stack: (r, l, r)
-          ch << IREM
-          // stack: (r, l % r)
-          ch << SWAP << DUP_X1
-          // stack: (r, l % r, r)
-          ch << IADD << SWAP
-          // stack: ([l % r] + r, r)
-          ch << IREM
-
-        case Int64Type => // NOTE it is illegal to call DUP_X1 and SWAP on Longs
-          if (r.getType != l.getType) throw CompilationException(s"Unexpected mismatch of types in $e")
-          // stack: (l, r)
-          ch << DUP2_X2 << DUP2_X2 // use form 4 of the opcode
-          // stack: (r, r, l, r)
-          ch << LREM << LADD
-          // stack: (r, r + [l % r])
-          ch << DUP2_X2 << POP2
-          // stack: (r + [l % r], r)
-          ch << LREM
-
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "mod", s"(L$BitVectorClass;)L$BitVectorClass;")
+      val iopGen: AbstractByteCodeGenerator = { ch =>
+        // stack: (l, r)
+        ch << DUP_X1
+        // stack: (r, l, r)
+        ch << IREM
+        // stack: (r, l % r)
+        ch << SWAP << DUP_X1
+        // stack: (r, l % r, r)
+        ch << IADD << SWAP
+        // stack: ([l % r] + r, r)
+        ch << IREM
       }
 
-    case UMinus(e) =>
-      mkExpr(e, ch)
-      e.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
-        case Int32Type =>
-          ch << INEG
-        case Int64Type =>
-          ch << LNEG
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
+      val lopGen: AbstractByteCodeGenerator = { ch =>
+        // NOTE it is illegal to call DUP_X1 and SWAP on Longs
+        // stack: (l, r)
+        ch << DUP2_X2 << DUP2_X2 // use form 4 of the opcode
+        // stack: (r, r, l, r)
+        ch << LREM << LADD
+        // stack: (r, r + [l % r])
+        ch << DUP2_X2 << POP2
+        // stack: (r + [l % r], r)
+        ch << LREM
       }
 
+      mkArithmeticBinary(l, r, ch, iopGen, lopGen, "mod", bvOnly = false) // FIXME report mod on rational as unexpected!
+
+    case UMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, "neg", bvOnly = false)
     case BVNot(e) =>
-      mkExpr(e, ch)
-      e.getType match {
-        // For all int/long: -x equals (~x)+1 (JVM spec), but also ~x == (-1)^x
-        case Int32Type =>
-          mkExpr(Int32Literal(-1), ch)
-          ch << IXOR
-        case Int64Type =>
-          mkExpr(Int64Literal(-1), ch)
-          ch << LXOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "not", s"()L$BitVectorClass;")
+      val iopGen: AbstractByteCodeGenerator = { ch =>
+        mkExpr(Int32Literal(-1), ch)
+        ch << IXOR
       }
 
-    case BVAnd(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IAND
-        case Int64Type =>
-          ch << LAND
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "and", s"(L$BitVectorClass;)L$BitVectorClass;")
+      val lopGen: AbstractByteCodeGenerator = { ch =>
+        mkExpr(Int64Literal(-1), ch)
+        ch << LXOR
       }
 
-    case BVOr(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IOR
-        case Int64Type =>
-          ch << LOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "or", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
+      mkArithmeticUnary(e, ch, iopGen, lopGen, "not", bvOnly = true)
 
-    case BVXor(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IXOR
-        case Int64Type =>
-          ch << LXOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "xor", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVShiftLeft(l, r)   => mkBVShift(e, l, r, ch, ISHL,  LSHL,  "shiftLeft")
-    case BVLShiftRight(l, r) => mkBVShift(e, l, r, ch, IUSHR, LUSHR, "lShiftLeft")
-    case BVAShiftRight(l, r) => mkBVShift(e, l, r, ch, ISHR,  LSHR,  "aShiftRight")
+    case BVAnd(l, r) => mkArithmeticBinary(l, r, ch, IAND, LAND, "and", bvOnly = true)
+    case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, "or", bvOnly = true)
+    case BVXor(l, r) => mkArithmeticBinary(l, r, ch, IXOR, LXOR, "xor", bvOnly = true)
+    case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
+    case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
+    case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
 
     case BVNarrowingCast(e, to) =>
       mkExpr(e, ch)
@@ -1558,10 +1428,10 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << IfEq(elze) << Goto(thenn)
       }
 
-    case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "lessThan", "lessThan")
-    case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "greaterThan", "greaterThan")
-    case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "lessEquals", "lessEquals")
-    case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "greaterEquals", "greaterEquals")
+    case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "lessThan")
+    case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "greaterThan")
+    case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "lessEquals")
+    case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "greaterEquals")
 
     case IfExpr(c, t, e) =>
       val innerThen = ch.getFreshLabel("then")
@@ -1583,47 +1453,180 @@ trait CodeGeneration { self: CompilationUnit =>
     case other => throw CompilationException("Unsupported branching expr. : " + other)
   }
 
-  def mkBVShift(e: Expr, l: Expr, r: Expr, ch: CodeHandler, iop: ByteCode, lop: ByteCode, bvop: String)
-               (implicit locals: Locals): Unit = {
+  /**
+   *  Create a BitVector from the value on the top of the stack.
+   *
+   *  [[param]] is expected to be either "B" or "S".
+   *
+   *  Stack before: (..., value)
+   *  Stack after:  (..., bv)
+   */
+  private def mkNewBV(ch: CodeHandler, param: String, size: Int): Unit = {
+    ch << Comment(s"New BitVector for $param of size $size")
+    ch << New(BitVectorClass) << DUP_X1 << SWAP << Ldc(size)
+    ch << Comment(s"Init BitVector: (${param}I)V")
+    ch << InvokeSpecial(BitVectorClass, constructorName, s"(${param}I)V")
+  }
+
+
+  private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,
+                        iop: ByteCode, lop: ByteCode, op: String)
+                       (implicit locals: Locals): Unit = {
     // NOTE for shift operations on Byte/Short/Int/Long:
     //      the lhs operand can be either Int or Long,
     //      the rhs operand must be an Int.
-    mkExpr(l, ch)
-    mkExpr(r, ch)
 
-    r.getType match {
+    def pre(ch: CodeHandler): Unit = r.getType match {
       case Int64Type => ch << L2I
       case _ => // No need to convert the rhs argument, it is either already an int, or some unrelated BVType.
     }
 
-    l.getType match {
-      case Int8Type | Int16Type => internalErrorWithByteOrShort(e)
-      case Int32Type =>
-        ch << iop
-      case Int64Type =>
-        ch << lop
-      case BVType(_) =>
-        ch << InvokeVirtual(BitVectorClass, bvop, s"(L$BitVectorClass;)L$BitVectorClass;")
+    def opGen(opcode: ByteCode): AbstractByteCodeGenerator = { ch =>
+      pre(ch)
+      ch << opcode
     }
+
+    mkArithmeticBinary(l, r, ch, opGen(iop), opGen(lop), op, bvOnly = true)
   }
 
-  def mkCmpJump(cond: Expr, thenn: String, elze: String, l: Expr, r: Expr, ch: CodeHandler,
-                iop: String => ControlOperator, lop: String => ControlOperator, biop: String, rop: String)
-               (implicit locals: Locals): Unit = {
+  private def mkCmpJump(cond: Expr, thenn: String, elze: String, l: Expr, r: Expr, ch: CodeHandler,
+                        iop: String => ControlOperator, lop: String => ControlOperator, op: String)
+                       (implicit locals: Locals): Unit = {
     mkExpr(l, ch)
     mkExpr(r, ch)
     l.getType match {
-      case Int8Type | Int16Type => internalErrorWithByteOrShort(cond)
-      case Int32Type | CharType =>
+      case Int8Type | Int16Type | Int32Type | CharType =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // Fortunately, for comparison operations, using regular Int32Type will do fine
+        // as Int8/16Type are represented as Int32Type on the JVM anyway.
         ch << iop(thenn) << Goto(elze)
       case Int64Type =>
         ch << LCMP << lop(thenn) << Goto(elze)
+      case BVType(_) =>
+        ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
+        ch << IfEq(elze) << Goto(thenn)
       case IntegerType =>
-        ch << InvokeVirtual(BigIntClass, biop, s"(L$BigIntClass;)Z")
+        ch << InvokeVirtual(BigIntClass, op, s"(L$BigIntClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
       case RealType =>
-        ch << InvokeVirtual(RationalClass, rop, s"(L$RationalClass;)Z")
+        ch << InvokeVirtual(RationalClass, op, s"(L$RationalClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
+    }
+  }
+
+  private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
+                                 iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                                (implicit locals: Locals): Unit = {
+    mkArithmeticBinary(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+  }
+
+  private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
+                                 iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                (implicit locals: Locals): Unit = {
+    ch << Comment(s"mkArithmeticBinary($op)")
+    mkExpr(l, ch)
+    mkExpr(r, ch)
+
+    l.getType match {
+      case IntegerType if !bvOnly =>
+        val opSign = s"(L$BigIntClass;)L$BigIntClass;"
+        ch << Comment(s"[binary, bigint] Calling $op: $opSign")
+        ch << InvokeVirtual(BigIntClass, op, opSign)
+
+      case t @ (Int8Type | Int16Type) =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // We therefore create two BitVector for the operation, then extract the result
+        // back to the proper primitive type.
+
+        val (param, extract, size) = t match {
+          case Int8Type  => ("B", "toByte", 8)
+          case Int16Type => ("S", "toShort", 16)
+        }
+
+        // stack: (l, r)
+        mkNewBV(ch, param, size)
+        // stack: (l, bvr)
+        ch << SWAP
+        mkNewBV(ch, param, size)
+        ch << SWAP
+        // stack: (bvl, bvr)
+        val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
+        ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << InvokeVirtual(BitVectorClass, op, signOp)
+        // stack: (bv)
+        val signExtract = s"()$param"
+        ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
+      case Int32Type =>
+        iopGen(ch)
+
+      case Int64Type =>
+        lopGen(ch)
+
+      case BVType(_) =>
+        val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
+        ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
+        ch << InvokeVirtual(BitVectorClass, op, opSign)
+
+      case RealType if !bvOnly =>
+        val opSign = s"(L$RationalClass;)L$RationalClass;"
+        ch << Comment(s"[binary, real] Calling $op: $opSign")
+        ch << InvokeVirtual(RationalClass, op, opSign)
+    }
+  }
+
+  private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
+                                iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                               (implicit locals: Locals): Unit = {
+    mkArithmeticUnary(e, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+  }
+
+  private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
+                                iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                               (implicit locals: Locals): Unit = {
+    ch << Comment(s"mkArithmeticUnary($op)")
+    mkExpr(e, ch)
+
+    e.getType match {
+      case IntegerType if !bvOnly =>
+        val opSign = s"()L$BigIntClass;"
+        ch << Comment(s"[unary, bigint] Calling $op: $opSign")
+        ch << InvokeVirtual(BigIntClass, op, opSign)
+
+      case t @ (Int8Type | Int16Type) =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // We therefore create a BitVector for the operation, then extract the result
+        // back to the proper primitive type.
+
+        val (param, extract, size) = t match {
+          case Int8Type  => ("B", "toByte", 8)
+          case Int16Type => ("S", "toShort", 16)
+        }
+
+        mkNewBV(ch, param, size)
+        val signOp = s"()L$BitVectorClass;"
+        ch << Comment(s"[unary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << InvokeVirtual(BitVectorClass, op, signOp)
+        val signExtract = s"()$param"
+        ch << Comment(s"[unary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
+      case Int32Type =>
+        iopGen(ch)
+
+      case Int64Type =>
+        lopGen(ch)
+
+      case BVType(_) =>
+        val opSign = s"()L$BitVectorClass;"
+        ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
+        ch << InvokeVirtual(BitVectorClass, op, opSign)
+
+      case RealType if !bvOnly =>
+        val opSign = s"()L$RationalClass;"
+        ch << Comment(s"[unary, real] Calling $op: $opSign")
+        ch << InvokeVirtual(RationalClass, op, opSign)
     }
   }
 
