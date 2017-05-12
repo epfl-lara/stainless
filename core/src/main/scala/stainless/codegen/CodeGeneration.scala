@@ -954,6 +954,8 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int64Type, Int8Type ) => ch << L2I << I2B
         case (Int64Type, Int16Type) => ch << L2I << I2S
         case (Int64Type, Int32Type) => ch << L2I
+        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (from, to) => mkBVCast(from, to, ch)
       }
 
     case BVWideningCast(e, to) =>
@@ -966,6 +968,8 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int16Type, Int32Type) => ch << NOP // already an int
         case (Int16Type, Int64Type) => ch << I2L
         case (Int32Type, Int64Type) => ch << I2L
+        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (from, to) => mkBVCast(from, to, ch)
       }
 
     case ArrayLength(a) =>
@@ -1456,7 +1460,7 @@ trait CodeGeneration { self: CompilationUnit =>
   /**
    *  Create a BitVector from the value on the top of the stack.
    *
-   *  [[param]] is expected to be either "B" or "S".
+   *  [[param]] is expected to be either "B", "S", "I" or "J".
    *
    *  Stack before: (..., value)
    *  Stack after:  (..., bv)
@@ -1468,6 +1472,41 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << InvokeSpecial(BitVectorClass, constructorName, s"(${param}I)V")
   }
 
+  /**
+   *  Generate ByteCode for BV widening and narrowing on arbitrary BV.
+   *
+   *  [[from]] and [[to]] are expected to be different, and at least one of
+   *  them need to be a BVType(n) where n not in { 8, 16, 32, 64 }.
+   *
+   *  Stack before: (..., value)
+   *  Stack after:  (..., newValue)
+   *  where `value` and `newValue` are either Byte, Short, Int, Long or Reference to a BitVector
+   */
+  private def mkBVCast(from: Type, to: Type, ch: CodeHandler): Unit = {
+    // Here, we might need to first create a BitVector.
+    // We might also have to convert the resulting BitVector back to a regular integer type.
+    from match {
+      case Int8Type  => mkNewBV(ch, "B", 8)
+      case Int16Type => mkNewBV(ch, "S", 16)
+      case Int32Type => mkNewBV(ch, "I", 32)
+      case Int64Type => mkNewBV(ch, "J", 64)
+      case BVType(s) => ch << NOP
+    }
+
+    val BVType(oldSize) = from
+    val BVType(newSize) = to
+    ch << Comment(s"Applying BVCast on BitVector instance: $oldSize -> $newSize")
+    ch << Ldc(newSize)
+    ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
+
+    to match {
+      case Int8Type  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
+      case Int16Type => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
+      case Int32Type => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
+      case Int64Type => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
+      case BVType(s) => ch << NOP
+    }
+  }
 
   private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,
                         iop: ByteCode, lop: ByteCode, op: String)
