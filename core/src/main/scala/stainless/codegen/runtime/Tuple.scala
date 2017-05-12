@@ -23,7 +23,7 @@ final class Tuple (_elems: Array[AnyRef]) {
   def getArity(): Int = elements.length
 
   override def equals(that: Any): Boolean = that match {
-    case tpl: Tuple => elements.toSeq == tpl.elements.toSeq
+    case tpl: Tuple => elements.toSeq == tpl.elements.toSeq // the conversion to Seq is mandatory! Array.equals doesn't work as one expect.
     case _ => false
   }
 

@@ -104,7 +104,7 @@ final class BitVector(private val bits: Array[Boolean]) {
   private def isNegative = toBigInteger.signum == -1
 
   override def equals(that: Any): Boolean = that match {
-    case bv: BitVector => bits == bv.bits
+    case that: BitVector => this.bits.toSeq == that.bits.toSeq // the conversion to Seq is mandatory! Array.equals doesn't work as one expect.
     case _ => false
   }
 
