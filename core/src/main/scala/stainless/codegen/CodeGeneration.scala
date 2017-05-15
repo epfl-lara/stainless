@@ -896,32 +896,48 @@ trait CodeGeneration { self: CompilationUnit =>
     case Remainder(l, r) => mkArithmeticBinary(l, r, ch, IREM, LREM, "rem", bvOnly = false)
 
     case Modulo(l, r) =>
-      val iopGen: AbstractByteCodeGenerator = { ch =>
-        // stack: (l, r)
-        ch << DUP_X1
-        // stack: (r, l, r)
-        ch << IREM
-        // stack: (r, l % r)
-        ch << SWAP << DUP_X1
-        // stack: (r, l % r, r)
-        ch << IADD << SWAP
-        // stack: ([l % r] + r, r)
-        ch << IREM
-      }
+      ch << Comment(s"Modulo")
+      mkExpr(l, ch)
+      mkExpr(r, ch)
 
-      val lopGen: AbstractByteCodeGenerator = { ch =>
-        // NOTE it is illegal to call DUP_X1 and SWAP on Longs
-        // stack: (l, r)
-        ch << DUP2_X2 << DUP2_X2 // use form 4 of the opcode
-        // stack: (r, r, l, r)
-        ch << LREM << LADD
-        // stack: (r, r + [l % r])
-        ch << DUP2_X2 << POP2
-        // stack: (r + [l % r], r)
-        ch << LREM
-      }
+      val op = "mod"
+      l.getType match {
+        case IntegerType =>
+          val opSign = s"(L$BigIntClass;)L$BigIntClass;"
+          ch << Comment(s"[binary, bigint] Calling $op: $opSign")
+          ch << InvokeVirtual(BigIntClass, op, opSign)
 
-      mkArithmeticBinary(l, r, ch, iopGen, lopGen, "mod", bvOnly = false) // FIXME report mod on rational as unexpected!
+        case t @ (Int8Type | Int16Type | Int32Type | Int64Type) =>
+          // NOTE Here we always rely on BitVector's implementation of modulo.
+
+          val (param, extract, size) = t match {
+            case Int8Type  => ("B", "toByte", 8)
+            case Int16Type => ("S", "toShort", 16)
+            case Int32Type => ("I", "toInt", 32)
+            case Int64Type => ("J", "toLong", 64)
+          }
+
+          // stack: (l, r)
+          mkNewBV(ch, param, size)
+          // stack: (l, bvr)
+          if (param == "J") ch << DUP_X2 << POP
+          else ch << SWAP
+          mkNewBV(ch, param, size)
+          ch << SWAP
+          // stack: (bvl, bvr)
+          val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
+          ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+          ch << InvokeVirtual(BitVectorClass, op, signOp)
+          // stack: (bv)
+          val signExtract = s"()$param"
+          ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+          ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
+        case BVType(_) =>
+          val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
+          ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
+          ch << InvokeVirtual(BitVectorClass, op, opSign)
+      }
 
     case UMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, "neg", bvOnly = false)
     case BVNot(e) =>
@@ -1467,7 +1483,10 @@ trait CodeGeneration { self: CompilationUnit =>
    */
   private def mkNewBV(ch: CodeHandler, param: String, size: Int): Unit = {
     ch << Comment(s"New BitVector for $param of size $size")
-    ch << New(BitVectorClass) << DUP_X1 << SWAP << Ldc(size)
+    ch << New(BitVectorClass)
+    if (param == "J") ch << DUP_X2 << DUP_X2 << POP
+    else ch << DUP_X1 << SWAP
+    ch << Ldc(size)
     ch << Comment(s"Init BitVector: (${param}I)V")
     ch << InvokeSpecial(BitVectorClass, constructorName, s"(${param}I)V")
   }
