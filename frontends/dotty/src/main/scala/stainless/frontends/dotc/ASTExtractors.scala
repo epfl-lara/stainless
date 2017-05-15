@@ -222,7 +222,7 @@ trait ASTExtractors {
 
     object ExRealLiteral {
       def unapply(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
-        case Apply(ExSymbol("stainless", "lang", "package$", "Real$", "apply"), args) => Some(args)
+        case Apply(ExSymbol("stainless", "lang", "Real$", "apply"), args) => Some(args)
         case _ => None
       }
     }
@@ -293,6 +293,12 @@ trait ASTExtractors {
           (e.symbol.name.toString == "apply")
         ) => Some((tree.tpe, args))
 
+        case Select(s, _) if (tree.symbol is Case) && (tree.symbol is Module) =>
+          Some((tree.tpe, Seq()))
+
+        case Ident(_) if (tree.symbol is Case) && (tree.symbol is Module) =>
+          Some((tree.tpe, Seq()))
+
         case _ =>
           None
       }
@@ -317,6 +323,19 @@ trait ASTExtractors {
         case Select(tuple @ TupleSymbol(i), ExNamed(Pattern(n))) if n.toInt <= i =>
           Some((tuple, n.toInt))
         case _ => None
+      }
+    }
+
+    object ExUnwrapped {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(
+          ExSymbol("scala", "Predef$", "Ensuring") |
+          ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "StringDecorations"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "WhileDecorations"), Seq(arg)) => Some(arg)
+        case _ => Some(tree)
       }
     }
   }
@@ -356,27 +375,15 @@ trait ASTExtractors {
         tree match {
           case vd @ ValDef(_, tpt, _) if (
             !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Lazy) && !(sym is Synthetic) && !(sym is Accessor) && !(sym is Mutable)
+            !(sym is Synthetic) && !(sym is Accessor) && !(sym is Mutable)
           ) => Some((sym, tpt.tpe, vd.rhs))
 
+          /*
           case dd @ DefDef(_, _, _, tpt, _) if (
             (sym is Stable) && (sym is Accessor) &&
             (sym.name != nme.CONSTRUCTOR) // TODO: && (sym.accessed == NoSymbol)
           ) => Some((sym, tpt.tpe, tpd.EmptyTree))
-
-          case _ => None
-        }
-      }
-    }
-
-    object ExLazyFieldDef {
-      def unapply(tree: tpd.DefDef): Option[(Symbol, Type, tpd.Tree)] = {
-        val sym = tree.symbol
-        tree match {
-          case DefDef(name, _, Seq() | Seq(_), tpt, _) if (
-            name != nme.CONSTRUCTOR && !(sym is Synthetic) &&
-            (sym is Accessor) && (sym is Lazy)
-          ) => Some((sym, tpt.tpe, tree.rhs))
+          */
 
           case _ => None
         }

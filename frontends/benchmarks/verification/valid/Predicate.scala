@@ -40,7 +40,7 @@ object Predicate {
   }
 
   def test[A,B,C](p: A => Boolean, f: A => B, g: B => C): Boolean = {
-    equals(map(map(p, f), g), map(p, (a: A) => g(f(a))))
+    equals[C](map[B,C](map[A,B](p, f), g), map[A,C](p, (a: A) => g(f(a))))
   }.holds
 
   /* Disabled

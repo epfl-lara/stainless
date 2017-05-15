@@ -40,7 +40,7 @@ object PackratParsing {
      * Checks if the index in the result (if any) is
      * smaller than `i`
      */
-    @inline
+    //@inline - makes Dotty compiler crash
     def smallerIndex(i: BigInt) = this match {
       case Parsed(m) => m < i
       case _         => true

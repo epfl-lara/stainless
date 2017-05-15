@@ -7,7 +7,7 @@ object Heaps {
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
   /* Data type definitions */
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
-  private case class Node(rank : BigInt, elem : Int, nodes : Heap)
+  case class Node(rank : BigInt, elem : Int, nodes : Heap)
   
   sealed abstract class Heap
   private case class  Nodes(head : Node, tail : Heap) extends Heap

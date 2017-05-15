@@ -58,7 +58,7 @@ object LazyNumericalRep {
       }
     }
 
-    @inline
+    //@inline - inline here crashes Dotty compiler
     def get: NumList = {
       this match {
         case Susp(f) => fval

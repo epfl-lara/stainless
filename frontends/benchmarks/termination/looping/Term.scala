@@ -24,7 +24,7 @@ object Term {
   }
 
   @ignore
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     looping(Core(Task(0), Some(0)))
   }
 

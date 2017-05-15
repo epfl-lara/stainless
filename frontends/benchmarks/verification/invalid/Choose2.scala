@@ -6,7 +6,7 @@ object Choose2 {
 
   def test(x: BigInt): BigInt = {
 
-    choose((y: BigInt) => {
+    choose[BigInt]((y: BigInt) => {
       val z = y + 2
       z == y
     })

@@ -9,8 +9,8 @@ object Partial {
   }
 
   def eliminate_exists[T](p: T => Boolean): T = {
-    require(exists(p))
-    choose((res: T) => p(res))
+    require(exists[T](p))
+    choose[T]((res: T) => p(res))
   } ensuring (p)
 
   def maxNegP(j: BigInt, p: BigInt => Boolean): Boolean = {
@@ -18,8 +18,8 @@ object Partial {
   }
 
   def f(x: BigInt, p: BigInt => Boolean): BigInt = {
-    require(!p(x) || exists((j: BigInt) => j < x && maxNegP(j, p)))
-    decreases(if (!p(x)) BigInt(0) else x - eliminate_exists((j: BigInt) => j < x && maxNegP(j, p)))
+    require(!p(x) || exists[BigInt]((j: BigInt) => j < x && maxNegP(j, p)))
+    decreases(if (!p(x)) BigInt(0) else x - eliminate_exists[BigInt]((j: BigInt) => j < x && maxNegP(j, p)))
     if (p(x)) {
       f(x - 1, p)
     } else {

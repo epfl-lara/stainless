@@ -14,9 +14,9 @@ import collection._
 object LazySelectionSort {
 
   sealed abstract class LList
-  private case class SCons(x: BigInt, tailFun: Stream) extends LList
-  private case class SNil() extends LList
-  private case class Stream(lfun: () => LList) {
+  case class SCons(x: BigInt, tailFun: Stream) extends LList
+  case class SNil() extends LList
+  case class Stream(lfun: () => LList) {
     lazy val list: LList = lfun()
   }
 

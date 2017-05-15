@@ -203,8 +203,8 @@ object SFuns {
 
   def test: Unit = {
     val counter = makeCounter
-    val c1 = counter()
-    val c2 = counter()
+    val c1 = counter(())
+    val c2 = counter(())
     assert(c1 == 1)
     assert(c2 == 2)
   }

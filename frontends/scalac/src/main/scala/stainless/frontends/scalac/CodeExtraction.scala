@@ -718,11 +718,11 @@ trait CodeExtraction extends ASTExtractors {
       case ExEnsuredExpression(body, contract) =>
         val post = extractTree(contract)
         val b = extractTreeOrNoTree(body)
-        val tpe = extractType(body)
 
         val closure = post match {
           case l: xt.Lambda => l
           case other =>
+            val tpe = extractType(body)
             val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(post)
             xt.Lambda(Seq(vd), extractType(contract) match {
               case xt.BooleanType => post

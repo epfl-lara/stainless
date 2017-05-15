@@ -1,7 +1,7 @@
 import stainless.lang._
 
 object ArrayParamMutation9 {
-  def abs(a: Array[Int]) {
+  def abs(a: Array[Int]): Unit = {
     require(a.length > 0)
     var i = 0;
     (while (i < a.length) {

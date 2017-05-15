@@ -53,12 +53,5 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils {
     }
   }
 
-  testAll("verification/valid")
-  testAll("verification/invalid")
-  testAll("verification/unchecked")
-  testAll("imperative/valid")
-  testAll("imperative/invalid")
-  testAll("termination/valid")
-  testAll("termination/looping")
   testAll("extraction")
 }

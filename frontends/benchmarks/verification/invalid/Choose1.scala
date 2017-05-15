@@ -24,7 +24,7 @@ object Choose1 {
       if (i == BigInt(0)) {
         Nil()
       } else {
-        choose { (res: List) => size(res) == i-1 }
+        choose[List] { (res: List) => size(res) == i-1 }
       }
     } ensuring ( size(_) == i )
 

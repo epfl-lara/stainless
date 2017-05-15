@@ -35,7 +35,7 @@ object ChooseWithWitness {
         Nil()
       } else {
         assert(size(createListOfSize(i)) == i) // provides choose quantification with a matcher
-        choose { (res: List) => size(res) == i }
+        choose[List] { (res: List) => size(res) == i }
       }
     } ensuring ( size(_) == i )
 
