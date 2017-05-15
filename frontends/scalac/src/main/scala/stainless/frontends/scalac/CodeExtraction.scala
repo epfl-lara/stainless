@@ -1242,17 +1242,6 @@ trait CodeExtraction extends ASTExtractors {
       ctor(ector(e))
     }
 
-    /** Special version of injectCast for the right hand side of shift operations:
-     *  promote to Int and not to Long. This is mainly to simplify bytecode generation. */
-/*
- *     private def injectCastShiftRHS(e0: Tree)(implicit dctx: DefContext): xt.Expr = injectCast { e =>
- *       extractType(e0) match {
- *         case xt.Int64Type => xt.BVNarrowingCast(e, xt.Int32Type)
- *         case _ => e
- *       }
- *     }(e0)
- *
- */
     private def extractType(t: Tree)(implicit dctx: DefContext): xt.Type = {
       extractType(t.tpe)(dctx, t.pos)
     }
