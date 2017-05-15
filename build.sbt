@@ -62,7 +62,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   resolvers ++= Seq(
     "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
-    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
+    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven",
+    Resolver.typesafeIvyRepo("releases")
   ),
 
   libraryDependencies ++= Seq(
