@@ -2,7 +2,12 @@
 
 package stainless
 
+import java.io.{File, PrintWriter}
+
 import extraction.xlang.{trees => xt}
+import org.json4s.JsonAST.JObject
+import org.json4s.JsonDSL._
+import org.json4s.native.JsonMethods._
 
 object MainHelpers {
   val components: Seq[Component] = Seq(
@@ -19,6 +24,13 @@ trait MainHelpers extends inox.MainHelpers {
   case object Verification extends Category
   case object Termination extends Category
 
+  object optJson extends inox.OptionDef[String] {
+    val name = "json"
+    val default = "report.json"
+    val parser = inox.OptionParsers.stringParser
+    val usageRhs = "file"
+  }
+
   override protected def getOptions = super.getOptions ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
@@ -30,7 +42,8 @@ trait MainHelpers extends inox.MainHelpers {
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
     extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
-    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening")
+    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
+    optJson -> Description(General, "Output verification and termination reports to a JSON file")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
@@ -82,11 +95,23 @@ trait MainHelpers extends inox.MainHelpers {
       activeComponents
     }
 
-    for (c <- toExecute) c(structure, program).emit()
+    val reports = for (c <- toExecute) yield c(structure, program)
+    reports foreach { _.emit() }
 
     inoxCtx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
       inoxCtx.timers.outputTable(debug)
     }
+
+    def exportJson(file: String): Unit = {
+      inoxCtx.reporter.info(s"Outputing JSON summary to $file")
+      val subs = (toExecute zip reports) map { case (c, r) => JObject(c.name -> r.emitJson()) }
+      val json = subs reduce { _ ~ _ }
+      val string = pretty(render(json))
+      val pw = new PrintWriter(new File(file))
+      try pw.write(string) finally pw.close()
+    }
+
+    inoxCtx.options.findOption(optJson) foreach { file => exportJson(if (file.isEmpty) optJson.default else file) }
   } catch {
     case _: inox.FatalError => System.exit(1)
   }

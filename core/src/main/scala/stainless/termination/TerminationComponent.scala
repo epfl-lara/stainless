@@ -4,6 +4,7 @@ package stainless
 package termination
 
 import inox.utils.ASCIIHelpers._
+import org.json4s.JsonAST.JValue
 
 object TerminationComponent extends SimpleComponent {
   val name = "termination"
@@ -94,7 +95,7 @@ object TerminationComponent extends SimpleComponent {
       ctx.reporter.info(t.render)
     }
 
-    def emitJson(): Unit = {
+    def emitJson(): JValue = {
       ???
     }
   }
