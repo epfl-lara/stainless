@@ -487,7 +487,10 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       val lit = xt.IntegerLiteral(BigInt(n.stringValue))
       (xt.LiteralPattern(binder, lit), dctx)
 
+    case ExInt8Literal(i)    => (xt.LiteralPattern(binder, xt.Int8Literal(i)),    dctx)
+    case ExInt16Literal(i)   => (xt.LiteralPattern(binder, xt.Int16Literal(i)),   dctx)
     case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.Int32Literal(i)),   dctx)
+    case ExInt64Literal(i)   => (xt.LiteralPattern(binder, xt.Int64Literal(i)),   dctx)
     case ExBooleanLiteral(b) => (xt.LiteralPattern(binder, xt.BooleanLiteral(b)), dctx)
     case ExUnitLiteral()     => (xt.LiteralPattern(binder, xt.UnitLiteral()),     dctx)
     case ExStringLiteral(s)  => (xt.LiteralPattern(binder, xt.StringLiteral(s)),  dctx)
@@ -841,8 +844,10 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       case _ => outOfSubsetError(tr, "Real not built from literals")
     }
 
-    case ExInt32Literal(v) =>
-      xt.Int32Literal(v)
+    case ExInt8Literal(v)  => xt.Int8Literal(v)
+    case ExInt16Literal(v) => xt.Int16Literal(v)
+    case ExInt32Literal(v) => xt.Int32Literal(v)
+    case ExInt64Literal(v) => xt.Int64Literal(v)
 
     case ExBooleanLiteral(v) =>
       xt.BooleanLiteral(v)
@@ -920,20 +925,21 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       case e => (xt.TupleSelect(e, 1).setPos(e), xt.TupleSelect(e, 2).setPos(e))
     }, extractType(tpt))
 
+    case Select(e, nme.UNARY_+) => injectCast(e => e)(e)
     case Select(e, nme.UNARY_!) => xt.Not(extractTree(e))
-    case Select(e, nme.UNARY_-) => xt.UMinus(extractTree(e))
-    case Select(e, nme.UNARY_~) => xt.BVNot(extractTree(e))
+    case Select(e, nme.UNARY_-) => injectCast(xt.UMinus)(e)
+    case Select(e, nme.UNARY_~) => injectCast(xt.BVNot)(e)
 
-    case Apply(Select(l, nme.NE), Seq(r)) => xt.Not((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (lit @ xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e).setPos(tr.pos)
-      case (e, xt.IntegerType, lit @ xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit)).setPos(tr.pos)
-      case (e1, _, e2, _) => xt.Equals(e1, e2).setPos(tr.pos)
-    })
+    case Apply(Select(l, nme.NE), Seq(r)) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
+      case (lit @ xt.BVLiteral(_, _), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(lit.toBigInt).copiedFrom(lit), e)
+      case (e, xt.IntegerType, lit @ xt.BVLiteral(_, _), _) => xt.Equals(e, xt.IntegerLiteral(lit.toBigInt).copiedFrom(lit))
+      case _ => injectCasts(xt.Equals)(l, r)
+    }).setPos(tr.pos))
 
     case Apply(Select(l, nme.EQ), Seq(r)) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (lit @ xt.Int32Literal(i), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(i).copiedFrom(lit), e)
-      case (e, xt.IntegerType, lit @ xt.Int32Literal(i), _) => xt.Equals(e, xt.IntegerLiteral(i).copiedFrom(lit))
-      case (e1, _, e2, _) => xt.Equals(e1, e2)
+      case (lit @ xt.BVLiteral(_, _), _, e, xt.IntegerType) => xt.Equals(xt.IntegerLiteral(lit.toBigInt).copiedFrom(lit), e)
+      case (e, xt.IntegerType, lit @ xt.BVLiteral(_, _), _) => xt.Equals(e, xt.IntegerLiteral(lit.toBigInt).copiedFrom(lit))
+      case _ => injectCasts(xt.Equals)(l, r)
     }
 
     case Apply(Apply(Apply(TypeApply(
@@ -1037,7 +1043,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
 
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType, "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
-          case (xt.IntegerType | xt.BVType(_) | xt.RealType, "+", Seq(rhs)) => xt.Plus(extractTree(lhs), extractTree(rhs))
+          case (xt.IntegerType | xt.BVType(_) | xt.RealType, "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
 
           case (xt.SetType(_), "+",  Seq(rhs)) => xt.SetAdd(extractTree(lhs), extractTree(rhs))
           case (xt.SetType(_), "++", Seq(rhs)) => xt.SetUnion(extractTree(lhs), extractTree(rhs))
@@ -1120,25 +1126,52 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
               Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
             )
 
-          case (_, "-",   Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
-          case (_, "*",   Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
-          case (_, "%",   Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
+          case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)
+          case (_, "*",   Seq(rhs)) => injectCasts(xt.Times)(lhs, rhs)
+          case (_, "%",   Seq(rhs)) => injectCasts(xt.Remainder)(lhs, rhs)
           case (_, "mod", Seq(rhs)) => xt.Modulo(extractTree(lhs), extractTree(rhs))
-          case (_, "/",   Seq(rhs)) => xt.Division(extractTree(lhs), extractTree(rhs))
-          case (_, ">",   Seq(rhs)) => xt.GreaterThan(extractTree(lhs), extractTree(rhs))
-          case (_, ">=",  Seq(rhs)) => xt.GreaterEquals(extractTree(lhs), extractTree(rhs))
-          case (_, "<",   Seq(rhs)) => xt.LessThan(extractTree(lhs), extractTree(rhs))
-          case (_, "<=",  Seq(rhs)) => xt.LessEquals(extractTree(lhs), extractTree(rhs))
+          case (_, "/",   Seq(rhs)) => injectCasts(xt.Division)(lhs, rhs)
+          case (_, ">",   Seq(rhs)) => injectCasts(xt.GreaterThan)(lhs, rhs)
+          case (_, ">=",  Seq(rhs)) => injectCasts(xt.GreaterEquals)(lhs, rhs)
+          case (_, "<",   Seq(rhs)) => injectCasts(xt.LessThan)(lhs, rhs)
+          case (_, "<=",  Seq(rhs)) => injectCasts(xt.LessEquals)(lhs, rhs)
 
-          case (_, "|",   Seq(rhs)) => xt.BVOr(extractTree(lhs), extractTree(rhs))
-          case (_, "&",   Seq(rhs)) => xt.BVAnd(extractTree(lhs), extractTree(rhs))
-          case (_, "^",   Seq(rhs)) => xt.BVXor(extractTree(lhs), extractTree(rhs))
-          case (_, "<<",  Seq(rhs)) => xt.BVShiftLeft(extractTree(lhs), extractTree(rhs))
-          case (_, ">>",  Seq(rhs)) => xt.BVAShiftRight(extractTree(lhs), extractTree(rhs))
-          case (_, ">>>", Seq(rhs)) => xt.BVLShiftRight(extractTree(lhs), extractTree(rhs))
+          case (_, "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
+          case (_, "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
+          case (_, "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
+          case (_, "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
+          case (_, ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
+          case (_, ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
 
           case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
           case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
+
+          // FIXME 'toByte' and so on are apparently different with dotty...
+          case (tpe, "toByte", Seq()) => tpe match {
+            case xt.BVType(8) => extractTree(lhs)
+            case xt.BVType(16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(8))
+            case tpe => outOfSubsetError(tr, "Unexpected cast .toByte from $tpe")
+          }
+
+          case (tpe, "toShort", Seq()) => tpe match {
+            case xt.BVType(8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(16))
+            case xt.BVType(16) => extractTree(lhs)
+            case xt.BVType(32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(16))
+            case tpe => outOfSubsetError(tr, "Unexpected cast .toShort from $tpe")
+          }
+
+          case (tpe, "toInt", Seq()) => tpe match {
+            case xt.BVType(8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(32))
+            case xt.BVType(32) => extractTree(lhs)
+            case xt.BVType(64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(32))
+            case tpe => outOfSubsetError(tr, "Unexpected cast .toInt from $tpe")
+          }
+
+          case (tpe, "toLong", Seq()) => tpe match {
+            case xt.BVType(8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(64))
+            case xt.BVType(64) => extractTree(lhs)
+            case tpe => outOfSubsetError(tr, "Unexpected cast .toLong from $tpe")
+          }
 
           case (tpe, name, args) =>
             outOfSubsetError(tr, "Unknown call to " + name +
@@ -1151,13 +1184,98 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     case _ => outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+")")
   }).setPos(tr.pos)
 
+
+  /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
+  private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                         (lhs0: tpd.Tree, rhs0: tpd.Tree)
+                         (implicit dctx: DefContext): xt.Expr = {
+    injectCastsImpl(ctor)(lhs0, rhs0, false)
+  }
+
+  /**
+   *  Inject casts, special edition for shift operations.
+   *
+   *  NOTE In THEORY, the rhs needs to be promoted independently of lhs.
+   *       In PRACTICE, Inox requires that both operands have the same type.
+   *       [[CodeGeneration]] is applying a narrowing cast from Long to Int
+   *       if needed. Here we add the opposite, and safe operation when lhs
+   *       is a Long. We do not support shift operations when rhs is Long
+   *       but lhs is a smaller BVType.
+   */
+  private def injectCastsForShift(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                                 (lhs0: tpd.Tree, rhs0: tpd.Tree)
+                                 (implicit dctx: DefContext): xt.Expr = {
+    injectCastsImpl(ctor)(lhs0, rhs0, true)
+  }
+
+  private def injectCastsImpl(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                             (lhs0: tpd.Tree, rhs0: tpd.Tree, shift: Boolean)
+                             (implicit dctx: DefContext): xt.Expr = {
+    def checkBits(tr: tpd.Tree, tpe: xt.Type) = tpe match {
+      case xt.BVType(8 | 16 | 32 | 64) => // Byte, Short, Int or Long are ok
+      case xt.BVType(s) => outOfSubsetError(tr, s"Unexpected integer of $s bits")
+      case _ => // non-bitvector types are ok too
+    }
+
+    val lhs = extractTree(lhs0)
+    val rhs = extractTree(rhs0)
+
+    val ltpe = extractType(lhs0)
+    checkBits(lhs0, ltpe)
+    val rtpe = extractType(rhs0)
+    checkBits(rhs0, rtpe)
+
+    def id = { e: xt.Expr => e }
+    def widen32 = { e: xt.Expr => xt.BVWideningCast(e, xt.BVType(32)) }
+    def widen64 = { e: xt.Expr => xt.BVWideningCast(e, xt.BVType(64)) }
+
+    val (lctor, rctor) = (ltpe, rtpe) match {
+      case (xt.BVType(64), xt.BVType(64))          => (id, id)
+      case (xt.BVType(64), xt.BVType(_))           => (id, widen64)
+      case (xt.BVType(_),  xt.BVType(64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
+      case (xt.BVType(_),  xt.BVType(64))          => (widen64, id)
+      case (xt.BVType(32), xt.BVType(32))          => (id, id)
+      case (xt.BVType(32), xt.BVType(_))           => (id, widen32)
+      case (xt.BVType(_),  xt.BVType(32))          => (widen32, id)
+      case (xt.BVType(_),  xt.BVType(_))           => (widen32, widen32)
+
+      case (xt.BVType(_), _) | (_, xt.BVType(_)) =>
+        outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
+
+      case (_, _) => (id, id)
+    }
+
+    ctor(lctor(lhs), rctor(rhs))
+  }
+
+  /** Inject implicit widening cast according to the Java semantics (5.6.1. Unary Numeric Promotion) */
+  private def injectCast(ctor: xt.Expr => xt.Expr)(e0: tpd.Tree)(implicit dctx: DefContext): xt.Expr = {
+    val e = extractTree(e0)
+    val etpe = extractType(e0)
+
+    val id = { e: xt.Expr => e }
+    val widen32 = { e: xt.Expr => xt.BVWideningCast(e, xt.Int32Type) }
+
+    val ector = etpe match {
+      case xt.BVType(8 | 16) => widen32
+      case xt.BVType(32 | 64) => id
+      case xt.BVType(s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
+      case _ => id
+    }
+
+    ctor(ector(e))
+  }
+
   private def extractType(t: tpd.Tree)(implicit dctx: DefContext): xt.Type = {
     extractType(t.tpe)(dctx, t.pos)
   }
 
   private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = (tpt match {
     case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType
+    case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type
+    case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type
     case tpe if tpe.typeSymbol == defn.IntClass     => xt.Int32Type
+    case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type
     case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType
     case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType
 
