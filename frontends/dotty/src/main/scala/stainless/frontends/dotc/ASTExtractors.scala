@@ -20,10 +20,6 @@ trait ASTExtractors {
 
   // Well-known symbols that we match on
 
-  protected lazy val tuple2Sym    = classFromName("scala.Tuple2")
-  protected lazy val tuple3Sym    = classFromName("scala.Tuple3")
-  protected lazy val tuple4Sym    = classFromName("scala.Tuple4")
-  protected lazy val tuple5Sym    = classFromName("scala.Tuple5")
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val setSym       = classFromName("stainless.lang.Set")
@@ -51,19 +47,17 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple2(sym: Symbol) : Boolean = sym == tuple2Sym
-  def isTuple3(sym: Symbol) : Boolean = sym == tuple3Sym
-  def isTuple4(sym: Symbol) : Boolean = sym == tuple4Sym
-  def isTuple5(sym: Symbol) : Boolean = sym == tuple5Sym
+  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
 
   object TupleSymbol {
-    private val tupleSyms = Seq(tuple2Sym, tuple3Sym, tuple4Sym, tuple5Sym)
+    private val cardinality = """Tuple(\d{1,2})""".r
     def unapply(sym: Symbol): Option[Int] = {
-      val idx = tupleSyms.indexOf(sym)
-      if (idx >= 0) {
-        Some(idx + 2)
-      } else {
-        None
+      // First, extract a guess about the cardinality of the Tuple.
+      // Then, confirm that this is indeed a regular Tuple.
+      val name = sym.originalName.toString
+      name match {
+        case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
+        case _ => None
       }
     }
 
@@ -327,7 +321,7 @@ trait ASTExtractors {
 
     object ExTuple {
       def unapply(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
-        case Apply(Select(New(TupleSymbol(i)), nme.CONSTRUCTOR), args) if args.size == i =>
+        case Apply(Select(New(tupleType), nme.CONSTRUCTOR), args) if isTuple(tupleType.symbol, args.size) =>
           Some(args)
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
