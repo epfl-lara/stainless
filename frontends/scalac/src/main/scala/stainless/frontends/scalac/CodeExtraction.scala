@@ -1145,9 +1145,9 @@ trait CodeExtraction extends ASTExtractors {
             case (_, "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
             case (_, "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
             case (_, "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
-            case (_, "<<",  Seq(rhs)) => xt.BVShiftLeft(injectCast(e => e)(lhs), injectCast(e => e)(rhs))
-            case (_, ">>",  Seq(rhs)) => xt.BVAShiftRight(injectCast(e => e)(lhs), injectCast(e => e)(rhs))
-            case (_, ">>>", Seq(rhs)) => xt.BVLShiftRight(injectCast(e => e)(lhs), injectCast(e => e)(rhs))
+            case (_, "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
+            case (_, ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
+            case (_, ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
 
             case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
             case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
@@ -1190,7 +1190,31 @@ trait CodeExtraction extends ASTExtractors {
     }).setPos(tr.pos)
 
     /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
-    private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)(lhs0: Tree, rhs0: Tree)(implicit dctx: DefContext): xt.Expr = {
+    private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                           (lhs0: Tree, rhs0: Tree)
+                           (implicit dctx: DefContext): xt.Expr = {
+      injectCastsImpl(ctor)(lhs0, rhs0, false)
+    }
+
+    /**
+     *  Inject casts, special edition for shift operations.
+     *
+     *  NOTE In THEORY, the rhs needs to be promoted independently of lhs.
+     *       In PRACTICE, Inox requires that both operands have the same type.
+     *       [[CodeGeneration]] is applying a narrowing cast from Long to Int
+     *       if needed. Here we add the opposite, and safe operation when lhs
+     *       is a Long. We do not support shift operations when rhs is Long
+     *       but lhs is a smaller BVType.
+     */
+    private def injectCastsForShift(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                                   (lhs0: Tree, rhs0: Tree)
+                                   (implicit dctx: DefContext): xt.Expr = {
+      injectCastsImpl(ctor)(lhs0, rhs0, true)
+    }
+
+    private def injectCastsImpl(ctor: (xt.Expr, xt.Expr) => xt.Expr)
+                               (lhs0: Tree, rhs0: Tree, shift: Boolean)
+                               (implicit dctx: DefContext): xt.Expr = {
       def checkBits(tr: Tree, tpe: xt.Type) = tpe match {
         case xt.BVType(8 | 16 | 32 | 64) => // Byte, Short, Int or Long are ok
         case xt.BVType(s) => outOfSubsetError(tr, s"Unexpected integer of $s bits")
@@ -1210,14 +1234,18 @@ trait CodeExtraction extends ASTExtractors {
       def widen64 = { e: xt.Expr => xt.BVWideningCast(e, xt.BVType(64)) }
 
       val (lctor, rctor) = (ltpe, rtpe) match {
-        case (xt.BVType(64), xt.BVType(64)) => (id, id)
-        case (xt.BVType(64), xt.BVType(_)) => (id, widen64)
-        case (xt.BVType(_), xt.BVType(64)) => (widen64, id)
-        case (xt.BVType(32), xt.BVType(32)) => (id, id)
-        case (xt.BVType(32), xt.BVType(_)) => (id, widen32)
-        case (xt.BVType(_), xt.BVType(32)) => (widen32, id)
-        case (xt.BVType(_), xt.BVType(_)) => (widen32, widen32)
-        case (xt.BVType(_), _) | (_, xt.BVType(_)) => outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
+        case (xt.BVType(64), xt.BVType(64))          => (id, id)
+        case (xt.BVType(64), xt.BVType(_))           => (id, widen64)
+        case (xt.BVType(_),  xt.BVType(64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
+        case (xt.BVType(_),  xt.BVType(64))          => (widen64, id)
+        case (xt.BVType(32), xt.BVType(32))          => (id, id)
+        case (xt.BVType(32), xt.BVType(_))           => (id, widen32)
+        case (xt.BVType(_),  xt.BVType(32))          => (widen32, id)
+        case (xt.BVType(_),  xt.BVType(_))           => (widen32, widen32)
+
+        case (xt.BVType(_), _) | (_, xt.BVType(_)) =>
+          outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
+
         case (_, _) => (id, id)
       }
 
