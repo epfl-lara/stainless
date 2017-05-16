@@ -93,6 +93,10 @@ object TerminationComponent extends SimpleComponent {
 
       ctx.reporter.info(t.render)
     }
+
+    def emitJson(): Unit = {
+      ???
+    }
   }
 
   def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }): TerminationReport = {

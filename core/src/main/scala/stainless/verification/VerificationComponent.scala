@@ -3,8 +3,13 @@
 package stainless
 package verification
 
-import solvers._
 import inox.utils.ASCIIHelpers._
+import inox.utils.{NoPosition, OffsetPosition, Position, RangePosition}
+import stainless.verification.VCStatus.Invalid
+
+import org.json4s.JsonDSL._
+import org.json4s.native.JsonMethods._
+import org.json4s.JsonAST.{JObject, JValue}
 
 object VerificationComponent extends SimpleComponent {
   val name = "verification"
@@ -61,6 +66,33 @@ object VerificationComponent extends SimpleComponent {
       } else {
         ctx.reporter.info("No verification conditions were analyzed.")
       }
+    }
+
+    def emitJson(): Unit = {
+      def pos2Json(pos: Position): JValue = pos match {
+        case NoPosition => "Unknown"
+        case OffsetPosition(line, col, _, file) => ("line" -> line) ~ ("col" -> col) ~ ("file" -> file.getPath)
+        case range: RangePosition => ("begin" -> pos2Json(range.focusBegin)) ~ ("end" -> pos2Json(range.focusEnd))
+      }
+
+      def status2Json(status: VCStatus[Model]): JObject = status match {
+        case Invalid(cex) =>
+          val info = cex.vars map { case (vd, e) => (vd.id.name -> e.toString) }
+          ("status" -> status.name) ~ ("counterexample" -> info)
+
+        case status => ("status" -> status.name)
+      }
+
+      def vc2Json(vc: VC[program.trees.type], vr: VCResult[program.Model]): JObject = {
+        ("fd" -> vc.fd.name) ~ ("pos" -> pos2Json(vc.getPos)) ~ ("kind" -> vc.kind.name) ~ status2Json(vr.status)
+      }
+
+      val report: JValue =
+        if (totalConditions > 0) vrs map { case (vc, vr) => vc2Json(vc, vr) }
+        else "No VC"
+
+      val str = pretty(render(report))
+      println(str)
     }
   }
 
