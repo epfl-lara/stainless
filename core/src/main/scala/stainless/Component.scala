@@ -2,6 +2,7 @@
 
 package stainless
 
+import org.json4s.JsonAST.JValue
 import extraction.xlang.{trees => xt}
 
 trait Component {
@@ -17,7 +18,7 @@ trait Component {
 
   trait AbstractReport {
     def emit(): Unit
-    def emitJson(): Unit
+    def emitJson(): JValue
   }
 
   def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report

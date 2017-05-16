@@ -8,7 +8,6 @@ import inox.utils.{NoPosition, OffsetPosition, Position, RangePosition}
 import stainless.verification.VCStatus.Invalid
 
 import org.json4s.JsonDSL._
-import org.json4s.native.JsonMethods._
 import org.json4s.JsonAST.{JObject, JValue}
 
 object VerificationComponent extends SimpleComponent {
@@ -68,7 +67,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    def emitJson(): Unit = {
+    def emitJson(): JValue = {
       def pos2Json(pos: Position): JValue = pos match {
         case NoPosition => "Unknown"
         case OffsetPosition(line, col, _, file) => ("line" -> line) ~ ("col" -> col) ~ ("file" -> file.getPath)
@@ -91,8 +90,7 @@ object VerificationComponent extends SimpleComponent {
         if (totalConditions > 0) vrs map { case (vc, vr) => vc2Json(vc, vr) }
         else "No VC"
 
-      val str = pretty(render(report))
-      println(str)
+      report
     }
   }
 
