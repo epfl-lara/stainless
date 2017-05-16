@@ -27,6 +27,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
   import StructuralExtractors._
 
   lazy val reporter = inoxCtx.reporter
+  implicit val debugSection = DebugSectionExtraction
 
   implicit def dottyPosToInoxPos(p: Position): inox.utils.Position = {
     if (!p.exists) {
@@ -112,7 +113,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       extractType(tpt)
     } catch {
       case e: ImpureCodeEncounteredException =>
-        e.printStackTrace()
+        reporter.debug(e.pos, "[ignored] " + e.getMessage, e)
         xt.Untyped
     }
   }
@@ -384,23 +385,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     val finalBody = if (rhs == tpd.EmptyTree) {
       flags += xt.IsAbstract
       xt.NoTree(returnType)
-    } else try {
+    } else {
       xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
-    } catch {
-      case e: ImpureCodeEncounteredException =>
-        reporter.error(e.pos, e.getMessage)
-        e.printStackTrace()
-        //val pos = if (body0.pos == NoPosition) NoPosition else leonPosToScalaPos(body0.pos.source, funDef.getPos)
-        /* TODO
-        if (inoxCtx.options.findOptionOrDefault(ExtractionPhase.optStrictCompilation)) {
-          reporter.error(pos, "Function "+id.name+" could not be extracted. The function likely uses features not supported by Leon.")
-        } else {
-          reporter.warning(pos, "Function "+id.name+" is not fully available to Leon.")
-        }
-        */
-
-        flags += xt.IsAbstract
-        xt.NoTree(returnType)
     }
 
     //if (fctx.isExtern && !exists(_.isInstanceOf[NoTree])(finalBody)) {

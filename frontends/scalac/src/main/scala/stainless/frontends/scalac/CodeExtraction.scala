@@ -171,7 +171,7 @@ trait CodeExtraction extends ASTExtractors {
         extractType(tpt)
       } catch {
         case e: ImpureCodeEncounteredException =>
-          reporter.debug(e.pos, "[ignored] " + e.getMessage)
+          reporter.debug(e.pos, "[ignored] " + e.getMessage, e)
           xt.Untyped
       }
     }
