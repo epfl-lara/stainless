@@ -6,6 +6,33 @@ package ast
 import org.scalatest._
 
 class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
+
+  val unsupported = List(
+    """|object Shift1 {
+       | def foo(i: Byte, j: Long) = i << j
+       |} """.stripMargin,
+
+    """|object Shift3 {
+       | def foo(i: Short, j: Long) = i >> j
+       |} """.stripMargin,
+
+    """|object Shift2 {
+       | def foo(i: Int, j: Long) = i >>> j
+       |} """.stripMargin
+  )
+
+  test("Catch unsupported expressions") {
+    for (u <- unsupported) {
+      val ctx = inox.TestContext.empty
+      try {
+        load(ctx, Seq(u))
+        fail("FatalError expected")
+      } catch {
+        case _: inox.FatalError =>
+      }
+    }
+  }
+
   val sources = List(
     """|object Ints {
        |
@@ -63,7 +90,29 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
        |
        |  def bar(i: Byte, j: Long) = i | j
        |
-       |  def gun(i: Short, j: Long) = i << j
+       |} """.stripMargin,
+
+    """|object Shifts {
+       |
+       |  def fun1 (i: Byte,  j: Byte ) = i <<  j
+       |  def fun2 (i: Byte,  j: Short) = i >>> j
+       |  def fun3 (i: Byte,  j: Int  ) = i >>  j
+       |  //def fun4 (i: Byte,  j: Long ) = i <<  j // UNSUPPORTED
+       |
+       |  def fun5 (i: Short, j: Byte ) = i >>> j
+       |  def fun6 (i: Short, j: Short) = i >>  j
+       |  def fun7 (i: Short, j: Int  ) = i <<  j
+       |  //def fun8 (i: Short, j: Long ) = i >>> j // UNSUPPORTED
+       |
+       |  def fun9 (i: Int,   j: Byte ) = i >>  j
+       |  def fun10(i: Int,   j: Short) = i <<  j
+       |  def fun11(i: Int,   j: Int  ) = i >>> j
+       |  //def fun12(i: Int,   j: Long ) = i >>  j // UNSUPPORTED
+       |
+       |  def fun13(i: Long,  j: Byte ) = i <<  j
+       |  def fun14(i: Long,  j: Short) = i >>> j
+       |  def fun15(i: Long,  j: Int  ) = i >>  j
+       |  def fun16(i: Long,  j: Long ) = i <<  j
        |
        |} """.stripMargin,
 
@@ -81,7 +130,7 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
     """|object ExplicitCast {
        |
-       |  def foo1(i: Int) = bar(i.toByte)
+       |  def foo1(i: Int)  = bar(i.toByte)
        |  def foo2(i: Long) = bar(i.toShort.toByte)
        |
        |  def bar(i: Byte) = i
@@ -90,7 +139,7 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
     """|object ImplicitCast {
        |
-       |  def foo1(i: Byte) = bar1(i) // implicit i.toInt here
+       |  def foo1(i: Byte)  = bar1(i) // implicit i.toInt here
        |  def foo2(i: Short) = bar1(i) // implicit i.toInt here
        |  def foo3(i: Short) = bar2(i) // implicit i.toLong here
        |
@@ -230,10 +279,90 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
       case BVOr(BVWideningCast(`i8`, Int64Type), `j64`) => // OK
       case b => fail(s"Expected a BV `|` with explicit cast, got '$b'")
     }
+  }
 
-    funDefBody("MixWithLong.gun") match {
-      case BVShiftLeft(BVWideningCast(`i16`, Int32Type), `j64`) => // OK
-      case b => fail(s"Expected a BV << with explicit cast, got '$b'")
+  test("Shift operations with different operand types") {
+    funDefBody("Shifts.fun1") match {
+      case BVShiftLeft(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case b => fail(s"[01] Expected a BV << with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun2") match {
+      case BVLShiftRight(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"[02] Expected a BV >>> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun3") match {
+      case BVAShiftRight(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
+      case b => fail(s"[03] Expected a BV >> with explicit cast, got '$b'")
+    }
+
+    /*
+     * funDefBody("Shifts.fun4") match {
+     *   case b => fail(s"Unexpected, got '$b'")
+     * }
+     */
+
+    funDefBody("Shifts.fun5") match {
+      case BVLShiftRight(BVWideningCast(`i16`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case b => fail(s"[05] Expected a BV >>> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun6") match {
+      case BVAShiftRight(BVWideningCast(`i16`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"[06] Expected a BV >> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun7") match {
+      case BVShiftLeft(BVWideningCast(`i16`, Int32Type), `j32`) => // OK
+      case b => fail(s"[07] Expected a BV << with explicit cast, got '$b'")
+    }
+
+    /*
+     * funDefBody("Shifts.fun8") match {
+     *   case b => fail(s"Unexpected, got '$b'")
+     * }
+     */
+
+    funDefBody("Shifts.fun9") match {
+      case BVAShiftRight(`i32`, BVWideningCast(`j8`, Int32Type)) => // OK
+      case b => fail(s"[09] Expected a BV >> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun10") match {
+      case BVShiftLeft(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case b => fail(s"[10] Expected a BV << with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun11") match {
+      case BVLShiftRight(`i32`, `j32`) => // OK
+      case b => fail(s"[11] Expected a BV >>> with explicit cast, got '$b'")
+    }
+
+    /*
+     * funDefBody("Shifts.fun12") match {
+     *   case b => fail(s"Unexpected, got '$b'")
+     * }
+     */
+
+    funDefBody("Shifts.fun13") match {
+      case BVShiftLeft(`i64`, BVWideningCast(BVWideningCast(`j8`, Int32Type), Int64Type)) => // OK
+      case b => fail(s"[13] Expected a BV << with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun14") match {
+      case BVLShiftRight(`i64`, BVWideningCast(BVWideningCast(`j16`, Int32Type), Int64Type)) => // OK
+      case b => fail(s"[14] Expected a BV >>> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun15") match {
+      case BVAShiftRight(`i64`, BVWideningCast(`j32`, Int64Type)) => // OK
+      case b => fail(s"[15] Expected a BV >> with explicit cast, got '$b'")
+    }
+
+    funDefBody("Shifts.fun16") match {
+      case BVShiftLeft(`i64`, `j64`) => // OK
+      case b => fail(s"[16] Expected a BV << with explicit cast, got '$b'")
     }
   }
 
