@@ -1306,17 +1306,8 @@ trait CodeExtraction extends ASTExtractors {
       case TypeRef(_, sym, List(ftt,ttt)) if isMapSym(sym) =>
         xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))).setPos(pos))
 
-      case TypeRef(_, sym, List(t1,t2)) if isTuple2(sym) =>
-        xt.TupleType(Seq(extractType(t1),extractType(t2)))
-
-      case TypeRef(_, sym, List(t1,t2,t3)) if isTuple3(sym) =>
-        xt.TupleType(Seq(extractType(t1),extractType(t2),extractType(t3)))
-
-      case TypeRef(_, sym, List(t1,t2,t3,t4)) if isTuple4(sym) =>
-        xt.TupleType(Seq(extractType(t1),extractType(t2),extractType(t3),extractType(t4)))
-
-      case TypeRef(_, sym, List(t1,t2,t3,t4,t5)) if isTuple5(sym) =>
-        xt.TupleType(Seq(extractType(t1),extractType(t2),extractType(t3),extractType(t4),extractType(t5)))
+      case TypeRef(_, sym, tps) if isTuple(sym, tps.size) =>
+        xt.TupleType(tps map extractType)
 
       case TypeRef(_, sym, btt :: Nil) if isArrayClassSym(sym) =>
         xt.ArrayType(extractType(btt))
