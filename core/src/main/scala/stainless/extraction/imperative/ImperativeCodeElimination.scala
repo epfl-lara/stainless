@@ -147,9 +147,9 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
             val (rVal, rScope, rFun) = toFunction(e)
             val scope = (body: Expr) => rVal match {
               case fi: FunctionInvocation =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), fi.tfd.returnType, Set.empty), rVal, accScope(body))))
+                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), fi.tfd.returnType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case alr: ApplyLetRec =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), alr.getType, Set.empty), rVal, accScope(body))))
+                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), alr.getType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case _ =>
                 rScope(replaceFromSymbols(rFun, accScope(body)))
             }

@@ -43,6 +43,6 @@ package object xlang {
       cd.parents.map(ct => transformer.transform(ct).asInstanceOf[t.ClassType]),
       cd.fields.map(vd => transformer.transform(vd)),
       (cd.flags - s.Ignore).map(f => transformer.transform(f))
-    )
+    ).copiedFrom(cd)
   }
 }

@@ -4,6 +4,8 @@ package stainless
 package extraction
 package imperative
 
+import inox.utils.Position
+
 trait Trees extends innerfuns.Trees { self =>
 
   /* XLang imperative trees to desugar */
@@ -74,17 +76,17 @@ trait Trees extends innerfuns.Trees { self =>
 
   override implicit def convertToVal = new VariableConverter[ValDef] {
     def convert(vs: VariableSymbol): ValDef = vs match {
-      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags - IsVar)
+      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags - IsVar).copiedFrom(vs)
       case vd: ValDef => vd
-      case _ => ValDef(vs.id, vs.tpe, Set.empty)
+      case _ => ValDef(vs.id, vs.tpe, Set.empty).copiedFrom(vs)
     }
   }
 
   implicit class VariableSymbolToVar(vs: VariableSymbol) {
     def toVar: ValDef = vs match {
       case vd: ValDef if vd.flags contains IsVar => vd
-      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags + IsVar)
-      case _ => ValDef(vs.id, vs.tpe, Set(IsVar))
+      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags + IsVar).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, Set(IsVar)).copiedFrom(vs)
     }
   }
 
@@ -215,7 +217,7 @@ trait ExprOps extends innerfuns.ExprOps {
       Some(newExprs match {
         case Seq() => UnitLiteral()
         case Seq(e) => e
-        case es => Block(es.init, es.last)
+        case es => Block(es.init, es.last).setPos(Position.between(es.head.getPos, es.last.getPos))
       })
     case _ => None
   } (expr)
@@ -235,7 +237,7 @@ trait ExprOps extends innerfuns.ExprOps {
         val Operator(es, recons) = e
         val newEs = es.map(rec)
         if ((es zip newEs) exists (p => p._1 ne p._2)) {
-          recons(newEs)
+          recons(newEs).copiedFrom(e)
         } else {
           e
         }
