@@ -234,7 +234,14 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
                   case sort: ADTSort => sort.copy(flags = sort.flags + HasADTInvariant(id))
                   case cons: ADTConstructor => cons.copy(flags = cons.flags + HasADTInvariant(id))
                 })
-                newFunctions += new FunDef(id, tparams.map(TypeParameterDef(_)), Seq(thiss), BooleanType, invariant, Set())
+                newFunctions += new FunDef(
+                  id,
+                  tparams.map(TypeParameterDef(_)),
+                  Seq(thiss),
+                  BooleanType,
+                  invariant,
+                  root.flags filter (_.name == "library")
+                )
             }
           }
         }

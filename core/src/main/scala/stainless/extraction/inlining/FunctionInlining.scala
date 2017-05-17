@@ -29,10 +29,10 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           None
         } else {
           Some(transformer.transform(fd.copy(
-            fullBody = exprOps.postMap({
+            fullBody = exprOps.preMap({
               case fi @ FunctionInvocation(_, _, args) =>
                 val tfd = fi.tfd
-                if (tfd.fd.flags contains Inline) {
+                if ((tfd.fd.flags contains Inline) && !transitivelyCalls(tfd.fd, tfd.fd)) {
                   Some(exprOps.postMap {
                     case Require(pred, body) =>
                       Some(Assert(pred, Some("Inlined precondition"), body))
