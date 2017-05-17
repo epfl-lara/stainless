@@ -3,12 +3,18 @@
 package stainless
 package extraction
 package innerfuns
+import inox.utils.{NoPosition, Position}
 
 trait Trees extends inlining.Trees { self =>
 
   case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda) extends Definition {
     val id = name.id
     val flags = name.flags
+
+    override def getPos: Position = super.getPos match {
+      case NoPosition => Position.between(name.getPos, body.getPos)
+      case pos => pos
+    }
   }
 
   case class LetRec(fds: Seq[LocalFunDef], body: Expr) extends Expr with CachingTyped {
@@ -88,7 +94,7 @@ trait Trees extends inlining.Trees { self =>
       returnType: t.Type,
       fullBody: t.Expr,
       flags: Set[t.Flag]
-    ): t.Inner = t.Inner(new t.LocalFunDef(
+    ): t.Inner = t.Inner(t.LocalFunDef(
       t.ValDef(id, t.FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType), flags).copiedFrom(fd.name),
       tparams,
       t.Lambda(params, fullBody).copiedFrom(fullBody)

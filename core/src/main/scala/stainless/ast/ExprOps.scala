@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import inox.utils.{NoPosition, Position}
+
 trait ExprOps extends inox.ast.ExprOps {
   protected val trees: Trees
   import trees._
@@ -89,7 +91,7 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Require]]
     */
   def withoutSpec(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                    => withoutSpec(b).map(Let(i, e, _))
+    case Let(i, e, b)                    => withoutSpec(b).map(Let(i, e, _).copiedFrom(expr))
     case Require(pre, b)                 => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(Require(pre, b), post) => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(b, post)               => Option(b).filterNot(_.isInstanceOf[NoTree])
@@ -116,6 +118,13 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Reconstructs an expression given a (pre, body, post) tuple deconstructed by [[breakDownSpecs]] */
   def reconstructSpecs(pre: Option[Expr], body: Option[Expr], post: Option[Lambda], resultType: Type) = {
-    withPostcondition(withPrecondition(body.getOrElse(NoTree(resultType)), pre), post)
+    val defaultPos = (pre, post) match {
+      case (Some(p), Some(q)) => Position.between(p.getPos, q.getPos)
+      case (Some(p), None) => p.getPos
+      case (None, Some(q)) => q.getPos
+      case (None, None) => NoPosition
+    }
+    val defaultBody = NoTree(resultType).setPos(defaultPos)
+    withPostcondition(withPrecondition(body.getOrElse(defaultBody), pre), post)
   }
 }

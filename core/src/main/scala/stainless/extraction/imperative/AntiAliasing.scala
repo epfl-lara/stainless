@@ -44,7 +44,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               tparams map transform,
               transform(body).asInstanceOf[Lambda]
             )
-          }, transform(body))
+          }, transform(body)).copiedFrom(e)
 
         case ApplyLetRec(fun, tparams, tps, args) =>
           val FunctionType(from, to) = fun.tpe
@@ -53,7 +53,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             tparams map (tp => transform(tp).asInstanceOf[TypeParameter]),
             tps map transform,
             args map transform
-          )
+          ).copiedFrom(e)
 
         case _ => super.transform(e)
       }
@@ -122,7 +122,9 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
       if (aliasedParams.isEmpty) {
         val (pre, body, post) = exprOps.breakDownSpecs(fd.fullBody)
         val newBody = body.map(makeSideEffectsExplicit(_, fd, env))
-        newFd.copy(fullBody = exprOps.reconstructSpecs(pre, newBody, post, newFd.returnType))
+        val newFullBody = exprOps.reconstructSpecs(pre, newBody, post, newFd.returnType)
+        if (!newFullBody.getPos.isDefined) newFullBody.setPos(newFd)
+        newFd.copy(fullBody = newFullBody)
       } else {
         val (pre, body, post) = exprOps.breakDownSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
@@ -134,25 +136,25 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
           //WARNING: only works if side effects in Tuples are extracted from left to right,
           //         in the ImperativeTransformation phase.
-          val finalBody: Expr = Tuple(explicitBody +: freshLocals.map(_.toVariable))
+          val finalBody: Expr = Tuple(explicitBody +: freshLocals.map(_.toVariable)).copiedFrom(body)
 
           freshLocals.zip(aliasedParams).foldLeft(finalBody) {
-            (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd)
+            (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd).copiedFrom(body)
           }
         }
 
         val newPost = post.map { post =>
           val Lambda(Seq(res), postBody) = post
-          val newRes = ValDef(res.id.freshen, newFd.returnType, Set.empty)
+          val newRes = ValDef(res.id.freshen, newFd.returnType, Set.empty).copiedFrom(res)
           val newBody = exprOps.replaceSingle(
             aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
-            aliasedParams.zipWithIndex.map { case (vd, i) => 
-              (vd.toVariable, TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
-            }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
+            aliasedParams.zipWithIndex.map { case (vd, i) =>
+              (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
+            }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
             postBody
           )
 
-          Lambda(Seq(newRes), newBody).setPos(post)
+          Lambda(Seq(newRes), newBody).copiedFrom(post)
         }
 
         newFd.copy(fullBody = exprOps.reconstructSpecs(pre, newBody, newPost, newFd.returnType))
@@ -233,7 +235,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
           }
         }
 
-        protected def rec(e: Expr, env: Env): Expr = e match {
+        protected def rec(e: Expr, env: Env): Expr = (e match {
           case l @ Let(vd, e, b) if effects.isMutableType(vd.tpe) =>
             val newExpr = rec(e, env)
             val newBody = rec(b, env withBinding vd)
@@ -366,7 +368,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             }
 
           case Operator(es, recons) => recons(es.map(rec(_, env)))
-        }
+        }).copiedFrom(e)
       }
 
       transformer.transform(body)
