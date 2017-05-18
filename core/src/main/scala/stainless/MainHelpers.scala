@@ -74,5 +74,9 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     for (c <- toExecute) c(structure, program).emit()
+
+    inoxCtx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
+      inoxCtx.timers.outputTable(debug)
+    }
   }
 }

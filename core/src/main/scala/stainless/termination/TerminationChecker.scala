@@ -60,6 +60,7 @@ object TerminationChecker {
     object integerOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with SumOrdering
       with StructuralSize
       with Strengthener
@@ -69,6 +70,7 @@ object TerminationChecker {
     object lexicographicOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with LexicographicOrdering
       with StructuralSize
       with Strengthener
@@ -77,6 +79,7 @@ object TerminationChecker {
     object bvOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with BVOrdering
       with StructuralSize
       with Strengthener
@@ -93,7 +96,7 @@ object TerminationChecker {
 
     object decreasesProcessor extends {
       val checker: self.type = self
-      val builder: integerOrdering.type = integerOrdering
+      val ordering: integerOrdering.type = integerOrdering
     } with DecreasesProcessor
 
     object integerProcessor extends {

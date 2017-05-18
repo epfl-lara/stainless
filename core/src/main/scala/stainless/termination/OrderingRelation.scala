@@ -3,7 +3,7 @@
 package stainless
 package termination
 
-trait OrderingRelation {
+trait OrderingRelation extends SolverProvider {
   val checker: ProcessingPipeline
   import checker.program.trees._
 

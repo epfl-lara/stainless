@@ -5,7 +5,7 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
-trait StructuralSize {
+trait StructuralSize { self: SolverProvider =>
 
   val checker: ProcessingPipeline
   import checker.program.trees._
@@ -14,7 +14,7 @@ trait StructuralSize {
 
   private val functions: ListBuffer[FunDef] = new ListBuffer[FunDef]
 
-  checker.registerTransformer(new inox.ast.SymbolTransformer {
+  registerTransformer(new inox.ast.SymbolTransformer {
     val s: trees.type = trees
     val t: trees.type = trees
 
@@ -54,6 +54,7 @@ trait StructuralSize {
         }
       })).typed
     functions += tfd.fd
+    clearSolvers()
     tfd
   })
 
@@ -88,6 +89,7 @@ trait StructuralSize {
         }, \("res" :: IntegerType)(res => res >= E(BigInt(0))))
       })).typed
     functions += tfd.fd
+    clearSolvers()
     tfd
   })
 
@@ -129,6 +131,7 @@ trait StructuralSize {
             }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
             Set.empty
           )
+          clearSolvers()
 
           id
       }

@@ -20,8 +20,23 @@ trait LoopProcessor extends OrderingProcessor {
   import program.trees._
   import program.symbols._
 
+  private lazy val ignorePosts = program.ctx.options.findOptionOrDefault(optIgnorePosts)
+
+  object withoutPosts extends inox.ast.SimpleSymbolTransformer {
+    val s: program.trees.type = program.trees
+    val t: program.trees.type = program.trees
+
+    protected def transformFunction(fd: FunDef): FunDef =
+      fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
+
+    protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
+  }
+
   def run(problem: Problem) = {
+    val timer = program.ctx.timers.termination.processors.loops.start()
+
     strengthenApplications(problem.funSet)
+    val api = if (ignorePosts) getAPI(withoutPosts) else getAPI
 
     reporter.debug("- Running ChainBuilder")
     val chains : Set[Chain] = problem.funSet.flatMap(fd => getChains(fd)._2)
@@ -37,7 +52,7 @@ trait LoopProcessor extends OrderingProcessor {
           val srcTuple = tupleWrap(chain.fd.params.map(_.toVariable))
           val resTuple = tupleWrap(args)
 
-          solveSAT(path and equality(srcTuple, resTuple)) match {
+          api.solveSAT(path and equality(srcTuple, resTuple)) match {
             case inox.solvers.SolverResponses.SatWithModel(model) =>
               val args = chain.fd.params.map(vd => model.vars(vd))
               nonTerminating(chain.fd) = Broken(chain.fd,
@@ -52,9 +67,13 @@ trait LoopProcessor extends OrderingProcessor {
       cs.flatMap(c1 => chains.flatMap(c2 => c1.compose(c2)))
     }
 
-    if (nonTerminating.nonEmpty)
+    val res = if (nonTerminating.nonEmpty) {
       Some(nonTerminating.values.toSeq)
-    else
+    } else {
       None
+    }
+
+    timer.stop()
+    res
   }
 }

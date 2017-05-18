@@ -12,13 +12,13 @@ import solvers._
  * construct. For now, it works only on first-order functions.
  */
 trait DecreasesProcessor extends Processor { self =>
-  val builder: RelationBuilder {
+  val ordering: OrderingRelation with RelationBuilder {
     val checker: DecreasesProcessor.this.checker.type
   }
 
   val name: String = "Decreases Processor"
 
-  import builder._
+  import ordering._
   import checker._
   import program._
   import program.trees._
@@ -29,11 +29,14 @@ trait DecreasesProcessor extends Processor { self =>
   private val tru = BooleanLiteral(true)
 
   def run(problem: Problem): Option[Seq[Result]] = {
+    val timer = ctx.timers.termination.processors.decreases.start()
 
     val fds = problem.funDefs
     val fdIds = problem.funSet.map(_.id)
 
-    if (fds.exists { _.measure.isDefined }) {
+    val res = if (fds.exists { _.measure.isDefined }) {
+      val api = getAPI
+
       // Important:
       // Here, we filter only functions that have a measure. This is sound because of the following reasoning.
       // Functions in the scc that do not have a decrease measure either will be inlined if it is not self recursive.
@@ -63,7 +66,7 @@ trait DecreasesProcessor extends Processor { self =>
             case tpe => reporter.fatalError("Unexpected measure type: " + tpe)
           }
 
-          solveVALID(Implies(fd.precondition.getOrElse(BooleanLiteral(true)), nonNeg(measure))) match {
+          api.solveVALID(Implies(fd.precondition.getOrElse(BooleanLiteral(true)), nonNeg(measure))) match {
             case Some(true) => true
             case Some(false) =>
               reporter.warning(s" ==> INVALID: measure is not well-founded in ${fd.id}")
@@ -117,7 +120,7 @@ trait DecreasesProcessor extends Processor { self =>
                     LessThan(callMeasure, measure)
                 }
 
-                solveVALID(path implies lessPred) match {
+                api.solveVALID(path implies lessPred) match {
                   case Some(true) => true
                   case Some(false) =>
                     reporter.warning(s" ==> INVALID: measure doesn't decrease for the (transitive) call ${fi.asString}")
@@ -143,5 +146,8 @@ trait DecreasesProcessor extends Processor { self =>
     } else {
       None // nothing is cleared here, so other phases will apply
     }
+
+    timer.stop()
+    res
   }
 }
