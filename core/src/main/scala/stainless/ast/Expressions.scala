@@ -41,6 +41,14 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     }
   }
 
+  /** Unchecked conditions *
+    *
+    * @param body
+    */
+  case class Dontcheck(body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = body.getType
+  }
+
   /** Postcondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *ensuring*
     *
     * @param body The body of the expression. It can contain at most one [[Expressions.Require]] sub-expression.

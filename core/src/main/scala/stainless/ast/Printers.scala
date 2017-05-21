@@ -33,6 +33,11 @@ trait Printer extends inox.ast.Printer {
           |  $post
           |}"""
 
+    case Dontcheck(body) =>
+      p"""|@Dontcheck {
+          |  $body
+          |}"""
+
     case Pre(f) =>
       p"$f.pre"
 
