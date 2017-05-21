@@ -125,6 +125,8 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Assert(pred, error, body) =>
         t.Assume(transform(pred), transform(body)).copiedFrom(e)
 
+      case s.Dontcheck(body) => transform(body)
+
       case s.FiniteArray(elems, base) =>
         t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(

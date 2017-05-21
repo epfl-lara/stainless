@@ -60,7 +60,7 @@ trait DefaultTactic extends Tactic {
         } else if (err.startsWith("Cast ")) {
           VCKind.CastError
         } else {
-          VCKind.Assert
+          VCKind.AssertErr(err)
         }
 
       case _: Choose =>

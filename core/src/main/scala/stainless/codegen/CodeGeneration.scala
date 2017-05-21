@@ -1223,6 +1223,9 @@ trait CodeGeneration { self: CompilationUnit =>
       mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
       ch << Label(fl) << POP << Ldc(0) << Label(al)
 
+    case Dontcheck(body) =>
+      mkExpr(body, ch)
+
     case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
   }
 
@@ -1492,6 +1495,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case other if canDelegateToMkExpr =>
       mkExpr(other, ch, canDelegateToMkBranch = false)
       ch << IfEq(elze) << Goto(thenn)
+
+    case Dontcheck(condition) =>
+      mkBranch(condition, thenn, elze, ch)
 
     case other => throw CompilationException("Unsupported branching expr. : " + other)
   }
