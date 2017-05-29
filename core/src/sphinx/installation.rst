@@ -88,13 +88,20 @@ to be available, you will have to place the jar produced by building
 Running Tests
 -------------
 
-Stainless comes with a test suite. Consider running the following commands to
+Stainless comes with a test suite. Use the following commands to
 invoke different test suites:
 
 .. code-block:: bash
 
   $ sbt test
   $ sbt it:test
+
+It's also possible to run tests in isolation, for example, the following command runs ``Extraction`` tests on all files in ``termination/looping``:
+
+.. code-block:: bash
+
+  $ sbt 'it:testOnly *ExtractionSuite* -- -z "in termination/looping"'
+
 
 Building Stainless Documentation
 --------------------------------
