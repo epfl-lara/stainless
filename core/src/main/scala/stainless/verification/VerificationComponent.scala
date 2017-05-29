@@ -68,10 +68,11 @@ object VerificationComponent extends SimpleComponent {
     }
 
     def emitJson(): JValue = {
+      def pos2JsonImpl(pos: OffsetPosition): JObject = ("line" -> pos.line) ~ ("col" -> pos.col)
       def pos2Json(pos: Position): JValue = pos match {
         case NoPosition => "Unknown"
-        case OffsetPosition(line, col, _, file) => ("line" -> line) ~ ("col" -> col) ~ ("file" -> file.getPath)
-        case range: RangePosition => ("begin" -> pos2Json(range.focusBegin)) ~ ("end" -> pos2Json(range.focusEnd))
+        case pos @ OffsetPosition(_, _, _, file) => pos2JsonImpl(pos) ~ ("file" -> file.getPath)
+        case range: RangePosition => ("begin" -> pos2JsonImpl(range.focusBegin)) ~ ("end" -> pos2JsonImpl(range.focusEnd)) ~ ("file" -> range.file.getPath)
       }
 
       def status2Json(status: VCStatus[Model]): JObject = status match {
