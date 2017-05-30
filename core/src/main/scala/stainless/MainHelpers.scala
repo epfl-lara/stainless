@@ -61,6 +61,13 @@ trait MainHelpers extends inox.MainHelpers {
     val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
     val (structure, program) = extractFromSource(inoxCtx, compilerArgs)
+    try {
+      program.symbols.ensureWellFormed
+    } catch {
+      case e: program.symbols.TypeErrorException =>
+        inoxCtx.reporter.error(e.pos, e.getMessage)
+        inoxCtx.reporter.fatalError(s"The extracted program in not well typed.")
+    }
 
     val activeComponents = components.filter { c =>
       inoxCtx.options.options.collectFirst {
