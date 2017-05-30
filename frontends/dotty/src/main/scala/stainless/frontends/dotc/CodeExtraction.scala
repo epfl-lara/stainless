@@ -1020,6 +1020,13 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         xt.MethodInvocation(thiss, symbols.getIdentifier(sym), tps map extractType, extractArgs(sym, args))
       }
 
+    case ExCastCall(expr, from, to) =>
+      // Double check that we are dealing with regular integer types
+      val xt.BVType(size) = extractType(from)(dctx, NoPosition)
+      val newType @ xt.BVType(newSize) = extractType(to)(dctx, NoPosition)
+      if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
+      else                xt.BVWideningCast(extractTree(expr), newType)
+
     case ExCall(rec, sym, tps, args) => rec match {
       case None =>
         dctx.localFuns.get(sym) match {
@@ -1145,7 +1152,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
           case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
           case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
 
-          // FIXME 'toByte' and so on are apparently different with dotty...
           case (tpe, "toByte", Seq()) => tpe match {
             case xt.BVType(8) => extractTree(lhs)
             case xt.BVType(16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(8))
