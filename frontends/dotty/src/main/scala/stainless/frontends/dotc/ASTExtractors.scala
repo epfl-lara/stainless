@@ -12,6 +12,8 @@ import core.Symbols._
 import core.Types._
 import core.Flags._
 
+import scala.collection.mutable.{ Map => MutableMap }
+
 trait ASTExtractors {
 
   protected implicit val ctx: Context
@@ -50,8 +52,10 @@ trait ASTExtractors {
   def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
 
   object TupleSymbol {
+    // It is particularly time expensive so we cache this.
+    private val cache = MutableMap[Symbol, Option[Int]]()
     private val cardinality = """Tuple(\d{1,2})""".r
-    def unapply(sym: Symbol): Option[Int] = {
+    def unapply(sym: Symbol): Option[Int] = cache.getOrElseUpdate(sym, {
       // First, extract a guess about the cardinality of the Tuple.
       // Then, confirm that this is indeed a regular Tuple.
       val name = sym.originalName.toString
@@ -59,7 +63,7 @@ trait ASTExtractors {
         case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
         case _ => None
       }
-    }
+    })
 
     def unapply(tpe: Type): Option[Int] = tpe.classSymbols.collectFirst { case TupleSymbol(i) => i }
 
