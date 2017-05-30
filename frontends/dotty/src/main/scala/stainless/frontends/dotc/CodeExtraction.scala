@@ -13,11 +13,14 @@ import core.Symbols._
 import core.Types._
 import core.Flags._
 import util.Positions._
-
 import stainless.ast.SymbolIdentifier
 import extraction.xlang.{trees => xt}
 
 import scala.language.implicitConversions
+
+/** An exception thrown when non-stainless compatible code is encountered. */
+sealed class ImpureCodeEncounteredException(val pos: inox.utils.Position, msg: String, val ot: Option[tpd.Tree])
+  extends Exception(msg)
 
 class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit val ctx: Context)
   extends ASTExtractors {
@@ -51,16 +54,12 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     }.toSet
   }
 
-  /** An exception thrown when non-stainless compatible code is encountered. */
-  sealed class ImpureCodeEncounteredException(val pos: Position, msg: String, val ot: Option[tpd.Tree])
-    extends Exception(msg)
-
   def outOfSubsetError(pos: Position, msg: String) = {
-    throw new ImpureCodeEncounteredException(pos, msg, None)
+    throw new ImpureCodeEncounteredException(dottyPosToInoxPos(pos), msg, None)
   }
 
   def outOfSubsetError(t: tpd.Tree, msg: String) = {
-    throw new ImpureCodeEncounteredException(t.pos, msg, Some(t))
+    throw new ImpureCodeEncounteredException(dottyPosToInoxPos(t.pos), msg, Some(t))
   }
 
   private case class DefContext(
@@ -1153,27 +1152,27 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
           case (tpe, "toByte", Seq()) => tpe match {
             case xt.BVType(8) => extractTree(lhs)
             case xt.BVType(16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(8))
-            case tpe => outOfSubsetError(tr, "Unexpected cast .toByte from $tpe")
+            case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
           }
 
           case (tpe, "toShort", Seq()) => tpe match {
             case xt.BVType(8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(16))
             case xt.BVType(16) => extractTree(lhs)
             case xt.BVType(32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(16))
-            case tpe => outOfSubsetError(tr, "Unexpected cast .toShort from $tpe")
+            case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
           }
 
           case (tpe, "toInt", Seq()) => tpe match {
             case xt.BVType(8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(32))
             case xt.BVType(32) => extractTree(lhs)
             case xt.BVType(64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(32))
-            case tpe => outOfSubsetError(tr, "Unexpected cast .toInt from $tpe")
+            case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
           }
 
           case (tpe, "toLong", Seq()) => tpe match {
             case xt.BVType(8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(64))
             case xt.BVType(64) => extractTree(lhs)
-            case tpe => outOfSubsetError(tr, "Unexpected cast .toLong from $tpe")
+            case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
           }
 
           case (tpe, name, args) =>

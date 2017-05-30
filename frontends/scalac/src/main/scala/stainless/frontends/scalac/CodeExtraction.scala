@@ -1159,27 +1159,27 @@ trait CodeExtraction extends ASTExtractors {
             case (tpe, "toByte", Seq()) => tpe match {
               case xt.BVType(8) => extractTree(lhs)
               case xt.BVType(16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(8))
-              case tpe => outOfSubsetError(tr, "Unexpected cast .toByte from $tpe")
+              case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
             }
 
             case (tpe, "toShort", Seq()) => tpe match {
               case xt.BVType(8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(16))
               case xt.BVType(16) => extractTree(lhs)
               case xt.BVType(32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(16))
-              case tpe => outOfSubsetError(tr, "Unexpected cast .toShort from $tpe")
+              case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
             }
 
             case (tpe, "toInt", Seq()) => tpe match {
               case xt.BVType(8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(32))
               case xt.BVType(32) => extractTree(lhs)
               case xt.BVType(64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(32))
-              case tpe => outOfSubsetError(tr, "Unexpected cast .toInt from $tpe")
+              case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
             }
 
             case (tpe, "toLong", Seq()) => tpe match {
               case xt.BVType(8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(64))
               case xt.BVType(64) => extractTree(lhs)
-              case tpe => outOfSubsetError(tr, "Unexpected cast .toLong from $tpe")
+              case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
             }
 
             case (tpe, name, args) =>
