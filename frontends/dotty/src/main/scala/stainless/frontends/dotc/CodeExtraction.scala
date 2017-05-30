@@ -16,6 +16,7 @@ import util.Positions._
 import stainless.ast.SymbolIdentifier
 import extraction.xlang.{trees => xt}
 
+import scala.collection.mutable.{ Map => MutableMap }
 import scala.language.implicitConversions
 
 /** An exception thrown when non-stainless compatible code is encountered. */
@@ -421,10 +422,14 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       None
   })
 
-  private def extractTypeParam(sym: Symbol): xt.TypeParameter = {
-    val variance = if (sym is Covariant) Some(xt.Variance(true)) else if (sym is Contravariant) Some(xt.Variance(false)) else None
+  private val etpCache = MutableMap[Symbol, xt.TypeParameter]()
+  private def extractTypeParam(sym: Symbol): xt.TypeParameter = etpCache.getOrElseUpdate(sym, {
+    val variance =
+      if (sym is Covariant) Some(xt.Variance(true))
+      else if (sym is Contravariant) Some(xt.Variance(false))
+      else None
     xt.TypeParameter(symbols.getIdentifier(sym), variance.toSet)
-  }
+  })
 
   private def extractPattern(p: tpd.Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {
     case b @ Bind(name, t @ Typed(pat, tpt)) =>
@@ -1278,7 +1283,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     extractType(t.tpe)(dctx, t.pos)
   }
 
-  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = (tpt match {
+  private val etCache = MutableMap[Type, xt.Type]()
+  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElseUpdate(tpt, (tpt match {
     case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType
     case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type
     case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type
@@ -1385,5 +1391,5 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       } else {
         outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
       }
-  }).setPos(pos)
+  }).setPos(pos))
 }
