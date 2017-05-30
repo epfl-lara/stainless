@@ -288,6 +288,39 @@ trait ASTExtractors {
       }
     }
 
+    // Dotc seems slightly less consistent than scalac: it uses to format for
+    // casts. Like scalac, it uses Select for `.toByte`, but it also uses
+    // Apply("byte2int", arg) for implicit conversions (and perhaps for other
+    // conversions as well).
+    object ExCastCall {
+      // Returns: (arg, from, to)
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, Type, Type)] = tree match {
+        case Apply(Ident(name), List(arg)) =>
+          val tmp: Option[(Symbol, Symbol)] = name.toString match {
+            case "byte2short" => Some(defn.ByteClass, defn.ShortClass)
+            case "byte2int"   => Some(defn.ByteClass, defn.IntClass)
+            case "byte2long"  => Some(defn.ByteClass, defn.LongClass)
+
+            case "short2byte" => Some(defn.ShortClass, defn.ByteClass)
+            case "short2int"  => Some(defn.ShortClass, defn.IntClass)
+            case "short2long" => Some(defn.ShortClass, defn.LongClass)
+
+            case "int2byte"   => Some(defn.IntClass, defn.ByteClass)
+            case "int2short"  => Some(defn.IntClass, defn.ShortClass)
+            case "int2long"   => Some(defn.IntClass, defn.LongClass)
+
+            case "long2byte"  => Some(defn.LongClass, defn.ByteClass)
+            case "long2short" => Some(defn.LongClass, defn.ShortClass)
+            case "long2int"   => Some(defn.LongClass, defn.IntClass)
+
+            case _ => None
+          }
+
+          tmp map { case (from, to) => (arg, from.info, to.info) }
+        case _ => None
+      }
+    }
+
     object ExCall {
       def unapply(tree: tpd.Tree): Option[(Option[tpd.Tree], Symbol, Seq[tpd.Tree], Seq[tpd.Tree])] = {
         val optCall = tree match {
