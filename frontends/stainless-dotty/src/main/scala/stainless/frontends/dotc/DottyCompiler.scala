@@ -35,7 +35,7 @@ object DottyCompiler {
       def newCompiler(implicit ctx: Context) = compiler
     }
 
-    try {
+    val report = try {
       driver.process(compilerOpts.toArray)
     } catch {
       case e: ImpureCodeEncounteredException =>
@@ -48,6 +48,10 @@ object DottyCompiler {
 
     val program = compiler.extraction.getProgram
     val structure = compiler.extraction.getStructure
+
+    if (report.hasErrors) {
+      ctx.reporter.fatalError(s"Unable to extract the program because of ${report.errorCount} errors.")
+    }
 
     (structure, program)
   }
