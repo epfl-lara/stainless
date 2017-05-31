@@ -1150,12 +1150,16 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
           case (_, "<",   Seq(rhs)) => injectCasts(xt.LessThan)(lhs, rhs)
           case (_, "<=",  Seq(rhs)) => injectCasts(xt.LessEquals)(lhs, rhs)
 
-          case (_, "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
-          case (_, "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
-          case (_, "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
-          case (_, "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
-          case (_, ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
-          case (_, ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
+          case (xt.BooleanType, "|",   Seq(rhs)) => xt.BoolBitwiseOr(extractTree(lhs), extractTree(rhs))
+          case (xt.BooleanType, "&",   Seq(rhs)) => xt.BoolBitwiseAnd(extractTree(lhs), extractTree(rhs))
+          case (xt.BooleanType, "^",   Seq(rhs)) => xt.BoolBitwiseXor(extractTree(lhs), extractTree(rhs))
+
+          case (xt.BVType(_), "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
+          case (xt.BVType(_), "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
+          case (xt.BVType(_), "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
+          case (xt.BVType(_), "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
+          case (xt.BVType(_), ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
+          case (xt.BVType(_), ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
 
           case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
           case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
