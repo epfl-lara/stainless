@@ -23,7 +23,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
 
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
     val (structure, program) = Main.extractFromSource(ctx, Main.libraryFiles ++ files.toList)
+    program.symbols.ensureWellFormed
     val exProgram = component.extract(program)
+    exProgram.symbols.ensureWellFormed
 
     assert(reporter.lastErrors.isEmpty)
 
