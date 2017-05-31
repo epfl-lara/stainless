@@ -65,6 +65,28 @@ trait Trees extends innerfuns.Trees { self =>
     protected def computeType(implicit s: Symbols): Type = e.getType
   }
 
+  /** Check all types are equal to [[expected]]. */
+  private def all(expected: Type, rest: Seq[Type]): Boolean = rest.nonEmpty && (rest forall { _ == expected })
+
+  /** Return [[expected]] if all the given typed object have the [[expected]] type. */
+  private def expect(expected: Type, rest: Typed*)(implicit s: Symbols): Type =
+    if (all(expected, rest map { _.getType })) expected
+    else Untyped
+
+  /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
+  case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
+
+  /** $encodingof `a | b` for Boolean; desuggared to { val l = lhs; val r = rhs; l || r } when removing imperative style. */
+  case class BoolBitwiseOr(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
+
+  /** $encodingof `a ^ b` for Boolean; desuggared to { val l = lhs; val r = rhs; l != r } when removing imperative style. */
+  case class BoolBitwiseXor(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
 
   object VarDef {
     def apply(id: Identifier, tpe: Type, flags: Set[Flag]): ValDef = ValDef(id, tpe, flags + IsVar)
@@ -144,6 +166,18 @@ trait Printer extends innerfuns.Printer {
     case Old(e) =>
       p"old($e)"
 
+    case BoolBitwiseAnd(lhs, rhs) => optP {
+      p"$lhs & $rhs"
+    }
+
+    case BoolBitwiseOr(lhs, rhs) => optP {
+      p"$lhs | $rhs"
+    }
+
+    case BoolBitwiseXor(lhs, rhs) => optP {
+      p"$lhs ^ $rhs"
+    }
+
     case _ => super.ppBody(tree)
   }
 
@@ -169,6 +203,15 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val t: Trees
 
   override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+    case s.BoolBitwiseAnd(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
+
+    case s.BoolBitwiseOr(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseOr(es(0), es(1)))
+
+    case s.BoolBitwiseXor(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseXor(es(0), es(1)))
+
     case s.Block(exprs, last) =>
       (Seq(), exprs :+ last, Seq(), (_, es, _) => t.Block(es.init, es.last))
 
