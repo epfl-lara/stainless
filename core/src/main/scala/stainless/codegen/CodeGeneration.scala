@@ -171,9 +171,14 @@ trait CodeGeneration { self: CompilationUnit =>
     (static.className, idToSafeJVMName(fd.id), sig)
   })
 
-  protected object ValueType {
+  /**
+    * JvmIType is for type that can use (most of) JVM bytecode starting with `i` (e.g. iconst, iload, ireturn, ...)
+    *
+    * Long is not a JvmIType!
+    */
+  protected object JvmIType {
     def unapply(tp: Type): Boolean = tp match {
-      case Int8Type | Int16Type | Int32Type | Int64Type | BooleanType | CharType | UnitType => true
+      case Int8Type | Int16Type | Int32Type | BooleanType | CharType | UnitType => true
       case _ => false
     }
   }
@@ -266,11 +271,26 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val ch = m.codeHandler
 
-    val paramIds = Seq(monitorID) ++ 
-      (if (funDef.tparams.nonEmpty) Seq(tpsID) else Seq.empty) ++
-      funDef.params.map(_.id)
+    val newMapping: Map[Identifier, Int] = {
+      var nextFreeSlot = 0
+      def getSlot(isLong: Boolean) = {
+        val slot = nextFreeSlot
+        nextFreeSlot += (if (isLong) 2 else 1) // Longs take more room!
+        slot
+      }
 
-    val newMapping = paramIds.zipWithIndex.toMap
+      val monitor = monitorID -> getSlot(false)
+      val tpsOpt = if (funDef.tparams.nonEmpty) Some(tpsID -> getSlot(false)) else None
+      val params = funDef.params map { p =>
+        val isLong = p.tpe match {
+          case Int64Type => true
+          case _ => false
+        }
+        p.id -> getSlot(isLong)
+      }
+
+      Seq(monitor) ++ tpsOpt ++ params
+    }.toMap
 
     val body = if (!ignoreContracts) {
       funDef.fullBody
@@ -297,9 +317,10 @@ trait CodeGeneration { self: CompilationUnit =>
     mkExpr(body, ch)(locals)
 
     funDef.returnType match {
-      case ValueType() =>
+      case JvmIType() =>
         ch << IRETURN
-
+      case Int64Type =>
+        ch << LRETURN
       case _ =>
         ch << ARETURN
     }
@@ -460,7 +481,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
           val notRefEq = ech.getFreshLabel("notrefeq")
           val notEq = ech.getFreshLabel("noteq")
-          val castSlot = ech.getFreshVar
+          val castSlot = ech.getFreshVar(1) // 1 byte for references
 
           // If references are equal, trees are equal.
           ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
@@ -479,8 +500,10 @@ trait CodeGeneration { self: CompilationUnit =>
               ech << ALoad(castSlot) << GetField(afName, v.id.uniqueName, jvmt)
 
               v.tpe match {
-                case ValueType() =>
+                case JvmIType() =>
                   ech << If_ICmpNe(notEq)
+
+                case Int64Type => ???
 
                 case ot =>
                   ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
@@ -595,13 +618,14 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case Let(vd,d,b) =>
       mkExpr(d, ch)
-      val slot = ch.getFreshVar
+      val slot = ch.getFreshVar(typeToJVM(d.getType))
       ch << (vd.tpe match {
-        case ValueType() =>
+        case JvmIType() =>
           if (slot > 127) {
             println("Error while converting one more slot which is too much " + e)
           }
           IStore(slot)
+        case Int64Type => LStore(slot)
         case _ => AStore(slot)
       })
       mkExpr(b, ch)(locals.withVar(vd.id -> slot))
@@ -1070,18 +1094,15 @@ trait CodeGeneration { self: CompilationUnit =>
         mkExpr(size, ch)
 
         val storeInstr = mkNewArray(a.getType, ch)
-        val (varLoad, varStore) = base match {
-          case ValueType() => (ILoad(_), IStore(_))
-          case _ => (ALoad(_), AStore(_))
-        }
 
         val loop = ch.getFreshLabel("array_loop")
         val loopOut = ch.getFreshLabel("array_loop_out")
-        val dfltSlot = ch.getFreshVar
+        val dfltSlot = ch.getFreshVar(typeToJVM(base))
 
         mkExpr(default, ch)
         ch << (base match {
-          case ValueType() => IStore(dfltSlot)
+          case JvmIType() => IStore(dfltSlot)
+          case Int64Type => LStore(dfltSlot)
           case _ => AStore(dfltSlot)
         })
 
@@ -1095,7 +1116,8 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << If_ICmpGe(loopOut) << DUP2
         // (array, index, array, index)
         ch << (base match {
-          case ValueType() => ILoad(dfltSlot)
+          case JvmIType() => ILoad(dfltSlot)
+          case Int64Type => LLoad(dfltSlot)
           case _ => ALoad(dfltSlot)
         })
         ch << storeInstr
@@ -1185,7 +1207,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(id)
       ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
 
-    case nt @ NoTree(tp @ ValueType()) =>
+    case nt @ NoTree(tp @ (JvmIType() | Int64Type)) =>
       mkExpr(simplestValue(tp), ch)
 
     case NoTree(_) =>
@@ -1220,13 +1242,14 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val newLocals = deps.foldLeft(freshLocals) { case (locals, (v, e)) =>
       mkExpr(e, ch)(locals)
-      val slot = ch.getFreshVar
+      val slot = ch.getFreshVar(typeToJVM(e.getType))
       ch << (v.tpe match {
-        case ValueType() =>
+        case JvmIType() =>
           if (slot > 127) {
             println("Error while converting one more slot which is too much " + e)
           }
           IStore(slot)
+        case Int64Type => LStore(slot)
         case _ => AStore(slot)
       })
       locals.withVar(v.id -> slot)
@@ -1437,11 +1460,11 @@ trait CodeGeneration { self: CompilationUnit =>
 
       mkExpr(r, ch)
       l.getType match {
-        case Int64Type => // Long is a ValueType but not allowed with If_ICmpEq!
-          ch << LCMP << IfEq(thenn) << Goto(elze)
-
-        case ValueType() =>
+        case JvmIType() =>
           ch << If_ICmpEq(thenn) << Goto(elze)
+
+        case Int64Type =>
+          ch << LCMP << IfEq(thenn) << Goto(elze)
 
         case _ =>
           ch << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z")
@@ -1702,7 +1725,8 @@ trait CodeGeneration { self: CompilationUnit =>
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
             ch << (tpe match {
-              case Some(ValueType()) => ILoad(slot)
+              case Some(JvmIType()) => ILoad(slot)
+              case Some(Int64Type) => LLoad(slot)
               case _ => ALoad(slot)
             })
           case None => throw CompilationException("Unknown variable : " + id)
@@ -1933,7 +1957,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
       val notRefEq = ech.getFreshLabel("notrefeq")
       val notEq = ech.getFreshLabel("noteq")
-      val castSlot = ech.getFreshVar
+      val castSlot = ech.getFreshVar(1) // One byte for references
 
       // If references are equal, trees are equal.
       ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
@@ -1954,8 +1978,10 @@ trait CodeGeneration { self: CompilationUnit =>
           instrumentedGetField(ech, adt, vd.id)(newLocs)
 
           vd.tpe match {
-            case ValueType() =>
+            case JvmIType() =>
               ech << If_ICmpNe(notEq)
+
+            case Int64Type => ???
 
             case ot =>
               ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
