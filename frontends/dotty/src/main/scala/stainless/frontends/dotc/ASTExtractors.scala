@@ -18,6 +18,15 @@ trait ASTExtractors {
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
+  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Map[String, Seq[tpd.Tree]] = {
+    (for {
+      a <- sym.annotations ++ (if (!ignoreOwner) sym.owner.annotations else Set.empty)
+      name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
+      if name startsWith "stainless.annotation."
+      shortName = name drop "stainless.annotation.".length
+    } yield (shortName, a.arguments)).toMap
+  }
+
   // Well-known symbols that we match on
 
   protected lazy val tuple2Sym    = classFromName("scala.Tuple2")
@@ -287,6 +296,9 @@ trait ASTExtractors {
         case Apply(Select(New(tpt), CONSTRUCTOR), args) =>
           Some((tpt.tpe, args))
 
+        case Apply(TypeApply(Select(New(tpt), CONSTRUCTOR), _), args) =>
+          Some((tree.tpe, args))
+
         case Apply(e, args) if (
           (e.symbol.owner is Module) &&
           (e.symbol is Synthetic) &&
@@ -310,7 +322,7 @@ trait ASTExtractors {
           Some(args)
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
-          ExNamed("$minus$greater")
+          ExNamed("->")
         ), Seq(_)), Seq(to)) => Some(Seq(from, to))
         case _ => None
       }
@@ -358,12 +370,21 @@ trait ASTExtractors {
 
     object ExFunctionDef {
       def unapply(dd: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, rhs) if (
-          name != nme.CONSTRUCTOR &&
-          !dd.symbol.is(Accessor) &&
-          !dd.symbol.is(Synthetic) &&
-          !dd.symbol.is(Label)
-        ) => Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
+        case DefDef(name, tparams, vparamss, tpt, rhs) =>
+          if ((
+            name != nme.CONSTRUCTOR &&
+            !dd.symbol.is(Accessor) &&
+            !dd.symbol.is(Synthetic) &&
+            !dd.symbol.is(Label)
+          ) || (
+            (dd.symbol is Synthetic) &&
+            (dd.symbol is Implicit) &&
+            !(getAnnotations(tpt.symbol) contains "ignore")
+          )) {
+            Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
+          } else {
+            None
+          }
 
         case _ => None
       }

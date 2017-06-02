@@ -45,15 +45,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
   }
 
   private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Set[xt.Flag] = {
-    val actualSymbol = sym // .accessedOrSelf
-    (for {
-      a <- actualSymbol.annotations ++ (if (!ignoreOwner) actualSymbol.owner.annotations else Set.empty)
-      name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
-      if name startsWith "stainless.annotation."
-      shortName = name drop "stainless.annotation.".length
-    } yield {
-      xt.extractFlag(shortName, a.arguments.map(extractTree(_)(DefContext())))
-    }).toSet
+    getAnnotations(sym, ignoreOwner = ignoreOwner).map {
+      case (name, args) => xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
+    }.toSet
   }
 
   /** An exception thrown when non-stainless compatible code is encountered. */
@@ -169,7 +163,10 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       case tpd.EmptyTree =>
         // ignore
 
-      case t if (annotationsOf(t.symbol) contains xt.Ignore) || (t.symbol is Synthetic) =>
+      case t if (
+        (annotationsOf(t.symbol) contains xt.Ignore) ||
+        ((t.symbol is Synthetic) && !(t.symbol is Implicit))
+      ) =>
         // ignore
 
       case vd @ ValDef(_, _, _) if vd.symbol is Module =>
@@ -210,6 +207,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         val fd = extractFunction(fsym, Seq(), Seq(), rhs)(DefContext())
         functions :+= fd.id
         allFunctions :+= fd
+
+      case t if t.symbol is Synthetic =>
+        // ignore
 
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
@@ -1005,9 +1005,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     case ExCharLiteral(c) => xt.CharLiteral(c)
     case ExStringLiteral(s) => xt.StringLiteral(s)
 
-    case Apply(Select(
-      Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(lhs)),
-      ExNamed("$eq$eq$greater")
+    case Apply(lhs @ Select(
+      ExSymbol("stainles", "lang", "package$", "BooleanDecorations"),
+      ExNamed("==>")
     ), Seq(rhs)) => xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case Apply(tree, args) if defn.isFunctionType(tree.tpe) =>
