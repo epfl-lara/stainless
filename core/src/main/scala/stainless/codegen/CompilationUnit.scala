@@ -453,10 +453,10 @@ trait CompilationUnit extends CodeGeneration {
     mkExpr(e, ch)(NoLocals.withVars(newMapping))
 
     e.getType match {
+      case JvmIType() =>
+        ch << IRETURN
       case Int64Type =>
         ch << LRETURN
-      case ValueType() =>
-        ch << IRETURN
       case _ =>
         ch << ARETURN
     }
