@@ -13,13 +13,23 @@ object Longs {
     require(0 <= j && j < 32)
     i.toLong << j
   } ensuring { res =>
-    pow(2, j) * i == res
+    pow2(j) * i == res
   }
 
-  def pow(x: Long, y: Long): Long = {
+  def pow2(y: Long): Long = {
     require(y >= 0)
     if (y == 0) 1
-    else x * pow(x, y - 1)
+    else 2 * pow2(y - 1)
   }
+
+  /** This tests the slot allocation in CodeGen:
+   *  b should be at index a + 2.
+   *  The JVM will reject the `.class` if any function
+   *  if <static> is invalid; no need to call it.
+   */
+  def slots(a: Long, b: Int, c: Long): Long = {
+    b
+  }
+
 }
 
