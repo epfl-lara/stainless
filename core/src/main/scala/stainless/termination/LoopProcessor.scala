@@ -20,8 +20,6 @@ trait LoopProcessor extends OrderingProcessor {
   import program.trees._
   import program.symbols._
 
-  private lazy val ignorePosts = program.ctx.options.findOptionOrDefault(optIgnorePosts)
-
   object withoutPosts extends inox.ast.SimpleSymbolTransformer {
     val s: program.trees.type = program.trees
     val t: program.trees.type = program.trees
@@ -36,7 +34,7 @@ trait LoopProcessor extends OrderingProcessor {
     val timer = program.ctx.timers.termination.processors.loops.start()
 
     strengthenApplications(problem.funSet)
-    val api = if (ignorePosts) getAPI(withoutPosts) else getAPI
+    val api = getAPI(withoutPosts)
 
     reporter.debug("- Running ChainBuilder")
     val chains : Set[Chain] = problem.funSet.flatMap(fd => getChains(fd)._2)

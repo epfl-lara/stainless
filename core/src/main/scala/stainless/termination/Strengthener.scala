@@ -6,6 +6,8 @@ package termination
 import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
+object optIgnorePosts extends inox.FlagOptionDef("ignoreposts", false)
+
 trait Strengthener { self: OrderingRelation =>
 
   val checker: ProcessingPipeline
@@ -16,6 +18,8 @@ trait Strengthener { self: OrderingRelation =>
   import CallGraphOrderings._
 
   private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
+
+  private lazy val ignorePosts = ctx.options.findOptionOrDefault(optIgnorePosts)
 
   private object postStrengthener extends IdentitySymbolTransformer {
     override def transform(syms: Symbols): Symbols =
