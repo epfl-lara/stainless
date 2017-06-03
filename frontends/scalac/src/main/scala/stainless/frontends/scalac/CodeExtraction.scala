@@ -854,7 +854,7 @@ trait CodeExtraction extends ASTExtractors {
       case ExCharLiteral(c) => xt.CharLiteral(c)
       case ExStringLiteral(s) => xt.StringLiteral(s)
 
-      case ExLocally(body) => extractTree(body)
+      case ExIdentity(body) => extractTree(body)
 
       case ExTyped(e, _) => extractTree(e)
 

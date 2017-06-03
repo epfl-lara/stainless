@@ -859,11 +859,12 @@ trait ASTExtractors {
       }
     }
 
-    object ExLocally {
+    object ExIdentity {
       def unapply(tree: Apply) : Option[Tree] = tree match {
+        case Apply(TypeApply(ExSelected("scala", "Predef", "identity"), _), List(body)) =>
+          Some(body)
         case Apply(TypeApply(ExSelected("scala", "Predef", "locally"), _), List(body)) =>
           Some(body)
-
         case _ =>
           None
       }

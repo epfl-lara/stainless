@@ -694,6 +694,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case ExIdentity(body) =>
+      extractTree(body)
+
     case ExAssert(contract, oerr) =>
       xt.Assert(extractTree(contract), oerr, xt.UnitLiteral().setPos(tr.pos))
 

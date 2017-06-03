@@ -525,4 +525,14 @@ trait ASTExtractors {
     }
   }
 
+  object ExIdentity {
+    def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+      case Apply(TypeApply(ExSymbol("scala", "Predef$", "identity"), Seq(_)), Seq(body)) =>
+        Some(body)
+      case Apply(TypeApply(ExSymbol("scala", "Predef$", "locally"), Seq(_)), Seq(body)) =>
+        Some(body)
+      case _ => None
+    }
+  }
+
 }
