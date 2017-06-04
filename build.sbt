@@ -167,6 +167,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
       val paths = scriptPath.value
       IO.write(scriptFile, s"""|#!/bin/bash --posix
                                |
+                               |set -o pipefail
+                               |
                                |SCALACLASSPATH="$paths"
                                |
                                |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log

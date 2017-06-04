@@ -30,7 +30,8 @@ final class Set private(private val underlying: MutableSet[AnyRef]) {
   def difference(that: Set): Set = new Set(underlying -- that.underlying)
 
   override def equals(that: Any): Boolean = that match {
-    case s: Set => underlying == s.underlying
+    case s: Set => underlying.toSet == s.underlying.toSet // the conversion to Set is mandatory!
+    // Depending on how the Set was created, the underlying datastruct can be an Array and Array.equals doesn't work as one expect.
     case _ => false
   }
 

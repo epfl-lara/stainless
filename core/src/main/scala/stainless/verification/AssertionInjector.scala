@@ -10,7 +10,7 @@ trait AssertionInjector extends ast.TreeTransformer {
   implicit val symbols: s.Symbols
 
   private def indexUpTo(i: t.Expr, e: t.Expr) = t.And(
-    t.GreaterEquals(i, t.IntLiteral(0).copiedFrom(i)).copiedFrom(i),
+    t.GreaterEquals(i, t.Int32Literal(0).copiedFrom(i)).copiedFrom(i),
     t.LessThan(i, e).copiedFrom(e)
   ).copiedFrom(i)
 

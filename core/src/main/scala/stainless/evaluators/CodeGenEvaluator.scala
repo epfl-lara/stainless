@@ -114,7 +114,7 @@ trait CodeGenEvaluator
       val res = e(model)
       timer.stop()
       res
-    }.getOrElse(EvaluationResults.EvaluatorError("Couldn't compile expression"))
+    }.getOrElse(EvaluationResults.EvaluatorError(s"Couldn't compile expression: $expr"))
   }
 
   private def compileExpr(expr: Expr, args: Seq[ValDef]): Option[CompiledExpression] = {

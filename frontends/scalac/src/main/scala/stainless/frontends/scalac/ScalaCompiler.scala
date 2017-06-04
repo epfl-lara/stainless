@@ -90,7 +90,9 @@ object ScalaCompiler {
       run.compile(command.files)
       timer.stop()
 
-      compiler.stainlessExtraction.extractProgram
+      val result = compiler.stainlessExtraction.extractProgram
+      if (ctx.reporter.errorCount > 0) ctx.reporter.fatalError("There were some errors.")
+      else result
     } else {
       ctx.reporter.fatalError("No input program.")
     }

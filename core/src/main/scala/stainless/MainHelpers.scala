@@ -39,7 +39,8 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
-    termination.DebugSectionTermination
+    termination.DebugSectionTermination,
+    DebugSectionExtraction
   )
 
   override protected def displayVersion(reporter: inox.Reporter) = {
@@ -55,11 +56,18 @@ trait MainHelpers extends inox.MainHelpers {
     Program { val trees: xt.type }
   )
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = try {
     val inoxCtx = setup(args)
     val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
     val (structure, program) = extractFromSource(inoxCtx, compilerArgs)
+    try {
+      program.symbols.ensureWellFormed
+    } catch {
+      case e: program.symbols.TypeErrorException =>
+        inoxCtx.reporter.error(e.pos, e.getMessage)
+        inoxCtx.reporter.fatalError(s"The extracted program in not well typed.")
+    }
 
     val activeComponents = components.filter { c =>
       inoxCtx.options.options.collectFirst {
@@ -74,5 +82,7 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     for (c <- toExecute) c(structure, program).emit()
+  } catch {
+    case _: inox.FatalError => System.exit(1)
   }
 }

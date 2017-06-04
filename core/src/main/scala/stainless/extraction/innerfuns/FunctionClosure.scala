@@ -63,7 +63,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         instantiateType(name.tpe.asInstanceOf[FunctionType].to, tparamsMap),
         fullBody,
         name.flags ++ outer.flags + Derived(outer.id)
-      )
+      ).copiedFrom(inner)
 
       FunSubst(newFd, freeMap, tparamsMap)
     }

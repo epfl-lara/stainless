@@ -80,16 +80,16 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
           val te = transform(e)
           val ttps = tps map transform
           t.orJoin(classToConstructors(id).toSeq.map {
-            id => t.IsInstanceOf(te, t.ADTType(id, ttps))
+            id => t.IsInstanceOf(te, t.ADTType(id, ttps)).setPos(e)
           })
 
         case s.ClassSelector(e, selector) => e.getType(symbols) match {
-          case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(e), selector)
+          case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(e), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
-          t.ADT(t.ADTType(id, tps map transform), args map transform)
+          t.ADT(t.ADTType(id, tps map transform), args map transform).copiedFrom(e)
 
         case s.MatchExpr(scrut, cases) =>
           super.transform(s.MatchExpr(scrut, for (cse <- cases) yield {
@@ -112,7 +112,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
             val newRhs = s.exprOps.replaceFromSymbols(subst, cse.rhs)
 
             s.MatchCase(newPattern, newGuard, newRhs)
-          }))
+          }).copiedFrom(e))
 
         case _ => super.transform(e)
       }
@@ -166,7 +166,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       cd.tparams map transformer.transform,
       classToConstructors(cd.id).toSeq,
       (cd.flags - IsAbstract - IsSealed) map transformer.transform
-    )).toSeq
+    ).copiedFrom(cd)).toSeq
 
     val consClasses = symbols.classes.values.filter { cd =>
       candidates(cd.id) &&
@@ -179,7 +179,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       if (classToParent(cd.id) == cd.id) None else Some(classToParent(cd.id)),
       cd.fields map transformer.transform,
       (cd.flags - IsSealed) map transformer.transform
-    )).toSeq
+    ).copiedFrom(cd)).toSeq
 
     val classes: Seq[t.ClassDef] = symbols.classes.values
       .filterNot(cd => candidates(cd.id))

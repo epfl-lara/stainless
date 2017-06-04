@@ -55,7 +55,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
       parents: Seq[ClassType] = this.parents,
       fields: Seq[ValDef] = this.fields,
       flags: Set[Flag] = this.flags
-    ): ClassDef = new ClassDef(id, tparams, parents, fields, flags)
+    ): ClassDef = new ClassDef(id, tparams, parents, fields, flags).setPos(this)
   }
 
   case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
