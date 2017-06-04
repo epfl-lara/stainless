@@ -168,7 +168,9 @@ val scriptSettings: Seq[Setting[_]] = Seq(
       }
 
       val paths = scriptPath.value
-      IO.write(scriptFile, s"""|#!/bin/bash --posix
+      IO.write(scriptFile, s"""|#!/usr/bin/env bash
+                               |
+                               |set -o posix
                                |
                                |set -o pipefail
                                |
