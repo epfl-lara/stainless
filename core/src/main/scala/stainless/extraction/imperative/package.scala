@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object imperative {
 
   object trees extends imperative.Trees with inox.ast.SimpleSymbols {

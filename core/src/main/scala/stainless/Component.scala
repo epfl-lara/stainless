@@ -3,6 +3,7 @@
 package stainless
 
 import extraction.xlang.{trees => xt}
+import scala.language.existentials
 
 trait Component {
   val name: String
