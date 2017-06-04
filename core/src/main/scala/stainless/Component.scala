@@ -4,6 +4,7 @@ package stainless
 
 import org.json4s.JsonAST.JValue
 import extraction.xlang.{trees => xt}
+import scala.language.existentials
 
 trait Component {
   val name: String

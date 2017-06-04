@@ -10,6 +10,8 @@ import stainless.verification.VCStatus.Invalid
 import org.json4s.JsonDSL._
 import org.json4s.JsonAST.{ JArray, JObject, JValue }
 
+import scala.language.existentials
+
 object VerificationComponent extends SimpleComponent {
   val name = "verification"
   val description = "Verification of function contracts"

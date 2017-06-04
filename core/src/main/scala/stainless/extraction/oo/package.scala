@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object oo {
 
   object trees extends Trees with ClassSymbols {

@@ -6,6 +6,8 @@ package termination
 import scala.concurrent.duration._
 import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
 
+import scala.language.existentials
+
 trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptible { self =>
   import program._
   import program.trees._
