@@ -10,7 +10,7 @@ for more information.
 
 Stainless compilation will generate two scripts for you, namely
 ``bin/stainless-scalac`` and ``bin/stainless-dotty``. The dotty
-frontend is experimental for now so lets start by introducing
+frontend is experimental for now so let's start by introducing
 a soft-link from ``bin/stainless-scalac`` to ``stainless``
 
 .. code-block:: bash
@@ -26,12 +26,12 @@ To see the main options, use
 in your command line shell while in the top-level Stainless directory.
 You may also wish to consult the `available command-line options <options.rst>`_.
 
-You can try some of the examples from ``fontends/scalac/src/it/resources/regression/``
+You can try some of the examples from ``frontends/benchmarks``
 distributed with Stainless:
 
 .. code-block:: bash
 
-  $ ./stainless --solvers=smt-cvc4 frontends/scalac/src/it/resources/regression/verification/invalid/RedBlackTree.scala
+  $ ./stainless --solvers=smt-cvc4 frontends/benchmarks/verification/invalid/RedBlackTree2.scala
 
 and get something like this
 
@@ -64,4 +64,4 @@ and get something like this
  ╟┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╢
  ║ total: 21     valid: 17     invalid: 4      unknown 0                                6.762 ║
  ╚════════════════════════════════════════════════════════════════════════════════════════════╝
-
+ 

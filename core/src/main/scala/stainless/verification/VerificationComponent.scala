@@ -6,6 +6,8 @@ package verification
 import solvers._
 import inox.utils.ASCIIHelpers._
 
+import scala.language.existentials
+
 object VerificationComponent extends SimpleComponent {
   val name = "verification"
   val description = "Verification of function contracts"

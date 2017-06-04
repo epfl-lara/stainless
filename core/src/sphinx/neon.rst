@@ -6,11 +6,11 @@ Proving Theorems
 Verifying the contract of a function is really proving a mathematical
 theorem. Stainless can be seen as a (mostly) automated theorem prover. It is
 automated in the sense that once the property stated, Stainless will proceed with searching
-for a proof without any user interaction. In practice however, many theorems will be fairly
+for a proof without any user interaction. In practice, however, many theorems will be fairly
 difficult to prove, and it is possible for the user to provide hints to Stainless.
 
 Hints typically take the form of simpler properties that combine in order to prove
-more complicated ones. In the remaining subsections we provide code patterns and introduce
+more complicated ones. In the remaining, subsections we provide code patterns and introduce
 simple domain-specific language operators that can help in constructing complex Stainless proofs.
 
 A practical introduction to proofs
@@ -46,7 +46,7 @@ that ensure the returned value is ``true``. It is equivalent to writing
 ``ensuring { res => res }``.
 
 Now let's look at another example that looks trivial but for which Stainless
-actually needs some help with the proof: we want to prove that adding ``Nil``
+needs some help with the proof: we want to prove that adding ``Nil``
 at the end of a list has no effect.
 
 .. code-block:: scala
@@ -62,7 +62,7 @@ at the end of a list has no effect.
 
 If you try to verify this last example you'll face a delicate
 situation: Stainless runs indeterminately until it is either killed or
-times out. But why does this happen?  The proposition doesn't seems
+times out. But why does this happen?  The proposition doesn't seem
 more complicated than ``appendContent``. Perhaps even more
 surprisingly, Stainless *is* able to verify the following:
 
@@ -95,7 +95,7 @@ why Stainless was able to verify ``leftUnitAppend`` easily: it is true *by
 definition*, i.e. ``Nil() ++ l1`` is actually defined to be ``l1``.
 What about the symmetric case?  How is ``l1 ++ Nil()`` defined?  Well,
 it depends on whether ``l1`` is the empty list or not.  So in order to
-prove ``rightUnitAppend``, we need to proceed by case analysis.  The
+prove ``rightUnitAppend``, we need to proceed with a case analysis.  The
 resulting proof has a recursive (i.e. inductive) structure reminiscent
 of the definition of ``++``:
 
@@ -135,8 +135,8 @@ and the inductive case is performed on ``Cons`` objects.
 Techniques for proving non-trivial propositions
 -----------------------------------------------
 
-In the previous section we saw that "proof hints" can improve the odds
-of Stainless successfully verifying a given proposition.  In this section
+In the previous section, we saw that "proof hints" can improve the odds
+of Stainless successfully verifying a given proposition.  In this section,
 we will have a closer look at what constitutes such a proof and
 discuss a few techniques for writing them.
 
@@ -666,7 +666,7 @@ on equality more easily and directly identify where hints are vital.
 
 One shortcoming of the relational reasoning DSL is that it relies on
 Stainless' knowledge of the relational properties of the built-in
-relations, and in particular those of equality.  Consequently is works
+relations, and in particular those of equality.  Consequently it works
 badly (if at all) with user-defined relations.  However, since the DSL
 is defined as a library (in ``library/proof/package.scala``), it can
 in principle be extended and modified to include specific user-defined
@@ -681,7 +681,7 @@ Limits of the approach: HOFs, quantifiers and termination
 *********************************************************
 
 While the techniques discussed in this section are useful in general,
-their applicability has of course its limitations in practice.  These
+their applicability has, of course, its limitations in practice.  These
 limitations are mostly due to Stainless' limited support for certain
 language constructs, such as higher-order functions (HOFs) or
 quantifiers (which in turn is due, mostly, to the limited support of
@@ -766,7 +766,7 @@ the time, if not always, ``Boolean``. For those proofs it is rather easy to
 write a postcondition: using ``holds`` is generally enough.
 
 But when it comes to writing postconditions for more general functions, such as
-the addition on rational numbers, we are no longer dealing with ``Boolean`` so
+the addition of rational numbers, we are no longer dealing with ``Boolean`` so
 we need a strategy to properly write ``ensuring`` statements.
 
 
@@ -788,7 +788,7 @@ define three simple properties on them: ``isRational``, ``isNonZero`` and
       // ...
     }
 
-And on top of that we want to support addition on ``Rational`` in a way that
+And on top of that, we want to support addition on ``Rational`` in a way that
 the rationality and positiveness properties are correctly preserved:
 
 .. code-block:: scala
@@ -826,7 +826,7 @@ discrete probability spaces.  We represent such measures using a
 The constructor of the class ``Empty[A]`` takes no arguments; it
 represents an "empty" measure that evaluates to 0 when applied to any
 set of values of type ``A``.  The constructor of ``Cons[A]``, on the
-other hand, takes three parameters: a value ``x``, its associated
+other hand, takes three parameters: a value ``x``, it's associated
 weight ``w`` expressed as a ``Rational`` (since Stainless doesn't quite yet
 support real numbers out of the box), and another measure ``m`` on
 ``A``.  The value ``Cons(x, w, m)`` represents the measure obtained by
@@ -988,8 +988,8 @@ it's good to keep the following in mind:
 .. rubric:: Footnotes
 
 .. [#example-dir] The source code of this example and all other in
-   this chapter are included in the Stainless distribution.  Examples about
-   lists can be found in ``library/collection/List.scala``, the other
+   this chapter is included in the Stainless distribution.  Examples about
+   lists can be found in ``library/collection/List.scala``, other
    examples are located in the ``testcases/verification/proof/``
    directory.
 

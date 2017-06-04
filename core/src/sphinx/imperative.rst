@@ -38,7 +38,7 @@ You can use Scala variables with a few restrictions. The variables can only be
 declared and used locally, no variable declaration outside of a function body.
 There is also support for variables in case classes constructors. Imperative support
 introduces the possibility to use sequences of expressions (blocks) -- a
-feature not available in `Pure Scala <purescala.rst>`_, where you're only
+feature not available in `Pure Scala <purescala.rst>`_, where your only
 option is a sequence of ``val`` which essentially introduce nested ``let``
 declarations.
 
@@ -67,7 +67,7 @@ the negation of the loop condition. It will automatically prove that
 verification condition and you should see an ``invariant postcondition`` marked
 as ``valid``.
 
-Stainless internally handle loops as a function with a postcondition. For the end-user it
+Stainless internally handle loops as a function with a postcondition. For the end-user, it
 means that Stainless is only going to rely on the postcondition of the loop to prove properties
 of code relying on loops. Usually that invariant is too weak to prove anything remotely
 useful and you will need to annotate the loop with a stronger invariant.
@@ -123,9 +123,9 @@ We add the usual ``update`` operation on arrays:
   a(1) = 10
   a(1) //10
 
-Stainless simply rewrite arrays using ``update`` operation as assignment of function arrays
+Stainless simply rewrite arrays using ``update`` operation as the assignment of function arrays
 using ``updated``.  This leverages the built-in algorithm for functional array
-and rely on the elimination procedure for assignments. Concretely, it would
+and relies on the elimination procedure for assignments. Concretely, it would
 transform the above on the following equivalent implementation:
 
 .. code-block:: scala
@@ -208,7 +208,7 @@ properties:
   } ensuring(_ => a.x == old(a).x + 1)
 
 ``old`` can be wrapped around any identifier that is affected by the body. You can also use
-``old`` for variables in scope, in case of nested functions:
+``old`` for variables in scope, in the case of nested functions:
 
 .. code-block:: scala
    

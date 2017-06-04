@@ -149,7 +149,7 @@ Stainless Lists support a rich and strongly specified API.
 | ``find(e: T): Option[BigInt]``                    | Look for the element ``e`` in this List, and      | 
 |                                                   | optionally return its index if it is found.       |
 +---------------------------------------------------+---------------------------------------------------+
-| ``init: List[T]``                                 | Return this List except the last element.         |
+| ``init: List[T]``                                 | Return this List except for the last element.     |
 |                                                   | Can only be called on nonempty Lists.             |
 +---------------------------------------------------+---------------------------------------------------+
 | ``last: T``                                       | Return the last element of this List.             |
@@ -276,7 +276,7 @@ Set[T], Map[T]
 --------------
 
 Stainless uses its own Sets and Maps, which are defined in the ``stainless.lang`` package.
-However, these classes are are not implemented within Stainless.
+However, these classes are not implemented within Stainless.
 Instead, they are parsed into specialized trees.
 Methods of these classes are mapped to specialized trees within SMT solvers.
 For code generation, we rely on Java Sets and Maps.

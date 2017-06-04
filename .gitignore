@@ -1,3 +1,7 @@
+# Stainless
+/bin/stainless-*
+
+
 # Vim
 *.swp
 
@@ -53,7 +57,6 @@ out-classes
 /travis/builds
 
 # Windows
-/bin/
 /cvc4.exe
 /libz3.dll
 /libz3.lib
