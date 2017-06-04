@@ -17,7 +17,7 @@ For a short (but always up-to-date) summary, you can also invoke ``leon --help``
 Choosing which Stainless feature to use
 ---------------------------------------
 
-The first group of options determine which feature of Stainless will be used.
+The first group of options determines which feature of Stainless will be used.
 These options are mutually exclusive (except when noted). By default, ``--verification`` is chosen.
 
 * ``--verification``
@@ -71,7 +71,7 @@ These options are available to all Stainless components:
   By default, the ``nativez3`` solver is picked.
 
   Some solvers are specialized in proving verification conditions
-  and will have hard time finding a counterexample in case of an invalid
+  and will have a hard time finding a counterexample in the case of an invalid
   verification condition, whereas some are specialized in finding
   counterexamples, and some provide a compromise between the two.
   Also, some solvers do not as of now support higher-order functions.
@@ -103,8 +103,8 @@ These options are available to all Stainless components:
   * ``princess``
 
     Princess solver through its native interface (uses princess-templates) during
-    unfolding. This is a full-stack JVM solver and enables Stainless to run with
-    no external solver dependencies.
+    unfolding. This is a full-stack JVM solver and enables Stainless to run without
+    external solver dependencies.
 
 * ``--timeout=t``
 
@@ -139,7 +139,7 @@ Unrolling Solver
 
 * ``--checkmodels``
 
-  Double-check counterexamples with evaluator.
+  Double-check counterexamples with the evaluator.
 
 * ``--feelinglucky``
 
@@ -178,7 +178,7 @@ Evaluators
 
 * ``--codegen``
 
-  Use compiled evaluator instead of interpreter.
+  Use compiled evaluator instead of an interpreter.
 
 * ``--smallarrays``
 

@@ -8,9 +8,9 @@ it is a tool that takes as input the source code of a program with
 specifications as annotations and attempt to prove --- or disprove --- their
 validity.
 
-One of the core module of Stainless is a verifier for the subset of Scala described
+One of the core modules of Stainless is a verifier for the subset of Scala described
 in the sections `Pure Scala <purescala.rst>`_ and `Imperative <imperative.rst>`_. In this
-section we describe the specification language that can be used to declare
+section, we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
 by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.
 
@@ -25,7 +25,7 @@ postcondition is ``valid`` assuming the precondition is ``valid``.
 
 For each function, Stainless attempts to verify its contract, if there is one. A
 *contract* is the combination of a *precondition* and a *postcondition*. A
-function meets its contract if for any input parameter that passes the
+function meets its contract if, for any input parameter that passes the
 precondition, the postcondition holds after executing the function.
 Preconditions and postconditions are annotations given by the user --- they are
 the specifications and hence cannot be inferred by a tool and must be provided.
@@ -42,8 +42,8 @@ Postconditions
 **************
 
 One core concept in verification is to check the contract of functions. The most
-important part in a contract is the postcondition. The postcondition specifies
-the behaviour of the function. It takes into account the precondition and only
+important part of a contract is the postcondition. The postcondition specifies
+the behavior of the function. It takes into account the precondition and only
 asserts the property of the output when the input satisfies the precondition.
 
 Formally, we consider a function with a single parameter (one can generalize
@@ -88,7 +88,7 @@ is not.
 The general problem of verification is undecidable for a Turing-complete
 language, and the Stainless language is Turing-complete. So Stainless has to be
 incomplete in some sense. Generally, Stainless will eventually find a counterexample
-if one exists. However, in practice some program structures require too many
+if one exists. However, in practice, some program structures require too many
 unrollings and Stainless is likely to timeout (or being out of memory) before
 finding the counterexample.  When the postcondition is valid, it could also
 happen that Stainless keeps unrolling the program forever, without being able to
@@ -141,7 +141,7 @@ to prove the following theorem:
 
    \forall x. \mbox{pc}(x) \implies \mbox{prec}(\mbox{e}(x))
 
-Stainless will generates one such theorem for each static call site of a function with
+Stainless will generate one such theorem for each static call site of a function with
 a precondition.
 
 .. note::
@@ -150,7 +150,7 @@ a precondition.
    outside of the given program. In particular, Stainless will not derive a precondition
    to a function based on known information in the context of the calls, such as
    knowing that the function is always given positive parameters. Any information needed
-   to prove the postcondition will have to be provide as part of the precondition
+   to prove the postcondition will have to be provided as part of the precondition
    of a function.
 
 Loop invariants
@@ -178,7 +178,7 @@ A loop invariant must hold:
   (2) after each completion of the body
   (3) right after exiting the loop (when the condition turns false)
 
-Stainless will prove point (1) and (2) above. Together, and by induction, they imply
+Stainless will prove the point (1) and the point (2) above. Together, and by induction, they imply
 that point (3) holds as well.
 
 Array access safety

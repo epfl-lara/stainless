@@ -30,7 +30,7 @@ Get the sources of Stainless by cloning the official Stainless repository:
   $ sbt clean compile
   // takes about 1 minute
 
-Compilation will automatically generate the following two bash scripts:
+The compilation will automatically generate the following two bash scripts:
 1. ``bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
 2. ``bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
 
@@ -139,7 +139,7 @@ and then, after picking the configuration you want to run,
 set the variable in the Environment tab.
 
 If you want to use ScalaTest from within Eclipse, download the ScalaTest plugin. For instructions, 
-see `Using ScalaTest with Eclise <http://www.scalatest.org/user_guide/using_scalatest_with_eclipse>`_. 
+see `Using ScalaTest with Eclipse <http://www.scalatest.org/user_guide/using_scalatest_with_eclipse>`_. 
 Do NOT declare your test packages as nested packages in
 separate lines, because ScalaTest will not see them for some
 reason. E.g. don't write
