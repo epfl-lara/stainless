@@ -11,6 +11,13 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._
 
+    for (fd <- symbols.functions.values) {
+      import symbols._
+      if (!isSubtypeOf(fd.fullBody.getType, fd.returnType)) {
+        println(explainTyping(fd.fullBody)(PrinterOptions()))
+      }
+    }
+
     val children: Map[Identifier, Set[Identifier]] =
       symbols.classes.values
         .flatMap(cd => cd.parents.map(_ -> cd))

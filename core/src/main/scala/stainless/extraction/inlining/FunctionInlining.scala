@@ -4,6 +4,8 @@ package stainless
 package extraction
 package inlining
 
+object optInlinePosts extends inox.FlagOptionDef("inlineposts", false)
+
 trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
   val s: Trees
   val t: extraction.Trees

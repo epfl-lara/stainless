@@ -29,7 +29,8 @@ trait MainHelpers extends inox.MainHelpers {
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    termination.optIgnorePosts -> Description(Termination, "Ignore postconditions during termination checking")
+    extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
+    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
