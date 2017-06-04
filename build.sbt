@@ -99,7 +99,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
   unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
-  sourceGenerators in Compile <+= Def.task {
+  sourceGenerators in Compile += Def.task {
     val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
     IO.write(main, s"""|package stainless
@@ -126,7 +126,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
-  compile <<= (compile in Compile) dependsOn script,
+  compile := (compile in Compile).dependsOn(script).value,
 
   clean := {
     clean.value
