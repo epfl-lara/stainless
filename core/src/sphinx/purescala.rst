@@ -140,7 +140,7 @@ Stainless supports type parameters for classes and functions.
     case class Cons[T](hd: T, tl: List[T]) extends List[T]
     case object Nil extends List[Nothing]
 
-  Stainless in fact restricts type parameters to "simple hierarchies",
+  Stainless, in fact, restricts type parameters to "simple hierarchies",
   where subclasses define the same type parameters in the same order.
 
 Methods
@@ -351,7 +351,7 @@ BigInt
   a == b
 
 .. note::
-  BigInt are mathematical integers (arbitrary size, no overflows).
+  BigInt are mathematicals integers (arbitrary size, no overflows).
 
 Real
 ####
@@ -455,7 +455,7 @@ Function
   currently quite limited.
 
 
-Symbolic Input-Output examples
+Symbolic Input-Output Examples
 ------------------------------
 
 Sometimes, a complete formal specification is hard to write,

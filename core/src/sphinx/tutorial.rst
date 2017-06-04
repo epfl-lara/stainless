@@ -27,7 +27,7 @@ inputs for which the conditions fail. (Moreover, it can
 execute specifications alone without the code, 
 it can do synthesis, and repair.)
 
-Consider the following definition inside an object `TestMax`.
+Consider the following definition inside of an object `TestMax`.
 
 .. code-block:: scala
 
@@ -42,7 +42,7 @@ Consider the following definition inside an object `TestMax`.
 
 A Stainless program consists of one or more modules delimited by
 `object` and `class` declarations. 
-The code of `max` attempts to compute maximum of two given arguments
+The code of `max` attempts to compute the maximum of two given arguments
 by subtracting them. If the result is positive, it returns
 the first one, otherwise, it returns the second one.
 
@@ -85,7 +85,7 @@ The problem is due to overflow of 32-bit integers, due to which
 the value `d` becomes positive, even though `x` is negative and thus smaller than
 the large positive value `y`.
 As in Scala, the `Int` type denotes 32-bit
-integers with the usual signed arithmetic operations from
+integers with the usually signed arithmetic operations from
 computer architecture and the JVM specification.
 
 To use unbounded integers, we simply change the types to
@@ -110,7 +110,7 @@ defined the reference implementation
     if (x <= y) y else x
   }
 
-and then used as postcondition of `max` simply
+and then used as a postcondition of `max` simply
 
 .. code-block:: scala
 
@@ -176,7 +176,7 @@ non-negative 32-bit integers as inputs.
 `require` clause for each case accordingly and explain the
 behavior of Stainless.
 
-In the sequel we will mostly use `BigInt` types.
+In the sequel, we will mostly use `BigInt` types.
 
 Defining Lists and Their Properties
 -----------------------------------
@@ -222,7 +222,7 @@ defined on lists.
 Size of a List
 ^^^^^^^^^^^^^^
 
-As the starting point, we define size of a list.
+As the starting point, we define the size of a list.
 
 .. code-block:: scala
 
@@ -233,7 +233,7 @@ As the starting point, we define size of a list.
 
 The definition uses *pattern matching* to define size of the
 list in the case it is empty (where it is zero) and when it
-is non-empty, or, if its non-empty, then it has a head `x`
+is non-empty, or, if it's non-empty, then it has a head `x`
 and the rest of the list `rest`, so the size is one plus the
 size of the rest. Thus `size` is a recursive function.  A
 strength of Stainless is that it allows using such recursive
@@ -277,8 +277,8 @@ order.
 Insertion into Sorted List
 --------------------------
 
-Consider the following specification of insertion into a sorted list,
-which is a building block for an insertion sort.
+Consider the following specification of insertion into a sorted list. It's a
+building block for an insertion sort.
 
 .. code-block:: scala
 
@@ -324,7 +324,7 @@ Consider a stronger additional postcondition property:
 
 Does it hold? If we try to add it, we obtain a counterexample.
 A correct strengthening, taking into account that the element
-may or may not already be in the list, is the following.
+may or may not already be on the list, is the following.
 
 .. code-block:: scala
 
@@ -350,7 +350,7 @@ of the list.
      isSorted(res) && content(res) == content(l) ++ Set(x)}
 
 To compute `content`, in this example we use sets (even
-though in general it might be better in general to use bags
+though in general, it might be better to use bags
 i.e. multisets).
 
 .. code-block:: scala

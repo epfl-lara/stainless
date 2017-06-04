@@ -10,7 +10,7 @@ for more information.
 
 Stainless compilation will generate two scripts for you, namely
 ``bin/stainless-scalac`` and ``bin/stainless-dotty``. The dotty
-frontend is experimental for now so lets start by introducing
+frontend is experimental for now so let's start by introducing
 a soft-link from ``bin/stainless-scalac`` to ``stainless``
 
 .. code-block:: bash

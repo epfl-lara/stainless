@@ -6,7 +6,7 @@ verified Scala software. It encourages using a small set of core
 Scala features, but provides unique automation functionality.
 In particular, Stainless can
 
-* verify statically that your program confirms to a given
+* verify statically that your program conforms to a given
   specification and that it cannot crash at run-time
 
 * provide useful counterexamples when an implementation does
@@ -39,7 +39,7 @@ language fragment.
 In addition to this pure fragment, Stainless supports certain
 `imperative <imperative.rst>`_ features.
 Features thus introduced are handled by
-translation into Pure Scala concepts. They are often more
+a translation into Pure Scala concepts. They are often more
 than just syntactic sugar, because some of them require
 significant modification of the original program, such as
 introducing additional parameters to a set of functions.  As
@@ -56,9 +56,9 @@ To learn more about the functionality that Stainless provides, read on below.
 Software Verification
 ---------------------
 
-The Stainless program verifier collects a list of top level functions,
+The Stainless program verifier collects a list of top-level functions,
 and verifies the *validity* of their *contracts*. Essentially, for each function, 
-it will (try to) prove that the postcondition always hold, assuming a given
+it will (try to) prove that the postcondition always holds, assuming a given
 precondition does hold. A simple example:
 
 .. code-block:: scala
@@ -97,8 +97,8 @@ Stainless supports verification of a significant part of the Scala language, des
 Program Termination
 -------------------
 
-A "verified" function in stainless is guaranteed to never crash, however it can
-still lead to an infinite evaluation. Stainless therefore provides a termination
+A "verified" function in stainless is guaranteed to never crash, however, it can
+still lead to an infinite evaluation. Stainless, therefore, provides a termination
 checker that complements the verification of safety properties.
 
 For each function in the program, Stainless will try to automatically infer a
@@ -107,7 +107,7 @@ termination checker will then report one of the following:
 
 * The function ``terminates``. In this case, Stainless was able to prove that for
   all inputs (satisfying the function's precondition), evaluation of the function
-  under those inputs is guaranteed terminating.
+  under those inputs is guaranteed to terminate.
 * The function ``loops``. In this case, Stainless was able to construct an input
   to the function such that evaluation under that input will be looping.
 * The function ``maybe loops``. In the case where recursive functions are passed
