@@ -55,7 +55,7 @@ class InlinedPostsVerificationSuite extends VerificationSuite {
     seq => Seq(
       inox.optSelectedSolvers(Set("smt-z3")),
       inox.solvers.optCheckModels(true),
-      solvers.optInlinePosts(true)
+      extraction.inlining.optInlinePosts(true)
     ) ++ seq
   }
 

@@ -1001,9 +1001,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     case ExCharLiteral(c) => xt.CharLiteral(c)
     case ExStringLiteral(s) => xt.StringLiteral(s)
 
-    case Apply(lhs @ Select(
-      ExSymbol("stainles", "lang", "package$", "BooleanDecorations"),
-      ExNamed("==>")
+    case Apply(Select(
+      lhs @ ExSymbol("stainless", "lang", "package$", "BooleanDecorations"),
+      ExNamed("==>") | ExNamed("$eq$eq$greater")
     ), Seq(rhs)) => xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case Apply(tree, args) if defn.isFunctionType(tree.tpe) =>

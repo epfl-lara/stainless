@@ -374,7 +374,7 @@ trait ASTExtractors {
           Some(args)
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
-          ExNamed("->")
+          ExNamed("->") | ExNamed("$minus$greater")
         ), Seq(_)), Seq(to)) => Some(Seq(from, to))
         case _ => None
       }

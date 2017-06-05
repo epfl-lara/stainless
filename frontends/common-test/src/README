@@ -1,2 +1,0 @@
-The `test` directory is symlinked by frontends to avoid code duplication and some awful sbt trickery.
-
