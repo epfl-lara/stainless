@@ -83,7 +83,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 )
 
-lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
+lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   libraryDependencies ++= Seq(
     "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
@@ -119,7 +119,6 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
                        |}""".stripMargin)
     Seq(main)
   }) ++
-  Defaults.itSettings ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
     logBuffered := (nParallel > 1),
     parallelExecution := (nParallel > 1)
