@@ -89,6 +89,15 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
     "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
+  /**
+    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
+    *   sbt project. You can temporarily disable the following four lines when importing the project.
+    */
+  unmanagedResourceDirectories in IntegrationTest += (root.base / "frontends" / "benchmarks"),
+  unmanagedSourceDirectories in Compile += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
+  unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
+  unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
+
   sourceGenerators in Compile <+= Def.task {
     val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
@@ -109,18 +118,12 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
                        |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${extraClasspath.value}") ++ compilerOpts)
                        |}""".stripMargin)
     Seq(main)
-  }
-) ++ Defaults.itSettings ++ inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-  logBuffered := (nParallel > 1),
-  parallelExecution := (nParallel > 1),
-
-  /**
-    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
-    *   sbt project. You can temporarily disable the following two lines when importing the project.
-    */
-  unmanagedResourceDirectories += (root.base / "frontends" / "benchmarks"),
-  unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common-tests" / "src")
-))
+  }) ++
+  Defaults.itSettings ++
+  inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
+    logBuffered := (nParallel > 1),
+    parallelExecution := (nParallel > 1)
+  ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
   compile <<= (compile in Compile) dependsOn script,
