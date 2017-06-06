@@ -76,13 +76,12 @@ object VerificationComponent extends SimpleComponent {
         case status => ("status" -> status.name)
       }
 
-      def vc2Json(vc: VC[program.trees.type], vr: VCResult[program.Model]): JObject = {
-        ("fd" -> vc.fd.name) ~ ("pos" -> vc.getPos.toJson) ~ ("kind" -> vc.kind.name) ~ status2Json(vr.status)
+      val report: JArray = for { (vc, vr) <- vrs } yield {
+        ("fd" -> vc.fd.name) ~
+        ("pos" -> vc.getPos.toJson) ~
+        ("kind" -> vc.kind.name) ~
+        status2Json(vr.status)
       }
-
-      val report: JValue =
-        if (totalConditions > 0) vrs map { case (vc, vr) => vc2Json(vc, vr) }
-        else "No VC"
 
       report
     }
