@@ -4,11 +4,11 @@ package stainless
 package verification
 
 import inox.utils.ASCIIHelpers._
-import inox.utils.{NoPosition, OffsetPosition, Position, RangePosition}
+import stainless.utils.JsonConvertions._
 import stainless.verification.VCStatus.Invalid
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.{JObject, JValue}
+import org.json4s.JsonAST.{ JArray, JObject, JValue }
 
 object VerificationComponent extends SimpleComponent {
   val name = "verification"
@@ -68,13 +68,6 @@ object VerificationComponent extends SimpleComponent {
     }
 
     def emitJson(): JValue = {
-      def pos2JsonImpl(pos: OffsetPosition): JObject = ("line" -> pos.line) ~ ("col" -> pos.col)
-      def pos2Json(pos: Position): JValue = pos match {
-        case NoPosition => "Unknown"
-        case pos @ OffsetPosition(_, _, _, file) => pos2JsonImpl(pos) ~ ("file" -> file.getPath)
-        case range: RangePosition => ("begin" -> pos2JsonImpl(range.focusBegin)) ~ ("end" -> pos2JsonImpl(range.focusEnd)) ~ ("file" -> range.file.getPath)
-      }
-
       def status2Json(status: VCStatus[Model]): JObject = status match {
         case Invalid(cex) =>
           val info = cex.vars map { case (vd, e) => (vd.id.name -> e.toString) }
@@ -84,7 +77,7 @@ object VerificationComponent extends SimpleComponent {
       }
 
       def vc2Json(vc: VC[program.trees.type], vr: VCResult[program.Model]): JObject = {
-        ("fd" -> vc.fd.name) ~ ("pos" -> pos2Json(vc.getPos)) ~ ("kind" -> vc.kind.name) ~ status2Json(vr.status)
+        ("fd" -> vc.fd.name) ~ ("pos" -> vc.getPos.toJson) ~ ("kind" -> vc.kind.name) ~ status2Json(vr.status)
       }
 
       val report: JValue =
