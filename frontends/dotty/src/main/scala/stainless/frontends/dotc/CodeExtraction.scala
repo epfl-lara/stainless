@@ -693,6 +693,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     case ExAssert(contract, oerr) =>
       xt.Assert(extractTree(contract), oerr, xt.UnitLiteral().setPos(tr.pos))
 
+    case ExRequire(contract) =>
+      xt.Require(extractTree(contract), xt.UnitLiteral().setPos(tr.pos))
+
     case ExUnwrapped(tree) if tree ne tr => extractTree(tree)
 
     case ExEnsuring(body, contract) =>

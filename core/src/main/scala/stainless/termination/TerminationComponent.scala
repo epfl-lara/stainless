@@ -31,7 +31,11 @@ object TerminationComponent extends SimpleComponent {
             }
 
             t.Assert(
-              t.andJoin(es.map(e => t.GreaterEquals(e, t.IntegerLiteral(0)))),
+              t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
+                case s.BVType(size) => t.BVLiteral(0, size)
+                case s.IntegerType => t.IntegerLiteral(0)
+                case _ => throw new inox.FatalError("Unexpected measure type for " + e)
+              }))),
               Some("Measure not guaranteed positive"),
               transform(body)
             ).copiedFrom(e)
