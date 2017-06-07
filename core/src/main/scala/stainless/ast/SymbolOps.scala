@@ -315,11 +315,16 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
    * Weakest precondition
    * ==================== */
 
-  def weakestPrecondition(e: Expr): Expr = {
+  /**
+   * [[strict]] enable the strict arithmetic mode. See [[AssertionInjector.optStrictkArithmetic]].
+   * Overload with context below.
+   */
+  def weakestPrecondition(e: Expr, strict: Boolean): Expr = {
     object injector extends verification.AssertionInjector {
       val s: trees.type = trees
       val t: trees.type = trees
       val symbols: self.symbols.type = self.symbols
+      val strictArithmetic: Boolean = strict
     }
 
     val withAssertions = injector.transform(e)
@@ -357,4 +362,8 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     val conditions = collector.collect(withAssertions)
     andJoin(conditions)
   }
+
+  def weakestPrecondition(e: Expr, ctx: inox.Context): Expr =
+    weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.AssertionInjector.optStrictkArithmetic))
+
 }

@@ -47,6 +47,10 @@ trait DefaultTactic extends Tactic {
           VCKind.ArrayUsage
         } else if (err.startsWith("Map ")) {
           VCKind.MapUsage
+        } else if (err.endsWith("Overflow")) {
+          VCKind.Overflow
+        } else if (err.startsWith("Shift")) {
+          VCKind.Shift
         } else if (err.startsWith("Division ")) {
           VCKind.DivisionByZero
         } else if (err.startsWith("Modulo ")) {

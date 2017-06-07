@@ -3,11 +3,18 @@
 package stainless
 package verification
 
+/**
+ * Transform trees by inserting assertions. Those verify that all array access are valid,
+ * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
+ * that the program is exempt of integer overflow and unexpected behaviour.
+ */
 trait AssertionInjector extends ast.TreeTransformer {
   val s: ast.Trees
   val t: ast.Trees
 
   implicit val symbols: s.Symbols
+
+  val strictArithmetic: Boolean
 
   private def indexUpTo(i: t.Expr, e: t.Expr) = t.And(
     t.GreaterEquals(i, t.Int32Literal(0).copiedFrom(i)).copiedFrom(i),
@@ -74,6 +81,14 @@ trait AssertionInjector extends ast.TreeTransformer {
 }
 
 object AssertionInjector {
+
+  /**
+   * Strict Arithmetmetic Mode:
+   *
+   * Add assertion for integer overflow checking and other unexpected behaviour (e.g. x << 65).
+   */
+  val optStrictkArithmetic = inox.FlagOptionDef("strictarithmetic", false)
+
   def apply(p: Program): inox.ast.SymbolTransformer {
     val s: p.trees.type
     val t: p.trees.type
@@ -86,6 +101,7 @@ object AssertionInjector {
         val s: p.trees.type = p.trees
         val t: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
+        val strictArithmetic: Boolean = p.ctx.options.findOptionOrDefault(optStrictkArithmetic)
       }
 
       t.NoSymbols

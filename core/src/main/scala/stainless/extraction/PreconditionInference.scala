@@ -447,7 +447,7 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
         // @nv: can't use postMap because of Lambda in Ensuring predicate
         def injectRequires(e: Expr): Expr = (e match {
           case Lambda(args, r @ Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)).copiedFrom(r))
-          case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body), injectRequires(body)))
+          case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body, false), injectRequires(body))) // FIXME
           case Ensuring(body, l @ Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
           case Operator(es, recons) => recons(es.map(injectRequires))
         }).copiedFrom(e)
