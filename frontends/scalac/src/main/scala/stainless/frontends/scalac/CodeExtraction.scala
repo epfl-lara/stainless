@@ -313,12 +313,12 @@ trait CodeExtraction extends ASTExtractors {
         (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
         (if (sym.isSealed) Some(xt.IsSealed) else None)
 
-      val constructor = cd.impl.children.find {
+      val constructorOpt = cd.impl.children.find {
         case ExConstructorDef() => true
         case _ => false
-      }.get.asInstanceOf[DefDef]
+      }.asInstanceOf[Option[DefDef]]
 
-      val vds = constructor.vparamss.flatten
+      val vds = constructorOpt map { _.vparamss.flatten } getOrElse Seq()
       val symbols = cd.impl.children.collect {
         case df @ DefDef(_, name, _, _, _, _)
         if df.symbol.isAccessor && df.symbol.isParamAccessor && !name.endsWith("_$eq") => df.symbol
