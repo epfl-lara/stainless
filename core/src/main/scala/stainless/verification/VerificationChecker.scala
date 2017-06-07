@@ -152,8 +152,6 @@ trait VerificationChecker { self =>
           VCResult(VCStatus.Unsupported, Some(s), Some(time))
       }
 
-      val time = timer.stop()
-
       ctx.reporter.synchronized {
         if (parallelCheck)
           ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
