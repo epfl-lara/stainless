@@ -13,6 +13,11 @@ trait VerificationSuite extends ComponentTestSuite {
     seq => optFailEarly(true) +: seq
   }
 
+  override protected def optionsString(options: inox.Options): String = {
+    super.optionsString(options) +
+    (if (options.findOptionOrDefault(evaluators.optCodeGen)) " codegen" else "")
+  }
+
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     case "verification/valid/Extern1" => Ignore
     case "verification/valid/Extern2" => Ignore
@@ -74,10 +79,6 @@ class CodeGenVerificationSuite extends VerificationSuite {
       inox.solvers.optCheckModels(true),
       evaluators.optCodeGen(true)
     ) ++ seq
-  }
-
-  override protected def optionsString(options: inox.Options): String = {
-    super.optionsString(options) + " codegen"
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
