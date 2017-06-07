@@ -104,11 +104,14 @@ object TerminationComponent extends SimpleComponent {
 
     val timer = ctx.timers.termination.start()
 
-    val toVerify = for {
-      id <- funs
-      fd = getFunction(id)
-      if !(fd.flags contains "library")
-    } yield fd
+    val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)
+
+    for (fd <- toVerify)  {
+      if (fd.flags contains "library") {
+        val fullName = fd.id.fullName
+        ctx.reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
+      }
+    }
 
     val res = for (fd <- toVerify) yield fd -> c.terminates(fd)
     val t = timer.stop()

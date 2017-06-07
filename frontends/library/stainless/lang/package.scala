@@ -43,33 +43,51 @@ package object lang {
   @library
   implicit class FunctionSpecs1[A,R](val f: A => R) {
     @ignore def pre: A => Boolean = sys.error("Can't execute first-class contract")
-    def requires(p: A => Boolean): Boolean = forall((a: A) => p(a) ==> f.pre(a))
-    def ensures(p: (A,R) => Boolean): Boolean = forall((a: A) => f.pre(a) ==> p(a,f(a)))
+    def requires(p: A => Boolean): Boolean = {
+      require(forall((a: A) => p.pre(a)))
+      forall((a: A) => p(a) ==> f.pre(a))
+    }
+    def ensures(p: (A,R) => Boolean): Boolean = {
+      require(forall((a: A) => f.pre(a) ==> p.pre(a,f(a))))
+      forall((a: A) => f.pre(a) ==> p(a,f(a)))
+    }
   }
 
   @library
   implicit class FunctionSpecs2[A,B,R](val f: (A,B) => R) {
     @ignore def pre: (A,B) => Boolean = sys.error("Can't execute first-class contract")
-    def requires(p: (A,B) => Boolean): Boolean = forall((a: A, b: B) => p(a,b) ==> f.pre(a,b))
-    def ensures(p: (A,B,R) => Boolean): Boolean = forall((a: A, b: B) => f.pre(a,b) ==> p(a,b,f(a,b)))
+    def requires(p: (A,B) => Boolean): Boolean = {
+      require(forall((a: A, b: B) => p.pre(a,b)))
+      forall((a: A, b: B) => p(a,b) ==> f.pre(a,b))
+    }
+    def ensures(p: (A,B,R) => Boolean): Boolean = {
+      require(forall((a: A, b: B) => f.pre(a,b) ==> p.pre(a,b,f(a,b))))
+      forall((a: A, b: B) => f.pre(a,b) ==> p(a,b,f(a,b)))
+    }
   }
 
   @library
   implicit class FunctionSpecs3[A,B,C,R](val f: (A,B,C) => R) {
     @ignore def pre: (A,B,C) => Boolean = sys.error("Can't execute first-class contract")
-    def requires(p: (A,B,C) => Boolean): Boolean =
+    def requires(p: (A,B,C) => Boolean): Boolean = {
+      require(forall((a: A, b: B, c: C) => p.pre(a,b,c)))
       forall((a: A, b: B, c: C) => p(a,b,c) ==> f.pre(a,b,c))
-    def ensures(p: (A,B,C,R) => Boolean): Boolean =
+    }
+    def ensures(p: (A,B,C,R) => Boolean): Boolean = {
+      require(forall((a: A, b: B, c: C) => f.pre(a,b,c) ==> p.pre(a,b,c,f(a,b,c))))
       forall((a: A, b: B, c: C) => f.pre(a,b,c) ==> p(a,b,c,f(a,b,c)))
+    }
   }
 
   @library
   implicit class FunctionSpecs4[A,B,C,D,R](val f: (A,B,C,D) => R) {
     @ignore def pre: (A,B,C,D) => Boolean = sys.error("Can't execute first-class contract")
-    def requires(p: (A,B,C,D) => Boolean): Boolean =
+    def requires(p: (A,B,C,D) => Boolean): Boolean = {
+      require(forall((a: A, b: B, c: C, d: D) => p.pre(a,b,c,d)))
       forall((a: A, b: B, c: C, d: D) => p(a,b,c,d) ==> f.pre(a,b,c,d))
-    def ensures(p: (A,B,C,D,R) => Boolean): Boolean =
-      forall((a: A, b: B, c: C, d: D) => f.pre(a,b,c,d) ==> p(a,b,c,d,f(a,b,c,d)))
+    }
+    // Note that we can't define `ensures` without supporting FunctionSpecs5
+    // (which would then not support `ensures`, and so forth)
   }
 
   @ignore def choose[A](predicate: A => Boolean): A = sys.error("Can't execute non-deterministic choose")

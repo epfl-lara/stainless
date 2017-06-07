@@ -12,6 +12,13 @@ package object stainless {
   type Identifier = inox.Identifier
   val FreshIdentifier = inox.FreshIdentifier
 
+  implicit class IdentifierFromSymbol(id: Identifier) {
+    def fullName: String = id match {
+      case ast.SymbolIdentifier(name) => name
+      case _ => id.name
+    }
+  }
+
   object trees extends ast.Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
