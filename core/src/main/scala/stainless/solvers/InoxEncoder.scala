@@ -184,7 +184,7 @@ trait InoxEncoder extends ProgramEncoder {
           },
           t.Lambda(preArgs, t.exprOps.replaceFromSymbols(
             (fArgs.map(_.toVariable) zip preArgs.map(_.toVariable)).toMap,
-            transform(weakestPrecondition(body, false)) // FIXME
+            transform(weakestPrecondition(body))
           )).copiedFrom(e)
         ))
 

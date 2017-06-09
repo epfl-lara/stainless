@@ -31,4 +31,5 @@ package object oo {
   }
 
   val extractor = methods andThen adts andThen encoding
+
 }

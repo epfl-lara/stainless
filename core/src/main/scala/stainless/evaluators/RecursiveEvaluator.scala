@@ -25,7 +25,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
     case Pre(f) =>
       e(f) match {
-        case Lambda(args, body) => e(Lambda(args, weakestPrecondition(body, false))) // FIXME
+        case Lambda(args, body) => e(Lambda(args, weakestPrecondition(body)))
         case e => throw EvalError("Cannot get pre of non-lambda function " + e.asString)
       }
 

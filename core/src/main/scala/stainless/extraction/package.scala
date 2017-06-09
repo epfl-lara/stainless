@@ -59,18 +59,19 @@ package object extraction {
   case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
-  object preconditionInference extends {
-    val trees: extraction.trees.type = extraction.trees
-  } with PreconditionInference
-
-  val extractor: inox.ast.SymbolTransformer {
-    val s: xlang.trees.type
-    val t: trees.type
-  } = xlang.extractor      andThen
+  def extract(program: Program { val trees: xlang.trees.type }): Program { val trees: extraction.trees.type } = {
+    val pipeline =
+      xlang.extractor      andThen
       oo.extractor         andThen
       holes.extractor      andThen
       imperative.extractor andThen
       innerfuns.extractor  andThen
-      inlining.extractor   andThen
-      preconditionInference
+      inlining.extractor
+
+    val extracted: Program { val trees: extraction.trees.type } =
+      program.transform(pipeline)
+
+    new PreconditionInference(extracted).targetProgram
+  }
+
 }

@@ -363,7 +363,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     andJoin(conditions)
   }
 
-  def weakestPrecondition(e: Expr, ctx: inox.Context): Expr =
+  def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =
     weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.AssertionInjector.optStrictkArithmetic))
 
 }

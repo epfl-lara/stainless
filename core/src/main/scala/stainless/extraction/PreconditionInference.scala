@@ -5,14 +5,22 @@ package extraction
 
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet, ListBuffer}
 
-trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
-  val trees: Trees
-  lazy val s: trees.type = trees
-  lazy val t: trees.type = trees
+class PreconditionInference(override val sourceProgram: Program { val trees: extraction.trees.type })
+  extends inox.ast.ProgramTransformer { self =>
 
-  import trees._
+  override final object encoder extends sourceProgram.trees.IdentityTreeTransformer
+  override final object decoder extends sourceProgram.trees.IdentityTreeTransformer
 
-  def transform(syms: Symbols): Symbols = {
+  override final lazy val targetProgram: Program { val trees: sourceProgram.trees.type } = new inox.Program {
+    override val trees = sourceProgram.trees
+    override val symbols = self.transform(sourceProgram.symbols)
+    override val ctx = sourceProgram.ctx
+  }
+
+  import sourceProgram.trees._
+  private implicit val ctx = sourceProgram.ctx
+
+  private def transform(syms: Symbols): Symbols = {
     import syms._
     import exprOps._
 
@@ -318,7 +326,7 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
 
       var result: Summary = Map.empty
       new transformers.TransformerWithPC {
-        val trees: self.trees.type = self.trees
+        val trees: self.sourceProgram.trees.type = self.sourceProgram.trees
         val symbols: syms.type = syms
 
         type Env = Path
@@ -447,7 +455,7 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
         // @nv: can't use postMap because of Lambda in Ensuring predicate
         def injectRequires(e: Expr): Expr = (e match {
           case Lambda(args, r @ Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)).copiedFrom(r))
-          case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body, false), injectRequires(body))) // FIXME
+          case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body), injectRequires(body)))
           case Ensuring(body, l @ Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
           case Operator(es, recons) => recons(es.map(injectRequires))
         }).copiedFrom(e)

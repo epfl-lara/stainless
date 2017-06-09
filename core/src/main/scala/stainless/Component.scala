@@ -45,7 +45,7 @@ trait SimpleComponent extends Component { self =>
       (l, r) => l.lowering andThen r
     }
 
-    program.transform(extraction.extractor andThen lowering)
+    extraction.extract(program).transform(lowering)
   }
 
   def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report = {

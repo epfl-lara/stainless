@@ -443,7 +443,7 @@ trait CodeGeneration { self: CompilationUnit =>
           val preLambda = if (pre) {
             lambda.copy(body = BooleanLiteral(true))
           } else {
-            lambda.copy(body = weakestPrecondition(lambda.body, false)) // FIXME
+            lambda.copy(body = weakestPrecondition(lambda.body))
           }
 
           mkLambda(preLambda, pch, pre = true)(preLocals)

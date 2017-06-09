@@ -27,7 +27,7 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils {
           }
         }
 
-        val tryExProgram = scala.util.Try(program.transform(extraction.extractor))
+        val tryExProgram = scala.util.Try(extraction.extract(program))
         describe("and transformation") {
           it("should be successful") { assert(tryExProgram.isSuccess) }
 
