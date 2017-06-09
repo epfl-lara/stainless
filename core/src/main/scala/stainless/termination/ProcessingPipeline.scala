@@ -12,8 +12,6 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   import program.symbols._
   import CallGraphOrderings._
 
-  private[termination] lazy val ignorePosts = ctx.options.findOptionOrDefault(optIgnorePosts)
-
   trait Problem {
     def funSet: Set[FunDef]
     def funDefs: Seq[FunDef]
@@ -46,85 +44,6 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   case class Broken(funDef: FunDef, reason: NonTerminating) extends Result(funDef)
 
   protected val processors: List[Processor { val checker: self.type }]
-
-  protected val encoder: ast.TreeTransformer {
-    val s: program.trees.type
-    val t: stainless.trees.type
-  }
-
-  protected implicit val semanticsProvider: inox.SemanticsProvider { val trees: program.trees.type } =
-    encodingSemantics(program.trees)(encoder)
-
-  private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    val transformEncoder = inox.ast.ProgramEncoder(program)(transformer)
-
-    object programEncoder extends {
-      val sourceProgram: transformEncoder.targetProgram.type = transformEncoder.targetProgram
-      val t: stainless.trees.type = stainless.trees
-    } with inox.ast.ProgramEncoder {
-      val encoder = self.encoder
-      object decoder extends ast.TreeTransformer {
-        val s: stainless.trees.type = stainless.trees
-        val t: trees.type = trees
-      }
-    }
-
-    val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
-    val timeout = ctx.options.findOption(inox.optTimeout) match {
-      case Some(to) => to / 100
-      case None => 2.5.seconds
-    }
-
-    val allOptions = options ++ Seq(
-      inox.solvers.optSilentErrors(true),
-      inox.solvers.optCheckModels(true)
-    )
-
-    solvers.SolverFactory
-      .getFromSettings(p, allOptions)(programEncoder)(p.getSemantics)
-      .withTimeout(timeout)
-  }
-
-  private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    inox.solvers.SimpleSolverAPI(solverFactory(transformer))
-  }
-
-  private object withoutPosts extends inox.ast.SimpleSymbolTransformer {
-    val s: trees.type = trees
-    val t: trees.type = trees
-
-    protected def transformFunction(fd: FunDef): FunDef = {
-      // When using the loop processor, it helps to ignore postconditions in the
-      // current SCC as these will sometimes disallow models otherwise
-      val isLoop = problems.headOption.exists {
-        case (_, idx) => processorArray(idx).isInstanceOf[LoopProcessor]
-      }
-
-      if (isProblem(fd, ignoreSCC = !isLoop) || ignorePosts) {
-        fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
-      } else {
-        fd
-      }
-    }
-
-    protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
-  }
-
-  private var transformers: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type } = withoutPosts
-
-  private[termination] def registerTransformer(
-    transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }
-  ): Unit = transformers = transformers andThen transformer
-
-  def solveVALID(e: Expr) = solverAPI(transformers).solveVALID(e)
-  def solveVALID(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    solverAPI(transformers andThen t).solveVALID(e)
-  }
-
-  def solveSAT(e: Expr) = solverAPI(transformers).solveSAT(e)
-  def solveSAT(e: Expr, t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
-    solverAPI(transformers andThen t).solveSAT(e)
-  }
 
   private lazy val processorArray: Array[Processor { val checker: self.type }] = {
     assert(processors.nonEmpty)
@@ -171,9 +90,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   private val unsolved     : MutableSet[Problem] = MutableSet.empty
   private val dependencies : MutableSet[Problem] = MutableSet.empty
 
-  def isProblem(fd: FunDef, ignoreSCC: Boolean = false): Boolean = {
+  def isProblem(fd: FunDef): Boolean = {
     lazy val callees = transitiveCallees(fd)
-    lazy val problemDefs = (if (ignoreSCC) problems.drop(1) else problems).flatMap(_._1.funDefs).toSet
+    lazy val problemDefs = problems.flatMap(_._1.funDefs).toSet
     unsolved.exists(_.contains(fd)) ||
     dependencies.exists(_.contains(fd)) || 
     unsolved.exists(_.funDefs exists callees) ||

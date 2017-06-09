@@ -578,6 +578,7 @@ object List {
   @library
   def range(start: BigInt, until: BigInt): List[BigInt] = {
     require(start <= until)
+    decreases(until - start)
     if(until <= start) Nil[BigInt]() else Cons(start, range(start + 1, until))
   } ensuring{(res: List[BigInt]) => res.size == until - start }
   
@@ -620,12 +621,12 @@ object ListOps {
       case Nil() => Cons(v, Nil())
       case Cons(h, t) =>
         if (v <= h) {
-          Cons(v, t)
+          Cons(v, ls)
         } else {
           Cons(h, sortedIns(t, v))
         }
     }
-  } ensuring { isSorted _ }
+  } ensuring { res => isSorted(res) && res.content == ls.content + v }
 
   def toMap[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()){
     case (current, (k, v)) => current ++ Map(k -> v)

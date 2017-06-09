@@ -4,6 +4,8 @@ package stainless
 package extraction
 package imperative
 
+import inox.utils.Position
+
 trait Trees extends innerfuns.Trees { self =>
 
   /* XLang imperative trees to desugar */
@@ -63,6 +65,28 @@ trait Trees extends innerfuns.Trees { self =>
     protected def computeType(implicit s: Symbols): Type = e.getType
   }
 
+  /** Check all types are equal to [[expected]]. */
+  private def all(expected: Type, rest: Seq[Type]): Boolean = rest.nonEmpty && (rest forall { _ == expected })
+
+  /** Return [[expected]] if all the given typed object have the [[expected]] type. */
+  private def expect(expected: Type, rest: Typed*)(implicit s: Symbols): Type =
+    if (all(expected, rest map { _.getType })) expected
+    else Untyped
+
+  /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
+  case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
+
+  /** $encodingof `a | b` for Boolean; desuggared to { val l = lhs; val r = rhs; l || r } when removing imperative style. */
+  case class BoolBitwiseOr(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
+
+  /** $encodingof `a ^ b` for Boolean; desuggared to { val l = lhs; val r = rhs; l != r } when removing imperative style. */
+  case class BoolBitwiseXor(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+  }
 
   object VarDef {
     def apply(id: Identifier, tpe: Type, flags: Set[Flag]): ValDef = ValDef(id, tpe, flags + IsVar)
@@ -74,17 +98,17 @@ trait Trees extends innerfuns.Trees { self =>
 
   override implicit def convertToVal = new VariableConverter[ValDef] {
     def convert(vs: VariableSymbol): ValDef = vs match {
-      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags - IsVar)
+      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags - IsVar).copiedFrom(vs)
       case vd: ValDef => vd
-      case _ => ValDef(vs.id, vs.tpe, Set.empty)
+      case _ => ValDef(vs.id, vs.tpe, Set.empty).copiedFrom(vs)
     }
   }
 
   implicit class VariableSymbolToVar(vs: VariableSymbol) {
     def toVar: ValDef = vs match {
       case vd: ValDef if vd.flags contains IsVar => vd
-      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags + IsVar)
-      case _ => ValDef(vs.id, vs.tpe, Set(IsVar))
+      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags + IsVar).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, Set(IsVar)).copiedFrom(vs)
     }
   }
 
@@ -142,6 +166,18 @@ trait Printer extends innerfuns.Printer {
     case Old(e) =>
       p"old($e)"
 
+    case BoolBitwiseAnd(lhs, rhs) => optP {
+      p"$lhs & $rhs"
+    }
+
+    case BoolBitwiseOr(lhs, rhs) => optP {
+      p"$lhs | $rhs"
+    }
+
+    case BoolBitwiseXor(lhs, rhs) => optP {
+      p"$lhs ^ $rhs"
+    }
+
     case _ => super.ppBody(tree)
   }
 
@@ -167,6 +203,15 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val t: Trees
 
   override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+    case s.BoolBitwiseAnd(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
+
+    case s.BoolBitwiseOr(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseOr(es(0), es(1)))
+
+    case s.BoolBitwiseXor(lhs, rhs) =>
+      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseXor(es(0), es(1)))
+
     case s.Block(exprs, last) =>
       (Seq(), exprs :+ last, Seq(), (_, es, _) => t.Block(es.init, es.last))
 
@@ -215,7 +260,7 @@ trait ExprOps extends innerfuns.ExprOps {
       Some(newExprs match {
         case Seq() => UnitLiteral()
         case Seq(e) => e
-        case es => Block(es.init, es.last)
+        case es => Block(es.init, es.last).setPos(Position.between(es.head.getPos, es.last.getPos))
       })
     case _ => None
   } (expr)
@@ -235,7 +280,7 @@ trait ExprOps extends innerfuns.ExprOps {
         val Operator(es, recons) = e
         val newEs = es.map(rec)
         if ((es zip newEs) exists (p => p._1 ne p._2)) {
-          recons(newEs)
+          recons(newEs).copiedFrom(e)
         } else {
           e
         }

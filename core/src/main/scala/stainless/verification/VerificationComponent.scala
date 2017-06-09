@@ -76,8 +76,8 @@ object VerificationComponent extends SimpleComponent {
 
     for (id <- toVerify) {
       if (getFunction(id).flags contains "library") {
-        // FIXME: qualified name of `id`
-        ctx.reporter.warning("Forcing verification of " + id + " which was assumed verified")
+        val fullName = id.fullName
+        ctx.reporter.warning(s"Forcing verification of $fullName which was assumed verified")
       }
     }
 

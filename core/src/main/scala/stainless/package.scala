@@ -2,6 +2,8 @@
 
 package object stainless {
 
+  object DebugSectionExtraction extends inox.DebugSection("extraction")
+
   type Program = inox.Program { val trees: ast.Trees }
 
   type StainlessProgram = Program { val trees: stainless.trees.type }
@@ -9,6 +11,13 @@ package object stainless {
   /** Including these aliases here makes default imports more natural. */
   type Identifier = inox.Identifier
   val FreshIdentifier = inox.FreshIdentifier
+
+  implicit class IdentifierFromSymbol(id: Identifier) {
+    def fullName: String = id match {
+      case ast.SymbolIdentifier(name) => name
+      case _ => id.name
+    }
+  }
 
   object trees extends ast.Trees with inox.ast.SimpleSymbols {
     case class Symbols(

@@ -6,6 +6,8 @@ package termination
 import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
+object optIgnorePosts extends inox.FlagOptionDef("ignoreposts", false)
+
 trait Strengthener { self: OrderingRelation =>
 
   val checker: ProcessingPipeline
@@ -17,16 +19,17 @@ trait Strengthener { self: OrderingRelation =>
 
   private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
 
+  private lazy val ignorePosts = ctx.options.findOptionOrDefault(optIgnorePosts)
+
   private object postStrengthener extends IdentitySymbolTransformer {
-    // we can shortcut some transformations as we know `transformer` is the identity
     override def transform(syms: Symbols): Symbols =
-      super.transform(syms).withFunctions(strengthenedPost.flatMap {
+      syms.withFunctions(strengthenedPost.flatMap {
         case (fd, post @ Some(_)) => Some(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post)))
         case _ => None
       }.toSeq)
   }
 
-  checker.registerTransformer(postStrengthener)
+  registerTransformer(postStrengthener)
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
     ctx.reporter.debug("- Strengthening postconditions")
@@ -62,9 +65,11 @@ trait Strengthener { self: OrderingRelation =>
           }
         }
 
+        val api = getAPI(strengthener)
+
         // @nv: one must also check that variablesOf(formula) is non-empty as
         //      we may proceed to invalid strenghtening otherwise
-        if (exprOps.variablesOf(formula).nonEmpty && solveVALID(formula, strengthener).contains(true)) {
+        if (exprOps.variablesOf(formula).nonEmpty && api.solveVALID(formula).contains(true)) {
           strengthenedPost(fd) = Some(postcondition)
           true
         } else {
@@ -75,10 +80,14 @@ trait Strengthener { self: OrderingRelation =>
       // test if size is smaller or equal to input
       val weakConstraintHolds = strengthen(self.lessEquals)
 
-      if (weakConstraintHolds) {
+      val strongConstraintHolds = if (weakConstraintHolds) {
         // try to improve postcondition with strictly smaller
         strengthen(self.lessThan)
+      } else {
+        false
       }
+
+      if (weakConstraintHolds || strongConstraintHolds) clearSolvers()
     }
   }
 
@@ -105,6 +114,8 @@ trait Strengthener { self: OrderingRelation =>
   def strengthenApplications(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
     ctx.reporter.debug("- Strengthening applications")
 
+    val api = getAPI
+
     val transitiveFunDefs = funDefs ++ funDefs.flatMap(transitiveCallees)
     val sortedFunDefs = transitiveFunDefs.toSeq.sorted
 
@@ -127,8 +138,8 @@ trait Strengthener { self: OrderingRelation =>
       val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip)
 
       val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
-        if (solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
-          if (solveVALID(andJoin(strongFormulas.toSeq)).contains(true)) {
+        if (api.solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
+          if (api.solveVALID(andJoin(strongFormulas.toSeq)).contains(true)) {
             StrongDecreasing
           } else {
             WeakDecreasing
@@ -169,14 +180,14 @@ trait Strengthener { self: OrderingRelation =>
               case (_, None) => NoConstraint
               case (NoConstraint, _) => NoConstraint
               case (StrongDecreasing | WeakDecreasing, Some(StrongDecreasing)) =>
-                if (solveVALID(weakFormula).contains(true)) StrongDecreasing
+                if (api.solveVALID(weakFormula).contains(true)) StrongDecreasing
                 else NoConstraint
               case (StrongDecreasing, Some(WeakDecreasing)) =>
-                if (solveVALID(strongFormula).contains(true)) StrongDecreasing
-                else if (solveVALID(weakFormula).contains(true)) WeakDecreasing
+                if (api.solveVALID(strongFormula).contains(true)) StrongDecreasing
+                else if (api.solveVALID(weakFormula).contains(true)) WeakDecreasing
                 else NoConstraint
               case (WeakDecreasing, Some(WeakDecreasing)) =>
-                if (solveVALID(weakFormula).contains(true)) WeakDecreasing
+                if (api.solveVALID(weakFormula).contains(true)) WeakDecreasing
                 else NoConstraint
             }
         }

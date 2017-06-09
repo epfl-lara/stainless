@@ -5,8 +5,6 @@ package termination
 
 object DebugSectionTermination extends inox.DebugSection("termination")
 
-object optIgnorePosts extends inox.FlagOptionDef("ignoreposts", false)
-
 trait TerminationChecker {
   val program: Program { val trees: Trees }
   val options: inox.Options
@@ -60,6 +58,7 @@ object TerminationChecker {
     object integerOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with SumOrdering
       with StructuralSize
       with Strengthener
@@ -69,6 +68,7 @@ object TerminationChecker {
     object lexicographicOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with LexicographicOrdering
       with StructuralSize
       with Strengthener
@@ -77,6 +77,7 @@ object TerminationChecker {
     object bvOrdering extends {
       val checker: self.type = self
       val cfa: self.cfa.type = self.cfa
+      val encoder: self.encoder.type = self.encoder
     } with BVOrdering
       with StructuralSize
       with Strengthener
@@ -93,7 +94,7 @@ object TerminationChecker {
 
     object decreasesProcessor extends {
       val checker: self.type = self
-      val builder: integerOrdering.type = integerOrdering
+      val ordering: integerOrdering.type = integerOrdering
     } with DecreasesProcessor
 
     object integerProcessor extends {

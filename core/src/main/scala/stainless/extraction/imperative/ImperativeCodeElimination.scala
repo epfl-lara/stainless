@@ -34,6 +34,34 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
     def toFunction(expr: Expr)(implicit state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
       import state._
       expr match {
+        // Desugar Boolean bitwise operations &, | and ^; not actually tided to the overall transformation.
+        case BoolBitwiseAnd(lhs, rhs) =>
+          val l = ValDef(FreshIdentifier("lhs"), lhs.getType).copiedFrom(lhs)
+          val r = ValDef(FreshIdentifier("rhs"), rhs.getType).copiedFrom(rhs)
+          toFunction(
+            Let(l, lhs,
+              Let(r, rhs,
+                And(l.toVariable, r.toVariable)))
+          )
+
+        case BoolBitwiseOr(lhs, rhs) =>
+          val l = ValDef(FreshIdentifier("lhs"), lhs.getType).copiedFrom(lhs)
+          val r = ValDef(FreshIdentifier("rhs"), rhs.getType).copiedFrom(rhs)
+          toFunction(
+            Let(l, lhs,
+              Let(r, rhs,
+                Or(l.toVariable, r.toVariable)))
+          )
+
+        case BoolBitwiseXor(lhs, rhs) =>
+          val l = ValDef(FreshIdentifier("lhs"), lhs.getType).copiedFrom(lhs)
+          val r = ValDef(FreshIdentifier("rhs"), rhs.getType).copiedFrom(rhs)
+          toFunction(
+            Let(l, lhs,
+              Let(r, rhs,
+                Not(Equals(l.toVariable, r.toVariable))))
+          )
+
         case LetVar(vd, e, b) =>
           val newVd = vd.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
@@ -147,9 +175,9 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
             val (rVal, rScope, rFun) = toFunction(e)
             val scope = (body: Expr) => rVal match {
               case fi: FunctionInvocation =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), fi.tfd.returnType, Set.empty), rVal, accScope(body))))
+                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), fi.tfd.returnType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case alr: ApplyLetRec =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), alr.getType, Set.empty), rVal, accScope(body))))
+                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), alr.getType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case _ =>
                 rScope(replaceFromSymbols(rFun, accScope(body)))
             }

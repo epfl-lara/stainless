@@ -4,12 +4,21 @@ package stainless
 package extraction
 package oo
 
+import inox.utils.{NoPosition, Position}
+
 trait MethodLifting extends inox.ast.SymbolTransformer { self =>
   val s: Trees
   val t: Trees
 
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._
+
+    for (fd <- symbols.functions.values) {
+      import symbols._
+      if (!isSubtypeOf(fd.fullBody.getType, fd.returnType)) {
+        println(explainTyping(fd.fullBody)(PrinterOptions()))
+      }
+    }
 
     val children: Map[Identifier, Set[Identifier]] =
       symbols.classes.values
@@ -71,14 +80,20 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
           case ((symbols, mapping), (cd, sym, o: FunOverride)) =>
             val fs = funs(o).toList
             val optInv = fs.filter(p => symbols.getFunction(p._1).flags contains IsInvariant) match {
-              case ((id, _)) :: rest if o.fid.isEmpty => Some(new FunDef(
-                id.freshen,
-                Seq.empty,
-                Seq.empty,
-                BooleanType,
-                BooleanLiteral(true),
-                Set(IsInvariant, IsMethodOf(cd.id))
-              ))
+              case ((id, FunOverride(_, optFid, _))) :: rest if o.fid.isEmpty =>
+                val pos = optFid match {
+                  case Some(fid) => symbols.getFunction(fid).getPos
+                  case None => NoPosition
+                }
+                val fd = new FunDef(
+                  id.freshen,
+                  Seq.empty,
+                  Seq.empty,
+                  BooleanType,
+                  BooleanLiteral(true),
+                  Set(IsInvariant, IsMethodOf(cd.id))
+                ).setPos(pos)
+                Some(fd)
 
               case x :: xs => Some(symbols.getFunction(o.fid.get))
               case _ => None
@@ -107,7 +122,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       override def transform(e: s.Expr): t.Expr = e match {
         case s.MethodInvocation(rec, id, tps, args) =>
           val s.ClassType(_, ctps) = rec.getType(newSymbols)
-          t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform)
+          t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
 
         case _ => super.transform(e)
       }
@@ -121,8 +136,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       val tpSeq = newSymbols.freshenTypeParams(cd.typeArgs)
       val tpMap = (cd.typeArgs zip tpSeq).toMap
 
-      val tcd = s.ClassType(cid, tpSeq).tcd(newSymbols)
-      val arg = t.ValDef(FreshIdentifier("thiss"), default.transform(tcd.toType))
+      val tcd = s.ClassType(cid, tpSeq).tcd(newSymbols).copiedFrom(cd)
+      val arg = t.ValDef(FreshIdentifier("thiss"), default.transform(tcd.toType)).copiedFrom(tcd)
 
       object transformer extends BaseTransformer {
         override def transform(e: s.Expr): t.Expr = e match {
@@ -139,14 +154,14 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       val subCalls = (for (co <- cos.toSeq) yield {
         firstOverrides(co).toSeq.map { case (cid, either) =>
           val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
-          val thiss = t.AsInstanceOf(arg.toVariable, descType)
-          (t.IsInstanceOf(arg.toVariable, descType), either match {
+          val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
+          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), either match {
             case Left(nfd) => t.FunctionInvocation(
               nfd.id,
               descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
               thiss +: fd.params.map(vd => transformer.transform(vd.toVariable))
-            )
-            case Right(vd) => t.ClassSelector(thiss, vd.id)
+            ).copiedFrom(fd)
+            case Right(vd) => t.ClassSelector(thiss, vd.id).copiedFrom(fd)
           })
         }
       }).flatten
@@ -169,7 +184,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       val (conds, elze) = if (subCalls.isEmpty || notFullyOverriden) {
         val elze = fd.body(newSymbols) match {
           case Some(body) => transformer.transform(body)
-          case None => t.NoTree(returnType)
+          case None => t.NoTree(returnType).copiedFrom(fd.fullBody)
         }
         (subCalls, elze)
       } else {
@@ -178,7 +193,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
 
       val precondition = exprOps.preconditionOf(fd.fullBody).map(transformer.transform)
-      val body = conds.foldRight(elze) { case ((cond, res), elze) => t.IfExpr(cond, res, elze) }
+      val body = conds.foldRight(elze) { case ((cond, res), elze) => t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos)) }
       val postcondition = exprOps.postconditionOf(fd.fullBody).map(transformer.transform)
       val fullBody = t.exprOps.withPostcondition(
         t.exprOps.withPrecondition(body, precondition),
@@ -192,7 +207,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         returnType,
         fullBody,
         (fd.flags - IsMethodOf(cid) - IsInvariant - IsAbstract) map transformer.transform
-      )
+      ).copiedFrom(fd)
     }
 
     val functions: Seq[t.FunDef] = newSymbols.functions.values

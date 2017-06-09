@@ -12,18 +12,25 @@ import core.Symbols._
 import core.Types._
 import core.Flags._
 
+import scala.collection.mutable.{ Map => MutableMap }
+
 trait ASTExtractors {
 
   protected implicit val ctx: Context
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
+  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Map[String, Seq[tpd.Tree]] = {
+    (for {
+      a <- sym.annotations ++ (if (!ignoreOwner) sym.owner.annotations else Set.empty)
+      name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
+      if name startsWith "stainless.annotation."
+      shortName = name drop "stainless.annotation.".length
+    } yield (shortName, a.arguments)).toMap
+  }
+
   // Well-known symbols that we match on
 
-  protected lazy val tuple2Sym    = classFromName("scala.Tuple2")
-  protected lazy val tuple3Sym    = classFromName("scala.Tuple3")
-  protected lazy val tuple4Sym    = classFromName("scala.Tuple4")
-  protected lazy val tuple5Sym    = classFromName("scala.Tuple5")
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val setSym       = classFromName("stainless.lang.Set")
@@ -51,21 +58,21 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple2(sym: Symbol) : Boolean = sym == tuple2Sym
-  def isTuple3(sym: Symbol) : Boolean = sym == tuple3Sym
-  def isTuple4(sym: Symbol) : Boolean = sym == tuple4Sym
-  def isTuple5(sym: Symbol) : Boolean = sym == tuple5Sym
+  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
 
   object TupleSymbol {
-    private val tupleSyms = Seq(tuple2Sym, tuple3Sym, tuple4Sym, tuple5Sym)
-    def unapply(sym: Symbol): Option[Int] = {
-      val idx = tupleSyms.indexOf(sym)
-      if (idx >= 0) {
-        Some(idx + 2)
-      } else {
-        None
+    // It is particularly time expensive so we cache this.
+    private val cache = MutableMap[Symbol, Option[Int]]()
+    private val cardinality = """Tuple(\d{1,2})""".r
+    def unapply(sym: Symbol): Option[Int] = cache.getOrElseUpdate(sym, {
+      // First, extract a guess about the cardinality of the Tuple.
+      // Then, confirm that this is indeed a regular Tuple.
+      val name = sym.originalName.toString
+      name match {
+        case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
+        case _ => None
       }
-    }
+    })
 
     def unapply(tpe: Type): Option[Int] = tpe.classSymbols.collectFirst { case TupleSymbol(i) => i }
 
@@ -205,9 +212,30 @@ trait ASTExtractors {
       }
     }
 
+    object ExInt8Literal {
+      def unapply(tree: tpd.Literal): Option[Byte] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.ByteClass => Some(c.byteValue)
+        case _ => None
+      }
+    }
+
+    object ExInt16Literal {
+      def unapply(tree: tpd.Literal): Option[Short] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.ShortClass => Some(c.shortValue)
+        case _ => None
+      }
+    }
+
     object ExInt32Literal {
       def unapply(tree: tpd.Literal): Option[Int] = tree match {
         case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.IntClass => Some(c.intValue)
+        case _ => None
+      }
+    }
+
+    object ExInt64Literal {
+      def unapply(tree: tpd.Literal): Option[Long] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe.classSymbol == defn.LongClass => Some(c.longValue)
         case _ => None
       }
     }
@@ -264,6 +292,39 @@ trait ASTExtractors {
       }
     }
 
+    // Dotc seems slightly less consistent than scalac: it uses to format for
+    // casts. Like scalac, it uses Select for `.toByte`, but it also uses
+    // Apply("byte2int", arg) for implicit conversions (and perhaps for other
+    // conversions as well).
+    object ExCastCall {
+      // Returns: (arg, from, to)
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, Type, Type)] = tree match {
+        case Apply(Ident(name), List(arg)) =>
+          val tmp: Option[(Symbol, Symbol)] = name.toString match {
+            case "byte2short" => Some(defn.ByteClass, defn.ShortClass)
+            case "byte2int"   => Some(defn.ByteClass, defn.IntClass)
+            case "byte2long"  => Some(defn.ByteClass, defn.LongClass)
+
+            case "short2byte" => Some(defn.ShortClass, defn.ByteClass)
+            case "short2int"  => Some(defn.ShortClass, defn.IntClass)
+            case "short2long" => Some(defn.ShortClass, defn.LongClass)
+
+            case "int2byte"   => Some(defn.IntClass, defn.ByteClass)
+            case "int2short"  => Some(defn.IntClass, defn.ShortClass)
+            case "int2long"   => Some(defn.IntClass, defn.LongClass)
+
+            case "long2byte"  => Some(defn.LongClass, defn.ByteClass)
+            case "long2short" => Some(defn.LongClass, defn.ShortClass)
+            case "long2int"   => Some(defn.LongClass, defn.IntClass)
+
+            case _ => None
+          }
+
+          tmp map { case (from, to) => (arg, from.info, to.info) }
+        case _ => None
+      }
+    }
+
     object ExCall {
       def unapply(tree: tpd.Tree): Option[(Option[tpd.Tree], Symbol, Seq[tpd.Tree], Seq[tpd.Tree])] = {
         val optCall = tree match {
@@ -287,6 +348,9 @@ trait ASTExtractors {
         case Apply(Select(New(tpt), CONSTRUCTOR), args) =>
           Some((tpt.tpe, args))
 
+        case Apply(TypeApply(Select(New(tpt), CONSTRUCTOR), _), args) =>
+          Some((tree.tpe, args))
+
         case Apply(e, args) if (
           (e.symbol.owner is Module) &&
           (e.symbol is Synthetic) &&
@@ -306,11 +370,11 @@ trait ASTExtractors {
 
     object ExTuple {
       def unapply(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
-        case Apply(Select(New(TupleSymbol(i)), nme.CONSTRUCTOR), args) if args.size == i =>
+        case Apply(Select(New(tupleType), nme.CONSTRUCTOR), args) if isTuple(tupleType.symbol, args.size) =>
           Some(args)
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
-          ExNamed("$minus$greater")
+          ExNamed("->") | ExNamed("$minus$greater")
         ), Seq(_)), Seq(to)) => Some(Seq(from, to))
         case _ => None
       }
@@ -358,12 +422,21 @@ trait ASTExtractors {
 
     object ExFunctionDef {
       def unapply(dd: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, rhs) if (
-          name != nme.CONSTRUCTOR &&
-          !dd.symbol.is(Accessor) &&
-          !dd.symbol.is(Synthetic) &&
-          !dd.symbol.is(Label)
-        ) => Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
+        case DefDef(name, tparams, vparamss, tpt, rhs) =>
+          if ((
+            name != nme.CONSTRUCTOR &&
+            !dd.symbol.is(Accessor) &&
+            !dd.symbol.is(Synthetic) &&
+            !dd.symbol.is(Label)
+          ) || (
+            (dd.symbol is Synthetic) &&
+            (dd.symbol is Implicit) &&
+            !(getAnnotations(tpt.symbol) contains "ignore")
+          )) {
+            Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
+          } else {
+            None
+          }
 
         case _ => None
       }
@@ -522,6 +595,16 @@ trait ASTExtractors {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "old"), Seq(_)), Seq(arg)) => Some(arg)
         case _ => None
       }
+    }
+  }
+
+  object ExIdentity {
+    def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+      case Apply(TypeApply(ExSymbol("scala", "Predef$", "identity"), Seq(_)), Seq(body)) =>
+        Some(body)
+      case Apply(TypeApply(ExSymbol("scala", "Predef$", "locally"), Seq(_)), Seq(body)) =>
+        Some(body)
+      case _ => None
     }
   }
 

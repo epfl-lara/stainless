@@ -87,6 +87,7 @@ trait InoxEncoder extends ProgramEncoder {
     val s: InoxEncoder.this.s.type = InoxEncoder.this.s
     val t: InoxEncoder.this.t.type = InoxEncoder.this.t
 
+    import s._
     import sourceProgram._
     import sourceProgram.symbols._
 
@@ -110,75 +111,81 @@ trait InoxEncoder extends ProgramEncoder {
         transform(body)
 
       case s.Ensuring(s.Require(pred, body), s.Lambda(Seq(res), post)) =>
-        val vd = t.ValDef(res.id, transform(res.tpe), Set.empty)
-        t.Assume(transform(pred),
-          t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable)))
+        val vd = transform(res)
+        t.Assume(
+          transform(pred),
+          t.Let(vd, transform(body),
+            t.Assume(transform(post), vd.toVariable).copiedFrom(e)).copiedFrom(e)
+        ).copiedFrom(e)
 
       case s.Ensuring(body, s.Lambda(Seq(res), post)) =>
-        val vd = t.ValDef(res.id, transform(res.tpe), Set.empty)
-        t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable))
+        val vd = transform(res)
+        t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable).copiedFrom(e)).copiedFrom(e)
 
       case s.Assert(pred, error, body) =>
-        t.Assume(transform(pred), transform(body))
+        t.Assume(transform(pred), transform(body)).copiedFrom(e)
 
       case s.FiniteArray(elems, base) =>
-        t.ADT(t.ADTType(arrayID, Seq(transform(base))), Seq(
+        t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(
-            elems.zipWithIndex.map { case (e, i) => t.IntLiteral(i) -> transform(e) },
-            transform(simplestValue(base)),
+            elems.zipWithIndex.map { case (e, i) => t.Int32Literal(i).copiedFrom(e) -> transform(e) },
+            transform(simplestValue(base).copiedFrom(e)),
             t.Int32Type,
             transform(base)),
-          t.IntLiteral(elems.size)
+          t.Int32Literal(elems.size).copiedFrom(e)
         ))
 
       case s.LargeArray(elems, dflt, size, base) =>
-        t.ADT(t.ADTType(arrayID, Seq(transform(base))), Seq(
+        t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(
-            elems.toSeq.map(p => t.IntLiteral(p._1) -> transform(p._2)),
+            elems.toSeq.map(p => t.Int32Literal(p._1).copiedFrom(e) -> transform(p._2)),
             transform(dflt),
             t.Int32Type,
             transform(base)),
           transform(size)
-        ))
+        )).copiedFrom(e)
 
       case s.ArraySelect(array, index) =>
-        t.MapApply(t.ADTSelector(transform(array), arr), transform(index))
+        t.MapApply(t.ADTSelector(transform(array), arr).copiedFrom(e), transform(index)).copiedFrom(e)
 
       case s.ArrayUpdated(array, index, value) =>
         val na = transform(array)
         t.ADT(transform(array.getType).asInstanceOf[t.ADTType], Seq(
-          t.MapUpdated(t.ADTSelector(na, arr), transform(index), transform(value)),
-          t.ADTSelector(na, size)
-        ))
+          t.MapUpdated(t.ADTSelector(na, arr).copiedFrom(e), transform(index), transform(value)).copiedFrom(e),
+          t.ADTSelector(na, size).copiedFrom(e)
+        )).copiedFrom(e)
 
       case s.ArrayLength(array) =>
-        t.ADTSelector(transform(array), size)
+        t.ADTSelector(transform(array), size).copiedFrom(e)
 
       case s.Application(caller, args) =>
         val s.FunctionType(from, to) = caller.getType
-        t.Application(t.ADTSelector(transform(caller), fs(from.size)), args map transform)
+        t.Application(t.ADTSelector(transform(caller), fs(from.size)).copiedFrom(e), args map transform).copiedFrom(e)
 
       case s.Pre(f) =>
         val s.FunctionType(from, to) = f.getType
         val tfrom = from map transform
-        t.ADT(t.ADTType(funIDs(from.size), tfrom :+ t.BooleanType), Seq(
-          t.ADTSelector(transform(f), pres(from.size)),
-          t.Lambda(tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe, Set.empty)), t.BooleanLiteral(true))
-        ))
+        t.ADT(t.ADTType(funIDs(from.size), tfrom :+ t.BooleanType).copiedFrom(e), Seq(
+          t.ADTSelector(transform(f), pres(from.size)).copiedFrom(e),
+          t.Lambda(
+            tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe, Set.empty).copiedFrom(tpe)),
+            t.BooleanLiteral(true).copiedFrom(e)
+          ).copiedFrom(e)
+        )).copiedFrom(e)
 
       case s.Lambda(args, body) =>
         val fArgs = args map transform
         val preArgs = args.map(vd => transform(vd.freshen))
 
-        t.ADT(t.ADTType(funIDs(args.size), fArgs.map(_.tpe) :+ transform(body.getType)), Seq(
+        t.ADT(t.ADTType(funIDs(args.size), fArgs.map(_.tpe) :+ transform(body.getType)).copiedFrom(e), Seq(
           body match {
-            case s.Require(pred, body) => t.Lambda(args map transform, transform(body))
+            case s.Require(pred, body) => t.Lambda(args map transform, transform(body)).copiedFrom(body)
             case _ => super.transform(e)
           },
           t.Lambda(preArgs, t.exprOps.replaceFromSymbols(
             (fArgs.map(_.toVariable) zip preArgs.map(_.toVariable)).toMap,
             transform(weakestPrecondition(body))
-          ))
+          )).copiedFrom(e)
         ))
 
       case _ => super.transform(e)
@@ -186,9 +193,9 @@ trait InoxEncoder extends ProgramEncoder {
 
     override def transform(tpe: s.Type): t.Type = tpe match {
       case s.ArrayType(base) =>
-        t.ADTType(arrayID, Seq(transform(base)))
+        t.ADTType(arrayID, Seq(transform(base))).copiedFrom(tpe)
       case s.FunctionType(from, to) =>
-        t.ADTType(funIDs(from.size), from.map(transform) :+ transform(to))
+        t.ADTType(funIDs(from.size), from.map(transform) :+ transform(to)).copiedFrom(tpe)
       case _ => super.transform(tpe)
     }
 
@@ -206,28 +213,28 @@ trait InoxEncoder extends ProgramEncoder {
       * the Inox solver, so we can assume that the array adts have the
       * shape:
       * {{{
-      *    Array(FiniteMap(pairs, _, _), IntLiteral(size))
+      *    Array(FiniteMap(pairs, _, _), Int32Literal(size))
       * }}}
-      * where all keys in {{{pairs}}} are IntLiterals. This assumption also
+      * where all keys in {{{pairs}}} are Int32Literals. This assumption also
       * holds on the output of [[SymbolsEncoder#TreeEncoder.transform(Expr)]].
       */
     override def transform(e: s.Expr): t.Expr = e match {
       case s.ADT(
         s.ADTType(`arrayID`, Seq(base)),
-        Seq(s.FiniteMap(elems, dflt, _, _), s.IntLiteral(size))
+        Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
       ) if size <= 10 =>
         val elemsMap = elems.toMap
         t.FiniteArray((0 until size).toSeq.map {
-          i => transform(elemsMap.getOrElse(s.IntLiteral(i), dflt))
-        }, transform(base))
+          i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
+        }, transform(base)).copiedFrom(e)
 
       case s.ADT(s.ADTType(`arrayID`, Seq(base)), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
         t.LargeArray(
-          elems.map { case (s.IntLiteral(i), e) => i -> transform(e) }.toMap,
+          elems.map { case (s.Int32Literal(i), e) => i -> transform(e) }.toMap,
           transform(dflt),
           transform(size),
           transform(base)
-        )
+        ).copiedFrom(e)
 
       case s.ADT(s.ADTType(id, from :+ to), Seq(f, pre)) if funIDs.get(from.size) == Some(id) =>
         val s.Lambda(preArgs, preBody) = pre
@@ -248,17 +255,17 @@ trait InoxEncoder extends ProgramEncoder {
           val (fArgs, fBody) = f match {
             case s.Lambda(fArgs, fBody) => (fArgs, fBody)
             case _ => // could be a choose!
-              val fArgs = from.map(tpe => s.ValDef(FreshIdentifier("x", true), tpe))
-              val fBody = s.Application(f, fArgs.map(_.toVariable))
+              val fArgs = from.map(tpe => s.ValDef(FreshIdentifier("x", true), tpe).copiedFrom(tpe))
+              val fBody = s.Application(f, fArgs.map(_.toVariable)).copiedFrom(f)
               (fArgs, fBody)
           }
 
           val newPre = transform(s.exprOps.replaceFromSymbols(
             (preArgs.map(_.toVariable) zip fArgs.map(_.toVariable)).toMap,
             preBody
-          ))
+          ).copiedFrom(preBody))
 
-          t.Lambda(fArgs map transform, t.Require(newPre, transform(fBody)))
+          t.Lambda(fArgs map transform, t.Require(newPre, transform(fBody)).copiedFrom(pre)).copiedFrom(e)
         }
 
       case _ => super.transform(e)
@@ -266,9 +273,9 @@ trait InoxEncoder extends ProgramEncoder {
 
     override def transform(tpe: s.Type): t.Type = tpe match {
       case s.ADTType(`arrayID`, Seq(base)) =>
-        t.ArrayType(transform(base))
+        t.ArrayType(transform(base)).copiedFrom(tpe)
       case s.ADTType(id, from :+ to) if funIDs.get(from.size) == Some(id) =>
-        t.FunctionType(from map transform, transform(to))
+        t.FunctionType(from map transform, transform(to)).copiedFrom(tpe)
       case _ => super.transform(tpe)
     }
   }

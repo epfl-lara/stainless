@@ -25,8 +25,12 @@ trait ChainProcessor extends OrderingProcessor {
     }))
 
   def run(problem: Problem) = {
+    val timer = program.ctx.timers.termination.processors.chains.start()
+
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)
+
+    val api = getAPI
 
     reporter.debug("- Running ChainBuilder")
     val chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map {
@@ -35,14 +39,14 @@ trait ChainProcessor extends OrderingProcessor {
 
     val chainConstraints: Map[Chain, SizeConstraint] = {
       val relationConstraints: MutableMap[Relation, SizeConstraint] = MutableMap.empty
-      
+
       chainsMap.flatMap { case (_, (_, chains)) =>
         chains.map(chain => chain -> {
           val constraints = chain.relations.map(relation => relationConstraints.getOrElse(relation, {
             val Relation(funDef, path, FunctionInvocation(_, _, args), _) = relation
             val args0 = funDef.params.map(_.toVariable)
-            val constraint = if (solveVALID(path implies ordering.lessEquals(args, args0)).contains(true)) {
-              if (solveVALID(path implies ordering.lessThan(args, args0)).contains(true)) {
+            val constraint = if (api.solveVALID(path implies ordering.lessEquals(args, args0)).contains(true)) {
+              if (api.solveVALID(path implies ordering.lessThan(args, args0)).contains(true)) {
                 StrongDecreasing
               } else {
                 WeakDecreasing
@@ -75,6 +79,7 @@ trait ChainProcessor extends OrderingProcessor {
 
     if (loopPoints.size > 1) {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
+      timer.stop()
       None
     } else {
       val funDefs = if (loopPoints.nonEmpty) {
@@ -99,7 +104,7 @@ trait ChainProcessor extends OrderingProcessor {
           val e2 = tupleWrap(funDef.params.map(_.toVariable))
 
           val formulas = lessThan(e1s, e2)
-          if (cleared || formulas.exists(f => solveVALID(f).contains(true))) {
+          if (cleared || formulas.exists(f => api.solveVALID(f).contains(true))) {
             Set.empty
           } else {
             cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
@@ -109,11 +114,14 @@ trait ChainProcessor extends OrderingProcessor {
         cleared = remaining.isEmpty
       }
 
-      if (cleared) {
+      val res = if (cleared) {
         Some(problem.funDefs map Cleared)
       } else {
         None
       }
+
+      timer.stop()
+      res
     }
   }
 }

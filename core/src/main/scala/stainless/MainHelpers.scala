@@ -29,7 +29,8 @@ trait MainHelpers extends inox.MainHelpers {
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    termination.optIgnorePosts -> Description(Termination, "Ignore postconditions during termination checking")
+    extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
+    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
@@ -39,7 +40,8 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
-    termination.DebugSectionTermination
+    termination.DebugSectionTermination,
+    DebugSectionExtraction
   )
 
   override protected def displayVersion(reporter: inox.Reporter) = {
@@ -55,11 +57,18 @@ trait MainHelpers extends inox.MainHelpers {
     Program { val trees: xt.type }
   )
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = try {
     val inoxCtx = setup(args)
     val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
 
     val (structure, program) = extractFromSource(inoxCtx, compilerArgs)
+    try {
+      program.symbols.ensureWellFormed
+    } catch {
+      case e: program.symbols.TypeErrorException =>
+        inoxCtx.reporter.error(e.pos, e.getMessage)
+        inoxCtx.reporter.fatalError(s"The extracted program in not well typed.")
+    }
 
     val activeComponents = components.filter { c =>
       inoxCtx.options.options.collectFirst {
@@ -74,5 +83,11 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     for (c <- toExecute) c(structure, program).emit()
+
+    inoxCtx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
+      inoxCtx.timers.outputTable(debug)
+    }
+  } catch {
+    case _: inox.FatalError => System.exit(1)
   }
 }

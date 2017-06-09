@@ -234,7 +234,14 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
                   case sort: ADTSort => sort.copy(flags = sort.flags + HasADTInvariant(id))
                   case cons: ADTConstructor => cons.copy(flags = cons.flags + HasADTInvariant(id))
                 })
-                newFunctions += new FunDef(id, tparams.map(TypeParameterDef(_)), Seq(thiss), BooleanType, invariant, Set())
+                newFunctions += new FunDef(
+                  id,
+                  tparams.map(TypeParameterDef(_)),
+                  Seq(thiss),
+                  BooleanType,
+                  invariant,
+                  root.flags filter (_.name == "library")
+                )
             }
           }
         }
@@ -438,12 +445,12 @@ trait PreconditionInference extends inox.ast.SymbolTransformer { self =>
       .withADTs(preSyms.adts.values.toSeq)
       .withFunctions(for (fd <- preSyms.functions.values.toSeq) yield {
         // @nv: can't use postMap because of Lambda in Ensuring predicate
-        def injectRequires(e: Expr): Expr = e match {
-          case Lambda(args, Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)))
+        def injectRequires(e: Expr): Expr = (e match {
+          case Lambda(args, r @ Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)).copiedFrom(r))
           case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body), injectRequires(body)))
-          case Ensuring(body, Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)))
+          case Ensuring(body, l @ Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
           case Operator(es, recons) => recons(es.map(injectRequires))
-        }
+        }).copiedFrom(e)
 
         fd.copy(fullBody = injectRequires(fd.fullBody))
       })

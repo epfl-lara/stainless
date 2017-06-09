@@ -29,11 +29,13 @@ trait RecursionProcessor extends Processor {
   }
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) None else {
+    val timer = program.ctx.timers.termination.processors.recursion.start()
+
     val funDef = problem.funDefs.head
     val relations = getRelations(funDef)
     val (recursive, others) = relations.partition { case Relation(fd, _, fi, _) => fd == fi.tfd.fd }
 
-    if (others.exists({ case Relation(_, _, fi, _) => !checker.terminates(fi.tfd.fd).isGuaranteed })) {
+    val res = if (others.exists({ case Relation(_, _, fi, _) => !checker.terminates(fi.tfd.fd).isGuaranteed })) {
       None
     } else if (recursive.isEmpty) {
       Some(Cleared(funDef) :: Nil)
@@ -56,5 +58,8 @@ trait RecursionProcessor extends Processor {
       else
         None
     }
+
+    timer.stop()
+    res
   }
 }

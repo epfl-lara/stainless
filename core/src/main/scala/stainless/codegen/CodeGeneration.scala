@@ -78,7 +78,10 @@ trait CodeGeneration { self: CompilationUnit =>
   lazy val tpsID     = FreshIdentifier("__$tps")
 
   private[codegen] val ObjectClass               = "java/lang/Object"
+  private[codegen] val BoxedByteClass            = "java/lang/Byte"
+  private[codegen] val BoxedShortClass           = "java/lang/Short"
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
+  private[codegen] val BoxedLongClass            = "java/lang/Long"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
   private[codegen] val BoxedCharClass            = "java/lang/Character"
   private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/BoxedArray"
@@ -168,16 +171,25 @@ trait CodeGeneration { self: CompilationUnit =>
     (static.className, idToSafeJVMName(fd.id), sig)
   })
 
-  protected object ValueType {
+  /**
+    * JvmIType is for type that can use (most of) JVM bytecode starting with `i` (e.g. iconst, iload, ireturn, ...)
+    *
+    * Long is not a JvmIType!
+    */
+  protected object JvmIType {
     def unapply(tp: Type): Boolean = tp match {
-      case Int32Type | BooleanType | CharType | UnitType => true
+      case Int8Type | Int16Type | Int32Type | BooleanType | CharType | UnitType => true
       case _ => false
     }
   }
 
   /** Return the respective JVM type from a Stainless type */
   def typeToJVM(tpe: Type) : String = tpe match {
+    case Int8Type  => "B"
+    case Int16Type => "S"
     case Int32Type => "I"
+    case Int64Type => "J"
+    case BVType(_) => "L" + BitVectorClass + ";"
 
     case BooleanType => "Z"
 
@@ -225,7 +237,10 @@ trait CodeGeneration { self: CompilationUnit =>
 
   /** Return the respective boxed JVM type from a Stainless type */
   def typeToJVMBoxed(tpe: Type) : String = tpe match {
+    case Int8Type               => s"L$BoxedByteClass;"
+    case Int16Type              => s"L$BoxedShortClass;"
     case Int32Type              => s"L$BoxedIntClass;"
+    case Int64Type              => s"L$BoxedLongClass;"
     case BooleanType | UnitType => s"L$BoxedBoolClass;"
     case CharType               => s"L$BoxedCharClass;"
     case other                  => typeToJVM(other)
@@ -256,11 +271,26 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val ch = m.codeHandler
 
-    val paramIds = Seq(monitorID) ++ 
-      (if (funDef.tparams.nonEmpty) Seq(tpsID) else Seq.empty) ++
-      funDef.params.map(_.id)
+    val newMapping: Map[Identifier, Int] = {
+      var nextFreeSlot = 0
+      def getSlot(isLong: Boolean) = {
+        val slot = nextFreeSlot
+        nextFreeSlot += (if (isLong) 2 else 1) // Longs take more room!
+        slot
+      }
 
-    val newMapping = paramIds.zipWithIndex.toMap
+      val monitor = monitorID -> getSlot(false)
+      val tpsOpt = if (funDef.tparams.nonEmpty) Some(tpsID -> getSlot(false)) else None
+      val params = funDef.params map { p =>
+        val isLong = p.tpe match {
+          case Int64Type => true
+          case _ => false
+        }
+        p.id -> getSlot(isLong)
+      }
+
+      Seq(monitor) ++ tpsOpt ++ params
+    }.toMap
 
     val body = if (!ignoreContracts) {
       funDef.fullBody
@@ -287,9 +317,10 @@ trait CodeGeneration { self: CompilationUnit =>
     mkExpr(body, ch)(locals)
 
     funDef.returnType match {
-      case ValueType() =>
+      case JvmIType() =>
         ch << IRETURN
-
+      case Int64Type =>
+        ch << LRETURN
       case _ =>
         ch << ARETURN
     }
@@ -378,7 +409,8 @@ trait CodeGeneration { self: CompilationUnit =>
           for ((id, jvmt) <- closures) {
             cch << ALoad(0)
             cch << (jvmt match {
-              case "I" | "Z" => ILoad(c)
+              case "B" | "S" | "I" | "Z" => ILoad(c)
+              case "J" => LLoad(c)
               case _ => ALoad(c)
             })
             cch << PutField(afName, id.uniqueName, jvmt)
@@ -449,7 +481,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
           val notRefEq = ech.getFreshLabel("notrefeq")
           val notEq = ech.getFreshLabel("noteq")
-          val castSlot = ech.getFreshVar
+          val castSlot = ech.getFreshVar(1) // 1 byte for references
 
           // If references are equal, trees are equal.
           ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
@@ -468,8 +500,10 @@ trait CodeGeneration { self: CompilationUnit =>
               ech << ALoad(castSlot) << GetField(afName, v.id.uniqueName, jvmt)
 
               v.tpe match {
-                case ValueType() =>
+                case JvmIType() =>
                   ech << If_ICmpNe(notEq)
+
+                case Int64Type => ???
 
                 case ot =>
                   ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
@@ -584,19 +618,37 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case Let(vd,d,b) =>
       mkExpr(d, ch)
-      val slot = ch.getFreshVar
+      val slot = ch.getFreshVar(typeToJVM(d.getType))
       ch << (vd.tpe match {
-        case ValueType() =>
+        case JvmIType() =>
           if (slot > 127) {
             println("Error while converting one more slot which is too much " + e)
           }
           IStore(slot)
+        case Int64Type => LStore(slot)
         case _ => AStore(slot)
       })
       mkExpr(b, ch)(locals.withVar(vd.id -> slot))
 
-    case IntLiteral(v) =>
+    case Int8Literal(v) =>
       ch << Ldc(v)
+
+    case Int16Literal(v) =>
+      ch << Ldc(v)
+
+    case Int32Literal(v) =>
+      ch << Ldc(v)
+
+    case Int64Literal(v) =>
+      ch << Ldc(v)
+
+    case bi @ BVLiteral(_, size) =>
+      val value = bi.toBigInt.toString
+      ch << Comment("new bv")
+      ch << New(BitVectorClass) << DUP
+      ch << Comment("init bv from string + size: (Ljava/lang/String;I)V")
+      ch << Ldc(value) << Ldc(size)
+      ch << InvokeSpecial(BitVectorClass, constructorName, "(Ljava/lang/String;I)V")
 
     case CharLiteral(v) =>
       ch << Ldc(v)
@@ -606,11 +658,12 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case UnitLiteral() =>
       ch << Ldc(1)
-    
+
     case StringLiteral(v) =>
       ch << Ldc(v)
 
     case IntegerLiteral(v) =>
+      ch << Comment(s"New BigInt(LString;)V")
       ch << New(BigIntClass) << DUP
       ch << Ldc(v.toString)
       ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
@@ -852,184 +905,111 @@ trait CodeGeneration { self: CompilationUnit =>
     case StringLength(a) =>
       mkExpr(a, ch)
       ch << InvokeStatic(StringOpsClass, "length", s"(L$JavaStringClass;)L$BigIntClass;")
-      
+
     case SubString(a, start, end) =>
       mkExpr(a, ch)
       mkExpr(start, ch)
       mkExpr(end, ch)
       ch << InvokeStatic(StringOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
-      
+
     // Arithmetic
-    case Plus(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "add", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IADD
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "add", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "add", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Minus(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "sub", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << ISUB
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "sub", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "sub", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Times(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "mult", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IMUL
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "mult", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "mult", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Division(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "div", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IDIV
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "div", s"(L$BitVectorClass;)L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "div", s"(L$RationalClass;)L$RationalClass;")
-      }
-
-    case Remainder(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "rem", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
-          ch << IREM
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "rem", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
+    case Plus(l, r)      => mkArithmeticBinary(l, r, ch, IADD, LADD, "add", bvOnly = false)
+    case Minus(l, r)     => mkArithmeticBinary(l, r, ch, ISUB, LSUB, "sub", bvOnly = false)
+    case Times(l, r)     => mkArithmeticBinary(l, r, ch, IMUL, LMUL, "mult", bvOnly = false)
+    case Division(l, r)  => mkArithmeticBinary(l, r, ch, IDIV, LDIV, "div", bvOnly = false)
+    case Remainder(l, r) => mkArithmeticBinary(l, r, ch, IREM, LREM, "rem", bvOnly = false)
 
     case Modulo(l, r) =>
+      ch << Comment(s"Modulo")
       mkExpr(l, ch)
       mkExpr(r, ch)
+
+      val op = "mod"
       l.getType match {
         case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "mod", s"(L$BigIntClass;)L$BigIntClass;")
-        case Int32Type =>
+          val opSign = s"(L$BigIntClass;)L$BigIntClass;"
+          ch << Comment(s"[binary, bigint] Calling $op: $opSign")
+          ch << InvokeVirtual(BigIntClass, op, opSign)
+
+        case t @ (Int8Type | Int16Type | Int32Type | Int64Type) =>
+          // NOTE Here we always rely on BitVector's implementation of modulo.
+
+          val (param, extract, size) = t match {
+            case Int8Type  => ("B", "toByte", 8)
+            case Int16Type => ("S", "toShort", 16)
+            case Int32Type => ("I", "toInt", 32)
+            case Int64Type => ("J", "toLong", 64)
+          }
+
           // stack: (l, r)
-          ch << DUP_X1
-          // stack: (r, l, r)
-          ch << IREM
-          // stack: (r, l % r)
-          ch << SWAP << DUP_X1
-          // stack: (r, l % r, r)
-          ch << IADD << SWAP
-          // stack: (l % r + r, r)
-          ch << IREM
+          mkNewBV(ch, param, size)
+          // stack: (l, bvr)
+          if (param == "J") ch << DUP_X2 << POP
+          else ch << SWAP
+          mkNewBV(ch, param, size)
+          ch << SWAP
+          // stack: (bvl, bvr)
+          val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
+          ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+          ch << InvokeVirtual(BitVectorClass, op, signOp)
+          // stack: (bv)
+          val signExtract = s"()$param"
+          ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+          ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
         case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "mod", s"(L$BitVectorClass;)L$BitVectorClass;")
+          val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
+          ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
+          ch << InvokeVirtual(BitVectorClass, op, opSign)
       }
 
-    case UMinus(e) =>
-      mkExpr(e, ch)
-      e.getType match {
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "neg", s"()L$BigIntClass;")
-        case Int32Type =>
-          ch << INEG
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "neg", s"()L$BitVectorClass;")
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "neg", s"()L$RationalClass;")
-      }
-
+    case UMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, "neg", bvOnly = false)
     case BVNot(e) =>
+      val iopGen: AbstractByteCodeGenerator = { ch =>
+        mkExpr(Int32Literal(-1), ch)
+        ch << IXOR
+      }
+
+      val lopGen: AbstractByteCodeGenerator = { ch =>
+        mkExpr(Int64Literal(-1), ch)
+        ch << LXOR
+      }
+
+      mkArithmeticUnary(e, ch, iopGen, lopGen, "not", bvOnly = true)
+
+    case BVAnd(l, r) => mkArithmeticBinary(l, r, ch, IAND, LAND, "and", bvOnly = true)
+    case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, "or", bvOnly = true)
+    case BVXor(l, r) => mkArithmeticBinary(l, r, ch, IXOR, LXOR, "xor", bvOnly = true)
+    case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
+    case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
+    case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
+
+    case BVNarrowingCast(e, to) =>
       mkExpr(e, ch)
-      e.getType match {
-        case Int32Type =>
-          mkExpr(IntLiteral(-1), ch)
-          ch << IXOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "not", s"()L$BitVectorClass;")
+      val from = e.getType
+      (from, to) match {
+        case (Int16Type, Int8Type ) => ch << I2B
+        case (Int32Type, Int8Type ) => ch << I2B
+        case (Int32Type, Int16Type) => ch << I2S
+        case (Int64Type, Int8Type ) => ch << L2I << I2B
+        case (Int64Type, Int16Type) => ch << L2I << I2S
+        case (Int64Type, Int32Type) => ch << L2I
+        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (from, to) => mkBVCast(from, to, ch)
       }
 
-    case BVAnd(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IAND
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "and", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVOr(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "or", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVXor(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IXOR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "xor", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVShiftLeft(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << ISHL
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "shiftLeft", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVLShiftRight(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << IUSHR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "lShiftRight", s"(L$BitVectorClass;)L$BitVectorClass;")
-      }
-
-    case BVAShiftRight(l, r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      e.getType match {
-        case Int32Type =>
-          ch << ISHR
-        case BVType(_) =>
-          ch << InvokeVirtual(BitVectorClass, "aShiftRight", s"(L$BitVectorClass;)L$BitVectorClass;")
+    case BVWideningCast(e, to) =>
+      mkExpr(e, ch)
+      val from = e.getType
+      (from, to) match {
+        case (Int8Type,  Int16Type) => ch << I2S
+        case (Int8Type,  Int32Type) => ch << NOP // already an int
+        case (Int8Type,  Int64Type) => ch << I2L
+        case (Int16Type, Int32Type) => ch << NOP // already an int
+        case (Int16Type, Int64Type) => ch << I2L
+        case (Int32Type, Int64Type) => ch << I2L
+        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (from, to) => mkBVCast(from, to, ch)
       }
 
     case ArrayLength(a) =>
@@ -1047,7 +1027,10 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << (as.getType match {
           case Untyped => throw CompilationException("Cannot compile untyped array access.")
           case CharType => CALOAD
+          case Int8Type => BALOAD
+          case Int16Type => SALOAD
           case Int32Type => IALOAD
+          case Int64Type => LALOAD
           case BooleanType => BALOAD
           case _ => AALOAD
         })
@@ -1111,18 +1094,15 @@ trait CodeGeneration { self: CompilationUnit =>
         mkExpr(size, ch)
 
         val storeInstr = mkNewArray(a.getType, ch)
-        val (varLoad, varStore) = base match {
-          case ValueType() => (ILoad(_), IStore(_))
-          case _ => (ALoad(_), AStore(_))
-        }
 
         val loop = ch.getFreshLabel("array_loop")
         val loopOut = ch.getFreshLabel("array_loop_out")
-        val dfltSlot = ch.getFreshVar
+        val dfltSlot = ch.getFreshVar(typeToJVM(base))
 
         mkExpr(default, ch)
         ch << (base match {
-          case ValueType() => IStore(dfltSlot)
+          case JvmIType() => IStore(dfltSlot)
+          case Int64Type => LStore(dfltSlot)
           case _ => AStore(dfltSlot)
         })
 
@@ -1136,7 +1116,8 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << If_ICmpGe(loopOut) << DUP2
         // (array, index, array, index)
         ch << (base match {
-          case ValueType() => ILoad(dfltSlot)
+          case JvmIType() => ILoad(dfltSlot)
+          case Int64Type => LLoad(dfltSlot)
           case _ => ALoad(dfltSlot)
         })
         ch << storeInstr
@@ -1226,7 +1207,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(id)
       ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
 
-    case nt @ NoTree(tp @ ValueType()) =>
+    case nt @ NoTree(tp @ (JvmIType() | Int64Type)) =>
       mkExpr(simplestValue(tp), ch)
 
     case NoTree(_) =>
@@ -1261,13 +1242,14 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val newLocals = deps.foldLeft(freshLocals) { case (locals, (v, e)) =>
       mkExpr(e, ch)(locals)
-      val slot = ch.getFreshVar
+      val slot = ch.getFreshVar(typeToJVM(e.getType))
       ch << (v.tpe match {
-        case ValueType() =>
+        case JvmIType() =>
           if (slot > 127) {
             println("Error while converting one more slot which is too much " + e)
           }
           IStore(slot)
+        case Int64Type => LStore(slot)
         case _ => AStore(slot)
       })
       locals.withVar(v.id -> slot)
@@ -1286,7 +1268,10 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private[codegen] def mkNewArray(tpe: Type, ch: CodeHandler): AbstractByteCode = tpe match {
     case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
+    case ArrayType(Int8Type) => ch << NewArray.primitive("T_BYTE"); BASTORE
+    case ArrayType(Int16Type) => ch << NewArray.primitive("T_SHORT"); SASTORE
     case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
+    case ArrayType(Int64Type) => ch << NewArray.primitive("T_LONG"); LASTORE
     case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
     case ArrayType(base) =>
       val jvmt = typeToJVM(base)
@@ -1300,10 +1285,25 @@ trait CodeGeneration { self: CompilationUnit =>
   // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
   private[codegen] def mkBoxedExpr(e: Expr, ch: CodeHandler)
                                   (implicit locals: Locals): Unit = e.getType match {
+    case Int8Type =>
+      ch << New(BoxedByteClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedByteClass, constructorName, "(B)V")
+
+    case Int16Type =>
+      ch << New(BoxedShortClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedShortClass, constructorName, "(S)V")
+
     case Int32Type =>
       ch << New(BoxedIntClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+
+    case Int64Type =>
+      ch << New(BoxedLongClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
 
     case BooleanType | UnitType =>
       ch << New(BoxedBoolClass) << DUP
@@ -1327,8 +1327,17 @@ trait CodeGeneration { self: CompilationUnit =>
   // Assumes the top of the stack contains of value of the right type, and makes it
   // compatible with java.lang.Object.
   private[codegen] def mkBox(tpe: Type, ch: CodeHandler): Unit = tpe match {
+    case Int8Type =>
+      ch << New(BoxedByteClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedByteClass, constructorName, "(B)V")
+
+    case Int16Type =>
+      ch << New(BoxedShortClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedShortClass, constructorName, "(S)V")
+
     case Int32Type =>
       ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
+
+    case Int64Type =>
+      ch << New(BoxedLongClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
 
     case BooleanType | UnitType =>
       ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
@@ -1344,8 +1353,17 @@ trait CodeGeneration { self: CompilationUnit =>
 
   // Assumes that the top of the stack contains a value that should be of type `tpe`, and unboxes it to the right (JVM) type.
   private[codegen] def mkUnbox(tpe: Type, ch: CodeHandler): Unit = tpe match {
+    case Int8Type =>
+      ch << CheckCast(BoxedByteClass) << InvokeVirtual(BoxedByteClass, "byteValue", "()B")
+
+    case Int16Type =>
+      ch << CheckCast(BoxedShortClass) << InvokeVirtual(BoxedShortClass, "shortValue", "()S")
+
     case Int32Type =>
       ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
+
+    case Int64Type =>
+      ch << CheckCast(BoxedLongClass) << InvokeVirtual(BoxedLongClass, "longValue", "()J")
 
     case BooleanType | UnitType =>
       ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
@@ -1384,6 +1402,7 @@ trait CodeGeneration { self: CompilationUnit =>
       if (smallArrays) {
         ch << CheckCast(BoxedArrayClass)
         base match {
+          case Int8Type | Int16Type | Int64Type => println(s"NOT IMPLEMENTED!!!"); ??? // TODO implement me
           case Int32Type =>
             ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
           case BooleanType =>
@@ -1441,69 +1460,21 @@ trait CodeGeneration { self: CompilationUnit =>
 
       mkExpr(r, ch)
       l.getType match {
-        case ValueType() =>
+        case JvmIType() =>
           ch << If_ICmpEq(thenn) << Goto(elze)
+
+        case Int64Type =>
+          ch << LCMP << IfEq(thenn) << Goto(elze)
 
         case _ =>
           ch << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z")
           ch << IfEq(elze) << Goto(thenn)
       }
 
-    case LessThan(l,r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case Int32Type | CharType =>
-          ch << If_ICmpLt(thenn) << Goto(elze)
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "lessThan", s"(L$BigIntClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "lessThan", s"(L$RationalClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-      }
-
-    case GreaterThan(l,r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case Int32Type | CharType =>
-          ch << If_ICmpGt(thenn) << Goto(elze)
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "greaterThan", s"(L$BigIntClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "greaterThan", s"(L$RationalClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-      }
-
-    case LessEquals(l,r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case Int32Type | CharType =>
-          ch << If_ICmpLe(thenn) << Goto(elze)
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "lessEquals", s"(L$BigIntClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "lessEquals", s"(L$RationalClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-      }
-
-    case GreaterEquals(l,r) =>
-      mkExpr(l, ch)
-      mkExpr(r, ch)
-      l.getType match {
-        case Int32Type | CharType =>
-          ch << If_ICmpGe(thenn) << Goto(elze)
-        case IntegerType =>
-          ch << InvokeVirtual(BigIntClass, "greaterEquals", s"(L$BigIntClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-        case RealType =>
-          ch << InvokeVirtual(RationalClass, "greaterEquals", s"(L$RationalClass;)Z")
-          ch << IfEq(elze) << Goto(thenn)
-      }
+    case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "lessThan")
+    case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "greaterThan")
+    case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "lessEquals")
+    case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "greaterEquals")
 
     case IfExpr(c, t, e) =>
       val innerThen = ch.getFreshLabel("then")
@@ -1525,6 +1496,222 @@ trait CodeGeneration { self: CompilationUnit =>
     case other => throw CompilationException("Unsupported branching expr. : " + other)
   }
 
+  /**
+   *  Create a BitVector from the value on the top of the stack.
+   *
+   *  [[param]] is expected to be either "B", "S", "I" or "J".
+   *
+   *  Stack before: (..., value)
+   *  Stack after:  (..., bv)
+   */
+  private def mkNewBV(ch: CodeHandler, param: String, size: Int): Unit = {
+    ch << Comment(s"New BitVector for $param of size $size")
+    ch << New(BitVectorClass)
+    if (param == "J") ch << DUP_X2 << DUP_X2 << POP
+    else ch << DUP_X1 << SWAP
+    ch << Ldc(size)
+    ch << Comment(s"Init BitVector: (${param}I)V")
+    ch << InvokeSpecial(BitVectorClass, constructorName, s"(${param}I)V")
+  }
+
+  /**
+   *  Generate ByteCode for BV widening and narrowing on arbitrary BV.
+   *
+   *  [[from]] and [[to]] are expected to be different, and at least one of
+   *  them need to be a BVType(n) where n not in { 8, 16, 32, 64 }.
+   *
+   *  Stack before: (..., value)
+   *  Stack after:  (..., newValue)
+   *  where `value` and `newValue` are either Byte, Short, Int, Long or Reference to a BitVector
+   */
+  private def mkBVCast(from: Type, to: Type, ch: CodeHandler): Unit = {
+    // Here, we might need to first create a BitVector.
+    // We might also have to convert the resulting BitVector back to a regular integer type.
+    from match {
+      case Int8Type  => mkNewBV(ch, "B", 8)
+      case Int16Type => mkNewBV(ch, "S", 16)
+      case Int32Type => mkNewBV(ch, "I", 32)
+      case Int64Type => mkNewBV(ch, "J", 64)
+      case BVType(s) => ch << NOP
+    }
+
+    val BVType(oldSize) = from
+    val BVType(newSize) = to
+    ch << Comment(s"Applying BVCast on BitVector instance: $oldSize -> $newSize")
+    ch << Ldc(newSize)
+    ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
+
+    to match {
+      case Int8Type  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
+      case Int16Type => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
+      case Int32Type => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
+      case Int64Type => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
+      case BVType(s) => ch << NOP
+    }
+  }
+
+  private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,
+                        iop: ByteCode, lop: ByteCode, op: String)
+                       (implicit locals: Locals): Unit = {
+    // NOTE for shift operations on Byte/Short/Int/Long:
+    //      the lhs operand can be either Int or Long,
+    //      the rhs operand must be an Int.
+
+    def pre(ch: CodeHandler): Unit = r.getType match {
+      case Int64Type => ch << L2I
+      case _ => // No need to convert the rhs argument, it is either already an int, or some unrelated BVType.
+    }
+
+    def opGen(opcode: ByteCode): AbstractByteCodeGenerator = { ch =>
+      pre(ch)
+      ch << opcode
+    }
+
+    mkArithmeticBinary(l, r, ch, opGen(iop), opGen(lop), op, bvOnly = true)
+  }
+
+  private def mkCmpJump(cond: Expr, thenn: String, elze: String, l: Expr, r: Expr, ch: CodeHandler,
+                        iop: String => ControlOperator, lop: String => ControlOperator, op: String)
+                       (implicit locals: Locals): Unit = {
+    mkExpr(l, ch)
+    mkExpr(r, ch)
+    l.getType match {
+      case Int8Type | Int16Type | Int32Type | CharType =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // Fortunately, for comparison operations, using regular Int32Type will do fine
+        // as Int8/16Type are represented as Int32Type on the JVM anyway.
+        ch << iop(thenn) << Goto(elze)
+      case Int64Type =>
+        ch << LCMP << lop(thenn) << Goto(elze)
+      case BVType(_) =>
+        ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
+        ch << IfEq(elze) << Goto(thenn)
+      case IntegerType =>
+        ch << InvokeVirtual(BigIntClass, op, s"(L$BigIntClass;)Z")
+        ch << IfEq(elze) << Goto(thenn)
+      case RealType =>
+        ch << InvokeVirtual(RationalClass, op, s"(L$RationalClass;)Z")
+        ch << IfEq(elze) << Goto(thenn)
+    }
+  }
+
+  private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
+                                 iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                                (implicit locals: Locals): Unit = {
+    mkArithmeticBinary(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+  }
+
+  private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
+                                 iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                (implicit locals: Locals): Unit = {
+    ch << Comment(s"mkArithmeticBinary($op)")
+    mkExpr(l, ch)
+    mkExpr(r, ch)
+
+    l.getType match {
+      case IntegerType if !bvOnly =>
+        val opSign = s"(L$BigIntClass;)L$BigIntClass;"
+        ch << Comment(s"[binary, bigint] Calling $op: $opSign")
+        ch << InvokeVirtual(BigIntClass, op, opSign)
+
+      case t @ (Int8Type | Int16Type) =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // We therefore create two BitVector for the operation, then extract the result
+        // back to the proper primitive type.
+
+        val (param, extract, size) = t match {
+          case Int8Type  => ("B", "toByte", 8)
+          case Int16Type => ("S", "toShort", 16)
+        }
+
+        // stack: (l, r)
+        mkNewBV(ch, param, size)
+        // stack: (l, bvr)
+        ch << SWAP
+        mkNewBV(ch, param, size)
+        ch << SWAP
+        // stack: (bvl, bvr)
+        val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
+        ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << InvokeVirtual(BitVectorClass, op, signOp)
+        // stack: (bv)
+        val signExtract = s"()$param"
+        ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
+      case Int32Type =>
+        iopGen(ch)
+
+      case Int64Type =>
+        lopGen(ch)
+
+      case BVType(_) =>
+        val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
+        ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
+        ch << InvokeVirtual(BitVectorClass, op, opSign)
+
+      case RealType if !bvOnly =>
+        val opSign = s"(L$RationalClass;)L$RationalClass;"
+        ch << Comment(s"[binary, real] Calling $op: $opSign")
+        ch << InvokeVirtual(RationalClass, op, opSign)
+    }
+  }
+
+  private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
+                                iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                               (implicit locals: Locals): Unit = {
+    mkArithmeticUnary(e, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+  }
+
+  private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
+                                iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                               (implicit locals: Locals): Unit = {
+    ch << Comment(s"mkArithmeticUnary($op)")
+    mkExpr(e, ch)
+
+    e.getType match {
+      case IntegerType if !bvOnly =>
+        val opSign = s"()L$BigIntClass;"
+        ch << Comment(s"[unary, bigint] Calling $op: $opSign")
+        ch << InvokeVirtual(BigIntClass, op, opSign)
+
+      case t @ (Int8Type | Int16Type) =>
+        // Here we assume the user really wants to use BitVector even for Int8/16Types.
+        // We therefore create a BitVector for the operation, then extract the result
+        // back to the proper primitive type.
+
+        val (param, extract, size) = t match {
+          case Int8Type  => ("B", "toByte", 8)
+          case Int16Type => ("S", "toShort", 16)
+        }
+
+        mkNewBV(ch, param, size)
+        val signOp = s"()L$BitVectorClass;"
+        ch << Comment(s"[unary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << InvokeVirtual(BitVectorClass, op, signOp)
+        val signExtract = s"()$param"
+        ch << Comment(s"[unary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << InvokeVirtual(BitVectorClass, extract, signExtract)
+
+      case Int32Type =>
+        iopGen(ch)
+
+      case Int64Type =>
+        lopGen(ch)
+
+      case BVType(_) =>
+        val opSign = s"()L$BitVectorClass;"
+        ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
+        ch << InvokeVirtual(BitVectorClass, op, opSign)
+
+      case RealType if !bvOnly =>
+        val opSign = s"()L$RationalClass;"
+        ch << Comment(s"[unary, real] Calling $op: $opSign")
+        ch << InvokeVirtual(RationalClass, op, opSign)
+    }
+  }
+
+
   private def load(v: Variable, ch: CodeHandler)(implicit locals: Locals): Unit = load(v.id, ch, Some(v.tpe))
 
   private def load(id: Identifier, ch: CodeHandler, tpe: Option[Type] = None)(implicit locals: Locals): Unit = {
@@ -1538,7 +1725,8 @@ trait CodeGeneration { self: CompilationUnit =>
         case None => locals.varToLocal(id) match {
           case Some(slot) =>
             ch << (tpe match {
-              case Some(ValueType()) => ILoad(slot)
+              case Some(JvmIType()) => ILoad(slot)
+              case Some(Int64Type) => LLoad(slot)
               case _ => ALoad(slot)
             })
           case None => throw CompilationException("Unknown variable : " + id)
@@ -1681,7 +1869,8 @@ trait CodeGeneration { self: CompilationUnit =>
       for ((id, jvmt) <- constructorArgs) {
         cch << ALoad(0)
         cch << (jvmt match {
-          case "I" | "Z" => ILoad(c)
+          case "B" | "S" | "I" | "Z" => ILoad(c)
+          case "J" => LLoad(c)
           case _ => ALoad(c)
         })
         cch << PutField(cName, id.name, jvmt)
@@ -1768,7 +1957,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
       val notRefEq = ech.getFreshLabel("notrefeq")
       val notEq = ech.getFreshLabel("noteq")
-      val castSlot = ech.getFreshVar
+      val castSlot = ech.getFreshVar(1) // One byte for references
 
       // If references are equal, trees are equal.
       ech << ALoad(0) << ALoad(1) << If_ACmpNe(notRefEq) << Ldc(1) << IRETURN << Label(notRefEq)
@@ -1789,8 +1978,10 @@ trait CodeGeneration { self: CompilationUnit =>
           instrumentedGetField(ech, adt, vd.id)(newLocs)
 
           vd.tpe match {
-            case ValueType() =>
+            case JvmIType() =>
               ech << If_ICmpNe(notEq)
+
+            case Int64Type => ???
 
             case ot =>
               ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
@@ -1831,4 +2022,7 @@ trait CodeGeneration { self: CompilationUnit =>
     }
 
   }
+
+  private def internalErrorWithByteOrShort(e: Expr) =
+    throw CompilationException(s"Unexpected expression involving Byte or Short: $e")
 }

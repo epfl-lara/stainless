@@ -37,10 +37,6 @@ trait ASTExtractors {
     }).flatten.toMap
   }
 
-  protected lazy val tuple2Sym   = classFromName("scala.Tuple2")
-  protected lazy val tuple3Sym   = classFromName("scala.Tuple3")
-  protected lazy val tuple4Sym   = classFromName("scala.Tuple4")
-  protected lazy val tuple5Sym   = classFromName("scala.Tuple5")
   protected lazy val scalaMapSym = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym = classFromName("scala.collection.immutable.Set")
   protected lazy val setSym      = classFromName("stainless.lang.Set")
@@ -67,10 +63,7 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple2(sym: Symbol) : Boolean = sym == tuple2Sym
-  def isTuple3(sym: Symbol) : Boolean = sym == tuple3Sym
-  def isTuple4(sym: Symbol) : Boolean = sym == tuple4Sym
-  def isTuple5(sym: Symbol) : Boolean = sym == tuple5Sym
+  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
 
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
@@ -116,9 +109,11 @@ trait ASTExtractors {
 
   def isArrayClassSym(sym: Symbol): Boolean = sym == arraySym
 
-  def hasIntType(t: Tree) = t.tpe.widen =:= IntClass.tpe
+  private val bvtypes = Set(ByteTpe, ShortTpe, IntTpe, LongTpe)
 
-  def hasNumericType(t: Tree): Boolean = hasBigIntType(t) || hasIntType(t) || hasRealType(t)
+  def hasBVType(t: Tree) = bvtypes contains t.tpe.widen
+
+  def hasNumericType(t: Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t)
 
   def hasBigIntType(t: Tree) = isBigIntSym(t.tpe.typeSymbol)
 
@@ -822,48 +817,26 @@ trait ASTExtractors {
 
     object ExTuple {
       def unapply(tree: Apply): Option[(Seq[Type], Seq[Tree])] = tree match {
-        case Apply(
-          Select(New(tupleType), _),
-          List(e1, e2)
-        ) if tupleType.symbol == tuple2Sym => tupleType.tpe match {
-            case TypeRef(_, sym, List(t1, t2)) => Some((Seq(t1, t2), Seq(e1, e2)))
+        case Apply(Select(New(tupleType), _), args) if isTuple(tupleType.symbol, args.size) =>
+          tupleType.tpe match {
+            case TypeRef(_, _, tps) => Some(tps, args)
             case _ => None
           }
 
-        case Apply(
-          Select(New(tupleType), _),
-          List(e1, e2, e3)
-        ) if tupleType.symbol == tuple3Sym => tupleType.tpe match {
-            case TypeRef(_, sym, List(t1, t2, t3)) => Some((Seq(t1, t2, t3), Seq(e1, e2, e3)))
-            case _ => None
-          }
-        case Apply(
-          Select(New(tupleType), _),
-          List(e1, e2, e3, e4)
-        ) if tupleType.symbol == tuple4Sym => tupleType.tpe match {
-            case TypeRef(_, sym, List(t1, t2, t3, t4)) => Some((Seq(t1, t2, t3, t4), Seq(e1, e2, e3, e4)))
-            case _ => None
-          }
-        case Apply(
-          Select(New(tupleType), _),
-          List(e1, e2, e3, e4, e5)
-        ) if tupleType.symbol == tuple5Sym => tupleType.tpe match {
-            case TypeRef(_, sym, List(t1, t2, t3, t4, t5)) => Some((Seq(t1, t2, t3, t4, t5), Seq(e1, e2, e3, e4, e5)))
-            case _ => None
-          }
         // Match e1 -> e2
         case Apply(TypeApply(Select(Apply(TypeApply(ExSelected("scala", "Predef", "ArrowAssoc"), List(tpeFrom)), List(from)), ExNamed("$minus$greater")), List(tpeTo)), List(to)) =>
-
           Some((Seq(tpeFrom.tpe, tpeTo.tpe), Seq(from, to)))
+
         case _ => None
       }
     }
 
-    object ExLocally {
+    object ExIdentity {
       def unapply(tree: Apply) : Option[Tree] = tree match {
+        case Apply(TypeApply(ExSelected("scala", "Predef", "identity"), _), List(body)) =>
+          Some(body)
         case Apply(TypeApply(ExSelected("scala", "Predef", "locally"), _), List(body)) =>
           Some(body)
-
         case _ =>
           None
       }
@@ -907,32 +880,43 @@ trait ASTExtractors {
 
     object ExCharLiteral {
       def unapply(tree: Literal): Option[Char] = tree match {
-        case Literal(c @ Constant(i)) if c.tpe == CharClass.tpe => Some(c.charValue)
+        case Literal(c @ Constant(i)) if c.tpe == CharTpe => Some(c.charValue)
+        case _ => None
+      }
+    }
+
+    object ExInt8Literal {
+      def unapply(tree: Literal): Option[Byte] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == ByteTpe => Some(c.byteValue)
+        case _ => None
+      }
+    }
+
+    object ExInt16Literal {
+      def unapply(tree: Literal): Option[Short] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == ShortTpe => Some(c.shortValue)
         case _ => None
       }
     }
 
     object ExInt32Literal {
       def unapply(tree: Literal): Option[Int] = tree match {
-        case Literal(c @ Constant(i)) if c.tpe == IntClass.tpe => Some(c.intValue)
+        case Literal(c @ Constant(i)) if c.tpe == IntTpe => Some(c.intValue)
+        case _ => None
+      }
+    }
+
+    object ExInt64Literal {
+      def unapply(tree: Literal): Option[Long] = tree match {
+        case Literal(c @ Constant(i)) if c.tpe == LongTpe => Some(c.longValue)
         case _ => None
       }
     }
 
     object ExUnitLiteral {
       def unapply(tree: Literal): Boolean = tree match {
-        case Literal(c @ Constant(_)) if c.tpe == UnitClass.tpe => true
+        case Literal(c @ Constant(_)) if c.tpe == UnitTpe => true
         case _ => false
-      }
-    }
-
-    object ExSomeConstruction {
-      def unapply(tree: Apply) : Option[(Type,Tree)] = tree match {
-        case Apply(s @ Select(New(tpt), n), arg) if arg.size == 1 && n == nme.CONSTRUCTOR && tpt.symbol.name.toString == "Some" => tpt.tpe match {
-          case TypeRef(_, sym, tpe :: Nil) => Some((tpe, arg.head))
-          case _ => None
-        }
-        case _ => None
       }
     }
 
@@ -1011,7 +995,7 @@ trait ASTExtractors {
 
     object ExBVNot {
       def unapply(tree: Select): Option[Tree] = tree match {
-        case Select(t, n) if n == nme.UNARY_~ && hasIntType(t) => Some(t)
+        case Select(t, n) if n == nme.UNARY_~ && hasBVType(t) => Some(t)
         case _ => None
       }
     }

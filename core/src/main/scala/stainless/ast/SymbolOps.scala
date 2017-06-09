@@ -252,7 +252,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   }
 
   def ensur(e: Expr, pred: Expr) = {
-    Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda])
+    Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda]).setPos(e)
   }
 
   def funRequires(f: Expr, p: Expr) = {

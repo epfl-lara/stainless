@@ -8,7 +8,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.0.2-81-g9f77744"
+val inoxVersion = "1.0.2-130-g3775bf8"
 val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
 
 lazy val nParallel = {
@@ -67,7 +67,6 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   libraryDependencies ++= Seq(
-    //"ch.epfl.lamp" %% "dotty" % "0.1-SNAPSHOT",
     "ch.epfl.lara" %% "inox" % inoxVersion,
     "ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test"
@@ -84,11 +83,20 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 )
 
-lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
+lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   libraryDependencies ++= Seq(
     "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "it"  // FIXME: Does this override `% "test"` from commonSettings above?
+    "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
   ),
+
+  /**
+    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
+    *   sbt project. You can temporarily disable the following four lines when importing the project.
+    */
+  unmanagedResourceDirectories in IntegrationTest += (root.base / "frontends" / "benchmarks"),
+  unmanagedSourceDirectories in Compile += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
+  unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
+  unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
   sourceGenerators in Compile <+= Def.task {
     val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
@@ -110,17 +118,11 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Seq(
                        |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${extraClasspath.value}") ++ compilerOpts)
                        |}""".stripMargin)
     Seq(main)
-  }
-) ++ Defaults.itSettings ++ inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-  logBuffered := (nParallel > 1),
-  parallelExecution := (nParallel > 1),
-
-  /**
-    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
-    *   sbt project. You can temporarily disable the following two lines when importing the project.
-    */
-  unmanagedResourceDirectories += (root.base / "frontends" / "benchmarks")
-))
+  }) ++
+  inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
+    logBuffered := (nParallel > 1),
+    parallelExecution := (nParallel > 1)
+  ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
   compile <<= (compile in Compile) dependsOn script,
@@ -167,6 +169,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
       val paths = scriptPath.value
       IO.write(scriptFile, s"""|#!/bin/bash --posix
                                |
+                               |set -o pipefail
+                               |
                                |SCALACLASSPATH="$paths"
                                |
                                |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
@@ -200,7 +204,7 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
     extraClasspath := "", // no need for the classpath extension with scalac
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
   .dependsOn(`stainless-core`)
-  //.dependsOn(inox % "it->test,it")
+  //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
@@ -218,7 +222,7 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   // Should truly depend on dotty, overriding the "provided" modifier above:
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
   .aggregate(`stainless-dotty-frontend`)
-  //.dependsOn(inox % "it->test,it")
+  //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
 

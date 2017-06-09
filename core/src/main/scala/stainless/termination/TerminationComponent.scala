@@ -31,7 +31,11 @@ object TerminationComponent extends SimpleComponent {
             }
 
             t.Assert(
-              t.andJoin(es.map(e => t.GreaterEquals(e, t.IntegerLiteral(0)))),
+              t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
+                case s.BVType(size) => t.BVLiteral(0, size)
+                case s.IntegerType => t.IntegerLiteral(0)
+                case _ => throw new inox.FatalError("Unexpected measure type for " + e)
+              }))),
               Some("Measure not guaranteed positive"),
               transform(body)
             ).copiedFrom(e)
@@ -100,11 +104,14 @@ object TerminationComponent extends SimpleComponent {
 
     val timer = ctx.timers.termination.start()
 
-    val toVerify = for {
-      id <- funs
-      fd = getFunction(id)
-      if !(fd.flags contains "library")
-    } yield fd
+    val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)
+
+    for (fd <- toVerify)  {
+      if (fd.flags contains "library") {
+        val fullName = fd.id.fullName
+        ctx.reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
+      }
+    }
 
     val res = for (fd <- toVerify) yield fd -> c.terminates(fd)
     val t = timer.stop()

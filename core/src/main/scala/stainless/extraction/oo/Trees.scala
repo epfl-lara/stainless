@@ -306,7 +306,7 @@ trait TreeTransformer extends ast.TreeTransformer {
     cd.parents.map(ct => transform(ct).asInstanceOf[t.ClassType]),
     cd.fields.map(vd => transform(vd)),
     cd.flags.map(f => transform(f))
-  )
+  ).copiedFrom(cd)
 }
 
 trait SimpleSymbolTransformer extends inox.ast.SimpleSymbolTransformer {
@@ -335,6 +335,6 @@ object SymbolTransformer {
       cd.parents.map(ct => trans.transform(ct).asInstanceOf[t.ClassType]),
       cd.fields.map(vd => trans.transform(vd)),
       cd.flags.map(f => trans.transform(f))
-    )
+    ).copiedFrom(cd)
   }
 }

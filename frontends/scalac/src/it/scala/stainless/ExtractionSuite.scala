@@ -20,6 +20,7 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils {
         val program = tryProgram.get
 
         it("should typecheck") {
+          program.symbols.ensureWellFormed
           for (fd <- program.symbols.functions.values.toSeq) {
             import program.symbols._
             assert(isSubtypeOf(fd.fullBody.getType, fd.returnType))
@@ -35,6 +36,7 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils {
             it("should produce no errors") { assert(reporter.lastErrors.isEmpty) }
 
             it("should typecheck") {
+              exProgram.symbols.ensureWellFormed
               for (fd <- exProgram.symbols.functions.values.toSeq) {
                 import exProgram.symbols._
                 assert(isSubtypeOf(fd.fullBody.getType, fd.returnType))

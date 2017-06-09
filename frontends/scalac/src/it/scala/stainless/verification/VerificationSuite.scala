@@ -50,6 +50,22 @@ class SMTZ3VerificationSuite extends VerificationSuite {
   }
 }
 
+class InlinedPostsVerificationSuite extends VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.solvers.optCheckModels(true),
+      extraction.inlining.optInlinePosts(true)
+    ) ++ seq
+  }
+
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    // Flaky on smt-z3 for some reason
+    case "verification/valid/MergeSort2" => Ignore
+    case _ => super.filter(ctx, name)
+  }
+}
+
 class CodeGenVerificationSuite extends VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
