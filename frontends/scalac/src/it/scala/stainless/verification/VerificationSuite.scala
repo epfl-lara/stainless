@@ -101,6 +101,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // Requires non-linear resonning, unsupported by CVC4
     case "verification/valid/Overrides" => Ignore
     case "verification/invalid/Existentials" => Ignore
+    // These tests are too slow on CVC4 and make the regression unstable
+    case "verification/valid/ConcRope" => Ignore
+    case "verification/invalid/BadConcRope" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
