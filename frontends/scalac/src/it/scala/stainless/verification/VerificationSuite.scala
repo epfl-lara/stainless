@@ -13,6 +13,11 @@ trait VerificationSuite extends ComponentTestSuite {
     seq => optFailEarly(true) +: seq
   }
 
+  override protected def optionsString(options: inox.Options): String = {
+    super.optionsString(options) +
+    (if (options.findOptionOrDefault(evaluators.optCodeGen)) " codegen" else "")
+  }
+
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     case "verification/valid/Extern1" => Ignore
     case "verification/valid/Extern2" => Ignore
@@ -76,10 +81,6 @@ class CodeGenVerificationSuite extends VerificationSuite {
     ) ++ seq
   }
 
-  override protected def optionsString(options: inox.Options): String = {
-    super.optionsString(options) + " codegen"
-  }
-
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
@@ -100,6 +101,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // Requires non-linear resonning, unsupported by CVC4
     case "verification/valid/Overrides" => Ignore
     case "verification/invalid/Existentials" => Ignore
+    // These tests are too slow on CVC4 and make the regression unstable
+    case "verification/valid/ConcRope" => Ignore
+    case "verification/invalid/BadConcRope" => Ignore
     case _ => super.filter(ctx, name)
   }
 }

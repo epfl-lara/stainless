@@ -8,7 +8,8 @@ class LibrarySuite extends FunSpec {
 
   describe("stainless library") {
     val reporter = new inox.TestSilentReporter
-    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
+    val opts = inox.Options(Seq(inox.optSelectedSolvers(Set("smt-z3"))))
+    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter), opts)
 
     val tryProgram = scala.util.Try(Main.extractFromSource(ctx, Main.libraryFiles)._2)
     it("should be extractable") {
