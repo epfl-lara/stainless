@@ -6,6 +6,12 @@ import org.json4s.JsonAST.JValue
 import extraction.xlang.{trees => xt}
 import scala.language.existentials
 
+trait AbstractReport {
+  val name: String
+  def emit(): Unit
+  def emitJson(): JValue
+}
+
 trait Component {
   val name: String
   val description: String
@@ -17,12 +23,6 @@ trait Component {
     val t: extraction.trees.type
   }
 
-  trait AbstractReport {
-    def emit(): Unit
-    def emitJson(): JValue
-  }
-
-  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report
 }
 
 object optFunctions extends inox.OptionDef[Seq[String]] {

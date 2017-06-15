@@ -3,32 +3,25 @@
 package stainless
 package frontends.scalac
 
+import extraction.xlang.{trees => xt}
+import MainHelpers.CompilerCallBack
 import scala.tools.nsc._
 
+/** Extract each compilation unit and forward them to the Compiler callback */
 trait StainlessExtraction extends SubComponent with CodeExtraction {
   import global._
 
   val phaseName = "stainless"
 
-  var units: List[CompilationUnit] = Nil
-  
   implicit val ctx: inox.Context
-
-  var imports : Map[RefTree,List[Import]] = Map()
-  
-  def setImports(imports : Map[RefTree, List[Import]]) {
-    this.imports = imports
-  }
-
-  def extractProgram = {
-    new Extraction(units).extractProgram
-  }
+  protected val callback: CompilerCallBack
 
   def newPhase(prev: scala.tools.nsc.Phase): StdPhase = new Phase(prev)
 
   class Phase(prev: scala.tools.nsc.Phase) extends StdPhase(prev) {
-    def apply(unit: CompilationUnit): Unit = {
-      units ::= unit
+    def apply(u: CompilationUnit): Unit = {
+      val (unit, classes, functions) = extractUnit(u)
+      callback(unit, classes, functions)
     }
   }
 }

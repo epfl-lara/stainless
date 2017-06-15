@@ -63,7 +63,9 @@ object TerminationComponent extends SimpleComponent {
 
     val time: Long
 
-    def emit(): Unit = {
+    override val name = TerminationComponent.this.name
+
+    override def emit(): Unit = {
       var t = Table("Termination Summary")
 
       for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) t += Row(Seq(
@@ -84,7 +86,7 @@ object TerminationComponent extends SimpleComponent {
       ctx.reporter.info(t.render)
     }
 
-    def emitJson(): JValue = {
+    override def emitJson(): JValue = {
       def kind(g: TerminationGuarantee): String = g match {
         case checker.LoopsGivenInputs(_, _) => "non-terminating loop"
         case checker.MaybeLoopsGivenInputs(_, _) => "possibly non-terminating loop"

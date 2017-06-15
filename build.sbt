@@ -112,15 +112,15 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
                        |import extraction.xlang.{trees => xt}
                        |
                        |object Main extends MainHelpers {
-                       |  val libraryFiles = List(
-                          ${removeSlashU(libraryFiles
-      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
+                       |
+                       |  override val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
+                       |
+                       |  override val libraryFiles = List(
+                       |    ${removeSlashU(libraryFiles.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
                        |  )
                        |
-                       |  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
-                       |    List[xt.UnitDef],
-                       |    Program { val trees: xt.type }
-                       |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${"\"\""+removeSlashU(extraClasspath.value)+"\"\""}") ++ compilerOpts)
+                       |  override def factory: MainHelpers.CompilerFactory = frontends.${frontendClass.value}.factory
+                       |
                        |}""".stripMargin)
     Seq(main)
   }) ++

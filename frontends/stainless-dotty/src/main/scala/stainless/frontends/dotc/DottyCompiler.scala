@@ -23,36 +23,7 @@ class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
 }
 
 object DottyCompiler {
-  def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.UnitDef],
-    Program { val trees: xt.type }
-  ) = {
-    implicit val debugSection = DebugSectionExtraction
-    val timer = ctx.timers.frontend.start()
 
-    val compiler = new DottyCompiler(ctx)
-    val driver = new Driver {
-      def newCompiler(implicit ctx: Context) = compiler
-    }
+  def factory: stainless.MainHelpers.CompilerFactory = ??? // TODO
 
-    val report = try {
-      driver.process(compilerOpts.toArray)
-    } catch {
-      case e: ImpureCodeEncounteredException =>
-        ctx.reporter.debug(s"Extraction failed because of:")
-        ctx.reporter.debug(e.pos, e.getMessage, e)
-        ctx.reporter.fatalError(e.pos, e.getMessage)
-    } finally {
-      timer.stop()
-    }
-
-    val program = compiler.extraction.getProgram
-    val structure = compiler.extraction.getStructure
-
-    if (report.hasErrors) {
-      ctx.reporter.fatalError(s"Unable to extract the program because of ${report.errorCount} errors.")
-    }
-
-    (structure, program)
-  }
 }

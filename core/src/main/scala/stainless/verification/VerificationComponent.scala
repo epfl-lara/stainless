@@ -48,7 +48,9 @@ object VerificationComponent extends SimpleComponent {
     lazy val totalInvalid = vrs.count(_._2.isInvalid)
     lazy val totalUnknown = vrs.count(_._2.isInconclusive)
 
-    def emit(): Unit = {
+    override val name = VerificationComponent.this.name
+
+    override def emit(): Unit = {
       if (totalConditions > 0) {
         var t = Table("Verification Summary")
 
@@ -76,7 +78,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    def emitJson(): JValue = {
+    override def emitJson(): JValue = {
       def status2Json(status: VCStatus[Model]): JObject = status match {
         case Invalid(cex) =>
           val info = cex.vars map { case (vd, e) => (vd.id.name -> e.toString) }
