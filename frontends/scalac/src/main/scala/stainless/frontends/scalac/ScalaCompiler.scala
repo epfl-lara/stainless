@@ -3,11 +3,11 @@
 package stainless
 package frontends.scalac
 
-import extraction.xlang.{trees => xt}
+import MainHelpers.{Compiler,CompilerCallBack,CompilerFactory}
 import scala.tools.nsc.{Global, Settings => NSCSettings, CompilerCommand}
 import scala.reflect.internal.Positions
 
-class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
+class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CompilerCallBack)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
      with Positions {
 
@@ -16,6 +16,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
     val runsAfter = List[String]("refchecks")
     val runsRightAfter = None
     val ctx = ScalaCompiler.this.ctx
+    val callback = ScalaCompiler.this.callback
   } with StainlessExtraction
 
   object saveImports extends {
@@ -24,7 +25,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
     val runsRightAfter = None
     val ctx = ScalaCompiler.this.ctx
   } with SaveImports
-  
+
   override protected def computeInternalPhases() : Unit = {
     val phs = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
@@ -50,29 +51,83 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
 }
 
 object ScalaCompiler {
-  def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.UnitDef],
-    Program { val trees: xt.type }
-  ) = {
-    val timer = ctx.timers.frontend.start()
 
+  /** Complying with [[MainHelpers.factory]] */
+  def factory: CompilerFactory = { case (ctx, compilerArgs, callback) =>
+
+    val settings = buildSettings(ctx)
+    val files = getFiles(compilerArgs, ctx, settings)
+
+    val instance = new ScalaCompiler(settings, ctx, callback)
+
+    // Implement an interface compatible with MainHelpers.
+    // TODO refactor code, maybe, in MainHelpers if the same code is required for dotty/other frontends
+    val compiler = new Compiler(callback) {
+      var underlying: instance.Run = null
+      var thread: Thread = null
+
+      override def run(): Unit = {
+        assert(!isRunning)
+        underlying = new instance.Run
+
+        // Run the compiler in the background in order to make the factory
+        // non-blocking, and implement a clean stop action.
+        val runnable = new Runnable {
+          override def run() = try {
+            underlying.compile(files)
+          } catch {
+            case e: Throwable =>
+              ctx.reporter.error(s"Got an exception from within the compiler: " + e.getMessage)
+              ctx.reporter.error(s"Trace:\n" + (e.getStackTrace mkString "\n"))
+              throw e
+          } finally {
+            underlying = null
+          }
+        }
+
+        assert(thread == null)
+        thread = new Thread(runnable, "stainless compiler")
+        thread.start()
+      }
+
+      override def isRunning: Boolean = {
+        underlying != null
+      }
+
+      override def onStop(): Unit = {
+        if (isRunning) {
+          ctx.reporter.info(s"Stopping compiler...") // TODO make this debug
+          val timer = ctx.timers.frontends.cancel.start()
+          underlying.cancel()
+          thread.join()
+          timer.stop()
+          ctx.reporter.info(s"Compiler stopped") // TODO make this debug
+        }
+      }
+    }
+
+    compiler
+  }
+
+  /** Let the frontend analyse the arguments to understand which files should be compiled. */
+  private def getFiles(compilerArgs: Seq[String], ctx: inox.Context, settings: NSCSettings): List[String] = {
+    val command = new CompilerCommand(compilerArgs.toList, settings) {
+      override val cmdName = "stainless"
+    }
+
+    if (!command.ok) { ctx.reporter.fatalError("No input program.") }
+
+    command.files
+  }
+
+  /** Build settings for the nsc tools. */
+  private def buildSettings(ctx: inox.Context): NSCSettings = {
     val settings = new NSCSettings
 
-    def getFiles(path: String): Option[Array[String]] =
-      scala.util.Try(new java.io.File(path).listFiles().map(_.getAbsolutePath)).toOption
-
-    val scalaLib = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource).map {
+    // Attempt to find where the scala lib is.
+    val scalaLib: String = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource) map {
       _.getLocation.getPath
-    }.orElse(for {
-      // we are in an Eclipse environment, look in plugins for the Scala lib
-      eclipseHome <- Option(System.getenv("ECLIPSE_HOME"))
-      pluginsHome = eclipseHome + "/plugins"
-      plugins <- getFiles(pluginsHome)
-      path <- plugins.find(_ contains "scala-library")
-    } yield path).getOrElse(ctx.reporter.fatalError(
-      "No Scala library found. If you are working in Eclipse, " +
-      "make sure you set the ECLIPSE_HOME environment variable to your Eclipse installation home directory."
-    ))
+    } getOrElse { ctx.reporter.fatalError("No Scala library found.") }
 
     settings.classpath.value = scalaLib
     settings.usejavacp.value = false
@@ -80,21 +135,8 @@ object ScalaCompiler {
     settings.Yrangepos.value = true
     settings.skip.value = List("patmat")
 
-    val command = new CompilerCommand(compilerOpts, settings) {
-      override val cmdName = "stainless"
-    }
-
-    if (command.ok) {
-      val compiler = new ScalaCompiler(settings, ctx)
-      val run = new compiler.Run
-      run.compile(command.files)
-      timer.stop()
-
-      val result = compiler.stainlessExtraction.extractProgram
-      if (ctx.reporter.errorCount > 0) ctx.reporter.fatalError("There were some errors.")
-      else result
-    } else {
-      ctx.reporter.fatalError("No input program.")
-    }
+    settings
   }
+
 }
+
