@@ -5,6 +5,7 @@ package extraction
 package oo
 
 import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.immutable.HashMap
 
 trait Trees extends holes.Trees with Definitions { self =>
 
@@ -251,21 +252,24 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
-    case s.MethodInvocation(rec, id, tps, args) =>
+  override def buildExprTableDispatch: ExpressionTableDispatch = super.buildExprTableDispatch ++ HashMap[Class[_], s.Expr => DeconstructedExpr](
+    classOf[s.MethodInvocation] -> { expr =>
+      val s.MethodInvocation(rec, id, tps, args) = expr
       (Seq(), rec +: args, tps, (_, es, tps) => t.MethodInvocation(es(0), id, tps, es.tail))
-
-    case s.ClassConstructor(ct, args) =>
+    },
+    classOf[s.ClassConstructor] -> { expr =>
+      val s.ClassConstructor(ct, args) = expr
       (Seq(), args, Seq(ct), (_, es, tps) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
-
-    case s.ClassSelector(expr, selector) =>
-      (Seq(), Seq(expr), Seq(), (_, es, _) => t.ClassSelector(es.head, selector))
-
-    case s.This(ct) =>
+    },
+    classOf[s.ClassSelector] -> { expr =>
+      val s.ClassSelector(objekt, selector) = expr
+      (Seq(), Seq(objekt), Seq(), (_, es, _) => t.ClassSelector(es.head, selector))
+    },
+    classOf[s.This] -> { expr =>
+      val s.This(ct) = expr
       (Seq(), Seq(), Seq(ct), (_, _, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
-
-    case _ => super.deconstruct(e)
-  }
+    }
+  )
 
   override def deconstruct(pattern: s.Pattern): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], Seq[s.Pattern], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type], Seq[t.Pattern]) => t.Pattern) = pattern match {
     case s.ClassPattern(binder, ct, subs) =>
