@@ -8,7 +8,7 @@ import org.scalatest._
 class StrictArithmeticSuite extends ComponentTestSuite {
 
   override def configurations = super.configurations.map {
-    seq => Seq(AssertionInjector.optStrictkArithmetic(true), optFailEarly(true)) ++ seq
+    seq => Seq(VerificationComponent.optStrictArithmetic(true), optFailEarly(true)) ++ seq
   }
 
   override protected def optionsString(options: inox.Options): String = ""

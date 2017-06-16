@@ -14,6 +14,13 @@ object VerificationComponent extends SimpleComponent {
   val name = "verification"
   val description = "Verification of function contracts"
 
+  /**
+   * Strict Arithmetic Mode:
+   *
+   * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
+   */
+  val optStrictArithmetic = inox.FlagOptionDef("strictarithmetic", false)
+
   val trees: stainless.trees.type = stainless.trees
 
   type Report = VerificationReport
