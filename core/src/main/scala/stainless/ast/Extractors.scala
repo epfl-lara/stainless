@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import scala.collection.immutable.HashMap
+
 trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
@@ -34,42 +36,62 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       })
   }
 
-  override def deconstruct(expr: s.Expr): DeconstructedExpr = expr match {
-    case s.NoTree(tpe) =>
+  override def buildExprTableDispatch: ExpressionTableDispatch = super.buildExprTableDispatch ++ HashMap[Class[_], s.Expr => DeconstructedExpr](
+    classOf[s.NoTree] -> { expr =>
+      val s.NoTree(tpe) = expr
       (Seq(), Seq(), Seq(tpe), (_, _, tps) => t.NoTree(tps.head))
-    case s.Error(tpe, desc) =>
+    },
+    classOf[s.Error] -> { expr =>
+      val s.Error(tpe, desc) = expr
       (Seq(), Seq(), Seq(tpe), (_, _, tps) => t.Error(tps.head, desc))
-    case s.Require(pred, body) =>
+    },
+    classOf[s.Require] -> { expr =>
+      val s.Require(pred, body) = expr
       (Seq(), Seq(pred, body), Seq(), (_, es, _) => t.Require(es(0), es(1)))
-    case s.Ensuring(body, pred) =>
+    },
+    classOf[s.Ensuring] -> { expr =>
+      val s.Ensuring(body, pred) = expr
       (Seq(), Seq(body, pred), Seq(), (_, es, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
-    case s.Assert(pred, error, body) =>
+    },
+    classOf[s.Assert] -> { expr =>
+      val s.Assert(pred, error, body) = expr
       (Seq(), Seq(pred, body), Seq(), (_, es, _) => t.Assert(es(0), error, es(1)))
-    case s.Pre(f) =>
+    },
+    classOf[s.Pre] -> { expr =>
+      val s.Pre(f) = expr
       (Seq(), Seq(f), Seq(), (_, es, _) => t.Pre(es.head))
+    },
 
-    case m @ s.MatchExpr(_, _) => deconstructMatchExpr(m)
+    classOf[s.MatchExpr] -> { expr => deconstructMatchExpr(expr.asInstanceOf[s.MatchExpr]) },
 
-    case s.FiniteArray(elems, base) =>
+    classOf[s.FiniteArray] -> { expr =>
+      val s.FiniteArray(elems, base) = expr
       (Seq(), elems, Seq(base), (_, es, tps) => t.FiniteArray(es, tps.head))
 
-    case s.LargeArray(elems, default, size, base) =>
+    },
+    classOf[s.LargeArray] -> { expr =>
+      val s.LargeArray(elems, default, size, base) = expr
       val (keys, values) = elems.toSeq.unzip
       (Seq(), values :+ default :+ size, Seq(base), {
         case (_, es :+ nd :+ ns, tps) => t.LargeArray((keys zip es).toMap, nd, ns, tps.head)
       })
 
-    case s.ArraySelect(array, index) =>
+    },
+    classOf[s.ArraySelect] -> { expr =>
+      val s.ArraySelect(array, index) = expr
       (Seq(), Seq(array, index), Seq(), (_, es, _) => t.ArraySelect(es(0), es(1)))
 
-    case s.ArrayUpdated(array, index, value) =>
+    },
+    classOf[s.ArrayUpdated] -> { expr =>
+      val s.ArrayUpdated(array, index, value) = expr
       (Seq(), Seq(array, index, value), Seq(), (_, es, _) => t.ArrayUpdated(es(0), es(1), es(2)))
 
-    case s.ArrayLength(array) =>
+    },
+    classOf[s.ArrayLength] -> { expr =>
+      val s.ArrayLength(array) = expr
       (Seq(), Seq(array), Seq(), (_, es, _) => t.ArrayLength(es.head))
-
-    case _ => super.deconstruct(expr)
-  }
+    }
+  )
 
   private def deconstructMatchExpr(m: s.MatchExpr): DeconstructedExpr = {
     def rec(p: s.Pattern): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Pattern) = {
