@@ -276,7 +276,7 @@ Set[T], Map[T]
 --------------
 
 Stainless uses its own Sets and Maps, which are defined in the ``stainless.lang`` package.
-However, these classes are are not implemented within Stainless.
+However, these classes are not implemented within Stainless.
 Instead, they are parsed into specialized trees.
 Methods of these classes are mapped to specialized trees within SMT solvers.
 For code generation, we rely on Java Sets and Maps.
