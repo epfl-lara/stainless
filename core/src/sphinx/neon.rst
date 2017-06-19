@@ -10,7 +10,7 @@ for a proof without any user interaction. In practice, however, many theorems wi
 difficult to prove, and it is possible for the user to provide hints to Stainless.
 
 Hints typically take the form of simpler properties that combine in order to prove
-more complicated ones. In the remaining, subsections we provide code patterns and introduce
+more complicated ones. In the remaining subsections, we provide code patterns and introduce
 simple domain-specific language operators that can help in constructing complex Stainless proofs.
 
 A practical introduction to proofs
@@ -826,7 +826,7 @@ discrete probability spaces.  We represent such measures using a
 The constructor of the class ``Empty[A]`` takes no arguments; it
 represents an "empty" measure that evaluates to 0 when applied to any
 set of values of type ``A``.  The constructor of ``Cons[A]``, on the
-other hand, takes three parameters: a value ``x``, it's associated
+other hand, takes three parameters: a value ``x``, its associated
 weight ``w`` expressed as a ``Rational`` (since Stainless doesn't quite yet
 support real numbers out of the box), and another measure ``m`` on
 ``A``.  The value ``Cons(x, w, m)`` represents the measure obtained by
@@ -987,7 +987,7 @@ it's good to keep the following in mind:
 
 .. rubric:: Footnotes
 
-.. [#example-dir] The source code of this example and all other in
+.. [#example-dir] The source code of this example and all others in
    this chapter is included in the Stainless distribution.  Examples about
    lists can be found in ``library/collection/List.scala``, other
    examples are located in the ``testcases/verification/proof/``

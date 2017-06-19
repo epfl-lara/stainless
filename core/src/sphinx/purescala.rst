@@ -351,7 +351,7 @@ BigInt
   a == b
 
 .. note::
-  BigInt are mathematicals integers (arbitrary size, no overflows).
+  BigInt are mathematical integers (arbitrary size, no overflows).
 
 Real
 ####

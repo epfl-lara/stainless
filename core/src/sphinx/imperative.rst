@@ -67,7 +67,7 @@ the negation of the loop condition. It will automatically prove that
 verification condition and you should see an ``invariant postcondition`` marked
 as ``valid``.
 
-Stainless internally handle loops as a function with a postcondition. For the end-user, it
+Stainless internally handles loops as a function with a postcondition. For the end-user, it
 means that Stainless is only going to rely on the postcondition of the loop to prove properties
 of code relying on loops. Usually that invariant is too weak to prove anything remotely
 useful and you will need to annotate the loop with a stronger invariant.
@@ -124,7 +124,7 @@ We add the usual ``update`` operation on arrays:
   a(1) //10
 
 Stainless simply rewrite arrays using ``update`` operation as the assignment of function arrays
-using ``updated``.  This leverages the built-in algorithm for functional array
+using ``updated``.  This leverages the built-in algorithm for functional arrays
 and relies on the elimination procedure for assignments. Concretely, it would
 transform the above on the following equivalent implementation:
 

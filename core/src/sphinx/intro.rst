@@ -98,7 +98,7 @@ Program Termination
 -------------------
 
 A "verified" function in stainless is guaranteed to never crash, however, it can
-still lead to an infinite evaluation. Stainless, therefore, provides a termination
+still lead to an infinite evaluation. Stainless therefore provides a termination
 checker that complements the verification of safety properties.
 
 For each function in the program, Stainless will try to automatically infer a

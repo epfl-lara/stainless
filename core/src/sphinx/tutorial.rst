@@ -85,7 +85,7 @@ The problem is due to overflow of 32-bit integers, due to which
 the value `d` becomes positive, even though `x` is negative and thus smaller than
 the large positive value `y`.
 As in Scala, the `Int` type denotes 32-bit
-integers with the usually signed arithmetic operations from
+integers with the usual signed arithmetic operations from
 computer architecture and the JVM specification.
 
 To use unbounded integers, we simply change the types to
@@ -110,7 +110,7 @@ defined the reference implementation
     if (x <= y) y else x
   }
 
-and then used as a postcondition of `max` simply
+and then used as the postcondition of `max` simply
 
 .. code-block:: scala
 
@@ -324,7 +324,7 @@ Consider a stronger additional postcondition property:
 
 Does it hold? If we try to add it, we obtain a counterexample.
 A correct strengthening, taking into account that the element
-may or may not already be on the list, is the following.
+may or may not already be in the list, is the following.
 
 .. code-block:: scala
 

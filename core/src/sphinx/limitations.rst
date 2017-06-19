@@ -28,9 +28,9 @@ Thus a verified program may crash at run-time due to:
 
 Algebraic data types are assumed to be arbitrarily large.
 In any given execution, there will be actual bounds on the
-total available memory. The program could crash without
-a memory error when trying to allocate another value of
-algebraic data type.
+total available memory. The program could thus crash
+with an out-of-memory error when trying to allocate another
+value of algebraic data type.
 
 For a safety critical application you may wish to resort to
 tail-recursive programs only, and also write preconditions

@@ -178,7 +178,7 @@ A loop invariant must hold:
   (2) after each completion of the body
   (3) right after exiting the loop (when the condition turns false)
 
-Stainless will prove the point (1) and the point (2) above. Together, and by induction, they imply
+Stainless will prove the points (1) and (2) above. Together, and by induction, they imply
 that point (3) holds as well.
 
 Array access safety
