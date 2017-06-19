@@ -2,6 +2,8 @@
 
 package stainless
 
+import scala.language.existentials
+
 /** Provides definitions for a hierarchy of languages above stainless,
   * topped by xlang, which is the extended input language of stainless.
   *
