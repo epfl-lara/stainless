@@ -50,6 +50,11 @@ trait CodeExtraction extends ASTExtractors {
     throw new ImpureCodeEncounteredException(t.pos, msg, Some(t))
   }
 
+  /** TODO cleanup the [[Extraction]] class */
+  def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+    new Extraction(List(u)).extractUnit(u)
+  }
+
   class Extraction(compilationUnits: List[CompilationUnit]) {
 
     private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
@@ -125,27 +130,9 @@ trait CodeExtraction extends ASTExtractors {
       val functionsAcc = new ListBuffer[xt.FunDef]
 
       for (u <- compilationUnits) {
-        val (id, stats) = u.body match {
-          // package object
-          case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
-            (FreshIdentifier(extractRef(inner).mkString("$")), pd.stats)
+        val (unit, allClasses, allFunctions) = extractUnit(u)
 
-          case pd @ PackageDef(refTree, lst) =>
-            (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
-
-          case _ => outOfSubsetError(u.body, "Unexpected unit body")
-        }
-
-        val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
-        assert(functions.isEmpty, "Packages shouldn't contain functions")
-
-        unitsAcc += xt.UnitDef(
-          id,
-          imports,
-          classes,
-          subs,
-          !(Main.libraryFiles contains u.source.file.absolute.path)
-        ).setPos(u.body.pos)
+        unitsAcc += unit
 
         classesAcc ++= allClasses
         functionsAcc ++= allFunctions
@@ -165,6 +152,32 @@ trait CodeExtraction extends ASTExtractors {
         reporter.fatalError(e.pos, e.getMessage)
     }
 
+    def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+      val (id, stats) = u.body match {
+        // package object
+        case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
+          (FreshIdentifier(extractRef(inner).mkString("$")), pd.stats)
+
+        case pd @ PackageDef(refTree, lst) =>
+          (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
+
+        case _ => outOfSubsetError(u.body, "Unexpected unit body")
+      }
+
+      val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
+      assert(functions.isEmpty, "Packages shouldn't contain functions")
+
+      val unit = xt.UnitDef(
+        id,
+        imports,
+        classes,
+        subs,
+        !(Main.libraryFiles contains u.source.file.absolute.path)
+      ).setPos(u.body.pos)
+
+      (unit, allClasses, allFunctions)
+    }
+
     // This one never fails, on error, it returns Untyped
     def stainlessType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = {
       try {
@@ -178,8 +191,8 @@ trait CodeExtraction extends ASTExtractors {
 
     private def extractStatic(stats: List[Tree]): (
       Seq[xt.Import],
-      Seq[Identifier],
-      Seq[Identifier],
+      Seq[Identifier], // classes
+      Seq[Identifier], // functions
       Seq[xt.ModuleDef],
       Seq[xt.ClassDef],
       Seq[xt.FunDef]
