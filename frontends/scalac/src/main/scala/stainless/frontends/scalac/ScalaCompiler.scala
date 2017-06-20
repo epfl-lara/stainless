@@ -19,13 +19,6 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: Compiler
     val callback = ScalaCompiler.this.callback
   } with StainlessExtraction
 
-  object saveImports extends {
-    val global: ScalaCompiler.this.type = ScalaCompiler.this
-    val runsAfter = List[String]("pickler")
-    val runsRightAfter = None
-    val ctx = ScalaCompiler.this.ctx
-  } with SaveImports
-
   override protected def computeInternalPhases() : Unit = {
     val phs = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
@@ -36,7 +29,6 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: Compiler
       superAccessors          -> "add super accessors in traits and nested classes",
       extensionMethods        -> "add extension methods for inline classes",
       pickler                 -> "serialize symbol tables",
-      saveImports             -> "save imports to pass to stainlessExtraction",
       refChecks               -> "reference/override checking, translate nested objects",
       stainlessExtraction     -> "extracts stainless trees out of scala trees"
     )
