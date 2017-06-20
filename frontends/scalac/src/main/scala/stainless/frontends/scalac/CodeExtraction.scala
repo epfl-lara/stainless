@@ -205,7 +205,7 @@ trait CodeExtraction extends ASTExtractors {
         case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
           // ignore (can't be @ignored because of the dotty compiler)
 
-        case ExConstructorDef() 
+        case ExConstructorDef()
            | ExLazyFieldDef()
            | ExFieldAccessorFunction() =>
           // ignore
@@ -250,20 +250,6 @@ trait CodeExtraction extends ASTExtractors {
       (imports, classes, functions, subs, allClasses, allFunctions)
     }
 
-    def extractPackage(id: Identifier, u: CompilationUnit, pd: PackageDef): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
-      val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(pd.stats)
-      assert(functions.isEmpty, "Packages shouldn't contain functions")
-
-      val unit = xt.UnitDef(
-        id,
-        imports,
-        classes,
-        subs,
-        !(Main.libraryFiles contains u.source.file.absolute.path)
-      ).setPos(pd.pos)
-
-      (unit, allClasses, allFunctions)
-    }
 
     private def extractObject(obj: ClassDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
       val ExObjectDef(_, template) = obj
@@ -909,7 +895,7 @@ trait CodeExtraction extends ASTExtractors {
             case xt.FunctionType(from, to) =>
               val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))
               xt.Forall(args, xt.Application(pred, args.map(_.toVariable)).setPos(pred))
-            case _ => 
+            case _ =>
               outOfSubsetError(tr, "Unsupported forall definition: " + tr)
           }
         }
