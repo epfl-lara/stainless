@@ -51,6 +51,7 @@ class SMTZ3VerificationSuite extends VerificationSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
+    case "verification/valid/IntSetInv" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
@@ -67,6 +68,7 @@ class InlinedPostsVerificationSuite extends VerificationSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
+    case "verification/valid/IntSetInv" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
@@ -84,6 +86,7 @@ class CodeGenVerificationSuite extends VerificationSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
+    case "verification/valid/IntSetInv" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
