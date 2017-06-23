@@ -593,9 +593,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
      *          UNAPPLY FUNCTIONS
      * ==================================== */
 
-    val option = symbols.lookup[s.ADTDefinition]("stainless.lang.Option").id
-    val some = symbols.lookup[s.ADTDefinition]("stainless.lang.Some").id
-    val none = symbols.lookup[s.ADTDefinition]("stainless.lang.None").id
+    lazy val option = symbols.lookup[s.ADTDefinition]("stainless.lang.Option").id
+    lazy val some = symbols.lookup[s.ADTDefinition]("stainless.lang.Some").id
+    lazy val none = symbols.lookup[s.ADTDefinition]("stainless.lang.None").id
 
     val unapplyAdtCache: MutableMap[Identifier, t.FunDef] = MutableMap.empty
     def getAdtUnapply(id: Identifier): Identifier = unapplyAdtCache.get(id) match {
