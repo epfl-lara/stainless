@@ -38,7 +38,7 @@ object VerificationComponent extends SimpleComponent {
     val program: Program { val trees: stainless.trees.type }
     val results: Map[VC[program.trees.type], VCResult[program.Model]]
 
-    import program._
+    import program.{ ctx, Model }
 
     lazy val vrs = results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
 

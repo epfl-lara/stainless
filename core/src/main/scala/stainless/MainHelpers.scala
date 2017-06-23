@@ -153,7 +153,11 @@ trait MainHelpers extends inox.MainHelpers {
 
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
-      reports foreach { _.emit() }
+      val totalVCs = reports map { r => r.asInstanceOf[verification.VerificationComponent.Report].totalConditions } reduce { _ + _ }
+      // reports foreach { _.emit() }
+      ctx.reporter.info(s"Total Verification Conditions: $totalVCs")
+      // FIXME Are all VCs really verified???
+      // It seems there are some issue with the identifiers: None is missing several times for example.
 
       ctx.options.findOption(optJson) foreach { file =>
         val output = if (file.isEmpty) optJson.default else file
@@ -269,7 +273,10 @@ trait MainHelpers extends inox.MainHelpers {
                * println(s"updating " + (if (input.isLeft) "class" else "function") +
                *         s" ${id.uniqueName} with dependencies: " + (deps map { _.uniqueName } mkString ", "))
                */
-              graph.update(id, input, deps)
+              // TODO clean me
+              val r = graph.update(id, input, deps)
+              ctx.reporter.info(s"missing: ${graph.missings map { _.uniqueName } mkString ", "}")
+              r
             }
           }
 
@@ -280,11 +287,13 @@ trait MainHelpers extends inox.MainHelpers {
         val (cls, funs) = aggregated
         val isOfInterest = (cls exists shouldBeChecked) || (funs exists shouldBeChecked)
 
-        ctx.reporter.info(
-          s"$isOfInterest - Found ${results.size} results, aggregate to ${cls.size} " +
-          s"classes and ${funs.size} functions. The list is: " +
-          ((cls map { _.id }) ++ (funs map { _.id }) mkString ", ")
-        )
+        /*
+         * ctx.reporter.info(
+         *   s"$isOfInterest - Found ${results.size} results, aggregate to ${cls.size} " +
+         *   s"classes and ${funs.size} functions. The list is: " +
+         *   ((cls map { _.id }) ++ (funs map { _.id }) mkString ", ")
+         * )
+         */
 
         if (isOfInterest) Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
         else None
@@ -297,7 +306,7 @@ trait MainHelpers extends inox.MainHelpers {
     private def shouldBeChecked(fd: xt.FunDef): Boolean = {
       val isLibrary = fd.flags contains "library"
       val isUnchecked = fd.flags contains "unchecked"
-      !(isLibrary || isUnchecked)
+      true // !(isLibrary || isUnchecked)
       // TODO check --functions=... options for proper filter
     }
 
@@ -360,7 +369,7 @@ trait MainHelpers extends inox.MainHelpers {
 
     override def apply(file: String, unit: xt.UnitDef,
                        classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-      ctx.reporter.info(s"Got a unit for $file:${unit.id}")
+      // ctx.reporter.info(s"Got a unit for $file:${unit.id}")
       Registry.update(classes, functions) foreach { syms =>
         // The registry tells us something should be verified in these symbols.
         val program = new inox.Program {
