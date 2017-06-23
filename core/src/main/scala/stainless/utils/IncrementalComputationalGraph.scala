@@ -89,7 +89,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   private val nodes = MutableMap[Id, Node]()
 
   /** Set of nodes that have not yet been inserted into the graph, but are known to exist. */
-  // private val missings = MutableSet[Id]() <- actually unused
+  val missings = MutableSet[Id]() // <- actually unused
 
   /* The set of nodes not yet computed, but seen. */
   private val toCompute = MutableSet[Node]()
@@ -107,7 +107,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     // missings -= n.id
     toCompute += n
     n.deps foreach { depId =>
-      // if (!(nodes contains depId)) missings += depId
+      if (!(nodes contains depId)) missings += depId
       reverse.getOrElseUpdate(depId, MutableSet()) += n
     }
   }
@@ -115,7 +115,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /** Remove an existing node from the graph. */
   private def remove(n: Node): Unit = {
     nodes -= n.id
-    // if (reverse contains n.id) missings += n.id
+    if (reverse contains n.id) missings += n.id
     reverse.values foreach { _ -= n }
 
     mark(n)
