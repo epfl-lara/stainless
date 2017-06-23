@@ -10,7 +10,42 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableS
  * are all known -- with the dependencies themselves, hence a node might be passed to [[compute]]
  * several times. When any dependency of a node is updated, the node is recomputed.
  */
-class IncrementalComputationalGraph[Id, Input, Result](val compute: Set[(Id, Input)] => Result) {
+trait IncrementalComputationalGraph[Id, Input, Result] {
+
+  /******************* Public Interface ***********************************************************/
+
+  /**
+   * Insert (or override) a given node into the graph, then perform computation
+   * based on the graph state. Return the computed values.
+   */
+  def update(id: Id, in: Input, deps: Set[Id]): Option[Result] = {
+    update(Node(id, in, deps))
+  }
+
+  /******************* Customisation Points *******************************************************/
+
+  /**
+   * Produce some result for the set of nodes that are all ready.
+   *
+   * If is guarantee that [[ready]] contains all the dependencies for all element of [[ready]].
+   *
+   * The result itself is not used by [[IncrementalComputationalGraph]].
+   */
+  protected def compute(ready: Set[(Id, Input)]): Result
+
+  /**
+   * Determine whether the new value for a node is equivalent to the old value, given that
+   * they have the same id (enforced by the graph model) and the same set of dependencies.
+   *
+   * The default implementation make the conservative assumption that two inputs are equivalent
+   * if and only if they are equal. This function can be redefined in subclasses if needed.
+   */
+  protected def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean = {
+    oldInput == newInput
+  }
+
+  /******************* Implementation *************************************************************/
+
   /**
    * Representation of a [[Node]]:
    *  - It's [[id]] fully identifies a node (i.e. two nodes are equal <=> their ids are equal).
@@ -19,7 +54,7 @@ class IncrementalComputationalGraph[Id, Input, Result](val compute: Set[(Id, Inp
    *  - [[deps]] holds the set of **direct** dependencies.
    * Indirect dependencies is computed by [[IncrementalComputationalGraph]] itself.
    */
-  case class Node(id: Id, in: Input, deps: Set[Id]) {
+  private case class Node(id: Id, in: Input, deps: Set[Id]) {
     override def equals(any: Any): Boolean = any match {
       case Node(other, _, _) => id == other
       case _ => false
@@ -29,17 +64,22 @@ class IncrementalComputationalGraph[Id, Input, Result](val compute: Set[(Id, Inp
   }
 
   /**
-   * Insert (or override) a given node into the graph, then perform computation
-   * based on the graph state. Return the computed values.
+   * Implementation for the public [[update]] function.
+   *
+   * If the new node is equivalent to an old one, do nothing. Otherwise, process normally.
    */
-  def update(n: Node): Option[Result] = {
-    if (nodes contains n.id) remove(n)
+  private def update(n: Node): Option[Result] = {
+    def run(delete: Boolean) = {
+      if (delete) remove(n)
+      insert(n)
+      process()
+    }
 
-    insert(n)
-    process()
+    nodes get n.id match {
+      case Some(m) if (m.deps == n.deps) && equivalent(n.id, n.deps, m.in, n.in) => None // nothing new
+      case mOpt => run(mOpt.isDefined)
+    }
   }
-
-  /******************* Implementation *************************************************************/
 
   /**
    * Some nodes might not yet be fully known, yet we have some evidence (through other nodes'

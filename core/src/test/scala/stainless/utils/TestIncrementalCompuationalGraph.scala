@@ -73,11 +73,16 @@ class TestIncrementalComputationalGraph extends FunSuite {
 
   private def testSequence(name: String, inputs: Seq[Input], expected: Seq[Set[Input]]): Unit = test(name) {
     val e = new Eval
-    val g = new IncrementalComputationalGraph[String, Input, Unit](e.eval)
+    val g = new IncrementalComputationalGraph[String, Input, Unit] {
+      override def compute(ready: Set[(String, Input)]): Unit = e.eval(ready)
+      override def equivalent(id: String, deps: Set[String], oldInput: Input, newInput: Input): Boolean = {
+        oldInput._1 == newInput._1
+      }
+    }
 
     inputs foreach { fd =>
       e.push()
-      g.update(g.Node(fd._2, fd, directDependencies(fd)))
+      g.update(fd._2, fd, directDependencies(fd))
       e.pop()
     }
 
@@ -98,9 +103,9 @@ class TestIncrementalComputationalGraph extends FunSuite {
   testSequence("foo1.a", Seq(main, foo1, bar), Seq(Set(), Set(), Set(main, foo1, bar)))
   testSequence("foo1.b", Seq(main, bar, foo1), Seq(Set(), Set(bar), Set(main, foo1, bar)))
   testSequence("foo1.c", Seq(bar, main, foo1), Seq(Set(bar), Set(), Set(main, foo1, bar)))
-  testSequence("foo1.d", Seq(bar, bar, main, foo1), Seq(Set(bar), Set(bar), Set(), Set(main, foo1, bar)))
+  testSequence("foo1.d", Seq(bar, bar, main, foo1), Seq(Set(bar), Set(), Set(), Set(main, foo1, bar)))
   testSequence("foo1.e", Seq(bar, bar, main, main, foo1, bar),
-                         Seq(Set(bar), Set(bar), Set(), Set(), Set(main, foo1, bar), Set(main, foo1, bar)))
+                         Seq(Set(bar), Set(), Set(), Set(), Set(main, foo1, bar), Set()))
   testSequence("foo2.a", Seq(main, foo2, bar), Seq(Set(), Set(), Set(main, foo2, bar)))
   testSequence("foo2.b", Seq(main, foo2, bar, baz), Seq(Set(), Set(), Set(main, foo2, bar), Set(baz)))
   testSequence("foo2-1", Seq(main, foo2, bar, foo1), Seq(Set(), Set(), Set(main, foo2, bar), Set(main, foo1, bar)))
@@ -111,7 +116,7 @@ class TestIncrementalComputationalGraph extends FunSuite {
 
 
   testSequence("recursive.a", Seq(recA, recB), Seq(Set(), Set(recA, recB)))
-  testSequence("recursive.b", Seq(recA, recB, recA), Seq(Set(), Set(recA, recB), Set(recA, recB)))
+  testSequence("recursive.b", Seq(recA, recB, recA), Seq(Set(), Set(recA, recB), Set()))
 
   testSequence("recursive.c", Seq(recY1, recX1, recZ, ext, recX2),
                               Seq(
@@ -131,7 +136,8 @@ class TestIncrementalComputationalGraph extends FunSuite {
     recX2 -> Set(recX2, recY1, recZ, ext),
     recY2 -> Set.empty,
     lambda -> Set(recX2, recY2, recZ, lambda, ext),
-    recX1 -> Set(recX1, recY2, recZ, ext, lambda)
+    recX1 -> Set(recX1, recY2, recZ, ext, lambda),
+    recX1 -> Set()
   ))
 
 }
