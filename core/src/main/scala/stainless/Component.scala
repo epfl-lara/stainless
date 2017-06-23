@@ -49,7 +49,7 @@ trait SimpleComponent extends Component { self =>
     extraction.extract(program).transform(lowering)
   }
 
-  def apply(units: List[xt.UnitDef], program: Program { val trees: xt.type }): Report = {
+  def apply(program: Program { val trees: xt.type }): Report = {
     val extracted = extract(program)
     import extracted._
 

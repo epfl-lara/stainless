@@ -2,9 +2,12 @@
 
 package stainless
 
-import java.io.{File, PrintWriter}
-
 import extraction.xlang.{trees => xt}
+import utils.IncrementalComputationalGraph
+
+import java.io.{File, PrintWriter}
+import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
+
 import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
@@ -34,7 +37,7 @@ object MainHelpers {
     *  - the program was not running in "watch" mode.
     */
   trait CompilerCallBack {
-    def apply(unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
+    def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
 
     def stop(): Unit = () // by default nothing is done
 
@@ -176,8 +179,8 @@ trait MainHelpers extends inox.MainHelpers {
 
     // Distribute event to active components:
     val masterCallback: CompilerCallBack = new CompilerCallBack {
-      override def apply(unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-        for { c <- activeCallbacks } c(unit, classes, functions)
+      override def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+        for { c <- activeCallbacks } c(file, unit, classes, functions)
       }
 
       override def stop(): Unit = {
@@ -199,18 +202,184 @@ trait MainHelpers extends inox.MainHelpers {
 
   /** Callback for verification */
   private class VerificationCallBack(val ctx: inox.Context) extends CompilerCallBack {
-    override def apply(unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-      ctx.reporter.info(s"Got a unit!!!\n$unit")
-      ???
+    private val reports = ListBuffer[verification.VerificationComponent.Report]()
+
+    /** Keep track of the valid data as they come, in a thread-safe fashion. */
+    private object Registry {
+      private type NodeValue = Either[xt.ClassDef, xt.FunDef]
+
+      private type Result = (Set[xt.ClassDef], Set[xt.FunDef])
+      private val EmptyResult = (Set[xt.ClassDef](), Set[xt.FunDef]())
+
+      // TODO Are Identifier okay? We might have some issue with how they are compared due
+      //      to the global/id counters...
+      private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
+        override def compute(ready: Set[(Identifier, NodeValue)]): Result = {
+          (EmptyResult /: ready) { case ((cls, funs), (id, node)) =>
+            node match {
+              case Left(cd) => (cls + cd, funs)
+              case Right(fd) => (cls, funs + fd)
+            }
+          }
+        }
+
+        /*
+         * override def equivalent(id: Identifier, deps: Set[Identifier],
+         *                         oldInput: NodeValue, newInput: NodeValue): Boolean = {
+         *   // TODO avoid recompute things that are equivalent.
+         *   // Karine Perrard's work might be of interest here.
+         * }
+         */
+      }
+
+
+      /**
+       * Update the graph with the new/updated classes and functions.
+       *
+       * With the new information, if something is ready to be verified, [[update]] return
+       * the set of functions/classes required for the verification.
+       *
+       * The resulting symbols still need to be extracted to fit [[stainless.extraction.trees]]
+       * before being sent to the solver.
+       *
+       * TODO currently, the resulting set of symbols is an over-approximation:
+       *      there can be some elements that actually don't need to be verified in the set
+       *      and are not required to be in the set to verify the elements that should
+       *      be verified. To improve on this, [[IncrementalComputationalGraph]] needs to
+       *      have "shouldCompute" predicates -- essentially the same as [[shouldBeChecked]].
+       */
+      def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+        // Compute direct dependencies and insert the new information into our dependency graph
+        val newNodes: Seq[(Identifier, NodeValue, Set[Identifier])] =
+          (classes map { cd => (cd.id, Left(cd): NodeValue, computeDirectDependencies(cd)) }) ++
+          (functions map { fd => (fd.id, Right(fd): NodeValue, computeDirectDependencies(fd)) })
+
+        // Critical Section
+        val results: Seq[Result] =
+          this.synchronized {
+            newNodes flatMap { case (id, input, deps) =>
+              /*
+               * println(s"updating " + (if (input.isLeft) "class" else "function") +
+               *         s" ${id.uniqueName} with dependencies: " + (deps map { _.uniqueName } mkString ", "))
+               */
+              graph.update(id, input, deps)
+            }
+          }
+
+        val aggregated: Result = (EmptyResult /: results) { case ((cls1, funs1), (cls2, funs2)) =>
+          (cls1 ++ cls2, funs1 ++ funs2)
+        }
+
+        val (cls, funs) = aggregated
+        val isOfInterest = (cls exists shouldBeChecked) || (funs exists shouldBeChecked)
+
+        ctx.reporter.info(
+          s"$isOfInterest - Found ${results.size} results, aggregate to ${cls.size} " +
+          s"classes and ${funs.size} functions. The list is: " +
+          ((cls map { _.id }) ++ (funs map { _.id }) mkString ", ")
+        )
+
+        if (isOfInterest) Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
+        else None
+      }
+
     }
 
-    override def getReports: Seq[AbstractReport] = Nil
+    /** Checks whether the given function/class should be verified at some point. */
+    // TODO this check should be moved to a utility package and copy/past code removed from stainless.
+    private def shouldBeChecked(fd: xt.FunDef): Boolean = {
+      val isLibrary = fd.flags contains "library"
+      val isUnchecked = fd.flags contains "unchecked"
+      !(isLibrary || isUnchecked)
+      // TODO check --functions=... options for proper filter
+    }
+
+    private def shouldBeChecked(cd: xt.ClassDef): Boolean = {
+      true // TODO
+    }
+
+    /** Compute the set of direct, non-recursive dependencies of the given [[xt.FunDef]] or [[xt.ClassDef]]. */
+    private def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = (new DepFinder)(fd)
+    private def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = (new DepFinder)(cd)
+
+    /** [[DepFinder]] find the set of dependencies for a function/class,
+      * it is not thread safe and is designed for one and only one run!
+      *
+      * It returns only the *direct* dependencies, without the argument itself
+      * although it could be a recursive function.
+      */
+    private class DepFinder {
+      private val deps: MutableSet[Identifier] = MutableSet.empty
+      private val finder = new xt.TreeTraverser {
+        override def traverse(e: xt.Expr): Unit = e match {
+          case xt.FunctionInvocation(id, _, _) =>
+            deps += id
+            super.traverse(e)
+          case _ => super.traverse(e)
+        }
+
+        override def traverse(pat: xt.Pattern): Unit = pat match {
+          case xt.UnapplyPattern(_, id, _, _) =>
+            deps += id
+            super.traverse(pat)
+          case _ => super.traverse(pat)
+        }
+
+        override def traverse(tpe: xt.Type): Unit = tpe match {
+          case xt.ClassType(id, _) =>
+            deps += id
+            super.traverse(tpe)
+          case _ => super.traverse(tpe)
+        }
+      }
+
+      def apply(fd: xt.FunDef): Set[Identifier] = {
+        finder.traverse(fd)
+        deps -= fd.id
+
+        deps.toSet
+      }
+
+      def apply(cd: xt.ClassDef): Set[Identifier] = {
+        cd.tparams foreach finder.traverse
+        cd.parents foreach finder.traverse
+        cd.fields foreach finder.traverse
+        cd.flags foreach finder.traverse
+        deps -= cd.id
+
+        deps.toSet
+      }
+    }
+
+    override def apply(file: String, unit: xt.UnitDef,
+                       classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+      ctx.reporter.info(s"Got a unit for $file:${unit.id}")
+      Registry.update(classes, functions) foreach { syms =>
+        // The registry tells us something should be verified in these symbols.
+        val program = new inox.Program {
+          val trees: extraction.xlang.trees.type = extraction.xlang.trees
+          val ctx = VerificationCallBack.this.ctx
+          val symbols = syms
+        }
+
+        solve(program)
+      }
+    }
+
+    private def solve(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
+      // TODO dispatch solving
+      val report = verification.VerificationComponent(program)
+      this.synchronized { reports += report }
+    }
+
+    // FIXME maybe instead of several report we should merge them?
+    override def getReports: Seq[AbstractReport] = reports
   }
 
 
   /** Callback for termination */
   private class TerminationCallBack(val ctx: inox.Context) extends CompilerCallBack {
-    override def apply(unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = ???
+    override def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = ???
 
     override def getReports: Seq[AbstractReport] = Nil
   }

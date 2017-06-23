@@ -20,8 +20,9 @@ trait StainlessExtraction extends SubComponent with CodeExtraction {
 
   class Phase(prev: scala.tools.nsc.Phase) extends StdPhase(prev) {
     def apply(u: CompilationUnit): Unit = {
+      val file = u.source.file.absolute.path
       val (unit, classes, functions) = extractUnit(u)
-      callback(unit, classes, functions)
+      callback(file, unit, classes, functions)
     }
   }
 }
