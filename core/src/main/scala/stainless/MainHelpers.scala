@@ -6,6 +6,7 @@ import extraction.xlang.{trees => xt}
 import utils.IncrementalComputationalGraph
 
 import java.io.{File, PrintWriter}
+import java.util.concurrent.Executors
 import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
 
 import org.json4s.JsonAST.JObject
@@ -69,6 +70,12 @@ object MainHelpers {
 
   /** A Compiler factor which takes as input: context + compiler arguments + callback */
   type CompilerFactory = (inox.Context, Seq[String], CompilerCallBack) => Compiler
+
+
+  /** Executor used to execute tasks concurrently. */
+  // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
+  // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
+  val executor = Executors.newWorkStealingPool()
 
 }
 
@@ -367,9 +374,15 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     private def solve(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
-      // TODO dispatch solving
-      val report = verification.VerificationComponent(program)
-      this.synchronized { reports += report }
+      // Dispatch a task to the executor service instead of blocking this thread.
+      val task = new Runnable {
+        override def run(): Unit = {
+          val report = verification.VerificationComponent(program)
+          this.synchronized { reports += report }
+        }
+      }
+
+      MainHelpers.executor.submit(task)
     }
 
     // FIXME maybe instead of several report we should merge them?
