@@ -126,6 +126,6 @@ can be shown terminating as follows:
 .. code-block:: scala
 
   def M(n: BigInt): BigInt = {
-    decreases(max(101 - n, 0))
+    decreases(stainless.math.max(101 - n, 0))
     if (n > 100) n - 10 else M(M(n + 11))
   } ensuring (_ == (if (n > 100) n - 10 else BigInt(91)))
