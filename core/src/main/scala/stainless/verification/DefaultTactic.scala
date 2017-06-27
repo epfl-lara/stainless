@@ -11,15 +11,35 @@ trait DefaultTactic extends Tactic {
   import program.trees._
   import program.symbols._
 
+  // put the Ensuring clauses the lowest possible in the tree
+  def ensuring(e: Expr, lambda: Lambda): Expr = e match {
+    case Let(id, value, rest) => Let(id,value,ensuring(rest, lambda)).copiedFrom(e)
+    case Assert(cond, err, rest) => Assert(cond, err, ensuring(rest, lambda)).copiedFrom(e)
+    case IfExpr(cond, thenn, elze) => IfExpr(cond, ensuring(thenn,lambda), ensuring(elze,lambda)).copiedFrom(e)
+    case MatchExpr(scrutinee, cases) =>
+      val newCases = cases.map {
+        case m @ MatchCase(pattern, optGuard, rhs) => MatchCase(pattern, optGuard, ensuring(rhs, lambda)).copiedFrom(m)
+      }
+      MatchExpr(scrutinee, newCases).copiedFrom(e)
+    case Require(pred, body) => Require(pred, ensuring(body,lambda)).copiedFrom(e)
+    case _ => Ensuring(e, lambda).copiedFrom(e)
+  }
+
+  // pushes an Ensuring clauses down the tree, using the `ensuring` helper function
+  def pushDownEnsuring(e: Expr): Expr = {
+    exprOps.postMap {
+      case (e @ Ensuring(body, lambda)) => Some(ensuring(body, lambda))
+      case _ => None
+    }(e)
+  }
+
   def generatePostconditions(id: Identifier): Seq[VC] = {
-    val fd = getFunction(id)
-    (fd.postcondition, fd.body) match {
-      case (Some(post), Some(body)) =>
-        val vc = exprOps.freshenLocals(implies(fd.precOrTrue, application(post, Seq(body))))
-        Seq(VC(vc, id, VCKind.Postcondition).setPos(post))
-      case _ =>
-        Nil
-    }
+    val body = pushDownEnsuring(getFunction(id).fullBody)
+    transformers.CollectorWithPC(program) {
+      case (e @ Ensuring(body, lambda), path) =>
+        val vc = exprOps.freshenLocals(path implies application(lambda, Seq(body)))
+        VC(vc, id, VCKind.Postcondition).setPos(e)
+    }.collect(body)
   }
 
   def generatePreconditions(id: Identifier): Seq[VC] = {
