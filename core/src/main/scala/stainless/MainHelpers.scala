@@ -85,7 +85,9 @@ object MainHelpers {
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  val executor = Executors.newWorkStealingPool()
+  val executor =
+    Executors.newWorkStealingPool()
+    // Executors.newSingleThreadExecutor()
 
 }
 
@@ -163,11 +165,12 @@ trait MainHelpers extends inox.MainHelpers {
 
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
-      val totalVCs = reports map { r => r.asInstanceOf[verification.VerificationComponent.Report].totalConditions } reduce { _ + _ }
       reports foreach { _.emit() }
+
+      // TODO remove me
+      val counts = reports map { r => r.asInstanceOf[verification.VerificationComponent.Report].totalConditions }
+      val totalVCs = if (counts.nonEmpty) counts reduce { _ + _ } else 0
       ctx.reporter.info(s"Total Verification Conditions: $totalVCs")
-      // FIXME Are all VCs really verified???
-      // It seems there are some issue with the identifiers: None is missing several times for example.
 
       ctx.options.findOption(optJson) foreach { file =>
         val output = if (file.isEmpty) optJson.default else file
@@ -282,13 +285,13 @@ trait MainHelpers extends inox.MainHelpers {
         val results: Seq[Result] =
           this.synchronized {
             newNodes flatMap { case (id, input, deps) =>
+              // TODO clean me
               /*
                * println(s"updating " + (if (input.isLeft) "class" else "function") +
                *         s" ${id.uniqueName} with dependencies: " + (deps map { _.uniqueName } mkString ", "))
                */
-              // TODO clean me
               val r = graph.update(id, input, deps)
-              ctx.reporter.info(s"missing: ${graph.missings map { _.uniqueName } mkString ", "}")
+              // ctx.reporter.info(s"missing: ${graph.missings map { _.uniqueName } mkString ", "}")
               r
             }
           }
@@ -336,14 +339,22 @@ trait MainHelpers extends inox.MainHelpers {
       *
       * It returns only the *direct* dependencies, without the argument itself
       * although it could be a recursive function.
+      *
+      * TODO Move this to a more appropriate place.
       */
     private class DepFinder {
       private val deps: MutableSet[Identifier] = MutableSet.empty
       private val finder = new xt.TreeTraverser {
         override def traverse(e: xt.Expr): Unit = e match {
+          // TODO shouldn't we look for function in argument place too?
           case xt.FunctionInvocation(id, _, _) =>
             deps += id
             super.traverse(e)
+
+          case xt.MethodInvocation(_, id, _, _) =>
+            deps += id
+            super.traverse(e)
+
           case _ => super.traverse(e)
         }
 
@@ -351,6 +362,7 @@ trait MainHelpers extends inox.MainHelpers {
           case xt.UnapplyPattern(_, id, _, _) =>
             deps += id
             super.traverse(pat)
+
           case _ => super.traverse(pat)
         }
 
@@ -358,6 +370,7 @@ trait MainHelpers extends inox.MainHelpers {
           case xt.ClassType(id, _) =>
             deps += id
             super.traverse(tpe)
+
           case _ => super.traverse(tpe)
         }
       }
@@ -391,6 +404,16 @@ trait MainHelpers extends inox.MainHelpers {
           val symbols = syms
         }
 
+        try {
+          syms.ensureWellFormed
+        } catch {
+          case e: syms.TypeErrorException =>
+            ctx.reporter.error(e.pos, e.getMessage)
+            // ctx.reporter.error(s"Available functions: " + (syms.functions.values map { _.id } mkString ", "))
+            // ctx.reporter.error(s"Available classes: " + (syms.classes.values map { _.id } mkString ", "))
+            ctx.reporter.fatalError(s"The extracted sub-program in not well typed.")
+        }
+
         solve(program)
       }
     }
@@ -406,12 +429,13 @@ trait MainHelpers extends inox.MainHelpers {
         } catch {
           case e: Throwable =>
             ctx.reporter.error(s"VerificationComponent failed: $e")
-            null // FIXME this should not happen!
+            ctx.reporter.fatalError("STOP")
         }
       }
 
       val future = MainHelpers.executor.submit(task)
       this.synchronized { tasks += future }
+      // task.call()
     }
 
     override def stop(): Unit = tasks foreach { _.cancel(true) }
