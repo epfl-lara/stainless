@@ -31,16 +31,18 @@ object MainHelpers {
     * callback deals with any potential invalidation of existing data without blocking the
     * callee's thread.
     *
-    * A [[Compiler]] has to [[stop]] its callback at some point.
+    * A [[Compiler]] has to [[stop]] or [[join]] its callback at some point.
     *
     * Calling [[getReports]] is valid if and only if:
-    *  - the callback has been stopped, and
+    *  - the callback has been joined, and
     *  - the program was not running in "watch" mode.
     */
   trait CompilerCallBack {
     def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
 
-    def stop(): Unit = () // by default nothing is done
+    def stop(): Unit // Blocking "stop".
+
+    def join(): Unit // Wait until all tasks have finished.
 
     def getReports: Seq[AbstractReport]
   }
@@ -55,13 +57,21 @@ object MainHelpers {
     def isRunning: Boolean
 
     protected def onStop(): Unit
+    protected def onJoin(): Unit
 
-    /** Stop the compiler (and wait until it has stopped) */
+    /** Stop the compiler (and wait until it has stopped). */
     final def stop(): Unit = {
-      callback.stop()
       onStop()
+      callback.stop()
     }
 
+    /** Wait for the compiler, and the generated tasks, to finish. */
+    final def join(): Unit = {
+      onJoin()
+      callback.join()
+    }
+
+    // See assumption/requirements in [[CompilerCallBack]]
     final def getReports: Seq[AbstractReport] = {
       assert(!isRunning)
       callback.getReports
@@ -149,12 +159,12 @@ trait MainHelpers extends inox.MainHelpers {
       ???
     } else {
       // Passively wait until the compiler has finished and process reports
-      while (compiler.isRunning) { Thread.sleep(100) }
+      compiler.join()
 
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
       val totalVCs = reports map { r => r.asInstanceOf[verification.VerificationComponent.Report].totalConditions } reduce { _ + _ }
-      // reports foreach { _.emit() }
+      reports foreach { _.emit() }
       ctx.reporter.info(s"Total Verification Conditions: $totalVCs")
       // FIXME Are all VCs really verified???
       // It seems there are some issue with the identifiers: None is missing several times for example.
@@ -198,6 +208,10 @@ trait MainHelpers extends inox.MainHelpers {
         for { c <- activeCallbacks } c.stop()
       }
 
+      override def join(): Unit = {
+        for { c <- activeCallbacks } c.join()
+      }
+
       override def getReports: Seq[AbstractReport] = {
         activeCallbacks flatMap { _.getReports }
       }
@@ -213,7 +227,6 @@ trait MainHelpers extends inox.MainHelpers {
 
   /** Callback for verification */
   private class VerificationCallBack(val ctx: inox.Context) extends CompilerCallBack {
-    private val reports = ListBuffer[verification.VerificationComponent.Report]()
 
     /** Keep track of the valid data as they come, in a thread-safe fashion. */
     private object Registry {
@@ -382,26 +395,41 @@ trait MainHelpers extends inox.MainHelpers {
       }
     }
 
+    private type Report = verification.VerificationComponent.Report
+    private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
+
     private def solve(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
       // Dispatch a task to the executor service instead of blocking this thread.
-      val task = new Runnable {
-        override def run(): Unit = {
-          val report = verification.VerificationComponent(program)
-          this.synchronized { reports += report }
+      val task = new java.util.concurrent.Callable[Report] {
+        override def call(): Report = try {
+          verification.VerificationComponent(program)
+        } catch {
+          case e: Throwable =>
+            ctx.reporter.error(s"VerificationComponent failed: $e")
+            null // FIXME this should not happen!
         }
       }
 
-      MainHelpers.executor.submit(task)
+      val future = MainHelpers.executor.submit(task)
+      this.synchronized { tasks += future }
     }
 
+    override def stop(): Unit = tasks foreach { _.cancel(true) }
+
+    override def join(): Unit = tasks foreach { _.get }
+
+    // See assumption/requirements in [[CompilerCallBack]]
     // FIXME maybe instead of several report we should merge them?
-    override def getReports: Seq[AbstractReport] = reports
+    override def getReports = tasks map { _.get } filter { _ != null }
   }
 
 
   /** Callback for termination */
   private class TerminationCallBack(val ctx: inox.Context) extends CompilerCallBack {
     override def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = ???
+
+    override def stop(): Unit = ()
+    override def join(): Unit = ()
 
     override def getReports: Seq[AbstractReport] = Nil
   }

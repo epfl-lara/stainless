@@ -96,6 +96,14 @@ object ScalaCompiler {
           ctx.reporter.info(s"Compiler stopped") // TODO make this debug
         }
       }
+
+      override def onJoin(): Unit = {
+        if (isRunning) {
+          ctx.reporter.info(s"Joining the compiler...") // TODO make this debug
+          thread.join()
+          ctx.reporter.info(s"Joined!") // TODO make this debug
+        }
+      }
     }
 
     compiler
