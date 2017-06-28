@@ -3,11 +3,11 @@
 package stainless
 package frontends.scalac
 
-import MainHelpers.{Compiler,CompilerCallBack,CompilerFactory}
+import frontend.{ Frontend, FrontendFactory, CallBack }
 import scala.tools.nsc.{Global, Settings => NSCSettings, CompilerCommand}
 import scala.reflect.internal.Positions
 
-class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CompilerCallBack)
+class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
      with Positions {
 
@@ -31,6 +31,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: Compiler
       pickler                 -> "serialize symbol tables",
       refChecks               -> "reference/override checking, translate nested objects",
       stainlessExtraction     -> "extracts stainless trees out of scala trees"
+      // TODO drop in replacement? add next phases, plus last phase to report VC results
     )
     phs foreach { phasesSet += _._1 }
   }
@@ -44,69 +45,76 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: Compiler
 
 object ScalaCompiler {
 
-  /** Complying with [[MainHelpers.factory]] */
-  def factory: CompilerFactory = { case (ctx, compilerArgs, callback) =>
+  /** Complying with [[frontend]]'s interface */
+  class Factory(
+    override val extraCompilerArguments: Seq[String],
+    override val libraryFiles: Seq[String]
+  ) extends FrontendFactory {
 
-    val settings = buildSettings(ctx)
-    val files = getFiles(compilerArgs, ctx, settings)
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend = {
 
-    val instance = new ScalaCompiler(settings, ctx, callback)
+      val args = allCompilerArguments(compilerArgs)
+      val settings = buildSettings(ctx)
+      val files = getFiles(args, ctx, settings)
 
-    // Implement an interface compatible with MainHelpers.
-    // TODO refactor code, maybe, in MainHelpers if the same code is required for dotty/other frontends
-    val compiler = new Compiler(callback) {
-      var underlying: instance.Run = null
-      var thread: Thread = null
+      val instance = new ScalaCompiler(settings, ctx, callback)
 
-      override def run(): Unit = {
-        assert(!isRunning)
-        underlying = new instance.Run
+      // Implement an interface compatible with MainHelpers.
+      // TODO refactor code, maybe, in MainHelpers if the same code is required for dotty/other frontends
+      val compiler = new Frontend(callback) {
+        var underlying: instance.Run = null
+        var thread: Thread = null
 
-        // Run the compiler in the background in order to make the factory
-        // non-blocking, and implement a clean stop action.
-        val runnable = new Runnable {
-          override def run() = try {
-            underlying.compile(files)
-          } catch {
-            case e: Throwable =>
-              ctx.reporter.error(s"Got an exception from within the compiler: " + e.getMessage)
-              ctx.reporter.error(s"Trace:\n" + (e.getStackTrace mkString "\n"))
-              throw e
-          } finally {
-            underlying = null
+        override def run(): Unit = {
+          assert(!isRunning)
+          underlying = new instance.Run
+
+          // Run the compiler in the background in order to make the factory
+          // non-blocking, and implement a clean stop action.
+          val runnable = new Runnable {
+            override def run() = try {
+              underlying.compile(files)
+            } catch {
+              case e: Throwable =>
+                ctx.reporter.error(s"Got an exception from within the compiler: " + e.getMessage)
+                ctx.reporter.error(s"Trace:\n" + (e.getStackTrace mkString "\n"))
+                throw e
+            } finally {
+              underlying = null
+            }
+          }
+
+          assert(thread == null)
+          thread = new Thread(runnable, "stainless compiler")
+          thread.start()
+        }
+
+        override def isRunning: Boolean = {
+          underlying != null
+        }
+
+        override def onStop(): Unit = {
+          if (isRunning) {
+            ctx.reporter.info(s"Stopping compiler...") // TODO make this debug
+            val timer = ctx.timers.frontends.cancel.start()
+            underlying.cancel()
+            thread.join()
+            timer.stop()
+            ctx.reporter.info(s"Compiler stopped") // TODO make this debug
           }
         }
 
-        assert(thread == null)
-        thread = new Thread(runnable, "stainless compiler")
-        thread.start()
-      }
-
-      override def isRunning: Boolean = {
-        underlying != null
-      }
-
-      override def onStop(): Unit = {
-        if (isRunning) {
-          ctx.reporter.info(s"Stopping compiler...") // TODO make this debug
-          val timer = ctx.timers.frontends.cancel.start()
-          underlying.cancel()
-          thread.join()
-          timer.stop()
-          ctx.reporter.info(s"Compiler stopped") // TODO make this debug
+        override def onJoin(): Unit = {
+          if (isRunning) {
+            ctx.reporter.info(s"Joining the compiler...") // TODO make this debug
+            thread.join()
+            ctx.reporter.info(s"Joined!") // TODO make this debug
+          }
         }
       }
 
-      override def onJoin(): Unit = {
-        if (isRunning) {
-          ctx.reporter.info(s"Joining the compiler...") // TODO make this debug
-          thread.join()
-          ctx.reporter.info(s"Joined!") // TODO make this debug
-        }
-      }
+      compiler
     }
-
-    compiler
   }
 
   /** Let the frontend analyse the arguments to understand which files should be compiled. */

@@ -106,22 +106,20 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
       in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
       .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
     
-    
-    IO.write(main, s"""|package stainless
-                       |
-                       |import extraction.xlang.{trees => xt}
-                       |
-                       |object Main extends MainHelpers {
-                       |
-                       |  override val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
-                       |
-                       |  override val libraryFiles = List(
-                       |    ${removeSlashU(libraryFiles.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
-                       |  )
-                       |
-                       |  override def factory: MainHelpers.CompilerFactory = frontends.${frontendClass.value}.factory
-                       |
-                       |}""".stripMargin)
+    IO.write(main,
+      s"""|package stainless
+          |
+          |object Main extends MainHelpers {
+          |
+          |  val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
+          |
+          |  val libraryFiles = List(
+          |    ${removeSlashU(libraryFiles.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
+          |  )
+          |
+          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryFiles)
+          |
+          |}""".stripMargin)
     Seq(main)
   }) ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
