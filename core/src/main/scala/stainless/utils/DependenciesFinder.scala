@@ -12,7 +12,8 @@ import scala.collection.mutable.{ Set => MutableSet }
  * it is not thread safe and is designed for one and only one run!
  *
  * It returns only the *direct* dependencies, without the argument itself
- * although it could be a recursive function.
+ * although it could be a recursive function. Moreover, it doesn't capture
+ * the notion of class hierarchy as it doesn't know about other classes.
  *
  * TODO Tests!
  * TODO shouldn't we look for function in argument place too?

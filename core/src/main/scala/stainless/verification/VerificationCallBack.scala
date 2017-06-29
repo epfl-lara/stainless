@@ -51,11 +51,54 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
      *      and are not required to be in the set to verify the elements that should
      *      be verified. To improve on this, [[IncrementalComputationalGraph]] needs to
      *      have "shouldCompute" predicates -- essentially the same as [[shouldBeChecked]].
+     *
+     * TODO distinguish sealed and non-sealed class hierarchies. Handle the latter appropriately.
+     *      To do that, we can:
+     *       - delay the insertion of classes in the graph,
+     *       - once notified that everything was compiled, consider all classes as sealed,
+     *         and insert them all in the graph as usual.
+     *      However, this adds a BIG assumption on the runtime: no new class should be available!
+     *      So, maybe we just don't want that???
      */
-    def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = {
+    def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+      // We create "clusters" for classes: they define class hierarchies based on the given subset
+      // of all classes.
+      type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
+      val clusters: ClusterMap = {
+        // Find the top level parents for the given class, returns empty seq when no inheritance.
+        def getTopLevels(cd: xt.ClassDef): Set[xt.ClassDef] = if (cd.parents.isEmpty) Set.empty else {
+          getDirects(cd) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(p) }
+        }
+
+        def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
+          classes find { _.id == ct.id } getOrElse {
+            val error = s"Expected to find parent in the same compilation unit! (${ct.id} for ${cd.id})"
+            ctx.reporter.fatalError(error)
+          }
+        }
+
+        // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
+        def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
+          (acc /: getTopLevels(cd)) { (acc, top) =>
+            val currentCluster = acc.getOrElse(top, Set[Identifier]())
+            val newCluster = currentCluster + cd.id
+            acc + (top -> newCluster)
+          }
+        }
+
+        // From the top level, propagate information to the leaves.
+        val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
+        val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
+        classes map { cd =>
+          val parents = getTopLevels(cd) map topLevelClusters
+          val cluster = (Set[Identifier]() /: parents) { _ union _ }
+          cd -> (cluster - cd.id)
+        }
+      }.toMap
+
       // Compute direct dependencies and insert the new information into our dependency graph
       val newNodes: Seq[(Identifier, NodeValue, Set[Identifier])] =
-        (classes map { cd => (cd.id, Left(cd): NodeValue, computeDirectDependencies(cd)) }) ++
+        (classes map { cd => (cd.id, Left(cd): NodeValue, computeDirectDependencies(cd) ++ clusters(cd)) }) ++
         (functions map { fd => (fd.id, Right(fd): NodeValue, computeDirectDependencies(fd)) })
 
       // Critical Section
@@ -64,10 +107,18 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
           newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps) }
         }
 
-      results flatMap { case (cls, funs) =>
-        val isOfInterest = (cls exists shouldBeChecked) || (funs exists shouldBeChecked)
-        if (isOfInterest) Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
-        else None
+      // TODO this filter should be moved into the graph
+      val ofInterest =
+        results filter { case (cls, funs) => (cls exists shouldBeChecked) || (funs exists shouldBeChecked) }
+
+      if (ofInterest.isEmpty) None
+      else {
+        // Group into one set of Symbols to avoid verifying the same things several times
+        // TODO this is just because we don't have caching later on in the pipeline.
+        val (clsSets, funsSets) = ofInterest.unzip
+        val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
+        val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
+        Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
       }
     }
 
@@ -102,7 +153,7 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
         val symbols = syms
       }
 
-      // TODO remove this in favor of a the more general "ensureWellFormed" below.
+      // TODO remove this in favor of the more general "ensureWellFormed" below.
       for ((_, fd) <- syms.functions) {
         try {
           syms.typeCheck(fd.fullBody, fd.returnType)
@@ -145,7 +196,16 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
     // Dispatch a task to the executor service instead of blocking this thread.
     val task = new java.util.concurrent.Callable[Report] {
       override def call(): Report = try {
+
+        /*
+         * ctx.reporter.info(
+         *   s"Verifying a program containing ${program.symbols.functions.size} functions and " +
+         *   s"${program.symbols.classes.size} classes"
+         * )
+         */
+
         verification.VerificationComponent(program)
+
       } catch {
         case e: Throwable =>
           ctx.reporter.error(s"VerificationComponent failed: $e")
@@ -153,9 +213,9 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
       }
     }
 
-    // val future = MainHelpers.executor.submit(task)
-    // this.synchronized { tasks += future }
-    task.call() // For debug, comment the two previous lines and uncomment this one.
+    val future = MainHelpers.executor.submit(task)
+    this.synchronized { tasks += future }
+    // task.call() // For debug, comment the two previous lines and uncomment this one.
   }
 
   override def stop(): Unit = tasks foreach { _.cancel(true) }
@@ -165,6 +225,7 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   // See assumption/requirements in [[CallBack]]
   // FIXME maybe instead of several report we should merge them?
   override def getReports = tasks map { _.get } filter { _ != null }
+
 }
 
 
