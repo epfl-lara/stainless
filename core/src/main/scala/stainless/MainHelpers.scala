@@ -17,8 +17,9 @@ object MainHelpers {
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  // val executor = Executors.newWorkStealingPool()
-  val executor = Executors.newSingleThreadExecutor()
+  // val executor = Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors - 2)
+  val executor = Executors.newWorkStealingPool()
+  // val executor = Executors.newSingleThreadExecutor()
 
 }
 
@@ -109,6 +110,10 @@ trait MainHelpers extends inox.MainHelpers {
     ctx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
       ctx.timers.outputTable(debug)
     }
+
+    // Shutdown the pool for a clean exit.
+    val unexecuted = MainHelpers.executor.shutdownNow()
+    if (unexecuted.size != 0) ctx.reporter.error("Some tasks were not run (" + unexecuted.size + ")")
   } catch {
     case _: inox.FatalError => System.exit(1)
   }

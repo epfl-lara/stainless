@@ -13,7 +13,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
   class ClassDef(
     val id: Identifier,
     val tparams: Seq[TypeParameterDef],
-    val parents: Seq[ClassType],
+    val parents: Seq[ClassType], // Set of direct parents
     val fields: Seq[ValDef],
     val flags: Set[Flag]
   ) extends Definition {
