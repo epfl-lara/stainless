@@ -8,7 +8,7 @@ import stainless.utils.JsonConvertions._
 import stainless.verification.VCStatus.Invalid
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.{ JArray, JObject, JValue }
+import org.json4s.JsonAST.{ JArray, JObject }
 
 import scala.language.existentials
 
@@ -38,7 +38,7 @@ object VerificationComponent extends SimpleComponent {
     val program: Program { val trees: stainless.trees.type }
     val results: Map[VC[program.trees.type], VCResult[program.Model]]
 
-    import program.{ ctx, Model }
+    import program.{ Model }
 
     lazy val vrs = results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
 
@@ -50,35 +50,20 @@ object VerificationComponent extends SimpleComponent {
 
     override val name = VerificationComponent.this.name
 
-    override def emit(): Unit = {
-      if (totalConditions > 0) {
-        var t = Table("Verification Summary")
-
-        t ++= vrs.map { case (vc, vr) =>
-          Row(Seq(
-            Cell(vc.fd),
-            Cell(vc.kind.name),
-            Cell(vc.getPos),
-            Cell(vr.status),
-            Cell(vr.solver.map(_.name).getOrElse("")),
-            Cell(vr.time.map(t => f"${t/1000d}%3.3f").getOrElse(""))
-          ))
-        }
-
-        t += Separator
-
-        t += Row(Seq(
-          Cell(f"total: $totalConditions%-4d   valid: $totalValid%-4d   invalid: $totalInvalid%-4d   unknown: $totalUnknown%-4d", 5),
-          Cell(f"${totalTime/1000d}%7.3f", align = Right)
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some(
+      vrs.map { case (vc, vr) =>
+        Row(Seq(
+          Cell(vc.fd),
+          Cell(vc.kind.name),
+          Cell(vc.getPos),
+          Cell(vr.status),
+          Cell(vr.solver.map(_.name).getOrElse("")),
+          Cell(vr.time.map(t => f"${t/1000d}%3.3f").getOrElse(""))
         ))
+      }, ReportStats(totalConditions, totalTime, totalValid, totalInvalid, totalUnknown)
+    )
 
-        ctx.reporter.info(t.render)
-      } else {
-        ctx.reporter.info("No verification conditions were analyzed.")
-      }
-    }
-
-    override def emitJson(): JValue = {
+    override def emitJson: JArray = {
       def status2Json(status: VCStatus[Model]): JObject = status match {
         case Invalid(cex) =>
           val info = cex.vars map { case (vd, e) => (vd.id.name -> e.toString) }
