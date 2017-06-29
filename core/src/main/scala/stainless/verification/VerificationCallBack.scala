@@ -223,7 +223,6 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   override def join(): Unit = tasks foreach { _.get }
 
   // See assumption/requirements in [[CallBack]]
-  // FIXME maybe instead of several report we should merge them?
   override def getReports = tasks map { _.get } filter { _ != null }
 
 }

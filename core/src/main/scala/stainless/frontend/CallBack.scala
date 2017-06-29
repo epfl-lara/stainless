@@ -20,7 +20,6 @@ import extraction.xlang.{ trees => xt }
  *  - the program was not running in "watch" mode.
  */
 trait CallBack {
-  // TODO maybe file and unit are not required and should be removed.
   def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
 
   def stop(): Unit // Blocking "stop".
@@ -41,6 +40,11 @@ class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
 
   override def join(): Unit = callbacks foreach { _.join() }
 
-  override def getReports: Seq[AbstractReport] = callbacks flatMap { _.getReports }
+  // Group together reports from the same callback
+  override def getReports: Seq[AbstractReport] = callbacks flatMap { c =>
+    val inners = c.getReports
+    if (inners.isEmpty) None
+    else Some(inners reduce { _ ~ _ })
+  }
 }
 

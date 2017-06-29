@@ -93,12 +93,7 @@ trait MainHelpers extends inox.MainHelpers {
 
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
-      reports foreach { _.emit() }
-
-      // TODO remove me
-      val counts = reports map { r => r.asInstanceOf[verification.VerificationComponent.Report].totalConditions }
-      val totalVCs = counts.sum
-      ctx.reporter.info(s"Total Verification Conditions: $totalVCs")
+      reports foreach { _.emit(ctx) }
 
       ctx.options.findOption(optJson) foreach { file =>
         val output = if (file.isEmpty) optJson.default else file
@@ -120,7 +115,7 @@ trait MainHelpers extends inox.MainHelpers {
 
   /** Exports the reports to the given file in JSON format. */
   private def exportJson(reports: Seq[AbstractReport], file: String): Unit = {
-    val subs = reports map { r => JObject(r.name -> r.emitJson()) }
+    val subs = reports map { r => JObject(r.name -> r.emitJson) }
     val json = subs reduce { _ ~ _ }
     val string = pretty(render(json))
     val pw = new PrintWriter(new File(file))

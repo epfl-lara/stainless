@@ -2,14 +2,60 @@
 
 package stainless
 
-import org.json4s.JsonAST.JValue
+import inox.utils.ASCIIHelpers._
+import org.json4s.JsonAST.JArray
 import extraction.xlang.{trees => xt}
 import scala.language.existentials
 
-trait AbstractReport {
+case class ReportStats(total: Int, time: Long, valid: Int, invalid: Int, unknown: Int) {
+  def +(more: ReportStats) = ReportStats(
+    total + more.total,
+    time + more.time,
+    valid + more.valid,
+    invalid + more.invalid,
+    unknown + more.unknown
+  )
+}
+
+trait AbstractReport { self =>
   val name: String
-  def emit(): Unit
-  def emitJson(): JValue
+  def emitJson: JArray
+
+  protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
+
+  final def emit(ctx: inox.Context): Unit = emitTable match {
+    case None => ctx.reporter.info("No verification conditions were analyzed.")
+    case Some(t) => ctx.reporter.info(t.render)
+  }
+
+  def ~(other: AbstractReport) = new AbstractReport {
+    override val name = if (self.name == other.name) self.name else (self.name + " ~ " + other.name)
+
+    override def emitJson: JArray = {
+      val JArray(as) = self.emitJson
+      val JArray(bs) = other.emitJson
+      JArray(as ++ bs)
+    }
+
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = (self.emitRowsAndStats, other.emitRowsAndStats) match {
+      case (None, None) => None
+      case (a, None) => a
+      case (None, b) => b
+      case (Some((rowsA, statsA)), Some((rowsB, statsB))) => Some((rowsA ++ rowsB, statsA + statsB))
+    }
+  }
+
+  private def emitTable: Option[Table] = emitRowsAndStats map { case (rows, stats) =>
+    var t = Table("Verification Summary")
+    t ++= rows
+    t += Separator
+    t += Row(Seq(
+      Cell(f"total: ${stats.total}%-4d   valid: ${stats.valid}%-4d   invalid: ${stats.invalid}%-4d   unknown: ${stats.unknown}%-4d", 5),
+      Cell(f"${stats.time/1000d}%7.3f", align = Right)
+    ))
+
+    t
+  }
 }
 
 trait Component {
