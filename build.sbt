@@ -195,6 +195,9 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 //lazy val inox = RootProject(file("../inox"))
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
+// Allow integration test to use facilities from regular tests
+lazy val IntegrationTest = config("it") extend(Test)
+
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings)
