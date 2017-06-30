@@ -3,7 +3,8 @@
 package stainless
 package frontends.scalac
 
-import stainless.ast.SymbolIdentifier
+import ast.SymbolIdentifier
+import frontend.UnsupportedCodeException
 import extraction.xlang.{trees => xt}
 
 import scala.reflect.internal.util._
@@ -79,16 +80,12 @@ trait CodeExtraction extends ASTExtractors {
     }
   }
 
-  /** An exception thrown when non-purescala compatible code is encountered. */
-  sealed class ImpureCodeEncounteredException(val pos: Position, msg: String, val ot: Option[Tree])
-    extends Exception(msg)
-
   private def outOfSubsetError(pos: Position, msg: String) = {
-    throw new ImpureCodeEncounteredException(pos, msg, None)
+    throw new UnsupportedCodeException(pos, msg)
   }
 
   private def outOfSubsetError(t: Tree, msg: String) = {
-    throw new ImpureCodeEncounteredException(t.pos, msg, Some(t))
+    throw new UnsupportedCodeException(t.pos, msg)
   }
 
 
@@ -163,7 +160,7 @@ trait CodeExtraction extends ASTExtractors {
     try {
       extractType(tpt)
     } catch {
-      case e: ImpureCodeEncounteredException =>
+      case e: UnsupportedCodeException =>
         reporter.debug(e.pos, "[ignored] " + e.getMessage, e)
         xt.Untyped
     }
@@ -588,7 +585,7 @@ trait CodeExtraction extends ASTExtractors {
     try {
       extractTree(tr)
     } catch {
-      case e: ImpureCodeEncounteredException =>
+      case e: UnsupportedCodeException =>
         if (dctx.isExtern) {
           xt.NoTree(extractType(tr)).setPos(tr.pos)
         } else {
