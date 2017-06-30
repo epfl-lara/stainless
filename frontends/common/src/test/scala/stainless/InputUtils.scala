@@ -11,6 +11,7 @@ import java.io.{ File, BufferedWriter, FileWriter }
 
 trait InputUtils {
 
+  /** Compile and extract the given files' **content** (& the library). */
   def load(context: inox.Context, contents: Seq[String]):
           (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
@@ -22,6 +23,13 @@ trait InputUtils {
       out.close()
       file.getAbsolutePath
     }
+
+    loadFiles(context, files)
+  }
+
+  /** Compile and extract the given files (& the library). */
+  def loadFiles(context: inox.Context, files: Seq[String]):
+               (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     // Use the callback to collect the trees.
     val units = ListBuffer[xt.UnitDef]()

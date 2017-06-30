@@ -4,7 +4,7 @@ package stainless
 
 import scala.concurrent.duration._
 
-trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
+trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils {
 
   val component: SimpleComponent
 
@@ -23,7 +23,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val reporter = new inox.TestSilentReporter
 
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = Main.extractFromSource(ctx, Main.libraryFiles :+ file)
+    val (structure, program) = loadFiles(ctx, Seq(file))
     program.symbols.ensureWellFormed
     val exProgram = component.extract(program)
     exProgram.symbols.ensureWellFormed
@@ -53,7 +53,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
     val reporter = new inox.TestSilentReporter
 
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = Main.extractFromSource(ctx, Main.libraryFiles ++ files.toList)
+    val (structure, program) = loadFiles(ctx, files)
     program.symbols.ensureWellFormed
     val exProgram = component.extract(program)
     exProgram.symbols.ensureWellFormed
@@ -111,4 +111,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
 
     }
   }
+
 }
+
