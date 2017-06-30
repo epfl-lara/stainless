@@ -67,6 +67,8 @@ object ScalaCompiler {
         var thread: Thread = null
         var exception: Throwable = null
 
+        override val sources = files
+
         override def run(): Unit = {
           assert(!isRunning)
           underlying = new instance.Run
@@ -74,7 +76,7 @@ object ScalaCompiler {
           // Run the compiler in the background in order to make the factory
           // non-blocking, and implement a clean stop action.
           val runnable = new Runnable {
-            override def run() = try underlying.compile(files) finally underlying = null
+            override def run() = try underlying.compile(sources) finally underlying = null
           }
 
           assert(thread == null)
