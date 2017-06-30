@@ -21,6 +21,9 @@ abstract class Frontend(val callback: CallBack) {
 
   def isRunning: Boolean
 
+  /** List of files compiled by this frontend, including the library. */
+  val sources: Seq[String]
+
   // Customisation points for subclasses:
   protected def onStop(): Unit
   protected def onJoin(): Unit
