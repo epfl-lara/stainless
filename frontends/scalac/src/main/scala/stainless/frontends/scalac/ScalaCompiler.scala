@@ -59,11 +59,13 @@ object ScalaCompiler {
 
       val instance = new ScalaCompiler(settings, ctx, callback)
 
-      // Implement an interface compatible with MainHelpers.
-      // TODO refactor code, maybe, in MainHelpers if the same code is required for dotty/other frontends
+      // Implement an interface compatible with MainHelpers. If an exception is thrown from
+      // within the compiler, it is rethrown upon stopping of joining.
+      // TODO refactor code, maybe, in frontend package if the same code is required for dotty/other frontends
       val compiler = new Frontend(callback) {
         var underlying: instance.Run = null
         var thread: Thread = null
+        var exception: Throwable = null
 
         override def run(): Unit = {
           assert(!isRunning)
@@ -72,20 +74,15 @@ object ScalaCompiler {
           // Run the compiler in the background in order to make the factory
           // non-blocking, and implement a clean stop action.
           val runnable = new Runnable {
-            override def run() = try {
-              underlying.compile(files)
-            } catch {
-              case e: Throwable =>
-                ctx.reporter.error(s"Got an exception from within the compiler: " + e.getMessage)
-                ctx.reporter.error(s"Trace:\n" + (e.getStackTrace mkString "\n"))
-                throw e
-            } finally {
-              underlying = null
-            }
+            override def run() = try underlying.compile(files) finally underlying = null
           }
 
           assert(thread == null)
           thread = new Thread(runnable, "stainless compiler")
+          thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            override def uncaughtException(t: Thread, e: Throwable): Unit = exception = e
+          })
+
           thread.start()
         }
 
@@ -95,21 +92,24 @@ object ScalaCompiler {
 
         override def onStop(): Unit = {
           if (isRunning) {
-            ctx.reporter.info(s"Stopping compiler...") // TODO make this debug
-            val timer = ctx.timers.frontends.cancel.start()
             underlying.cancel()
             thread.join()
-            timer.stop()
-            ctx.reporter.info(s"Compiler stopped") // TODO make this debug
           }
+
+          rethrow()
         }
 
         override def onJoin(): Unit = {
-          if (isRunning) {
-            ctx.reporter.info(s"Joining the compiler...") // TODO make this debug
-            thread.join()
-            ctx.reporter.info(s"Joined!") // TODO make this debug
-          }
+          if (isRunning) thread.join()
+
+          rethrow()
+        }
+
+        private def rethrow(): Unit = if (exception != null) {
+          val e = exception
+          exception = null
+          ctx.reporter.error(s"Rethrowing exception emitted from within the compiler: ${e.getMessage}")
+          throw e
         }
       }
 

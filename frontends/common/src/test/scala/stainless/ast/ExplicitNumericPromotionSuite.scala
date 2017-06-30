@@ -24,11 +24,8 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
   test("Catch unsupported expressions") {
     for (u <- unsupported) {
       val ctx = inox.TestContext.empty
-      try {
+      assertThrows[frontend.UnsupportedCodeException] {
         load(ctx, Seq(u))
-        fail("FatalError expected")
-      } catch {
-        case _: inox.FatalError =>
       }
     }
   }

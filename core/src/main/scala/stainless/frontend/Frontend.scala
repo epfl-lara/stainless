@@ -3,10 +3,17 @@
 package stainless
 package frontend
 
+/** An exception thrown when non-purescala compatible code is encountered. */
+sealed class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
+  extends Exception(msg)
+
 /**
  * Abstract compiler, provides all the tools to extract compilation units
  * into a sequence of small, self-contained programs and send them to a
  * [[CallBack]] whenever they are ready.
+ *
+ * Implementations of [[Frontend]] are required to rethrow exception emitted
+ * in background thread (if any) when [[join]] or [[stop]] are invoked.
  */
 abstract class Frontend(val callback: CallBack) {
   /** Proceed to extract the trees in a non-blocking way. */
