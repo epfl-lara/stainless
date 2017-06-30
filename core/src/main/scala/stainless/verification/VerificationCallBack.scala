@@ -138,8 +138,8 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   }
 
   /** Compute the set of direct, non-recursive dependencies of the given [[xt.FunDef]] or [[xt.ClassDef]]. */
-  private def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = (new DependenciesFinder)(fd)
-  private def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = (new DependenciesFinder)(cd)
+  private def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
+  private def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
 
   override def apply(file: String, unit: xt.UnitDef,
                      classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
@@ -153,32 +153,8 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
         val symbols = syms
       }
 
-      // TODO remove this in favor of the more general "ensureWellFormed" below.
-      for ((_, fd) <- syms.functions) {
-        try {
-          syms.typeCheck(fd.fullBody, fd.returnType)
-        } catch {
-          case e: syms.TypeErrorException =>
-            ctx.reporter.error(e.pos, e.getMessage)
-
-            ctx.reporter.error(
-              s"Function doesn't typecheck:\n" +
-              syms.explainTyping(fd.fullBody)(xt.PrinterOptions.fromContext(ctx))
-            )
-
-            val deps = computeDirectDependencies(fd)
-            ctx.reporter.error(s"Detected dependencies are: " + (deps mkString ", "))
-
-            ctx.reporter.error(s"Available functions: " + (syms.functions.values map { _.id } mkString ", "))
-            ctx.reporter.error(s"Available classes: " + (syms.classes.values map { _.id } mkString ", "))
-
-            ctx.reporter.fatalError(s"The extracted sub-program in not well typed.")
-        }
-      }
-
       try {
         syms.ensureWellFormed
-        ctx.reporter.info(s"The sub-program is well formed.")
       } catch {
         case e: syms.TypeErrorException =>
           ctx.reporter.error(e.pos, e.getMessage)
@@ -195,22 +171,7 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   private def solve(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
     // Dispatch a task to the executor service instead of blocking this thread.
     val task = new java.util.concurrent.Callable[Report] {
-      override def call(): Report = try {
-
-        /*
-         * ctx.reporter.info(
-         *   s"Verifying a program containing ${program.symbols.functions.size} functions and " +
-         *   s"${program.symbols.classes.size} classes"
-         * )
-         */
-
-        verification.VerificationComponent(program)
-
-      } catch {
-        case e: Throwable =>
-          ctx.reporter.error(s"VerificationComponent failed: $e")
-          throw e
-      }
+      override def call(): Report = verification.VerificationComponent(program)
     }
 
     val future = MainHelpers.executor.submit(task)
