@@ -102,21 +102,25 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   sourceGenerators in Compile += Def.task {
     val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
+    def removeSlashU(in: String): String = 
+      in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
+      .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
+    
+    
     IO.write(main, s"""|package stainless
                        |
                        |import extraction.xlang.{trees => xt}
                        |
                        |object Main extends MainHelpers {
                        |  val libraryFiles = List(
-                          ${libraryFiles
-      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\"")
-      .replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")}
+                          ${removeSlashU(libraryFiles
+      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
                        |  )
                        |
                        |  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
                        |    List[xt.UnitDef],
                        |    Program { val trees: xt.type }
-                       |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${extraClasspath.value}") ++ compilerOpts)
+                       |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${"\"\""+removeSlashU(extraClasspath.value)+"\"\""}") ++ compilerOpts)
                        |}""".stripMargin)
     Seq(main)
   }) ++
