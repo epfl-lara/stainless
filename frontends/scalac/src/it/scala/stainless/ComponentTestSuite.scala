@@ -43,7 +43,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
           None
         }
       }
-    } (unitFuns.toSet)
+    } (unitFuns.filter(exProgram.symbols.functions contains _).toSet)
 
     (u.id.name, allFuns.toSeq, exProgram)
   }
@@ -70,7 +70,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils {
             None
           }
         }
-      } (unitFuns.toSet)
+      } (unitFuns.filter(exProgram.symbols.functions contains _).toSet)
       (u.id.name, allFuns.toSeq)
     }, exProgram)
   }
