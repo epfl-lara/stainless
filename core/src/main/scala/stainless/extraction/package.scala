@@ -75,5 +75,4 @@ package object extraction {
 
     new PreconditionInference(extracted).targetProgram
   }
-
 }

@@ -157,6 +157,8 @@ trait AssertionInjector extends ast.TreeTransformer {
         newE
       ).copiedFrom(e)
 
+    case e: s.Ensuring => super.transform(e.toAssert)
+
     case _ => super.transform(e)
   }
 
@@ -188,7 +190,6 @@ trait AssertionInjector extends ast.TreeTransformer {
 
   private def zero(size: Int, pos: inox.utils.Position) =
     t.BVLiteral(0, size).setPos(pos)
-
 }
 
 object AssertionInjector {
@@ -209,7 +210,23 @@ object AssertionInjector {
       }
 
       t.NoSymbols
-        .withFunctions(syms.functions.values.toSeq.map(injector.transform))
+        .withFunctions(syms.functions.values.toSeq.map { fd =>
+          new t.FunDef(
+            fd.id,
+            fd.tparams map injector.transform,
+            fd.params map injector.transform,
+            injector.transform(fd.returnType),
+            fd.fullBody match {
+              // don't translate postconditions into assertions
+              case s.Ensuring(body, pred) => t.Ensuring(
+                injector.transform(body),
+                injector.transform(pred).asInstanceOf[t.Lambda]
+              )
+              case body => injector.transform(body)
+            },
+            fd.flags map injector.transform
+          ).copiedFrom(fd)
+        })
         .withADTs(syms.adts.values.toSeq.map(injector.transform))
     }
   }
