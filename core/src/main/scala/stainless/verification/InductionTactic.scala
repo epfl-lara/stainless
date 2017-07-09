@@ -68,7 +68,7 @@ trait InductionTactic extends DefaultTactic {
 
           val subCases = selectors.map { sel =>
             exprOps.replace(Map(arg.toVariable -> sel),
-              implies(fd.precOrTrue, fi.tfd.withParamSubst(args, pre))
+              exprOps.freshenLocals(path.implies(fi.tfd.withParamSubst(args, pre)))
             )
           }
 
