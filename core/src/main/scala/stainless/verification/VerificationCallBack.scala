@@ -189,7 +189,6 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   }
 
   override def endExtractions(): Unit = {
-    ctx.reporter.warning(s"Finishing by checkpointing!")
     val symss = Registry.checkpoints()
     processSymbols(symss)
   }
