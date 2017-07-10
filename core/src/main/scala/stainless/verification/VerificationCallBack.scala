@@ -6,7 +6,7 @@ package verification
 import extraction.xlang.{ trees => xt }
 import utils.{ DependenciesFinder, IncrementalComputationalGraph }
 
-import scala.collection.mutable.{ ListBuffer }
+import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
 /** Callback for verification */
 class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
@@ -17,6 +17,8 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
 
     private type Result = (Set[xt.ClassDef], Set[xt.FunDef])
     private val EmptyResult = (Set[xt.ClassDef](), Set[xt.FunDef]())
+
+    private val knownClasses = MutableMap[Identifier, xt.ClassDef]()
 
     // TODO Are Identifier okay? We might have some issue with how they are compared due
     //      to the global/id counters...
@@ -52,51 +54,32 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
      *      be verified. To improve on this, [[IncrementalComputationalGraph]] needs to
      *      have "shouldCompute" predicates -- essentially the same as [[shouldBeChecked]].
      *
-     * TODO distinguish sealed and non-sealed class hierarchies. Handle the latter appropriately.
+     * NOTE distinguish sealed and non-sealed class hierarchies. Handle the latter appropriately.
      *      To do that, we can:
      *       - delay the insertion of classes in the graph,
      *       - once notified that everything was compiled, consider all classes as sealed,
      *         and insert them all in the graph as usual.
-     *      However, this adds a BIG assumption on the runtime: no new class should be available!
-     *      So, maybe we just don't want that???
+     * FIXME However, this adds a BIG assumption on the runtime: no new class should be available!
+     *       So, maybe we just don't want that???
      */
     def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
-      // We create "clusters" for classes: they define class hierarchies based on the given subset
-      // of all classes.
-      type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
-      val clusters: ClusterMap = {
-        // Find the top level parents for the given class, returns empty seq when no inheritance.
-        def getTopLevels(cd: xt.ClassDef): Set[xt.ClassDef] = if (cd.parents.isEmpty) Set.empty else {
-          getDirects(cd) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(p) }
-        }
+      this.synchronized {
+        knownClasses ++= classes map { cd => cd.id -> cd }
+      }
 
-        def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
-          classes find { _.id == ct.id } getOrElse {
-            val error = s"Expected to find parent in the same compilation unit! (${ct.id} for ${cd.id})"
-            ctx.reporter.fatalError(error)
-          }
-        }
 
-        // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
-        def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
-          (acc /: getTopLevels(cd)) { (acc, top) =>
-            val currentCluster = acc.getOrElse(top, Set[Identifier]())
-            val newCluster = currentCluster + cd.id
-            acc + (top -> newCluster)
-          }
-        }
+      // TODO compute clusters of sealed classes and send them to the graph as soon as possible.
+      process(Seq.empty, functions)
+    }
 
-        // From the top level, propagate information to the leaves.
-        val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
-        val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
-        classes map { cd =>
-          val parents = getTopLevels(cd) map topLevelClusters
-          val cluster = (Set[Identifier]() /: parents) { _ union _ }
-          cd -> (cluster - cd.id)
-        }
-      }.toMap
+    /**
+     * To be called once every compilation unit where extracted.
+     */
+    def checkpoints(): Option[xt.Symbols] = process(knownClasses.values.toSeq, Seq.empty)
 
+    private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
       // Compute direct dependencies and insert the new information into our dependency graph
+      val clusters = computeClusters(classes)
       val newNodes: Seq[(Identifier, NodeValue, Set[Identifier])] =
         (classes map { cd => (cd.id, Left(cd): NodeValue, computeDirectDependencies(cd) ++ clusters(cd)) }) ++
         (functions map { fd => (fd.id, Right(fd): NodeValue, computeDirectDependencies(fd)) })
@@ -114,13 +97,50 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
       if (ofInterest.isEmpty) None
       else {
         // Group into one set of Symbols to avoid verifying the same things several times
-        // TODO this is just because we don't have caching later on in the pipeline.
+        // TODO this is just because we don't have caching later on in the pipeline (YET).
         val (clsSets, funsSets) = ofInterest.unzip
         val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
         val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
         Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
       }
     }
+
+    /**
+     * We create "clusters" for classes:
+     * they define class hierarchies based on the given subset of all classes.
+     */
+    private type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
+    private def computeClusters(classes: Seq[xt.ClassDef]): ClusterMap = {
+      // Find the top level parents for the given class, returns empty seq when no inheritance.
+      def getTopLevels(cd: xt.ClassDef): Set[xt.ClassDef] = if (cd.parents.isEmpty) Set.empty else {
+        getDirects(cd) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(p) }
+      }
+
+      def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
+        classes find { _.id == ct.id } getOrElse {
+          val error = s"Expected to find parent in the given classes! (${ct.id} for ${cd.id})"
+          ctx.reporter.fatalError(error)
+        }
+      }
+
+      // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
+      def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
+        (acc /: getTopLevels(cd)) { (acc, top) =>
+          val currentCluster = acc.getOrElse(top, Set[Identifier]())
+          val newCluster = currentCluster + cd.id
+          acc + (top -> newCluster)
+        }
+      }
+
+      // From the top level, propagate information to the leaves.
+      val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
+      val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
+      classes map { cd =>
+        val parents = getTopLevels(cd) map topLevelClusters
+        val cluster = (Set[Identifier]() /: parents) { _ union _ }
+        cd -> (cluster - cd.id)
+      }
+    }.toMap
 
   }
 
@@ -141,28 +161,39 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   private def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
   private def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
 
+  override def beginExtractions(): Unit = { /* nothing */ }
+
   override def apply(file: String, unit: xt.UnitDef,
                      classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
     ctx.reporter.info(s"Got a unit for $file:${unit.id}") // Make this debug
 
-    Registry.update(classes, functions) foreach { syms =>
-      // The registry tells us something should be verified in these symbols.
-      val program = new inox.Program {
-        val trees: extraction.xlang.trees.type = extraction.xlang.trees
-        val ctx = VerificationCallBack.this.ctx
-        val symbols = syms
-      }
+    val symss = Registry.update(classes, functions)
+    processSymbols(symss)
+  }
 
-      try {
-        syms.ensureWellFormed
-      } catch {
-        case e: syms.TypeErrorException =>
-          ctx.reporter.error(e.pos, e.getMessage)
-          ctx.reporter.fatalError(s"The extracted sub-program in not well formed.")
-      }
+  override def endExtractions(): Unit = {
+    ctx.reporter.warning(s"Finishing by checkpointing!")
+    val symss = Registry.checkpoints()
+    processSymbols(symss)
+  }
 
-      solve(program)
+  private def processSymbols(symss: Iterable[xt.Symbols]): Unit = symss foreach { syms =>
+    // The registry tells us something should be verified in these symbols.
+    val program = new inox.Program {
+      val trees: extraction.xlang.trees.type = extraction.xlang.trees
+      val ctx = VerificationCallBack.this.ctx
+      val symbols = syms
     }
+
+    try {
+      syms.ensureWellFormed
+    } catch {
+      case e: syms.TypeErrorException =>
+        ctx.reporter.error(e.pos, e.getMessage)
+        ctx.reporter.fatalError(s"The extracted sub-program in not well formed.")
+    }
+
+    solve(program)
   }
 
   private type Report = verification.VerificationComponent.Report
