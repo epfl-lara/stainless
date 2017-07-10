@@ -2,7 +2,7 @@
 
 object Nested13 {
 
-  abstract class D
+  sealed abstract class D
   case class E(e: Int) extends D
   case class F(d: D, f: Int) extends D
 

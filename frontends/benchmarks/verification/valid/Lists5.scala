@@ -5,7 +5,7 @@ import stainless.proof._
 import stainless.collection._
 
 object Lists5 {
-  abstract class Option[T]
+  sealed abstract class Option[T]
   case class Some[T](value: T) extends Option[T]
   case class None[T]() extends Option[T]
 

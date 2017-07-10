@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 object Overrides {
-  abstract class B {
+  sealed abstract class B {
     def x(a: BigInt): BigInt = {
       require(a > 0)
       BigInt(42)
