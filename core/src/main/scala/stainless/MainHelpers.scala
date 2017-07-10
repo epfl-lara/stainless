@@ -116,7 +116,7 @@ trait MainHelpers extends inox.MainHelpers {
   /** Exports the reports to the given file in JSON format. */
   private def exportJson(reports: Seq[AbstractReport], file: String): Unit = {
     val subs = reports map { r => JObject(r.name -> r.emitJson) }
-    val json = subs reduce { _ ~ _ }
+    val json = if (subs.isEmpty) JObject() else subs reduce { _ ~ _ }
     val string = pretty(render(json))
     val pw = new PrintWriter(new File(file))
     try pw.write(string) finally pw.close()
