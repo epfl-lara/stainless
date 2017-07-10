@@ -49,6 +49,14 @@ class DependenciesFinder {
 
       case _ => super.traverse(tpe)
     }
+
+    override def traverse(flag: xt.Flag): Unit = flag match {
+      case xt.IsMethodOf(id) =>
+        deps += id
+        super.traverse(flag)
+
+      case _ => super.traverse(flag)
+    }
   }
 
   def apply(fd: xt.FunDef): Set[Identifier] = {
