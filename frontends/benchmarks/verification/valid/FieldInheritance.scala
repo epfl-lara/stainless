@@ -4,7 +4,7 @@ import stainless.lang._
 
 object FieldInheritance {
 
-  abstract class Foo[B] {
+  sealed abstract class Foo[B] {
     val thisIsIt: BigInt = 1
     val y: BigInt
     val weird: B
@@ -13,7 +13,7 @@ object FieldInheritance {
   case class Bar[X](override val thisIsIt: BigInt, weird: X) extends Foo[X] {
     val y = thisIsIt
   }
-  
+
   case class Baz[X](weird: X) extends Foo[X] {
     val y = thisIsIt + 1
   }

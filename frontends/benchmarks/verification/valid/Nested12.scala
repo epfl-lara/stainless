@@ -2,7 +2,7 @@
 
 object Nested12 {
 
-  abstract class A
+  sealed abstract class A
   case class B(b: Int) extends A
 
   def foo(i: Int): Int = {

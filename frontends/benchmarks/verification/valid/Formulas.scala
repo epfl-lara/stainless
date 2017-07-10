@@ -4,7 +4,7 @@ import stainless.lang._
 import stainless._
 
 object Formulas {
-  abstract class Expr
+  sealed abstract class Expr
   case class And(lhs: Expr, rhs: Expr) extends Expr
   case class Or(lhs: Expr, rhs: Expr) extends Expr
   case class Implies(lhs: Expr, rhs: Expr) extends Expr
@@ -31,7 +31,7 @@ object Formulas {
     })
   }
 
-  abstract class Value
+  sealed abstract class Value
   case class BoolValue(b: Boolean) extends Value
   case class IntValue(i: BigInt) extends Value
   case object Error extends Value

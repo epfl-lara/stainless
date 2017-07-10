@@ -3,15 +3,15 @@
 import stainless.lang._
 
 object Methods {
-  abstract class A
+  sealed abstract class A
 
-  abstract class B extends A {
+  sealed abstract class B extends A {
     def foo(i: BigInt) = {
       require(i > 0)
       i + 1
     } ensuring ( _ >= 0 )
   }
-  
+
   case class C(x: BigInt) extends B {
     require(x >= 0)
     val y = BigInt(42)

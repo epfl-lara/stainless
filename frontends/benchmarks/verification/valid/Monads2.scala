@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Monads2 {
-  abstract class Option[T]
+  sealed abstract class Option[T]
   case class Some[T](t: T) extends Option[T]
   case class None[T]() extends Option[T]
 
