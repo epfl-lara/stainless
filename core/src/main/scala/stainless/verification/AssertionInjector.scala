@@ -211,19 +211,19 @@ object AssertionInjector {
 
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.map { fd =>
+          val (pre, body, post) = s.exprOps.breakDownSpecs(fd.fullBody)
+          val newPre = pre map injector.transform
+          val newBody = body map injector.transform
+          val newPost = post map (injector.transform(_).asInstanceOf[t.Lambda])
+
+          val resultType = injector.transform(fd.returnType)
+          val fullBody = t.exprOps.reconstructSpecs(newPre, newBody, newPost, resultType).copiedFrom(fd.fullBody)
           new t.FunDef(
             fd.id,
             fd.tparams map injector.transform,
             fd.params map injector.transform,
-            injector.transform(fd.returnType),
-            fd.fullBody match {
-              // don't translate postconditions into assertions
-              case s.Ensuring(body, pred) => t.Ensuring(
-                injector.transform(body),
-                injector.transform(pred).asInstanceOf[t.Lambda]
-              )
-              case body => injector.transform(body)
-            },
+            resultType,
+            fullBody,
             fd.flags map injector.transform
           ).copiedFrom(fd)
         })

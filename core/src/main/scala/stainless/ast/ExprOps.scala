@@ -23,6 +23,16 @@ trait ExprOps extends inox.ast.ExprOps {
     case _ => false
   }
 
+  private def wrapSpec(vd: ValDef, e: Expr, b: Expr): Expr = {
+    def withoutLet(expr: Expr): Expr = expr match {
+      case Let(`vd`, `e`, b) if hasSpec(b) => withoutLet(b)
+      case Let(i, e, b) if hasSpec(b) => Let(i, e, withoutLet(b))
+      case _ => expr
+    }
+
+    Let(vd, e, withoutLet(b))
+  }
+
   /** Replaces the precondition of an existing [[Expressions.Expr]] with a new one.
     *
     * If no precondition is provided, removes any existing precondition.
@@ -37,11 +47,11 @@ trait ExprOps extends inox.ast.ExprOps {
     case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
     case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
     case (Some(newPre), Ensuring(b, p))                     => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
-    case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => Let(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+    case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
     case (Some(newPre), b)                                  => Require(newPre, b).copiedFrom(expr)
     case (None, Require(pre, b))                            => b
     case (None, Ensuring(Require(pre, b), p))               => Ensuring(b, p).copiedFrom(expr)
-    case (None, Let(i, e, b)) if hasSpec(b)                 => Let(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+    case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
     case (None, b)                                          => b
   }
 
@@ -57,10 +67,10 @@ trait ExprOps extends inox.ast.ExprOps {
     */
   def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr = (oie, expr) match {
     case (Some(npost), Ensuring(b, post))          => Ensuring(b, npost).copiedFrom(expr)
-    case (Some(npost), Let(i, e, b)) if hasSpec(b) => Let(i, e, withPostcondition(b, oie)).copiedFrom(expr)
+    case (Some(npost), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
     case (Some(npost), b)                          => Ensuring(b, npost).copiedFrom(expr)
     case (None, Ensuring(b, p))                    => b
-    case (None, Let(i, e, b)) if hasSpec(b)        => Let(i, e, withPostcondition(b, oie)).copiedFrom(expr)
+    case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
     case (None, b)                                 => b
   }
 
@@ -74,7 +84,7 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Require]]
     */
   def withBody(e: Expr, body: Expr): Expr = e match {
-    case Let(i, e, b) if hasSpec(b)            => Let(i, e, withBody(b, body)).copiedFrom(e)
+    case Let(i, e, b) if hasSpec(b)            => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
     case Require(pre, _)                       => Require(pre, body).copiedFrom(e)
     case Ensuring(req @ Require(pre, _), post) => Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
     case Ensuring(_, post)                     => Ensuring(body, post).copiedFrom(e)
