@@ -76,7 +76,13 @@ object ScalaCompiler {
           // Run the compiler in the background in order to make the factory
           // non-blocking, and implement a clean stop action.
           val runnable = new Runnable {
-            override def run() = try underlying.compile(sources) finally underlying = null
+            override def run() = try {
+              callback.beginExtractions()
+              underlying.compile(sources)
+            } finally {
+              callback.endExtractions()
+              underlying = null
+            }
           }
 
           assert(thread == null)
