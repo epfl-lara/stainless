@@ -5,6 +5,7 @@ package verification
 
 import inox.solvers._
 
+// TODO this should probably be removed as it is superseded by the flexible pipeline...
 object optParallelVCs extends inox.FlagOptionDef("parallelvcs", false)
 object optFailEarly extends inox.FlagOptionDef("failearly", false)
 
@@ -153,8 +154,7 @@ trait VerificationChecker { self =>
       }
 
       ctx.reporter.synchronized {
-        if (parallelCheck)
-          ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
+        ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
 
         vcres.status match {
           case VCStatus.Valid =>
