@@ -85,7 +85,7 @@ object ScalaCompiler {
             }
           }
 
-          assert(thread == null)
+          assert(thread == null || !thread.isAlive)
           thread = new Thread(runnable, "stainless compiler")
           thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             override def uncaughtException(t: Thread, e: Throwable): Unit = exception = e

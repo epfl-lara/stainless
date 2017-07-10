@@ -3,7 +3,11 @@
 package stainless
 
 import java.io.{ File, PrintWriter }
+import java.nio.file.{ FileSystems, Path, StandardWatchEventKinds }
 import java.util.concurrent.Executors
+
+import scala.collection.JavaConversions._
+import scala.collection.mutable.{ Map => MutableMap }
 
 import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
@@ -80,17 +84,55 @@ trait MainHelpers extends inox.MainHelpers {
 
     val compiler = frontend.run(ctx, compilerArgs, factory)
 
+    // Passively wait until the compiler has finished
+    compiler.join()
+
     // When in "watch" mode, no final report is printed as there is no proper end.
     // In fact, we might not even have a full list of VCs to be checked...
-    val watch: Boolean = false // TODO add a command line flag for this
+    val watch: Boolean = true // TODO add a command line flag for this
 
     if (watch) {
       // TODO Handle signals to stop the compiler properly
-      ???
-    } else {
-      // Passively wait until the compiler has finished and process reports
-      compiler.join()
+      // Watch each individual file for modification through their parent directories
+      // (because a WatchService cannot observe files directly..., also we need to keep
+      // track of the modification time because we sometimes receive several event
+      // for the same file...)
+      val watcher = FileSystems.getDefault.newWatchService()
+      val files: Set[File] = compiler.sources.toSet map { file: String => new File(file).getAbsoluteFile }
+      val times = MutableMap[File, Long]() ++ (files map { f => f -> f.lastModified })
+      val dirs: Set[Path] = files map { _.getParentFile.toPath }
+      dirs foreach { _.register(watcher, StandardWatchEventKinds.ENTRY_MODIFY) }
 
+      ctx.reporter.info(s"Waiting for source changes...")
+
+      while (true) {
+        // Wait for further changes, filtering out everything that is not of interest
+
+        val key = watcher.take()
+        val notifications = key.pollEvents() map { _.context } collect { case p: Path => p.toAbsolutePath.toFile }
+        val modified = notifications filter files
+
+        var proceed = false
+        for {
+          f <- modified
+          if f.lastModified > times(f)
+        } {
+          proceed = true
+          times(f) = f.lastModified
+        }
+
+        if (proceed) {
+          ctx.reporter.info(s"Detecting some file modification...: ${modified mkString ", "}")
+          compiler.run()
+          compiler.join()
+          ctx.reporter.info(s"Waiting for source changes...")
+        }
+
+        key.reset()
+      }
+
+      // TODO watcher.close()
+    } else {
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
       reports foreach { _.emit(ctx) }
