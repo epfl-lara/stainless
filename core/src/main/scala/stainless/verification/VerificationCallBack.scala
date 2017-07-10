@@ -63,13 +63,26 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
      *       So, maybe we just don't want that???
      */
     def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
-      this.synchronized {
-        knownClasses ++= classes map { cd => cd.id -> cd }
+      def isSealed(cd: xt.ClassDef): Boolean = {
+        val tops = {
+          val parents = getTopLevels(classes, cd)
+          if (parents.nonEmpty) parents else Set(cd) // Consider the class itself if it has no parents
+        }
+
+        tops forall { top => top.flags contains xt.IsSealed }
       }
 
+      val (ready, open) = classes partition isSealed
+      this.synchronized {
+        knownClasses ++= open map { cd => cd.id -> cd }
+      }
 
-      // TODO compute clusters of sealed classes and send them to the graph as soon as possible.
-      process(Seq.empty, functions)
+      classes foreach { cd =>
+        if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
+          ctx.reporter.warning(cd.getPos, s"Consider sealing ${cd.id}")
+      }
+
+      process(ready, functions)
     }
 
     /**
@@ -111,21 +124,9 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
      */
     private type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
     private def computeClusters(classes: Seq[xt.ClassDef]): ClusterMap = {
-      // Find the top level parents for the given class, returns empty seq when no inheritance.
-      def getTopLevels(cd: xt.ClassDef): Set[xt.ClassDef] = if (cd.parents.isEmpty) Set.empty else {
-        getDirects(cd) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(p) }
-      }
-
-      def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
-        classes find { _.id == ct.id } getOrElse {
-          val error = s"Expected to find parent in the given classes! (${ct.id} for ${cd.id})"
-          ctx.reporter.fatalError(error)
-        }
-      }
-
       // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
       def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
-        (acc /: getTopLevels(cd)) { (acc, top) =>
+        (acc /: getTopLevels(classes, cd)) { (acc, top) =>
           val currentCluster = acc.getOrElse(top, Set[Identifier]())
           val newCluster = currentCluster + cd.id
           acc + (top -> newCluster)
@@ -136,11 +137,27 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
       val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
       val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
       classes map { cd =>
-        val parents = getTopLevels(cd) map topLevelClusters
+        val parents = getTopLevels(classes, cd) map topLevelClusters
         val cluster = (Set[Identifier]() /: parents) { _ union _ }
         cd -> (cluster - cd.id)
       }
     }.toMap
+
+    // Find the top level parents for the given class, returns empty seq when no inheritance.
+    private def getTopLevels(classes: Seq[xt.ClassDef], cd0: xt.ClassDef): Set[xt.ClassDef] = {
+      def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
+        classes find { _.id == ct.id } getOrElse {
+          val error = s"Expected to find parent in the given classes! (${ct.id.uniqueName} for ${cd.id.uniqueName}, in " +
+                      s"${classes map { _.id.uniqueName } mkString ", "})"
+          ctx.reporter.fatalError(error)
+        }
+      }
+
+      if (cd0.parents.isEmpty) Set.empty else {
+        getDirects(cd0) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(classes, p) }
+      }
+    }
+
 
   }
 
