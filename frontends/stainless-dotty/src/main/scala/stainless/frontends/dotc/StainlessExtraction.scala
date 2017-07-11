@@ -10,17 +10,14 @@ import dotty.tools.dotc.core.Contexts._
 
 import scala.collection.mutable.ListBuffer
 
-import extraction.xlang.{trees => xt}
+import extraction.xlang.{ trees => xt }
+import frontend.{ CallBack }
 
-class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
+class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack) extends Phase {
 
   def phaseName: String = "stainless extraction"
 
   val symbols = new SymbolsContext
-
-  private val units     = new ListBuffer[xt.UnitDef]
-  private val classes   = new ListBuffer[xt.ClassDef]
-  private val functions = new ListBuffer[xt.FunDef]
 
   def run(implicit ctx: Context): Unit = {
     val extraction = new CodeExtraction(inoxCtx, symbols)
@@ -39,20 +36,15 @@ class StainlessExtraction(inoxCtx: inox.Context) extends Phase {
       case _ => outOfSubsetError(tree, "Unexpected unit body")
     }
 
-    val (imports, unitClasses, unitFunctions, subs, allClasses, allFunctions) = extraction.extractStatic(stats)
+    val (imports, unitClasses, unitFunctions, subs, classes, functions) = extraction.extractStatic(stats)
     assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
 
-    val isLibrary = Main.libraryFiles contains unit.source.file.absolute.path
-    units += xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
-    classes ++= allClasses
-    functions ++= allFunctions
+    val file = unit.source.file.absolute.path
+    val isLibrary = Main.libraryFiles contains file
+    val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
+
+    callback(file, xtUnit, classes, functions)
   }
 
-  def getStructure: List[xt.UnitDef] = units.toList
-
-  def getProgram: Program { val trees: xt.type } = new inox.Program {
-    val ctx = inoxCtx
-    val trees: xt.type = xt
-    val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
-  }
 }
+
