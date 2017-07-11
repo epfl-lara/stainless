@@ -250,8 +250,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       case tpe => Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
     })
 
-    val flags = annotationsOf(sym) ++ (if (sym is Abstract) Some(xt.IsAbstract) else None)
-
     val args = template.constr.vparamss.flatten
     val fieldCtx = DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
     val fields = args.map { vd =>
@@ -314,10 +312,17 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
         reporter.warning(other.pos, "Could not extract tree in class: " + other)
     }
 
+    val flags = {
+      val isAbstract = if (sym is Abstract) Some(xt.IsAbstract) else None
+      val isSealed = if (sym is Sealed) Some(xt.IsSealed) else None
+
+      annotationsOf(sym) ++ isAbstract ++ isSealed
+    }
+
     val optInv = if (invariants.isEmpty) None else Some {
       new xt.FunDef(SymbolIdentifier(invSymbol), Seq.empty, Seq.empty, xt.BooleanType,
         if (invariants.size == 1) invariants.head else xt.And(invariants),
-        Set(xt.IsInvariant) ++ flags
+        Set(xt.IsInvariant) ++ flags - xt.IsSealed // FIXME if IsSealed is not removed, crash. Why???
       )
     }
 
@@ -467,7 +472,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
       extractType(id) match {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
-        case _ => 
+        case _ =>
           outOfSubsetError(id, "Invalid instance pattern: "+id)
       }
 
