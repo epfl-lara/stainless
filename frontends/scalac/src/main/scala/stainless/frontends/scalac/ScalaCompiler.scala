@@ -57,13 +57,13 @@ object ScalaCompiler {
       val settings = buildSettings(ctx)
       val files = getFiles(args, ctx, settings)
 
-
+      val instance = new ScalaCompiler(settings, ctx, callback)
 
       // Implement an interface compatible with MainHelpers. If an exception is thrown from
       // within the compiler, it is rethrown upon stopping or joining.
       // TODO refactor code, maybe, in frontend package if the same code is required for dotty/other frontends
       val compiler = new Frontend(callback) {
-        var underlying: ScalaCompiler#Run = null
+        var underlying: instance.Run = null
         var thread: Thread = null
         var exception: Throwable = null
 
@@ -72,7 +72,9 @@ object ScalaCompiler {
         override def run(): Unit = {
           assert(!isRunning)
 
-          val instance = new ScalaCompiler(settings, ctx, callback)
+          // Reset the reporter to make instance work again, see
+          // https://github.com/scala/scala/blob/2.12.x/src/compiler/scala/tools/nsc/Main.scala#L16
+          instance.reporter.reset()
           underlying = new instance.Run
 
           // Run the compiler in the background in order to make the factory
