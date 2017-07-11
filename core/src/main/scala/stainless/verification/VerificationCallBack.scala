@@ -206,7 +206,11 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
     } catch {
       case e: syms.TypeErrorException =>
         ctx.reporter.error(e.pos, e.getMessage)
-        ctx.reporter.fatalError(s"The extracted sub-program in not well formed.")
+        ctx.reporter.error(s"The extracted sub-program in not well formed.")
+        ctx.reporter.error(s"Symbols are:")
+        ctx.reporter.error(s"functions -> [${syms.functions.keySet mkString ", "}]")
+        ctx.reporter.error(s"classes   -> [${syms.classes.keySet mkString ", "}]")
+        ctx.reporter.fatalError(s"Aborting from VerificationCallBack")
     }
 
     solve(program)
