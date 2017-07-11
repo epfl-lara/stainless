@@ -12,13 +12,10 @@ import dotty.tools.dotc.core.Contexts._
 import frontend.{ Frontend, FrontendFactory, CallBack }
 
 class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
-
-  val extraction = new StainlessExtraction(ctx, callback)
-
   override def phases: List[List[Phase]] = List(
     List(new FrontEnd),
     List(new PostTyper),
-    List(extraction)
+    List(new StainlessExtraction(ctx, callback))
   )
 }
 
