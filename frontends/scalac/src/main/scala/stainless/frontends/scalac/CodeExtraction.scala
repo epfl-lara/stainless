@@ -93,25 +93,38 @@ trait CodeExtraction extends ASTExtractors {
   private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
   private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
 
-  // TODO test incremental compilation!!!
   private def getIdentifier(sym: Symbol): SymbolIdentifier = {
     //val sym = s.accessedOrSelf.orElse(s)
     symbolToIdentifier.get(sym) match {
       case Some(id) => id
       case None =>
-        val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-        val symbol = symbolToSymbol.get(top) match {
-          case Some(symbol) => symbol
-          case None =>
-            val name = sym.fullName.toString.trim
-            val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
-            symbolToSymbol += top -> symbol
-            symbol
+        def fallback = {
+          val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+          val symbol = symbolToSymbol.get(top) match {
+            case Some(symbol) => symbol
+            case None =>
+              val name = sym.fullName.toString.trim
+              val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
+              symbolToSymbol += top -> symbol
+              symbol
+          }
+
+          val id = SymbolIdentifier(symbol)
+          symbolToIdentifier += sym -> id
+          id
         }
 
-        val id = SymbolIdentifier(symbol)
-        symbolToIdentifier += sym -> id
-        id
+        // When re-compiling a file, the symbols are mostly always the same. Except...
+        // ... for fields: the owner is the same (i.e. the type is the same), but the
+        // symbol for the field might not always have the same id. We therefore try
+        // to find a previously defined symbol for the same field in order to generate
+        // the same inox Identifier.
+        if (sym.isAccessor) {
+          val previous = symbolToIdentifier find { case (s, _) =>
+            s.isAccessor && s.owner == sym.owner && s.name == sym.name
+          }
+          previous map { _._2 } getOrElse fallback
+        } else fallback
     }
   }
 
