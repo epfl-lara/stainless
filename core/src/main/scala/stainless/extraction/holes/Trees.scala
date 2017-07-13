@@ -9,7 +9,7 @@ trait Trees extends imperative.Trees { self =>
     override def getType(implicit s: Symbols): Type = tp
   }
 
-  override def getDeconstructor(that: inox.ast.Trees) = that match {
+  override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees => new TreeDeconstructor {
       protected val s: self.type = self
       protected val t: tree.type = tree
