@@ -3,11 +3,20 @@
 package stainless
 package frontends.scalac
 
+import ast.SymbolIdentifier
 import frontend.{ Frontend, FrontendFactory, CallBack }
-import scala.tools.nsc.{Global, Settings => NSCSettings, CompilerCommand}
+
+import scala.tools.nsc.{ Global, Settings => NSCSettings, CompilerCommand }
 import scala.reflect.internal.Positions
 
-class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack)
+import scala.collection.mutable.{ Map => MutableMap }
+
+class SymbolMapping(
+  val symbolToSymbol: MutableMap[Global#Symbol, ast.Symbol],
+  val symbolToIdentifier: MutableMap[Global#Symbol, SymbolIdentifier]
+)
+
+class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
      with Positions {
 
@@ -17,6 +26,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack
     val runsRightAfter = None
     val ctx = ScalaCompiler.this.ctx
     val callback = ScalaCompiler.this.callback
+    val cache = ScalaCompiler.this.cache
   } with StainlessExtraction
 
   override protected def computeInternalPhases() : Unit = {
@@ -57,13 +67,14 @@ object ScalaCompiler {
       val settings = buildSettings(ctx)
       val files = getFiles(args, ctx, settings)
 
-      val compiler = new ScalaCompiler(settings, ctx, callback)
+      val cache = new SymbolMapping(MutableMap.empty, MutableMap.empty)
+
 
       // Implement an interface compatible with the generic frontend.
       // If an exception is thrown from within the compiler, it is rethrown upon stopping or joining.
       // TODO refactor code, maybe, in frontend package if the same code is required for dotty/other frontends
       val frontend = new Frontend(callback) {
-        var underlying: compiler.Run = null
+        var underlying: ScalaCompiler#Run = null
         var thread: Thread = null
         var exception: Throwable = null
 
@@ -72,9 +83,7 @@ object ScalaCompiler {
         override def run(): Unit = {
           assert(!isRunning)
 
-          // Reset the reporter to make instance work again, see
-          // https://github.com/scala/scala/blob/2.12.x/src/compiler/scala/tools/nsc/Main.scala#L16
-          compiler.reporter.reset()
+          val compiler = new ScalaCompiler(settings, ctx, callback, cache)
           underlying = new compiler.Run
 
           // Run the compiler in the background in order to make the factory
