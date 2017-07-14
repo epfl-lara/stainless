@@ -41,8 +41,8 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * The default implementation make the conservative assumption that two inputs are equivalent
    * if and only if they are equal. This function can be redefined in subclasses if needed.
    */
-  protected def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean = {
-    oldInput == newInput
+  protected final def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean = {
+    false // FIXME: oldInput == newInput is not correct; remove `final` qualifier.
   }
 
   /******************* Implementation *************************************************************/
