@@ -182,7 +182,8 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
 
   override def apply(file: String, unit: xt.UnitDef,
                      classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    ctx.reporter.info(s"Got a unit for $file:${unit.id}") // Make this debug
+    ctx.reporter.info(s"Got a unit for $file: ${unit.id} with:") // Make this debug
+    ctx.reporter.info(s"functions -> [${functions.map { _.id }.sorted mkString ", "}]")
 
     val symss = Registry.update(classes, functions)
     processSymbols(symss)
@@ -208,10 +209,14 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
         ctx.reporter.error(e.pos, e.getMessage)
         ctx.reporter.error(s"The extracted sub-program in not well formed.")
         ctx.reporter.error(s"Symbols are:")
-        ctx.reporter.error(s"functions -> [${syms.functions.keySet mkString ", "}]")
-        ctx.reporter.error(s"classes   -> [${syms.classes.keySet mkString ", "}]")
+        ctx.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+        ctx.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}]")
         ctx.reporter.fatalError(s"Aborting from VerificationCallBack")
     }
+
+    ctx.reporter.info(s"Symbols are:")
+    ctx.reporter.info(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    ctx.reporter.info(s"classes   -> [\n${syms.classes.values mkString "\n "}]")
 
     solve(program)
   }
