@@ -100,22 +100,14 @@ trait CodeExtraction extends ASTExtractors {
   protected val cache: SymbolMapping
 
   private def getIdentifier(sym: Symbol): SymbolIdentifier = {
-    //val sym = s.accessedOrSelf.orElse(s)
-    cache.symbolToIdentifier.get(sym) match {
+    cache.get(sym) match {
       case Some(id) => id
       case None =>
-        val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-        val symbol = cache.symbolToSymbol.get(top) match {
-          case Some(symbol) => symbol
-          case None =>
-            val name = sym.fullName.toString.trim
-            val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
-            cache.symbolToSymbol += top -> symbol
-            symbol
-        }
+        val name = sym.fullName.toString.trim
+        val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
 
         val id = SymbolIdentifier(symbol)
-        cache.symbolToIdentifier += sym -> id
+        cache += sym -> id
         id
     }
   }
@@ -496,7 +488,8 @@ trait CodeExtraction extends ASTExtractors {
 
   private def extractTypeParams(syms: Seq[Symbol]): Seq[xt.TypeParameter] = syms.map { sym =>
     val variance = if (sym.isCovariant) Some(xt.Variance(true)) else if (sym.isContravariant) Some(xt.Variance(false)) else None
-    xt.TypeParameter(FreshIdentifier(sym.name.toString), variance.toSet)
+    val id = getIdentifier(sym)
+    xt.TypeParameter(id, variance.toSet)
   }
 
   private def extractPattern(p: Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {

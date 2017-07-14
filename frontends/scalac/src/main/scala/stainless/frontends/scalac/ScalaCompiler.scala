@@ -11,10 +11,18 @@ import scala.reflect.internal.Positions
 
 import scala.collection.mutable.{ Map => MutableMap }
 
-class SymbolMapping(
-  val symbolToSymbol: MutableMap[Global#Symbol, ast.Symbol],
-  val symbolToIdentifier: MutableMap[Global#Symbol, SymbolIdentifier]
-)
+object SymbolMapping {
+  def getPath(sym: Global#Symbol): String =
+    sym.ownerChain.reverse map { s => s"${s.name}#${s.id}" } mkString "."
+
+  def empty = new SymbolMapping(MutableMap.empty)
+}
+
+class SymbolMapping(private val symbolToIdentifier: MutableMap[String, SymbolIdentifier]) {
+  import SymbolMapping.getPath
+  def get(sym: Global#Symbol): Option[SymbolIdentifier] = symbolToIdentifier.get(getPath(sym))
+  def +=(mapping: (Global#Symbol, SymbolIdentifier)) = symbolToIdentifier += getPath(mapping._1) -> mapping._2
+}
 
 class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
@@ -67,7 +75,7 @@ object ScalaCompiler {
       val settings = buildSettings(ctx)
       val files = getFiles(args, ctx, settings)
 
-      val cache = new SymbolMapping(MutableMap.empty, MutableMap.empty)
+      val cache = SymbolMapping.empty
 
 
       // Implement an interface compatible with the generic frontend.
