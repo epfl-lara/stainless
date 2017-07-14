@@ -119,12 +119,14 @@ trait CodeExtraction extends ASTExtractors {
         // symbol for the field might not always have the same id. We therefore try
         // to find a previously defined symbol for the same field in order to generate
         // the same inox Identifier.
-        if (sym.isAccessor) {
-          val previous = symbolToIdentifier find { case (s, _) =>
-            s.isAccessor && s.owner == sym.owner && s.name == sym.name
-          }
-          previous map { _._2 } getOrElse fallback
-        } else fallback
+        val candidate: Option[(Symbol, SymbolIdentifier)] =
+          if (sym.isAccessor) symbolToIdentifier find { case (s, _) =>
+            s.owner == sym.owner && s.name == sym.name
+          } else if (sym.isMethod) symbolToIdentifier find { case (s, _) =>
+            s.owner == sym.owner && s.name == sym.name && s.info == sym.info
+          } else None
+
+        candidate map { _._2 } getOrElse fallback
     }
   }
 
@@ -502,9 +504,11 @@ trait CodeExtraction extends ASTExtractors {
       None
   }
 
+  private val tpCache = MutableMap[(Symbol, Symbol#NameType), SymbolIdentifier]() // (owner, sym.name) -> id
   private def extractTypeParams(syms: Seq[Symbol]): Seq[xt.TypeParameter] = syms.map { sym =>
     val variance = if (sym.isCovariant) Some(xt.Variance(true)) else if (sym.isContravariant) Some(xt.Variance(false)) else None
-    xt.TypeParameter(FreshIdentifier(sym.name.toString), variance.toSet)
+    val id = tpCache.getOrElseUpdate(sym.owner -> sym.name, getIdentifier(sym))
+    xt.TypeParameter(id, variance.toSet)
   }
 
   private def extractPattern(p: Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {
