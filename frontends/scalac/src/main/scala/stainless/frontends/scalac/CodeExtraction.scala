@@ -89,28 +89,33 @@ trait CodeExtraction extends ASTExtractors {
   }
 
 
-  /** Mapping from input symbols to output symbols/identifiers. */
-  private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
-  private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
+  /**
+   * Mapping from input symbols to output symbols/identifiers.
+   *
+   * In order to reuse the same stainless/inox identifiers, the [[cache]]
+   * need to be re-used between different runs of the compiler. Because
+   * different instances of the compiler (and [[Global]]) are used for
+   * each runs, the [[cache]] need to be stored outside the compiler.
+   */
+  protected val cache: SymbolMapping
 
-  // TODO test incremental compilation!!!
   private def getIdentifier(sym: Symbol): SymbolIdentifier = {
     //val sym = s.accessedOrSelf.orElse(s)
-    symbolToIdentifier.get(sym) match {
+    cache.symbolToIdentifier.get(sym) match {
       case Some(id) => id
       case None =>
         val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-        val symbol = symbolToSymbol.get(top) match {
+        val symbol = cache.symbolToSymbol.get(top) match {
           case Some(symbol) => symbol
           case None =>
             val name = sym.fullName.toString.trim
             val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
-            symbolToSymbol += top -> symbol
+            cache.symbolToSymbol += top -> symbol
             symbol
         }
 
         val id = SymbolIdentifier(symbol)
-        symbolToIdentifier += sym -> id
+        cache.symbolToIdentifier += sym -> id
         id
     }
   }
