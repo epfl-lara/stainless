@@ -6,7 +6,7 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableS
 
 /**
  * Describes a Graph of Computation that is incrementally refined/updated. [[Node]]s can be inserted
- * (and updated), sequentially to build a full graph. After each [[update]], [[compute]] is called at
+ * (and updated) sequentially to build a full graph. After each [[update]], [[compute]] is called at
  * most once with the set of all nodes not yet computed -- which (indirect, possibly cyclic) dependencies
  * are all known -- with the dependencies themselves, hence a node might be passed to [[compute]]
  * several times. When any dependency of a node is updated, the node is recomputed.
@@ -28,7 +28,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /**
    * Produce some result for the set of nodes that are all ready.
    *
-   * If is guarantee that [[ready]] contains all the dependencies for all element of [[ready]].
+   * It is guarantee that [[ready]] contains all the dependencies for all element of [[ready]].
    *
    * The result itself is not used by [[IncrementalComputationalGraph]].
    */
@@ -37,13 +37,8 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /**
    * Determine whether the new value for a node is equivalent to the old value, given that
    * they have the same id (enforced by the graph model) and the same set of dependencies.
-   *
-   * The default implementation make the conservative assumption that two inputs are equivalent
-   * if and only if they are equal. This function can be redefined in subclasses if needed.
    */
-  protected final def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean = {
-    false // FIXME: oldInput == newInput is not correct; remove `final` qualifier.
-  }
+  protected def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean
 
   /******************* Implementation *************************************************************/
 
@@ -68,18 +63,20 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * Implementation for the public [[update]] function.
    *
    * If the new node is equivalent to an old one, do nothing. Otherwise, process normally.
+   * Note that, when any of its dependencies is updated the (new) node is put in the
+   * [[toCompute]] set.
    */
-  private def update(n: Node): Option[Result] = {
-    def run(delete: Boolean) = {
-      if (delete) remove(n)
+  private def update(n: Node): Option[Result] = nodes get n.id match {
+    case Some(m) if (m.deps == n.deps) && equivalent(n.id, n.deps, m.in, n.in) =>
+      // Nothing new, but update the node anyway -- equivalence != equality.
+      nodes += n.id -> n
+      None
+
+    case mOpt =>
+      val replace = mOpt.isDefined
+      if (replace) remove(n)
       insert(n)
       process()
-    }
-
-    nodes get n.id match {
-      case Some(m) if (m.deps == n.deps) && equivalent(n.id, n.deps, m.in, n.in) => None // nothing new
-      case mOpt => run(mOpt.isDefined)
-    }
   }
 
   /**
@@ -108,7 +105,10 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     }
   }
 
-  /** Remove an existing node from the graph. */
+  /**
+   * Remove an existing node from the graph,
+   * placing any node that depends on [[n]] into [[toCompute]]
+   */
   private def remove(n: Node): Unit = {
     nodes -= n.id
     reverse.values foreach { _ -= n }
