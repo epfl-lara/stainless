@@ -4,7 +4,7 @@ package stainless
 package verification
 
 import extraction.xlang.{ trees => xt }
-import utils.{ DependenciesFinder, IncrementalComputationalGraph }
+import utils.{ CanonicalForm, CanonicalFormBuilder, DependenciesFinder, IncrementalComputationalGraph }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
@@ -32,13 +32,33 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
         }
       }
 
-      /*
-       * override def equivalent(id: Identifier, deps: Set[Identifier],
-       *                         oldInput: NodeValue, newInput: NodeValue): Boolean = {
-       *   // TODO avoid recompute things that are equivalent.
-       *   // Karine Perrard's work might be of interest here.
-       * }
-       */
+      private val cfCache = MutableMap[Identifier, CanonicalForm]()
+
+      override def equivalent(id: Identifier, deps: Set[Identifier],
+                              oldInput: NodeValue, newInput: NodeValue): Boolean = {
+        // NOTE equals is redefined for definitions to compare only the id, hence it
+        //      doesn't work for us here.
+
+        val (cf1, cf2) = (oldInput, newInput) match {
+          case (Left(cd1), Left(cd2)) =>
+            val cf1 = cfCache.getOrElseUpdate(id, CanonicalFormBuilder(cd1))
+            val cf2 = CanonicalFormBuilder(cd2)
+            (cf1, cf2)
+
+          case (Right(fd1), Right(fd2)) =>
+            val cf1 = cfCache.getOrElseUpdate(id, CanonicalFormBuilder(fd1))
+            val cf2 = CanonicalFormBuilder(fd2)
+            (cf1, cf2)
+
+          case _ => ctx.reporter.fatalError(s"Unexpected type mismatch for $id")
+        }
+
+        if (cf1 == cf2) true
+        else {
+          cfCache += id -> cf2
+          false
+        }
+      }
     }
 
 
@@ -243,5 +263,4 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   override def getReports = tasks map { _.get } filter { _ != null }
 
 }
-
 
