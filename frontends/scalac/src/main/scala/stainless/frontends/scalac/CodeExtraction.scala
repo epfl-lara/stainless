@@ -98,19 +98,7 @@ trait CodeExtraction extends ASTExtractors {
    * each runs, the [[cache]] need to be stored outside the compiler.
    */
   protected val cache: SymbolMapping
-
-  private def getIdentifier(sym: Symbol): SymbolIdentifier = {
-    cache.get(sym) match {
-      case Some(id) => id
-      case None =>
-        val name = sym.fullName.toString.trim
-        val symbol = ast.Symbol(if (name.endsWith("$")) name.init else name)
-
-        val id = SymbolIdentifier(symbol)
-        cache += sym -> id
-        id
-    }
-  }
+  private def getIdentifier(sym: Symbol): SymbolIdentifier = cache fetch sym
 
   private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Set[xt.Flag] = {
     getAnnotations(sym, ignoreOwner).map { case (name, args) =>
