@@ -11,6 +11,11 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 /** Callback for verification */
 class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
 
+  // TODO Move Registry to frontend. Make a CallBackWithRegistery trait that uses the Registry.
+  //      Re-use for TerminationCallBack.
+  // implicit val debugSection = frontend.DebugSectionFrontend
+  implicit val debugSection = DebugSectionVerification
+
   /** Keep track of the valid data as they come, in a thread-safe fashion. */
   private object Registry {
     private type NodeValue = Either[xt.ClassDef, xt.FunDef] // "Union" type.
@@ -131,6 +136,7 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
       else {
         // Group into one set of Symbols to avoid verifying the same things several times
         // TODO this is just because we don't have caching later on in the pipeline (YET).
+        // Also, it doesn't work 100% of the time.
         val (clsSets, funsSets) = ofInterest.unzip
         val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
         val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
@@ -202,8 +208,9 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
 
   override def apply(file: String, unit: xt.UnitDef,
                      classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    ctx.reporter.info(s"Got a unit for $file: ${unit.id} with:") // Make this debug
-    ctx.reporter.info(s"functions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    ctx.reporter.debug(s"Got a unit for $file: ${unit.id} with:") // Make this debug
+    ctx.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    ctx.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
     val symss = Registry.update(classes, functions)
     processSymbols(symss)
@@ -234,9 +241,7 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
         ctx.reporter.fatalError(s"Aborting from VerificationCallBack")
     }
 
-    ctx.reporter.info(s"Symbols are:")
-    ctx.reporter.info(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-    ctx.reporter.info(s"classes   -> [\n${syms.classes.values mkString "\n "}]")
+    ctx.reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
     solve(program)
   }
