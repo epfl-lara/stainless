@@ -67,7 +67,8 @@ trait MainHelpers extends inox.MainHelpers {
   override protected def getDebugSections = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
     termination.DebugSectionTermination,
-    DebugSectionExtraction
+    DebugSectionExtraction,
+    frontend.DebugSectionFrontend
   )
 
   override protected def displayVersion(reporter: inox.Reporter) = {
@@ -95,7 +96,9 @@ trait MainHelpers extends inox.MainHelpers {
     val watch = ctx.options.findOption(optWatch) getOrElse false
 
     if (watch) {
-      // TODO Handle signals to stop the compiler properly
+      // TODO Handle signals to stop the compiler properly.
+      // TODO wrap this in an utility class.
+
       // Watch each individual file for modification through their parent directories
       // (because a WatchService cannot observe files directly..., also we need to keep
       // track of the modification time because we sometimes receive several event
@@ -106,7 +109,7 @@ trait MainHelpers extends inox.MainHelpers {
       val dirs: Set[Path] = files map { _.getParentFile.toPath }
       dirs foreach { _.register(watcher, StandardWatchEventKinds.ENTRY_MODIFY) }
 
-      ctx.reporter.info(s"Waiting for source changes...")
+      ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
 
       while (true) {
         // Wait for further changes, filtering out everything that is not of interest
@@ -128,7 +131,7 @@ trait MainHelpers extends inox.MainHelpers {
           ctx.reporter.info(s"Detecting some file modification...: ${modified mkString ", "}")
           compiler.run()
           compiler.join()
-          ctx.reporter.info(s"Waiting for source changes...")
+          ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
         }
 
         key.reset()

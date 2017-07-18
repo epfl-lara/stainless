@@ -4,6 +4,8 @@ package stainless
 
 package object frontend {
 
+  object DebugSectionFrontend extends inox.DebugSection("frontend")
+
   /**
    * Given a context (with its reporter) and a compiler factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components.
