@@ -4,7 +4,7 @@ package stainless
 
 import java.io.{ File, PrintWriter }
 import java.nio.file.{ FileSystems, Path, StandardWatchEventKinds }
-import java.util.concurrent.Executors
+import java.util.concurrent.{ Executors, TimeUnit }
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.{ Map => MutableMap }
@@ -96,7 +96,6 @@ trait MainHelpers extends inox.MainHelpers {
     val watch = ctx.options.findOption(optWatch) getOrElse false
 
     if (watch) {
-      // TODO Handle signals to stop the compiler properly.
       // TODO wrap this in an utility class.
 
       // Watch each individual file for modification through their parent directories
@@ -111,33 +110,48 @@ trait MainHelpers extends inox.MainHelpers {
 
       ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
 
-      while (true) {
+      var loop = true
+
+      val interruptible = new inox.utils.Interruptible {
+        override def interrupt(): Unit = { loop = false }
+      }
+      ctx.interruptManager.registerForInterrupts(interruptible)
+
+      while (loop) {
         // Wait for further changes, filtering out everything that is not of interest
 
-        val key = watcher.take()
-        val notifications = key.pollEvents() map { _.context } collect { case p: Path => p.toAbsolutePath.toFile }
-        val modified = notifications filter files
+        val key = watcher.poll(500, TimeUnit.MILLISECONDS)
+        if (key != null) {
+          val events = key.pollEvents()
+          val notifications = events map { _.context } collect { case p: Path => p.toAbsolutePath.toFile }
+          val modified = notifications filter files
 
-        var proceed = false
-        for {
-          f <- modified
-          if f.lastModified > times(f)
-        } {
-          proceed = true
-          times(f) = f.lastModified
+          // Update the timestamps while looking for things to process.
+          // Note that timestamps are not 100% perfect filters: the files could have the same content.
+          // But it's very lightweight and the rest of the pipeline should be able to handle similar
+          // content anyway.
+          var proceed = false
+          for {
+            f <- modified
+            if f.lastModified > times(f)
+          } {
+            proceed = true
+            times(f) = f.lastModified
+          }
+
+          if (proceed) {
+            ctx.reporter.info(s"Detecting some file modifications...: ${modified mkString ", "}")
+            compiler.run()
+            compiler.join()
+            ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
+          }
+
+          key.reset()
         }
-
-        if (proceed) {
-          ctx.reporter.info(s"Detecting some file modification...: ${modified mkString ", "}")
-          compiler.run()
-          compiler.join()
-          ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
-        }
-
-        key.reset()
       }
 
-      // TODO watcher.close()
+      ctx.interruptManager.unregisterForInterrupts(interruptible)
+      watcher.close()
     } else {
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
