@@ -25,8 +25,6 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
 
     private val knownClasses = MutableMap[Identifier, xt.ClassDef]()
 
-    // TODO Are Identifier okay? We might have some issue with how they are compared due
-    //      to the global/id counters...
     private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
       override def compute(ready: Set[(Identifier, NodeValue)]): Result = {
         (EmptyResult /: ready) { case ((cls, funs), (id, node)) =>
@@ -197,7 +195,8 @@ class VerificationCallBack(val ctx: inox.Context) extends frontend.CallBack {
   }
 
   private def shouldBeChecked(cd: xt.ClassDef): Boolean = {
-    true // TODO
+    // Invariants are already extracted to functions, so no need to process the class unless it's a dependency.
+    false
   }
 
   /** Compute the set of direct, non-recursive dependencies of the given [[xt.FunDef]] or [[xt.ClassDef]]. */

@@ -161,8 +161,8 @@ private class CanonicalFormBuilderImpl {
     // Format is:
     //  - expression code
     //  - expression specifics
-    //  - NOPE number of variables
-    //  - NOPE each variable
+    //  - number of variables
+    //  - each variable
     //  - number of types
     //  - each type
     //  - number of subexpressions
@@ -251,11 +251,17 @@ private class CanonicalFormBuilderImpl {
     //  - number of subtypes
     //  - each subtype
     storeByte(code)
-    // TODO store specifics to the type instance, if any.
-    // TODO ADTType, TypeParameter, BVType
-    // TODO other type from stainless?
+    storeTypeSpecifics(typ)
     storeLength(tps.size)
     tps foreach storeType
+  }
+
+  private def storeTypeSpecifics(typ: xt.Type): Unit = typ match {
+    case xt.BVType(size) => storeInt(size)
+    case xt.TypeParameter(id, _) => storeId(id)
+    case xt.ADTType(id, _) => storeId(id)
+
+    case _ => // Nothing
   }
 
   /** Store information relative to [[v]], similar to [[storeExpr]]. */
