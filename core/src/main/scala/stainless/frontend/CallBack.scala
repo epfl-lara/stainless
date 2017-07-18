@@ -141,7 +141,7 @@ trait CallBackWithRegistry extends CallBack { self =>
         ctx.reporter.error(s"The extracted sub-program in not well formed.")
         ctx.reporter.error(s"Symbols are:")
         ctx.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-        ctx.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}]")
+        ctx.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
         ctx.reporter.fatalError(s"Aborting from CallBackWithRegistry")
     }
 

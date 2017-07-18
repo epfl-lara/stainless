@@ -18,10 +18,14 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /**
    * Insert (or override) a given node into the graph, then perform computation
    * based on the graph state. Return the computed values.
+   *
+   * When [[compute]] is false the node doesn't trigger a call to [[compute]] when
+   * all the [[deps]] -- and the indirect dependencies -- are present in the graph.
    */
-  def update(id: Id, in: Input, deps: Set[Id]): Option[Result] = {
-    update(Node(id, in, deps))
+  def update(id: Id, in: Input, deps: Set[Id], compute: Boolean): Option[Result] = {
+    update(Node(id, in, deps, compute))
   }
+
 
   /******************* Customisation Points *******************************************************/
 
@@ -40,6 +44,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    */
   protected def equivalent(id: Id, deps: Set[Id], oldInput: Input, newInput: Input): Boolean
 
+
   /******************* Implementation *************************************************************/
 
   /**
@@ -48,11 +53,12 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    *    This allows overriding a node simply by inserting a new node with the same identifier.
    *  - [[in]] denotes the input value for the node which is used for the computation.
    *  - [[deps]] holds the set of **direct** dependencies.
+   *  - [[compute]] determines whether the node should trigger a computation on its own or not.
    * Indirect dependencies is computed by [[IncrementalComputationalGraph]] itself.
    */
-  private case class Node(id: Id, in: Input, deps: Set[Id]) {
+  private case class Node(id: Id, in: Input, deps: Set[Id], compute: Boolean) {
     override def equals(any: Any): Boolean = any match {
-      case Node(other, _, _) => id == other
+      case Node(other, _, _, _) => id == other
       case _ => false
     }
 
@@ -67,7 +73,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * [[toCompute]] set.
    */
   private def update(n: Node): Option[Result] = nodes get n.id match {
-    case Some(m) if (m.deps == n.deps) && equivalent(n.id, n.deps, m.in, n.in) =>
+    case Some(m) if (m.deps == n.deps) && (n.compute == m.compute) && equivalent(n.id, n.deps, m.in, n.in) =>
       // Nothing new, but update the node anyway -- equivalence != equality.
       nodes += n.id -> n
       None
@@ -99,7 +105,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /** Insert a new node & update the graph. */
   private def insert(n: Node): Unit = {
     nodes += n.id -> n
-    toCompute += n
+    if (n.compute) toCompute += n
     n.deps foreach { depId =>
       reverse.getOrElseUpdate(depId, MutableSet()) += n
     }
@@ -111,6 +117,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    */
   private def remove(n: Node): Unit = {
     nodes -= n.id
+    toCompute -= n
     reverse.values foreach { _ -= n }
 
     mark(n)
@@ -131,7 +138,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     // Visit a node and queue the ones that depend on it.
     def visit(n: Node): Unit = if (seen contains n) { /* visited via another path */ } else {
       seen += n
-      toCompute += n
+      if (n.compute) toCompute += n
 
       add(n)
     }
