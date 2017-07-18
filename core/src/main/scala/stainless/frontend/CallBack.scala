@@ -3,14 +3,17 @@
 package stainless
 package frontend
 
+import scala.collection.mutable.{ ListBuffer }
+
 import extraction.xlang.{ trees => xt }
+import utils.{ DependenciesFinder, Registry }
 
 /**
  * Process the extracted units.
  *
  * Frontends are required to follow this workflow:
  *  - when starting extracting compilation unit, [[beginExtractions]] should be called once;
- *  - the [[CallBack.apply]] method after extracting each compilation unit (i.e. a scala file);
+ *  - the [[CallBack.apply]] method after extracting each compilation unit (i.e. a Scala file);
  *  - finally, the frontend calls [[endExtractions]] to let the CallBack know all the data
  *    should be available by now.
  *
@@ -37,8 +40,9 @@ trait CallBack {
   def getReports: Seq[AbstractReport]
 }
 
+
 /** MasterCallBack: combine several callbacks together. */
-class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
+final class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
   override def beginExtractions(): Unit = callbacks foreach { _.beginExtractions() }
 
   override def apply(file: String, unit: xt.UnitDef,
@@ -58,5 +62,104 @@ class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
     if (inners.isEmpty) None
     else Some(inners reduce { _ ~ _ })
   }
+}
+
+
+trait CallBackWithRegistry extends CallBack { self =>
+
+  /******************* Public Interface: Override CallBack ***************************************/
+
+  final override def beginExtractions(): Unit = { /* nothing */ }
+
+  final override def apply(file: String, unit: xt.UnitDef,
+                     classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+    ctx.reporter.debug(s"Got a unit for $file: ${unit.id} with:") // Make this debug
+    ctx.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    ctx.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
+
+    val symss = registry.update(classes, functions)
+    processSymbols(symss)
+  }
+
+  final override def endExtractions(): Unit = {
+    val symss = registry.checkpoints()
+    processSymbols(symss)
+  }
+
+  final override def stop(): Unit = tasks foreach { _.cancel(true) }
+
+  final override def join(): Unit = tasks foreach { _.get }
+
+  // See assumption/requirements in [[CallBack]]
+  final override def getReports = tasks map { _.get } filter { _ != null }
+
+
+  /******************* Customisation Points *******************************************************/
+
+  protected type Report <: AbstractReport
+
+  protected val ctx: inox.Context
+
+  /** Produce a report for the given program, in a blocking fashion. */
+  protected def solve(program: Program { val trees: extraction.xlang.trees.type }): Report
+
+  /** Checks whether the given function/class should be processed at some point. */
+  protected def shouldBeChecked(fd: xt.FunDef): Boolean
+  protected def shouldBeChecked(cd: xt.ClassDef): Boolean
+
+  /******************* Internal State *************************************************************/
+
+  private implicit val debugSection = DebugSectionFrontend
+  private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
+
+  private val registry = new Registry {
+    override val ctx = self.ctx
+
+    override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
+    override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
+
+    override def shouldBeChecked(fd: xt.FunDef): Boolean = self.shouldBeChecked(fd)
+    override def shouldBeChecked(cd: xt.ClassDef): Boolean = self.shouldBeChecked(cd)
+  }
+
+
+  /******************* Internal Helpers ***********************************************************/
+
+  private def processSymbols(symss: Iterable[xt.Symbols]): Unit = symss foreach { syms =>
+    // The registry tells us something should be verified in these symbols.
+    val program = new inox.Program {
+      val trees: extraction.xlang.trees.type = extraction.xlang.trees
+      val ctx = self.ctx
+      val symbols = syms
+    }
+
+    try {
+      syms.ensureWellFormed
+    } catch {
+      case e: syms.TypeErrorException =>
+        ctx.reporter.error(e.pos, e.getMessage)
+        ctx.reporter.error(s"The extracted sub-program in not well formed.")
+        ctx.reporter.error(s"Symbols are:")
+        ctx.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+        ctx.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}]")
+        ctx.reporter.fatalError(s"Aborting from CallBackWithRegistry")
+    }
+
+    ctx.reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+
+    processProgram(program)
+  }
+
+  private def processProgram(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
+    // Dispatch a task to the executor service instead of blocking this thread.
+    val task = new java.util.concurrent.Callable[Report] {
+      override def call(): Report = solve(program)
+    }
+
+    val future = MainHelpers.executor.submit(task)
+    this.synchronized { tasks += future }
+    // task.call() // For debug, comment the two previous lines and uncomment this one.
+  }
+
 }
 
