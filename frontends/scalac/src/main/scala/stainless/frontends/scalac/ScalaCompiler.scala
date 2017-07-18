@@ -15,13 +15,28 @@ object SymbolMapping {
   def getPath(sym: Global#Symbol): String =
     sym.ownerChain.reverse map { s => s"${s.name}#${s.id}" } mkString "."
 
-  def empty = new SymbolMapping(MutableMap.empty)
+  def empty = new SymbolMapping()
 }
 
-class SymbolMapping(private val symbolToIdentifier: MutableMap[String, SymbolIdentifier]) {
+class SymbolMapping {
   import SymbolMapping.getPath
-  def get(sym: Global#Symbol): Option[SymbolIdentifier] = symbolToIdentifier.get(getPath(sym))
-  def +=(mapping: (Global#Symbol, SymbolIdentifier)) = symbolToIdentifier += getPath(mapping._1) -> mapping._2
+
+  /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
+  def fetch(sym: Global#Symbol): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
+    val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+    val symbol = s2s.getOrElseUpdate(top, {
+      val name = sym.fullName.toString.trim
+      ast.Symbol(if (name endsWith "$") name.init else name)
+    })
+
+    SymbolIdentifier(symbol)
+  })
+
+  /** Mapping from [[Global#Symbol]] (or rather: its path) and the stainless identifier. */
+  private val s2i = MutableMap[String, SymbolIdentifier]()
+
+  /** Mapping useful to use the same top symbol mapping. */
+  private val s2s = MutableMap[Global#Symbol, ast.Symbol]()
 }
 
 class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
