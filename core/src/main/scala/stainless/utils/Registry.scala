@@ -29,12 +29,6 @@ trait Registry {
    * With the new information, if something is ready to be verified, [[update]] returns
    * sequences of self-contained symbols required for verification.
    *
-   * TODO currently, the resulting set of symbols is an over-approximation:
-   *      there can be some elements that actually don't need to be verified in the set
-   *      and are not required to be in the set to verify the elements that should
-   *      be verified. To improve on this, [[IncrementalComputationalGraph]] needs to
-   *      have "shouldCompute" predicates -- essentially the same as [[shouldBeChecked]].
-   *
    * NOTE distinguish sealed and non-sealed class hierarchies. Handle the latter appropriately.
    *      To do that, we can:
    *       - delay the insertion of classes in the graph,
@@ -133,6 +127,11 @@ trait Registry {
     }
   }
 
+  private def isOfInterest(node: NodeValue): Boolean = node match {
+    case Left(cd) => shouldBeChecked(cd)
+    case Right(fd) => shouldBeChecked(fd)
+  }
+
   private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     // Compute direct dependencies and insert the new information into our dependency graph
     val clusters = computeClusters(classes)
@@ -143,19 +142,15 @@ trait Registry {
     // Critical Section
     val results: Seq[Result] =
       this.synchronized {
-        newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps) }
+        newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input)) }
       }
 
-    // TODO this filter should be moved into the graph
-    val ofInterest =
-      results filter { case (cls, funs) => (cls exists shouldBeChecked) || (funs exists shouldBeChecked) }
-
-    if (ofInterest.isEmpty) None
+    if (results.isEmpty) None
     else {
       // Group into one set of Symbols to avoid verifying the same things several times
       // TODO this is just because we don't have caching later on in the pipeline (YET).
       // Also, it doesn't work 100% of the time.
-      val (clsSets, funsSets) = ofInterest.unzip
+      val (clsSets, funsSets) = results.unzip
       val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
       val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
       Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
