@@ -82,7 +82,7 @@ class TestIncrementalComputationalGraph extends FunSuite {
 
     inputs foreach { fd =>
       e.push()
-      g.update(fd._2, fd, directDependencies(fd))
+      g.update(fd._2, fd, directDependencies(fd), compute = true)
       e.pop()
     }
 

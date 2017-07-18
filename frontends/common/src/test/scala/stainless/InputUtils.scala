@@ -41,12 +41,14 @@ trait InputUtils {
       override def stop(): Unit = ()
       override def getReports = Seq.empty
 
+      override def beginExtractions(): Unit = ()
       override def apply(file: String, unit: xt.UnitDef,
                          classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
         units += unit
         cls ++= classes
         funs ++= functions
       }
+      override def endExtractions(): Unit = ()
     }
 
     val compiler = Main.factory(context, files, callback)

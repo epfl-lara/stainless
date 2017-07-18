@@ -4,7 +4,7 @@ package stainless
 
 import org.scalatest._
 
-class ExtractionSuite extends FunSpec with inox.ResourceUtils {
+class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
 
   def testAll(dir: String): Unit = {
     val reporter = new inox.TestSilentReporter
@@ -13,7 +13,8 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils {
     val fs = resourceFiles(dir, _.endsWith(".scala")).toList
 
     describe(s"Program extraction in $dir") {
-      val tryProgram = scala.util.Try(Main.extractFromSource(ctx, Main.libraryFiles ++ fs.map(_.getPath))._2)
+      val files = fs map { _.getPath }
+      val tryProgram = scala.util.Try(loadFiles(ctx, files)._2)
       it("should be successful") { assert(tryProgram.isSuccess) }
 
       if (tryProgram.isSuccess) {
