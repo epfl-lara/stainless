@@ -40,6 +40,8 @@ trait MainHelpers extends inox.MainHelpers {
     val usageRhs = "file"
   }
 
+  object optWatch extends inox.FlagOptionDef("watch", false)
+
   override protected def getOptions = super.getOptions ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
@@ -53,7 +55,8 @@ trait MainHelpers extends inox.MainHelpers {
       "  - termination: each solver call takes at most n / 100 seconds"),
     extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
-    optJson -> Description(General, "Output verification and termination reports to a JSON file")
+    optJson -> Description(General, "Output verification and termination reports to a JSON file"),
+    optWatch -> Description(General, "Re-run stainless upon file changes")
   ) ++ MainHelpers.components.map { component =>
     val option = new inox.FlagOptionDef(component.name, false)
     option -> Description(Pipelines, component.description)
@@ -89,7 +92,7 @@ trait MainHelpers extends inox.MainHelpers {
 
     // When in "watch" mode, no final report is printed as there is no proper end.
     // In fact, we might not even have a full list of VCs to be checked...
-    val watch: Boolean = true // TODO add a command line flag for this
+    val watch = ctx.options.findOption(optWatch) getOrElse false
 
     if (watch) {
       // TODO Handle signals to stop the compiler properly
