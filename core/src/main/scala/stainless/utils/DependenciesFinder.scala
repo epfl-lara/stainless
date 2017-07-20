@@ -14,6 +14,9 @@ import scala.collection.mutable.{ Set => MutableSet }
  * It returns only the *direct* dependencies, without the argument itself
  * although it could be a recursive function. Moreover, it doesn't capture
  * the notion of class hierarchy as it doesn't know about other classes.
+ *
+ * It also do **not** handle dependencies toward class invariant because this
+ * required the knownledge of existing functions in addition to the class itself.
  */
 class DependenciesFinder {
   private val deps: MutableSet[Identifier] = MutableSet.empty
