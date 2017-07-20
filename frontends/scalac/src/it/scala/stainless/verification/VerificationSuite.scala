@@ -107,7 +107,6 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
-    case "verification/invalid/ForallAssoc" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
