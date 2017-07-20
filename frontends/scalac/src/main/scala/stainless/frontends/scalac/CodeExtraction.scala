@@ -248,8 +248,6 @@ trait CodeExtraction extends ASTExtractors {
     AnyRefClass.tpe
   )
 
-  private val invSymbol = stainless.ast.Symbol("inv")
-
   private def extractClass(cd: ClassDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = cd.symbol
     val id = getIdentifier(sym)
@@ -343,7 +341,8 @@ trait CodeExtraction extends ASTExtractors {
     }
 
     val optInv = if (invariants.isEmpty) None else Some({
-      val fd = new xt.FunDef(SymbolIdentifier(invSymbol), Seq.empty, Seq.empty, xt.BooleanType,
+      val id = cache fetchInvIdForClass sym
+      val fd = new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType,
         if (invariants.size == 1) invariants.head else xt.And(invariants),
         Set(xt.IsInvariant) ++ annots
       )
