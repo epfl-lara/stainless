@@ -60,7 +60,7 @@ private class CanonicalFormBuilderImpl {
     //  - number of parameters
     //  - for each parameter, its type
     //  - the return type
-    //  - FIXME add flags?
+    //  - add flags
     //  - the body
     registerId(fd.id)
     storeLength(fd.tparams.size)
@@ -69,9 +69,10 @@ private class CanonicalFormBuilderImpl {
     fd.params foreach { vd =>
       registerVD(vd)
       storeType(vd.tpe)
-      // FIXME add flags?
+      storeFlags(vd.flags)
     }
     storeType(fd.returnType)
+    storeFlags(fd.flags)
     storeExpr(fd.fullBody)
 
     new CanonicalForm(buffer.toArray)
@@ -85,7 +86,7 @@ private class CanonicalFormBuilderImpl {
     //  - each parent type
     //  - number of fields
     //  - each field
-    //  - FIXME add flags?
+    //  - add flags
     storeLength(cd.tparams.size)
     cd.tparams foreach registerTP
     storeLength(cd.parents.size)
@@ -94,8 +95,9 @@ private class CanonicalFormBuilderImpl {
     cd.fields foreach { vd =>
       storeId(vd.id)
       storeType(vd.tpe)
-      // FIXME add flags?
+      storeFlags(vd.flags)
     }
+    storeFlags(cd.flags)
 
     new CanonicalForm(buffer.toArray)
   }
@@ -139,11 +141,11 @@ private class CanonicalFormBuilderImpl {
     //  - if local, the UID, otherwise the string representing the variable's id
     mapping get id match {
       case None =>
-        storeFlag(false)
+        storeBool(false)
         storeString(id.uniqueName)
 
       case Some(uid) =>
-        storeFlag(true)
+        storeBool(true)
         storeUID(uid)
     }
   }
@@ -189,7 +191,7 @@ private class CanonicalFormBuilderImpl {
     case l @ xt.BVLiteral(_, size) => storeInt(size); storeBigInt(l.toBigInt)
     case xt.IntegerLiteral(l) => storeBigInt(l)
     case xt.FractionLiteral(n, d) => storeBigInt(n); storeBigInt(d)
-    case xt.BooleanLiteral(l) => storeFlag(l)
+    case xt.BooleanLiteral(l) => storeBool(l)
     case xt.StringLiteral(l) => storeString(l)
     case xt.GenericValue(_, id) => ??? // FIXME what's this "id"?
     case xt.ADTSelector(_, sel) => storeId(sel)
@@ -198,8 +200,8 @@ private class CanonicalFormBuilderImpl {
     case xt.Error(_, desc) => storeString(desc)
 
     case xt.Assert(_, descOpt, _) => descOpt match {
-      case None => storeFlag(false)
-      case Some(desc) => storeFlag(true); storeString(desc)
+      case None => storeBool(false)
+      case Some(desc) => storeBool(true); storeString(desc)
     }
 
     case xt.MatchExpr(_, cases) =>
@@ -247,7 +249,6 @@ private class CanonicalFormBuilderImpl {
     // Format is:
     //  - type code
     //  - type specifics
-    //  - FIXME add flags?
     //  - number of subtypes
     //  - each subtype
     storeByte(code)
@@ -258,7 +259,7 @@ private class CanonicalFormBuilderImpl {
 
   private def storeTypeSpecifics(typ: xt.Type): Unit = typ match {
     case xt.BVType(size) => storeInt(size)
-    case xt.TypeParameter(id, _) => storeId(id)
+    case xt.TypeParameter(id, flags) => storeId(id); storeFlags(flags)
     case xt.ADTType(id, _) => storeId(id)
 
     case _ => // Nothing
@@ -269,9 +270,35 @@ private class CanonicalFormBuilderImpl {
     // Format is:
     //  - the variable's identifier
     //  - its type
-    //  - FIXME add flags?
+    //  - add flags
     storeId(v.id)
     storeType(v.tpe)
+    storeFlags(v.flags)
+  }
+
+  /** Store information relative to each of the given [[flags]]. */
+  private def storeFlags(flags: Set[xt.Flag]): Unit = {
+    storeLength(flags.size)
+    // (Arbitrarily) sort the flags for a true canonical form.
+    val sorted = flags.toSeq sortBy { _.name }
+    sorted foreach { f =>
+      storeString(f.name) // the name identify the flag
+      f match {
+        case xt.Variance(v) => storeBool(v)
+        case xt.HasADTInvariant(id) => storeId(id)
+        case xt.HasADTEquality(id) => storeId(id)
+        case xt.Annotation(_, args) => storeLength(args.size); args foreach { a => storeString(a.toString) }
+        case xt.IsMethodOf(id) => storeId(id)
+        case xt.Bounds(lo, hi) => storeType(lo); storeType(hi)
+        case xt.IsField(isLazy) => storeBool(isLazy)
+        case xt.Derived(id) => storeId(id)
+
+        // Nothing specific to add for these:
+        case xt.Inline | xt.Implicit | xt.IsVar | xt.IsPure | xt.IsMutable |
+             xt.IsInvariant | xt.IsAbstract | xt.IsSealed | xt.Ignore |
+             xt.Extern | xt.Unchecked =>
+      }
+    }
   }
 
   private def storeLength(len: Int): Unit = storeInt(len)
@@ -284,7 +311,7 @@ private class CanonicalFormBuilderImpl {
 
   private def storeData(bs: Array[Byte]): Unit = buffer ++= bs
 
-  private def storeFlag(b: Boolean): Unit = storeByte(if (b) 0 else 1)
+  private def storeBool(b: Boolean): Unit = storeByte(if (b) 0 else 1)
 
   private def storeBigInt(bi: BigInt): Unit = storeString(bi.toString)
 
