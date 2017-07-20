@@ -32,11 +32,21 @@ class SymbolMapping {
     SymbolIdentifier(symbol)
   })
 
+  /** Get the identifier for the class invariant of [[sym]]. */
+  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = invs.getOrElseUpdate(fetch(sym), {
+    SymbolIdentifier(invSymbol)
+  })
+
   /** Mapping from [[Global#Symbol]] (or rather: its path) and the stainless identifier. */
   private val s2i = MutableMap[String, SymbolIdentifier]()
 
   /** Mapping useful to use the same top symbol mapping. */
   private val s2s = MutableMap[Global#Symbol, ast.Symbol]()
+
+  /** Mapping for class invariants: class' id -> inv's id. */
+  private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
+  private val invSymbol = stainless.ast.Symbol("inv")
+
 }
 
 class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
