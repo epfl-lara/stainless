@@ -33,7 +33,7 @@ trait Registry {
    *      To do that, we can:
    *       - delay the insertion of classes in the graph,
    *       - once notified that everything was compiled, consider all classes as sealed,
-   *         and insert them all in the graph as usual.
+   *         and insert them all in the graph as usual (see [[checkpoints]]).
    * FIXME However, this adds a BIG assumption on the runtime: no new class should be available!
    *       So, maybe we just don't want that???
    */
@@ -61,7 +61,17 @@ trait Registry {
   }
 
   /**
-   * To be called once every compilation unit where extracted.
+   * Remove from the registry and underlying graph the given classes and functions.
+   */
+  def remove(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+    val classIds = classes map { _.id }
+    val funIds = functions map { _.id }
+    knownClasses --= classIds
+    (classIds ++ funIds) foreach { graph.remove(_) }
+  }
+
+  /**
+   * To be called once every compilation unit were extracted.
    */
   def checkpoints(): Option[xt.Symbols] = process(knownClasses.values.toSeq, Seq.empty)
 
