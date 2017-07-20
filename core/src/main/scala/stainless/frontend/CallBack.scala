@@ -3,7 +3,7 @@
 package stainless
 package frontend
 
-import scala.collection.mutable.{ ListBuffer }
+import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
 import extraction.xlang.{ trees => xt }
 import utils.{ DependenciesFinder, Registry }
@@ -72,11 +72,23 @@ trait CallBackWithRegistry extends CallBack { self =>
   final override def beginExtractions(): Unit = { /* nothing */ }
 
   final override def apply(file: String, unit: xt.UnitDef,
-                     classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    ctx.reporter.debug(s"Got a unit for $file: ${unit.id} with:") // Make this debug
+                           classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+    ctx.reporter.debug(s"Got a unit for $file: ${unit.id} with:")
     ctx.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
     ctx.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
+    // Remove any node from the registry that no longer exists.
+    previousFileData get file foreach { case (prevClasses, prevFuns) =>
+      val removedClasses = prevClasses filterNot { cd => (classes find { _.id == cd.id }).isDefined }
+      val removedFuns = prevFuns filterNot { cd => (functions find { _.id == cd.id }).isDefined }
+      ctx.reporter.debug(s"Removing the following from the registry:")
+      ctx.reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
+      ctx.reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
+      registry.remove(removedClasses, removedFuns)
+    }
+
+    // Update our state with the new data, producing new symbols through the registry.
+    previousFileData += file -> (classes, functions)
     val symss = registry.update(classes, functions)
     processSymbols(symss)
   }
@@ -107,10 +119,13 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
   protected def shouldBeChecked(cd: xt.ClassDef): Boolean
 
+
   /******************* Internal State *************************************************************/
 
   private implicit val debugSection = DebugSectionFrontend
   private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
+
+  private val previousFileData = MutableMap[String, (Seq[xt.ClassDef], Seq[xt.FunDef])]()
 
   private val registry = new Registry {
     override val ctx = self.ctx
