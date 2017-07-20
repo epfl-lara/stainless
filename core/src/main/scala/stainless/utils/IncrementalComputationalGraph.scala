@@ -26,6 +26,16 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     update(Node(id, in, deps, compute))
   }
 
+  /**
+   * Remove a node from the graph.
+   *
+   * Throw an [[java.lang.IllegalArgumentException]] if the node wasn't in the graph.
+   */
+  def remove(id: Id): Unit = nodes get id match {
+    case Some(n) => remove(n)
+    case None => throw new java.lang.IllegalArgumentException(s"Node $id is not part of the graph")
+  }
+
 
   /******************* Customisation Points *******************************************************/
 
@@ -102,25 +112,25 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   private val reverse = MutableMap[Id, MutableSet[Node]]()
 
 
-  /** Insert a new node & update the graph. */
+  /**
+   * Insert a new node & update the graph,
+   * placing any node that depends on [[n]] into [[toCompute]]
+   */
   private def insert(n: Node): Unit = {
     nodes += n.id -> n
     if (n.compute) toCompute += n
     n.deps foreach { depId =>
       reverse.getOrElseUpdate(depId, MutableSet()) += n
     }
+
+    mark(n)
   }
 
-  /**
-   * Remove an existing node from the graph,
-   * placing any node that depends on [[n]] into [[toCompute]]
-   */
+  /** Remove an existing node from the graph. */
   private def remove(n: Node): Unit = {
     nodes -= n.id
     toCompute -= n
     reverse.values foreach { _ -= n }
-
-    mark(n)
   }
 
   /** Recursively put the nodes that depends on [[n]] into [[toCompute]]. */

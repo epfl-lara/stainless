@@ -140,6 +140,34 @@ class TestIncrementalComputationalGraph extends FunSuite {
     recX1 -> Set()
   ))
 
+  test("removal of nodes & compute = false") {
+    // Using simple String for both Id and Input. Result is a set of ids.
+    val g = new IncrementalComputationalGraph[String, String, Set[String]] {
+      override def compute(ready: Set[(String, String)]): Set[String] = ready map { _._1 }
+      override def equivalent(id: String, deps: Set[String], oldInput: String, newInput: String): Boolean = {
+        false // always recompute
+      }
+    }
+
+    assert(g.update("a", "a", Set.empty, compute = true) == Some(Set("a")), "a should be computed")
+    assert(g.update("a", "a", Set.empty, compute = true) == Some(Set("a")), "a should be re-computed")
+    assert(g.update("b", "b", Set("a"), compute = true) == Some(Set("a", "b")), "b should be computed")
+    assert(g.update("c", "c", Set("a"), compute = false) == None, "c should not be computed")
+    assert(g.update("d", "d", Set.empty, compute = false) == None, "d should not be computed")
+    assert(g.update("a", "a", Set.empty, compute = true) == Some(Set("a", "b")), "a & b should be re-computed, but not c")
+    assertThrows[java.lang.IllegalArgumentException] { g.remove("e") }
+    assert(g.update("a", "a", Set.empty, compute = true) == Some(Set("a", "b")), "a & b should be re-computed, but not c")
+    assert(g.update("e", "e", Set("b"), compute = true) == Some(Set("a", "b", "e")), "e should be computed with its deps.")
+    assertResult( () ) { g.remove("b") }
+    assert(g.update("a", "a", Set.empty, compute = true) == Some(Set("a")), "b's ghost should not be re-computed")
+    assert(g.update("b", "b", Set("c"), compute = false) == Some(Set("a", "b", "c", "e")), "e should be re-computed")
+    assertResult( () ) { g.remove("b") }
+    assert(g.update("b", "b", Set.empty, compute = false) == Some(Set("b", "e")), "e should be re-computed")
+    assertResult( () ) { g.remove("b") }
+    assert(g.update("e", "e", Set("b"), compute = false) == None, "Nothing should be computed at this stage")
+    assert(g.update("b", "b", Set.empty, compute = false) == None, "Nothing should be computed at this stage (bis)")
+  }
+
 }
 
 
