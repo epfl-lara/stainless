@@ -39,12 +39,9 @@ trait Registry {
    */
   def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     def isSealed(cd: xt.ClassDef): Boolean = {
-      val tops = {
-        val parents = getTopLevels(classes, cd)
-        if (parents.nonEmpty) parents else Set(cd) // Consider the class itself if it has no parents
-      }
-
-      tops forall { top => top.flags contains xt.IsSealed }
+      if (cd.flags contains xt.IsAbstract) {
+        getTopLevels(classes, cd) forall { top => top.flags contains xt.IsSealed }
+      } else true // Due to the fact we do **not** allow inheriting from case classes.
     }
 
     val (ready, open) = classes partition isSealed
@@ -145,8 +142,12 @@ trait Registry {
   private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     // Compute direct dependencies and insert the new information into our dependency graph
     val clusters = computeClusters(classes)
+    val invariants = computeInvariantMapping(functions)
+    def computeAllDirectDependencies(cd: xt.ClassDef) =
+      computeDirectDependencies(cd) ++ clusters(cd) ++ invariants(cd)
+
     val newNodes: Seq[(Identifier, NodeValue, Set[Identifier])] =
-      (classes map { cd => (cd.id, Left(cd): NodeValue, computeDirectDependencies(cd) ++ clusters(cd)) }) ++
+      (classes map { cd => (cd.id, Left(cd): NodeValue, computeAllDirectDependencies(cd)) }) ++
       (functions map { fd => (fd.id, Right(fd): NodeValue, computeDirectDependencies(fd)) })
 
     // Critical Section
@@ -173,6 +174,8 @@ trait Registry {
   /**
    * We create "clusters" for classes:
    * they define class hierarchies based on the given subset of all classes.
+   *
+   * The returned mapping is total, i.e. every given class yield a (possibly empty) Set.
    */
   private type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
   private def computeClusters(classes: Seq[xt.ClassDef]): ClusterMap = {
@@ -208,6 +211,41 @@ trait Registry {
     if (cd0.parents.isEmpty) Set.empty else {
       getDirects(cd0) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(classes, p) }
     }
+  }
+
+  /**
+   * Compute a (total) mapping, solely based on the given [[functions]], to identify
+   * class dependency toward the function that represent their invariant, if any.
+   */
+  private type InvariantMapping = xt.ClassDef => Option[Identifier]
+  private def computeInvariantMapping(functions: Seq[xt.FunDef]): InvariantMapping = {
+    // Build a database (class id -> invariant id mapping) by extracting
+    // information from functions' flags:
+    //  - keep only invariants;
+    //  - identify the class it belongs to;
+    //  - project the function unto its id;
+    //  - group info by class id;
+    //  - ensures that at most one invariant is defined by class.
+    val db: Map[Identifier, Option[Identifier]] =
+      functions collect {
+        case fd if fd.flags contains xt.IsInvariant =>
+          val cid = fd.flags collectFirst { case xt.IsMethodOf(cid) => cid } getOrElse {
+            ctx.reporter.internalError(s"Expected to find a IsMethodOf flag for invariant function ${fd.id}")
+          }
+
+          cid -> fd.id
+      } groupBy {
+        case (cid, fid) => cid
+      } mapValues {
+        xs => xs map { _._2 } // Map cid -> Seq[fid]
+      } map { case (cid, fids) =>
+        if (fids.size != 1) {
+          ctx.reporter.internalError(s"Expected to find one invariant for class $cid, got <${fids mkString ", "} >.")
+        }
+        cid -> Some(fids.head)
+      }
+
+    (cd: xt.ClassDef) => { db.getOrElse(cd.id, None) }
   }
 
 }
