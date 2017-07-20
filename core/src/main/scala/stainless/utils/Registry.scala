@@ -38,20 +38,24 @@ trait Registry {
    *       So, maybe we just don't want that???
    */
   def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
-    def isSealed(cd: xt.ClassDef): Boolean = {
-      if (cd.flags contains xt.IsAbstract) {
-        getTopLevels(classes, cd) forall { top => top.flags contains xt.IsSealed }
-      } else true // Due to the fact we do **not** allow inheriting from case classes.
+    def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
+      case Some(tops) if tops.isEmpty =>
+        (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
+        !(cd.flags contains xt.IsAbstract) // Because we do not allow inheriting from case classes.
+      case Some(tops) =>
+        tops forall { top => top.flags contains xt.IsSealed } // All parents must be sealed.
+      case None =>
+        false // Some parents are in different compilation unit, hence not ready.
     }
 
-    val (ready, open) = classes partition isSealed
+    val (ready, open) = classes partition isReady
     this.synchronized {
       knownClasses ++= open map { cd => cd.id -> cd }
     }
 
     classes foreach { cd =>
       if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
-        ctx.reporter.warning(cd.getPos, s"Consider sealing ${cd.id}")
+        ctx.reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
     }
 
     process(ready, functions)
@@ -175,13 +179,16 @@ trait Registry {
    * We create "clusters" for classes:
    * they define class hierarchies based on the given subset of all classes.
    *
+   * It is expected that for each class in [[classes]], all its parents are also
+   * contained in [[classes]].
+   *
    * The returned mapping is total, i.e. every given class yield a (possibly empty) Set.
    */
   private type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
   private def computeClusters(classes: Seq[xt.ClassDef]): ClusterMap = {
     // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
     def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
-      (acc /: getTopLevels(classes, cd)) { (acc, top) =>
+      (acc /: forceGetTopLevels(classes, cd)) { (acc, top) =>
         val currentCluster = acc.getOrElse(top, Set[Identifier]())
         val newCluster = currentCluster + cd.id
         acc + (top -> newCluster)
@@ -192,25 +199,40 @@ trait Registry {
     val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
     val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
     classes map { cd =>
-      val parents = getTopLevels(classes, cd) map topLevelClusters
+      val parents = forceGetTopLevels(classes, cd) map topLevelClusters
       val cluster = (Set[Identifier]() /: parents) { _ union _ }
       cd -> (cluster - cd.id)
     }
   }.toMap
 
-  // Find the top level parents for the given class, returns empty seq when no inheritance.
-  private def getTopLevels(classes: Seq[xt.ClassDef], cd0: xt.ClassDef): Set[xt.ClassDef] = {
+  /**
+   * Find the top level parents for the given class, returns empty seq when no inheritance.
+   *
+   * Return None if a dependency is not known.
+   */
+  private def getTopLevels(classes: Seq[xt.ClassDef], cd: xt.ClassDef): Option[Set[xt.ClassDef]] = try {
+    Some(getTopLevelsImpl(classes, cd))
+  } catch {
+    case IncompleteHierarchy(cd, parent, classes) => None
+  }
+
+  /** Same as [[getTopLevels]], but assuming that all dependencies are known. */
+  private def forceGetTopLevels(classes: Seq[xt.ClassDef], cd: xt.ClassDef): Set[xt.ClassDef] = try {
+    getTopLevelsImpl(classes, cd)
+  } catch {
+    case IncompleteHierarchy(cd, parent, classes) =>
+      ctx.reporter.internalError(s"Couldn't find parent $parent of $cd in <${classes map { _.id } mkString ", "}>")
+  }
+
+
+  case class IncompleteHierarchy(cd: Identifier, parent: Identifier, classes: Seq[xt.ClassDef]) extends Throwable
+  private def getTopLevelsImpl(classes: Seq[xt.ClassDef], cd0: xt.ClassDef): Set[xt.ClassDef] = {
     def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
-      classes find { _.id == ct.id } getOrElse {
-        val error = s"Expected to find parent in the given classes! (${ct.id.uniqueName} for ${cd.id.uniqueName}, in " +
-                    s"${classes map { _.id.uniqueName } mkString ", "})"
-        ctx.reporter.fatalError(error)
-      }
+      classes find { _.id == ct.id } getOrElse { throw IncompleteHierarchy(cd.id, ct.id, classes) }
     }
 
-    if (cd0.parents.isEmpty) Set.empty else {
-      getDirects(cd0) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevels(classes, p) }
-    }
+    if (cd0.parents.isEmpty) Set.empty
+    else getDirects(cd0) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevelsImpl(classes, p) }
   }
 
   /**
@@ -236,12 +258,12 @@ trait Registry {
           cid -> fd.id
       } groupBy {
         case (cid, fid) => cid
-      } mapValues {
-        xs => xs map { _._2 } // Map cid -> Seq[fid]
-      } map { case (cid, fids) =>
+      } map { case (cid, xs) =>
+        val fids = xs map { _._2 } // Map cid -> Seq[fid]
         if (fids.size != 1) {
           ctx.reporter.internalError(s"Expected to find one invariant for class $cid, got <${fids mkString ", "} >.")
         }
+
         cid -> Some(fids.head)
       }
 
