@@ -41,7 +41,10 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
       val key = watcher.poll(500, TimeUnit.MILLISECONDS)
       if (key != null) {
         val events = key.pollEvents()
-        val notifications = events map { _.context } collect { case p: Path => p.toAbsolutePath.toFile }
+        val relativeDir = key.watchable.asInstanceOf[Path]
+        val notifications = events map { _.context } collect {
+          case p: Path => relativeDir.resolve(p).toFile
+        }
         val modified = notifications filter files
 
         // Update the timestamps while looking for things to process.
@@ -63,7 +66,8 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
           ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
         }
 
-        key.reset()
+        val valid = key.reset()
+        if (!valid) ctx.reporter.error(s"Watcher is no longer valid for $relativeDir!")
       }
     }
 
