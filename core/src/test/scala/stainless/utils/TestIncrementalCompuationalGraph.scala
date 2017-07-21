@@ -168,6 +168,54 @@ class TestIncrementalComputationalGraph extends FunSuite {
     assert(g.update("b", "b", Set.empty, compute = false) == None, "Nothing should be computed at this stage (bis)")
   }
 
+  test("freeze") {
+    // Using simple String for both Id and Input. Result is a set of ids.
+    val g = new IncrementalComputationalGraph[String, String, Set[String]] {
+      override def compute(ready: Set[(String, String)]): Set[String] = ready map { _._1 }
+      override def equivalent(id: String, deps: Set[String], oldInput: String, newInput: String): Boolean = {
+        oldInput == newInput
+      }
+    }
+
+    assert(g.update("a", "a$0", Set.empty, compute = true) == Some(Set("a")), "a should be computed")
+    g.freeze()
+    assert(g.update("a", "a$1", Set.empty, compute = true) == None, "the graph is frozen")
+    assert(g.unfreeze() == Some(Set("a")), "a should be re-computed")
+    assert(g.update("b", "b$0", Set("a"), compute = true) == Some(Set("a", "b")), "b should be computed")
+
+    assert(g.update("foobar", "foobar$0", Set("Top"), compute = true) == None, "nothing ready (1)")
+    assert(g.update("Top", "Top$0", Set("top_inv", "Bottom"), compute = false) == None, "nothing ready (2)")
+    assert(g.update("Bottom", "Bottom$0", Set("Top"), compute = false) == None, "nothing ready (3)")
+    assert(g.update("top_inv", "top_inv$0", Set(), compute = true) == Some(Set("foobar", "Top", "Bottom", "top_inv")), "ready")
+
+    g.freeze()
+    assert(g.update("Top", "Top$0", Set("top_inv", "Alt"), compute = false) == None, "frozen (1)")
+    assert(g.update("Alt", "Alt$0", Set("Top"), compute = false) == None, "frozen (2)")
+    assert(g.update("foobar", "foobar$0", Set("Top"), compute = true) == None, "frozen (3)")
+    assert(g.update("top_inv", "top_inv$0", Set("Top"), compute = false) == None, "frozen (4)")
+    g.remove("Bottom")
+    assert(g.unfreeze() == Some(Set("foobar", "Top", "Alt", "top_inv")), "properly re-computed")
+
+    g.freeze()
+    assert(g.update("Top", "Top$0", Set("top_inv", "Alt"), compute = false) == None, "frozen (5)")
+    assert(g.update("Alt", "Alt$0", Set("Top"), compute = false) == None, "frozen (6)")
+    assert(g.update("foobar", "foobar$0", Set("Top"), compute = true) == None, "frozen (7)")
+    assert(g.update("top_inv", "top_inv$0", Set("Top"), compute = false) == None, "frozen (8)")
+    assert(g.unfreeze() == None, "nothing new")
+
+    g.freeze()
+    assert(g.update("Top", "Top$0", Set("top_inv", "Alt"), compute = false) == None, "frozen (9)")
+    assert(g.update("Alt", "Alt$0", Set("Top"), compute = false) == None, "frozen (10)")
+    assert(g.update("top_inv", "top_inv$1", Set("Top"), compute = false) == None, "frozen (11)")
+    assert(g.update("foobar", "foobar$0", Set("Top"), compute = true) == None, "frozen (12)")
+    g.remove("a")
+    assert(g.unfreeze() == Some(Set("foobar", "Top", "Alt", "top_inv")), "properly re-computed, again")
+
+    g.freeze()
+    assert(g.update("a", "a$2", Set(), compute = false) == None, "frozen (13)")
+    assert(g.unfreeze() == Some(Set("a", "b")), "re-compute b & a")
+  }
+
 }
 
 

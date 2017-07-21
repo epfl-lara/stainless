@@ -9,7 +9,13 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableS
  * (and updated) sequentially to build a full graph. After each [[update]], [[compute]] is called at
  * most once with the set of all nodes not yet computed -- which (indirect, possibly cyclic) dependencies
  * are all known -- with the dependencies themselves, hence a node might be passed to [[compute]]
- * several times. When any dependency of a node is updated, the node is recomputed.
+ * several times.
+ *
+ * When any dependency of a node is updated, the node is recomputed unless its [[compute]] flag is
+ * turned off.
+ *
+ * Before entering an invalid state for the graph, one can [[freeze]] it and then [[unfreeze]] the
+ * graph to resume computation.
  */
 trait IncrementalComputationalGraph[Id, Input, Result] {
 
@@ -34,6 +40,17 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   def remove(id: Id): Unit = nodes get id match {
     case Some(n) => remove(n)
     case None => throw new java.lang.IllegalArgumentException(s"Node $id is not part of the graph")
+  }
+
+  /** Put on hold any computation. */
+  def freeze(): Unit = {
+    frozen = true
+  }
+
+  /** Resume computation. */
+  def unfreeze(): Option[Result] = {
+    frozen = false
+    process()
   }
 
 
@@ -83,7 +100,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * [[toCompute]] set.
    */
   private def update(n: Node): Option[Result] = nodes get n.id match {
-    case Some(m) if (m.deps == n.deps) && (n.compute == m.compute) && equivalent(n.id, n.deps, m.in, n.in) =>
+    case Some(m) if (m.deps == n.deps) && equivalent(n.id, n.deps, m.in, n.in) =>
       // Nothing new, but update the node anyway -- equivalence != equality.
       nodes += n.id -> n
       None
@@ -92,8 +109,11 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
       val replace = mOpt.isDefined
       if (replace) remove(n)
       insert(n)
-      process()
+      if (frozen) None else process()
   }
+
+  /** Flag used to pause the computation. */
+  private var frozen = false
 
   /**
    * Some nodes might not yet be fully known, yet we have some evidence (through other nodes'
