@@ -19,10 +19,6 @@ import extraction.xlang.{trees => xt}
 import scala.collection.mutable.{ Map => MutableMap }
 import scala.language.implicitConversions
 
-/** An exception thrown when non-stainless compatible code is encountered. */
-sealed class ImpureCodeEncounteredException(val pos: inox.utils.Position, msg: String, val ot: Option[tpd.Tree])
-  extends Exception(msg)
-
 class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit val ctx: Context)
   extends ASTExtractors {
 
@@ -55,13 +51,10 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     }.toSet
   }
 
-  def outOfSubsetError(pos: Position, msg: String) = {
-    throw new ImpureCodeEncounteredException(dottyPosToInoxPos(pos), msg, None)
-  }
+  def outOfSubsetError(pos: Position, msg: String): Nothing =
+    throw new frontend.UnsupportedCodeException(dottyPosToInoxPos(pos), msg)
 
-  def outOfSubsetError(t: tpd.Tree, msg: String) = {
-    throw new ImpureCodeEncounteredException(dottyPosToInoxPos(t.pos), msg, Some(t))
-  }
+  def outOfSubsetError(t: tpd.Tree, msg: String): Nothing = outOfSubsetError(t.pos, msg)
 
   private case class DefContext(
     tparams: Map[Symbol, xt.TypeParameter] = Map(),
@@ -106,7 +99,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     try {
       extractType(tpt)
     } catch {
-      case e: ImpureCodeEncounteredException =>
+      case e: frontend.UnsupportedCodeException =>
         reporter.debug(e.pos, "[ignored] " + e.getMessage, e)
         xt.Untyped
     }
@@ -557,7 +550,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbols: SymbolsContext)(implicit va
     try {
       extractTree(tr)
     } catch {
-      case e: ImpureCodeEncounteredException =>
+      case e: frontend.UnsupportedCodeException =>
         if (dctx.isExtern) {
           xt.NoTree(extractType(tr)).setPos(tr.pos)
         } else {
