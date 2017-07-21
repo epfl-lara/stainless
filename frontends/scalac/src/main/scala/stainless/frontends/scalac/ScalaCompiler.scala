@@ -13,9 +13,29 @@ import scala.collection.mutable.{ Map => MutableMap }
 
 object SymbolMapping {
   def getPath(sym: Global#Symbol): String =
-    sym.ownerChain.reverse map { s => s"${s.name}#${s.id}" } mkString "."
+    sym.ownerChain.reverse map { s => s"${s.name}#${kind(s)}" } mkString "."
 
   def empty = new SymbolMapping()
+
+  /**
+   * To avoid suffering from changes in symbols' id, we generate a more stable
+   * kind to disambiguate symbols. This allows --watch to not be fooled by the
+   * insertion/deletion of symbols (e.g. new top level classes or methods).
+   */
+  private def kind(sym: Global#Symbol): Int = {
+    if (sym.isPackageClass) 0
+    else if (sym.isModule) 1
+    else if (sym.isModuleClass) 2
+    else if (sym.isClass) 3
+    else if (sym.isMethod) 4
+    else if (sym.isType) 5
+    else if (sym.isTerm) {
+      // Many things are terms... Fallback to its id, but negate it to be unambiguous.
+      val id = -sym.id
+      assert(id < 0)
+      id
+    } else ???
+  }
 }
 
 class SymbolMapping {
