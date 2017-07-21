@@ -10,10 +10,15 @@ import scala.collection.mutable.{ Map => MutableMap }
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
- * Call [[update]] whenever new data is available, and [[checkpoints]] when all the data is
- * available. New data can then be added through [[update]] calls and, again, a [[checkpoints]]
- * call. Every one of these calls yields a collection of [[xt.Symbols]] that are self-contained
- * programs, ready to be further processed.
+ * Call [[update]] ([[remove]]) whenever new data is (no longer) available, and [[checkpoints]]
+ * when all the data is available. New data can then be added through [[update]] calls and,
+ * again, a [[checkpoints]] call. Every one of these calls yields a collection of [[xt.Symbols]]
+ * that are self-contained programs, ready to be further processed.
+ *
+ * During the first [[update]]/[[remove]] - [[checkpoints]] cycle, the graph is updated as data
+ * arrives. During the next cycles, the graph is frozen until the [[checkpoints]] to allow
+ * inconsistent state in the graph to not impact the computation.
+ * TODO maybe [[freeze]]/[[unfreeze]] should be exposed and let the user manage this.
  *
  * Specific implementation of this trait have to provide a context and facilities to compute
  * direct dependencies for functions and classes, as well as filters to identify data that
@@ -74,7 +79,19 @@ trait Registry {
   /**
    * To be called once every compilation unit were extracted.
    */
-  def checkpoints(): Option[xt.Symbols] = process(knownClasses.values.toSeq, Seq.empty)
+  def checkpoints(): Option[xt.Symbols] = {
+    val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
+    val res = if (frozen) {
+      assert(defaultRes == None)
+      graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
+    } else {
+      frozen = true
+      defaultRes
+    }
+
+    graph.freeze() // (re-)freeze for next cycle
+    res
+  }
 
 
   /******************* Customisation Points *******************************************************/
@@ -99,6 +116,7 @@ trait Registry {
 
   private val knownClasses = MutableMap[Identifier, xt.ClassDef]()
 
+  private var frozen = false
   private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
     override def compute(ready: Set[(Identifier, NodeValue)]): Result = {
       (EmptyResult /: ready) { case ((cls, funs), (id, node)) =>
@@ -113,9 +131,6 @@ trait Registry {
 
     override def equivalent(id: Identifier, deps: Set[Identifier],
                             oldInput: NodeValue, newInput: NodeValue): Boolean = {
-      // NOTE equals is redefined for definitions to compare only the id, hence it
-      //      doesn't work for us here.
-
       val (cf1, cf2) = (oldInput, newInput) match {
         case (Left(cd1), Left(cd2)) =>
           val cf1 = cfCache.getOrElseUpdate(id, CanonicalFormBuilder(cd1))
@@ -234,6 +249,9 @@ trait Registry {
     if (cd0.parents.isEmpty) Set.empty
     else getDirects(cd0) flatMap { p => if (p.parents.isEmpty) Set(p) else getTopLevelsImpl(classes, p) }
   }
+
+
+  /******************* Implementation: Class Invariant ********************************************/
 
   /**
    * Compute a (total) mapping, solely based on the given [[functions]], to identify
