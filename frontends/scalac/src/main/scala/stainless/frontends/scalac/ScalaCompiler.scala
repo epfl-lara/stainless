@@ -18,23 +18,21 @@ object SymbolMapping {
   def empty = new SymbolMapping()
 
   /**
-   * To avoid suffering from changes in symbols' id, we generate a more stable
-   * kind to disambiguate symbols. This allows --watch to not be fooled by the
-   * insertion/deletion of symbols (e.g. new top level classes or methods).
+   * To avoid suffering too much from changes in symbols' id, we generate a
+   * more stable kind to disambiguate symbols. This allows --watch to not be
+   * fooled by the insertion/deletion of symbols (e.g. new top level classes)
+   * but unfortunately not methods because overloading/generics makes things
+   * ambiguous and hard to unify.
    */
-  private def kind(sym: Global#Symbol): Int = {
-    if (sym.isPackageClass) 0
-    else if (sym.isModule) 1
-    else if (sym.isModuleClass) 2
-    else if (sym.isClass) 3
-    else if (sym.isMethod) 4
-    else if (sym.isType) 5
-    else if (sym.isTerm) {
-      // Many things are terms... Fallback to its id, but negate it to be unambiguous.
-      val id = -sym.id
-      assert(id < 0)
-      id
-    } else ???
+  private def kind(sym: Global#Symbol): String = {
+    if (sym.isPackageClass) "0"
+    else if (sym.isModule) "1"
+    else if (sym.isModuleClass) "2"
+    else if (sym.isClass) "3"
+    else if (sym.isMethod) "m" + sym.id
+    else if (sym.isType) "5"
+    else if (sym.isTerm) "t" + sym.id // Many things are terms... Fallback to its id
+    else ???
   }
 }
 
@@ -122,15 +120,12 @@ object ScalaCompiler {
 
       val cache = SymbolMapping.empty
 
-      // Because we do not strongly rely on the compiler generated identifier for symbols,
-      // we can re-use the same instance and benefit from a small performance gain.
-      val compiler = new ScalaCompiler(settings, ctx, callback, cache)
 
       // Implement an interface compatible with the generic frontend.
       // If an exception is thrown from within the compiler, it is rethrown upon stopping or joining.
       // TODO refactor code, maybe, in frontend package if the same code is required for dotty/other frontends
       val frontend = new Frontend(callback) {
-        var underlying: compiler.Run = null
+        var underlying: ScalaCompiler#Run = null
         var thread: Thread = null
         var exception: Throwable = null
 
@@ -139,9 +134,7 @@ object ScalaCompiler {
         override def run(): Unit = {
           assert(!isRunning)
 
-          // Reset the reporter to make instance work again, see
-          // https://github.com/scala/scala/blob/2.12.x/src/compiler/scala/tools/nsc/Main.scala#L16
-          compiler.reporter.reset()
+          val compiler = new ScalaCompiler(settings, ctx, callback, cache)
           underlying = new compiler.Run
 
           // Run the compiler in the background in order to make the factory
