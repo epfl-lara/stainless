@@ -45,7 +45,7 @@ should be able to compile Stainless programs to `.class` using `scalac` and
 execute them directly on the JVM, or integrate them as part as other
 Scala-based projects.
 
-Beware that you need to explicitly include files files from the Stainless library
+Beware that you need to explicitly include files from the Stainless library
 (that are implicitly bundled when you use the `./stainless` script):
 
 .. code-block:: bash
