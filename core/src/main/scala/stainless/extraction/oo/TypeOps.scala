@@ -157,6 +157,9 @@ trait TypeOps extends ast.TypeOps {
 
       bound.map(_.typed(adt1.tps).toType)
 
+    case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
+    case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
+    case (tpe, tp: TypeParameter) => Some(typeBound(tpe, tp.bounds, upper))
     case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
     case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
 

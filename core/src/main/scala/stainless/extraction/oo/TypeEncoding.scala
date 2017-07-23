@@ -442,7 +442,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       cd.id -> mkFunDef(cd.id.freshen, Unchecked)()(_ => (
         tparamParams ++ paramParams, obj, { case args =>
-          choose(ValDef(FreshIdentifier("ptr", true), IntegerType, Set(Unchecked))) { res =>
+          choose(ValDef(FreshIdentifier("ptr", true), obj, Set(Unchecked))) { res =>
             typeOf(res) === encodeType(ct) &&
             andJoin((cd.fields zip args.drop(tparamParams.size)).map(p => getField(res, p._1.id) === p._2))
           }
@@ -890,7 +890,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               case cond => Some(cond)
             }
             val trhs = transform(cse.rhs)
-            val rhs = if (isObject(cse.rhs.getType)) trhs else wrap(trhs, transform(cse.rhs.getType))
+            val rhs = if (!isObj || isObject(cse.rhs.getType)) trhs else wrap(trhs, transform(cse.rhs.getType))
             t.MatchCase(newPattern, guard, rhs).copiedFrom(cse)
           }).copiedFrom(e)
 
@@ -1021,7 +1021,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         )
       } else {
         implicit val scope = scope0 in fd.id
-        val tparamParams = fd.tparams.map(tpd => t.ValDef(tpd.id.freshen, tpe))
+        val tparamParams = fd.tparams map (tpd => scope.tparams(tpd.tp).asInstanceOf[Variable].toVal)
 
         val tparamConds = fd.tparams.foldLeft(Seq[Expr]()) { case (conds, tpd) =>
           val v = scope.tparams(tpd.tp)
