@@ -5,7 +5,7 @@ package utils
 
 import extraction.xlang.{ trees => xt }
 
-import scala.collection.mutable.{ Map => MutableMap }
+import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
@@ -198,27 +198,46 @@ trait Registry {
    * contained in [[classes]].
    *
    * The returned mapping is total, i.e. every given class yield a (possibly empty) Set.
+   *
+   * For example:
+   *   trait A; trait B; trait E
+   *   class C extends A with B
+   *   class D extends B
+   *   class F extends E
+   *   class G extends F
+   * gives the mapping
+   *   A -> { C }
+   *   B -> { C, D }
+   *   C -> { A, B }
+   *   D -> { B }
+   *   E -> { F, G }
+   *   F -> { E }
+   *   G -> { E }
+   * which means that, by transitivity, G and F depend on each others.
    */
   private type ClusterMap = Map[xt.ClassDef, Set[Identifier]]
   private def computeClusters(classes: Seq[xt.ClassDef]): ClusterMap = {
-    // Record mapping "cd.topParent -> _ += cd" for each top level parent class.
-    def record(acc: ClusterMap, cd: xt.ClassDef): ClusterMap = {
-      (acc /: forceGetTopLevels(classes, cd)) { (acc, top) =>
-        val currentCluster = acc.getOrElse(top, Set[Identifier]())
-        val newCluster = currentCluster + cd.id
-        acc + (top -> newCluster)
-      }
+    // Build two mappings:
+    //  - from top level parents to children, and
+    //  - from children to top level parents.
+    val toplevels = MutableMap[xt.ClassDef, MutableSet[Identifier]]()
+    val reverse   = MutableMap[xt.ClassDef, MutableSet[Identifier]]()
+
+    classes foreach { cd =>
+      val tops = forceGetTopLevels(classes, cd)
+      tops foreach { top => toplevels.getOrElseUpdate(top, MutableSet.empty) += cd.id }
+      reverse.getOrElseUpdate(cd, MutableSet.empty) ++= tops map { _.id }
     }
 
-    // From the top level, propagate information to the leaves.
-    val EmptyClusters = Map[xt.ClassDef, Set[Identifier]]()
-    val topLevelClusters = (EmptyClusters /: classes) { record(_, _) }
-    classes map { cd =>
-      val parents = forceGetTopLevels(classes, cd) map topLevelClusters
-      val cluster = (Set[Identifier]() /: parents) { _ union _ }
-      cd -> (cluster - cd.id)
+    // Combine the two mappings.
+    val mapping = MutableMap[xt.ClassDef, Set[Identifier]]()
+    classes foreach { cd =>
+      val deps = Set.empty ++ toplevels.getOrElse(cd, Set.empty) ++ reverse(cd) - cd.id
+      mapping += cd -> deps
     }
-  }.toMap
+
+    mapping.toMap
+  }
 
   /**
    * Find the top level parents for the given class, returns empty seq when no inheritance.
