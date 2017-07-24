@@ -134,6 +134,7 @@ package object lang {
     sys.error("Can't execute by example proposition")
   }
 
+  @library
   implicit class SpecsDecorations[A](val underlying: A) {
     @ignore
     def computes(target: A) = {
@@ -150,6 +151,7 @@ package object lang {
     }
   }
 
+  @library
   implicit class StringDecorations(val underlying: String) {
     @ignore @inline
     def bigLength() = BigInt(underlying.length)
