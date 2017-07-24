@@ -216,6 +216,31 @@ class TestIncrementalComputationalGraph extends FunSuite {
     assert(g.unfreeze() == Some(Set("a", "b")), "re-compute b & a")
   }
 
+  test("extra regression 01") {
+    // Using simple String for both Id and Input. Result is a set of ids.
+    val g = new IncrementalComputationalGraph[String, String, Set[String]] {
+      override def compute(ready: Set[(String, String)]): Set[String] = ready map { _._1 }
+      override def equivalent(id: String, deps: Set[String], oldInput: String, newInput: String): Boolean = {
+        oldInput == newInput
+      }
+    }
+
+    assert(g.update("Top", "Top$0", Set("Bottom", "inv", "prop"), compute = false) == None, "Top")
+    assert(g.update("Bottom", "Bottom$0", Set("Top"), compute = false) == None, "Bottom")
+    assert(g.update("inv", "inv$0", Set("Top"), compute = true) == None, "inv")
+    assert(g.update("prop", "prop$0", Set("Top"), compute = true) ==
+           Some(Set("prop", "inv", "Top", "Bottom")), "prop")
+    assert(g.update("foo", "foo$0", Set("prop", "Top"), compute = true) ==
+           Some(Set("foo", "prop", "Top", "Bottom", "inv")), "foo v1")
+    g.freeze()
+    assert(g.update("Top", "Top$0", Set("Bottom", "inv", "prop"), compute = false) == None, "Top")
+    assert(g.update("Bottom", "Bottom$0", Set("Top"), compute = false) == None, "Bottom")
+    assert(g.update("inv", "inv$0", Set("Top"), compute = true) == None, "inv")
+    assert(g.update("prop", "prop$0", Set("Top"), compute = true) == None, "prop")
+    assert(g.update("foo", "foo$1", Set("prop", "Top"), compute = true) == None, "foo v2")
+    assert(g.unfreeze() == Some(Set("foo", "prop", "Top", "Bottom", "inv")), "unfreeze")
+  }
+
 }
 
 
