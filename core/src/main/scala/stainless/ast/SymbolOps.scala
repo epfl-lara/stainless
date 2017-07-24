@@ -329,10 +329,14 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
     val withAssertions = injector.transform(e)
 
-    object collector extends transformers.CollectorWithPC {
+    var results: List[Expr] = Nil
+    object collector extends transformers.TransformerWithPC {
       val trees: self.trees.type = self.trees
       val symbols: self.symbols.type = self.symbols
-      type Result = Expr
+
+      val pp = Path
+      val initEnv = Path.empty
+      type Env = Path
 
       override protected def rec(e: Expr, path: Path): Expr = e match {
         case _: Lambda =>
@@ -341,26 +345,28 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           accumulate(e, path)
           e
         case _ =>
-          super.rec(e, path)
+          val res = super.rec(e, path)
+          accumulate(e, path)
+          res
       }
 
-      protected def step(e: Expr, path: Path): List[Expr] = e match {
-        case Assert(pred, _, _) => List(path implies pred)
-        case Require(pred, _) => List(path implies pred)
+      protected def accumulate(e: Expr, path: Path): Unit = e match {
+        case Assert(pred, _, _) => results :+= path implies pred
+        case Require(pred, _) => results :+= path implies pred
 
         case fi @ FunctionInvocation(_, _, args) =>
           val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
-          List(path implies pred)
+          results :+= path implies pred
 
         case Application(caller, args) =>
-          List(path implies Application(Pre(caller), args))
+          results :+= path implies Application(Pre(caller), args)
 
-        case _ => Nil
+        case _ =>
       }
     }
 
-    val conditions = collector.collect(withAssertions)
-    andJoin(conditions)
+    collector.transform(withAssertions)
+    andJoin(results)
   }
 
   def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =

@@ -73,7 +73,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
 
     lazy val children: Seq[TypedClassDef] = cd.children.flatMap { cd =>
       val pct = cd.parents.find(_.id == id).get
-      symbols.unify(pct, ClassType(id, tps), cd.typeArgs).map { tpSubst =>
+      symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(symbols.typeParamsOf)).map { tpSubst =>
         val bound = tpSubst.map(_._1).toSet
         val fullSubst = tpSubst.toMap ++ cd.typeArgs.filterNot(bound).map(tp => tp -> tp.bounds)
         symbols.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd

@@ -619,12 +619,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case Let(vd,d,b) =>
       mkExpr(d, ch)
       val slot = ch.getFreshVar(typeToJVM(d.getType))
+      if (slot > 127) println("Error while converting one more slot which is too much " + e)
       ch << (vd.tpe match {
-        case JvmIType() =>
-          if (slot > 127) {
-            println("Error while converting one more slot which is too much " + e)
-          }
-          IStore(slot)
+        case JvmIType() => IStore(slot)
         case Int64Type => LStore(slot)
         case _ => AStore(slot)
       })
@@ -1243,27 +1240,35 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val freshLocals = locals.substitute((vars zip freshVars).map(p => p._1.id -> p._2.id).toMap)
 
-    val newLocals = deps.foldLeft(freshLocals) { case (locals, (v, e)) =>
-      mkExpr(e, ch)(locals)
-      val slot = ch.getFreshVar(typeToJVM(e.getType))
-      ch << (v.tpe match {
-        case JvmIType() =>
-          if (slot > 127) {
-            println("Error while converting one more slot which is too much " + e)
-          }
-          IStore(slot)
-        case Int64Type => LStore(slot)
-        case _ => AStore(slot)
+    val depsMap = deps.map(p => p._1.id -> p._2).toMap
+    var depsSlot = Map.empty[Identifier, Int]
+    def mkExprWithDeps(e: Expr): Unit = {
+      val vars = variablesOf(e).map(_.id).filter(depsMap contains _)
+      val depLocals = vars.foldLeft(freshLocals)((locals, id) => depsSlot.get(id) match {
+        case Some(slot) => locals.withVar(id -> slot)
+        case None =>
+          val dep = depsMap(id)
+          mkExprWithDeps(dep)
+          val slot = ch.getFreshVar(typeToJVM(dep.getType))
+          ch << (dep.getType match {
+            case JvmIType() => IStore(slot)
+            case Int64Type => LStore(slot)
+            case _ => AStore(slot)
+          })
+          depsSlot += id -> slot
+          locals.withVar(id -> slot)
       })
-      locals.withVar(v.id -> slot)
+      mkExpr(e, ch)(depLocals)
     }
 
     ch << New(afName) << DUP
     for ((id,jvmt) <- closures) {
       if (id == tpsID) {
         loadTypes(tparams, ch)
+      } else if (depsMap contains id) {
+        mkExprWithDeps(depsMap(id))
       } else {
-        load(id, ch, closureTypes.get(id))(newLocals)
+        load(id, ch, closureTypes.get(id))(freshLocals)
       }
     }
     ch << InvokeSpecial(afName, constructorName, consSig)

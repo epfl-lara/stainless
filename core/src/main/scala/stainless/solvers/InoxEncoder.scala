@@ -131,7 +131,12 @@ trait InoxEncoder extends ProgramEncoder {
         t.ADT(t.ADTType(arrayID, Seq(transform(base))).copiedFrom(e), Seq(
           t.FiniteMap(
             elems.zipWithIndex.map { case (e, i) => t.Int32Literal(i).copiedFrom(e) -> transform(e) },
-            transform(simplestValue(base).copiedFrom(e)),
+            if (hasInstance(base) contains true) transform(simplestValue(base)).copiedFrom(e)
+            else if (elems.nonEmpty) transform(elems.head)
+            else t.Choose(
+              t.ValDef(FreshIdentifier("res"), transform(base)).copiedFrom(e),
+              t.BooleanLiteral(true).copiedFrom(e)
+            ).copiedFrom(e),
             t.Int32Type,
             transform(base)),
           t.Int32Literal(elems.size).copiedFrom(e)

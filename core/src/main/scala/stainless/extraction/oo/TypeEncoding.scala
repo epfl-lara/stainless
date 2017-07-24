@@ -17,6 +17,11 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     def encodeName(s: String): String = s.replace("[", "<").replace("]", ">")
 
+    implicit class TypeWrapper(tpe: s.Type) {
+      def lub(that: s.Type): s.Type = symbols.leastUpperBound(tpe, that)
+      def glb(that: s.Type): s.Type = symbols.greatestLowerBound(tpe, that)
+    }
+
     /* Identifier for the base `Type` sort */
     val tpeID = FreshIdentifier("Type")
     val tpe  = T(tpeID)()
@@ -215,6 +220,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         val newTParams = (d.tparams.map(_.tp) zip adtParams).toMap
         new TypeScope(newTParams)
       }
+
+      def apply(pairs: Traversable[(s.TypeParameter, t.Expr)]): TypeScope = new TypeScope(pairs.toMap)
     }
 
     def encodeType(tpe: s.Type)(implicit scope: TypeScope): t.Expr = tpe match {
@@ -425,9 +432,25 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       }
     }.toMap
 
-    val fieldFunctions: Seq[t.FunDef] = typeFunction +: classFields.values.toSeq
-
     def getField(e: t.Expr, id: Identifier): t.Expr = FunctionInvocation(classFields(id).id, Seq(), Seq(e))
+
+    val classConstructors = symbols.classes.values.map { cd =>
+      val ct = s.ClassType(cd.id, cd.typeArgs)
+      val tparamParams = cd.tparams.map(tpd => t.ValDef(tpd.id.freshen, tpe).copiedFrom(tpd))
+      implicit val scope = TypeScope(cd.typeArgs zip tparamParams.map(_.toVariable))
+      val paramParams = cd.fields.map(vd => t.ValDef(vd.id.freshen, scope.transform(vd.tpe)))
+
+      cd.id -> mkFunDef(cd.id.freshen, Unchecked)()(_ => (
+        tparamParams ++ paramParams, obj, { case args =>
+          choose(ValDef(FreshIdentifier("ptr", true), obj, Set(Unchecked))) { res =>
+            typeOf(res) === encodeType(ct) &&
+            andJoin((cd.fields zip args.drop(tparamParams.size)).map(p => getField(res, p._1.id) === p._2))
+          }
+        }
+      ))
+    }.toMap
+
+    val fieldFunctions: Seq[t.FunDef] = typeFunction +: (classFields.values.toSeq ++ classConstructors.values)
 
     val unwrapCache: MutableMap[t.Type, t.FunDef] = MutableMap.empty
     def unwrapFunctions: Seq[t.FunDef] = unwrapCache.values.toSeq
@@ -438,11 +461,19 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           Seq("x" :: obj), expected, { case Seq(x) => choose("res" :: expected)(_ => E(true)) }
         ))
       })
-      FunctionInvocation(fd.id, Seq(), Seq(e))
+      FunctionInvocation(fd.id, Seq(), Seq(e)).copiedFrom(e)
     }
 
+    val wrapCache: MutableMap[t.Type, t.FunDef] = MutableMap.empty
+    def wrapFunctions: Seq[t.FunDef] = wrapCache.values.toSeq
+
     def wrap(e: t.Expr, tpe: t.Type): t.Expr = {
-      choose(ValDef(FreshIdentifier("res"), obj, Set(Unchecked)))(res => unwrap(res, tpe) === e)
+      val fd = wrapCache.getOrElseUpdate(tpe, {
+        mkFunDef(FreshIdentifier(encodeName("wrap" + tpe)), Unchecked)()(_ => (
+          Seq("x" :: tpe), obj, { case Seq(x) => choose("res" :: obj)(res => unwrap(res, tpe) === e) }
+        ))
+      })
+      FunctionInvocation(fd.id, Seq(), Seq(e)).copiedFrom(e)
     }
 
     val unificationCache: MutableMap[(t.Type, t.Type), t.FunDef] = MutableMap.empty
@@ -686,6 +717,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       tparams: Map[s.TypeParameter, t.Expr],
       graph: DiGraph[s.FunAbstraction, SimpleEdge[s.FunAbstraction]]
     ) extends TypeScope(tparams) {
+      import symbols.{let => _, _}
 
       protected implicit val scope = this
 
@@ -698,10 +730,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         object traverser extends s.TreeTraverser {
           protected def traversePattern(in: s.Expr, pat: s.Pattern): Unit = pat match {
             case s.WildcardPattern(_) =>
-            case s.InstanceOfPattern(_, tpe) if !isSimple(leastUpperBound(in.getType, tpe)) => simple = false
+            case s.InstanceOfPattern(_, tpe) if !isSimple(in.getType lub tpe) => simple = false
             case s.ClassPattern(_, _, _) => simple = false
             case s.ADTPattern(ob, adt, subs) =>
-              if (!isSimple(leastUpperBound(in.getType, adt))) simple = false
+              if (!isSimple(in.getType lub adt)) simple = false
               else {
                 val tcons = adt.getADT.toConstructor
                 (tcons.fields zip subs).foreach(p => traversePattern(adtSelector(asInstOf(in, adt), p._1.id), p._2))
@@ -713,7 +745,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             case up @ s.UnapplyPattern(ob, id, tps, subs) =>
               (s.unwrapTuple(up.get(in), subs.size) zip subs) foreach (traversePattern _).tupled
 
-            case s.LiteralPattern(_, lit) if !isSimple(leastUpperBound(in.getType, lit.getType)) => simple = false
+            case s.LiteralPattern(_, lit) if !isSimple(in.getType lub lit.getType) => simple = false
             case _ =>
           }
 
@@ -721,8 +753,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             case s.ClassConstructor(_, _) => simple = false
             case s.ClassSelector(_, _) => simple = false
             case s.MatchExpr(scrut, cases) => cases.foreach { case s.MatchCase(pat, _, _) => traversePattern(scrut, pat) }
-            case s.IsInstanceOf(e, tpe) if !isSimple(leastUpperBound(e.getType, tpe)) => simple = false
-            case s.AsInstanceOf(e, tpe) if !isSimple(leastUpperBound(e.getType, tpe)) => simple = false
+            case s.IsInstanceOf(e, tpe) if !isSimple(e.getType lub tpe) => simple = false
+            case s.AsInstanceOf(e, tpe) if !isSimple(e.getType lub tpe) => simple = false
             case _ => super.traverse(e)
           }
 
@@ -785,19 +817,17 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassConstructor(ct, args) =>
-          choose(ValDef(FreshIdentifier("ptr", true), IntegerType, Set(Unchecked))) { res =>
-            typeOf(res) === encodeType(ct) &&
-            andJoin((ct.tcd(symbols).fields zip args).map(p => getField(res, p._1.id) === transform(p._2)))
-          }
+          val fd = classConstructors(ct.id)
+          t.FunctionInvocation(fd.id, Seq(), ct.tps.map(encodeType) ++ args.map(transform))
 
         case s.ClassSelector(expr, id) =>
           getField(transform(expr), id)
 
-        case s.IsInstanceOf(expr, tpe) if isObject(symbols.leastUpperBound(expr.getType(symbols), tpe)) =>
+        case s.IsInstanceOf(expr, tpe) if isObject(expr.getType lub tpe) =>
           instanceOf(transform(expr), encodeType(tpe))
 
-        case s.AsInstanceOf(expr, tpe) if isObject(symbols.leastUpperBound(expr.getType(symbols), tpe)) =>
-          val exprType = expr.getType(symbols)
+        case s.AsInstanceOf(expr, tpe) if isObject(expr.getType lub tpe) =>
+          val exprType = expr.getType
           val te = transform(expr)
           val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
           val result = if (isObject(exprType) && !isObject(tpe)) unwrap(te, transform(tpe))
@@ -806,9 +836,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
           t.Assert(check, Some("Cast error"), result)
 
-        case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType(symbols)) =>
+        case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType) =>
           let("res" :: tpe, super.transform(e)) { res =>
-            t.Assume(instanceOf(res, encodeType(e.getType(symbols))), res)
+            t.Assume(instanceOf(res, encodeType(e.getType)), res)
           }
 
         case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
@@ -816,13 +846,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val fd = symbols.getFunction(id)
 
           val newArgs = (fd.params zip args).map { case (vd, arg) =>
-            unifyTypes(transform(arg), transform(arg.getType(symbols)), fdScope.transform(vd.tpe))
+            unifyTypes(transform(arg), transform(arg.getType), fdScope.transform(vd.tpe))
           } ++ tps.map(encodeType)
 
           unifyTypes(
             t.FunctionInvocation(id, Seq(), newArgs),
             fdScope.transform(fd.returnType),
-            transform(fi.getType(symbols))
+            transform(fi.getType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) if scope rewrite v.id =>
@@ -830,7 +860,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val fun = functions(v.id).fun
 
           val newArgs = (fun.params zip args).map { case (vd, arg) =>
-            unifyTypes(transform(arg), transform(arg.getType(symbols)), appScope.transform(vd.tpe))
+            unifyTypes(transform(arg), transform(arg.getType), appScope.transform(vd.tpe))
           } ++ tps.map(encodeType)
 
           val vd @ t.ValDef(id, FunctionType(from, to), flags) = appScope.transform(v.toVal)
@@ -839,7 +869,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           unifyTypes(
             t.ApplyLetRec(nvd.toVariable, Seq(), Seq(), newArgs),
             appScope.transform(fun.returnType),
-            transform(app.getType(symbols))
+            transform(app.getType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) =>
@@ -852,13 +882,16 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           ).copiedFrom(e)
 
         case s.MatchExpr(scrut, cases) =>
+          val isObj = isObject(symbols.leastUpperBound(cases.map(_.rhs.getType)))
           t.MatchExpr(transform(scrut), for (cse <- cases) yield {
             val (newPattern, newGuard) = transformPattern(scrut, cse.pattern)
             val guard = t.andJoin(cse.optGuard.map(transform).toSeq ++ newGuard) match {
               case t.BooleanLiteral(true) => None
               case cond => Some(cond)
             }
-            t.MatchCase(newPattern, guard, transform(cse.rhs))
+            val trhs = transform(cse.rhs)
+            val rhs = if (!isObj || isObject(cse.rhs.getType)) trhs else wrap(trhs, transform(cse.rhs.getType))
+            t.MatchCase(newPattern, guard, rhs).copiedFrom(cse)
           }).copiedFrom(e)
 
         case s.LetRec(fds, body) =>
@@ -867,6 +900,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val newFuns = funs.map(fun => transformFunction(fun)(newScope))
           val newBody = newScope.transform(body)
           t.LetRec(newFuns.map(_.toLocal), newBody).copiedFrom(e)
+
+        case s.IfExpr(cond, thenn, elze) if isObject(thenn.getType lub elze.getType) =>
+          val tt = transform(thenn)
+          val te = transform(elze)
+          t.IfExpr(transform(cond),
+            if (isObject(thenn.getType)) tt else wrap(tt, transform(thenn.getType)),
+            if (isObject(elze.getType)) te else wrap(te, transform(elze.getType))
+          ).copiedFrom(e)
 
         case _ => super.transform(e)
       }
@@ -890,7 +931,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             (t.WildcardPattern(ob map transform), t.BooleanLiteral(true))
 
           case s.InstanceOfPattern(ob, tpe) =>
-            if (isObject(leastUpperBound(in.getType, tpe))) {
+            if (isObject(in.getType lub tpe)) {
               val v = transform(ob.map(_.toVariable).getOrElse(in))
               (t.WildcardPattern(ob map transform), instanceOf(v, encodeType(tpe)))
             } else {
@@ -913,7 +954,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             val v = ob.map(_.toVariable).getOrElse(in)
             val tcons = adt.getADT.toConstructor
             val rs = (tcons.fields zip subs).map(p => rec(adtSelector(asInstOf(v, adt), p._1.id), p._2))
-            if (isObject(leastUpperBound(in.getType, adt))) {
+            if (isObject(in.getType lub adt)) {
               val (rsubs, rconds) = (rs ++ adt.tps.map(typePattern(_, None))).unzip
               (t.UnapplyPattern(ob map transform, getAdtUnapply(adt.id), Seq.empty, rsubs), andJoin(rconds))
             } else {
@@ -941,7 +982,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             }
 
           case s.LiteralPattern(ob, lit) =>
-            if (isObject(leastUpperBound(in.getType, lit.getType))) {
+            if (isObject(in.getType lub lit.getType)) {
               val v = transform(ob.map(_.toVariable).getOrElse(in))
               (t.WildcardPattern(ob map transform), t.Equals(v, transform(lit)))
             } else {
@@ -980,7 +1021,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         )
       } else {
         implicit val scope = scope0 in fd.id
-        val tparamParams = fd.tparams.map(tpd => t.ValDef(tpd.id.freshen, tpe))
+        val tparamParams = fd.tparams map (tpd => scope.tparams(tpd.tp).asInstanceOf[Variable].toVal)
 
         val tparamConds = fd.tparams.foldLeft(Seq[Expr]()) { case (conds, tpd) =>
           val v = scope.tparams(tpd.tp)
@@ -1050,6 +1091,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         Seq(subtypeFunction, instanceFunction) ++ 
         unapplyFunctions ++
         fieldFunctions ++
+        wrapFunctions ++
         unwrapFunctions ++
         unificationFunctions ++
         functions)
