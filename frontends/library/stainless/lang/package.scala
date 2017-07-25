@@ -35,12 +35,12 @@ package object lang {
   @ignore def forall[A,B,C,D](p: (A,B,C,D) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
   @ignore def forall[A,B,C,D,E](p: (A,B,C,D,E) => Boolean): Boolean = sys.error("Can't execute quantified proposition")
 
-  @ignore @library
+  @library
   implicit class FunctionSpecs0[R](val f: () => R) {
     @ignore def pre: () => Boolean = sys.error("Can't execute first-class contract")
   }
 
-  @ignore @library
+  @library
   implicit class FunctionSpecs1[A,R](val f: A => R) {
     @ignore def pre: A => Boolean = sys.error("Can't execute first-class contract")
     def requires(p: A => Boolean): Boolean = {
@@ -53,7 +53,7 @@ package object lang {
     }
   }
 
-  @ignore @library
+  @library
   implicit class FunctionSpecs2[A,B,R](val f: (A,B) => R) {
     @ignore def pre: (A,B) => Boolean = sys.error("Can't execute first-class contract")
     def requires(p: (A,B) => Boolean): Boolean = {
@@ -66,7 +66,7 @@ package object lang {
     }
   }
 
-  @ignore @library
+  @library
   implicit class FunctionSpecs3[A,B,C,R](val f: (A,B,C) => R) {
     @ignore def pre: (A,B,C) => Boolean = sys.error("Can't execute first-class contract")
     def requires(p: (A,B,C) => Boolean): Boolean = {
@@ -79,7 +79,7 @@ package object lang {
     }
   }
 
-  @ignore @library
+  @library
   implicit class FunctionSpecs4[A,B,C,D,R](val f: (A,B,C,D) => R) {
     @ignore def pre: (A,B,C,D) => Boolean = sys.error("Can't execute first-class contract")
     def requires(p: (A,B,C,D) => Boolean): Boolean = {
@@ -134,7 +134,7 @@ package object lang {
     sys.error("Can't execute by example proposition")
   }
 
-  @ignore @library
+  @library
   implicit class SpecsDecorations[A](val underlying: A) {
     @ignore
     def computes(target: A) = {
@@ -151,7 +151,7 @@ package object lang {
     }
   }
 
-  @ignore @library
+  @library
   implicit class StringDecorations(val underlying: String) {
     @ignore @inline
     def bigLength() = BigInt(underlying.length)
