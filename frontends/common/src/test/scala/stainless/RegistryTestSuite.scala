@@ -155,6 +155,12 @@ class RegistryTestSuite extends FunSuite {
     override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
       val fns = program.symbols.functions.keySet map { _.name }
       val cls = program.symbols.classes.keySet map { _.name }
+
+      implicit val debugSection = frontend.DebugSectionFrontend
+      ctx.reporter.debug(s"MockCallBack got the following to solve:")
+      ctx.reporter.debug(s"\tfunctions: " + (fns mkString ", "))
+      ctx.reporter.debug(s"\tclasses:   " + (cls mkString ", "))
+
       val report = MockReport(fns, cls)
       reports += report
       report
