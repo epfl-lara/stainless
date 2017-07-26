@@ -65,13 +65,12 @@ object TerminationComponent extends SimpleComponent {
 
     override val name = TerminationComponent.this.name
 
+    override val width = 2
+
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
       val rows = for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
         Cell(fd.id.asString),
-        Cell {
-          val result = if (g.isGuaranteed) "\u2713" else "\u2717"
-          s"$result ${verdict(g, fd)}"
-        }
+        Cell((if (g.isGuaranteed) "\u2713" else "\u2717") + " " + verdict(g, fd))
       ))
 
       val valid = results count { r => r._2.isGuaranteed }
