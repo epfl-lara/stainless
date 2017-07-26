@@ -8,9 +8,17 @@ import extraction.xlang.{ trees => xt }
 /** Callback for verification */
 class VerificationCallBack(override val ctx: inox.Context) extends frontend.CallBackWithRegistry {
 
+  private implicit val debugSection = DebugSectionVerification
+
   override type Report = verification.VerificationComponent.Report
 
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
+    ctx.reporter.debug(
+      s"Verifying the following program: " +
+      "\n\tfunctions = [" + (program.symbols.functions.keySet mkString ", ") + "]" +
+      "\n\tclasses   = [" + (program.symbols.classes.keySet mkString ", ") + "]"
+    )
+
     verification.VerificationComponent(program)
   }
 
