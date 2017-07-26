@@ -4,7 +4,7 @@ package stainless
 package frontends.scalac
 
 import ast.SymbolIdentifier
-import frontend.{ Frontend, FrontendFactory, CallBack }
+import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
 
 import scala.tools.nsc.{ Global, Settings => NSCSettings, CompilerCommand }
 import scala.reflect.internal.Positions
@@ -112,78 +112,35 @@ object ScalaCompiler {
     override val libraryFiles: Seq[String]
   ) extends FrontendFactory {
 
-    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend = {
-
-      val args = allCompilerArguments(compilerArgs)
-      val settings = buildSettings(ctx)
-      val files = getFiles(args, ctx, settings)
-
-      val cache = SymbolMapping.empty
-
-
-      // Implement an interface compatible with the generic frontend.
-      // If an exception is thrown from within the compiler, it is rethrown upon stopping or joining.
-      // TODO refactor code, maybe, in frontend package if the same code is required for dotty/other frontends
-      val frontend = new Frontend(callback) {
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
+      new ThreadedFrontend(callback, ctx) {
         var underlying: ScalaCompiler#Run = null
-        var thread: Thread = null
-        var exception: Throwable = null
+        val cache = SymbolMapping.empty
 
-        override val sources = files
+        val args = allCompilerArguments(compilerArgs)
+        val settings = buildSettings(ctx)
 
-        override def run(): Unit = {
-          assert(!isRunning)
+        override val sources = getFiles(args, ctx, settings)
 
+        override def initRun(): Unit = {
+          assert(underlying == null)
           val compiler = new ScalaCompiler(settings, ctx, callback, cache)
           underlying = new compiler.Run
-
-          // Run the compiler in the background in order to make the factory
-          // non-blocking, and implement a clean stop action.
-          val runnable = new Runnable {
-            override def run() = try {
-              callback.beginExtractions()
-              underlying.compile(sources)
-            } finally {
-              callback.endExtractions()
-              underlying = null
-            }
-          }
-
-          thread = new Thread(runnable, "stainless compiler")
-          thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-            override def uncaughtException(t: Thread, e: Throwable): Unit = exception = e
-          })
-
-          thread.start()
         }
 
-        override def isRunning: Boolean = thread != null && thread.isAlive
-
-        override def onStop(): Unit = {
-          if (isRunning) {
-            underlying.cancel()
-            thread.join()
-          }
-
-          rethrow()
+        override def onRun(): Unit = {
+          underlying.compile(sources)
         }
 
-        override def onJoin(): Unit = {
-          if (isRunning) thread.join()
-
-          rethrow()
+        override def onEnd(): Unit = {
+          underlying = null
         }
 
-        private def rethrow(): Unit = if (exception != null) {
-          val e = exception
-          exception = null
-          ctx.reporter.error(s"Rethrowing exception emitted from within the compiler: ${e.getMessage}")
-          throw e
+        override def onStop(thread: Thread): Unit = {
+          underlying.cancel()
+          thread.join()
         }
       }
-
-      frontend
-    }
   }
 
   /** Let the frontend analyse the arguments to understand which files should be compiled. */
