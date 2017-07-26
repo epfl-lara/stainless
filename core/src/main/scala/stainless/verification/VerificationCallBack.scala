@@ -10,7 +10,7 @@ class VerificationCallBack(override val ctx: inox.Context) extends frontend.Call
 
   private implicit val debugSection = DebugSectionVerification
 
-  override type Report = verification.VerificationComponent.Report
+  override type Report = VerificationComponent.Report
 
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
     ctx.reporter.debug(
@@ -19,7 +19,7 @@ class VerificationCallBack(override val ctx: inox.Context) extends frontend.Call
       "\n\tclasses   = [" + (program.symbols.classes.keySet mkString ", ") + "]"
     )
 
-    verification.VerificationComponent(program)
+    VerificationComponent(program)
   }
 
   /** Checks whether the given function/class should be verified at some point. */
