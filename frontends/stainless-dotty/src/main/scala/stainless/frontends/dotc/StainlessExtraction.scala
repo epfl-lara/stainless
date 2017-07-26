@@ -13,16 +13,12 @@ import scala.collection.mutable.ListBuffer
 import extraction.xlang.{ trees => xt }
 import frontend.{ CallBack }
 
-class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack) extends Phase {
+class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Phase {
 
   def phaseName: String = "stainless extraction"
 
-  // Share the same symbols between several runs.
-  // TODO can we share it even for a longer period? i.e. for --watch
-  private val symbols = new SymbolsContext
-
   def run(implicit ctx: Context): Unit = {
-    val extraction = new CodeExtraction(inoxCtx, symbols)
+    val extraction = new CodeExtraction(inoxCtx, cache)
     import extraction.{ctx => _, _}
     import AuxiliaryExtractors._
 

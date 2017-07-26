@@ -11,11 +11,11 @@ import dotty.tools.dotc.core.Contexts._
 
 import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
 
-class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
+class DottyCompiler(ctx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Compiler {
   override def phases: List[List[Phase]] = List(
     List(new FrontEnd),
     List(new PostTyper),
-    List(new StainlessExtraction(ctx, callback))
+    List(new StainlessExtraction(ctx, callback, cache))
   )
 }
 
@@ -41,7 +41,11 @@ object DottyCompiler {
 
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
-        val compiler = new DottyCompiler(ctx, callback)
+
+        // Share the same symbols between several runs.
+        val cache = new SymbolsContext
+
+        val compiler = new DottyCompiler(ctx, callback, cache)
         val args = allCompilerArguments(compilerArgs)
 
         val driver = new DottyDriver(args, compiler)
