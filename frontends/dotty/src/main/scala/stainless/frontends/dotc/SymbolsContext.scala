@@ -32,6 +32,12 @@ class SymbolsContext {
     SymbolIdentifier(symbol)
   })
 
+  /** Get the identifier for the class invariant of [[sym]]. */
+  def fetchInvIdForClass(sym: Symbol)(implicit ctx: Context): SymbolIdentifier =
+    invs.getOrElseUpdate(fetch(sym), {
+      SymbolIdentifier(invSymbol)
+    })
+
   private def getPath(sym: Symbol)(implicit ctx: Context): String = sym.fullName + sym.id.toString
 
   /** Mapping from [[Symbol]] (or rather: its path) and the stainless identifier. */
@@ -39,6 +45,10 @@ class SymbolsContext {
 
   /** Mapping useful to use the same top symbol mapping. */
   private val s2s = MutableMap[Symbol, ast.Symbol]()
+
+  /** Mapping for class invariants: class' id -> inv's id. */
+  private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
+  private val invSymbol = stainless.ast.Symbol("inv")
 
 }
 
