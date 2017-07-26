@@ -29,6 +29,8 @@ trait AbstractReport { self =>
   }
 
   def ~(other: AbstractReport) = new AbstractReport {
+    assert(other.width == self.width)
+
     override val name = if (self.name == other.name) self.name else (self.name + " ~ " + other.name)
 
     override def emitJson: JArray = {
@@ -36,6 +38,8 @@ trait AbstractReport { self =>
       val JArray(bs) = other.emitJson
       JArray(as ++ bs)
     }
+
+    override val width = self.width
 
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = (self.emitRowsAndStats, other.emitRowsAndStats) match {
       case (None, None) => None
@@ -45,13 +49,19 @@ trait AbstractReport { self =>
     }
   }
 
+  protected val width: Int
+
   private def emitTable: Option[Table] = emitRowsAndStats map { case (rows, stats) =>
-    var t = Table("Verification Summary")
+    var t = Table(s"$name summary")
     t ++= rows
     t += Separator
     t += Row(Seq(
-      Cell(f"total: ${stats.total}%-4d   valid: ${stats.valid}%-4d   invalid: ${stats.invalid}%-4d   unknown: ${stats.unknown}%-4d", 5),
-      Cell(f"${stats.time/1000d}%7.3f", align = Right)
+      Cell(
+        f"total: ${stats.total}%-4d   valid: ${stats.valid}%-4d   " +
+        f"invalid: ${stats.invalid}%-4d   unknown: ${stats.unknown}%-4d  " +
+        f"time: ${stats.time/1000d}%7.3f",
+        spanning = width
+      )
     ))
 
     t

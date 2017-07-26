@@ -50,6 +50,8 @@ object VerificationComponent extends SimpleComponent {
 
     override val name = VerificationComponent.this.name
 
+    override val width = 6
+
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some(
       vrs.map { case (vc, vr) =>
         Row(Seq(

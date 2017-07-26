@@ -132,6 +132,7 @@ class RegistryTestSuite extends FunSuite {
   private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport {
     override val name = "dummy"
     override def emitJson = JArray(Nil)
+    override val width = 0
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = None
 
     override def ~(other: AbstractReport): MockReport = other match {
