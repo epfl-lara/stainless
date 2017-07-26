@@ -228,8 +228,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     (module, allClasses, allFunctions)
   }
 
-  private val invSymbol = stainless.ast.Symbol("inv")
-
   private def extractClass(td: tpd.TypeDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = td.symbol
     val id = getIdentifier(sym)
@@ -315,7 +313,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }
 
     val optInv = if (invariants.isEmpty) None else Some {
-      new xt.FunDef(SymbolIdentifier(invSymbol), Seq.empty, Seq.empty, xt.BooleanType,
+      val invId = cache fetchInvIdForClass sym
+      new xt.FunDef(invId, Seq.empty, Seq.empty, xt.BooleanType,
         if (invariants.size == 1) invariants.head else xt.And(invariants),
         Set(xt.IsInvariant) ++ flags - xt.IsSealed // FIXME if IsSealed is not removed, crash. Why???
       )
