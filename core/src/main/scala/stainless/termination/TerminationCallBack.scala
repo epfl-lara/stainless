@@ -4,9 +4,11 @@ package stainless
 package termination
 
 import extraction.xlang.{ trees => xt }
+import frontend.CallBackWithRegistry
+import utils.CheckFilter
 
 /** Callback for termination */
-class TerminationCallBack(val ctx: inox.Context) extends frontend.CallBackWithRegistry {
+class TerminationCallBack(override val ctx: inox.Context) extends CallBackWithRegistry with CheckFilter {
   private implicit val debugSection = DebugSectionTermination
 
   override type Report = TerminationComponent.Report
@@ -21,16 +23,5 @@ class TerminationCallBack(val ctx: inox.Context) extends frontend.CallBackWithRe
     TerminationComponent(program)
   }
 
-  /** Checks whether the given function/class should be verified at some point. */
-  // TODO this check should be moved to a utility package and copy/past code removed from stainless.
-  override def shouldBeChecked(fd: xt.FunDef): Boolean = {
-    val isLibrary = fd.flags contains "library"
-    val isUnchecked = fd.flags contains "unchecked"
-    !(isLibrary || isUnchecked)
-    // TODO check --functions=... options for proper filter
-  }
-
-  // Invariants are already extracted to functions, so no need to process the class unless it's a dependency.
-  override def shouldBeChecked(cd: xt.ClassDef): Boolean = false
 }
 
