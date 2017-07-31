@@ -4,6 +4,7 @@ package stainless
 
 import extraction.xlang.{ trees => xt }
 import frontend.{ CallBackWithRegistry, Frontend }
+import utils.CheckFilter
 
 import inox.utils.ASCIIHelpers._
 
@@ -31,21 +32,21 @@ class RegistryTestSuite extends FunSuite {
   type ClassName = String
   type FunctionName = String
 
+  private val DEBUG = false
+  private val ctx = if (DEBUG) {
+    val reporter = new inox.DefaultReporter(Set(frontend.DebugSectionFrontend))
+    val intrMan = inox.TestContext.empty.interruptManager
+    inox.Context(reporter, intrMan)
+  } else inox.TestContext.empty
+
   /** Filter functions and classes. */
   trait Filter {
     def shouldBeChecked(fd: xt.FunDef): Boolean
     def shouldBeChecked(cd: xt.ClassDef): Boolean
   }
 
-  final object DefaultFilter extends Filter {
-    // TODO this is a copy/past from VerificationCallBack and should be refactored.
-    override def shouldBeChecked(fd: xt.FunDef): Boolean = {
-      val isLibrary = fd.flags contains "library"
-      val isUnchecked = fd.flags contains "unchecked"
-      !(isLibrary || isUnchecked)
-    }
-
-    override def shouldBeChecked(cd: xt.ClassDef): Boolean = false
+  final object DefaultFilter extends Filter with CheckFilter {
+    override val ctx = RegistryTestSuite.this.ctx
   }
 
   /** Expectation on classes and functions identifier name (ignoring ids). */
@@ -79,14 +80,6 @@ class RegistryTestSuite extends FunSuite {
     }).toMap
 
     // Create our frontend with a mock callback
-    val DEBUG = false
-    val ctx = if (DEBUG) {
-      val reporter = new inox.DefaultReporter(Set(frontend.DebugSectionFrontend))
-      val intrMan = inox.TestContext.empty.interruptManager
-      inox.Context(reporter, intrMan)
-    } else inox.TestContext.empty
-
-
     val callback = new MockCallBack(ctx, filter)
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
     val compiler = Main.factory(ctx, filePaths, callback)
