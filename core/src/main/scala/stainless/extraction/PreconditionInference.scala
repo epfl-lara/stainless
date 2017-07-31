@@ -27,7 +27,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
     object FlatApplication {
       def unapply(app: Application): Option[(Expr, Seq[Expr])] = app match {
         case Application(app: Application, args) => unapply(app).map(p => p._1 -> (p._2 ++ args))
-        case Application(caller, args) => Some(caller, args)
+        case Application(caller, args) => Some((caller, args))
       }
 
       def apply(caller: Expr, args: Seq[Expr]): Expr = caller.getType match {

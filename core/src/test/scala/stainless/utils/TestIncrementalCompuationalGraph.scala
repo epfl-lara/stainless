@@ -68,7 +68,7 @@ class TestIncrementalComputationalGraph extends FunSuite {
       current ++= nodes map { _._2 }
     }
 
-    def getSeq: Seq[Set[Input]] = seq.toSeq
+    def getSeq: Seq[Set[Input]] = seq
   }
 
   private def testSequence(name: String, inputs: Seq[Input], expected: Seq[Set[Input]]): Unit = test(name) {
@@ -89,8 +89,8 @@ class TestIncrementalComputationalGraph extends FunSuite {
     val result = e.getSeq
 
     assert(result.size == expected.size, "sizes of expected data and results don't match")
-    (result zip expected).zipWithIndex foreach { case ((r, e), i) =>
-      assert(r == e, s"error at index $i")
+    (result zip expected).zipWithIndex foreach { case ((res, exp), i) =>
+      assert(res == exp, s"error at index $i")
     }
   }
 

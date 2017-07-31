@@ -114,7 +114,7 @@ object ScalaCompiler {
 
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
-        var underlying: ScalaCompiler#Run = null
+        var underlying: ScalaCompiler#Run = _
         val cache = SymbolMapping.empty
 
         val args = allCompilerArguments(compilerArgs)

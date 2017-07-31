@@ -48,7 +48,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         elems(i)
       case (LargeArray(elems, default, Int32Literal(size), _), Int32Literal(i)) =>
         if (i < 0 || i >= size) throw RuntimeError("Index out of bounds @" + expr.getPos)
-        elems.get(i).getOrElse(default)
+        elems.getOrElse(i, default)
     }
 
     case ArrayUpdated(array, index, value) => (e(array), e(index)) match {

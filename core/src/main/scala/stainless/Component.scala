@@ -31,7 +31,7 @@ trait AbstractReport { self =>
   def ~(other: AbstractReport) = new AbstractReport {
     assert(other.width == self.width)
 
-    override val name = if (self.name == other.name) self.name else (self.name + " ~ " + other.name)
+    override val name = if (self.name == other.name) self.name else self.name + " ~ " + other.name
 
     override def emitJson: JArray = {
       val JArray(as) = self.emitJson

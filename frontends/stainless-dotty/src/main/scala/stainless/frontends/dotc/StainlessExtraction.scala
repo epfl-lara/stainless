@@ -3,15 +3,12 @@
 package stainless
 package frontends.dotc
 
-import dotty.tools.dotc.ast.tpd
 import dotty.tools.dotc.ast.Trees._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
-import scala.collection.mutable.ListBuffer
-
 import extraction.xlang.{ trees => xt }
-import frontend.{ CallBack }
+import frontend.CallBack
 
 class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Phase {
 
@@ -19,8 +16,7 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
 
   def run(implicit ctx: Context): Unit = {
     val extraction = new CodeExtraction(inoxCtx, cache)
-    import extraction.{ctx => _, _}
-    import AuxiliaryExtractors._
+    import extraction.{ ctx => _, _ }
 
     val unit = ctx.compilationUnit
     val tree = unit.tpdTree

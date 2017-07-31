@@ -3,7 +3,7 @@
 package stainless
 
 import java.io.{ File, PrintWriter }
-import java.util.concurrent.Executors
+import java.util.concurrent.{ ExecutorService, Executors }
 
 import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
@@ -12,13 +12,13 @@ import org.json4s.native.JsonMethods._
 object MainHelpers {
 
   /** See [[frontend.allComponents]]. */
-  val components = frontend.allComponents
+  val components: Seq[Component] = frontend.allComponents
 
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
   // val executor = Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors - 2)
-  val executor = Executors.newWorkStealingPool()
+  val executor: ExecutorService = Executors.newWorkStealingPool()
   // val executor = Executors.newSingleThreadExecutor()
 
 }
@@ -54,20 +54,20 @@ trait MainHelpers extends inox.MainHelpers {
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes")
   ) ++ MainHelpers.components.map { component =>
-    val option = new inox.FlagOptionDef(component.name, false)
+    val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
   }
 
-  override protected def getCategories = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
+  override protected def getCategories: Seq[Category] = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
 
-  override protected def getDebugSections = super.getDebugSections ++ Set(
+  override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
     termination.DebugSectionTermination,
     DebugSectionExtraction,
     frontend.DebugSectionFrontend
   )
 
-  override protected def displayVersion(reporter: inox.Reporter) = {
+  override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
   }
 
@@ -106,7 +106,7 @@ trait MainHelpers extends inox.MainHelpers {
 
       ctx.options.findOption(optJson) foreach { file =>
         val output = if (file.isEmpty) optJson.default else file
-        ctx.reporter.info(s"Outputing JSON summary to $output")
+        ctx.reporter.info(s"Printing JSON summary to $output")
         exportJson(reports, output)
       }
     }

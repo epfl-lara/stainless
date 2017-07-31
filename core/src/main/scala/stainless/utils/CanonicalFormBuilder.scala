@@ -25,7 +25,7 @@ object CanonicalFormBuilder {
 
 /** Canonical form for functions, expressions, ... */
 class CanonicalForm(val bytes: Array[Byte]) {
-  override def hashCode = bytes.hashCode
+  override def hashCode: Int = bytes.hashCode
 
   override def equals(other: Any): Boolean = other match {
     // Because cf.bytes == bytes doesn't work, obviously.
@@ -35,7 +35,7 @@ class CanonicalForm(val bytes: Array[Byte]) {
 }
 
 /**
- * Core implementation of the canonicalisation algorithm.
+ * Core implementation of the canonisation algorithm.
  *
  * NOTE A single usage of [[build]] per instance is allowed!
  *
@@ -193,7 +193,7 @@ private class CanonicalFormBuilderImpl {
     case xt.FractionLiteral(n, d) => storeBigInt(n); storeBigInt(d)
     case xt.BooleanLiteral(l) => storeBool(l)
     case xt.StringLiteral(l) => storeString(l)
-    case xt.GenericValue(_, id) => ??? // FIXME what's this "id"?
+    case xt.GenericValue(_, _) => ??? // FIXME what's this "id"?
     case xt.ADTSelector(_, sel) => storeId(sel)
     case xt.TupleSelect(_, index) => storeInt(index)
 
@@ -244,7 +244,7 @@ private class CanonicalFormBuilderImpl {
       throw new java.lang.IllegalArgumentException(s"Unknown code for type ${typ.getClass}")
     }
 
-    val (tps, flags, _) = xt.deconstructor.deconstruct(typ)
+    val (tps, _, _) = xt.deconstructor.deconstruct(typ)
 
     // Format is:
     //  - type code

@@ -367,7 +367,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
-    var flags = annotationsOf(sym).toSet ++ (if (sym is Implicit) Some(xt.Inline) else None)
+    var flags = annotationsOf(sym) ++ (if (sym is Implicit) Some(xt.Inline) else None)
 
     val id = getIdentifier(sym)
 
@@ -599,10 +599,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }.foldLeft((Map.empty[Symbol, xt.ValDef], fctx)) { case ((vds, dctx), (sym, name, tpt)) =>
       if (sym is Mutable) {
         val vd = xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
-        (vds + (sym -> vd), dctx.withNewMutableVar(sym, () => vd.toVariable))
+        (vds + (sym -> vd), dctx.withNewMutableVar((sym, () => vd.toVariable)))
       } else {
         val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
-        (vds + (sym -> vd), dctx.withNewVar(sym, () => vd.toVariable))
+        (vds + (sym -> vd), dctx.withNewVar((sym, () => vd.toVariable)))
       }
     }
 
@@ -1208,7 +1208,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                          (lhs0: tpd.Tree, rhs0: tpd.Tree)
                          (implicit dctx: DefContext): xt.Expr = {
-    injectCastsImpl(ctor)(lhs0, rhs0, false)
+    injectCastsImpl(ctor)(lhs0, rhs0, shift = false)
   }
 
   /**
@@ -1224,7 +1224,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def injectCastsForShift(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                                  (lhs0: tpd.Tree, rhs0: tpd.Tree)
                                  (implicit dctx: DefContext): xt.Expr = {
-    injectCastsImpl(ctor)(lhs0, rhs0, true)
+    injectCastsImpl(ctor)(lhs0, rhs0, shift = true)
   }
 
   private def injectCastsImpl(ctor: (xt.Expr, xt.Expr) => xt.Expr)
