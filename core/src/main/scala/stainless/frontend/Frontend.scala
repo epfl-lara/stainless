@@ -56,8 +56,8 @@ abstract class Frontend(val callback: CallBack) {
  * stopping or joining.
  */
 abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends Frontend(callback) {
-  private var thread: Thread = null
-  private var exception: Throwable = null
+  private var thread: Thread = _
+  private var exception: Throwable = _
 
   protected def initRun(): Unit // Called when initializing the thread (before callback initialisation).
   protected def onRun(): Unit // Called when the thread is running (after callback initialisation).
@@ -68,7 +68,7 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
     assert(!isRunning)
 
     val runnable = new Runnable {
-      override def run() = try {
+      override def run(): Unit = try {
         initRun()
         callback.beginExtractions()
         onRun()
@@ -117,7 +117,7 @@ trait FrontendFactory {
   protected val libraryFiles: Seq[String]
 
   /** All the arguments for the underlying compiler. */
-  protected def allCompilerArguments(compilerArgs: Seq[String]) =
+  protected def allCompilerArguments(compilerArgs: Seq[String]): Seq[String] =
     extraCompilerArguments ++ libraryFiles ++ compilerArgs
 }
 

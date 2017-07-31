@@ -422,7 +422,7 @@ trait CodeExtraction extends ASTExtractors {
 
     val id = getIdentifier(sym)
 
-    var flags = annotationsOf(sym).toSet ++
+    var flags = annotationsOf(sym) ++
       (if (sym.isImplicit) Set(xt.Inline, xt.Implicit) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
 
@@ -1162,7 +1162,7 @@ trait CodeExtraction extends ASTExtractors {
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                          (lhs0: Tree, rhs0: Tree)
                          (implicit dctx: DefContext): xt.Expr = {
-    injectCastsImpl(ctor)(lhs0, rhs0, false)
+    injectCastsImpl(ctor)(lhs0, rhs0, shift = false)
   }
 
   /**
@@ -1178,7 +1178,7 @@ trait CodeExtraction extends ASTExtractors {
   private def injectCastsForShift(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                                  (lhs0: Tree, rhs0: Tree)
                                  (implicit dctx: DefContext): xt.Expr = {
-    injectCastsImpl(ctor)(lhs0, rhs0, true)
+    injectCastsImpl(ctor)(lhs0, rhs0, shift = true)
   }
 
   private def injectCastsImpl(ctor: (xt.Expr, xt.Expr) => xt.Expr)
@@ -1281,7 +1281,7 @@ trait CodeExtraction extends ASTExtractors {
     case TypeRef(_, sym, btt :: Nil) if isArrayClassSym(sym) =>
       xt.ArrayType(extractType(btt))
 
-    case TypeRef(_, sym, subs) if subs.size >= 1 && isFunction(sym, subs.size - 1) =>
+    case TypeRef(_, sym, subs) if subs.nonEmpty && isFunction(sym, subs.size - 1) =>
       val from = subs.init
       val to   = subs.last
       xt.FunctionType(from map extractType, extractType(to))
@@ -1318,7 +1318,7 @@ trait CodeExtraction extends ASTExtractors {
        * Scala might infer a type for C such as: Product with Serializable with C
        * we generalize to the first known type, e.g. C.
        */
-      parents.filter(ptpe => !ignoreClasses(ptpe)).headOption.map(extractType) match {
+      parents.find(ptpe => !ignoreClasses(ptpe)).map(extractType) match {
         case Some(tpe) =>
           tpe
 

@@ -58,7 +58,7 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
-  case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)
+  case class MissformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
   def extract(program: Program { val trees: xlang.trees.type }): Program { val trees: extraction.trees.type } = {

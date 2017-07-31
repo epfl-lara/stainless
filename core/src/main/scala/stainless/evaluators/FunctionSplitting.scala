@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 package stainless
-package codegen
+package evaluators
 
 trait FunctionSplitting extends inox.ast.ProgramTransformer {
 

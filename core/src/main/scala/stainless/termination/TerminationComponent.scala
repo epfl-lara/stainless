@@ -7,7 +7,7 @@ import inox.utils.ASCIIHelpers._
 import stainless.utils.JsonConvertions._
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.{ JArray }
+import org.json4s.JsonAST.JArray
 
 object TerminationComponent extends SimpleComponent {
   val name = "termination"
@@ -38,7 +38,7 @@ object TerminationComponent extends SimpleComponent {
               t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
                 case s.BVType(size) => t.BVLiteral(0, size)
                 case s.IntegerType => t.IntegerLiteral(0)
-                case _ => throw new inox.FatalError("Unexpected measure type for " + e)
+                case _ => throw inox.FatalError("Unexpected measure type for " + e)
               }))),
               Some("Measure not guaranteed positive"),
               transform(body)
@@ -63,7 +63,7 @@ object TerminationComponent extends SimpleComponent {
 
     val time: Long
 
-    override val name = TerminationComponent.this.name
+    override val name: String = TerminationComponent.this.name
 
     override val width = 2
 
@@ -143,7 +143,7 @@ object TerminationComponent extends SimpleComponent {
 
     new TerminationReport {
       val checker: c.type = c
-      val results = res.toMap
+      val results: Map[p.trees.FunDef, c.TerminationGuarantee] = res.toMap
       val time = t
     }
   }

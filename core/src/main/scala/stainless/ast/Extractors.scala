@@ -173,9 +173,9 @@ trait Extractors extends inox.ast.Extractors { self: Trees =>
   }
 
   object FunctionRequires {
-    def unapply(f: Forall): Option[(Expr, Expr)] = f match {
+    def unapply(forall: Forall): Option[(Expr, Expr)] = forall match {
       case Forall(args, Implies(Application(pred, args1), Application(Pre(f), args2)))
-      if args.map(_.toVariable) == args1 && args2 == args2 =>
+        if args.map(_.toVariable) == args1 && args2 == args2 =>
         Some((f, pred))
 
       case _ =>
@@ -184,9 +184,9 @@ trait Extractors extends inox.ast.Extractors { self: Trees =>
   }
 
   object FunctionEnsures {
-    def unapply(f: Forall): Option[(Expr, Expr)] = f match {
+    def unapply(forall: Forall): Option[(Expr, Expr)] = forall match {
       case Forall(args, Implies(Application(Pre(f), args1), Application(pred, args2 :+ Application(f2, args3))))
-      if args.map(_.toVariable) == args1 && args1 == args2 && args2 == args3 && f == f2 =>
+        if args.map(_.toVariable) == args1 && args1 == args2 && args2 == args3 && f == f2 =>
         Some((f, pred))
 
       case _ =>

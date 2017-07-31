@@ -73,7 +73,7 @@ trait Registry {
     val classIds = classes map { _.id }
     val funIds = functions map { _.id }
     knownClasses --= classIds
-    (classIds ++ funIds) foreach { graph.remove(_) }
+    (classIds ++ funIds) foreach graph.remove
   }
 
   /**
@@ -82,7 +82,7 @@ trait Registry {
   def checkpoints(): Option[xt.Symbols] = {
     val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
     val res = if (frozen) {
-      assert(defaultRes == None)
+      assert(defaultRes.isEmpty)
       graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
     } else {
       frozen = true
@@ -119,7 +119,7 @@ trait Registry {
   private var frozen = false
   private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
     override def compute(ready: Set[(Identifier, NodeValue)]): Result = {
-      (EmptyResult /: ready) { case ((cls, funs), (id, node)) =>
+      (EmptyResult /: ready) { case ((cls, funs), (_, node)) =>
         node match {
           case Left(cd) => (cls + cd, funs)
           case Right(fd) => (cls, funs + fd)
@@ -247,15 +247,15 @@ trait Registry {
   private def getTopLevels(classes: Seq[xt.ClassDef], cd: xt.ClassDef): Option[Set[xt.ClassDef]] = try {
     Some(getTopLevelsImpl(classes, cd))
   } catch {
-    case IncompleteHierarchy(cd, parent, classes) => None
+    case IncompleteHierarchy(_, _, _) => None
   }
 
   /** Same as [[getTopLevels]], but assuming that all dependencies are known. */
   private def forceGetTopLevels(classes: Seq[xt.ClassDef], cd: xt.ClassDef): Set[xt.ClassDef] = try {
     getTopLevelsImpl(classes, cd)
   } catch {
-    case IncompleteHierarchy(cd, parent, classes) =>
-      ctx.reporter.internalError(s"Couldn't find parent $parent of $cd in <${classes map { _.id } mkString ", "}>")
+    case IncompleteHierarchy(id, parent, universe) =>
+      ctx.reporter.internalError(s"Couldn't find parent $parent of $id in <${universe map { _.id } mkString ", "}>")
   }
 
 
@@ -288,7 +288,7 @@ trait Registry {
     val db: Map[Identifier, Option[Identifier]] =
       functions collect {
         case fd if fd.flags contains xt.IsInvariant =>
-          val cid = fd.flags collectFirst { case xt.IsMethodOf(cid) => cid } getOrElse {
+          val cid = fd.flags collectFirst { case xt.IsMethodOf(id) => id } getOrElse {
             ctx.reporter.internalError(s"Expected to find a IsMethodOf flag for invariant function ${fd.id}")
           }
 

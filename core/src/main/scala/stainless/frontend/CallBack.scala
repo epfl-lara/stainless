@@ -79,8 +79,8 @@ trait CallBackWithRegistry extends CallBack { self =>
 
     // Remove any node from the registry that no longer exists.
     previousFileData get file foreach { case (prevClasses, prevFuns) =>
-      val removedClasses = prevClasses filterNot { cd => (classes find { _.id == cd.id }).isDefined }
-      val removedFuns = prevFuns filterNot { cd => (functions find { _.id == cd.id }).isDefined }
+      val removedClasses = prevClasses filterNot { cd => classes exists { _.id == cd.id } }
+      val removedFuns = prevFuns filterNot { cd => functions exists { _.id == cd.id } }
       ctx.reporter.debug(s"Removing the following from the registry:")
       ctx.reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
       ctx.reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
@@ -103,7 +103,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   final override def join(): Unit = tasks foreach { _.get }
 
   // See assumption/requirements in [[CallBack]]
-  final override def getReports = tasks map { _.get } filter { _ != null }
+  final override def getReports: Seq[Report] = tasks map { _.get } filter { _ != null }
 
 
   /******************* Customisation Points *******************************************************/

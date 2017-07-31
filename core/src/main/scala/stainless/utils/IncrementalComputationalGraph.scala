@@ -2,7 +2,7 @@
 
 package stainless.utils
 
-import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet, Queue => MutableQueue }
+import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet, Queue => MutableQueue }
 
 /**
  * Describes a Graph of Computation that is incrementally refined/updated. [[Node]]s can be inserted
@@ -89,7 +89,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
       case _ => false
     }
 
-    override def hashCode = id.hashCode
+    override def hashCode: Int = id.hashCode
   }
 
   /**
@@ -206,8 +206,6 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * Compute the set of (indirect or not) dependencies,
    * or return None if any dependency is missing from the graph.
    */
-  // TODO if the graph is big, we might want to introduce some caching at this level.
-  //      It should get invalidated on insert/remove however.
   private def dependencies(n: Node): Option[Set[Node]] = {
     val seen = MutableSet[Node]()
     val deps = MutableSet[Node]()

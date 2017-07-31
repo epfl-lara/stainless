@@ -89,7 +89,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       for {
         file <- fs
         path = file.getPath
-        name = file.getName dropRight (".scala".length)
+        name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
         val (uName, funs, program) = extractOne(path)
         assert(uName == name)

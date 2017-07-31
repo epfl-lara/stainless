@@ -177,12 +177,12 @@ trait StructuralSize { self: SolverProvider =>
   def flatTypes(tpe: Type): Set[Expr => Expr] = {
     def rec(tpe: Type): Set[Expr => Expr] = tpe match {
       case ContainerType(fields) =>
-        fields.flatMap { case vd =>
-          rec(vd.tpe).map(recons => (e: Expr) => recons(adtSelector(e, vd.id)))
+        fields.flatMap {
+          vd => rec(vd.tpe).map(recons => (e: Expr) => recons(adtSelector(e, vd.id)))
         }.toSet
       case TupleType(tpes) =>
-        tpes.indices.flatMap { case index =>
-          rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
+        tpes.indices.flatMap {
+          index => rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
         }.toSet
       case _ => Set((e: Expr) => e)
     }
