@@ -15,9 +15,9 @@ import scala.language.implicitConversions
 /**
  * Extract Scalac Trees into Stainless Trees.
  *
- * This trait build a mapping between (scalac) symbols and (stainless/inox) identifiers
+ * This trait builds a mapping between (scalac) symbols and (stainless/inox) identifiers
  * to avoid generating two different identifiers for the same object/function/type/...
- * when extracting each compilation unit on its own.
+ * when extracting each compilation unit on its own. See [[cache]] below.
  *
  * However, if an object/function/type/... is modified and recompiled, the produced identifier
  * will be different in order to support incremental compilation.
