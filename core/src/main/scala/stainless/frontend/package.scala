@@ -27,8 +27,6 @@ package object frontend {
   /**
    * All components handled by the frontend.
    *
-   * TODO It might be interesting to be able to add at runtime more components.
-   *
    * NOTE [[database]] and [[components]] need to be kept in sync.
    */
   val allComponents: Seq[Component] = Seq(

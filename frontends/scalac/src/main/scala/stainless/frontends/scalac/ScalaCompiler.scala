@@ -143,7 +143,7 @@ object ScalaCompiler {
       }
   }
 
-  /** Let the frontend analyse the arguments to understand which files should be compiled. */
+  /** Let the frontend analyses the arguments to understand which files should be compiled. */
   private def getFiles(compilerArgs: Seq[String], ctx: inox.Context, settings: NSCSettings): List[String] = {
     val command = new CompilerCommand(compilerArgs.toList, settings) {
       override val cmdName = "stainless"

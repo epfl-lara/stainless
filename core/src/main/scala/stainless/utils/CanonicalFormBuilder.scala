@@ -302,7 +302,6 @@ private class CanonicalFormBuilderImpl {
   }
 
   private def storeLength(len: Int): Unit = storeInt(len)
-  // TODO maybe we can use something smaller than Int for lengths...
 
   private def storeString(str: String): Unit = {
     storeLength(str.length)

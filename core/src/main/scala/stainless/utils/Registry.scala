@@ -10,19 +10,20 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
- * Call [[update]] ([[remove]]) whenever new data is (no longer) available, and [[checkpoints]]
+ * Call [[update]] ([[remove]]) whenever new data is (no longer) available, and [[checkpoint]]
  * when all the data is available. New data can then be added through [[update]] calls and,
- * again, a [[checkpoints]] call. Every one of these calls yields a collection of [[xt.Symbols]]
+ * again, a [[checkpoint]] call. Every one of these calls yields a collection of [[xt.Symbols]]
  * that are self-contained programs, ready to be further processed.
  *
- * During the first [[update]]/[[remove]] - [[checkpoints]] cycle, the graph is updated as data
- * arrives. During the next cycles, the graph is frozen until the [[checkpoints]] to allow
+ * During the first [[update]]/[[remove]] - [[checkpoint]] cycle, the graph is updated as data
+ * arrives. During the next cycles, the graph is frozen until the [[checkpoint]] to allow
  * inconsistent state in the graph to not impact the computation.
+ *
  * TODO maybe [[freeze]]/[[unfreeze]] should be exposed and let the user manage this.
  *
- * Specific implementation of this trait have to provide a context and facilities to compute
+ * Specific implementations of this trait have to provide a context and facilities to compute
  * direct dependencies for functions and classes, as well as filters to identify data that
- * identify data that is of interest.
+ * is of interest.
  */
 trait Registry {
 
@@ -38,9 +39,11 @@ trait Registry {
    *      To do that, we can:
    *       - delay the insertion of classes in the graph,
    *       - once notified that everything was compiled, consider all classes as sealed,
-   *         and insert them all in the graph as usual (see [[checkpoints]]).
+   *         and insert them all in the graph as usual (see [[checkpoint]]).
    * FIXME However, this adds a BIG assumption on the runtime: no new class should be available!
    *       So, maybe we just don't want that???
+   *
+   * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
   def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
@@ -79,7 +82,7 @@ trait Registry {
   /**
    * To be called once every compilation unit were extracted.
    */
-  def checkpoints(): Option[xt.Symbols] = {
+  def checkpoint(): Option[xt.Symbols] = {
     val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
@@ -282,7 +285,7 @@ trait Registry {
     // information from functions' flags:
     //  - keep only invariants;
     //  - identify the class it belongs to;
-    //  - project the function unto its id;
+    //  - project the function onto its id;
     //  - group info by class id;
     //  - ensures that at most one invariant is defined by class.
     val db: Map[Identifier, Option[Identifier]] =

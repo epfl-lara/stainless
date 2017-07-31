@@ -94,7 +94,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   }
 
   final override def endExtractions(): Unit = {
-    val symss = registry.checkpoints()
+    val symss = registry.checkpoint()
     processSymbols(symss)
   }
 
