@@ -109,16 +109,12 @@ trait SimpleComponent extends Component { self =>
     val extracted = extract(program)
     import extracted._
 
-    val relevant = symbols.functions.values.filterNot { fd =>
-      (fd.flags contains "library") || (fd.flags contains "unchecked")
-    }.map(_.id).toSeq
+    val filter = new utils.CheckFilter { override val ctx = extracted.ctx }
+    val relevant = symbols.functions.values.toSeq filter { fd =>
+      filter.shouldBeChecked(fd.id, fd.flags)
+    } map { _.id }
 
-    val functions = ctx.options.findOption(optFunctions) match {
-      case Some(names) => relevant.filter(id => names contains id.name)
-      case None => relevant
-    }
-
-    apply(functions, extracted)
+    apply(relevant, extracted)
   }
 
   def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }): Report
