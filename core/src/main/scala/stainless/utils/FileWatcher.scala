@@ -62,7 +62,9 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
 
         if (proceed) {
           ctx.reporter.info(s"Detecting some file modifications...: ${modified mkString ", "}")
+          ctx.interruptManager.unregisterForInterrupts(interruptible)
           action()
+          ctx.interruptManager.registerForInterrupts(interruptible)
           ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
         }
 
