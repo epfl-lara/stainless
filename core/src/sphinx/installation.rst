@@ -153,7 +153,7 @@ reason. E.g. don't write
 
 .. code-block:: scala
 
- package leon
+ package stainless
  package test
  package myTestPackage 
 
@@ -161,5 +161,5 @@ but instead
 
 .. code-block:: scala
 
- package leon.test.myTestPackage
+ package stainless.test.myTestPackage
 
