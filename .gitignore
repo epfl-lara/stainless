@@ -45,6 +45,7 @@ tmp
 .idea
 Leon.eml
 Leon.iml
+*.iml
 /.idea_modules
 
 #scripts

@@ -20,6 +20,40 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
     }
 
+    def inlineFunctionInvocations(e: Expr) = {
+      exprOps.preMap({
+        case fi@FunctionInvocation(_, _, args) =>
+          val tfd = fi.tfd
+          if ((tfd.fd.flags contains Inline) && transitivelyCalls(tfd.fd, tfd.fd)) {
+            throw MissformedStainlessCode(tfd.fd, "Can't inline recursive function: " + tfd.fd.id.name)
+          }
+          if (tfd.fd.flags contains Inline) {
+            val (pre, body, post) = exprOps.breakDownSpecs(tfd.fullBody)
+            val uncheckedBody = body match {
+              case None => throw MissformedStainlessCode(tfd.fd, "Inlining function with empty body: not supported")
+              case Some(body) => Dontcheck(body).copiedFrom(body)
+            }
+            def addPreconditionAssertion(e: Expr) = pre match {
+              case None => e
+              case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.fd.id.name), e).copiedFrom(fi)
+            }
+            def addPostconditionAssumption(e: Expr) = post match {
+              case None => e
+              case Some(lambda) =>
+                val v = Variable.fresh("res", e.getType).copiedFrom(e)
+                Let(v.toVal, e, Assume(application(lambda, Seq(v)), v).copiedFrom(lambda)).copiedFrom(e)
+            }
+            val newBody = addPreconditionAssertion(addPostconditionAssumption(uncheckedBody))
+            Some(exprOps.freshenLocals((tfd.params zip args).foldRight(newBody: Expr) {
+              case ((vd, e), body) => let(vd, e, body)
+            }))
+          } else {
+            None
+          }
+        case _ => None
+      }, applyRec = true)(e)
+    }
+
     t.NoSymbols
       .withADTs(symbols.adts.values.map(transformer.transform).toSeq)
       .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap { fd =>
@@ -31,26 +65,7 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           None
         } else {
           Some(transformer.transform(fd.copy(
-            fullBody = exprOps.preMap({
-              case fi @ FunctionInvocation(_, _, args) =>
-                val tfd = fi.tfd
-                if ((tfd.fd.flags contains Inline) && !transitivelyCalls(tfd.fd, tfd.fd)) {
-                  Some(exprOps.postMap {
-                    case Require(pred, body) =>
-                      Some(Assert(pred, Some("Inlined precondition"), body))
-                    case e @ Ensuring(body, lambda) =>
-                      val v = Variable.fresh("res", body.getType).copiedFrom(e)
-                      Some(Let(v.toVal, body,
-                        Assert(application(lambda, Seq(v)), Some("Inlined postcondition"), v)).copiedFrom(e))
-                    case _ => None
-                  } (exprOps.freshenLocals((tfd.params zip args).foldRight(tfd.fullBody) {
-                      case ((vd, e), body) => let(vd, e, body)
-                  })))
-                } else {
-                  None
-                }
-              case _ => None
-            }, applyRec = true) (fd.fullBody),
+            fullBody = inlineFunctionInvocations(fd.fullBody),
             flags = fd.flags - Inline
           )))
         }
