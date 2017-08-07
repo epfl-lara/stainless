@@ -3,7 +3,10 @@
 package stainless
 package extraction
 package innerfuns
+
 import inox.utils.{NoPosition, Position}
+
+import scala.collection.immutable.HashMap
 
 trait Trees extends inlining.Trees { self =>
 
@@ -190,32 +193,35 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
-    case s.LetRec(defs, body) => (
-      defs map (_.name.toVariable),
-      defs.map(_.body) :+ body,
-      defs.flatMap(_.tparams).map(_.tp),
-      (vs, es, tps) => {
-        var restTps = tps
-        t.LetRec(
-          (vs zip es.init zip defs).map { case ((v, e), d) =>
-            val (tps, rest) = restTps splitAt d.tparams.size
-            restTps = rest
-            t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
-          },
-          es.last
-        )
-      })
+  override def buildExprTableDispatch: ExpressionTableDispatch = super.buildExprTableDispatch ++ HashMap[Class[_], s.Expr => DeconstructedExpr](
+    classOf[s.LetRec] -> { expr =>
+      val s.LetRec(defs, body) = expr
+      (
+        defs map (_.name.toVariable),
+        defs.map(_.body) :+ body,
+        defs.flatMap(_.tparams).map(_.tp),
+        (vs, es, tps) => {
+          var restTps = tps
+          t.LetRec(
+            (vs zip es.init zip defs).map { case ((v, e), d) =>
+              val (tps, rest) = restTps splitAt d.tparams.size
+              restTps = rest
+              t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
+            },
+            es.last
+          )
+        }
+      )
+    },
 
-    case s.ApplyLetRec(fun, tparams, tps, args) =>
+    classOf[s.ApplyLetRec] -> { expr =>
+      val s.ApplyLetRec(fun, tparams, tps, args) = expr
       (Seq(fun), args, tparams ++ tps, (vs, es, tps) => {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
         t.ApplyLetRec(vs.head, ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es)
       })
-
-    case other =>
-      super.deconstruct(other)
-  }
+    }
+  )
 
 }
 

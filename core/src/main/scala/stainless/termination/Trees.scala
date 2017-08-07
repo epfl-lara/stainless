@@ -4,6 +4,7 @@ package stainless
 package termination
 
 import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.immutable.HashMap
 
 trait Trees extends ast.Trees { self =>
 
@@ -109,10 +110,10 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
-    case s.Decreases(measure, body) =>
+  override def buildExprTableDispatch: ExpressionTableDispatch = super.buildExprTableDispatch ++ HashMap[Class[_], s.Expr => DeconstructedExpr](
+    classOf[s.Decreases] -> { expr =>
+      val s.Decreases(measure, body) = expr
       (Seq(), Seq(measure, body), Seq(), (_, es, _) => t.Decreases(es(0), es(1)))
-
-    case _ => super.deconstruct(e)
-  }
+    }
+  )
 }

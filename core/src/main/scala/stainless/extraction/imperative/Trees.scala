@@ -6,6 +6,8 @@ package imperative
 
 import inox.utils.Position
 
+import scala.collection.immutable.HashMap
+
 trait Trees extends innerfuns.Trees { self =>
 
   /* XLang imperative trees to desugar */
@@ -202,41 +204,59 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
-    case s.BoolBitwiseAnd(lhs, rhs) =>
+  override def buildExprTableDispatch: ExpressionTableDispatch = super.buildExprTableDispatch ++ HashMap[Class[_], s.Expr => DeconstructedExpr](
+    classOf[s.BoolBitwiseAnd] -> { expr =>
+      val s.BoolBitwiseAnd(lhs, rhs) = expr
       (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
+    },
 
-    case s.BoolBitwiseOr(lhs, rhs) =>
+    classOf[s.BoolBitwiseOr] -> { expr =>
+      val s.BoolBitwiseOr(lhs, rhs) = expr
       (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseOr(es(0), es(1)))
+    },
 
-    case s.BoolBitwiseXor(lhs, rhs) =>
+    classOf[s.BoolBitwiseXor] -> { expr =>
+      val s.BoolBitwiseXor(lhs, rhs) = expr
       (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseXor(es(0), es(1)))
+    },
 
-    case s.Block(exprs, last) =>
+    classOf[s.Block] -> { expr =>
+      val s.Block(exprs, last) = expr
       (Seq(), exprs :+ last, Seq(), (_, es, _) => t.Block(es.init, es.last))
+    },
 
-    case s.LetVar(vd, value, expr) =>
-      (Seq(vd.toVariable), Seq(value, expr), Seq(), (vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
+    classOf[s.LetVar] -> { expr =>
+      val s.LetVar(vd, value, body) = expr
+      (Seq(vd.toVariable), Seq(value, body), Seq(), (vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
+    },
 
     // @nv: we DON'T return `v` as a variable here as it should not be removed from the
     //      set of free variables in `e`!
-    case s.Assignment(v, value) =>
+    classOf[s.Assignment] -> { expr =>
+      val s.Assignment(v, value) = expr
       (Seq(), Seq(v, value), Seq(), (_, es, _) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
+    },
 
-    case s.FieldAssignment(obj, selector, value) =>
+    classOf[s.FieldAssignment] -> { expr =>
+      val s.FieldAssignment(obj, selector, value) = expr
       (Seq(), Seq(obj, value), Seq(), (_, es, _) => t.FieldAssignment(es(0), selector, es(1)))
+    },
 
-    case s.While(cond, body, pred) =>
+    classOf[s.While] -> { expr =>
+      val s.While(cond, body, pred) = expr
       (Seq(), Seq(cond, body) ++ pred, Seq(), (_, es, _) => t.While(es(0), es(1), es.drop(2).headOption))
+    },
 
-    case s.ArrayUpdate(array, index, value) =>
+    classOf[s.ArrayUpdate] -> { expr =>
+      val s.ArrayUpdate(array, index, value) = expr
       (Seq(), Seq(array, index, value), Seq(), (_, es, _) => t.ArrayUpdate(es(0), es(1), es(2)))
+    },
 
-    case s.Old(e) =>
+    classOf[s.Old] -> { expr =>
+      val s.Old(e) = expr
       (Seq(), Seq(e), Seq(), (_, es, _) => t.Old(es.head))
-
-    case _ => super.deconstruct(e)
-  }
+    }
+  )
 
   override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
     case s.IsVar => (Seq(), Seq(), (_, _) => t.IsVar)
