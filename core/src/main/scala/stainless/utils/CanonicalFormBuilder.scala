@@ -47,7 +47,13 @@ class CanonicalForm(val bytes: Array[Byte]) {
  *
  * The produced sequence of bytes is unambiguous because types and expressions are all
  * prefixed by a unique code. This also means the original data could be reconstructed,
- * in theory -- but the format wasn't design to do that so it's expected to be ugly.
+ * in theory -- but the format wasn't designed to do that so it's expected to be ugly.
+ *
+ * NOTE When adding new trees, one needs to carefully update both [[storeTypeSpecifics]]
+ *      and [[storeExprSpecifics]] so that the types/expressions are mapped to a unique
+ *      sequence of bytes. The contract is that, for two types (or expressions), the
+ *      bytes should be equal iff the two are equivalent. The [[typeMapping]] and
+ *      [[exprMapping]] at the bottom should also be updated.
  */
 private class CanonicalFormBuilderImpl {
   import CanonicalFormBuilderImpl.{ exprMapping, typeMapping }
