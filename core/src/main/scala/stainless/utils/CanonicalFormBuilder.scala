@@ -25,7 +25,7 @@ object CanonicalFormBuilder {
 
 /** Canonical form for functions, expressions, ... */
 class CanonicalForm(val bytes: Array[Byte]) {
-  override def hashCode: Int = bytes.hashCode
+  override def hashCode: Int = java.util.Arrays.hashCode(bytes)
 
   override def equals(other: Any): Boolean = other match {
     // Because cf.bytes == bytes doesn't work, obviously.
@@ -106,7 +106,6 @@ private class CanonicalFormBuilderImpl {
   /******************* Internal State *************************************************************/
 
   private type UID = Short
-  private var nextId: UID = 0 /** Don't access this, except from [[registerId]]. */
 
   /** Hold mapping between **local** variables and [[UID]]. */
   private val mapping = MutableMap[Identifier, UID]()
@@ -118,7 +117,8 @@ private class CanonicalFormBuilderImpl {
   /******************* Internal Helpers ***********************************************************/
 
   /** Register a new, unique & fresh UID for the given [[id]]. */
-  private def registerId(id: Identifier): Unit = {
+  private val registerId: Identifier => Unit = { id =>
+    var nextId: UID = 0
     assert(nextId != -1) // waaay too many UID were used! (after wrap around)
     val uid = nextId
     mapping += id -> uid
@@ -193,7 +193,7 @@ private class CanonicalFormBuilderImpl {
     case xt.FractionLiteral(n, d) => storeBigInt(n); storeBigInt(d)
     case xt.BooleanLiteral(l) => storeBool(l)
     case xt.StringLiteral(l) => storeString(l)
-    case xt.GenericValue(_, _) => ??? // FIXME what's this "id"?
+    case xt.GenericValue(tp, id) => storeType(tp); storeInt(id)
     case xt.ADTSelector(_, sel) => storeId(sel)
     case xt.TupleSelect(_, index) => storeInt(index)
 
