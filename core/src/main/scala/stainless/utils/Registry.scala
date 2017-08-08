@@ -17,9 +17,9 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
  *
  * During the first [[update]]/[[remove]] - [[checkpoint]] cycle, the graph is updated as data
  * arrives. During the next cycles, the graph is frozen until the [[checkpoint]] to allow
- * inconsistent state in the graph to not impact the computation.
- *
- * TODO maybe [[freeze]]/[[unfreeze]] should be exposed and let the user manage this.
+ * inconsistent state in the graph to not impact the computation. The graph is immediately
+ * frozen after each [[checkpoint]], meaning one needs not explicitly freeze the graph after
+ * the first cycle.
  *
  * Specific implementations of this trait have to provide a context and facilities to compute
  * direct dependencies for functions and classes, as well as filters to identify data that
