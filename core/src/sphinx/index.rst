@@ -24,6 +24,7 @@ Contents:
    options
    faq
    references
+   internals
 
 
 Indices and tables
