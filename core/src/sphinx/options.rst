@@ -12,7 +12,7 @@ Additionally, if you need to pass options to the ``scalac`` frontend of Stainles
 you can do it by using a single dash ``-``. For example, try ``-Ybrowse:typer``.
 
 The rest of this section presents command-line options that Stainless recognizes.
-For a short (but always up-to-date) summary, you can also invoke ``leon --help``.
+For a short (but always up-to-date) summary, you can also invoke ``stainless --help``.
 
 Choosing which Stainless feature to use
 ---------------------------------------
@@ -59,7 +59,7 @@ These options are available to all Stainless components:
   where Stainless manipulates the input in a per-function basis.
 
   Stainless will match against suffixes of qualified names. For instance:
-  ``--functions=List.size`` will match the method ``leon.collection.List.size``,
+  ``--functions=List.size`` will match the method ``stainless.collection.List.size``,
   while  ``--functions=size`` will match all methods and functions named ``size``.
   This option supports ``_`` as wildcard: ``--functions=List._`` will
   match all ``List`` methods.
