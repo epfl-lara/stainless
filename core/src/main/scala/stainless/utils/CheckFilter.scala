@@ -33,6 +33,7 @@ trait CheckFilter {
       !(isLibrary || isUnchecked)
 
     case Some(funs) =>
+      // TODO Add support for wildcard `_` as specified in the documentation.
       val fullName = fixedFullName(fid)
       funs exists { f => fullName endsWith f }
   }
