@@ -8,7 +8,8 @@ trait CheckFilter {
 
   val ctx: inox.Context
 
-  private lazy val functions: Option[Seq[String]] = ctx.options.findOption(optFunctions)
+  type Path = Seq[String]
+  private def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
 
   // TODO this is probably done somewhere else in a cleaner fasion...
   private def fixedFullName(id: Identifier): String = id.fullName
@@ -25,17 +26,25 @@ trait CheckFilter {
     .replaceAllLiterally("$amp", "&")
     .replaceAllLiterally("$tilde", "~")
 
+  private lazy val pathsOpt: Option[Seq[Path]] = ctx.options.findOption(optFunctions) map { functions =>
+    functions map fullNameToPath
+  }
+
   /** Same as below. Note the _ <: ... tricks because Set are invariant. */
-  def shouldBeChecked(fid: Identifier, flags: Set[_ <: inox.ast.Trees#Flag]): Boolean = functions match {
+  def shouldBeChecked(fid: Identifier, flags: Set[_ <: inox.ast.Trees#Flag]): Boolean = pathsOpt match {
     case None =>
       val isLibrary = flags map { _.name } contains "library"
       val isUnchecked = flags map { _.name } contains "unchecked"
       !(isLibrary || isUnchecked)
 
-    case Some(funs) =>
-      // TODO Add support for wildcard `_` as specified in the documentation.
-      val fullName = fixedFullName(fid)
-      funs exists { f => fullName endsWith f }
+    case Some(paths) =>
+      // Support wildcard `_` as specified in the documentation.
+      // A leading wildcard is always assumes.
+      val path: Path = fullNameToPath(fixedFullName(fid))
+      paths exists { p =>
+        if (p endsWith Seq("_")) path containsSlice p.init
+        else path endsWith p
+      }
   }
 
   /** Checks whether the given function/class should be verified at some point. */
