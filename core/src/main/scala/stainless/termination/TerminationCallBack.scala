@@ -8,12 +8,12 @@ import frontend.CallBackWithRegistry
 import utils.CheckFilter
 
 /** Callback for termination */
-class TerminationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
+final class TerminationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
   private implicit val debugSection = DebugSectionTermination
 
   override type Report = TerminationComponent.Report
 
-  final override def beginExtractions(): Unit = TerminationComponent.onCycleBegin()
+  override def onCycleBegin(): Unit = TerminationComponent.onCycleBegin()
 
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
     context.reporter.debug(
@@ -24,5 +24,8 @@ class TerminationCallBack(override val context: inox.Context) extends CallBackWi
 
     TerminationComponent(program, context)
   }
+
+  override val cacheFilename = TerminationComponent.name + ".bin"
+
 }
 

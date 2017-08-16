@@ -54,7 +54,8 @@ trait MainHelpers extends inox.MainHelpers {
     extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
-    optWatch -> Description(General, "Re-run stainless upon file changes")
+    optWatch -> Description(General, "Re-run stainless upon file changes"),
+    frontend.optPersistentRegistryCache -> Description(General, "Load/save program verification status on disk")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)

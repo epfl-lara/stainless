@@ -7,6 +7,8 @@ import extraction.xlang.{ trees => xt }
 
 import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
+import java.io.{ File, FileInputStream, FileOutputStream, IOException }
+
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
@@ -27,7 +29,7 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
  */
 trait Registry {
   protected val context: inox.Context
-  import context._
+  import context.reporter
 
   /******************* Public Interface ***********************************************************/
 
@@ -95,7 +97,111 @@ trait Registry {
     }
 
     graph.freeze() // (re-)freeze for next cycle
+    persistentCache = None // remove the cache after the first cycle (and any other cycle).
     res
+  }
+
+  /** Import the canonical form cache from the given file. Not thread-safe. */
+  def loadCache(file: File): Unit = {
+    val stream = new FileInputStream(file)
+
+    def readBytes(size: Int): Array[Byte] = {
+      require(size > 0)
+      val bytes = new Array[Byte](size)
+      assert(size == stream.read(bytes))
+      bytes
+    }
+
+    def readInt(): Int = {
+      val bytes = readBytes(4)
+      BigInt(bytes).intValue
+    }
+
+    def readBool(): Boolean = {
+      val b = stream.read()
+      assert(b == 0 || b == 1)
+      b == 1
+    }
+
+    def readId(): Identifier = {
+      val len = readInt()
+      val idBytes = readBytes(len)
+      val globalId = readInt()
+      val id = readInt()
+      val name = new String(idBytes)
+      new Identifier(name, globalId, id)
+    }
+
+    try {
+      val count = readInt()
+      reporter.info(s"Reading $count pairs!")
+      val mapping = MutableMap[Identifier, (CanonicalForm, Boolean)]()
+
+      for { i <- 0 until count } {
+        val id = readId()
+        val checked = readBool()
+        val size = readInt()
+        val bytes = readBytes(size)
+        mapping += id -> (new CanonicalForm(bytes), checked)
+      }
+
+      persistentCache = Some(mapping.toMap)
+    } finally {
+      stream.close()
+    }
+  }
+
+  /** Export the canonical form cache to the given file. Not thread-safe. */
+  def saveCache(file: File): Unit = {
+    val stream = new FileOutputStream(file)
+
+    def writeInt(x: Int): Unit = {
+      val bi = BigInt(x)
+      val repr = bi.toByteArray
+      val pad: Byte = if (x < 0) 0xFF.toByte else 0x00
+      val bytes = repr.reverse.padTo(4, pad).reverse
+      assert(bytes.size == 4)
+      stream.write(bytes)
+    }
+
+    def writeBool(b: Boolean): Unit = {
+      stream.write(if (b) 1 else 0)
+    }
+
+    def writeId(id: Identifier): Unit = {
+      val idBytes = id.name.getBytes
+      val len = idBytes.size
+      writeInt(len)
+      stream.write(idBytes)
+      writeInt(id.globalId)
+      writeInt(id.id)
+    }
+
+    var failure = false
+    try {
+      // For each (id, cf) in cache, save the pair.
+      val nodes = graph.getNodes
+      reporter.info(s"Saving ${nodes.size} pairs!")
+      writeInt(nodes.size)
+      nodes foreach { case (id, (node, deps)) =>
+        val (cf, checked) = node match {
+          case Left(cd) => CanonicalFormBuilder(cd) -> shouldBeChecked(cd)
+          case Right(fd) => CanonicalFormBuilder(fd) -> shouldBeChecked(fd)
+        }
+
+        writeId(id)
+        writeBool(checked)
+        writeInt(cf.bytes.size)
+        stream.write(cf.bytes)
+      }
+    } catch {
+      case e: IOException =>
+        reporter.error(s"The registry cache couldn't be written to ${file.getAbsolutePath}, reason: $e")
+        failure = true
+    } finally {
+      stream.close()
+      if (failure) file.delete()
+    }
   }
 
 
@@ -156,9 +262,29 @@ trait Registry {
     }
   }
 
-  private def isOfInterest(node: NodeValue): Boolean = node match {
-    case Left(cd) => shouldBeChecked(cd)
-    case Right(fd) => shouldBeChecked(fd)
+  private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean)]] = None
+
+  private def isOfInterest(node: NodeValue): Boolean = {
+    def default = node match {
+      case Left(cd) => shouldBeChecked(cd)
+      case Right(fd) => shouldBeChecked(fd)
+    }
+
+    // If we have a cache (first cycle only), check if the node was already computed.
+    persistentCache match {
+      case None => default
+
+      case Some(cache) =>
+        val (id, cf) = node match {
+          case Left(cd) => cd.id -> CanonicalFormBuilder(cd)
+          case Right(fd) => fd.id -> CanonicalFormBuilder(fd)
+        }
+
+        cache.get(id) match {
+          case None => default
+          case Some((cachedCf, checked)) => !checked && cachedCf == cf && default
+        }
+    }
   }
 
   private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
@@ -173,10 +299,9 @@ trait Registry {
       (functions map { fd => (fd.id, Right(fd): NodeValue, computeDirectDependencies(fd)) })
 
     // Critical Section
-    val results: Seq[Result] =
-      this.synchronized {
-        newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input)) }
-      }
+    val results: Seq[Result] = this.synchronized {
+      newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input)) }
+    }
 
     if (results.isEmpty) None
     else {

@@ -7,6 +7,19 @@ package object frontend {
   object DebugSectionFrontend extends inox.DebugSection("frontend")
 
   /**
+   * The persistent caches are stored in the same directory, denoted by this option.
+   *
+   * Each [[CallBackWithRegistry]] store its cache in a different file to avoid
+   * confusion with custom filters.
+   */
+  object optPersistentRegistryCache extends inox.OptionDef[String] {
+    val name = "registry-cache"
+    val default = "registry_cache/"
+    val parser = inox.OptionParsers.stringParser
+    val usageRhs = "directory"
+  }
+
+  /**
    * Given a context (with its reporter) and a compiler factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components.
    *

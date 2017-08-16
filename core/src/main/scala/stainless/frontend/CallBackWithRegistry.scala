@@ -8,26 +8,37 @@ import utils.{ DependenciesFinder, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
+import java.io.File
+
 trait CallBackWithRegistry extends CallBack { self =>
-  protected val context: inox.Context
+  import context.{ options, reporter }
 
   private implicit val debugSection = DebugSectionFrontend
 
   /******************* Public Interface: Override CallBack ***************************************/
 
+  final override def beginExtractions(): Unit = {
+    if (firstCycle) {
+      loadRegistryCache()
+      firstCycle = false
+    }
+
+    onCycleBegin()
+  }
+
   final override def apply(file: String, unit: xt.UnitDef,
                            classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    context.reporter.debug(s"Got a unit for $file: ${unit.id} with:")
-    context.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
-    context.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
+    reporter.debug(s"Got a unit for $file: ${unit.id} with:")
+    reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
     // Remove any node from the registry that no longer exists.
     previousFileData get file foreach { case (prevClasses, prevFuns) =>
       val removedClasses = prevClasses filterNot { cd => classes exists { _.id == cd.id } }
       val removedFuns = prevFuns filterNot { cd => functions exists { _.id == cd.id } }
-      context.reporter.debug(s"Removing the following from the registry:")
-      context.reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
-      context.reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
+      reporter.debug(s"Removing the following from the registry:")
+      reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
+      reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
       registry.remove(removedClasses, removedFuns)
     }
 
@@ -39,6 +50,7 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   final override def endExtractions(): Unit = {
     val symss = registry.checkpoint()
+    saveRegistryCache()
     processSymbols(symss)
   }
 
@@ -52,7 +64,12 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Customisation Points *******************************************************/
 
+  protected val context: inox.Context
+
   protected type Report <: AbstractReport
+
+  /** Reset state for a new cycle. */
+  protected def onCycleBegin(): Unit
 
   /** Produce a report for the given program, in a blocking fashion. */
   protected def solve(program: Program { val trees: extraction.xlang.trees.type }): Report
@@ -60,6 +77,9 @@ trait CallBackWithRegistry extends CallBack { self =>
   /** Checks whether the given function/class should be processed at some point. */
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
   protected def shouldBeChecked(cd: xt.ClassDef): Boolean
+
+  /** Filename of the registry cache under the directory denoted by [[optPersistentCache]]. */
+  protected val cacheFilename: String
 
 
   /******************* Internal State *************************************************************/
@@ -78,8 +98,34 @@ trait CallBackWithRegistry extends CallBack { self =>
     override def shouldBeChecked(cd: xt.ClassDef): Boolean = self.shouldBeChecked(cd)
   }
 
+  private var firstCycle = true // used to trigger cache loading the first time.
+
 
   /******************* Internal Helpers ***********************************************************/
+
+  private def getCacheDirectory: Option[File] = options findOption optPersistentRegistryCache map { d =>
+    val dir = if (d.isEmpty) optPersistentRegistryCache.default else d
+    new File(dir).getAbsoluteFile
+  }
+
+  /** Load the registry cache, if specified by the user and available. */
+  private def loadRegistryCache(): Unit = getCacheDirectory foreach { dir =>
+    reporter.debug(s"Loading registry cache from $dir/$cacheFilename")
+    dir.mkdirs()
+    assert(dir.isDirectory)
+    val file = new File(dir, cacheFilename)
+    if (file.isFile()) {
+      registry.loadCache(file)
+    }
+  }
+
+  /** Save the registry cache, if specified by the user. */
+  private def saveRegistryCache(): Unit = getCacheDirectory foreach { dir =>
+    reporter.debug(s"Saving registry cache to $dir/$cacheFilename")
+    val file = new File(dir, cacheFilename)
+    registry.saveCache(file)
+  }
+
 
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = symss foreach { syms =>
     // The registry tells us something should be verified in these symbols.
@@ -89,15 +135,15 @@ trait CallBackWithRegistry extends CallBack { self =>
       syms.ensureWellFormed
     } catch {
       case e: syms.TypeErrorException =>
-        context.reporter.error(e.pos, e.getMessage)
-        context.reporter.error(s"The extracted sub-program in not well formed.")
-        context.reporter.error(s"Symbols are:")
-        context.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-        context.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-        context.reporter.fatalError(s"Aborting from CallBackWithRegistry")
+        reporter.error(e.pos, e.getMessage)
+        reporter.error(s"The extracted sub-program in not well formed.")
+        reporter.error(s"Symbols are:")
+        reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+        reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+        reporter.fatalError(s"Aborting from CallBackWithRegistry")
     }
 
-    context.reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+    reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
     processProgram(program)
   }
@@ -114,3 +160,4 @@ trait CallBackWithRegistry extends CallBack { self =>
   }
 
 }
+

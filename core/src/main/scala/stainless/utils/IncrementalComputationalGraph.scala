@@ -53,6 +53,9 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     process()
   }
 
+  /** Get a read-only version of the graph. */
+  def getNodes: Map[Id, (Input, Set[Id])] = nodes.toMap map { case (id, n) => (id, n.in -> n.deps) }
+
 
   /******************* Customisation Points *******************************************************/
 

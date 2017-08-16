@@ -8,13 +8,13 @@ import frontend.CallBackWithRegistry
 import utils.CheckFilter
 
 /** Callback for verification */
-class VerificationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
+final class VerificationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
 
   private implicit val debugSection = DebugSectionVerification
 
   override type Report = VerificationComponent.Report
 
-  final override def beginExtractions(): Unit = VerificationComponent.onCycleBegin()
+  override def onCycleBegin(): Unit = VerificationComponent.onCycleBegin()
 
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
     context.reporter.debug(
@@ -25,6 +25,8 @@ class VerificationCallBack(override val context: inox.Context) extends CallBackW
 
     VerificationComponent(program, context)
   }
+
+  override val cacheFilename = VerificationComponent.name + ".bin"
 
 }
 
