@@ -8,36 +8,48 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Contexts._
 import stainless.ast.SymbolIdentifier
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{ Map => MutableMap }
 
 class SymbolsContext {
-  private val symbolToSymbol: MutableMap[Symbol, ast.Symbol] = MutableMap.empty
-  private val symbolToIdentifier: MutableMap[Symbol, SymbolIdentifier] = MutableMap.empty
 
-  def getIdentifier(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = {
-    symbolToIdentifier.get(sym) match {
-      case Some(id) => id
-      case None =>
-        val overrides = sym.allOverriddenSymbols
-        val top = if (overrides.nonEmpty) overrides.toSeq.last else sym
-        val symbol = symbolToSymbol.get(top) match {
-          case Some(symbol) => symbol
-          case None =>
-            val name: String = if (sym is TypeParam) {
-              sym.showName
-            } else {
-              sym.fullName.toString.trim.split("\\.").map {
-                name => if (name.endsWith("$")) name.init else name
-              }.mkString(".")
-            }
-            val symbol = ast.Symbol(name)
-            symbolToSymbol += top -> symbol
-            symbol
+  /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
+  def fetch(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
+    val overrides = sym.allOverriddenSymbols
+    val top = if (overrides.nonEmpty) overrides.toSeq.last else sym
+    val symbol = s2s.getOrElseUpdate(top, {
+      val name: String =
+        if (sym is TypeParam) {
+          sym.showName
+        } else {
+          sym.fullName.toString.trim.split("\\.").map {
+            name => if (name.endsWith("$")) name.init else name
+          }.mkString(".")
         }
 
-        val id = SymbolIdentifier(symbol)
-        symbolToIdentifier += sym -> id
-        id
-    }
-  }
+      ast.Symbol(name)
+    })
+
+    SymbolIdentifier(symbol)
+  })
+
+  /** Get the identifier for the class invariant of [[sym]]. */
+  def fetchInvIdForClass(sym: Symbol)(implicit ctx: Context): SymbolIdentifier =
+    invs.getOrElseUpdate(fetch(sym), {
+      SymbolIdentifier(invSymbol)
+    })
+
+  private def getPath(sym: Symbol)(implicit ctx: Context): String = sym.fullName + sym.id.toString
+
+  /** Mapping from [[Symbol]] (or rather: its path) and the stainless identifier. */
+  private val s2i = MutableMap[String, SymbolIdentifier]()
+
+  /** Mapping useful to use the same top symbol mapping. */
+  private val s2s = MutableMap[Symbol, ast.Symbol]()
+
+  /** Mapping for class invariants: class' id -> inv's id. */
+  private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
+  private val invSymbol = stainless.ast.Symbol("inv")
+
 }
+
+

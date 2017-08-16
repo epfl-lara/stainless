@@ -3,11 +3,71 @@
 package stainless
 package frontends.scalac
 
-import extraction.xlang.{trees => xt}
-import scala.tools.nsc.{Global, Settings => NSCSettings, CompilerCommand}
+import ast.SymbolIdentifier
+import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
+
+import scala.tools.nsc.{ Global, Settings => NSCSettings, CompilerCommand }
 import scala.reflect.internal.Positions
 
-class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
+import scala.collection.mutable.{ Map => MutableMap }
+
+object SymbolMapping {
+  def getPath(sym: Global#Symbol): String =
+    sym.ownerChain.reverse map { s => s"${s.name}#${kind(s)}" } mkString "."
+
+  def empty = new SymbolMapping()
+
+  /**
+   * To avoid suffering too much from changes in symbols' id, we generate a
+   * more stable kind to disambiguate symbols. This allows --watch to not be
+   * fooled by the insertion/deletion of symbols (e.g. new top level classes)
+   * but unfortunately not methods because overloading/generics makes things
+   * ambiguous and hard to unify.
+   */
+  private def kind(sym: Global#Symbol): String = {
+    if (sym.isPackageClass) "0"
+    else if (sym.isModule) "1"
+    else if (sym.isModuleClass) "2"
+    else if (sym.isClass) "3"
+    else if (sym.isMethod) "m" + sym.id
+    else if (sym.isType) "5"
+    else if (sym.isTerm) "t" + sym.id // Many things are terms... Fallback to its id
+    else ???
+  }
+}
+
+class SymbolMapping {
+  import SymbolMapping.getPath
+
+  /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
+  def fetch(sym: Global#Symbol): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
+    val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+    val symbol = s2s.getOrElseUpdate(top, {
+      val name = sym.fullName.toString.trim
+      ast.Symbol(if (name endsWith "$") name.init else name)
+    })
+
+    SymbolIdentifier(symbol)
+  })
+
+  /** Get the identifier for the class invariant of [[sym]]. */
+  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = invs.getOrElseUpdate(fetch(sym), {
+    SymbolIdentifier(invSymbol)
+  })
+
+  /** Mapping from [[Global#Symbol]] (or rather: its path) and the stainless identifier. */
+  private val s2i = MutableMap[String, SymbolIdentifier]()
+
+  /** Mapping useful to use the same top symbol mapping. */
+  private val s2s = MutableMap[Global#Symbol, ast.Symbol]()
+
+  /** Mapping for class invariants: class' id -> inv's id. */
+  private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
+  private val invSymbol = stainless.ast.Symbol("inv")
+
+}
+
+class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
      with Positions {
 
@@ -16,15 +76,10 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
     val runsAfter = List[String]("refchecks")
     val runsRightAfter = None
     val ctx = ScalaCompiler.this.ctx
+    val callback = ScalaCompiler.this.callback
+    val cache = ScalaCompiler.this.cache
   } with StainlessExtraction
 
-  object saveImports extends {
-    val global: ScalaCompiler.this.type = ScalaCompiler.this
-    val runsAfter = List[String]("pickler")
-    val runsRightAfter = None
-    val ctx = ScalaCompiler.this.ctx
-  } with SaveImports
-  
   override protected def computeInternalPhases() : Unit = {
     val phs = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
@@ -35,9 +90,9 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
       superAccessors          -> "add super accessors in traits and nested classes",
       extensionMethods        -> "add extension methods for inline classes",
       pickler                 -> "serialize symbol tables",
-      saveImports             -> "save imports to pass to stainlessExtraction",
       refChecks               -> "reference/override checking, translate nested objects",
       stainlessExtraction     -> "extracts stainless trees out of scala trees"
+      // TODO drop in replacement? add next phases, plus last phase to report VC results
     )
     phs foreach { phasesSet += _._1 }
   }
@@ -50,29 +105,63 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context)
 }
 
 object ScalaCompiler {
-  def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.UnitDef],
-    Program { val trees: xt.type }
-  ) = {
-    val timer = ctx.timers.frontend.start()
 
+  /** Complying with [[frontend]]'s interface */
+  class Factory(
+    override val extraCompilerArguments: Seq[String],
+    override val libraryFiles: Seq[String]
+  ) extends FrontendFactory {
+
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
+      new ThreadedFrontend(callback, ctx) {
+        var underlying: ScalaCompiler#Run = _
+        val cache = SymbolMapping.empty
+
+        val args = allCompilerArguments(compilerArgs)
+        val settings = buildSettings(ctx)
+
+        override val sources = getFiles(args, ctx, settings)
+
+        override def initRun(): Unit = {
+          assert(underlying == null)
+          val compiler = new ScalaCompiler(settings, ctx, callback, cache)
+          underlying = new compiler.Run
+        }
+
+        override def onRun(): Unit = {
+          underlying.compile(sources)
+        }
+
+        override def onEnd(): Unit = {
+          underlying = null
+        }
+
+        override def onStop(thread: Thread): Unit = {
+          underlying.cancel()
+          thread.join()
+        }
+      }
+  }
+
+  /** Let the frontend analyses the arguments to understand which files should be compiled. */
+  private def getFiles(compilerArgs: Seq[String], ctx: inox.Context, settings: NSCSettings): List[String] = {
+    val command = new CompilerCommand(compilerArgs.toList, settings) {
+      override val cmdName = "stainless"
+    }
+
+    if (!command.ok) { ctx.reporter.fatalError("No input program.") }
+
+    command.files
+  }
+
+  /** Build settings for the nsc tools. */
+  private def buildSettings(ctx: inox.Context): NSCSettings = {
     val settings = new NSCSettings
 
-    def getFiles(path: String): Option[Array[String]] =
-      scala.util.Try(new java.io.File(path).listFiles().map(_.getAbsolutePath)).toOption
-
-    val scalaLib = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource).map {
+    // Attempt to find where the scala lib is.
+    val scalaLib: String = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource) map {
       _.getLocation.getPath
-    }.orElse(for {
-      // we are in an Eclipse environment, look in plugins for the Scala lib
-      eclipseHome <- Option(System.getenv("ECLIPSE_HOME"))
-      pluginsHome = eclipseHome + "/plugins"
-      plugins <- getFiles(pluginsHome)
-      path <- plugins.find(_ contains "scala-library")
-    } yield path).getOrElse(ctx.reporter.fatalError(
-      "No Scala library found. If you are working in Eclipse, " +
-      "make sure you set the ECLIPSE_HOME environment variable to your Eclipse installation home directory."
-    ))
+    } getOrElse { ctx.reporter.fatalError("No Scala library found.") }
 
     settings.classpath.value = scalaLib
     settings.usejavacp.value = false
@@ -80,21 +169,8 @@ object ScalaCompiler {
     settings.Yrangepos.value = true
     settings.skip.value = List("patmat")
 
-    val command = new CompilerCommand(compilerOpts, settings) {
-      override val cmdName = "stainless"
-    }
-
-    if (command.ok) {
-      val compiler = new ScalaCompiler(settings, ctx)
-      val run = new compiler.Run
-      run.compile(command.files)
-      timer.stop()
-
-      val result = compiler.stainlessExtraction.extractProgram
-      if (ctx.reporter.errorCount > 0) ctx.reporter.fatalError("There were some errors.")
-      else result
-    } else {
-      ctx.reporter.fatalError("No input program.")
-    }
+    settings
   }
+
 }
+

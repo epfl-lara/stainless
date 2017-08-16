@@ -2,23 +2,28 @@
 
 package stainless
 
-import java.io.{File, PrintWriter}
+import java.io.{ File, PrintWriter }
+import java.util.concurrent.{ ExecutorService, Executors }
 
-import extraction.xlang.{trees => xt}
 import org.json4s.JsonAST.JObject
 import org.json4s.JsonDSL._
 import org.json4s.native.JsonMethods._
 
 object MainHelpers {
-  val components: Seq[Component] = Seq(
-    verification.VerificationComponent,
-    termination.TerminationComponent
-  )
+
+  /** See [[frontend.allComponents]]. */
+  val components: Seq[Component] = frontend.allComponents
+
+  /** Executor used to execute tasks concurrently. */
+  // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
+  // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
+  // val executor = Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors - 2)
+  val executor: ExecutorService = Executors.newWorkStealingPool()
+  // val executor = Executors.newSingleThreadExecutor()
+
 }
 
 trait MainHelpers extends inox.MainHelpers {
-
-  val components = MainHelpers.components
 
   case object Pipelines extends Category
   case object Verification extends Category
@@ -30,6 +35,8 @@ trait MainHelpers extends inox.MainHelpers {
     val parser = inox.OptionParsers.stringParser
     val usageRhs = "file"
   }
+
+  object optWatch extends inox.FlagOptionDef("watch", false)
 
   override protected def getOptions = super.getOptions ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
@@ -44,76 +51,87 @@ trait MainHelpers extends inox.MainHelpers {
       "  - termination: each solver call takes at most n / 100 seconds"),
     extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
-    optJson -> Description(General, "Output verification and termination reports to a JSON file")
+    optJson -> Description(General, "Output verification and termination reports to a JSON file"),
+    optWatch -> Description(General, "Re-run stainless upon file changes")
   ) ++ MainHelpers.components.map { component =>
-    val option = new inox.FlagOptionDef(component.name, false)
+    val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
   }
 
-  override protected def getCategories = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
+  override protected def getCategories: Seq[Category] = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
 
-  override protected def getDebugSections = super.getDebugSections ++ Set(
+  override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
     termination.DebugSectionTermination,
-    DebugSectionExtraction
+    DebugSectionExtraction,
+    frontend.DebugSectionFrontend
   )
 
-  override protected def displayVersion(reporter: inox.Reporter) = {
+  override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
   }
 
   override protected def getName: String = "stainless"
 
   /* NOTE: Should be implemented by a generated Main class in each compiler-specific project: */
-  val libraryFiles: List[String]
-  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.UnitDef],
-    Program { val trees: xt.type }
-  )
+  val factory: frontend.FrontendFactory
+
+  // TODO add (optional) customisation points for CallBacks to access intermediate reports(?)
 
   def main(args: Array[String]): Unit = try {
-    val inoxCtx = setup(args)
-    val compilerArgs = libraryFiles ++ args.toList.filterNot(_.startsWith("--"))
+    val ctx = setup(args)
+    val compilerArgs = args.toList filterNot { _.startsWith("--") }
 
-    val (structure, program) = extractFromSource(inoxCtx, compilerArgs)
-    try {
-      program.symbols.ensureWellFormed
-    } catch {
-      case e: program.symbols.TypeErrorException =>
-        inoxCtx.reporter.error(e.pos, e.getMessage)
-        inoxCtx.reporter.fatalError(s"The extracted program in not well typed.")
-    }
+    val compiler = frontend.run(ctx, compilerArgs, factory)
 
-    val activeComponents = components.filter { c =>
-      inoxCtx.options.options.collectFirst {
-        case inox.OptionValue(o, value: Boolean) if o.name == c.name => value
-      }.getOrElse(false)
-    }
+    // Passively wait until the compiler has finished
+    compiler.join()
 
-    val toExecute = if (activeComponents.isEmpty) {
-      Seq(verification.VerificationComponent)
+    // When in "watch" mode, no final report is printed as there is no proper end.
+    // In fact, we might not even have a full list of VCs to be checked...
+    val watch = ctx.options.findOptionOrDefault(optWatch)
+
+    if (watch) {
+      val files: Set[File] = compiler.sources.toSet map { file: String => new File(file).getAbsoluteFile }
+      def action() = {
+        compiler.run()
+        compiler.join()
+      }
+      val watcher = new utils.FileWatcher(ctx, files, action)
+      watcher.run()
     } else {
-      activeComponents
+      // Process reports: print summary/export to JSON
+      val reports: Seq[AbstractReport] = compiler.getReports
+      reports foreach { _.emit(ctx) }
+
+      ctx.options.findOption(optJson) foreach { file =>
+        val output = if (file.isEmpty) optJson.default else file
+        ctx.reporter.info(s"Printing JSON summary to $output")
+        exportJson(reports, output)
+      }
     }
 
-    val reports = for (c <- toExecute) yield c(structure, program)
-    reports foreach { _.emit() }
-
-    inoxCtx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-      inoxCtx.timers.outputTable(debug)
+    ctx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
+      ctx.timers.outputTable(debug)
     }
 
-    def exportJson(file: String): Unit = {
-      inoxCtx.reporter.info(s"Outputing JSON summary to $file")
-      val subs = (toExecute zip reports) map { case (c, r) => JObject(c.name -> r.emitJson()) }
-      val json = subs reduce { _ ~ _ }
-      val string = pretty(render(json))
-      val pw = new PrintWriter(new File(file))
-      try pw.write(string) finally pw.close()
+    // Shutdown the pool for a clean exit.
+    val unexecuted = MainHelpers.executor.shutdownNow()
+    if (!ctx.interruptManager.isInterrupted && unexecuted.size != 0) {
+      ctx.reporter.error("Some tasks were not run (" + unexecuted.size + ")")
     }
-
-    inoxCtx.options.findOption(optJson) foreach { file => exportJson(if (file.isEmpty) optJson.default else file) }
   } catch {
     case _: inox.FatalError => System.exit(1)
   }
+
+  /** Exports the reports to the given file in JSON format. */
+  private def exportJson(reports: Seq[AbstractReport], file: String): Unit = {
+    val subs = reports map { r => JObject(r.name -> r.emitJson) }
+    val json = if (subs.isEmpty) JObject() else subs reduce { _ ~ _ }
+    val string = pretty(render(json))
+    val pw = new PrintWriter(new File(file))
+    try pw.write(string) finally pw.close()
+  }
+
 }
+

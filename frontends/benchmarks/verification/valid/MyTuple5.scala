@@ -2,7 +2,7 @@
 
 object MyTuple5 {
 
-  abstract class A
+  sealed abstract class A
   case class B(t: (Int, Int)) extends A
   case class C(a: A) extends A
 

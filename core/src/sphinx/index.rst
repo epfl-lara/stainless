@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Leon documentation
-==================
+Stainless documentation
+=======================
 
 Contents:
 
@@ -24,6 +24,7 @@ Contents:
    options
    faq
    references
+   internals
 
 
 Indices and tables

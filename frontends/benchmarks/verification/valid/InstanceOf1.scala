@@ -2,7 +2,7 @@
 
 object InstanceOf1 {
 
-  abstract class A
+  sealed abstract class A
   case class B(i: Int) extends A
   case class C(i: Int) extends A
 

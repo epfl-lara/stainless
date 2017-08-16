@@ -26,7 +26,7 @@ package object extraction {
 
   /** Unifies all stainless tree definitions */
   trait Trees extends ast.Trees with termination.Trees { self =>
-    override def getDeconstructor(that: inox.ast.Trees) = that match {
+    override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
       case tree: Trees => new TreeDeconstructor {
         protected val s: self.type = self
         protected val t: tree.type = tree
@@ -58,7 +58,7 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
-  case class MissformedStainlessCode(val tree: inox.ast.Trees#Tree, msg: String)
+  case class MissformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
   def extract(program: Program { val trees: xlang.trees.type }): Program { val trees: extraction.trees.type } = {

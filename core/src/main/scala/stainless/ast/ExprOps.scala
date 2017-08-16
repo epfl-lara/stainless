@@ -76,7 +76,7 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Adds a body to a specification
     *
-    * @param expr The specification expression [[Expressions.Ensuring]] or [[Expressions.Require]].
+    * @param e The specification expression [[Expressions.Ensuring]] or [[Expressions.Require]].
     * If none of these, the argument is discarded.
     * @param body An option of [[Expressions.Expr]] possibly containing an expression body.
     * @return The post/pre condition with the body. If no body is provided, returns [[Expressions.NoTree]]

@@ -106,22 +106,20 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
       in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
       .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
     
-    
-    IO.write(main, s"""|package stainless
-                       |
-                       |import extraction.xlang.{trees => xt}
-                       |
-                       |object Main extends MainHelpers {
-                       |  val libraryFiles = List(
-                          ${removeSlashU(libraryFiles
-      .mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
-                       |  )
-                       |
-                       |  def extractFromSource(ctx: inox.Context, compilerOpts: List[String]): (
-                       |    List[xt.UnitDef],
-                       |    Program { val trees: xt.type }
-                       |  ) = frontends.${frontendClass.value}(ctx, List("-classpath", "${"\"\""+removeSlashU(extraClasspath.value)+"\"\""}") ++ compilerOpts)
-                       |}""".stripMargin)
+    IO.write(main,
+      s"""|package stainless
+          |
+          |object Main extends MainHelpers {
+          |
+          |  val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
+          |
+          |  val libraryFiles = List(
+          |    ${removeSlashU(libraryFiles.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
+          |  )
+          |
+          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryFiles)
+          |
+          |}""".stripMargin)
     Seq(main)
   }) ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
@@ -197,6 +195,8 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 lazy val cafebabe = ghProject("git://github.com/psuter/cafebabe.git", "49dce3c83450f5fa0b5e6151a537cc4b9f6a79a6")
 
+// Allow integration test to use facilities from regular tests
+lazy val IntegrationTest = config("it") extend(Test)
 
 lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")

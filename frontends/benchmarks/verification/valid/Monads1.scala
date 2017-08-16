@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Monads1 {
-  abstract class Try[T]
+  sealed abstract class Try[T]
   case class Success[T](value: T) extends Try[T]
   case class Failure[T](error: Int) extends Try[T]
 

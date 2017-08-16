@@ -9,50 +9,59 @@ import dotty.tools.dotc.transform._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
-import extraction.xlang.{trees => xt}
+import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
 
-class DottyCompiler(inoxCtx: inox.Context) extends Compiler {
-
-  val extraction = new StainlessExtraction(inoxCtx)
-
+class DottyCompiler(ctx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Compiler {
   override def phases: List[List[Phase]] = List(
     List(new FrontEnd),
     List(new PostTyper),
-    List(extraction)
+    List(new StainlessExtraction(ctx, callback, cache))
   )
 }
 
-object DottyCompiler {
-  def apply(ctx: inox.Context, compilerOpts: List[String]): (
-    List[xt.UnitDef],
-    Program { val trees: xt.type }
-  ) = {
-    implicit val debugSection = DebugSectionExtraction
-    val timer = ctx.timers.frontend.start()
+private class DottyDriver(args: Seq[String], compiler: DottyCompiler) extends Driver {
+  override def newCompiler(implicit ctx: Context) = compiler
 
-    val compiler = new DottyCompiler(ctx)
-    val driver = new Driver {
-      def newCompiler(implicit ctx: Context) = compiler
-    }
-
-    val report = try {
-      driver.process(compilerOpts.toArray)
-    } catch {
-      case e: ImpureCodeEncounteredException =>
-        ctx.reporter.debug(s"Extraction failed because of:")
-        ctx.reporter.debug(e.pos, e.getMessage, e)
-        ctx.reporter.fatalError(e.pos, e.getMessage)
-    } finally {
-      timer.stop()
-    }
-
-    val program = compiler.extraction.getProgram
-    val structure = compiler.extraction.getStructure
-
-    if (report.hasErrors) {
-      ctx.reporter.fatalError(s"Unable to extract the program because of ${report.errorCount} errors.")
-    }
-
-    (structure, program)
+  lazy val files = {
+    val (files, _) = setup(args.toArray, initCtx)
+    files
   }
+
+  def run(): Unit = process(args.toArray)
 }
+
+
+object DottyCompiler {
+
+  /** Complying with [[frontend]]'s interface */
+  class Factory(
+    override val extraCompilerArguments: Seq[String],
+    override val libraryFiles: Seq[String]
+  ) extends FrontendFactory {
+
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
+      new ThreadedFrontend(callback, ctx) {
+
+        // Share the same symbols between several runs.
+        val cache = new SymbolsContext
+
+        val compiler = new DottyCompiler(ctx, callback, cache)
+        val args = allCompilerArguments(compilerArgs)
+
+        val driver = new DottyDriver(args, compiler)
+
+        override val sources = driver.files
+
+        override def initRun(): Unit = { /* nothing */ }
+        override def onRun(): Unit = { driver.run() }
+        override def onEnd(): Unit = { /* nothing */ }
+        override def onStop(thread: Thread): Unit = {
+          // TODO implement a graceful stop! Current implementation might not work anyway...
+          thread.interrupt()
+        }
+      }
+
+  }
+
+}
+

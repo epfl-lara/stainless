@@ -32,8 +32,8 @@ that it always holds.
 
 .. code-block:: scala
 
-    import leon.collection._ // for List
-    import leon.lang._       // for holds
+    import stainless.collection._ // for List
+    import stainless.lang._       // for holds
 
     object Example {
       def appendContent[A](l1: List[A], l2: List[A]): Boolean = {
@@ -51,8 +51,8 @@ at the end of a list has no effect.
 
 .. code-block:: scala
 
-    import leon.collection._ // for List
-    import leon.lang._       // for holds
+    import stainless.collection._ // for List
+    import stainless.lang._       // for holds
 
     object Example {
       def rightUnitAppend[T](l1: List[T]): Boolean = {
@@ -101,9 +101,9 @@ of the definition of ``++``:
 
 .. code-block:: scala
 
-    import leon.collection._ // for List
-    import leon.lang._       // for holds
-    import leon.proof._      // for because
+    import stainless.collection._ // for List
+    import stainless.lang._       // for holds
+    import stainless.proof._      // for because
 
     object Example {
       def rightUnitAppend[T](l1: List[T]): Boolean = {
@@ -232,7 +232,7 @@ method.  This is especially true while one is exploring the branches
 of a case analysis or wants to quickly check whether Stainless is able to
 prove a seemingly trivial statement automatically (we will see
 examples of such situations in the coming sections).  For such cases,
-one can use the ``check`` function from ``leon.proof``.  The ``check``
+one can use the ``check`` function from ``stainless.proof``.  The ``check``
 function behaves as the identity function on Booleans but additionally
 assumes its argument in its precondition.  As a result, Stainless will
 check that ``x`` holds while verifying the call to ``check(x)``.
@@ -240,7 +240,7 @@ For example, when verifying the following function:
 
 .. code-block:: scala
 
-    import leon.proof.check
+    import stainless.proof.check
 
     def foo(x: BigInt): Boolean = {
       check(x >= 0 || x < 0) && check(x + 0 == 0)
@@ -277,7 +277,7 @@ inductive property, namely ``rightUnitAppend``.  In fact, using
 
 .. code-block:: scala
 
-    import leon.annotation._  // for @induct
+    import stainless.annotation._  // for @induct
 
     @induct
     def rightUnitAppend[T](l1: List[T]): Boolean = {
@@ -293,8 +293,8 @@ case analysis*.  Consider the following lemma about list reversal:
 
 .. code-block:: scala
 
-    import leon.collection._ // for List
-    import leon.lang._       // for holds
+    import stainless.collection._ // for List
+    import stainless.lang._       // for holds
 
     object Example {
       def reverseReverse[T](l: List[T]): Boolean = {
@@ -625,7 +625,7 @@ and simply write
      }.holds
 
 Or we can employ the equational reasoning DSL provided by the
-``leon.proofs`` package to remove the duplicate expressions and
+``stainless.proofs`` package to remove the duplicate expressions and
 interleave the equations with their associated proofs.  This has the
 advantage of not losing information that is still useful for a human
 being reading the proof later on:
@@ -694,9 +694,9 @@ defined on lists and makes crucial use of HOFs:
 
 .. code-block:: scala
 
-    import leon.collection._
-    import leon.lang._
-    import leon.proof._
+    import stainless.collection._
+    import stainless.lang._
+    import stainless.proof._
 
     def folds[A, B](xs: List[A], z: B, f: (B, A) => B): Boolean = {
       val f2 = (x: A, z: B) => f(z, x)
@@ -730,9 +730,9 @@ empty:
 
 .. code-block:: scala
 
-    import leon.collection._
-    import leon.lang._
-    import leon.proof._
+    import stainless.collection._
+    import stainless.lang._
+    import stainless.proof._
 
     object NotWellFounded {
 

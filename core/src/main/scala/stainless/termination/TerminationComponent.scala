@@ -7,7 +7,7 @@ import inox.utils.ASCIIHelpers._
 import stainless.utils.JsonConvertions._
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.{ JArray, JValue }
+import org.json4s.JsonAST.JArray
 
 object TerminationComponent extends SimpleComponent {
   val name = "termination"
@@ -38,7 +38,7 @@ object TerminationComponent extends SimpleComponent {
               t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
                 case s.BVType(size) => t.BVLiteral(0, size)
                 case s.IntegerType => t.IntegerLiteral(0)
-                case _ => throw new inox.FatalError("Unexpected measure type for " + e)
+                case _ => throw inox.FatalError("Unexpected measure type for " + e)
               }))),
               Some("Measure not guaranteed positive"),
               transform(body)
@@ -63,28 +63,26 @@ object TerminationComponent extends SimpleComponent {
 
     val time: Long
 
-    def emit(): Unit = {
-      var t = Table("Termination Summary")
+    override val name: String = TerminationComponent.this.name
 
-      for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) t += Row(Seq(
+    override val width = 2
+
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
+      val rows = for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
         Cell(fd.id.asString),
-        Cell {
-          val result = if (g.isGuaranteed) "\u2713" else "\u2717"
-          s"$result ${verdict(g, fd)}"
-        }
+        Cell((if (g.isGuaranteed) "\u2713" else "\u2717") + " " + verdict(g, fd))
       ))
 
-      t += Separator
+      val valid = results count { r => r._2.isGuaranteed }
+      val invalid = 0
+      val unknown = results.size - valid
 
-      t += Row(Seq(Cell(
-        f"Analysis time: ${time/1000d}%7.3f",
-        spanning = 2
-      )))
+      val stats = ReportStats(results.size, time, valid, invalid, unknown)
 
-      ctx.reporter.info(t.render)
+      Some((rows, stats))
     }
 
-    def emitJson(): JValue = {
+    override def emitJson: JArray = {
       def kind(g: TerminationGuarantee): String = g match {
         case checker.LoopsGivenInputs(_, _) => "non-terminating loop"
         case checker.MaybeLoopsGivenInputs(_, _) => "possibly non-terminating loop"
@@ -145,7 +143,7 @@ object TerminationComponent extends SimpleComponent {
 
     new TerminationReport {
       val checker: c.type = c
-      val results = res.toMap
+      val results: Map[p.trees.FunDef, c.TerminationGuarantee] = res.toMap
       val time = t
     }
   }
