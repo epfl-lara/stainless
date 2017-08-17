@@ -202,46 +202,46 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
     case s.BoolBitwiseAnd(lhs, rhs) =>
-      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
 
     case s.BoolBitwiseOr(lhs, rhs) =>
-      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseOr(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseOr(es(0), es(1)))
 
     case s.BoolBitwiseXor(lhs, rhs) =>
-      (Seq(), Seq(lhs, rhs), Seq(), (_, es, _) => t.BoolBitwiseXor(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseXor(es(0), es(1)))
 
     case s.Block(exprs, last) =>
-      (Seq(), exprs :+ last, Seq(), (_, es, _) => t.Block(es.init, es.last))
+      (Seq(), Seq(), exprs :+ last, Seq(), (_, _, es, _) => t.Block(es.init, es.last))
 
     case s.LetVar(vd, value, expr) =>
-      (Seq(vd.toVariable), Seq(value, expr), Seq(), (vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
+      (Seq(), Seq(vd.toVariable), Seq(value, expr), Seq(), (_, vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
 
     // @nv: we DON'T return `v` as a variable here as it should not be removed from the
     //      set of free variables in `e`!
     case s.Assignment(v, value) =>
-      (Seq(), Seq(v, value), Seq(), (_, es, _) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
+      (Seq(), Seq(), Seq(v, value), Seq(), (_, _, es, _) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
 
     case s.FieldAssignment(obj, selector, value) =>
-      (Seq(), Seq(obj, value), Seq(), (_, es, _) => t.FieldAssignment(es(0), selector, es(1)))
+      (Seq(selector), Seq(), Seq(obj, value), Seq(), (ids, _, es, _) => t.FieldAssignment(es(0), ids.head, es(1)))
 
     case s.While(cond, body, pred) =>
-      (Seq(), Seq(cond, body) ++ pred, Seq(), (_, es, _) => t.While(es(0), es(1), es.drop(2).headOption))
+      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), (_, _, es, _) => t.While(es(0), es(1), es.drop(2).headOption))
 
     case s.ArrayUpdate(array, index, value) =>
-      (Seq(), Seq(array, index, value), Seq(), (_, es, _) => t.ArrayUpdate(es(0), es(1), es(2)))
+      (Seq(), Seq(), Seq(array, index, value), Seq(), (_, _, es, _) => t.ArrayUpdate(es(0), es(1), es(2)))
 
     case s.Old(e) =>
-      (Seq(), Seq(e), Seq(), (_, es, _) => t.Old(es.head))
+      (Seq(), Seq(), Seq(e), Seq(), (_, _, es, _) => t.Old(es.head))
 
     case _ => super.deconstruct(e)
   }
 
-  override def deconstruct(f: s.Flag): (Seq[s.Expr], Seq[s.Type], (Seq[t.Expr], Seq[t.Type]) => t.Flag) = f match {
-    case s.IsVar => (Seq(), Seq(), (_, _) => t.IsVar)
-    case s.IsPure => (Seq(), Seq(), (_, _) => t.IsPure)
-    case s.IsMutable => (Seq(), Seq(), (_, _) => t.IsMutable)
+  override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
+    case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
+    case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
+    case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case _ => super.deconstruct(f)
   }
 }

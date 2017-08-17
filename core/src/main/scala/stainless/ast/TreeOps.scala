@@ -19,7 +19,8 @@ trait TreeOps extends inox.ast.TreeOps { self: Trees =>
     }
 
     def traverse(pat: Pattern): Unit = {
-      val (vs, es, tps, pats, _) = deconstructor.deconstruct(pat)
+      val (ids, vs, es, tps, pats, _) = deconstructor.deconstruct(pat)
+      ids.foreach(traverse)
       vs.foreach(v => traverse(v.toVal))
       es.foreach(traverse)
       tps.foreach(traverse)
@@ -64,9 +65,15 @@ trait TreeTransformer extends inox.ast.TreeTransformer { self =>
   }
 
   def transform(pat: s.Pattern): t.Pattern = {
-    val (vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
-
+    val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
     var changed = false
+
+    val newIds = for (id <- ids) yield {
+      val newId = transform(id)
+      if (id ne newId) changed = true
+      newId
+    }
+
     val newVs = for (v <- vs) yield {
       val vd = v.toVal
       val newVd = transform(vd)
@@ -93,7 +100,7 @@ trait TreeTransformer extends inox.ast.TreeTransformer { self =>
     }
 
     if (changed || (s ne t)) {
-      builder(newVs, newEs, newTps, newPats).copiedFrom(pat)
+      builder(newIds, newVs, newEs, newTps, newPats).copiedFrom(pat)
     } else {
       pat.asInstanceOf[t.Pattern]
     }

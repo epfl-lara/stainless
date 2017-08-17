@@ -17,7 +17,8 @@ object SolverFactory {
                     val targetProgram: StainlessProgram
                   })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     if (inox.solvers.SolverFactory.solvers(name)) {
-      inox.solvers.SolverFactory.getFromName(name)(p, opts + optAssumeChecked(true))(enc andThen InoxEncoder(enc.targetProgram))
+      val checkedOpt = optAssumeChecked(PurityOptions.AssumeChecked)
+      inox.solvers.SolverFactory.getFromName(name)(p, opts + checkedOpt)(enc andThen InoxEncoder(enc.targetProgram))
     } else {
       sys.error("TODO!")
     }

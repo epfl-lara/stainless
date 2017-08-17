@@ -190,12 +190,13 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
     case s.LetRec(defs, body) => (
+      Seq(),
       defs map (_.name.toVariable),
       defs.map(_.body) :+ body,
       defs.flatMap(_.tparams).map(_.tp),
-      (vs, es, tps) => {
+      (_, vs, es, tps) => {
         var restTps = tps
         t.LetRec(
           (vs zip es.init zip defs).map { case ((v, e), d) =>
@@ -208,7 +209,7 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
       })
 
     case s.ApplyLetRec(fun, tparams, tps, args) =>
-      (Seq(fun), args, tparams ++ tps, (vs, es, tps) => {
+      (Seq(), Seq(fun), args, tparams ++ tps, (_, vs, es, tps) => {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
         t.ApplyLetRec(vs.head, ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es)
       })
@@ -216,7 +217,6 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
     case other =>
       super.deconstruct(other)
   }
-
 }
 
 trait ExprOps extends extraction.ExprOps {

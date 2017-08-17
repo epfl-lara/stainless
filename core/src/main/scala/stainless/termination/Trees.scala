@@ -109,9 +109,9 @@ trait TreeDeconstructor extends ast.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): (Seq[s.Variable], Seq[s.Expr], Seq[s.Type], (Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Expr) = e match {
+  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
     case s.Decreases(measure, body) =>
-      (Seq(), Seq(measure, body), Seq(), (_, es, _) => t.Decreases(es(0), es(1)))
+      (Seq(), Seq(), Seq(measure, body), Seq(), (_, _, es, _) => t.Decreases(es(0), es(1)))
 
     case _ => super.deconstruct(e)
   }
