@@ -14,12 +14,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees.exprOps._
   import symbols._
 
-  override lazy val simplifier = new transformers.SimplifierWithPC {
-    val trees: self.trees.type = self.trees
-    val symbols: self.symbols.type = self.symbols
-    // @nv: note that we need this to be a def! (see ionx.ast.SymbolOps.simplifier)
-    def initEnv = CNFPath.empty
-  }
+  override protected def createSimplifier(opts: inox.solvers.PurityOptions) =
+    new SimplifierWithPC(opts) with transformers.SimplifierWithPC
+
+  override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr) =
+    new TransformerWithPC[P](path, f) with transformers.TransformerWithPC
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
     case (_: Require) | (_: Ensuring) | (_: Assert) => true

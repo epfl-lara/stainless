@@ -289,7 +289,8 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
       }.groupBy(_._1).mapValues(_.map(_._2))
 
       def simplifyPath(path: Path, es: Seq[Expr]): (Path, Seq[Expr]) = {
-        import syms.simplifier._
+        val simp = syms.simplifier(inox.solvers.PurityOptions())
+        import simp._
 
         def rec(elements: Seq[Path.Element], cnf: CNFPath, es: Seq[Expr]): (Path, Seq[Expr]) = elements match {
           case Left((vd, e)) +: rest => e match {

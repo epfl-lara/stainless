@@ -31,7 +31,7 @@ trait MainHelpers extends inox.MainHelpers {
     val usageRhs = "file"
   }
 
-  override protected def getOptions = super.getOptions ++ Map(
+  override protected def getOptions = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
