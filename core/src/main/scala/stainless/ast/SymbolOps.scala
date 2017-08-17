@@ -17,8 +17,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   override protected def createSimplifier(opts: inox.solvers.PurityOptions) =
     new SimplifierWithPC(opts) with transformers.SimplifierWithPC
 
-  override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr) =
-    new TransformerWithPC[P](path, f) with transformers.TransformerWithPC
+  override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr)
+                                                            (implicit ppP: PathProvider[P]): TransformerWithPC[P] =
+    new TransformerWithPC[P](path, f) with transformers.TransformerWithPC with TransformerWithFun {
+      val pp = ppP
+    }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
     case (_: Require) | (_: Ensuring) | (_: Assert) => true
