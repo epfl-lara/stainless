@@ -164,7 +164,7 @@ private class CanonicalFormBuilderImpl {
     }
 
     // Use the deconstructor to extract **most** of the expression's information.
-    val (vars, es, tps, _) = xt.deconstructor.deconstruct(e)
+    val (ids, vars, es, tps, _) = xt.deconstructor.deconstruct(e)
 
     // Format is:
     //  - expression code
@@ -212,7 +212,7 @@ private class CanonicalFormBuilderImpl {
 
     case xt.MatchExpr(_, cases) =>
       def rec(p: xt.Pattern): Unit = {
-        val (vs, _, _, subs, _) = xt.deconstructor.deconstruct(p)
+        val (_, vs, _, _, subs, _) = xt.deconstructor.deconstruct(p)
         vs map { _.toVal } foreach registerVD
         subs foreach rec
       }
@@ -250,7 +250,7 @@ private class CanonicalFormBuilderImpl {
       throw new java.lang.IllegalArgumentException(s"Unknown code for type ${typ.getClass}")
     }
 
-    val (tps, _, _) = xt.deconstructor.deconstruct(typ)
+    val (_, tps, _, _) = xt.deconstructor.deconstruct(typ)
 
     // Format is:
     //  - type code
