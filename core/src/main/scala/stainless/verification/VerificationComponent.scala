@@ -104,7 +104,9 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    VerificationChecker.verify(encoder.targetProgram)(funs).mapValues {
+    val vcs = VerificationGenerator.gen(encoder.targetProgram)(funs)
+
+    VerificationChecker.verify(encoder.targetProgram)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>
         VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
@@ -113,7 +115,7 @@ object VerificationComponent extends SimpleComponent {
 
   def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {
     val res = check(funs, p)
-
+    
     new VerificationReport {
       val program: p.type = p
       val results = res

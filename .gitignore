@@ -1,5 +1,6 @@
 # Stainless
 /bin/stainless-*
+.vccache.bin
 
 
 # Vim
