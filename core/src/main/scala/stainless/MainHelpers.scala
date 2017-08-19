@@ -44,7 +44,8 @@ trait MainHelpers extends inox.MainHelpers {
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),
     verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
-    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails"),
+    verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
+    verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
     verification.VerificationComponent.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
@@ -62,6 +63,8 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
+    verification.DebugSectionCache,
+    verification.DebugSectionCacheMiss,
     termination.DebugSectionTermination,
     DebugSectionExtraction,
     frontend.DebugSectionFrontend
