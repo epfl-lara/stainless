@@ -49,16 +49,11 @@ trait Canonization { self =>
         }
       }
 
-      def transformADT(adt: ADTDefinition): ADTDefinition = {
-        val newInvariant = adt.invariant(syms) map transform
-        transform(adt).changeInvariant(newInvariant)
-      }
-
       def exploreADT(id: Identifier): Unit = {
         if (syms.adts.contains(id) && !traversed(id)) {
           traversed += id
           val adt = syms.adts(id)
-          val newADT = transformADT(adt)
+          val newADT = transform(adt)
           transformedADTs += ((id, newADT))
         }
       }
