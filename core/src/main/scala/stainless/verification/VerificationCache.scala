@@ -86,8 +86,10 @@ trait VerificationCache extends VerificationChecker { self =>
         ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
       }
       val result = super.checkVC(vc,sf)
-      VerificationCache.add(sp.trees)(canonic)
-      VerificationCache.persist(sp.trees)(canonic, vc.toString, ctx)
+      if (result.isValid) {
+        VerificationCache.add(sp.trees)(canonic)
+        VerificationCache.persist(sp.trees)(canonic, vc.toString, ctx)
+      }
       result
     }
   }
