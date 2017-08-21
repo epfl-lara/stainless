@@ -30,6 +30,10 @@ trait VerificationCache extends VerificationChecker { self =>
 
   val uniq = new PrinterOptions(printUniqueIds = true)
 
+  /**
+    * Builds the dependencies of a verification condition.
+    * The dependencies are functions and ADT definitions, and form a program.
+    */
   def buildDependencies(vc: VC): SubProgram = {
 
     var adts = Set[ADTDefinition]()
@@ -44,13 +48,10 @@ trait VerificationCache extends VerificationChecker { self =>
             val fd = program.symbols.functions(id)
             fundefs += fd
             traverse(fd)
-          }
-          else if (program.symbols.adts.contains(id)) {
+          } else if (program.symbols.adts.contains(id)) {
             val adtdef = program.symbols.adts(id)
             adts += adtdef
-            fundefs ++= adtdef.invariant
             traverse(adtdef)
-            adtdef.invariant foreach traverse
           }
         }
       }
@@ -86,7 +87,7 @@ trait VerificationCache extends VerificationChecker { self =>
       }
       val result = super.checkVC(vc,sf)
       VerificationCache.add(sp.trees)(canonic)
-      VerificationCache.addVCToPersistentCache(sp.trees)(canonic, vc.toString, ctx)
+      VerificationCache.persist(sp.trees)(canonic, vc.toString, ctx)
       result
     }
   }
@@ -94,17 +95,17 @@ trait VerificationCache extends VerificationChecker { self =>
 }
 
 object VerificationCache {
-  val cacheFile = ".vccache.bin"
-  var vccache = scala.collection.concurrent.TrieMap[String,Unit]()
+  private val cacheFile = ".vccache.bin"
+  private var vccache = scala.collection.concurrent.TrieMap[String,Unit]()
   VerificationCache.loadPersistentCache()
   
   // output stream used to save verified VCs 
-  val oos = if (new java.io.File(cacheFile).exists) {
+  private val oos = if (new java.io.File(cacheFile).exists) {
     new AppendingObjectOutputStream(new FileOutputStream(cacheFile, true))
   } else {
     new ObjectOutputStream(new FileOutputStream(cacheFile))
   }
-    
+  
   def contains(tt: inox.ast.Trees)(p: (tt.Symbols, tt.Expr)) = {
     vccache.contains(serialize(tt)(p))
   }
@@ -117,7 +118,7 @@ object VerificationCache {
     * Transforms the dependencies of a VC and a VC to a String
     * The functions and ADTs representations are sorted to avoid non-determinism
     */
-  def serialize(tt: inox.ast.Trees)(p: (tt. Symbols, tt. Expr)): String = {
+  def serialize(tt: inox.ast.Trees)(p: (tt.Symbols, tt.Expr)): String = {
     val uniq = new tt.PrinterOptions(printUniqueIds = true)
     p._1.functions.values.map(fd => fd.asString(uniq)).toList.sorted.mkString("\n\n") + 
     "\n#\n" + 
@@ -126,11 +127,14 @@ object VerificationCache {
     p._2.asString(uniq)
   }
 
-  def addVCToPersistentCache(tt: inox.ast.Trees)(p: (tt. Symbols, tt. Expr), descr: String, ctx: inox.Context): Unit = {
+  /**
+    * Creates a task that adds a VC (and its dependencies) to the cache file
+    */
+  def persist(tt: inox.ast.Trees)(p: (tt.Symbols, tt.Expr), descr: String, ctx: inox.Context): Unit = {
 
     val task = new java.util.concurrent.Callable[String] {
       override def call(): String = {
-        MainHelpers.synchronized {
+        VerificationCache.synchronized {
           oos.writeObject(serialize(tt)(p))
           descr
         }
@@ -139,9 +143,13 @@ object VerificationCache {
     MainHelpers.executor.submit(task)
   }
   
-  def loadPersistentCache(): Unit = {
+  /**
+    * Loads all the VCs stored in the cache file and puts them in the
+    * `vccache` map.
+    */
+  private def loadPersistentCache(): Unit = {
     if (new java.io.File(cacheFile).exists) {
-      MainHelpers.synchronized {
+      VerificationCache.synchronized {
         val ois = new ObjectInputStream(new FileInputStream(cacheFile))
         try {
           while (true) {

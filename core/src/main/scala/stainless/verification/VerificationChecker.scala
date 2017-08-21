@@ -167,17 +167,17 @@ object VerificationChecker {
 
     val vccache = opts.findOptionOrDefault(optVCCache)
 
-    trait checkerInterface extends VerificationChecker {
+    trait CheckerInterface extends VerificationChecker {
       val program: p.type = p
       val options = opts
 
       protected def getFactory = solvers.SolverFactory.apply(p, opts)
     }
-    object checker extends checkerInterface
-    object cacheChecker extends checkerInterface with VerificationCache
+    object Checker extends CheckerInterface
+    object CacheChecker extends CheckerInterface with VerificationCache
 
-    if (vccache) cacheChecker.verify(vcs)
-    else checker.verify(vcs)
+    if (vccache) CacheChecker.verify(vcs)
+    else Checker.verify(vcs)
   }
 
   def verify(p: StainlessProgram)(vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
