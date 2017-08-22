@@ -26,69 +26,36 @@ trait VerificationCache extends VerificationChecker { self =>
   import program.symbols._
   import program.trees._
 
-  type SubProgram = inox.Program { val trees: program.trees.type }
-
   val uniq = new PrinterOptions(printUniqueIds = true)
-
-  /**
-    * Builds the dependencies of a verification condition.
-    * The dependencies are functions and ADT definitions, and form a program.
-    */
-  def buildDependencies(vc: VC): SubProgram = {
-
-    var adts = Set[ADTDefinition]()
-    var fundefs = Set[FunDef]()
-    var traversed = Set[Identifier]()
-
-    val traverser = new TreeTraverser {
-      override def traverse(id: Identifier): Unit = {
-        if (!traversed.contains(id)) {
-          traversed += id
-          if (program.symbols.functions.contains(id)) {
-            val fd = program.symbols.functions(id)
-            fundefs += fd
-            traverse(fd)
-          } else if (program.symbols.adts.contains(id)) {
-            val adtdef = program.symbols.adts(id)
-            adts += adtdef
-            traverse(adtdef)
-          }
-        }
-      }
-    }
-
-    traverser.traverse(vc.condition)
-
-    new inox.Program {
-      val trees: program.trees.type = program.trees
-      val symbols = NoSymbols.withFunctions(fundefs.toSeq).withADTs(adts.toSeq)
-      val ctx = program.ctx
-    }
-  }
 
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     import VerificationCache._
 
-    val sp: SubProgram = buildDependencies(vc)
-    val canonic = transformers.Canonization.canonize(sp.trees)(sp, vc)
-    if (VerificationCache.contains(sp.trees)(canonic)) {
+    // FIXME: can we simplify this?
+    val p: inox.Program { val trees: program.trees.type } = new inox.Program {
+      val trees: program.trees.type = program.trees
+      val symbols = program.symbols
+      val ctx = program.ctx
+    }
+
+    val canonic = transformers.Canonization.canonize(p.trees)(p, vc)
+    if (VerificationCache.contains(p.trees)(canonic)) {
       ctx.reporter.synchronized {
         ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCache)
         ctx.reporter.debug(vc.condition)(DebugSectionCache)
         ctx.reporter.debug("--------------")(DebugSectionCache)
       }
       VCResult(VCStatus.Valid, None, Some(0))
-    }
-    else {
+    } else {
       ctx.reporter.synchronized {
         ctx.reporter.debug("Cache miss:")(DebugSectionCacheMiss)
-        ctx.reporter.debug(serialize(sp.trees)(canonic))(DebugSectionCacheMiss)
+        ctx.reporter.debug(serialize(p.trees)(canonic))(DebugSectionCacheMiss)
         ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
       }
-      val result = super.checkVC(vc,sf)
+      val result = inox.Bench.time("checking VC from scratch", super.checkVC(vc,sf))
       if (result.isValid) {
-        VerificationCache.add(sp.trees)(canonic)
-        VerificationCache.persist(sp.trees)(canonic, vc.toString, ctx)
+        VerificationCache.add(p.trees)(canonic)
+        VerificationCache.addVCToPersistentCache(p.trees)(canonic, vc.toString, ctx)
       }
       result
     }
