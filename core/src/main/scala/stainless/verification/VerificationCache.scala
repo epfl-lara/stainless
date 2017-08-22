@@ -37,8 +37,8 @@ trait VerificationCache extends VerificationChecker { self =>
       val symbols = program.symbols
       val ctx = program.ctx
     }
-
     val canonic = transformers.Canonization.canonize(p.trees)(p, vc)
+
     if (VerificationCache.contains(p.trees)(canonic)) {
       ctx.reporter.synchronized {
         ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCache)
@@ -48,7 +48,9 @@ trait VerificationCache extends VerificationChecker { self =>
       VCResult(VCStatus.Valid, None, Some(0))
     } else {
       ctx.reporter.synchronized {
-        ctx.reporter.debug("Cache miss:")(DebugSectionCacheMiss)
+        ctx.reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
+        ctx.reporter.debug(vc.condition)(DebugSectionCacheMiss)
+        ctx.reporter.debug("Canonical form:")(DebugSectionCacheMiss)
         ctx.reporter.debug(serialize(p.trees)(canonic))(DebugSectionCacheMiss)
         ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
       }
@@ -88,7 +90,7 @@ object VerificationCache {
     * The functions and ADTs representations are sorted to avoid non-determinism
     */
   def serialize(tt: inox.ast.Trees)(p: (tt.Symbols, tt.Expr)): String = {
-    val uniq = new tt.PrinterOptions(printUniqueIds = true)
+    val uniq = new tt.PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(p._1))
     p._1.functions.values.map(fd => fd.asString(uniq)).toList.sorted.mkString("\n\n") + 
     "\n#\n" + 
     p._1.adts.values.map(adt => adt.asString(uniq)).toList.sorted.mkString("\n\n") + 

@@ -24,15 +24,17 @@ trait Canonization { self =>
 
   def transform(syms: s.Symbols, vc: VC): (t.Symbols, Expr) = {
 
-    object idTransformer extends inox.ast.TreeTransformer {
+    // Stores the transformed function and ADT definitions
+    var functions = Seq[FunDef]()
+    var adts = Seq[ADTDefinition]()
+
+    object IdTransformer extends inox.ast.TreeTransformer {
       val s: self.trees.type = self.trees
       val t: self.trees.type = self.trees
 
       var localCounter = 0
       // Maps an original identifier to a normalized identifier
       val ids: mutable.Map[Identifier, Identifier] = mutable.Map.empty
-      var functions = Seq[FunDef]()
-      var adts = Seq[ADTDefinition]()
 
       def freshId(): Identifier = {
         localCounter = localCounter + 1
@@ -44,17 +46,16 @@ trait Canonization { self =>
         val nid = ids.getOrElseUpdate(id, freshId())
 
         if ((syms.functions contains id) && !visited) {
-          functions :+= transform(syms.functions(id))
+          functions = transform(syms.functions(id)) +: functions
         } else if ((syms.adts contains id) && !visited) {
-          adts :+= transform(syms.adts(id))
+          adts = transform(syms.adts(id)) +: adts
         }
 
         nid
       }
     }
 
-    val newVCBody = idTransformer.transform(vc.condition)
-
+    val newVCBody = IdTransformer.transform(vc.condition)
     val newSyms = NoSymbols.withFunctions(functions).withADTs(adts)
 
     (newSyms, newVCBody)
