@@ -88,7 +88,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       val nestedFuns = nestedWithPaths.keys.toSeq
       val nestedFunsIds = nestedFuns.map(_.name.id).toSet
 
-      // Transitively called funcions from each function
+      // Transitively called functions from each function
       val callGraph: Map[Identifier, Set[Identifier]] = inox.utils.GraphOps.transitiveClosure(
         nestedFuns.map { f =>
           val calls = exprOps.innerFunctionCalls(f.body) intersect nestedFunsIds
@@ -120,7 +120,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
       val transFree: Map[Identifier, Seq[Variable]] = 
         //transFreeWithBindings.map(p => (p._1, p._2 -- nestedWithPaths(p._1).bindings.map(_._1))).map(p => (p._1, p._2.toSeq))
-        transFreeWithBindings.map(p => (p._1, p._2.toSeq))
+        transFreeWithBindings.map(p => (p._1, p._2.toSeq.sortBy(_.id.name)))
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedWithPaths.map {

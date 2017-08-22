@@ -119,10 +119,11 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     // Shutdown the pool for a clean exit.
-    val unexecuted = MainHelpers.executor.shutdownNow()
-    if (!ctx.interruptManager.isInterrupted && unexecuted.size != 0) {
-      ctx.reporter.error("Some tasks were not run (" + unexecuted.size + ")")
-    }
+    MainHelpers.executor.shutdown()
+    // val unexecuted = MainHelpers.executor.shutdownNow()
+    // if (!ctx.interruptManager.isInterrupted && unexecuted.size != 0) {
+    //   ctx.reporter.error("Some tasks were not run (" + unexecuted.size + ")")
+    // }
   } catch {
     case _: inox.FatalError => System.exit(1)
   }

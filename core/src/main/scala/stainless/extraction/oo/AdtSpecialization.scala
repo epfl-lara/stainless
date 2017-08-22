@@ -164,7 +164,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
     val sorts: Seq[t.ADTSort] = sortClasses.map(cd => new t.ADTSort(
       cd.id,
       cd.tparams map transformer.transform,
-      classToConstructors(cd.id).toSeq,
+      classToConstructors(cd.id).toSeq.sortBy(_.name),
       (cd.flags - IsAbstract - IsSealed) map transformer.transform
     ).copiedFrom(cd)).toSeq
 
