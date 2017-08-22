@@ -52,10 +52,10 @@ trait VerificationCache extends VerificationChecker { self =>
         ctx.reporter.debug(serialize(p.trees)(canonic))(DebugSectionCacheMiss)
         ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
       }
-      val result = inox.Bench.time("checking VC from scratch", super.checkVC(vc,sf))
+      val result = super.checkVC(vc,sf)
       if (result.isValid) {
         VerificationCache.add(p.trees)(canonic)
-        VerificationCache.addVCToPersistentCache(p.trees)(canonic, vc.toString, ctx)
+        VerificationCache.persist(p.trees)(canonic, vc.toString, ctx)
       }
       result
     }
