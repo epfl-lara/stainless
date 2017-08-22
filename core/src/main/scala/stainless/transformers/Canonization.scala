@@ -5,6 +5,8 @@ package transformers
 
 import stainless.extraction.inlining.Trees
 
+import scala.collection._
+
 trait Canonization { self =>
 
   val trees: stainless.ast.Trees
@@ -28,41 +30,26 @@ trait Canonization { self =>
 
       var localCounter = 0
       // Maps an original identifier to a normalized identifier
-      var renaming: Map[Identifier,Identifier] = Map()
+      val ids: mutable.Map[Identifier, Identifier] = mutable.Map.empty
+      var functions = Seq[FunDef]()
+      var adts = Seq[ADTDefinition]()
 
-      def addRenaming(id: Identifier): Unit = {
-        if (!renaming.contains(id)) {
-          val newId = new Identifier("x",localCounter,localCounter)
-          localCounter = localCounter + 1
-          renaming += ((id, newId))
-        }
-      }
-
-      var traversed = Set[Identifier]()
-
-      def exploreFunDef(id: Identifier): Unit = {
-        if (syms.functions.contains(id) && !traversed(id)) {
-          traversed += id
-          val fd = syms.functions(id)
-          val newFD = transform(fd)
-          functions :+= newFD
-        }
-      }
-
-      def exploreADT(id: Identifier): Unit = {
-        if (syms.adts.contains(id) && !traversed(id)) {
-          traversed += id
-          val adt = syms.adts(id)
-          val newADT = transform(adt)
-          adts :+= newADT
-        }
+      def freshId(): Identifier = {
+        localCounter = localCounter + 1
+        new Identifier("x",localCounter,localCounter)
       }
 
       override def transform(id: Identifier): Identifier = {
-        addRenaming(id)
-        exploreFunDef(id)
-        exploreADT(id)
-        renaming(id)
+        val visited = ids contains id
+        val nid = ids.getOrElseUpdate(id, freshId())
+
+        if ((syms.functions contains id) && !visited) {
+          functions :+= transform(syms.functions(id))
+        } else if ((syms.adts contains id) && !visited) {
+          adts :+= transform(syms.adts(id))
+        }
+
+        nid
       }
     }
 
