@@ -6,6 +6,7 @@ package verification
 trait DefaultTactic extends Tactic {
   val description = "Default verification condition generation approach"
 
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -104,7 +105,8 @@ trait DefaultTactic extends Tactic {
 }
 
 object DefaultTactic {
-  def apply(p: StainlessProgram): DefaultTactic { val program: p.type } = new DefaultTactic {
+  def apply(p: StainlessProgram, ctx: inox.Context): DefaultTactic { val program: p.type } = new DefaultTactic {
     val program: p.type = p
+    val context = ctx
   }
 }

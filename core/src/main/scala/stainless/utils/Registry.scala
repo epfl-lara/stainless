@@ -26,6 +26,8 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
  * is of interest.
  */
 trait Registry {
+  protected val context: inox.Context
+  import context._
 
   /******************* Public Interface ***********************************************************/
 
@@ -63,7 +65,7 @@ trait Registry {
 
     classes foreach { cd =>
       if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
-        ctx.reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
+        reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
     }
 
     process(ready, functions)
@@ -98,8 +100,6 @@ trait Registry {
 
 
   /******************* Customisation Points *******************************************************/
-
-  protected val ctx: inox.Context
 
   /** Compute the set of direct, non-recursive dependencies of the given [[xt.FunDef]] or [[xt.ClassDef]]. */
   protected def computeDirectDependencies(fd: xt.FunDef): Set[Identifier]
@@ -145,7 +145,7 @@ trait Registry {
           val cf2 = CanonicalFormBuilder(fd2)
           (cf1, cf2)
 
-        case _ => ctx.reporter.fatalError(s"Unexpected type mismatch for $id")
+        case _ => reporter.fatalError(s"Unexpected type mismatch for $id")
       }
 
       if (cf1 == cf2) true
@@ -258,7 +258,7 @@ trait Registry {
     getTopLevelsImpl(classes, cd)
   } catch {
     case IncompleteHierarchy(id, parent, universe) =>
-      ctx.reporter.internalError(s"Couldn't find parent $parent of $id in <${universe map { _.id } mkString ", "}>")
+      reporter.internalError(s"Couldn't find parent $parent of $id in <${universe map { _.id } mkString ", "}>")
   }
 
 
@@ -292,7 +292,7 @@ trait Registry {
       functions collect {
         case fd if fd.flags contains xt.IsInvariant =>
           val cid = fd.flags collectFirst { case xt.IsMethodOf(id) => id } getOrElse {
-            ctx.reporter.internalError(s"Expected to find a IsMethodOf flag for invariant function ${fd.id}")
+            reporter.internalError(s"Expected to find a IsMethodOf flag for invariant function ${fd.id}")
           }
 
           cid -> fd.id
@@ -301,7 +301,7 @@ trait Registry {
       } map { case (cid, xs) =>
         val fids = xs map { _._2 } // Map cid -> Seq[fid]
         if (fids.size != 1) {
-          ctx.reporter.internalError(s"Expected to find one invariant for class $cid, got <${fids mkString ", "} >.")
+          reporter.internalError(s"Expected to find one invariant for class $cid, got <${fids mkString ", "} >.")
         }
 
         cid -> Some(fids.head)

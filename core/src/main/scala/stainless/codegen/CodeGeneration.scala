@@ -20,6 +20,7 @@ object optInstrumentFields extends inox.FlagOptionDef("instrument", false)
 object optSmallArrays extends inox.FlagOptionDef("smallarrays", false)
 
 trait CodeGeneration { self: CompilationUnit =>
+  import context._
   import program._
   import program.trees._
   import program.symbols._

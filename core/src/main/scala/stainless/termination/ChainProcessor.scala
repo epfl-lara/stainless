@@ -16,8 +16,9 @@ trait ChainProcessor extends OrderingProcessor {
 
   import checker._
   import ordering._
-  import program.trees._
-  import program.symbols._
+  import checker.context._
+  import checker.program.trees._
+  import checker.program.symbols._
 
   private def lessThan(e1s: Seq[(Path, Expr)], e2: Expr): Seq[Expr] =
     flatTypesPowerset(e2.getType).toSeq.map(recons => andJoin(e1s.map {
@@ -25,7 +26,7 @@ trait ChainProcessor extends OrderingProcessor {
     }))
 
   def run(problem: Problem) = {
-    val timer = program.ctx.timers.termination.processors.chains.start()
+    val timer = timers.termination.processors.chains.start()
 
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)

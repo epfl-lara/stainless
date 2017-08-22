@@ -12,16 +12,16 @@ import org.json4s.JsonAST.{ JArray, JObject }
 
 import scala.language.existentials
 
+/**
+ * Strict Arithmetic Mode:
+ *
+ * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
+ */
+object optStrictArithmetic extends inox.FlagOptionDef("strictarithmetic", false)
+
 object VerificationComponent extends SimpleComponent {
   val name = "verification"
   val description = "Verification of function contracts"
-
-  /**
-   * Strict Arithmetic Mode:
-   *
-   * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
-   */
-  val optStrictArithmetic = inox.FlagOptionDef("strictarithmetic", default = false)
 
   val trees: stainless.trees.type = stainless.trees
 
@@ -88,10 +88,11 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
-  def check(funs: Seq[Identifier], p: StainlessProgram): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    val injector = AssertionInjector(p)
+  def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
+    val injector = AssertionInjector(p, ctx)
     val encoder = inox.ast.ProgramEncoder(p)(injector)
 
+    import ctx._
     import encoder.targetProgram._
     import encoder.targetProgram.trees._
     import encoder.targetProgram.symbols._
@@ -101,22 +102,22 @@ object VerificationComponent extends SimpleComponent {
     for (id <- toVerify) {
       if (getFunction(id).flags contains "library") {
         val fullName = id.fullName
-        ctx.reporter.warning(s"Forcing verification of $fullName which was assumed verified")
+        reporter.warning(s"Forcing verification of $fullName which was assumed verified")
       }
     }
 
     val vcs = VerificationGenerator.gen(encoder.targetProgram)(funs)
 
-    VerificationChecker.verify(encoder.targetProgram)(vcs).mapValues {
+    VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>
         VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
     }
   }
 
-  def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {
-    val res = check(funs, p)
-    
+  def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationReport = {
+    val res = check(funs, p, ctx)
+
     new VerificationReport {
       val program: p.type = p
       val results = res

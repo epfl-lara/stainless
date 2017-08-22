@@ -33,7 +33,7 @@ class RegistryTestSuite extends FunSuite {
   type FunctionName = String
 
   private val DEBUG = false
-  private val ctx = if (DEBUG) {
+  private val context = if (DEBUG) {
     val reporter = new inox.DefaultReporter(Set(frontend.DebugSectionFrontend))
     val intrMan = inox.TestContext.empty.interruptManager
     inox.Context(reporter, intrMan)
@@ -46,7 +46,7 @@ class RegistryTestSuite extends FunSuite {
   }
 
   final object DefaultFilter extends Filter with CheckFilter {
-    override val ctx = RegistryTestSuite.this.ctx
+    override val context = RegistryTestSuite.this.context
   }
 
   /** Expectation on classes and functions identifier name (ignoring ids). */
@@ -80,9 +80,9 @@ class RegistryTestSuite extends FunSuite {
     }).toMap
 
     // Create our frontend with a mock callback
-    val callback = new MockCallBack(ctx, filter)
+    val callback = new MockCallBack(context, filter)
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
-    val compiler = Main.factory(ctx, filePaths, callback)
+    val compiler = Main.factory(context, filePaths, callback)
 
     // Process all events
     val allEvents = initialState +: events
@@ -140,7 +140,7 @@ class RegistryTestSuite extends FunSuite {
    * [[filter]] needs to be set/updated before every frontend run.
    * It also provides a way to clear previously generated reports with [[popReports]].
    */
-  private class MockCallBack(override val ctx: inox.Context, filter: Filter) extends CallBackWithRegistry {
+  private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
 
     override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)
     override def shouldBeChecked(cd: xt.ClassDef): Boolean = filter.shouldBeChecked(cd)
@@ -151,9 +151,9 @@ class RegistryTestSuite extends FunSuite {
       val cls = program.symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
-      ctx.reporter.debug(s"MockCallBack got the following to solve:")
-      ctx.reporter.debug(s"\tfunctions: " + (fns mkString ", "))
-      ctx.reporter.debug(s"\tclasses:   " + (cls mkString ", "))
+      context.reporter.debug(s"MockCallBack got the following to solve:")
+      context.reporter.debug(s"\tfunctions: " + (fns mkString ", "))
+      context.reporter.debug(s"\tclasses:   " + (cls mkString ", "))
 
       val report = MockReport(fns, cls)
       reports += report

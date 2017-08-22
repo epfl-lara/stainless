@@ -20,16 +20,17 @@ trait DecreasesProcessor extends Processor { self =>
 
   import ordering._
   import checker._
-  import program._
-  import program.trees._
-  import program.symbols._
-  import program.trees.exprOps._
+  import checker.context._
+  import checker.program._
+  import checker.program.trees._
+  import checker.program.symbols._
+  import checker.program.trees.exprOps._
 
   private val zero = IntegerLiteral(0)
   private val tru = BooleanLiteral(true)
 
   def run(problem: Problem): Option[Seq[Result]] = {
-    val timer = ctx.timers.termination.processors.decreases.start()
+    val timer = timers.termination.processors.decreases.start()
 
     val fds = problem.funDefs
     val fdIds = problem.funSet.map(_.id)

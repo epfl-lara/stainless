@@ -13,12 +13,13 @@ trait RelationProcessor extends OrderingProcessor {
   val name: String = "Relation Processor " + ordering.description
 
   import checker._
+  import checker.context._
+  import checker.program.trees._
+  import checker.program.symbols._
   import ordering._
-  import program.trees._
-  import program.symbols._
 
   def run(problem: Problem): Option[Seq[Result]] = {
-    val timer = program.ctx.timers.termination.processors.relation.start()
+    val timer = timers.termination.processors.relation.start()
 
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)

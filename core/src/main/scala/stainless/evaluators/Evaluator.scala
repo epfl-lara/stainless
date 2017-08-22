@@ -8,9 +8,9 @@ import inox.evaluators.DeterministicEvaluator
 object optCodeGen extends inox.FlagOptionDef("codegen", false)
 
 object Evaluator {
-  def apply(p: StainlessProgram, opts: inox.Options):
+  def apply(p: StainlessProgram, ctx: inox.Context):
             DeterministicEvaluator { val program: p.type } = {
-    if (opts.findOptionOrDefault(optCodeGen)) CodeGenEvaluator(p, opts)
-    else RecursiveEvaluator(p, opts)
+    if (ctx.options.findOptionOrDefault(optCodeGen)) CodeGenEvaluator(p, ctx)
+    else RecursiveEvaluator(p, ctx)
   }
 }

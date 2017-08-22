@@ -5,8 +5,7 @@ package utils
 
 /** Filter functions / classes for verification purposes */
 trait CheckFilter {
-
-  val ctx: inox.Context
+  val context: inox.Context
 
   type Path = Seq[String]
   private def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
@@ -26,7 +25,7 @@ trait CheckFilter {
     .replaceAllLiterally("$amp", "&")
     .replaceAllLiterally("$tilde", "~")
 
-  private lazy val pathsOpt: Option[Seq[Path]] = ctx.options.findOption(optFunctions) map { functions =>
+  private lazy val pathsOpt: Option[Seq[Path]] = context.options.findOption(optFunctions) map { functions =>
     functions map fullNameToPath
   }
 
@@ -52,6 +51,5 @@ trait CheckFilter {
 
   // Invariants are already extracted to functions, so no need to process the class unless it's a dependency.
   def shouldBeChecked(cd: extraction.xlang.trees.ClassDef): Boolean = false
-
 }
 

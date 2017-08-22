@@ -7,15 +7,18 @@ import inox.ast._
 
 trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program
+  val context: inox.Context
   val t: inox.trees.type = inox.trees
 
   protected implicit val semantics: sourceProgram.Semantics
+
+  import context._
 
   override protected def encodedProgram: inox.Program { val trees: t.type } = {
     import sourceProgram.trees._
     import sourceProgram.symbols._
 
-    inox.InoxProgram(sourceProgram.ctx, t.NoSymbols
+    inox.InoxProgram(t.NoSymbols
       .withADTs(sourceProgram.symbols.adts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
         .map(fd => fd.copy(flags = fd.flags.filter { case Derived(_) | Unchecked => false case _ => true }))
@@ -289,8 +292,9 @@ trait InoxEncoder extends ProgramEncoder {
 }
 
 object InoxEncoder {
-  def apply(p: StainlessProgram): InoxEncoder { val sourceProgram: p.type } = new {
+  def apply(p: StainlessProgram, ctx: inox.Context): InoxEncoder { val sourceProgram: p.type } = new {
     val sourceProgram: p.type = p
+    val context = ctx
   } with InoxEncoder {
     val semantics = p.getSemantics
     object encoder extends TreeEncoder

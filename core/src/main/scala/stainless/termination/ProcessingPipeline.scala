@@ -9,6 +9,7 @@ import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => Mutabl
 import scala.language.existentials
 
 trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptible { self =>
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -34,7 +35,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     }
   }
 
-  ctx.interruptManager.registerForInterrupts(this)
+  interruptManager.registerForInterrupts(this)
 
   private var _interrupted: Boolean = false
   private[termination] def interrupted: Boolean = _interrupted
@@ -53,7 +54,6 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   }
 
   implicit private val debugSection = DebugSectionTermination
-  private lazy val reporter = ctx.reporter
 
   implicit object ProblemOrdering extends Ordering[(Problem, Int)] {
     def compare(a: (Problem, Int), b: (Problem, Int)): Int = {

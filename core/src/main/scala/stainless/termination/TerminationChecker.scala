@@ -7,7 +7,7 @@ object DebugSectionTermination extends inox.DebugSection("termination")
 
 trait TerminationChecker {
   val program: Program { val trees: Trees }
-  val options: inox.Options
+  val context: inox.Context
   import program.trees._
 
   def terminates(fd: FunDef): TerminationGuarantee
@@ -35,9 +35,9 @@ trait TerminationChecker {
 }
 
 object TerminationChecker {
-  def apply(p: TerminationProgram, opts: inox.Options): TerminationChecker { val program: p.type } = new {
+  def apply(p: TerminationProgram, ctx: inox.Context): TerminationChecker { val program: p.type } = new {
     val program: p.type = p
-    val options = opts
+    val context = ctx
   } with ProcessingPipeline { self =>
     import p.trees._
 
@@ -53,6 +53,7 @@ object TerminationChecker {
 
     object cfa extends CICFA {
       val program: self.program.type = self.program
+      val context = self.context
     }
 
     object integerOrdering extends {

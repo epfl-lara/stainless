@@ -17,8 +17,9 @@ trait LoopProcessor extends OrderingProcessor {
 
   import checker._
   import ordering._
-  import program.trees._
-  import program.symbols._
+  import checker.context._
+  import checker.program.trees._
+  import checker.program.symbols._
 
   object withoutPosts extends inox.ast.SimpleSymbolTransformer {
     val s: program.trees.type = program.trees
@@ -31,7 +32,7 @@ trait LoopProcessor extends OrderingProcessor {
   }
 
   def run(problem: Problem) = {
-    val timer = program.ctx.timers.termination.processors.loops.start()
+    val timer = timers.termination.processors.loops.start()
 
     strengthenApplications(problem.funSet)
     val api = getAPI(withoutPosts)

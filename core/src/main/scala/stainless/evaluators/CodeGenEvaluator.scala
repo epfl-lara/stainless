@@ -29,6 +29,7 @@ trait CodeGenEvaluator
 
   val program: Program
 
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -55,8 +56,6 @@ trait CodeGenEvaluator
     }
 
     def onChooseInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): AnyRef = {
-      //ctx.reporter.debug("Executing choose (codegen)")
-
       val (params, tparams, choose) = getChoose(id)
 
       val newTypes = tps.toSeq.map(getType)
@@ -81,8 +80,6 @@ trait CodeGenEvaluator
     }
 
     def onForallInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): Boolean = {
-      //ctx.reporter.debug("Executing forall (codegen)")
-
       val (tparams, forall) = getForall(id)
 
       val newTypes = tps.toSeq.map(getType)
@@ -110,7 +107,7 @@ trait CodeGenEvaluator
 
   def eval(expr: Expr, model: program.Model) = {
     compile(expr, model.vars.toSeq.map(_._1)).map { e =>
-      val timer = ctx.timers.evaluators.codegen.runtime.start()
+      val timer = timers.evaluators.codegen.runtime.start()
       val res = e(model)
       timer.stop()
       res
@@ -118,12 +115,12 @@ trait CodeGenEvaluator
   }
 
   private def compileExpr(expr: Expr, args: Seq[ValDef]): Option[CompiledExpression] = {
-    val timer = ctx.timers.evaluators.codegen.compilation.start()
+    val timer = timers.evaluators.codegen.compilation.start()
     try {
       Some(compileExpression(expr, args))
     } catch {
       case t: Throwable =>
-        ctx.reporter.warning(expr.getPos, "Error while compiling expression: " + t.getMessage)
+        reporter.warning(expr.getPos, "Error while compiling expression: " + t.getMessage)
         None
     } finally {
       timer.stop()
@@ -160,15 +157,13 @@ trait CodeGenEvaluator
 }
 
 object CodeGenEvaluator {
-  def apply(p: StainlessProgram, opts: inox.Options): DeterministicEvaluator { val program: p.type } = {
+  def apply(p: StainlessProgram, ctx: inox.Context): DeterministicEvaluator { val program: p.type } = {
     val split = FunctionSplitting(p, max = 5000)
     EncodingEvaluator(p)(split)(new {
       val program: split.targetProgram.type = split.targetProgram
-      val options = opts
+      val context = ctx
     } with CodeGenEvaluator {
       lazy val semantics = split.targetProgram.getSemantics
     })
   }
-
-  def default(p: StainlessProgram) = apply(p, p.ctx.options)
 }

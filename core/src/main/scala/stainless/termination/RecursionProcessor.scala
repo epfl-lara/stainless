@@ -15,8 +15,9 @@ trait RecursionProcessor extends Processor {
 
   import builder._
   import checker._
-  import program.trees._
-  import program.symbols._
+  import checker.context._
+  import checker.program.trees._
+  import checker.program.symbols._
 
   private def isSubtreeOf(expr: Expr, v: Variable) : Boolean = {
     @tailrec
@@ -29,7 +30,7 @@ trait RecursionProcessor extends Processor {
   }
 
   def run(problem: Problem) = if (problem.funDefs.size > 1) None else {
-    val timer = program.ctx.timers.termination.processors.recursion.start()
+    val timer = timers.termination.processors.recursion.start()
 
     val funDef = problem.funDefs.head
     val relations = getRelations(funDef)

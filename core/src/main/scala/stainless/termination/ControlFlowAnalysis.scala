@@ -14,7 +14,9 @@ import inox._
 trait CICFA {
 
   val program: Program { val trees: Trees }
+  val context: inox.Context
 
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -103,7 +105,7 @@ trait CICFA {
 
   private val cache: MutableMap[Identifier, Analysis] = MutableMap.empty
   def analyze(id: Identifier): Analysis = cache.getOrElseUpdate(id, {
-    val timer = ctx.timers.termination.cfa.start()
+    val timer = timers.termination.cfa.start()
     val analysis = new Analysis(id)
     timer.stop()
     analysis

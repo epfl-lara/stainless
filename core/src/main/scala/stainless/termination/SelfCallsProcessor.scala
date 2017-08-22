@@ -11,13 +11,14 @@ trait SelfCallsProcessor extends Processor {
   val name: String = "Self Calls Processor"
 
   import checker._
-  import program._
-  import program.trees._
-  import program.symbols._
+  import checker.context._
+  import checker.program._
+  import checker.program.trees._
+  import checker.program.symbols._
 
   def run(problem: Problem) = {
     reporter.debug("- Self calls processor...")
-    val timer = ctx.timers.termination.processors.`self-calls`.start()
+    val timer = timers.termination.processors.`self-calls`.start()
 
     val nonTerminating = problem.funDefs
       .filter(fd => alwaysCalls(fd.fullBody, fd.id))

@@ -37,14 +37,14 @@ package object stainless {
       val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
         p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-      protected def createSolver(opts: inox.Options): inox.solvers.SolverFactory {
+      protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
         val program: self.program.type
         type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
-      } = solvers.SolverFactory(self.program, opts)
+      } = solvers.SolverFactory(self.program, ctx)
 
-      protected def createEvaluator(opts: inox.Options): inox.evaluators.DeterministicEvaluator {
+      protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
         val program: self.program.type
-      } = evaluators.Evaluator(self.program, opts)
+      } = evaluators.Evaluator(self.program, ctx)
     }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
   }
 
@@ -71,14 +71,14 @@ package object stainless {
           }
         }
 
-        protected def createSolver(opts: inox.Options): inox.solvers.SolverFactory {
+        protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
           val program: self.program.type
           type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
-        } = solvers.SolverFactory.getFromSettings(self.program, opts)(encoder)(self.asInstanceOf[self.program.Semantics])
+        } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(self.asInstanceOf[self.program.Semantics])
 
-        protected def createEvaluator(opts: inox.Options): inox.evaluators.DeterministicEvaluator {
+        protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
           val program: self.program.type
-        } = inox.evaluators.EncodingEvaluator(self.program)(encoder)(evaluators.Evaluator(encoder.targetProgram, opts))
+        } = inox.evaluators.EncodingEvaluator(self.program)(encoder)(evaluators.Evaluator(encoder.targetProgram, ctx))
       }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
     }
   }

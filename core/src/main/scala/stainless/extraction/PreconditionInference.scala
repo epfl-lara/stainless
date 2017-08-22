@@ -5,8 +5,9 @@ package extraction
 
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet, ListBuffer}
 
-class PreconditionInference(override val sourceProgram: Program { val trees: extraction.trees.type })
-  extends inox.ast.ProgramTransformer { self =>
+class PreconditionInference(
+  override val sourceProgram: Program { val trees: extraction.trees.type },
+  val context: inox.Context) extends inox.ast.ProgramTransformer { self =>
 
   override final object encoder extends sourceProgram.trees.IdentityTreeTransformer
   override final object decoder extends sourceProgram.trees.IdentityTreeTransformer
@@ -14,11 +15,10 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
   override final lazy val targetProgram: Program { val trees: sourceProgram.trees.type } = new inox.Program {
     override val trees = sourceProgram.trees
     override val symbols = self.transform(sourceProgram.symbols)
-    override val ctx = sourceProgram.ctx
   }
 
+  import context._
   import sourceProgram.trees._
-  private implicit val ctx = sourceProgram.ctx
 
   private def transform(syms: Symbols): Symbols = {
     import syms._
@@ -289,7 +289,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
       }.groupBy(_._1).mapValues(_.map(_._2))
 
       def simplifyPath(path: Path, es: Seq[Expr]): (Path, Seq[Expr]) = {
-        val simp = syms.simplifier(ctx.options.findOptionOrDefault(inox.solvers.optAssumeChecked))
+        val simp = syms.simplifier(options.findOptionOrDefault(inox.solvers.optAssumeChecked))
         import simp._
 
         def rec(elements: Seq[Path.Element], cnf: CNFPath, es: Seq[Expr]): (Path, Seq[Expr]) = elements match {

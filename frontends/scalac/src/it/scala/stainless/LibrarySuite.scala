@@ -19,12 +19,12 @@ class LibrarySuite extends FunSpec with InputUtils {
 
     it("should verify") {
       import verification.VerificationComponent._
-      val exProgram = extract(tryProgram.get)
+      val exProgram = extract(tryProgram.get, ctx)
       assert(reporter.lastErrors.isEmpty, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val report = apply(funs, exProgram)
+      val report = apply(funs, exProgram, ctx)
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
         "Invalids are:\n" + report.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
@@ -33,12 +33,12 @@ class LibrarySuite extends FunSpec with InputUtils {
 
     it("should terminate") {
       import termination.TerminationComponent._
-      val exProgram = extract(tryProgram.get)
+      val exProgram = extract(tryProgram.get, ctx)
       assert(reporter.lastErrors.isEmpty, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val report = apply(funs, exProgram)
+      val report = apply(funs, exProgram, ctx)
 
       assert(report.results.forall(_._2.isGuaranteed),
         "Library functions couldn't be shown terminating:\n" +

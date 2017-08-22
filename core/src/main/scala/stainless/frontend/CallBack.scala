@@ -60,4 +60,3 @@ final class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
     else Some(inners reduce { _ ~ _ })
   }
 }
-

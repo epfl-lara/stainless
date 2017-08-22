@@ -15,15 +15,16 @@ object DebugSectionVerification extends inox.DebugSection("verification")
 
 trait VerificationChecker { self =>
   val program: Program
-  val options: inox.Options
+  val context: inox.Context
+
+  import context._
+  import program._
+  import program.trees._
+  import program.symbols._
 
   private lazy val parallelCheck = options.findOptionOrDefault(optParallelVCs)
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
   private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
-
-  import program._
-  import program.trees._
-  import program.symbols._
 
   implicit val debugSection = DebugSectionVerification
 
@@ -47,7 +48,7 @@ trait VerificationChecker { self =>
   }
 
   def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
-    val sf = ctx.options.findOption(inox.optTimeout) match {
+    val sf = options.findOption(inox.optTimeout) match {
       case Some(to) => getFactory.withTimeout(to)
       case None => getFactory
     }
@@ -70,16 +71,16 @@ trait VerificationChecker { self =>
     // scala doesn't seem to have a nice common super-type of vcs and vcs.par, so these
     // two quasi-identical pieces of code have to remain separate...
     val results = if (parallelCheck) {
-      for (vc <- vcs.par if !stop && !ctx.interruptManager.isInterrupted) yield {
+      for (vc <- vcs.par if !stop && !interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
-        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.reset()
+        if (interruptManager.isInterrupted) interruptManager.reset()
         stop = stopWhen(res)
         vc -> res
       }
     } else {
-      for (vc <- vcs if !stop && !ctx.interruptManager.isInterrupted) yield {
+      for (vc <- vcs if !stop && !interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
-        if (ctx.interruptManager.isInterrupted) ctx.interruptManager.reset()
+        if (interruptManager.isInterrupted) interruptManager.reset()
         stop = stopWhen(res)
         vc -> res
       }
@@ -94,13 +95,13 @@ trait VerificationChecker { self =>
 
     try {
       val cond = simplifyLets(vc.condition)
-      ctx.reporter.synchronized {
-        ctx.reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        ctx.reporter.debug(cond.asString)
-        ctx.reporter.debug("Solving with: " + s.name)
+      reporter.synchronized {
+        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        reporter.debug(cond.asString)
+        reporter.debug("Solving with: " + s.name)
       }
 
-      val timer = ctx.timers.verification.start()
+      val timer = timers.verification.start()
 
       val vcres = try {
         s.assertCnstr(Not(cond))
@@ -110,7 +111,7 @@ trait VerificationChecker { self =>
         val time = timer.stop()
 
         res match {
-          case _ if ctx.interruptManager.isInterrupted =>
+          case _ if interruptManager.isInterrupted =>
             VCResult(VCStatus.Cancelled, Some(s), Some(time))
 
           case Unknown =>
@@ -132,24 +133,24 @@ trait VerificationChecker { self =>
         case u: Unsupported =>
           val t = timer.selfTimer.get
           val time = if (t.isRunning) t.stop else t.runs.last
-          ctx.reporter.warning(u.getMessage)
+          reporter.warning(u.getMessage)
           VCResult(VCStatus.Unsupported, Some(s), Some(time))
       }
 
-      ctx.reporter.synchronized {
-        ctx.reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
+      reporter.synchronized {
+        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
 
         vcres.status match {
           case VCStatus.Valid =>
-            ctx.reporter.info(" => VALID")
+            reporter.info(" => VALID")
 
           case VCStatus.Invalid(cex) =>
-            ctx.reporter.warning(" => INVALID")
-            ctx.reporter.warning("Found counter-example:")
-            ctx.reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+            reporter.warning(" => INVALID")
+            reporter.warning("Found counter-example:")
+            reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
 
           case status =>
-            ctx.reporter.warning(" => " + status.name.toUpperCase)
+            reporter.warning(" => " + status.name.toUpperCase)
         }
       }
 
@@ -161,12 +162,23 @@ trait VerificationChecker { self =>
 }
 
 object VerificationChecker {
-  def apply(p: StainlessProgram, opts: inox.Options): VerificationChecker { val program: p.type } = {
+  def verify(p: StainlessProgram, ctx: inox.Context)
+            (vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
     class Checker extends VerificationChecker {
       val program: p.type = p
-      val options = opts
+      val context = ctx
 
-      protected def getFactory = solvers.SolverFactory.apply(p, opts)
+      val defaultTactic = DefaultTactic(p, ctx)
+      val inductionTactic = InductionTactic(p, ctx)
+
+      protected def getTactic(fd: p.trees.FunDef) =
+        if (fd.flags contains "induct") {
+          inductionTactic
+        } else {
+          defaultTactic
+        }
+
+      protected def getFactory = solvers.SolverFactory(p, ctx)
     }
 
     if (opts.findOptionOrDefault(optVCCache)) {
@@ -174,14 +186,5 @@ object VerificationChecker {
     } else {
       new Checker
     }
-  }
-
-  def verify(p: StainlessProgram, opts: inox.Options)
-            (vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    apply(p, opts).verify(vcs)
-  }
-
-  def verify(p: StainlessProgram)(vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    verify(p, p.ctx.options)(vcs)
   }
 }

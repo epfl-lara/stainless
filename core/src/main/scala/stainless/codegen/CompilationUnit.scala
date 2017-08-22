@@ -23,11 +23,12 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait CompilationUnit extends CodeGeneration {
   val program: Program
+  val context: inox.Context
+
+  import context._
   import program._
   import program.trees._
   import program.symbols._
-
-  val options: inox.Options
 
   protected implicit val semantics: program.Semantics
 

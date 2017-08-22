@@ -9,7 +9,6 @@ trait Processor {
   val checker: ProcessingPipeline
 
   implicit val debugSection = DebugSectionTermination
-  val reporter = checker.program.ctx.reporter
 
   def run(problem: checker.Problem): Option[Seq[checker.Result]]
 }

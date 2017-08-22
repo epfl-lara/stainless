@@ -25,7 +25,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
     val (structure, program) = loadFiles(ctx, Seq(file))
     program.symbols.ensureWellFormed
-    val exProgram = component.extract(program)
+    val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
 
     assert(reporter.lastErrors.isEmpty)
@@ -55,7 +55,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
     val (structure, program) = loadFiles(ctx, files)
     program.symbols.ensureWellFormed
-    val exProgram = component.extract(program)
+    val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
 
     assert(reporter.lastErrors.isEmpty)
@@ -93,8 +93,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
         val (uName, funs, program) = extractOne(path)
         assert(uName == name)
-        val newProgram = program.withContext(ctx)
-        val report = component.apply(funs, newProgram)
+        val report = component.apply(funs, program, ctx)
         block(report, ctx.reporter)
       }
 
@@ -103,8 +102,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       val (funss, program) = extractAll(fs.map(_.getPath))
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
-          val newProgram = program.withContext(ctx)
-          val report = component.apply(funs, newProgram)
+          val report = component.apply(funs, program, ctx)
           block(report, ctx.reporter)
         }
       }

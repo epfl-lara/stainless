@@ -46,7 +46,7 @@ trait MainHelpers extends inox.MainHelpers {
     verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
-    verification.VerificationComponent.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
+    verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),

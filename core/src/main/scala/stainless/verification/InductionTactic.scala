@@ -6,6 +6,7 @@ package verification
 trait InductionTactic extends DefaultTactic {
   override val description = "Induction tactic for suitable functions"
 
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -43,7 +44,7 @@ trait InductionTactic extends DefaultTactic {
 
       case (body, _, post) =>
         if (post.isDefined && body.isDefined) {
-          ctx.reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
         }
         super.generatePostconditions(id)
     }
@@ -85,7 +86,7 @@ trait InductionTactic extends DefaultTactic {
 
       case (body, _) =>
         if (body.isDefined) {
-          ctx.reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
+          reporter.warning(fd.getPos, "Could not find abstract class type argument to induct on")
         }
         super.generatePreconditions(id)
     }
@@ -93,7 +94,8 @@ trait InductionTactic extends DefaultTactic {
 }
 
 object InductionTactic {
-  def apply(p: StainlessProgram): InductionTactic { val program: p.type } = new InductionTactic {
+  def apply(p: StainlessProgram, ctx: inox.Context): InductionTactic { val program: p.type } = new InductionTactic {
     val program: p.type = p
+    val context = ctx
   }
 }

@@ -56,6 +56,7 @@ object TerminationComponent extends SimpleComponent {
     }
 
     import checker._
+    import context._
     import program._
     import program.trees._
 
@@ -118,24 +119,24 @@ object TerminationComponent extends SimpleComponent {
       case checker.NoGuarantee =>
         "No guarantee"
     }
-
   }
 
-  def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }): TerminationReport = {
+  def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReport = {
     import p._
     import p.trees._
     import p.symbols._
+    import ctx._
 
-    val c = TerminationChecker(p, ctx.options)
+    val c = TerminationChecker(p, ctx)
 
-    val timer = ctx.timers.termination.start()
+    val timer = timers.termination.start()
 
     val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)
 
     for (fd <- toVerify)  {
       if (fd.flags contains "library") {
         val fullName = fd.id.fullName
-        ctx.reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
+        reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
       }
     }
 

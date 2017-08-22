@@ -5,13 +5,6 @@ package stainless
 import extraction.xlang.{trees => xt}
 import scala.language.existentials
 
-object optFunctions extends inox.OptionDef[Seq[String]] {
-  val name = "functions"
-  val default = Seq[String]()
-  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
-  val usageRhs = "f1,f2,..."
-}
-
 trait Component {
   val name: String
   val description: String
@@ -24,11 +17,18 @@ trait Component {
   }
 }
 
+object optFunctions extends inox.OptionDef[Seq[String]] {
+  val name = "functions"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "f1,f2,..."
+}
+
 trait SimpleComponent extends Component { self =>
   val trees: ast.Trees
   import trees._
 
-  def extract(program: Program { val trees: xt.type }): Program { val trees: self.trees.type } = {
+  def extract(program: Program { val trees: xt.type }, ctx: inox.Context): Program { val trees: self.trees.type } = {
     val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
       val s: extraction.trees.type = extraction.trees
       val t: self.trees.type = self.trees
@@ -38,21 +38,21 @@ trait SimpleComponent extends Component { self =>
       (l, r) => l.lowering andThen r
     }
 
-    extraction.extract(program).transform(lowering)
+    extraction.extract(program, ctx).transform(lowering)
   }
 
-  def apply(program: Program { val trees: xt.type }): Report = {
-    val extracted = extract(program)
+  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Report = {
+    val extracted = extract(program, ctx)
     import extracted._
 
-    val filter = new utils.CheckFilter { override val ctx = extracted.ctx }
+    val filter = new utils.CheckFilter { override val context = ctx }
     val relevant = symbols.functions.values.toSeq filter { fd =>
       filter.shouldBeChecked(fd.id, fd.flags)
     } map { _.id }
 
-    apply(relevant, extracted)
+    apply(relevant, extracted, ctx)
   }
 
-  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }): Report
+  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }, ctx: inox.Context): Report
 }
 

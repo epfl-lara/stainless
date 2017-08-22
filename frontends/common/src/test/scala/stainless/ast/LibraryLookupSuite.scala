@@ -20,7 +20,7 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
   """
 
   val (_, xlangProgram) = load(ctx, Seq(contents))
-  val program = verification.VerificationComponent.extract(xlangProgram)
+  val program = verification.VerificationComponent.extract(xlangProgram, ctx)
 
   import program.trees._
 

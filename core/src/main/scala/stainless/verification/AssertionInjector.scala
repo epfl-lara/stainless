@@ -193,7 +193,7 @@ trait AssertionInjector extends ast.TreeTransformer {
 }
 
 object AssertionInjector {
-  def apply(p: Program): inox.ast.SymbolTransformer {
+  def apply(p: Program, ctx: inox.Context): inox.ast.SymbolTransformer {
     val s: p.trees.type
     val t: p.trees.type
   } = new inox.ast.SymbolTransformer {
@@ -206,7 +206,7 @@ object AssertionInjector {
         val t: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
         val strictArithmetic: Boolean =
-          p.ctx.options.findOptionOrDefault(VerificationComponent.optStrictArithmetic)
+          ctx.options.findOptionOrDefault(optStrictArithmetic)
       }
 
       t.NoSymbols

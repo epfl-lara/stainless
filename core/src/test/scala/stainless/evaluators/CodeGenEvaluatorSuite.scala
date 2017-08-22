@@ -8,9 +8,8 @@ import inox.evaluators._
 class CodeGenEvaluatorSuite extends EvaluatorSuite {
 
   override def evaluator(ctx: inox.Context): DeterministicEvaluator { val program: inox.InoxProgram } = {
-    val p = inox.InoxProgram(ctx, symbols)
     object lifter extends inox.ast.ProgramEncoder {
-      val sourceProgram: p.type = p
+      val sourceProgram: program.type = program
       val t: stainless.trees.type = stainless.trees
 
       object encoder extends inox.ast.TreeTransformer {
@@ -24,7 +23,7 @@ class CodeGenEvaluatorSuite extends EvaluatorSuite {
       }
     }
 
-    EncodingEvaluator(p)(lifter)(CodeGenEvaluator(lifter.targetProgram, ctx.options))
+    EncodingEvaluator(program)(lifter)(CodeGenEvaluator(lifter.targetProgram, ctx))
   }
 }
 

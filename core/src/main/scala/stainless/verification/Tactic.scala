@@ -5,6 +5,7 @@ package verification
 
 trait Tactic {
   val program: Program
+  val context: inox.Context
   val description: String
 
   import program.trees._

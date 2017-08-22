@@ -9,9 +9,11 @@ import scala.language.existentials
 
 trait SolverProvider { self =>
   val checker: ProcessingPipeline
-  import checker.program._
-  import checker.program.trees._
-  import checker.program.symbols._
+  import checker._
+  import context._
+  import program._
+  import program.trees._
+  import program.symbols._
 
   val encoder: ast.TreeTransformer {
     val s: trees.type
@@ -43,7 +45,7 @@ trait SolverProvider { self =>
 
   private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) =
     cache.cached(transformer, {
-      val timer = ctx.timers.termination.encoding.start()
+      val timer = timers.termination.encoding.start()
       val transformEncoder = inox.ast.ProgramEncoder(checker.program)(transformer)
       val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
 
@@ -58,18 +60,16 @@ trait SolverProvider { self =>
         }
       }
 
-      val timeout = ctx.options.findOption(inox.optTimeout) match {
+      val timeout = options.findOption(inox.optTimeout) match {
         case Some(to) => to / 100
         case None => 2.5.seconds
       }
 
-      val allOptions = checker.options ++ Seq(
-        inox.solvers.optSilentErrors(true),
-        inox.solvers.optCheckModels(true)
-      )
-
       val factory = solvers.SolverFactory
-        .getFromSettings(p, allOptions)(programEncoder)(p.getSemantics)
+        .getFromSettings(p, context.withOpts(
+          inox.solvers.optSilentErrors(true),
+          inox.solvers.optCheckModels(true)
+        ))(programEncoder)(p.getSemantics)
         .withTimeout(timeout)
 
       timer.stop()

@@ -9,7 +9,6 @@ trait FunctionSplitting extends inox.ast.ProgramTransformer {
 
   lazy val targetProgram: inox.Program { val trees: sourceProgram.trees.type } = new inox.Program {
     val trees: sourceProgram.trees.type = sourceProgram.trees
-    val ctx = sourceProgram.ctx
     import trees._
 
     private def split(fd: FunDef): Seq[FunDef] = {

@@ -5,6 +5,8 @@ package evaluators
 
 trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   val program: Program
+
+  import context._
   import program._
   import program.trees._
   import program.symbols._
@@ -151,10 +153,10 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 }
 
 object RecursiveEvaluator {
-  def apply(p: StainlessProgram, opts: inox.Options): RecursiveEvaluator { val program: p.type } = {
+  def apply(p: StainlessProgram, ctx: inox.Context): RecursiveEvaluator { val program: p.type } = {
     new {
       val program: p.type = p
-      val options = opts
+      val context = ctx
     } with RecursiveEvaluator
       with inox.evaluators.HasDefaultGlobalContext
       with inox.evaluators.HasDefaultRecContext {
@@ -162,6 +164,4 @@ object RecursiveEvaluator {
       val semantics = p.getSemantics
     }
   }
-
-  def default(p: StainlessProgram) = apply(p, p.ctx.options)
 }

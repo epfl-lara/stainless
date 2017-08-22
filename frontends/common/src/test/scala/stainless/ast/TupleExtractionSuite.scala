@@ -37,7 +37,7 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
 
   val ctx = inox.TestContext.empty
   val (_, xlangProgram) = load(ctx, sources)
-  val program = verification.VerificationComponent.extract(xlangProgram)
+  val program = verification.VerificationComponent.extract(xlangProgram, ctx)
 
   import program.trees._
 

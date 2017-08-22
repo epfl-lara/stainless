@@ -12,14 +12,15 @@ trait Strengthener { self: OrderingRelation =>
 
   val checker: ProcessingPipeline
   import checker._
-  import program._
-  import program.trees._
-  import program.symbols._
+  import checker.context._
+  import checker.program._
+  import checker.program.trees._
+  import checker.program.symbols._
   import CallGraphOrderings._
 
   private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
 
-  private lazy val ignorePosts = ctx.options.findOptionOrDefault(optIgnorePosts)
+  private lazy val ignorePosts = options.findOptionOrDefault(optIgnorePosts)
 
   private object postStrengthener extends IdentitySymbolTransformer {
     override def transform(syms: Symbols): Symbols =
@@ -32,7 +33,7 @@ trait Strengthener { self: OrderingRelation =>
   registerTransformer(postStrengthener)
 
   def strengthenPostconditions(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
-    ctx.reporter.debug("- Strengthening postconditions")
+    reporter.debug("- Strengthening postconditions")
 
     // Strengthen postconditions on all accessible functions by adding size constraints
     val callees: Set[FunDef] = funDefs.flatMap(fd => transitiveCallees(fd))
@@ -112,7 +113,7 @@ trait Strengthener { self: OrderingRelation =>
   }
 
   def strengthenApplications(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
-    ctx.reporter.debug("- Strengthening applications")
+    reporter.debug("- Strengthening applications")
 
     val api = getAPI
 

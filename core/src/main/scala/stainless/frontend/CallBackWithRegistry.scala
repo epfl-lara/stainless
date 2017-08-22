@@ -9,6 +9,7 @@ import utils.{ DependenciesFinder, Registry }
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
 trait CallBackWithRegistry extends CallBack { self =>
+  protected val context: inox.Context
 
   /******************* Public Interface: Override CallBack ***************************************/
 
@@ -16,17 +17,17 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   final override def apply(file: String, unit: xt.UnitDef,
                            classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    ctx.reporter.debug(s"Got a unit for $file: ${unit.id} with:")
-    ctx.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
-    ctx.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
+    context.reporter.debug(s"Got a unit for $file: ${unit.id} with:")
+    context.reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    context.reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
     // Remove any node from the registry that no longer exists.
     previousFileData get file foreach { case (prevClasses, prevFuns) =>
       val removedClasses = prevClasses filterNot { cd => classes exists { _.id == cd.id } }
       val removedFuns = prevFuns filterNot { cd => functions exists { _.id == cd.id } }
-      ctx.reporter.debug(s"Removing the following from the registry:")
-      ctx.reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
-      ctx.reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
+      context.reporter.debug(s"Removing the following from the registry:")
+      context.reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
+      context.reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
       registry.remove(removedClasses, removedFuns)
     }
 
@@ -53,8 +54,6 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   protected type Report <: AbstractReport
 
-  protected val ctx: inox.Context
-
   /** Produce a report for the given program, in a blocking fashion. */
   protected def solve(program: Program { val trees: extraction.xlang.trees.type }): Report
 
@@ -71,7 +70,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   private val previousFileData = MutableMap[String, (Seq[xt.ClassDef], Seq[xt.FunDef])]()
 
   private val registry = new Registry {
-    override val ctx = self.ctx
+    override val context = self.context
 
     override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
     override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
@@ -85,25 +84,21 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = symss foreach { syms =>
     // The registry tells us something should be verified in these symbols.
-    val program = new inox.Program {
-      val trees: extraction.xlang.trees.type = extraction.xlang.trees
-      val ctx = self.ctx
-      val symbols = syms
-    }
+    val program = inox.Program(extraction.xlang.trees)(syms)
 
     try {
       syms.ensureWellFormed
     } catch {
       case e: syms.TypeErrorException =>
-        ctx.reporter.error(e.pos, e.getMessage)
-        ctx.reporter.error(s"The extracted sub-program in not well formed.")
-        ctx.reporter.error(s"Symbols are:")
-        ctx.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-        ctx.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-        ctx.reporter.fatalError(s"Aborting from CallBackWithRegistry")
+        context.reporter.error(e.pos, e.getMessage)
+        context.reporter.error(s"The extracted sub-program in not well formed.")
+        context.reporter.error(s"Symbols are:")
+        context.reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+        context.reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+        context.reporter.fatalError(s"Aborting from CallBackWithRegistry")
     }
 
-    ctx.reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+    context.reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
     processProgram(program)
   }

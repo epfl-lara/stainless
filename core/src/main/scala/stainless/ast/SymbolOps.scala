@@ -372,6 +372,5 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   }
 
   def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =
-    weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.VerificationComponent.optStrictArithmetic))
-
+    weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.optStrictArithmetic))
 }
