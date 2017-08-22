@@ -15,28 +15,28 @@ trait Canonization { self =>
 
   type VC = verification.VC[trees.type]
 
+  // Sequence of transformed function definitions
+  var functions = Seq[FunDef]()
+  // Sequence of transformed ADT definitions
+  var adts = Seq[ADTDefinition]()
+
   def transform(syms: s.Symbols, vc: VC): (t.Symbols, Expr) = {
-
-    var localCounter = 0
-    // Maps an original identifier to a normalized identifier
-    var renaming: Map[Identifier,Identifier] = Map()
-
-    def addRenaming(id: Identifier): Unit = {
-      if (!renaming.contains(id)) {
-        val newId = new Identifier("x",localCounter,localCounter)
-        localCounter = localCounter + 1
-        renaming += ((id, newId))
-      }
-    }
-
-    // Map from old identifiers to new fundefs
-    var transformedFunctions = Map[Identifier, FunDef]()
-    // Map from old identifiers to new ADTs
-    var transformedADTs = Map[Identifier, ADTDefinition]()
 
     object idTransformer extends inox.ast.TreeTransformer {
       val s: self.trees.type = self.trees
       val t: self.trees.type = self.trees
+
+      var localCounter = 0
+      // Maps an original identifier to a normalized identifier
+      var renaming: Map[Identifier,Identifier] = Map()
+
+      def addRenaming(id: Identifier): Unit = {
+        if (!renaming.contains(id)) {
+          val newId = new Identifier("x",localCounter,localCounter)
+          localCounter = localCounter + 1
+          renaming += ((id, newId))
+        }
+      }
 
       var traversed = Set[Identifier]()
 
@@ -45,7 +45,7 @@ trait Canonization { self =>
           traversed += id
           val fd = syms.functions(id)
           val newFD = transform(fd)
-          transformedFunctions += ((id, newFD))
+          functions :+= newFD
         }
       }
 
@@ -54,7 +54,7 @@ trait Canonization { self =>
           traversed += id
           val adt = syms.adts(id)
           val newADT = transform(adt)
-          transformedADTs += ((id, newADT))
+          adts :+= newADT
         }
       }
 
@@ -68,18 +68,7 @@ trait Canonization { self =>
 
     val newVCBody = idTransformer.transform(vc.condition)
 
-    val newFundefs = syms.functions.values.map { fd => 
-      // explore again in case this FunDef was not explored during the transformation of vc
-      idTransformer.exploreFunDef(fd.id)         
-      transformedFunctions(fd.id)
-    }
-
-    val newADTs = syms.adts.values.map { adt =>
-      // explore again in case this ADT was not explored during the transformation of vc
-      idTransformer.exploreADT(adt.id)
-      transformedADTs(adt.id)
-    }
-    val newSyms = NoSymbols.withFunctions(newFundefs.toSeq).withADTs(newADTs.toSeq)
+    val newSyms = NoSymbols.withFunctions(functions).withADTs(adts)
 
     (newSyms, newVCBody)
   }
