@@ -13,8 +13,8 @@ class PreconditionInference(
   override final object decoder extends sourceProgram.trees.IdentityTreeTransformer
 
   override final lazy val targetProgram: Program { val trees: sourceProgram.trees.type } = new inox.Program {
-    override val trees = sourceProgram.trees
-    override val symbols = self.transform(sourceProgram.symbols)
+    val trees = sourceProgram.trees
+    val symbols = self.transform(sourceProgram.symbols)
   }
 
   import context._
