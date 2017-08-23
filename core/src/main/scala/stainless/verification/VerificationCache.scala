@@ -39,7 +39,7 @@ trait VerificationCache extends VerificationChecker { self =>
         ctx.reporter.debug(vc.condition)(DebugSectionCache)
         ctx.reporter.debug("--------------")(DebugSectionCache)
       }
-      VCResult(VCStatus.Valid, None, Some(0))
+      VCResult(VCStatus.ValidFromCache, None, Some(0))
     } else {
       ctx.reporter.synchronized {
         ctx.reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)

@@ -43,6 +43,7 @@ sealed abstract class VCStatus[+Model](val name: String) {
 object VCStatus {
   case class Invalid[+Model](cex: Model) extends VCStatus[Model]("invalid")
   case object Valid extends VCStatus[Nothing]("valid")
+  case object ValidFromCache extends VCStatus[Nothing]("valid from cache")
   case object Unknown extends VCStatus[Nothing]("unknown")
   case object Timeout extends VCStatus[Nothing]("timeout")
   case object Cancelled extends VCStatus[Nothing]("cancelled")
@@ -55,8 +56,9 @@ case class VCResult[+Model](
   solver: Option[Solver],
   time: Option[Long]
 ) {
-  def isValid   = status == VCStatus.Valid
-  def isInvalid = status.isInstanceOf[VCStatus.Invalid[_]]
-  def isInconclusive = !isValid && !isInvalid
+  def isValid           = status == VCStatus.Valid || isValidFromCache
+  def isValidFromCache  = status == VCStatus.ValidFromCache
+  def isInvalid         = status.isInstanceOf[VCStatus.Invalid[_]]
+  def isInconclusive    = !isValid && !isInvalid
 }
 
