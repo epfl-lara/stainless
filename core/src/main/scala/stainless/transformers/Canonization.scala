@@ -59,7 +59,7 @@ trait Canonization { self =>
 
 
 object Canonization {
-  def canonize(p: inox.Program { val trees: stainless.ast.Trees }, vc: verification.VC[p.trees.type]): 
+  def canonize(p: inox.Program { val trees: stainless.ast.Trees })(vc: verification.VC[p.trees.type]): 
                 (p.trees.Symbols, p.trees.Expr)  = {
     object Canonizer extends Canonization {
       override val trees: p.trees.type = p.trees
