@@ -46,6 +46,7 @@ object VerificationComponent extends SimpleComponent {
     lazy val totalConditions: Int = vrs.size
     lazy val totalTime = vrs.map(_._2.time.getOrElse(0l)).sum
     lazy val totalValid = vrs.count(_._2.isValid)
+    lazy val totalValidFromCache = vrs.count(_._2.isValidFromCache)
     lazy val totalInvalid = vrs.count(_._2.isInvalid)
     lazy val totalUnknown = vrs.count(_._2.isInconclusive)
 
@@ -64,7 +65,7 @@ object VerificationComponent extends SimpleComponent {
           Cell(vr.time.map(t => f"${t / 1000d}%3.3f").getOrElse(""))
         ))
       },
-      ReportStats(totalConditions, totalTime, totalValid, totalInvalid, totalUnknown)
+      ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
     ))
 
     override def emitJson: JArray = {

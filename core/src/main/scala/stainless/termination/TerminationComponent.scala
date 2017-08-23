@@ -74,10 +74,11 @@ object TerminationComponent extends SimpleComponent {
       ))
 
       val valid = results count { r => r._2.isGuaranteed }
+      val validFromCache = 0
       val invalid = 0
       val unknown = results.size - valid
 
-      val stats = ReportStats(results.size, time, valid, invalid, unknown)
+      val stats = ReportStats(results.size, time, valid, validFromCache, invalid, unknown)
 
       Some((rows, stats))
     }

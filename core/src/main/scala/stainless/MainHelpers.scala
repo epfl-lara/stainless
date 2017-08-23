@@ -119,6 +119,7 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     // Shutdown the pool for a clean exit.
+    ctx.reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
   } catch {
     case _: inox.FatalError => System.exit(1)
