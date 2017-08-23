@@ -31,13 +31,7 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     import VerificationCache._
 
-    // FIXME: can we simplify this?
-    val p: inox.Program { val trees: program.trees.type } = new inox.Program {
-      val trees: program.trees.type = program.trees
-      val symbols = program.symbols
-      val ctx = program.ctx
-    }
-    val canonic = transformers.Canonization.canonize(p, vc)
+    val canonic = transformers.Canonization.canonize(program)(vc)
 
     if (VerificationCache.contains(program.trees)(canonic)) {
       ctx.reporter.synchronized {
