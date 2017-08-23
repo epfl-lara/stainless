@@ -17,12 +17,7 @@ trait Canonization { self =>
 
   type VC = verification.VC[trees.type]
 
-  // Sequence of transformed function definitions
-  var functions = Seq[FunDef]()
-  // Sequence of transformed ADT definitions
-  var adts = Seq[ADTDefinition]()
-
-  def transform(syms: s.Symbols, vc: VC): (t.Symbols, Expr) = {
+  def normalize(syms: s.Symbols, vc: VC): (t.Symbols, Expr) = {
 
     // Stores the transformed function and ADT definitions
     var functions = Seq[FunDef]()
@@ -64,14 +59,13 @@ trait Canonization { self =>
 
 
 object Canonization {
-  def canonize(trs: stainless.ast.Trees)
-              (p: inox.Program { val trees: trs.type }, vc: verification.VC[trs.type]): 
-                (p.trees.Symbols, trs.Expr)  = {
-    object canonizer extends Canonization {
+  def canonize(p: inox.Program { val trees: stainless.ast.Trees }, vc: verification.VC[p.trees.type]): 
+                (p.trees.Symbols, p.trees.Expr)  = {
+    object Canonizer extends Canonization {
       override val trees: p.trees.type = p.trees
     }
 
-    val (newSymbols, newVCBody) = canonizer.transform(p.symbols, vc)
+    val (newSymbols, newVCBody) = Canonizer.normalize(p.symbols, vc)
 
     (newSymbols, newVCBody)
   }

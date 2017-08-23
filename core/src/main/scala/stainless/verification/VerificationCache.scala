@@ -37,9 +37,9 @@ trait VerificationCache extends VerificationChecker { self =>
       val symbols = program.symbols
       val ctx = program.ctx
     }
-    val canonic = transformers.Canonization.canonize(p.trees)(p, vc)
+    val canonic = transformers.Canonization.canonize(p, vc)
 
-    if (VerificationCache.contains(p.trees)(canonic)) {
+    if (VerificationCache.contains(program.trees)(canonic)) {
       ctx.reporter.synchronized {
         ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCache)
         ctx.reporter.debug(vc.condition)(DebugSectionCache)
@@ -51,13 +51,13 @@ trait VerificationCache extends VerificationChecker { self =>
         ctx.reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
         ctx.reporter.debug(vc.condition)(DebugSectionCacheMiss)
         ctx.reporter.debug("Canonical form:")(DebugSectionCacheMiss)
-        ctx.reporter.debug(serialize(p.trees)(canonic))(DebugSectionCacheMiss)
+        ctx.reporter.debug(serialize(program.trees)(canonic))(DebugSectionCacheMiss)
         ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
       }
       val result = super.checkVC(vc,sf)
       if (result.isValid) {
-        VerificationCache.add(p.trees)(canonic)
-        VerificationCache.persist(p.trees)(canonic, vc.toString, ctx)
+        VerificationCache.add(program.trees)(canonic)
+        VerificationCache.persist(program.trees)(canonic, vc.toString, ctx)
       }
       result
     }
