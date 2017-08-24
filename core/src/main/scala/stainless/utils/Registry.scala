@@ -9,6 +9,8 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
 import java.io.{ File, FileInputStream, FileOutputStream, IOException }
 
+object DebugSectionRegistry extends inox.DebugSection("registry")
+
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
@@ -30,6 +32,8 @@ import java.io.{ File, FileInputStream, FileOutputStream, IOException }
 trait Registry {
   protected val context: inox.Context
   import context.reporter
+
+  implicit val debugSection = DebugSectionRegistry
 
   /******************* Public Interface ***********************************************************/
 
@@ -134,7 +138,7 @@ trait Registry {
 
     try {
       val count = readInt()
-      reporter.info(s"Reading $count pairs!")
+      reporter.debug(s"Reading $count pairs from ${file.getAbsolutePath}")
       val mapping = MutableMap[Identifier, (CanonicalForm, Boolean)]()
 
       for { i <- 0 until count } {
@@ -181,7 +185,7 @@ trait Registry {
     try {
       // For each (id, cf) in cache, save the pair.
       val nodes = graph.getNodes
-      reporter.info(s"Saving ${nodes.size} pairs!")
+      reporter.debug(s"Saving ${nodes.size} pairs to ${file.getAbsolutePath}")
       writeInt(nodes.size)
       nodes foreach { case (id, (node, deps)) =>
         val (cf, checked) = node match {
@@ -265,14 +269,21 @@ trait Registry {
   private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean)]] = None
 
   private def isOfInterest(node: NodeValue): Boolean = {
+    val id = node match {
+      case Left(cd) => cd.id
+      case Right(fd) => fd.id
+    }
+
     def default = node match {
       case Left(cd) => shouldBeChecked(cd)
       case Right(fd) => shouldBeChecked(fd)
     }
 
     // If we have a cache (first cycle only), check if the node was already computed.
-    persistentCache match {
-      case None => default
+    val result = persistentCache match {
+      case None =>
+        reporter.debug(s"fallback on default for $id")
+        default
 
       case Some(cache) =>
         val (id, cf) = node match {
@@ -281,10 +292,19 @@ trait Registry {
         }
 
         cache.get(id) match {
-          case None => default
-          case Some((cachedCf, checked)) => !checked && cachedCf == cf && default
+          case None =>
+            reporter.debug(s"fallback on default for $id, NOT IN CACHE")
+            default
+
+          case Some((cachedCf, checked)) =>
+            reporter.debug(s"from cache for $id -> checked? $checked, equals? ${cachedCf == cf}")
+            (!checked || cachedCf != cf) && default
         }
     }
+
+    reporter.debug(s"verdict for $id? $result")
+
+    result
   }
 
   private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
