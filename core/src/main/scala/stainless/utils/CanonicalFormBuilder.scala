@@ -25,7 +25,7 @@ object CanonicalFormBuilder {
 
 /** Canonical form for functions, expressions, ... */
 class CanonicalForm(val bytes: Array[Byte]) {
-  override def hashCode: Int = java.util.Arrays.hashCode(bytes)
+  override lazy val hashCode: Int = java.util.Arrays.hashCode(bytes)
 
   override def equals(other: Any): Boolean = other match {
     // Because cf.bytes == bytes doesn't work, obviously.
