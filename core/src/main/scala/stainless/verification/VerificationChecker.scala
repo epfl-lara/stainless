@@ -95,7 +95,7 @@ trait VerificationChecker { self =>
     try {
       val cond = simplifyLets(vc.condition)
       ctx.reporter.synchronized {
-        ctx.reporter.info(s" - Now considering '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        ctx.reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
         ctx.reporter.debug(cond.asString)
         ctx.reporter.debug("Solving with: " + s.name)
       }

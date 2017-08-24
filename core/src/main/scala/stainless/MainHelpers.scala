@@ -63,7 +63,7 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     verification.DebugSectionVerification,
-    verification.DebugSectionCache,
+    verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
     termination.DebugSectionTermination,
     DebugSectionExtraction,

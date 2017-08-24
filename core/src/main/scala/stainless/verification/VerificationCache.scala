@@ -11,7 +11,7 @@ import java.io.FileOutputStream
 
 import inox.solvers.SolverFactory
 
-object DebugSectionCache extends inox.DebugSection("vccache")
+object DebugSectionCacheHit extends inox.DebugSection("cachehit")
 object DebugSectionCacheMiss extends inox.DebugSection("cachemiss")
 
 class AppendingObjectOutputStream(os: java.io.OutputStream) extends ObjectOutputStream(os) {
@@ -31,17 +31,21 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     import VerificationCache._
 
+    ctx.reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+
     val canonic = transformers.Canonization.canonize(program)(vc)
 
     if (VerificationCache.contains(program.trees)(canonic)) {
       ctx.reporter.synchronized {
-        ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCache)
-        ctx.reporter.debug(vc.condition)(DebugSectionCache)
-        ctx.reporter.debug("--------------")(DebugSectionCache)
+        ctx.reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
+        ctx.reporter.debug(vc.condition)(DebugSectionCacheHit)
+        ctx.reporter.debug("--------------")(DebugSectionCacheHit)
       }
       VCResult(VCStatus.ValidFromCache, None, Some(0))
     } else {
       ctx.reporter.synchronized {
+        ctx.reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
         ctx.reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
         ctx.reporter.debug(vc.condition)(DebugSectionCacheMiss)
         ctx.reporter.debug("Canonical form:")(DebugSectionCacheMiss)
