@@ -151,8 +151,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
       }
 
-      val subCalls = (for (co <- cos.toSeq) yield {
-        firstOverrides(co).toSeq.map { case (cid, either) =>
+      val subCalls = (for (co <- cos.toSeq.sortBy(_.cid.name)) yield {
+        firstOverrides(co).toSeq.sortBy(_._1.name).map { case (cid, either) =>
           val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
           val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
           (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), either match {
