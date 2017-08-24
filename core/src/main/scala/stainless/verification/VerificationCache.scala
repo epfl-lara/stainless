@@ -102,13 +102,13 @@ object VerificationCache {
     * Creates a task that adds a VC (and its dependencies) to the cache file
     */
   def persist(tt: inox.ast.Trees)(p: (tt.Symbols, tt.Expr), descr: String, ctx: inox.Context): Unit = {
-
     val task = new java.util.concurrent.Callable[String] {
       override def call(): String = {
+        val s = serialize(tt)(p)
         VerificationCache.synchronized {
-          oos.writeObject(serialize(tt)(p))
-          descr
+          oos.writeObject(s)
         }
+        descr
       }
     }
     MainHelpers.executor.submit(task)
