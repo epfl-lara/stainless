@@ -31,7 +31,9 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     import VerificationCache._
 
-    ctx.reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+    ctx.reporter.synchronized {
+      ctx.reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+    }
 
     val canonic = transformers.Canonization.canonize(program)(vc)
 
