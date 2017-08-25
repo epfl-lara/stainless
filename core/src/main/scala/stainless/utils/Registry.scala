@@ -5,7 +5,7 @@ package utils
 
 import extraction.xlang.{ trees => xt }
 
-import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
+import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet, ListBuffer }
 
 import java.io.{ File, FileInputStream, FileOutputStream, IOException }
 
@@ -54,6 +54,17 @@ trait Registry {
    * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
   def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+    if (hasCache) {
+      deferredClasses ++= classes
+      deferredFunctions ++= functions
+      deferredNodes ++= classes map { cd => cd.id -> Left(cd) }
+      deferredNodes ++= functions map { fd => fd.id -> Right(fd) }
+      None
+    } else updateImpl(classes, functions)
+  }
+
+  // TODO move outside API zone
+  private def updateImpl(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
       case Some(tops) if tops.isEmpty =>
         (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
@@ -91,6 +102,20 @@ trait Registry {
    * To be called once every compilation unit were extracted.
    */
   def checkpoint(): Option[xt.Symbols] = {
+    if (hasCache) {
+      val res = updateImpl(deferredClasses, deferredFunctions)
+      val xxx = checkpointImpl()
+      assert(xxx.isEmpty)
+      persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
+      deferredClasses.clear()
+      deferredFunctions.clear()
+      deferredNodes.clear()
+      res
+    } else checkpointImpl()
+  }
+
+  // TODO move this outside API zone
+  private def checkpointImpl(): Option[xt.Symbols] = {
     val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
@@ -101,7 +126,6 @@ trait Registry {
     }
 
     graph.freeze() // (re-)freeze for next cycle
-    persistentCache = None // remove the cache after the first cycle (and any other cycle).
     res
   }
 
@@ -139,14 +163,16 @@ trait Registry {
     try {
       val count = readInt()
       reporter.debug(s"Reading $count pairs from ${file.getAbsolutePath}")
-      val mapping = MutableMap[Identifier, (CanonicalForm, Boolean)]()
+      val mapping = MutableMap[Identifier, (CanonicalForm, Boolean, Int)]()
 
-      for { i <- 0 until count } {
+      for { _ <- 0 until count } {
         val id = readId()
         val checked = readBool()
         val size = readInt()
         val bytes = readBytes(size)
-        mapping += id -> (new CanonicalForm(bytes), checked)
+        val depsHash = readInt()
+
+        mapping += id -> (new CanonicalForm(bytes), checked, depsHash)
       }
 
       persistentCache = Some(mapping.toMap)
@@ -181,22 +207,38 @@ trait Registry {
       writeInt(id.id)
     }
 
+    def getId(node: NodeValue) = node match {
+      case Left(cd) => cd.id
+      case Right(fd) => fd.id
+    }
+
+    def isChecked(node: NodeValue) = node match {
+      case Left(cd) => shouldBeChecked(cd)
+      case Right(fd) => shouldBeChecked(fd)
+    }
+
+    val localCFCache = MutableMap[Identifier, CanonicalForm]() // cache CanonicalForm and their hash.
+    def getCF(node: NodeValue): CanonicalForm = localCFCache.getOrElseUpdate(getId(node), buildCF(node))
+
     var failure = false
     try {
-      // For each (id, cf) in cache, save the pair.
+      // For each (id, cf) in cache, save the related data.
       val nodes = graph.getNodes
       reporter.debug(s"Saving ${nodes.size} pairs to ${file.getAbsolutePath}")
       writeInt(nodes.size)
       nodes foreach { case (id, (node, deps)) =>
-        val (cf, checked) = node match {
-          case Left(cd) => CanonicalFormBuilder(cd) -> shouldBeChecked(cd)
-          case Right(fd) => CanonicalFormBuilder(fd) -> shouldBeChecked(fd)
-        }
+        val cf = getCF(node)
+        val checked = isChecked(node)
 
         writeId(id)
         writeBool(checked)
         writeInt(cf.bytes.size)
         stream.write(cf.bytes)
+
+        // For dependencies, we store only the hash of the sorted hashes for each dependency
+        // TODO Instead of storing the hash, we could have a "generation ID", a bit like a versioning system.
+        val hashes = deps.toSeq map { dep => getCF(nodes(dep)._1).hashCode }
+        writeInt(hashes.sorted.hashCode)
       }
     } catch {
       case e: IOException =>
@@ -244,31 +286,28 @@ trait Registry {
 
     override def equivalent(id: Identifier, deps: Set[Identifier],
                             oldInput: NodeValue, newInput: NodeValue): Boolean = {
-      val (cf1, cf2) = (oldInput, newInput) match {
-        case (Left(cd1), Left(cd2)) =>
-          val cf1 = cfCache.getOrElseUpdate(id, CanonicalFormBuilder(cd1))
-          val cf2 = CanonicalFormBuilder(cd2)
-          (cf1, cf2)
+      val cf1 = cfCache.getOrElseUpdate(id, buildCF(oldInput))
+      val cf2 = buildCF(newInput)
 
-        case (Right(fd1), Right(fd2)) =>
-          val cf1 = cfCache.getOrElseUpdate(id, CanonicalFormBuilder(fd1))
-          val cf2 = CanonicalFormBuilder(fd2)
-          (cf1, cf2)
+      cfCache += id -> cf2
 
-        case _ => reporter.fatalError(s"Unexpected type mismatch for $id")
-      }
-
-      if (cf1 == cf2) true
-      else {
-        cfCache += id -> cf2
-        false
-      }
+      cf1 == cf2
     }
   }
 
-  private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean)]] = None
+  private def buildCF(node: NodeValue) = node match {
+    case Left(cd) => CanonicalFormBuilder(cd)
+    case Right(fd) => CanonicalFormBuilder(fd)
+  }
 
-  private def isOfInterest(node: NodeValue): Boolean = {
+  // TODO doc: explain how cache impacts Registry internal work, when it's valid, ...
+  private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean, Int)]] = None
+  private def hasCache = persistentCache.isDefined
+  private val deferredClasses = ListBuffer[xt.ClassDef]()
+  private val deferredFunctions = ListBuffer[xt.FunDef]()
+  private val deferredNodes = MutableMap[Identifier, NodeValue]()
+
+  private def isOfInterest(node: NodeValue, deps: Set[Identifier]): Boolean = {
     val id = node match {
       case Left(cd) => cd.id
       case Right(fd) => fd.id
@@ -296,9 +335,14 @@ trait Registry {
             reporter.debug(s"fallback on default for $id, NOT IN CACHE")
             default
 
-          case Some((cachedCf, checked)) =>
-            reporter.debug(s"from cache for $id -> checked? $checked, equals? ${cachedCf == cf}")
-            (!checked || cachedCf != cf) && default
+          case Some((cachedCf, checked, hash)) =>
+            // Compute the hashes of the extracted nodes with the hashes from the persistent cache.
+            val hashes = deps.toSeq map deferredNodes map buildCF map { _.hashCode }
+            val currentHash = hashes.sorted.hashCode
+            reporter.debug(
+              s"from cache for $id -> checked? $checked, equals? ${cachedCf == cf}, hash? ${hash == currentHash}"
+            )
+            (!checked || cachedCf != cf || hash != currentHash) && default
         }
     }
 
@@ -320,7 +364,7 @@ trait Registry {
 
     // Critical Section
     val results: Seq[Result] = this.synchronized {
-      newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input)) }
+      newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input, deps)) }
     }
 
     if (results.isEmpty) None
