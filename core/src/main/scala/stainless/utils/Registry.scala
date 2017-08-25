@@ -28,6 +28,20 @@ object DebugSectionRegistry extends inox.DebugSection("registry")
  * Specific implementations of this trait have to provide a context and facilities to compute
  * direct dependencies for functions and classes, as well as filters to identify data that
  * is of interest.
+ *
+ * Regarding the persistent cache:
+ *  - The cache is loaded and used for one update/checkpoint cycle, after which it is thrown away.
+ *  - The cache is written to disk when asked to, i.e. when calling [[saveCache]].
+ *  - It is expected that the cache is loaded before the first cycle starts. The behaviour is undefined
+ *    if it is loaded during any cycle or between two cycles.
+ *  - In order to re-compute nodes whose dependencies have changed, we need the knowledge of the
+ *    full universe, i.e. all function and class definitions, in order to known which nodes should
+ *    be (re)computed by the underlying ICG. To do that, when the cache is loaded, the [[update]] and
+ *    [[checkpoint]] method will switch to a specific mode which defer all updates to [[checkpoint]].
+ *  - The [[isOfInterest]] method is also switching mode whenever the persistent cache is loaded.
+ *
+ * NOTE If stainless is interrupted, the cache will most probably be invalid, or at least not represent
+ *      the state of processed/unprocessed nodes.
  */
 trait Registry {
   protected val context: inox.Context
@@ -54,38 +68,13 @@ trait Registry {
    * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
   def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
-    if (hasCache) {
+    if (hasPersistentCache) {
       deferredClasses ++= classes
       deferredFunctions ++= functions
       deferredNodes ++= classes map { cd => cd.id -> Left(cd) }
       deferredNodes ++= functions map { fd => fd.id -> Right(fd) }
       None
     } else updateImpl(classes, functions)
-  }
-
-  // TODO move outside API zone
-  private def updateImpl(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
-    def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
-      case Some(tops) if tops.isEmpty =>
-        (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
-        !(cd.flags contains xt.IsAbstract) // Because we do not allow inheriting from case classes.
-      case Some(tops) =>
-        tops forall { top => top.flags contains xt.IsSealed } // All parents must be sealed.
-      case None =>
-        false // Some parents are in different compilation unit, hence not ready.
-    }
-
-    val (ready, open) = classes partition isReady
-    this.synchronized {
-      knownClasses ++= open map { cd => cd.id -> cd }
-    }
-
-    classes foreach { cd =>
-      if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
-        reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
-    }
-
-    process(ready, functions)
   }
 
   /**
@@ -102,31 +91,16 @@ trait Registry {
    * To be called once every compilation unit were extracted.
    */
   def checkpoint(): Option[xt.Symbols] = {
-    if (hasCache) {
+    if (hasPersistentCache) {
       val res = updateImpl(deferredClasses, deferredFunctions)
-      val xxx = checkpointImpl()
-      assert(xxx.isEmpty)
+      val empty = checkpointImpl()
+      assert(empty.isEmpty)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
       deferredClasses.clear()
       deferredFunctions.clear()
       deferredNodes.clear()
       res
     } else checkpointImpl()
-  }
-
-  // TODO move this outside API zone
-  private def checkpointImpl(): Option[xt.Symbols] = {
-    val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
-    val res = if (frozen) {
-      assert(defaultRes.isEmpty)
-      graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
-    } else {
-      frozen = true
-      defaultRes
-    }
-
-    graph.freeze() // (re-)freeze for next cycle
-    res
   }
 
   /** Import the canonical form cache from the given file. Not thread-safe. */
@@ -300,9 +274,9 @@ trait Registry {
     case Right(fd) => CanonicalFormBuilder(fd)
   }
 
-  // TODO doc: explain how cache impacts Registry internal work, when it's valid, ...
+  // See note about persistent cache at the top.
   private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean, Int)]] = None
-  private def hasCache = persistentCache.isDefined
+  private def hasPersistentCache = persistentCache.isDefined
   private val deferredClasses = ListBuffer[xt.ClassDef]()
   private val deferredFunctions = ListBuffer[xt.FunDef]()
   private val deferredNodes = MutableMap[Identifier, NodeValue]()
@@ -337,6 +311,7 @@ trait Registry {
 
           case Some((cachedCf, checked, hash)) =>
             // Compute the hashes of the extracted nodes with the hashes from the persistent cache.
+            // Mind the fact that we need to know all the definitions to compute the hash.
             val hashes = deps.toSeq map deferredNodes map buildCF map { _.hashCode }
             val currentHash = hashes.sorted.hashCode
             reporter.debug(
@@ -349,6 +324,45 @@ trait Registry {
     reporter.debug(s"verdict for $id? $result")
 
     result
+  }
+
+  private def updateImpl(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+    def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
+      case Some(tops) if tops.isEmpty =>
+        (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
+        !(cd.flags contains xt.IsAbstract) // Because we do not allow inheriting from case classes.
+      case Some(tops) =>
+        tops forall { top => top.flags contains xt.IsSealed } // All parents must be sealed.
+      case None =>
+        false // Some parents are in different compilation unit, hence not ready.
+    }
+
+    val (ready, open) = classes partition isReady
+    this.synchronized {
+      knownClasses ++= open map { cd => cd.id -> cd }
+    }
+
+    classes foreach { cd =>
+      if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
+        reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
+    }
+
+    process(ready, functions)
+  }
+
+
+  private def checkpointImpl(): Option[xt.Symbols] = {
+    val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
+    val res = if (frozen) {
+      assert(defaultRes.isEmpty)
+      graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
+    } else {
+      frozen = true
+      defaultRes
+    }
+
+    graph.freeze() // (re-)freeze for next cycle
+    res
   }
 
   private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
@@ -451,7 +465,7 @@ trait Registry {
   }
 
 
-  case class IncompleteHierarchy(cd: Identifier, parent: Identifier, classes: Seq[xt.ClassDef]) extends Throwable
+  private case class IncompleteHierarchy(cd: Identifier, parent: Identifier, classes: Seq[xt.ClassDef]) extends Throwable
   private def getTopLevelsImpl(classes: Seq[xt.ClassDef], cd0: xt.ClassDef): Set[xt.ClassDef] = {
     def getDirects(cd: xt.ClassDef): Set[xt.ClassDef] = cd.parents.toSet map { ct: xt.ClassType =>
       classes find { _.id == ct.id } getOrElse { throw IncompleteHierarchy(cd.id, ct.id, classes) }
