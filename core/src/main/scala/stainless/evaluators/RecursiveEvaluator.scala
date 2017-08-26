@@ -71,7 +71,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     case NoTree(tpe) =>
       throw RuntimeError("Reached empty tree in evaluation @" + expr.getPos)
 
-    case Dontcheck(body) =>
+    case Annotated(body, _) =>
       e(body)
 
     case _ => super.e(expr)

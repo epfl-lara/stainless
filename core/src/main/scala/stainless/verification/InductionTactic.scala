@@ -55,9 +55,9 @@ trait InductionTactic extends DefaultTactic {
       case (Some(b), Some((tsort, arg))) =>
         val body = b
 
-        val calls = transformers.CollectorWithPC(program) {
+        val calls = collectForConditions {
           case (fi: FunctionInvocation, path) if fi.tfd.hasPrecondition => (fi, path)
-        }.collect(body)
+        }(body)
 
         for {
           (fi @ FunctionInvocation(_, _, args), path) <- calls

@@ -45,7 +45,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     *
     * @param body
     */
-  case class Dontcheck(body: Expr) extends Expr with CachingTyped {
+  case class Annotated(body: Expr, flags: Seq[Flag]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = body.getType
   }
 

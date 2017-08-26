@@ -22,27 +22,31 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
 
     def inlineFunctionInvocations(e: Expr) = {
       exprOps.preMap({
-        case fi@FunctionInvocation(_, _, args) =>
+        case fi @ FunctionInvocation(_, _, args) =>
           val tfd = fi.tfd
           if ((tfd.fd.flags contains Inline) && transitivelyCalls(tfd.fd, tfd.fd)) {
             throw MissformedStainlessCode(tfd.fd, "Can't inline recursive function: " + tfd.fd.id.name)
           }
+
           if (tfd.fd.flags contains Inline) {
             val (pre, body, post) = exprOps.breakDownSpecs(tfd.fullBody)
             val uncheckedBody = body match {
               case None => throw MissformedStainlessCode(tfd.fd, "Inlining function with empty body: not supported")
-              case Some(body) => Dontcheck(body).copiedFrom(body)
+              case Some(body) => annotated(body, Unchecked)
             }
+
             def addPreconditionAssertion(e: Expr) = pre match {
               case None => e
               case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.fd.id.name), e).copiedFrom(fi)
             }
+
             def addPostconditionAssumption(e: Expr) = post match {
               case None => e
               case Some(lambda) =>
                 val v = Variable.fresh("res", e.getType).copiedFrom(e)
                 Let(v.toVal, e, Assume(application(lambda, Seq(v)), v).copiedFrom(lambda)).copiedFrom(e)
             }
+
             val newBody = addPreconditionAssertion(addPostconditionAssumption(uncheckedBody))
             Some(exprOps.freshenLocals((tfd.params zip args).foldRight(newBody: Expr) {
               case ((vd, e), body) => let(vd, e, body)
