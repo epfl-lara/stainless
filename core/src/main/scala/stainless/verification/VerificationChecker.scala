@@ -170,9 +170,9 @@ object VerificationChecker {
     }
 
     if (opts.findOptionOrDefault(optVCCache)) {
-      new Checker
-    } else {
       new Checker with VerificationCache
+    } else {
+      new Checker
     }
   }
 
