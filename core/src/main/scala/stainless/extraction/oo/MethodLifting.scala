@@ -20,19 +20,14 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val children: Map[Identifier, Set[Identifier]] =
+    val children: Map[Identifier, Seq[Identifier]] =
       symbols.classes.values
         .flatMap(cd => cd.parents.map(_ -> cd))
         .groupBy(_._1.id)
-        .mapValues(_.map(_._2.id).toSet)
-
-    val descendants: Map[Identifier, Set[Identifier]] =
-      inox.utils.fixpoint { (map: Map[Identifier, Set[Identifier]]) =>
-        map.map { case (p, desc) => p -> (desc ++ desc.flatMap(map.getOrElse(_, Set.empty))) }
-      } (children)
+        .mapValues(_.map(_._2.id).toSeq.sortBy(_.name))
 
     sealed trait Override { val cid: Identifier }
-    case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Set[Override]) extends Override
+    case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[Override]) extends Override
     case class ValOverride(cid: Identifier, vd: ValDef) extends Override
 
     val (newSymbols, functionToOverrides): (Symbols, Map[Identifier, FunOverride]) = {
@@ -49,9 +44,9 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       def rec(id: Identifier): Map[Symbol, Override] = {
         val cd = symbols.getClass(id)
-        val cids = children.getOrElse(id, Set.empty)
+        val cids = children.getOrElse(id, Seq.empty)
         val ctrees = if (cids.isEmpty) {
-          Set(cd.fields.flatMap(vd => firstSymbol(id, vd).map(_ -> ValOverride(id, vd))).toMap)
+          Seq(cd.fields.flatMap(vd => firstSymbol(id, vd).map(_ -> ValOverride(id, vd))).toMap)
         } else {
           cids.map(rec)
         }
@@ -60,7 +55,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
           fid.symbol -> FunOverride(id, Some(fid), ctrees.flatMap(_.get(fid.symbol)))
         }.toMap
 
-        val noOverrides = (ctrees.flatMap(_.keys.toSet) -- newOverrides.keys).map {
+        val noOverrides = ctrees.flatMap(_.keys.toSet).filterNot(newOverrides contains _).map {
           sym => sym -> FunOverride(id, None, ctrees.flatMap(_.get(sym)))
         }
 
@@ -130,7 +125,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
     object default extends BaseTransformer
 
-    def makeFunction(cid: Identifier, fid: Identifier, cos: Set[Override]): t.FunDef = {
+    def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override]): t.FunDef = {
       val cd = newSymbols.getClass(cid)
       val fd = newSymbols.getFunction(fid)
       val tpSeq = newSymbols.freshenTypeParams(cd.typeArgs)
@@ -151,8 +146,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
       }
 
-      val subCalls = (for (co <- cos.toSeq.sortBy(_.cid.name)) yield {
-        firstOverrides(co).toSeq.sortBy(_._1.name).map { case (cid, either) =>
+      val subCalls = (for (co <- cos) yield {
+        firstOverrides(co).map { case (cid, either) =>
           val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
           val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
           (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), either match {
