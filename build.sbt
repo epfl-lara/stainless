@@ -103,6 +103,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
   unmanagedResourceDirectories in Compile += root.base / "frontends" / "library",
+  test in assembly := {}, // Skip the test during assembly
 
   sourceGenerators in Compile += Def.task {
     val fullLibraryPaths = ((root.base / "frontends" / "library") ** "*.scala").getPaths
@@ -205,6 +206,7 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 lazy val IntegrationTest = config("it") extend(Test)
 
 lazy val `stainless-core` = (project in file("core"))
+  .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-core")
   .settings(commonSettings)
   //.dependsOn(inox % "compile->compile;test->test")
@@ -221,12 +223,14 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
+  .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
   .settings(commonSettings)
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+  .disablePlugins(AssemblyPlugin)
   .settings(
     name := "stainless-dotty",
     frontendClass := "dotc.DottyCompiler")
@@ -239,8 +243,11 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
 
 lazy val root = (project in file("."))
+  .disablePlugins(AssemblyPlugin)
   .settings(scalaVersionSetting, sourcesInBase in Compile := false)
   .dependsOn(`stainless-scalac`, `stainless-dotty`)
   .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
 
+// FIXME assembly should be disabled at the top level, but isn't
+// FIXME assembly is not compatible with dotty -- some conflict with scala versions?
 
