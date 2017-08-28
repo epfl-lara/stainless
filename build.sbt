@@ -100,25 +100,29 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
   unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
+  unmanagedResourceDirectories in Compile += root.base / "frontends" / "library",
+
   sourceGenerators in Compile += Def.task {
-    val libraryFiles = ((root.base / "frontends" / "library") ** "*.scala").getPaths
+    val fullLibraryPaths = ((root.base / "frontends" / "library") ** "*.scala").getPaths
+    val dropCount = (fullLibraryPaths.head indexOfSlice "library") + ("library".size + 1 /* for separator */)
+    val libraryPaths = fullLibraryPaths map { _ drop dropCount } // Drop the prefix of the path (i.e. everything before "library")
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
-    def removeSlashU(in: String): String = 
+    def removeSlashU(in: String): String =
       in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
       .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
-    
+
     IO.write(main,
       s"""|package stainless
           |
           |object Main extends MainHelpers {
           |
-          |  val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
+          |  private val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
           |
-          |  val libraryFiles = List(
-          |    ${removeSlashU(libraryFiles.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
+          |  private val libraryPaths = List(
+          |    ${removeSlashU(libraryPaths.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
           |  )
           |
-          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryFiles)
+          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryPaths)
           |
           |}""".stripMargin)
     Seq(main)
@@ -236,3 +240,5 @@ lazy val root = (project in file("."))
   .settings(scalaVersionSetting, sourcesInBase in Compile := false)
   .dependsOn(`stainless-scalac`, `stainless-dotty`)
   .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
+
+

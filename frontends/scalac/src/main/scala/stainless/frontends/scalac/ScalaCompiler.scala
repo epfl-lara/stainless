@@ -109,7 +109,7 @@ object ScalaCompiler {
   /** Complying with [[frontend]]'s interface */
   class Factory(
     override val extraCompilerArguments: Seq[String],
-    override val libraryFiles: Seq[String]
+    override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =

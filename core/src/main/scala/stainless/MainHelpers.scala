@@ -80,6 +80,8 @@ trait MainHelpers extends inox.MainHelpers {
   /* NOTE: Should be implemented by a generated Main class in each compiler-specific project: */
   val factory: frontend.FrontendFactory
 
+  final lazy val libraryFiles = factory.libraryFiles
+
   // TODO add (optional) customisation points for CallBacks to access intermediate reports(?)
 
   def main(args: Array[String]): Unit = try {

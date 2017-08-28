@@ -30,6 +30,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     assert(reporter.lastErrors.isEmpty)
 
+    assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
     val uOpt = structure find { _.isMain }
     val u = uOpt.get
 
