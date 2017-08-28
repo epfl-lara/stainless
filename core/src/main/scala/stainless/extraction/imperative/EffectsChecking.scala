@@ -161,6 +161,10 @@ trait EffectsChecking { self =>
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
         case ArrayUpdated(_, _, _) => true
 
+        // These cases cover some limitations due to dotty inlining
+        case Let(vd, e, v: Variable) if vd == v.toVal => isExpressionFresh(e)
+        case Let(vd, e, Assume(pred, v: Variable)) if vd == v.toVal => isExpressionFresh(e)
+
         //any other expression is conservately assumed to be non-fresh if
         //any sub-expression is non-fresh (i.e. an if-then-else with a reference in one branch)
         case Operator(args, _) => args.forall(isExpressionFresh)
