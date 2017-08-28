@@ -33,6 +33,10 @@ trait Printer extends inox.ast.Printer {
           |  $post
           |}"""
 
+    case Annotated(body, flags) =>
+      for (f <- flags) p"@${f.asString(ctx.opts)} "
+      p"$body"
+
     case Pre(f) =>
       p"$f.pre"
 

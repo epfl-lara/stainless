@@ -54,6 +54,31 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Pre(f) =>
       (Seq(), Seq(), Seq(f), Seq(), (_, _, es, _) => t.Pre(es.head))
 
+    case s.Annotated(body, flags) =>
+      val dflags = flags.map(deconstruct)
+
+      (dflags.flatMap(_._1), Seq(), body +: dflags.flatMap(_._2), dflags.flatMap(_._3), (ids, _, es, tps) => {
+        val body +: fexprs = es
+
+        var vids = ids
+        var ves = fexprs
+        var vtps = tps
+        val flags = dflags.map { case (fids, fes, ftps, frecons) =>
+          val (currIds, nextIds) = vids.splitAt(fids.size)
+          vids = nextIds
+
+          val (currEs, nextEs) = ves.splitAt(fes.size)
+          ves = nextEs
+
+          val (currTps, nextTps) = vtps.splitAt(ftps.size)
+          vtps = nextTps
+
+          frecons(currIds, currEs, currTps)
+        }
+
+        t.Annotated(body, flags)
+      })
+
     case s.MatchExpr(scrut, cases) =>
 
       def rec(p: s.Pattern): (

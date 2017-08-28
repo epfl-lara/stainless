@@ -7,8 +7,28 @@ trait Tactic {
   val program: Program
   val description: String
 
+  import program.trees._
+  import program.symbols._
+
   protected type VC = verification.VC[program.trees.type]
   protected def VC(cond: program.trees.Expr, id: Identifier, kind: VCKind): VC = verification.VC(cond, id, kind)
+
+  protected def collectForConditions[T](pf: PartialFunction[(Expr, Path),T])(e: Expr): Seq[T] = {
+    new transformers.CollectorWithPC {
+      val trees: program.trees.type = program.trees
+      val symbols: program.symbols.type = program.symbols
+      type Result = T
+
+      private val lifted = pf.lift
+
+      protected def step(e: Expr, env: Env): List[Result] = lifted(e, env).toList
+
+      override protected def rec(e: Expr, env: Env): Expr = e match {
+        case Annotated(_, flags) if flags contains Unchecked => e
+        case _ => super.rec(e, env)
+      }
+    }.collect(e)
+  }
 
   def generateVCs(id: Identifier): Seq[VC] = {
     generatePostconditions(id) ++
