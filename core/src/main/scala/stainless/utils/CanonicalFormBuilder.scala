@@ -210,6 +210,8 @@ private class CanonicalFormBuilderImpl {
       case Some(desc) => storeBool(true); storeString(desc)
     }
 
+    case xt.Annotated(_, flags) => storeFlags(flags.toSet)
+
     case xt.MatchExpr(_, cases) =>
       def rec(p: xt.Pattern): Unit = {
         val (_, vs, _, _, subs, _) = xt.deconstructor.deconstruct(p)
@@ -446,6 +448,7 @@ private object CanonicalFormBuilderImpl {
       classOf[xt.NoTree],
       classOf[xt.Error],
       classOf[xt.Require],
+      classOf[xt.Annotated],
       classOf[xt.Ensuring],
       classOf[xt.Assert],
       classOf[xt.Pre],

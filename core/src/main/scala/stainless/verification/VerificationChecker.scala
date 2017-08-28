@@ -178,9 +178,8 @@ trait VerificationChecker { self =>
 }
 
 object VerificationChecker {
-  def verify(p: StainlessProgram, opts: inox.Options)
-            (funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    object checker extends VerificationChecker {
+  def apply(p: StainlessProgram, opts: inox.Options): VerificationChecker { val program: p.type } =
+    new VerificationChecker {
       val program: p.type = p
       val options = opts
 
@@ -197,7 +196,9 @@ object VerificationChecker {
       protected def getFactory = solvers.SolverFactory.apply(p, opts)
     }
 
-    checker.verify(funs)
+  def verify(p: StainlessProgram, opts: inox.Options)
+            (funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
+    apply(p, opts).verify(funs)
   }
 
   def verify(p: StainlessProgram)(funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {

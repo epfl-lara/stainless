@@ -42,9 +42,8 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
 
             def addPostconditionAssumption(e: Expr) = post match {
               case None => e
-              case Some(lambda) =>
-                val v = Variable.fresh("res", e.getType).copiedFrom(e)
-                Let(v.toVal, e, Assume(application(lambda, Seq(v)), v).copiedFrom(lambda)).copiedFrom(e)
+              case Some(Lambda(Seq(vd), post)) =>
+                Let(vd, e, Assume(post, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
             }
 
             val newBody = addPreconditionAssertion(addPostconditionAssumption(uncheckedBody))

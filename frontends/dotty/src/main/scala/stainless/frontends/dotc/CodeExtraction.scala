@@ -367,7 +367,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
-    var flags = annotationsOf(sym) ++ (if (sym is Implicit) Some(xt.Inline) else None)
+    var flags = annotationsOf(sym) ++
+      (if ((sym is Implicit) || (sym is Inline)) Some(xt.Inline) else None)
 
     val id = getIdentifier(sym)
 
@@ -871,7 +872,25 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       extractTree(e)
 
     case Inlined(_, members, body) =>
-      extractBlock(members :+ body)
+      val block = extractBlock(members :+ body)
+      val (pre, expr, post) = xt.exprOps.breakDownSpecs(block)
+      val uncheckedBody = expr match {
+        case None => outOfSubsetError(tr, "Can't inline empty body")
+        case Some(expr) => xt.annotated(expr, xt.Unchecked)
+      }
+
+      def addPre(e: xt.Expr) = pre match {
+        case None => e
+        case Some(pre) => xt.Assert(pre, Some("Inlined precondition"), e).copiedFrom(e)
+      }
+
+      def addPost(e: xt.Expr) = post match {
+        case None => e
+        case Some(xt.Lambda(Seq(vd), post)) =>
+          xt.Let(vd, e, xt.Assume(post, vd.toVariable).copiedFrom(e)).copiedFrom(e)
+      }
+
+      addPre(addPost(uncheckedBody))
 
     case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "choose"), Seq(tpt)), Seq(pred)) =>
       extractTree(pred) match {
