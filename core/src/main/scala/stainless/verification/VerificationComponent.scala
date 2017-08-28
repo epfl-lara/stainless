@@ -46,6 +46,7 @@ object VerificationComponent extends SimpleComponent {
     lazy val totalConditions: Int = vrs.size
     lazy val totalTime = vrs.map(_._2.time.getOrElse(0l)).sum
     lazy val totalValid = vrs.count(_._2.isValid)
+    lazy val totalValidFromCache = vrs.count(_._2.isValidFromCache)
     lazy val totalInvalid = vrs.count(_._2.isInvalid)
     lazy val totalUnknown = vrs.count(_._2.isInconclusive)
 
@@ -64,7 +65,7 @@ object VerificationComponent extends SimpleComponent {
           Cell(vr.time.map(t => f"${t / 1000d}%3.3f").getOrElse(""))
         ))
       },
-      ReportStats(totalConditions, totalTime, totalValid, totalInvalid, totalUnknown)
+      ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
     ))
 
     override def emitJson: JArray = {
@@ -104,7 +105,9 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    VerificationChecker.verify(encoder.targetProgram)(funs).mapValues {
+    val vcs = VerificationGenerator.gen(encoder.targetProgram)(funs)
+
+    VerificationChecker.verify(encoder.targetProgram)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>
         VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
@@ -113,7 +116,7 @@ object VerificationComponent extends SimpleComponent {
 
   def apply(funs: Seq[Identifier], p: StainlessProgram): VerificationReport = {
     val res = check(funs, p)
-
+    
     new VerificationReport {
       val program: p.type = p
       val results = res

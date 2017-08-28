@@ -8,6 +8,8 @@ import inox.solvers._
 // TODO this should probably be removed as it is superseded by the flexible pipeline...
 object optParallelVCs extends inox.FlagOptionDef("parallelvcs", false)
 object optFailEarly extends inox.FlagOptionDef("failearly", false)
+object optFailInvalid extends inox.FlagOptionDef("failinvalid", false)
+object optVCCache extends inox.FlagOptionDef("vccache", false)
 
 object DebugSectionVerification extends inox.DebugSection("verification")
 
@@ -17,11 +19,11 @@ trait VerificationChecker { self =>
 
   private lazy val parallelCheck = options.findOptionOrDefault(optParallelVCs)
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
+  private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
 
   import program._
   import program.trees._
   import program.symbols._
-  import CallGraphOrderings._
 
   implicit val debugSection = DebugSectionVerification
 
@@ -33,48 +35,29 @@ trait VerificationChecker { self =>
   type VCResult = verification.VCResult[program.Model]
   val VCResult = verification.VCResult
 
-  protected def getTactic(fd: FunDef): Tactic { val program: self.program.type }
   protected def getFactory: SolverFactory {
     val program: self.program.type
     type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
   }
 
-  private def defaultStop(res: VCResult): Boolean = if (failEarly) res.status != VCStatus.Valid else false
+  protected def defaultStop(res: VCResult): Boolean = {
+    if (failEarly) !res.isValid
+    else if (failInvalid) res.isInvalid
+    else false
+  }
 
-  def verify(funs: Seq[Identifier], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
+  def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
     val sf = ctx.options.findOption(inox.optTimeout) match {
       case Some(to) => getFactory.withTimeout(to)
       case None => getFactory
     }
 
     try {
-      ctx.reporter.debug("Generating Verification Conditions...")
-      val vcs = generateVCs(funs)
-
       ctx.reporter.debug("Checking Verification Conditions...")
       checkVCs(vcs, sf, stopWhen)
     } finally {
       sf.shutdown()
     }
-  }
-
-  def generateVCs(funs: Seq[Identifier]): Seq[VC] = {
-    val vcs: Seq[VC] = (for (id <- funs) yield {
-      val fd = getFunction(id)
-      val tactic = getTactic(fd)
-
-      if (fd.body.isDefined) {
-        tactic.generateVCs(id)
-      } else {
-        Nil
-      }
-    }).flatten
-
-    vcs.sortBy(vc => (getFunction(vc.fd),
-      if (vc.kind.underlying == VCKind.Precondition) 0
-      else if (vc.kind.underlying == VCKind.Assert) 1
-      else 2
-    ))
   }
 
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
@@ -105,14 +88,14 @@ trait VerificationChecker { self =>
     initMap ++ results
   }
 
-  private def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
+  protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
 
     try {
       val cond = simplifyLets(vc.condition)
       ctx.reporter.synchronized {
-        ctx.reporter.info(s" - Now considering '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        ctx.reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
         ctx.reporter.debug(cond.asString)
         ctx.reporter.debug("Solving with: " + s.name)
       }
@@ -178,29 +161,26 @@ trait VerificationChecker { self =>
 }
 
 object VerificationChecker {
+
   def verify(p: StainlessProgram, opts: inox.Options)
-            (funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    object checker extends VerificationChecker {
+            (vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
+
+    val vccache = opts.findOptionOrDefault(optVCCache)
+
+    trait CheckerInterface extends VerificationChecker {
       val program: p.type = p
       val options = opts
 
-      val defaultTactic = DefaultTactic(p)
-      val inductionTactic = InductionTactic(p)
-
-      protected def getTactic(fd: p.trees.FunDef) =
-        if (fd.flags contains "induct") {
-          inductionTactic
-        } else {
-          defaultTactic
-        }
-
       protected def getFactory = solvers.SolverFactory.apply(p, opts)
     }
+    object Checker extends CheckerInterface
+    object CacheChecker extends CheckerInterface with VerificationCache
 
-    checker.verify(funs)
+    if (vccache) CacheChecker.verify(vcs)
+    else Checker.verify(vcs)
   }
 
-  def verify(p: StainlessProgram)(funs: Seq[Identifier]): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    verify(p, p.ctx.options)(funs)
+  def verify(p: StainlessProgram)(vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
+    verify(p, p.ctx.options)(vcs)
   }
 }

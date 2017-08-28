@@ -79,7 +79,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         case s.IsInstanceOf(e, s.ClassType(id, tps)) if candidates(id) =>
           val te = transform(e)
           val ttps = tps map transform
-          t.orJoin(classToConstructors(id).toSeq.map {
+          t.orJoin(classToConstructors(id).toSeq.sortBy(_.name).map {
             id => t.IsInstanceOf(te, t.ADTType(id, ttps)).setPos(e)
           })
 
@@ -135,7 +135,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         case (ovd, vd) => ovd.tpe match {
           case s.ClassType(id, tps) if candidates(id) && approximate(id) != id =>
             val ttps = tps map transformer.transform
-            Some(t.orJoin(classToConstructors(id).toSeq.map {
+            Some(t.orJoin(classToConstructors(id).toSeq.sortBy(_.name).map {
               id => t.IsInstanceOf(vd.toVariable, t.ADTType(id, ttps))
             }))
           case _ => None
@@ -164,7 +164,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
     val sorts: Seq[t.ADTSort] = sortClasses.map(cd => new t.ADTSort(
       cd.id,
       cd.tparams map transformer.transform,
-      classToConstructors(cd.id).toSeq,
+      classToConstructors(cd.id).toSeq.sortBy(_.name),
       (cd.flags - IsAbstract - IsSealed) map transformer.transform
     ).copiedFrom(cd)).toSeq
 
