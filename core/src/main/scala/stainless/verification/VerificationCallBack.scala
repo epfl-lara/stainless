@@ -23,5 +23,8 @@ class VerificationCallBack(override val context: inox.Context) extends CallBackW
 
     VerificationComponent(program, context)
   }
+
+  override def onCycleEnd(): Unit = VerificationComponent.onCycleEnd()
+
 }
 

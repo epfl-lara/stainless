@@ -63,6 +63,8 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
   protected def shouldBeChecked(cd: xt.ClassDef): Boolean
 
+  /** Mark the end of a callback cycle. */
+  protected def onCycleEnd(): Unit = () // Nothing by default.
 
   /******************* Internal State *************************************************************/
 

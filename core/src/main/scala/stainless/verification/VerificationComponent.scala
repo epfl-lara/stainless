@@ -88,6 +88,10 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
+  // The marks are stored here in order to be shared among multiple VerificationChecker.
+  private val marks = new utils.AtomicMarks[Identifier]
+  def onCycleEnd(): Unit = marks.clear()
+
   def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
     val injector = AssertionInjector(p, ctx)
     val encoder = inox.ast.ProgramEncoder(p)(injector)
@@ -97,7 +101,7 @@ object VerificationComponent extends SimpleComponent {
     import encoder.targetProgram.trees._
     import encoder.targetProgram.symbols._
 
-    val toVerify = funs.sortBy(getFunction(_).getPos)
+    val toVerify = funs.sortBy(getFunction(_).getPos) filter marks.compareAndSet
 
     for (id <- toVerify) {
       if (getFunction(id).flags contains "library") {
@@ -106,7 +110,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
+    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
 
     VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>
