@@ -45,6 +45,7 @@ trait MainHelpers extends inox.MainHelpers {
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),
     verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
+    verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
     verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
