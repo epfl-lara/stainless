@@ -103,26 +103,20 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Internal Helpers ***********************************************************/
 
-  private def getCacheDirectory: Option[File] = options findOption optPersistentRegistryCache map { d =>
-    val dir = if (d.isEmpty) optPersistentRegistryCache.default else d
-    new File(dir).getAbsoluteFile
-  }
+  private def getCacheFile: Option[File] =
+    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheFilename)
 
   /** Load the registry cache, if specified by the user and available. */
-  private def loadRegistryCache(): Unit = getCacheDirectory foreach { dir =>
-    reporter.debug(s"Loading registry cache from $dir/$cacheFilename")
-    dir.mkdirs()
-    assert(dir.isDirectory)
-    val file = new File(dir, cacheFilename)
+  private def loadRegistryCache(): Unit = getCacheFile foreach { file =>
+    reporter.debug(s"Loading registry cache from $file")
     if (file.isFile()) {
       registry.loadCache(file)
     }
   }
 
   /** Save the registry cache, if specified by the user. */
-  private def saveRegistryCache(): Unit = getCacheDirectory foreach { dir =>
-    reporter.debug(s"Saving registry cache to $dir/$cacheFilename")
-    val file = new File(dir, cacheFilename)
+  private def saveRegistryCache(): Unit = getCacheFile foreach { file =>
+    reporter.debug(s"Saving registry cache to $file")
     registry.saveCache(file)
   }
 

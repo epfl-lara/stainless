@@ -12,12 +12,7 @@ package object frontend {
    * Each [[CallBackWithRegistry]] store its cache in a different file to avoid
    * confusion with custom filters.
    */
-  object optPersistentRegistryCache extends inox.OptionDef[String] {
-    val name = "registry-cache"
-    val default = "registry_cache/"
-    val parser = inox.OptionParsers.stringParser
-    val usageRhs = "directory"
-  }
+  object optPersistentRegistryCache extends inox.FlagOptionDef("registry-cache", false)
 
   /**
    * Given a context (with its reporter) and a compiler factory, proceed to compile,
