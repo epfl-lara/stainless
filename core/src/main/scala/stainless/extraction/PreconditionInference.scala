@@ -40,7 +40,10 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
       def pre(caller: Expr, args: Seq[Expr]): Expr = caller.getType match {
         case FunctionType(from, to) =>
           val (currArgs, restArgs) = args.splitAt(from.size)
-          and(Application(Pre(caller), currArgs), pre(Application(caller, currArgs), restArgs))
+          and(
+            Application(Pre(caller), currArgs).copiedFrom(caller), 
+            pre(Application(caller, currArgs).copiedFrom(caller), restArgs)
+          )
         case _ => BooleanLiteral(true)
       }
     }
