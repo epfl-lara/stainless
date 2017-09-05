@@ -213,7 +213,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
               case Some(fd) => (fd.typeArgs, fd.params.head)
               case None =>
                 val typeArgs = root.typeArgs.map(_.freshen)
-                (typeArgs, ValDef(FreshIdentifier("thiss"), root.typed(typeArgs).toType))
+                (typeArgs, ValDef(FreshIdentifier("thiss"), root.typed(typeArgs).toType).setPos(adt))
             }
 
             for (c <- constructors; vd <- c.fields) {
@@ -406,7 +406,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
             val arguments = if (freeVars.nonEmpty) Unknown else Known(Set(simplifyPath(path, args)))
             val Seq(input) = containers(caller).toSeq
             result = result merge (input -> arguments)
-            FlatApplication(caller, args.map(rec(_, path)))
+            FlatApplication(caller, args.map(rec(_, path))).copiedFrom(e)
 
           case e if containers contains e =>
             for (input <- containers(e)) {
@@ -460,7 +460,8 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
         def injectRequires(e: Expr): Expr = (e match {
           case Lambda(args, r @ Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)).copiedFrom(r))
           case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body), injectRequires(body)))
-          case Ensuring(body, l @ Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
+          case Ensuring(body, l @ Lambda(args, pred)) => 
+            Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
           case Operator(es, recons) => recons(es.map(injectRequires))
         }).copiedFrom(e)
 

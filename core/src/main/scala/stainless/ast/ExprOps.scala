@@ -86,7 +86,8 @@ trait ExprOps extends inox.ast.ExprOps {
   def withBody(e: Expr, body: Expr): Expr = e match {
     case Let(i, e, b) if hasSpec(b)            => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
     case Require(pre, _)                       => Require(pre, body).copiedFrom(e)
-    case Ensuring(req @ Require(pre, _), post) => Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
+    case Ensuring(req @ Require(pre, _), post) => 
+      Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
     case Ensuring(_, post)                     => Ensuring(body, post).copiedFrom(e)
     case _                                     => body
   }

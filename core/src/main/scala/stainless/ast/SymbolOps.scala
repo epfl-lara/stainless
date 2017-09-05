@@ -138,8 +138,6 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
     def rewritePM(e: Expr): Option[Expr] = e match {
       case m @ MatchExpr(scrut, cases) =>
-        // println("Rewriting the following PM: " + e)
-
         val condsAndRhs = for (cse <- cases) yield {
           val map = mapForPattern(scrut, cse.pattern)
           val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = false)
@@ -232,7 +230,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       val patt = TuplePattern(None, newArgs map (arg => WildcardPattern(Some(arg))))
       Lambda(Seq(res), MatchExpr(res.toVariable, Seq(
         MatchCase(patt, None, application(fun, newArgs map (_.toVariable)))
-      )))
+      ))).copiedFrom(fun)
 
     case _ => fun
   }
@@ -262,15 +260,25 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     assert(from.nonEmpty, "Can't build `requires` for function without arguments")
     val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
     val vars = vds.map(_.toVariable)
-    Forall(vds, Implies(Application(p, vars), Application(Pre(f), vars)))
+    Forall(vds, 
+      Implies(
+        Application(p, vars).copiedFrom(f), 
+        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f)
+      ).copiedFrom(f)
+    ).copiedFrom(f)
   }
 
   def funEnsures(f: Expr, p: Expr) = {
     val FunctionType(from, to) = f.getType
     assert(from.nonEmpty, "Can't build `ensures` for function without arguments")
-    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).setPos(tpe))
     val vars = vds.map(_.toVariable)
-    Forall(vds, Implies(Application(Pre(f), vars), Application(p, vars :+ Application(f, vars))))
+    Forall(vds, 
+      Implies(
+        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f), 
+        Application(p, vars :+ Application(f, vars).copiedFrom(f)).copiedFrom(f)
+      ).copiedFrom(f)
+    ).copiedFrom(f)
   }
 
   /* =================
@@ -291,7 +299,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     def unwrap(e: Expr): Lambda = e match {
       case Let(i, e, b) =>
         val Lambda(args, body) = unwrap(b)
-        Lambda(args, let(i, e, body))
+        Lambda(args, let(i, e, body)).copiedFrom(e)
       case l: Lambda => l
       case _ => scala.sys.error("Should never happen!")
     }
@@ -361,7 +369,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           results :+= path implies pred
 
         case Application(caller, args) =>
-          results :+= path implies Application(Pre(caller), args)
+          results :+= path implies Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e)
 
         case _ =>
       }
