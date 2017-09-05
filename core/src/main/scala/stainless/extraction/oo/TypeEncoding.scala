@@ -498,14 +498,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               vd.toVariable -> rec(vd.copy(tpe = tp2).toVariable, tp2, tp1)
             }.toMap
             val newBody = rec(exprOps.replaceFromSymbols(argMap, body), to1, to2)
-            Lambda(newArgs, newBody)
+            Lambda(newArgs, newBody).copiedFrom(e)
           case _ =>
             val newArgs = from2.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
             val appArgs = ((from1 zip from2) zip newArgs).map { case ((tp1, tp2), vd) =>
               rec(vd.toVariable, tp2, tp1)
             }
-            val newBody = rec(Application(e, appArgs), to1, to2)
-            Lambda(newArgs, newBody)
+            val newBody = rec(Application(e, appArgs).copiedFrom(e), to1, to2)
+            Lambda(newArgs, newBody).copiedFrom(e)
         }
 
         case (TupleType(tps1), TupleType(tps2)) => e match {
@@ -537,8 +537,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
                     val scope = TypeScope.empty
                     val condRecons :+ ((_, last)) = conss.map { cons =>
-                      val cond = IsInstanceOf(e, ADTType(cons.id, tps1))
-                      val cast = AsInstanceOf(e, ADTType(cons.id, tps1))
+                      val cond = IsInstanceOf(e, ADTType(cons.id, tps1).copiedFrom(e)).copiedFrom(e)
+                      val cast = AsInstanceOf(e, ADTType(cons.id, tps1).copiedFrom(e)).copiedFrom(e)
 
                       val typeArgs = cons.typeArgs.map(scope.transform)
 
@@ -551,13 +551,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
                             case _ => None
                           } (ttpe)
                         }
-                        rec(ADTSelector(cast, vd.id), instantiate(tps1), instantiate(tps2))
+                        rec(ADTSelector(cast, vd.id).copiedFrom(cast), instantiate(tps1), instantiate(tps2))
                       }
 
-                      (cond, ADT(ADTType(cons.id, tps2), fields))
+                      (cond, ADT(ADTType(cons.id, tps2).copiedFrom(e), fields).copiedFrom(e))
                     }
 
-                    condRecons.foldRight(last: Expr) { case ((cond, e), elze) => IfExpr(cond, e, elze) }
+                    condRecons.foldRight(last: Expr) { case ((cond, e), elze) => IfExpr(cond, e, elze).copiedFrom(cond) }
                   }
                 ))
                 id

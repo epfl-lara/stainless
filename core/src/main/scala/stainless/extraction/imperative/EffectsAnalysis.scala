@@ -93,7 +93,6 @@ trait EffectsAnalysis {
 
   private def expressionEffects(expr: Expr, effects: Map[FunAbstraction, Set[Variable]]): Set[Variable] = {
     val freeVars = exprOps.variablesOf(expr)
-    //println("computing effects of: " + expr)
 
     val firstLevelMutated: Set[Variable] = {
       val localAliases = freeVars.map(v => v -> computeLocalAliases(v, expr)).toMap

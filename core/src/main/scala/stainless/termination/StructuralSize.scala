@@ -130,7 +130,7 @@ trait StructuralSize { self: SolverProvider =>
               val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
               MatchCase(ADTPattern(None, cons.toType, argumentPatterns), None, rhs)
-            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))),
+            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(expr),
             Set.empty
           )
           clearSolvers()

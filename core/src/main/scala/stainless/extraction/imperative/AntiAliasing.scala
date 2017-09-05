@@ -219,9 +219,9 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
                 }
 
                 Assignment(v, v.tpe match {
-                  case adt: ADTType if adt != newValue.getType => AsInstanceOf(newValue, adt).setPos(expr.getPos)
+                  case adt: ADTType if adt != newValue.getType => AsInstanceOf(newValue, adt).setPos(expr)
                   case _ => newValue
-                }).setPos(expr.getPos)
+                }).setPos(expr)
               },
               TupleSelect(freshRes.toVariable, 1))
 
@@ -364,7 +364,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               case TupleType(tps) if effects.isMutableType(tps.last) =>
                 val nfi = Application(rec(callee, env), args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(app)
                 mapApplication(args, nfi, to, effects.functionTypeEffects(ft), env)
-              case _ => Application(rec(callee, env), args.map(rec(_, env)))
+              case _ => Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
             }
 
           case Operator(es, recons) => recons(es.map(rec(_, env)))
