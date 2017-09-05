@@ -15,7 +15,7 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Public Interface: Override CallBack ***************************************/
 
-  final override def beginExtractions(): Unit = { /* nothing */ }
+  override def beginExtractions(): Unit = { /* nothing */ }
 
   final override def apply(file: String, unit: xt.UnitDef,
                            classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
@@ -63,8 +63,6 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
   protected def shouldBeChecked(cd: xt.ClassDef): Boolean
 
-  /** Mark the end of a callback cycle. */
-  protected def onCycleEnd(): Unit = () // Nothing by default.
 
   /******************* Internal State *************************************************************/
 
