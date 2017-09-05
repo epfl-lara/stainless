@@ -30,6 +30,10 @@ object DebugSectionRegistry extends inox.DebugSection("registry")
  * is of interest.
  *
  * Regarding the persistent cache:
+ *  - Its main purpose is to store on disk the state of the Registry, enabling the user to recover
+ *    their previous verification "session" quickly. Its effect is to filter out any functions that
+ *    was already processed/verified and wasn't updated since the cache was written to disk. Note
+ *    that this cache doesn't take into account the status of verification (or any other component).
  *  - The cache is loaded and used for one update/checkpoint cycle, after which it is thrown away.
  *  - The cache is written to disk when asked to, i.e. when calling [[saveCache]].
  *  - It is expected that the cache is loaded before the first cycle starts. The behaviour is undefined
@@ -107,10 +111,14 @@ trait Registry {
   def loadCache(file: File): Unit = {
     val stream = new FileInputStream(file)
 
+    def assertValidCache(check: Boolean) = {
+      if (!check) reporter.fatalError(s"Invalid cache file $file")
+    }
+
     def readBytes(size: Int): Array[Byte] = {
       require(size > 0)
       val bytes = new Array[Byte](size)
-      assert(size == stream.read(bytes))
+      assertValidCache(size == stream.read(bytes))
       bytes
     }
 
@@ -121,12 +129,13 @@ trait Registry {
 
     def readBool(): Boolean = {
       val b = stream.read()
-      assert(b == 0 || b == 1)
+      assertValidCache(b == 0 || b == 1)
       b == 1
     }
 
     def readId(): Identifier = {
       val len = readInt()
+      assertValidCache(len >= 0)
       val idBytes = readBytes(len)
       val globalId = readInt()
       val id = readInt()
@@ -136,6 +145,7 @@ trait Registry {
 
     try {
       val count = readInt()
+      assertValidCache(count >= 0)
       reporter.debug(s"Reading $count pairs from ${file.getAbsolutePath}")
       val mapping = MutableMap[Identifier, (CanonicalForm, Boolean, Int)]()
 
@@ -143,6 +153,7 @@ trait Registry {
         val id = readId()
         val checked = readBool()
         val size = readInt()
+        assertValidCache(size >= 0)
         val bytes = readBytes(size)
         val depsHash = readInt()
 
