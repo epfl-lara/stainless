@@ -33,7 +33,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
       def apply(caller: Expr, args: Seq[Expr]): Expr = caller.getType match {
         case FunctionType(from, to) if args.size >= from.size =>
           val (currArgs, restArgs) = args.splitAt(from.size)
-          apply(Application(caller, currArgs), restArgs)
+          apply(Application(caller, currArgs).copiedFrom(caller), restArgs)
         case _ => caller
       }
 
@@ -41,10 +41,10 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
         case FunctionType(from, to) =>
           val (currArgs, restArgs) = args.splitAt(from.size)
           and(
-            Application(Pre(caller), currArgs).copiedFrom(caller), 
+            Application(Pre(caller).copiedFrom(caller), currArgs).copiedFrom(caller), 
             pre(Application(caller, currArgs).copiedFrom(caller), restArgs)
           )
-        case _ => BooleanLiteral(true)
+        case _ => BooleanLiteral(true).copiedFrom(caller)
       }
     }
 
@@ -231,7 +231,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
 
               implies(isInstOf(thiss.toVariable, ctpe), andJoin(inputs.map { input =>
                 val FirstOrderFunctionType(from, to) = input.expr.getType
-                val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+                val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(tpe))
                 implies(input.condition, forall(vds, FlatApplication.pre(input.expr, vds.map(_.toVariable))))
               }))
             })
@@ -434,7 +434,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
             case Empty => BooleanLiteral(true)
             case Unknown =>
               val FirstOrderFunctionType(from, to) = input.expr.getType
-              val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+              val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(tpe))
               implies(input.condition, forall(vds, FlatApplication.pre(input.expr, vds.map(_.toVariable))))
             case Known(arguments) =>
               implies(input.condition, andJoin(
