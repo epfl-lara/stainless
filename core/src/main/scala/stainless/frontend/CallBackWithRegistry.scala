@@ -15,8 +15,6 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Public Interface: Override CallBack ***************************************/
 
-  override def beginExtractions(): Unit = { /* nothing */ }
-
   final override def apply(file: String, unit: xt.UnitDef,
                            classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
     context.reporter.debug(s"Got a unit for $file: ${unit.id} with:")

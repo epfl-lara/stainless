@@ -41,13 +41,16 @@ trait SimpleComponent extends Component { self =>
     extraction.extract(program, ctx).transform(lowering)
   }
 
+  private val marks = new utils.AtomicMarks[Identifier]
+  def onCycleBegin(): Unit = marks.clear()
+
   def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Report = {
     val extracted = extract(program, ctx)
     import extracted._
 
     val filter = new utils.CheckFilter { override val context = ctx }
     val relevant = symbols.functions.values.toSeq filter { fd =>
-      filter.shouldBeChecked(fd.id, fd.flags)
+      filter.shouldBeChecked(fd.id, fd.flags) && marks.compareAndSet(fd.id)
     } map { _.id }
 
     apply(relevant, extracted, ctx)
