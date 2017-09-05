@@ -44,8 +44,10 @@ trait Registry {
    *         and insert them all in the graph as usual (see [[checkpoint]]).
    * FIXME However, this adds a BIG assumption on the runtime: no new class should be available!
    *       So, maybe we just don't want that???
+   *
+   * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
-  def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = {
+  def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
       case Some(tops) if tops.isEmpty =>
         (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
@@ -82,11 +84,11 @@ trait Registry {
   /**
    * To be called once every compilation unit were extracted.
    */
-  def checkpoint(): Seq[xt.Symbols] = {
+  def checkpoint(): Option[xt.Symbols] = {
     val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
-      graph.unfreeze().toSeq map toSymbols
+      graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
     } else {
       frozen = true
       defaultRes
@@ -159,7 +161,7 @@ trait Registry {
     case Right(fd) => shouldBeChecked(fd)
   }
 
-  private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = {
+  private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
     // Compute direct dependencies and insert the new information into our dependency graph
     val clusters = computeClusters(classes)
     val invariants = computeInvariantMapping(functions)
@@ -176,13 +178,18 @@ trait Registry {
         newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input)) }
       }
 
-    results map toSymbols
+    if (results.isEmpty) None
+    else {
+      // Group into one set of Symbols to avoid verifying the same things several times
+      // TODO this is just because we don't have caching later on in the pipeline (YET).
+      // Also, it doesn't work 100% of the time.
+      val (clsSets, funsSets) = results.unzip
+      val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
+      val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
+      Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
+    }
   }
 
-  private def toSymbols(result: Result): xt.Symbols = {
-    val (classes, functions) = result
-    xt.NoSymbols.withClasses(classes.toSeq).withFunctions(functions.toSeq)
-  }
 
   /******************* Implementation: Class Hierarchy ********************************************/
 
