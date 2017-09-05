@@ -142,6 +142,8 @@ class RegistryTestSuite extends FunSuite {
    */
   private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
 
+    override def beginExtractions() = ()
+
     override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)
     override def shouldBeChecked(cd: xt.ClassDef): Boolean = filter.shouldBeChecked(cd)
 
