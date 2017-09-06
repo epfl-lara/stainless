@@ -59,7 +59,7 @@ object VerificationComponent extends SimpleComponent {
         Row(Seq(
           Cell(vc.fd),
           Cell(vc.kind.name),
-          Cell(vc.getPos),
+          Cell(vc.getPos.fullString),
           Cell(vr.status),
           Cell(vr.solver.map(_.name).getOrElse("")),
           Cell(vr.time.map(t => f"${t / 1000d}%3.3f").getOrElse(""))
