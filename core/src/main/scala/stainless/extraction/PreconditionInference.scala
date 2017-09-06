@@ -33,15 +33,18 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
       def apply(caller: Expr, args: Seq[Expr]): Expr = caller.getType match {
         case FunctionType(from, to) if args.size >= from.size =>
           val (currArgs, restArgs) = args.splitAt(from.size)
-          apply(Application(caller, currArgs), restArgs)
+          apply(Application(caller, currArgs).copiedFrom(caller), restArgs)
         case _ => caller
       }
 
       def pre(caller: Expr, args: Seq[Expr]): Expr = caller.getType match {
         case FunctionType(from, to) =>
           val (currArgs, restArgs) = args.splitAt(from.size)
-          and(Application(Pre(caller), currArgs), pre(Application(caller, currArgs), restArgs))
-        case _ => BooleanLiteral(true)
+          and(
+            Application(Pre(caller).copiedFrom(caller), currArgs).copiedFrom(caller), 
+            pre(Application(caller, currArgs).copiedFrom(caller), restArgs)
+          )
+        case _ => BooleanLiteral(true).copiedFrom(caller)
       }
     }
 
@@ -210,7 +213,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
               case Some(fd) => (fd.typeArgs, fd.params.head)
               case None =>
                 val typeArgs = root.typeArgs.map(_.freshen)
-                (typeArgs, ValDef(FreshIdentifier("thiss"), root.typed(typeArgs).toType))
+                (typeArgs, ValDef(FreshIdentifier("thiss"), root.typed(typeArgs).toType).setPos(adt))
             }
 
             for (c <- constructors; vd <- c.fields) {
@@ -228,7 +231,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
 
               implies(isInstOf(thiss.toVariable, ctpe), andJoin(inputs.map { input =>
                 val FirstOrderFunctionType(from, to) = input.expr.getType
-                val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+                val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(tpe))
                 implies(input.condition, forall(vds, FlatApplication.pre(input.expr, vds.map(_.toVariable))))
               }))
             })
@@ -403,7 +406,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
             val arguments = if (freeVars.nonEmpty) Unknown else Known(Set(simplifyPath(path, args)))
             val Seq(input) = containers(caller).toSeq
             result = result merge (input -> arguments)
-            FlatApplication(caller, args.map(rec(_, path)))
+            FlatApplication(caller, args.map(rec(_, path))).copiedFrom(e)
 
           case e if containers contains e =>
             for (input <- containers(e)) {
@@ -431,7 +434,7 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
             case Empty => BooleanLiteral(true)
             case Unknown =>
               val FirstOrderFunctionType(from, to) = input.expr.getType
-              val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+              val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(tpe))
               implies(input.condition, forall(vds, FlatApplication.pre(input.expr, vds.map(_.toVariable))))
             case Known(arguments) =>
               implies(input.condition, andJoin(
@@ -457,7 +460,8 @@ class PreconditionInference(override val sourceProgram: Program { val trees: ext
         def injectRequires(e: Expr): Expr = (e match {
           case Lambda(args, r @ Require(pred, body)) => Lambda(args, Require(injectRequires(pred), injectRequires(body)).copiedFrom(r))
           case Lambda(args, body) => Lambda(args, Require(preSyms.weakestPrecondition(body), injectRequires(body)))
-          case Ensuring(body, l @ Lambda(args, pred)) => Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
+          case Ensuring(body, l @ Lambda(args, pred)) => 
+            Ensuring(injectRequires(body), Lambda(args, injectRequires(pred)).copiedFrom(l))
           case Operator(es, recons) => recons(es.map(injectRequires))
         }).copiedFrom(e)
 

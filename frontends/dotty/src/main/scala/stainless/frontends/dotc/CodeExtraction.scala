@@ -358,7 +358,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val flags = annotationsOf(param.symbol, ignoreOwner = true)
       val vd = xt.ValDef(FreshIdentifier(param.symbol.name.toString), ptpe, flags).setPos(param.pos)
       val expr = param.tpt match {
-        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq())
+        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq()).setPos(param.tpt.pos)
         case _ => () => vd.toVariable
       }
 
@@ -713,7 +713,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           }).setPos(post)
       }
 
-      xt.Ensuring(b, closure)
+      xt.Ensuring(b, closure).setPos(post)
 
     // an optional "because" is allowed
     case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
@@ -721,19 +721,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val post = xt.Lambda(Seq(vd),
         xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
       ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post)
+      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
     case t @ ExHolds(body, proof) =>
       val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType, Set.empty).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd),
         xt.And(Seq(extractTree(proof), vd.toVariable)).setPos(tr.pos)
       ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post)
+      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
     case t @ ExHolds(body) =>
       val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType, Set.empty).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd), vd.toVariable).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post)
+      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
     // If the because statement encompasses a holds statement
     case t @ ExBecause(ExHolds(body), proof) =>
@@ -741,7 +741,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val post = xt.Lambda(Seq(vd),
         xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
       ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post)
+      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
     case t @ ExComputes(body, expected) =>
       val tpe = extractType(body)
@@ -749,7 +749,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val post = xt.Lambda(Seq(vd),
         xt.Equals(vd.toVariable, extractTreeOrNoTree(expected)).setPos(tr.pos)
       ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post)
+      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
     case ExPre(f) => xt.Pre(extractTree(f))
     case ExOld(e) => xt.Old(extractTree(e))
@@ -1027,8 +1027,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       ExNamed("==>") | ExNamed("$eq$eq$greater")
     ), Seq(rhs)) => xt.Implies(extractTree(lhs), extractTree(rhs))
 
-    case Apply(tree, args) if defn.isFunctionType(tree.tpe) =>
-      xt.Application(extractTree(tree), args map extractTree)
+    case app @ Apply(tree, args) if defn.isFunctionType(tree.tpe) =>
+      xt.Application(extractTree(tree), args map extractTree).setPos(app.pos)
 
     case NamedArg(name, arg) => extractTree(arg)
 
@@ -1074,7 +1074,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           }
 
         case ft: xt.FunctionType =>
-          xt.Application(extractTree(lhs), args.map(extractTree))
+          xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
 
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType, "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))

@@ -152,7 +152,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         transformer.transform(fd.returnType),
         t.exprOps.withPrecondition(transformer.transform(fd.fullBody), optPre),
         fd.flags.map(transformer.transform)
-      ).setPos(fd.getPos)
+      ).setPos(fd)
     }.toSeq
 
     val sortClasses = symbols.classes.values.filter { cd =>
