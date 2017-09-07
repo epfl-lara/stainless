@@ -92,6 +92,7 @@ trait VerificationChecker { self =>
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
+    val solverName = Some(s.name)
 
     try {
       val cond = simplifyLets(vc.condition)
@@ -112,7 +113,7 @@ trait VerificationChecker { self =>
 
         res match {
           case _ if interruptManager.isInterrupted =>
-            VCResult(VCStatus.Cancelled, Some(s), Some(time))
+            VCResult(VCStatus.Cancelled, solverName, Some(time))
 
           case Unknown =>
             VCResult(s match {
@@ -121,20 +122,20 @@ trait VerificationChecker { self =>
                 case _ => VCStatus.Unknown
               }
               case _ => VCStatus.Unknown
-            }, Some(s), Some(time))
+            }, solverName, Some(time))
 
           case Unsat =>
-            VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+            VCResult(VCStatus.Valid, solverName, Some(time))
 
           case SatWithModel(model) =>
-            VCResult(VCStatus.Invalid(model), s.getResultSolver, Some(time))
+            VCResult(VCStatus.Invalid(model), solverName, Some(time))
         }
       } catch {
         case u: Unsupported =>
           val t = timer.selfTimer.get
           val time = if (t.isRunning) t.stop else t.runs.last
           reporter.warning(u.getMessage)
-          VCResult(VCStatus.Unsupported, Some(s), Some(time))
+          VCResult(VCStatus.Unsupported, solverName, Some(time))
       }
 
       reporter.synchronized {
