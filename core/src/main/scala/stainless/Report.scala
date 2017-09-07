@@ -16,36 +16,22 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
   )
 }
 
-trait AbstractReport { self =>
+trait AbstractReport[SelfType <: AbstractReport[_]] { self =>
   val name: String
+
   def emitJson: JArray
+
+  /** Create a new report without information about the given functions/classes/.... */
+  def removeSubreports(ids: Seq[Identifier]): SelfType
+
+  /** Merge two reports, considering [[other]] to contain the last information in case of update. */
+  def ~(other: SelfType): SelfType
 
   protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
 
   final def emit(ctx: inox.Context): Unit = emitTable match {
     case None => ctx.reporter.info("No verification conditions were analyzed.")
     case Some(t) => ctx.reporter.info(t.render)
-  }
-
-  def ~(other: AbstractReport) = new AbstractReport {
-    assert(other.width == self.width)
-
-    override val name = if (self.name == other.name) self.name else self.name + " ~ " + other.name
-
-    override def emitJson: JArray = {
-      val JArray(as) = self.emitJson
-      val JArray(bs) = other.emitJson
-      JArray(as ++ bs)
-    }
-
-    override val width = self.width
-
-    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = (self.emitRowsAndStats, other.emitRowsAndStats) match {
-      case (None, None) => None
-      case (a, None) => a
-      case (None, b) => b
-      case (Some((rowsA, statsA)), Some((rowsB, statsB))) => Some((rowsA ++ rowsB, statsA + statsB))
-    }
   }
 
   protected val width: Int
@@ -67,11 +53,17 @@ trait AbstractReport { self =>
   }
 }
 
-object NoReport extends AbstractReport {
+class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with object...
   override val name = "no-report"
   override def emitJson = JArray(Nil)
   override def emitRowsAndStats = None
   override val width = 0
+  override def removeSubreports(ids: Seq[Identifier]) = this
+  override def ~(other: NoReport) = this
+}
+
+object NoReport {
+  def apply() = new NoReport
 }
 
 

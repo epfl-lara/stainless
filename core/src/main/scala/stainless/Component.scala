@@ -9,7 +9,7 @@ trait Component {
   val name: String
   val description: String
 
-  type Report <: AbstractReport
+  type Report <: AbstractReport[Report]
 
   val lowering: inox.ast.SymbolTransformer {
     val s: extraction.trees.type

@@ -92,7 +92,7 @@ class RegistryTestSuite extends FunSuite {
       writeContents(fileMapping, event.contents)
       compiler.run()
       compiler.join()
-      val report = reduce(callback.popReports)
+      val report = callback.popReport
 
       if (event.expected.strict) {
         assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
@@ -116,22 +116,15 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
-  private def reduce(reports: Seq[MockReport]): MockReport = {
-    if (reports.isEmpty) MockReport(Set.empty, Set.empty)
-    else reports reduce { _ ~ _ }
-  }
-
   /** A simply dummy report for our [[MockCallBack]]. */
-  private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport {
+  private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport[MockReport] {
     override val name = "dummy"
-    override def emitJson = JArray(Nil)
-    override val width = 0
-    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = None
-
-    override def ~(other: AbstractReport): MockReport = other match {
-      case MockReport(fns, cls) => MockReport(functions ++ fns, classes ++ cls)
-      case _ => throw new RuntimeException("Unexpected report of type ${other.getClass}")
-    }
+    override def emitJson = ???
+    override val width = ???
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
+    override def removeSubreports(ids: Seq[Identifier]) = ???
+    override def ~(other: MockReport): MockReport =
+      MockReport(functions ++ other.functions, classes ++ other.classes)
   }
 
   /**
@@ -167,10 +160,10 @@ class RegistryTestSuite extends FunSuite {
 
     private val reports = ListBuffer[Report]()
 
-    def popReports(): Seq[Report] = {
+    def popReport(): Report = {
       val res = reports.toSeq
       reports.clear()
-      res
+      if (res.isEmpty) MockReport(Set.empty, Set.empty) else res reduce reduceReports
     }
   }
 

@@ -20,27 +20,26 @@ import scala.language.existentials
 object optStrictArithmetic extends inox.FlagOptionDef("strictarithmetic", false)
 
 object VerificationComponent extends SimpleComponent {
-  val name = "verification"
-  val description = "Verification of function contracts"
+  override val name = "verification"
+  override val description = "Verification of function contracts"
 
-  val trees: stainless.trees.type = stainless.trees
+  override val trees: stainless.trees.type = stainless.trees
 
-  type Report = VerificationReport
+  override type Report = VerificationReport
 
-  val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
   })
 
   implicit val debugSection = DebugSectionVerification
 
-  trait VerificationReport extends AbstractReport { self =>
-    val program: Program { val trees: stainless.trees.type }
-    val results: Map[VC[program.trees.type], VCResult[program.Model]]
+  trait VerificationReport extends AbstractReport[VerificationReport] { self =>
+    type Model = StainlessProgram#Model
+    type Results = Map[VC[stainless.trees.type], VCResult[Model]]
+    val results: Results
 
-    import program.Model
-
-    lazy val vrs: Seq[(VC[program.trees.type], VCResult[program.Model])] =
+    lazy val vrs: Seq[(VC[stainless.trees.type], VCResult[Model])] =
       results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
 
     lazy val totalConditions: Int = vrs.size
@@ -67,6 +66,22 @@ object VerificationComponent extends SimpleComponent {
       },
       ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
     ))
+
+    // Group by function, overriding all VCResults by the ones in `other`.
+    override def ~(other: VerificationReport): VerificationReport = {
+      def buildMapping(subs: Results): Map[Identifier, Results] = subs groupBy { case (vc, _) => vc.fd }
+
+      val prev = buildMapping(this.results)
+      val next = buildMapping(other.results)
+
+      val fused = (prev ++ next).values.fold(Map.empty)(_ ++ _)
+
+      new VerificationReport { override val results = fused }
+    }
+
+    override def removeSubreports(ids: Seq[Identifier]) = new VerificationReport {
+      override val results = self.results filterNot { case (vc, _) => ids contains vc.fd }
+    }
 
     override def emitJson: JArray = {
       def status2Json(status: VCStatus[Model]): JObject = status match {
@@ -119,9 +134,7 @@ object VerificationComponent extends SimpleComponent {
   def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationReport = {
     val res = check(funs, p, ctx)
 
-    new VerificationReport {
-      val program: p.type = p
-      val results = res
-    }
+    new VerificationReport { override val results = res }
   }
 }
+

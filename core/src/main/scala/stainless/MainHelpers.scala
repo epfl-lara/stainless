@@ -91,33 +91,32 @@ trait MainHelpers extends inox.MainHelpers {
     val ctx = setup(args)
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
 
-    val compiler = frontend.run(ctx, compilerArgs, factory)
+    val compiler = frontend.build(ctx, compilerArgs, factory)
 
-    // Passively wait until the compiler has finished
-    compiler.join()
+    // For each cylce, passively wait until the compiler has finished
+    // & print summary of reports for each component
+    def runCycle() = {
+      compiler.run()
+      compiler.join()
 
-    // When in "watch" mode, no final report is printed as there is no proper end.
-    // In fact, we might not even have a full list of VCs to be checked...
-    val watch = ctx.options.findOptionOrDefault(optWatch)
+      compiler.getReports foreach { _.emit(ctx) }
+    }
 
-    if (watch) {
+    // Run the first cycle
+    runCycle()
+
+    val watchMode = ctx.options.findOptionOrDefault(optWatch)
+    if (watchMode) {
       val files: Set[File] = compiler.sources.toSet map { file: String => new File(file).getAbsoluteFile }
-      def action() = {
-        compiler.run()
-        compiler.join()
-      }
-      val watcher = new utils.FileWatcher(ctx, files, action)
+      val watcher = new utils.FileWatcher(ctx, files, action = runCycle)
       watcher.run()
-    } else {
-      // Process reports: print summary/export to JSON
-      val reports: Seq[AbstractReport] = compiler.getReports
-      reports foreach { _.emit(ctx) }
+    }
 
-      ctx.options.findOption(optJson) foreach { file =>
-        val output = if (file.isEmpty) optJson.default else file
-        ctx.reporter.info(s"Printing JSON summary to $output")
-        exportJson(reports, output)
-      }
+    // Export final results to JSON if asked to.
+    ctx.options.findOption(optJson) foreach { file =>
+      val output = if (file.isEmpty) optJson.default else file
+      ctx.reporter.info(s"Printing JSON summary to $output")
+      exportJson(compiler.getReports, output)
     }
 
     ctx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
@@ -132,7 +131,7 @@ trait MainHelpers extends inox.MainHelpers {
   }
 
   /** Exports the reports to the given file in JSON format. */
-  private def exportJson(reports: Seq[AbstractReport], file: String): Unit = {
+  private def exportJson(reports: Seq[AbstractReport[_]], file: String): Unit = {
     val subs = reports map { r => JObject(r.name -> r.emitJson) }
     val json = if (subs.isEmpty) JObject() else subs reduce { _ ~ _ }
     val string = pretty(render(json))

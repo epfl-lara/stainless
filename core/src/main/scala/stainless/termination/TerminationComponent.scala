@@ -10,14 +10,14 @@ import org.json4s.JsonDSL._
 import org.json4s.JsonAST.JArray
 
 object TerminationComponent extends SimpleComponent {
-  val name = "termination"
-  val description = "Check program termination."
+  override val name = "termination"
+  override val description = "Check program termination."
 
-  val trees: termination.trees.type = termination.trees
+  override val trees: termination.trees.type = termination.trees
 
-  type Report = TerminationReport
+  override type Report = TerminationReport
 
-  object lowering extends inox.ast.SymbolTransformer {
+  override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
 
@@ -50,7 +50,7 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  trait TerminationReport extends AbstractReport {
+  trait TerminationReport extends AbstractReport[TerminationReport] {
     val checker: TerminationChecker {
       val program: Program { val trees: termination.trees.type }
     }
@@ -83,6 +83,9 @@ object TerminationComponent extends SimpleComponent {
 
       Some((rows, stats))
     }
+
+    override def ~(report: TerminationReport): TerminationReport = ???
+    override def removeSubreports(ids: Seq[Identifier]) = ???
 
     override def emitJson: JArray = {
       def kind(g: TerminationGuarantee): String = g match {
@@ -121,7 +124,7 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReport = {
+  override def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReport = {
     import p._
     import p.trees._
     import p.symbols._

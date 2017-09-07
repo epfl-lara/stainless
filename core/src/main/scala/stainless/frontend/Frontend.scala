@@ -41,7 +41,7 @@ abstract class Frontend(val callback: CallBack) {
   }
 
   // See assumption/requirements in [[CallBack]]
-  final def getReports: Seq[AbstractReport] = {
+  final def getReports: Seq[AbstractReport[_]] = {
     assert(!isRunning)
     callback.getReports
   }

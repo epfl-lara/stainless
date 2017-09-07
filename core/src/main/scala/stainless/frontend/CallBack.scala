@@ -8,7 +8,7 @@ import extraction.xlang.{ trees => xt }
 /**
  * Process the extracted units.
  *
- * Frontends are required to follow this workflow:
+ * Frontends are required to follow this workflow (== one cycle):
  *  - when starting extracting compilation unit, [[beginExtractions]] should be called once;
  *  - the [[CallBack.apply]] method after extracting each compilation unit (i.e. a Scala file);
  *  - finally, the frontend calls [[endExtractions]] to let the CallBack know all the data
@@ -17,13 +17,12 @@ import extraction.xlang.{ trees => xt }
  * When a compilation unit is recompiled, the callback deals with any potential invalidation of
  * existing data without blocking the callee's thread.
  *
- * A [[Frontend]] has to [[stop]] or [[join]] its callback at some point.
+ * A [[Frontend]] has to [[stop]] or [[join]] its callback at some point between two cycles.
+ * A callback cannot be reused after calling [[stop]].
  *
- * Calling [[getReports]] is valid if and only if:
- *  - the callback has been joined, and
- *  - the program was not running in "watch" mode.
+ * Calling [[getReports]] is valid exclusively after [[join]]ing and before the next cycle starts.
  *
- * NOTE A callback is expected to be used by only one frontend at a time.
+ * A callback is expected to be used by only one frontend at a time.
  */
 trait CallBack {
   def beginExtractions(): Unit
@@ -34,7 +33,7 @@ trait CallBack {
 
   def join(): Unit // Wait until all tasks have finished.
 
-  def getReports: Seq[AbstractReport]
+  def getReports: Seq[AbstractReport[_]]
 }
 
 
@@ -54,9 +53,5 @@ final class MasterCallBack(val callbacks: Seq[CallBack]) extends CallBack {
   override def join(): Unit = callbacks foreach { _.join() }
 
   // Group together reports from the same callback
-  override def getReports: Seq[AbstractReport] = callbacks flatMap { c =>
-    val inners = c.getReports
-    if (inners.isEmpty) None
-    else Some(inners reduce { _ ~ _ })
-  }
+  override def getReports: Seq[AbstractReport[_]] = callbacks flatMap { _.getReports }
 }

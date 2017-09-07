@@ -15,21 +15,17 @@ package object frontend {
   object optPersistentRegistryCache extends inox.FlagOptionDef("registry-cache", false)
 
   /**
-   * Given a context (with its reporter) and a compiler factory, proceed to compile,
-   * extract, transform and verify the input programs based on the active components.
+   * Given a context (with its reporter) and a frontend factory, proceed to compile,
+   * extract, transform and verify the input programs based on the active components
+   * when [[run]] is invoked on the returned frontend.
    *
-   * The returned compiler is allowed to run forever in the background, e.g. when
+   * The returned frontend is allowed to run forever in the background, e.g. when
    * watching for file changes. This function is therefore non-blocking. The callee
    * is required to [[stop]] or [[join]] the returned compiler to free resources.
    */
-  def run(ctx: inox.Context, compilerArgs: Seq[String], factory: FrontendFactory): Frontend = {
+  def build(ctx: inox.Context, compilerArgs: Seq[String], factory: FrontendFactory): Frontend = {
     val callback = getCallBackForActiveComponents(ctx)
-
-    // Initiate & run the compiler for our needs.
-    val compiler = factory(ctx, compilerArgs, callback)
-    compiler.run()
-
-    compiler
+    factory(ctx, compilerArgs, callback)
   }
 
   /**

@@ -18,6 +18,8 @@ trait CallBackWithRegistry extends CallBack { self =>
   /******************* Public Interface: Override CallBack ***************************************/
 
   final override def beginExtractions(): Unit = {
+    assert(tasks.isEmpty)
+
     if (firstCycle) {
       loadRegistryCache()
       firstCycle = false
@@ -35,11 +37,16 @@ trait CallBackWithRegistry extends CallBack { self =>
     // Remove any node from the registry that no longer exists.
     previousFileData get file foreach { case (prevClasses, prevFuns) =>
       val removedClasses = prevClasses filterNot { cd => classes exists { _.id == cd.id } }
+      val removedClassesIds = removedClasses map { _.id }
       val removedFuns = prevFuns filterNot { cd => functions exists { _.id == cd.id } }
+      val removedFunsIds = removedFuns map { _.id }
+
       reporter.debug(s"Removing the following from the registry:")
-      reporter.debug(s"\tfunctions -> [${removedFuns.map { _.id }.sorted mkString ", "}]")
-      reporter.debug(s"\tclasses   -> [${removedClasses.map { _.id }.sorted mkString ", "}]")
+      reporter.debug(s"\tfunctions -> [${removedFunsIds.sorted mkString ", "}]")
+      reporter.debug(s"\tclasses   -> [${removedClassesIds.sorted mkString ", "}]")
+
       registry.remove(removedClasses, removedFuns)
+      if (report != null) report = report.removeSubreports(removedClassesIds ++ removedFunsIds)
     }
 
     // Update our state with the new data, producing new symbols through the registry.
@@ -54,19 +61,28 @@ trait CallBackWithRegistry extends CallBack { self =>
     processSymbols(symss)
   }
 
-  final override def stop(): Unit = tasks foreach { _.cancel(true) }
+  final override def stop(): Unit = tasks foreach { _.cancel(true) } // no need to update state, it's a KILL.
 
-  final override def join(): Unit = tasks foreach { _.get }
+  // Build the report
+  final override def join(): Unit = {
+    val newReports = tasks map { _.get } // blocking! TODO is there a more efficient "get all" version?
+    val reports = (report +: newReports) filter { _ != null }
+    if (reports.nonEmpty) {
+      report = reports reduce reduceReports
+    }
+    tasks.clear()
+  }
 
   // See assumption/requirements in [[CallBack]]
-  final override def getReports: Seq[Report] = tasks map { _.get } filter { _ != null }
+  final override def getReports: Seq[Report] = Seq(report) filter { _ != null }
 
 
   /******************* Customisation Points *******************************************************/
 
   protected val context: inox.Context
 
-  protected type Report <: AbstractReport
+  protected type Report <: AbstractReport[Report]
+  final protected def reduceReports(r1: Report, r2: Report): Report = r1 ~ r2
 
   /** Reset state for a new cycle. */
   protected def onCycleBegin(): Unit
@@ -85,6 +101,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   /******************* Internal State *************************************************************/
 
   private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
+  private var report: Report = _
 
   private val previousFileData = MutableMap[String, (Seq[xt.ClassDef], Seq[xt.FunDef])]()
 
