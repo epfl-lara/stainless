@@ -15,7 +15,8 @@ object TerminationComponent extends SimpleComponent {
 
   override val trees: termination.trees.type = termination.trees
 
-  override type Report = TerminationReport
+  override type Report = TerminationReportWithChecker
+  type TextReport = TerminationReport
 
   override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
@@ -50,7 +51,7 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  trait TerminationReport extends AbstractReport[TerminationReport] {
+  trait TerminationReportWithChecker extends AbstractReport[TerminationReportWithChecker] {
     val checker: TerminationChecker {
       val program: Program { val trees: termination.trees.type }
     }
@@ -66,49 +67,26 @@ object TerminationComponent extends SimpleComponent {
 
     override val name: String = TerminationComponent.this.name
 
-    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-      val rows = for ((fd, (g, time)) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
-        Cell(fd.id.asString),
-        Cell((if (g.isGuaranteed) "\u2713" else "\u2717") + " " + verdict(g, fd)),
-        Cell(f"${time / 1000d}%3.3f")
-      ))
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = toTextReport.emitRowsAndStats
 
-      val valid = results count { case (_, (g, _)) => g.isGuaranteed }
-      val validFromCache = 0
-      val invalid = 0
-      val unknown = results.size - valid
-      val time = (results map { case (_, (_, t)) => t }).sum
+    override def emitJson: JArray = toTextReport.emitJson
 
-      val stats = ReportStats(results.size, time, valid, validFromCache, invalid, unknown)
+    // NOTE Because of `checker`, two instances of TerminationReport have different types and therefore
+    //      cannot be combined easily, that is, without working around the type system.
+    override def ~(other: TerminationReportWithChecker): TerminationReportWithChecker = ???
+    override def removeSubreports(ids: Seq[Identifier]) = ???
 
-      Some((rows, stats))
-    }
+    def toTextReport = new TerminationReport(results.toSeq map { case (fd, (g, time)) =>
+      TextRecord(fd.id, fd.getPos, time, status(g), verdict(g, fd), kind(g))
+    })
 
-    // Group by function, overriding all VCResults by the ones in `other`.
-    override def ~(other: TerminationReport): TerminationReport = other // TODO
-
-    override def removeSubreports(ids: Seq[Identifier]) = this // TODO
-
-    override def emitJson: JArray = {
-      def kind(g: TerminationGuarantee): String = g match {
-        case checker.LoopsGivenInputs(_, _) => "non-terminating loop"
-        case checker.MaybeLoopsGivenInputs(_, _) => "possibly non-terminating loop"
-        case checker.CallsNonTerminating(_) => "non-terminating call"
-        case checker.DecreasesFailed => "failed decreases check"
-        case checker.Terminates(_) => "terminates"
-        case checker.NoGuarantee => "no guarantee"
-      }
-
-      val report: JArray = for { (fd, (g, time)) <- results } yield {
-        ("fd" -> fd.id.name) ~
-        ("pos" -> fd.getPos.toJson) ~
-        ("kind" -> kind(g)) ~ // brief
-        ("verdict" -> verdict(g, fd)) ~ // detailed
-        ("guarantee" -> g.isGuaranteed) ~
-        ("time" -> time)
-      }
-
-      report
+    private def kind(g: TerminationGuarantee): String = g match {
+      case checker.LoopsGivenInputs(_, _) => "non-terminating loop"
+      case checker.MaybeLoopsGivenInputs(_, _) => "possibly non-terminating loop"
+      case checker.CallsNonTerminating(_) => "non-terminating call"
+      case checker.DecreasesFailed => "failed decreases check"
+      case checker.Terminates(_) => "terminates"
+      case checker.NoGuarantee => "no guarantee"
     }
 
     private def verdict(g: TerminationGuarantee, fd: FunDef): String = g match {
@@ -125,9 +103,86 @@ object TerminationComponent extends SimpleComponent {
       case checker.NoGuarantee =>
         "No guarantee"
     }
+
+    private def status(g: TerminationGuarantee): TerminationStatus = g match {
+      case checker.NoGuarantee => Unknown
+      case checker.Terminates(_) => Terminating
+      case _ => NonTerminating
+    }
+
   }
 
-  override def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReport = {
+  sealed abstract class TerminationStatus {
+    def isUnknown = this == Unknown
+    def isTerminating = this == Terminating
+    def isNonTerminating = this == NonTerminating
+
+    def toText = this match {
+      case Unknown => "unknown"
+      case Terminating => "terminating"
+      case NonTerminating => "non-terminating"
+    }
+  }
+
+  case object Unknown extends TerminationStatus
+  case object Terminating extends TerminationStatus
+  case object NonTerminating extends TerminationStatus
+
+  case class TextRecord(
+    fid: Identifier, pos: inox.utils.Position, time: Long,
+    status: TerminationStatus, verdict: String, kind: String
+  )
+
+  // Variant of the report without the checker, where all the data is mapped to text
+  class TerminationReport(val results: Seq[TextRecord]) extends AbstractReport[TerminationReport] {
+    override val name: String = TerminationComponent.this.name
+
+    // Group by function, overriding all VCResults by the ones in `other`.
+    override def ~(other: TerminationReport): TerminationReport = {
+      def buildMapping(subs: Seq[TextRecord]): Map[Identifier, Seq[TextRecord]] = subs groupBy { _.fid }
+
+      val prev = buildMapping(this.results)
+      val next = buildMapping(other.results)
+
+      val fused = (prev ++ next).values.fold(Seq.empty)(_ ++ _)
+
+      new TerminationReport(results = fused)
+    }
+
+    override def removeSubreports(ids: Seq[Identifier]) =
+      new TerminationReport(results filterNot { ids contains _.fid })
+
+    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
+      val rows = for { TextRecord(fid, pos, time, status, verdict, kind) <- results } yield Row(Seq(
+        Cell(fid.name),
+        Cell((if (status.isTerminating) "\u2713" else "\u2717") + " " + verdict),
+        Cell(f"${time / 1000d}%3.3f")
+      ))
+
+      val valid = results count { _.status.isTerminating }
+      val validFromCache = 0
+      val invalid = results count { _.status.isNonTerminating }
+      val unknown = results count { _.status.isUnknown }
+      val time = (results map { _.time }).sum
+
+      val stats = ReportStats(results.size, time, valid, validFromCache, invalid, unknown)
+
+      Some((rows, stats))
+    }
+
+    override def emitJson: JArray = for { TextRecord(fid, pos, time, status, verdict, kind) <- results } yield {
+      ("fd" -> fid.name) ~
+      ("pos" -> pos.toJson) ~
+      ("kind" -> kind) ~ // brief
+      ("verdict" -> verdict) ~ // detailed
+      ("status" -> status.toText) ~
+      ("time" -> time)
+    }
+
+  }
+
+
+  override def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReportWithChecker = {
     import p._
     import p.trees._
     import p.symbols._
@@ -156,9 +211,9 @@ object TerminationComponent extends SimpleComponent {
       }
     }
 
-    new TerminationReport {
-      val checker: c.type = c
-      val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
+    new TerminationReportWithChecker {
+      override val checker: c.type = c
+      override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
     }
   }
 }
