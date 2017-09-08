@@ -94,7 +94,8 @@ object VerificationComponent extends SimpleComponent {
         ("fd" -> vc.fd.name) ~
         ("pos" -> vc.getPos.toJson) ~
         ("kind" -> vc.kind.name) ~
-        status2Json(vr.status)
+        status2Json(vr.status) ~
+        ("time" -> vr.time)
       }
 
       report
