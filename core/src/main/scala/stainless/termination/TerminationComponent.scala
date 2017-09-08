@@ -66,8 +66,6 @@ object TerminationComponent extends SimpleComponent {
 
     override val name: String = TerminationComponent.this.name
 
-    override val width = 2
-
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
       val rows = for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
         Cell(fd.id.asString),

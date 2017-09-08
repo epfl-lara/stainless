@@ -120,7 +120,6 @@ class RegistryTestSuite extends FunSuite {
   private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport[MockReport] {
     override val name = "dummy"
     override def emitJson = ???
-    override val width = ???
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
     override def removeSubreports(ids: Seq[Identifier]) = ???
     override def ~(other: MockReport): MockReport =

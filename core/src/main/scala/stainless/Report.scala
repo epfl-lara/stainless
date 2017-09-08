@@ -34,9 +34,8 @@ trait AbstractReport[SelfType <: AbstractReport[_]] { self =>
     case Some(t) => ctx.reporter.info(t.render)
   }
 
-  protected val width: Int
-
   private def emitTable: Option[Table] = emitRowsAndStats map { case (rows, stats) =>
+    val width = if (rows.isEmpty) 1 else rows.head.cellsSize // all rows must have the same size
     var t = Table(s"$name summary")
     t ++= rows
     t += Separator
@@ -57,7 +56,6 @@ class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with obj
   override val name = "no-report"
   override def emitJson = JArray(Nil)
   override def emitRowsAndStats = None
-  override val width = 0
   override def removeSubreports(ids: Seq[Identifier]) = this
   override def ~(other: NoReport) = this
 }
