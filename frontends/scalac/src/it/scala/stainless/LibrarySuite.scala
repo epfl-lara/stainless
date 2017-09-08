@@ -40,9 +40,11 @@ class LibrarySuite extends FunSpec with InputUtils {
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
       val report = apply(funs, exProgram, ctx)
 
-      assert(report.results.forall(_._2.isGuaranteed),
+      assert(
+        report.results forall { case (_, (g, _)) => g.isGuaranteed },
         "Library functions couldn't be shown terminating:\n" +
-        report.results.filterNot(_._2.isGuaranteed).map(p => p._1.id.name -> p._2).mkString("\n"))
+        (report.results collect { case (fd, (g, _)) if !g.isGuaranteed => fd.id.name -> g } mkString "\n")
+      )
     }
   }
 }

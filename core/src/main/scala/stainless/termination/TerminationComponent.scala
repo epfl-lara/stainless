@@ -60,30 +60,34 @@ object TerminationComponent extends SimpleComponent {
     import program._
     import program.trees._
 
-    val results: Map[FunDef, TerminationGuarantee]
-
-    val time: Long
+    type Duration = Long
+    type Record = (TerminationGuarantee, Duration)
+    val results: Map[FunDef, Record]
 
     override val name: String = TerminationComponent.this.name
 
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-      val rows = for ((fd, g) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
+      val rows = for ((fd, (g, time)) <- results.toSeq.sortBy(_._1.getPos)) yield Row(Seq(
         Cell(fd.id.asString),
-        Cell((if (g.isGuaranteed) "\u2713" else "\u2717") + " " + verdict(g, fd))
+        Cell((if (g.isGuaranteed) "\u2713" else "\u2717") + " " + verdict(g, fd)),
+        Cell(f"${time / 1000d}%3.3f")
       ))
 
-      val valid = results count { r => r._2.isGuaranteed }
+      val valid = results count { case (_, (g, _)) => g.isGuaranteed }
       val validFromCache = 0
       val invalid = 0
       val unknown = results.size - valid
+      val time = (results map { case (_, (_, t)) => t }).sum
 
       val stats = ReportStats(results.size, time, valid, validFromCache, invalid, unknown)
 
       Some((rows, stats))
     }
 
-    override def ~(report: TerminationReport): TerminationReport = ???
-    override def removeSubreports(ids: Seq[Identifier]) = ???
+    // Group by function, overriding all VCResults by the ones in `other`.
+    override def ~(other: TerminationReport): TerminationReport = other // TODO
+
+    override def removeSubreports(ids: Seq[Identifier]) = this // TODO
 
     override def emitJson: JArray = {
       def kind(g: TerminationGuarantee): String = g match {
@@ -95,12 +99,13 @@ object TerminationComponent extends SimpleComponent {
         case checker.NoGuarantee => "no guarantee"
       }
 
-      val report: JArray = for { (fd, g) <- results } yield {
+      val report: JArray = for { (fd, (g, time)) <- results } yield {
         ("fd" -> fd.id.name) ~
         ("pos" -> fd.getPos.toJson) ~
         ("kind" -> kind(g)) ~ // brief
         ("verdict" -> verdict(g, fd)) ~ // detailed
-        ("guarantee" -> g.isGuaranteed)
+        ("guarantee" -> g.isGuaranteed) ~
+        ("time" -> time)
       }
 
       report
@@ -130,9 +135,6 @@ object TerminationComponent extends SimpleComponent {
 
     val c = TerminationChecker(p, ctx)
 
-    // TODO update this code to use `.run { ... }` for timers when merging #67: persistent cache.
-    val timer = timers.termination.start()
-
     val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)
 
     for (fd <- toVerify)  {
@@ -142,13 +144,21 @@ object TerminationComponent extends SimpleComponent {
       }
     }
 
-    val res = for (fd <- toVerify) yield fd -> c.terminates(fd)
-    val t = timer.stop()
+    val res = toVerify map { fd =>
+      val timer = ctx.timers.termination.start()
+      try {
+        val status = c.terminates(fd)
+        val time = timer.stop()
+
+        fd -> (status, time)
+      } finally {
+        if (timer.isRunning) timer.stop()
+      }
+    }
 
     new TerminationReport {
       val checker: c.type = c
-      val results: Map[p.trees.FunDef, c.TerminationGuarantee] = res.toMap
-      val time = t
+      val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
     }
   }
 }
