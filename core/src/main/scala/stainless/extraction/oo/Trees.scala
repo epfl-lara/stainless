@@ -75,40 +75,29 @@ trait Trees extends holes.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
-  /** Type associated to instances of [[ClassConstructor]]
-    * 
-    * Note: this class MUST extend `ADTType` in order for `FieldAssignment` to typecheck! */
-  class ClassType(id: Identifier, tps: Seq[Type]) extends ADTType(id, tps) {
+  override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
+    case ct: ClassType => ct.getField(selector)
+    case _ => super.getField(tpe, selector)
+  }
+
+  /** Type associated to instances of [[ClassConstructor]] */
+   case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
     def tcd(implicit s: Symbols): TypedClassDef = s.getClass(id, tps)
 
-    override def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
+    def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
         tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }
           .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
       lookupClass.flatMap(rec)
     }
-
-    override def copy(id: Identifier = id, tps: Seq[Type] = tps) = new ClassType(id, tps)
-    override def equals(that: Any): Boolean = that match {
-      case ct: ClassType => id == ct.id && tps == ct.tps
-      case _ => false
-    }
-  }
-
-  object ClassType {
-    def apply(id: Identifier, tps: Seq[Type]): ClassType = new ClassType(id, tps)
-    def unapply(tpe: Type): Option[(Identifier, Seq[Type])] = tpe match {
-      case ct: ClassType => Some((ct.id, ct.tps))
-      case _ => None
-    }
   }
 
   /** Top of the typing lattice, corresponds to scala's `Any` type. */
-  case object AnyType extends Type
+  case class AnyType() extends Type
 
   /** Bottom of the typing lattice, corresponds to scala's `Nothing` type. */
-  case object NothingType extends Type
+  case class NothingType() extends Type
 
   /** $encodingof `tp1 | ... | tpN` */
   private[oo] case class UnionType(tps: Seq[Type]) extends Type {
@@ -194,10 +183,10 @@ trait Printer extends holes.Printer {
     case ClassType(id, tps) =>
       p"${id}${nary(tps, ", ", "[", "]")}"
 
-    case AnyType =>
+    case AnyType() =>
       p"Any"
 
-    case NothingType =>
+    case NothingType() =>
       p"Nothing"
 
     case UnionType(tps) =>
@@ -278,8 +267,8 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
 
   override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
     case s.ClassType(id, tps) => (Seq(id), tps, Seq(), (ids, tps, _) => t.ClassType(ids.head, tps))
-    case s.AnyType => (Seq(), Seq(), Seq(), (_, _, _) => t.AnyType)
-    case s.NothingType => (Seq(), Seq(), Seq(), (_, _, _) => t.NothingType)
+    case s.AnyType() => (Seq(), Seq(), Seq(), (_, _, _) => t.AnyType())
+    case s.NothingType() => (Seq(), Seq(), Seq(), (_, _, _) => t.NothingType())
     case s.UnionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.UnionType(tps))
     case s.IntersectionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.IntersectionType(tps))
     case s.TypeBounds(lo, hi) => (Seq(), Seq(lo, hi), Seq(), (_, tps, _) => t.TypeBounds(tps(0), tps(1)))

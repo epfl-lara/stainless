@@ -179,24 +179,24 @@ trait CodeGeneration { self: CompilationUnit =>
     */
   protected object JvmIType {
     def unapply(tp: Type): Boolean = tp match {
-      case Int8Type | Int16Type | Int32Type | BooleanType | CharType | UnitType => true
+      case Int8Type() | Int16Type() | Int32Type() | BooleanType() | CharType() | UnitType() => true
       case _ => false
     }
   }
 
   /** Return the respective JVM type from a Stainless type */
   def typeToJVM(tpe: Type) : String = tpe match {
-    case Int8Type  => "B"
-    case Int16Type => "S"
-    case Int32Type => "I"
-    case Int64Type => "J"
+    case Int8Type()  => "B"
+    case Int16Type() => "S"
+    case Int32Type() => "I"
+    case Int64Type() => "J"
     case BVType(_) => "L" + BitVectorClass + ";"
 
-    case BooleanType => "Z"
+    case BooleanType() => "Z"
 
-    case CharType => "C"
+    case CharType() => "C"
 
-    case UnitType => "Z"
+    case UnitType() => "Z"
 
     case adt: ADTType =>
       val (n, _) = getADTInfo(adt.getADT.definition)
@@ -214,10 +214,10 @@ trait CodeGeneration { self: CompilationUnit =>
     case _ : MapType =>
       "L" + MapClass + ";"
 
-    case IntegerType =>
+    case IntegerType() =>
       "L" + BigIntClass + ";"
 
-    case RealType =>
+    case RealType() =>
       "L" + RationalClass + ";"
 
     case _ : FunctionType =>
@@ -229,8 +229,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case _: TypeParameter =>
       "L" + ObjectClass + ";"
-    
-    case StringType =>
+
+    case StringType() =>
       "L" + JavaStringClass + ";"
 
     case _ => throw CompilationException("Unsupported type : " + tpe)
@@ -238,13 +238,13 @@ trait CodeGeneration { self: CompilationUnit =>
 
   /** Return the respective boxed JVM type from a Stainless type */
   def typeToJVMBoxed(tpe: Type) : String = tpe match {
-    case Int8Type               => s"L$BoxedByteClass;"
-    case Int16Type              => s"L$BoxedShortClass;"
-    case Int32Type              => s"L$BoxedIntClass;"
-    case Int64Type              => s"L$BoxedLongClass;"
-    case BooleanType | UnitType => s"L$BoxedBoolClass;"
-    case CharType               => s"L$BoxedCharClass;"
-    case other                  => typeToJVM(other)
+    case Int8Type()                 => s"L$BoxedByteClass;"
+    case Int16Type()                => s"L$BoxedShortClass;"
+    case Int32Type()                => s"L$BoxedIntClass;"
+    case Int64Type()                => s"L$BoxedLongClass;"
+    case BooleanType() | UnitType() => s"L$BoxedBoolClass;"
+    case CharType()                 => s"L$BoxedCharClass;"
+    case other                      => typeToJVM(other)
   }
 
   /**
@@ -284,7 +284,7 @@ trait CodeGeneration { self: CompilationUnit =>
       val tpsOpt = if (funDef.tparams.nonEmpty) Some(tpsID -> getSlot(false)) else None
       val params = funDef.params map { p =>
         val isLong = p.tpe match {
-          case Int64Type => true
+          case Int64Type() => true
           case _ => false
         }
         p.id -> getSlot(isLong)
@@ -320,7 +320,7 @@ trait CodeGeneration { self: CompilationUnit =>
     funDef.returnType match {
       case JvmIType() =>
         ch << IRETURN
-      case Int64Type =>
+      case Int64Type() =>
         ch << LRETURN
       case _ =>
         ch << ARETURN
@@ -504,7 +504,7 @@ trait CodeGeneration { self: CompilationUnit =>
                 case JvmIType() =>
                   ech << If_ICmpNe(notEq)
 
-                case Int64Type => ???
+                case Int64Type() => ???
 
                 case ot =>
                   ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)
@@ -623,7 +623,7 @@ trait CodeGeneration { self: CompilationUnit =>
       if (slot > 127) println("Error while converting one more slot which is too much " + e)
       ch << (vd.tpe match {
         case JvmIType() => IStore(slot)
-        case Int64Type => LStore(slot)
+        case Int64Type() => LStore(slot)
         case _ => AStore(slot)
       })
       mkExpr(b, ch)(locals.withVar(vd.id -> slot))
@@ -709,7 +709,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
         val ok = ch.getFreshLabel("invariant_ok")
         ch << IfNe(ok)
-        mkExpr(Error(BooleanType, "ADT invariant failed @" + e.getPos), ch)
+        mkExpr(Error(BooleanType(), "ADT invariant failed @" + e.getPos), ch)
         ch << Label(ok)
       }
 
@@ -924,19 +924,19 @@ trait CodeGeneration { self: CompilationUnit =>
 
       val op = "mod"
       l.getType match {
-        case IntegerType =>
+        case IntegerType() =>
           val opSign = s"(L$BigIntClass;)L$BigIntClass;"
           ch << Comment(s"[binary, bigint] Calling $op: $opSign")
           ch << InvokeVirtual(BigIntClass, op, opSign)
 
-        case t @ (Int8Type | Int16Type | Int32Type | Int64Type) =>
+        case t @ (Int8Type() | Int16Type() | Int32Type() | Int64Type()) =>
           // NOTE Here we always rely on BitVector's implementation of modulo.
 
           val (param, extract, size) = t match {
-            case Int8Type  => ("B", "toByte", 8)
-            case Int16Type => ("S", "toShort", 16)
-            case Int32Type => ("I", "toInt", 32)
-            case Int64Type => ("J", "toLong", 64)
+            case Int8Type()  => ("B", "toByte", 8)
+            case Int16Type() => ("S", "toShort", 16)
+            case Int32Type() => ("I", "toInt", 32)
+            case Int64Type() => ("J", "toLong", 64)
           }
 
           // stack: (l, r)
@@ -986,12 +986,12 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(e, ch)
       val from = e.getType
       (from, to) match {
-        case (Int16Type, Int8Type ) => ch << I2B
-        case (Int32Type, Int8Type ) => ch << I2B
-        case (Int32Type, Int16Type) => ch << I2S
-        case (Int64Type, Int8Type ) => ch << L2I << I2B
-        case (Int64Type, Int16Type) => ch << L2I << I2S
-        case (Int64Type, Int32Type) => ch << L2I
+        case (Int16Type(), Int8Type() ) => ch << I2B
+        case (Int32Type(), Int8Type() ) => ch << I2B
+        case (Int32Type(), Int16Type()) => ch << I2S
+        case (Int64Type(), Int8Type() ) => ch << L2I << I2B
+        case (Int64Type(), Int16Type()) => ch << L2I << I2S
+        case (Int64Type(), Int32Type()) => ch << L2I
         case (BVType(s), BVType(t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
@@ -1000,12 +1000,12 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(e, ch)
       val from = e.getType
       (from, to) match {
-        case (Int8Type,  Int16Type) => ch << I2S
-        case (Int8Type,  Int32Type) => ch << NOP // already an int
-        case (Int8Type,  Int64Type) => ch << I2L
-        case (Int16Type, Int32Type) => ch << NOP // already an int
-        case (Int16Type, Int64Type) => ch << I2L
-        case (Int32Type, Int64Type) => ch << I2L
+        case (Int8Type(),  Int16Type()) => ch << I2S
+        case (Int8Type(),  Int32Type()) => ch << NOP // already an int
+        case (Int8Type(),  Int64Type()) => ch << I2L
+        case (Int16Type(), Int32Type()) => ch << NOP // already an int
+        case (Int16Type(), Int64Type()) => ch << I2L
+        case (Int32Type(), Int64Type()) => ch << I2L
         case (BVType(s), BVType(t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
@@ -1024,12 +1024,12 @@ trait CodeGeneration { self: CompilationUnit =>
       if (smallArrays) {
         ch << (as.getType match {
           case Untyped => throw CompilationException("Cannot compile untyped array access.")
-          case CharType => CALOAD
-          case Int8Type => BALOAD
-          case Int16Type => SALOAD
-          case Int32Type => IALOAD
-          case Int64Type => LALOAD
-          case BooleanType => BALOAD
+          case CharType() => CALOAD
+          case Int8Type() => BALOAD
+          case Int16Type() => SALOAD
+          case Int32Type() => IALOAD
+          case Int64Type() => LALOAD
+          case BooleanType() => BALOAD
           case _ => AALOAD
         })
       } else {
@@ -1100,7 +1100,7 @@ trait CodeGeneration { self: CompilationUnit =>
         mkExpr(default, ch)
         ch << (base match {
           case JvmIType() => IStore(dfltSlot)
-          case Int64Type => LStore(dfltSlot)
+          case Int64Type() => LStore(dfltSlot)
           case _ => AStore(dfltSlot)
         })
 
@@ -1115,7 +1115,7 @@ trait CodeGeneration { self: CompilationUnit =>
         // (array, index, array, index)
         ch << (base match {
           case JvmIType() => ILoad(dfltSlot)
-          case Int64Type => LLoad(dfltSlot)
+          case Int64Type() => LLoad(dfltSlot)
           case _ => ALoad(dfltSlot)
         })
         ch << storeInstr
@@ -1205,7 +1205,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(id)
       ch << InvokeStatic(GenericValuesClass, "get", s"(I)L$ObjectClass;")
 
-    case nt @ NoTree(tp @ (JvmIType() | Int64Type)) =>
+    case nt @ NoTree(tp @ (JvmIType() | Int64Type())) =>
       mkExpr(simplestValue(tp), ch)
 
     case NoTree(_) =>
@@ -1214,7 +1214,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case m : MatchExpr =>
       mkExpr(matchToIfThenElse(m, assumeExhaustive = false), ch)
 
-    case b if b.getType == BooleanType && canDelegateToMkBranch =>
+    case b if b.getType == BooleanType() && canDelegateToMkBranch =>
       val fl = ch.getFreshLabel("boolfalse")
       val al = ch.getFreshLabel("boolafter")
       ch << Ldc(1)
@@ -1253,7 +1253,7 @@ trait CodeGeneration { self: CompilationUnit =>
           val slot = ch.getFreshVar(typeToJVM(dep.getType))
           ch << (dep.getType match {
             case JvmIType() => IStore(slot)
-            case Int64Type => LStore(slot)
+            case Int64Type() => LStore(slot)
             case _ => AStore(slot)
           })
           depsSlot += id -> slot
@@ -1276,12 +1276,12 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private[codegen] def mkNewArray(tpe: Type, ch: CodeHandler): AbstractByteCode = tpe match {
-    case ArrayType(CharType) => ch << NewArray.primitive("T_CHAR"); CASTORE
-    case ArrayType(Int8Type) => ch << NewArray.primitive("T_BYTE"); BASTORE
-    case ArrayType(Int16Type) => ch << NewArray.primitive("T_SHORT"); SASTORE
-    case ArrayType(Int32Type) => ch << NewArray.primitive("T_INT"); IASTORE
-    case ArrayType(Int64Type) => ch << NewArray.primitive("T_LONG"); LASTORE
-    case ArrayType(BooleanType) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
+    case ArrayType(CharType()) => ch << NewArray.primitive("T_CHAR"); CASTORE
+    case ArrayType(Int8Type()) => ch << NewArray.primitive("T_BYTE"); BASTORE
+    case ArrayType(Int16Type()) => ch << NewArray.primitive("T_SHORT"); SASTORE
+    case ArrayType(Int32Type()) => ch << NewArray.primitive("T_INT"); IASTORE
+    case ArrayType(Int64Type()) => ch << NewArray.primitive("T_LONG"); LASTORE
+    case ArrayType(BooleanType()) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
     case ArrayType(base) =>
       val jvmt = typeToJVM(base)
       assert(jvmt.head == 'L' && jvmt.last == ';', "Unexpected jvm type for array type " + tpe)
@@ -1294,32 +1294,32 @@ trait CodeGeneration { self: CompilationUnit =>
   // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
   private[codegen] def mkBoxedExpr(e: Expr, ch: CodeHandler)
                                   (implicit locals: Locals): Unit = e.getType match {
-    case Int8Type =>
+    case Int8Type() =>
       ch << New(BoxedByteClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedByteClass, constructorName, "(B)V")
 
-    case Int16Type =>
+    case Int16Type() =>
       ch << New(BoxedShortClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedShortClass, constructorName, "(S)V")
 
-    case Int32Type =>
+    case Int32Type() =>
       ch << New(BoxedIntClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-    case Int64Type =>
+    case Int64Type() =>
       ch << New(BoxedLongClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
 
-    case BooleanType | UnitType =>
+    case BooleanType() | UnitType() =>
       ch << New(BoxedBoolClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
-    case CharType =>
+    case CharType() =>
       ch << New(BoxedCharClass) << DUP
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
@@ -1336,22 +1336,22 @@ trait CodeGeneration { self: CompilationUnit =>
   // Assumes the top of the stack contains of value of the right type, and makes it
   // compatible with java.lang.Object.
   private[codegen] def mkBox(tpe: Type, ch: CodeHandler): Unit = tpe match {
-    case Int8Type =>
+    case Int8Type() =>
       ch << New(BoxedByteClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedByteClass, constructorName, "(B)V")
 
-    case Int16Type =>
+    case Int16Type() =>
       ch << New(BoxedShortClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedShortClass, constructorName, "(S)V")
 
-    case Int32Type =>
+    case Int32Type() =>
       ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
-    case Int64Type =>
+    case Int64Type() =>
       ch << New(BoxedLongClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
 
-    case BooleanType | UnitType =>
+    case BooleanType() | UnitType() =>
       ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
 
-    case CharType =>
+    case CharType() =>
       ch << New(BoxedCharClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedCharClass, constructorName, "(C)V")
 
     case at @ ArrayType(et) if smallArrays =>
@@ -1362,35 +1362,35 @@ trait CodeGeneration { self: CompilationUnit =>
 
   // Assumes that the top of the stack contains a value that should be of type `tpe`, and unboxes it to the right (JVM) type.
   private[codegen] def mkUnbox(tpe: Type, ch: CodeHandler): Unit = tpe match {
-    case Int8Type =>
+    case Int8Type() =>
       ch << CheckCast(BoxedByteClass) << InvokeVirtual(BoxedByteClass, "byteValue", "()B")
 
-    case Int16Type =>
+    case Int16Type() =>
       ch << CheckCast(BoxedShortClass) << InvokeVirtual(BoxedShortClass, "shortValue", "()S")
 
-    case Int32Type =>
+    case Int32Type() =>
       ch << CheckCast(BoxedIntClass) << InvokeVirtual(BoxedIntClass, "intValue", "()I")
 
-    case Int64Type =>
+    case Int64Type() =>
       ch << CheckCast(BoxedLongClass) << InvokeVirtual(BoxedLongClass, "longValue", "()J")
 
-    case BooleanType | UnitType =>
+    case BooleanType() | UnitType() =>
       ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
 
-    case CharType =>
+    case CharType() =>
       ch << CheckCast(BoxedCharClass) << InvokeVirtual(BoxedCharClass, "charValue", "()C")
 
     case adt: ADTType =>
       val (cn, _) = getADTInfo(adt.getADT.definition)
       ch << CheckCast(cn)
 
-    case IntegerType =>
+    case IntegerType() =>
       ch << CheckCast(BigIntClass)
 
-    case StringType =>
+    case StringType() =>
       ch << CheckCast(JavaStringClass)
 
-    case RealType =>
+    case RealType() =>
       ch << CheckCast(RationalClass)
 
     case tt : TupleType =>
@@ -1411,10 +1411,10 @@ trait CodeGeneration { self: CompilationUnit =>
       if (smallArrays) {
         ch << CheckCast(BoxedArrayClass)
         base match {
-          case Int8Type | Int16Type | Int64Type => println(s"NOT IMPLEMENTED!!!"); ??? // TODO implement me
-          case Int32Type =>
+          case Int8Type() | Int16Type() | Int64Type() => println(s"NOT IMPLEMENTED!!!"); ??? // TODO implement me
+          case Int32Type() =>
             ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
-          case BooleanType =>
+          case BooleanType() =>
             ch << InvokeVirtual(BoxedArrayClass, "booleanArray", s"()${typeToJVM(tp)}")
           case _ =>
             ch << InvokeVirtual(BoxedArrayClass, "anyRefArray", s"()[L$ObjectClass;")
@@ -1472,7 +1472,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case JvmIType() =>
           ch << If_ICmpEq(thenn) << Goto(elze)
 
-        case Int64Type =>
+        case Int64Type() =>
           ch << LCMP << IfEq(thenn) << Goto(elze)
 
         case _ =>
@@ -1540,10 +1540,10 @@ trait CodeGeneration { self: CompilationUnit =>
     // Here, we might need to first create a BitVector.
     // We might also have to convert the resulting BitVector back to a regular integer type.
     from match {
-      case Int8Type  => mkNewBV(ch, "B", 8)
-      case Int16Type => mkNewBV(ch, "S", 16)
-      case Int32Type => mkNewBV(ch, "I", 32)
-      case Int64Type => mkNewBV(ch, "J", 64)
+      case Int8Type()  => mkNewBV(ch, "B", 8)
+      case Int16Type() => mkNewBV(ch, "S", 16)
+      case Int32Type() => mkNewBV(ch, "I", 32)
+      case Int64Type() => mkNewBV(ch, "J", 64)
       case BVType(s) => ch << NOP
     }
 
@@ -1554,10 +1554,10 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
 
     to match {
-      case Int8Type  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
-      case Int16Type => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
-      case Int32Type => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
-      case Int64Type => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
+      case Int8Type()  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
+      case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
+      case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
+      case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
       case BVType(s) => ch << NOP
     }
   }
@@ -1570,7 +1570,7 @@ trait CodeGeneration { self: CompilationUnit =>
     //      the rhs operand must be an Int.
 
     def pre(ch: CodeHandler): Unit = r.getType match {
-      case Int64Type => ch << L2I
+      case Int64Type() => ch << L2I
       case _ => // No need to convert the rhs argument, it is either already an int, or some unrelated BVType.
     }
 
@@ -1588,20 +1588,20 @@ trait CodeGeneration { self: CompilationUnit =>
     mkExpr(l, ch)
     mkExpr(r, ch)
     l.getType match {
-      case Int8Type | Int16Type | Int32Type | CharType =>
+      case Int8Type() | Int16Type() | Int32Type() | CharType() =>
         // Here we assume the user really wants to use BitVector even for Int8/16Types.
         // Fortunately, for comparison operations, using regular Int32Type will do fine
         // as Int8/16Type are represented as Int32Type on the JVM anyway.
         ch << iop(thenn) << Goto(elze)
-      case Int64Type =>
+      case Int64Type() =>
         ch << LCMP << lop(thenn) << Goto(elze)
       case BVType(_) =>
         ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
-      case IntegerType =>
+      case IntegerType() =>
         ch << InvokeVirtual(BigIntClass, op, s"(L$BigIntClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
-      case RealType =>
+      case RealType() =>
         ch << InvokeVirtual(RationalClass, op, s"(L$RationalClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
     }
@@ -1621,19 +1621,19 @@ trait CodeGeneration { self: CompilationUnit =>
     mkExpr(r, ch)
 
     l.getType match {
-      case IntegerType if !bvOnly =>
+      case IntegerType() if !bvOnly =>
         val opSign = s"(L$BigIntClass;)L$BigIntClass;"
         ch << Comment(s"[binary, bigint] Calling $op: $opSign")
         ch << InvokeVirtual(BigIntClass, op, opSign)
 
-      case t @ (Int8Type | Int16Type) =>
+      case t @ (Int8Type() | Int16Type()) =>
         // Here we assume the user really wants to use BitVector even for Int8/16Types.
         // We therefore create two BitVector for the operation, then extract the result
         // back to the proper primitive type.
 
         val (param, extract, size) = t match {
-          case Int8Type  => ("B", "toByte", 8)
-          case Int16Type => ("S", "toShort", 16)
+          case Int8Type()  => ("B", "toByte", 8)
+          case Int16Type() => ("S", "toShort", 16)
         }
 
         // stack: (l, r)
@@ -1651,10 +1651,10 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
         ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
-      case Int32Type =>
+      case Int32Type() =>
         iopGen(ch)
 
-      case Int64Type =>
+      case Int64Type() =>
         lopGen(ch)
 
       case BVType(_) =>
@@ -1662,7 +1662,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
 
-      case RealType if !bvOnly =>
+      case RealType() if !bvOnly =>
         val opSign = s"(L$RationalClass;)L$RationalClass;"
         ch << Comment(s"[binary, real] Calling $op: $opSign")
         ch << InvokeVirtual(RationalClass, op, opSign)
@@ -1682,19 +1682,19 @@ trait CodeGeneration { self: CompilationUnit =>
     mkExpr(e, ch)
 
     e.getType match {
-      case IntegerType if !bvOnly =>
+      case IntegerType() if !bvOnly =>
         val opSign = s"()L$BigIntClass;"
         ch << Comment(s"[unary, bigint] Calling $op: $opSign")
         ch << InvokeVirtual(BigIntClass, op, opSign)
 
-      case t @ (Int8Type | Int16Type) =>
+      case t @ (Int8Type() | Int16Type()) =>
         // Here we assume the user really wants to use BitVector even for Int8/16Types.
         // We therefore create a BitVector for the operation, then extract the result
         // back to the proper primitive type.
 
         val (param, extract, size) = t match {
-          case Int8Type  => ("B", "toByte", 8)
-          case Int16Type => ("S", "toShort", 16)
+          case Int8Type()  => ("B", "toByte", 8)
+          case Int16Type() => ("S", "toShort", 16)
         }
 
         mkNewBV(ch, param, size)
@@ -1705,10 +1705,10 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Comment(s"[unary, BVType($size)] invoke $extract on BitVector: $signExtract")
         ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
-      case Int32Type =>
+      case Int32Type() =>
         iopGen(ch)
 
-      case Int64Type =>
+      case Int64Type() =>
         lopGen(ch)
 
       case BVType(_) =>
@@ -1716,7 +1716,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
 
-      case RealType if !bvOnly =>
+      case RealType() if !bvOnly =>
         val opSign = s"()L$RationalClass;"
         ch << Comment(s"[unary, real] Calling $op: $opSign")
         ch << InvokeVirtual(RationalClass, op, opSign)
@@ -1738,7 +1738,7 @@ trait CodeGeneration { self: CompilationUnit =>
           case Some(slot) =>
             ch << (tpe match {
               case Some(JvmIType()) => ILoad(slot)
-              case Some(Int64Type) => LLoad(slot)
+              case Some(Int64Type()) => LLoad(slot)
               case _ => ALoad(slot)
             })
           case None => throw CompilationException("Unknown variable : " + id)
@@ -1993,7 +1993,7 @@ trait CodeGeneration { self: CompilationUnit =>
             case JvmIType() =>
               ech << If_ICmpNe(notEq)
 
-            case Int64Type => ???
+            case Int64Type() => ???
 
             case ot =>
               ech << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z") << IfEq(notEq)

@@ -251,7 +251,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               def liftEffects(e: Expr): (Seq[(ValDef, Expr)], Expr) = e match {
                 case ArraySelect(e, i) if effects(i).nonEmpty =>
                   val (eBindings, eLift) = liftEffects(e)
-                  val vd = ValDef(FreshIdentifier("index", true), Int32Type).copiedFrom(i)
+                  val vd = ValDef(FreshIdentifier("index", true), Int32Type().copiedFrom(i)).copiedFrom(i)
                   (eBindings :+ (vd -> i), ArraySelect(eLift, vd.toVariable).copiedFrom(e))
                 case _ if effects(e).nonEmpty =>
                   throw MissformedStainlessCode(m, "Unexpected effects in match scrutinee")

@@ -246,7 +246,7 @@ class PreconditionInference(
                   id,
                   tparams.map(TypeParameterDef(_)),
                   Seq(thiss),
-                  BooleanType,
+                  BooleanType().copiedFrom(root),
                   invariant,
                   root.flags filter (_.name == "library")
                 )

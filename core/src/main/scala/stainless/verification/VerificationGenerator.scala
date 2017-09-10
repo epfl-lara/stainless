@@ -38,12 +38,12 @@ trait VerificationGenerator { self =>
 
 object VerificationGenerator {
 
-  def gen(p: StainlessProgram)(funs: Seq[Identifier]): Seq[VC[p.trees.type]] = {
+  def gen(p: StainlessProgram, ctx: inox.Context)(funs: Seq[Identifier]): Seq[VC[p.trees.type]] = {
     object generator extends VerificationGenerator {
       val program: p.type = p
 
-      val defaultTactic = DefaultTactic(p)
-      val inductionTactic = InductionTactic(p)
+      val defaultTactic = DefaultTactic(p, ctx)
+      val inductionTactic = InductionTactic(p, ctx)
 
       protected def getTactic(fd: p.trees.FunDef) =
         if (fd.flags contains "induct") {
@@ -52,6 +52,7 @@ object VerificationGenerator {
           defaultTactic
         }
     }
+
     generator.generateVCs(funs)
   }
 

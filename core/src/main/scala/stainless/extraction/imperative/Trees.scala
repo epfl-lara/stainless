@@ -26,36 +26,38 @@ trait Trees extends innerfuns.Trees { self =>
   /** $encodingof `vd = value` */
   case class Assignment(v: Variable, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = if (s.isSubtypeOf(value.getType, v.tpe)) {
-      UnitType
+      UnitType()
     } else {
       Untyped
     }
   }
 
+  // Override point for alternative field assignment targets
+  protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
+    case adt: ADTType => adt.getField(selector)
+    case _ => None
+  }
+
   /** $encodingof `obj.selector = value` */
   case class FieldAssignment(obj: Expr, selector: Identifier, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = obj.getType match {
-      case ct: ADTType =>
-        ct.getField(selector)
-          .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
-          .map(_ => UnitType)
-          .getOrElse(Untyped)
-
-      case _ => Untyped
-    }
+    protected def computeType(implicit s: Symbols): Type =
+      getField(obj.getType, selector)
+        .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
+        .map(_ => UnitType())
+        .getOrElse(Untyped)
   }
 
   /** $encodingof `(while(cond) { ... }) invariant (pred)` */
   case class While(cond: Expr, body: Expr, pred: Option[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
-      if (cond.getType == BooleanType && body.isTyped && pred.forall(_.getType == BooleanType)) UnitType
+      if (cond.getType == BooleanType() && body.isTyped && pred.forall(_.getType == BooleanType())) UnitType()
       else Untyped
   }
 
   /** $encodingof `array(index) = value` */
   case class ArrayUpdate(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type) if s.isSubtypeOf(value.getType, base) => UnitType
+      case (ArrayType(base), Int32Type()) if s.isSubtypeOf(value.getType, base) => UnitType()
       case _ => Untyped
     }
   }
@@ -75,17 +77,17 @@ trait Trees extends innerfuns.Trees { self =>
 
   /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
   case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType(), lhs, rhs)
   }
 
   /** $encodingof `a | b` for Boolean; desuggared to { val l = lhs; val r = rhs; l || r } when removing imperative style. */
   case class BoolBitwiseOr(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType(), lhs, rhs)
   }
 
   /** $encodingof `a ^ b` for Boolean; desuggared to { val l = lhs; val r = rhs; l != r } when removing imperative style. */
   case class BoolBitwiseXor(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = expect(BooleanType, lhs, rhs)
+    protected def computeType(implicit s: Symbols): Type = expect(BooleanType(), lhs, rhs)
   }
 
   object VarDef {

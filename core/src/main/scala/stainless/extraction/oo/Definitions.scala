@@ -139,7 +139,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
   implicit class TypeParameterWithBounds(tp: TypeParameter) {
     def bounds: TypeBounds = {
       tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi) }
-        .getOrElse(TypeBounds(NothingType, AnyType))
+        .getOrElse(TypeBounds(NothingType(), AnyType()))
     }
 
     def lowerBound: Type = bounds.lo

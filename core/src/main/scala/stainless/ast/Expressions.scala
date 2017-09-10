@@ -36,7 +36,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class Require(pred: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (pred.getType == BooleanType) body.getType
+      if (pred.getType == BooleanType()) body.getType
       else Untyped
     }
   }
@@ -56,7 +56,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class Ensuring(body: Expr, pred: Lambda) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = pred.getType match {
-      case FunctionType(Seq(bodyType), BooleanType) if s.isSubtypeOf(body.getType, bodyType) =>
+      case FunctionType(Seq(bodyType), BooleanType()) if s.isSubtypeOf(body.getType, bodyType) =>
         body.getType
       case _ =>
         Untyped
@@ -81,7 +81,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class Assert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (pred.getType == BooleanType) body.getType
+      if (pred.getType == BooleanType()) body.getType
       else Untyped
     }
   }
@@ -94,7 +94,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * $encodingof `f.pre` */
   case class Pre(f: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = f.getType match {
-      case FunctionType(from, to) => FunctionType(from, BooleanType).unveilUntyped
+      case FunctionType(from, to) => FunctionType(from, BooleanType()).unveilUntyped
       case _ => Untyped
     }
   }
@@ -245,7 +245,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr, base: Type) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (size.getType == Int32Type) {
+      if (size.getType == Int32Type()) {
         ArrayType(checkParamTypes(
           (default +: elems.values.toSeq).map(_.getType),
           List.fill(elems.size + 1)(base),
@@ -260,7 +260,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `array(index)` */
   case class ArraySelect(array: Expr, index: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type) => base
+      case (ArrayType(base), Int32Type()) => base
       case _ => Untyped
     }
   }
@@ -268,7 +268,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `array.updated(index, value)` */
   case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type) => ArrayType(s.leastUpperBound(base, value.getType)).unveilUntyped
+      case (ArrayType(base), Int32Type()) => ArrayType(s.leastUpperBound(base, value.getType)).unveilUntyped
       case _ => Untyped
     }
   }
@@ -276,7 +276,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `array.length` */
   case class ArrayLength(array: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = array.getType match {
-      case ArrayType(_) => Int32Type
+      case ArrayType(_) => Int32Type()
       case _ => Untyped
     }
   }

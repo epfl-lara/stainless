@@ -116,9 +116,9 @@ trait AssertionInjector extends ast.TreeTransformer {
 
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
-          case s.IntegerType => t.IntegerLiteral(0).copiedFrom(d)
+          case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
           case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
-          case s.RealType => t.FractionLiteral(0, 1).copiedFrom(d)
+          case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Division by zero"),
         rest
@@ -127,7 +127,7 @@ trait AssertionInjector extends ast.TreeTransformer {
     case s.Remainder(_, d) =>
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
-          case s.IntegerType => t.IntegerLiteral(0).copiedFrom(d)
+          case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
           case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Remainder by zero"),
@@ -137,7 +137,7 @@ trait AssertionInjector extends ast.TreeTransformer {
     case s.Modulo(_, d) =>
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
-          case s.IntegerType => t.IntegerLiteral(0).copiedFrom(d)
+          case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
           case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Modulo by zero"),

@@ -477,26 +477,21 @@ private object CanonicalFormBuilderImpl {
       classOf[xt.FunctionType],
       classOf[xt.TypeParameter],
       classOf[xt.BVType],
-      xt.Int8Type.getClass,
-      xt.Int16Type.getClass,
-      xt.Int32Type.getClass,
-      xt.Int64Type.getClass,
-      xt.Untyped.getClass,
-      xt.BooleanType.getClass,
-      xt.UnitType.getClass,
-      xt.CharType.getClass,
-      xt.IntegerType.getClass,
-      xt.RealType.getClass,
-      xt.StringType.getClass,
+      classOf[xt.BooleanType],
+      classOf[xt.UnitType],
+      classOf[xt.CharType],
+      classOf[xt.IntegerType],
+      classOf[xt.RealType],
+      classOf[xt.StringType],
 
       classOf[xt.ArrayType],
       classOf[xt.ClassType],
-      xt.AnyType.getClass,
-      xt.NothingType.getClass,
+      classOf[xt.AnyType],
+      classOf[xt.NothingType],
       // classOf[xt.UnionType], // private in oo
       // classOf[xt.IntersectionType], // private in oo
-      classOf[xt.TypeBounds]
-
+      classOf[xt.TypeBounds],
+      xt.Untyped.getClass
     ).zipWithIndex map { case (c, i) =>
       assert(i <= Byte.MaxValue)
       c -> i.toByte

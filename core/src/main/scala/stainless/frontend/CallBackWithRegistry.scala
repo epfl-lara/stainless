@@ -11,6 +11,8 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 trait CallBackWithRegistry extends CallBack { self =>
   protected val context: inox.Context
 
+  private implicit val debugSection = DebugSectionFrontend
+
   /******************* Public Interface: Override CallBack ***************************************/
 
   final override def beginExtractions(): Unit = { /* nothing */ }
@@ -64,7 +66,6 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Internal State *************************************************************/
 
-  private implicit val debugSection = DebugSectionFrontend
   private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
 
   private val previousFileData = MutableMap[String, (Seq[xt.ClassDef], Seq[xt.FunDef])]()

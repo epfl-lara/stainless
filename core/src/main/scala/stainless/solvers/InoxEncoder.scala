@@ -46,7 +46,7 @@ trait InoxEncoder extends ProgramEncoder {
 
   protected val arrayInvariantID = FreshIdentifier("array_inv")
   protected val arrayInvariant = mkFunDef(arrayInvariantID)("A") { case Seq(aT) => (
-    Seq("array" :: T(arrayID)(aT)), t.BooleanType, { case Seq(array) =>
+    Seq("array" :: T(arrayID)(aT)), t.BooleanType(), { case Seq(array) =>
       array.getField(size) >= E(0)
     })
   }
@@ -54,7 +54,7 @@ trait InoxEncoder extends ProgramEncoder {
   protected val arrayADT: t.ADTConstructor = {
     val tdef = t.TypeParameterDef(t.TypeParameter.fresh("A"))
     new t.ADTConstructor(arrayID, Seq(tdef), None,
-      Seq(t.ValDef(arr, t.MapType(t.Int32Type, tdef.tp), Set.empty), t.ValDef(size, t.Int32Type, Set.empty)),
+      Seq(t.ValDef(arr, t.MapType(t.Int32Type(), tdef.tp), Set.empty), t.ValDef(size, t.Int32Type(), Set.empty)),
       Set(t.HasADTInvariant(arrayInvariantID))
     )
   }
@@ -75,7 +75,7 @@ trait InoxEncoder extends ProgramEncoder {
       tparams.map(tp => t.TypeParameterDef(tp)),
       None,
       Seq(t.ValDef(fs(i), t.FunctionType(argTps, resTpe), Set.empty),
-        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType), Set.empty)),
+        t.ValDef(pres(i), t.FunctionType(argTps, t.BooleanType()), Set.empty)),
       Set.empty
     )
   }
@@ -140,7 +140,7 @@ trait InoxEncoder extends ProgramEncoder {
               t.ValDef(FreshIdentifier("res"), transform(base)).copiedFrom(e),
               t.BooleanLiteral(true).copiedFrom(e)
             ).copiedFrom(e),
-            t.Int32Type,
+            t.Int32Type(),
             transform(base)),
           t.Int32Literal(elems.size).copiedFrom(e)
         ))
@@ -150,7 +150,7 @@ trait InoxEncoder extends ProgramEncoder {
           t.FiniteMap(
             elems.toSeq.map(p => t.Int32Literal(p._1).copiedFrom(e) -> transform(p._2)),
             transform(dflt),
-            t.Int32Type,
+            t.Int32Type(),
             transform(base)),
           transform(size)
         )).copiedFrom(e)
@@ -175,7 +175,7 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Pre(f) =>
         val s.FunctionType(from, to) = f.getType
         val tfrom = from map transform
-        t.ADT(t.ADTType(funIDs(from.size), tfrom :+ t.BooleanType).copiedFrom(e), Seq(
+        t.ADT(t.ADTType(funIDs(from.size), tfrom :+ t.BooleanType()).copiedFrom(e), Seq(
           t.ADTSelector(transform(f), pres(from.size)).copiedFrom(e),
           t.Lambda(
             tfrom.map(tpe => t.ValDef(FreshIdentifier("x", true), tpe, Set.empty).copiedFrom(tpe)),

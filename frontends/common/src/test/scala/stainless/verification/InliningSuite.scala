@@ -34,7 +34,7 @@ class InliningSuite extends FunSuite with InputUtils {
 
   val ctx = inox.TestContext.empty
   val (funs, xlangProgram) = load(ctx, List(source))
-  val program = VerificationComponent.extract(xlangProgram)
+  val program = VerificationComponent.extract(xlangProgram, ctx)
 
   import program.trees._
 
@@ -50,13 +50,13 @@ class InliningSuite extends FunSuite with InputUtils {
 
   test("Conditions of inlined functions should not be checked") {
     val fun1 = program.lookup[FunDef]("Test.fun1")
-    val vcs = VerificationGenerator.gen(program)(Seq(fun1.id))
+    val vcs = VerificationGenerator.gen(program, ctx)(Seq(fun1.id))
     assert(vcs.size == 1)
   }
 
   test("Precondition of inlined functions should be checked") {
     val fun2 = program.lookup[FunDef]("Test.fun2")
-    val vcs = VerificationGenerator.gen(program)(Seq(fun2.id))
+    val vcs = VerificationGenerator.gen(program, ctx)(Seq(fun2.id))
     assert(vcs.size == 3)
   }
 }

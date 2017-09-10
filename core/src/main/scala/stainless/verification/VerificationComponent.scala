@@ -106,7 +106,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    val vcs = VerificationGenerator.gen(encoder.targetProgram)(funs)
+    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
 
     VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>

@@ -149,21 +149,24 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         case wh @ While(cond, body, optInv) =>
           val name = ValDef(
-            FreshIdentifier(parent.id.name + "While").setPos(parent.id),
-            FunctionType(Seq(), UnitType),
+            FreshIdentifier(parent.id.name + "While"),
+            FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh),
             Set.empty
-          )
+          ).copiedFrom(wh)
 
           val newBody = Some(IfExpr(cond,
             Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
             UnitLiteral().copiedFrom(wh)).copiedFrom(wh))
           val newPost = Some(Lambda(
-            Seq(ValDef(FreshIdentifier("bodyRes"), UnitType, Set.empty).copiedFrom(wh)),
-            and(Not(getFunctionalResult(cond)).copiedFrom(cond), optInv.getOrElse(BooleanLiteral(true))).copiedFrom(wh)
+            Seq(ValDef(FreshIdentifier("bodyRes"), UnitType().copiedFrom(wh), Set.empty).copiedFrom(wh)),
+            and(
+              Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
+              optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
+            ).copiedFrom(wh)
           ).copiedFrom(wh))
 
-          val fullBody = Lambda(Seq.empty, reconstructSpecs(optInv, newBody, newPost, UnitType)).copiedFrom(wh)
-          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).setPos(wh)).setPos(wh)
+          val fullBody = Lambda(Seq.empty, reconstructSpecs(optInv, newBody, newPost, UnitType().copiedFrom(wh))).copiedFrom(wh)
+          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
           toFunction(newExpr)
 
         case Block(Seq(), expr) =>

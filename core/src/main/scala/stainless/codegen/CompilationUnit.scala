@@ -167,7 +167,7 @@ trait CompilationUnit extends CodeGeneration {
 
     // For now, we only treat boolean arrays separately.
     // We have a use for these, mind you.
-    //case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType) =>
+    //case f @ FiniteArray(exprs) if f.getType == ArrayType(BooleanType()) =>
     //  exprs.map(e => exprToJVM(e).asInstanceOf[java.lang.Boolean].booleanValue).toArray
 
     case s @ FiniteSet(els, _) =>
@@ -220,19 +220,19 @@ trait CompilationUnit extends CodeGeneration {
         }
 
         underlying match {
-          case Int8Type =>
+          case Int8Type() =>
             allocArray { case Int8Literal(v) => v }
-          case Int16Type =>
+          case Int16Type() =>
             allocArray { case Int16Literal(v) => v }
-          case Int32Type =>
+          case Int32Type() =>
             allocArray { case Int32Literal(v) => v }
-          case Int64Type =>
+          case Int64Type() =>
             allocArray { case Int64Literal(v) => v }
-          case BooleanType =>
+          case BooleanType() =>
             allocArray { case BooleanLiteral(b) => b }
-          case UnitType =>
+          case UnitType() =>
             allocArray { case UnitLiteral() => true }
-          case CharType =>
+          case CharType() =>
             allocArray { case CharLiteral(c) => c }
           case _ =>
             allocArray(valueToJVM)
@@ -259,19 +259,19 @@ trait CompilationUnit extends CodeGeneration {
 
         val ArrayType(underlying) = a.getType
         underlying match {
-          case Int8Type =>
+          case Int8Type() =>
             allocArray { case Int8Literal(v) => v }
-          case Int16Type =>
+          case Int16Type() =>
             allocArray { case Int16Literal(v) => v }
-          case Int32Type =>
+          case Int32Type() =>
             allocArray { case Int32Literal(v) => v }
-          case Int64Type =>
+          case Int64Type() =>
             allocArray { case Int64Literal(v) => v }
-          case BooleanType =>
+          case BooleanType() =>
             allocArray { case BooleanLiteral(b) => b }
-          case UnitType =>
+          case UnitType() =>
             allocArray { case UnitLiteral() => true }
-          case CharType =>
+          case CharType() =>
             allocArray { case CharLiteral(c) => c }
           case _ =>
             allocArray(valueToJVM)
@@ -290,27 +290,27 @@ trait CompilationUnit extends CodeGeneration {
 
   /** Translates JVM objects back to Stainless values of the appropriate type */
   def jvmToValue(e: AnyRef, tpe: Type): Expr = (e, tpe) match {
-    case (b: java.lang.Byte,    Int8Type)  => Int8Literal(b.toByte)
-    case (s: java.lang.Short,   Int16Type) => Int16Literal(s.toShort)
-    case (i: java.lang.Integer, Int32Type) => Int32Literal(i.toInt)
-    case (l: java.lang.Long,    Int64Type) => Int64Literal(l.toLong)
+    case (b: java.lang.Byte,    Int8Type())  => Int8Literal(b.toByte)
+    case (s: java.lang.Short,   Int16Type()) => Int16Literal(s.toShort)
+    case (i: java.lang.Integer, Int32Type()) => Int32Literal(i.toInt)
+    case (l: java.lang.Long,    Int64Type()) => Int64Literal(l.toLong)
     case (bv: runtime.BitVector, BVType(size)) => BVLiteral(BigInt(bv.toString, 2), size)
 
-    case (c: runtime.BigInt, IntegerType) =>
+    case (c: runtime.BigInt, IntegerType()) =>
       IntegerLiteral(c.toScala)
 
-    case (c: runtime.Rational, RealType) =>
+    case (c: runtime.Rational, RealType()) =>
       val num = BigInt(c.numerator)
       val denom = BigInt(c.denominator)
       FractionLiteral(num, denom)
 
-    case (b: java.lang.Boolean, BooleanType) =>
+    case (b: java.lang.Boolean, BooleanType()) =>
       BooleanLiteral(b.booleanValue)
 
-    case (c: java.lang.Character, CharType) =>
+    case (c: java.lang.Character, CharType()) =>
       CharLiteral(c.toChar)
 
-    case (c: java.lang.String, StringType) =>
+    case (c: java.lang.String, StringType()) =>
       StringLiteral(c)
 
     case (cons: runtime.ADT, adt: ADTType) =>
@@ -347,7 +347,7 @@ trait CompilationUnit extends CodeGeneration {
 
     case (bag: runtime.Bag, BagType(b)) =>
       FiniteBag(bag.getElements.map { case (key, value) =>
-        (jvmToValue(key, b), jvmToValue(value, IntegerType))
+        (jvmToValue(key, b), jvmToValue(value, IntegerType()))
       }.toSeq, b)
 
     case (map: runtime.Map, MapType(from, to)) =>
@@ -389,7 +389,7 @@ trait CompilationUnit extends CodeGeneration {
 
       exprOps.replaceFromSymbols((closures zip closureVals).toMap, tpLambda)
 
-    case (_, UnitType) =>
+    case (_, UnitType()) =>
       UnitLiteral()
 
     case (ar: Array[_], ArrayType(base)) if smallArrays =>
@@ -456,7 +456,7 @@ trait CompilationUnit extends CodeGeneration {
     e.getType match {
       case JvmIType() =>
         ch << IRETURN
-      case Int64Type =>
+      case Int64Type() =>
         ch << LRETURN
       case _ =>
         ch << ARETURN

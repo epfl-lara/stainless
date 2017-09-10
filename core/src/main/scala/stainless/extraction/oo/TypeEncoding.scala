@@ -85,7 +85,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val clsID = FreshIdentifier("Class")
     val clsPtr = FreshIdentifier("id")  // `id` field, corresponds to `A` name
     val clsTps = FreshIdentifier("tps") // `tps` field, corresponds to `T1,...,Tn` type parameters
-    val clsCons = mkConstructor(clsID)()(Some(tpeID))(_ => Seq(ValDef(clsPtr, IntegerType), ValDef(clsTps, seq)))
+    val clsCons = mkConstructor(clsID)()(Some(tpeID))(_ => Seq(ValDef(clsPtr, IntegerType()), ValDef(clsTps, seq)))
     val cls = T(clsID)()
 
     /* ADT type, corresponds to a datatype definition in Scala:
@@ -96,7 +96,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val adtID = FreshIdentifier("Adt")
     val adtPtr = FreshIdentifier("id")  // `id` field, corresponds to `A` name
     val adtTps = FreshIdentifier("tps") // `tps` field, corresponds to `T1,...,Tn` type parameters
-    val adtCons = mkConstructor(adtID)()(Some(tpeID))(_ => Seq(ValDef(adtPtr, IntegerType), ValDef(adtTps, seq)))
+    val adtCons = mkConstructor(adtID)()(Some(tpeID))(_ => Seq(ValDef(adtPtr, IntegerType()), ValDef(adtTps, seq)))
     val adt = T(adtID)()
 
     /* Array type, corresponds to {{{Array[base]}}} in Scala */
@@ -150,7 +150,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     /* Bitvector type, corresponds to {{{Int}}}, {{{Short}}}, {{{Byte}}}, {{{Char}}}, ... in Scala */
     val bvID = FreshIdentifier("Bitvector")
     val bvSize = FreshIdentifier("size")
-    val bvCons = mkConstructor(bvID)()(Some(tpeID))(_ => Seq(ValDef(bvSize, IntegerType)))
+    val bvCons = mkConstructor(bvID)()(Some(tpeID))(_ => Seq(ValDef(bvSize, IntegerType())))
     val bv = T(bvID)()
 
     /* Character type, corresponds to {{{Char}}} in Scala */
@@ -185,7 +185,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     val objID = FreshIdentifier("Object")
     val objPtr = FreshIdentifier("ptr")
-    val objCons = mkConstructor(objID)()(None)(_ => Seq(ValDef(objPtr, IntegerType)))
+    val objCons = mkConstructor(objID)()(None)(_ => Seq(ValDef(objPtr, IntegerType())))
     val obj = T(objID)()
 
 
@@ -198,7 +198,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
 
       override def transform(tp: s.Type): t.Type = tp match {
-        case s.NothingType | s.AnyType | (_: s.ClassType) => obj
+        case s.NothingType() | s.AnyType() | (_: s.ClassType) => obj
         case tp: s.TypeParameter if tparams contains tp => obj
         case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
           throw MissformedStainlessCode(tp, "Unexpected type " + tp)
@@ -225,8 +225,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     }
 
     def encodeType(tpe: s.Type)(implicit scope: TypeScope): t.Expr = tpe match {
-      case s.AnyType => top()
-      case s.NothingType => bot()
+      case s.AnyType() => top()
+      case s.NothingType() => bot()
       case s.ClassType(id, tps) => cls(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
       case s.ADTType(id, tps) => adt(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
       case s.ArrayType(base) => arr(encodeType(base))
@@ -237,13 +237,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       case s.FunctionType(from, to) => fun(mkSeq(from map encodeType), encodeType(to))
       case tp: s.TypeParameter if scope.tparams contains tp => scope.tparams(tp)
       case tp: s.TypeParameter => top()
-      case s.BooleanType => bool()
-      case s.IntegerType => int()
+      case s.BooleanType() => bool()
+      case s.IntegerType() => int()
       case s.BVType(size) => bv(IntegerLiteral(size))
-      case s.CharType => char()
-      case s.UnitType => unit()
-      case s.RealType => real()
-      case s.StringType => str()
+      case s.CharType() => char()
+      case s.UnitType() => unit()
+      case s.RealType() => real()
+      case s.StringType() => str()
       case _ => scala.sys.error("Unexpected type " + tpe)
     }
 
@@ -251,7 +251,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val subtypeOf = (e1: Expr, e2: Expr) => FunctionInvocation(subtypeID, Seq(), Seq(e1, e2))
 
     val subtypeFunction = mkFunDef(subtypeID, Unchecked)()(_ => (
-      Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType, {
+      Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
         case Seq(tp1, tp2) => Seq(
           tp2.isInstOf(top) -> E(true),
           tp1.isInstOf(bot) -> E(true),
@@ -260,7 +260,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             symbols.classes.values.foldRight(
               IfExpr(andJoin(symbols.classes.values.filter(_.flags contains s.IsSealed).toSeq.map {
                 cd => !(tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId))
-              }), choose("res" :: BooleanType)(_ => E(true)), E(false)): Expr
+              }), choose("res" :: BooleanType())(_ => E(true)), E(false)): Expr
             ) {
               case (cd, elze) => IfExpr(
                 tp1.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId),
@@ -355,7 +355,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     def isObject(tpe: s.Type)(implicit scope: TypeScope): Boolean = tpe match {
       case _: s.ClassType => true
-      case s.NothingType | s.AnyType => true
+      case s.NothingType() | s.AnyType() => true
       case (_: s.UnionType) | (_: s.IntersectionType) => true
       case tp: s.TypeParameter if scope.tparams contains tp => true
       case _ => false
@@ -383,7 +383,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val instanceOf = (e1: Expr, e2: Expr) => FunctionInvocation(instanceID, Seq(), Seq(e1, e2))
 
     val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
-      Seq("e" :: obj, "tp2" :: tpe), BooleanType, {
+      Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
         case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
           tp2.isInstOf(bot) -> E(false),
           tp2.isInstOf(top) -> E(true),
@@ -567,7 +567,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           FunctionInvocation(id, Seq(), Seq(e))
 
         case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("i" :: Int32Type)(i => rec(ArraySelect(e, i), b1, b2) === ArraySelect(res, i))
+          res => forall("i" :: Int32Type())(i => rec(ArraySelect(e, i), b1, b2) === ArraySelect(res, i))
         }
 
         case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
@@ -1027,8 +1027,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val v = scope.tparams(tpd.tp)
           val s.TypeBounds(lowerBound, upperBound) = tpd.tp.bounds
           conds ++ Seq(
-            if (lowerBound != s.NothingType) subtypeOf(encodeType(lowerBound), v) else E(true),
-            if (upperBound != s.AnyType) subtypeOf(v, encodeType(upperBound)) else E(true)
+            if (lowerBound != s.NothingType()) subtypeOf(encodeType(lowerBound), v) else E(true),
+            if (upperBound != s.AnyType()) subtypeOf(v, encodeType(upperBound)) else E(true)
           )
         }
 

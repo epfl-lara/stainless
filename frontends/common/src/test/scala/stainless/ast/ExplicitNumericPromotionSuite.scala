@@ -179,14 +179,14 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
     }
   }
 
-  val i8  = V("i", Int8Type)
-  val j8  = V("j", Int8Type)
-  val i16 = V("i", Int16Type)
-  val j16 = V("j", Int16Type)
-  val i32 = V("i", Int32Type)
-  val j32 = V("j", Int32Type)
-  val i64 = V("i", Int64Type)
-  val j64 = V("j", Int64Type)
+  val i8  = V("i", Int8Type())
+  val j8  = V("j", Int8Type())
+  val i16 = V("i", Int16Type())
+  val j16 = V("j", Int16Type())
+  val i32 = V("i", Int32Type())
+  val j32 = V("j", Int32Type())
+  val i64 = V("i", Int64Type())
+  val j64 = V("j", Int64Type())
 
 
   test("No redundant cast on arithmetic Int operations") {
@@ -226,71 +226,71 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
   test("Explicit cast on binary arithmetic operations involving ints & bytes") {
     funDefBody("IntByte.foo") match {
       case Plus(`i32`, `j8`) => fail(s"No explicit cast was inserted")
-      case Plus(`i32`, BVWideningCast(`j8`, Int32Type)) => // OK
+      case Plus(`i32`, BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
     }
 
     funDefBody("IntByte.bar") match {
-      case BVAnd(`i32`, BVWideningCast(`j8`, Int32Type)) => // OK
+      case BVAnd(`i32`, BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"Expected a BV `&` with explicit cast, got '$b'")
     }
 
     // Test symmetry
     funDefBody("ByteInt.foo") match {
-      case Plus(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
+      case Plus(BVWideningCast(`i8`, Int32Type()), `j32`) => // OK
       case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
     }
 
     funDefBody("ByteInt.bar") match {
-      case BVAnd(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
+      case BVAnd(BVWideningCast(`i8`, Int32Type()), `j32`) => // OK
       case b => fail(s"Expected a BV `&` with explicit cast, got '$b'")
     }
   }
 
   test("Explicit cast on binary arithmetic operations involving ints & shorts") {
     funDefBody("IntShort.foo") match {
-      case Plus(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case Plus(`i32`, BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
     }
 
     funDefBody("IntShort.bar") match {
-      case BVAnd(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case BVAnd(`i32`, BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"Expected a BV addition with explicit casts, got '$b'")
     }
   }
 
   test("Explicit cast on binary arithmetic operations involving bytes & shorts") {
     funDefBody("ByteShort.foo") match {
-      case Plus(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case Plus(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"Expected a BV addition with explicit casts, got '$b'")
     }
   }
 
   test("Explicit cast on binary arithmetic operations involving Long and other types") {
     funDefBody("MixWithLong.foo") match {
-      case Plus(`i64`, BVWideningCast(`j32`, Int64Type)) => // OK
+      case Plus(`i64`, BVWideningCast(`j32`, Int64Type())) => // OK
       case b => fail(s"Expected a BV addition with explicit cast, got '$b'")
     }
 
     funDefBody("MixWithLong.bar") match {
-      case BVOr(BVWideningCast(`i8`, Int64Type), `j64`) => // OK
+      case BVOr(BVWideningCast(`i8`, Int64Type()), `j64`) => // OK
       case b => fail(s"Expected a BV `|` with explicit cast, got '$b'")
     }
   }
 
   test("Shift operations with different operand types") {
     funDefBody("Shifts.fun1") match {
-      case BVShiftLeft(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case BVShiftLeft(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"[01] Expected a BV << with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun2") match {
-      case BVLShiftRight(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case BVLShiftRight(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"[02] Expected a BV >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun3") match {
-      case BVAShiftRight(BVWideningCast(`i8`, Int32Type), `j32`) => // OK
+      case BVAShiftRight(BVWideningCast(`i8`, Int32Type()), `j32`) => // OK
       case b => fail(s"[03] Expected a BV >> with explicit cast, got '$b'")
     }
 
@@ -301,17 +301,17 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun5") match {
-      case BVLShiftRight(BVWideningCast(`i16`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case BVLShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"[05] Expected a BV >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun6") match {
-      case BVAShiftRight(BVWideningCast(`i16`, Int32Type), BVWideningCast(`j16`, Int32Type)) => // OK
+      case BVAShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"[06] Expected a BV >> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun7") match {
-      case BVShiftLeft(BVWideningCast(`i16`, Int32Type), `j32`) => // OK
+      case BVShiftLeft(BVWideningCast(`i16`, Int32Type()), `j32`) => // OK
       case b => fail(s"[07] Expected a BV << with explicit cast, got '$b'")
     }
 
@@ -322,12 +322,12 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun9") match {
-      case BVAShiftRight(`i32`, BVWideningCast(`j8`, Int32Type)) => // OK
+      case BVAShiftRight(`i32`, BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"[09] Expected a BV >> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun10") match {
-      case BVShiftLeft(`i32`, BVWideningCast(`j16`, Int32Type)) => // OK
+      case BVShiftLeft(`i32`, BVWideningCast(`j16`, Int32Type())) => // OK
       case b => fail(s"[10] Expected a BV << with explicit cast, got '$b'")
     }
 
@@ -343,17 +343,17 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun13") match {
-      case BVShiftLeft(`i64`, BVWideningCast(BVWideningCast(`j8`, Int32Type), Int64Type)) => // OK
+      case BVShiftLeft(`i64`, BVWideningCast(BVWideningCast(`j8`, Int32Type()), Int64Type())) => // OK
       case b => fail(s"[13] Expected a BV << with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun14") match {
-      case BVLShiftRight(`i64`, BVWideningCast(BVWideningCast(`j16`, Int32Type), Int64Type)) => // OK
+      case BVLShiftRight(`i64`, BVWideningCast(BVWideningCast(`j16`, Int32Type()), Int64Type())) => // OK
       case b => fail(s"[14] Expected a BV >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun15") match {
-      case BVAShiftRight(`i64`, BVWideningCast(`j32`, Int64Type)) => // OK
+      case BVAShiftRight(`i64`, BVWideningCast(`j32`, Int64Type())) => // OK
       case b => fail(s"[15] Expected a BV >> with explicit cast, got '$b'")
     }
 
@@ -365,51 +365,51 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
   test("Explicit cast on arithmetic operations involving only bytes") {
     funDefBody("Bytes.foo") match {
-      case Plus(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case Plus(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"Expected a BV addition with widening cast, got '$b'")
     }
 
     funDefBody("Bytes.bar") match {
-      case BVAnd(BVWideningCast(`i8`, Int32Type), BVWideningCast(`j8`, Int32Type)) => // OK
+      case BVAnd(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
       case b => fail(s"Expected a BV `&` with widening cast, got '$b'")
     }
 
     funDefBody("Bytes.gun") match {
-      case UMinus(BVWideningCast(`i8`, Int32Type)) => // OK
+      case UMinus(BVWideningCast(`i8`, Int32Type())) => // OK
       case b => fail(s"Expected a BV unary minus with widening cast, got '$b'")
     }
 
     funDefBody("Bytes.hun") match {
-      case BVWideningCast(`i8`, Int32Type) => // OK
+      case BVWideningCast(`i8`, Int32Type()) => // OK
       case b => fail(s"Expected a BV unary + (which is dropped) with widening cast, got '$b'")
     }
   }
 
   test("Explicit casts should be preserved") {
     funDefBody("ExplicitCast.foo1") match {
-      case FunCall("bar", Seq(BVNarrowingCast(`i32`, Int8Type))) => // OK
+      case FunCall("bar", Seq(BVNarrowingCast(`i32`, Int8Type()))) => // OK
       case b => fail(s"Expected a function call with one narrowing cast on its only argument, got '$b'")
     }
 
     funDefBody("ExplicitCast.foo2") match {
-      case FunCall("bar", Seq(BVNarrowingCast(BVNarrowingCast(`i64`, Int16Type), Int8Type))) => // OK
+      case FunCall("bar", Seq(BVNarrowingCast(BVNarrowingCast(`i64`, Int16Type()), Int8Type()))) => // OK
       case b => fail(s"Expected a function call with one narrowing cast on its only argument, got '$b'")
     }
   }
 
   test("Implicit casts should be preserved") {
     funDefBody("ImplicitCast.foo1") match {
-      case FunCall("bar1", Seq(BVWideningCast(`i8`, Int32Type))) => // OK
+      case FunCall("bar1", Seq(BVWideningCast(`i8`, Int32Type()))) => // OK
       case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
     }
 
     funDefBody("ImplicitCast.foo2") match {
-      case FunCall("bar1", Seq(BVWideningCast(`i16`, Int32Type))) => // OK
+      case FunCall("bar1", Seq(BVWideningCast(`i16`, Int32Type()))) => // OK
       case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
     }
 
     funDefBody("ImplicitCast.foo3") match {
-      case FunCall("bar2", Seq(BVWideningCast(`i16`, Int64Type))) => // OK
+      case FunCall("bar2", Seq(BVWideningCast(`i16`, Int64Type()))) => // OK
       case b => fail(s"Expected a function call with one widening cast on its only argument, got '$b'")
     }
   }

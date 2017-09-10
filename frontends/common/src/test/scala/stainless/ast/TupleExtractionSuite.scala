@@ -47,7 +47,7 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
 
   test("Tuple5 extraction") {
     funDef("Tup5.foo").returnType match {
-      case StringType => // Ok
+      case StringType() => // Ok
       case tpe => fail(s"Expected String, got '$tpe'")
     }
 
@@ -60,14 +60,14 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
     }
 
     funDef("Tup5.bar").returnType match {
-      case TupleType(bases) if (bases.size == 5) && (bases forall { _ == Int32Type }) => // ok
+      case TupleType(bases) if (bases.size == 5) && (bases forall (_ == Int32Type())) => // ok
       case tpe => fail(s"Expected Tuple5, got '$tpe': ${tpe.getClass}")
     }
   }
 
   test("Tuple6 extraction") {
     funDef("Tup6.foo").returnType match {
-      case StringType => // Ok
+      case StringType() => // Ok
       case tpe => fail(s"Expected String, got '$tpe'")
     }
 
@@ -80,13 +80,13 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
     }
 
     funDef("Tup6.bar").returnType match {
-      case TupleType(bases) if (bases.size == 6) && (bases forall { _ == Int32Type }) => // ok
+      case TupleType(bases) if (bases.size == 6) && (bases forall (_ == Int32Type())) => // ok
       case tpe => fail(s"Expected Tuple6, got '$tpe': ${tpe.getClass}")
     }
   }
   test("Tuple22 extraction") {
     funDef("Tup22.foo").returnType match {
-      case StringType => // Ok
+      case StringType() => // Ok
       case tpe => fail(s"Expected String, got '$tpe'")
     }
 
@@ -99,7 +99,7 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
     }
 
     funDef("Tup22.bar").returnType match {
-      case TupleType(bases) if (bases.size == 22) && (bases forall { _ == Int32Type }) => // ok
+      case TupleType(bases) if (bases.size == 22) && (bases forall (_ == Int32Type())) => // ok
       case tpe => fail(s"Expected Tuple6, got '$tpe': ${tpe.getClass}")
     }
   }

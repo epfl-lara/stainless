@@ -54,7 +54,7 @@ trait VerificationChecker { self =>
     }
 
     try {
-      ctx.reporter.debug("Checking Verification Conditions...")
+      reporter.debug("Checking Verification Conditions...")
       checkVCs(vcs, sf, stopWhen)
     } finally {
       sf.shutdown()
@@ -168,23 +168,15 @@ object VerificationChecker {
       val program: p.type = p
       val context = ctx
 
-      val defaultTactic = DefaultTactic(p, ctx)
-      val inductionTactic = InductionTactic(p, ctx)
-
-      protected def getTactic(fd: p.trees.FunDef) =
-        if (fd.flags contains "induct") {
-          inductionTactic
-        } else {
-          defaultTactic
-        }
-
       protected def getFactory = solvers.SolverFactory(p, ctx)
     }
 
-    if (opts.findOptionOrDefault(optVCCache)) {
+    val checker = if (ctx.options.findOptionOrDefault(optVCCache)) {
       new Checker with VerificationCache
     } else {
       new Checker
     }
+
+    checker.verify(vcs)
   }
 }

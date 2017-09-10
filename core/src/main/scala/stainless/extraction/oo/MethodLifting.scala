@@ -84,7 +84,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
                   id.freshen,
                   Seq.empty,
                   Seq.empty,
-                  BooleanType,
+                  BooleanType(),
                   BooleanLiteral(true),
                   Set(IsInvariant, IsMethodOf(cd.id))
                 ).setPos(pos)

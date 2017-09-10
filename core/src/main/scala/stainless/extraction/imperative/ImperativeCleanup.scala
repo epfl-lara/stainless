@@ -49,7 +49,7 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       object pureUnits extends SelfTreeTransformer {
         override def transform(e: Expr): Expr = e match {
           case tu @ Tuple(es) => Tuple(es.map {
-            case IsTyped(e, UnitType) =>
+            case IsTyped(e, UnitType()) =>
               val te = transform(e)
               if (isAlwaysPure(te)) UnitLiteral().copiedFrom(te) else te
             case e => transform(e)

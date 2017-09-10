@@ -62,7 +62,7 @@ trait DecreasesProcessor extends Processor { self =>
           // (b) check if the measure is well-founded
           def nonNeg(e: Expr): Expr = e.getType match {
             case TupleType(tps) => And(tps.indices.map(i => nonNeg(TupleSelect(e, i + 1))))
-            case IntegerType => GreaterEquals(e, IntegerLiteral(0))
+            case IntegerType() => GreaterEquals(e, IntegerLiteral(0))
             case BVType(size) => GreaterEquals(e, BVLiteral(0, size))
             case tpe => reporter.fatalError("Unexpected measure type: " + tpe)
           }

@@ -22,6 +22,7 @@ class AppendingObjectOutputStream(os: java.io.OutputStream) extends ObjectOutput
 
 trait VerificationCache extends VerificationChecker { self =>
 
+  import context._
   import program._
   import program.symbols._
   import program.trees._
@@ -31,33 +32,33 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     import VerificationCache._
 
-    ctx.reporter.synchronized {
-      ctx.reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+    reporter.synchronized {
+      reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
     }
 
     val canonic = transformers.Canonization.canonize(program)(vc)
 
     if (VerificationCache.contains(program.trees)(canonic)) {
-      ctx.reporter.synchronized {
-        ctx.reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        ctx.reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
-        ctx.reporter.debug(vc.condition)(DebugSectionCacheHit)
-        ctx.reporter.debug("--------------")(DebugSectionCacheHit)
+      reporter.synchronized {
+        reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
+        reporter.debug(vc.condition)(DebugSectionCacheHit)
+        reporter.debug("--------------")(DebugSectionCacheHit)
       }
       VCResult(VCStatus.ValidFromCache, None, Some(0))
     } else {
-      ctx.reporter.synchronized {
-        ctx.reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        ctx.reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
-        ctx.reporter.debug(vc.condition)(DebugSectionCacheMiss)
-        ctx.reporter.debug("Canonical form:")(DebugSectionCacheMiss)
-        ctx.reporter.debug(serialize(program.trees)(canonic))(DebugSectionCacheMiss)
-        ctx.reporter.debug("--------------")(DebugSectionCacheMiss)
+      reporter.synchronized {
+        reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
+        reporter.debug(vc.condition)(DebugSectionCacheMiss)
+        reporter.debug("Canonical form:")(DebugSectionCacheMiss)
+        reporter.debug(serialize(program.trees)(canonic))(DebugSectionCacheMiss)
+        reporter.debug("--------------")(DebugSectionCacheMiss)
       }
       val result = super.checkVC(vc,sf)
       if (result.isValid) {
         VerificationCache.add(program.trees)(canonic)
-        VerificationCache.persist(program.trees)(canonic, vc.toString, ctx)
+        VerificationCache.persist(program.trees)(canonic, vc.toString, context)
       }
       result
     }

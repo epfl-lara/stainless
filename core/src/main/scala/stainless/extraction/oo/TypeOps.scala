@@ -21,8 +21,8 @@ trait TypeOps extends ast.TypeOps {
       }.getOrElse(False)
 
     // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => False
-    case (_, adt: ADTType) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => False
+    case (adt: ADTType, _) if adt.lookupADT.isEmpty => False
+    case (_, adt: ADTType) if adt.lookupADT.isEmpty => False
     case (adt1: ADTType, adt2: ADTType) =>
       val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
       val (dl, du) = if (isUpper) (d1, d2) else (d2, d1)
@@ -46,16 +46,16 @@ trait TypeOps extends ast.TypeOps {
     case (IntersectionType(tps), tpe) => instantiationConstraints(UnionType(tps), tpe, !isUpper)
     case (_, _: IntersectionType) => instantiationConstraints(bound, toInst, !isUpper)
 
-    case (tp, AnyType) if tp.isTyped && isUpper => True
-    case (AnyType, tp) if tp.isTyped && !isUpper => True
-    case (NothingType, tp) if tp.isTyped && isUpper => True
-    case (tp, NothingType) if tp.isTyped && !isUpper => True
+    case (tp, AnyType()) if tp.isTyped && isUpper => True
+    case (AnyType(), tp) if tp.isTyped && !isUpper => True
+    case (NothingType(), tp) if tp.isTyped && isUpper => True
+    case (tp, NothingType()) if tp.isTyped && !isUpper => True
 
     case _ => super.instantiationConstraints(toInst, bound, isUpper)
   }
 
   protected def unionType(tps: Seq[Type]): Type = tps match {
-    case Seq() => NothingType
+    case Seq() => NothingType()
     case Seq(tp) => tp
     case tp1 +: tps =>
       tps.map(tp => tp1 -> tp).view.flatMap {
@@ -73,7 +73,7 @@ trait TypeOps extends ast.TypeOps {
   }
 
   protected def intersectionType(tps: Seq[Type]): Type = tps match {
-    case Seq() => AnyType
+    case Seq() => AnyType()
     case Seq(tp) => tp
     case tp1 +: tps =>
       tps.map(tp => tp1 -> tp).view.flatMap {
@@ -139,8 +139,8 @@ trait TypeOps extends ast.TypeOps {
       }
 
     // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => Some(Untyped)
-    case (_, adt: ADTType) if !adt.isInstanceOf[ClassType] && adt.lookupADT.isEmpty => Some(Untyped)
+    case (adt: ADTType, _) if adt.lookupADT.isEmpty => Some(Untyped)
+    case (_, adt: ADTType) if adt.lookupADT.isEmpty => Some(Untyped)
     case (adt1: ADTType, adt2: ADTType) if adt1.tps == adt2.tps => // invariant!
       val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
       val (an1, an2) = (Seq(d1, d1.root), Seq(d2, d2.root))
@@ -163,10 +163,10 @@ trait TypeOps extends ast.TypeOps {
     case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
     case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
 
-    case (tp, AnyType) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType else tp)
-    case (AnyType, tp) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType else tp)
-    case (NothingType, tp) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType)
-    case (tp, NothingType) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType)
+    case (tp, AnyType()) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
+    case (AnyType(), tp) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
+    case (NothingType(), tp) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType())
+    case (tp, NothingType()) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType())
 
     case (UnionType(tps), tp) if upper => Some(unionType(tp +: tps))
     case (UnionType(tps), tp) if !upper => Some(unionType(tps.map(tpe => typeBound(tpe, tp, false))))

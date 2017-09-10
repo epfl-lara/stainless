@@ -26,7 +26,7 @@ trait StructuralSize { self: SolverProvider =>
    * def integerAbs(x: BigInt): BigInt = if (x >= 0) x else -x
    */
   val integerAbs: TypedFunDef = mkFunDef(FreshIdentifier("integerAbs"))()(_ => (
-    Seq("x" :: IntegerType), IntegerType, { case Seq(x) =>
+    Seq("x" :: IntegerType()), IntegerType(), { case Seq(x) =>
       if_ (x >= E(BigInt(0))) {
         x
       } else_ {
@@ -79,7 +79,7 @@ trait StructuralSize { self: SolverProvider =>
     val zero = BVLiteral(0, tpe.size)
     val one = BVLiteral(1, tpe.size)
     val tfd = mkFunDef(funID)()(_ => (
-      Seq("x" :: tpe), IntegerType, { case Seq(x) =>
+      Seq("x" :: tpe), IntegerType(), { case Seq(x) =>
         Ensuring(if_ (x === zero) {
           E(BigInt(0))
         } else_ {
@@ -88,7 +88,7 @@ trait StructuralSize { self: SolverProvider =>
           } else_ {
             E(BigInt(1)) + E(funID)(-(x + one))
           }
-        }, \("res" :: IntegerType)(res => res >= E(BigInt(0))))
+        }, \("res" :: IntegerType())(res => res >= E(BigInt(0))))
       })).typed
     functions += tfd.fd
     clearSolvers()
@@ -120,7 +120,7 @@ trait StructuralSize { self: SolverProvider =>
             id,
             root.tparams,
             Seq(v.toVal),
-            IntegerType,
+            IntegerType(),
             Ensuring(MatchExpr(v, (root match {
               case sort: ADTSort => sort.typed(tparams).constructors
               case cons: ADTConstructor => Seq(cons.typed(tparams))
@@ -130,7 +130,7 @@ trait StructuralSize { self: SolverProvider =>
               val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
               MatchCase(ADTPattern(None, cons.toType, argumentPatterns), None, rhs)
-            }), \("res" :: IntegerType)(res => res >= E(BigInt(0)))),
+            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))),
             Set.empty
           )
           clearSolvers()
@@ -144,7 +144,7 @@ trait StructuralSize { self: SolverProvider =>
       case (_, index) => fullSize(tupleSelect(expr, index + 1, true))
     }).foldLeft[Expr](IntegerLiteral(0))(_ + _)
 
-    case IntegerType =>
+    case IntegerType() =>
       integerAbs.applied(Seq(expr))
 
     case bv @ BVType(_) =>
