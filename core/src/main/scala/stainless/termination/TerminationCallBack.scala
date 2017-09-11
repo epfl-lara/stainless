@@ -11,7 +11,9 @@ import utils.CheckFilter
 final class TerminationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
   private implicit val debugSection = DebugSectionTermination
 
-  override type Report = TerminationComponent.TextReport
+  override type Report = TerminationComponent.TerminationReport // And not .Report!
+  override val cacheSubDirectory = TerminationComponent.name
+  override def parseReportCache(json: org.json4s.JValue) = TerminationComponent.TerminationReport.parse(json)
 
   override def onCycleBegin(): Unit = TerminationComponent.onCycleBegin()
 
@@ -24,8 +26,6 @@ final class TerminationCallBack(override val context: inox.Context) extends Call
 
     TerminationComponent(program, context).toTextReport
   }
-
-  override val cacheSubDirectory = TerminationComponent.name
 
 }
 

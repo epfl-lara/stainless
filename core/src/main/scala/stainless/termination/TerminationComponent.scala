@@ -7,7 +7,7 @@ import inox.utils.ASCIIHelpers._
 import stainless.utils.JsonConvertions._
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.JArray
+import org.json4s.JsonAST._
 
 object TerminationComponent extends SimpleComponent {
   override val name = "termination"
@@ -16,7 +16,6 @@ object TerminationComponent extends SimpleComponent {
   override val trees: termination.trees.type = termination.trees
 
   override type Report = TerminationReportWithChecker
-  type TextReport = TerminationReport
 
   override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
@@ -124,6 +123,15 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
+  object TerminationStatus {
+    def parse(json: JValue) = json match {
+      case JString("unknown") => Unknown
+      case JString("terminating") => Terminating
+      case JString("non-terminating") => NonTerminating
+      case _ => ???
+    }
+  }
+
   case object Unknown extends TerminationStatus
   case object Terminating extends TerminationStatus
   case object NonTerminating extends TerminationStatus
@@ -172,6 +180,7 @@ object TerminationComponent extends SimpleComponent {
 
     override def emitJson: JArray = for { TextRecord(fid, pos, time, status, verdict, kind) <- results } yield {
       ("fd" -> fid.name) ~
+      ("_fid" -> fid.toJson) ~
       ("pos" -> pos.toJson) ~
       ("kind" -> kind) ~ // brief
       ("verdict" -> verdict) ~ // detailed
@@ -179,6 +188,26 @@ object TerminationComponent extends SimpleComponent {
       ("time" -> time)
     }
 
+  }
+
+  object TerminationReport {
+    def parse(json: JValue): TerminationReport = {
+      val records = for {
+        JArray(records) <- json
+        record <- records
+      } yield {
+        val fid = parseIdentifier(record \ "_fid")
+        val pos = parsePosition(record \ "pos")
+        val JInt(time) = record \ "time"
+        val JString(kind) = record \ "kind"
+        val JString(verdict) = record \ "verdict"
+        val status = TerminationStatus.parse(record \ "status")
+
+        TextRecord(fid, pos, time.longValue, status, verdict, kind)
+      }
+
+      new TerminationReport(records)
+    }
   }
 
 

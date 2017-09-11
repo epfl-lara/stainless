@@ -8,7 +8,11 @@ import utils.{ DependenciesFinder, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
-import java.io.File
+import java.io.{ File, PrintWriter }
+import java.util.Scanner
+
+import org.json4s._
+import org.json4s.native.JsonMethods._
 
 trait CallBackWithRegistry extends CallBack { self =>
   import context.{ options, reporter }
@@ -21,7 +25,7 @@ trait CallBackWithRegistry extends CallBack { self =>
     assert(tasks.isEmpty)
 
     if (firstCycle) {
-      loadRegistryCache()
+      loadCaches()
       firstCycle = false
     }
 
@@ -57,7 +61,6 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   final override def endExtractions(): Unit = {
     val symss = registry.checkpoint()
-    saveRegistryCache()
     processSymbols(symss)
   }
 
@@ -71,6 +74,9 @@ trait CallBackWithRegistry extends CallBack { self =>
       report = reports reduce { _ ~ _ }
     }
     tasks.clear()
+
+    // Save cache now that we have our report
+    saveCaches()
   }
 
   // See assumption/requirements in [[CallBack]]
@@ -96,6 +102,9 @@ trait CallBackWithRegistry extends CallBack { self =>
   /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
   protected val cacheSubDirectory: String
 
+  /** Parse a JSON value into a proper Report. We assume this doesn't fail. */
+  protected def parseReportCache(json: JValue): Report
+
 
   /******************* Internal State *************************************************************/
 
@@ -119,21 +128,48 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Internal Helpers ***********************************************************/
 
-  private def getCacheFile: Option[File] =
-    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheSubDirectory, "registry.bin")
+  private def getCacheFile(filename: String): Option[File] =
+    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheSubDirectory, filename)
 
-  /** Load the registry cache, if specified by the user and available. */
-  private def loadRegistryCache(): Unit = getCacheFile foreach { file =>
-    reporter.debug(s"Loading registry cache from $file")
-    if (file.isFile()) {
-      registry.loadCache(file)
+  private def getRegistryCacheFile: Option[File] = getCacheFile("registry.bin")
+  private def getReportCacheFile: Option[File] = getCacheFile("report.json")
+
+  case class CacheFiles(registry: File, report: File)
+  private def getCacheFiles: Option[CacheFiles] = (getRegistryCacheFile, getReportCacheFile) match {
+    case (None, None) => None
+    case (Some(registry), Some(report)) => Some(CacheFiles(registry, report))
+    case _ => reporter.internalError(s"inconsistent state") // either both are off, or both are on.
+  }
+
+  /** Load the registry & report caches, if specified by the user and available. */
+  private def loadCaches(): Unit = getCacheFiles foreach { caches =>
+    reporter.debug(s"Loading registry & report caches from ${caches.registry.getParent}")
+
+    if (caches.registry.isFile != caches.report.isFile) {
+      reporter.error(s"Inconsistent cache state, ignoring cache from ${caches.registry.getParent}")
+    } else if (caches.registry.isFile()) {
+      // Load registry cache
+      registry.loadCache(caches.registry)
+
+      // Load report cache
+      val sc = new Scanner(caches.report)
+      val sb = new StringBuilder
+      while (sc.hasNextLine) { sb ++= sc.nextLine + "\n" }
+      val json = parse(sb.toString)
+      report = parseReportCache(json)
     }
   }
 
-  /** Save the registry cache, if specified by the user. */
-  private def saveRegistryCache(): Unit = getCacheFile foreach { file =>
-    reporter.debug(s"Saving registry cache to $file")
-    registry.saveCache(file)
+  /** Save the registry & report caches, if specified by the user. */
+  private def saveCaches(): Unit = if (report != null) getCacheFiles foreach { caches =>
+    reporter.debug(s"Saving registry & report caches to ${caches.registry.getParent}")
+
+    registry.saveCache(caches.registry)
+
+    val json = report.emitJson
+    val string = compact(render(json))
+    val pw = new PrintWriter(caches.report)
+    try pw.write(string) finally pw.close()
   }
 
 

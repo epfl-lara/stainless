@@ -92,6 +92,7 @@ object VerificationComponent extends SimpleComponent {
 
       val report: JArray = for { (vc, vr) <- vrs } yield {
         ("fd" -> vc.fd.name) ~
+        ("_fd" -> vc.fd.toJson) ~
         ("pos" -> vc.getPos.toJson) ~
         ("kind" -> vc.kind.name) ~
         status2Json(vr.status) ~

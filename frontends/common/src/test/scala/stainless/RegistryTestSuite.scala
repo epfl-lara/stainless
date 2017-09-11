@@ -145,6 +145,7 @@ class RegistryTestSuite extends FunSuite {
   private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
 
     override val cacheSubDirectory = "mockcallback" // shouldn't be used here...
+    override def parseReportCache(json: org.json4s.JValue) = ??? // unused
     assert(context.options.findOption(frontend.optPersistentRegistryCache).isEmpty)
 
     override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)
