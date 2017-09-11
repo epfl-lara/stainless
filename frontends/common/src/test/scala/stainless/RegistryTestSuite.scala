@@ -120,9 +120,15 @@ class RegistryTestSuite extends FunSuite {
   /** A simply dummy report for our [[MockCallBack]]. */
   private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport[MockReport] {
     override val name = "dummy"
+
     override def emitJson = ???
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
-    override def removeSubreports(ids: Seq[Identifier]) = ???
+
+    override def removeSubreports(ids: Seq[Identifier]) = {
+      assert(ids.isEmpty)
+      this
+    }
+
     override def ~(other: MockReport): MockReport =
       MockReport(functions ++ other.functions, classes ++ other.classes)
   }
@@ -132,6 +138,9 @@ class RegistryTestSuite extends FunSuite {
    *
    * [[filter]] needs to be set/updated before every frontend run.
    * It also provides a way to clear previously generated reports with [[popReports]].
+   *
+   * NOTE here we don't use the report from [[CallBackWithRegistry]] because it
+   *      is not cleared upon new compilation.
    */
   private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
     override val cacheFilename = "mockcallback" // shouldn't be used here...
