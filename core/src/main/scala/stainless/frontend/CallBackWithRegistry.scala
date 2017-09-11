@@ -68,7 +68,7 @@ trait CallBackWithRegistry extends CallBack { self =>
     val newReports = tasks map { _.get } // blocking! TODO is there a more efficient "get all" version?
     val reports = (report +: newReports) filter { _ != null }
     if (reports.nonEmpty) {
-      report = reports reduce reduceReports
+      report = reports reduce { _ ~ _ }
     }
     tasks.clear()
   }
@@ -82,7 +82,6 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected val context: inox.Context
 
   protected type Report <: AbstractReport[Report]
-  final protected def reduceReports(r1: Report, r2: Report): Report = r1 ~ r2
 
   /** Reset state for a new cycle. */
   protected def onCycleBegin(): Unit

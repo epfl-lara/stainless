@@ -173,7 +173,7 @@ class RegistryTestSuite extends FunSuite {
     def popReport(): Report = {
       val res = reports.toSeq
       reports.clear()
-      if (res.isEmpty) MockReport(Set.empty, Set.empty) else res reduce reduceReports
+      if (res.isEmpty) MockReport(Set.empty, Set.empty) else res reduce { _ ~ _ }
     }
   }
 
