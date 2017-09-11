@@ -24,8 +24,7 @@ package object frontend {
    * is required to [[stop]] or [[join]] the returned compiler to free resources.
    */
   def build(ctx: inox.Context, compilerArgs: Seq[String], factory: FrontendFactory): Frontend = {
-    val callback = getCallBackForActiveComponents(ctx)
-    factory(ctx, compilerArgs, callback)
+    factory(ctx, compilerArgs, getMasterCallBack(ctx))
   }
 
   /**
@@ -65,7 +64,7 @@ package object frontend {
   }
 
   /** Get one callback for all active components. */
-  private def getCallBackForActiveComponents(ctx: inox.Context): CallBack = {
+  private def getMasterCallBack(ctx: inox.Context): MasterCallBack = {
     val activeComponents = getActiveComponents(ctx)
     val activeCallbacks = activeComponents map { c => getCallBack(c.name, ctx) }
 

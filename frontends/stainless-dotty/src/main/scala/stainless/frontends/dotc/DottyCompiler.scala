@@ -9,9 +9,9 @@ import dotty.tools.dotc.transform._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
-import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
+import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, MasterCallBack }
 
-class DottyCompiler(ctx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Compiler {
+class DottyCompiler(ctx: inox.Context, callback: MasterCallBack, cache: SymbolsContext) extends Compiler {
   override def phases: List[List[Phase]] = List(
     List(new FrontEnd),
     List(new PostTyper),
@@ -39,7 +39,7 @@ object DottyCompiler {
     override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
-    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: MasterCallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
 
         // Share the same symbols between several runs.

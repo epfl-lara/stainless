@@ -3,7 +3,7 @@
 package stainless
 
 import extraction.xlang.{ trees => xt }
-import frontend.{ CallBackWithRegistry, Frontend }
+import frontend.{ CallBackWithRegistry, Frontend, MasterCallBack }
 import utils.CheckFilter
 
 import inox.utils.ASCIIHelpers._
@@ -81,8 +81,9 @@ class RegistryTestSuite extends FunSuite {
 
     // Create our frontend with a mock callback
     val callback = new MockCallBack(testSuiteContext, filter)
+    val master = new MasterCallBack(Seq(callback))
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
-    val compiler = Main.factory(testSuiteContext, filePaths, callback)
+    val compiler = Main.factory(testSuiteContext, filePaths, master)
 
     // Process all events
     val allEvents = initialState +: events

@@ -10,12 +10,13 @@ sealed class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
 /**
  * Abstract compiler, provides all the tools to extract compilation units
  * into a sequence of small, self-contained programs and send them to a
- * [[CallBack]] whenever they are ready.
+ * [[MasterCallBack]] whenever they are ready (the master callback forwards
+ * data to each active component's callback).
  *
  * Implementations of [[Frontend]] are required to rethrow exception emitted
  * in background thread (if any) when [[join]] or [[stop]] are invoked.
  */
-abstract class Frontend(val callback: CallBack) {
+abstract class Frontend(val callback: MasterCallBack) {
   /** Proceed to extract the trees in a non-blocking way. */
   def run(): Unit
 

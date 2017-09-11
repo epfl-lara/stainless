@@ -8,9 +8,9 @@ import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 
 import extraction.xlang.{ trees => xt }
-import frontend.CallBack
+import frontend.MasterCallBack
 
-class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Phase {
+class StainlessExtraction(inoxCtx: inox.Context, callback: MasterCallBack, cache: SymbolsContext) extends Phase {
 
   def phaseName: String = "stainless extraction"
 

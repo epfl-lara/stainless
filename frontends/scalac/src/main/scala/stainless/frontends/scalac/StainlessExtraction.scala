@@ -4,7 +4,7 @@ package stainless
 package frontends.scalac
 
 import extraction.xlang.{trees => xt}
-import frontend.CallBack
+import frontend.MasterCallBack
 import scala.tools.nsc._
 
 /** Extract each compilation unit and forward them to the Compiler callback */
@@ -14,7 +14,7 @@ trait StainlessExtraction extends SubComponent with CodeExtraction {
   val phaseName = "stainless"
 
   implicit val ctx: inox.Context
-  protected val callback: CallBack
+  protected val callback: MasterCallBack
 
   def newPhase(prev: scala.tools.nsc.Phase): StdPhase = new Phase(prev)
 

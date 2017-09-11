@@ -3,7 +3,7 @@
 package stainless
 
 import extraction.xlang.{ trees => xt }
-import frontend.CallBack
+import frontend.{ CallBack, MasterCallBack }
 
 import scala.collection.mutable.ListBuffer
 
@@ -39,7 +39,7 @@ trait InputUtils {
     val callback = new CallBack {
       override def join(): Unit = ()
       override def stop(): Unit = ()
-      override def getReports = Seq.empty
+      override def getReport = None
 
       override def beginExtractions(): Unit = ()
       override def apply(file: String, unit: xt.UnitDef,
@@ -51,7 +51,8 @@ trait InputUtils {
       override def endExtractions(): Unit = ()
     }
 
-    val compiler = Main.factory(context, files, callback)
+    val master = new MasterCallBack(Seq(callback))
+    val compiler = Main.factory(context, files, master)
     compiler.run()
 
     // Wait for compilation to finish to produce the whole program
