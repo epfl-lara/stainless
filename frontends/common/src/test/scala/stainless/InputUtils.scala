@@ -58,12 +58,7 @@ trait InputUtils {
     compiler.join()
 
     val syms = xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq)
-
-    val program = new inox.Program {
-      val trees: xt.type = xt
-      val ctx = context
-      val symbols = syms
-    }
+    val program = inox.Program(xt)(syms)
 
     (units.toSeq, program)
   }
