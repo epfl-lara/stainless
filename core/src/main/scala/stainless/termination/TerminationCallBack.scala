@@ -25,7 +25,7 @@ final class TerminationCallBack(override val context: inox.Context) extends Call
     TerminationComponent(program, context).toTextReport
   }
 
-  override val cacheFilename = TerminationComponent.name + ".bin"
+  override val cacheSubDirectory = TerminationComponent.name
 
 }
 

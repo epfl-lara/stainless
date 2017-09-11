@@ -26,7 +26,7 @@ final class VerificationCallBack(override val context: inox.Context) extends Cal
     VerificationComponent(program, context)
   }
 
-  override val cacheFilename = VerificationComponent.name + ".bin"
+  override val cacheSubDirectory = VerificationComponent.name
 
 }
 

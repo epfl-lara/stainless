@@ -143,7 +143,8 @@ class RegistryTestSuite extends FunSuite {
    *      is not cleared upon new compilation.
    */
   private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
-    override val cacheFilename = "mockcallback" // shouldn't be used here...
+
+    override val cacheSubDirectory = "mockcallback" // shouldn't be used here...
     assert(context.options.findOption(frontend.optPersistentRegistryCache).isEmpty)
 
     override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)

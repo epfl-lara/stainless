@@ -94,8 +94,8 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
   protected def shouldBeChecked(cd: xt.ClassDef): Boolean
 
-  /** Filename of the registry cache under the directory denoted by [[optPersistentCache]]. */
-  protected val cacheFilename: String
+  /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
+  protected val cacheSubDirectory: String
 
 
   /******************* Internal State *************************************************************/
@@ -121,7 +121,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   /******************* Internal Helpers ***********************************************************/
 
   private def getCacheFile: Option[File] =
-    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheFilename)
+    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheSubDirectory, "registry.bin")
 
   /** Load the registry cache, if specified by the user and available. */
   private def loadRegistryCache(): Unit = getCacheFile foreach { file =>
