@@ -4,15 +4,13 @@ package stainless
 package frontend
 
 import extraction.xlang.{ trees => xt }
-import utils.{ DependenciesFinder, Registry }
+import utils.{ DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
-import java.io.{ File, PrintWriter }
-import java.util.Scanner
+import org.json4s.JValue
 
-import org.json4s._
-import org.json4s.native.JsonMethods._
+import java.io.File
 
 trait CallBackWithRegistry extends CallBack { self =>
   import context.{ options, reporter }
@@ -152,10 +150,7 @@ trait CallBackWithRegistry extends CallBack { self =>
       registry.loadCache(caches.registry)
 
       // Load report cache
-      val sc = new Scanner(caches.report)
-      val sb = new StringBuilder
-      while (sc.hasNextLine) { sb ++= sc.nextLine + "\n" }
-      val json = parse(sb.toString)
+      val json = JsonUtils.parseFile(caches.report)
       report = parseReportCache(json)
     }
   }
@@ -167,9 +162,7 @@ trait CallBackWithRegistry extends CallBack { self =>
     registry.saveCache(caches.registry)
 
     val json = report.emitJson
-    val string = compact(render(json))
-    val pw = new PrintWriter(caches.report)
-    try pw.write(string) finally pw.close()
+    JsonUtils.writeFile(caches.report, json)
   }
 
 
