@@ -72,15 +72,15 @@ trait CompilationUnit extends CodeGeneration {
 
   private[this] var runtimeTypeToIdMap = Map[Type, Int]()
   private[this] var runtimeIdToTypeMap = Map[Int, Type]()
-  protected def getType(id: Int): Type = runtimeIdToTypeMap(id)
-  protected def registerType(tpe: Type): Int = runtimeTypeToIdMap.get(tpe) match {
+  protected def getType(id: Int): Type = synchronized(runtimeIdToTypeMap(id))
+  protected def registerType(tpe: Type): Int = synchronized(runtimeTypeToIdMap.get(tpe) match {
     case Some(id) => id
     case None =>
       val id = runtimeCounter.nextGlobal
       runtimeTypeToIdMap += tpe -> id
       runtimeIdToTypeMap += id -> tpe
       id
-  }
+  })
 
   private[this] var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
   protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = runtimeChooseMap(id)
