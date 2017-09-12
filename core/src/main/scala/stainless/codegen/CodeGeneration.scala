@@ -85,7 +85,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val BoxedLongClass            = "java/lang/Long"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
   private[codegen] val BoxedCharClass            = "java/lang/Character"
-  private[codegen] val BoxedArrayClass           = "leon/codegen/runtime/BoxedArray"
+  private[codegen] val BoxedArrayClass           = "stainless/codegen/runtime/BoxedArray"
 
   private[codegen] val JavaListClass             = "java/util/List"
   private[codegen] val JavaIteratorClass         = "java/util/Iterator"
@@ -107,7 +107,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val MonitorClass              = "stainless/codegen/runtime/Monitor"
   private[codegen] val StringOpsClass            = "stainless/codegen/runtime/StringOps"
 
-  private[codegen] val HashingClass              = "scala/util/hashing/MurmurHash3"
+  private[codegen] val HashingClass              = "java/util/Arrays"
 
   def idToSafeJVMName(id: Identifier) = {
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
@@ -517,7 +517,7 @@ trait CodeGeneration { self: CompilationUnit =>
         }
 
         locally {
-          val hashFieldName = "$leon$hashCode"
+          val hashFieldName = "$stainless$hashCode"
           cf.addField("I", hashFieldName).setFlags(FIELD_ACC_PRIVATE)
           val hmh = cf.addMethod("I", "hashCode", "")
           hmh.setFlags((
@@ -534,6 +534,7 @@ trait CodeGeneration { self: CompilationUnit =>
           hch << IRETURN
           hch << Label(wasNotCached) << POP
 
+          hch << Ldc(afName.hashCode)
           hch << Ldc(closuresWithoutMonitor.size) << NewArray(s"$ObjectClass")
           for (((v, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
             hch << DUP << Ldc(i)
@@ -542,8 +543,7 @@ trait CodeGeneration { self: CompilationUnit =>
             hch << AASTORE
           }
 
-          hch << Ldc(afName.hashCode)
-          hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
+          hch << InvokeStatic(HashingClass, "hashCode", s"([L$ObjectClass;)I") << IADD << DUP
           hch << ALoad(0) << SWAP << PutField(afName, hashFieldName, "I")
           hch << IRETURN
 
@@ -2007,7 +2007,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
     // definition of hashcode
     locally {
-      val hashFieldName = "$leon$hashCode"
+      val hashFieldName = "$stainless$hashCode"
       cf.addField("I", hashFieldName).setFlags(FIELD_ACC_PRIVATE)
       val hmh = cf.addMethod("I", "hashCode", "")
       hmh.setFlags((
@@ -2023,10 +2023,10 @@ trait CodeGeneration { self: CompilationUnit =>
       hch << IfEq(wasNotCached)
       hch << IRETURN
       hch << Label(wasNotCached) << POP
-      hch << ALoad(0) << InvokeVirtual(cName, "productElements", s"()[L$ObjectClass;")
       hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
       hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
-      hch << InvokeStatic(HashingClass, "arrayHash", s"([L$ObjectClass;I)I") << DUP
+      hch << ALoad(0) << InvokeVirtual(cName, "productElements", s"()[L$ObjectClass;")
+      hch << InvokeStatic(HashingClass, "hashCode", s"([L$ObjectClass;)I") << IADD << DUP
       hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I")
       hch << IRETURN
 
