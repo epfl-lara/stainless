@@ -14,6 +14,8 @@ class VerificationCallBack(override val context: inox.Context) extends CallBackW
 
   override type Report = VerificationComponent.Report
 
+  final override def beginExtractions(): Unit = VerificationComponent.onCycleBegin()
+
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
     context.reporter.debug(
       s"Verifying the following program: " +
@@ -23,5 +25,6 @@ class VerificationCallBack(override val context: inox.Context) extends CallBackW
 
     VerificationComponent(program, context)
   }
+
 }
 

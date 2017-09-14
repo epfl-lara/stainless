@@ -98,6 +98,7 @@ object VerificationComponent extends SimpleComponent {
     import encoder.targetProgram.symbols._
 
     val toVerify = funs.sortBy(getFunction(_).getPos)
+    ctx.reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
 
     for (id <- toVerify) {
       if (getFunction(id).flags contains "library") {
@@ -106,7 +107,7 @@ object VerificationComponent extends SimpleComponent {
       }
     }
 
-    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
+    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
 
     VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>

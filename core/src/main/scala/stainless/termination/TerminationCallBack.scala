@@ -13,6 +13,8 @@ class TerminationCallBack(override val context: inox.Context) extends CallBackWi
 
   override type Report = TerminationComponent.Report
 
+  final override def beginExtractions(): Unit = TerminationComponent.onCycleBegin()
+
   override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
     context.reporter.debug(
       s"Checking termination fo the following program: " +
