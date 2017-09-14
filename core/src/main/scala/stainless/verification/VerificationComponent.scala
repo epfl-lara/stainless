@@ -8,7 +8,7 @@ import stainless.utils.JsonConvertions._
 import stainless.verification.VCStatus.Invalid
 
 import org.json4s.JsonDSL._
-import org.json4s.JsonAST.{ JArray, JObject }
+import org.json4s.JsonAST._
 
 import scala.language.existentials
 
@@ -25,7 +25,7 @@ object VerificationComponent extends SimpleComponent {
 
   override val trees: stainless.trees.type = stainless.trees
 
-  override type Report = VerificationReport
+  override type Analysis = VerificationAnalysis
 
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
@@ -34,76 +34,129 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionVerification
 
-  trait VerificationReport extends AbstractReport[VerificationReport] { self =>
+  // TODO re-introduce program in Analysis
+  trait VerificationAnalysis extends AbstractAnalysis {
+
+    override val name = VerificationComponent.this.name
+
+    override type Report = VerificationReport
+
+    override def toReport = new VerificationReport(vrs map { case (vc, vr) =>
+      val time = vr.time.getOrElse(0L) // TODO make time mandatory (?)
+      val status = VCTextStatus(vr.status)
+      val solverName = vr.solver map { _.name }
+      TextRecord(vc.fd, vc.getPos, time, status, solverName, vc.kind.name)
+    })
+
     type Model = StainlessProgram#Model
     type Results = Map[VC[stainless.trees.type], VCResult[Model]]
     val results: Results
 
     lazy val vrs: Seq[(VC[stainless.trees.type], VCResult[Model])] =
       results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
+  }
 
-    lazy val totalConditions: Int = vrs.size
-    lazy val totalTime = vrs.map(_._2.time.getOrElse(0l)).sum
-    lazy val totalValid = vrs.count(_._2.isValid)
-    lazy val totalValidFromCache = vrs.count(_._2.isValidFromCache)
-    lazy val totalInvalid = vrs.count(_._2.isInvalid)
-    lazy val totalUnknown = vrs.count(_._2.isInconclusive)
+  /**
+   * Similar interface to [[VCStatus]], but with text only data and all
+   * inconclusive status mapped to [[Inconclusive]].
+   */
+  sealed abstract class VCTextStatus(val name: String) {
+    def isValid = this == VCTextStatus.Valid || isValidFromCache
+    def isValidFromCache = this == VCTextStatus.ValidFromCache
+    def isInvalid = this.isInstanceOf[VCTextStatus.Invalid]
+    def isInconclusive = this.isInstanceOf[VCTextStatus.Inconclusive]
+
+    def toJson: JObject = this match {
+      case VCTextStatus.Invalid(vars) => ("status" -> name) ~ ("counterexample" -> vars)
+      case _ => "status" -> name
+    }
+  }
+
+  object VCTextStatus {
+    type VariableName = String
+    type Value = String
+
+    case object Valid extends VCTextStatus("valid")
+    case object ValidFromCache extends VCTextStatus("valid from cache")
+    case class Inconclusive(reason: String) extends VCTextStatus(reason)
+    case class Invalid(counterexample: Map[VariableName, Value]) extends VCTextStatus("invalid")
+
+    def apply[Model <: Program#Model](status: VCStatus[Model]): VCTextStatus = status match {
+      case VCStatus.Invalid(model) => Invalid(model.vars map { case (vd, e) => vd.id.name -> e.toString })
+      case VCStatus.Valid => Valid
+      case VCStatus.ValidFromCache => ValidFromCache
+      case inconclusive => Inconclusive(inconclusive.name)
+    }
+  }
+
+  case class TextRecord(
+    fid: Identifier, pos: inox.utils.Position, time: Long,
+    status: VCTextStatus, solverName: Option[String], kind: String
+  )
+
+  // TODO move to its own file (and do the same for Termination)
+  // TODO create generic interface to reduce work with TerminationReport
+  class VerificationReport(val results: Seq[TextRecord]) extends AbstractReport[VerificationReport] {
+
+    lazy val totalConditions: Int = results.size
+    lazy val totalTime = results.map(_.time).sum
+    lazy val totalValid = results.count(_.status.isValid)
+    lazy val totalValidFromCache = results.count(_.status.isValidFromCache)
+    lazy val totalInvalid = results.count(_.status.isInvalid)
+    lazy val totalUnknown = results.count(_.status.isInconclusive)
 
     override val name = VerificationComponent.this.name
 
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
-      vrs.map { case (vc, vr) =>
+      results map { case TextRecord(fid, pos, time, status, solverName, kind) =>
         Row(Seq(
-          Cell(vc.fd),
-          Cell(vc.kind.name),
-          Cell(vc.getPos.fullString),
-          Cell(vr.status),
-          Cell(vr.solver.map(_.name).getOrElse("")),
-          Cell(vr.time.map(t => f"${t / 1000d}%3.3f").getOrElse(""))
+          Cell(fid),
+          Cell(kind),
+          Cell(pos.fullString),
+          Cell(status.name),
+          Cell(solverName getOrElse ""),
+          Cell(f"${time / 1000d}%3.3f")
         ))
       },
       ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
     ))
 
-    // Group by function, overriding all VCResults by the ones in `other`.
     override def ~(other: VerificationReport): VerificationReport = {
-      def buildMapping(subs: Results): Map[Identifier, Results] = subs groupBy { case (vc, _) => vc.fd }
+      def buildMapping(subs: Seq[TextRecord]): Map[Identifier, Seq[TextRecord]] = subs groupBy { _.fid }
 
       val prev = buildMapping(this.results)
       val next = buildMapping(other.results)
 
-      val fused = (prev ++ next).values.fold(Map.empty)(_ ++ _)
+      val fused = (prev ++ next).values.fold(Seq.empty)(_ ++ _)
 
-      new VerificationReport { override val results = fused }
+      new VerificationReport(fused)
     }
 
-    override def removeSubreports(ids: Seq[Identifier]) = new VerificationReport {
-      override val results = self.results filterNot { case (vc, _) => ids contains vc.fd }
-    }
+    override def invalidate(ids: Seq[Identifier]) =
+      new VerificationReport(results filterNot { ids contains _.fid })
 
-    override def emitJson: JArray = {
-      def status2Json(status: VCStatus[Model]): JObject = status match {
-        case Invalid(cex) =>
-          val info = cex.vars map { case (vd, e) => vd.id.name -> e.toString }
-          ("status" -> status.name) ~ ("counterexample" -> info)
+    override def emitJson: JArray =
+      for { TextRecord(fid, pos, time, status, solverName, kind) <- results } yield {
+        val solver: JValue = solverName match {
+          case Some(name) => JString(name)
+          case None => JNull
+        }
 
-        case _ => "status" -> status.name
+        ("fd" -> fid.name) ~
+        ("_fd" -> fid.toJson) ~
+        ("pos" -> pos.toJson) ~
+        ("time" -> time)
+        status.toJson ~
+        ("solver" -> solver) ~
+        ("kind" -> kind)
       }
-
-      val report: JArray = for { (vc, vr) <- vrs } yield {
-        ("fd" -> vc.fd.name) ~
-        ("_fd" -> vc.fd.toJson) ~
-        ("pos" -> vc.getPos.toJson) ~
-        ("kind" -> vc.kind.name) ~
-        status2Json(vr.status) ~
-        ("time" -> vr.time)
-      }
-
-      report
-    }
   }
 
-  def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
+  object VerificationReport {
+    def parse(json: JValue) = ??? // TODO
+  }
+
+  private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
     val injector = AssertionInjector(p, ctx)
     val encoder = inox.ast.ProgramEncoder(p)(injector)
 
@@ -131,10 +184,10 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
-  def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationReport = {
+  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationAnalysis = {
     val res = check(funs, p, ctx)
 
-    new VerificationReport { override val results = res }
+    new VerificationAnalysis { override val results = res }
   }
 }
 

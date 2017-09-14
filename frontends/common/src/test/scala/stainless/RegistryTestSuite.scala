@@ -6,7 +6,7 @@ import extraction.xlang.{ trees => xt }
 import frontend.{ CallBackWithRegistry, Frontend, MasterCallBack }
 import utils.CheckFilter
 
-import inox.utils.ASCIIHelpers._
+import inox.utils.ASCIIHelpers.Row
 
 import java.io.{ File, BufferedWriter, FileWriter }
 import java.nio.file.Files
@@ -124,7 +124,7 @@ class RegistryTestSuite extends FunSuite {
     override def emitJson = ???
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
 
-    override def removeSubreports(ids: Seq[Identifier]) = {
+    override def invalidate(ids: Seq[Identifier]) = {
       assert(ids.isEmpty)
       this
     }

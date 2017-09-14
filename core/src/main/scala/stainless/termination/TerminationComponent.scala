@@ -15,7 +15,7 @@ object TerminationComponent extends SimpleComponent {
 
   override val trees: termination.trees.type = termination.trees
 
-  override type Report = TerminationReportWithChecker
+  override type Analysis = TerminationAnalysis
 
   override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
@@ -50,7 +50,7 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  trait TerminationReportWithChecker extends AbstractReport[TerminationReportWithChecker] {
+  trait TerminationAnalysis extends AbstractAnalysis {
     val checker: TerminationChecker {
       val program: Program { val trees: termination.trees.type }
     }
@@ -66,16 +66,9 @@ object TerminationComponent extends SimpleComponent {
 
     override val name: String = TerminationComponent.this.name
 
-    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = toTextReport.emitRowsAndStats
+    override type Report = TerminationReport
 
-    override def emitJson: JArray = toTextReport.emitJson
-
-    // NOTE Because of `checker`, two instances of TerminationReport have different types and therefore
-    //      cannot be combined easily, that is, without working around the type system.
-    override def ~(other: TerminationReportWithChecker): TerminationReportWithChecker = ???
-    override def removeSubreports(ids: Seq[Identifier]) = ???
-
-    def toTextReport = new TerminationReport(results.toSeq map { case (fd, (g, time)) =>
+    override def toReport = new TerminationReport(results.toSeq map { case (fd, (g, time)) =>
       TextRecord(fd.id, fd.getPos, time, status(g), verdict(g, fd), kind(g))
     })
 
@@ -145,7 +138,6 @@ object TerminationComponent extends SimpleComponent {
   class TerminationReport(val results: Seq[TextRecord]) extends AbstractReport[TerminationReport] {
     override val name: String = TerminationComponent.this.name
 
-    // Group by function, overriding all VCResults by the ones in `other`.
     override def ~(other: TerminationReport): TerminationReport = {
       def buildMapping(subs: Seq[TextRecord]): Map[Identifier, Seq[TextRecord]] = subs groupBy { _.fid }
 
@@ -157,7 +149,7 @@ object TerminationComponent extends SimpleComponent {
       new TerminationReport(results = fused)
     }
 
-    override def removeSubreports(ids: Seq[Identifier]) =
+    override def invalidate(ids: Seq[Identifier]) =
       new TerminationReport(results filterNot { ids contains _.fid })
 
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
@@ -211,7 +203,7 @@ object TerminationComponent extends SimpleComponent {
   }
 
 
-  override def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationReportWithChecker = {
+  override def apply(funs: Seq[Identifier], p: Program { val trees: termination.trees.type }, ctx: inox.Context): TerminationAnalysis = {
     import p._
     import p.trees._
     import p.symbols._
@@ -240,7 +232,7 @@ object TerminationComponent extends SimpleComponent {
       }
     }
 
-    new TerminationReportWithChecker {
+    new TerminationAnalysis {
       override val checker: c.type = c
       override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
     }

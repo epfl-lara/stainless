@@ -9,7 +9,7 @@ trait Component {
   val name: String
   val description: String
 
-  type Report <: AbstractReport[Report]
+  type Analysis <: AbstractAnalysis
 
   val lowering: inox.ast.SymbolTransformer {
     val s: extraction.trees.type
@@ -26,7 +26,6 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
 
 trait SimpleComponent extends Component { self =>
   val trees: ast.Trees
-  import trees._
 
   def extract(program: Program { val trees: xt.type }, ctx: inox.Context): Program { val trees: self.trees.type } = {
     val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
@@ -44,7 +43,7 @@ trait SimpleComponent extends Component { self =>
   private val marks = new utils.AtomicMarks[Identifier]
   def onCycleBegin(): Unit = marks.clear()
 
-  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Report = {
+  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Analysis = {
     val extracted = extract(program, ctx)
     import extracted._
 
@@ -56,6 +55,6 @@ trait SimpleComponent extends Component { self =>
     apply(relevant, extracted, ctx)
   }
 
-  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }, ctx: inox.Context): Report
+  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }, ctx: inox.Context): Analysis
 }
 

@@ -23,7 +23,8 @@ class ImperativeSuite extends ComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  testAll("imperative/invalid") { (report, _) =>
+  testAll("imperative/invalid") { (analysis, _) =>
+    val report = analysis.toReport
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
 }

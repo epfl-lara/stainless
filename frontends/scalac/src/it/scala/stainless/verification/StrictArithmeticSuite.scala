@@ -23,7 +23,8 @@ class StrictArithmeticSuite extends ComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  testAll("strictarithmetic/invalid") { (report, _) =>
+  testAll("strictarithmetic/invalid") { (analysis, _) =>
+    val report = analysis.toReport
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
 }

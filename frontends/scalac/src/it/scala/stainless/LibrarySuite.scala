@@ -24,11 +24,12 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val report = apply(funs, exProgram, ctx)
+      val analysis: VerificationAnalysis = apply(funs, exProgram, ctx)
+      val report: VerificationReport = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
-        "Invalids are:\n" + report.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
-        "Unknowns are:\n" + report.vrs.filter(_._2.isInconclusive).mkString("\n"))
+        "Invalids are:\n" + analysis.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
+        "Unknowns are:\n" + analysis.vrs.filter(_._2.isInconclusive).mkString("\n"))
     }
 
     it("should terminate") {
@@ -38,12 +39,12 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val report = apply(funs, exProgram, ctx)
+      val analysis: TerminationAnalysis = apply(funs, exProgram, ctx)
 
       assert(
-        report.results forall { case (_, (g, _)) => g.isGuaranteed },
+        analysis.results forall { case (_, (g, _)) => g.isGuaranteed },
         "Library functions couldn't be shown terminating:\n" +
-        (report.results collect { case (fd, (g, _)) if !g.isGuaranteed => fd.id.name -> g } mkString "\n")
+        (analysis.results collect { case (fd, (g, _)) if !g.isGuaranteed => fd.id.name -> g } mkString "\n")
       )
     }
   }

@@ -78,7 +78,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
-  def testAll(dir: String)(block: (component.Report, inox.Reporter) => Unit): Unit = {
+  def testAll(dir: String)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
     val fs = resourceFiles(dir, _.endsWith(".scala")).toList
 
     // Toggle this variable if you need to debug one specific test.

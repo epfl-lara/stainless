@@ -48,7 +48,7 @@ trait CallBackWithRegistry extends CallBack { self =>
       reporter.debug(s"\tclasses   -> [${removedClassesIds.sorted mkString ", "}]")
 
       registry.remove(removedClasses, removedFuns)
-      if (report != null) report = report.removeSubreports(removedClassesIds ++ removedFunsIds)
+      if (report != null) report = report.invalidate(removedClassesIds ++ removedFunsIds)
     }
 
     // Update our state with the new data, producing new symbols through the registry.

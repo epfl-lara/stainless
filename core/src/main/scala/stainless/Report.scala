@@ -16,13 +16,23 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
   )
 }
 
+/**
+ * Text version of [[AbstractAnalysis]] that holds the basic information a user might be interested in.
+ *
+ * Provide facilities for I/O serialisation (through a JSON interface), generating a human-readable view
+ * of the results (through an ASCCI table) and the ability to maintain an up-to-date view of the results
+ * by means of concatenation of reports and invalidation of some part of the report itself.
+ *
+ * [[SelfType]] is used for typechecking purposed: it should denote the subclass itself. E.g.:
+ * class SpecificReport extends AbstractReport[SpecificReport] { /* ... */ }
+ */
 trait AbstractReport[SelfType <: AbstractReport[_]] { self =>
-  val name: String
+  val name: String // The same name as the [[AbstractAnalysis]] this report was derived from.
 
   def emitJson: JArray
 
   /** Create a new report without information about the given functions/classes/.... */
-  def removeSubreports(ids: Seq[Identifier]): SelfType
+  def invalidate(ids: Seq[Identifier]): SelfType
 
   /** Merge two reports, considering [[other]] to contain the last information in case of update. */
   def ~(other: SelfType): SelfType
@@ -56,12 +66,7 @@ class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with obj
   override val name = "no-report"
   override def emitJson = JArray(Nil)
   override def emitRowsAndStats = None
-  override def removeSubreports(ids: Seq[Identifier]) = this
+  override def invalidate(ids: Seq[Identifier]) = this
   override def ~(other: NoReport) = this
 }
-
-object NoReport {
-  def apply() = new NoReport
-}
-
 
