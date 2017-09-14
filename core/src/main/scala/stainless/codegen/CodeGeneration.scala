@@ -336,7 +336,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private val typeParams: ListBuffer[TypeParameter] = new ListBuffer[TypeParameter]
 
   protected def compileLambda(l: Lambda, params: Seq[ValDef], pre: Boolean = false):
-                             (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = {
+                             (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = synchronized {
     assert(normalizeStructure(l)._1 == l)
 
     var tpParams = typeParams.toList
