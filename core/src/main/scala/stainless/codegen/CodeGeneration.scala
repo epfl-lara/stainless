@@ -366,7 +366,7 @@ trait CodeGeneration { self: CompilationUnit =>
     }
 
     val lambda = normalizer.transform(l).asInstanceOf[Lambda]
-    val (tparams, tps) = tpSubst.toSeq.sortBy(_._2.id.uniqueName).unzip
+    val (tparams, tps) = tpSubst.toSeq.sortBy(_._2.id.id).unzip
 
     val closedVars = variablesOf(lambda).toSeq.sortBy(_.id.uniqueName)
 
