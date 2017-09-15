@@ -27,8 +27,12 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionVerification
 
-  // TODO re-introduce program in Analysis
   trait VerificationAnalysis extends AbstractAnalysis {
+    val program: Program { val trees: stainless.trees.type }
+    val results: Map[VC[program.trees.type], VCResult[program.Model]]
+
+    lazy val vrs: Seq[(VC[stainless.trees.type], VCResult[program.Model])] =
+      results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
 
     override val name = VerificationComponent.name
 
@@ -40,13 +44,6 @@ object VerificationComponent extends SimpleComponent {
       val solverName = vr.solver map { _.name }
       VerificationReport.Record(vc.fd, vc.getPos, time, status, solverName, vc.kind.name)
     })
-
-    type Model = StainlessProgram#Model
-    type Results = Map[VC[stainless.trees.type], VCResult[Model]]
-    val results: Results
-
-    lazy val vrs: Seq[(VC[stainless.trees.type], VCResult[Model])] =
-      results.toSeq.sortBy { case (vc, _) => (vc.fd.name, vc.kind.toString) }
   }
 
   private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
@@ -80,7 +77,10 @@ object VerificationComponent extends SimpleComponent {
   override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationAnalysis = {
     val res = check(funs, p, ctx)
 
-    new VerificationAnalysis { override val results = res }
+    new VerificationAnalysis {
+      override val program: p.type = p
+      override val results = res
+    }
   }
 }
 
