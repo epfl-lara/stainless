@@ -12,9 +12,9 @@ final class VerificationCallBack(override val context: inox.Context) extends Cal
 
   private implicit val debugSection = DebugSectionVerification
 
-  override type Report = VerificationComponent.VerificationReport
+  override type Report = VerificationReport
   override val cacheSubDirectory = VerificationComponent.name
-  override def parseReportCache(json: org.json4s.JValue): Report = VerificationComponent.VerificationReport.parse(json)
+  override def parseReportCache(json: org.json4s.JValue): Report = VerificationReport.parse(json)
 
   override def onCycleBegin(): Unit = VerificationComponent.onCycleBegin()
 

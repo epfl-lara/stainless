@@ -24,8 +24,8 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis: VerificationAnalysis = apply(funs, exProgram, ctx)
-      val report: VerificationReport = analysis.toReport
+      val analysis = apply(funs, exProgram, ctx)
+      val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
         "Invalids are:\n" + analysis.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
