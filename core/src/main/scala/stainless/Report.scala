@@ -26,7 +26,7 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
  * [[SelfType]] is used for typechecking purposed: it should denote the subclass itself. E.g.:
  * class SpecificReport extends AbstractReport[SpecificReport] { /* ... */ }
  */
-trait AbstractReport[SelfType <: AbstractReport[_]] { self =>
+trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   val name: String // The same name as the [[AbstractAnalysis]] this report was derived from.
 
   def emitJson: JArray
