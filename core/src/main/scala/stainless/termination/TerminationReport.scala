@@ -3,11 +3,14 @@
 package stainless
 package termination
 
-import inox.utils.ASCIIHelpers._
+import inox.utils.ASCIIHelpers.{ Cell, Row }
 import stainless.utils.JsonConvertions._
 
-import org.json4s.JsonDSL._
-import org.json4s.JsonAST._
+import io.circe._
+import io.circe.syntax._
+import io.circe.generic.semiauto._
+
+import scala.util.{ Right, Left }
 
 object TerminationReport {
 
@@ -15,49 +18,28 @@ object TerminationReport {
     def isUnknown = this == Unknown
     def isTerminating = this == Terminating
     def isNonTerminating = this == NonTerminating
-
-    def toText = this match {
-      case Unknown => "unknown"
-      case Terminating => "terminating"
-      case NonTerminating => "non-terminating"
-    }
-  }
-
-  object Status {
-    def parse(json: JValue) = json match {
-      case JString("unknown") => Unknown
-      case JString("terminating") => Terminating
-      case JString("non-terminating") => NonTerminating
-      case _ => ???
-    }
   }
 
   case object Unknown extends Status
   case object Terminating extends Status
   case object NonTerminating extends Status
 
+  implicit val statusDecoder: Decoder[Status] = deriveDecoder
+  implicit val statusEncoder: Encoder[Status] = deriveEncoder
+
   case class Record(
     fid: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, verdict: String, kind: String
   )
 
-  def parse(json: JValue): TerminationReport = {
-    val records = for {
-      JArray(records) <- json
-      record <- records
-    } yield {
-      val fid = parseIdentifier(record \ "_fid")
-      val pos = parsePosition(record \ "pos")
-      val JInt(time) = record \ "time"
-      val JString(kind) = record \ "kind"
-      val JString(verdict) = record \ "verdict"
-      val status = Status.parse(record \ "status")
+  implicit val recordDecoder: Decoder[Record] = deriveDecoder
+  implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-      Record(fid, pos, time.longValue, status, verdict, kind)
-    }
-
-    new TerminationReport(records)
+  def parse(json: Json): TerminationReport = json.as[Seq[Record]] match {
+    case Right(records) => new TerminationReport(records)
+    case Left(error) => throw error
   }
+
 }
 
 // Variant of the report without the checker, where all the data is mapped to text
@@ -98,15 +80,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record]) extends Abst
     Some((rows, stats))
   }
 
-  override def emitJson: JArray = for { Record(fid, pos, time, status, verdict, kind) <- results } yield {
-    ("fd" -> fid.name) ~
-    ("_fid" -> fid.toJson) ~
-    ("pos" -> pos.toJson) ~
-    ("kind" -> kind) ~ // brief
-    ("verdict" -> verdict) ~ // detailed
-    ("status" -> status.toText) ~
-    ("time" -> time)
-  }
+  override def emitJson: Json = results.asJson
 
 }
 

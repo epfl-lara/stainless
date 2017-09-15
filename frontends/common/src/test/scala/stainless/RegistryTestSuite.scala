@@ -13,7 +13,7 @@ import java.nio.file.Files
 
 import scala.collection.mutable.ListBuffer
 
-import org.json4s.JsonAST.JArray
+import _root_.io.circe.Json
 
 import org.scalatest._
 
@@ -145,7 +145,7 @@ class RegistryTestSuite extends FunSuite {
   private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
 
     override val cacheSubDirectory = "mockcallback" // shouldn't be used here...
-    override def parseReportCache(json: org.json4s.JValue) = ??? // unused
+    override def parseReportCache(json: Json) = ??? // unused
     assert(context.options.findOption(frontend.optPersistentRegistryCache).isEmpty)
 
     override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)

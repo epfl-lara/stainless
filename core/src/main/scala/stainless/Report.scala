@@ -3,7 +3,7 @@
 package stainless
 
 import inox.utils.ASCIIHelpers._
-import org.json4s.JsonAST.JArray
+import io.circe.Json
 
 case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, invalid: Int, unknown: Int) {
   def +(more: ReportStats) = ReportStats(
@@ -29,7 +29,7 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
 trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   val name: String // The same name as the [[AbstractAnalysis]] this report was derived from.
 
-  def emitJson: JArray
+  def emitJson: Json
 
   /** Create a new report without information about the given functions/classes/.... */
   def invalidate(ids: Seq[Identifier]): SelfType
@@ -64,7 +64,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
 class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with object...
   override val name = "no-report"
-  override def emitJson = JArray(Nil)
+  override def emitJson = Json.arr()
   override def emitRowsAndStats = None
   override def invalidate(ids: Seq[Identifier]) = this
   override def ~(other: NoReport) = this

@@ -71,7 +71,9 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
     "ch.epfl.lara" %% "cafebabe" % "1.2",
     "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-    "org.json4s" %% "json4s-native" % "3.5.2"
+    "io.circe" %% "circe-core" % "0.8.0",
+    "io.circe" %% "circe-generic" % "0.8.0",
+    "io.circe" %% "circe-parser" % "0.8.0"
   ),
 
   concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel),

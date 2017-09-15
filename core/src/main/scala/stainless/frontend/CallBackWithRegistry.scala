@@ -8,7 +8,7 @@ import utils.{ DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
 
-import org.json4s.JValue
+import io.circe.Json
 
 import java.io.File
 
@@ -101,7 +101,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected val cacheSubDirectory: String
 
   /** Parse a JSON value into a proper Report. We assume this doesn't fail. */
-  protected def parseReportCache(json: JValue): Report
+  protected def parseReportCache(json: Json): Report
 
 
   /******************* Internal State *************************************************************/

@@ -3,14 +3,16 @@
 package stainless
 package verification
 
-import inox.utils.ASCIIHelpers._
+import inox.utils.ASCIIHelpers.{ Cell, Row }
 import stainless.utils.JsonConvertions._
 
-import org.json4s.JsonDSL._
-import org.json4s.JsonAST._
+import io.circe._
+import io.circe.syntax._
+import io.circe.generic.semiauto._
+
+import scala.util.{ Right, Left }
 
 object VerificationReport {
-  def parse(json: JValue) = ??? // TODO
 
   /**
    * Similar interface to [[VCStatus]], but with text only data and all
@@ -21,11 +23,6 @@ object VerificationReport {
     def isValidFromCache = this == Status.ValidFromCache
     def isInvalid = this.isInstanceOf[Status.Invalid]
     def isInconclusive = this.isInstanceOf[Status.Inconclusive]
-
-    def toJson: JObject = this match {
-      case Status.Invalid(vars) => ("status" -> name) ~ ("counterexample" -> vars)
-      case _ => "status" -> name
-    }
   }
 
   object Status {
@@ -45,14 +42,24 @@ object VerificationReport {
     }
   }
 
+  implicit val statusDecoder: Decoder[Status] = deriveDecoder
+  implicit val statusEncoder: Encoder[Status] = deriveEncoder
+
   case class Record(
     fid: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String
   )
 
+  implicit val recordDecoder: Decoder[Record] = deriveDecoder
+  implicit val recordEncoder: Encoder[Record] = deriveEncoder
+
+  def parse(json: Json) = json.as[Seq[Record]] match {
+    case Right(records) => new VerificationReport(records)
+    case Left(error) => throw error
+  }
+
 }
 
-// TODO create generic interface to reduce work with TerminationReport
 class VerificationReport(val results: Seq[VerificationReport.Record]) extends AbstractReport[VerificationReport] {
   import VerificationReport._
 
@@ -93,20 +100,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record]) extends Ab
   override def invalidate(ids: Seq[Identifier]) =
     new VerificationReport(results filterNot { ids contains _.fid })
 
-  override def emitJson: JArray =
-    for { Record(fid, pos, time, status, solverName, kind) <- results } yield {
-      val solver: JValue = solverName match {
-        case Some(name) => JString(name)
-        case None => JNull
-      }
+  override def emitJson: Json = results.asJson
 
-      ("fd" -> fid.name) ~
-      ("_fd" -> fid.toJson) ~
-      ("pos" -> pos.toJson) ~
-      ("time" -> time)
-      status.toJson ~
-      ("solver" -> solver) ~
-      ("kind" -> kind)
-    }
 }
 

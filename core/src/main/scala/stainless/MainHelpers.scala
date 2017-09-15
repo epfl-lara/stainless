@@ -7,8 +7,7 @@ import utils.JsonUtils
 import java.io.File
 import java.util.concurrent.{ ExecutorService, Executors }
 
-import org.json4s.JsonAST.JObject
-import org.json4s.JsonDSL._
+import io.circe.Json
 
 object MainHelpers {
 
@@ -133,8 +132,7 @@ trait MainHelpers extends inox.MainHelpers {
 
   /** Exports the reports to the given file in JSON format. */
   private def exportJson(reports: Seq[AbstractReport[_]], file: String): Unit = {
-    val subs = reports map { r => JObject(r.name -> r.emitJson) }
-    val json = if (subs.isEmpty) JObject() else subs reduce { _ ~ _ }
+    val json = Json.fromFields(reports map { r => (r.name -> r.emitJson) })
     JsonUtils.writeFile(new File(file), json)
   }
 

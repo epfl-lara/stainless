@@ -3,9 +3,10 @@
 package stainless
 package termination
 
-import extraction.xlang.{ trees => xt }
 import frontend.CallBackWithRegistry
 import utils.CheckFilter
+
+import io.circe.Json
 
 /** Callback for termination */
 final class TerminationCallBack(override val context: inox.Context) extends CallBackWithRegistry with CheckFilter {
@@ -13,7 +14,7 @@ final class TerminationCallBack(override val context: inox.Context) extends Call
 
   override type Report = TerminationReport
   override val cacheSubDirectory = TerminationComponent.name
-  override def parseReportCache(json: org.json4s.JValue): Report = TerminationReport.parse(json)
+  override def parseReportCache(json: Json): Report = TerminationReport.parse(json)
 
   override def onCycleBegin(): Unit = TerminationComponent.onCycleBegin()
 
