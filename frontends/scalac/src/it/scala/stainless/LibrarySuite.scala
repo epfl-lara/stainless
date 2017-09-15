@@ -39,7 +39,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis: TerminationAnalysis = apply(funs, exProgram, ctx)
+      val analysis = apply(funs, exProgram, ctx)
 
       assert(
         analysis.results forall { case (_, (g, _)) => g.isGuaranteed },
