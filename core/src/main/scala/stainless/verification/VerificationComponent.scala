@@ -61,7 +61,7 @@ object VerificationComponent extends SimpleComponent {
           Cell(vc.kind.name),
           Cell(vc.getPos.fullString),
           Cell(vr.status),
-          Cell(vr.solver.map(_.name).getOrElse("")),
+          Cell(vr.solverName.getOrElse("")),
           Cell(vr.time.map(t => f"${t / 1000d}%3.3f").getOrElse(""))
         ))
       },
@@ -109,8 +109,8 @@ object VerificationComponent extends SimpleComponent {
     val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
 
     VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
-      case VCResult(VCStatus.Invalid(model), s, t) =>
-        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+      case VCResult(VCStatus.Invalid(model), solverName, t) =>
+        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), solverName, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
     }
   }

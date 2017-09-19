@@ -183,7 +183,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
                                |
                                |SCALACLASSPATH="$paths"
                                |
-                               |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
+                               |java -Xmx8G -Xms2G -Xss1G -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
                                |""".stripMargin)
       scriptFile.setExecutable(true)
     } catch {
