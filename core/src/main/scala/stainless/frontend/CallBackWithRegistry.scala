@@ -78,7 +78,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   }
 
   // See assumption/requirements in [[CallBack]]
-  final override def getReport: Option[Report] = Some(report) filter { _ != null }
+  final override def getReport: Option[Report] = Option(report)
 
 
   /******************* Customisation Points *******************************************************/
