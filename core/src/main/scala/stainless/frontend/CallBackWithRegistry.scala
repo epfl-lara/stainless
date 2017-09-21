@@ -6,7 +6,7 @@ package frontend
 import extraction.xlang.{ trees => xt }
 import utils.{ DependenciesFinder, JsonUtils, Registry }
 
-import scala.collection.mutable.{ ListBuffer, Map => MutableMap }
+import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
 
 import io.circe.Json
 
@@ -36,23 +36,8 @@ trait CallBackWithRegistry extends CallBack { self =>
     reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
     reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
-    // Remove any node from the registry that no longer exists.
-    previousFileData get file foreach { case (prevClasses, prevFuns) =>
-      val removedClasses = prevClasses filterNot { cd => classes exists { _.id == cd.id } }
-      val removedClassesIds = removedClasses map { _.id }
-      val removedFuns = prevFuns filterNot { cd => functions exists { _.id == cd.id } }
-      val removedFunsIds = removedFuns map { _.id }
-
-      reporter.debug(s"Removing the following from the registry:")
-      reporter.debug(s"\tfunctions -> [${removedFunsIds.sorted mkString ", "}]")
-      reporter.debug(s"\tclasses   -> [${removedClassesIds.sorted mkString ", "}]")
-
-      registry.remove(removedClasses, removedFuns)
-      if (report != null) report = report.invalidate(removedClassesIds ++ removedFunsIds)
-    }
-
     // Update our state with the new data, producing new symbols through the registry.
-    previousFileData += file -> (classes, functions)
+    recentIdentifiers ++= (classes map { _.id }) ++ (functions map { _.id })
     val symss = registry.update(classes, functions)
     processSymbols(symss)
   }
@@ -60,6 +45,8 @@ trait CallBackWithRegistry extends CallBack { self =>
   final override def endExtractions(): Unit = {
     val symss = registry.checkpoint()
     processSymbols(symss)
+
+    recentIdentifiers.clear()
   }
 
   final override def stop(): Unit = tasks foreach { _.cancel(true) } // no need to update state, it's a KILL.
@@ -68,9 +55,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   final override def join(): Unit = {
     val newReports = tasks map { _.get } // blocking! TODO is there a more efficient "get all" version?
     val reports = (report +: newReports) filter { _ != null }
-    if (reports.nonEmpty) {
-      report = reports reduce { _ ~ _ }
-    }
+    if (reports.nonEmpty) report = reports reduce { _ ~ _ }
     tasks.clear()
 
     // Save cache now that we have our report
@@ -109,7 +94,8 @@ trait CallBackWithRegistry extends CallBack { self =>
   private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
   private var report: Report = _
 
-  private val previousFileData = MutableMap[String, (Seq[xt.ClassDef], Seq[xt.FunDef])]()
+  /** Set of classes/functions seen during the last callback cycle. */
+  private val recentIdentifiers = MutableSet[Identifier]()
 
   private val registry = new Registry {
     override val context = self.context

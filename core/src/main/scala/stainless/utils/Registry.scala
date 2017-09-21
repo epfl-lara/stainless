@@ -14,12 +14,12 @@ object DebugSectionRegistry extends inox.DebugSection("registry")
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
- * Call [[update]] ([[remove]]) whenever new data is (no longer) available, and [[checkpoint]]
- * when all the data is available. New data can then be added through [[update]] calls and,
- * again, a [[checkpoint]] call. Every one of these calls yields a collection of [[xt.Symbols]]
- * that are self-contained programs, ready to be further processed.
+ * Call [[update]] whenever new data is newly available, updated or simply still valid,
+ * and [[checkpoint]] when all the data is available. New data can then be added through
+ * [[update]] calls and, again, a [[checkpoint]] call. Every one of these calls yields a
+ * collection of [[xt.Symbols]] that are self-contained programs, ready to be further processed.
  *
- * During the first [[update]]/[[remove]] - [[checkpoint]] cycle, the graph is updated as data
+ * During the first [[update]] - [[checkpoint]] cycle, the graph is updated as data
  * arrives. During the next cycles, the graph is frozen until the [[checkpoint]] to allow
  * inconsistent state in the graph to not impact the computation. The graph is immediately
  * frozen after each [[checkpoint]], meaning one needs not explicitly freeze the graph after
@@ -71,7 +71,7 @@ trait Registry {
    *
    * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
-  def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+  def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = synchronized {
     if (hasPersistentCache) {
       deferredClasses ++= classes
       deferredFunctions ++= functions
@@ -82,33 +82,23 @@ trait Registry {
   }
 
   /**
-   * Remove from the registry and underlying graph the given classes and functions.
-   */
-  def remove(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
-    val classIds = classes map { _.id }
-    val funIds = functions map { _.id }
-    knownClasses --= classIds
-    (classIds ++ funIds) foreach graph.remove
-  }
-
-  /**
    * To be called once every compilation unit were extracted.
    */
-  def checkpoint(): Option[xt.Symbols] = {
+  def checkpoint(): Option[xt.Symbols] = synchronized {
     if (hasPersistentCache) {
-      val res = updateImpl(deferredClasses, deferredFunctions)
-      val empty = checkpointImpl()
-      assert(empty.isEmpty)
+      val res = process(deferredClasses, deferredFunctions)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
       deferredClasses.clear()
       deferredFunctions.clear()
       deferredNodes.clear()
+      frozen = true
+      graph.freeze() // (re-)freeze for next cycle
       res
     } else checkpointImpl()
   }
 
   /** Import the canonical form cache from the given file. Not thread-safe. */
-  def loadCache(file: File): Unit = {
+  def loadCache(file: File): Unit = synchronized {
     val stream = new FileInputStream(file)
 
     def assertValidCache(check: Boolean) = {
@@ -167,7 +157,7 @@ trait Registry {
   }
 
   /** Export the canonical form cache to the given file. Not thread-safe. */
-  def saveCache(file: File): Unit = {
+  def saveCache(file: File): Unit = synchronized {
     val stream = new FileOutputStream(file)
 
     def writeInt(x: Int): Unit = {
@@ -254,7 +244,11 @@ trait Registry {
   private type Result = (Set[xt.ClassDef], Set[xt.FunDef])
   private val EmptyResult = (Set[xt.ClassDef](), Set[xt.FunDef]())
 
-  private val knownClasses = MutableMap[Identifier, xt.ClassDef]()
+  // Data that is known to be "alive" (i.e. added/updated/maintained in the last cycle).
+  private val recentClasses = ListBuffer[xt.ClassDef]()
+  private val recentFunctions = ListBuffer[xt.FunDef]()
+
+  private val knownOpenClasses = MutableMap[Identifier, xt.ClassDef]()
 
   private var frozen = false
   private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
@@ -348,10 +342,11 @@ trait Registry {
         false // Some parents are in different compilation unit, hence not ready.
     }
 
+    recentClasses ++= classes
+    recentFunctions ++= functions
+
     val (ready, open) = classes partition isReady
-    this.synchronized {
-      knownClasses ++= open map { cd => cd.id -> cd }
-    }
+    knownOpenClasses ++= open map { cd => cd.id -> cd }
 
     classes foreach { cd =>
       if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
@@ -363,7 +358,21 @@ trait Registry {
 
 
   private def checkpointImpl(): Option[xt.Symbols] = {
-    val defaultRes = process(knownClasses.values.toSeq, Seq.empty)
+    // Get all nodes from graph, remove the ones not in recentClasses or recentFunctions.
+    val nodes = graph.getNodes map { _._2._1 }
+    val toRemove = nodes collect {
+      case Left(cd) if !(recentClasses contains cd) => cd.id
+      case Right(fd) if !(recentFunctions contains fd) => fd.id
+    }
+
+    reporter.debug(s"Removing <${toRemove mkString ", "}> from graph")
+
+    toRemove foreach graph.remove
+
+    recentClasses.clear()
+    recentFunctions.clear()
+
+    val defaultRes = process(knownOpenClasses.values.toSeq, Seq.empty)
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
       graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
