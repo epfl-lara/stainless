@@ -46,6 +46,7 @@ trait CallBackWithRegistry extends CallBack { self =>
     val symss = registry.checkpoint()
     processSymbols(symss)
 
+    if (report != null) report = report.filter(recentIdentifiers.toSet)
     recentIdentifiers.clear()
   }
 

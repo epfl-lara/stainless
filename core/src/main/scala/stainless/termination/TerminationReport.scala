@@ -59,8 +59,8 @@ class TerminationReport(val results: Seq[TerminationReport.Record]) extends Abst
     new TerminationReport(results = fused)
   }
 
-  override def invalidate(ids: Seq[Identifier]) =
-    new TerminationReport(results filterNot { ids contains _.fid })
+  override def filter(ids: Set[Identifier]) =
+    new TerminationReport(results filter { ids contains _.fid })
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
     val rows = for { Record(fid, pos, time, status, verdict, kind) <- results } yield Row(Seq(

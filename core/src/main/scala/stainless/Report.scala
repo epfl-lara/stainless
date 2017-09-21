@@ -31,8 +31,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   def emitJson: Json
 
-  /** Create a new report without information about the given functions/classes/.... */
-  def invalidate(ids: Seq[Identifier]): SelfType
+  /** Create a new report with *only* the information about the given functions/classes/... */
+  def filter(ids: Set[Identifier]): SelfType
 
   /** Merge two reports, considering [[other]] to contain the last information in case of update. */
   def ~(other: SelfType): SelfType
@@ -66,7 +66,7 @@ class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with obj
   override val name = "no-report"
   override def emitJson = Json.arr()
   override def emitRowsAndStats = None
-  override def invalidate(ids: Seq[Identifier]) = this
+  override def filter(ids: Set[Identifier]) = this
   override def ~(other: NoReport) = this
 }
 

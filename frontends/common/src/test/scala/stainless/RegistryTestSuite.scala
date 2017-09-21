@@ -124,10 +124,8 @@ class RegistryTestSuite extends FunSuite {
     override def emitJson = ???
     override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
 
-    override def invalidate(ids: Seq[Identifier]) = {
-      assert(ids.isEmpty)
-      this
-    }
+    override def filter(ids: Set[Identifier]) = this // intentionally not filtering a thing!
+    // here we don't test the reports themselves, but the registry.
 
     override def ~(other: MockReport): MockReport =
       MockReport(functions ++ other.functions, classes ++ other.classes)

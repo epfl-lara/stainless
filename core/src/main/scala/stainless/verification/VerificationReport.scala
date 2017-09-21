@@ -97,8 +97,8 @@ class VerificationReport(val results: Seq[VerificationReport.Record]) extends Ab
     new VerificationReport(fused)
   }
 
-  override def invalidate(ids: Seq[Identifier]) =
-    new VerificationReport(results filterNot { ids contains _.fid })
+  override def filter(ids: Set[Identifier]) =
+    new VerificationReport(results filter { ids contains _.fid })
 
   override def emitJson: Json = results.asJson
 
