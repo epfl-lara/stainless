@@ -29,21 +29,23 @@ object TerminationReport {
 
   case class Record(
     fid: Identifier, pos: inox.utils.Position, time: Long,
-    status: Status, verdict: String, kind: String
+    status: Status, verdict: String, kind: String,
+    generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
   )
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json): TerminationReport = json.as[Seq[Record]] match {
-    case Right(records) => new TerminationReport(records)
+  def parse(json: Json): TerminationReport = json.as[(Seq[Record], Long)] match {
+    case Right((records, lastGen)) => new TerminationReport(records, lastGen + 1)
     case Left(error) => throw error
   }
 
 }
 
 // Variant of the report without the checker, where all the data is mapped to text
-class TerminationReport(val results: Seq[TerminationReport.Record]) extends AbstractReport[TerminationReport] {
+class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Long = 0)
+  extends AbstractReport[TerminationReport] {
   import TerminationReport._
 
   override val name: String = TerminationComponent.name
@@ -52,18 +54,26 @@ class TerminationReport(val results: Seq[TerminationReport.Record]) extends Abst
     def buildMapping(subs: Seq[Record]): Map[Identifier, Seq[Record]] = subs groupBy { _.fid }
 
     val prev = buildMapping(this.results)
-    val next = buildMapping(other.results)
+    val next0 = buildMapping(other.results)
+
+    // Update the generation only if we are not simply adding things to the current (parallel) generation.
+    val nextGen = if ((prev.keySet & next0.keySet).isEmpty) lastGen else lastGen + 1
+
+    val next = next0 mapValues {
+      records => records map { r => r.copy(generation = nextGen) }
+    }
 
     val fused = (prev ++ next).values.fold(Seq.empty)(_ ++ _)
 
-    new TerminationReport(results = fused)
+    new TerminationReport(results = fused, nextGen)
   }
 
   override def filter(ids: Set[Identifier]) =
-    new TerminationReport(results filter { ids contains _.fid })
+    new TerminationReport(results filter { ids contains _.fid }, lastGen + 1)
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-    val rows = for { Record(fid, pos, time, status, verdict, kind) <- results } yield Row(Seq(
+    val rows = for { Record(fid, pos, time, status, verdict, kind, gen) <- results } yield Row(Seq(
+      Cell(if (gen == lastGen) "NEW" else ""),
       Cell(fid.name),
       Cell((if (status.isTerminating) "\u2713" else "\u2717") + " " + verdict),
       Cell(f"${time / 1000d}%3.3f")

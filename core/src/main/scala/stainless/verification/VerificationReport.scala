@@ -47,20 +47,22 @@ object VerificationReport {
 
   case class Record(
     fid: Identifier, pos: inox.utils.Position, time: Long,
-    status: Status, solverName: Option[String], kind: String
+    status: Status, solverName: Option[String], kind: String,
+    generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
   )
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json) = json.as[Seq[Record]] match {
-    case Right(records) => new VerificationReport(records)
+  def parse(json: Json) = json.as[(Seq[Record], Long)] match {
+    case Right((records, lastGen)) => new VerificationReport(records, lastGen + 1)
     case Left(error) => throw error
   }
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record]) extends AbstractReport[VerificationReport] {
+class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: Long = 0)
+  extends AbstractReport[VerificationReport] {
   import VerificationReport._
 
   lazy val totalConditions: Int = results.size
@@ -73,8 +75,9 @@ class VerificationReport(val results: Seq[VerificationReport.Record]) extends Ab
   override val name = VerificationComponent.name
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
-    results map { case Record(fid, pos, time, status, solverName, kind) =>
+    results sortBy { _.fid } map { case Record(fid, pos, time, status, solverName, kind, gen) =>
       Row(Seq(
+        Cell(if (gen == lastGen) "NEW" else ""),
         Cell(fid),
         Cell(kind),
         Cell(pos.fullString),
@@ -90,17 +93,24 @@ class VerificationReport(val results: Seq[VerificationReport.Record]) extends Ab
     def buildMapping(subs: Seq[Record]): Map[Identifier, Seq[Record]] = subs groupBy { _.fid }
 
     val prev = buildMapping(this.results)
-    val next = buildMapping(other.results)
+    val next0 = buildMapping(other.results)
+
+    // Update the generation only if we are not simply adding things to the current (parallel) generation.
+    val nextGen = if ((prev.keySet & next0.keySet).isEmpty) lastGen else lastGen + 1
+
+    val next = next0 mapValues {
+      records => records map { r => r.copy(generation = nextGen) }
+    }
 
     val fused = (prev ++ next).values.fold(Seq.empty)(_ ++ _)
 
-    new VerificationReport(fused)
+    new VerificationReport(fused, nextGen)
   }
 
   override def filter(ids: Set[Identifier]) =
-    new VerificationReport(results filter { ids contains _.fid })
+    new VerificationReport(results filter { ids contains _.fid }, lastGen + 1)
 
-  override def emitJson: Json = results.asJson
+  override def emitJson: Json = (results, lastGen).asJson
 
 }
 
