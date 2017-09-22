@@ -16,21 +16,17 @@ trait SelfCallsProcessor extends Processor {
   import checker.program.trees._
   import checker.program.symbols._
 
-  def run(problem: Problem) = {
+  def run(problem: Problem) = timers.termination.processors.`self-calls`.run {
     reporter.debug("- Self calls processor...")
-    val timer = timers.termination.processors.`self-calls`.start()
 
     val nonTerminating = problem.funDefs
       .filter(fd => alwaysCalls(fd.fullBody, fd.id))
 
-    val res = if (nonTerminating.nonEmpty) {
+    if (nonTerminating.nonEmpty) {
       Some(nonTerminating.map(fd => Broken(fd, LoopsGivenInputs(name, fd.params.map(_.toVariable)))))
     } else {
       None
     }
-
-    timer.stop()
-    res
   }
 
   private def alwaysCalls(expr: Expr, fid: Identifier): Boolean = {

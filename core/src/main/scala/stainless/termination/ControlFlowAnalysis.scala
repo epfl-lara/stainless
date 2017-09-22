@@ -104,11 +104,8 @@ trait CICFA {
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
   private val cache: MutableMap[Identifier, Analysis] = MutableMap.empty
-  def analyze(id: Identifier): Analysis = cache.getOrElseUpdate(id, {
-    val timer = timers.termination.cfa.start()
-    val analysis = new Analysis(id)
-    timer.stop()
-    analysis
+  def analyze(id: Identifier): Analysis = cache.getOrElseUpdate(id, timers.termination.cfa.run {
+    new Analysis(id)
   })
 
   class Analysis(id: Identifier) {

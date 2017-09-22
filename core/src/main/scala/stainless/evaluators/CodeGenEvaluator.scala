@@ -107,24 +107,16 @@ trait CodeGenEvaluator
 
   def eval(expr: Expr, model: program.Model) = {
     compile(expr, model.vars.toSeq.map(_._1)).map { e =>
-      val timer = timers.evaluators.codegen.runtime.start()
-      val res = e(model)
-      timer.stop()
-      res
+      timers.evaluators.codegen.runtime.run { e(model) }
     }.getOrElse(EvaluationResults.EvaluatorError(s"Couldn't compile expression: $expr"))
   }
 
-  private def compileExpr(expr: Expr, args: Seq[ValDef]): Option[CompiledExpression] = {
-    val timer = timers.evaluators.codegen.compilation.start()
-    try {
-      Some(compileExpression(expr, args))
-    } catch {
-      case t: Throwable =>
-        reporter.warning(expr.getPos, "Error while compiling expression: " + t.getMessage)
-        None
-    } finally {
-      timer.stop()
-    }
+  private def compileExpr(expr: Expr, args: Seq[ValDef]): Option[CompiledExpression] = try {
+    timers.evaluators.codegen.compilation.run { Some(compileExpression(expr, args)) }
+  } catch {
+    case t: Throwable =>
+      reporter.warning(expr.getPos, "Error while compiling expression: " + t.getMessage)
+      None
   }
 
   override def compile(expr: Expr, args: Seq[ValDef]) = {

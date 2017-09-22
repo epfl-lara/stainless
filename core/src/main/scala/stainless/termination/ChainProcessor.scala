@@ -25,9 +25,7 @@ trait ChainProcessor extends OrderingProcessor {
       case (path, e1) => path implies ordering.lessThan(Seq(recons(e1)), Seq(recons(e2)))
     }))
 
-  def run(problem: Problem) = {
-    val timer = timers.termination.processors.chains.start()
-
+  def run(problem: Problem) = timers.termination.processors.chains.run {
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)
 
@@ -42,7 +40,6 @@ trait ChainProcessor extends OrderingProcessor {
 
     if (loopPoints.size > 1) {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
-      timer.stop()
       None
     } else {
       val funDefs = if (loopPoints.nonEmpty) {
@@ -77,14 +74,8 @@ trait ChainProcessor extends OrderingProcessor {
         cleared = remaining.isEmpty
       }
 
-      val res = if (cleared) {
-        Some(problem.funDefs map Cleared)
-      } else {
-        None
-      }
-
-      timer.stop()
-      res
+      if (cleared) Some(problem.funDefs map Cleared)
+      else None
     }
   }
 }

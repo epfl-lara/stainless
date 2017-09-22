@@ -29,13 +29,11 @@ trait DecreasesProcessor extends Processor { self =>
   private val zero = IntegerLiteral(0)
   private val tru = BooleanLiteral(true)
 
-  def run(problem: Problem): Option[Seq[Result]] = {
-    val timer = timers.termination.processors.decreases.start()
-
+  def run(problem: Problem): Option[Seq[Result]] = timers.termination.processors.decreases.run {
     val fds = problem.funDefs
     val fdIds = problem.funSet.map(_.id)
 
-    val res = if (fds.exists { _.measure.isDefined }) {
+    if (fds.exists { _.measure.isDefined }) {
       val api = getAPI
 
       // Important:
@@ -147,8 +145,5 @@ trait DecreasesProcessor extends Processor { self =>
     } else {
       None // nothing is cleared here, so other phases will apply
     }
-
-    timer.stop()
-    res
   }
 }

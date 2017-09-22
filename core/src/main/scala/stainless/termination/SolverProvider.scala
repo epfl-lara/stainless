@@ -44,8 +44,7 @@ trait SolverProvider { self =>
   private[termination] def clearSolvers(): Unit = cache.clear()
 
   private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) =
-    cache.cached(transformer, {
-      val timer = timers.termination.encoding.start()
+    cache.cached(transformer, timers.termination.encoding.run {
       val transformEncoder = inox.ast.ProgramEncoder(checker.program)(transformer)
       val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
 
@@ -65,15 +64,12 @@ trait SolverProvider { self =>
         case None => 2.5.seconds
       }
 
-      val factory = solvers.SolverFactory
+      solvers.SolverFactory
         .getFromSettings(p, context.withOpts(
           inox.solvers.optSilentErrors(true),
           inox.solvers.optCheckModels(true)
         ))(programEncoder)(p.getSemantics)
         .withTimeout(timeout)
-
-      timer.stop()
-      factory
     })
 
   private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {

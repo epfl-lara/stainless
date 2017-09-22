@@ -129,6 +129,7 @@ object TerminationComponent extends SimpleComponent {
 
     val c = TerminationChecker(p, ctx)
 
+    // TODO update this code to use `.run { ... }` for timers when merging #67: persistent cache.
     val timer = timers.termination.start()
 
     val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)

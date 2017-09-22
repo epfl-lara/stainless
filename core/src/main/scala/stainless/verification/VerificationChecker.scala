@@ -131,10 +131,11 @@ trait VerificationChecker { self =>
         }
       } catch {
         case u: Unsupported =>
-          val t = timer.selfTimer.get
-          val time = if (t.isRunning) t.stop else t.runs.last
+          val time = if (timer.isRunning) timer.stop else timer.time
           reporter.warning(u.getMessage)
           VCResult(VCStatus.Unsupported, Some(s), Some(time))
+      } finally {
+        if (timer.isRunning) timer.stop()
       }
 
       reporter.synchronized {

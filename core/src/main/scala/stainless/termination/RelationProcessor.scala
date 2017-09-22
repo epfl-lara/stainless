@@ -18,9 +18,7 @@ trait RelationProcessor extends OrderingProcessor {
   import checker.program.symbols._
   import ordering._
 
-  def run(problem: Problem): Option[Seq[Result]] = {
-    val timer = timers.termination.processors.relation.start()
-
+  def run(problem: Problem): Option[Seq[Result]] = timers.termination.processors.relation.run {
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)
 
@@ -83,13 +81,7 @@ trait RelationProcessor extends OrderingProcessor {
 
     assert(terminating ++ nonTerminating == problem.funSet)
 
-    val res = if (nonTerminating.isEmpty) {
-      Some(terminating.map(Cleared).toSeq)
-    } else {
-      None
-    }
-
-    timer.stop()
-    res
+    if (nonTerminating.isEmpty) Some(terminating.map(Cleared).toSeq)
+    else None
   }
 }

@@ -31,9 +31,7 @@ trait LoopProcessor extends OrderingProcessor {
     protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
   }
 
-  def run(problem: Problem) = {
-    val timer = timers.termination.processors.loops.start()
-
+  def run(problem: Problem) = timers.termination.processors.loops.run {
     strengthenApplications(problem.funSet)
     val api = getAPI(withoutPosts)
 
@@ -66,13 +64,7 @@ trait LoopProcessor extends OrderingProcessor {
       cs.flatMap(c1 => chains.flatMap(c2 => c1.compose(c2)))
     }
 
-    val res = if (nonTerminating.nonEmpty) {
-      Some(nonTerminating.values.toSeq)
-    } else {
-      None
-    }
-
-    timer.stop()
-    res
+    if (nonTerminating.nonEmpty) Some(nonTerminating.values.toSeq)
+    else None
   }
 }
