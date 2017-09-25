@@ -114,7 +114,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   /******************* Internal Helpers ***********************************************************/
 
   private def getCacheFile(filename: String): Option[File] =
-    utils.Caches.getCacheFile(context, optPersistentRegistryCache, cacheSubDirectory, filename)
+    utils.Caches.getCacheFile(context, optPersistentCache, cacheSubDirectory, filename)
 
   private def getRegistryCacheFile: Option[File] = getCacheFile("registry.bin")
   private def getReportCacheFile: Option[File] = getCacheFile("report.json")

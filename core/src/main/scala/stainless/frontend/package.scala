@@ -9,10 +9,10 @@ package object frontend {
   /**
    * The persistent caches are stored in the same directory, denoted by this option.
    *
-   * Each [[CallBackWithRegistry]] store its cache in a different file to avoid
+   * Each [[CallBackWithRegistry]] store its cache in different files to avoid
    * confusion with custom filters.
    */
-  object optPersistentRegistryCache extends inox.FlagOptionDef("registry-cache", false)
+  object optPersistentCache extends inox.FlagOptionDef("cache", false)
 
   /**
    * Given a context (with its reporter) and a frontend factory, proceed to compile,
