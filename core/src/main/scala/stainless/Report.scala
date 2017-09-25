@@ -23,7 +23,7 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
  * of the results (through an ASCCI table) and the ability to maintain an up-to-date view of the results
  * by means of concatenation of reports and invalidation of some part of the report itself.
  *
- * [[SelfType]] is used for typechecking purposed: it should denote the subclass itself. E.g.:
+ * [[SelfType]] is used for typechecking purposes: it should denote the subclass itself. E.g.:
  * class SpecificReport extends AbstractReport[SpecificReport] { /* ... */ }
  */
 trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
@@ -34,7 +34,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   /** Create a new report with *only* the information about the given functions/classes/... */
   def filter(ids: Set[Identifier]): SelfType
 
-  /** Merge two reports, considering [[other]] to contain the last information in case of update. */
+  /** Merge two reports, considering [[other]] to contain the latest information in case of update. */
   def ~(other: SelfType): SelfType
 
   protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
