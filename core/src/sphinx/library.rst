@@ -246,28 +246,28 @@ The object ``ListOps`` offers this additional operations:
 Theorems on Lists
 *****************
 
-The following theorems on Lists have been proven by Stainless and are included 
+The following theorems on Lists have been proven by Stainless and are included
 in the object ``ListSpecs``:
 
 +---------------------------------------------------------------+--------------------------------------------------------+
 | Theorem signature                                             | Proven Claim                                           |
 +===============================================================+========================================================+
-| ``snocIndex[T](l : List[T], t : T, i : BigInt)``              | ``(l :+ t).apply(i) == (if (i < l.size) l(i) else t)`` |
+| ``snocIndex[T](l: List[T], t: T, i: BigInt)``                 | ``(l :+ t).apply(i) == (if (i < l.size) l(i) else t)`` |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``reverseIndex[T](l : List[T], i : BigInt)``                  | ``l.reverse.apply(i) == l.apply(l.size - 1 - i)``      |
+| ``reverseIndex[T](l: List[T], i: BigInt)``                    | ``l.reverse.apply(i) == l.apply(l.size - 1 - i)``      |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``appendIndex[T](l1 : List[T], l2 : List[T], i : BigInt)``    | ``(l1 ++ l2).apply(i) ==``                             |
+| ``appendIndex[T](l1: List[T], l2: List[T], i: BigInt)``       | ``(l1 ++ l2).apply(i) ==``                             |
 |                                                               | ``(if (i < l1.size) l1(i) else l2(i - l1.size))``      |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``appendAssoc[T](l1 : List[T], l2 : List[T], l3 : List[T])``  | ``((l1 ++ l2) ++ l3) == (l1 ++ (l2 ++ l3))``           |
+| ``appendAssoc[T](l1: List[T], l2: List[T], l3: List[T])``     | ``((l1 ++ l2) ++ l3) == (l1 ++ (l2 ++ l3))``           |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocIsAppend[T](l : List[T], t : T)``                       | ``(l :+ t) == l ++ Cons[T](t, Nil())``                 |
+| ``snocIsAppend[T](l: List[T], t: T)``                         | ``(l :+ t) == l ++ Cons[T](t, Nil())``                 |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocAfterAppend[T](l1 : List[T], l2 : List[T], t : T)``     | ``(l1 ++ l2) :+ t == (l1 ++ (l2 :+ t))``               |
+| ``snocAfterAppend[T](l1: List[T], l2: List[T], t: T)``        | ``(l1 ++ l2) :+ t == (l1 ++ (l2 :+ t))``               |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocReverse[T](l : List[T], t : T)``                        | ``(l :+ t).reverse == Cons(t, l.reverse)``             |
+| ``snocReverse[T](l: List[T], t: T)``                          | ``(l :+ t).reverse == Cons(t, l.reverse)``             |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``reverseReverse[T](l : List[T])``                            | ``l.reverse.reverse == l``                             |
+| ``reverseReverse[T](l: List[T])``                             | ``l.reverse.reverse == l``                             |
 +---------------------------------------------------------------+--------------------------------------------------------+
 | ``scanVsFoldRight[A,B](l: List[A], z: B, f: (A,B) => B)``     | ``l.scanRight(f)(z).head == l.foldRight(f)(z)``        |
 +---------------------------------------------------------------+--------------------------------------------------------+
