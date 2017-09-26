@@ -21,7 +21,7 @@ Stainless attempts to strike a delicate balance between the
 convenience of use on the one hand and the simplicity of
 reasoning on the other hand. Stainless supports verification
 of Scala programs by applying a succession of semantic-preserving
-transformations to the `Pure Scala <purescala.rst>`_ fragment until
+transformations to the :doc:`Pure Scala <purescala>` fragment until
 it fits into the fragment supported by
 `Inox <https://github.com/epfl-lara/inox>`_.
 The Pure Scala fragment is at the core of
@@ -30,14 +30,14 @@ of functional languages such as Scala, Haskell, ML, and fragments
 present in interactive theorem provers such as Isabelle and Coq. Thus,
 if you do not already know Scala, learning the Stainless subset should
 be easier as it is a smaller language. Moreover, thanks to the use of
-``scalac`` front end, Stainless supports implicits and ``for`` 
+``scalac`` front end, Stainless supports implicits and ``for``
 comprehensions (which also serve as a syntax for monads in Scala).
 Stainless also comes with a simple library of useful data types, which
 are designed to work well with automated reasoning and Stainless's
 language fragment.
 
 In addition to this pure fragment, Stainless supports certain
-`imperative <imperative.rst>`_ features.
+:doc:`imperative <imperative>` features.
 Features thus introduced are handled by
 a translation into Pure Scala concepts. They are often more
 than just syntactic sugar, because some of them require
@@ -49,15 +49,15 @@ e.g. concurrency with a shared mutable heap, though it might
 support more manageable forms of concurrency in the future.
 
 If you would like to use Stainless now, check the
-`Getting Started <gettingstarted.rst>`_
-section and try our `Tutorial <tutorial.rst>`_.
+:doc:`gettingstarted`
+section and try our :doc:`Tutorial <tutorial>`.
 To learn more about the functionality that Stainless provides, read on below.
 
 Software Verification
 ---------------------
 
 The Stainless program verifier collects a list of top-level functions,
-and verifies the *validity* of their *contracts*. Essentially, for each function, 
+and verifies the *validity* of their *contracts*. Essentially, for each function,
 it will (try to) prove that the postcondition always holds, assuming a given
 precondition does hold. A simple example:
 
@@ -92,7 +92,7 @@ Stainless will also verify for each call site that the precondition of the invok
 function cannot be violated.
 
 Stainless supports verification of a significant part of the Scala language, described in
-`Pure Scala <purescala.rst>`_ and `Imperative <imperative.rst>`_.
+:doc:`purescala` and :doc:`imperative`.
 
 Program Termination
 -------------------

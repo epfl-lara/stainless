@@ -3,11 +3,11 @@
 Imperative
 ==========
 
-To complement the core `Pure Scala <purescala.rst>`_ language, Stainless
+To complement the core :doc:`Pure Scala <purescala>` language, Stainless
 proposes a few extensions to that core language.
 
 On the technical side, these extensions do not have specific treatment in the
-back-end of Stainless. Instead, they are desugared into `Pure Scala <purescala.rst>`_
+back-end of Stainless. Instead, they are desugared into :doc:`Pure Scala <purescala>`
 constructs during a preprocessing phase in the Stainless front-end.
 
 Imperative Code
@@ -28,7 +28,7 @@ syntax.
 
 The above example illustrates three new features introduced by imperative support:
 
-1. Declaring a variable in a local scope 
+1. Declaring a variable in a local scope
 
 2. Blocks of expressions
 
@@ -38,12 +38,12 @@ You can use Scala variables with a few restrictions. The variables can only be
 declared and used locally, no variable declaration outside of a function body.
 There is also support for variables in case classes constructors. Imperative support
 introduces the possibility to use sequences of expressions (blocks) -- a
-feature not available in `Pure Scala <purescala.rst>`_, where your only
+feature not available in :doc:`Pure Scala <purescala>`, where your only
 option is a sequence of ``val`` which essentially introduce nested ``let``
 declarations.
 
 
-While loops 
+While loops
 -----------
 
 You can use the ``while`` keyword. While loops usually combine the ability to
@@ -176,7 +176,7 @@ as a parameter to a function (assuming its scope is not shared with the call
 site, i.e. not a nested function). Essentially you can do:
 
 .. code-block:: scala
-    
+
   case class A(var x: Int)
   def updateA(a: A): Unit = {
     a.x = 14
@@ -201,7 +201,7 @@ object. Using ``old``, you can refer to the original value of the variable and c
 properties:
 
 .. code-block:: scala
-   
+
   case class A(var x: Int)
   def inc(a: A): Unit = {
     a.x = a.x + 1
@@ -211,7 +211,7 @@ properties:
 ``old`` for variables in scope, in the case of nested functions:
 
 .. code-block:: scala
-   
+
   def f(): Int = {
     var x = 0
     def inc(): Unit = {
