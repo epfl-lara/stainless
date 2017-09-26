@@ -51,7 +51,6 @@ trait MainHelpers extends inox.MainHelpers {
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),

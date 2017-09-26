@@ -62,8 +62,7 @@ class InlinedPostsVerificationSuite extends VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
       inox.optSelectedSolvers(Set("smt-z3")),
-      inox.solvers.optCheckModels(true),
-      extraction.inlining.optInlinePosts(true)
+      inox.solvers.optCheckModels(true)
     ) ++ seq
   }
 
