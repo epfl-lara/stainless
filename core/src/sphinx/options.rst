@@ -149,10 +149,6 @@ Verification
 
   Use a persistent cache mechanism to speed up verification.
 
-* ``--parallel-vcs``
-
-  Check verification conditions in parallel.
-
 * ``--fail-early``
 
   Aborts verification as soon as a VC cannot be proven to be correct.

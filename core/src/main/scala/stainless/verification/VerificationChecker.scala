@@ -5,8 +5,6 @@ package verification
 
 import inox.solvers._
 
-// TODO this should probably be removed as it is superseded by the flexible pipeline...
-object optParallelVCs extends inox.FlagOptionDef("parallel-vcs", false)
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", false)
@@ -22,7 +20,6 @@ trait VerificationChecker { self =>
   import program.trees._
   import program.symbols._
 
-  private lazy val parallelCheck = options.findOptionOrDefault(optParallelVCs)
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
   private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
 
@@ -68,23 +65,13 @@ trait VerificationChecker { self =>
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
-    // scala doesn't seem to have a nice common super-type of vcs and vcs.par, so these
-    // two quasi-identical pieces of code have to remain separate...
-    val results = if (parallelCheck) {
+    val results =
       for (vc <- vcs.par if !stop && !interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
         if (interruptManager.isInterrupted) interruptManager.reset()
         stop = stopWhen(res)
         vc -> res
       }
-    } else {
-      for (vc <- vcs if !stop && !interruptManager.isInterrupted) yield {
-        val res = checkVC(vc, sf)
-        if (interruptManager.isInterrupted) interruptManager.reset()
-        stop = stopWhen(res)
-        vc -> res
-      }
-    }
 
     initMap ++ results
   }
