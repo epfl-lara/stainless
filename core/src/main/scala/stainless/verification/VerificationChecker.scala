@@ -6,10 +6,10 @@ package verification
 import inox.solvers._
 
 // TODO this should probably be removed as it is superseded by the flexible pipeline...
-object optParallelVCs extends inox.FlagOptionDef("parallelvcs", false)
-object optFailEarly extends inox.FlagOptionDef("failearly", false)
-object optFailInvalid extends inox.FlagOptionDef("failinvalid", false)
-object optVCCache extends inox.FlagOptionDef("vccache", false)
+object optParallelVCs extends inox.FlagOptionDef("parallel-vcs", false)
+object optFailEarly extends inox.FlagOptionDef("fail-early", false)
+object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
+object optVCCache extends inox.FlagOptionDef("vc-cache", false)
 
 object DebugSectionVerification extends inox.DebugSection("verification")
 
