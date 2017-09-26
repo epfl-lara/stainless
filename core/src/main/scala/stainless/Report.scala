@@ -62,6 +62,40 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   }
 }
 
+object AbstractReportHelper {
+  type Record = { val fid: Identifier }
+  import scala.language.reflectiveCalls
+
+  /**
+   * Keep records which `fid` is present in [[ids]], and returns the next generation counter.
+   */
+  def filter[R <: Record](records: Seq[R], ids: Set[Identifier], lastGen: Long): (Seq[R], Long) =
+    (records filter { ids contains _.fid }, lastGen + 1)
+
+  /**
+   * Merge two sets of records [[R]] into one, and returns the next generation counter.
+   *
+   * Records in [[prevs]] which have the same `fid` as the ones in [[news]] are removed.
+   * The [[updater0]] function takes as first parameter the next generation counter.
+   */
+  def merge[R <: Record](prevs: Seq[R], news: Seq[R], lastGen: Long, updater0: Long => R => R): (Seq[R], Long) = {
+    def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.fid }
+
+    val prev = buildMapping(prevs)
+    val next0 = buildMapping(news)
+
+    val updated = (prev.keySet & next0.keySet).nonEmpty
+    val nextGen = if (updated) lastGen + 1 else lastGen
+    val updater = updater0(nextGen)
+
+    val next = next0 mapValues { records => records map updater }
+
+    val fused = (prev ++ next).values.fold(Seq.empty) { _ ++ _ }
+
+    (fused, nextGen)
+  }
+}
+
 class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with object...
   override val name = "no-report"
   override def emitJson = Json.arr()

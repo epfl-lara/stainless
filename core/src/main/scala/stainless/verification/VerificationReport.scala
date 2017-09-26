@@ -89,26 +89,16 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
   ))
 
-  override def ~(other: VerificationReport): VerificationReport = {
-    def buildMapping(subs: Seq[Record]): Map[Identifier, Seq[Record]] = subs groupBy { _.fid }
-
-    val prev = buildMapping(this.results)
-    val next0 = buildMapping(other.results)
-
-    // Update the generation only if we are not simply adding things to the current (parallel) generation.
-    val nextGen = if ((prev.keySet & next0.keySet).isEmpty) lastGen else lastGen + 1
-
-    val next = next0 mapValues {
-      records => records map { r => r.copy(generation = nextGen) }
-    }
-
-    val fused = (prev ++ next).values.fold(Seq.empty)(_ ++ _)
-
+  override def ~(other: VerificationReport) = {
+    def updater(nextGen: Long)(r: Record) = r.copy(generation = nextGen)
+    val (fused, nextGen) = AbstractReportHelper.merge(this.results, other.results, lastGen, updater)
     new VerificationReport(fused, nextGen)
   }
 
-  override def filter(ids: Set[Identifier]) =
-    new VerificationReport(results filter { ids contains _.fid }, lastGen + 1)
+  override def filter(ids: Set[Identifier]) = {
+    val (filtered, nextGen) = AbstractReportHelper.filter(results, ids, lastGen)
+    new VerificationReport(filtered, nextGen)
+  }
 
   override def emitJson: Json = (results, lastGen).asJson
 
