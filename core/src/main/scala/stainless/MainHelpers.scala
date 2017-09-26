@@ -4,8 +4,12 @@ package stainless
 
 import utils.JsonUtils
 
+import scala.collection.Parallelizable
+import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks, ParIterable }
+import scala.concurrent.ExecutionContext
+
 import java.io.File
-import java.util.concurrent.{ ExecutorService, Executors }
+import java.util.concurrent.ExecutorService
 
 import io.circe.Json
 
@@ -17,9 +21,20 @@ object MainHelpers {
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  // val executor = Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors - 2)
-  val executor: ExecutorService = Executors.newWorkStealingPool()
-  // val executor = Executors.newSingleThreadExecutor()
+  // val executor: ExecutorService = Executors.newWorkStealingPool()
+  val executor: ExecutorService = ForkJoinTasks.defaultForkJoinPool
+
+  /**
+   * Set up a parallel collection based on the parallelizable [[collection]]
+   *
+   * The returned parallel collection used the [[MainHelpers.executor]] to dispatch
+   * & balance tasks.
+   */
+  def par[A, ParRepr <: ParIterable[A]](collection: Parallelizable[A, ParRepr]): ParRepr = {
+    val pc = collection.par
+    pc.tasksupport = new ExecutionContextTaskSupport(ExecutionContext.fromExecutorService(executor))
+    pc
+  }
 
 }
 

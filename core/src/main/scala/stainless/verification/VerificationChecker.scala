@@ -66,7 +66,7 @@ trait VerificationChecker { self =>
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     val results =
-      for (vc <- vcs.par if !stop && !interruptManager.isInterrupted) yield {
+      for (vc <- MainHelpers.par(vcs) if !stop && !interruptManager.isInterrupted) yield {
         val res = checkVC(vc, sf)
         if (interruptManager.isInterrupted) interruptManager.reset()
         stop = stopWhen(res)
