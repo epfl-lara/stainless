@@ -46,10 +46,10 @@ object VerificationReport {
   implicit val statusEncoder: Encoder[Status] = deriveEncoder
 
   case class Record(
-    fid: Identifier, pos: inox.utils.Position, time: Long,
+    id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String,
     generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
-  )
+  ) extends AbstractReportHelper.Record
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
@@ -75,10 +75,10 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
   override val name = VerificationComponent.name
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
-    results sortBy { _.fid } map { case Record(fid, pos, time, status, solverName, kind, gen) =>
+    results sortBy { _.id } map { case Record(id, pos, time, status, solverName, kind, gen) =>
       Row(Seq(
         Cell(if (gen == lastGen) "NEW" else ""),
-        Cell(fid),
+        Cell(id),
         Cell(kind),
         Cell(pos.fullString),
         Cell(status.name),

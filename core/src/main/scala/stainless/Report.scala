@@ -63,23 +63,22 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 }
 
 object AbstractReportHelper {
-  type Record = { val fid: Identifier }
-  import scala.language.reflectiveCalls
+  trait Record { val id: Identifier }
 
   /**
-   * Keep records which `fid` is present in [[ids]], and returns the next generation counter.
+   * Keep records which `id` are present in [[ids]], and returns the next generation counter.
    */
   def filter[R <: Record](records: Seq[R], ids: Set[Identifier], lastGen: Long): (Seq[R], Long) =
-    (records filter { ids contains _.fid }, lastGen + 1)
+    (records filter { ids contains _.id }, lastGen + 1)
 
   /**
    * Merge two sets of records [[R]] into one, and returns the next generation counter.
    *
-   * Records in [[prevs]] which have the same `fid` as the ones in [[news]] are removed.
+   * Records in [[prevs]] which have the same `id` as the ones in [[news]] are removed.
    * The [[updater0]] function takes as first parameter the next generation counter.
    */
   def merge[R <: Record](prevs: Seq[R], news: Seq[R], lastGen: Long, updater0: Long => R => R): (Seq[R], Long) = {
-    def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.fid }
+    def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.id }
 
     val prev = buildMapping(prevs)
     val next0 = buildMapping(news)

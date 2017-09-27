@@ -28,10 +28,10 @@ object TerminationReport {
   implicit val statusEncoder: Encoder[Status] = deriveEncoder
 
   case class Record(
-    fid: Identifier, pos: inox.utils.Position, time: Long,
+    id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, verdict: String, kind: String,
     generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
-  )
+  ) extends AbstractReportHelper.Record
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
@@ -62,9 +62,9 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
   }
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-    val rows = for { Record(fid, pos, time, status, verdict, kind, gen) <- results } yield Row(Seq(
+    val rows = for { Record(id, pos, time, status, verdict, kind, gen) <- results } yield Row(Seq(
       Cell(if (gen == lastGen) "NEW" else ""),
-      Cell(fid.name),
+      Cell(id.name),
       Cell((if (status.isTerminating) "\u2713" else "\u2717") + " " + verdict),
       Cell(f"${time / 1000d}%3.3f")
     ))
