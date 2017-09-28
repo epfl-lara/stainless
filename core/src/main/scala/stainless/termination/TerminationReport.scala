@@ -80,7 +80,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
     Some((rows, stats))
   }
 
-  override def emitJson: Json = results.asJson
+  override def emitJson: Json = (results, lastGen).asJson
 
 }
 
