@@ -748,14 +748,100 @@ trait ASTExtractors {
       }
     }
 
-    object ExArrayUpdated {
-      def unapply(tree: Apply): Option[(Tree,Tree,Tree)] = tree match {
-        case Apply(
-              Apply(TypeApply(Select(Apply(ExSymbol("scala", "Predef", s), Seq(lhs)), n), _), Seq(index, value)),
-              List(Apply(_, _))) if (s.toString contains "Array") && (n.toString == "updated") => Some((lhs, index, value))
+    private object ExArraySelect {
+      def unapply(tree: Select): Option[(Tree, String)] = tree match {
+        case Select(array, select) if isArrayClassSym(array.tpe.typeSymbol) => Some((array, select.toString))
         case _ => None
       }
     }
+
+    /**
+     * Extract both Array.length and Array.size as they are equivalent.
+     *
+     * Note that Array.size is provided thought implicit conversion to
+     * scala.collection.mutable.ArrayOps via scala.Predef.*ArrayOps.
+     * As such, `arrayOps` can be `intArrayOps`, `genericArrayOps`, etc...
+     */
+    object ExArrayLength {
+      def unapply(tree: Select): Option[Tree] = tree match {
+        case Select(Apply(ExSymbol("scala", "Predef", arrayOps), Seq(array)), size)
+             if (arrayOps.toString endsWith "ArrayOps") && (size.toString == "size")
+             => Some(array)
+
+        case ExArraySelect(array, "length") => Some(array)
+
+        case _ => None
+      }
+    }
+
+    object ExArrayUpdated {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(
+               Apply(
+                 TypeApply(Select(Apply(ExSymbol("scala", "Predef", arrayOps), Seq(array)), update), _),
+                 Seq(index, value)),
+               List(Apply(_, _))
+             )
+             if (arrayOps.toString endsWith "ArrayOps") && (update.toString == "updated")
+             => Some((array, index, value))
+
+        // There's no `updated` method in the Array class itself, only though implicit conversion.
+        case _ => None
+      }
+    }
+
+    object ExArrayUpdate {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        // This implicit conversion to ArrayOps is shadowed. We therefore skip it here.
+        case Apply(ExArraySelect(array, "update"), Seq(index, newValue)) => Some((array, index, newValue))
+        case _ => None
+      }
+    }
+
+    object ExArrayApply {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        // This implicit conversion to ArrayOps is shadowed. We therefore skip it here.
+        case Apply(ExArraySelect(array, "apply"), Seq(index)) => Some((array, index))
+        case _ => None
+      }
+    }
+
+    object ExArrayFill {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(
+               Apply(
+                 Apply(
+                   TypeApply(ExSelected("scala", "Array", "fill"), baseType :: Nil),
+                   length :: Nil
+                 ),
+                 defaultValue :: Nil
+               ),
+               manifest
+             ) =>
+            Some((baseType, length, defaultValue))
+
+        case _ => None
+      }
+    }
+
+    object ExArrayLiteral {
+      def unapply(tree: Apply): Option[(Type, Seq[Tree])] = tree match {
+        case Apply(ExSelected("scala", "Array", "apply"), args) =>
+          tree.tpe match {
+            case TypeRef(_, _, List(t1)) =>
+              Some((t1, args))
+            case _ =>
+              None
+          }
+
+        case Apply(Apply(TypeApply(ExSelected("scala", "Array", "apply"), List(tpt)), args), ctags) =>
+          Some((tpt.tpe, args))
+
+        case _ =>
+          None
+      }
+    }
+
 
     object ExValDef {
       /** Extracts val's in the head of blocks. */
@@ -797,23 +883,6 @@ trait ASTExtractors {
             invariantSym),
           List(invariant)) if invariantSym.toString == "invariant" => Some((cond, body, invariant))
         case _ => None
-      }
-    }
-
-    object ExArrayLiteral {
-      def unapply(tree: Apply): Option[(Type, Seq[Tree])] = tree match {
-        case Apply(ExSelected("scala", "Array", "apply"), args) =>
-          tree.tpe match {
-            case TypeRef(_, _, List(t1)) =>
-              Some((t1, args))
-            case _ =>
-              None
-          }
-        case Apply(Apply(TypeApply(ExSelected("scala", "Array", "apply"), List(tpt)), args), ctags) =>
-          Some((tpt.tpe, args))
-
-        case _ =>
-          None
       }
     }
 
@@ -1134,31 +1203,5 @@ trait ASTExtractors {
       }
     }
 
-    object ExUpdate {
-      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
-        case Apply(
-              s @ Select(lhs, update),
-              index :: newValue :: Nil) if s.symbol.fullName.endsWith("Array.update") =>
-            Some((lhs, index, newValue))
-        case _ => None
-      }
-    }
-
-    object ExArrayFill {
-      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
-        case Apply(
-               Apply(
-                 Apply(
-                   TypeApply(ExSelected("scala", "Array", "fill"), baseType :: Nil),
-                   length :: Nil
-                 ),
-                 defaultValue :: Nil
-               ),
-               manifest
-             ) =>
-            Some((baseType, length, defaultValue))
-        case _ => None
-      }
-    }
   }
 }

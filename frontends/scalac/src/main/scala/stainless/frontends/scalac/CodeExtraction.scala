@@ -788,9 +788,6 @@ trait CodeExtraction extends ASTExtractors {
     case wh @ ExWhileWithInvariant(cond, body, inv) =>
       xt.While(extractTree(cond), extractTree(body), Some(extractTree(inv)))
 
-    case update @ ExUpdate(lhs, index, newValue) =>
-      xt.ArrayUpdate(extractTree(lhs), extractTree(index), extractTree(newValue))
-
     case ExBigIntLiteral(n: Literal) =>
       xt.IntegerLiteral(BigInt(n.value.stringValue))
 
@@ -933,11 +930,6 @@ trait CodeExtraction extends ASTExtractors {
       case _ => injectCasts(xt.Equals)(l, r)
     }
 
-    case ExArrayFill(baseType, length, defaultValue) =>
-      val lengthRec = extractTree(length)
-      val defaultValueRec = extractTree(defaultValue)
-      xt.LargeArray(Map.empty, extractTree(defaultValue), extractTree(length), extractType(baseType))
-
     case ExIfThenElse(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
 
@@ -964,8 +956,21 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
-    case aup @ ExArrayUpdated(ar, k, v) =>
-      xt.ArrayUpdated(extractTree(ar), extractTree(k), extractTree(v))
+    case ExArrayFill(baseType, length, defaultValue) =>
+      val lengthRec = extractTree(length)
+      val defaultValueRec = extractTree(defaultValue)
+      xt.LargeArray(Map.empty, extractTree(defaultValue), extractTree(length), extractType(baseType))
+
+    case ExArrayUpdate(array, index, newValue) =>
+      xt.ArrayUpdate(extractTree(array), extractTree(index), extractTree(newValue))
+
+    case ExArrayUpdated(array, index, newValue) =>
+      xt.ArrayUpdated(extractTree(array), extractTree(index), extractTree(newValue))
+
+    case ExArrayLength(array) =>
+      xt.ArrayLength(extractTree(array))
+
+    case ExArrayApply(array, index) => xt.ArraySelect(extractTree(array), extractTree(index))
 
     case l @ ExListLiteral(tpe, elems) =>
       val rtpe = extractType(tpe)
@@ -1028,11 +1033,6 @@ trait CodeExtraction extends ASTExtractors {
           case (xt.BagType(_), "&",   Seq(rhs)) => xt.BagIntersection(extractTree(lhs), extractTree(rhs))
           case (xt.BagType(_), "--",  Seq(rhs)) => xt.BagDifference(extractTree(lhs), extractTree(rhs))
           case (xt.BagType(_), "get", Seq(rhs)) => xt.MultiplicityInBag(extractTree(rhs), extractTree(lhs))
-
-          case (xt.ArrayType(_), "apply",   Seq(rhs))          => xt.ArraySelect(extractTree(lhs), extractTree(rhs))
-          case (xt.ArrayType(_), "length",  Seq())             => xt.ArrayLength(extractTree(lhs))
-          case (xt.ArrayType(_), "updated", Seq(index, value)) => xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
-          case (xt.ArrayType(_), "clone",   Seq())             => extractTree(lhs)
 
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
