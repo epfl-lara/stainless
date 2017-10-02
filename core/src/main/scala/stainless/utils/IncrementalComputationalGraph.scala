@@ -56,6 +56,9 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   /** Get a read-only version of the graph. */
   def getNodes: Map[Id, (Input, Set[Id])] = nodes.toMap map { case (id, n) => (id, n.in -> n.deps) }
 
+  /** Get the current missing nodes' identifier from the graph. */
+  def getMissing: Set[Id] = allIds.toSet -- nodes.keySet
+
 
   /******************* Customisation Points *******************************************************/
 
@@ -124,6 +127,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * identifiers, and we keep track of the mapping between identifiers and nodes in [[nodes]].
    */
   private val nodes = MutableMap[Id, Node]()
+  private val allIds = MutableSet[Id]()
 
   /* The set of nodes not yet computed, but seen. */
   private val toCompute = MutableSet[Node]()
@@ -140,6 +144,8 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * placing any node that depends on [[n]] into [[toCompute]]
    */
   private def insert(n: Node): Unit = {
+    allIds += n.id
+    allIds ++= n.deps
     nodes += n.id -> n
     if (n.compute) toCompute += n
     n.deps foreach { depId =>
@@ -151,6 +157,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
 
   /** Remove an existing node from the graph. */
   private def remove(n: Node): Unit = {
+    allIds -= n.id
     nodes -= n.id
     toCompute -= n
     reverse.values foreach { _ -= n }

@@ -382,6 +382,19 @@ trait Registry {
     }
 
     graph.freeze() // (re-)freeze for next cycle
+
+    val missings = graph.getMissing
+    if (missings.nonEmpty) {
+      graph.getNodes foreach { case (id, (node, deps)) =>
+        if ((deps & missings).nonEmpty) {
+          val unknowns = (deps & missings) map { _.uniqueName } mkString ", "
+          reporter.error(s"${id.uniqueName} depends on missing dependencies: $unknowns.")
+          reporter.debug(node)
+        }
+      }
+      reporter.internalError(s"Missing some nodes in Registry: ${missings map { _.uniqueName } mkString ", "}")
+    }
+
     res
   }
 
