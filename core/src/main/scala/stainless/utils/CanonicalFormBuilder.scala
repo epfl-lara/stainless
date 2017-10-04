@@ -29,7 +29,10 @@ class CanonicalForm(val bytes: Array[Byte]) {
 
   override def equals(other: Any): Boolean = other match {
     // Because cf.bytes == bytes doesn't work, obviously.
-    case cf: CanonicalForm => (bytes zip cf.bytes) forall { p => p._1 == p._2 }
+    case cf: CanonicalForm =>
+      (bytes.length == cf.bytes.length) &&
+      ((bytes zip cf.bytes) forall { p => p._1 == p._2 })
+
     case _ => false
   }
 }
@@ -123,12 +126,15 @@ private class CanonicalFormBuilderImpl {
   /******************* Internal Helpers ***********************************************************/
 
   /** Register a new, unique & fresh UID for the given [[id]]. */
-  private val registerId: Identifier => Unit = { id =>
+  private val registerId: Identifier => Unit = {
     var nextId: UID = 0
-    assert(nextId != -1) // waaay too many UID were used! (after wrap around)
-    val uid = nextId
-    mapping += id -> uid
-    nextId = (nextId + 1).toShort // safely wraps around, thankfully!
+    def regFn: Identifier => Unit = { id =>
+      assert(nextId != -1) // waaay too many UID were used! (after wrap around)
+      val uid = nextId
+      mapping += id -> uid
+      nextId = (nextId + 1).toShort // safely wraps around, thankfully!
+    }
+    regFn
   }
 
   /** Idem, but for Type Parameter. */
