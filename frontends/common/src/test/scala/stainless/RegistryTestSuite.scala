@@ -55,6 +55,16 @@ class RegistryTestSuite extends FunSuite {
   /** Modification events: update the given set of files with their new content & the expected symbols. */
   case class UpdateEvent(contents: Map[FileName, Content], expected: Expectation)
 
+  protected def testExtractionFailure(name: String, contents: Map[FileName, Content]): Unit = {
+    common(name, DefaultFilter, contents.keySet) { case (fileMapping, compiler, _) =>
+      writeContents(fileMapping, contents)
+      intercept[inox.FatalError] {
+        compiler.run()
+        compiler.join()
+      }
+    }
+  }
+
   /**
    * Test a scenario.
    *
@@ -66,12 +76,37 @@ class RegistryTestSuite extends FunSuite {
    *                      functions that should be re-processed.
    */
   protected def testScenario(name: String, filter: Filter,
-                             initialState: UpdateEvent, events: Seq[UpdateEvent]): Unit = test(name) {
+                             initialState: UpdateEvent, events: Seq[UpdateEvent]): Unit = {
+    common(name, filter, initialState.contents.keySet) { case (fileMapping, compiler, callback) =>
+      // Process all events
+      val allEvents = initialState +: events
+      allEvents.zipWithIndex foreach { case (event, i) =>
+        info(s"Event ${i + 1}/${allEvents.size}")
+
+        writeContents(fileMapping, event.contents)
+        compiler.run()
+        compiler.join()
+        val report = callback.popReport
+
+        if (event.expected.strict) {
+          assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
+          assert(report.classes === event.expected.classes, "Collected classes mismatch expectation (strict)")
+        } else {
+          assert((report.functions & event.expected.functions) === event.expected.functions,
+                 "Collected functions mismatch expectation")
+          assert((report.classes & event.expected.classes) === event.expected.classes,
+                 "Collected classes mismatch expectation")
+        }
+      }
+    }
+  }
+
+  private def common(name: String, filter: Filter, filenames: Set[FileName])
+                    (body: (Map[FileName, File], Frontend, MockCallBack) => Unit): Unit = test(name) {
     val basedir = Files.createTempDirectory("RegistryTestSuite").toFile
     basedir.deleteOnExit()
 
     // Create a mapping from filename to temporary File objects.
-    val filenames = initialState.contents.keySet
     val fileMapping = (filenames map { fn =>
       // NOTE filename must be at least three character long.
       val file = File.createTempFile(fn, ".scala", basedir)
@@ -85,27 +120,7 @@ class RegistryTestSuite extends FunSuite {
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
     val compiler = Main.factory(testSuiteContext, filePaths, master)
 
-    // Process all events
-    val allEvents = initialState +: events
-    allEvents.zipWithIndex foreach { case (event, i) =>
-      info(s"Event ${i + 1}/${allEvents.size}")
-
-      writeContents(fileMapping, event.contents)
-      compiler.run()
-      compiler.join()
-      val report = callback.popReport
-
-      if (event.expected.strict) {
-        assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
-        assert(report.classes === event.expected.classes, "Collected classes mismatch expectation (strict)")
-      } else {
-        assert((report.functions & event.expected.functions) === event.expected.functions,
-               "Collected functions mismatch expectation")
-        assert((report.classes & event.expected.classes) === event.expected.classes,
-               "Collected classes mismatch expectation")
-      }
-    }
-
+    body(fileMapping, compiler, callback)
   }
 
   private def writeContents(fileMapping: Map[FileName, File], contents: Map[FileName, Content]): Unit = {
@@ -324,6 +339,28 @@ class RegistryTestSuite extends FunSuite {
       )
     )
   )
+
+  val arraySeq =
+    """|import scala.collection.mutable.ArraySeq
+       |object Unsupported {
+       |  def foo[T](a: Array[T], i: Int, t: T): ArraySeq[T] = {
+       |    require(i >= 0 && i < a.length)
+       |    a.updated(i, t)
+       |  }
+       |}""".stripMargin
+
+  val classTag =
+    """|import scala.reflect.ClassTag
+       |object Unsupported {
+       |  def foo[T](a: Array[T], i: Int, t: T)(implicit m: ClassTag[T]): Array[T] = {
+       |    require(i >= 0 && i < a.length)
+       |    a.updated(i, t)
+       |  }
+       |}""".stripMargin
+
+  // Those tests make sure missing features are reported as errors when running stainless the usual way.
+  testExtractionFailure("ArraySeq not supported", Map("Unsupported" -> arraySeq))
+  testExtractionFailure("ClassTag not supported", Map("Unsupported" -> classTag))
 
 }
 

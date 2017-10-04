@@ -365,7 +365,7 @@ trait Registry {
       case Right(fd) if !(recentFunctions contains fd) => fd.id
     }
 
-    reporter.debug(s"Removing <${toRemove mkString ", "}> from graph")
+    reporter.debug(s"Removing <${toRemove map { _.uniqueName } mkString ", "}> from graph")
 
     toRemove foreach graph.remove
 
