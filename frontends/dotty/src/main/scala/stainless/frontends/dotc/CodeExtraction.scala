@@ -1010,6 +1010,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ), Seq(Apply(_, _))) if s.toString contains "Array" =>
       xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
 
+    case Select(Apply(ExSymbol("scala", "Predef$", s), Seq(lhs)), ExNamed("size"))
+         if s.toString contains "Array" =>
+      xt.ArrayLength(extractTree(lhs))
+
     case Apply(TypeApply(ExSymbol("stainless", "collection", "List$", "apply"), Seq(tpt)), args) =>
       val tpe = extractType(tpt)
       val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe))
