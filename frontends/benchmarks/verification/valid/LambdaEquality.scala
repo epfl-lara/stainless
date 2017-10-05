@@ -1,21 +1,21 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
- 
+
 import stainless.lang._
 import stainless.annotation._
 import stainless.collection._
- 
+
 object LambdaEquality {
   def app[A, B](x: A)(f: A => B): B = f(x)
 
   @induct
   def mapId[A](xs: List[A]): Boolean = {
-    xs.map(id) == xs && {
+    xs.map[A](id) == xs && {
       xs match {
         case Nil() => true
         case Cons(x, xs) =>
           mapId(xs) &&
-          id(x) :: xs.map(id) == x :: xs &&
+          id(x) :: xs.map[A](id) == x :: xs &&
           true
       }
     }
