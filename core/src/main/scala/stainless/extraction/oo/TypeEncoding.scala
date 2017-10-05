@@ -818,7 +818,12 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassConstructor(ct, args) =>
           val fd = classConstructors(ct.id)
-          t.FunctionInvocation(fd.id, Seq(), ct.tps.map(encodeType) ++ args.map(transform))
+
+          val newArgs = (fd.params.drop(ct.tps.length) zip args).map { case (vd, arg) =>
+            unifyTypes(transform(arg), transform(arg.getType), vd.tpe)
+          }
+
+          t.FunctionInvocation(fd.id, Seq(), ct.tps.map(encodeType) ++ newArgs)
 
         case s.ClassSelector(expr, id) =>
           getField(transform(expr), id)
