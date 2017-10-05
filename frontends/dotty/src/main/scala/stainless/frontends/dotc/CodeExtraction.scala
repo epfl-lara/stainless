@@ -1320,6 +1320,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type()
     case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType()
     case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
+    case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
 
     case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
     case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
@@ -1409,9 +1410,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tp: TypeVar => extractType(tp.stripTypeVar)
 
     case AnnotatedType(tpe, _) => extractType(tpe)
-
-    // @nv: we want this case to be close to the end as it otherwise interferes with other cases
-    case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
 
     case _ =>
       if (tpt ne null) {
