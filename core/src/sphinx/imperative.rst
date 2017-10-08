@@ -109,7 +109,7 @@ particular, ``updated`` returns a new copy of the array.
 .. code-block:: scala
 
   def f(a: Array[Int]): Array[Int] = {
-    a(0).updated(0, a(1))
+    a.updated(0, a(1))
   }
 
 However, using functional arrays is not the most natural way to work with
