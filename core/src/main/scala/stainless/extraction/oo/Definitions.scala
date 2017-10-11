@@ -8,7 +8,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 // Note: we can't extend `ast.Definitions` here as termination.Trees
 // extends the bounds on `type Symbols`...
-trait Definitions extends extraction.Trees { self: Trees =>
+trait Definitions extends imperative.Trees { self: Trees =>
 
   class ClassDef(
     val id: Identifier,
