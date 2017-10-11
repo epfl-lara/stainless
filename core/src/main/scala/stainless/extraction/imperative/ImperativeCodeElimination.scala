@@ -399,6 +399,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
       case (e: Assignment) => true
       case (e: While) => true
       case (e: LetVar) => true
+      case (e: Old) => true
       case _ => false
     }
 
