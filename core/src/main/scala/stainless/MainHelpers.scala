@@ -4,12 +4,11 @@ package stainless
 
 import utils.JsonUtils
 
-import scala.collection.Parallelizable
-import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks, ParIterable }
+import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks }
 import scala.concurrent.ExecutionContext
 
 import java.io.File
-import java.util.concurrent.ExecutorService
+import java.util.concurrent.{ Executors, ExecutorService }
 
 import io.circe.Json
 
@@ -18,24 +17,32 @@ object MainHelpers {
   /** See [[frontend.allComponents]]. */
   val components: Seq[Component] = frontend.allComponents
 
+  val useParallelism = !System.getProperty("os.name").toLowerCase().contains("mac")
+
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  // val executor: ExecutorService = Executors.newWorkStealingPool()
-  val executor: ExecutorService = ForkJoinTasks.defaultForkJoinPool
-
-  /**
-   * Set up a parallel collection based on the parallelizable [[collection]]
-   *
-   * The returned parallel collection used the [[MainHelpers.executor]] to dispatch
-   * & balance tasks.
-   */
-  def par[A, ParRepr <: ParIterable[A]](collection: Parallelizable[A, ParRepr]): ParRepr = {
-    val pc = collection.par
-    pc.tasksupport = new ExecutionContextTaskSupport(ExecutionContext.fromExecutorService(executor))
-    pc
+  val executor: ExecutorService = {
+    // Don't use a different parallel executor or `par` will dead lock.
+    if (useParallelism) ForkJoinTasks.defaultForkJoinPool
+    else Executors.newSingleThreadExecutor()
   }
 
+  /**
+   * Set up a parallel collection if parallelism is enabled.
+   *
+   * When parallelism is turned on, the returned parallel collection used the
+   * [[MainHelpers.executor]] to dispatch & balance tasks.
+   */
+  def par[A](collection: Seq[A]) = {
+    if (useParallelism) {
+      val pc = collection.par
+      pc.tasksupport = new ExecutionContextTaskSupport(ExecutionContext.fromExecutorService(executor))
+      pc
+    } else {
+      collection
+    }
+  }
 }
 
 trait MainHelpers extends inox.MainHelpers {
@@ -102,8 +109,12 @@ trait MainHelpers extends inox.MainHelpers {
 
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)
-    val compilerArgs = args.toList filterNot { _.startsWith("--") }
 
+    if (!MainHelpers.useParallelism) {
+      ctx.reporter.warning(s"Parallelism is disabled.")
+    }
+
+    val compilerArgs = args.toList filterNot { _.startsWith("--") }
     val compiler = frontend.build(ctx, compilerArgs, factory)
 
     // For each cylce, passively wait until the compiler has finished
