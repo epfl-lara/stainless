@@ -93,6 +93,9 @@ trait MainHelpers extends inox.MainHelpers {
     // Passively wait until the compiler has finished
     compiler.join()
 
+    // Whether verification succeeded or not
+    var success = true
+
     // When in "watch" mode, no final report is printed as there is no proper end.
     // In fact, we might not even have a full list of VCs to be checked...
     val watch = ctx.options.findOptionOrDefault(optWatch)
@@ -108,7 +111,11 @@ trait MainHelpers extends inox.MainHelpers {
     } else {
       // Process reports: print summary/export to JSON
       val reports: Seq[AbstractReport] = compiler.getReports
-      reports foreach { _.emit(ctx) }
+      reports foreach { report =>
+        report.emit(ctx) foreach { stats =>
+          if (stats.invalid > 0) success = false
+        }
+      }
 
       ctx.options.findOption(optJson) foreach { file =>
         val output = if (file.isEmpty) optJson.default else file
@@ -124,6 +131,8 @@ trait MainHelpers extends inox.MainHelpers {
     // Shutdown the pool for a clean exit.
     ctx.reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
+
+    if (success) System.exit(0) else System.exit(1)
   } catch {
     case _: inox.FatalError => System.exit(1)
   }

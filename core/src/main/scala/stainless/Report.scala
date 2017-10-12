@@ -22,9 +22,14 @@ trait AbstractReport { self =>
 
   protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
 
-  final def emit(ctx: inox.Context): Unit = emitTable match {
-    case None => ctx.reporter.info("No verification conditions were analyzed.")
-    case Some(t) => ctx.reporter.info(t.render)
+  final def emit(ctx: inox.Context): Option[ReportStats] = emitTable match {
+    case None =>
+      ctx.reporter.info("No verification conditions were analyzed.")
+      None
+
+    case Some((t, stats)) =>
+      ctx.reporter.info(t.render)
+      Some(stats)
   }
 
   def ~(other: AbstractReport) = new AbstractReport {
@@ -50,7 +55,7 @@ trait AbstractReport { self =>
 
   protected val width: Int
 
-  private def emitTable: Option[Table] = emitRowsAndStats map { case (rows, stats) =>
+  private def emitTable: Option[(Table, ReportStats)] = emitRowsAndStats map { case (rows, stats) =>
     var t = Table(s"$name summary")
     t ++= rows
     t += Separator
@@ -63,7 +68,7 @@ trait AbstractReport { self =>
       )
     ))
 
-    t
+    (t, stats)
   }
 }
 
