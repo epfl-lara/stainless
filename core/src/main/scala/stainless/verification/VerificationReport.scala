@@ -74,6 +74,8 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
 
   override val name = VerificationComponent.name
 
+  override def isSuccess = totalUnknown + totalInvalid == 0
+
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
     results sortBy { _.id } map { case Record(id, pos, time, status, solverName, kind, gen) =>
       Row(Seq(

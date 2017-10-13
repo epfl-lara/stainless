@@ -139,8 +139,10 @@ trait MainHelpers extends inox.MainHelpers {
     // Shutdown the pool for a clean exit.
     ctx.reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
+
+    System.exit(if (compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })) 0 else 1)
   } catch {
-    case _: inox.FatalError => System.exit(1)
+    case _: inox.FatalError => System.exit(2)
   }
 
   /** Exports the reports to the given file in JSON format. */

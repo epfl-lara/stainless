@@ -50,6 +50,14 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
 
   override val name: String = TerminationComponent.name
 
+  lazy val totalValid = results count { _.status.isTerminating }
+  lazy val totalValidFromCache = 0
+  lazy val totalInvalid = results count { _.status.isNonTerminating }
+  lazy val totalUnknown = results count { _.status.isUnknown }
+  lazy val totalTime = (results map { _.time }).sum
+
+  override def isSuccess = totalUnknown + totalInvalid == 0
+
   override def ~(other: TerminationReport) = {
     def updater(nextGen: Long)(r: Record) = r.copy(generation = nextGen)
     val (fused, nextGen) = AbstractReportHelper.merge(this.results, other.results, lastGen, updater)
@@ -69,13 +77,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
       Cell(f"${time / 1000d}%3.3f")
     ))
 
-    val valid = results count { _.status.isTerminating }
-    val validFromCache = 0
-    val invalid = results count { _.status.isNonTerminating }
-    val unknown = results count { _.status.isUnknown }
-    val time = (results map { _.time }).sum
-
-    val stats = ReportStats(results.size, time, valid, validFromCache, invalid, unknown)
+    val stats = ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
 
     Some((rows, stats))
   }
