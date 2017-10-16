@@ -4,8 +4,12 @@ package stainless
 
 import utils.JsonUtils
 
+import scala.collection.Parallelizable
+import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks, ParIterable }
+import scala.concurrent.ExecutionContext
+
 import java.io.File
-import java.util.concurrent.{ ExecutorService, Executors }
+import java.util.concurrent.ExecutorService
 
 import io.circe.Json
 
@@ -17,9 +21,20 @@ object MainHelpers {
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
   // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  // val executor = Executors.newWorkStealingPool(Runtime.getRuntime.availableProcessors - 2)
-  val executor: ExecutorService = Executors.newWorkStealingPool()
-  // val executor = Executors.newSingleThreadExecutor()
+  // val executor: ExecutorService = Executors.newWorkStealingPool()
+  val executor: ExecutorService = ForkJoinTasks.defaultForkJoinPool
+
+  /**
+   * Set up a parallel collection based on the parallelizable [[collection]]
+   *
+   * The returned parallel collection used the [[MainHelpers.executor]] to dispatch
+   * & balance tasks.
+   */
+  def par[A, ParRepr <: ParIterable[A]](collection: Parallelizable[A, ParRepr]): ParRepr = {
+    val pc = collection.par
+    pc.tasksupport = new ExecutionContextTaskSupport(ExecutionContext.fromExecutorService(executor))
+    pc
+  }
 
 }
 
@@ -43,7 +58,6 @@ trait MainHelpers extends inox.MainHelpers {
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),
-    verification.optParallelVCs -> Description(Verification, "Check verification conditions in parallel"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
@@ -51,7 +65,6 @@ trait MainHelpers extends inox.MainHelpers {
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    extraction.inlining.optInlinePosts -> Description(General, "Inline postconditions at call-sites"),
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
@@ -126,8 +139,10 @@ trait MainHelpers extends inox.MainHelpers {
     // Shutdown the pool for a clean exit.
     ctx.reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
+
+    System.exit(if (compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })) 0 else 1)
   } catch {
-    case _: inox.FatalError => System.exit(1)
+    case _: inox.FatalError => System.exit(2)
   }
 
   /** Exports the reports to the given file in JSON format. */

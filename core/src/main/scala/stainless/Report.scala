@@ -37,6 +37,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   /** Merge two reports, considering [[other]] to contain the latest information in case of update. */
   def ~(other: SelfType): SelfType
 
+  def isSuccess: Boolean
+
   protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
 
   final def emit(ctx: inox.Context): Unit = emitTable match {
@@ -98,6 +100,7 @@ object AbstractReportHelper {
 class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with object...
   override val name = "no-report"
   override def emitJson = Json.arr()
+  override def isSuccess = true
   override def emitRowsAndStats = None
   override def filter(ids: Set[Identifier]) = this
   override def ~(other: NoReport) = this

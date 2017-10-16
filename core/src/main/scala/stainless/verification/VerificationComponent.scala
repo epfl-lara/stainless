@@ -10,7 +10,7 @@ import scala.language.existentials
  *
  * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
  */
-object optStrictArithmetic extends inox.FlagOptionDef("strictarithmetic", false)
+object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
 
 object VerificationComponent extends SimpleComponent {
   override val name = "verification"

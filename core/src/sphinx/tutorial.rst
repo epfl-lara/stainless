@@ -10,13 +10,13 @@ This tutorial shows how to:
   * define lists as algebraic data types
   * use sets and recursive function to specify data structures
 
-See `Getting Started <gettingstarted.rst>`_ about how to setup the command line
+See :doc:`gettingstarted` about how to setup the command line
 tool.
 
 Warm-up: Max
 ------------
 
-As a warm-up illustrating verification, we define and debug a `max` function 
+As a warm-up illustrating verification, we define and debug a `max` function
 and specify its properties. Stainless uses Scala constructs
 `require` and `ensuring` to document preconditions and
 postconditions of functions. Note that, in addition to
@@ -24,7 +24,7 @@ checking these conditions at run-time (which standard Scala
 does), Stainless can analyze the specifications statically and
 prove them for *all* executions, or, if they are wrong, automatically find
 inputs for which the conditions fail. (Moreover, it can
-execute specifications alone without the code, 
+execute specifications alone without the code,
 it can do synthesis, and repair.)
 
 Consider the following definition inside of an object `TestMax`.
@@ -36,12 +36,12 @@ Consider the following definition inside of an object `TestMax`.
       val d = x - y
       if (d > 0) x
       else y
-    } ensuring(res => 
+    } ensuring(res =>
       x <= res && y <= res && (res == x || res == y))
   }
 
 A Stainless program consists of one or more modules delimited by
-`object` and `class` declarations. 
+`object` and `class` declarations.
 The code of `max` attempts to compute the maximum of two given arguments
 by subtracting them. If the result is positive, it returns
 the first one, otherwise, it returns the second one.
@@ -67,14 +67,14 @@ to. The web interface will display these results for us.
 
 The code seems to work correctly on the example values.
 However, Stainless automatically finds that it is not correct,
-showing us a counter-example inputs, such as 
+showing us a counter-example inputs, such as
 
 .. code-block:: scala
 
   x -> -1639624704
   y -> 1879048192
 
-We may wish to define a test method 
+We may wish to define a test method
 
 .. code-block:: scala
 
@@ -98,11 +98,11 @@ expected, passes all the test cases).
       val d = x - y
       if (d > 0) x
       else y
-    } ensuring(res => 
+    } ensuring(res =>
       x <= res && y <= res && (res == x || res == y))
 
 As a possibly simpler specification, we could have also
-defined the reference implementation 
+defined the reference implementation
 
 .. code-block:: scala
 
@@ -133,7 +133,7 @@ a number of algebraic properties of `max`.
   def max_lemma(x: BigInt, y: BigInt, z: BigInt): Boolean = {
     max(x,x) == x &&
     max(x,y) == max(y,x) &&
-    max(x,max(y,z)) == max(max(x,y), z) && 
+    max(x,max(y,z)) == max(max(x,y), z) &&
     max(x,y) + z == max(x + z, y + z)
   } holds
 
@@ -165,11 +165,11 @@ conditions on input, we use the `require` clause.
     val d = x - y
     if (d > 0) x
     else y
-  } ensuring (res => 
+  } ensuring (res =>
     x <= res && y <= res && (res == x || res == y))
 
 This program verifies and indeed works correctly on
-non-negative 32-bit integers as inputs.  
+non-negative 32-bit integers as inputs.
 
 **Question:** What if we restrict the inputs to `max` to be
 `a)` non-positive, or `b)` strictly negative? Modify the
@@ -184,8 +184,8 @@ Defining Lists and Their Properties
 We next consider sorting an unbounded number of elements.
 For this purpose, we define a data structure for lists of
 integers.  Stainless has a built-in data type of parametric
-lists, see `Stainless Library <library.rst>`_, but here we define
-our own variant instead. 
+lists, see :doc:`library`, but here we define
+our own variant instead.
 
 Lists
 ^^^^^
@@ -217,7 +217,7 @@ finitely many times.  A concrete list containing elements 5,
 Having defined the structure of lists, we can move on to
 define some semantic properties of lists that are of
 interests. For this purpose, we use recursive functions
-defined on lists. 
+defined on lists.
 
 Size of a List
 ^^^^^^^^^^^^^^
@@ -270,7 +270,7 @@ order.
     def isSorted(l : List) : Boolean = l match {
       case Nil => true
       case Cons(_,Nil) => true
-      case Cons(x1, Cons(x2, rest)) => 
+      case Cons(x1, Cons(x2, rest)) =>
         x1 < x2 && isSorted(Cons(x2,rest))
     }
 
@@ -346,7 +346,7 @@ of the list.
       case Cons(e, rest) if (x < e) => Cons(x, Cons(e,rest))
       case Cons(e, rest) if (x > e) => Cons(e, sInsert(x,rest))
     }
-  } ensuring {(res:List) => 
+  } ensuring {(res:List) =>
      isSorted(res) && content(res) == content(l) ++ Set(x)}
 
 To compute `content`, in this example we use sets (even

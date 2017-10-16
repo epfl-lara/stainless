@@ -6,7 +6,7 @@ package termination
 import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
-object optIgnorePosts extends inox.FlagOptionDef("ignoreposts", false)
+object optIgnorePosts extends inox.FlagOptionDef("ignore-posts", false)
 
 trait Strengthener { self: OrderingRelation =>
 

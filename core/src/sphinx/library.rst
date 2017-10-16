@@ -12,11 +12,11 @@ largely defined by the SMT-LIB standard (see
 http://www.smt-lib.org/). Thus for some data types, such as
 ``BigInt``, Stainless provides a dedicated mapping to support reasoning.
 (If you are a fan
-of growing the language only through libraries, keep in mind that 
+of growing the language only through libraries, keep in mind that
 growing operations together with the ability to reason about them
 is what the development of mathematical theories is all about, and
-is a process slower than putting together 
-libraries of unverified code--efficient automation of reasoning about a 
+is a process slower than putting together
+libraries of unverified code--efficient automation of reasoning about a
 single decidable theory generally results in multiple research papers.)
 For other operations (e.g., `List[T]`), the library
 is much like Stainless user-defined code, but specifies some
@@ -26,7 +26,7 @@ to the user.
 
 To use Stainless' libraries, you need to use the appropriate
 `import` directive at the top of Stainless' compilation units.
-Here is a quick summary of what to import. 
+Here is a quick summary of what to import.
 For the most up-to-date version of the library,
 please consult the ``library/`` directory in your Stainless
 distribution.
@@ -95,7 +95,7 @@ Stainless Lists support a rich and strongly specified API.
 +===================================================+===================================================+
 | ``size: BigInt``                                  | Number of elements in this List.                  |
 +---------------------------------------------------+---------------------------------------------------+
-| ``content: Set[T]``                               | The set of elements in this List.                 |  
+| ``content: Set[T]``                               | The set of elements in this List.                 |
 +---------------------------------------------------+---------------------------------------------------+
 | ``contains(v: T): Boolean``                       | Returns true if this List contains ``v``.         |
 +---------------------------------------------------+---------------------------------------------------+
@@ -146,7 +146,7 @@ Stainless Lists support a rich and strongly specified API.
 | ``pad(s: BigInt, e: T): List[T]``                 | Add ``s`` instances of ``e`` at the end of this   |
 |                                                   | List.                                             |
 +---------------------------------------------------+---------------------------------------------------+
-| ``find(e: T): Option[BigInt]``                    | Look for the element ``e`` in this List, and      | 
+| ``find(e: T): Option[BigInt]``                    | Look for the element ``e`` in this List, and      |
 |                                                   | optionally return its index if it is found.       |
 +---------------------------------------------------+---------------------------------------------------+
 | ``init: List[T]``                                 | Return this List except for the last element.     |
@@ -186,11 +186,11 @@ Stainless Lists support a rich and strongly specified API.
 | ``map[R](f: T => R): List[R]``                    | Builds a new List by applying a predicate ``f``   |
 |                                                   | to all elements of this list.                     |
 +---------------------------------------------------+---------------------------------------------------+
-| ``foldLeft[R](z: R)(f: (R,T) => R): R``           | Applies the binary operator ``f`` to a start value| 
+| ``foldLeft[R](z: R)(f: (R,T) => R): R``           | Applies the binary operator ``f`` to a start value|
 |                                                   | ``z`` and all elements of this List, going left   |
 |                                                   | to right.                                         |
 +---------------------------------------------------+---------------------------------------------------+
-| ``foldRight[R](f: (T,R) => R)(z: R): R``          | Applies a binary operator ``f`` to all elements of|  
+| ``foldRight[R](f: (T,R) => R)(z: R): R``          | Applies a binary operator ``f`` to all elements of|
 |                                                   | this list and a start value ``z``, going right to |
 |                                                   | left.                                             |
 +---------------------------------------------------+---------------------------------------------------+
@@ -246,28 +246,28 @@ The object ``ListOps`` offers this additional operations:
 Theorems on Lists
 *****************
 
-The following theorems on Lists have been proven by Stainless and are included 
+The following theorems on Lists have been proven by Stainless and are included
 in the object ``ListSpecs``:
 
 +---------------------------------------------------------------+--------------------------------------------------------+
 | Theorem signature                                             | Proven Claim                                           |
 +===============================================================+========================================================+
-| ``snocIndex[T](l : List[T], t : T, i : BigInt)``              | ``(l :+ t).apply(i) == (if (i < l.size) l(i) else t)`` |
+| ``snocIndex[T](l: List[T], t: T, i: BigInt)``                 | ``(l :+ t).apply(i) == (if (i < l.size) l(i) else t)`` |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``reverseIndex[T](l : List[T], i : BigInt)``                  | ``l.reverse.apply(i) == l.apply(l.size - 1 - i)``      |
+| ``reverseIndex[T](l: List[T], i: BigInt)``                    | ``l.reverse.apply(i) == l.apply(l.size - 1 - i)``      |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``appendIndex[T](l1 : List[T], l2 : List[T], i : BigInt)``    | ``(l1 ++ l2).apply(i) ==``                             |
+| ``appendIndex[T](l1: List[T], l2: List[T], i: BigInt)``       | ``(l1 ++ l2).apply(i) ==``                             |
 |                                                               | ``(if (i < l1.size) l1(i) else l2(i - l1.size))``      |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``appendAssoc[T](l1 : List[T], l2 : List[T], l3 : List[T])``  | ``((l1 ++ l2) ++ l3) == (l1 ++ (l2 ++ l3))``           |
+| ``appendAssoc[T](l1: List[T], l2: List[T], l3: List[T])``     | ``((l1 ++ l2) ++ l3) == (l1 ++ (l2 ++ l3))``           |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocIsAppend[T](l : List[T], t : T)``                       | ``(l :+ t) == l ++ Cons[T](t, Nil())``                 |
+| ``snocIsAppend[T](l: List[T], t: T)``                         | ``(l :+ t) == l ++ Cons[T](t, Nil())``                 |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocAfterAppend[T](l1 : List[T], l2 : List[T], t : T)``     | ``(l1 ++ l2) :+ t == (l1 ++ (l2 :+ t))``               |
+| ``snocAfterAppend[T](l1: List[T], l2: List[T], t: T)``        | ``(l1 ++ l2) :+ t == (l1 ++ (l2 :+ t))``               |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``snocReverse[T](l : List[T], t : T)``                        | ``(l :+ t).reverse == Cons(t, l.reverse)``             |
+| ``snocReverse[T](l: List[T], t: T)``                          | ``(l :+ t).reverse == Cons(t, l.reverse)``             |
 +---------------------------------------------------------------+--------------------------------------------------------+
-| ``reverseReverse[T](l : List[T])``                            | ``l.reverse.reverse == l``                             |
+| ``reverseReverse[T](l: List[T])``                             | ``l.reverse.reverse == l``                             |
 +---------------------------------------------------------------+--------------------------------------------------------+
 | ``scanVsFoldRight[A,B](l: List[A], z: B, f: (A,B) => B)``     | ``l.scanRight(f)(z).head == l.foldRight(f)(z)``        |
 +---------------------------------------------------------------+--------------------------------------------------------+
@@ -282,7 +282,7 @@ Methods of these classes are mapped to specialized trees within SMT solvers.
 For code generation, we rely on Java Sets and Maps.
 
 The API of these classes is a subset of the Scala API and can be found
-in the `Pure Scala <purescala.rst>`_ section.
+in the :doc:`purescala` section.
 
 Additionally, the following functions for Sets are provided in the
 ``stainless.collection`` package:

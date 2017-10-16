@@ -17,7 +17,7 @@ import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 case class CompilationException(msg: String) extends Exception(msg)
 
 object optInstrumentFields extends inox.FlagOptionDef("instrument", false)
-object optSmallArrays extends inox.FlagOptionDef("smallarrays", false)
+object optSmallArrays extends inox.FlagOptionDef("small-arrays", false)
 
 trait CodeGeneration { self: CompilationUnit =>
   import context._
