@@ -96,7 +96,11 @@ trait Definitions extends imperative.Trees { self: Trees =>
 
   type Symbols >: Null <: AbstractSymbols
 
-  trait AbstractSymbols extends super.AbstractSymbols with TypeOps { self0: Symbols =>
+  trait AbstractSymbols
+    extends super.AbstractSymbols
+       with TypeOps
+       with SymbolOps { self0: Symbols =>
+
     val classes: Map[Identifier, ClassDef]
 
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
