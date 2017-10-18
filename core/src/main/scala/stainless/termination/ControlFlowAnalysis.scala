@@ -328,16 +328,18 @@ trait CICFA {
           (tval ++ eval, condesc ++ tesc ++ eesc)
 
         case MatchExpr(scrut, cases) =>
+          import Path.{ CloseBound, OpenBound, Condition }
           var resenv: AbsEnv = emptyEnv
           val absres = for (cse <- cases) yield {
             val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
             val realCond = patCond withConds cse.optGuard.toSeq
             val rhsIn = realCond.elements.foldLeft(in) {
-              case (in, Left((vd, e))) =>
+              case (in, CloseBound(vd, e)) =>
                 val (res, resc) = rec(e, in)
                 resenv ++= resc
                 AbsEnv(in.store + (vd.toVariable -> res))
-              case (in, Right(cond)) =>
+              case (in, OpenBound(vd)) => ??? // FIXME just return in?
+              case (in, Condition(cond)) =>
                 val (res, resc) = rec(cond, in)
                 resenv ++= resc
                 in
