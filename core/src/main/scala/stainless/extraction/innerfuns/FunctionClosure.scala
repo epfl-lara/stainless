@@ -100,7 +100,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       //println("call graph: " + callGraph)
 
       def freeVars(fd: LocalFunDef, pc: Path): Set[Variable] =
-        exprOps.variablesOf(fd.body) ++ pc.variables ++ pc.bindings.map(_._1.toVariable)
+        exprOps.variablesOf(fd.body) ++ pc.freeVariables ++ (pc.bounds.map { _.toVariable }) // FIXME not sure this was really computing free variables.
 
       // All free variables one should include.
       // Contains free vars of the function itself plus of all transitively called functions.
