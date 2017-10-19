@@ -13,4 +13,11 @@ object StaticChecks {
   @library
   implicit def any2Ensuring[A](x: A): Ensuring[A] = Ensuring(x)
 
+  @library
+  def require(pred: Boolean): Unit = ()
+
+  @library
+  def assert(pred: Boolean): Unit = ()
+
 }
+
