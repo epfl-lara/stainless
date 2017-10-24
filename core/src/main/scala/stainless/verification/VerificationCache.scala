@@ -75,7 +75,7 @@ trait VerificationCache extends VerificationChecker { self =>
   }
 
   private val cacheFile: File = utils.Caches.getCacheFile(context, "vccache.bin")
-  private val vccache: Cache = CacheLoader.get(cacheFile)
+  private val vccache: Cache = CacheLoader.get(context, cacheFile)
 
   private def contains(p: (Symbols, Expr)) = vccache contains serialize(p)
   private def add(p: (Symbols, Expr)) = vccache addPersistently serialize(p)
@@ -127,26 +127,52 @@ private object CacheLoader {
   private val db = scala.collection.mutable.Map[File, Cache]()
 
   /**
+   * Opens an ObjectInputStream and catches corruption errors
+   */
+  def openStream(ctx: inox.Context, file: File): Option[ObjectInputStream] = {
+    try Some(new ObjectInputStream(new FileInputStream(file)))
+    catch {
+      case e: java.io.StreamCorruptedException =>
+        ctx.reporter.warning(s"The cache file '$file' is corrupt. Please delete it.")
+        None
+    }
+  } 
+
+  /**
+   * Closes an ObjectInputStream and catches potential IO errors
+   */
+  def closeStream(ctx: inox.Context, ois: ObjectInputStream, file: File) = {
+    try ois.close()
+    catch {
+      case e: java.io.IOException =>
+        ctx.reporter.warning(s"Could not close ObjectInputStream of $file properly.")
+    }
+  } 
+
+
+
+  /**
    * Create a cache with the data stored in the given file if it exists.
    *
    * NOTE This function assumes the file is not written by another process
    *      while being loaded!
    */
-  def get(cacheFile: File): Cache = this.synchronized {
+  def get(ctx: inox.Context, cacheFile: File): Cache = this.synchronized {
     db.getOrElseUpdate(cacheFile, {
       val cache = new Cache(cacheFile)
 
       if (cacheFile.exists) {
-        val ois = new ObjectInputStream(new FileInputStream(cacheFile))
+        val ois: Option[ObjectInputStream] = openStream(ctx, cacheFile)
+
         try {
-          while (true) {
-            val s = ois.readObject.asInstanceOf[String]
+          while (ois != None) {
+            val s = ois.get.readObject.asInstanceOf[String]
             cache += s
           }
         } catch {
           case e: java.io.EOFException => // Silently consume expected exception.
         } finally {
-          ois.close()
+          ois.foreach(closeStream(ctx,_,cacheFile))
         }
       }
 
