@@ -65,13 +65,13 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 }
 
 object AbstractReportHelper {
-  trait Record { val id: Identifier }
+  trait Record { val derivedFrom: Identifier }
 
   /**
    * Keep records which `id` are present in [[ids]], and returns the next generation counter.
    */
   def filter[R <: Record](records: Seq[R], ids: Set[Identifier], lastGen: Long): (Seq[R], Long) =
-    (records filter { ids contains _.id }, lastGen + 1)
+    (records filter { ids contains _.derivedFrom }, lastGen + 1)
 
   /**
    * Merge two sets of records [[R]] into one, and returns the next generation counter.
@@ -80,7 +80,7 @@ object AbstractReportHelper {
    * The [[updater0]] function takes as first parameter the next generation counter.
    */
   def merge[R <: Record](prevs: Seq[R], news: Seq[R], lastGen: Long, updater0: Long => R => R): (Seq[R], Long) = {
-    def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.id }
+    def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.derivedFrom }
 
     val prev = buildMapping(prevs)
     val next0 = buildMapping(news)
