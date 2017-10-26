@@ -30,6 +30,7 @@ object TerminationReport {
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, verdict: String, kind: String,
+    derivedFrom: Identifier,
     generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
   ) extends AbstractReportHelper.Record
 
@@ -70,7 +71,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
   }
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-    val rows = for { Record(id, pos, time, status, verdict, kind, gen) <- results } yield Row(Seq(
+    val rows = for { Record(id, pos, time, status, verdict, kind, _, gen) <- results } yield Row(Seq(
       Cell(if (gen == lastGen) "NEW" else ""),
       Cell(id.name),
       Cell((if (status.isTerminating) "\u2713" else "\u2717") + " " + verdict),

@@ -48,6 +48,7 @@ object VerificationReport {
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String,
+    derivedFrom: Identifier,
     generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
   ) extends AbstractReportHelper.Record
 
@@ -77,7 +78,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
   override def isSuccess = totalUnknown + totalInvalid == 0
 
   override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
-    results sortBy { _.id } map { case Record(id, pos, time, status, solverName, kind, gen) =>
+    results sortBy { _.id } map { case Record(id, pos, time, status, solverName, kind, _, gen) =>
       Row(Seq(
         Cell(if (gen == lastGen) "NEW" else ""),
         Cell(id),

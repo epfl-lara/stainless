@@ -14,6 +14,17 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees.exprOps._
   import symbols._
 
+  /**
+   * Get the source of this function
+   *
+   * i.e. either its identifier or the identifier of its (recursively) outer function.
+   *
+   * NOTE no need to actually recurse here as [[Derived]] already
+   *      holds the requested data.
+   */
+  def source(fd: FunDef): Identifier =
+    fd.flags collectFirst { case Derived(id) => id } getOrElse fd.id
+
   override protected def createSimplifier(opts: inox.solvers.PurityOptions) =
     new SimplifierWithPC(opts) with transformers.SimplifierWithPC
 
