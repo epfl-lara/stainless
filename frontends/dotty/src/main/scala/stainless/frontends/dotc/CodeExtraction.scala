@@ -1322,6 +1322,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
     case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
 
+    // `isRef` seems to be needed here instead of `==`, as the latter
+    // seems to be too lax, and makes the whole test suite fail. - @romac
+    case tpe if tpe.isRef(defn.AnyClass)            => xt.AnyType()
+
     case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
     case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
     case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
