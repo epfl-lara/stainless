@@ -167,7 +167,11 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
   private def generateProblems(funDef: FunDef): Seq[Problem] = {
     val funDefs = transitiveCallees(funDef) + funDef
-    val pairs = allCalls.filter { case (fd1, fd2) => funDefs(fd1) && funDefs(fd2) }
+    val pairs = allCalls.flatMap { case (id1, id2) =>
+      val (fd1, fd2) = (symbols.getFunction(id1), symbols.getFunction(id2))
+      if (funDefs(fd1) && funDefs(fd2)) Some(fd1 -> fd2) else None
+    }
+
     val callGraph = pairs.groupBy(_._1).mapValues(_.map(_._2))
     val allComponents = inox.utils.SCC.scc(callGraph)
 
