@@ -129,12 +129,11 @@ private object CacheLoader {
   /**
    * Opens an ObjectInputStream and catches corruption errors
    */
-  def openStream(ctx: inox.Context, file: File): Option[ObjectInputStream] = {
-    try Some(new ObjectInputStream(new FileInputStream(file)))
+  def openStream(ctx: inox.Context, file: File): ObjectInputStream = {
+    try new ObjectInputStream(new FileInputStream(file))
     catch {
       case e: java.io.StreamCorruptedException =>
-        ctx.reporter.warning(s"The cache file '$file' is corrupt. Please delete it.")
-        None
+        ctx.reporter.fatalError(s"The cache file '$file' is corrupt. Please delete it.")
     }
   } 
 
@@ -145,7 +144,7 @@ private object CacheLoader {
     try ois.close()
     catch {
       case e: java.io.IOException =>
-        ctx.reporter.warning(s"Could not close ObjectInputStream of $file properly.")
+        ctx.reporter.error(s"Could not close ObjectInputStream of $file properly.")
     }
   } 
 
@@ -162,17 +161,17 @@ private object CacheLoader {
       val cache = new Cache(cacheFile)
 
       if (cacheFile.exists) {
-        val ois: Option[ObjectInputStream] = openStream(ctx, cacheFile)
+        val ois = openStream(ctx, cacheFile)
 
         try {
-          while (ois != None) {
-            val s = ois.get.readObject.asInstanceOf[String]
+          while (true) {
+            val s = ois.readObject.asInstanceOf[String]
             cache += s
           }
         } catch {
           case e: java.io.EOFException => // Silently consume expected exception.
         } finally {
-          ois.foreach(closeStream(ctx,_,cacheFile))
+          closeStream(ctx,ois,cacheFile)
         }
       }
 
