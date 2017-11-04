@@ -84,7 +84,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   }
 
   private val problems = new PriorityQueue[(Problem, Int)]
-  def running = problems.nonEmpty
+  private var running: Boolean = false
 
   private val clearedMap     : MutableMap[FunDef, String]                   = MutableMap.empty
   private val brokenMap      : MutableMap[FunDef, (String, NonTerminating)] = MutableMap.empty
@@ -130,39 +130,29 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     reporter.debug(sb.toString)
   }
 
-  private val terminationMap : MutableMap[FunDef, TerminationGuarantee] = MutableMap.empty
-  def terminates(funDef: FunDef): TerminationGuarantee = {
-    val guarantee = {
-      terminationMap.get(funDef) orElse
-      brokenMap.get(funDef).map(_._2) getOrElse {
-        val callees = transitiveCallees(funDef)
-        val broken = brokenMap.keys.toSet
-        val brokenCallees = callees intersect broken
-        if (brokenCallees.nonEmpty) {
-          CallsNonTerminating(brokenCallees)
-        } else if (isProblem(funDef)) {
-          NoGuarantee
-        } else {
-          clearedMap.get(funDef).map(Terminates).getOrElse(
-            if (interrupted) {
-              NoGuarantee
-            } else if (!running) {
-              val verified = verifyTermination(funDef)
-              for (fd <- verified) terminates(fd) // fill in terminationMap
-              terminates(funDef)
-            } else {
-              if (!dependencies.exists(_.contains(funDef))) {
-                dependencies ++= generateProblems(funDef)
-              }
-              NoGuarantee
-            }
-          )
-        }
+  private val terminationCache : MutableMap[FunDef, TerminationGuarantee] = MutableMap.empty
+  def terminates(fd: FunDef): TerminationGuarantee = terminationCache.get(fd) match {
+    case Some(guarantee) => guarantee
+    case None =>
+      val callees = transitiveCallees(fd)
+      val guarantee: TerminationGuarantee = if (brokenMap contains fd) {
+        brokenMap(fd)._2
+      } else if ((callees intersect brokenMap.keySet).nonEmpty) {
+        CallsNonTerminating(callees intersect brokenMap.keySet)
+      } else if (isProblem(fd)) {
+        NoGuarantee
+      } else if (clearedMap contains fd) {
+        Terminates(clearedMap(fd))
+      } else if (interrupted) {
+        NoGuarantee
+      } else if (running) {
+        dependencies ++= generateProblems(fd)
+        NoGuarantee
+      } else {
+        runPipeline(fd)
       }
-    }
-
-    if (!running) terminationMap(funDef) = guarantee
-    guarantee
+      if (!running) terminationCache(fd) = guarantee
+      guarantee
   }
 
   private def generateProblems(funDef: FunDef): Seq[Problem] = {
@@ -180,17 +170,16 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     }
 
     for (fd <- funDefs -- problemComponents.toSet.flatten) clearedMap(fd) = "Non-recursive"
-    val newProblems = problemComponents.filter(fds => fds.forall { fd => !terminationMap.isDefinedAt(fd) })
+    val newProblems = problemComponents.filter(fds => fds.forall { fd => !terminationCache.isDefinedAt(fd) })
     newProblems.map(fds => Problem(fds.toSeq))
   }
 
-  def verifyTermination(funDef: FunDef): Set[FunDef] = {
-    reporter.debug("Verifying termination of " + funDef.id)
-    val terminationProblems = generateProblems(funDef)
-    problems ++= terminationProblems.map(_ -> 0)
+  private def runPipeline(fd: FunDef): TerminationGuarantee = {
+    reporter.debug("Running termination pipeline for " + fd.id)
+    problems ++= generateProblems(fd).map(_ -> 0)
 
     val it = new Iterator[(String, List[Result])] {
-      def hasNext : Boolean      = running
+      def hasNext : Boolean      = problems.nonEmpty
       def next()  : (String, List[Result]) = {
         printQueue()
         val (problem, index) = problems.head
@@ -223,6 +212,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       }
     }
 
+    running = true
     for ((reason, results) <- it; result <- results if !interrupted) result match {
       case Cleared(fd) =>
         reporter.info(s"Result for ${fd.id}")
@@ -233,9 +223,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
         reporter.info(s" => BROKEN ($reason) -> $msg")
         brokenMap(fd) = (reason, msg)
     }
-
-    val verified = terminationProblems.flatMap(_.funDefs).toSet.filter(!isProblem(_))
-    problems.clear()
-    verified
+    running = false
+    terminates(fd)
   }
 }
