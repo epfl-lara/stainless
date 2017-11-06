@@ -119,14 +119,14 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
       val newFd = fd.copy(returnType = effects.getReturnType(fd))
 
+      val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
+
       if (aliasedParams.isEmpty) {
-        val (pre, body, post) = exprOps.breakDownSpecs(fd.fullBody)
         val newBody = body.map(makeSideEffectsExplicit(_, fd, env))
-        val newFullBody = exprOps.reconstructSpecs(pre, newBody, post, newFd.returnType)
+        val newFullBody = exprOps.reconstructSpecs(specs, newBody, newFd.returnType)
         if (!newFullBody.getPos.isDefined) newFullBody.setPos(newFd)
         newFd.copy(fullBody = newFullBody)
       } else {
-        val (pre, body, post) = exprOps.breakDownSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
         val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
 
@@ -143,21 +143,23 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
           }
         }
 
-        val newPost = post.map { post =>
-          val Lambda(Seq(res), postBody) = post
-          val newRes = ValDef(res.id.freshen, newFd.returnType, Set.empty).copiedFrom(res)
-          val newBody = exprOps.replaceSingle(
-            aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
-            aliasedParams.zipWithIndex.map { case (vd, i) =>
-              (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
-            }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
-            postBody
-          )
+        val newSpecs = specs.map {
+          case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
+            val newRes = ValDef(res.id.freshen, newFd.returnType, Set.empty).copiedFrom(res)
+            val newBody = exprOps.replaceSingle(
+              aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
+              aliasedParams.zipWithIndex.map { case (vd, i) =>
+                (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
+              }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
+              postBody
+            )
 
-          Lambda(Seq(newRes), newBody).copiedFrom(post)
+            exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
+
+          case spec => spec
         }
 
-        newFd.copy(fullBody = exprOps.reconstructSpecs(pre, newBody, newPost, newFd.returnType))
+        newFd.copy(fullBody = exprOps.reconstructSpecs(newSpecs, newBody, newFd.returnType))
       }
     }
 

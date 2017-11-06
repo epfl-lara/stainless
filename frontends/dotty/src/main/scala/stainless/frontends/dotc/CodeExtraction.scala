@@ -875,17 +875,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case Inlined(_, members, body) =>
       val block = extractBlock(members :+ body)
-      val (pre, expr, post) = xt.exprOps.breakDownSpecs(block)
+      val expr = xt.exprOps.withoutSpecs(block)
       val uncheckedBody = expr match {
         case None => outOfSubsetError(tr, "Can't inline empty body")
         case Some(expr) => xt.annotated(expr, xt.Unchecked)
       }
 
+      val pre = xt.exprOps.preconditionOf(block)
       def addPre(e: xt.Expr) = pre match {
         case None => e
         case Some(pre) => xt.Assert(pre, Some("Inlined precondition"), e).copiedFrom(e)
       }
 
+      if (xt.exprOps.measureOf(block).isDefined) {
+        outOfSubsetError(tr, "No measure should be specified on inlined functions")
+      }
+
+      val post = xt.exprOps.postconditionOf(block)
       def addPost(e: xt.Expr) = post match {
         case None => e
         case Some(xt.Lambda(Seq(vd), post)) =>

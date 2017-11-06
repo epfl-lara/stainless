@@ -67,7 +67,7 @@ trait EffectsAnalysis {
   private lazy val effects: Map[FunAbstraction, Set[Variable]] = {
     inox.utils.fixpoint { (effects: Map[FunAbstraction, Set[Variable]]) =>
       effects.keys.map(fd => fd -> {
-        exprOps.withoutSpec(fd.fullBody).map(body => expressionEffects(body, effects)).getOrElse(Set.empty)
+        exprOps.withoutSpecs(fd.fullBody).map(body => expressionEffects(body, effects)).getOrElse(Set.empty)
       }).toMap
     } ((outers ++ inners).map(fd => fd -> Set.empty[Variable]).toMap)
   }

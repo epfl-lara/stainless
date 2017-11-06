@@ -29,6 +29,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     def getType(implicit s: Symbols): Type = tpe
   }
 
+
   /** Precondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *require*
     *
     * @param pred The precondition formula inside ``require(...)``

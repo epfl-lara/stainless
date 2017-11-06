@@ -28,7 +28,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
     def getBody(tfd: TypedFunDef): Option[Expr] =
-      bodyCache.getOrElseUpdate(tfd, exprOps.withoutSpec(tfd.fullBody))
+      bodyCache.getOrElseUpdate(tfd, exprOps.withoutSpecs(tfd.fullBody))
 
     private[this] val preCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getPrecondition(fd: FunDef): Option[Expr] = getPrecondition(fd.typed)

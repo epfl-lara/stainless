@@ -154,18 +154,20 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
             Set.empty
           ).copiedFrom(wh)
 
-          val newBody = Some(IfExpr(cond,
+          val newBody = IfExpr(cond,
             Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
-            UnitLiteral().copiedFrom(wh)).copiedFrom(wh))
-          val newPost = Some(Lambda(
+            UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+
+          val newPost = Lambda(
             Seq(ValDef(FreshIdentifier("bodyRes"), UnitType().copiedFrom(wh), Set.empty).copiedFrom(wh)),
             and(
               Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
               optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
             ).copiedFrom(wh)
-          ).copiedFrom(wh))
+          ).copiedFrom(wh)
 
-          val fullBody = Lambda(Seq.empty, reconstructSpecs(optInv, newBody, newPost, UnitType().copiedFrom(wh))).copiedFrom(wh)
+          val fullBody = Lambda(Seq.empty,
+            withPostcondition(withPrecondition(newBody, optInv).copiedFrom(wh), Some(newPost)).copiedFrom(wh))
           val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
           toFunction(newExpr)
 
@@ -239,14 +241,14 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         case LetRec(Seq(fd), b) =>
           val inner = Inner(fd)
-          val (pre, body, post) = breakDownSpecs(inner.fullBody)
+          val (specs, body) = deconstructSpecs(inner.fullBody)
 
           def fdWithoutSideEffects = {
             val newBody = body.map { bd =>
               val (fdRes, fdScope, _) = toFunction(bd)
               fdScope(fdRes)
             }
-            val newFd = inner.copy(fullBody = reconstructSpecs(pre, newBody, post, inner.returnType))
+            val newFd = inner.copy(fullBody = reconstructSpecs(specs, newBody, inner.returnType))
             val (bodyRes, bodyScope, bodyFun) = toFunction(b)
             (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).setPos(fd).copiedFrom(expr), bodyFun)
           }
@@ -301,32 +303,32 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
                 val newReturnType = TupleType(inner.returnType +: modifiedVars.map(_.tpe))
 
-                val newPre = pre.map { pre =>
-                  val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, pre)
-                  //still apply recursively to update all function invocation
-                  val (res, scope, _) = toFunction(fresh)
-                  scope(res)
-                }
+                val newSpecs = specs.map {
+                  case Postcondition(post @ Lambda(Seq(res), postBody)) =>
+                    val newRes = ValDef(res.id.freshen, newReturnType, Set.empty)
 
-                val newPost = post.map { post =>
-                  val Lambda(Seq(res), postBody) = post
-                  val newRes = ValDef(res.id.freshen, newReturnType, Set.empty)
+                    val newBody = replaceSingle(
+                      modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++
+                      modifiedVars.zipWithIndex.map { case (v, i) => 
+                        (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
+                      }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
+                      postBody
+                    )
 
-                  val newBody = replaceSingle(
-                    modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++
-                    modifiedVars.zipWithIndex.map { case (v, i) => 
-                      (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
-                    }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
-                    postBody
-                  )
+                    val (r, scope, _) = toFunction(newBody)
+                    Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
 
-                  val (r, scope, _) = toFunction(newBody)
-                  Lambda(Seq(newRes), scope(r)).setPos(post)
+                  case spec => spec.map { cond =>
+                    val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
+                    //still apply recursively to update all function invocation
+                    val (res, scope, _) = toFunction(fresh)
+                    scope(res)
+                  }
                 }
 
                 val newFd = inner.copy(
                   params = newParams,
-                  fullBody = reconstructSpecs(newPre, Some(newBody), newPost, newReturnType),
+                  fullBody = reconstructSpecs(newSpecs, Some(newBody), newReturnType),
                   returnType = newReturnType
                 )
 
@@ -402,22 +404,26 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
     val newFds = for (fd <- syms.functions.values) yield {
       if (!exprOps.exists(requireRewriting)(fd.fullBody)) fd else {
-        val (pre, body, post) = exprOps.breakDownSpecs(fd.fullBody)
+        val (specs, body) = deconstructSpecs(fd.fullBody)
+
+        val newSpecs = specs.map {
+          //probably not the cleanest way to do it, but if somehow we still have Old
+          //expressions at that point, they can be safely removed as the object is
+          //equals to its original value
+          case Postcondition(post) => Postcondition(exprOps.postMap {
+            case Old(e) => Some(e)
+            case _ => None
+          }(post).asInstanceOf[Lambda])
+
+          case spec => spec
+        }
 
         val newBody = body.map { body =>
           val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
           scope(res)
         }
 
-        //probably not the cleanest way to do it, but if somehow we still have Old
-        //expressions at that point, they can be safely removed as the object is
-        //equals to its original value
-        val newPost = post.map(post => exprOps.postMap {
-          case Old(e) => Some(e)
-          case _ => None
-        }(post).asInstanceOf[Lambda])
-
-        fd.copy(fullBody = exprOps.reconstructSpecs(pre, newBody, newPost, fd.returnType))
+        fd.copy(fullBody = reconstructSpecs(newSpecs, newBody, fd.returnType))
       }
     }
 

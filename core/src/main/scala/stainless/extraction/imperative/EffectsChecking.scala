@@ -18,7 +18,7 @@ trait EffectsChecking { self =>
       checkEffectsLocations(fd)
 
       val bindings = vds ++ fd.params
-      exprOps.withoutSpec(fd.fullBody).foreach { bd =>
+      exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
 
         // check return value
         effects.getReturnedExpressions(bd).foreach { expr =>
@@ -88,53 +88,52 @@ trait EffectsChecking { self =>
     }
 
 
-    def checkEffectsLocations(fd: FunAbstraction): Unit = {
-      exprOps.postconditionOf(fd.fullBody).foreach { case post @ Lambda(vds, body) =>
-        val bodyEffects = effects(body)
-        if (bodyEffects.nonEmpty)
-          throw ImperativeEliminationException(post.getPos, "Postcondition has effects on: " + bodyEffects.head)
-      }
-
-      exprOps.preconditionOf(fd.fullBody).foreach { pre =>
+    def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
+      case Require(pre, _) =>
         val preEffects = effects(pre)
         if (preEffects.nonEmpty)
           throw ImperativeEliminationException(pre.getPos, "Precondition has effects on: " + preEffects.head)
-      }
 
-      exprOps.withoutSpec(fd.fullBody).foreach { body =>
-        exprOps.preTraversal {
-          case Assert(pred, _, _) =>
-            val predEffects = effects(pred)
-            if (predEffects.nonEmpty)
-              throw ImperativeEliminationException(pred.getPos, "Assertion has effects on: " + predEffects.head)
+      case Ensuring(_, post @ Lambda(_, body)) =>
+        val bodyEffects = effects(body)
+        if (bodyEffects.nonEmpty)
+          throw ImperativeEliminationException(post.getPos, "Postcondition has effects on: " + bodyEffects.head)
 
-          case wh @ While(_, _, Some(invariant)) =>
-            val invEffects = effects(invariant) 
-            if (invEffects.nonEmpty)
-              throw ImperativeEliminationException(invariant.getPos, "Loop invariant has effects on: " + invEffects.head)
+      case Decreases(meas, _) =>
+        val measEffects = effects(meas)
+        if (measEffects.nonEmpty)
+          throw ImperativeEliminationException(meas.getPos, "Decreases has effects on: " + measEffects.head)
 
-          case m @ MatchExpr(_, cses) =>
-            cses.foreach { cse =>
-              cse.optGuard.foreach { guard =>
-                val guardEffects = effects(guard)
-                if (guardEffects.nonEmpty)
-                  throw ImperativeEliminationException(guard.getPos, "Pattern guard has effects on: " + guardEffects.head)
-              }
+      case Assert(pred, _, _) =>
+        val predEffects = effects(pred)
+        if (predEffects.nonEmpty)
+          throw ImperativeEliminationException(pred.getPos, "Assertion has effects on: " + predEffects.head)
 
-              patternOps.preTraversal {
-                case up: UnapplyPattern =>
-                  val upEffects = effects(Outer(up.tfd.fd))
-                  if (upEffects.nonEmpty)
-                    throw ImperativeEliminationException(up.getPos, "Pattern unapply has effects on: " + upEffects.head)
+      case wh @ While(_, _, Some(invariant)) =>
+        val invEffects = effects(invariant) 
+        if (invEffects.nonEmpty)
+          throw ImperativeEliminationException(invariant.getPos, "Loop invariant has effects on: " + invEffects.head)
 
-                case _ => ()
-              }(cse.pattern)
-            }
+      case m @ MatchExpr(_, cses) =>
+        cses.foreach { cse =>
+          cse.optGuard.foreach { guard =>
+            val guardEffects = effects(guard)
+            if (guardEffects.nonEmpty)
+              throw ImperativeEliminationException(guard.getPos, "Pattern guard has effects on: " + guardEffects.head)
+          }
 
-          case _ => ()
-        }(body)
-      }
-    }
+          patternOps.preTraversal {
+            case up: UnapplyPattern =>
+              val upEffects = effects(Outer(up.tfd.fd))
+              if (upEffects.nonEmpty)
+                throw ImperativeEliminationException(up.getPos, "Pattern unapply has effects on: " + upEffects.head)
+
+            case _ => ()
+          }(cse.pattern)
+        }
+
+      case _ => ()
+    }(fd.fullBody)
 
 
     /* A fresh expression is an expression that is newly created

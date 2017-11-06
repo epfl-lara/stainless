@@ -1041,29 +1041,23 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         val returnType = scope.transform(fd.returnType)
 
-        val (pre, body, post) = s.exprOps.breakDownSpecs(fd.fullBody)
+        val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(symbols)
 
-        val newPre = t.andJoin(
-          pre.map(scope.transform(_)).toSeq ++
-          tparamConds ++
-          paramConds
-        ) match {
-          case t.BooleanLiteral(true) => None
-          case cond => Some(cond)
-        }
+        val newSpecs = specs.map {
+          case s.exprOps.Precondition(pre) =>
+            t.exprOps.Precondition(t.andJoin(
+              (scope.transform(pre) +: tparamConds) ++ paramConds
+            ))
 
-        val newPost = {
-          val Lambda(Seq(res), body) = post.map(scope.transform(_)).getOrElse(\("res" :: returnType)(_ => E(true)))
-          val returnCond = if (isObject(fd.returnType)) {
-            instanceOf(res.toVariable, encodeType(fd.returnType))
-          } else {
-            E(true)
-          }
+          case s.exprOps.Postcondition(post) =>
+            val Lambda(Seq(res), body) = scope.transform(post)
+            t.exprOps.Postcondition(Lambda(Seq(res), and(body, if (isObject(fd.returnType)) {
+              instanceOf(res.toVariable, encodeType(fd.returnType).copiedFrom(post)).copiedFrom(post)
+            } else {
+              E(true).copiedFrom(post)
+            }).copiedFrom(post)).copiedFrom(post))
 
-          and(body, returnCond) match {
-            case t.BooleanLiteral(true) => None
-            case cond => Some(Lambda(Seq(res), cond))
-          }
+          case spec => spec.map(t)(scope.transform)
         }
 
         val newBody = body.map(scope.transform)
@@ -1073,7 +1067,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           Seq.empty,
           newParams ++ tparamParams,
           returnType,
-          t.exprOps.reconstructSpecs(newPre, newBody, newPost, returnType),
+          t.exprOps.reconstructSpecs(newSpecs, newBody, returnType),
           fd.flags map scope.transform
         )
       }

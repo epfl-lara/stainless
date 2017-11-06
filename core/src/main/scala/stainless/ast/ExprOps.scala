@@ -13,6 +13,33 @@ trait ExprOps extends inox.ast.ExprOps {
    * Body manipulation
    * ================= */
 
+  /** Abstraction over contracts and specifications. */
+  abstract class Specification {
+    val expr: Expr
+    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Specification
+
+    final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
+  }
+
+  /** Precondition contract that corresponds to [[Expressions.Require]]. */
+  case class Precondition(expr: Expr) extends Specification {
+    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Precondition =
+      trees.exprOps.Precondition(f(expr))
+  }
+
+  /** Postcondition contract that corresponds to [[Expressions.Ensuring]]. */
+  case class Postcondition(expr: Lambda) extends Specification {
+    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Postcondition =
+      trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda])
+  }
+
+
+  /** Returns an expression annotated with the provided spec. */
+  def withSpec(expr: Expr, spec: Specification): Expr = spec match {
+    case Precondition(pred) => withPrecondition(expr, Some(pred))
+    case Postcondition(post) => withPostcondition(expr, Some(post))
+  }
+
   /** Returns whether a particular [[Expressions.Expr]] contains specification
     * constructs, namely [[Expressions.Require]] and [[Expressions.Ensuring]].
     */
@@ -23,7 +50,7 @@ trait ExprOps extends inox.ast.ExprOps {
     case _ => false
   }
 
-  private def wrapSpec(vd: ValDef, e: Expr, b: Expr): Expr = {
+  protected final def wrapSpec(vd: ValDef, e: Expr, b: Expr): Expr = {
     def withoutLet(expr: Expr): Expr = expr match {
       case Let(`vd`, `e`, b) if hasSpec(b) => withoutLet(b)
       case Let(i, e, b) if hasSpec(b) => Let(i, e, withoutLet(b))
@@ -43,17 +70,18 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr = (pred, expr) match {
-    case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
-    case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
-    case (Some(newPre), Ensuring(b, p))                     => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
-    case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-    case (Some(newPre), b)                                  => Require(newPre, b).copiedFrom(expr)
-    case (None, Require(pre, b))                            => b
-    case (None, Ensuring(Require(pre, b), p))               => Ensuring(b, p).copiedFrom(expr)
-    case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-    case (None, b)                                          => b
-  }
+  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
+    (pred.filterNot(_ == BooleanLiteral(true)), expr) match {
+      case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
+      case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
+      case (Some(newPre), Ensuring(b, p))                     => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
+      case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+      case (Some(newPre), b)                                  => Require(newPre, b).copiedFrom(expr)
+      case (None, Require(pre, b))                            => b
+      case (None, Ensuring(Require(pre, b), p))               => Ensuring(b, p).copiedFrom(expr)
+      case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+      case (None, b)                                          => b
+    }
 
   /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
     *
@@ -65,14 +93,15 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr = (oie, expr) match {
-    case (Some(npost), Ensuring(b, post))          => Ensuring(b, npost).copiedFrom(expr)
-    case (Some(npost), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
-    case (Some(npost), b)                          => Ensuring(b, npost).copiedFrom(expr)
-    case (None, Ensuring(b, p))                    => b
-    case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
-    case (None, b)                                 => b
-  }
+  def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr =
+    (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
+      case (Some(npost), Ensuring(b, post))          => Ensuring(b, npost).copiedFrom(expr)
+      case (Some(npost), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
+      case (Some(npost), b)                          => Ensuring(b, npost).copiedFrom(expr)
+      case (None, Ensuring(b, p))                    => b
+      case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
+      case (None, b)                                 => b
+    }
 
   /** Adds a body to a specification
     *
@@ -101,8 +130,8 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withoutSpec(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                    => withoutSpec(b).map(Let(i, e, _).copiedFrom(expr))
+  def withoutSpecs(expr: Expr): Option[Expr] = expr match {
+    case Let(i, e, b)                    => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
     case Require(pre, b)                 => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(Require(pre, b), post) => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(b, post)               => Option(b).filterNot(_.isInstanceOf[NoTree])
@@ -124,18 +153,30 @@ trait ExprOps extends inox.ast.ExprOps {
     case _                 => None
   }
 
-  /** Returns a tuple of precondition, the raw body and the postcondition of an expression */
-  def breakDownSpecs(e: Expr) = (preconditionOf(e), withoutSpec(e), postconditionOf(e))
+  /** Deconstructs an expression into its [[Specification]] and body parts. */
+  def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
+    val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
+    val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
+      Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
+      BooleanLiteral(true).copiedFrom(e)
+    ).copiedFrom(e)))
 
-  /** Reconstructs an expression given a (pre, body, post) tuple deconstructed by [[breakDownSpecs]] */
-  def reconstructSpecs(pre: Option[Expr], body: Option[Expr], post: Option[Lambda], resultType: Type) = {
-    val defaultPos = (pre, post) match {
-      case (Some(p), Some(q)) => Position.between(p.getPos, q.getPos)
-      case (Some(p), None) => p.getPos
-      case (None, Some(q)) => q.getPos
-      case (None, None) => NoPosition
+    val body = withoutSpecs(e)
+    (Seq(pre, post), body)
+  }
+
+  /** Reconstructs an expression given a set of specifications
+    * and a body, as obtained through [[deconstructSpecs]]. */
+  final def reconstructSpecs(specs: Seq[Specification], body: Option[Expr], resultType: Type) = {
+    val newBody = body match {
+      case Some(body) => body
+      case None =>
+        val poss = specs.map(_.expr.getPos).filter(_ != NoPosition)
+        val pos = if (poss.isEmpty) NoPosition
+          else if (poss.size == 1) poss.head
+          else Position.between(poss.min, poss.max)
+        NoTree(resultType).setPos(pos)
     }
-    val defaultBody = NoTree(resultType).setPos(defaultPos)
-    withPostcondition(withPrecondition(body.getOrElse(defaultBody), pre), post)
+    specs.foldLeft(newBody)(withSpec)
   }
 }

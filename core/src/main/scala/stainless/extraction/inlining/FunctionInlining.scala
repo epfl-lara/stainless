@@ -27,17 +27,19 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           }
 
           if (tfd.fd.flags contains Inline) {
-            val (pre, body, post) = exprOps.breakDownSpecs(tfd.fullBody)
+            val body = exprOps.withoutSpecs(tfd.fullBody)
             val uncheckedBody = body match {
               case None => throw MissformedStainlessCode(tfd.fd, "Inlining function with empty body: not supported")
               case Some(body) => annotated(body, Unchecked)
             }
 
+            val pre = exprOps.preconditionOf(tfd.fullBody)
             def addPreconditionAssertion(e: Expr) = pre match {
               case None => e
               case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.fd.id.name), e).copiedFrom(fi)
             }
 
+            val post = exprOps.postconditionOf(tfd.fullBody)
             def addPostconditionAssumption(e: Expr) = post match {
               case None => e
               case Some(Lambda(Seq(vd), post)) =>
