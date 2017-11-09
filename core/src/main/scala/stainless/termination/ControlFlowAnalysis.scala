@@ -367,6 +367,9 @@ trait CICFA {
 
         case NoTree(_) => (Set(), emptyEnv)
 
+        case Force(expr) =>
+          rec(expr, in)
+
         case Operator(args, op) =>
           // every other operator will just add more esc sets and its return values cannot contain closures
           val absres = args.map(rec(_, in))

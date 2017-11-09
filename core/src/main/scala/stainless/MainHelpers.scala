@@ -84,6 +84,7 @@ trait MainHelpers extends inox.MainHelpers {
     termination.DebugSectionTermination,
     DebugSectionExtraction,
     frontend.DebugSectionFrontend,
+    forceEval.DebugSectionEval,
     utils.DebugSectionRegistry
   )
 

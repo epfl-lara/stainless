@@ -596,6 +596,13 @@ trait ASTExtractors {
         case _ => None
       }
     }
+
+    object ExForce {
+      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "eval", "package$", "force"), Seq(_)), Seq(expr)) => Some(expr)
+        case _ => None
+      }
+    }
   }
 
   object ExIdentity {
