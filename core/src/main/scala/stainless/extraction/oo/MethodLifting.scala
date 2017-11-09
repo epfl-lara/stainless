@@ -146,18 +146,39 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
       }
 
+      def castTo(expr: t.Expr, tpe: s.Type, expected: s.Type): t.Expr = {
+        if (!newSymbols.isSubtypeOf(tpe, expected)) {
+          t.AsInstanceOf(expr, transformer.transform(expected)).copiedFrom(expr)
+        }
+        else expr
+      }
+
       val subCalls = (for (co <- cos) yield {
         firstOverrides(co).map { case (cid, either) =>
           val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
           val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
-          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), either match {
-            case Left(nfd) => t.FunctionInvocation(
-              nfd.id,
-              descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
-              thiss +: fd.params.map(vd => transformer.transform(vd.toVariable))
-            ).copiedFrom(fd)
-            case Right(vd) => t.ClassSelector(thiss, vd.id).copiedFrom(fd)
-          })
+          val castArg = t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
+          val invok = either match {
+            case Left(nfd) =>
+              val args = fd.params.zip(nfd.params).map { case (vd, exp) =>
+                val variable = transformer.transform(vd.toVariable)
+                castTo(variable, vd.getType(newSymbols), exp.getType(newSymbols))
+              }
+
+              val fi = t.FunctionInvocation(
+                nfd.id,
+                descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
+                thiss +: args
+              ).copiedFrom(fd)
+
+            castTo(fi, nfd.returnType, fd.returnType)
+
+            case Right(vd) =>
+              val cs = t.ClassSelector(thiss, vd.id).copiedFrom(fd)
+              castTo(cs, vd.getType(newSymbols), fd.returnType)
+          }
+
+          (castArg, invok)
         }
       }).flatten
 
