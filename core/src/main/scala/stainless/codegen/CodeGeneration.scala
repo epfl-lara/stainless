@@ -602,6 +602,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case v: Variable =>
       load(v, ch)
 
+    case Force(expr) =>
+      mkExpr(expr, ch, canDelegateToMkBranch)
+
     case Assert(cond, oerr, body) =>
       mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
 

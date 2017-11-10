@@ -110,6 +110,9 @@ trait InoxEncoder extends ProgramEncoder {
           t.BooleanLiteral(true).copiedFrom(e)
         ).copiedFrom(e)
 
+      case s.Force(expr) =>
+        transform(expr)
+
       case s.Require(pred, body) =>
         transform(body)
 

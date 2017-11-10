@@ -731,6 +731,15 @@ trait ASTExtractors {
       }
     }
 
+    object ExForceExpression {
+      def unapply(tree: Apply) : Option[Tree] = tree match {
+        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "eval", "force"), List(tpe)), List(expr)) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
     object ExLambdaExpression {
       def unapply(tree: Function) : Option[(Seq[ValDef], Tree)] = tree match {
         case Function(vds, body) => Some((vds, body))

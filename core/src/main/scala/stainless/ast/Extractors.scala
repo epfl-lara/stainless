@@ -45,6 +45,8 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), Seq(), Seq(), Seq(tpe), (_, _, _, tps) => t.NoTree(tps.head))
     case s.Error(tpe, desc) =>
       (Seq(), Seq(), Seq(), Seq(tpe), (_, _, _, tps) => t.Error(tps.head, desc))
+    case s.Force(expr) =>
+      (Seq(), Seq(), Seq(expr), Seq(), (_, _, es, _) => t.Force(es.head))
     case s.Require(pred, body) =>
       (Seq(), Seq(), Seq(pred, body), Seq(), (_, _, es, _) => t.Require(es(0), es(1)))
     case s.Ensuring(body, pred) =>

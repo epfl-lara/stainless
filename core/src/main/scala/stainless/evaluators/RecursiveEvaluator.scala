@@ -25,6 +25,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
       e(body)
 
+    case Force(expr) =>
+      e(expr)
+
     case Pre(f) =>
       e(f) match {
         case Lambda(args, body) => e(Lambda(args, weakestPrecondition(body)))

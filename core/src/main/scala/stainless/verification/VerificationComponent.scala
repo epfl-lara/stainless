@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import extraction.xlang.{trees => xt}
+
 import scala.language.existentials
 
 /**
@@ -12,7 +14,7 @@ import scala.language.existentials
  */
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
 
-object VerificationComponent extends SimpleComponent {
+object VerificationComponent extends SimpleComponent { self =>
   override val name = "verification"
   override val description = "Verification of function contracts"
 
@@ -26,6 +28,11 @@ object VerificationComponent extends SimpleComponent {
   })
 
   implicit val debugSection = DebugSectionVerification
+
+  override def extract(program: Program { val trees: xt.type }, ctx: inox.Context): Program { val trees: self.trees.type } = {
+    val extractedProgram = super.extract(program, ctx)
+    forceEval.ForceEvaluation(extractedProgram, ctx).targetProgram
+  }
 
   private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
     val injector = AssertionInjector(p, ctx)
