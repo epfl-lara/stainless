@@ -176,8 +176,10 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         }
       }
 
+      val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(newSymbols)
+
       val (conds, elze) = if (subCalls.isEmpty || notFullyOverriden) {
-        val elze = fd.body(newSymbols) match {
+        val elze = body match {
           case Some(body) => transformer.transform(body)
           case None => t.NoTree(returnType).copiedFrom(fd.fullBody)
         }
@@ -187,13 +189,12 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         (conds, elze)
       }
 
-      val precondition = exprOps.preconditionOf(fd.fullBody).map(transformer.transform)
-      val body = conds.foldRight(elze) { case ((cond, res), elze) => t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos)) }
-      val postcondition = exprOps.postconditionOf(fd.fullBody).map(transformer.transform)
-      val fullBody = t.exprOps.withPostcondition(
-        t.exprOps.withPrecondition(body, precondition),
-        postcondition.map(_.asInstanceOf[t.Lambda])
-      )
+      val newSpecs = specs.map(_.map(t)(transformer.transform(_)))
+      val newBody = conds.foldRight(elze) { case ((cond, res), elze) =>
+        t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
+      }
+
+      val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
 
       new t.FunDef(
         fd.id,
