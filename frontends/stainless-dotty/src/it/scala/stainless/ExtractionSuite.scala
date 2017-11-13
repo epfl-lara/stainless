@@ -2,18 +2,24 @@
 
 package stainless
 
+import scala.util.{ Try, Success, Failure }
+
 import org.scalatest._
 
 class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
 
-  def testAll(dir: String): Unit = {
+
+  private def testSetUp(dir: String): (inox.TestSilentReporter, inox.Context, List[String]) = {
     val reporter = new inox.TestSilentReporter
     val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
+    val fs = resourceFiles(dir, _.endsWith(".scala")).toList map { _.getPath }
+    (reporter, ctx, fs)
+  }
 
-    val fs = resourceFiles(dir, _.endsWith(".scala")).toList
+  def testExtractAll(dir: String): Unit = {
+    val (reporter, ctx, files) = testSetUp(dir)
 
     describe(s"Program extraction in $dir") {
-      val files = fs map { _.getPath }
       val tryProgram = scala.util.Try(loadFiles(ctx, files)._2)
       it("should be successful") { assert(tryProgram.isSuccess) }
 
@@ -28,7 +34,7 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
           }
         }
 
-        val tryExProgram = scala.util.Try(extraction.extract(program, ctx))
+        val tryExProgram = Try(extraction.extract(program, ctx))
         describe("and transformation") {
           it("should be successful") { assert(tryExProgram.isSuccess) }
 
@@ -56,12 +62,29 @@ class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
     }
   }
 
-  testAll("verification/valid")
-  testAll("verification/invalid")
-  testAll("verification/unchecked")
-  testAll("imperative/valid")
-  testAll("imperative/invalid")
-  testAll("termination/valid")
-  testAll("termination/looping")
-  testAll("extraction")
+  def testRejectAll(dir: String): Unit = {
+    val (reporter, ctx, files) = testSetUp(dir)
+
+    describe(s"Programs extraction in $dir") {
+      val tryPrograms = files map { f => f -> Try(loadFiles(ctx, List(f))._2) }
+      it("should fail") {
+        tryPrograms foreach { case (f, tp) => tp match {
+          // we expect a specific kind of exception:
+          case Failure(e: stainless.frontend.UnsupportedCodeException) => assert(true)
+          case Failure(e) => assert(false, s"$f was rejected with $e")
+          case Success(_) => assert(false, s"$f was successfully extracted")
+        }}
+      }
+    }
+  }
+
+  testExtractAll("verification/valid")
+  testExtractAll("verification/invalid")
+  testExtractAll("verification/unchecked")
+  testExtractAll("imperative/valid")
+  testExtractAll("imperative/invalid")
+  testExtractAll("termination/valid")
+  testExtractAll("termination/looping")
+  testExtractAll("extraction/valid")
+  testRejectAll("extraction/invalid")
 }
