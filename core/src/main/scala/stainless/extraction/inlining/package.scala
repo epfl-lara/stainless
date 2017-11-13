@@ -4,7 +4,7 @@ package stainless
 package extraction
 
 package object inlining {
-  
+
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],

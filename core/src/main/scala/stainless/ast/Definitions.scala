@@ -8,11 +8,13 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
+  case object Force extends Flag("force", Seq())
   case object Extern extends Flag("extern", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+    case ("force", Seq()) => Force
     case ("extern", Seq()) => Extern
     case ("unchecked", Seq()) => Unchecked
     case _ => super.extractFlag(name, args)

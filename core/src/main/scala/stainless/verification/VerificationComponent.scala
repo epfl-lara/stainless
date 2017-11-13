@@ -49,11 +49,16 @@ object VerificationComponent extends SimpleComponent {
     }
   }
 
+  private def force(p: StainlessProgram, ctx: inox.Context): StainlessProgram = {
+    new forcing.Forcing(p, ctx).targetProgram
+  }
+
   override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationAnalysis = {
-    val res = check(funs, p, ctx)
+    val forced = force(p, ctx)
+    val res = check(funs, forced, ctx)
 
     new VerificationAnalysis {
-      override val program: p.type = p
+      override val program: forced.type = forced
       override val sources = funs.toSet
       override val results = res
     }
