@@ -686,6 +686,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case Ident(_) if tr.tpe.signature.resSig.toString startsWith "scala.collection.immutable.Nil" =>
+      outOfSubsetError(tr.pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
+
     case ExIdentity(body) =>
       extractTree(body)
 
@@ -1348,9 +1351,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       }
 
     case tr: TypeRef if isScalaSetSym(tr.symbol) =>
-      outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import leon.lang.Set that defines supported Set operations.")
+      outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
+
+    case tr: TypeRef if isScalaListSym(tr.symbol) =>
+      outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
+
     case tr: TypeRef if isScalaMapSym(tr.symbol) =>
-      outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import leon.lang.Map that defines supported Map operations.")
+      outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 
     case tr: TypeRef if isSetSym(tr.symbol) =>
       val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)

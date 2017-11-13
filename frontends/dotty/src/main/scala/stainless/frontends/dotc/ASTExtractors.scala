@@ -33,6 +33,8 @@ trait ASTExtractors {
 
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
+  protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
+
   protected lazy val setSym       = classFromName("stainless.lang.Set")
   protected lazy val mapSym       = classFromName("stainless.lang.Map")
   protected lazy val bagSym       = classFromName("stainless.lang.Bag")
@@ -112,6 +114,10 @@ trait ASTExtractors {
 
   def isScalaSetSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == scalaSetSym
+  }
+
+  def isScalaListSym(sym: Symbol): Boolean = {
+    getResolvedTypeSym(sym) == scalaListSym
   }
 
   def isScalaMapSym(sym: Symbol) : Boolean = {
