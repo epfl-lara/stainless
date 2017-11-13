@@ -119,11 +119,14 @@ trait MainHelpers extends inox.MainHelpers {
 
     // For each cylce, passively wait until the compiler has finished
     // & print summary of reports for each component
-    def runCycle() = {
+    def runCycle() = try {
       compiler.run()
       compiler.join()
 
       compiler.getReports foreach { _.emit(ctx) }
+    } catch {
+      case frontend.UnsupportedCodeException(pos, msg) =>
+        ctx.reporter.error(pos, msg)
     }
 
     // Run the first cycle

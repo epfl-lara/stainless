@@ -11,6 +11,8 @@ package frontend
  * stopping or joining.
  */
 abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) extends Frontend(callback) {
+  private implicit val debugSection = DebugSectionFrontend
+
   private var thread: Thread = _
   private var exception: Throwable = _
 
@@ -58,7 +60,7 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
   private def rethrow(): Unit = if (exception != null) {
     val e = exception
     exception = null
-    ctx.reporter.error(s"Rethrowing exception emitted from within the compiler: ${e.getMessage}")
+    ctx.reporter.debug(s"Rethrowing exception emitted from within the compiler: ${e.getMessage}")
     throw e
   }
 }

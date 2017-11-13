@@ -5,7 +5,7 @@ package stainless
 package object frontend {
 
   /** An exception thrown when non-purescala compatible code is encountered. */
-  sealed class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
+  sealed case class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
     extends Exception(msg)
 
   object DebugSectionFrontend extends inox.DebugSection("frontend")
