@@ -3,10 +3,6 @@
 package stainless
 package frontend
 
-/** An exception thrown when non-purescala compatible code is encountered. */
-sealed class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
-  extends Exception(msg)
-
 /**
  * Abstract compiler, provides all the tools to extract compilation units
  * into a sequence of small, self-contained programs and send them to a
