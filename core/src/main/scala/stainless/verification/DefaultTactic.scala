@@ -15,7 +15,7 @@ trait DefaultTactic extends Tactic {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val vc = implies(fd.precOrTrue, application(post, Seq(body)))
+        val vc = exprOps.freshenLocals(implies(fd.precOrTrue, application(post, Seq(body))))
         Seq(VC(vc, id, VCKind.Postcondition).setPos(post))
       case _ =>
         Nil
@@ -31,7 +31,7 @@ trait DefaultTactic extends Tactic {
 
     calls.map { case (fi @ FunctionInvocation(_, _, args), path) =>
       val pre = fi.tfd.withParamSubst(args, fi.tfd.precondition.get)
-      val vc = path implies pre
+      val vc = path implies exprOps.freshenLocals(pre)
       val fiS = sizeLimit(fi.asString, 40)
       VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS")).setPos(fi)
     }

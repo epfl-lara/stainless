@@ -33,10 +33,10 @@ trait InductionTactic extends DefaultTactic {
             exprOps.replace(Map(arg.toVariable -> sel), implies(fd.precOrTrue, application(post, Seq(body))))
           }
 
-          val vc = implies(
+          val vc = exprOps.freshenLocals(implies(
             and(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue),
             implies(andJoin(subCases), application(post, Seq(body)))
-          )
+          ))
 
           val kind = VCKind.Info(VCKind.Postcondition, s"ind. on ${arg.asString} / ${tcons.id.asString}")
           VC(vc, id, kind).setPos(fd)
@@ -73,9 +73,9 @@ trait InductionTactic extends DefaultTactic {
             )
           }
 
-          val vc = path
+          val vc = exprOps.freshenLocals(path
             .withConds(Seq(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue) ++ subCases)
-            .implies(fi.tfd.withParamSubst(args, pre))
+            .implies(fi.tfd.withParamSubst(args, pre)))
 
           // Crop the call to display it properly
           val fiS = sizeLimit(fi.asString, 25)
