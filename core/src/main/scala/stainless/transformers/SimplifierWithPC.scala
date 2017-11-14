@@ -5,5 +5,5 @@ package transformers
 
 trait SimplifierWithPC extends TransformerWithPC with inox.transformers.SimplifierWithPC {
   import symbols._
-  lazy val pp = implicitly[PathProvider[CNFPath]]
+  val pp = implicitly[PathProvider[CNFPath]]
 }

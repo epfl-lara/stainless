@@ -59,36 +59,60 @@ trait Definitions extends imperative.Trees { self: Trees =>
   }
 
   case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
-    lazy val id: Identifier = cd.id
+    @inline def id: Identifier = cd.id
 
-    lazy val typeMap: Map[TypeParameter, Type] = (cd.typeArgs zip tps).toMap
-
-    lazy val parents: Seq[TypedClassDef] = cd.parents.flatMap {
-      tpe => symbols.instantiateType(tpe, typeMap).asInstanceOf[ClassType].lookupClass
+    private[this] var _typeMap: Map[TypeParameter, Type] = _
+    def typeMap: Map[TypeParameter, Type] = {
+      if (_typeMap eq null) _typeMap = (cd.typeArgs zip tps).filter(p => p._1 != p._2).toMap
+      _typeMap
     }
 
-    lazy val ancestors: Seq[TypedClassDef] = cd.ancestors.map {
-      tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, typeMap)))
-    }
-
-    lazy val children: Seq[TypedClassDef] = cd.children.flatMap { cd =>
-      val pct = cd.parents.find(_.id == id).get
-      symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(symbols.typeParamsOf)).map { tpSubst =>
-        val bound = tpSubst.map(_._1).toSet
-        val fullSubst = tpSubst.toMap ++ cd.typeArgs.filterNot(bound).map(tp => tp -> tp.bounds)
-        symbols.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd
+    private[this] var _parents: Seq[TypedClassDef] = _
+    def parents: Seq[TypedClassDef] = {
+      if (_parents eq null) _parents = cd.parents.flatMap {
+        tpe => symbols.instantiateType(tpe, typeMap).asInstanceOf[ClassType].lookupClass
       }
+      _parents
     }
 
-    lazy val descendants: Seq[TypedClassDef] = children.flatMap(tcd => tcd +: tcd.descendants).distinct
-
-    lazy val fields: Seq[ValDef] = {
-      lazy val tmap = (cd.typeArgs zip tps).toMap
-      if (tmap.isEmpty) cd.fields
-      else cd.fields.map(vd => vd.copy(tpe = symbols.instantiateType(vd.tpe, tmap)))
+    private[this] var _ancestors: Seq[TypedClassDef] = _
+    def ancestors: Seq[TypedClassDef] = {
+      if (_ancestors eq null) _ancestors = cd.ancestors.map {
+        tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, typeMap)))
+      }
+      _ancestors
     }
 
-    def toType = ClassType(id, tps)
+    private[this] var _children: Seq[TypedClassDef] = _
+    def children: Seq[TypedClassDef] = {
+      if (_children eq null) _children = cd.children.flatMap { cd =>
+        val pct = cd.parents.find(_.id == id).get
+        symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(symbols.typeParamsOf)).map { tpSubst =>
+          val bound = tpSubst.map(_._1).toSet
+          val fullSubst = tpSubst.toMap ++ cd.typeArgs.filterNot(bound).map(tp => tp -> tp.bounds)
+          symbols.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd
+        }
+      }
+      _children
+    }
+
+    private[this] var _descendants: Seq[TypedClassDef] = _
+    def descendants: Seq[TypedClassDef] = {
+      if (_descendants eq null) _descendants = children.flatMap(tcd => tcd +: tcd.descendants).distinct
+      _descendants
+    }
+
+    private[this] var _fields: Seq[ValDef] = _
+    def fields: Seq[ValDef] = {
+      if (_fields eq null) {
+        _fields =
+          if (typeMap.isEmpty) cd.fields
+          else cd.fields.map(vd => vd.copy(tpe = symbols.instantiateType(vd.tpe, typeMap)))
+      }
+      _fields
+    }
+
+    @inline def toType = ClassType(id, tps)
   }
 
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")

@@ -5,7 +5,7 @@ package transformers
 
 trait CollectorWithPC extends TransformerWithPC with inox.transformers.CollectorWithPC {
   import symbols._
-  lazy val pp = implicitly[PathProvider[Path]]
+  val pp = implicitly[PathProvider[Path]]
 }
 
 object CollectorWithPC {
