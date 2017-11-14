@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-trait SymbolOps extends stainless.ast.SymbolOps { self: TypeOps =>
+trait SymbolOps extends ast.SymbolOps { self: TypeOps =>
   import trees._
   import symbols._
 

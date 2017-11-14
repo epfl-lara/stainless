@@ -294,20 +294,19 @@ class PreconditionInference(
         import simp._
         import Path.{ Element, Condition, OpenBound, CloseBound }
 
-        def rec(elements: Seq[Path.Element], cnf: CNFPath, es: Seq[Expr]): (Path, Seq[Expr]) = elements match {
+        def rec(elements: Seq[Element], cnf: CNFPath, es: Seq[Expr]): (Path, Seq[Expr]) = elements match {
+          case OpenBound(vd) +: rest =>
+            val (rpath, res) = rec(rest, cnf withBound vd, es)
+            (Path(vd) merge rpath, res)
+
           case CloseBound(vd, e) +: rest => e match {
             case simpleExpr @ (_: Variable | _: Literal[_]) =>
               val replace = (expr: Expr) => replaceFromSymbols(Map(vd.toVariable -> simpleExpr), expr)
-              val newRest = rest map {
-                case b @ OpenBound(_) => b
-                case CloseBound(vd2, e2) => CloseBound(vd2, replace(e2))
-                case Condition(c) => Condition(replace(c))
-              }
-              rec(newRest, cnf, es map replace)
+              val newRest = Path(rest).map(vd => vd, replace).elements
+              rec(newRest, cnf, es.map(replace))
 
             case _ =>
-              val allVars = Path(rest).freeVariables ++ (es flatMap variablesOf)
-
+              val allVars = es.flatMap(variablesOf).toSet -- Path(rest).bound
               if (!allVars(vd.toVariable) && isPure(e, cnf)) {
                 rec(rest, cnf, es)
               } else {
@@ -361,11 +360,11 @@ class PreconditionInference(
                           val freshParams = tfd.params.map(_.freshen)
                           val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-                          val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
+                          val freeVars = p.variables -- tfd.params.map(_.toVariable).toSet
                           val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
 
-                          val freshBindings = p.bounds.map(vd => vd.freshen)
-                          val freshSubst = (p.bounds zip freshBindings).toMap
+                          val freshBindings = p.bound.map(vd => vd.freshen)
+                          val freshSubst = (p.bound zip freshBindings).toMap
                           val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
 
                           val newPath = path withBindings (freshParams zip args) merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
@@ -404,9 +403,9 @@ class PreconditionInference(
             }
 
           case FlatApplication(caller, args) if (containers contains caller) && !e.getType.isInstanceOf[FunctionType] =>
-            val freeVars = (args.flatMap(variablesOf).toSet ++ path.freeVariables) --
+            val freeVars = (args.flatMap(variablesOf).toSet ++ path.variables) --
               fd.params.map(_.toVariable).toSet --
-              path.bounds.map(_.toVariable).toSet
+              path.bindings.map(_._1.toVariable).toSet
 
             val arguments = if (freeVars.nonEmpty) Unknown else Known(Set(simplifyPath(path, args)))
             val Seq(input) = containers(caller).toSeq

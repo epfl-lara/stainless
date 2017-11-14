@@ -180,7 +180,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
     // Hacky, but ok
     def optionType(implicit s: Symbols): ADTType = tfd.returnType.asInstanceOf[ADTType].getADT.root.toType
-    
+
     private def optionChildren(implicit s: Symbols): Seq[TypedADTConstructor] =
       optionType.getADT.toSort.constructors.sortBy(_.fields.size)
     def noneType(implicit s: Symbols): ADTType = optionChildren.apply(0).toType

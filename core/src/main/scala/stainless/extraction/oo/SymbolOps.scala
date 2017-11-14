@@ -8,18 +8,24 @@ trait SymbolOps extends imperative.SymbolOps { self: TypeOps =>
   import trees._
   import symbols._
 
-  override def conditionForPatternRecImpl[P <: PathLike[P]]
-               (in: Expr, pattern: Pattern)
-               (implicit pp: PathProvider[P], bind: (Option[ValDef], Expr) => P): P = pattern match {
-    case ClassPattern(b, ct, subPatterns) =>
-      def accessField(id: Identifier) = ClassSelector(asInstOf(in, ct), id)
-      val subTests = (ct.tcd.fields zip subPatterns) map { case (f, p) =>
-        conditionForPatternRecImpl(accessField(f.id), p)(pp, bind)
-      }
-      pp.empty withCond isInstOf(in, ct) merge bind(b, asInstOf(in, ct)) merge subTests
+  protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P])
+    extends super.PatternConditions[P](includeBinders) {
 
-    case _ =>
-      super.conditionForPatternRecImpl(in, pattern)(pp, bind)
+    override def apply(in: Expr, pattern: Pattern): P = pattern match {
+      case ClassPattern(b, ct, subPatterns) =>
+        def accessField(id: Identifier) = ClassSelector(asInstOf(in, ct), id)
+        val subTests = (ct.tcd.fields zip subPatterns) map { case (f, p) => apply(accessField(f.id), p) }
+        pp.empty withCond isInstOf(in, ct) merge bind(b, asInstOf(in, ct)) merge subTests
+
+      case InstanceOfPattern(ob, ct: ClassType) =>
+        pp.empty withCond isInstOf(in, ct) merge bind(ob, in)
+
+      case _ => super.apply(in, pattern)
+    }
   }
+
+  override protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)
+                                                            (implicit pp: PathProvider[P]) = 
+                                                              new PatternConditions[P](includeBinders)
 
 }

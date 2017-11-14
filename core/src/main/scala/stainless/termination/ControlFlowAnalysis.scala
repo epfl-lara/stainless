@@ -328,7 +328,7 @@ trait CICFA {
           (tval ++ eval, condesc ++ tesc ++ eesc)
 
         case MatchExpr(scrut, cases) =>
-          import Path.{ CloseBound, OpenBound, Condition }
+          import Path.{ CloseBound, Condition }
           var resenv: AbsEnv = emptyEnv
           val absres = for (cse <- cases) yield {
             val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
@@ -338,11 +338,12 @@ trait CICFA {
                 val (res, resc) = rec(e, in)
                 resenv ++= resc
                 AbsEnv(in.store + (vd.toVariable -> res))
-              case (in, OpenBound(vd)) => ??? // FIXME just return in?
               case (in, Condition(cond)) =>
                 val (res, resc) = rec(cond, in)
                 resenv ++= resc
                 in
+              // Note that case pattern paths can't contain open bounds.
+              case _ => scala.sys.error("Should never happen")
             }
             rec(cse.rhs, rhsIn)
           }

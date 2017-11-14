@@ -28,6 +28,54 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     case _ => super.isImpureExpr(expr)
   }
 
+  /** Extracts path conditions from patterns and scrutinees, @see [[conditionForPattern]] */
+  protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P]) {
+    protected final def bind(ob: Option[ValDef], to: Expr): P = {
+      if (!includeBinders) {
+        pp.empty
+      } else {
+        ob.map(vd => pp.empty withBinding (vd -> to)).getOrElse(pp.empty)
+      }
+    }
+
+    def apply(in: Expr, pattern: Pattern): P = pattern match {
+      case WildcardPattern(ob) =>
+        bind(ob, in)
+
+      case InstanceOfPattern(ob, adt) =>
+        val tadt = adt.asInstanceOf[ADTType].getADT
+        if (tadt.root == tadt) {
+          bind(ob, in)
+        } else {
+          pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
+        }
+
+      case ADTPattern(ob, adt, subps) =>
+        val tcons = adt.getADT.toConstructor
+        assert(tcons.fields.size == subps.size)
+        val pairs = tcons.fields zip subps
+        val subTests = pairs.map(p => apply(adtSelector(asInstOf(in, adt), p._1.id), p._2))
+        pp.empty withCond isInstOf(in, adt) merge bind(ob, asInstOf(in, adt)) merge subTests
+
+      case TuplePattern(ob, subps) =>
+        val TupleType(tpes) = in.getType
+        assert(tpes.size == subps.size)
+        val subTests = subps.zipWithIndex.map { case (p, i) => apply(tupleSelect(in, i+1, subps.size), p) }
+        bind(ob, in) merge subTests
+
+      case up @ UnapplyPattern(ob, id, tps, subps) =>
+        val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply _).tupled
+        bind(ob, in) withCond up.isSome(in) merge subs
+
+      case LiteralPattern(ob, lit) =>
+        pp.empty withCond Equals(in, lit) merge bind(ob, in)
+    }
+  }
+
+  /* Override point for extracting pattern conditions. */
+  protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P]) =
+    new PatternConditions[P](includeBinders)
+
   /** Recursively transforms a pattern on a boolean formula expressing the conditions for the input expression, possibly including name binders
     *
     * For example, the following pattern on the input `i`
@@ -47,58 +95,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     */
   final def conditionForPattern[P <: PathLike[P]]
                                (in: Expr, pattern: Pattern, includeBinders: Boolean = false)
-                               (implicit pp: PathProvider[P]): P = {
-
-    def bind(ob: Option[ValDef], to: Expr): P = {
-      if (!includeBinders) {
-        pp.empty
-      } else {
-        ob.map(vd => pp.empty withBinding (vd -> to)).getOrElse(pp.empty)
-      }
-    }
-
-    conditionForPatternRecImpl(in, pattern)(pp, bind)
-  }
-
-  protected def conditionForPatternRecImpl[P <: PathLike[P]]
-                (in: Expr, pattern: Pattern)
-                (implicit pp: PathProvider[P], bind: (Option[ValDef], Expr) => P): P = {
-
-    def rec(in: Expr, pattern: Pattern) = conditionForPatternRecImpl(in, pattern)(pp, bind)
-
-    pattern match {
-      case WildcardPattern(ob) =>
-        bind(ob, in)
-
-      case InstanceOfPattern(ob, adt) =>
-        val tadt = adt.asInstanceOf[ADTType].getADT
-        if (tadt.root == tadt) {
-          bind(ob, in)
-        } else {
-          pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
-        }
-
-      case ADTPattern(ob, adt, subps) =>
-        val tcons = adt.getADT.toConstructor
-        assert(tcons.fields.size == subps.size)
-        val pairs = tcons.fields zip subps
-        val subTests = pairs.map(p => rec(adtSelector(asInstOf(in, adt), p._1.id), p._2))
-        pp.empty withCond isInstOf(in, adt) merge bind(ob, asInstOf(in, adt)) merge subTests
-
-      case TuplePattern(ob, subps) =>
-        val TupleType(tpes) = in.getType
-        assert(tpes.size == subps.size)
-        val subTests = subps.zipWithIndex.map { case (p, i) => rec(tupleSelect(in, i+1, subps.size), p) }
-        bind(ob, in) merge subTests
-
-      case up @ UnapplyPattern(ob, id, tps, subps) =>
-        val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (rec _).tupled
-        bind(ob, in) withCond up.isSome(in) merge subs
-
-      case LiteralPattern(ob, lit) =>
-        pp.empty withCond Equals(in, lit) merge bind(ob, in)
-    }
-  }
+                               (implicit pp: PathProvider[P]): P = patternConditions(includeBinders)(pp)(in, pattern)
 
   /** Converts the pattern applied to an input to a map between identifiers and expressions */
   def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef,Expr] = {
