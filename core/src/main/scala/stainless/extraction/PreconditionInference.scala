@@ -292,18 +292,21 @@ class PreconditionInference(
       def simplifyPath(path: Path, es: Seq[Expr]): (Path, Seq[Expr]) = {
         val simp = syms.simplifier(options.findOptionOrDefault(inox.solvers.optAssumeChecked))
         import simp._
+        import Path.{ Element, Condition, OpenBound, CloseBound }
 
         def rec(elements: Seq[Path.Element], cnf: CNFPath, es: Seq[Expr]): (Path, Seq[Expr]) = elements match {
-          case Left((vd, e)) +: rest => e match {
-            case simp @ (_: Variable | _: Literal[_]) =>
-              val replace = (e: Expr) => replaceFromSymbols(Map(vd.toVariable -> simp), e)
-              val newRest = rest.map(_.left.map(p => p._1 -> replace(p._2)).right.map(replace))
-              rec(newRest, cnf, es.map(replace))
-            case _ =>
-              val allVars = rest.foldRight(es.flatMap(variablesOf).toSet) {
-                case (Left((vd, e)), vars) => vars ++ variablesOf(e) - vd.toVariable
-                case (Right(cond), vars) => vars ++ variablesOf(cond)
+          case CloseBound(vd, e) +: rest => e match {
+            case simpleExpr @ (_: Variable | _: Literal[_]) =>
+              val replace = (expr: Expr) => replaceFromSymbols(Map(vd.toVariable -> simpleExpr), expr)
+              val newRest = rest map {
+                case b @ OpenBound(_) => b
+                case CloseBound(vd2, e2) => CloseBound(vd2, replace(e2))
+                case Condition(c) => Condition(replace(c))
               }
+              rec(newRest, cnf, es map replace)
+
+            case _ =>
+              val allVars = Path(rest).freeVariables ++ (es flatMap variablesOf)
 
               if (!allVars(vd.toVariable) && isPure(e, cnf)) {
                 rec(rest, cnf, es)
@@ -313,12 +316,16 @@ class PreconditionInference(
               }
           }
 
-          case Right(cond) +: rest =>
+          case Condition(cond) +: rest =>
             if (cnf contains cond) rec(rest, cnf, es)
             else {
               val (rpath, res) = rec(rest, cnf withCond cond, es)
               (Path(cond) merge rpath, res)
             }
+
+          case OpenBound(vd) +: rest =>
+            val (rpath, res) = rec(rest, cnf withBound vd, es)
+            (Path(OpenBound(vd)) merge rpath, res)
 
           case _ => (Path.empty, es)
         }
@@ -354,14 +361,14 @@ class PreconditionInference(
                           val freshParams = tfd.params.map(_.freshen)
                           val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-                          val freeVars = p.variables -- tfd.params.map(_.toVariable).toSet
+                          val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
                           val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
 
-                          val freshBindings = p.bound.map(vd => vd.freshen)
-                          val freshSubst = (p.bound zip freshBindings).toMap
+                          val freshBindings = p.bounds.map(vd => vd.freshen)
+                          val freshSubst = (p.bounds zip freshBindings).toMap
                           val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
 
-                          val newPath = path withBindings (freshParams zip args)  merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
+                          val newPath = path withBindings (freshParams zip args) merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
                           val newEs = es.map(replaceFromSymbols(newSubst, _))
                           simplifyPath(newPath, newEs)
                         })
@@ -397,9 +404,9 @@ class PreconditionInference(
             }
 
           case FlatApplication(caller, args) if (containers contains caller) && !e.getType.isInstanceOf[FunctionType] =>
-            val freeVars = (args.flatMap(variablesOf).toSet ++ path.variables) --
+            val freeVars = (args.flatMap(variablesOf).toSet ++ path.freeVariables) --
               fd.params.map(_.toVariable).toSet --
-              path.bound.map(_.toVariable).toSet
+              path.bounds.map(_.toVariable).toSet
 
             val arguments = if (freeVars.nonEmpty) Unknown else Known(Set(simplifyPath(path, args)))
             val Seq(input) = containers(caller).toSeq

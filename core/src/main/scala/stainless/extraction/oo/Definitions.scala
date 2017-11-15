@@ -8,7 +8,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 // Note: we can't extend `ast.Definitions` here as termination.Trees
 // extends the bounds on `type Symbols`...
-trait Definitions extends extraction.Trees { self: Trees =>
+trait Definitions extends imperative.Trees { self: Trees =>
 
   class ClassDef(
     val id: Identifier,
@@ -96,7 +96,11 @@ trait Definitions extends extraction.Trees { self: Trees =>
 
   type Symbols >: Null <: AbstractSymbols
 
-  trait AbstractSymbols extends super.AbstractSymbols with TypeOps { self0: Symbols =>
+  trait AbstractSymbols
+    extends super.AbstractSymbols
+       with TypeOps
+       with SymbolOps { self0: Symbols =>
+
     val classes: Map[Identifier, ClassDef]
 
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty

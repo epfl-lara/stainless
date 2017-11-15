@@ -6,7 +6,7 @@ package imperative
 
 import inox.utils.Position
 
-trait Trees extends innerfuns.Trees { self =>
+trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /* XLang imperative trees to desugar */
 

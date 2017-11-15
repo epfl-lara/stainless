@@ -5,7 +5,7 @@ package extraction
 
 package object holes {
 
-  object trees extends Trees with inox.ast.SimpleSymbols {
+  object trees extends holes.Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition]

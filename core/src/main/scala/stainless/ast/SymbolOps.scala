@@ -45,8 +45,9 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     *
     * @see [[purescala.Expressions.Pattern]]
     */
-  def conditionForPattern[P <: PathLike[P]](in: Expr, pattern: Pattern, includeBinders: Boolean = false)
-                                           (implicit pp: PathProvider[P]): P = {
+  final def conditionForPattern[P <: PathLike[P]]
+                               (in: Expr, pattern: Pattern, includeBinders: Boolean = false)
+                               (implicit pp: PathProvider[P]): P = {
 
     def bind(ob: Option[ValDef], to: Expr): P = {
       if (!includeBinders) {
@@ -56,42 +57,47 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       }
     }
 
-    def rec(in: Expr, pattern: Pattern): P = {
-      pattern match {
-        case WildcardPattern(ob) =>
+    conditionForPatternRecImpl(in, pattern)(pp, bind)
+  }
+
+  protected def conditionForPatternRecImpl[P <: PathLike[P]]
+                (in: Expr, pattern: Pattern)
+                (implicit pp: PathProvider[P], bind: (Option[ValDef], Expr) => P): P = {
+
+    def rec(in: Expr, pattern: Pattern) = conditionForPatternRecImpl(in, pattern)(pp, bind)
+
+    pattern match {
+      case WildcardPattern(ob) =>
+        bind(ob, in)
+
+      case InstanceOfPattern(ob, adt) =>
+        val tadt = adt.asInstanceOf[ADTType].getADT
+        if (tadt.root == tadt) {
           bind(ob, in)
+        } else {
+          pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
+        }
 
-        case InstanceOfPattern(ob, adt) =>
-          val tadt = adt.asInstanceOf[ADTType].getADT
-          if (tadt.root == tadt) {
-            bind(ob, in)
-          } else {
-            pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
-          }
+      case ADTPattern(ob, adt, subps) =>
+        val tcons = adt.getADT.toConstructor
+        assert(tcons.fields.size == subps.size)
+        val pairs = tcons.fields zip subps
+        val subTests = pairs.map(p => rec(adtSelector(asInstOf(in, adt), p._1.id), p._2))
+        pp.empty withCond isInstOf(in, adt) merge bind(ob, asInstOf(in, adt)) merge subTests
 
-        case ADTPattern(ob, adt, subps) =>
-          val tcons = adt.getADT.toConstructor
-          assert(tcons.fields.size == subps.size)
-          val pairs = tcons.fields zip subps
-          val subTests = pairs.map(p => rec(adtSelector(asInstOf(in, adt), p._1.id), p._2))
-          pp.empty withCond isInstOf(in, adt) merge bind(ob, asInstOf(in, adt)) merge subTests
+      case TuplePattern(ob, subps) =>
+        val TupleType(tpes) = in.getType
+        assert(tpes.size == subps.size)
+        val subTests = subps.zipWithIndex.map { case (p, i) => rec(tupleSelect(in, i+1, subps.size), p) }
+        bind(ob, in) merge subTests
 
-        case TuplePattern(ob, subps) =>
-          val TupleType(tpes) = in.getType
-          assert(tpes.size == subps.size)
-          val subTests = subps.zipWithIndex.map { case (p, i) => rec(tupleSelect(in, i+1, subps.size), p) }
-          bind(ob, in) merge subTests
+      case up @ UnapplyPattern(ob, id, tps, subps) =>
+        val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (rec _).tupled
+        bind(ob, in) withCond up.isSome(in) merge subs
 
-        case up @ UnapplyPattern(ob, id, tps, subps) =>
-          val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (rec _).tupled
-          bind(ob, in) withCond up.isSome(in) merge subs
-
-        case LiteralPattern(ob, lit) =>
-          pp.empty withCond Equals(in, lit) merge bind(ob, in)
-      }
+      case LiteralPattern(ob, lit) =>
+        pp.empty withCond Equals(in, lit) merge bind(ob, in)
     }
-
-    rec(in, pattern)
   }
 
   /** Converts the pattern applied to an input to a map between identifiers and expressions */

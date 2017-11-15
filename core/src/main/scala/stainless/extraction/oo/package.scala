@@ -7,7 +7,7 @@ import scala.language.existentials
 
 package object oo {
 
-  object trees extends Trees with ClassSymbols {
+  object trees extends oo.Trees with ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       adts: Map[Identifier, ADTDefinition],
