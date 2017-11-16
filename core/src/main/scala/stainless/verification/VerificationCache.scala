@@ -11,6 +11,7 @@ import java.io.ObjectOutputStream
 import java.io.FileOutputStream
 
 import scala.collection.concurrent.TrieMap
+import scala.util.{ Success, Failure }
 
 import inox.solvers.SolverFactory
 
@@ -39,38 +40,46 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
 
-    val canonic = transformers.Canonization.canonize(program)(vc)
-
     // NOTE This algorithm is not 100% perfect: it is possible that two equivalent VCs in
     //      the same program are both computed concurrently (contains return false twice),
     //      and both added to the cache. Assuming the VC result is always the same, the
     //      second result will override the first one in the cache without creating bugs.
     //      The cache file will also contain twice the same information, but it is expected
     //      that the even is rare enough and therefore will not result in huge cache files.
-    if (contains(canonic)) {
-      reporter.synchronized {
-        reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
-        reporter.debug(vc.condition)(DebugSectionCacheHit)
-        reporter.debug("--------------")(DebugSectionCacheHit)
-      }
-      VCResult(VCStatus.ValidFromCache, None, Some(0))
-    } else {
-      reporter.synchronized {
-        reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
-        reporter.debug(vc.condition)(DebugSectionCacheMiss)
-        reporter.debug("Canonical form:")(DebugSectionCacheMiss)
-        reporter.debug(serialize(canonic))(DebugSectionCacheMiss)
-        reporter.debug("--------------")(DebugSectionCacheMiss)
-      }
 
-      val result = super.checkVC(vc,sf)
-      if (result.isValid) {
-        add(canonic)
-      }
+    val (time, tryResult) = timers.verification.cache.runAndGetTime {
+      val canonic = transformers.Canonization.canonize(program)(vc)
+      if (contains(canonic)) {
+        reporter.synchronized {
+          reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
+          reporter.debug(vc.condition)(DebugSectionCacheHit)
+          reporter.debug("--------------")(DebugSectionCacheHit)
+        }
+        VCResult(VCStatus.ValidFromCache, None, None)
+      } else {
+        reporter.synchronized {
+          reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
+          reporter.debug(vc.condition)(DebugSectionCacheMiss)
+          reporter.debug("Canonical form:")(DebugSectionCacheMiss)
+          reporter.debug(serialize(canonic))(DebugSectionCacheMiss)
+          reporter.debug("--------------")(DebugSectionCacheMiss)
+        }
 
-      result
+        val result = super.checkVC(vc,sf)
+        if (result.isValid) {
+          add(canonic)
+        }
+
+        result
+      }
+    }
+
+    // Update the result with the correct processing time
+    tryResult match {
+      case Failure(e) => reporter.internalError(e)
+      case Success(VCResult(status, solver, _)) => VCResult(status, solver, Some(time))
     }
   }
 
@@ -135,7 +144,7 @@ private object CacheLoader {
       case e: java.io.StreamCorruptedException =>
         ctx.reporter.fatalError(s"The cache file '$file' is corrupt. Please delete it.")
     }
-  } 
+  }
 
   /**
    * Closes an ObjectInputStream and catches potential IO errors
@@ -146,7 +155,7 @@ private object CacheLoader {
       case e: java.io.IOException =>
         ctx.reporter.error(s"Could not close ObjectInputStream of $file properly.")
     }
-  } 
+  }
 
 
 
