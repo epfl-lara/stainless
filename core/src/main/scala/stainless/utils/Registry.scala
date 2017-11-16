@@ -402,8 +402,9 @@ trait Registry {
     // Compute direct dependencies and insert the new information into our dependency graph
     val clusters = computeClusters(classes)
     val invariants = computeInvariantMapping(functions)
+    val methods = computeMethodMapping(functions)
     def computeAllDirectDependencies(cd: xt.ClassDef) =
-      computeDirectDependencies(cd) ++ clusters(cd) ++ invariants(cd)
+      computeDirectDependencies(cd) ++ clusters(cd) ++ invariants(cd) ++ methods(cd)
 
     val newNodes: Seq[(Identifier, NodeValue, Set[Identifier])] =
       (classes map { cd => (cd.id, Left(cd): NodeValue, computeAllDirectDependencies(cd)) }) ++
@@ -544,6 +545,26 @@ trait Registry {
       }
 
     (cd: xt.ClassDef) => { db.getOrElse(cd.id, None) }
+  }
+
+  /**
+   * Compute a (total) mapping, solely based on the given [[functions]], to identify
+   * class dependency toward their methods, if any.
+   */
+  private def computeMethodMapping(functions: Seq[xt.FunDef]): xt.ClassDef => Seq[Identifier] = {
+    // cid -> fid* mapping
+    val db: Map[Identifier, Seq[Identifier]] =
+      functions collect {
+        case fd if fd.flags exists { case xt.IsMethodOf(_) => true; case _ => false } =>
+          val Some(cid) = fd.flags collectFirst { case xt.IsMethodOf(cid) => cid }
+          cid -> fd.id
+      } groupBy {
+        case (cid, fid) => cid
+      } map {
+        case (cid, xs) => cid -> (xs map { _._2 })
+      }
+
+    (cd: xt.ClassDef) => { db.getOrElse(cd.id, Seq.empty) }
   }
 
 }
