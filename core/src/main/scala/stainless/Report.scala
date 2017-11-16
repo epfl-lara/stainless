@@ -109,32 +109,24 @@ object AbstractReportHelper {
   trait Record { val derivedFrom: Identifier }
 
   /**
-   * Keep records which `id` are present in [[ids]], and returns the next generation counter.
+   * Keep records which are derived from one of the given identifiers.
    */
-  def filter[R <: Record](records: Seq[R], ids: Set[Identifier], lastGen: Long): (Seq[R], Long) =
-    (records filter { ids contains _.derivedFrom }, lastGen + 1)
+  def filter[R <: Record](records: Seq[R], ids: Set[Identifier]): Seq[R] =
+    records filter { ids contains _.derivedFrom }
 
   /**
-   * Merge two sets of records [[R]] into one, and returns the next generation counter.
+   * Merge two sets of records [[R]] into one.
    *
    * Records in [[prevs]] which have the same `id` as the ones in [[news]] are removed.
-   * The [[updater0]] function takes as first parameter the next generation counter.
    */
-  def merge[R <: Record](prevs: Seq[R], news: Seq[R], lastGen: Long, updater0: Long => R => R): (Seq[R], Long) = {
+  def merge[R <: Record](prevs: Seq[R], news: Seq[R]): Seq[R] = {
     def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.derivedFrom }
 
     val prev = buildMapping(prevs)
-    val next0 = buildMapping(news)
-
-    val updated = (prev.keySet & next0.keySet).nonEmpty
-    val nextGen = if (updated) lastGen + 1 else lastGen
-    val updater = updater0(nextGen)
-
-    val next = next0 mapValues { records => records map updater }
-
+    val next = buildMapping(news)
     val fused = (prev ++ next).values.fold(Seq.empty) { _ ++ _ }
 
-    (fused, nextGen)
+    fused
   }
 }
 

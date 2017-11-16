@@ -48,21 +48,20 @@ object VerificationReport {
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String,
-    derivedFrom: Identifier,
-    generation: Long = 0 // "age" of the record, usefull to determine which ones are "NEW".
+    derivedFrom: Identifier
   ) extends AbstractReportHelper.Record
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json) = json.as[(Seq[Record], Long)] match {
-    case Right((records, lastGen)) => new VerificationReport(records, lastGen + 1)
+  def parse(json: Json) = json.as[Seq[Record]] match {
+    case Right(records) => new VerificationReport(records)
     case Left(error) => throw error
   }
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: Long = 0)
+class VerificationReport(val results: Seq[VerificationReport.Record])
   extends AbstractReport[VerificationReport] {
   import VerificationReport._
 
@@ -76,7 +75,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
   override val name = VerificationComponent.name
 
   override lazy val annotatedRows = results map {
-    case Record(id, pos, time, status, solverName, kind, _, gen) =>
+    case Record(id, pos, time, status, solverName, kind, _) =>
       val level = levelOf(status)
       val solver = solverName getOrElse ""
       val extra = Seq(kind, status.name, solver)
@@ -93,18 +92,13 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
   override lazy val stats =
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
 
-  override def ~(other: VerificationReport) = {
-    def updater(nextGen: Long)(r: Record) = r.copy(generation = nextGen)
-    val (fused, nextGen) = AbstractReportHelper.merge(this.results, other.results, lastGen, updater)
-    new VerificationReport(fused, nextGen)
-  }
+  override def ~(other: VerificationReport) =
+    new VerificationReport(AbstractReportHelper.merge(this.results, other.results))
 
-  override def filter(ids: Set[Identifier]) = {
-    val (filtered, nextGen) = AbstractReportHelper.filter(results, ids, lastGen)
-    new VerificationReport(filtered, nextGen)
-  }
+  override def filter(ids: Set[Identifier]) =
+    new VerificationReport(AbstractReportHelper.filter(results, ids))
 
-  override def emitJson: Json = (results, lastGen).asJson
+  override def emitJson: Json = results.asJson
 
 }
 
