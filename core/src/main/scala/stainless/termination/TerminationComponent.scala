@@ -3,6 +3,8 @@
 package stainless
 package termination
 
+import scala.util.{ Success, Failure }
+
 object TerminationComponent extends SimpleComponent {
   override val name = "termination"
   override val description = "Check program termination."
@@ -61,14 +63,10 @@ object TerminationComponent extends SimpleComponent {
     } reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
 
     val res = toVerify map { fd =>
-      val timer = ctx.timers.termination.start()
-      try {
-        val status = c.terminates(fd)
-        val time = timer.stop()
-
-        fd -> (status, time)
-      } finally {
-        if (timer.isRunning) timer.stop()
+      val (time, tryStatus) = timers.termination.runAndGetTime { c.terminates(fd) }
+      tryStatus match {
+        case Success(status) => fd -> (status, time)
+        case Failure(e) => reporter.internalError(e)
       }
     }
 

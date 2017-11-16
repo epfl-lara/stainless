@@ -5,6 +5,8 @@ package verification
 
 import inox.solvers._
 
+import scala.util.{ Success, Failure }
+
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", false)
@@ -97,19 +99,16 @@ trait VerificationChecker { self =>
         reporter.debug("Solving with: " + s.name)
       }
 
-      val timer = timers.verification.start()
-
-      val vcres = try {
+      val (time, tryRes) = timers.verification.runAndGetTime {
         s.assertCnstr(Not(cond))
+        s.check(Model)
+      }
 
-        val res = s.check(Model)
+      val vcres = tryRes match {
+        case _ if interruptManager.isInterrupted =>
+          VCResult(VCStatus.Cancelled, Some(s), Some(time))
 
-        val time = timer.stop()
-
-        res match {
-          case _ if interruptManager.isInterrupted =>
-            VCResult(VCStatus.Cancelled, Some(s), Some(time))
-
+        case Success(res) => res match {
           case Unknown =>
             VCResult(s match {
               case ts: inox.solvers.combinators.TimeoutSolver => ts.optTimeout match {
@@ -125,13 +124,12 @@ trait VerificationChecker { self =>
           case SatWithModel(model) =>
             VCResult(VCStatus.Invalid(model), s.getResultSolver, Some(time))
         }
-      } catch {
-        case u: Unsupported =>
-          val time = if (timer.isRunning) timer.stop else timer.time
+
+        case Failure(u: Unsupported) =>
           reporter.warning(u.getMessage)
           VCResult(VCStatus.Unsupported, Some(s), Some(time))
-      } finally {
-        if (timer.isRunning) timer.stop()
+
+        case Failure(e) => reporter.internalError(e)
       }
 
       reporter.synchronized {
