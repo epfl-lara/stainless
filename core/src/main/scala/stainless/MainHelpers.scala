@@ -119,14 +119,21 @@ trait MainHelpers extends inox.MainHelpers {
 
     // For each cylce, passively wait until the compiler has finished
     // & print summary of reports for each component
-    def runCycle() = try {
-      compiler.run()
-      compiler.join()
+    def runCycle() = {
+      val (time, res) = ctx.timers.cycle.runAndGetTime {
+        compiler.run()
+        compiler.join()
 
-      compiler.getReports foreach { _.emit(ctx) }
-    } catch {
-      case frontend.UnsupportedCodeException(pos, msg) =>
-        ctx.reporter.error(pos, msg)
+        compiler.getReports foreach { _.emit(ctx) }
+      }
+
+      res match {
+        case scala.util.Failure(frontend.UnsupportedCodeException(pos, msg)) => ctx.reporter.error(pos, msg)
+        case scala.util.Failure(ex) => ctx.reporter.internalError(ex)
+        case scala.util.Success(()) => // nothing to do
+      }
+
+      ctx.reporter.info(s"Cycle took $time ms")
     }
 
     // Run the first cycle
@@ -154,7 +161,8 @@ trait MainHelpers extends inox.MainHelpers {
     ctx.reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
 
-    System.exit(if (compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })) 0 else 1)
+    val success = compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })
+    System.exit(if (success) 0 else 1)
   } catch {
     case _: inox.FatalError => System.exit(2)
   }
