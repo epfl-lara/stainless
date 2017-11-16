@@ -88,9 +88,6 @@ trait DefaultTactic extends Tactic {
       case (a @ Assert(cond, _, _), path) =>
         (a, path implies cond)
 
-      case (app @ Application(caller, args), path) =>
-        (app, path implies Application(Pre(caller), args))
-
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
         (c, path implies Not(Forall(Seq(res), Not(pred))))
 
