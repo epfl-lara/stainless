@@ -258,32 +258,6 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda]).setPos(e)
   }
 
-  def funRequires(f: Expr, p: Expr) = {
-    val FunctionType(from, to) = f.getType
-    assert(from.nonEmpty, "Can't build `requires` for function without arguments")
-    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
-    val vars = vds.map(_.toVariable)
-    Forall(vds, 
-      Implies(
-        Application(p, vars).copiedFrom(f), 
-        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f)
-      ).copiedFrom(f)
-    ).copiedFrom(f)
-  }
-
-  def funEnsures(f: Expr, p: Expr) = {
-    val FunctionType(from, to) = f.getType
-    assert(from.nonEmpty, "Can't build `ensures` for function without arguments")
-    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).setPos(tpe))
-    val vars = vds.map(_.toVariable)
-    Forall(vds, 
-      Implies(
-        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f), 
-        Application(p, vars :+ Application(f, vars).copiedFrom(f)).copiedFrom(f)
-      ).copiedFrom(f)
-    ).copiedFrom(f)
-  }
-
   /* =================
    * Path manipulation
    * ================= */
@@ -322,72 +296,4 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       case b => path withShared (Seq(b), spec)
     }
   }
-
-
-  /* ====================
-   * Weakest precondition
-   * ==================== */
-
-  /**
-   * [[strict]] enable the strict arithmetic mode. See [[AssertionInjector.optStrictkArithmetic]].
-   * Overload with context below.
-   */
-  def weakestPrecondition(e: Expr, strict: Boolean): Expr = {
-    object injector extends verification.AssertionInjector {
-      val s: trees.type = trees
-      val t: trees.type = trees
-      val symbols: self.symbols.type = self.symbols
-      val strictArithmetic: Boolean = strict
-    }
-
-    val withAssertions = injector.transform(e)
-
-    var results: List[Expr] = Nil
-    object collector extends transformers.TransformerWithPC {
-      val trees: self.trees.type = self.trees
-      val symbols: self.symbols.type = self.symbols
-
-      val pp = Path
-      val initEnv = Path.empty
-      type Env = Path
-
-      override protected def rec(e: Expr, path: Path): Expr = e match {
-        case _: Lambda =>
-          e
-        case _: Require =>
-          accumulate(e, path)
-          e
-        case _ =>
-          val res = super.rec(e, path)
-          accumulate(e, path)
-          res
-      }
-
-      protected def implies(path: Path, e: Expr): Expr = {
-        val implication = path implies e
-        val quantified = path.open.toSet & variablesOf(implication).map(_.toVal)
-        if (quantified.isEmpty) implication else Forall(quantified.toSeq, implication).copiedFrom(e)
-      }
-
-      protected def accumulate(e: Expr, path: Path): Unit = e match {
-        case Assert(pred, _, _) => results :+= implies(path, pred)
-        case Require(pred, _) => results :+= implies(path, pred)
-
-        case fi @ FunctionInvocation(_, _, args) =>
-          val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
-          results :+= implies(path, pred)
-
-        case Application(caller, args) =>
-          results :+= implies(path, Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e))
-
-        case _ =>
-      }
-    }
-
-    collector.transform(withAssertions)
-    andJoin(results)
-  }
-
-  def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =
-    weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.optStrictArithmetic))
 }

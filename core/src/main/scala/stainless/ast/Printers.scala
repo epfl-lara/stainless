@@ -37,9 +37,6 @@ trait Printer extends inox.ast.Printer {
       for (f <- flags) p"@${f.asString(ctx.opts)} "
       p"$body"
 
-    case Pre(f) =>
-      p"$f.pre"
-
     case MatchExpr(s, cases) =>
       optP {
         p"""|$s match {
