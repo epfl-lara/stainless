@@ -67,9 +67,6 @@ trait DefaultTactic extends Tactic {
       case _: Choose =>
         VCKind.Choose
 
-      case _: Application =>
-        VCKind.LambdaPre
-
       case _: ADT =>
         VCKind.AdtInvariant
 
