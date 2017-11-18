@@ -19,7 +19,7 @@ import org.scalatest._
 
 /**
  * Test suite for [[Registry]]. This suite used the specific [[Main]]
- * implementations. This therefore also test the extraction from the underlying
+ * implementations. This therefore also tests the extraction from the underlying
  * Scala compiler, making sure symbols are properly mapped to stainless/inox
  * identifiers.
  *
