@@ -66,7 +66,11 @@ trait DefaultTactic extends Tactic {
 
       case _: Choose =>
         VCKind.Choose
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> Remove VCKind for lambda preconditions
       case _: ADT =>
         VCKind.AdtInvariant
 
