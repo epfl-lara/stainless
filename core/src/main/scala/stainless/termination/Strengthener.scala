@@ -18,16 +18,18 @@ trait Strengthener { self: OrderingRelation =>
   import checker.program.symbols._
   import CallGraphOrderings._
 
-  private val strengthenedPost: MutableMap[FunDef, Option[Lambda]] = MutableMap.empty
+  private val strengthenedPost: MutableMap[Identifier, Option[Lambda]] = MutableMap.empty
 
   private lazy val ignorePosts = options.findOptionOrDefault(optIgnorePosts)
 
   private object postStrengthener extends IdentitySymbolTransformer {
     override def transform(syms: Symbols): Symbols =
-      syms.withFunctions(strengthenedPost.flatMap {
-        case (fd, post @ Some(_)) => Some(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post)))
-        case _ => None
-      }.toSeq)
+      syms.withFunctions(syms.functions.toSeq.map { case (id, fd) =>
+        strengthenedPost.get(id) match {
+          case Some(post @ Some(_)) => fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post))
+          case _ => fd
+        }
+      })
   }
 
   registerTransformer(postStrengthener)
@@ -43,9 +45,9 @@ trait Strengthener { self: OrderingRelation =>
     // a stronger post existing for a single function within the SCC seems more probable
     // than having weird inter-dependencies between different functions in the SCC
     for (fd <- sortedCallees
-         if fd.body.isDefined && !strengthenedPost.isDefinedAt(fd) && checker.terminates(fd).isGuaranteed) {
+         if fd.body.isDefined && !strengthenedPost.isDefinedAt(fd.id) && checker.terminates(fd).isGuaranteed) {
 
-      strengthenedPost(fd) = None
+      strengthenedPost(fd.id) = None
 
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val postcondition = {
@@ -71,7 +73,7 @@ trait Strengthener { self: OrderingRelation =>
         // @nv: one must also check that variablesOf(formula) is non-empty as
         //      we may proceed to invalid strenghtening otherwise
         if (exprOps.variablesOf(formula).nonEmpty && api.solveVALID(formula).contains(true)) {
-          strengthenedPost(fd) = Some(postcondition)
+          strengthenedPost(fd.id) = Some(postcondition)
           true
         } else {
           false
@@ -101,16 +103,14 @@ trait Strengthener { self: OrderingRelation =>
 
   protected def strengthened(fd: FunDef): Boolean = strengthenedApp(fd)
 
-  private val appConstraint   : MutableMap[(FunDef, Identifier), SizeConstraint] = MutableMap.empty
+  private val appConstraint   : MutableMap[(Identifier, Identifier), SizeConstraint] = MutableMap.empty
 
-  def applicationConstraint(fd: FunDef, id: Identifier, arg: Expr, args: Seq[Expr]): Expr = arg match {
-    case Lambda(fargs, body) => appConstraint.get(fd -> id) match {
-      case Some(StrongDecreasing) => self.lessThan(fargs.map(_.toVariable), args)
-      case Some(WeakDecreasing) => self.lessEquals(fargs.map(_.toVariable), args)
+  def applicationConstraint(fid: Identifier, id: Identifier, largs: Seq[ValDef], args: Seq[Expr]): Expr =
+    appConstraint.get(fid -> id) match {
+      case Some(StrongDecreasing) => self.lessThan(largs.map(_.toVariable), args)
+      case Some(WeakDecreasing) => self.lessEquals(largs.map(_.toVariable), args)
       case _ => BooleanLiteral(true)
     }
-    case _ => BooleanLiteral(true)
-  }
 
   def strengthenApplications(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
     reporter.debug("- Strengthening applications")
@@ -155,19 +155,18 @@ trait Strengthener { self: OrderingRelation =>
       val fiCollector = CollectorWithPC(program) {
         case (fi @ FunctionInvocation(_, _, args), path)
         if (fdHOArgs intersect args.collect { case v: Variable => v }.toSet).nonEmpty =>
-          val fd = fi.tfd.fd
-          (path, args, (args zip fd.params).collect {
-            case (v: Variable, vd) if fdHOArgs(v) => v -> ((fd, vd.id))
+          (path, args, (args zip fi.tfd.fd.params).collect {
+            case (v: Variable, vd) if fdHOArgs(v) => v -> ((fi.id, vd.id))
           })
       }
 
       val invocations = fiCollector.collect(fd)
-      val var2invocations: Seq[(Variable, ((FunDef, Identifier), Path, Seq[Expr]))] =
+      val var2invocations: Seq[(Variable, ((Identifier, Identifier), Path, Seq[Expr]))] =
         for ((path, args, mapping) <- invocations; (v, p) <- mapping) yield v -> (p, path, args)
-      val invocationMap: Map[Variable, Seq[((FunDef, Identifier), Path, Seq[Expr])]] =
+      val invocationMap: Map[Variable, Seq[((Identifier, Identifier), Path, Seq[Expr])]] =
         var2invocations.groupBy(_._1).mapValues(_.map(_._2))
 
-      def constraint(v: Variable, passings: Seq[((FunDef, Identifier), Path, Seq[Expr])]): SizeConstraint = {
+      def constraint(v: Variable, passings: Seq[((Identifier, Identifier), Path, Seq[Expr])]): SizeConstraint = {
         if (constraints.get(v) == Some(NoConstraint)) NoConstraint
         else if (passings.exists(p => appConstraint.get(p._1) == Some(NoConstraint))) NoConstraint
         else passings.foldLeft[SizeConstraint](constraints.getOrElse(v, StrongDecreasing)) {
@@ -195,10 +194,10 @@ trait Strengthener { self: OrderingRelation =>
       }
 
       val outers = invocationMap.mapValues(_.filter(_._1._1 != fd))
-      for (v <- fdHOArgs) appConstraint(fd -> v.id) = constraint(v, outers.getOrElse(v, Seq.empty))
+      for (v <- fdHOArgs) appConstraint(fd.id -> v.id) = constraint(v, outers.getOrElse(v, Seq.empty))
 
       val selfs = invocationMap.mapValues(_.filter(_._1._1 == fd))
-      for (v <- fdHOArgs) appConstraint(fd -> v.id) = constraint(v, selfs.getOrElse(v, Seq.empty))
+      for (v <- fdHOArgs) appConstraint(fd.id -> v.id) = constraint(v, selfs.getOrElse(v, Seq.empty))
 
       strengthenedApp += fd
     }

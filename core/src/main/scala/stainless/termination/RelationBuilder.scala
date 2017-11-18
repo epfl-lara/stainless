@@ -61,14 +61,17 @@ trait RelationBuilder { self: Strengthener =>
         var inLambda: Boolean = false
 
         override protected def rec(e: Expr, path: Path): Expr = e match {
-          // @nv: instead of injecting the path condition here, we could collect the relations on
-          //      a transformed program. However, special care would need to be taken to make sure
-          //      FunDef pointers make sense, so I'm keeping this hacky solution for know.
-          case FunctionInvocation(id, tps, args) =>
+          case fi @ FunctionInvocation(_, _, args) =>
             accumulate(e, path)
-            val funDef = getFunction(id)
-            FunctionInvocation(id, tps, (funDef.params.map(_.id) zip args) map { case (id, arg) =>
-              rec(arg, path withCond self.applicationConstraint(funDef, id, arg, args))
+            fi.copy(args = (getFunction(fi.id).params.map(_.id) zip args).map {
+              case (id, l @ Lambda(largs, body)) if analysis.isApplied(l) =>
+                val cnstr = self.applicationConstraint(fi.id, id, largs, args)
+                val old = inLambda
+                inLambda = true
+                val res = Lambda(largs, rec(body, path withBounds largs withCond cnstr))
+                inLambda = old
+                res
+              case (_, arg) => rec(arg, path)
             })
 
           case l: Lambda =>

@@ -26,8 +26,8 @@ object Hamming {
   case class Data(v: BigInt, i2: BigInt, i3: BigInt, i5: BigInt)
 
   def ham(n: BigInt): Data = {
-    decreases(abs(n))
     require(n >= 0)
+    decreases(abs(n))
     if(n == BigInt(0)) Data(1, 0, 0, 0)
     else {
       val Data(x, i2, i3, i5) = ham(n-1)

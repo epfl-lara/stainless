@@ -470,7 +470,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     def wrap(e: t.Expr, tpe: t.Type): t.Expr = {
       val fd = wrapCache.getOrElseUpdate(tpe, {
         mkFunDef(FreshIdentifier(encodeName("wrap" + tpe)), Unchecked)()(_ => (
-          Seq("x" :: tpe), obj, { case Seq(x) => choose("res" :: obj)(res => unwrap(res, tpe) === e) }
+          Seq("x" :: tpe), obj, { case Seq(x) => choose("res" :: obj)(res => unwrap(res, tpe) === x) }
         ))
       })
       FunctionInvocation(fd.id, Seq(), Seq(e)).copiedFrom(e)

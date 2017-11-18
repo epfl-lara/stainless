@@ -8,7 +8,7 @@ trait TransformerWithPC extends inox.transformers.TransformerWithPC {
   import trees._
   import symbols._
 
-  implicit val pp: PathProvider[Env]
+  implicit def pp: PathProvider[Env]
 
   override protected def rec(e: Expr, env: Env): Expr = e match {
     case Ensuring(req @ Require(pre, body), l @ Lambda(Seq(vd), post)) =>

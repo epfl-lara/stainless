@@ -93,7 +93,7 @@ trait InputUtils {
 
     val program = inox.Program(xt)(syms)
 
-    (units.toSeq, program)
+    (units.toSeq.sortBy(_.id.name), program)
   }
 
 }
