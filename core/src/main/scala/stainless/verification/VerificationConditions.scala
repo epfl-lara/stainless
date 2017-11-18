@@ -19,7 +19,6 @@ object VCKind {
   }
 
   case object Precondition    extends VCKind("precondition", "precond.")
-  case object LambdaPre       extends VCKind("lambda precondition", "lambda pre.")
   case object Postcondition   extends VCKind("postcondition", "postcond.")
   case object Assert          extends VCKind("body assertion", "assert.")
   case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
