@@ -441,11 +441,9 @@ trait CodeGeneration { self: CompilationUnit =>
             .withParameters(params)
             .withTypeParameters(tps)
 
-          val preLambda = if (pre) {
-            lambda.copy(body = BooleanLiteral(true))
-          } else {
-            lambda.copy(body = weakestPrecondition(lambda.body))
-          }
+          // FIXME: should we remove this, since lambdas do not have
+          // preconditions anymore?
+          val preLambda = lambda.copy(body = BooleanLiteral(true))
 
           mkLambda(preLambda, pch, pre = true)(preLocals)
 
@@ -886,10 +884,6 @@ trait CodeGeneration { self: CompilationUnit =>
 
       ch << InvokeVirtual(LambdaClass, "apply", s"([L$ObjectClass;)L$ObjectClass;")
       mkUnbox(app.getType, ch)
-
-    case Pre(f) =>
-      mkExpr(f, ch)
-      ch << InvokeVirtual(LambdaClass, "pre", s"()L$LambdaClass;")
 
     case lambda: Lambda =>
       mkLambda(lambda, ch, pre = false)

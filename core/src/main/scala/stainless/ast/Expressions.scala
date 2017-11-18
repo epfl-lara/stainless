@@ -88,19 +88,6 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   }
 
 
-  /* First-class function specs */
-
-  /** First class function precondition accessor
-    * 
-    * $encodingof `f.pre` */
-  case class Pre(f: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = f.getType match {
-      case FunctionType(from, to) => FunctionType(from, BooleanType()).unveilUntyped
-      case _ => Untyped
-    }
-  }
-
-
   /* Pattern-match expression */
 
   /** $encodingof `... match { ... }`

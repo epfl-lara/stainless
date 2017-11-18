@@ -258,32 +258,6 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     Ensuring(e, tupleWrapArg(pred).asInstanceOf[Lambda]).setPos(e)
   }
 
-  def funRequires(f: Expr, p: Expr) = {
-    val FunctionType(from, to) = f.getType
-    assert(from.nonEmpty, "Can't build `requires` for function without arguments")
-    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
-    val vars = vds.map(_.toVariable)
-    Forall(vds, 
-      Implies(
-        Application(p, vars).copiedFrom(f), 
-        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f)
-      ).copiedFrom(f)
-    ).copiedFrom(f)
-  }
-
-  def funEnsures(f: Expr, p: Expr) = {
-    val FunctionType(from, to) = f.getType
-    assert(from.nonEmpty, "Can't build `ensures` for function without arguments")
-    val vds = from.map(tpe => ValDef(FreshIdentifier("x", true), tpe).setPos(tpe))
-    val vars = vds.map(_.toVariable)
-    Forall(vds, 
-      Implies(
-        Application(Pre(f).copiedFrom(f), vars).copiedFrom(f), 
-        Application(p, vars :+ Application(f, vars).copiedFrom(f)).copiedFrom(f)
-      ).copiedFrom(f)
-    ).copiedFrom(f)
-  }
-
   /* =================
    * Path manipulation
    * ================= */
@@ -326,62 +300,64 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
   /* ====================
    * Weakest precondition
+   * This is unused at the moment, so commented out. But could be useful in the
+   * future.
    * ==================== */
 
   /**
    * [[strict]] enable the strict arithmetic mode. See [[AssertionInjector.optStrictkArithmetic]].
    * Overload with context below.
    */
-  def weakestPrecondition(e: Expr, strict: Boolean): Expr = {
-    object injector extends verification.AssertionInjector {
-      val s: trees.type = trees
-      val t: trees.type = trees
-      val symbols: self.symbols.type = self.symbols
-      val strictArithmetic: Boolean = strict
-    }
+  // def weakestPrecondition(e: Expr, strict: Boolean): Expr = {
+  //   object injector extends verification.AssertionInjector {
+  //     val s: trees.type = trees
+  //     val t: trees.type = trees
+  //     val symbols: self.symbols.type = self.symbols
+  //     val strictArithmetic: Boolean = strict
+  //   }
 
-    val withAssertions = injector.transform(e)
+  //   val withAssertions = injector.transform(e)
 
-    var results: List[Expr] = Nil
-    object collector extends transformers.TransformerWithPC {
-      val trees: self.trees.type = self.trees
-      val symbols: self.symbols.type = self.symbols
+  //   var results: List[Expr] = Nil
+  //   object collector extends transformers.TransformerWithPC {
+  //     val trees: self.trees.type = self.trees
+  //     val symbols: self.symbols.type = self.symbols
 
-      val pp = Path
-      val initEnv = Path.empty
-      type Env = Path
+  //     val pp = Path
+  //     val initEnv = Path.empty
+  //     type Env = Path
 
-      override protected def rec(e: Expr, path: Path): Expr = e match {
-        case _: Lambda =>
-          e
-        case _: Require =>
-          accumulate(e, path)
-          e
-        case _ =>
-          val res = super.rec(e, path)
-          accumulate(e, path)
-          res
-      }
+  //     override protected def rec(e: Expr, path: Path): Expr = e match {
+  //       case _: Lambda =>
+  //         e
+  //       case _: Require =>
+  //         accumulate(e, path)
+  //         e
+  //       case _ =>
+  //         val res = super.rec(e, path)
+  //         accumulate(e, path)
+  //         res
+  //     }
 
-      protected def accumulate(e: Expr, path: Path): Unit = e match {
-        case Assert(pred, _, _) => results :+= path implies pred
-        case Require(pred, _) => results :+= path implies pred
+  //     protected def accumulate(e: Expr, path: Path): Unit = e match {
+  //       case Assert(pred, _, _) => results :+= path implies pred
+  //       case Require(pred, _) => results :+= path implies pred
 
-        case fi @ FunctionInvocation(_, _, args) =>
-          val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
-          results :+= path implies pred
+  //       case fi @ FunctionInvocation(_, _, args) =>
+  //         val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
+  //         results :+= path implies pred
 
-        case Application(caller, args) =>
-          results :+= path implies Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e)
+  //       case Application(caller, args) =>
+  //         results :+= path implies Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e)
 
-        case _ =>
-      }
-    }
+  //       case _ =>
+  //     }
+  //   }
 
-    collector.transform(withAssertions)
-    andJoin(results)
-  }
+  //   collector.transform(withAssertions)
+  //   andJoin(results)
+  // }
 
-  def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =
-    weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.optStrictArithmetic))
+  // def weakestPrecondition(e: Expr)(implicit ctx: inox.Context): Expr =
+  //   weakestPrecondition(e, ctx.options.findOptionOrDefault(verification.optStrictArithmetic))
 }
