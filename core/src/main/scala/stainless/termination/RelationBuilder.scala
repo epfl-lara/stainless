@@ -22,7 +22,7 @@ trait RelationBuilder { self: Strengthener =>
       val instPath = that.path.instantiate(tfd.tpSubst)
       assert(that.fd == tfd.fd, "Cannot compose relations with incompatible functions")
 
-      val freeVars = instPath.variables -- tfd.params.map(_.toVariable).toSet
+      val freeVars = instPath.freeVariables -- tfd.params.map(_.toVariable).toSet
       val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
 
       val freshParams = tfd.params.map(_.freshen)

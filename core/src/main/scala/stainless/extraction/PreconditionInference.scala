@@ -360,7 +360,7 @@ class PreconditionInference(
                           val freshParams = tfd.params.map(_.freshen)
                           val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-                          val freeVars = p.variables -- tfd.params.map(_.toVariable).toSet
+                          val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
                           val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
 
                           val freshBindings = p.bound.map(vd => vd.freshen)
@@ -403,7 +403,7 @@ class PreconditionInference(
             }
 
           case FlatApplication(caller, args) if (containers contains caller) && !e.getType.isInstanceOf[FunctionType] =>
-            val freeVars = (args.flatMap(variablesOf).toSet ++ path.variables) --
+            val freeVars = (args.flatMap(variablesOf).toSet ++ path.freeVariables) --
               fd.params.map(_.toVariable).toSet --
               path.bindings.map(_._1.toVariable).toSet
 
