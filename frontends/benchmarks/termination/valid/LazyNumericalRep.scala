@@ -71,9 +71,7 @@ object LazyNumericalRep {
     def finite: Boolean = this.get.finite
   }
   private case class Val(x: NumList) extends NumStream
-  private case class Susp(fun: () => NumList) extends NumStream {
-    require(fun.pre())
-  }
+  private case class Susp(fun: () => NumList) extends NumStream
 
   case class Number(digs: NumStream, schedule: List[NumStream]) {
     def valid = digs.finite

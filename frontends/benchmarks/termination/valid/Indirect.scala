@@ -14,7 +14,7 @@ object Indirect {
     } else {
       () => BigInt(0)
     }
-  } ensuring (res => res.pre())
+  }
 
   def main(): BigInt = f(0)()
 }
