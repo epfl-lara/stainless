@@ -12,5 +12,5 @@ object IndirectHO {
     } else {
       () => ()
     }
-  } ensuring (_.pre())
+  }
 }

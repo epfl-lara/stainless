@@ -5,7 +5,6 @@ import stainless.lang._
 object ToChurch {
 
   def compose[T,U,V](f: U => V, g: T => U): T => V = {
-    require(forall((x: U) => f.pre(x)) && forall((x: T) => g.pre(x)))
     (x: T) => f(g(x))
   }
 
@@ -14,10 +13,10 @@ object ToChurch {
   def succ(x: BigInt) = x + 1
 
   def toChurch(n: BigInt, f: BigInt => BigInt): BigInt => BigInt = {
-    require(n >= 0 && forall((x: BigInt) => f.pre(x)))
+    require(n >= 0)
     if (n == 0) id[BigInt] _
     else compose(f, toChurch(n - 1, f))
-  } ensuring (res => forall((x: BigInt) => res.pre(x)))
+  }
 
   def main(x: BigInt): BigInt = {
     if (x >= 0) toChurch(x, succ)(0)

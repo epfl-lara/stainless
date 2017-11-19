@@ -5,7 +5,6 @@ import stainless.lang._
 object ChurchNum {
 
   def succ(m: (BigInt => BigInt) => BigInt => BigInt)(s: BigInt => BigInt)(z: BigInt) = {
-    require(forall((f: BigInt => BigInt, i: BigInt) => m.pre(f) && m(f).pre(i) && s.pre(i)))
     m(s)(s(z))
   }
 
@@ -13,7 +12,6 @@ object ChurchNum {
 
   def two(f: ((BigInt => BigInt) => BigInt => BigInt) => (BigInt => BigInt) => BigInt => BigInt)
          (z: (BigInt => BigInt) => BigInt => BigInt) = {
-    require(f.pre(z) && f.pre(f(z)))
     f(f(z))
   }
 
