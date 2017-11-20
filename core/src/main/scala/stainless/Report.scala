@@ -2,7 +2,9 @@
 
 package stainless
 
+import inox.utils.Position
 import inox.utils.ASCIIHelpers._
+
 import io.circe.Json
 
 case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, invalid: Int, unknown: Int) {
@@ -14,6 +16,8 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
     invalid + more.invalid,
     unknown + more.unknown
   )
+
+  def isValid = unknown + invalid == 0
 }
 
 /**
@@ -31,34 +35,71 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   def emitJson: Json
 
+  final def emit(ctx: inox.Context): Unit = {
+    val watch = isWatchModeOn(ctx)
+    val table = emitTable(!watch)
+    ctx.reporter.info(table.render)
+  }
+
   /** Create a new report with *only* the information about the given functions/classes/... */
   def filter(ids: Set[Identifier]): SelfType
 
   /** Merge two reports, considering [[other]] to contain the latest information in case of update. */
   def ~(other: SelfType): SelfType
 
-  def isSuccess: Boolean
+  final def isSuccess: Boolean = stats.isValid
 
-  protected def emitRowsAndStats: Option[(Seq[Row], ReportStats)]
+  protected object Level extends Enumeration {
+    type Type = Value
+    val Error, Warning, Normal = Value
+  }
+  protected type Level = Level.Type
 
-  final def emit(ctx: inox.Context): Unit = emitTable match {
-    case None => ctx.reporter.info("No verification conditions were analyzed.")
-    case Some(t) => ctx.reporter.info(t.render)
+  protected case class RecordRow(
+    id: Identifier,
+    pos: Position,
+    level: Level,
+    extra: Seq[String],
+    time: Long
+  )
+
+  protected def annotatedRows: Seq[RecordRow]
+  protected def stats: ReportStats
+
+  /** Filter, sort & process rows. */
+  private def processRows(full: Boolean): Seq[Row] = {
+    for {
+      RecordRow(id, pos, level, extra, time) <- annotatedRows sortBy { r => r.id -> r.pos }
+      if full || level != Level.Normal
+      contents = (id.name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
+    } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
-  private def emitTable: Option[Table] = emitRowsAndStats map { case (rows, stats) =>
+  private def withColor(str: String, level: Level): String = withColor(str, colorOf(level))
+  private def withColor(str: String, color: String): String = color + str + Console.RESET
+  private def colorOf(level: Level): String = level match {
+    case Level.Normal => Console.GREEN
+    case Level.Warning => Console.YELLOW
+    case Level.Error => Console.RED
+  }
+
+  // Emit the report table, with all VCs when full is true, otherwise only with unknown/invalid VCs.
+  private def emitTable(full: Boolean): Table = {
+    val rows = processRows(full)
     val width = if (rows.isEmpty) 1 else rows.head.cellsSize // all rows must have the same size
-    var t = Table(s"$name summary")
+    val color = if (isSuccess) Console.GREEN else Console.RED
+
+    val footer =
+      f"total: ${stats.total}%-4d " +
+      f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +
+      f"invalid: ${stats.invalid}%-4d " +
+      f"unknown: ${stats.unknown}%-4d " +
+      f"time: ${stats.time/1000d}%7.3f"
+
+    var t = Table(withColor(s"$name summary", color))
     t ++= rows
     t += Separator
-    t += Row(Seq(
-      Cell(
-        f"total: ${stats.total}%-4d   valid: ${stats.valid}%-4d (${stats.validFromCache} from cache)   " +
-        f"invalid: ${stats.invalid}%-4d   unknown: ${stats.unknown}%-4d  " +
-        f"time: ${stats.time/1000d}%7.3f",
-        spanning = width
-      )
-    ))
+    t += Row(Seq(Cell(withColor(footer, color), spanning = width)))
 
     t
   }
@@ -99,9 +140,9 @@ object AbstractReportHelper {
 
 class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with object...
   override val name = "no-report"
-  override def emitJson = Json.arr()
-  override def isSuccess = true
-  override def emitRowsAndStats = None
+  override val emitJson = Json.arr()
+  override val annotatedRows = Seq.empty
+  override val stats = ReportStats(0, 0, 0, 0, 0, 0)
   override def filter(ids: Set[Identifier]) = this
   override def ~(other: NoReport) = this
 }

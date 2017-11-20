@@ -57,8 +57,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
   lazy val totalUnknown = results count { _.status.isUnknown }
   lazy val totalTime = (results map { _.time }).sum
 
-  override def isSuccess = totalUnknown + totalInvalid == 0
-
   override def ~(other: TerminationReport) = {
     def updater(nextGen: Long)(r: Record) = r.copy(generation = nextGen)
     val (fused, nextGen) = AbstractReportHelper.merge(this.results, other.results, lastGen, updater)
@@ -70,18 +68,23 @@ class TerminationReport(val results: Seq[TerminationReport.Record], lastGen: Lon
     new TerminationReport(filtered, nextGen)
   }
 
-  override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (results.isEmpty) None else {
-    val rows = for { Record(id, pos, time, status, verdict, kind, _, gen) <- results } yield Row(Seq(
-      Cell(if (gen == lastGen) "NEW" else ""),
-      Cell(id.name),
-      Cell((if (status.isTerminating) "\u2713" else "\u2717") + " " + verdict),
-      Cell(f"${time / 1000d}%3.3f")
-    ))
+  override lazy val annotatedRows = results map {
+    case Record(id, pos, time, status, verdict, kind, _, gen) =>
+      val level = levelOf(status)
+      val symbol = if (status.isTerminating) "\u2713" else "\u2717"
+      val extra = Seq(s"$symbol $verdict")
 
-    val stats = ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-
-    Some((rows, stats))
+      RecordRow(id, pos, level, extra, time)
   }
+
+  private def levelOf(status: Status) = status match {
+    case Terminating => Level.Normal
+    case Unknown => Level.Warning
+    case NonTerminating => Level.Error
+  }
+
+  override lazy val stats =
+    ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
 
   override def emitJson: Json = (results, lastGen).asJson
 

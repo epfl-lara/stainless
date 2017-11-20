@@ -75,22 +75,23 @@ class VerificationReport(val results: Seq[VerificationReport.Record], lastGen: L
 
   override val name = VerificationComponent.name
 
-  override def isSuccess = totalUnknown + totalInvalid == 0
+  override lazy val annotatedRows = results map {
+    case Record(id, pos, time, status, solverName, kind, _, gen) =>
+      val level = levelOf(status)
+      val solver = solverName getOrElse ""
+      val extra = Seq(kind, status.name, solver)
 
-  override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = if (totalConditions == 0) None else Some((
-    results sortBy { _.id } map { case Record(id, pos, time, status, solverName, kind, _, gen) =>
-      Row(Seq(
-        Cell(if (gen == lastGen) "NEW" else ""),
-        Cell(id),
-        Cell(kind),
-        Cell(pos.fullString),
-        Cell(status.name),
-        Cell(solverName getOrElse ""),
-        Cell(f"${time / 1000d}%3.3f")
-      ))
-    },
+      RecordRow(id, pos, level, extra, time)
+  }
+
+  private def levelOf(status: Status) = {
+    if (status.isValid) Level.Normal
+    else if (status.isInconclusive) Level.Warning
+    else Level.Error
+  }
+
+  override lazy val stats =
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-  ))
 
   override def ~(other: VerificationReport) = {
     def updater(nextGen: Long)(r: Record) = r.copy(generation = nextGen)
