@@ -70,7 +70,7 @@ trait VerificationChecker { self =>
         val res = checkVC(vc, sf)
 
         val shouldStop = stopWhen(res)
-        synchronized { // Make sure that we only interrupt the manager once.
+        interruptManager.synchronized { // Make sure that we only interrupt the manager once.
           if (shouldStop && !stop && !interruptManager.isInterrupted) {
             stop = true
             interruptManager.interrupt()
