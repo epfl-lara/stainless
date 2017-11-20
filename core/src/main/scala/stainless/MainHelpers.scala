@@ -6,6 +6,7 @@ import utils.JsonUtils
 
 import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks }
 import scala.concurrent.ExecutionContext
+import scala.util.{ Failure, Success }
 
 import java.io.File
 import java.util.concurrent.{ Executors, ExecutorService }
@@ -109,9 +110,10 @@ trait MainHelpers extends inox.MainHelpers {
 
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)
+    import ctx.{ reporter, timers }
 
     if (!MainHelpers.useParallelism) {
-      ctx.reporter.warning(s"Parallelism is disabled.")
+      reporter.warning(s"Parallelism is disabled.")
     }
 
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
@@ -120,7 +122,7 @@ trait MainHelpers extends inox.MainHelpers {
     // For each cylce, passively wait until the compiler has finished
     // & print summary of reports for each component
     def runCycle() = {
-      val (time, res) = ctx.timers.cycle.runAndGetTime {
+      val (time, res) = timers.cycle.runAndGetTime {
         compiler.run()
         compiler.join()
 
@@ -128,12 +130,12 @@ trait MainHelpers extends inox.MainHelpers {
       }
 
       res match {
-        case scala.util.Failure(frontend.UnsupportedCodeException(pos, msg)) => ctx.reporter.error(pos, msg)
-        case scala.util.Failure(ex) => ctx.reporter.internalError(ex)
-        case scala.util.Success(()) => // nothing to do
+        case Failure(frontend.UnsupportedCodeException(pos, msg)) => reporter.error(pos, msg)
+        case Failure(ex) => reporter.internalError(ex)
+        case Success(()) => // nothing to do
       }
 
-      ctx.reporter.info(s"Cycle took $time ms")
+      reporter.info(s"Cycle took $time ms")
     }
 
     // Run the first cycle
@@ -149,16 +151,16 @@ trait MainHelpers extends inox.MainHelpers {
     // Export final results to JSON if asked to.
     ctx.options.findOption(optJson) foreach { file =>
       val output = if (file.isEmpty) optJson.default else file
-      ctx.reporter.info(s"Printing JSON summary to $output")
+      reporter.info(s"Printing JSON summary to $output")
       exportJson(compiler.getReports, output)
     }
 
-    ctx.reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-      ctx.timers.outputTable(debug)
+    reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
+      timers.outputTable(debug)
     }
 
     // Shutdown the pool for a clean exit.
-    ctx.reporter.info("Shutting down executor service.")
+    reporter.info("Shutting down executor service.")
     MainHelpers.executor.shutdown()
 
     val success = compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })
