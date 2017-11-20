@@ -61,15 +61,23 @@ trait VerificationChecker { self =>
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
 
   def checkVCs(vcs: Seq[VC], sf: SolverFactory { val program: self.program.type }, stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
-    var stop = false
+    @volatile var stop = false
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     val results = MainHelpers.par(vcs) flatMap { vc =>
       if (stop) None else {
         val res = checkVC(vc, sf)
+
+        val shouldStop = stopWhen(res)
+        synchronized { // Make sure that we only interrupt the manager once.
+          if (shouldStop && !stop && !interruptManager.isInterrupted) {
+            stop = true
+            interruptManager.interrupt()
+          }
+        }
+
         if (interruptManager.isInterrupted) interruptManager.reset()
-        stop = stopWhen(res)
         Some(vc -> res)
       }
     }
