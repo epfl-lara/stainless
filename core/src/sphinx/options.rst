@@ -157,7 +157,7 @@ Verification
 
 * ``--vc-cache``
 
-  Use a persistent cache mechanism to speed up verification.
+  Use a persistent cache mechanism to speed up verification; on by default.
 
 * ``--fail-early``
 
