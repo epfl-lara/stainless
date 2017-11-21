@@ -139,38 +139,6 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
   private val reverse = MutableMap[Id, MutableSet[Node]]()
 
 
-  def toDot(filename: String, idPrinter: Id => String, color: Input => String): Unit = {
-    import java.io._
-    val dot = toDotGraph(idPrinter, color)
-    val pw = new PrintWriter(new File(filename))
-    try pw.write(dot) finally pw.close()
-  }
-
-  private def toDotGraph(idPrinter: Id => String, color: Input => String): String = {
-    assert(getMissing.isEmpty) // Case not handled.
-
-    val sb = new StringBuilder
-
-    // Header
-    sb ++= "digraph ICG {\nnode [style=filled];\n"
-
-    // Nodes for colors
-    for {
-      n <- nodes.values
-    } sb ++= s""""${idPrinter(n.id)}" [color=${color(n.in)}];\n"""
-
-    // Nodes & edges
-    for {
-      (to, froms) <- reverse
-      from <- froms
-    } sb ++= s""""${idPrinter(from.id)}" -> "${idPrinter(to)}"\n"""
-
-    // Footer
-    sb ++= "}"
-
-    sb.toString
-  }
-
   /**
    * Insert a new node & update the graph,
    * placing any node that depends on [[n]] into [[toCompute]]
