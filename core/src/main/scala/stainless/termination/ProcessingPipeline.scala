@@ -69,7 +69,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
         val smallerPool = bCallees.size compare aCallees.size
         if (smallerPool != 0) {
-          smallerPool 
+          smallerPool
         } else {
           val aCallers: Set[FunDef] = aDefs.flatMap(transitiveCallers)
           val bCallers: Set[FunDef] = bDefs.flatMap(transitiveCallers)
@@ -96,7 +96,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     lazy val callees = transitiveCallees(fd)
     lazy val problemDefs = problems.flatMap(_._1.funDefs).toSet
     unsolved.exists(_.contains(fd)) ||
-    dependencies.exists(_.contains(fd)) || 
+    dependencies.exists(_.contains(fd)) ||
     unsolved.exists(_.funDefs exists callees) ||
     dependencies.exists(_.funDefs exists callees) ||
     problemDefs(fd) || (problemDefs intersect callees).nonEmpty
@@ -171,7 +171,11 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
     for (fd <- funDefs -- problemComponents.toSet.flatten) clearedMap(fd) = "Non-recursive"
     val newProblems = problemComponents.filter(fds => fds.forall { fd => !terminationCache.isDefinedAt(fd) })
-    newProblems.map(fds => Problem(fds.toSeq))
+
+    // Consider @unchecked functions as terminating.
+    val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains "unchecked"))
+    for (fd <- uncheckedProblems.toSet.flatten) clearedMap(fd) = "Unchecked"
+    toCheck.map(fds => Problem(fds.toSeq))
   }
 
   private def runPipeline(fd: FunDef): TerminationGuarantee = {
