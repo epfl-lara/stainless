@@ -249,6 +249,7 @@ trait Registry {
   private val recentFunctions = ListBuffer[xt.FunDef]()
 
   private val knownOpenClasses = MutableMap[Identifier, xt.ClassDef]()
+  private val deferredMethods = ListBuffer[xt.FunDef]()
 
   private var frozen = false
   private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
@@ -345,15 +346,20 @@ trait Registry {
     recentClasses ++= classes
     recentFunctions ++= functions
 
-    val (ready, open) = classes partition isReady
-    knownOpenClasses ++= open map { cd => cd.id -> cd }
+    val (readyCDs, openCDs) = classes partition isReady
+    val (methods, readyFDs) = functions partition { fd =>
+      openCDs exists { cd => fd.flags contains xt.IsMethodOf(cd.id) }
+    }
+
+    knownOpenClasses ++= openCDs map { cd => cd.id -> cd }
+    deferredMethods ++= methods
 
     classes foreach { cd =>
       if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
         reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
     }
 
-    process(ready, functions)
+    process(readyCDs, readyFDs)
   }
 
 
@@ -372,7 +378,11 @@ trait Registry {
     recentClasses.clear()
     recentFunctions.clear()
 
-    val defaultRes = process(knownOpenClasses.values.toSeq, Seq.empty)
+    val defaultRes = process(knownOpenClasses.values.toSeq, deferredMethods)
+
+    knownOpenClasses.clear()
+    deferredMethods.clear()
+
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
       graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
