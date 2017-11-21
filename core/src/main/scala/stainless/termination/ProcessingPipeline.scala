@@ -177,7 +177,11 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
     for (fd <- funDefs -- problemComponents.toSet.flatten) clearedMap(fd) = "Non-recursive"
     val newProblems = problemComponents.filter(fds => fds.forall { fd => !terminationMap.isDefinedAt(fd) })
-    newProblems.map(fds => Problem(fds.toSeq))
+
+    // Consider @unchecked functions as terminating.
+    val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains "unchecked"))
+    for (fd <- uncheckedProblems.toSet.flatten) clearedMap(fd) = "Unchecked"
+    toCheck.map(fds => Problem(fds.toSeq))
   }
 
   def verifyTermination(funDef: FunDef): Set[FunDef] = {
