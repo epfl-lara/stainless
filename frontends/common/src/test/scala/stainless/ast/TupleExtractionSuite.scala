@@ -35,7 +35,7 @@ class TupleExtrationSuite extends FunSuite with InputUtils {
        |} """.stripMargin
   )
 
-  val ctx = inox.TestContext.empty
+  val ctx = stainless.TestContext.empty
   val (_, xlangProgram) = load(ctx, sources)
   val program = verification.VerificationComponent.extract(xlangProgram, ctx)
 
