@@ -11,6 +11,8 @@ import java.io.{ File, FileInputStream, FileOutputStream, IOException }
 
 object DebugSectionRegistry extends inox.DebugSection("registry")
 
+object DotFileCounter extends inox.utils.UniqueCounter[Unit]
+
 /**
  * Keep track of the valid data (functions & classes) as they come, in a thread-safe fashion.
  *
@@ -85,7 +87,7 @@ trait Registry {
    * To be called once every compilation unit were extracted.
    */
   def checkpoint(): Option[xt.Symbols] = synchronized {
-    if (hasPersistentCache) {
+    val res = if (hasPersistentCache) {
       val res = process(deferredClasses, deferredFunctions)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
       deferredClasses.clear()
@@ -95,6 +97,18 @@ trait Registry {
       graph.freeze() // (re-)freeze for next cycle
       res
     } else checkpointImpl()
+
+    val filename = "graph." + DotFileCounter.nextGlobal + ".dot"
+    val idPrinter = { id: Identifier => id.uniqueName }
+    val color: NodeValue => String = {
+      case Left(cd) if shouldBeChecked(cd) => "chartreuse3" // fancy green
+      case Left(cd) => "darkseagreen2" // light green
+      case Right(fd) if shouldBeChecked(fd) => "dodgerblue2"
+      case Right(fd) => "darkslategray2" // light blue
+    }
+    graph.toDot(filename, idPrinter, color)
+
+    res
   }
 
   /** Import the canonical form cache from the given file. Not thread-safe. */
