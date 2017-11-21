@@ -346,13 +346,19 @@ trait Registry {
     recentClasses ++= classes
     recentFunctions ++= functions
 
+    // Keep for later processing (i.e. at checkpoint) class that are not sealed
+    // and their methods/invariants.
+
     val (readyCDs, openCDs) = classes partition isReady
-    val (methods, readyFDs) = functions partition { fd =>
-      openCDs exists { cd => fd.flags contains xt.IsMethodOf(cd.id) }
-    }
+
+    val invariants = computeInvariantMapping(functions)
+    val methods = computeMethodMapping(functions)
+    val funDB = (functions map { fd => fd.id -> fd }).toMap
+    val deferredFDs = openCDs flatMap { cd => invariants(cd) ++ methods(cd) } map funDB
+    val readyFDs = functions filterNot { deferredFDs contains _ }
 
     knownOpenClasses ++= openCDs map { cd => cd.id -> cd }
-    deferredMethods ++= methods
+    deferredMethods ++= deferredFDs
 
     classes foreach { cd =>
       if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
