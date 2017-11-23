@@ -12,6 +12,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(300.seconds))
   )
 
+  final override def createContext(options: inox.Options) = stainless.TestContext(options)
+
   override protected def optionsString(options: inox.Options): String = {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
