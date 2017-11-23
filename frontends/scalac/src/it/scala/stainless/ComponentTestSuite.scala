@@ -20,6 +20,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   private def extractStructure(files: Seq[String], ctx: inox.Context) = {
     val (structure, program) = loadFiles(ctx, files)
+
     program.symbols.ensureWellFormed
     val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
@@ -30,8 +31,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   }
 
   // Ensure no tests share data inappropriately, but is really slow... Use with caution!
-  protected def extractOne(file: String, ctx: inox.Context)
-                : (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
+  private def extractOne(file: String, ctx: inox.Context)
+              : (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
     val (structure, program, exProgram) = extractStructure(Seq(file), ctx)
 
     assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
@@ -54,8 +55,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   }
 
   // More efficient, but might mix tests together...
-  protected def extractAll(files: Seq[String], ctx: inox.Context)
-                : (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
+  private def extractAll(files: Seq[String], ctx: inox.Context)
+              : (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
     val (structure, program, exProgram) = extractStructure(files, ctx)
 
     (for (u <- structure if u.isMain) yield {
