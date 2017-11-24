@@ -38,7 +38,7 @@ trait VerificationSuite extends ComponentTestSuite {
 
   testAll("verification/invalid") { (analysis, _) =>
     val report = analysis.toReport
-    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
+    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
   }
 }
 
