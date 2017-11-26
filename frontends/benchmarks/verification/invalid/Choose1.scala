@@ -24,6 +24,7 @@ object Choose1 {
       if (i == BigInt(0)) {
         Nil()
       } else {
+        assert(size(listOfSize2(i - 1)) == i - 1)
         choose[List] { (res: List) => size(res) == i-1 }
       }
     } ensuring ( size(_) == i )
