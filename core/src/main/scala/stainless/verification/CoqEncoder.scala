@@ -41,7 +41,7 @@ trait CoqEncoder {
     case WildcardPattern(None) => VariablePattern(None)
     case WildcardPattern(Some(ValDef(id,tpe,flags))) => 
       if (!flags.isEmpty)
-        ctx.reporter.warning(such"Coq translation ignored flags for $p: $flags")
+        ctx.reporter.warning(s"Coq translation ignored flags for $p: $flags")
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
       VariablePattern(Some(id))
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
@@ -122,7 +122,7 @@ trait CoqEncoder {
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
     case ADTType(id, Nil) if (adts(id).isInstanceOf[ADTSort]) => ArbitraryExpression(id.name)
-    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe.")
+    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
   }
 
   def transform(): CoqCommand = {
