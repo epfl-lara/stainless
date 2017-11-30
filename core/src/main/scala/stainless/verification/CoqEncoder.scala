@@ -18,7 +18,7 @@ trait CoqEncoder {
       CoqMatch(transformTree(scrut), cases.map(makeFunctionCase))
     case Variable(id,tpe,flags) =>
       if (!flags.isEmpty)
-        ctx.reporter.warning("Coq translation ignored flags for $t: $flags")
+        ctx.reporter.warning(s"Coq translation ignored flags for $t: $flags")
       CoqVariable(id)
     case ADT(ADTType(id, Nil), args) =>
       Constructor(ArbitraryExpression(id.name), args.map(transformTree))
@@ -41,7 +41,7 @@ trait CoqEncoder {
     case WildcardPattern(None) => VariablePattern(None)
     case WildcardPattern(Some(ValDef(id,tpe,flags))) => 
       if (!flags.isEmpty)
-        ctx.reporter.warning("Coq translation ignored flags for $p: $flags")
+        ctx.reporter.warning(such"Coq translation ignored flags for $p: $flags")
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
       VariablePattern(Some(id))
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
@@ -56,7 +56,7 @@ trait CoqEncoder {
       a match {
         case a: st.ADTSort =>
           if (!a.flags.isEmpty)
-            ctx.reporter.warning("Coq translation ignored flags for $a: ${a.flags}")
+            ctx.reporter.warning(s"Coq translation ignored flags for $a: ${a.flags}")
           InductiveDefinition(
             a.id,
             a.tparams.map { case p => (p.id, ArbitraryExpression("Type")) },
@@ -72,7 +72,7 @@ trait CoqEncoder {
   def makeCase(root: Identifier, a: st.ADTDefinition) = a match { 
     case a: st.ADTConstructor =>
       if (!a.flags.isEmpty)
-        ctx.reporter.warning("Coq translation ignored flags for $a: ${a.flags}")
+        ctx.reporter.warning(s"Coq translation ignored flags for $a: ${a.flags}")
       val fieldsTypes = a.fields.map(vd => vd.tpe match {
         // FIXME: also check for recursive calls to other constructors
         case b: st.ADTType if a.id == b.id || root == b.id => // field using the type of `a` recursively
@@ -89,7 +89,7 @@ trait CoqEncoder {
   // transform function definitions
   def transformFunction(fd: st.FunDef): CoqCommand = {
     if (!fd.flags.isEmpty)
-      ctx.reporter.warning("Coq translation ignored flags for $fd: ${fd.flags}")
+      ctx.reporter.warning(s"Coq translation ignored flags for $fd: ${fd.flags}")
     val mutual = p.symbols.functions.find{ case (_,fd2) => fd != fd2 && transitivelyCalls(fd, fd2) && transitivelyCalls(fd2, fd) }
     if (mutual.isDefined)
       ctx.reporter.fatalError(s"The translation to Coq does not support mutual recursion (between ${fd.id.name} and ${mutual.get._1.name}")
