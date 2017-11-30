@@ -17,10 +17,10 @@ package object holes {
   // FIXME: This transformer will crash if it encounters an AST from `holes.Trees`
   //        This is a temporary place-holder until holes extraction has been ported from Leon.
   val extractor: inox.ast.SymbolTransformer {
-    val s: trees.type
+    val s: oo.trees.type
     val t: imperative.trees.type
   } = inox.ast.SymbolTransformer(new ast.TreeTransformer {
-    val s: trees.type = trees
+    val s: oo.trees.type = oo.trees
     val t: imperative.trees.type = imperative.trees
   })
 }
