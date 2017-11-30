@@ -11,6 +11,7 @@ import scala.language.existentials
  * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
  */
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
+object optCoq extends inox.FlagOptionDef("coq", false)
 
 object VerificationComponent extends SimpleComponent {
   override val name = "verification"
@@ -25,27 +26,31 @@ object VerificationComponent extends SimpleComponent {
     val t: extraction.trees.type = extraction.trees
   })
 
-  implicit val debugSection = DebugSectionVerification
+  implicit val debugSection = DebugSectionCoq
 
   private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    val injector = AssertionInjector(p, ctx)
-    val encoder = inox.ast.ProgramEncoder(p)(injector)
+    if (ctx.options.findOptionOrDefault(optCoq)) {
+      CoqVerificationChecker.verify(funs, p, ctx)
+    } else {
+      val injector = AssertionInjector(p, ctx)
+      val encoder = inox.ast.ProgramEncoder(p)(injector)
 
-    import ctx._
-    import encoder.targetProgram._
-    import encoder.targetProgram.trees._
-    import encoder.targetProgram.symbols._
+      import ctx._
+      import encoder.targetProgram._
+      import encoder.targetProgram.trees._
+      import encoder.targetProgram.symbols._
 
-    val toVerify = filter(p, ctx)(funs) map { _.id }
+      val toVerify = filter(p, ctx)(funs) map { _.id }
 
-    reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
+      reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
 
-    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
+      val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
 
-    VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
-      case VCResult(VCStatus.Invalid(model), s, t) =>
-        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
-      case res => res.asInstanceOf[VCResult[p.Model]]
+      VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
+        case VCResult(VCStatus.Invalid(model), s, t) =>
+          VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+        case res => res.asInstanceOf[VCResult[p.Model]]
+      }
     }
   }
 

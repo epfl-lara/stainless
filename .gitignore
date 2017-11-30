@@ -70,3 +70,6 @@ out-classes
 /z3.exe
 /libz3java.dll
 /libz3java.lib
+
+# Visual Studio Code
+.vscode
