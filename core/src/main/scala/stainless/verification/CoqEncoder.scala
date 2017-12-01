@@ -12,18 +12,25 @@ trait CoqEncoder {
   import p.symbols._
   import p.symbols.CallGraphOrderings._
 
+  // ignore flags with an explicit warning
+  def ignoreFlags(s: String, flags: Set[Flag]) = {
+    if (!flags.isEmpty)
+      ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
+  }
+
   // transform a Stainless expression into a Coq expression
   def transformTree(t: st.Expr): CoqExpression = t match {
     case MatchExpr(scrut, cases) => 
       CoqMatch(transformTree(scrut), cases.map(makeFunctionCase))
     case Variable(id,tpe,flags) =>
-      if (!flags.isEmpty)
-        ctx.reporter.warning(s"Coq translation ignored flags for $t: $flags")
+      ignoreFlags(t.toString, flags)
       CoqVariable(id)
     case ADT(ADTType(id, Nil), args) =>
-      Constructor(ArbitraryExpression(id.name), args.map(transformTree))
+      Constructor(CoqIdentifier(id), args.map(transformTree))
     case FunctionInvocation(id, Nil, args) =>
-      CoqApplication(ArbitraryExpression(id.name), args.map(transformTree))
+      CoqApplication(CoqIdentifier(id), args.map(transformTree))
+    case FiniteSet(args,tpe) =>
+      CoqFiniteSet(args map transformTree, transformType(tpe))
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet.")
   }
 
@@ -40,12 +47,13 @@ trait CoqEncoder {
       InductiveTypePattern(adtType.id, subPatterns.map(transformPattern))
     case WildcardPattern(None) => VariablePattern(None)
     case WildcardPattern(Some(ValDef(id,tpe,flags))) => 
-      if (!flags.isEmpty)
-        ctx.reporter.warning(s"Coq translation ignored flags for $p: $flags")
+      ignoreFlags(p.toString, flags)
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
       VariablePattern(Some(id))
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
   }
+
+
 
   // transforms an ADT into an inductive type
   def transformADT(a: st.ADTDefinition): CoqCommand = {
@@ -55,15 +63,19 @@ trait CoqEncoder {
     } else {
       a match {
         case a: st.ADTSort =>
-          if (!a.flags.isEmpty)
-            ctx.reporter.warning(s"Coq translation ignored flags for $a: ${a.flags}")
+          ignoreFlags(a.toString, a.flags)
           InductiveDefinition(
             a.id,
-            a.tparams.map { case p => (p.id, ArbitraryExpression("Type")) },
+            a.tparams.map { case p => (p.id, TypeSort) },
             a.cons.map(id => makeCase(a.id, p.symbols.adts(id)))
           )
-        case _ =>
-          ctx.reporter.fatalError(s"The translation to Coq does not support the ADT $a.")
+        case a: st.ADTConstructor =>
+          ignoreFlags(a.toString, a.flags)
+          InductiveDefinition(
+            a.id,
+            a.tparams.map { case p => (p.id, TypeSort) },
+            Seq(makeCase(a.id, a))
+          )
       }
     }
   }
@@ -71,30 +83,30 @@ trait CoqEncoder {
   // creates a case for an inductive type
   def makeCase(root: Identifier, a: st.ADTDefinition) = a match { 
     case a: st.ADTConstructor =>
-      if (!a.flags.isEmpty)
-        ctx.reporter.warning(s"Coq translation ignored flags for $a: ${a.flags}")
+      ignoreFlags(a.toString, a.flags)
       val fieldsTypes = a.fields.map(vd => vd.tpe match {
         // FIXME: also check for recursive calls to other constructors
         case b: st.ADTType if a.id == b.id || root == b.id => // field using the type of `a` recursively
-          ArbitraryExpression(b.id.name)
+          CoqIdentifier(b.id)
         case _ => transformType(vd.tpe)
       })
-      val arrowType = fieldsTypes.foldLeft[CoqExpression](ArbitraryExpression(root.name))
+      val arrowType = fieldsTypes.foldLeft[CoqExpression](CoqIdentifier(root))
         { case (acc,field) => Arrow(field,acc)}
       InductiveCase(a.id, arrowType)
     case _ =>
       ctx.reporter.fatalError(s"The translation to Coq does not support $a as a constructor.")
   }
 
+
+
   // transform function definitions
   def transformFunction(fd: st.FunDef): CoqCommand = {
-    if (!fd.flags.isEmpty)
-      ctx.reporter.warning(s"Coq translation ignored flags for $fd: ${fd.flags}")
+    ignoreFlags(fd.toString, fd.flags)
     val mutual = p.symbols.functions.find{ case (_,fd2) => fd != fd2 && transitivelyCalls(fd, fd2) && transitivelyCalls(fd2, fd) }
     if (mutual.isDefined)
       ctx.reporter.fatalError(s"The translation to Coq does not support mutual recursion (between ${fd.id.name} and ${mutual.get._1.name}")
     else {
-      val tparams: Seq[(Identifier,CoqExpression)] = fd.tparams.map { case p => (p.id, ArbitraryExpression("Type")) }
+      val tparams: Seq[(Identifier,CoqExpression)] = fd.tparams.map { case p => (p.id, TypeSort) }
       val params: Seq[(Identifier,CoqExpression)] = fd.params.map { case vd => (vd.id, transformType(vd.tpe)) }
       val body = exprOps.withoutSpecs(fd.fullBody) match {
         case None => ctx.reporter.fatalError(s"We do not support functions with empty bodies: ${fd.id.name}")
@@ -107,7 +119,8 @@ trait CoqEncoder {
       }
       val returnType = exprOps.postconditionOf(fd.fullBody) match {
         case None => transformType(fd.returnType)
-        case Some(Lambda(Seq(vd), post)) => ArbitraryExpression("{${vd.id}: $s | $vd.post}")
+        case Some(Lambda(Seq(vd), post)) => 
+          Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post))
       }
       val allParams = tparams ++ params ++ preconditionParam
       if (fd.isRecursive) {
@@ -119,14 +132,26 @@ trait CoqEncoder {
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }
 
+
+
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
-    case ADTType(id, Nil) if (adts(id).isInstanceOf[ADTSort]) => ArbitraryExpression(id.name)
+    case ADTType(id, args) if (adts(id).root == adts(id)) => 
+      CoqApplication(CoqIdentifier(id), args map transformType)
+    case TypeParameter(id,flags) => 
+      ignoreFlags(tpe.toString, flags)
+      CoqIdentifier(id)
+    case BooleanType() => CoqBool
+    case FunctionType(t1, t2) => 
+      val tt1 = t1.map(transformType)
+      tt1.foldLeft[CoqExpression](transformType(t2))
+        { case (acc,arg) => Arrow(arg,acc) }
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
   }
 
   def transform(): CoqCommand = {
     RequireImport("Coq.Program.Tactics") $
+    RequireImport("Coq.Sets.Finite_sets") $
     p.symbols.adts.foldLeft[CoqCommand] (NoCommand) { case (acc,(_,adt)) => Sequence(acc,transformADT(adt)) } $
     p.symbols.functions.foldLeft[CoqCommand] (NoCommand) { case (acc,(_,fd)) => Sequence(acc,transformFunction(fd)) }
   }

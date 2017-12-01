@@ -58,6 +58,14 @@ sealed abstract class CoqExpression {
   def coqString: String
 }
 
+case object TypeSort extends CoqExpression {
+  override def coqString: String = "Type"
+}
+
+case object CoqBool extends CoqExpression {
+  override def coqString: String = "bool"
+}
+
 case class Arrow(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
   def coqString: String = {
     e1.coqString + " -> " + e2.coqString
@@ -80,6 +88,21 @@ case class Constructor(id: CoqExpression, args: Seq[CoqExpression]) extends CoqE
 
 case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = f.coqString + args.map(" (" + _.coqString + ")").mkString
+}
+
+case class CoqIdentifier(id: Identifier) extends CoqExpression {
+  override def coqString = id.uniqueName
+}
+
+case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
+  override def coqString = throw new Exception("Finite Sets are not implemented yet.")
+}
+
+// represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
+case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression) extends CoqExpression {
+  def coqString: String = {
+    s"{${id.coqString}: ${tpe.coqString} | ${body.coqString}}"
+  }
 }
 
 // This class is used to represent the expressions for which we didn't make a construct
