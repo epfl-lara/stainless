@@ -1,6 +1,8 @@
 package stainless
 package verification
 
+import CoqExpression._
+
 trait CoqEncoder {
   implicit val debugSection = DebugSectionCoq
 
@@ -25,12 +27,29 @@ trait CoqEncoder {
     case Variable(id,tpe,flags) =>
       ignoreFlags(t.toString, flags)
       CoqVariable(id)
-    case ADT(ADTType(id, Nil), args) =>
-      Constructor(CoqIdentifier(id), args.map(transformTree))
-    case FunctionInvocation(id, Nil, args) =>
-      CoqApplication(CoqIdentifier(id), args.map(transformTree))
+    case ADT(ADTType(id, targs), args) =>
+      Constructor(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
+    case FunctionInvocation(id, targs, args) =>
+      CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
+    case Application(t, ts) =>
+      CoqApplication(transformTree(t), ts.map(transformTree))
     case FiniteSet(args,tpe) =>
       CoqFiniteSet(args map transformTree, transformType(tpe))
+    case SetUnion(t1,t2) => CoqSetUnion(transformTree(t1), transformTree(t2))
+    case ElementOfSet(t1,t2) => CoqBelongs(transformTree(t1), transformTree(t2))
+    case Or(ts) => Orb(ts map transformTree)
+    case And(ts) => Andb(ts map transformTree)
+    case Implies(t1,t2) => implb(transformTree(t1), transformTree(t2))
+    case Equals(t1,t2) => CoqEquals(transformTree(t1), transformTree(t2))
+    case BooleanLiteral(true) => TrueBoolean
+    case BooleanLiteral(false) => FalseBoolean
+    case ADTSelector(adt, selector) => CoqSelector(transformTree(adt), CoqIdentifier(selector))
+    case Forall(args, body) =>
+      val params = args.map { case vd@ValDef(id,tpe,flags) => 
+        ignoreFlags(vd.toString, flags)
+        (CoqIdentifier(id), transformType(tpe)) 
+      }
+      CoqForall(params, CoqEquals(transformTree(body),TrueBoolean))
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet.")
   }
 
@@ -146,6 +165,8 @@ trait CoqEncoder {
       val tt1 = t1.map(transformType)
       tt1.foldLeft[CoqExpression](transformType(t2))
         { case (acc,arg) => Arrow(arg,acc) }
+    case SetType(base) =>
+      CoqSetType(transformType(base))
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
   }
 

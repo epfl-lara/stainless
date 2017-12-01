@@ -1,6 +1,10 @@
 package stainless
 package verification
 
+import CoqExpression._
+
+case class UnimplementedCoqOperation(msg: String) extends Exception(msg)
+
 /**
  * Commands represent top-level Gallina declarations
  */
@@ -82,20 +86,76 @@ case class CoqVariable(id: Identifier) extends CoqExpression {
   override def coqString = id.name
 }
 
-case class Constructor(id: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = id.coqString + args.map(" (" + _.coqString + ")").mkString
-}
-
 case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = f.coqString + args.map(" (" + _.coqString + ")").mkString
+  override def coqString = "(" + f.coqString + ")" + args.map(" (" + _.coqString + ")").mkString
 }
 
 case class CoqIdentifier(id: Identifier) extends CoqExpression {
   override def coqString = id.uniqueName
 }
 
+case class CoqLibraryFunction(s: String) extends CoqExpression {
+  override def coqString = s
+}
+
+case class Constructor(id: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
+  override def coqString = id.coqString + args.map(" (" + _.coqString + ")").mkString
+}
+
+case class CoqSelector(adt: CoqExpression, selector: CoqIdentifier) extends CoqExpression {
+  override def coqString = CoqApplication(selector, Seq(adt)).coqString
+}
+
+case class CoqForall(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpression) extends CoqExpression {
+  override def coqString = 
+    args.foldLeft(body.coqString) { case (acc,(id,tpe)) => 
+      s"forall ${id.coqString}: ${tpe.coqString}, $acc"
+    }
+}
+
+/**
+ * Boolean operations and propositions
+ */
+
+case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
+  override def coqString = fold(FalseBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a || $b" }
+}
+
+case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
+  override def coqString = fold(TrueBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a && $b" }
+}
+
+case object TrueBoolean extends CoqExpression {
+  override def coqString = "true"
+}
+
+case object FalseBoolean extends CoqExpression {
+  override def coqString = "false"
+}
+
+case class CoqEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
+  override def coqString = "(" + e1.coqString + ")" + " = " + "(" + e2.coqString + ")"
+}
+
+
+
+/**
+ * Set Operations
+ */
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = throw new Exception("Finite Sets are not implemented yet.")
+  override def coqString = throw new UnimplementedCoqOperation("Finite Sets are not implemented yet.")
+}
+
+case class CoqSetUnion(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
+  override def coqString = throw new UnimplementedCoqOperation("Union of Sets are not implemented yet.")
+}
+
+case class CoqSetType(base: CoqExpression) extends CoqExpression {
+  override def coqString = throw new UnimplementedCoqOperation("The Set type is not implemented yet.")
+}
+
+case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
+  override def coqString = throw new UnimplementedCoqOperation("Set membership- is not implemented yet.")
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
@@ -107,7 +167,7 @@ case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression
 
 // This class is used to represent the expressions for which we didn't make a construct
 case class ArbitraryExpression(s: String) extends CoqExpression {
-  override def coqString = s
+  override def coqString = throw new UnimplementedCoqOperation(s)
 }
 
 // used in the CoqMatch construct
@@ -130,4 +190,19 @@ case class InductiveTypePattern(id: Identifier, subPatterns: Seq[CoqPattern]) ex
 
 case class VariablePattern(id: Option[Identifier]) extends CoqPattern {
   override def coqString = if (id.isEmpty) "_" else id.get.name
+}
+
+object CoqExpression {
+  def fold[T](baseCase: T, exprs: Seq[T])(operation: (T,T) => T) = {
+    if (exprs.size == 0) baseCase
+    else exprs.tail.foldLeft(exprs.head)(operation)
+  }
+
+  val implbFun = CoqLibraryFunction("implb")
+  val andbFun = CoqLibraryFunction("andb")
+  val orbFun = CoqLibraryFunction("orb")
+
+  def implb(e1: CoqExpression, e2: CoqExpression): CoqExpression = {
+    CoqApplication(implbFun, Seq(e1,e2))
+  }
 }
