@@ -33,8 +33,12 @@ object CoqIO {
       ctx.reporter.info("No output from Coq. Your program is valid.")
     else {
       ctx.reporter.info("Coq gave some output:")
-      for (l <- output)
-        ctx.reporter.warning(l)
+      for (l <- output) {
+        if (l.contains("Error"))
+          ctx.reporter.error(l)
+        else if (l.trim != "")
+          ctx.reporter.warning(l)
+      }
     }
   }
 }
