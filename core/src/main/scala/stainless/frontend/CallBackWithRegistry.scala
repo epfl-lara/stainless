@@ -11,6 +11,7 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableS
 import io.circe.Json
 
 import java.io.File
+import java.util.concurrent.ExecutionException
 
 trait CallBackWithRegistry extends CallBack { self =>
   import context.{ options, reporter }
@@ -53,7 +54,7 @@ trait CallBackWithRegistry extends CallBack { self =>
   final override def stop(): Unit = tasks foreach { _.cancel(true) } // no need to update state, it's a KILL.
 
   // Build the report
-  final override def join(): Unit = {
+  final override def join(): Unit = try {
     val newReports = tasks map { _.get } // blocking! TODO is there a more efficient "get all" version?
     val reports = (report +: newReports) filter { _ != null }
     if (reports.nonEmpty) report = reports reduce { _ ~ _ }
@@ -61,6 +62,8 @@ trait CallBackWithRegistry extends CallBack { self =>
 
     // Save cache now that we have our report
     saveCaches()
+  } catch {
+    case e: ExecutionException => ()
   }
 
   // See assumption/requirements in [[CallBack]]
