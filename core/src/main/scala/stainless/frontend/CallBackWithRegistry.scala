@@ -63,7 +63,10 @@ trait CallBackWithRegistry extends CallBack { self =>
     // Save cache now that we have our report
     saveCaches()
   } catch {
-    case e: ExecutionException => ()
+    case e: ExecutionException =>
+      stop()
+      tasks.clear()
+      endExtractions()
   }
 
   // See assumption/requirements in [[CallBack]]
