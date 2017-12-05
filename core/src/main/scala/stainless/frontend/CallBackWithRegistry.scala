@@ -1,4 +1,4 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2017 EPFL, Lausanne */
 
 package stainless
 package frontend
@@ -63,10 +63,14 @@ trait CallBackWithRegistry extends CallBack { self =>
     // Save cache now that we have our report
     saveCaches()
   } catch {
-    case e: ExecutionException =>
+    case e: ExecutionException if isFatalError(e) =>
       stop()
       tasks.clear()
       endExtractions()
+  }
+  
+  private def isFatalError(e: ExecutionException): Boolean = {
+    e.getCause != null && e.getCause.isInstanceOf[inox.FatalError]
   }
 
   // See assumption/requirements in [[CallBack]]
