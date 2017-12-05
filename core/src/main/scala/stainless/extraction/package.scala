@@ -73,9 +73,11 @@ package object extraction {
       innerfuns.extractor  andThen
       inlining.extractor
 
-    val extracted: Program { val trees: extraction.trees.type } =
-      program.transform(pipeline)
-
-    new PreconditionInference(extracted, ctx).targetProgram
+    try {
+      new PreconditionInference(program.transform(pipeline), ctx).targetProgram
+    } catch {
+      case MissformedStainlessCode(tree, msg) =>
+        ctx.reporter.fatalError(tree.getPos, msg)
+    }
   }
 }
