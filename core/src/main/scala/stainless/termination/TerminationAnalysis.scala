@@ -29,6 +29,7 @@ trait TerminationAnalysis extends AbstractAnalysis {
   }
 
   private def kind(g: TerminationGuarantee): String = g match {
+    case checker.NotWellFormed(_) => "ill-formed"
     case checker.LoopsGivenInputs(_, _) => "non-terminating loop"
     case checker.MaybeLoopsGivenInputs(_, _) => "possibly non-terminating loop"
     case checker.CallsNonTerminating(_) => "non-terminating call"
@@ -38,6 +39,8 @@ trait TerminationAnalysis extends AbstractAnalysis {
   }
 
   private def verdict(g: TerminationGuarantee, fd: FunDef): String = g match {
+    case checker.NotWellFormed(adts) =>
+      s"Refers to ill-formed adts: ${adts.map(_.id.asString).mkString(",")}"
     case checker.LoopsGivenInputs(reason, args) =>
       s"Non-terminating for call: ${fd.id.asString}(${args.map(_.asString).mkString(",")})"
     case checker.MaybeLoopsGivenInputs(reason, args) =>

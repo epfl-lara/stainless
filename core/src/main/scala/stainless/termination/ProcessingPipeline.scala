@@ -35,6 +35,10 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     }
   }
 
+  private val dtChecker = new {
+    val checker: self.type = self
+  } with DatatypeChecker
+
   interruptManager.registerForInterrupts(this)
 
   private var _interrupted: Boolean = false
@@ -165,12 +169,20 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val callGraph = pairs.groupBy(_._1).mapValues(_.map(_._2))
     val allComponents = inox.utils.SCC.scc(callGraph)
 
-    val (problemComponents, nonRec) = allComponents.partition { fds =>
+    val notWellFormed = (for (fd <- funDefs; reason <- dtChecker check fd) yield {
+      brokenMap(fd) = ("WF-checker", reason)
+      fd
+    }).toSet
+
+    val problemComponents = allComponents.filter { fds =>
       fds.flatMap(fd => transitiveCallees(fd)) exists fds
     }
 
-    for (fd <- funDefs -- problemComponents.toSet.flatten) clearedMap(fd) = "Non-recursive"
-    val newProblems = problemComponents.filter(fds => fds.forall { fd => !terminationCache.isDefinedAt(fd) })
+    for (fd <- funDefs -- notWellFormed -- problemComponents.flatten) clearedMap(fd) = "Non-recursive"
+
+    val newProblems = problemComponents.filter(fds => fds.forall { fd =>
+      !(terminationCache contains fd) && !(brokenMap contains fd)
+    })
 
     // Consider @unchecked functions as terminating.
     val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains "unchecked"))
