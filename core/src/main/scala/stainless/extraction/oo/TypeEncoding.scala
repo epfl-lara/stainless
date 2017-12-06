@@ -837,7 +837,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           t.Assert(check, Some("Cast error"), result)
 
         case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType) =>
-          let("res" :: tpe, super.transform(e)) { res =>
+          let("res" :: obj, super.transform(e)) { res =>
             t.Assume(instanceOf(res, encodeType(e.getType)), res)
           }
 
