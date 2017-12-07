@@ -4,6 +4,16 @@ package object stainless {
 
   object DebugSectionExtraction extends inox.DebugSection("extraction")
 
+  object optJson extends inox.OptionDef[String] {
+    val name = "json"
+    val default = "report.json"
+    val parser = inox.OptionParsers.stringParser
+    val usageRhs = "file"
+  }
+
+  object optWatch extends inox.FlagOptionDef("watch", false)
+  def isWatchModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
+
   type Program = inox.Program { val trees: ast.Trees }
 
   type StainlessProgram = Program { val trees: stainless.trees.type }

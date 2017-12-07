@@ -51,15 +51,6 @@ trait MainHelpers extends inox.MainHelpers {
   case object Verification extends Category
   case object Termination extends Category
 
-  object optJson extends inox.OptionDef[String] {
-    val name = "json"
-    val default = "report.json"
-    val parser = inox.OptionParsers.stringParser
-    val usageRhs = "file"
-  }
-
-  object optWatch extends inox.FlagOptionDef("watch", false)
-
   override protected def getOptions = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optFunctions -> Description(General, "Only consider functions s1,s2,..."),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
@@ -132,7 +123,7 @@ trait MainHelpers extends inox.MainHelpers {
     // Run the first cycle
     runCycle()
 
-    val watchMode = ctx.options.findOptionOrDefault(optWatch)
+    val watchMode = isWatchModeOn(ctx)
     if (watchMode) {
       val files: Set[File] = compiler.sources.toSet map { file: String => new File(file).getAbsoluteFile }
       val watcher = new utils.FileWatcher(ctx, files, action = runCycle)

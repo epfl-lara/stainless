@@ -137,8 +137,8 @@ class RegistryTestSuite extends FunSuite {
     override val name = "dummy"
 
     override def emitJson = ???
-    override def isSuccess = true
-    override def emitRowsAndStats: Option[(Seq[Row], ReportStats)] = ???
+    override def annotatedRows = ???
+    override def stats = ???
 
     override def filter(ids: Set[Identifier]) = this // intentionally not filtering a thing!
     // here we don't test the reports themselves, but the registry.
