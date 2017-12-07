@@ -19,7 +19,7 @@ trait VerificationAnalysis extends AbstractAnalysis {
     val time = vr.time.getOrElse(0L) // TODO make time mandatory (?)
     val status = VerificationReport.Status(vr.status)
     val solverName = vr.solver map { _.name }
-    val source = symbols.source(symbols.getFunction(vc.fd))
+    val source = symbols.getFunction(vc.fd).source
     VerificationReport.Record(vc.fd, vc.getPos, time, status, solverName, vc.kind.name, derivedFrom = source)
   })
 

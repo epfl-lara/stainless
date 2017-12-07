@@ -22,8 +22,7 @@ trait TerminationAnalysis extends AbstractAnalysis {
   override type Report = TerminationReport
 
   override def toReport = new TerminationReport(results.toSeq map { case (fd, (g, time)) =>
-    val source = symbols.source(fd)
-    TerminationReport.Record(fd.id, fd.getPos, time, status(g), verdict(g, fd), kind(g), derivedFrom = source)
+    TerminationReport.Record(fd.id, fd.getPos, time, status(g), verdict(g, fd), kind(g), derivedFrom = fd.source)
   })
 
   private def kind(g: TerminationGuarantee): String = g match {

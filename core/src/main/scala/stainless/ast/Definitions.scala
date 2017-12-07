@@ -67,6 +67,17 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), fd.returnType)), BooleanLiteral(true))
     }
+
+    /**
+     * Get the source of this function
+     *
+     * i.e. either its identifier or the identifier of its (recursively) outer function.
+     *
+     * NOTE no need to actually recurse here as [[Derived]] already
+     *      holds the requested data.
+     */
+    final def source: Identifier =
+      fd.flags collectFirst { case Derived(id) => id } getOrElse fd.id
   }
 
   implicit class StainlessTypedFunDef(tfd: TypedFunDef) {
