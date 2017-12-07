@@ -66,9 +66,8 @@ trait CallBackWithRegistry extends CallBack { self =>
     case e: ExecutionException if isFatalError(e) =>
       stop()
       tasks.clear()
-      endExtractions()
   }
-  
+
   private def isFatalError(e: ExecutionException): Boolean = {
     e.getCause != null && e.getCause.isInstanceOf[inox.FatalError]
   }
