@@ -193,10 +193,11 @@ trait ASTExtractors {
     /** Extracts the 'ensuring' contract from an expression. */
     object ExEnsuredExpression {
       def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
-        case Apply(Select(Apply(TypeApply(ExSelected("scala", "Predef", "Ensuring"), _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
+        case Apply(Select(Apply(TypeApply(
+              ExSelected("scala", "Predef", "Ensuring") | ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"),
+              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
           => Some((body, contract))
-        case Apply(Select(Apply(TypeApply(ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"), _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
-          => Some((body, contract))
+
         case _ => None
       }
     }
@@ -294,8 +295,11 @@ trait ASTExtractors {
      * first call in the block). */
     object ExRequiredExpression {
       def unapply(tree: Apply): Option[Tree] = tree match {
-        case Apply(ExSelected("scala", "Predef", "require"), contractBody :: Nil) =>
-         Some(contractBody)
+        case Apply(
+            ExSelected("scala", "Predef", "require") | ExSelected("stainless", "lang", "StaticChecks", "require"),
+            contractBody :: Nil) =>
+          Some(contractBody)
+
         case _ => None
       }
     }
@@ -467,10 +471,16 @@ trait ASTExtractors {
       * first call in the block). */
     object ExAssertExpression {
       def unapply(tree: Apply): Option[(Tree, Option[String])] = tree match {
-        case Apply(ExSymbol("scala", "Predef", "assert"), contractBody :: Nil) =>
+        case Apply(
+            ExSymbol("scala", "Predef", "assert") | ExSymbol("stainless", "lang", "StaticChecks", "assert"),
+            contractBody :: Nil) =>
           Some((contractBody, None))
-        case Apply(ExSymbol("scala", "Predef", "assert"), contractBody :: (error: Literal) :: Nil) =>
+
+        case Apply(
+            ExSymbol("scala", "Predef", "assert") | ExSymbol("stainless", "lang", "StaticChecks", "assert"),
+            contractBody :: (error: Literal) :: Nil) =>
           Some((contractBody, Some(error.value.stringValue)))
+
         case _ =>
           None
       }
