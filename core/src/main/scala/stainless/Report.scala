@@ -38,6 +38,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   def emitJson: Json
 
+  def stats: ReportStats
+
   final def emit(ctx: inox.Context): Unit = {
     val compact = isCompactModeOn(ctx)
     val table = emitTable(!compact)
@@ -67,7 +69,6 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   )
 
   protected def annotatedRows: Seq[RecordRow]
-  protected def stats: ReportStats
 
   /** Filter, sort & process rows. */
   private def processRows(full: Boolean): Seq[Row] = {
