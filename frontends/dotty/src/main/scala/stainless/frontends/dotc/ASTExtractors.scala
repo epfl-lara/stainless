@@ -501,7 +501,11 @@ trait ASTExtractors {
 
     object ExRequire {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
-        case Apply(ExSymbol("scala", "Predef$", "require"), Seq(body)) => Some(body)
+        case Apply(
+            ExSymbol("scala", "Predef$", "require") | ExSymbol("stainless", "lang", "StaticChecks$", "require"),
+            Seq(body)) =>
+          Some(body)
+
         case _ => None
       }
     }
@@ -515,10 +519,16 @@ trait ASTExtractors {
 
     object ExAssert {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String])] = tree match {
-        case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
+        case Apply(
+            ExSymbol("scala", "Predef$", "assert") | ExSymbol("stainless", "lang", "StaticChecks$", "assert"),
+            Seq(body)) =>
           Some((body, None))
-        case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
+
+        case Apply(
+            ExSymbol("scala", "Predef$", "assert") | ExSymbol("stainless", "lang", "StaticChecks$", "assert"),
+            Seq(body, Literal(cnst: Constant))) =>
           Some((body, Some(cnst.stringValue)))
+
         case _ => None
       }
     }
