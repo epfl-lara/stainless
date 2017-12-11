@@ -249,7 +249,7 @@ trait Registry {
   private val recentFunctions = ListBuffer[xt.FunDef]()
 
   private val knownOpenClasses = MutableMap[Identifier, xt.ClassDef]()
-  private val deferredMethods = ListBuffer[xt.FunDef]()
+  private val deferredMethods = MutableSet[xt.FunDef]()
 
   private var frozen = false
   private val graph = new IncrementalComputationalGraph[Identifier, NodeValue, Result] {
@@ -384,7 +384,7 @@ trait Registry {
     recentClasses.clear()
     recentFunctions.clear()
 
-    val defaultRes = process(knownOpenClasses.values.toSeq, deferredMethods)
+    val defaultRes = process(knownOpenClasses.values.toSeq, deferredMethods.toSeq)
 
     knownOpenClasses.clear()
     deferredMethods.clear()

@@ -34,9 +34,9 @@ class RegistryTestSuite extends FunSuite {
 
   private val DEBUG = false
   private val testSuiteContext = if (DEBUG) {
-    val reporter = new inox.DefaultReporter(Set(frontend.DebugSectionFrontend))
+    val reporter = new inox.DefaultReporter(Set(utils.DebugSectionRegistry, frontend.DebugSectionFrontend))
     val intrMan = inox.TestContext.empty.interruptManager
-    inox.Context(reporter, intrMan)
+    inox.Context(reporter, intrMan).withOpts(inox.ast.optPrintUniqueIds(true))
   } else inox.TestContext.empty
 
   /** Filter functions and classes. */
@@ -174,9 +174,11 @@ class RegistryTestSuite extends FunSuite {
       val cls = program.symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
-      context.reporter.debug(s"MockCallBack got the following to solve:")
-      context.reporter.debug(s"\tfunctions: " + (fns mkString ", "))
-      context.reporter.debug(s"\tclasses:   " + (cls mkString ", "))
+      implicit val printOpts = program.trees.PrinterOptions.fromContext(context)
+      import context.reporter
+      reporter.debug(s"MockCallBack got the following to solve:")
+      reporter.debug(s"\tfunctions: " + (program.symbols.functions.keySet map { _.asString } mkString ", "))
+      reporter.debug(s"\tclasses:   " + (program.symbols.classes.keySet map { _.asString } mkString ", "))
 
       val report = MockReport(fns, cls)
       reports += report
@@ -191,6 +193,14 @@ class RegistryTestSuite extends FunSuite {
       if (res.isEmpty) MockReport(Set.empty, Set.empty) else res reduce { _ ~ _ }
     }
   }
+
+  val sourceOptions =
+    """|object Options {
+       |  sealed abstract class MyOption[T]
+       |  case class MyNone[T]() extends MyOption[T]
+       |  case class MySome[T](x: T) extends MyOption[T]
+       |}
+       |""".stripMargin
 
   val sourceAv0 =
     """|import stainless.lang._
@@ -207,14 +217,15 @@ class RegistryTestSuite extends FunSuite {
   val sourceBv0 =
     """|import stainless.lang._
        |import stainless.annotation._
+       |import Options._
        |object B {
        |  case class Bottom(p: Boolean) extends A.Top {
        |    override def prop = p
        |  }
        |  def bar: Boolean = { true }.holds
-       |  def fun(o: Option[Int]): Boolean = { o match {
-       |    case None() => false
-       |    case Some(x) => A.foobar(gun, x)
+       |  def fun(o: MyOption[Int]): Boolean = { o match {
+       |    case MyNone() => false
+       |    case MySome(x) => A.foobar(gun, x)
        |  } }.holds
        |  def gun(x: Int) = x >= 0
        |  def hun(t: A.Top): Boolean = { t.prop }.holds
@@ -226,14 +237,15 @@ class RegistryTestSuite extends FunSuite {
   val sourceBv1 =
     """|import stainless.lang._
        |import stainless.annotation._
+       |import Options._
        |object B {
        |  case class Bottom(p: Boolean) extends A.Top {
        |    override def prop = p
        |  }
        |  def bar: Boolean = { false }.holds // HERE
-       |  def fun(o: Option[Int]): Boolean = { o match {
-       |    case None() => false
-       |    case Some(x) => A.foobar(gun, x)
+       |  def fun(o: MyOption[Int]): Boolean = { o match {
+       |    case MyNone() => false
+       |    case MySome(x) => A.foobar(gun, x)
        |  } }.holds
        |  def gun(x: Int) = x >= 0
        |  def hun(t: A.Top): Boolean = { t.prop }.holds
@@ -245,14 +257,15 @@ class RegistryTestSuite extends FunSuite {
   val sourceBv2 =
     """|import stainless.lang._
        |import stainless.annotation._
+       |import Options._
        |object B {
        |  case class Bottom(p: Boolean) extends A.Top {
        |    override def prop = p
        |  }
        |  def bar: Boolean = { false }.holds
-       |  def fun(o: Option[Int]): Boolean = { o match {
-       |    case None() => false
-       |    case Some(x) => A.foobar(gun, x)
+       |  def fun(o: MyOption[Int]): Boolean = { o match {
+       |    case MyNone() => false
+       |    case MySome(x) => A.foobar(gun, x)
        |  } }.holds
        |  def gun(x: Int) = x >= 0
        |  def hun(t: A.Top): Boolean = { t.prop }.holds
@@ -264,14 +277,15 @@ class RegistryTestSuite extends FunSuite {
   val sourceBv3 =
     """|import stainless.lang._
        |import stainless.annotation._
+       |import Options._
        |object B {
        |  case class Bottom(p: Boolean) extends A.Top {
        |    override def prop = p
        |  }
        |  def bar: Boolean = { false }.holds
-       |  def fun(o: Option[Int]): Boolean = { o match {
-       |    case None() => false
-       |    case Some(x) => A.foobar(gun, x)
+       |  def fun(o: MyOption[Int]): Boolean = { o match {
+       |    case MyNone() => false
+       |    case MySome(x) => A.foobar(gun, x)
        |  } }.holds
        |  def gun(x: Int) = x >= 0
        |  def hun(t: A.Top): Boolean = { !t.prop }.holds // HERE
@@ -283,9 +297,9 @@ class RegistryTestSuite extends FunSuite {
   testScenario("one run",
     DefaultFilter,
     UpdateEvent(
-      Map("AAA" -> sourceAv0, "BBB" -> sourceBv0),
+      Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "Option", "Some", "None"),
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -295,9 +309,9 @@ class RegistryTestSuite extends FunSuite {
   testScenario("two identical runs",
     DefaultFilter,
     UpdateEvent(
-      Map("AAA" -> sourceAv0, "BBB" -> sourceBv0),
+      Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "Option", "Some", "None"),
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -309,9 +323,9 @@ class RegistryTestSuite extends FunSuite {
   testScenario("watch",
     DefaultFilter,
     UpdateEvent(
-      Map("AAA" -> sourceAv0, "BBB" -> sourceBv0),
+      Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "Option", "Some", "None"),
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -334,8 +348,7 @@ class RegistryTestSuite extends FunSuite {
         Map("BBB" -> sourceBv3),
         Expectation(
           classes = Set("Top", "Bottom"),
-          // functions = Set("hun", "prop", "inv")
-          functions = Set("hun", "prop")
+          functions = Set("hun", "prop", "inv")
         )
       )
     )
