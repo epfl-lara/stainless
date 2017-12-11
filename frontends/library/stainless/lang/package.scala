@@ -122,11 +122,6 @@ package object lang {
   @ignore
   def old[T](value: T): T = value
 
-  @ignore
-  def byExample[A, B](in: A, out: B): Boolean = {
-    sys.error("Can't execute by example proposition")
-  }
-
   @library
   implicit class SpecsDecorations[A](val underlying: A) {
     @ignore
@@ -134,13 +129,6 @@ package object lang {
       underlying
     } ensuring {
       res => res == target
-    }
-
-    @ignore // Programming by example: ???[String] ask input
-    def ask[I](input : I) = {
-      underlying
-    } ensuring {
-      (res: A) => byExample(input, res)
     }
   }
 
