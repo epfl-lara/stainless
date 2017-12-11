@@ -372,30 +372,6 @@ trait ASTExtractors {
        }
     }
 
-    /** Extracts the `(input, output) passes { case In => Out ...}` and returns (input, output, list of case classes) */
-    object ExPasses {
-      def unapply(tree : Apply) : Option[(Tree, Tree, List[CaseDef])] = tree match {
-        case  Apply(
-                Select(
-                  Apply(
-                    TypeApply(
-                      ExSelected("stainless", "lang", "package", "Passes"),
-                      List(_, _)
-                    ),
-                    List(ExpressionExtractors.ExTuple(_, Seq(in,out)))
-                  ),
-                  ExNamed("passes")
-                ),
-                List(Function(
-                  List(ValDef(_, _, _, EmptyTree)),
-                  ExpressionExtractors.ExPatternMatching(_,tests)
-                ))
-              )
-          => Some((in, out, tests))
-        case _ => None
-      }
-    }
-
     /** Returns a string literal from a constant string literal. */
     object ExStringLiteral {
       def unapply(tree: Tree): Option[String] = tree  match {
