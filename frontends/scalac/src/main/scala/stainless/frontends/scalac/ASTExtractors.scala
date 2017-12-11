@@ -353,25 +353,6 @@ trait ASTExtractors {
        }
     }
 
-    /** Matches the `O ask I` expression at the end of any expression O, and returns (I, O).*/
-    object ExAskExpression {
-      def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(TypeApply(Select(
-          Apply(TypeApply(ExSelected("stainless", "lang", "package", "SpecsDecorations"), List(_)), output :: Nil),
-          ExNamed("ask")), List(_)), input::Nil)
-         => Some((input, output))
-        case _ => None
-       }
-    }
-
-    object ExByExampleExpression {
-      def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(TypeApply(ExSelected("stainless", "lang", "package", "byExample"), List(_, _)), input :: res_output :: Nil)
-         => Some((input, res_output))
-        case _ => None
-       }
-    }
-
     /** Returns a string literal from a constant string literal. */
     object ExStringLiteral {
       def unapply(tree: Tree): Option[String] = tree  match {
@@ -665,16 +646,6 @@ trait ASTExtractors {
   object ExpressionExtractors {
     import ExtractorHelpers._
 
-    object ExEpsilonExpression {
-      def unapply(tree: Apply) : Option[(Tree, Symbol, Tree)] = tree match {
-        case Apply(
-              TypeApply(ExSymbol("stainless", "lang", "xlang", "epsilon"), typeTree :: Nil),
-              Function((vd @ ValDef(_, _, _, EmptyTree)) :: Nil, predicateBody) :: Nil) =>
-            Some((typeTree, vd.symbol, predicateBody))
-        case _ => None
-      }
-    }
-
     object ExErrorExpression {
       def unapply(tree: Apply) : Option[(String, Tree)] = tree match {
         case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "error"), List(tpe)), List(lit : Literal)) =>
@@ -709,16 +680,6 @@ trait ASTExtractors {
               TypeApply(s @ ExSymbol("stainless", "lang", "choose"), types),
               predicate :: Nil) =>
             Some(predicate)
-        case _ => None
-      }
-    }
-
-    object ExWithOracleExpression {
-      def unapply(tree: Apply) : Option[(List[(Tree, Symbol)], Tree)] = tree match {
-        case a @ Apply(
-              TypeApply(s @ ExSymbol("stainless", "lang", "synthesis", "withOracle"), types),
-              Function(vds, body) :: Nil) =>
-            Some((types zip vds.map(_.symbol), body))
         case _ => None
       }
     }
