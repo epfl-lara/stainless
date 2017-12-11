@@ -4,7 +4,7 @@ Pure Scala
 ==========
 
 The input to Stainless is a purely functional **subset** of `Scala
-<http://www.scala-lang.org/>`_, which we call 
+<http://www.scala-lang.org/>`_, which we call
 **Pure Scala**. Constructs specific for Stainless are defined inside
 Stainless's libraries in package `stainless` and its subpackages.
 Stainless invokes standard `scalac` compiler on the input file, then
@@ -38,7 +38,7 @@ Boolean
 #######
 
 Booleans are used to express truth conditions in Stainless.
-Unlike some proof assistants, there is no separation 
+Unlike some proof assistants, there is no separation
 at the type level between
 Boolean values and the truth conditions of conjectures
 and theorems.
@@ -56,7 +56,7 @@ is also present.
   !a
   a ==> b // Stainless syntax for boolean implication
 
-Stainless uses short-circuit interpretation of `&&`, `||`, and `==>`, 
+Stainless uses short-circuit interpretation of `&&`, `||`, and `==>`,
 which evaluates the second argument only when needed:
 
 .. code-block:: scala
@@ -73,7 +73,7 @@ This aspect is important because of:
 
 2. verification condition generation for safety: arguments of Boolean operations
 may be operations with preconditions; these preconditions apply only in case
-that the corresponding argument is evaluated. 
+that the corresponding argument is evaluated.
 
 3. termination checking, which takes into account that only one of the paths in an if expression is evaluated for a given truth value of the condition.
 
@@ -126,16 +126,16 @@ Stainless supports type parameters for classes and functions.
     abstract class List[T]
     case class Cons[T](hd: T, tl: List[T]) extends List[T]
     case class Nil[T]() extends List[T]
- 
+
     def contains[T](l: List[T], el: T) = { ... }
   }
 
 
 .. note::
   Type parameters are always **invariant**. It is not possible to define ADTs like:
- 
+
   .. code-block:: scala
- 
+
     abstract class List[T]
     case class Cons[T](hd: T, tl: List[T]) extends List[T]
     case object Nil extends List[Nothing]
@@ -155,7 +155,7 @@ You can define methods in classes.
   }
   case class Cons[T](hd: T, tl: List[T]) extends List[T]
   case object Nil extends List[Nothing]
- 
+
   def test(a: List[Int]) = a.contains(42)
 
 It is possible to define abstract methods in abstract classes and implement them in case classes.
@@ -247,7 +247,7 @@ Pattern matching
     case (t1, t2) => ...
     case 42 => ...
     case _ => ...
- 
+
     // can also be guarded, e.g.
     case CaseClass(a, b, c) if a > b => ...
   }
@@ -274,9 +274,9 @@ Values
 .. code-block:: scala
 
   val x = ...
- 
+
   val (x, y) = ...
- 
+
   val Cons(h, _) = ...
 
 .. note::
@@ -337,7 +337,7 @@ BigInt
 
   val a = BigInt(2)
   val b = BigInt(3)
- 
+
   -a
   a + b
   a - b
@@ -363,7 +363,7 @@ extension to Scala which is meant to write programs closer to their true semanti
 
   val a: Real = Real(2)
   val b: Real = Real(3, 5) // 3/5
- 
+
   -a
   a + b
   a - b
@@ -394,10 +394,10 @@ Set
 .. code-block:: scala
 
   import stainless.lang.Set // Required to have support for Sets
- 
+
   val s1 = Set(1,2,3,1)
   val s2 = Set[Int]()
- 
+
   s1 ++ s2 // Set union
   s1 & s2  // Set intersection
   s1 -- s2 // Set difference
@@ -411,7 +411,7 @@ Functional Array
 .. code-block:: scala
 
   val a = Array(1,2,3)
- 
+
   a(index)
   a.updated(index, value)
   a.length
@@ -423,9 +423,9 @@ Map
 .. code-block:: scala
 
   import stainless.lang.Map // Required to have support for Maps
- 
+
   val  m = Map[Int, Boolean](42 -> false)
- 
+
   m(index)
   m isDefinedAt index
   m contains index
@@ -442,11 +442,11 @@ Function
 .. code-block:: scala
 
   val f1 = (x: Int) => x + 1                 // simple anonymous function
- 
+
   val y  = 2
   val f2 = (x: Int) => f1(x) + y             // closes over `f1` and `y`
   val f3 = (x: Int) => if (x < 0) f1 else f2 // anonymous function returning another function
- 
+
   list.map(f1)      // functions can be passed around ...
   list.map(f3(1) _) // ... and partially applied
 
@@ -455,63 +455,3 @@ Function
   currently quite limited.
 
 
-Symbolic Input-Output Examples
-------------------------------
-
-Sometimes, a complete formal specification is hard to write,
-especially when it comes to simple, elementary functions. In such cases,
-it may be easier to provide a set of IO-examples. On the other hand,
-IO-examples can never cover all the possible executions of a function,
-and are thus weaker than a formal specification. 
-
-Stainless provides a powerful compromise between these two extremes.
-It introduces *symbolic IO-examples*, expressed through a specialized ``passes``
-construct, which resembles pattern-matching:
-
-.. code-block:: scala
-
-  sealed abstract class List {
-    
-    def size: Int = (this match {
-      case Nil() => 0
-      case Cons(h, t) => 1 + t.size
-    }) ensuring { res => (this, res) passes {
-      case Nil() => 0
-      case Cons(_, Nil()) => 1
-      case Cons(_, Cons(_, Nil())) => 2
-    }}
-  }
-  case class Cons[T](h: T, t: List[T]) extends List[T]
-  case class Nil[T]() extends List[T]
-
-
-In the above example, the programmer has chosen to partially specify ``size``
-through a list of IO-examples, describing what the function should do 
-for lists of size 0, 1 or 2.
-Notice that the examples are symbolic, in that the elements of the lists are
-left unconstrained.
-
-The semantics of ``passes`` is the following.
-Let ``a: A`` be a tuple of method parameters and/or ``this``, ``b: B``,
-and for each i ``pi: A`` and ``ei: B``. Then
-
-.. code-block:: scala
-
-  (a, b) passes {
-    case p1 => e1
-    case p2 => e2
-    ...
-    case pN => eN
-  }
-
-is equivalent to
-
-.. code-block:: scala
-
-  a match {
-    case p1 => b == e1
-    case p2 => b == e2
-    ...
-    case pN => b == eN
-    case _  => true
-  }
