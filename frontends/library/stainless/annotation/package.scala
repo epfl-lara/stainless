@@ -6,36 +6,40 @@ import scala.annotation.Annotation
 
 package object annotation {
 
-  class ignore     extends Annotation
+  /** The annotated symbols is not extracted at all. For internal usage only. */
+  private[stainless] class ignore extends Annotation
 
+
+  /** The annotated function or class' methods are not verified
+   *  by default (use --functions=... to override this). */
   @ignore
   class library    extends Annotation
+
+  /** Apply the "induct" tactic during verification of the annotated function. */
   @ignore
   class induct     extends Annotation
+
+  /** Introduce an inductive hypothesis on `name` when verifying the annotated function. */
+  // FIXME is this supported? (if not, remove TraceInductTacticTest.scala.BAK)
+  // FIXME what does the default value "" mean/how is it handled?
+  // FIXME using default value results in: [ Error  ] monotonicity$0 depends on missing dependencies: <init>$default$1$0.
   @ignore
   class traceInduct(name: String = "") extends Annotation
+
+  /** Only extract the contracts and replace the annotated function's body with a choose. */
   @ignore
   class extern     extends Annotation
+
+  // FIXME probably unused and should be removed.
+  // NOTE The only found usage is in the library: StrOps.escape. By removing
+  //      the annotation we should update this function, probably.
   @ignore
   class internal   extends Annotation
+
+  /** Ensure that calling the annotated function had no side effect. */
+  // FIXME There's no invalid test for this annotation.
   @ignore
   class pure       extends Annotation
 
-  // Orb annotations
-  @ignore
-  class monotonic  extends Annotation
-  @ignore
-  class compose    extends Annotation
-  @ignore
-  class axiom 		extends Annotation
-  @ignore
-  class invstate extends Annotation
-  @ignore
-  class memoize extends Annotation
-  @ignore
-  class invisibleBody extends Annotation // do not unfold the body of the function
-  @ignore
-  class usePost extends Annotation // assume the post-condition while proving time bounds
-  @ignore
-  class unfoldFactor(f: Int=0) extends Annotation // 0 implies no bound on unfolding
 }
+

@@ -179,8 +179,12 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
+  // NOTE The tests are placed in a subpackage of `stainless` to get access to
+  //      the @ignore annotation.
+
   val sourceOptions =
-    """|object Options {
+    """|package stainless.test
+       |object Options {
        |  sealed abstract class MyOption[T]
        |  case class MyNone[T]() extends MyOption[T]
        |  case class MySome[T](x: T) extends MyOption[T]
@@ -188,7 +192,8 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   val sourceAv0 =
-    """|import stainless.lang._
+    """|package stainless.test
+       |import stainless.lang._
        |object A {
        |  abstract class Top {
        |    require(prop)
@@ -200,7 +205,8 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   val sourceBv0 =
-    """|import stainless.lang._
+    """|package stainless.test
+       |import stainless.lang._
        |import stainless.annotation._
        |import Options._
        |object B {
@@ -220,7 +226,8 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   val sourceBv1 =
-    """|import stainless.lang._
+    """|package stainless.test
+       |import stainless.lang._
        |import stainless.annotation._
        |import Options._
        |object B {
@@ -240,7 +247,8 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   val sourceBv2 =
-    """|import stainless.lang._
+    """|package stainless.test
+       |import stainless.lang._
        |import stainless.annotation._
        |import Options._
        |object B {
@@ -260,7 +268,8 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   val sourceBv3 =
-    """|import stainless.lang._
+    """|package stainless.test
+       |import stainless.lang._
        |import stainless.annotation._
        |import Options._
        |object B {

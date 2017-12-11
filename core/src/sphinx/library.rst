@@ -54,7 +54,7 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | Annotation        | Meaning                                                |
 +===================+========================================================+
 | ``@library``      | Treat this object/function as library, don't try       |
-|                   | to verify its specification. Can be overriden by       |
+|                   | to verify its specification. Can be overridden by      |
 |                   | including a function name in the ``--functions``       |
 |                   | command line option.                                   |
 +-------------------+--------------------------------------------------------+
@@ -70,6 +70,12 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 +-------------------+--------------------------------------------------------+
 | ``@inline``       | Inline this function. Stainless will refuse to inline  |
 |                   | (mutually) recursive functions.                        |
++-------------------+--------------------------------------------------------+
+| ``@extern``       | Only extract the contracts of a function, replacing    |
+|                   | its body by a ``choose`` expression.                   |
++-------------------+--------------------------------------------------------+
+| ``@pure``         | Ensure that the function is not exposing side-effect   |
+|                   | to the callee.                                         |
 +-------------------+--------------------------------------------------------+
 
 List[T]
