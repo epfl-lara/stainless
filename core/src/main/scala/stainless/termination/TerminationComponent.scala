@@ -54,7 +54,7 @@ object TerminationComponent extends SimpleComponent {
 
     val c = TerminationChecker(p, ctx)
 
-    val toVerify = funs.map(getFunction(_)).sortBy(_.getPos)
+    val toVerify = filter(p, ctx)(funs) map { getFunction(_) }
 
     for {
       fd <- toVerify

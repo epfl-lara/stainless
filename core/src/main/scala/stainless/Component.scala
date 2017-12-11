@@ -43,16 +43,23 @@ trait SimpleComponent extends Component { self =>
   private val marks = new utils.AtomicMarks[Identifier]
   def onCycleBegin(): Unit = marks.clear()
 
+  // Subclasses should use this method to determine which functions should be processed or not.
+  protected def filter(program: Program { val trees: self.trees.type }, ctx: inox.Context)
+                      (functions: Seq[Identifier]): Seq[Identifier] = {
+    val filter = utils.CheckFilter(ctx)
+    val symbols = program.symbols
+
+    functions
+      . map { fid => symbols.getFunction(fid) }
+      . filter { fd => filter.shouldBeChecked(fd.id, fd.flags) && marks.compareAndSet(fd.id) }
+      . map { fd => fd.id }
+  }
+
+
   def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Analysis = {
     val extracted = extract(program, ctx)
-    import extracted._
-
-    val filter = new utils.CheckFilter { override val context = ctx }
-    val relevant = symbols.functions.values.toSeq filter { fd =>
-      filter.shouldBeChecked(fd.id, fd.flags) && marks.compareAndSet(fd.id)
-    } map { _.id }
-
-    apply(relevant, extracted, ctx)
+    val functions = extracted.symbols.functions.values.toSeq map { _.id }
+    apply(functions, extracted, ctx)
   }
 
   def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }, ctx: inox.Context): Analysis

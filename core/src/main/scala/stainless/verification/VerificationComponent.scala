@@ -36,7 +36,8 @@ object VerificationComponent extends SimpleComponent {
     import encoder.targetProgram.trees._
     import encoder.targetProgram.symbols._
 
-    val toVerify = funs.sortBy(getFunction(_).getPos)
+    val toVerify = filter(p, ctx)(funs)
+
     ctx.reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
 
     for (id <- toVerify) {
