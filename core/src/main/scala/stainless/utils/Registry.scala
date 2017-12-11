@@ -301,7 +301,6 @@ trait Registry {
     // If we have a cache (first cycle only), check if the node was already computed.
     val result = persistentCache match {
       case None =>
-        reporter.debug(s"fallback on default for $id")
         default
 
       case Some(cache) =>
@@ -312,7 +311,6 @@ trait Registry {
 
         cache.get(id) match {
           case None =>
-            reporter.debug(s"fallback on default for $id, NOT IN CACHE")
             default
 
           case Some((cachedCf, checked, hash)) =>
@@ -320,9 +318,6 @@ trait Registry {
             // Mind the fact that we need to know all the definitions to compute the hash.
             val hashes = deps.toSeq map deferredNodes map buildCF map { _.hashCode }
             val currentHash = hashes.sorted.hashCode
-            reporter.debug(
-              s"from cache for $id -> checked? $checked, equals? ${cachedCf == cf}, hash? ${hash == currentHash}"
-            )
             (!checked || cachedCf != cf || hash != currentHash) && default
         }
     }
