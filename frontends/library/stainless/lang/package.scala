@@ -123,13 +123,6 @@ package object lang {
   def old[T](value: T): T = value
 
   @ignore
-  implicit class Passes[A,B](io : (A,B)) {
-    val (in, out) = io
-    def passes(tests : A => B ) : Boolean =
-      try { tests(in) == out } catch { case _ : MatchError => true }
-  }
-
-  @ignore
   def byExample[A, B](in: A, out: B): Boolean = {
     sys.error("Can't execute by example proposition")
   }
