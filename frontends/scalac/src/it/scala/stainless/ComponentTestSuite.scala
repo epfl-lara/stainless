@@ -18,17 +18,24 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  // Ensure no tests share data inappropriately, but is really slow... use for debugging!!!
-  private def extractOne(file: String): (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
-    val reporter = new inox.TestSilentReporter
-
-    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = loadFiles(ctx, Seq(file))
+  // `useFilter` enable filter rules defined by `ctx`.
+  private def extractStructure(files: Seq[String], ctx: inox.Context, useFilter: Boolean) = {
+    val filterOpt = if (useFilter) Some(utils.CheckFilter(ctx)) else None
+    val (structure, program) = loadFiles(ctx, files, filterOpt)
     program.symbols.ensureWellFormed
     val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
 
-    assert(reporter.lastErrors.isEmpty)
+    assert(ctx.reporter.errorCount == 0)
+
+    (structure, program, exProgram)
+  }
+
+  // Ensure no tests share data inappropriately, but is really slow... Use with caution!
+  // `useFilter` enable filter rules defined by `ctx`.
+  protected def extractOne(file: String, ctx: inox.Context, useFilter: Boolean)
+                : (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
+    val (structure, program, exProgram) = extractStructure(Seq(file), ctx, useFilter)
 
     assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
     val uOpt = structure find { _.isMain }
@@ -50,16 +57,10 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   }
 
   // More efficient, but might mix tests together...
-  private def extractAll(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
-    val reporter = new inox.TestSilentReporter
+  protected def extractAll(files: Seq[String], ctx: inox.Context)
+                : (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
+    val (structure, program, exProgram) = extractStructure(files, ctx, false)
 
-    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
-    val (structure, program) = loadFiles(ctx, files)
-    program.symbols.ensureWellFormed
-    val exProgram = component.extract(program, ctx)
-    exProgram.symbols.ensureWellFormed
-
-    assert(reporter.lastErrors.isEmpty)
     (for (u <- structure if u.isMain) yield {
       val unitFuns = u.allFunctions(program.symbols)
       val allFuns = inox.utils.fixpoint { (funs: Set[Identifier]) =>
@@ -92,7 +93,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         path = file.getPath
         name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
-        val (uName, funs, program) = extractOne(path)
+        val (uName, funs, program) = extractOne(path, ctx, false)
         assert(uName == name)
         val report = component.apply(funs, program, ctx)
         block(report, ctx.reporter)
@@ -100,7 +101,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     } else {
 
-      val (funss, program) = extractAll(fs.map(_.getPath))
+      val ctx = inox.TestContext.empty
+      val (funss, program) = extractAll(fs.map(_.getPath), ctx)
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
           val report = component.apply(funs, program, ctx)

@@ -4,7 +4,7 @@ package stainless
 
 import extraction.xlang.{ trees => xt }
 import frontend.{ CallBack, MasterCallBack }
-import utils.{ DependenciesFinder, Registry }
+import utils.{ CheckFilter, DependenciesFinder, Registry }
 
 import scala.collection.mutable.ListBuffer
 
@@ -13,7 +13,7 @@ import java.io.{ File, BufferedWriter, FileWriter }
 trait InputUtils {
 
   /** Compile and extract the given files' **content** (& the library). */
-  def load(context: inox.Context, contents: Seq[String]):
+  def load(context: inox.Context, contents: Seq[String], filterOpt: Option[CheckFilter] = None):
           (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     val files = contents.map { content =>
@@ -25,11 +25,11 @@ trait InputUtils {
       file.getAbsolutePath
     }
 
-    loadFiles(context, files)
+    loadFiles(context, files, filterOpt)
   }
 
   /** Compile and extract the given files (& the library). */
-  def loadFiles(ctx: inox.Context, files: Seq[String]):
+  def loadFiles(ctx: inox.Context, files: Seq[String], filterOpt: Option[CheckFilter] = None):
                (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     // Use the callback to collect the trees.
@@ -55,8 +55,8 @@ trait InputUtils {
         override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
         override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
 
-        override def shouldBeChecked(fd: xt.FunDef): Boolean = true
-        override def shouldBeChecked(cd: xt.ClassDef): Boolean = true
+        override def shouldBeChecked(fd: xt.FunDef): Boolean = filterOpt map { _.shouldBeChecked(fd) } getOrElse true
+        override def shouldBeChecked(cd: xt.ClassDef): Boolean = filterOpt map { _.shouldBeChecked(cd) } getOrElse true
       }
 
       override def beginExtractions(): Unit = ()
@@ -86,10 +86,12 @@ trait InputUtils {
     // Wait for compilation to finish to produce the whole program
     compiler.join()
 
-    // Ensure the registry yields all classes and functions
+    // Ensure the registry yields all classes and functions (unless using a custom filter)
     assert(done)
-    assert(syms.classes.values.toSet == cls.toSet)
-    assert(syms.functions.values.toSet == funs.toSet)
+    if (filterOpt.isEmpty) {
+      assert(syms.classes.values.toSet == cls.toSet)
+      assert(syms.functions.values.toSet == funs.toSet)
+    }
 
     val program = inox.Program(xt)(syms)
 

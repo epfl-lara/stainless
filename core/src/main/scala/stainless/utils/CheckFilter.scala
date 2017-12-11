@@ -53,3 +53,7 @@ trait CheckFilter {
   def shouldBeChecked(cd: extraction.xlang.trees.ClassDef): Boolean = false
 }
 
+object CheckFilter {
+  def apply(ctx: inox.Context) = new CheckFilter { val context = ctx }
+}
+
