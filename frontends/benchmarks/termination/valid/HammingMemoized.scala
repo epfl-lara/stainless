@@ -12,14 +12,14 @@ import math._
 object Hamming {
   sealed abstract class IList
   case class Cons(x: BigInt, tail: IList) extends IList {
-    @ignore
+    @extern
     override def toString: String = {
       if(tail == Nil()) x.toString
       else x.toString + "," + tail.toString
     }
   }
   case class Nil() extends IList {
-    @ignore
+    @extern
     override def toString = ""
   }
 

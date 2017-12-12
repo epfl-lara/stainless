@@ -59,7 +59,7 @@ object InsertionSort {
                      && size(res) == size(l)
              )
 
-  @ignore
+  @extern
   def main(args: Array[String]): Unit = {
     val ls: List = Cons(5, Cons(2, Cons(4, Cons(5, Cons(1, Cons(8,Nil()))))))
 

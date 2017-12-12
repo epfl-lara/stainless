@@ -52,7 +52,7 @@ object QuickSort {
     case Cons(x,xs) => append(append(quickSort(smaller(x,xs)),Cons(x,equals(x,xs))),quickSort(greater(x,xs)))
   }
 
-  @ignore
+  @extern
   def main(args: Array[String]): Unit = {
     val ls: List = Cons(5, Cons(2, Cons(4, Cons(5, Cons(1, Cons(8,Nil()))))))
 

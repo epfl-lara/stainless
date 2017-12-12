@@ -8,11 +8,11 @@ import collection._
 object DigitObject {
   sealed abstract class Digit
   case class Zero() extends Digit {
-    @ignore
+    @extern
     override def toString = "0"
   }
   case class One() extends Digit {
-    @ignore
+    @extern
     override def toString = "1"
   }
 }

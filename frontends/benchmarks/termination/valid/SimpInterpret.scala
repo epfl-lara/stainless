@@ -62,7 +62,7 @@ object Interpret {
     !treeBad(If(Less(Const(0),Var()), Var(), Minus(Const(0),Var())))
   }.holds
 
-  @ignore
+  @extern
   def main(args : Array[String]): Unit = {
     thereIsGoodTree()
   }

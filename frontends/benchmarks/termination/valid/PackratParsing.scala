@@ -24,7 +24,7 @@ object PackratParsing {
    * The string of tokens is reversed i.e,
    * string(length-1) represents the first char and string(0) represents the last char.
    */
-  @ignore
+  @extern
   var string = Array[Terminal]()
 
   /**

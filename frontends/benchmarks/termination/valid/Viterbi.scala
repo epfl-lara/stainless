@@ -13,9 +13,9 @@ import collection._
  */
 object Viterbi {
 
-  @ignore
+  @extern
   var xstring = Array[BigInt]()
-  @ignore
+  @extern
   var ystring = Array[BigInt]()
   /**
    * Observation space, O

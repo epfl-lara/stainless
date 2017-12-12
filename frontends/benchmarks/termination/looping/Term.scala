@@ -10,7 +10,7 @@ object Term {
     require(tick >= 0)
   }
 
-  case class Core(tasks: Task, current: Option[BigInt]) 
+  case class Core(tasks: Task, current: Option[BigInt])
 
 
   def insertBack(): Core = Core(Task(0), None())
@@ -23,7 +23,7 @@ object Term {
     }
   }
 
-  @ignore
+  @extern
   def main(args: Array[String]): Unit = {
     looping(Core(Task(0), Some(0)))
   }

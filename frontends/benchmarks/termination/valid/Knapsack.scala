@@ -15,14 +15,14 @@ object Knapscak {
     } ensuring(_ >= 0)
   }
   case class Cons(x: (BigInt, BigInt), tail: IList) extends IList { // a list of pairs of weights and values
-    @ignore
+    @extern
     override def toString: String = {
       if(tail == Nil()) x.toString
       else x.toString + "," + tail.toString
     }
   }
   case class Nil() extends IList {
-    @ignore
+    @extern
     override def toString = ""
   }
 
