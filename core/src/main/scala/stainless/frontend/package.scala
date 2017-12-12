@@ -38,13 +38,15 @@ package object frontend {
    */
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
-    termination.TerminationComponent
+    termination.TerminationComponent,
+    evaluators.EvaluatorComponent
   )
 
   /** CallBack factories for each component. */
   private val database = Map[String, inox.Context => CallBack](
     verification.VerificationComponent.name -> { ctx => new verification.VerificationCallBack(ctx) },
-    termination.TerminationComponent.name -> { ctx => new termination.TerminationCallBack(ctx) }
+    termination.TerminationComponent.name -> { ctx => new termination.TerminationCallBack(ctx) },
+    evaluators.EvaluatorComponent.name -> { ctx => new evaluators.EvaluatorCallBack(ctx) }
   )
 
   private def getCallBack(name: String, ctx: inox.Context): CallBack = database(name)(ctx)

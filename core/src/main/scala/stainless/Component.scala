@@ -43,11 +43,14 @@ trait SimpleComponent extends Component { self =>
   private val marks = new utils.AtomicMarks[Identifier]
   def onCycleBegin(): Unit = marks.clear()
 
+  // Subclasses can customise the filter here.
+  protected def filterFromContext(ctx: inox.Context): utils.CheckFilter = utils.CheckFilter(ctx)
+
   // Subclasses should use this method to determine which functions should be processed or not.
-  protected def filter(program: Program { val trees: self.trees.type }, ctx: inox.Context)
-                      (functions: Seq[Identifier]): Seq[Identifier] = {
-    val filter = utils.CheckFilter(ctx)
-    val symbols = program.symbols
+  protected final def filter(program: Program { val trees: self.trees.type }, ctx: inox.Context)
+                            (functions: Seq[Identifier]): Seq[Identifier] = {
+    val filter = filterFromContext(ctx)
+    import program.symbols
 
     functions
       . map { fid => symbols.getFunction(fid) }

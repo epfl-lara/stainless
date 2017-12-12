@@ -38,7 +38,7 @@ object VerificationComponent extends SimpleComponent {
 
     val toVerify = filter(p, ctx)(funs)
 
-    ctx.reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
+    reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
 
     for (id <- toVerify) {
       if (getFunction(id).flags contains "library") {
