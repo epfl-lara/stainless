@@ -30,10 +30,5 @@ package object annotation {
   @ignore
   class extern     extends Annotation
 
-  /** Ensure that calling the annotated function had no side effect. */
-  // FIXME There's no invalid test for this annotation.
-  @ignore
-  class pure       extends Annotation
-
 }
 

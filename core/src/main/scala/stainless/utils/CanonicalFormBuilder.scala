@@ -308,7 +308,7 @@ private class CanonicalFormBuilderImpl {
         case xt.Derived(id) => storeId(id)
 
         // Nothing specific to add for these:
-        case xt.Inline | xt.Implicit | xt.IsVar | xt.IsPure | xt.IsMutable |
+        case xt.Inline | xt.Implicit | xt.IsVar | xt.IsMutable |
              xt.IsInvariant | xt.IsAbstract | xt.IsSealed | xt.Ignore |
              xt.Extern | xt.Unchecked =>
       }

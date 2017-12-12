@@ -13,7 +13,6 @@ trait EffectsChecking { self =>
     import effects.symbols._
 
     def checkFunction(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
-      checkPureAnnotation(fd)
       checkMutableField(fd)
       checkEffectsLocations(fd)
 
@@ -68,20 +67,6 @@ trait EffectsChecking { self =>
     }
 
 
-    /* Checks and reports error if a function is annotated as pure and still has effects.
-     * Maybe it would be good in the future to merge this @pure annotation with the report
-     * from the AnalysisPhase, but until a good design is found we just implement this quick
-     * error reporting here.
-     */
-    def checkPureAnnotation(fd: FunAbstraction): Unit = {
-      if (fd.flags contains IsPure) {
-        if (effects(fd).nonEmpty) {
-          throw ImperativeEliminationException(fd.getPos, "Function annotated @pure has effects.")
-        }
-      }
-    }
-
-
     def checkMutableField(fd: FunAbstraction): Unit = {
       if (false) // FIXME fd.flags.exists { case IsField(_) => true case _ => false } && effects.isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd.getPos, "A global field cannot refer to a mutable object")
@@ -110,7 +95,7 @@ trait EffectsChecking { self =>
           throw ImperativeEliminationException(pred.getPos, "Assertion has effects on: " + predEffects.head)
 
       case wh @ While(_, _, Some(invariant)) =>
-        val invEffects = effects(invariant) 
+        val invEffects = effects(invariant)
         if (invEffects.nonEmpty)
           throw ImperativeEliminationException(invariant.getPos, "Loop invariant has effects on: " + invEffects.head)
 

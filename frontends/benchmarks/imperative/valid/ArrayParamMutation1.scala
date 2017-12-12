@@ -8,7 +8,6 @@ object ArrayParamMutation1 {
     a(0) = 10
   }
 
-  @pure
   def f(): BigInt = {
     val a = Array.fill(10)(BigInt(0))
     update(a)

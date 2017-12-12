@@ -74,9 +74,6 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@extern``       | Only extract the contracts of a function, replacing    |
 |                   | its body by a ``choose`` expression.                   |
 +-------------------+--------------------------------------------------------+
-| ``@pure``         | Ensure that the function is not exposing side-effect   |
-|                   | to the callee.                                         |
-+-------------------+--------------------------------------------------------+
 
 List[T]
 -------

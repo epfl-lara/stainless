@@ -115,7 +115,6 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   }
 
   case object IsVar extends Flag("var", Seq.empty)
-  case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
@@ -242,7 +241,6 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
-    case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case _ => super.deconstruct(f)
   }

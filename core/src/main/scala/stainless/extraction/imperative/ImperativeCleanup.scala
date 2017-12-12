@@ -36,10 +36,8 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       }
 
       t.NoSymbols
-        .withADTs(syms.adts.values.toSeq.map(checker.transform))
-        .withFunctions(syms.functions.values.toSeq.map { fd =>
-          checker.transform(fd.copy(flags = fd.flags - s.IsPure))
-        })
+        .withADTs(syms.adts.values.toSeq map checker.transform)
+        .withFunctions(syms.functions.values.toSeq map checker.transform)
     }
 
     val pureUnitSyms: t.Symbols = {

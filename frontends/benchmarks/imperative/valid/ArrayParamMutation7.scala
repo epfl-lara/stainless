@@ -13,7 +13,6 @@ object ArrayParamMutation7 {
     res
   }
 
-  @pure
   def mainProgram(): Unit = {
 
     implicit val world: Array[BigInt] = Array(0,0,0)

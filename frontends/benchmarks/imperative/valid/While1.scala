@@ -3,7 +3,6 @@ import stainless.annotation._
 
 object While1 {
 
-  @pure
   def foo(): Int = {
     var a = 0
     var i = 0
