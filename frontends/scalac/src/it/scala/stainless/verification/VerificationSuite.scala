@@ -70,7 +70,6 @@ trait VerificationSuite extends ComponentTestSuite {
 
   testAll("verification/invalid") { (analysis, _) =>
     val report = analysis.toReport
-    assert(report.totalUnknown == 0, "No VC should be inconclusive")
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
 }
