@@ -23,9 +23,7 @@ postconditions of functions. Note that, in addition to
 checking these conditions at run-time (which standard Scala
 does), Stainless can analyze the specifications statically and
 prove them for *all* executions, or, if they are wrong, automatically find
-inputs for which the conditions fail. (Moreover, it can
-execute specifications alone without the code,
-it can do synthesis, and repair.)
+inputs for which the conditions fail.
 
 Consider the following definition inside of an object `TestMax`.
 
