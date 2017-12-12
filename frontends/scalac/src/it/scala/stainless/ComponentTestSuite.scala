@@ -18,10 +18,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  // `useFilter` enable filter rules defined by `ctx`.
-  private def extractStructure(files: Seq[String], ctx: inox.Context, useFilter: Boolean) = {
-    val filterOpt = if (useFilter) Some(utils.CheckFilter(ctx)) else None
-    val (structure, program) = loadFiles(ctx, files, filterOpt)
+  private def extractStructure(files: Seq[String], ctx: inox.Context) = {
+    val (structure, program) = loadFiles(ctx, files)
     program.symbols.ensureWellFormed
     val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
@@ -32,10 +30,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   }
 
   // Ensure no tests share data inappropriately, but is really slow... Use with caution!
-  // `useFilter` enable filter rules defined by `ctx`.
-  protected def extractOne(file: String, ctx: inox.Context, useFilter: Boolean)
+  protected def extractOne(file: String, ctx: inox.Context)
                 : (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
-    val (structure, program, exProgram) = extractStructure(Seq(file), ctx, useFilter)
+    val (structure, program, exProgram) = extractStructure(Seq(file), ctx)
 
     assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
     val uOpt = structure find { _.isMain }
@@ -59,7 +56,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   // More efficient, but might mix tests together...
   protected def extractAll(files: Seq[String], ctx: inox.Context)
                 : (Seq[(String, Seq[Identifier])], Program { val trees: component.trees.type }) = {
-    val (structure, program, exProgram) = extractStructure(files, ctx, false)
+    val (structure, program, exProgram) = extractStructure(files, ctx)
 
     (for (u <- structure if u.isMain) yield {
       val unitFuns = u.allFunctions(program.symbols)
@@ -93,7 +90,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         path = file.getPath
         name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
-        val (uName, funs, program) = extractOne(path, ctx, false)
+        val (uName, funs, program) = extractOne(path, ctx)
         assert(uName == name)
         val report = component.apply(funs, program, ctx)
         block(report, ctx.reporter)
