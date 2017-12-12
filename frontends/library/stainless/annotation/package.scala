@@ -30,12 +30,6 @@ package object annotation {
   @ignore
   class extern     extends Annotation
 
-  // FIXME probably unused and should be removed.
-  // NOTE The only found usage is in the library: StrOps.escape. By removing
-  //      the annotation we should update this function, probably.
-  @ignore
-  class internal   extends Annotation
-
   /** Ensure that calling the annotated function had no side effect. */
   // FIXME There's no invalid test for this annotation.
   @ignore

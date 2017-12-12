@@ -20,6 +20,5 @@ object StrOps {
   def bigSubstring(s: String, start: BigInt, end: BigInt): String = {
     s.substring(start.toInt, end.toInt)
   }
-  @internal @library
-  def escape(s: String): String = s // Wrong definition, but it will eventually use StringEscapeUtils.escapeJava(s) at parsing and compile time.
 }
+
