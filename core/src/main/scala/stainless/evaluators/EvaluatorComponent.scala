@@ -10,6 +10,17 @@ import scala.util.{ Success, Failure }
 
 object DebugSectionEvaluator extends inox.DebugSection("eval")
 
+/**
+ * Evaluator Component
+ *
+ * Provides facilities to evaluate parameterless functions. It provides the
+ * user with two results: the function's body value and whether or not, using
+ * this value, the postcondition (if any) holds.
+ *
+ * Timeout is handled using --max-calls=<N>.
+ *
+ * TODO disable --ignore-contracts for postcondition evaluation!!!
+ */
 object EvaluatorComponent extends SimpleComponent { self =>
   override val name = "eval"
   override val description = "Evaluation of parameterless functions"
@@ -58,7 +69,6 @@ object EvaluatorComponent extends SimpleComponent { self =>
     lazy val evaluator = p.getSemantics.getEvaluator
 
     // Evaluate an expression, logging events
-    // TODO Add timeout
     def evaluate(title: String, e: Expr): Either[String, Expr] = evaluator eval e match {
       case Successful(res) =>
         reporter.debug(s"\tGot $res from evaluation of $title.")
