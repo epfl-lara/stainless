@@ -10,7 +10,7 @@ import scala.util.{ Success, Failure }
 
 object DebugSectionEvaluator extends inox.DebugSection("eval")
 
-object EvaluatorComponent extends SimpleComponent {
+object EvaluatorComponent extends SimpleComponent { self =>
   override val name = "eval"
   override val description = "Evaluation of parameterless functions"
 
@@ -25,7 +25,8 @@ object EvaluatorComponent extends SimpleComponent {
     val t: extraction.trees.type = extraction.trees
   })
 
-  override def shouldBeChecked(fd: FunDef) = fd.isParameterless
+  override def createFilter(trees: self.trees.type, ctx: inox.Context) =
+    EvaluatorCheckFilter(trees, ctx)
 
   sealed abstract class FunctionStatus
   case class BodyFailed(error: String) extends FunctionStatus

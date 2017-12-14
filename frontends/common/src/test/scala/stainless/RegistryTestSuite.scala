@@ -39,16 +39,6 @@ class RegistryTestSuite extends FunSuite {
     inox.Context(reporter, intrMan).withOpts(inox.ast.optPrintUniqueIds(true))
   } else inox.TestContext.empty
 
-  /** Filter functions and classes. */
-  trait Filter {
-    def shouldBeChecked(fd: xt.FunDef): Boolean
-    def shouldBeChecked(cd: xt.ClassDef): Boolean
-  }
-
-  final object DefaultFilter extends Filter with CheckFilter {
-    override val context = testSuiteContext
-  }
-
   /** Expectation on classes and functions identifier name (ignoring ids). */
   case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = true)
 
@@ -56,7 +46,7 @@ class RegistryTestSuite extends FunSuite {
   case class UpdateEvent(contents: Map[FileName, Content], expected: Expectation)
 
   protected def testExtractionFailure(name: String, contents: Map[FileName, Content]): Unit = {
-    common(name, DefaultFilter, contents.keySet) { case (fileMapping, compiler, _) =>
+    common(name, contents.keySet) { case (fileMapping, compiler, _) =>
       writeContents(fileMapping, contents)
       intercept[inox.FatalError] {
         compiler.run()
@@ -69,15 +59,13 @@ class RegistryTestSuite extends FunSuite {
    * Test a scenario.
    *
    *  - [[name]]:         The scenario's name.
-   *  - [[filter]]:       Symbol filter.
    *  - [[initialState]]: The initial state: should contain the content of every file
    *                      used in this scenario.
    *  - [[events]]:       A sequence of updates with the expected classes and
    *                      functions that should be re-processed.
    */
-  protected def testScenario(name: String, filter: Filter,
-                             initialState: UpdateEvent, events: Seq[UpdateEvent]): Unit = {
-    common(name, filter, initialState.contents.keySet) { case (fileMapping, compiler, callback) =>
+  protected def testScenario(name: String, initialState: UpdateEvent, events: Seq[UpdateEvent]): Unit = {
+    common(name, initialState.contents.keySet) { case (fileMapping, compiler, callback) =>
       // Process all events
       val allEvents = initialState +: events
       allEvents.zipWithIndex foreach { case (event, i) =>
@@ -101,7 +89,7 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
-  private def common(name: String, filter: Filter, filenames: Set[FileName])
+  private def common(name: String, filenames: Set[FileName])
                     (body: (Map[FileName, File], Frontend, MockCallBack) => Unit): Unit = test(name) {
     val basedir = Files.createTempDirectory("RegistryTestSuite").toFile
     basedir.deleteOnExit()
@@ -115,7 +103,7 @@ class RegistryTestSuite extends FunSuite {
     }).toMap
 
     // Create our frontend with a mock callback
-    val callback = new MockCallBack(testSuiteContext, filter)
+    val callback = new MockCallBack(testSuiteContext)
     val master = new MasterCallBack(Seq(callback))
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
     val compiler = Main.factory(testSuiteContext, filePaths, master)
@@ -156,14 +144,11 @@ class RegistryTestSuite extends FunSuite {
    * NOTE here we don't use the report from [[CallBackWithRegistry]] because it
    *      is not cleared upon new compilation.
    */
-  private class MockCallBack(override val context: inox.Context, filter: Filter) extends CallBackWithRegistry {
+  private class MockCallBack(override val context: inox.Context) extends CallBackWithRegistry {
 
     override val cacheSubDirectory = "mockcallback" // shouldn't be used here...
     override def parseReportCache(json: Json) = ??? // unused
     assert(context.options.findOption(frontend.optPersistentCache).isEmpty)
-
-    override def shouldBeChecked(fd: xt.FunDef): Boolean = filter.shouldBeChecked(fd)
-    override def shouldBeChecked(cd: xt.ClassDef): Boolean = filter.shouldBeChecked(cd)
 
     override type Report = MockReport
 
@@ -295,7 +280,6 @@ class RegistryTestSuite extends FunSuite {
        |""".stripMargin
 
   testScenario("one run",
-    DefaultFilter,
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
@@ -307,7 +291,6 @@ class RegistryTestSuite extends FunSuite {
   )
 
   testScenario("two identical runs",
-    DefaultFilter,
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
@@ -321,7 +304,6 @@ class RegistryTestSuite extends FunSuite {
   )
 
   testScenario("watch",
-    DefaultFilter,
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(

@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import extraction.xlang.{ trees => xt }
+
 import org.scalatest._
 
 /*
@@ -16,7 +18,7 @@ class RegistryVerificationSuite extends FunSuite with InputUtils {
   test(s"special --functions=theorem --check-models test") {
     val options = Seq(inox.solvers.optCheckModels(true), optFunctions("theorem" :: Nil))
     val ctx = inox.TestContext(inox.Options(options)) // TODO use stainless.TestContext when #116 is merged.
-    val filter = utils.CheckFilter(ctx)
+    val filter = utils.CheckFilter(xt, ctx)
     val component = VerificationComponent
 
     val input =

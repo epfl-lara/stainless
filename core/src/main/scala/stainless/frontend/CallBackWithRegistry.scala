@@ -4,16 +4,16 @@ package stainless
 package frontend
 
 import extraction.xlang.{ trees => xt }
-import utils.{ DependenciesFinder, JsonUtils, Registry }
+import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
 
 import io.circe.Json
 
 import java.io.File
-import java.util.concurrent.ExecutionException
+import java.util.concurrent.{ ExecutionException, Future }
 
-trait CallBackWithRegistry extends CallBack { self =>
+trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   import context.{ options, reporter }
 
   private implicit val debugSection = DebugSectionFrontend
@@ -86,11 +86,9 @@ trait CallBackWithRegistry extends CallBack { self =>
   protected def onCycleBegin(): Unit
 
   /** Produce a report for the given program, in a blocking fashion. */
-  protected def solve(program: Program { val trees: extraction.xlang.trees.type }): Report
+  protected def solve(program: Program { val trees: xt.type }): Report
 
-  /** Checks whether the given function/class should be processed at some point. */
-  protected def shouldBeChecked(fd: xt.FunDef): Boolean
-  protected def shouldBeChecked(cd: xt.ClassDef): Boolean
+  protected final override val trees = xt // not customisable as not needed.
 
   /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
   protected val cacheSubDirectory: String
@@ -101,7 +99,7 @@ trait CallBackWithRegistry extends CallBack { self =>
 
   /******************* Internal State *************************************************************/
 
-  private val tasks = ListBuffer[java.util.concurrent.Future[Report]]()
+  private val tasks = ListBuffer[Future[Report]]()
   private var report: Report = _
 
   /** Set of classes/functions seen during the last callback cycle. */
@@ -114,7 +112,6 @@ trait CallBackWithRegistry extends CallBack { self =>
     override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
 
     override def shouldBeChecked(fd: xt.FunDef): Boolean = self.shouldBeChecked(fd)
-    override def shouldBeChecked(cd: xt.ClassDef): Boolean = self.shouldBeChecked(cd)
   }
 
   private var firstCycle = true // used to trigger cache loading the first time.
@@ -183,7 +180,7 @@ trait CallBackWithRegistry extends CallBack { self =>
     processProgram(program)
   }
 
-  private def processProgram(program: Program { val trees: extraction.xlang.trees.type }): Unit = {
+  private def processProgram(program: Program { val trees: xt.type }): Unit = {
     // Dispatch a task to the executor service instead of blocking this thread.
     val task = new java.util.concurrent.Callable[Report] {
       override def call(): Report = solve(program)

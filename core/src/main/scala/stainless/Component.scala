@@ -3,6 +3,8 @@
 package stainless
 
 import extraction.xlang.{trees => xt}
+import utils.CheckFilter
+
 import scala.language.existentials
 
 trait Component {
@@ -43,17 +45,20 @@ trait SimpleComponent extends Component { self =>
   private val marks = new utils.AtomicMarks[Identifier]
   def onCycleBegin(): Unit = marks.clear()
 
-  protected def shouldBeChecked(fd: self.trees.FunDef): Boolean = true
+  // Subclasses can customise the filter here.
+  protected def createFilter(trees: self.trees.type, ctx: inox.Context): CheckFilter {
+    val trees: self.trees.type
+  } = CheckFilter(trees, ctx)
 
   // Subclasses should use this method to determine which functions should be processed or not.
   protected final def filter(program: Program { val trees: self.trees.type }, ctx: inox.Context)
                             (functions: Seq[Identifier]): Seq[Identifier] = {
-    val filter = utils.CheckFilter(ctx)
+    val filter = createFilter(program.trees, ctx)
     import program.symbols
 
     functions
       . map { fid => symbols.getFunction(fid) }
-      . filter { fd => shouldBeChecked(fd) && filter.shouldBeChecked(fd.id, fd.flags) && marks.compareAndSet(fd.id) }
+      . filter { fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id) }
       . map { fd => fd.id }
   }
 

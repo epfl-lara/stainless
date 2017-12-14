@@ -188,7 +188,7 @@ trait Registry {
     }
 
     def isChecked(node: NodeValue) = node match {
-      case Left(cd) => shouldBeChecked(cd)
+      case Left(cd) => true // Classes are always "checked" as there is nothing to do.
       case Right(fd) => shouldBeChecked(fd)
     }
 
@@ -232,9 +232,8 @@ trait Registry {
   protected def computeDirectDependencies(fd: xt.FunDef): Set[Identifier]
   protected def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier]
 
-  /** Checks whether the given function/class should be verified at some point. */
+  /** Checks whether the given function should be verified at some point. */
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
-  protected def shouldBeChecked(cd: xt.ClassDef): Boolean
 
 
   /******************* Implementation: Dependency Graph *******************************************/
@@ -294,7 +293,7 @@ trait Registry {
     }
 
     def default = node match {
-      case Left(cd) => shouldBeChecked(cd)
+      case Left(cd) => false // There's never something to do with classes
       case Right(fd) => shouldBeChecked(fd)
     }
 

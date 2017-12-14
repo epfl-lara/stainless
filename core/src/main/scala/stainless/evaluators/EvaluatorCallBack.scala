@@ -3,14 +3,14 @@
 package stainless
 package evaluators
 
+import extraction.xlang.{ trees => xt }
 import frontend.CallBackWithRegistry
-import utils.CheckFilter
 
 import io.circe.Json
 
 /** Callback for evaluation */
 final class EvaluatorCallBack(override val context: inox.Context)
-  extends CallBackWithRegistry with CheckFilter {
+  extends CallBackWithRegistry with EvaluatorCheckFilter {
 
   override type Report = EvaluatorReport
   override val cacheSubDirectory = EvaluatorComponent.name
@@ -18,7 +18,7 @@ final class EvaluatorCallBack(override val context: inox.Context)
 
   override def onCycleBegin(): Unit = EvaluatorComponent.onCycleBegin()
 
-  override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
+  override def solve(program: Program { val trees: xt.type }): Report = {
     EvaluatorComponent(program, context).toReport
   }
 
