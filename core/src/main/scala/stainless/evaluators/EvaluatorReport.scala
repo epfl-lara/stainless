@@ -74,7 +74,7 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record]) extends Abstract
   }
 
   private def descriptionOf(status: Status): Seq[String] = status match {
-    case BodyFailed(error) => Seq(error, "")
+    case BodyFailed(error) => Seq(error, "crashed")
     case PostFailed(body, error) => Seq(body, error)
     case PostInvalid(body) => Seq(body, "invalid")
     case PostHeld(body) => Seq(body, "valid")
