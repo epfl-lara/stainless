@@ -3,7 +3,7 @@
 package stainless
 package utils
 
-/** Filter functions / classes for verification purposes */
+/** Filter functions / classes for verification purposes. */
 trait CheckFilter {
   val context: inox.Context
 
@@ -46,10 +46,14 @@ trait CheckFilter {
       }
   }
 
-  /** Checks whether the given function/class should be verified at some point. */
-  def shouldBeChecked(fd: extraction.xlang.trees.FunDef): Boolean = shouldBeChecked(fd.id, fd.flags)
+  /** Checks whether the given function/class should be verified at some point.
+   *
+   *  NOTE Onlty the flags & id are checked by this filter. */
+  final def shouldBeChecked(fd: extraction.xlang.trees.FunDef): Boolean =
+    shouldBeChecked(fd.id, fd.flags)
 
-  // Invariants are already extracted to functions, so no need to process the class unless it's a dependency.
+  /** Invariants are already extracted to functions, so no need to process the
+   *  class unless it's a dependency. */
   def shouldBeChecked(cd: extraction.xlang.trees.ClassDef): Boolean = false
 }
 

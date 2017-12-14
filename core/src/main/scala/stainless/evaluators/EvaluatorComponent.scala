@@ -25,7 +25,7 @@ object EvaluatorComponent extends SimpleComponent {
     val t: extraction.trees.type = extraction.trees
   })
 
-  override def filterFromContext(ctx: inox.Context): utils.CheckFilter = EvaluatorCheckFilter(ctx)
+  override def shouldBeChecked(fd: FunDef) = fd.isParameterless
 
   sealed abstract class FunctionStatus
   case class BodyFailed(error: String) extends FunctionStatus

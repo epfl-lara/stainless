@@ -9,7 +9,8 @@ import utils.CheckFilter
 import io.circe.Json
 
 /** Callback for evaluation */
-final class EvaluatorCallBack(override val context: inox.Context) extends CallBackWithRegistry with EvaluatorCheckFilter {
+final class EvaluatorCallBack(override val context: inox.Context)
+  extends CallBackWithRegistry with CheckFilter {
 
   override type Report = EvaluatorReport
   override val cacheSubDirectory = EvaluatorComponent.name
