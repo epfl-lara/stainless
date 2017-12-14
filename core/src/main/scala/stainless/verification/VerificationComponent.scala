@@ -36,16 +36,9 @@ object VerificationComponent extends SimpleComponent {
     import encoder.targetProgram.trees._
     import encoder.targetProgram.symbols._
 
-    val toVerify = filter(p, ctx)(funs)
+    val toVerify = filter(p, ctx)(funs) map { _.id }
 
     reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
-
-    for (id <- toVerify) {
-      if (getFunction(id).flags contains "library") {
-        val fullName = id.fullName
-        reporter.warning(s"Forcing verification of $fullName which was assumed verified")
-      }
-    }
 
     val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
 

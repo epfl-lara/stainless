@@ -54,13 +54,7 @@ object TerminationComponent extends SimpleComponent {
 
     val c = TerminationChecker(p, ctx)
 
-    val toVerify = filter(p, ctx)(funs) map { getFunction(_) }
-
-    for {
-      fd <- toVerify
-      if fd.flags contains "library"
-      fullName <- fd.id.fullName
-    } reporter.warning(s"Forcing termination checking of $fullName which was assumed terminating")
+    val toVerify = filter(p, ctx)(funs)
 
     val res = toVerify map { fd =>
       val (time, tryStatus) = timers.termination.runAndGetTime { c.terminates(fd) }

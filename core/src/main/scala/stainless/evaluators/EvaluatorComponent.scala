@@ -102,8 +102,7 @@ object EvaluatorComponent extends SimpleComponent { self =>
     }
 
     // Measure how long it takes to determine the function' status
-    def processFunction(fid: Identifier): Result = {
-      val fd = symbols.getFunction(fid)
+    def processFunction(fd: FunDef): Result = {
       val (time, tryStatus) = timers.evaluators.eval.runAndGetTime { evalFunction(fd) }
       tryStatus match {
         case Failure(e) => reporter.internalError(e)
