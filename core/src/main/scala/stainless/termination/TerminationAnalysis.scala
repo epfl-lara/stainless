@@ -16,14 +16,17 @@ trait TerminationAnalysis extends AbstractAnalysis {
   type Duration = Long
   type Record = (TerminationGuarantee, Duration)
   val results: Map[FunDef, Record]
+  val sources: Set[Identifier] // set of functions that were considered for the analysis
 
   override val name: String = TerminationComponent.name
 
   override type Report = TerminationReport
 
-  override def toReport = new TerminationReport(results.toSeq map { case (fd, (g, time)) =>
+  override def toReport = new TerminationReport(records, sources)
+
+  private lazy val records = results.toSeq map { case (fd, (g, time)) =>
     TerminationReport.Record(fd.id, fd.getPos, time, status(g), verdict(g, fd), kind(g), derivedFrom = fd.source)
-  })
+  }
 
   private def kind(g: TerminationGuarantee): String = g match {
     case checker.LoopsGivenInputs(_, _) => "non-terminating loop"

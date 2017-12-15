@@ -54,16 +54,21 @@ object VerificationReport {
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json) = json.as[Seq[Record]] match {
-    case Right(records) => new VerificationReport(records)
+  def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
+    case Right((records, sources)) => new VerificationReport(records, sources)
     case Left(error) => throw error
   }
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record])
-  extends AbstractReport[VerificationReport] {
+class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier])
+  extends BuildableAbstractReport[VerificationReport.Record, VerificationReport] {
   import VerificationReport._
+
+  override val encoder = recordEncoder
+
+  override def build(results: Seq[Record], sources: Set[Identifier]) =
+    new VerificationReport(results, sources)
 
   lazy val totalConditions: Int = results.size
   lazy val totalTime = results.map(_.time).sum
@@ -91,14 +96,6 @@ class VerificationReport(val results: Seq[VerificationReport.Record])
 
   override lazy val stats =
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-
-  override def ~(other: VerificationReport) =
-    new VerificationReport(AbstractReportHelper.merge(this.results, other.results))
-
-  override def filter(ids: Set[Identifier]) =
-    new VerificationReport(AbstractReportHelper.filter(results, ids))
-
-  override def emitJson: Json = results.asJson
 
 }
 

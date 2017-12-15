@@ -67,6 +67,7 @@ object TerminationComponent extends SimpleComponent {
     new TerminationAnalysis {
       override val checker: c.type = c
       override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
+      override val sources = funs.toSet
     }
   }
 }

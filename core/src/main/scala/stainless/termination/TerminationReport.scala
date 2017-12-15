@@ -36,17 +36,22 @@ object TerminationReport {
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json): TerminationReport = json.as[Seq[Record]] match {
-    case Right(records) => new TerminationReport(records)
+  def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
+    case Right((records, sources)) => new TerminationReport(records, sources)
     case Left(error) => throw error
   }
 
 }
 
 // Variant of the report without the checker, where all the data is mapped to text
-class TerminationReport(val results: Seq[TerminationReport.Record])
-  extends AbstractReport[TerminationReport] {
+class TerminationReport(val results: Seq[TerminationReport.Record], val sources: Set[Identifier])
+  extends BuildableAbstractReport[TerminationReport.Record, TerminationReport] {
   import TerminationReport._
+
+  override val encoder = recordEncoder
+
+  override def build(results: Seq[Record], sources: Set[Identifier]) =
+    new TerminationReport(results, sources)
 
   override val name: String = TerminationComponent.name
 
@@ -55,12 +60,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record])
   lazy val totalInvalid = results count { _.status.isNonTerminating }
   lazy val totalUnknown = results count { _.status.isUnknown }
   lazy val totalTime = (results map { _.time }).sum
-
-  override def ~(other: TerminationReport) =
-    new TerminationReport(AbstractReportHelper.merge(this.results, other.results))
-
-  override def filter(ids: Set[Identifier]) =
-    new TerminationReport(AbstractReportHelper.filter(results, ids))
 
   override lazy val annotatedRows = results map {
     case Record(id, pos, time, status, verdict, kind, _) =>
@@ -79,8 +78,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record])
 
   override lazy val stats =
     ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-
-  override def emitJson: Json = results.asJson
 
 }
 
