@@ -5,7 +5,10 @@ package stainless
 import inox.utils.Position
 import inox.utils.ASCIIHelpers._
 
-import io.circe.Json
+import io.circe._
+import io.circe.syntax._
+
+import stainless.utils.JsonConvertions._
 
 case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, invalid: Int, unknown: Int) {
   def +(more: ReportStats) = ReportStats(
@@ -103,6 +106,32 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
     t
   }
+}
+
+// Provide all the logic for typical Report.
+trait BuildableAbstractReport[Record <: AbstractReportHelper.Record,
+                              SelfType <: BuildableAbstractReport[Record, SelfType]]
+  extends AbstractReport[SelfType] { self: SelfType =>
+
+  protected implicit val encoder: Encoder[Record]
+
+  protected val results: Seq[Record]
+  protected val sources: Set[Identifier]
+
+  // Somewhat similar to a regular clone, but more factory-like.
+  protected def build(results: Seq[Record], sources: Set[Identifier]): SelfType
+
+  final override def ~(other: SelfType) = build(
+    AbstractReportHelper.merge(this.results, other.sources, other.results),
+    this.sources ++ other.sources
+  )
+
+  final override def filter(ids: Set[Identifier]) = build(
+    AbstractReportHelper.filter(results, ids),
+    sources & ids
+  )
+
+  final override def emitJson: Json = (results, sources).asJson
 }
 
 object AbstractReportHelper {

@@ -44,8 +44,13 @@ object EvaluatorReport {
 }
 
 class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set[Identifier])
-  extends AbstractReport[EvaluatorReport] {
+  extends BuildableAbstractReport[EvaluatorReport.Record, EvaluatorReport] {
   import EvaluatorReport._
+
+  override val encoder = recordEncoder
+
+  override def build(results: Seq[Record], sources: Set[Identifier]) =
+    new EvaluatorReport(results, sources)
 
   override val name = EvaluatorComponent.name
 
@@ -60,17 +65,6 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
 
   override lazy val stats =
     ReportStats(results.size, totalTime, totalValid, validFromCache = 0, totalInvalid, unknown = 0)
-
-  override def ~(other: EvaluatorReport) =
-    new EvaluatorReport(
-      AbstractReportHelper.merge(this.results, other.sources, other.results),
-      this.sources ++ other.sources
-    )
-
-  override def filter(ids: Set[Identifier]) =
-    new EvaluatorReport(AbstractReportHelper.filter(results, ids), sources & ids)
-
-  override def emitJson: Json = (results, sources).asJson
 
   private def levelOf(status: Status) = status match {
     case PostHeld(_) | NoPost(_) => Level.Normal

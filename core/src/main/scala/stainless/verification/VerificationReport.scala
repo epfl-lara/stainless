@@ -62,8 +62,13 @@ object VerificationReport {
 }
 
 class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier])
-  extends AbstractReport[VerificationReport] {
+  extends BuildableAbstractReport[VerificationReport.Record, VerificationReport] {
   import VerificationReport._
+
+  override val encoder = recordEncoder
+
+  override def build(results: Seq[Record], sources: Set[Identifier]) =
+    new VerificationReport(results, sources)
 
   lazy val totalConditions: Int = results.size
   lazy val totalTime = results.map(_.time).sum
@@ -91,17 +96,6 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
 
   override lazy val stats =
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-
-  override def ~(other: VerificationReport) =
-    new VerificationReport(
-      AbstractReportHelper.merge(this.results, other.sources, other.results),
-      this.sources ++ other.sources
-    )
-
-  override def filter(ids: Set[Identifier]) =
-    new VerificationReport(AbstractReportHelper.filter(results, ids), sources & ids)
-
-  override def emitJson: Json = (results, sources).asJson
 
 }
 

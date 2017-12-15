@@ -45,8 +45,13 @@ object TerminationReport {
 
 // Variant of the report without the checker, where all the data is mapped to text
 class TerminationReport(val results: Seq[TerminationReport.Record], val sources: Set[Identifier])
-  extends AbstractReport[TerminationReport] {
+  extends BuildableAbstractReport[TerminationReport.Record, TerminationReport] {
   import TerminationReport._
+
+  override val encoder = recordEncoder
+
+  override def build(results: Seq[Record], sources: Set[Identifier]) =
+    new TerminationReport(results, sources)
 
   override val name: String = TerminationComponent.name
 
@@ -55,15 +60,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
   lazy val totalInvalid = results count { _.status.isNonTerminating }
   lazy val totalUnknown = results count { _.status.isUnknown }
   lazy val totalTime = (results map { _.time }).sum
-
-  override def ~(other: TerminationReport) =
-    new TerminationReport(
-      AbstractReportHelper.merge(this.results, other.sources, other.results),
-      this.sources ++ other.sources
-    )
-
-  override def filter(ids: Set[Identifier]) =
-    new TerminationReport(AbstractReportHelper.filter(results, ids), sources & ids)
 
   override lazy val annotatedRows = results map {
     case Record(id, pos, time, status, verdict, kind, _) =>
@@ -82,8 +78,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
 
   override lazy val stats =
     ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
-
-  override def emitJson: Json = (results, sources).asJson
 
 }
 
