@@ -18,8 +18,6 @@ object DebugSectionEvaluator extends inox.DebugSection("eval")
  * this value, the postcondition (if any) holds.
  *
  * Timeout is handled using --max-calls=<N>.
- *
- * TODO disable --ignore-contracts for postcondition evaluation!!!
  */
 object EvaluatorComponent extends SimpleComponent { self =>
   override val name = "eval"

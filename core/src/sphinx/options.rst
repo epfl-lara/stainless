@@ -28,6 +28,11 @@ By default, ``--verification`` is chosen.
 
   Runs termination analysis. Can be used along ``--verification``.
 
+* ``--eval``
+
+  Evaluate parameterless functions and report their body's value and whether
+  or not their postcondition holds.
+
 * ``--help``
 
   Prints a helpful message, then exits.
@@ -114,7 +119,8 @@ These options are available to all Stainless components:
 * ``--timeout=t``
 
   Set a timeout for each attempt to prove one verification condition/
-  repair one function (in sec.)
+  repair one function (in sec.) When using the ``--eval`` component, one
+  should use ``--max-calls`` instead.
 
 * ``--cache``
 
