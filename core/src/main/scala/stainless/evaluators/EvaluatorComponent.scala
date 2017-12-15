@@ -123,8 +123,9 @@ object EvaluatorComponent extends SimpleComponent { self =>
     reporter.debug(s"Processing ${toEval.size} parameterless functions: ${toEval mkString ", "}")
 
     new EvaluatorAnalysis {
-      val program = p
-      val results = toEval map processFunction
+      override val program = p
+      override val sources = funs.toSet
+      override val results = toEval map processFunction
     }
   }
 }

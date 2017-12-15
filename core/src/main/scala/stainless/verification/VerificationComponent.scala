@@ -54,6 +54,7 @@ object VerificationComponent extends SimpleComponent {
 
     new VerificationAnalysis {
       override val program: p.type = p
+      override val sources = funs.toSet
       override val results = res
     }
   }

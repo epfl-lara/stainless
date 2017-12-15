@@ -8,11 +8,10 @@ trait EvaluatorAnalysis extends AbstractAnalysis {
   import EvaluatorReport.Record
 
   val program: StainlessProgram
+  val sources: Set[Identifier] // set of functions that were considered for the analysis
   val results: Seq[Result]
 
-  override type Report = EvaluatorReport
-  override val name = EvaluatorComponent.name
-  override def toReport = new EvaluatorReport(results map { case Result(fd, status, time) =>
+  private lazy val records = results map { case Result(fd, status, time) =>
     val textStatus = status match {
       case EvaluatorComponent.BodyFailed(error)       => EvaluatorReport.BodyFailed(error)
       case EvaluatorComponent.PostFailed(body, error) => EvaluatorReport.PostFailed(body.toString, error)
@@ -21,6 +20,10 @@ trait EvaluatorAnalysis extends AbstractAnalysis {
       case EvaluatorComponent.NoPost(body)            => EvaluatorReport.NoPost(body.toString)
     }
     Record(fd.id, fd.getPos, textStatus, time)
-  })
+  }
+
+  override type Report = EvaluatorReport
+  override val name = EvaluatorComponent.name
+  override def toReport = new EvaluatorReport(records, sources)
 }
 

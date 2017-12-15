@@ -115,14 +115,15 @@ object AbstractReportHelper {
     records filter { ids contains _.derivedFrom }
 
   /**
-   * Merge two sets of records [[R]] into one.
+   * Merge two sets of records [[R]] into one, keeping only the latest information.
    *
-   * Records in [[prevs]] which have the same `id` as the ones in [[news]] are removed.
+   * Obselete records for a source X are removed from [[prevs]]
+   * and replaced by the ones in [[news]] (if it contains some records for X).
    */
-  def merge[R <: Record](prevs: Seq[R], news: Seq[R]): Seq[R] = {
+  def merge[R <: Record](prevs: Seq[R], newSources: Set[Identifier], news: Seq[R]): Seq[R] = {
     def buildMapping(subs: Seq[R]): Map[Identifier, Seq[R]] = subs groupBy { _.derivedFrom }
 
-    val prev = buildMapping(prevs)
+    val prev = buildMapping(prevs) -- newSources // erase all the obselete information
     val next = buildMapping(news)
     val fused = (prev ++ next).values.fold(Seq.empty) { _ ++ _ }
 

@@ -37,13 +37,14 @@ object EvaluatorReport {
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json) = json.as[Seq[Record]] match {
-    case Right(records) => new EvaluatorReport(records)
+  def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
+    case Right((records, sources)) => new EvaluatorReport(records, sources)
     case Left(error) => throw error
   }
 }
 
-class EvaluatorReport(val results: Seq[EvaluatorReport.Record]) extends AbstractReport[EvaluatorReport] {
+class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set[Identifier])
+  extends AbstractReport[EvaluatorReport] {
   import EvaluatorReport._
 
   override val name = EvaluatorComponent.name
@@ -61,12 +62,15 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record]) extends Abstract
     ReportStats(results.size, totalTime, totalValid, validFromCache = 0, totalInvalid, unknown = 0)
 
   override def ~(other: EvaluatorReport) =
-    new EvaluatorReport(AbstractReportHelper.merge(this.results, other.results))
+    new EvaluatorReport(
+      AbstractReportHelper.merge(this.results, other.sources, other.results),
+      this.sources ++ other.sources
+    )
 
   override def filter(ids: Set[Identifier]) =
-    new EvaluatorReport(AbstractReportHelper.filter(results, ids))
+    new EvaluatorReport(AbstractReportHelper.filter(results, ids), sources & ids)
 
-  override def emitJson: Json = results.asJson
+  override def emitJson: Json = (results, sources).asJson
 
   private def levelOf(status: Status) = status match {
     case PostHeld(_) | NoPost(_) => Level.Normal

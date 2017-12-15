@@ -54,14 +54,14 @@ object VerificationReport {
   implicit val recordDecoder: Decoder[Record] = deriveDecoder
   implicit val recordEncoder: Encoder[Record] = deriveEncoder
 
-  def parse(json: Json) = json.as[Seq[Record]] match {
-    case Right(records) => new VerificationReport(records)
+  def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
+    case Right((records, sources)) => new VerificationReport(records, sources)
     case Left(error) => throw error
   }
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record])
+class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier])
   extends AbstractReport[VerificationReport] {
   import VerificationReport._
 
@@ -93,12 +93,15 @@ class VerificationReport(val results: Seq[VerificationReport.Record])
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
 
   override def ~(other: VerificationReport) =
-    new VerificationReport(AbstractReportHelper.merge(this.results, other.results))
+    new VerificationReport(
+      AbstractReportHelper.merge(this.results, other.sources, other.results),
+      this.sources ++ other.sources
+    )
 
   override def filter(ids: Set[Identifier]) =
-    new VerificationReport(AbstractReportHelper.filter(results, ids))
+    new VerificationReport(AbstractReportHelper.filter(results, ids), sources & ids)
 
-  override def emitJson: Json = results.asJson
+  override def emitJson: Json = (results, sources).asJson
 
 }
 
