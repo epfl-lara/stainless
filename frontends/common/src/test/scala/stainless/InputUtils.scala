@@ -54,10 +54,18 @@ trait InputUtils {
       private val registry = new Registry {
         override val context = ctx
 
-        override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
-        override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
+        override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] =
+          new DependenciesFinder()(fd)
+        override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] =
+          new DependenciesFinder()(cd)
 
-        override def shouldBeChecked(fd: xt.FunDef): Boolean = filterOpt map { _.shouldBeChecked(fd) } getOrElse true
+        override def shouldBeChecked(fd: xt.FunDef): Boolean =
+          filterOpt map { _.shouldBeChecked(fd) } getOrElse true
+
+        // When using no custom filter, require the class to be part
+        // of the generated symbols.
+        override def shouldBeChecked(cd: xt.ClassDef): Boolean =
+          filterOpt.isEmpty
       }
 
       override def beginExtractions(): Unit = ()

@@ -188,7 +188,7 @@ trait Registry {
     }
 
     def isChecked(node: NodeValue) = node match {
-      case Left(cd) => true // Classes are always "checked" as there is nothing to do.
+      case Left(cd) => shouldBeChecked(cd)
       case Right(fd) => shouldBeChecked(fd)
     }
 
@@ -228,12 +228,27 @@ trait Registry {
 
   /******************* Customisation Points *******************************************************/
 
-  /** Compute the set of direct, non-recursive dependencies of the given [[xt.FunDef]] or [[xt.ClassDef]]. */
+  /** Compute the set of direct, non-recursive dependencies of the given
+   *  [[xt.FunDef]] or [[xt.ClassDef]]. */
   protected def computeDirectDependencies(fd: xt.FunDef): Set[Identifier]
   protected def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier]
 
   /** Checks whether the given function should be verified at some point. */
   protected def shouldBeChecked(fd: xt.FunDef): Boolean
+
+  /**
+   * Checks whether the given class should be verified at some point.
+   *
+   * NOTE For verification purposes, ClassDef aren't interesting by themselves.
+   *      This additional filter is off by default for this reason. Of course,
+   *      when a function of interest refers to a ClassDef cd, cd is added to
+   *      the emitted symbols. This check is typically turned on for testing
+   *      purposes.
+   *
+   *      Furthermore, mind the fact that this check is not handled by
+   *      [[utils.CheckFilter]] as it is tree agnostic.
+   */
+  protected def shouldBeChecked(cd: xt.ClassDef): Boolean = false
 
 
   /******************* Implementation: Dependency Graph *******************************************/
@@ -293,7 +308,7 @@ trait Registry {
     }
 
     def default = node match {
-      case Left(cd) => false // There's never something to do with classes
+      case Left(cd) => shouldBeChecked(cd)
       case Right(fd) => shouldBeChecked(fd)
     }
 
