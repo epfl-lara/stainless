@@ -3,9 +3,11 @@
 package stainless
 package utils
 
-/** Filter functions / classes for verification purposes */
+/** Filter functions for verification purposes. */
 trait CheckFilter {
-  val context: inox.Context
+  protected val context: inox.Context
+  protected val trees: ast.Trees
+  import trees._
 
   type Path = Seq[String]
   private def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
@@ -29,8 +31,7 @@ trait CheckFilter {
     functions map fullNameToPath
   }
 
-  /** Same as below. Note the _ <: ... tricks because Set are invariant. */
-  def shouldBeChecked(fid: Identifier, flags: Set[_ <: inox.ast.Trees#Flag]): Boolean = pathsOpt match {
+  private def shouldBeChecked(fid: Identifier, flags: Set[trees.Flag]): Boolean = pathsOpt match {
     case None =>
       val isLibrary = flags map { _.name } contains "library"
       val isUnchecked = flags map { _.name } contains "unchecked"
@@ -47,13 +48,16 @@ trait CheckFilter {
   }
 
   /** Checks whether the given function/class should be verified at some point. */
-  def shouldBeChecked(fd: extraction.xlang.trees.FunDef): Boolean = shouldBeChecked(fd.id, fd.flags)
-
-  // Invariants are already extracted to functions, so no need to process the class unless it's a dependency.
-  def shouldBeChecked(cd: extraction.xlang.trees.ClassDef): Boolean = false
+  def shouldBeChecked(fd: FunDef): Boolean =
+    shouldBeChecked(fd.id, fd.flags)
 }
 
 object CheckFilter {
-  def apply(ctx: inox.Context) = new CheckFilter { val context = ctx }
+  def apply(t: ast.Trees, ctx: inox.Context): CheckFilter {
+    val trees: t.type
+  } = new CheckFilter {
+    override val context = ctx
+    override val trees: t.type = t
+  }
 }
 

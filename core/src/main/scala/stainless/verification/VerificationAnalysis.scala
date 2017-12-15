@@ -4,7 +4,7 @@ package stainless
 package verification
 
 trait VerificationAnalysis extends AbstractAnalysis {
-  val program: Program { val trees: stainless.trees.type }
+  val program: StainlessProgram
   import program.{ symbols, trees, Model }
   val results: Map[VC[trees.type], VCResult[Model]]
 

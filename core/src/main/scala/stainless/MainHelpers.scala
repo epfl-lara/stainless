@@ -77,6 +77,7 @@ trait MainHelpers extends inox.MainHelpers {
   override protected def getCategories: Seq[Category] = Pipelines +: super.getCategories.filterNot(_ == Pipelines)
 
   override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
+    evaluators.DebugSectionEvaluator,
     verification.DebugSectionVerification,
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,

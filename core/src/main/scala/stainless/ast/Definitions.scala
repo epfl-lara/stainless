@@ -68,6 +68,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
       Lambda(Seq(ValDef(FreshIdentifier("res", true), fd.returnType)), BooleanLiteral(true))
     }
 
+    /** Check whether the function has no (generic) parameter. */
+    final def isParameterless = fd.params.isEmpty && fd.tparams.isEmpty
+
     /**
      * Get the source of this function
      *

@@ -3,6 +3,8 @@
 package stainless
 
 import extraction.xlang.{trees => xt}
+import utils.CheckFilter
+
 import scala.language.existentials
 
 trait Component {
@@ -27,7 +29,9 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
 trait SimpleComponent extends Component { self =>
   val trees: ast.Trees
 
-  def extract(program: Program { val trees: xt.type }, ctx: inox.Context): Program { val trees: self.trees.type } = {
+  type SelfProgram = Program { val trees: self.trees.type }
+
+  def extract(program: Program { val trees: xt.type }, ctx: inox.Context): SelfProgram = {
     val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
       val s: extraction.trees.type = extraction.trees
       val t: self.trees.type = self.trees
@@ -43,16 +47,32 @@ trait SimpleComponent extends Component { self =>
   private val marks = new utils.AtomicMarks[Identifier]
   def onCycleBegin(): Unit = marks.clear()
 
-  // Subclasses should use this method to determine which functions should be processed or not.
-  protected def filter(program: Program { val trees: self.trees.type }, ctx: inox.Context)
-                      (functions: Seq[Identifier]): Seq[Identifier] = {
-    val filter = utils.CheckFilter(ctx)
-    val symbols = program.symbols
+  // Subclasses can customise the filter here.
+  protected def createFilter(trees: self.trees.type, ctx: inox.Context): CheckFilter {
+    val trees: self.trees.type
+  } = CheckFilter(trees, ctx)
 
-    functions
+  // Subclasses should use this method to determine which functions should be processed or not.
+  protected final def filter(program: SelfProgram, ctx: inox.Context)
+                            (functions: Seq[Identifier]): Seq[program.trees.FunDef] = {
+    import program.symbols
+    import program.trees._
+    import ctx.reporter
+
+    val filter = createFilter(program.trees, ctx)
+
+    val toProcess = functions
       . map { fid => symbols.getFunction(fid) }
-      . filter { fd => filter.shouldBeChecked(fd.id, fd.flags) && marks.compareAndSet(fd.id) }
-      . map { fd => fd.id }
+      . filter { fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id) }
+
+    for (fd <- toProcess) {
+      if (fd.flags contains "library") {
+        val fullName = fd.id.fullName
+        reporter.warning(s"Component [$name]: Forcing processing of $fullName which was assumed verified")
+      }
+    }
+
+    toProcess
   }
 
 
@@ -62,6 +82,6 @@ trait SimpleComponent extends Component { self =>
     apply(functions, extracted, ctx)
   }
 
-  def apply(functions: Seq[Identifier], program: Program { val trees: self.trees.type }, ctx: inox.Context): Analysis
+  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Analysis
 }
 

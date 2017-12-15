@@ -12,8 +12,10 @@ import java.io.{ File, BufferedWriter, FileWriter }
 
 trait InputUtils {
 
+  type Filter = CheckFilter { val trees: xt.type }
+
   /** Compile and extract the given files' **content** (& the library). */
-  def load(context: inox.Context, contents: Seq[String], filterOpt: Option[CheckFilter] = None):
+  def load(context: inox.Context, contents: Seq[String], filterOpt: Option[Filter] = None):
           (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     val files = contents.map { content =>
@@ -29,7 +31,7 @@ trait InputUtils {
   }
 
   /** Compile and extract the given files (& the library). */
-  def loadFiles(ctx: inox.Context, files: Seq[String], filterOpt: Option[CheckFilter] = None):
+  def loadFiles(ctx: inox.Context, files: Seq[String], filterOpt: Option[Filter] = None):
                (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     // Use the callback to collect the trees.
@@ -52,11 +54,18 @@ trait InputUtils {
       private val registry = new Registry {
         override val context = ctx
 
-        override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] = new DependenciesFinder()(fd)
-        override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] = new DependenciesFinder()(cd)
+        override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] =
+          new DependenciesFinder()(fd)
+        override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] =
+          new DependenciesFinder()(cd)
 
-        override def shouldBeChecked(fd: xt.FunDef): Boolean = filterOpt map { _.shouldBeChecked(fd) } getOrElse true
-        override def shouldBeChecked(cd: xt.ClassDef): Boolean = filterOpt map { _.shouldBeChecked(cd) } getOrElse true
+        override def shouldBeChecked(fd: xt.FunDef): Boolean =
+          filterOpt map { _.shouldBeChecked(fd) } getOrElse true
+
+        // When using no custom filter, require the class to be part
+        // of the generated symbols.
+        override def shouldBeChecked(cd: xt.ClassDef): Boolean =
+          filterOpt.isEmpty
       }
 
       override def beginExtractions(): Unit = ()
