@@ -67,6 +67,7 @@ trait MainHelpers extends inox.MainHelpers {
     termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
+    optCompact -> Description(General, "Print only invalid elements of summaries"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
   ) ++ MainHelpers.components.map { component =>

@@ -39,8 +39,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   def emitJson: Json
 
   final def emit(ctx: inox.Context): Unit = {
-    val watch = isWatchModeOn(ctx)
-    val table = emitTable(!watch)
+    val compact = isCompactModeOn(ctx)
+    val table = emitTable(!compact)
     ctx.reporter.info(table.render)
   }
 

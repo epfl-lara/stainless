@@ -48,6 +48,10 @@ These options are available to all Stainless components:
   Re-run the selected analysis components upon file changes, making the program analysis
   interactive and significantly more efficient than restarting stainless manually.
 
+* ``--compact``
+
+  Reduces the components' summaries to only the invalid elements (e.g. invalid VC).
+
 * ``--debug=d1,d2,...``
 
   Enables printing detailed messages for the components d1,d2,... .
