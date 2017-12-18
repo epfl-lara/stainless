@@ -74,6 +74,7 @@ package object extraction {
       inlining.extractor
 
     try {
+      TreeSanitizer.check(program)
       new PreconditionInference(program.transform(pipeline), ctx).targetProgram
     } catch {
       case MissformedStainlessCode(tree, msg) =>
