@@ -14,6 +14,9 @@ package object stainless {
   object optWatch extends inox.FlagOptionDef("watch", false)
   def isWatchModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
 
+  object optCompact extends inox.FlagOptionDef("compact", false)
+  def isCompactModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optCompact)
+
   type Program = inox.Program { val trees: ast.Trees }
 
   type StainlessProgram = Program { val trees: stainless.trees.type }
