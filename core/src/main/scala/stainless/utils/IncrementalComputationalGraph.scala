@@ -28,7 +28,7 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    * When [[compute]] is false the node doesn't trigger a call to [[compute]] when
    * all the [[deps]] -- and the indirect dependencies -- are present in the graph.
    */
-  def update(id: Id, in: Input, deps: Set[Id], compute: Boolean): Option[Result] = {
+  final def update(id: Id, in: Input, deps: Set[Id], compute: Boolean): Option[Result] = {
     update(Node(id, in, deps, compute))
   }
 
@@ -37,27 +37,27 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
    *
    * Throw an [[java.lang.IllegalArgumentException]] if the node wasn't in the graph.
    */
-  def remove(id: Id): Unit = nodes get id match {
+  final def remove(id: Id): Unit = nodes get id match {
     case Some(n) => remove(n)
     case None => throw new java.lang.IllegalArgumentException(s"Node $id is not part of the graph")
   }
 
   /** Put on hold any computation. */
-  def freeze(): Unit = {
+  final def freeze(): Unit = {
     frozen = true
   }
 
   /** Resume computation. */
-  def unfreeze(): Option[Result] = {
+  final def unfreeze(): Option[Result] = {
     frozen = false
     process()
   }
 
   /** Get a read-only version of the graph. */
-  def getNodes: Map[Id, (Input, Set[Id])] = nodes.toMap map { case (id, n) => (id, n.in -> n.deps) }
+  final def getNodes: Map[Id, (Input, Set[Id])] = nodes.toMap map { case (id, n) => (id, n.in -> n.deps) }
 
   /** Get the current missing nodes' identifier from the graph. */
-  def getMissing: Set[Id] = allIds.toSet -- nodes.keySet
+  final def getMissing: Set[Id] = allIds.toSet -- nodes.keySet
 
 
   /******************* Customisation Points *******************************************************/
