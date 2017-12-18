@@ -126,7 +126,8 @@ trait MainHelpers extends inox.MainHelpers {
       baseRunCycle()
     } catch {
       case e: Throwable =>
-        reporter.error(e)
+        reporter.debug(e)(frontend.DebugSectionFrontend)
+        reporter.error(e.getMessage)
         compiler = newCompiler()
     }
 
@@ -134,8 +135,7 @@ trait MainHelpers extends inox.MainHelpers {
       baseRunCycle()
     } catch {
       case e: inox.FatalError => throw e
-      case e: Throwable =>
-        reporter.internalError(e)
+      case e: Throwable => reporter.internalError(e)
     }
 
     val watchMode = isWatchModeOn(ctx)
