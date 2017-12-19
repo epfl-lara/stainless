@@ -129,3 +129,7 @@ can be shown terminating as follows:
     decreases(stainless.math.max(101 - n, 0))
     if (n > 100) n - 10 else M(M(n + 11))
   } ensuring (_ == (if (n > 100) n - 10 else BigInt(91)))
+
+
+It is also possible to add a pre-condition (``require(...)``) *before* ``decreases``.
+

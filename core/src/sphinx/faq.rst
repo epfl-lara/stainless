@@ -51,4 +51,4 @@ Beware that you need to explicitly include files from the Stainless library
 .. code-block:: bash
 
     $ mkdir out
-    $ scalac $(find path/to/stainless/library/ -name "*.scala" | xargs) MyFile.scala -d out
+    $ scalac $(find path/to/stainless/frontends/library/ -name "*.scala" | xargs) MyFile.scala -d out
