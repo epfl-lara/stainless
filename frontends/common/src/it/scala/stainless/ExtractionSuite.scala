@@ -72,8 +72,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
       val tryPrograms = files map { f =>
         f -> Try {
           val program = loadFiles(ctx, List(f))._2
-          extraction.TreeSanitizer.check(program)
-          program
+          extraction.extract(program, ctx)
         }
       }
 

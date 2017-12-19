@@ -73,12 +73,7 @@ package object extraction {
       innerfuns.extractor  andThen
       inlining.extractor
 
-    try {
-      TreeSanitizer.check(program)
-      new PreconditionInference(program.transform(pipeline), ctx).targetProgram
-    } catch {
-      case MissformedStainlessCode(tree, msg) =>
-        ctx.reporter.fatalError(tree.getPos, msg)
-    }
+    TreeSanitizer.check(program) // Might throw some MissformedStainlessCode
+    new PreconditionInference(program.transform(pipeline), ctx).targetProgram
   }
 }

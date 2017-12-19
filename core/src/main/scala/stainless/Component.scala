@@ -41,7 +41,12 @@ trait SimpleComponent extends Component { self =>
       (l, r) => l.lowering andThen r
     }
 
-    extraction.extract(program, ctx).transform(lowering)
+    try {
+      extraction.extract(program, ctx).transform(lowering)
+    } catch {
+      case extraction.MissformedStainlessCode(tree, msg) =>
+        ctx.reporter.fatalError(tree.getPos, msg)
+    }
   }
 
   private val marks = new utils.AtomicMarks[Identifier]
