@@ -63,13 +63,18 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     // Save cache now that we have our report
     saveCaches()
   } catch {
-    case e: ExecutionException if isFatalError(e) =>
+    case SomeFatalError(e) =>
       stop()
       tasks.clear()
+      throw e
   }
 
-  private def isFatalError(e: ExecutionException): Boolean = {
-    e.getCause != null && e.getCause.isInstanceOf[inox.FatalError]
+  object SomeFatalError {
+    def unapply(ex: Throwable): Option[Throwable] = ex match {
+      case e: inox.FatalError => Some(e)
+      case e if e.getCause != null => SomeFatalError.unapply(e.getCause)
+      case _ => None
+    }
   }
 
   // See assumption/requirements in [[CallBack]]

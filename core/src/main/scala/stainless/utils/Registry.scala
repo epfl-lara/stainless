@@ -71,7 +71,7 @@ trait Registry {
    *
    * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
-  def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = synchronized {
+  final def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = synchronized {
     if (hasPersistentCache) {
       deferredClasses ++= classes
       deferredFunctions ++= functions
@@ -84,7 +84,7 @@ trait Registry {
   /**
    * To be called once every compilation unit were extracted.
    */
-  def checkpoint(): Option[xt.Symbols] = synchronized {
+  final def checkpoint(): Option[xt.Symbols] = synchronized {
     if (hasPersistentCache) {
       val res = process(deferredClasses, deferredFunctions)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
@@ -98,7 +98,7 @@ trait Registry {
   }
 
   /** Import the canonical form cache from the given file. Not thread-safe. */
-  def loadCache(file: File): Unit = synchronized {
+  final def loadCache(file: File): Unit = synchronized {
     val stream = new FileInputStream(file)
 
     def assertValidCache(check: Boolean) = {
@@ -157,7 +157,7 @@ trait Registry {
   }
 
   /** Export the canonical form cache to the given file. Not thread-safe. */
-  def saveCache(file: File): Unit = synchronized {
+  final def saveCache(file: File): Unit = synchronized {
     val stream = new FileOutputStream(file)
 
     def writeInt(x: Int): Unit = {

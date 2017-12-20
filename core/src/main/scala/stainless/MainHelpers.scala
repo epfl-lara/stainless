@@ -110,35 +110,45 @@ trait MainHelpers extends inox.MainHelpers {
     }
 
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
-    val compiler = frontend.build(ctx, compilerArgs, factory)
+    def newCompiler() = frontend.build(ctx, compilerArgs, factory)
+    var compiler = newCompiler()
 
-    // For each cylce, passively wait until the compiler has finished
+    // For each cycle, passively wait until the compiler has finished
     // & print summary of reports for each component
-    def runCycle() = {
-      val (time, res) = timers.cycle.runAndGetTime {
-        compiler.run()
-        compiler.join()
+    def baseRunCycle(): Unit = timers.cycle.run {
+      compiler.run()
+      compiler.join()
 
-        compiler.getReports foreach { _.emit(ctx) }
-      }
-
-      res match {
-        case Failure(frontend.UnsupportedCodeException(pos, msg)) => reporter.error(pos, msg)
-        case Failure(ex) => reporter.internalError(ex)
-        case Success(()) => // nothing to do
-      }
-
-      reporter.info(s"Cycle took $time ms")
+      compiler.getReports foreach { _.emit(ctx) }
     }
 
-    // Run the first cycle
-    runCycle()
+    def watchRunCycle() = try {
+      baseRunCycle()
+    } catch {
+      case e: Throwable =>
+        reporter.debug(e)(frontend.DebugSectionFrontend)
+        reporter.error(e.getMessage)
+        compiler = newCompiler()
+    }
+
+    def regularRunCycle() = try {
+      baseRunCycle()
+    } catch {
+      case e: inox.FatalError => throw e
+      case e: Throwable => reporter.internalError(e)
+    }
 
     val watchMode = isWatchModeOn(ctx)
     if (watchMode) {
-      val files: Set[File] = compiler.sources.toSet map { file: String => new File(file).getAbsoluteFile }
-      val watcher = new utils.FileWatcher(ctx, files, action = runCycle)
-      watcher.run()
+      val files: Set[File] = compiler.sources.toSet map {
+        file: String => new File(file).getAbsoluteFile
+      }
+      val watcher = new utils.FileWatcher(ctx, files, action = watchRunCycle)
+
+      watchRunCycle() // first run
+      watcher.run()   // subsequent runs on changes
+    } else {
+      regularRunCycle()
     }
 
     // Export final results to JSON if asked to.
