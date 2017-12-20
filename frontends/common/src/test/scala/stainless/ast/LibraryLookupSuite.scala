@@ -7,7 +7,7 @@ import org.scalatest._
 
 class LibraryLookupSuite extends FunSuite with InputUtils {
 
-  val ctx = inox.TestContext.empty
+  val ctx = stainless.TestContext.empty
 
   val contents = """
     import stainless.lang._

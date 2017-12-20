@@ -10,15 +10,15 @@ import org.scalatest._
  *  the relevant directories. */
 abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
 
-  private def testSetUp(dir: String): (inox.TestSilentReporter, inox.Context, List[String]) = {
-    val reporter = new inox.TestSilentReporter
-    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter))
+  private def testSetUp(dir: String): (inox.Context, List[String]) = {
+    val ctx = stainless.TestContext.empty
     val fs = resourceFiles(dir, _.endsWith(".scala")).toList map { _.getPath }
-    (reporter, ctx, fs)
+    (ctx, fs)
   }
 
   def testExtractAll(dir: String): Unit = {
-    val (reporter, ctx, files) = testSetUp(dir)
+    val (ctx, files) = testSetUp(dir)
+    import ctx.reporter
 
     describe(s"Program extraction in $dir") {
       val tryProgram = scala.util.Try(loadFiles(ctx, files)._2)
@@ -41,7 +41,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
           if (tryExProgram.isSuccess) {
             val exProgram = tryExProgram.get
-            it("should produce no errors") { assert(reporter.lastErrors.isEmpty) }
+            it("should produce no errors") { assert(reporter.errorCount == 0) }
 
             it("should typecheck") {
               exProgram.symbols.ensureWellFormed
@@ -66,7 +66,8 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
   // Tests that programs are rejected either through the extractor or through
   // the TreeSanitizer.
   def testRejectAll(dir: String): Unit = {
-    val (reporter, ctx, files) = testSetUp(dir)
+    val (ctx, files) = testSetUp(dir)
+    import ctx.reporter
 
     describe(s"Programs extraction in $dir") {
       val tryPrograms = files map { f =>

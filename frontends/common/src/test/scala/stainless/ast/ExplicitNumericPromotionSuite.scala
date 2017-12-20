@@ -23,7 +23,7 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
 
   test("Catch unsupported expressions") {
     for (u <- unsupported) {
-      val ctx = inox.TestContext.empty
+      val ctx = stainless.TestContext.empty
       assertThrows[frontend.UnsupportedCodeException] {
         load(ctx, Seq(u))
       }
@@ -146,7 +146,7 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
        |} """.stripMargin
   )
 
-  val ctx = inox.TestContext.empty
+  val ctx = stainless.TestContext.empty
   val (_, xlangProgram) = load(ctx, sources)
   val program = verification.VerificationComponent.extract(xlangProgram, ctx)
 

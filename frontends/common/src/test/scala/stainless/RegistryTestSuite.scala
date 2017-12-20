@@ -33,11 +33,9 @@ class RegistryTestSuite extends FunSuite {
   type FunctionName = String
 
   private val DEBUG = false
-  private val testSuiteContext = if (DEBUG) {
-    val reporter = new inox.DefaultReporter(Set(utils.DebugSectionRegistry, frontend.DebugSectionFrontend))
-    val intrMan = inox.TestContext.empty.interruptManager
-    inox.Context(reporter, intrMan).withOpts(inox.ast.optPrintUniqueIds(true))
-  } else inox.TestContext.empty
+  private val testSuiteContext =
+    if (DEBUG) stainless.TestContext.debug(utils.DebugSectionRegistry)
+    else stainless.TestContext.empty
 
   /** Expectation on classes and functions identifier name (ignoring ids). */
   case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = true)

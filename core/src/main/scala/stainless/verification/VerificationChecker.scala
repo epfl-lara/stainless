@@ -9,7 +9,7 @@ import scala.util.{ Success, Failure }
 
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
-object optVCCache extends inox.FlagOptionDef("vc-cache", false)
+object optVCCache extends inox.FlagOptionDef("vc-cache", true)
 
 object DebugSectionVerification extends inox.DebugSection("verification")
 

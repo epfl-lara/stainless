@@ -28,7 +28,7 @@ trait VerificationSuite extends ComponentTestSuite {
   }
 
   testAll("verification/valid") { (analysis, reporter) =>
-    val report = analysis.toReport
+    assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for this tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
@@ -38,7 +38,7 @@ trait VerificationSuite extends ComponentTestSuite {
 
   testAll("verification/invalid") { (analysis, _) =>
     val report = analysis.toReport
-    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
+    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
   }
 }
 

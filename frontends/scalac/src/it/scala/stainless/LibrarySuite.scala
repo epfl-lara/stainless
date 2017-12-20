@@ -7,20 +7,20 @@ import org.scalatest._
 class LibrarySuite extends FunSpec with InputUtils {
 
   describe("stainless library") {
-    val reporter = new inox.TestSilentReporter
     val opts = inox.Options(Seq(inox.optSelectedSolvers(Set("smt-z3"))))
-    val ctx = inox.Context(reporter, new inox.utils.InterruptManager(reporter), opts)
+    val ctx = stainless.TestContext(opts)
+    import ctx.reporter
 
     val tryProgram = scala.util.Try(loadFiles(ctx, Seq.empty)._2)
     it("should be extractable") {
       assert(tryProgram.isSuccess, "Extraction crashed with exception")
-      assert(reporter.lastErrors.isEmpty, "Extraction had errors")
+      assert(reporter.errorCount == 0, "Extraction had errors")
     }
 
     it("should verify") {
       import verification.VerificationComponent._
       val exProgram = extract(tryProgram.get, ctx)
-      assert(reporter.lastErrors.isEmpty, "Verification extraction had errors")
+      assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
@@ -35,7 +35,7 @@ class LibrarySuite extends FunSpec with InputUtils {
     it("should terminate") {
       import termination.TerminationComponent._
       val exProgram = extract(tryProgram.get, ctx)
-      assert(reporter.lastErrors.isEmpty, "Verification extraction had errors")
+      assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
