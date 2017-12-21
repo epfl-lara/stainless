@@ -581,31 +581,6 @@ trait ASTExtractors {
       }
     }
 
-    object ExFunctionSpecs {
-      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "FunctionSpecs0"), Seq(_)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "FunctionSpecs1"), Seq(_, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "FunctionSpecs2"), Seq(_, _, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "FunctionSpecs3"), Seq(_, _, _, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "FunctionSpecs4"), Seq(_, _, _, _, _)), Seq(f)) => Some(f)
-
-        case Select(ExSymbol("stainless", "lang", "package$", "FunctionSpecs0"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "package$", "FunctionSpecs1"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "package$", "FunctionSpecs2"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "package$", "FunctionSpecs3"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "package$", "FunctionSpecs4"), ExNamed("f")) => Some(tree)
-
-        case _ => None
-      }
-    }
-
-    object ExPre {
-      def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
-        case Select(ExFunctionSpecs(f), ExNamed("pre")) => Some(f)
-        case _ => None
-      }
-    }
-
     object ExOld {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "old"), Seq(_)), Seq(arg)) => Some(arg)

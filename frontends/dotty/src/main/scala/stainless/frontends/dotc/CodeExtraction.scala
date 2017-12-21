@@ -753,7 +753,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       ).setPos(tr.pos)
       xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
 
-    case ExPre(f) => xt.Pre(extractTree(f))
     case ExOld(e) => xt.Old(extractTree(e))
 
     case t @ Select(

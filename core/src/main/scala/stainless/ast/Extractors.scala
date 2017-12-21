@@ -51,9 +51,6 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), Seq(), Seq(body, pred), Seq(), (_, _, es, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
     case s.Assert(pred, error, body) =>
       (Seq(), Seq(), Seq(pred, body), Seq(), (_, _, es, _) => t.Assert(es(0), error, es(1)))
-    case s.Pre(f) =>
-      (Seq(), Seq(), Seq(f), Seq(), (_, _, es, _) => t.Pre(es.head))
-
     case s.Annotated(body, flags) =>
       val dflags = flags.map(deconstruct)
 
@@ -223,28 +220,6 @@ trait Extractors extends inox.ast.Extractors { self: Trees =>
     def unapply(pat: Pattern): Option[(Seq[Pattern], Seq[Pattern] => Pattern)] = {
       val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
       Some(pats, patss => builder(ids, vs, es, tps, patss))
-    }
-  }
-
-  object FunctionRequires {
-    def unapply(forall: Forall): Option[(Expr, Expr)] = forall match {
-      case Forall(args, Implies(Application(pred, args1), Application(Pre(f), args2)))
-        if args.map(_.toVariable) == args1 && args2 == args2 =>
-        Some((f, pred))
-
-      case _ =>
-        None
-    }
-  }
-
-  object FunctionEnsures {
-    def unapply(forall: Forall): Option[(Expr, Expr)] = forall match {
-      case Forall(args, Implies(Application(Pre(f), args1), Application(pred, args2 :+ Application(f2, args3))))
-        if args.map(_.toVariable) == args1 && args1 == args2 && args2 == args3 && f == f2 =>
-        Some((f, pred))
-
-      case _ =>
-        None
     }
   }
 }

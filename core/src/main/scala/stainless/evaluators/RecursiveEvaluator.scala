@@ -25,12 +25,6 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
       e(body)
 
-    case Pre(f) =>
-      e(f) match {
-        case Lambda(args, body) => e(Lambda(args, weakestPrecondition(body)))
-        case e => throw EvalError("Cannot get pre of non-lambda function " + e.asString)
-      }
-
     case MatchExpr(scrut, cases) =>
       val rscrut = e(scrut)
       cases.toStream.map(c => matchesCase(rscrut, c).map(c -> _)).find(_.nonEmpty) match {

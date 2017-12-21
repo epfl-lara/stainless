@@ -457,7 +457,6 @@ private object CanonicalFormBuilderImpl {
       classOf[xt.Annotated],
       classOf[xt.Ensuring],
       classOf[xt.Assert],
-      classOf[xt.Pre],
       classOf[xt.MatchExpr],
       classOf[xt.FiniteArray],
       classOf[xt.LargeArray],

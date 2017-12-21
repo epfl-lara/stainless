@@ -313,35 +313,6 @@ trait ASTExtractors {
       }
     }
 
-    /** Extracts the implicit wrapper that provides support for higher-order contracts.
-      *
-      * @see [[ExRequiresExpression]], [[ExEnsuresExpression]], [[ExPreExpression]] */
-    object ExFunctionSpecs {
-      def unapply(tree: Tree): Option[Tree] = tree match {
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs0"), Seq(_)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs1"), Seq(_, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs2"), Seq(_, _, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs3"), Seq(_, _, _, _)), Seq(f)) => Some(f)
-        case Apply(TypeApply(ExSymbol("stainless", "lang", "FunctionSpecs4"), Seq(_, _, _, _, _)), Seq(f)) => Some(f)
-
-        case Select(ExSymbol("stainless", "lang", "FunctionSpecs0"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "FunctionSpecs1"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "FunctionSpecs2"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "FunctionSpecs3"), ExNamed("f")) => Some(tree)
-        case Select(ExSymbol("stainless", "lang", "FunctionSpecs4"), ExNamed("f")) => Some(tree)
-
-        case _ => None
-      }
-    }
-
-    /** Extracts the first-class contract 'pre'. */
-    object ExPreExpression {
-      def unapply(tree: Select): Option[Tree] = tree match {
-        case Select(ExFunctionSpecs(f), ExNamed("pre")) => Some(f)
-        case _ => None
-      }
-    }
-
     /** Matches the `A computes B` expression at the end of any expression A, and returns (A, B). */
     object ExComputesExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
