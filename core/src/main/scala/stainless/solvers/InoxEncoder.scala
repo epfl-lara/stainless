@@ -152,16 +152,7 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Application(caller, args) =>
         val s.FunctionType(from, to) = caller.getType
         t.Application(transform(caller).copiedFrom(e), args map transform).copiedFrom(e)
-
-      case s.Lambda(args, body) =>
-        val fArgs = args map transform
-        val preArgs = args.map(vd => transform(vd.freshen))
-
-        t.Lambda(preArgs, t.exprOps.replaceFromSymbols(
-          (fArgs.map(_.toVariable) zip preArgs.map(_.toVariable)).toMap,
-          transform(body)
-        )).copiedFrom(e)
-
+        
       case _ => super.transform(e)
     }
 
