@@ -77,12 +77,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     }, exProgram)
   }
 
-  protected def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // FIXME: remove these Ignore's when higher order contracts reimplemented
-    case "verification/invalid/AbstractRefinementMap" => Ignore
-    case "verification/unchecked/AbstractRefinementMap2" => Ignore
-    case _ => Test
-  }
+  protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
   def testAll(dir: String)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
     val fs = resourceFiles(dir, _.endsWith(".scala")).toList
