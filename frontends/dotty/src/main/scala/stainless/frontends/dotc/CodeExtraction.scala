@@ -899,6 +899,17 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       addPre(addPost(uncheckedBody))
 
+    case Apply(
+      TypeApply(ExSymbol("stainless", "lang", "PartialFunction$", "apply"), Seq(from, to)),
+      Seq(fun)
+    ) =>
+      frontend.PartialFunctionSugar.create(
+        getIdentifier(partialFunctionSym),
+        extractType(from),
+        extractType(to),
+        extractTree(fun)
+      )
+
     case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "choose"), Seq(tpt)), Seq(pred)) =>
       extractTree(pred) match {
         case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)

@@ -31,6 +31,8 @@ trait ASTExtractors {
 
   // Well-known symbols that we match on
 
+  protected lazy val partialFunctionSym = classFromName("stainless.lang.$tilde$greater")
+
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
@@ -94,6 +96,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isPartialFunctionSym(sym: Symbol): Boolean = {
+    getResolvedTypeSym(sym) == partialFunctionSym
   }
 
   def isSetSym(sym: Symbol) : Boolean = {
