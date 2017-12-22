@@ -35,7 +35,7 @@ package object proof {
   def check(prop: Boolean): Boolean = {
     require(prop)
     prop
-  }
+  }.holds
 
   /**
    * Relational reasoning.
