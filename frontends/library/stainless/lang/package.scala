@@ -8,11 +8,6 @@ import scala.language.implicitConversions
 package object lang {
   import stainless.proof._
 
-  @library
-  def unsafe_assume(b: Boolean) = {
-    ()
-  } ensuring(_ => b)
-
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
