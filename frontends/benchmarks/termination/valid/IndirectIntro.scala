@@ -18,12 +18,15 @@ object IndirectIntro {
       app(
         abs(Random.nextBigInt),
         // with proper extraction, this should be:
-        // PartialFunction((x2: BigInt) => require(0 <= x2 && x2 < x) f(x2)) or
-        // ~>((x2: BigInt) => require(0 <= x2 && x2 < x) f(x2))
-        ~>(
-          (x2: BigInt) => 0 <= x2 && x2 < x,
-          (x2: BigInt) => { unsafe_assume(0 <= x2 && x2 < x); f(x2) }
-        ),
+        PartialFunction{ (x2: BigInt) => require(0 <= x2 && x2 < x); f(x2) },
+        // or
+        // ~>((x2: BigInt) => require(0 <= x2 && x2 < x); f(x2))
+        /*
+         * ~>(
+         *   (x2: BigInt) => 0 <= x2 && x2 < x,
+         *   (x2: BigInt) => { unsafe_assume(0 <= x2 && x2 < x); f(x2) }
+         * ),
+         */
         x - 1)
     } else {
       ()

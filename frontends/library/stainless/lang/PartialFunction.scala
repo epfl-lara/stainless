@@ -6,7 +6,7 @@ package lang
 import annotation._
 
 @library
-case class ~>[A,B](pre: A => Boolean, f: A => B) {
+case class ~>[A,B] /*private[lang]*/ (pre: A => Boolean, f: A => B) {
   def apply(a: A): B = {
     require(pre(a))
     f(a)

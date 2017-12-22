@@ -1,4 +1,4 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2017 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -847,6 +847,30 @@ trait CodeExtraction extends ASTExtractors {
         case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)
         case _ => outOfSubsetError(tr, "Unexpected choose definition")
       }
+
+    case ExPartialFunction(from0, to0, arg) =>
+      val from = extractType(from0)
+      val to = extractType(to0)
+      val ct = xt.ClassType(getIdentifier(partialFunctionSym), Seq(from, to))
+
+      val (pre, body) = extractTree(arg) match {
+        case xt.Lambda(Seq(vd), body0) =>
+          val preOpt = xt.exprOps.preconditionOf(body0)
+          val bareBody = xt.exprOps.withPrecondition(body0, None)
+          val modifiedBody = preOpt match {
+            case None => bareBody
+            case Some(pre) => xt.Assume(pre, bareBody)
+          }
+
+          val pre = xt.Lambda(Seq(vd), preOpt getOrElse xt.BooleanLiteral(true))
+          val body = xt.Lambda(Seq(vd), modifiedBody)
+
+          (pre, body)
+
+        case x => outOfSubsetError(tr, s"Unexpected $x [${x.getClass}] instead of a lambda")
+      }
+
+      xt.ClassConstructor(ct, Seq(pre, body))
 
     case l @ ExLambdaExpression(args, body) =>
       val vds = args map(vd => xt.ValDef(

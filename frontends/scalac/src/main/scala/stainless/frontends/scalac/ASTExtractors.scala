@@ -1,4 +1,4 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2017 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -52,6 +52,8 @@ trait ASTExtractors {
     }).flatten.toMap
   }
 
+  protected lazy val partialFunctionSym = classFromName("stainless.lang.$tilde$greater")
+
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
@@ -95,6 +97,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isPartialFunctionSym(sym: Symbol): Boolean = {
+    getResolvedTypeSym(sym) == partialFunctionSym
   }
 
   def isSetSym(sym: Symbol) : Boolean = {
@@ -652,6 +658,20 @@ trait ASTExtractors {
               predicate :: Nil) =>
             Some(predicate)
         case _ => None
+      }
+    }
+
+    object ExPartialFunction {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(
+              TypeApply(ExSymbol("stainless", "lang", "PartialFunction", "apply"),
+                        List(from, to)),
+              List(fun)
+        ) =>
+          Some((from, to, fun))
+
+        case _ =>
+          None
       }
     }
 
