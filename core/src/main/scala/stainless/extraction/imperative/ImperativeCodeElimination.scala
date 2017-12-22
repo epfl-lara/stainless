@@ -23,11 +23,11 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
       localsMapping: Map[Variable, (Seq[TypeParameter], Seq[Variable])]
     ) {
       def withVar(vd: ValDef) = copy(varsInScope = varsInScope + vd.toVariable)
-      def withLocal(v: Variable, tparams: Seq[TypeParameter], vars: Seq[Variable]) = 
+      def withLocal(v: Variable, tparams: Seq[TypeParameter], vars: Seq[Variable]) =
         copy(localsMapping = localsMapping + (v -> (tparams, vars)))
     }
 
-    //return a "scope" consisting of purely functional code that defines potentially needed 
+    //return a "scope" consisting of purely functional code that defines potentially needed
     //new variables (val, not var) and a mapping for each modified variable (var, not val :) )
     //to their new name defined in the scope. The first returned valued is the value of the expression
     //that should be introduced as such in the returned scope (the val already refers to the new names)
@@ -202,8 +202,8 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val (bindRes, bindScope, bindFun) = toFunction(e)
           val (bodyRes, bodyScope, bodyFun) = toFunction(b)
           (
-            bodyRes, 
-            (b2: Expr) => bindScope(Let(vd, bindRes, replaceFromSymbols(bindFun, bodyScope(b2))).copiedFrom(expr)), 
+            bodyRes,
+            (b2: Expr) => bindScope(Let(vd, bindRes, replaceFromSymbols(bindFun, bodyScope(b2))).copiedFrom(expr)),
             bindFun ++ bodyFun
           )
 
@@ -309,7 +309,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
                     val newBody = replaceSingle(
                       modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++
-                      modifiedVars.zipWithIndex.map { case (v, i) => 
+                      modifiedVars.zipWithIndex.map { case (v, i) =>
                         (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
                       }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
                       postBody
@@ -347,6 +347,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
         case ld @ Lambda(params, body) =>
           val (optPre, lBody) = body match {
             case Require(pred, body) => (Some(pred), body)
+            case Assume(pred, body) => (Some(pred), body) // FIXME This transforms assume into require. Is this okay?
             case _ => (None, body)
           }
           val newPre = optPre.map { pre =>
