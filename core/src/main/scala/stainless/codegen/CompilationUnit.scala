@@ -60,7 +60,7 @@ trait CompilationUnit extends CodeGeneration {
     }
 
     def eval(model: program.Model)(monitor: Monitor): Expr = {
-      try { 
+      try {
         evalFromJVM(argsToJVM(args.map(model.vars), monitor), monitor)
       } catch {
         case ite: InvocationTargetException => throw ite.getCause
@@ -125,27 +125,27 @@ trait CompilationUnit extends CodeGeneration {
     * reflection needs this anyway.
     */
   def valueToJVM(e: Expr)(implicit monitor: Monitor): AnyRef = e match {
-    case Int8Literal(v)  => new java.lang.Byte(v)
-    case Int16Literal(v) => new java.lang.Short(v)
-    case Int32Literal(v) => new java.lang.Integer(v)
-    case Int64Literal(v) => new java.lang.Long(v)
+    case Int8Literal(v)  => java.lang.Byte.valueOf(v)
+    case Int16Literal(v) => java.lang.Short.valueOf(v)
+    case Int32Literal(v) => java.lang.Integer.valueOf(v)
+    case Int64Literal(v) => java.lang.Long.valueOf(v)
     case bi @ BVLiteral(_, size) => println(s"NOT IMPLEMENTED!!!"); ???
 
     case BooleanLiteral(v) =>
-      new java.lang.Boolean(v)
+      java.lang.Boolean.valueOf(v)
 
     case UnitLiteral() =>
-      new java.lang.Boolean(true)
+      java.lang.Boolean.valueOf(true)
 
     case CharLiteral(c) =>
-      new Character(c)
+      Character.valueOf(c)
 
     case IntegerLiteral(v) =>
       new runtime.BigInt(v.toString)
 
     case FractionLiteral(n, d) =>
       new runtime.Rational(n.toString, d.toString)
-      
+
     case StringLiteral(v) =>
       new java.lang.String(v)
 
