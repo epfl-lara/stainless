@@ -221,6 +221,10 @@ trait CodeExtraction extends ASTExtractors {
       case t if t.symbol.isSynthetic =>
         // ignore
 
+      case t if t.symbol.isAliasType =>
+        // Ignore type alias definitions as units (we don't need it in the
+        // stainless AST).
+
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
@@ -1310,6 +1314,9 @@ trait CodeExtraction extends ASTExtractors {
 
     case tr @ TypeRef(_, sym, tps) if sym.isClass =>
       xt.ClassType(getIdentifier(sym), tps.map(extractType))
+
+    case tr @ TypeRef(_, sym, tps) if sym.isAliasType =>
+      extractType(tr.dealias)
 
     case tt: ThisType =>
       xt.ClassType(getIdentifier(tt.sym), tt.sym.typeParams.map(dctx.tparams))
