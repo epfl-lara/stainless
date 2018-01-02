@@ -20,6 +20,20 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       tparamsMap: Map[TypeParameter, TypeParameter]
     )
 
+    def filterByIds(path: Path, ids: Set[Identifier]): Path = {
+      def containsIds(e: Expr): Boolean = exprOps.exists {
+        case Variable(id, _, _) => ids contains id
+        case _ => false
+      }(e)
+
+      import Path._
+      path.elements.foldLeft(Path.empty) {
+        case (pc, CloseBound(vd, e)) if (ids contains vd.id) || containsIds(e) => pc withBinding (vd -> e)
+        case (pc, Condition(cond)) if containsIds(cond) => pc withCond cond
+        case (pc, _) => pc
+      }
+    }
+
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(name, tparams, Lambda(args, body)) = inner
 
@@ -27,7 +41,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       //println("pc: " + pc)
       //println("free: " + free.map(_.uniqueName))
 
-      val reqPC = pc.filterByIds(free.map(_.id).toSet)
+      val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
@@ -38,7 +52,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       }
 
       val freeMap = freshVals.toMap
-      val freshParams = freshVals.filterNot(p => reqPC.isBound(p._1.id)).map(_._2)
+      val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
       val instBody = instantiateType(withPath(body, reqPC), tparamsMap)
 
@@ -109,7 +123,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.name.id) + fd.name.id).flatMap(current)
-            val reqPath = nestedWithPaths(fd).filterByIds(transFreeVars.map(_.id))
+            val reqPath = filterByIds(nestedWithPaths(fd), transFreeVars.map(_.id))
             (fd.name.id, transFreeVars ++ freeVars(fd, reqPath))
           }.toMap
         }
