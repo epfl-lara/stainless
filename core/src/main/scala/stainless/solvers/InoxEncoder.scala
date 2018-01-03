@@ -247,16 +247,16 @@ trait InoxEncoder extends ProgramEncoder {
         ).copiedFrom(e)
 
       case s.ADT(s.ADTType(id, from :+ to), Seq(f, pre)) if funIDs.get(from.size) == Some(id) =>
-        val s.Lambda(preArgs, preBody) = pre
+        val simplePre: Boolean = pre match {
+          case s.Lambda(preArgs, preBody) =>
+            def rec(pre: s.Expr): Boolean = pre match {
+              case s.IfExpr(cond, thenn, elze) if thenn == s.BooleanLiteral(true) => rec(elze)
+              case s.BooleanLiteral(true) => true
+              case _ => false
+            }
 
-        val simplePre: Boolean = {
-          def rec(pre: s.Expr): Boolean = pre match {
-            case s.IfExpr(cond, thenn, elze) if thenn == s.BooleanLiteral(true) => rec(elze)
-            case s.BooleanLiteral(true) => true
-            case _ => false
-          }
-
-          rec(targetProgram.symbols.simplifyByConstructors(preBody))
+            rec(targetProgram.symbols.simplifyByConstructors(preBody))
+          case _ => false
         }
 
         if (simplePre) {
@@ -270,10 +270,16 @@ trait InoxEncoder extends ProgramEncoder {
               (fArgs, fBody)
           }
 
-          val newPre = transform(s.exprOps.replaceFromSymbols(
-            (preArgs.map(_.toVariable) zip fArgs.map(_.toVariable)).toMap,
-            preBody
-          ).copiedFrom(preBody))
+          val newPre = pre match {
+            case s.Lambda(preArgs, preBody) =>
+              transform(s.exprOps.replaceFromSymbols(
+                (preArgs.map(_.toVariable) zip fArgs.map(_.toVariable)).toMap,
+                preBody
+              ).copiedFrom(preBody))
+
+            case _ =>
+              t.Application(transform(pre), fArgs.map(vd => transform(vd.toVariable)))
+          }
 
           t.Lambda(fArgs map transform, t.Require(newPre, transform(fBody)).copiedFrom(pre)).copiedFrom(e)
         }
