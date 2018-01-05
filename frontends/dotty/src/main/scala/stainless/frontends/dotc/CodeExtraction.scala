@@ -207,6 +207,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case t if t.symbol is Synthetic =>
         // ignore
 
+      case TypeDef(_,_) =>
+        // ignore, once the type is extracted we do not do anything with the typedef.
+
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
@@ -1343,6 +1346,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ct: ConstantType => extractType(ct.value.tpe)
 
     case tr: TypeRef if dctx.tparams.isDefinedAt(tr.symbol) => dctx.tparams(tr.symbol)
+
+    // dotty < 0.4-RC01
+    case hk @ HKApply(tycon, args) =>
+      extractType(hk.dealias.appliedTo(args))
+
+    // dotty >= 0.4-RC01
+    case hk: LambdaType =>
+      extractType(hk.resultType)
 
     case tt @ TypeRef(_, _) if tt != tt.dealias =>
       extractType(tt.dealias)
