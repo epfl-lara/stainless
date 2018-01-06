@@ -363,16 +363,22 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           res
       }
 
+      protected def implies(path: Path, e: Expr): Expr = {
+        val implication = path implies e
+        val quantified = (path.bound.toSet -- path.bindings.map(_._1)) & variablesOf(implication).map(_.toVal)
+        if (quantified.isEmpty) implication else Forall(quantified.toSeq, implication).copiedFrom(e)
+      }
+
       protected def accumulate(e: Expr, path: Path): Unit = e match {
-        case Assert(pred, _, _) => results :+= path implies pred
-        case Require(pred, _) => results :+= path implies pred
+        case Assert(pred, _, _) => results :+= implies(path, pred)
+        case Require(pred, _) => results :+= implies(path, pred)
 
         case fi @ FunctionInvocation(_, _, args) =>
           val pred = replaceFromSymbols(fi.tfd.paramSubst(args), fi.tfd.precOrTrue)
-          results :+= path implies pred
+          results :+= implies(path, pred)
 
         case Application(caller, args) =>
-          results :+= path implies Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e)
+          results :+= implies(path, Application(Pre(caller).copiedFrom(caller), args).copiedFrom(e))
 
         case _ =>
       }

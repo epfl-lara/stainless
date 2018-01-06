@@ -289,6 +289,14 @@ class PreconditionInference(
         containers.map(_ -> input)
       }.groupBy(_._1).mapValues(_.map(_._2))
 
+      def isKnown(path: Path, es: Seq[Expr]): Boolean = {
+        val freeVars = es.flatMap(variablesOf).toSet ++
+          path.unboundVariables --
+          path.bindings.map(_._1.toVariable) --
+          fd.params.map(_.toVariable)
+        freeVars.isEmpty
+      }
+
       def simplifyPath(path: Path, es: Seq[Expr]): (Path, Seq[Expr]) = {
         val simp = syms.simplifier(options.findOptionOrDefault(inox.solvers.optAssumeChecked))
         import simp._
@@ -356,21 +364,26 @@ class PreconditionInference(
 
                     val newArgs = inputs.map { case input @ Input(_, selectors) =>
                       input -> in.get(selectors).map {
-                        case Known(arguments) => Known(arguments.map { case (p, es) =>
-                          val freshParams = tfd.params.map(_.freshen)
-                          val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
+                        case Known(arguments) =>
+                          val newArguments = arguments.map { case (p, es) =>
+                            val freshParams = tfd.params.map(_.freshen)
+                            val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-                          val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
-                          val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
+                            val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
+                            val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
 
-                          val freshBindings = p.bound.map(vd => vd.freshen)
-                          val freshSubst = (p.bound zip freshBindings).toMap
-                          val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
+                            val freshBindings = p.bound.map(vd => vd.freshen)
+                            val freshSubst = (p.bound zip freshBindings).toMap
+                            val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
 
-                          val newPath = path withBindings (freshParams zip args) merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
-                          val newEs = es.map(replaceFromSymbols(newSubst, _))
-                          simplifyPath(newPath, newEs)
-                        })
+                            val newPath = path withBindings (freshParams zip args) merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
+                            val newEs = es.map(replaceFromSymbols(newSubst, _))
+                            simplifyPath(newPath, newEs)
+                          }
+
+                          if (newArguments.forall { case (p, es) => isKnown(p, es) }) Known(newArguments)
+                          else Unknown
+
                         case a => a
                       }
                     }
@@ -403,11 +416,7 @@ class PreconditionInference(
             }
 
           case FlatApplication(caller, args) if (containers contains caller) && !e.getType.isInstanceOf[FunctionType] =>
-            val freeVars = (args.flatMap(variablesOf).toSet ++ path.freeVariables) --
-              fd.params.map(_.toVariable).toSet --
-              path.bindings.map(_._1.toVariable).toSet
-
-            val arguments = if (freeVars.nonEmpty) Unknown else Known(Set(simplifyPath(path, args)))
+            val arguments = if (isKnown(path, args)) Known(Set(simplifyPath(path, args))) else Unknown
             val Seq(input) = containers(caller).toSeq
             result = result merge (input -> arguments)
             FlatApplication(caller, args.map(rec(_, path))).copiedFrom(e)
