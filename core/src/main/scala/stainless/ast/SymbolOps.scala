@@ -365,7 +365,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
       protected def implies(path: Path, e: Expr): Expr = {
         val implication = path implies e
-        val quantified = (path.bound.toSet -- path.bindings.map(_._1)) & variablesOf(implication).map(_.toVal)
+        val quantified = path.open.toSet & variablesOf(implication).map(_.toVal)
         if (quantified.isEmpty) implication else Forall(quantified.toSeq, implication).copiedFrom(e)
       }
 

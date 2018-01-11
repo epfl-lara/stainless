@@ -113,18 +113,17 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       //println("nested funs: " + nestedFuns)
       //println("call graph: " + callGraph)
 
-      def freeVars(fd: LocalFunDef, pc: Path): Set[Variable] =
-        exprOps.variablesOf(fd.body) ++ pc.freeVariables /* ++ (pc.bounds.map { _.toVariable }) */// FIXME not sure this was really computing free variables.
-
       // All free variables one should include.
       // Contains free vars of the function itself plus of all transitively called functions.
-      // also contains free vars from PC if the PC is relevant to the fundef
+      // Also contains free vars from PC if the PC is relevant to the fundef.
+      // Also contains the open and closed vars of the PC, these will be filtered out at some
+      // later point when computing the relevant arguments (see `closeFd`).
       val transFreeWithBindings: Map[Identifier, Set[Variable]] = {
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.name.id) + fd.name.id).flatMap(current)
             val reqPath = filterByIds(nestedWithPaths(fd), transFreeVars.map(_.id))
-            (fd.name.id, transFreeVars ++ freeVars(fd, reqPath))
+            (fd.name.id, transFreeVars ++ exprOps.variablesOf(fd.body) ++ reqPath.freeVariables)
           }.toMap
         }
 

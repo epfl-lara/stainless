@@ -290,10 +290,7 @@ class PreconditionInference(
       }.groupBy(_._1).mapValues(_.map(_._2))
 
       def isKnown(path: Path, es: Seq[Expr]): Boolean = {
-        val freeVars = es.flatMap(variablesOf).toSet ++
-          path.unboundVariables --
-          path.bindings.map(_._1.toVariable) --
-          fd.params.map(_.toVariable)
+        val freeVars = (path unboundOf es.flatMap(variablesOf).toSet) -- fd.params.map(_.toVariable)
         freeVars.isEmpty
       }
 
@@ -369,12 +366,9 @@ class PreconditionInference(
                             val freshParams = tfd.params.map(_.freshen)
                             val paramSubst = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-                            val freeVars = p.freeVariables -- tfd.params.map(_.toVariable).toSet
-                            val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
-
                             val freshBindings = p.bound.map(vd => vd.freshen)
                             val freshSubst = (p.bound zip freshBindings).toMap
-                            val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
+                            val newSubst = paramSubst ++ freshSubst.mapValues(_.toVariable)
 
                             val newPath = path withBindings (freshParams zip args) merge p.map(freshSubst, replaceFromSymbols(newSubst, _))
                             val newEs = es.map(replaceFromSymbols(newSubst, _))
