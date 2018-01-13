@@ -364,6 +364,8 @@ trait CICFA {
           rec(pred, in)
           rec(body, in)
 
+        case AsInstanceOf(a, tpe) => rec(a, in)
+
         case NoTree(_) => (Set(), emptyEnv)
 
         case Operator(args, op) =>
