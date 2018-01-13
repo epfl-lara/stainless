@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object Inconsistency {
+object NegativeDatatype {
   sealed abstract class Code
   case class Fold(f: Code => Boolean) extends Code
 

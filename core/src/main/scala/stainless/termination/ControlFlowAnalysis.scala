@@ -26,24 +26,24 @@ trait CICFA {
     def body: Expr
 
     override def equals(that: Any): Boolean = (this, that) match {
-      case (n1: NamedFunction, n2: NamedFunction) => n1.tfd == n2.tfd
+      case (n1: NamedFunction, n2: NamedFunction) => n1.fd == n2.fd
       case (l1: LambdaFunction, l2: LambdaFunction) => l1.lambda == l2.lambda
       case _ => false
     }
 
     override def hashCode: Int = this match {
-      case n: NamedFunction => n.tfd.hashCode
+      case n: NamedFunction => n.fd.hashCode
       case l: LambdaFunction => l.lambda.hashCode
     }
 
     override def toString: String = this match {
-      case n: NamedFunction => n.tfd.id.asString
+      case n: NamedFunction => n.fd.id.asString
       case l: LambdaFunction => l.lambda.asString
     }
   }
 
-  implicit class NamedFunction(val tfd: TypedFunDef) extends Function {
-    def body: Expr = tfd.fullBody
+  implicit class NamedFunction(val fd: FunDef) extends Function {
+    def body: Expr = fd.fullBody
   }
 
   implicit class LambdaFunction(val lambda: Lambda) extends Function {
@@ -109,24 +109,20 @@ trait CICFA {
   })
 
   class Analysis(id: Identifier) {
-    val tfd = getFunction(id).typed
+    val fd = getFunction(id)
 
-    private[this] var failed = false
+    private val seen: MutableSet[Function] = MutableSet.empty
 
     // summary of each function
     private val tabulation: MutableMap[Function, Summary] = MutableMap.empty
-    private val types: MutableMap[Identifier, Seq[Type]] = MutableMap.empty
 
     // initialize summaries to identity function from bot to empty
     // for the current function, initialize it to External
     private def getTabulation(fun: Function): Summary = tabulation.getOrElseUpdate(fun, {
       Summary(fun match {
         case n: NamedFunction =>
-          if ((types contains n.tfd.id) && types(n.tfd.id) != n.tfd.tps) failed = true
-          types(n.tfd.id) = n.tfd.tps
-
-          if (id == n.tfd.id) AbsEnv(n.tfd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
-          else AbsEnv(n.tfd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+          if (id == n.fd.id) AbsEnv(n.fd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
+          else AbsEnv(n.fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
 
         case l: LambdaFunction =>
           AbsEnv(l.lambda.args.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
@@ -176,7 +172,7 @@ trait CICFA {
     private val escapingVars: MutableSet[Variable] = MutableSet.empty
 
     val worklist = new ListBuffer[Function]()
-    worklist += tfd
+    worklist += fd
 
     // the order of traversal is very important here, so using a custom traversal
     private def rec(e: Expr, in: AbsEnv)(implicit current: Function): (Set[AbsValue], AbsEnv) = {
@@ -208,7 +204,7 @@ trait CICFA {
               val argenv = AbsEnv(argstore)
 
               val currSummary = getTabulation(lam)
-              if (!currSummary.in.greaterEquals(argenv)) {
+              if (!seen(lam) || !currSummary.in.greaterEquals(argenv)) {
                 val join = currSummary.in.join(argenv)
                 // here the input state has changed, so we need to reanalyze the callee
                 // (if it is not already scheduled to be analyzed)
@@ -242,9 +238,9 @@ trait CICFA {
           (Set(Closure(lam)), AbsEnv(in.store.filterKeys(capvars)))
 
         case fi @ FunctionInvocation(_, _, args) =>
-          val tfd = fi.tfd
+          val fd = fi.tfd.fd
           // update the callers info
-          getCallers(tfd) += current
+          getCallers(fd) += current
           // (a) join the arguments passed in with the `in` fact in the summary.
           //     If the join results in a greater value, add the function back to the worklist.
           val absres = args.map(rec(_, in))
@@ -252,18 +248,18 @@ trait CICFA {
           val argesc = flatten(absres.map(_._2))
           val newenv = in ++ argesc
           val argstore = newenv.store.filterKeys(escapingVars) ++
-            (tfd.params.map(_.toVariable) zip absargs)
+            (fd.params.map(_.toVariable) zip absargs)
           val argenv = AbsEnv(argstore)
 
-          val currSummary = getTabulation(tfd)
-          if (!currSummary.in.greaterEquals(argenv)) {
+          val currSummary = getTabulation(fd)
+          if (!seen(fd) || !currSummary.in.greaterEquals(argenv)) {
             val join = currSummary.in.join(argenv)
             // here the input state has changed, so we need to reanalyze the callee
             // (if it is not already scheduled to be analyzed)
-            if (!worklist.contains(tfd))
-              worklist += tfd
+            if (!worklist.contains(fd))
+              worklist += fd
             // update the in fact of the summary
-            tabulation.update(tfd, Summary(join, currSummary.out, currSummary.ret))
+            tabulation.update(fd, Summary(join, currSummary.out, currSummary.ret))
           }
           // use the out fact as a temporary result
           (currSummary.ret, argesc ++ currSummary.out)
@@ -381,8 +377,10 @@ trait CICFA {
       res
     }
 
-    while (!worklist.isEmpty && !failed) {
+    while (!worklist.isEmpty) {
       var fun = worklist.remove(0)
+      seen += fun
+
       val oldSummary = getTabulation(fun)
       //println(s"Analyzing: $currfunid under ${oldSummary.in}")
 
@@ -398,7 +396,7 @@ trait CICFA {
         val newcallers = getCallers(fun).filterNot(worklist.contains)
         worklist ++= newcallers
 
-        if (fun == (tfd: Function)) {
+        if (fun == (fd: Function)) {
           def escapingLambdas(rets: Set[AbsValue], seen: Set[AbsValue]): Set[Function] = (rets -- seen).flatMap {
             case Closure(lam) => Set(lam: Function)
             case co @ ConsObject(_, vars) =>
@@ -436,6 +434,6 @@ trait CICFA {
       llams
     }
 
-    def isApplied(l: Lambda): Boolean = failed || appliedLambdas(l) || allEscaping(l)
+    def isApplied(l: Lambda): Boolean = appliedLambdas(l) || allEscaping(l)
   }
 }
