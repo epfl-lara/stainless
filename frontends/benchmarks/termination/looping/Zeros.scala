@@ -1,4 +1,4 @@
-object Termination {
+object Zeros {
   abstract class Stream
   case class SCons(head: BigInt, tail: () => Stream) extends Stream
 
