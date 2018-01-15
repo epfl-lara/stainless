@@ -335,7 +335,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private val typeParams: ListBuffer[TypeParameter] = new ListBuffer[TypeParameter]
 
-  protected def compileLambda(l: Lambda, params: Seq[ValDef], pre: Boolean = false):
+  protected def compileLambda(l: Lambda, params: Seq[ValDef]):
                              (String, Seq[(Identifier, String)], Seq[TypeParameter], String) = synchronized {
     assert(normalizeStructure(l)._1 == l)
 
@@ -426,31 +426,6 @@ trait CodeGeneration { self: CompilationUnit =>
         val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
         val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
           .withParameters(params ++ l.args).withTypeParameters(tps)
-
-        locally {
-          val pm = cf.addMethod(s"L$LambdaClass;", "pre", "")
-
-          pm.setFlags((
-            METHOD_ACC_PUBLIC |
-            METHOD_ACC_FINAL
-          ).asInstanceOf[U2])
-
-          val pch = pm.codeHandler
-
-          val preLocals = NoLocals.withFields(closureMapping)
-            .withParameters(params)
-            .withTypeParameters(tps)
-
-          // FIXME: should we remove this, since lambdas do not have
-          // preconditions anymore?
-          val preLambda = lambda.copy(body = BooleanLiteral(true))
-
-          mkLambda(preLambda, pch, pre = true)(preLocals)
-
-          pch << ARETURN
-
-          pch.freeze
-        }
 
         locally {
           val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")
@@ -886,7 +861,7 @@ trait CodeGeneration { self: CompilationUnit =>
       mkUnbox(app.getType, ch)
 
     case lambda: Lambda =>
-      mkLambda(lambda, ch, pre = false)
+      mkLambda(lambda, ch)
 
     // String processing =>
     case StringConcat(l, r) =>
@@ -1221,7 +1196,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
   }
 
-  private[codegen] def mkLambda(lambda: Lambda, ch: CodeHandler, pre: Boolean = false)(implicit locals: Locals): Unit = {
+  private[codegen] def mkLambda(lambda: Lambda, ch: CodeHandler)(implicit locals: Locals): Unit = {
     val vars = variablesOf(lambda).toSeq
     val freshVars = vars.map(_.freshen)
 
@@ -1230,7 +1205,7 @@ trait CodeGeneration { self: CompilationUnit =>
       assumeExhaustive = false
     ))
 
-    val (afName, closures, tparams, consSig) = compileLambda(l, locals.params, pre = pre)
+    val (afName, closures, tparams, consSig) = compileLambda(l, locals.params)
     val closureTypes = variablesOf(l).map(v => v.id -> v.tpe).toMap
 
     val freshLocals = locals.substitute((vars zip freshVars).map(p => p._1.id -> p._2.id).toMap)
