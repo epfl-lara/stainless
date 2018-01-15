@@ -848,14 +848,6 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Unexpected choose definition")
       }
 
-    case ExPartialFunction(from, to, fun) =>
-      frontend.PartialFunctionSugar.create(
-        getIdentifier(partialFunctionSym),
-        extractType(from),
-        extractType(to),
-        extractTree(fun)
-      )
-
     case l @ ExLambdaExpression(args, body) =>
       val vds = args map(vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),
