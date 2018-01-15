@@ -345,17 +345,8 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         //TODO: handle vars in scope, just like LetRec
         case ld @ Lambda(params, body) =>
-          val (optPre, lBody) = body match {
-            case Require(pred, body) => (Some(pred), body)
-            case Assume(pred, body) => (Some(pred), body) // FIXME This transforms assume into require. Is this okay?
-            case _ => (None, body)
-          }
-          val newPre = optPre.map { pre =>
-            val (res, scope, _) = toFunction(pre)
-            scope(res)
-          }
-          val (bodyVal, bodyScope, bodyFun) = toFunction(lBody)
-          (Lambda(params, withPrecondition(bodyScope(bodyVal), newPre)).copiedFrom(ld), (e: Expr) => e, Map())
+          val (bodyVal, bodyScope, bodyFun) = toFunction(body)
+          (Lambda(params, bodyScope(bodyVal)).copiedFrom(ld), (e: Expr) => e, Map())
 
         case c @ Choose(res, pred) =>
           //Recall that Choose cannot mutate variables from the scope
@@ -375,6 +366,13 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val (condVal, condScope, condFun) = toFunction(cond)
           val (bodyRes, bodyScope, bodyFun) = toFunction(body)
           val scope = (body: Expr) => condScope(Assert(condVal, msg, replaceFromSymbols(condFun, bodyScope(body))).copiedFrom(a))
+          (bodyRes, scope, condFun ++ bodyFun)
+
+        //TODO: same as the assert case
+        case a @ Assume(cond, body) =>
+          val (condVal, condScope, condFun) = toFunction(cond)
+          val (bodyRes, bodyScope, bodyFun) = toFunction(body)
+          val scope = (body: Expr) => condScope(Assume(condVal, replaceFromSymbols(condFun, bodyScope(body))).copiedFrom(a))
           (bodyRes, scope, condFun ++ bodyFun)
 
         case n @ Operator(args, recons) =>
