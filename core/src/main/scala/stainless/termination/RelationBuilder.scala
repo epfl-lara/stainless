@@ -22,15 +22,12 @@ trait RelationBuilder { self: Strengthener =>
       val instPath = that.path.instantiate(tfd.tpSubst)
       assert(that.fd == tfd.fd, "Cannot compose relations with incompatible functions")
 
-      val freeVars = instPath.freeVariables -- tfd.params.map(_.toVariable).toSet
-      val freeSubst = (freeVars.map(_.toVal) zip freeVars.map(_.freshen)).toMap
-
       val freshParams = tfd.params.map(_.freshen)
       val paramPath = Path.empty withBindings (freshParams zip call.args)
       val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
       val freshSubst = (instPath.bound map { vd => vd -> vd.freshen }).toMap
-      val newSubst = subst ++ freshSubst.mapValues(_.toVariable) ++ freeSubst
+      val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
       val newCall = exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]
