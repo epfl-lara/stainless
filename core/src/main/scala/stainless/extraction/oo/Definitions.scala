@@ -4,6 +4,7 @@ package stainless
 package extraction
 package oo
 
+import scala.reflect._
 import scala.collection.mutable.{Map => MutableMap}
 
 // Note: we can't extend `ast.Definitions` here as termination.Trees
@@ -161,6 +162,23 @@ trait Definitions extends imperative.Trees { self: Trees =>
     override def hashCode: Int = super.hashCode + 31 * classes.hashCode
 
     def withClasses(classes: Seq[ClassDef]): Symbols
+
+    protected class Lookup extends super.Lookup {
+      override def get[T <: Definition : ClassTag](name: String): Option[T] = ({
+        if (classTag[ClassDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, classes)
+        else super.get[T](name)
+      }).asInstanceOf[Option[T]]
+
+      override def apply[T <: Definition : ClassTag](name: String): T = {
+        if (classTag[ClassDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
+          find(name, classes).getOrElse(throw ClassLookupException(FreshIdentifier(name))).asInstanceOf[T]
+        } else {
+          super.apply[T](name)
+        }
+      }
+    }
+
+    override val lookup = new Lookup
   }
 
   case object IsInvariant extends Flag("invariant", Seq.empty)

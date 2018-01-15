@@ -40,19 +40,28 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     def getPostcondition(tfd: TypedFunDef): Option[Expr] =
       postCache.getOrElseUpdate(tfd, exprOps.postconditionOf(tfd.fullBody))
 
-    object lookup {
-      private def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
+    protected class Lookup {
+      protected def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
         case SymbolIdentifier(`name`) => true
         case _ => false
       }).map(_._2)
 
-      def apply[T <: Definition : ClassTag](name: String): T =
+      def get[T <: Definition : ClassTag](name: String): Option[T] = ({
+        if (classTag[ADTDefinition].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, adts)
+        else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, functions)
+        else None
+      }).asInstanceOf[Option[T]]
+
+      def apply[T <: Definition : ClassTag](name: String): T = get[T](name).getOrElse {
         if (classTag[ADTDefinition].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
-          find(name, adts).getOrElse(throw ADTLookupException(FreshIdentifier(name))).asInstanceOf[T]
+          throw ADTLookupException(FreshIdentifier(name))
         } else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
-          find(name, functions).getOrElse(throw FunctionLookupException(FreshIdentifier(name))).asInstanceOf[T]
+          throw FunctionLookupException(FreshIdentifier(name))
         } else sys.error("Unexpected lookup of type " + classTag[T])
+      }
     }
+
+    val lookup = new Lookup
   }
 
   implicit class StainlessFunDef(fd: FunDef) {
