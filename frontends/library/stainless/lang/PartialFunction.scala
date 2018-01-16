@@ -13,7 +13,7 @@ import annotation._
  * cannot be expressed in Stainless.)
  */
 @library
-case class ~>[A,B] /*private*/ (pre: A => Boolean, f: A => B) {
+case class ~>[A,B] private[stainless] (pre: A => Boolean, private val f: A => B) {
   def apply(a: A): B = {
     require(pre(a))
     f(a)
@@ -45,7 +45,7 @@ object PartialFunction {
    *      { (x: A) => assume(pre(x)); body(x) }
    *    )
    */
-  @ignore
-  def apply[A,B](f: A => B): A ~> B = ~>(_ => true, f)
+  @extern
+  def apply[A,B](f: A => B): A ~> B = ~>(x => scala.util.Try(f(x)).isSuccess, f)
 }
 
