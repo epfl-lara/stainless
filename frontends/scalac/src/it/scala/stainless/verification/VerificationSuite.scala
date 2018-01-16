@@ -88,6 +88,7 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Requires non-linear resonning, unsupported by CVC4
     case "verification/valid/Overrides" => Ignore
+    case "verification/valid/TestPartialFunction" => Ignore
     case "verification/invalid/Existentials" => Ignore
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
