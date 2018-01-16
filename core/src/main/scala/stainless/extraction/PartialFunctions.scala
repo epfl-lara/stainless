@@ -15,7 +15,7 @@ object PartialFunctions extends inox.ast.SymbolTransformer {
     val t: xlang.trees.type = xlang.trees
 
     val optPFApply = symbols.lookup.get[FunDef]("stainless.lang.PartialFunction.apply")
-    val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.~>")
+    val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.$tilde$greater")
 
     override def transform(e: Expr): Expr = super.transform(e) match {
       case fi: FunctionInvocation =>
