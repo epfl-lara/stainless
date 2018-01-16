@@ -578,6 +578,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case Assert(cond, oerr, body) =>
       mkExpr(IfExpr(Not(cond), Error(body.getType, oerr.getOrElse("Assertion failed @"+e.getPos)), body), ch)
 
+    case Assume(cond, body) =>
+      mkExpr(IfExpr(Not(cond), Error(body.getType, "Assumption failed @"+e.getPos), body), ch)
+
     case en @ Ensuring(_, _) =>
       mkExpr(en.toAssert, ch)
 
