@@ -364,7 +364,14 @@ trait CICFA {
           rec(pred, in)
           rec(body, in)
 
-        case AsInstanceOf(a, tpe) => rec(a, in)
+        case AsInstanceOf(a, tpe: ADTType) =>
+          val (res, esc) = rec(a, in)
+          val resvals: Set[AbsValue] = res.flatMap {
+            case abs @ ConsObject(cons, argvars) if cons.adt.id == tpe.id => Set(abs : AbsValue)
+            case External => Set(External : AbsValue)
+            case _ => Set[AbsValue]()
+          }
+          (resvals, esc)
 
         case NoTree(_) => (Set(), emptyEnv)
 
