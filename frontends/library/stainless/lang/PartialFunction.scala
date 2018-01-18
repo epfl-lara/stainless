@@ -21,8 +21,10 @@ case class ~>[A,B] private[stainless] (pre: A => Boolean, private val f: A => B)
 }
 
 @library
-case class ~>>[A,B](pre: A => Boolean, private val f: A => B, post: B => Boolean) {
+case class ~>>[A,B](private val f: A ~> B, post: B => Boolean) {
   require(forall((x: A) => pre(x) ==> post(f(x))))
+
+  val pre = f.pre
 
   def apply(a: A): B = {
     require(pre(a))
@@ -46,6 +48,18 @@ object PartialFunction {
    *    )
    */
   @extern
-  def apply[A,B](f: A => B): A ~> B = ~>(x => scala.util.Try(f(x)).isSuccess, f)
+  def apply[A,B](f: A => B): A ~> B = {
+    ~>(x => scala.util.Try(f(x)).isSuccess, f)
+  }
+
+  @extern
+  def apply[A,B,C](f: (A,B) => C): (A,B) ~> C = {
+    ~>(p => scala.util.Try(f.tupled(p)).isSuccess, f.tupled)
+  }
+
+  @extern
+  def apply[A,B,C,D](f: (A,B,C) => D): (A,B,C) ~> D = {
+    ~>(p => scala.util.Try(f.tupled(p)).isSuccess, f.tupled)
+  }
 }
 

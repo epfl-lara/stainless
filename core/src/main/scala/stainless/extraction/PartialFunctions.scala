@@ -14,40 +14,48 @@ object PartialFunctions extends inox.ast.SymbolTransformer {
     val s: xlang.trees.type = xlang.trees
     val t: xlang.trees.type = xlang.trees
 
-    val optPFApply = symbols.lookup.get[FunDef]("stainless.lang.PartialFunction.apply")
     val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.$tilde$greater")
 
     override def transform(e: Expr): Expr = super.transform(e) match {
-      case fi: FunctionInvocation =>
-        optPFApply
-          .filter(_.id == fi.id)
-          .map { fd =>
-            val FunctionInvocation(_, Seq(from, to), Seq(fun)) = fi
-            val ct = ClassType(optPFClass.get.id, Seq(from, to))
+      case fi @ FunctionInvocation(ast.SymbolIdentifier("stainless.lang.PartialFunction.apply"), _, _) =>
+        val FunctionInvocation(_, froms :+ to, Seq(fun)) = fi
+        val ct = ClassType(optPFClass.get.id, Seq(tupleTypeWrap(froms), to))
 
-            val (pre, body) = fun match {
-              case Lambda(Seq(vd), body0) =>
-                val preOpt = exprOps.preconditionOf(body0)
-                val bareBody = exprOps.withPrecondition(body0, None)
-                val modifiedBody = preOpt match {
-                  case None => bareBody
-                  case Some(pre) => Assume(pre, bareBody)
-                }
-
-                val pre = Lambda(Seq(vd), preOpt getOrElse BooleanLiteral(true))
-                val body = Lambda(Seq(vd), modifiedBody)
-
-                (pre, body)
-
-              case x =>
-                throw new frontend.UnsupportedCodeException(
-                  fun.getPos,
-                  s"Unexpected $x [${x.getClass}] instead of a lambda when " +
-                  "unapply syntactic sugar for partial function creation.")
+        val (pre, body) = fun match {
+          case Lambda(vds, body0) =>
+            val (preOpt, bareBody) = body0 match {
+              case fi2: FunctionInvocation =>
+                (exprOps.preconditionOf(fi2.inlined(symbols)), fi2)
+              case _ =>
+                (exprOps.preconditionOf(body0), exprOps.withPrecondition(body0, None))
             }
 
-            ClassConstructor(ct, Seq(pre, body))
-          }.getOrElse(fi)
+            val modifiedBody = preOpt match {
+              case None => bareBody
+              case Some(pre) => Assume(pre, bareBody)
+            }
+
+            val (vd, funArgs) = vds match {
+              case Seq(vd) => (vd, Seq(vd.toVariable))
+              case _ =>
+                val vd = ValDef(FreshIdentifier("p"), tupleTypeWrap(vds.map(_.tpe)))
+                val funArgs = vds.indices.map(i => TupleSelect(vd.toVariable, i + 1))
+                (vd, funArgs)
+            }
+
+            val subst = (vds zip funArgs).toMap
+            val pre = Lambda(Seq(vd), exprOps.replaceFromSymbols(subst, preOpt getOrElse BooleanLiteral(true)))
+            val body = Lambda(Seq(vd), exprOps.replaceFromSymbols(subst, modifiedBody))
+            (pre, body)
+
+          case x =>
+            throw new frontend.UnsupportedCodeException(
+              fun.getPos,
+              s"Unexpected $x [${x.getClass}] instead of a lambda when " +
+              "unapply syntactic sugar for partial function creation.")
+        }
+
+        ClassConstructor(ct, Seq(pre, body))
 
       case other => other
     }
