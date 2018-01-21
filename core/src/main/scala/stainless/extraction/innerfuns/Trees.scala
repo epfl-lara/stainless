@@ -20,7 +20,7 @@ trait Trees extends inlining.Trees { self =>
   case class LetRec(fds: Seq[LocalFunDef], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
       if (fds.forall { case LocalFunDef(vd, tparams, body) =>
-        vd.tpe != Untyped && vd.tpe == body.getType
+        vd.tpe != Untyped && s.isSubtypeOf(body.getType, vd.tpe)
       }) body.getType else Untyped
     }
   }
