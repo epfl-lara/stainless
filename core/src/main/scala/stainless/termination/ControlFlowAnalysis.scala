@@ -415,7 +415,17 @@ trait CICFA {
             case _ => Set.empty[Function]
           }
 
-          worklist ++= escapingLambdas(newret, Set.empty).filterNot(worklist.contains)
+          val escaping = escapingLambdas(newret, Set.empty).filterNot(worklist.contains)
+
+          // Register escaping lambda arguments as potentially containing external functions
+          for (fun <- escaping) {
+            val currSummary = getTabulation(fun)
+            val lambda = fun.asInstanceOf[LambdaFunction].lambda
+            val newEnv = AbsEnv(lambda.args.map(vd => vd.toVariable -> Set(External: AbsValue)).toMap)
+            tabulation.update(fun, Summary(currSummary.in.join(newEnv), currSummary.out, currSummary.ret))
+          }
+
+          worklist ++= escaping
         }
       }
     }
