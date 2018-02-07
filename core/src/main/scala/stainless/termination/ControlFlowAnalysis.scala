@@ -278,10 +278,11 @@ trait CICFA {
 
         case sel @ ADTSelector(adtExpr, selector) =>
           val (absAdts, esc) = rec(adtExpr, in)
+          val store = in.store ++ esc.store
           val resvals: Set[AbsValue] = absAdts.flatMap {
             case ConsObject(cons, argvars) =>
               val selarg = argvars(sel.selectorIndex)
-              in.store.getOrElse(selarg, Set())
+              store.getOrElse(selarg, Set())
 
             // here, we are dereferencing an external ADT and hence should be external
             case External => Set(External: AbsValue)
@@ -305,10 +306,11 @@ trait CICFA {
 
         case TupleSelect(tp, index) =>
           val (absTups, esc) = rec(tp, in)
+          val store = in.store ++ esc.store
           val resvals: Set[AbsValue] = absTups.flatMap {
             case TupleObject(_, argvars) =>
               val selarg = argvars(index - 1)
-              in.store.getOrElse(selarg, Set())
+              store.getOrElse(selarg, Set())
 
             // here, we are dereferencing an external Tuple and hence should be external
             case External => Set(External: AbsValue)
