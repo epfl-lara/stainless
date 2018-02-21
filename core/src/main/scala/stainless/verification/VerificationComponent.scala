@@ -44,13 +44,12 @@ object VerificationComponent extends SimpleComponent {
 
       reporter.debug(s"Generating VCs for those functions: ${toVerify map { _.uniqueName } mkString ", "}")
 
-      val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
+    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(toVerify)
 
-      VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
-        case VCResult(VCStatus.Invalid(model), s, t) =>
-          VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
-        case res => res.asInstanceOf[VCResult[p.Model]]
-      }
+    VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
+      case VCResult(VCStatus.Invalid(model), s, t) =>
+        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+      case res => res.asInstanceOf[VCResult[p.Model]]
     }
   }
 
