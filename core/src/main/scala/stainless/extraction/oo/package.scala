@@ -10,7 +10,7 @@ package object oo {
   object trees extends oo.Trees with ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
-      adts: Map[Identifier, ADTDefinition],
+      sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef]
     ) extends ClassSymbols
 

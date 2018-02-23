@@ -36,7 +36,7 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       }
 
       t.NoSymbols
-        .withADTs(syms.adts.values.toSeq map checker.transform)
+        .withSorts(syms.sorts.values.toSeq map checker.transform)
         .withFunctions(syms.functions.values.toSeq map checker.transform)
     }
 
@@ -58,12 +58,12 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       }
 
       t.NoSymbols
-        .withADTs(checkedSyms.adts.values.toSeq.map(pureUnits.transform))
+        .withSorts(checkedSyms.sorts.values.toSeq.map(pureUnits.transform))
         .withFunctions(checkedSyms.functions.values.toSeq.map(pureUnits.transform))
     }
 
     val simpleSyms = t.NoSymbols
-      .withADTs(pureUnitSyms.adts.values.toSeq)
+      .withSorts(pureUnitSyms.sorts.values.toSeq)
       .withFunctions(pureUnitSyms.functions.values.toSeq.map { fd =>
         fd.copy(fullBody = pureUnitSyms.simplifyLets(fd.fullBody))
       })

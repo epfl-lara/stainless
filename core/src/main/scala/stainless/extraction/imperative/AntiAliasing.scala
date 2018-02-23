@@ -207,8 +207,8 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
                     val (rec, path) = fieldPath(as)
                     objectUpdateToCopy(rec, path, resSelect)
 
-                  case cc @ ADT(adt, es) =>
-                    val (_, vd) = (es zip adt.getADT.toConstructor.definition.fields).find {
+                  case cc @ ADT(id, tps, es) =>
+                    val (_, vd) = (es zip cc.getConstructor.definition.fields).find {
                       case (va: Variable, _) => va == v
                       case _ => false
                     }.get
@@ -220,10 +220,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
                   case _ => resSelect
                 }
 
-                Assignment(v, v.tpe match {
-                  case adt: ADTType if adt != newValue.getType => AsInstanceOf(newValue, adt).setPos(expr)
-                  case _ => newValue
-                }).setPos(expr)
+                Assignment(v, newValue).setPos(expr)
               },
               TupleSelect(freshRes.toVariable, 1))
 
@@ -416,10 +413,11 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
     //properly updated values
     def objectUpdateToCopy(receiver: Expr, path: List[Field], newValue: Expr): Expr = path match {
       case ADTField(id) :: fs =>
-        val adt @ ADTType(_, _) = receiver.getType
+        val adt @ ADTType(_, tps) = receiver.getType
+        val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
         val rec = objectUpdateToCopy(ADTSelector(receiver, id), fs, newValue).setPos(newValue)
 
-        ADT(adt, adt.getADT.toConstructor.definition.fields.map { vd =>
+        ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
           if (vd.id == id) rec
           else ADTSelector(receiver, vd.id).copiedFrom(receiver)
         })
@@ -432,7 +430,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
     }
 
     val finalSyms = NoSymbols
-      .withADTs(newSyms.adts.values.toSeq)
+      .withSorts(newSyms.sorts.values.toSeq)
       .withFunctions(for (fd <- newSyms.functions.values.toSeq) yield {
         updateFunction(Outer(fd), Environment.empty).toFun
       })

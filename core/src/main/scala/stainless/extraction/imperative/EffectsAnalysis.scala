@@ -140,10 +140,9 @@ trait EffectsAnalysis {
       case (tp: TypeParameter) => tp.flags contains IsMutable
       case (arr: ArrayType) => true
       case (adt: ADTType) if seen contains adt => false
-      case (adt: ADTType) => adt.getADT match {
-        case tsort: TypedADTSort => tsort.constructors.exists(tcons => rec(tcons.toType, seen + adt))
-        case tcons: TypedADTConstructor => tcons.fields.exists(vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + adt))
-      }
+      case (adt: ADTType) => adt.getSort.constructors.exists(_.fields.exists {
+        vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + adt)
+      })
       case _: FunctionType => false
       case NAryType(tps, _) => tps.exists(rec(_, seen))
     })
@@ -188,8 +187,7 @@ trait EffectsAnalysis {
   private[imperative] def getReferencedVariables(expr: Expr): List[Variable] = expr match {
     case v: Variable => List(v)
     case ADTSelector(e, _) => getReferencedVariables(e)
-    case ADT(_, es) => es.flatMap(getReferencedVariables).toList
-    case AsInstanceOf(e, _) => getReferencedVariables(e)
+    case ADT(_, _, es) => es.flatMap(getReferencedVariables).toList
     case ArraySelect(a, _) => getReferencedVariables(a)
     case _ => Nil
   }
@@ -197,7 +195,6 @@ trait EffectsAnalysis {
   private[imperative] def getReceiverVariable(expr: Expr): Option[Variable] = expr match {
     case v: Variable => Some(v)
     case ADTSelector(e, _) => getReceiverVariable(e)
-    case AsInstanceOf(e, _) => getReceiverVariable(e)
     case ArraySelect(a, _) => getReceiverVariable(a)
     case _ => None
   }
@@ -264,7 +261,6 @@ trait EffectsAnalysis {
   //private def findReceiverId(o: Expr): Option[Identifier] = o match {
   //  case Variable(id) => Some(id)
   //  case CaseClassSelector(_, e, _) => findReceiverId(e)
-  //  case AsInstanceOf(e, ct) => findReceiverId(e)
   //  case ArraySelect(a, _) => findReceiverId(a)
   //  case _ => None
   //}

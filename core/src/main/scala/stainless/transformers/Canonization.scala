@@ -21,7 +21,7 @@ trait Canonization { self =>
 
     // Stores the transformed function and ADT definitions
     var functions = Seq[FunDef]()
-    var adts = Seq[ADTDefinition]()
+    var sorts = Seq[ADTSort]()
 
     object IdTransformer extends inox.ast.TreeTransformer {
       val s: self.trees.type = self.trees
@@ -42,8 +42,8 @@ trait Canonization { self =>
 
         if ((syms.functions contains id) && !visited) {
           functions = transform(syms.functions(id)) +: functions
-        } else if ((syms.adts contains id) && !visited) {
-          adts = transform(syms.adts(id)) +: adts
+        } else if ((syms.sorts contains id) && !visited) {
+          sorts = transform(syms.sorts(id)) +: sorts
         }
 
         nid
@@ -51,7 +51,7 @@ trait Canonization { self =>
     }
 
     val newVCBody = IdTransformer.transform(vc.condition)
-    val newSyms = NoSymbols.withFunctions(functions).withADTs(adts)
+    val newSyms = NoSymbols.withFunctions(functions).withSorts(sorts)
 
     (newSyms, newVCBody)
   }

@@ -128,14 +128,6 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     def binders: Set[ValDef] = subBinders ++ binder.toSet
   }
 
-  /** Pattern encoding `case binder: ct`
-    *
-    * If [[binder]] is empty, consider a wildcard `_` in its place.
-    */
-  case class InstanceOfPattern(binder: Option[ValDef], tpe: Type) extends Pattern {
-    val subPatterns = Seq()
-  }
-
   /** Pattern encoding `case _ => `, or `case binder => ` if [[binder]] is present */
   case class WildcardPattern(binder: Option[ValDef]) extends Pattern { // c @ _
     val subPatterns = Seq()
@@ -145,7 +137,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     *
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
-  case class ADTPattern(binder: Option[ValDef], tpe: ADTType, subPatterns: Seq[Pattern]) extends Pattern
+  case class ADTPattern(binder: Option[ValDef], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern
 
   /** Pattern encoding tuple pattern `case binder @ (subPatterns...) =>`
     *

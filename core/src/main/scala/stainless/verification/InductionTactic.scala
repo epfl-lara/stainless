@@ -13,13 +13,14 @@ trait InductionTactic extends DefaultTactic {
 
   private def firstSort(args: Seq[ValDef]): Option[(TypedADTSort, ValDef)] = {
     args.map(vd => (vd.getType, vd)).collect {
-      case (adt: ADTType, vd) if adt.getADT.definition.isSort => (adt.getADT.toSort, vd)
+      case (adt: ADTType, vd) if adt.getSort.definition.isInductive => (adt.getSort, vd)
     }.headOption
   }
 
   private def selectorsOfParentType(tsort: TypedADTSort, tcons: TypedADTConstructor, expr: Expr): Seq[Expr] = {
-    val childrenOfSameType = tcons.fields.collect { case vd if vd.tpe == tsort.toType => vd }
-    for (field <- childrenOfSameType) yield adtSelector(AsInstanceOf(expr, tcons.toType), field.id)
+    val tpe = ADTType(tsort.id, tsort.tps)
+    val childrenOfSameType = tcons.fields.collect { case vd if vd.tpe == tpe => vd }
+    for (field <- childrenOfSameType) yield adtSelector(expr, field.id)
   }
 
   override def generatePostconditions(id: Identifier): Seq[VC] = {
@@ -34,7 +35,7 @@ trait InductionTactic extends DefaultTactic {
           }
 
           val vc = exprOps.freshenLocals(implies(
-            and(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue),
+            and(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue),
             implies(andJoin(subCases), application(post, Seq(body)))
           ))
 
@@ -74,7 +75,7 @@ trait InductionTactic extends DefaultTactic {
           }
 
           val vc = exprOps.freshenLocals(path
-            .withConds(Seq(IsInstanceOf(arg.toVariable, tcons.toType), fd.precOrTrue) ++ subCases)
+            .withConds(Seq(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue) ++ subCases)
             .implies(fi.tfd.withParamSubst(args, pre)))
 
           // Crop the call to display it properly

@@ -6,7 +6,7 @@ package oo
 
 trait ClassSymbols { self: Trees =>
 
-  val Symbols: (Map[Identifier, FunDef], Map[Identifier, ADTDefinition], Map[Identifier, ClassDef]) => Symbols
+  val Symbols: (Map[Identifier, FunDef], Map[Identifier, ADTSort], Map[Identifier, ClassDef]) => Symbols
 
   val NoSymbols = Symbols(Map.empty, Map.empty, Map.empty)
 
@@ -14,19 +14,19 @@ trait ClassSymbols { self: Trees =>
 
     def withFunctions(functions: Seq[FunDef]): Symbols = Symbols(
       this.functions ++ functions.map(fd => fd.id -> fd),
-      this.adts,
+      this.sorts,
       this.classes
     )
 
-    def withADTs(adts: Seq[ADTDefinition]): Symbols = Symbols(
+    def withSorts(sorts: Seq[ADTSort]): Symbols = Symbols(
       this.functions,
-      this.adts ++ adts.map(adt => adt.id -> adt),
+      this.sorts ++ sorts.map(sort => sort.id -> sort),
       this.classes
     )
 
     def withClasses(classes: Seq[ClassDef]): Symbols = Symbols(
       this.functions,
-      this.adts,
+      this.sorts,
       this.classes ++ classes.map(cd => cd.id -> cd)
     )
   }

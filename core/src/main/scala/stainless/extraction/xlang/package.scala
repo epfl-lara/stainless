@@ -8,7 +8,7 @@ package object xlang {
   object trees extends xlang.Trees with oo.ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
-      adts: Map[Identifier, ADTDefinition],
+      sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef]
     ) extends ClassSymbols with AbstractSymbols
 
@@ -32,10 +32,9 @@ package object xlang {
         case _ => true
       }))
 
-    def transformADT(adt: s.ADTDefinition): t.ADTDefinition = transformer.transform(adt match {
-      case sort: s.ADTSort => sort.copy(flags = adt.flags - s.Ignore)
-      case cons: s.ADTConstructor => cons.copy(flags = adt.flags - s.Ignore)
-    })
+    def transformSort(sort: s.ADTSort): t.ADTSort = transformer.transform(sort.copy(
+      flags = sort.flags - s.Ignore
+    ))
 
     def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,

@@ -24,7 +24,7 @@ trait TerminationChecker {
     override def isGuaranteed: Boolean = false
   }
 
-  case class NotWellFormed(adts: Set[ADTDefinition]) extends NonTerminating
+  case class NotWellFormed(sorts: Set[ADTSort]) extends NonTerminating
   case class LoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
   case class MaybeLoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
   case class CallsNonTerminating(calls: Set[FunDef]) extends NonTerminating

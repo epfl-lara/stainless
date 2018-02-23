@@ -47,13 +47,13 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
       }).map(_._2)
 
       def get[T <: Definition : ClassTag](name: String): Option[T] = ({
-        if (classTag[ADTDefinition].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, adts)
+        if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, sorts)
         else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, functions)
         else None
       }).asInstanceOf[Option[T]]
 
       def apply[T <: Definition : ClassTag](name: String): T = get[T](name).getOrElse {
-        if (classTag[ADTDefinition].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
+        if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
           throw ADTLookupException(FreshIdentifier(name))
         } else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
           throw FunctionLookupException(FreshIdentifier(name))

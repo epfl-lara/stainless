@@ -8,52 +8,6 @@ trait TypeOps extends imperative.TypeOps {
   protected val trees: Trees
   import trees._
 
-  override protected def instantiationConstraints(toInst: Type, bound: Type, isUpper: Boolean): Constraint = (toInst, bound) match {
-    case (ct: ClassType, _) if ct.lookupClass.isEmpty => False
-    case (_, ct: ClassType) if ct.lookupClass.isEmpty => False
-    case (ct1: ClassType, ct2: ClassType) =>
-      val (ctl, ctu) = if (isUpper) (ct1, ct2) else (ct2, ct1)
-      ctu.tcd.ancestors.find(_.id == ctl.id).map { tcd =>
-        Conjunction(for {
-          (tp, (t1, t2)) <- tcd.cd.typeArgs zip (ctl.tps zip tcd.tps)
-          variance <- if (tp.isCovariant) Seq(isUpper) else if (tp.isContravariant) Seq(!isUpper) else Seq(true, false)
-        } yield instantiationConstraints(t1, t2, variance))
-      }.getOrElse(False)
-
-    // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if adt.lookupADT.isEmpty => False
-    case (_, adt: ADTType) if adt.lookupADT.isEmpty => False
-    case (adt1: ADTType, adt2: ADTType) =>
-      val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
-      val (dl, du) = if (isUpper) (d1, d2) else (d2, d1)
-      if (dl != du && dl.root != du) False
-      else {
-        Conjunction(for {
-          (t1, t2) <- adt1.tps zip adt2.tps
-          variance <- Seq(true, false) // invariant!
-        } yield instantiationConstraints(t1, t2, variance))
-      }
-
-    case (TypeBounds(lo, hi), tpe) => instantiationConstraints(if (isUpper) hi else lo, tpe, isUpper)
-    case (tpe, TypeBounds(lo, hi)) => instantiationConstraints(tpe, if (isUpper) hi else lo, isUpper)
-
-    case (UnionType(tps), _) if isUpper => Conjunction(tps.map(instantiationConstraints(_, bound, true)))
-    case (IntersectionType(tps), _) if isUpper => Disjunction(tps.map(instantiationConstraints(_, bound, true)))
-
-    case (UnionType(tps), tpe) => instantiationConstraints(IntersectionType(tps), tpe, !isUpper)
-    case (_, _: UnionType) => instantiationConstraints(bound, toInst, !isUpper)
-
-    case (IntersectionType(tps), tpe) => instantiationConstraints(UnionType(tps), tpe, !isUpper)
-    case (_, _: IntersectionType) => instantiationConstraints(bound, toInst, !isUpper)
-
-    case (tp, AnyType()) if tp.isTyped && isUpper => True
-    case (AnyType(), tp) if tp.isTyped && !isUpper => True
-    case (NothingType(), tp) if tp.isTyped && isUpper => True
-    case (tp, NothingType()) if tp.isTyped && !isUpper => True
-
-    case _ => super.instantiationConstraints(toInst, bound, isUpper)
-  }
-
   protected def unionType(tps: Seq[Type]): Type = tps match {
     case Seq() => NothingType()
     case Seq(tp) => tp
@@ -90,7 +44,7 @@ trait TypeOps extends imperative.TypeOps {
       }
   }
 
-  override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = ((tp1, tp2) match {
+  protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = ((tp1, tp2) match {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => Some(Untyped)
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => Some(Untyped)
     case (ct1: ClassType, ct2: ClassType) =>
@@ -138,24 +92,9 @@ trait TypeOps extends imperative.TypeOps {
         }
       }
 
-    // @nv: ADTs have to be invariant in the full type lattice!
-    case (adt: ADTType, _) if adt.lookupADT.isEmpty => Some(Untyped)
-    case (_, adt: ADTType) if adt.lookupADT.isEmpty => Some(Untyped)
-    case (adt1: ADTType, adt2: ADTType) if adt1.tps == adt2.tps => // invariant!
-      val (d1, d2) = (adt1.getADT.definition, adt2.getADT.definition)
-      val (an1, an2) = (Seq(d1, d1.root), Seq(d2, d2.root))
-
-      val bound = if (upper) {
-        (an1.reverse zip an2.reverse)
-          .takeWhile(((_: ADTDefinition) == (_: ADTDefinition)).tupled)
-          .lastOption.map(_._1)
-      } else {
-        if (an1 contains d2) Some(d1)
-        else if (an2 contains d1) Some(d2)
-        else None
-      }
-
-      bound.map(_.typed(adt1.tps).toType)
+    case (adt: ADTType, _) if adt.lookupSort.isEmpty => Some(Untyped)
+    case (_, adt: ADTType) if adt.lookupSort.isEmpty => Some(Untyped)
+    case (adt1: ADTType, adt2: ADTType) if adt1 == adt2 => Some(adt1)
 
     case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
     case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
@@ -190,22 +129,82 @@ trait TypeOps extends imperative.TypeOps {
     case _ => None
   }).getOrElse(if (upper) UnionType(Seq(tp1, tp2)) else IntersectionType(Seq(tp1, tp2))).unveilUntyped
 
-  override protected def unificationConstraints(t1: Type, t2: Type, free: Seq[TypeParameter]): List[(TypeParameter, Type)] = (t1, t2) match {
-    case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
-    case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
-    case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
-      (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
-    case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
-    case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
-    case _ => super.unificationConstraints(t1, t2, free)
+  /** Computes the tightest bound (upper or lower) of a sequence of types */
+  private def typeBound(tps: Seq[Type], upper: Boolean): Type = {
+    if (tps.isEmpty) Untyped
+    else tps.reduceLeft(typeBound(_, _, upper))
   }
 
-  override protected def unificationSolution(const: List[(Type, Type)]): List[(TypeParameter, Type)] = const match {
+  override def leastUpperBound(tp1: Type, tp2: Type): Type = typeBound(tp1, tp2, true)
+  override def leastUpperBound(tps: Seq[Type]): Type = typeBound(tps, true)
+
+  override def greatestLowerBound(tp1: Type, tp2: Type): Type = typeBound(tp1, tp2, false)
+  override def greatestLowerBound(tps: Seq[Type]): Type = typeBound(tps, false)
+
+  override def isSubtypeOf(t1: Type, t2: Type): Boolean = {
+    (!t1.isTyped && !t2.isTyped) || (t1.isTyped && t2.isTyped && leastUpperBound(t1, t2) == t2)
+  }
+
+  def typesCompatible(t1: Type, t2s: Type*) = {
+    leastUpperBound(t1 +: t2s) != Untyped
+  }
+
+  private class Unsolvable extends Exception
+  protected def unsolvable = throw new Unsolvable
+
+  /** Collects the constraints that need to be solved for [[unify]].
+    * Note: this is an override point. */
+  protected def unificationConstraints(t1: Type, t2: Type, free: Seq[TypeParameter]): List[(TypeParameter, Type)] = (t1, t2) match {
+    case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
+    case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
+    case (adt: ADTType, _) if adt.lookupSort.isEmpty => unsolvable
+    case (_, adt: ADTType) if adt.lookupSort.isEmpty => unsolvable
+    case _ if t1 == t2 => Nil
+    case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
+      (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
+      (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
+    case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
+    case (tp: TypeParameter, _) if !(typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
+    case (_, tp: TypeParameter) if !(typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)
+    case (_: TypeParameter, _) => unsolvable
+    case (_, _: TypeParameter) => unsolvable
+    case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) if ts1.size == ts2.size =>
+      (ts1 zip ts2).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case _ => unsolvable
+  }
+
+  /** Solves the constraints collected by [[unificationConstraints]].
+    * Note: this is an override point. */
+  protected def unificationSolution(const: List[(Type, Type)]): List[(TypeParameter, Type)] = const match {
+    case Nil => Nil
+    case (tp: TypeParameter, t) :: tl =>
+      val replaced = tl map { case (t1, t2) =>
+        (instantiateType(t1, Map(tp -> t)), instantiateType(t2, Map(tp -> t)))
+      }
+      (tp -> t) :: unificationSolution(replaced)
+    case (adt: ADTType, _) :: tl if adt.lookupSort.isEmpty => unsolvable
+    case (_, adt: ADTType) :: tl if adt.lookupSort.isEmpty => unsolvable
+    case (ADTType(id1, tps1), ADTType(id2, tps2)) :: tl if id1 == id2 =>
+      unificationSolution((tps1 zip tps2).toList ++ tl)
     case (ct: ClassType, _) :: tl if ct.lookupClass.isEmpty => unsolvable
     case (_, ct: ClassType) :: tl if ct.lookupClass.isEmpty => unsolvable
     case (ClassType(id1, tps1), ClassType(id2, tps2)) :: tl if id1 == id2 =>
       unificationSolution((tps1 zip tps2).toList ++ tl)
-    case _ => super.unificationSolution(const)
+    case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) :: tl if ts1.size == ts2.size =>
+      unificationSolution((ts1 zip ts2).toList ++ tl)
+    case _ =>
+      unsolvable
+  }
+
+  /** Unifies two types, under a set of free variables */
+  def unify(t1: Type, t2: Type, free: Seq[TypeParameter]): Option[List[(TypeParameter, Type)]] = {
+    try {
+      Some(unificationSolution(unificationConstraints(t1, t2, free)))
+    } catch {
+      case _: Unsolvable => None
+    }
   }
 
   def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {

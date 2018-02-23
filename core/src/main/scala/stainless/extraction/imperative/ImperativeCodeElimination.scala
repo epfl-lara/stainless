@@ -229,10 +229,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val scope = (body: Expr) => {
             argScope(Let(tmpTuple, newInvoc,
               freshVars.zipWithIndex.foldRight(body) { case ((v, i), b) =>
-                Let(v.toVal, (v, TupleSelect(tmpTuple.toVariable, i + 2)) match {
-                  case (IsTyped(v, adt: ADTType), IsTyped(select, t2)) if v != t2 => AsInstanceOf(select, adt)
-                  case (_, select) => select
-                }, b)
+                Let(v.toVal, TupleSelect(tmpTuple.toVariable, i + 2), b)
               }
             ))
           }
@@ -427,6 +424,6 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
       }
     }
 
-    NoSymbols.withFunctions(newFds.toSeq).withADTs(syms.adts.values.toSeq)
+    NoSymbols.withFunctions(newFds.toSeq).withSorts(syms.sorts.values.toSeq)
   }
 }

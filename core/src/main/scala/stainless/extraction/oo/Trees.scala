@@ -59,9 +59,23 @@ trait Trees extends holes.Trees with Definitions { self =>
     def getType(implicit s: Symbols): Type = ct
   }
 
+  /** $encodingof `expr.isInstanceOf[tpe]` */
+  case class IsInstanceOf(expr: Expr, tpe: Type) extends Expr {
+    override protected def computeType(implicit s: Symbols): Type = {
+      if (s.typesCompatible(expr.getType, tpe)) BooleanType() else Untyped
+    }
+  }
+
+  /** $encodingof `expr.asInstanceOf[tpe]` */
+  case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr {
+    override protected def computeType(implicit s: Symbols): Type = {
+      if (s.typesCompatible(expr.getType, tpe)) tpe else Untyped
+    }
+  }
+
 
   /* ========================================
-   *              EXPRESSIONS
+   *              PATTERNS
    * ======================================== */
 
   /* Pattern encoding `case binder @ ct(subPatterns...) =>`
@@ -69,6 +83,14 @@ trait Trees extends holes.Trees with Definitions { self =>
    * If [[binder]] is empty, consider a wildcard `_` in its place.
    */
   case class ClassPattern(binder: Option[ValDef], tpe: ClassType, subPatterns: Seq[Pattern]) extends Pattern
+
+  /** Pattern encoding `case binder: ct`
+   *      *
+   *          * If [[binder]] is empty, consider a wildcard `_` in its place.
+   *              */
+  case class InstanceOfPattern(binder: Option[ValDef], tpe: Type) extends Pattern {
+    val subPatterns = Seq()
+  }
 
 
   /* ========================================
@@ -281,6 +303,7 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.IsSealed => (Seq(), Seq(), Seq(), (_, _, _) => t.IsSealed)
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.Bounds(lo, hi) => (Seq(), Seq(), Seq(lo, hi), (_, _, tps) => t.Bounds(tps(0), tps(1)))
+    case s.Variance(v) => (Seq(), Seq(), Seq(), (_, _, _) => t.Variance(v))
     case _ => super.deconstruct(f)
   }
 }
@@ -317,7 +340,7 @@ object SymbolTransformer {
     val t: trans.t.type = trans.t
 
     protected def transformFunction(fd: s.FunDef): t.FunDef = trans.transform(fd)
-    protected def transformADT(adt: s.ADTDefinition): t.ADTDefinition = trans.transform(adt)
+    protected def transformSort(sort: s.ADTSort): t.ADTSort = trans.transform(sort)
     protected def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
       cd.id,
       cd.tparams.map(tdef => trans.transform(tdef)),

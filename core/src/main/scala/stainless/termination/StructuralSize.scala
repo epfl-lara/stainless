@@ -104,32 +104,29 @@ trait StructuralSize { self: SolverProvider =>
    */
   def fullSize(expr: Expr): Expr = expr.getType match {
     case (adt: ADTType) =>
-      val root = adt.getADT.definition.root
-      val rootType = root.typed.toType
-      val fid = fullCache.get(rootType) match {
+      val sort = adt.getSort.definition
+      val tpe = ADTType(sort.id, sort.typeArgs)
+      val fid = fullCache.get(tpe) match {
         case Some(id) => id
         case None =>
           val id = FreshIdentifier("fullSize$" + adt.id.name)
-          fullCache += rootType -> id
+          fullCache += tpe -> id
 
           // we want to reuse generic size functions for sub-types
-          val tparams = root.tparams.map(_.tp)
+          val tparams = sort.tparams.map(_.tp)
 
-          val v = Variable.fresh("x", rootType)
+          val v = Variable.fresh("x", tpe)
           functions += new FunDef(
             id,
-            root.tparams,
+            sort.tparams,
             Seq(v.toVal),
             IntegerType(),
-            Ensuring(MatchExpr(v, (root match {
-              case sort: ADTSort => sort.typed(tparams).constructors
-              case cons: ADTConstructor => Seq(cons.typed(tparams))
-            }).map { cons =>
+            Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
               val arguments = cons.fields.map(_.freshen)
               val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
               val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
-              MatchCase(ADTPattern(None, cons.toType, argumentPatterns), None, rhs)
+              MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
             }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(expr),
             Set.empty
           )
@@ -153,11 +150,12 @@ trait StructuralSize { self: SolverProvider =>
     case _ => IntegerLiteral(0)
   }
 
+  // An ADT sort corresponds to a container type if (and only if) it has
+  // a single non-recursive constructor
   object ContainerType {
-    def unapply(c: ADTType): Option[Seq[ValDef]] = c.getADT match {
-      case tcons: TypedADTConstructor =>
-        if (tcons.fields.exists(vd => isSubtypeOf(vd.tpe, tcons.root.toType))) None
-        else if (tcons.sort.isDefined && tcons.sort.get.constructors.size > 1) None
+    def unapply(c: ADTType): Option[Seq[ValDef]] = c.getSort.constructors match {
+      case Seq(tcons) =>
+        if (tcons.fields.exists(vd => isSubtypeOf(vd.tpe, c))) None
         else Some(tcons.fields)
       case _ => None
     }

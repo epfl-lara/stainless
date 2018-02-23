@@ -264,7 +264,7 @@ trait CICFA {
           // use the out fact as a temporary result
           (currSummary.ret, argesc ++ currSummary.out)
 
-        case adt @ ADT(adttype, args) =>
+        case adt @ ADT(id, tps, args) =>
           val absres = args.map(rec(_, in))
           val absargs = absres.map(_._1)
           val argesc = flatten(absres.map(_._2))
@@ -365,15 +365,6 @@ trait CICFA {
           // pred cannot have an escaping set
           rec(pred, in)
           rec(body, in)
-
-        case AsInstanceOf(a, tpe: ADTType) =>
-          val (res, esc) = rec(a, in)
-          val resvals: Set[AbsValue] = res.flatMap {
-            case abs @ ConsObject(cons, argvars) if cons.adt.id == tpe.id => Set(abs : AbsValue)
-            case External => Set(External : AbsValue)
-            case _ => Set[AbsValue]()
-          }
-          (resvals, esc)
 
         case NoTree(_) => (Set(), emptyEnv)
 

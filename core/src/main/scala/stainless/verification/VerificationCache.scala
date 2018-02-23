@@ -97,7 +97,7 @@ trait VerificationCache extends VerificationChecker { self =>
     val uniq = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(p._1))
     p._1.functions.values.map(fd => fd.asString(uniq)).toList.sorted.mkString("\n\n") +
     "\n#\n" +
-    p._1.adts.values.map(adt => adt.asString(uniq)).toList.sorted.mkString("\n\n") +
+    p._1.sorts.values.map(sort => sort.asString(uniq)).toList.sorted.mkString("\n\n") +
     "\n#\n" +
     p._2.asString(uniq)
   }

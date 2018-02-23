@@ -186,8 +186,9 @@ trait Definitions extends imperative.Trees { self: Trees =>
   case object IsSealed extends Flag("sealed", Seq.empty)
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
+  case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
 
-  implicit class TypeParameterWithBounds(tp: TypeParameter) {
+  implicit class TypeParameterWrapper(tp: TypeParameter) {
     def bounds: TypeBounds = {
       tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi) }
         .getOrElse(TypeBounds(NothingType(), AnyType()))
@@ -195,5 +196,9 @@ trait Definitions extends imperative.Trees { self: Trees =>
 
     def lowerBound: Type = bounds.lo
     def upperBound: Type = bounds.hi
+
+    def isCovariant: Boolean = tp.flags contains Variance(true)
+    def isContravariant: Boolean = tp.flags contains Variance(false)
+    def isInvariant: Boolean = tp.flags.forall { case Variance(_) => false case _ => true }
   }
 }

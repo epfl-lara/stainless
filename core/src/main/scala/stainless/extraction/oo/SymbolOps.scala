@@ -28,4 +28,22 @@ trait SymbolOps extends imperative.SymbolOps { self: TypeOps =>
                                                             (implicit pp: PathProvider[P]) = 
                                                               new PatternConditions[P](includeBinders)
 
+  /** $encodingof expr.asInstanceOf[tpe], returns `expr` if it already is of type `tpe`.  */
+  def asInstOf(expr: Expr, tpe: Type) = {
+    if (symbols.isSubtypeOf(expr.getType, tpe)) {
+      expr
+    } else {
+      AsInstanceOf(expr, tpe).copiedFrom(expr)
+    }
+  }
+
+  /** $encodingof expr.isInstanceOf[tpe], simplifies to `true` or `false` in clear cases. */
+  def isInstOf(expr: Expr, tpe: Type) = (expr.getType, tpe) match {
+    case (t1, t2) if symbols.isSubtypeOf(t1, t2) => BooleanLiteral(true).copiedFrom(expr)
+
+    //case (t1: ADTType, t2: ADTType)
+    //if t1.id != t2.id && !t1.getADT.definition.isSort && !t2.getADT.definition.isSort => BooleanLiteral(false).copiedFrom(expr)
+
+    case _ => IsInstanceOf(expr, tpe).copiedFrom(expr)
+  }
 }

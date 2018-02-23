@@ -28,7 +28,7 @@ trait LoopProcessor extends OrderingProcessor {
     protected def transformFunction(fd: FunDef): FunDef =
       fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
 
-    protected def transformADT(adt: ADTDefinition): ADTDefinition = adt
+    protected def transformSort(sort: ADTSort): ADTSort = sort
   }
 
   def run(problem: Problem) = timers.termination.processors.loops.run {

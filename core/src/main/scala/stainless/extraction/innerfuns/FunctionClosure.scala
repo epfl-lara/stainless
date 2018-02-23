@@ -214,6 +214,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
     t.NoSymbols
       .withFunctions(symbols.functions.values.toSeq.flatMap(close))
-      .withADTs(symbols.adts.values.toSeq.map(identity.transform))
+      .withSorts(symbols.sorts.values.toSeq.map(identity.transform))
   }
 }

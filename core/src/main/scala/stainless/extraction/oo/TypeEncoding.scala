@@ -14,6 +14,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
   def transform(symbols: s.Symbols): t.Symbols = {
     import t.{forall => _, _}
     import t.dsl._
+    import s.TypeParameterWrapper
 
     def encodeName(s: String): String = s.replace("[", "<").replace("]", ">")
 
@@ -43,150 +44,118 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
      * tuple types and function types.
      */
     val seqID  = FreshIdentifier("Seq")
-    val consID = FreshIdentifier("Cons")
-    val nilID  = FreshIdentifier("Nil")
+    val seq  = T(seqID)()
 
     val head = FreshIdentifier("head")
     val tail = FreshIdentifier("tail")
 
-    val seq  = T(seqID)()
-    val cons = T(consID)()
-    val nil  = T(nilID)()
-
     def mkSeq(es: Seq[Expr]): Expr = es.foldRight(nil())((h, t) => cons(h, t))
     def seqAt(s: Expr, i: Int): Expr =
-      if (i <= 0) Assume(s.isInstOf(cons), s.asInstOf(cons).getField(head))
-      else Assume(s.isInstOf(cons), seqAt(s.asInstOf(cons).getField(tail), i - 1))
+      if (i <= 0) Assume(s is cons, s.getField(head))
+      else Assume(s is cons, seqAt(s.getField(tail), i - 1))
 
-    val seqSort  = mkSort(seqID)()(Seq(consID, nilID))
-    val consCons = mkConstructor(consID)()(Some(seqID))(_ => Seq(ValDef(head, tpe), ValDef(tail, seq)))
-    val nilCons  = mkConstructor(nilID)()(Some(seqID))(_ => Seq())
+    val seqSort  = mkSort(seqID)()(_ => Seq(
+      (FreshIdentifier("Cons"), Seq(ValDef(head, tpe), ValDef(tail, seq))),
+      (FreshIdentifier("Nil"), Seq())
+    ))
+    val Seq(cons, nil) = seqSort.constructors
 
 
     /* ====================================
      *           TYPE ADTS
      * ==================================== */
 
-    /* Bottom type, corresponds to Scala's {{{Nothing}}} */
-    val botID = FreshIdentifier("Bot")
-    val botCons = mkConstructor(botID)()(Some(tpeID))(_ => Seq())
-    val bot = T(botID)()
+    val tpeSort = mkSort(tpeID)()(_ => Seq(
+      /* Bottom type, corresponds to Scala's {{{Nothing}}} */
+      (FreshIdentifier("Bot"), Seq()),
 
-    /* Top type, corresponds to Scala's {{{Any}}} */
-    val topID = FreshIdentifier("Top")
-    val topCons = mkConstructor(topID)()(Some(tpeID))(_ => Seq())
-    val top = T(topID)()
+      /* Top type, corresponds to Scala's {{{Any}}} */
+      (FreshIdentifier("Top"), Seq()),
 
-    /* Class type, corresponds to a class definition in Scala:
-     * {{{
-     * class A[T1,...,Tn] extends C1[Ti,...,Tj] with ... with CN[Tk,...,Tl]
-     * }}}
-     * Note that `T1` to `Tn` can be variant and have type bounds. */
-    val clsID = FreshIdentifier("Class")
-    val clsPtr = FreshIdentifier("id")  // `id` field, corresponds to `A` name
-    val clsTps = FreshIdentifier("tps") // `tps` field, corresponds to `T1,...,Tn` type parameters
-    val clsCons = mkConstructor(clsID)()(Some(tpeID))(_ => Seq(ValDef(clsPtr, IntegerType()), ValDef(clsTps, seq)))
-    val cls = T(clsID)()
+      /* Class type, corresponds to a class definition in Scala:
+       * {{{
+       * class A[T1,...,Tn] extends C1[Ti,...,Tj] with ... with CN[Tk,...,Tl]
+       * }}}
+       * Note that `T1` to `Tn` can be variant and have type bounds.
+       *
+       * "id" field corresponds to `A` name
+       * "tps" field corresponds to `T1,...,Tn` type parameters */
+      (FreshIdentifier("Class"), Seq("id" :: IntegerType(), "tps" :: seq)),
 
-    /* ADT type, corresponds to a datatype definition in Scala:
-     * {{{
-     * case class A[T1,...,Tn] extends B[T1,...,Tn]
-     * }}}
-     * Note that `T1` to `Tn` must be invariant here. */
-    val adtID = FreshIdentifier("Adt")
-    val adtPtr = FreshIdentifier("id")  // `id` field, corresponds to `A` name
-    val adtTps = FreshIdentifier("tps") // `tps` field, corresponds to `T1,...,Tn` type parameters
-    val adtCons = mkConstructor(adtID)()(Some(tpeID))(_ => Seq(ValDef(adtPtr, IntegerType()), ValDef(adtTps, seq)))
-    val adt = T(adtID)()
+      /* ADT type, corresponds to a datatype definition in Scala:
+       * {{{
+       * case class A[T1,...,Tn] extends B[T1,...,Tn]
+       * }}}
+       * Note that `T1` to `Tn` must be invariant here.
+       *
+       * "id" field corresponds to `A` name
+       * "tps" field corresponds to `T1,...,Tn` type parameters */
+      (FreshIdentifier("Adt"), Seq("id" :: IntegerType(), "tps" :: seq)),
 
-    /* Array type, corresponds to {{{Array[base]}}} in Scala */
-    val arrID = FreshIdentifier("Array")
-    val arrBase = FreshIdentifier("base") // `base` field in `Array[base]` type
-    val arrCons = mkConstructor(arrID)()(Some(tpeID))(_ => Seq(ValDef(arrBase, tpe)))
-    val arr = T(arrID)()
+      /* Array type, corresponds to {{{Array[base]}}} in Scala */
+      (FreshIdentifier("Array"), Seq("base" :: tpe)),
 
-    /* Set type, corresponds to {{{Set[base]}}} in Scala */
-    val setID = FreshIdentifier("Set")
-    val setBase = FreshIdentifier("base") // `base` field in `Set[base]` type
-    val setCons = mkConstructor(setID)()(Some(tpeID))(_ => Seq(ValDef(setBase, tpe)))
-    val set = T(setID)()
+      /* Set type, corresponds to {{{Set[base]}}} in Scala */
+      (FreshIdentifier("Set"), Seq("base" :: tpe)),
 
-    /* Bag type, corresponds to {{{Bag[base]}}} in Scala */
-    val bagID = FreshIdentifier("Bag")
-    val bagBase = FreshIdentifier("base") // `base` field in `Bag[base]` type
-    val bagCons = mkConstructor(bagID)()(Some(tpeID))(_ => Seq(ValDef(bagBase, tpe)))
-    val bag = T(bagID)()
+      /* Bag type, corresponds to {{{Bag[base]}}} in Scala */
+      (FreshIdentifier("Bag"), Seq("base" :: tpe)),
 
-    /* Map type, corresponds to {{{Map[from,to}}} in Scala */
-    val mapID = FreshIdentifier("Map")
-    val mapFrom = FreshIdentifier("from") // `from` field in `Map[from,to]` type
-    val mapTo   = FreshIdentifier("to")   // `to`   field in `Map[from,to]` type
-    val mapCons = mkConstructor(mapID)()(Some(tpeID))(_ => Seq(ValDef(mapFrom, tpe), ValDef(mapTo, tpe)))
-    val map = T(mapID)()
+      /* Map type, corresponds to {{{Map[from,to}}} in Scala */
+      (FreshIdentifier("Map"), Seq("from" :: tpe, "to" :: tpe)),
 
-    /* Tuple type, corresponds to {{{(Type1,...,TypeN)}}} in Scala */
-    val tplID = FreshIdentifier("Tuple")
-    val tplTps = FreshIdentifier("tps") // `tps` field in `(tps1,...,tpsN)` type
-    val tplCons = mkConstructor(tplID)()(Some(tpeID))(_ => Seq(ValDef(tplTps, seq)))
-    val tpl = T(tplID)()
+      /* Function type, corresponds to {{{(From1,...,FromN) => To}}} in Scala */
+      (FreshIdentifier("Function"), Seq("from" :: seq, "to" :: tpe)),
 
-    /* Function type, corresponds to {{{(From1,...,FromN) => To}}} in Scala */
-    val funID = FreshIdentifier("Function")
-    val funFrom = FreshIdentifier("from") // `from` field in `(from1,...,fromN) => to` type
-    val funTo   = FreshIdentifier("to")   // `to`   field in `(from1,...,fromN) => to` type
-    val funCons = mkConstructor(funID)()(Some(tpeID))(_ => Seq(ValDef(funFrom, seq), ValDef(funTo, tpe)))
-    val fun = T(funID)()
+      /* Tuple type, corresponds to {{{(Type1,...,TypeN)}}} in Scala */
+      (FreshIdentifier("Tuple"), Seq("tps" :: seq)),
 
-    /* Boolean type, corresponds to {{{Boolean}}} in Scala */
-    val boolID = FreshIdentifier("Boolean")
-    val boolCons = mkConstructor(boolID)()(Some(tpeID))(_ => Seq())
-    val bool = T(boolID)()
+      /* Boolean type, corresponds to {{{Boolean}}} in Scala */
+      (FreshIdentifier("Boolean"), Seq()),
 
-    /* Integer type, corresponds to {{{BigInt}}} in Scala */
-    val intID = FreshIdentifier("Integer")
-    val intCons = mkConstructor(intID)()(Some(tpeID))(_ => Seq())
-    val int = T(intID)()
+      /* Integer type, corresponds to {{{BigInt}}} in Scala */
+      (FreshIdentifier("Integer"), Seq()),
 
-    /* Bitvector type, corresponds to {{{Int}}}, {{{Short}}}, {{{Byte}}}, {{{Char}}}, ... in Scala */
-    val bvID = FreshIdentifier("Bitvector")
-    val bvSize = FreshIdentifier("size")
-    val bvCons = mkConstructor(bvID)()(Some(tpeID))(_ => Seq(ValDef(bvSize, IntegerType())))
-    val bv = T(bvID)()
+      /* Bitvector type, corresponds to {{{Int}}}, {{{Short}}}, {{{Byte}}}, ... in Scala */
+      (FreshIdentifier("Bitvector"), Seq("size" :: IntegerType())),
 
-    /* Character type, corresponds to {{{Char}}} in Scala */
-    val charID = FreshIdentifier("Char")
-    val charCons = mkConstructor(charID)()(Some(tpeID))(_ => Seq())
-    val char = T(charID)()
+      /* Character type, corresponds to {{{Char}}} in Scala */
+      (FreshIdentifier("Char"), Seq()),
 
-    /* Unit type, corresponds to {{{Unit}}} in Scala */
-    val unitID = FreshIdentifier("Unit")
-    val unitCons = mkConstructor(unitID)()(Some(tpeID))(_ => Seq())
-    val unit = T(unitID)()
+      /* Unit type, corresponds to {{{Unit}}} in Scala */
+      (FreshIdentifier("Unit"), Seq()),
 
-    /* Unbounded real type */
-    val realID = FreshIdentifier("Real")
-    val realCons = mkConstructor(realID)()(Some(tpeID))(_ => Seq())
-    val real = T(realID)()
+      /* Unbounded real type */
+      (FreshIdentifier("Real"), Seq()),
 
-    val strID = FreshIdentifier("String")
-    val strCons = mkConstructor(strID)()(Some(tpeID))(_ => Seq())
-    val str = T(strID)()
-
-    val tpeSort = mkSort(tpeID)()(Seq(
-      botID, topID, clsID, adtID, arrID,
-      setID, bagID, mapID, tplID, funID,
-      boolID, intID, bvID, charID, unitID, realID, strID
+      /* String type, corresponds to {{{String}}} in Scala */
+      (FreshIdentifier("String"), Seq())
     ))
+
+    val Seq(bot, top, cls, adt, arr, set, bag, map, fun, tpl, bool, int, bv, char, unit, real, str) =
+      tpeSort.constructors
+
+    val Seq(clsPtr, clsTps) = cls.fields.map(_.id)
+    val Seq(adtPtr, adtTps) = adt.fields.map(_.id)
+    val Seq(arrBase) = arr.fields.map(_.id)
+    val Seq(setBase) = set.fields.map(_.id)
+    val Seq(bagBase) = bag.fields.map(_.id)
+    val Seq(mapFrom, mapTo) = map.fields.map(_.id)
+    val Seq(funFrom, funTo) = fun.fields.map(_.id)
+    val Seq(tplTps) = tpl.fields.map(_.id)
+    val Seq(bvSize) = bv.fields.map(_.id)
 
 
     /* ====================================
      *             REF-TYPES ADT
      * ==================================== */
 
-    val objID = FreshIdentifier("Object")
-    val objPtr = FreshIdentifier("ptr")
-    val objCons = mkConstructor(objID)()(None)(_ => Seq(ValDef(objPtr, IntegerType())))
-    val obj = T(objID)()
+    val objSort = mkSort(FreshIdentifier("Object"))()(_ => Seq(
+      (FreshIdentifier("Object"), Seq("ptr" :: IntegerType()))
+    ))
+    val obj = T(objSort.id)()
+    val Seq(objCons) = objSort.constructors
+    val Seq(objPtr) = objCons.fields.map(_.id)
 
 
     /* ====================================
@@ -210,13 +179,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       def empty = new TypeScope(Map.empty)
 
       def apply(cd: s.ClassDef, tpe: Expr): TypeScope = {
-        val clsParams = cd.tparams.indices.map(i => seqAt(tpe.asInstOf(cls).getField(clsTps), i))
+        val clsParams = cd.tparams.indices.map(i => seqAt(tpe.getField(clsTps), i))
         val newTParams = (cd.tparams.map(_.tp) zip clsParams).toMap
         new TypeScope(newTParams)
       }
 
-      def apply(d: s.ADTDefinition, tpe: Expr): TypeScope = {
-        val adtParams = d.tparams.indices.map(i => seqAt(tpe.asInstOf(adt).getField(adtTps), i))
+      def apply(d: s.ADTSort, tpe: Expr): TypeScope = {
+        val adtParams = d.tparams.indices.map(i => seqAt(tpe.getField(adtTps), i))
         val newTParams = (d.tparams.map(_.tp) zip adtParams).toMap
         new TypeScope(newTParams)
       }
@@ -253,33 +222,33 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val subtypeFunction = mkFunDef(subtypeID, Unchecked)()(_ => (
       Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
         case Seq(tp1, tp2) => Seq(
-          tp2.isInstOf(top) -> E(true),
-          tp1.isInstOf(bot) -> E(true),
-          tp1.isInstOf(cls) -> (
-            tp2.isInstOf(cls) &&
+          (tp2 is top) -> E(true),
+          (tp1 is bot) -> E(true),
+          (tp1 is cls) -> (
+            (tp2 is cls) &&
             symbols.classes.values.foldRight(
               IfExpr(andJoin(symbols.classes.values.filter(_.flags contains s.IsSealed).toSeq.map {
-                cd => !(tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId))
+                cd => !(tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId))
               }), choose("res" :: BooleanType())(_ => E(true)), E(false)): Expr
             ) {
               case (cd, elze) => IfExpr(
-                tp1.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId),
+                tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId),
                 (
-                  tp2.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId) && {
+                  tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId) && {
                     def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
                       case tp +: xs =>
-                        val (t1, t2) = (seq1.asInstOf(cons).getField(head), seq2.asInstOf(cons).getField(head))
+                        val (t1, t2) = (seq1.getField(head), seq2.getField(head))
                         val cond = if (tp.isCovariant) subtypeOf(t1, t2)
                           else if (tp.isContravariant) subtypeOf(t2, t1)
                           else t1 === t2
-                        seq1.isInstOf(cons) &&
-                        seq2.isInstOf(cons) &&
+                        (seq1 is cons) &&
+                        (seq2 is cons) &&
                         cond &&
-                        rec(xs, seq1.asInstOf(cons).getField(tail), seq2.asInstOf(cons).getField(tail))
+                        rec(xs, seq1.getField(tail), seq2.getField(tail))
                       case Seq() => E(true)
                     }
 
-                    rec(cd.typeArgs, tp1.asInstOf(cls).getField(clsTps), tp2.asInstOf(cls).getField(clsTps))
+                    rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
                   }
                 ) || (
                   orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2)))
@@ -288,62 +257,55 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               )
             }
           ),
-          tp1.isInstOf(adt) -> (
-            tp2.isInstOf(adt) &&
-            symbols.adts.values.foldRight(E(false)) {
+          (tp1 is adt) -> (
+            (tp2 is adt) &&
+            symbols.sorts.values.foldRight(E(false)) {
               case (d, elze) => IfExpr(
-                tp1.asInstOf(adt).getField(adtPtr) === IntegerLiteral(d.id.globalId),
-                orJoin(Seq(d, d.root(symbols)).distinct.map {
-                  d => tp2.asInstOf(adt).getField(adtPtr) === IntegerLiteral(d.id.globalId)
-                }) && tp1.asInstOf(adt).getField(adtTps) === tp2.asInstOf(adt).getField(adtTps),
+                tp1.getField(adtPtr) === IntegerLiteral(d.id.globalId),
+                (tp2.getField(adtPtr) === IntegerLiteral(d.id.globalId)) &&
+                tp1.getField(adtTps) === tp2.getField(adtTps),
                 elze
               )
             }
           ),
-          tp1.isInstOf(tpl) -> (
-            tp2.isInstOf(tpl) && (
+          (tp1 is tpl) -> (
+            (tp2 is tpl) && (
               (
-                tp1.asInstOf(tpl).getField(tplTps).isInstOf(nil) &&
-                tp2.asInstOf(tpl).getField(tplTps).isInstOf(nil)
+                (tp1.getField(tplTps) is nil) &&
+                (tp2.getField(tplTps) is nil)
               ) || (
-                tp1.asInstOf(tpl).getField(tplTps).isInstOf(cons) &&
-                tp2.asInstOf(tpl).getField(tplTps).isInstOf(cons) &&
+                (tp1.getField(tplTps) is cons) &&
+                (tp2.getField(tplTps) is cons) &&
                 subtypeOf(
-                  tp1.asInstOf(tpl).getField(tplTps).asInstOf(cons).getField(head),
-                  tp2.asInstOf(tpl).getField(tplTps).asInstOf(cons).getField(head)
+                  tp1.getField(tplTps).getField(head),
+                  tp2.getField(tplTps).getField(head)
                 ) &&
                 subtypeOf(
-                  tpl(tp1.asInstOf(tpl).getField(tplTps).asInstOf(cons).getField(tail)),
-                  tpl(tp2.asInstOf(tpl).getField(tplTps).asInstOf(cons).getField(tail))
+                  tpl(tp1.getField(tplTps).getField(tail)),
+                  tpl(tp2.getField(tplTps).getField(tail))
                 )
               )
             )
           ),
-          tp1.isInstOf(fun) -> (
-            tp2.isInstOf(fun) && (
+          (tp1 is fun) -> (
+            (tp2 is fun) && (
               (
-                tp1.asInstOf(fun).getField(funFrom).isInstOf(nil) &&
-                tp2.asInstOf(fun).getField(funFrom).isInstOf(nil) &&
+                (tp1.getField(funFrom) is nil) &&
+                (tp2.getField(funFrom) is nil) &&
                 subtypeOf(
-                  tp1.asInstOf(fun).getField(funTo),
-                  tp2.asInstOf(fun).getField(funTo)
+                  tp1.getField(funTo),
+                  tp2.getField(funTo)
                 )
               ) || (
-                tp1.asInstOf(fun).getField(funFrom).isInstOf(cons) &&
-                tp2.asInstOf(fun).getField(funFrom).isInstOf(cons) &&
+                (tp1.getField(funFrom) is cons) &&
+                (tp2.getField(funFrom) is cons) &&
                 subtypeOf( // contravariant!
-                  tp2.asInstOf(fun).getField(funFrom).asInstOf(cons).getField(head),
-                  tp1.asInstOf(fun).getField(funFrom).asInstOf(cons).getField(head)
+                  tp2.getField(funFrom).getField(head),
+                  tp1.getField(funFrom).getField(head)
                 ) &&
                 subtypeOf(
-                  fun(
-                    tp1.asInstOf(fun).getField(funFrom).asInstOf(cons).getField(tail),
-                    tp1.asInstOf(fun).getField(funTo)
-                  ),
-                  fun(
-                    tp2.asInstOf(fun).getField(funFrom).asInstOf(cons).getField(tail),
-                    tp2.asInstOf(fun).getField(funTo)
-                  )
+                  fun(tp1.getField(funFrom).getField(tail), tp1.getField(funTo)),
+                  fun(tp2.getField(funFrom).getField(tail), tp2.getField(funTo))
                 )
               )
             )
@@ -385,19 +347,12 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
       Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
         case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
-          tp2.isInstOf(bot) -> E(false),
-          tp2.isInstOf(top) -> E(true),
-          tp2.isInstOf(cls) -> (
-            tp1.isInstOf(cls) &&
+          (tp2 is bot) -> E(false),
+          (tp2 is top) -> E(true),
+          (tp2 is cls) -> (
+            (tp1 is cls) &&
             andJoin(symbols.classes.values.toSeq.filter(_.flags contains s.IsAbstract).map {
-              cd => !(tp1.asInstOf(cls).getField(clsPtr) === IntegerLiteral(cd.id.globalId))
-            }) &&
-            subtypeOf(tp1, tp2)
-          ),
-          tp2.isInstOf(adt) -> (
-            tp1.isInstOf(adt) &&
-            andJoin(symbols.adts.values.filter(_.isSort).toSeq.map {
-              d => !(tp1.asInstOf(adt).getField(adtPtr) === IntegerLiteral(d.id.globalId))
+              cd => !(tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId))
             }) &&
             subtypeOf(tp1, tp2)
           )
@@ -517,10 +472,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           })
         }
 
-        case (ADTType(id1, tps1), ADTType(id2, tps2)) =>
-          val root = symbols.getADT(id1).root(symbols)
-          val (tpe1, tpe2) = (ADTType(root.id, tps1), ADTType(root.id, tps2))
-
+        case (tpe1 @ ADTType(id, tps1), tpe2 @ ADTType(_, tps2)) =>
+          val sort: s.ADTSort = symbols.getSort(id)
           val id = unificationCache.get((tpe1, tpe2)) match {
             case Some(fd) => fd.id
             case None => unifications.get((tpe1, tpe2)) match {
@@ -530,17 +483,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
                 unifications += (tpe1, tpe2) -> id
                 unificationCache += (tpe1, tpe2) -> mkFunDef(id, Unchecked)()(_ => (
                   Seq("e" :: tpe1), tpe2, { case Seq(e) =>
-                    val conss = root match {
-                      case cons: s.ADTConstructor => Seq(cons)
-                      case sort: s.ADTSort => sort.constructors(symbols)
-                    }
-
                     val scope = TypeScope.empty
-                    val condRecons :+ ((_, last)) = conss.map { cons =>
-                      val cond = IsInstanceOf(e, ADTType(cons.id, tps1).copiedFrom(e)).copiedFrom(e)
-                      val cast = AsInstanceOf(e, ADTType(cons.id, tps1).copiedFrom(e)).copiedFrom(e)
-
-                      val typeArgs = cons.typeArgs.map(scope.transform)
+                    val typeArgs = sort.typeArgs.map(scope.transform)
+                    val condRecons :+ ((_, last)) = sort.constructors.map { cons =>
 
                       val fields = cons.fields.map { vd =>
                         val ttpe = scope.transform(vd.tpe)
@@ -551,10 +496,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
                             case _ => None
                           } (ttpe)
                         }
-                        rec(ADTSelector(cast, vd.id).copiedFrom(cast), instantiate(tps1), instantiate(tps2))
+                        rec(ADTSelector(e, vd.id).copiedFrom(e), instantiate(tps1), instantiate(tps2))
                       }
 
-                      (cond, ADT(ADTType(cons.id, tps2).copiedFrom(e), fields).copiedFrom(e))
+                      (IsConstructor(e, cons.id).copiedFrom(e), ADT(cons.id, tps2, fields).copiedFrom(e))
                     }
 
                     condRecons.foldRight(last: Expr) { case ((cond, e), elze) => IfExpr(cond, e, elze).copiedFrom(cond) }
@@ -593,41 +538,51 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
      *          UNAPPLY FUNCTIONS
      * ==================================== */
 
-    lazy val option = symbols.lookup[s.ADTDefinition]("stainless.lang.Option").id
-    lazy val some = symbols.lookup[s.ADTDefinition]("stainless.lang.Some").id
-    lazy val none = symbols.lookup[s.ADTDefinition]("stainless.lang.None").id
+    val (option, some, none, optionSort) = symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
+      case Some(sort) =>
+        val some = sort.constructors.find(_.fields.nonEmpty).get
+        val none = sort.constructors.find(_.fields.isEmpty).get
+        (sort.id, some.id, none.id, None)
+      case None =>
+        val sort = mkSort(FreshIdentifier("Option"))("A") {
+          case Seq(aT) => Seq(
+            (FreshIdentifier("Some"), Seq(ValDef(FreshIdentifier("value"), aT))),
+            (FreshIdentifier("None"), Seq())
+          )
+        }
+        val Seq(some, none) = sort.constructors
+        (sort.id, some.id, none.id, Some(sort))
+    }
 
     val unapplyAdtCache: MutableMap[Identifier, t.FunDef] = MutableMap.empty
     def getAdtUnapply(id: Identifier): Identifier = unapplyAdtCache.get(id) match {
       case Some(fd) => fd.id
       case None =>
-        val cons = symbols.getADT(id).asInstanceOf[s.ADTConstructor]
+        val sort = symbols.getSort(id)
         val arg = t.ValDef(FreshIdentifier("x"), obj)
-        implicit val scope = TypeScope(cons, typeOf(arg.toVariable))
-        val tt = t.tupleTypeWrap(
-          cons.fields.map(vd => if (isSimple(vd.tpe)) scope.transform(vd.tpe) else obj) ++
-          cons.tparams.map(_ => tpe)
+        implicit val scope = TypeScope(sort, typeOf(arg.toVariable))
+
+        val tparams = sort.tparams.map(scope.transform)
+        val tt = t.tupleTypeWrap(t.ADTType(sort.id, tparams.map(_.tp)) +: sort.tparams.map(_ => tpe))
+
+        val fd = new t.FunDef(
+          FreshIdentifier("unapply_" + id.name), tparams, Seq(arg), T(option)(tt),
+          let("tpe" :: tpe, typeOf(arg.toVariable)) { tpe =>
+            if_ (
+              (tpe is adt) &&
+              tpe.getField(adtPtr) === IntegerLiteral(sort.id.globalId)
+            ) {
+              C(some)(tt)(tupleWrap(
+                unwrap(arg.toVariable, t.ADTType(sort.id, tparams.map(_.tp))) +:
+                sort.typeArgs.indices.map(i => seqAt(tpe.getField(adtTps), i))
+              ))
+            } else_ {
+              C(none)(tt)()
+            }
+          },
+          Set(Unchecked)
         )
 
-        val fd = mkFunDef(FreshIdentifier("unapply_" + id.name), Unchecked)()(_ => (
-          Seq(arg), T(option)(tt), { case Seq(x) =>
-            let("tpe" :: tpe, typeOf(x)) { tpe =>
-              if_ (
-                tpe.isInstOf(adt) &&
-                tpe.asInstOf(adt).getField(adtPtr) === IntegerLiteral(id.globalId)
-              ) {
-                val unwrappedType = scope.transform(cons.typed(symbols).toType)
-                let("uwrap" :: unwrappedType, unwrap(x, unwrappedType)) { uwrap =>
-                  T(some)(tt)(tupleWrap(
-                    cons.fields.map(vd => ADTSelector(uwrap, vd.id)) ++
-                    cons.tparams.indices.map(i => seqAt(tpe.asInstOf(adt).getField(adtTps), i))
-                  ))
-                }
-              } else_ {
-                T(none)(tt)()
-              }
-            }
-          }))
         unapplyAdtCache += id -> fd
         fd.id
     }
@@ -648,15 +603,15 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           Seq(arg), T(option)(tt), { case Seq(x) =>
             let("tpe" :: tpe, typeOf(x)) { tpe =>
               if_ (
-                tpe.isInstOf(cls) &&
-                tpe.asInstOf(cls).getField(clsPtr) === IntegerLiteral(id.globalId)
+                (tpe is cls) &&
+                tpe.getField(clsPtr) === IntegerLiteral(id.globalId)
               ) {
-                T(some)(tt)(tupleWrap(
+                C(some)(tt)(tupleWrap(
                   cd.fields.map(vd => getField(x, vd.id)) ++
-                  cd.tparams.indices.map(i => seqAt(tpe.asInstOf(cls).getField(clsTps), i))
+                  cd.tparams.indices.map(i => seqAt(tpe.getField(clsTps), i))
                 ))
               } else_ {
-                T(none)(tt)()
+                C(none)(tt)()
               }
             }
           }))
@@ -676,14 +631,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           Seq(arg), T(option)(tt), { case Seq(x) =>
             let("tpe" :: tpe, typeOf(x)) { tpe =>
               if_ (
-                tpe.isInstOf(tpl) &&
+                (tpe is tpl) &&
                 (1 to size).foldLeft((E(true), x: Expr)) { case ((e, x), _) =>
-                  (e && x.isInstOf(cons), x.asInstOf(cons).getField(tail))
+                  (e && (x is cons), x.getField(tail))
                 }._1
               ) {
-                T(some)(tt)(unwrap(x, tt))
+                C(some)(tt)(unwrap(x, tt))
               } else_ {
-                T(none)(tt)()
+                C(none)(tt)()
               }
             }
           }))
@@ -732,11 +687,11 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             case s.WildcardPattern(_) =>
             case s.InstanceOfPattern(_, tpe) if !isSimple(in.getType lub tpe) => simple = false
             case s.ClassPattern(_, _, _) => simple = false
-            case s.ADTPattern(ob, adt, subs) =>
-              if (!isSimple(in.getType lub adt)) simple = false
+            case s.ADTPattern(ob, id, tps, subs) =>
+              val tcons = symbols.getConstructor(id, tps)
+              if (!isSimple(in.getType lub s.ADTType(tcons.sort.id, tps))) simple = false
               else {
-                val tcons = adt.getADT.toConstructor
-                (tcons.fields zip subs).foreach(p => traversePattern(adtSelector(asInstOf(in, adt), p._1.id), p._2))
+                (tcons.fields zip subs).foreach(p => traversePattern(adtSelector(in, p._1.id), p._2))
               }
 
             case s.TuplePattern(ob, subs) =>
@@ -936,12 +891,12 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             (t.WildcardPattern(ob map transform), t.BooleanLiteral(true))
 
           case s.InstanceOfPattern(ob, tpe) =>
-            if (isObject(in.getType lub tpe)) {
-              val v = transform(ob.map(_.toVariable).getOrElse(in))
-              (t.WildcardPattern(ob map transform), instanceOf(v, encodeType(tpe)))
+            val cond = if (isObject(in.getType lub tpe)) {
+              instanceOf(transform(ob.map(_.toVariable).getOrElse(in), encodeType(tpe)))
             } else {
-              (t.InstanceOfPattern(ob map transform, transform(tpe)), t.BooleanLiteral(true))
+              t.BooleanLiteral(true)
             }
+            (t.WildcardPattern(ob map transform), cond)
 
           case s.ClassPattern(ob, ct, subs) =>
             val v = ob.map(_.toVariable).getOrElse(in)
@@ -955,16 +910,18 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             ).unzip
             (t.UnapplyPattern(ob map transform, getClassUnapply(ct.id), Seq.empty, rsubs), andJoin(rconds))
 
-          case s.ADTPattern(ob, adt, subs) =>
-            val v = ob.map(_.toVariable).getOrElse(in)
-            val tcons = adt.getADT.toConstructor
-            val rs = (tcons.fields zip subs).map(p => rec(adtSelector(asInstOf(v, adt), p._1.id), p._2))
-            if (isObject(in.getType lub adt)) {
-              val (rsubs, rconds) = (rs ++ adt.tps.map(typePattern(_, None))).unzip
-              (t.UnapplyPattern(ob map transform, getAdtUnapply(adt.id), Seq.empty, rsubs), andJoin(rconds))
+          case s.ADTPattern(ob, id, tps, subs) =>
+            val tcons = symbols.getConstructor(id, tps)
+            val tpe = s.ADTType(tcons.sort.id, tps)
+            if (isObject(in.getType lub tpe)) {
+              val v = s.Variable.fresh("v", tpe)
+              val (rsub, rcond) = rec(v, s.ADTPattern(ob, id, tps, subs))
+              val (tpSubs, tpConds) = tps.map(typePattern(_, None)).unzip
+              (t.UnapplyPattern(Some(transform(v.toVal)), getAdtUnapply(id), tps map transform, rsub +: tpSubs), andJoin(rcond +: tpConds))
             } else {
-              val radt = transform(adt).asInstanceOf[t.ADTType]
-              (t.ADTPattern(ob map transform, radt, rs.map(_._1)), t.andJoin(rs.map(_._2)))
+              val v = ob.map(_.toVariable).getOrElse(in)
+              val (rsubs, rconds) = (tcons.fields zip subs).map(p => rec(adtSelector(v, p._1.id), p._2)).unzip
+              (t.ADTPattern(ob map transform, id, tps map transform, rsubs), t.andJoin(rconds))
             }
 
           case s.TuplePattern(ob, subs) =>
@@ -1012,7 +969,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     }
 
     def transformFunction(fd: s.FunAbstraction)(implicit scope: Scope): t.FunAbstraction = {
-      import s.TypeParameterWithBounds
       val scope0 = scope
 
       if (!(scope rewrite fd.id)) {
@@ -1083,7 +1039,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     val functions: Seq[t.FunDef] = symbolFuns.map(fd => transformFunction(fd)(baseScope).toFun)
 
-    val adts: Seq[t.ADTDefinition] = symbols.adts.values.map(d => baseScope.transform(d)).toSeq
+    val sorts: Seq[t.ADTSort] = symbols.sorts.values.map(d => baseScope.transform(d)).toSeq
 
     val newSymbols = NoSymbols
       .withFunctions(
@@ -1094,13 +1050,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         unwrapFunctions ++
         unificationFunctions ++
         functions)
-      .withADTs(Seq(
-        seqSort, consCons, nilCons, tpeSort,
-        botCons, topCons, clsCons, adtCons, arrCons,
-        setCons, bagCons, mapCons, tplCons, funCons,
-        boolCons, intCons, bvCons, charCons, unitCons, realCons, strCons,
-        objCons
-      ) ++ adts)
+      .withSorts(
+        Seq(seqSort, tpeSort, objSort) ++
+        optionSort ++ // Note that if stainless.lang.Option was already in sorts, this is a Noop
+        sorts)
 
     def inlineChecks(e: Expr): Expr = {
       import newSymbols._
@@ -1108,13 +1061,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       exprOps.postMap {
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
-          ADT(`tpl`, Seq(ADTSelector(_, `tail`))),
-          ADT(`tpl`, Seq(ADTSelector(_, `tail`)))
+          ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`))),
+          ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`)))
         )) => None
 
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
-          ADT(`fun`, Seq(ADTSelector(_, `tail`), _)),
-          ADT(`fun`, Seq(ADTSelector(_, `tail`), _))
+          ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _)),
+          ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _))
         )) => None
 
         case fi @ FunctionInvocation(`subtypeID`, Seq(), args @ (Seq(_: ADT, _) | Seq(_, _: ADT))) =>
@@ -1132,7 +1085,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     val finalSymbols = NoSymbols
       .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd.copy(fullBody = inlineChecks(fd.fullBody))))
-      .withADTs(newSymbols.adts.values.toSeq)
+      .withSorts(newSymbols.sorts.values.toSeq)
 
     for (fd <- finalSymbols.functions.values) {
       if (!finalSymbols.isSubtypeOf(fd.fullBody.getType(finalSymbols), fd.returnType)) {

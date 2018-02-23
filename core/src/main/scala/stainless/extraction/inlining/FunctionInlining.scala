@@ -58,7 +58,7 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
     }
 
     t.NoSymbols
-      .withADTs(symbols.adts.values.map(transformer.transform).toSeq)
+      .withSorts(symbols.sorts.values.map(transformer.transform).toSeq)
       .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap { fd =>
         if ((fd.flags contains Inline) && transitivelyCalls(fd, fd)) {
           throw MissformedStainlessCode(fd, "Can't inline recursive function")

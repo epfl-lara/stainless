@@ -51,12 +51,12 @@ trait EffectsChecking { self =>
                 LocalFunDef(vd, tparams, rec(body, bindings).asInstanceOf[Lambda])
               }, rec(body, bindings)).copiedFrom(l)
 
-            case ADT(adt, args) =>
-              adt.getADT.definition.tparams.zip(adt.tps).foreach { case (tdef, instanceType) =>
+            case adt @ ADT(id, tps, args) =>
+              (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
                 if (effects.isMutableType(instanceType) && !(tdef.flags contains IsMutable))
                   throw ImperativeEliminationException(e.getPos, "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
-              ADT(adt, args.map(rec(_, bindings)))
+              ADT(id, tps, args.map(rec(_, bindings)))
 
             case Operator(es, recons) => recons(es.map(rec(_, bindings)))
           }
@@ -134,7 +134,7 @@ trait EffectsChecking { self =>
     def isExpressionFresh(expr: Expr): Boolean = {
       !effects.isMutableType(expr.getType) || (expr match {
         case v: Variable => false
-        case ADT(_, args) => args.forall(isExpressionFresh)
+        case ADT(_, _, args) => args.forall(isExpressionFresh)
 
         case FiniteArray(elems, _) => elems.forall(isExpressionFresh)
         case LargeArray(elems, default, _, _) => elems.forall(p => isExpressionFresh(p._2)) && isExpressionFresh(default)
@@ -159,7 +159,7 @@ trait EffectsChecking { self =>
       checkFunction(Outer(fd), Set.empty)
     }
 
-    for (adt <- effects.symbols.adts.values; fd <- adt.invariant) {
+    for (sort <- effects.symbols.sorts.values; fd <- sort.invariant) {
       val invEffects = effects(fd)
       if (invEffects.nonEmpty)
         throw ImperativeEliminationException(fd.getPos, "Invariant has effects on: " + invEffects.head)

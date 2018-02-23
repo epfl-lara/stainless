@@ -38,9 +38,9 @@ trait AssertionInjector extends ast.TreeTransformer {
         ti
       ).copiedFrom(i), transform(v)).copiedFrom(e)
 
-    case s.AsInstanceOf(expr, ct) =>
+    case sel @ s.ADTSelector(expr, _) =>
       t.Assert(
-        t.IsInstanceOf(transform(expr), transform(ct).asInstanceOf[t.ADTType]).copiedFrom(e),
+        t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
         Some("Cast error"),
         super.transform(e)
       ).copiedFrom(e)
@@ -226,7 +226,7 @@ object AssertionInjector {
             fd.flags map injector.transform
           ).copiedFrom(fd)
         })
-        .withADTs(syms.adts.values.toSeq.map(injector.transform))
+        .withSorts(syms.sorts.values.toSeq.map(injector.transform))
     }
   }
 }

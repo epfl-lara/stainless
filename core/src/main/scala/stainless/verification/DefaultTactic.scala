@@ -88,8 +88,8 @@ trait DefaultTactic extends Tactic {
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
         (c, path implies Not(Forall(Seq(res), Not(pred))))
 
-      case (a @ ADT(tpe, args), path) if tpe.getADT.hasInvariant =>
-        (a, path implies FunctionInvocation(tpe.getADT.invariant.get.id, tpe.tps, Seq(a)))
+      case (a @ ADT(id, tps, args), path) if a.getConstructor.sort.hasInvariant =>
+        (a, path implies FunctionInvocation(a.getConstructor.sort.invariant.get.id, tps, Seq(a)))
     }(getFunction(id).fullBody)
 
     calls.map { case (e, correctnessCond) =>
