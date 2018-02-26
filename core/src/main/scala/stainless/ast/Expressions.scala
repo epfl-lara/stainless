@@ -112,9 +112,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param rhs The expression to the right of `=>`
     * @see [[Expressions.MatchExpr]]
     */
-  case class MatchCase(pattern: Pattern, optGuard: Option[Expr], rhs: Expr) extends Tree {
-    def expressions: Seq[Expr] = optGuard.toList :+ rhs
-  }
+  case class MatchCase(pattern: Pattern, optGuard: Option[Expr], rhs: Expr) extends Tree
 
   /** $encodingof a pattern after a '''case''' keyword.
     *
@@ -155,17 +153,15 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** A custom pattern defined through an object's `unapply` function */
   case class UnapplyPattern(binder: Option[ValDef], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
-    def tfd(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
+    def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
-    // Hacky, but ok
-    def optionType(implicit s: Symbols): ADTType = tfd.returnType.asInstanceOf[ADTType].getADT.root.toType
+    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr = getFunction.flags.collectFirst {
+      case Unapply(v, isEmpty, _) => exprOps.replaceFromSymbols(Map(v -> scrut), isEmpty)
+    }.get
 
-    private def optionChildren(implicit s: Symbols): Seq[TypedADTConstructor] =
-      optionType.getADT.toSort.constructors.sortBy(_.fields.size)
-    def noneType(implicit s: Symbols): ADTType = optionChildren.apply(0).toType
-    def someType(implicit s: Symbols): ADTType = optionChildren.apply(1).toType
-
-    def someSelector(implicit s: Symbols): Identifier = someType.getADT.toConstructor.fields.head.id
+    def get(scrut: Expr)(implicit s: Symbols): Expr = getFunction.flags.collectFirst {
+      case Unapply(v, _, get) => exprOps.replaceFromSymbols(Map(v -> scrut), get)
+    }.get
 
     /** Construct a pattern matching against unapply(scrut) (as an if-expression)
       *
@@ -176,34 +172,15 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     def patternMatch(scrut: Expr, noneCase: Expr, someCase: Expr => Expr)(implicit s: Symbols): Expr = {
       // We use this hand-coded if-then-else because we don't want to generate
       // match exhaustiveness checks in the program
-      val binder = ValDef(FreshIdentifier("unap", true), optionType)
-      Let(
-        binder,
+      val tfd = getFunction
+      val (v, isEmpty, get) = tfd.flags.collectFirst { case Unapply(v, isEmpty, get) => (v, isEmpty, get) }.get
+      val binder = ValDef(FreshIdentifier("unap", true), tfd.returnType)
+      exprOps.freshenLocals(Let(
+        v.toVal,
         FunctionInvocation(id, tps, Seq(scrut)),
-        IfExpr(
-          IsInstanceOf(binder.toVariable, someType),
-          someCase(ADTSelector(AsInstanceOf(binder.toVariable, someType), someSelector)),
-          noneCase
-        )
-      )
+        IfExpr(isEmpty, noneCase, someCase(get))
+      ))
     }
-
-    /** Inlined .get method */
-    def get(scrut: Expr)(implicit s: Symbols): Expr = patternMatch(
-      scrut,
-      Error(optionType.tps.head, "None.get"),
-      e => e
-    )
-
-    /** Selects Some.v field without type-checking.
-      * Use ONLY in a context where scrut.isDefined returns true! */
-    def getUnsafe(scrut: Expr)(implicit s: Symbols): Expr = ADTSelector(
-      AsInstanceOf(FunctionInvocation(id, tps, Seq(scrut)), someType),
-      someSelector
-    )
-
-    def isSome(scrut: Expr)(implicit s: Symbols): Expr =
-      IsInstanceOf(FunctionInvocation(id, tps, Seq(scrut)), someType)
   }
 
 

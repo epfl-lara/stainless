@@ -155,10 +155,10 @@ trait CompilationUnit extends CodeGeneration {
     case Tuple(elems) =>
       tupleConstructor.newInstance(elems.map(valueToJVM).toArray).asInstanceOf[AnyRef]
 
-    case ADT(adt, args) =>
-      val cons = adtConstructor(adt.getADT.toConstructor.definition)
+    case adt @ ADT(id, tps, args) =>
+      val cons = adtConstructor(adt.getConstructor.definition)
       try {
-        val tpeParam = if (adt.tps.isEmpty) Seq() else Seq(adt.tps.map(registerType).toArray)
+        val tpeParam = if (tps.isEmpty) Seq() else Seq(tps.map(registerType).toArray)
         val jvmArgs = monitor +: (tpeParam ++ args.map(valueToJVM))
         cons.newInstance(jvmArgs.toArray : _*).asInstanceOf[AnyRef]
       } catch {
@@ -317,19 +317,15 @@ trait CompilationUnit extends CodeGeneration {
       val fields = cons.productElements()
 
       // identify case class type of ct
-      val consTpe = if (!adt.getADT.definition.isSort) {
-        adt
-      } else {
-        jvmClassNameToADT(cons.getClass.getName) match {
-          case Some(cons: ADTConstructor) =>
-            ADTType(cons.id, adt.tps)
-          case _ =>
-            throw CompilationException("Unable to identify class "+cons.getClass.getName+" to descendant of "+adt)
-        }
+      jvmClassNameToCons(cons.getClass.getName) match {
+        case Some(cons) =>
+          val exFields = (fields zip getConstructor(cons.id, adt.tps).fieldsTypes).map {
+            case (e, tpe) => jvmToValue(e, tpe)
+          }
+          ADT(cons.id, adt.tps, exFields)
+        case _ =>
+          throw CompilationException("Unable to identify class "+cons.getClass.getName+" to descendant of "+adt)
       }
-
-      val tcons = consTpe.getADT.toConstructor
-      ADT(consTpe, (fields zip tcons.fieldsTypes).map { case (e, tpe) => jvmToValue(e, tpe) })
 
     case (tpl: runtime.Tuple, tpe) =>
       val stpe = unwrapTupleType(tpe, tpl.getArity)
@@ -378,7 +374,7 @@ trait CompilationUnit extends CodeGeneration {
       } else {
         val arr = lambda.getClass.getField(tpsID.uniqueName).get(lambda).asInstanceOf[Array[Int]]
         val tps = arr.toSeq.map(getType)
-        instantiateType(l, (tparams zip tps).toMap)
+        typeOps.instantiateType(l, (tparams zip tps).toMap)
       }
 
       val closures = exprOps.variablesOf(tpLambda).toSeq.sortBy(_.id.uniqueName)

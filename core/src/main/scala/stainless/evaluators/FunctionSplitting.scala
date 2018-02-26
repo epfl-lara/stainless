@@ -30,10 +30,10 @@ trait FunctionSplitting extends inox.ast.ProgramTransformer {
             val vars = closures.map(_.freshen)
             val varMap = (closures zip vars).toMap
 
-            val params = vars.map(v => instantiateType(v, tpMap).asInstanceOf[Variable].toVal)
-            val body = instantiateType(exprOps.replaceFromSymbols(varMap, recons(nes)), tpMap)
+            val params = vars.map(v => typeOps.instantiateType(v, tpMap).asInstanceOf[Variable].toVal)
+            val body = typeOps.instantiateType(exprOps.replaceFromSymbols(varMap, recons(nes)), tpMap)
 
-            fds :+= new FunDef(id, tparams, params, instantiateType(e.getType, tpMap), body, Set())
+            fds :+= new FunDef(id, tparams, params, typeOps.instantiateType(e.getType, tpMap), body, Set())
             (FunctionInvocation(id, fd.typeArgs, closures), 0)
           } else {
             (recons(nes), size)
@@ -45,7 +45,7 @@ trait FunctionSplitting extends inox.ast.ProgramTransformer {
     }
 
     val symbols = NoSymbols
-      .withADTs(sourceProgram.symbols.adts.values.toSeq)
+      .withSorts(sourceProgram.symbols.sorts.values.toSeq)
       .withFunctions(sourceProgram.symbols.functions.values.toSeq.flatMap(split))
   }
 

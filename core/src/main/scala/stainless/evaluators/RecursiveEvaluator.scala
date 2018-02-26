@@ -81,15 +81,11 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     }
 
     def matchesPattern(pat: Pattern, expr: Expr): Option[Map[ValDef, Expr]] = (pat, expr) match {
-      case (InstanceOfPattern(ob, pct), e) =>
-        if (isSubtypeOf(e.getType, pct)) Some(obind(ob, e))
-        else None
-
       case (WildcardPattern(ob), e) =>
         Some(obind(ob, e))
 
-      case (ADTPattern(ob, tpe, subs), ADT(adt, args)) =>
-        if (tpe == adt) {
+      case (ADTPattern(ob, id, tps, subs), ADT(id2, tps2, args)) =>
+        if (id == id2 && tps == tps2) {
           val res = (subs zip args) map (p => matchesPattern(p._1, p._2))
           if (res.forall(_.isDefined)) {
             Some(obind(ob, expr) ++ res.flatten.flatten)
@@ -113,16 +109,18 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         }
 
       case (up @ UnapplyPattern(ob, id, tps, subs), scrut) =>
-        e(FunctionInvocation(id, tps, Seq(scrut))) match {
-          case ADT(adt, Seq()) if adt == up.noneType => None
-          case ADT(adt, Seq(arg)) if adt == up.someType =>
-            val res = (subs zip unwrapTuple(arg, subs.size)) map (p => matchesPattern(p._1, p._2))
+        val unapp = e(FunctionInvocation(id, tps, Seq(scrut)))
+        e(up.isEmpty(unapp)) match {
+          case BooleanLiteral(false) =>
+            val extracted = e(up.get(unapp))
+            val res = (subs zip unwrapTuple(extracted, subs.size)) map (p => matchesPattern(p._1, p._2))
             if (res.forall(_.isDefined)) {
               Some(obind(ob, expr) ++ res.flatten.flatten)
             } else {
               None
             }
-          case other => throw EvalError(typeErrorMsg(other, up.tfd.returnType))
+          case BooleanLiteral(false) => None
+          case other => throw EvalError(typeErrorMsg(other, BooleanType()))
         }
 
       case (LiteralPattern(ob, lit), e) if lit == e =>

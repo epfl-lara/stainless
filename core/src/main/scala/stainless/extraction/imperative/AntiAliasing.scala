@@ -354,7 +354,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             val nfi = ApplyLetRec(
               fun.copy(tpe = FunctionType(fd.params.map(_.tpe), effects.getReturnType(fd))), tparams, tps,
               args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(alr)
-            val resultType = instantiateType(effects.getReturnType(fd), (tparams zip tps).toMap)
+            val resultType = typeOps.instantiateType(effects.getReturnType(fd), (tparams zip tps).toMap)
             mapApplication(args, nfi, resultType, effects(fd), env)
 
           case app @ Application(callee, args) =>

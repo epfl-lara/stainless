@@ -19,7 +19,7 @@ trait Trees extends holes.Trees with Definitions { self =>
         case (Some(tfd), Some(tcd)) =>
           tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
             .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
-            .map(tcd => s.instantiateType(tfd.returnType, tcd.typeMap))
+            .map(tcd => typeOps.instantiateType(tfd.returnType, tcd.typeMap))
             .getOrElse(Untyped)
         case _ => Untyped
       }
@@ -41,7 +41,7 @@ trait Trees extends holes.Trees with Definitions { self =>
       case ct: ClassType =>
         ct.getField(selector).map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
           case (Some(fd), Some(tcd)) =>
-            Some(s.instantiateType(fd.returnType, (tcd.cd.tparams.map(_.tp) zip tcd.tps).toMap))
+            Some(typeOps.instantiateType(fd.returnType, (tcd.cd.tparams.map(_.tp) zip tcd.tps).toMap))
           case _ =>
             None
         }).getOrElse(Untyped)

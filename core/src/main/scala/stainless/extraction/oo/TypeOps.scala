@@ -166,8 +166,8 @@ trait TypeOps extends imperative.TypeOps {
       (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
     case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
     case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
-    case (tp: TypeParameter, _) if !(typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
-    case (_, tp: TypeParameter) if !(typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)
+    case (tp: TypeParameter, _) if !(typeOps.typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
+    case (_, tp: TypeParameter) if !(typeOps.typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)
     case (_: TypeParameter, _) => unsolvable
     case (_, _: TypeParameter) => unsolvable
     case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) if ts1.size == ts2.size =>
@@ -181,7 +181,7 @@ trait TypeOps extends imperative.TypeOps {
     case Nil => Nil
     case (tp: TypeParameter, t) :: tl =>
       val replaced = tl map { case (t1, t2) =>
-        (instantiateType(t1, Map(tp -> t)), instantiateType(t2, Map(tp -> t)))
+        (typeOps.instantiateType(t1, Map(tp -> t)), typeOps.instantiateType(t2, Map(tp -> t)))
       }
       (tp -> t) :: unificationSolution(replaced)
     case (adt: ADTType, _) :: tl if adt.lookupSort.isEmpty => unsolvable

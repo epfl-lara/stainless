@@ -47,14 +47,14 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
       val freshVals = (args ++ free).map { vd =>
-        val tvd = vd.copy(tpe = instantiateType(vd.tpe, tparamsMap))
+        val tvd = vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
         tvd -> tvd.freshen
       }
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val instBody = instantiateType(withPath(body, reqPC), tparamsMap)
+      val instBody = typeOps.instantiateType(withPath(body, reqPC), tparamsMap)
 
       val fullBody = exprOps.preMap {
         case v: Variable => freeMap.get(v.toVal).map(_.toVariable)
@@ -74,7 +74,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         name.id,
         tparams ++ tpFresh,
         freshParams,
-        instantiateType(name.tpe.asInstanceOf[FunctionType].to, tparamsMap),
+        typeOps.instantiateType(name.tpe.asInstanceOf[FunctionType].to, tparamsMap),
         fullBody,
         name.flags ++ outer.flags + Derived(outer.id)
       ).copiedFrom(inner)
@@ -163,7 +163,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
             val mapReverse = calleeMap map { _.swap }
             val extraArgs = newCallee.params.drop(args.size).map { vd =>
-              instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
+              typeOps.instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
             }
 
             t.FunctionInvocation(

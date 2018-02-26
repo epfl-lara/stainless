@@ -50,12 +50,12 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
         }
 
-      case ADTPattern(ob, adt, subps) =>
-        val tcons = adt.getADT.toConstructor
+      case ADTPattern(ob, id, tps, subps) =>
+        val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subTests = pairs.map(p => apply(adtSelector(asInstOf(in, adt), p._1.id), p._2))
-        pp.empty withCond isInstOf(in, adt) merge bind(ob, asInstOf(in, adt)) merge subTests
+        val subTests = pairs.map(p => apply(adtSelector(in, p._1.id), p._2))
+        pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
 
       case TuplePattern(ob, subps) =>
         val TupleType(tpes) = in.getType

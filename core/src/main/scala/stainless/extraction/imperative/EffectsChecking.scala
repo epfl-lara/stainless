@@ -109,7 +109,7 @@ trait EffectsChecking { self =>
 
           patternOps.preTraversal {
             case up: UnapplyPattern =>
-              val upEffects = effects(Outer(up.tfd.fd))
+              val upEffects = effects(Outer(up.getFunction.fd))
               if (upEffects.nonEmpty)
                 throw ImperativeEliminationException(up.getPos, "Pattern unapply has effects on: " + upEffects.head)
 

@@ -91,15 +91,40 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
           t.ADT(id, tps map transform, args map transform).copiedFrom(e)
 
+        case s.MatchExpr(scrut, cases) =>
+          t.MatchExpr(transform(scrut), cases map { case cse @ s.MatchCase(pat, optGuard, rhs) =>
+            var guards: Seq[Expr] = Nil
+            val newPat = s.patternOps.postMap {
+              case iop @ s.InstanceOfPattern(ob, tpe @ ClassType(id, tps)) if candidates(id) =>
+                if (approximate(id) == id) {
+                  val subs = tpe.tcd(symbols).fields.map(_ => s.WildcardPattern(None).copiedFrom(pat))
+                  Some(s.ADTPattern(ob, id, tps, subs).copiedFrom(iop))
+                } else {
+                  val v = ob getOrElse ValDef(
+                    FreshIdentifier("v"),
+                    s.ADTType(approximate(id), tps).copiedFrom(iop)
+                  ).copiedFrom(iop)
+
+                  guards ++= classToConstructors(id).map(cid => s.IsConstructor(v.toVariable, cid).copiedFrom(iop))
+                  Some(s.WildcardPattern(Some(v)).copiedFrom(iop))
+                }
+              case _ => None
+            } (pat)
+
+            val newGuard = (optGuard ++ guards).toSeq match {
+              case Nil => None
+              case seq => Some(s.andJoin(seq)).filterNot(_ == s.BooleanLiteral(true))
+            }
+
+            t.MatchCase(transform(newPat), newGuard map transform, transform(rhs))
+          }).copiedFrom(e)
+
         case _ => super.transform(e)
       }
 
       override def transform(pat: s.Pattern): t.Pattern = pat match {
         case s.ClassPattern(binder, s.ClassType(id, tps), subs) if candidates(id) =>
           t.ADTPattern(binder map transform, id, tps map transform, subs map transform).copiedFrom(pat)
-        case s.InstanceOfPattern(ob, tpe @ ClassType(id, tps)) if candidates(id) && approximate(id) != id =>
-          val subs = tpe.tcd.fields.map(_ => t.WildcardPattern(None).copiedFrom(pat))
-          t.ADTPattern(ob map transform, id, tps map transform, subs).copiedFrom(pat)
         case _ => super.transform(pat)
       }
 
@@ -141,12 +166,23 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       children.getOrElse(cd.id, Set.empty).nonEmpty
     }
 
-    val sorts: Seq[t.ADTSort] = sortClasses.map(cd => new t.ADTSort(
-      cd.id,
-      cd.tparams map transformer.transform,
-      classToConstructors(cd.id).toSeq.sortBy(_.name),
-      (cd.flags - IsAbstract - IsSealed) map transformer.transform
-    ).copiedFrom(cd)).toSeq
+    val sorts: Seq[t.ADTSort] = sortClasses.map { sortCd =>
+      val sortTparams = sortCd.tparams map transformer.transform
+      new t.ADTSort(
+        sortCd.id,
+        sortTparams,
+        classToConstructors(sortCd.id).toSeq.sortBy(_.name).map { cid =>
+          val consCd = symbols.classes(cid)
+          val tpMap = (consCd.typeArgs.map(transformer.transform) zip sortTparams.map(_.tp)).toMap
+          new t.ADTConstructor(
+            cid,
+            sortCd.id,
+            consCd.fields map (vd => typeOps.instantiateType(transformer.transform(vd), tpMap))
+          ).copiedFrom(consCd)
+        },
+        (sortCd.flags - IsAbstract - IsSealed) map transformer.transform
+      ).copiedFrom(cd)
+    }.toSeq
 
     val consClasses = symbols.classes.values.filter { cd =>
       candidates(cd.id) &&

@@ -115,51 +115,54 @@ trait CodeGeneration { self: CompilationUnit =>
 
   def defToJVMName(d: Definition): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(d.id)
 
-  private[this] val adtClassFiles : MutableMap[ADTDefinition, ClassFile] = MutableMap.empty
-  private[this] val classToADT    : MutableMap[String, ADTDefinition]    = MutableMap.empty
+  private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
+  private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
 
-  def getClass(adt: ADTDefinition): ClassFile = adtClassFiles.get(adt) match {
-    case Some(cf) => cf
-    case None =>
-      val cName = defToJVMName(adt)
-      val pName = adt match {
-        case cons: ADTConstructor => cons.sort.map(id => defToJVMName(getADT(id)))
-        case _ => None
-      }
+  def getClass(sort: ADTSort): ClassFile = sortClassFiles.getOrElseUpdate(sort, {
+    val cf = new ClassFile(defToJVMName(sort), None)
+    classToSort += cf.className -> sort
+    cf
+  })
 
-      val cf = new ClassFile(cName, pName)
-      classToADT += cf.className -> adt
-      adtClassFiles += adt -> cf
-      cf
-  }
+  private[this] val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
+  private[this] val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
+
+  def getClass(cons: ADTConstructor): ClassFile = consClassFiles.getOrElseUpdate(cons, {
+    val cf = new ClassFile(defToJVMName(cons), Some(defToJVMName(cons.getSort)))
+    classToCons += cf.className -> cons
+    cf
+  })
 
   private[this] lazy val static = new ClassFile("<static>", None)
 
   protected def compile(): Seq[ClassFile] = {
-    for (adt <- adts.values) adt match {
-      case sort: ADTSort => compileADTSort(sort)
-      case cons: ADTConstructor => compileADTConstructor(cons)
+    for (sort <- sorts.values) {
+      compileADTSort(sort)
+      for (cons <- sort.constructors) compileADTConstructor(cons)
     }
 
     for (fd <- functions.values) {
       compileFunDef(fd, static)
     }
 
-    adtClassFiles.values.toSeq :+ static
+    (sortClassFiles.values.toSeq ++ consClassFiles.values) :+ static
   }
 
-  protected def jvmClassNameToADT(className: String): Option[ADTDefinition] = classToADT.get(className)
+  protected def jvmClassNameToSort(className: String): Option[ADTSort] = classToSort.get(className)
+  protected def jvmClassNameToCons(className: String): Option[ADTConstructor] = classToCons.get(className)
 
-  private[this] val adtInfos: MutableMap[ADTDefinition, (String, String)] = MutableMap.empty
+  private[this] val sortInfos: MutableMap[ADTSort, (String, String)] = MutableMap.empty
+  private[this] val consInfos: MutableMap[ADTConstructor, (String, String)] = MutableMap.empty
 
-  protected def getADTInfo(adt: ADTDefinition): (String, String) = adtInfos.getOrElseUpdate(adt, {
-    val cf = getClass(adt)
-    val tpeParam = if (adt.tparams.isEmpty) "" else "[I"
-    val sig = "(L"+MonitorClass+";" + tpeParam + (adt match {
-      case cons: ADTConstructor => cons.fields.map(f => typeToJVM(f.tpe)).mkString("")
-      case _ => ""
-    }) + ")V"
-    (cf.className, sig)
+  protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElseUpdate(sort, {
+    val tpeParam = if (sort.tparams.isEmpty) "" else "[I"
+    (getClass(sort).className, "(L"+MonitorClass+";" + tpeParam + ")V")
+  })
+
+  protected def getConsInfo(cons: ADTConstructor): (String, String) = consInfos.getOrElseUpdate(cons, {
+    val tpeParam = if (cons.getSort.tparams.isEmpty) "" else "[I"
+    val sig = "(L"+MonitorClass+";" + tpeParam + cons.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+    (getClass(cons).className, sig)
   })
 
   private[this] val funDefInfos: MutableMap[FunDef, (String, String, String)] = MutableMap.empty
@@ -199,7 +202,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case UnitType() => "Z"
 
     case adt: ADTType =>
-      val (n, _) = getADTInfo(adt.getADT.definition)
+      val (n, _) = getSortInfo(adt.getSort.definition)
       s"L$n;"
 
     case _ : TupleType =>
@@ -648,13 +651,13 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(d.toString)
       ch << InvokeSpecial(RationalClass, constructorName, "(Ljava/lang/String;Ljava/lang/String;)V")
 
-    case ADT(adt, as) =>
-      val tcons = adt.getADT.toConstructor
+    case adt @ ADT(id, tps, as) =>
+      val tcons = adt.getConstructor
       val cons = tcons.definition
-      val (adtName, adtApplySig) = getADTInfo(cons)
+      val (adtName, adtApplySig) = getConsInfo(cons)
       ch << New(adtName) << DUP
       load(monitorID, ch)
-      loadTypes(adt.tps, ch)
+      loadTypes(tps, ch)
 
       for ((a, vd) <- as zip cons.fields) {
         vd.tpe match {
@@ -667,10 +670,10 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeSpecial(adtName, constructorName, adtApplySig)
 
       // check invariant (if it exists)
-      if (!ignoreContracts && cons.hasInvariant) {
+      if (!ignoreContracts && cons.getSort.hasInvariant) {
         ch << DUP
 
-        val tfd = tcons.invariant.get
+        val tfd = tcons.sort.invariant.get
         val (cn, mn, ms) = getFunDefInfo(tfd.fd)
 
         load(monitorID, ch)
@@ -689,21 +692,17 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << Label(ok)
       }
 
-    case IsInstanceOf(e, adt: ADTType) =>
-      val (ccName, _) = getADTInfo(adt.getADT.definition)
+    case IsConstructor(e, id) =>
+      val (ccName, _) = getConsInfo(getConstructor(id))
       mkExpr(e, ch)
       ch << InstanceOf(ccName)
 
-    case AsInstanceOf(e, adt: ADTType) =>
-      val (ccName, _) = getADTInfo(adt.getADT.definition)
+    case sel @ ADTSelector(e, sid) =>
       mkExpr(e, ch)
+      val tcons = sel.constructor
+      val (ccName, _) = getConsInfo(tcons.definition)
       ch << CheckCast(ccName)
-
-    case ADTSelector(IsTyped(e, adt: ADTType), sid) =>
-      mkExpr(e, ch)
-      val (ccName, _) = getADTInfo(adt.getADT.definition)
-      ch << CheckCast(ccName)
-      instrumentedGetField(ch, adt, sid)
+      instrumentedGetField(ch, tcons, sid)
 
     // Tuples (note that instanceOf checks are in mkBranch)
     case Tuple(es) => mkTuple(es, ch)
@@ -1353,7 +1352,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << CheckCast(BoxedCharClass) << InvokeVirtual(BoxedCharClass, "charValue", "()C")
 
     case adt: ADTType =>
-      val (cn, _) = getADTInfo(adt.getADT.definition)
+      val (cn, _) = getSortInfo(adt.getSort.definition)
       ch << CheckCast(cn)
 
     case IntegerType() =>
@@ -1466,7 +1465,7 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Label(innerElse)
       mkBranch(e, thenn, elze, ch)
 
-    case cci @ IsInstanceOf(adt, e) =>
+    case cci @ IsConstructor(adt, id) =>
       mkExpr(cci, ch)
       ch << IfEq(elze) << Goto(thenn)
 
@@ -1769,14 +1768,13 @@ trait CodeGeneration { self: CompilationUnit =>
    */
   val instrumentedField = "__read"
 
-  def instrumentedGetField(ch: CodeHandler, adt: ADTType, id: Identifier)(implicit locals: Locals): Unit = {
-    val tcons = adt.getADT.toConstructor
-    val cons = tcons.definition
+  def instrumentedGetField(ch: CodeHandler, cons: TypedADTConstructor, id: Identifier)
+                          (implicit locals: Locals): Unit = {
     cons.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
-        val expType = tcons.fields(i).tpe
+        val expType = cons.fields(i).tpe
 
-        val cName = defToJVMName(cons)
+        val cName = defToJVMName(cons.definition)
         if (doInstrument) {
           ch << DUP << DUP
           ch << GetField(cName, instrumentedField, "I")
@@ -1800,10 +1798,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
   def compileADTConstructor(cons: ADTConstructor) {
     val cName = defToJVMName(cons)
-    val pName = cons.sort.map(id => defToJVMName(getADT(id)))
-
-    // An instantiation of cons with its own type parameters
-    val adt = cons.typed.toType
+    val pName = defToJVMName(cons.getSort)
+    val tcons = cons.typed
 
     val cf = getClass(cons)
 
@@ -1813,13 +1809,9 @@ trait CodeGeneration { self: CompilationUnit =>
       CLASS_ACC_FINAL
     ).asInstanceOf[U2])
 
-    if (cons.sort.isEmpty) {
-      cf.addInterface(ADTClass)
-    }
-
     // Case class parameters
     val fieldsTypes = cons.fields.map(vd => (vd.id, typeToJVM(vd.tpe)))
-    val tpeParam = if (cons.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
+    val tpeParam = if (cons.getSort.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
     val constructorArgs = (monitorID -> s"L$MonitorClass;") +: (tpeParam ++ fieldsTypes)
 
     val newLocs = NoLocals.withFields(constructorArgs.map {
@@ -1862,15 +1854,9 @@ trait CodeGeneration { self: CompilationUnit =>
       }
 
       // Call parent constructor AFTER initializing case class parameters
-      if (cons.sort.isDefined) {
-        cch << ALoad(0)
-        cch << ALoad(1)
-        cch << InvokeSpecial(pName.get, constructorName, s"(L$MonitorClass;)V")
-      } else {
-        // Call constructor of java.lang.Object
-        cch << ALoad(0)
-        cch << InvokeSpecial(ObjectClass, constructorName, "()V")
-      }
+      cch << ALoad(0)
+      cch << ALoad(1)
+      cch << InvokeSpecial(pName, constructorName, s"(L$MonitorClass;)V")
 
       cch << RETURN
       cch.freeze
@@ -1920,7 +1906,7 @@ trait CodeGeneration { self: CompilationUnit =>
         pech << DUP
         pech << Ldc(i)
         pech << ALoad(0)
-        instrumentedGetField(pech, adt, f.id)(newLocs)
+        instrumentedGetField(pech, tcons, f.id)(newLocs)
         mkBox(f.tpe, pech)
         pech << AASTORE
       }
@@ -1955,11 +1941,11 @@ trait CodeGeneration { self: CompilationUnit =>
 
         for (vd <- cons.fields) {
           ech << ALoad(0)
-          instrumentedGetField(ech, adt, vd.id)(newLocs)
+          instrumentedGetField(ech, tcons, vd.id)(newLocs)
           mkArrayBox(vd.tpe, ech)
 
           ech << ALoad(castSlot)
-          instrumentedGetField(ech, adt, vd.id)(newLocs)
+          instrumentedGetField(ech, tcons, vd.id)(newLocs)
 
           vd.tpe match {
             case JvmIType() =>

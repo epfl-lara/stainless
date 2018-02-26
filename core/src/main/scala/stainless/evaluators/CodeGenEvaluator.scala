@@ -52,7 +52,7 @@ trait CodeGenEvaluator
       val static = tps.toSeq.map(getType)
       val newTypes = newTps.toSeq.map(getType)
       val tpMap = (tparams zip newTypes).toMap
-      static.map(tpe => registerType(instantiateType(tpe, tpMap))).toArray
+      static.map(tpe => registerType(typeOps.instantiateType(tpe, tpMap))).toArray
     }
 
     def onChooseInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): AnyRef = {
@@ -61,7 +61,7 @@ trait CodeGenEvaluator
       val newTypes = tps.toSeq.map(getType)
       val tpMap = (tparams zip newTypes).toMap
 
-      val tpChoose = instantiateType(choose, tpMap)
+      val tpChoose = typeOps.instantiateType(choose, tpMap)
 
       val inputsMap = (params zip inputs.toSeq).map {
         case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.tpe)
@@ -85,7 +85,7 @@ trait CodeGenEvaluator
       val newTypes = tps.toSeq.map(getType)
       val tpMap = (tparams zip newTypes).toMap
 
-      val tpForall = instantiateType(forall, tpMap)
+      val tpForall = typeOps.instantiateType(forall, tpMap)
       val vars = exprOps.variablesOf(tpForall).toSeq.sortBy(_.id.uniqueName)
 
       val inputsMap = (vars zip inputs.toSeq).map {

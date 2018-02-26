@@ -71,7 +71,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
     private[this] var _parents: Seq[TypedClassDef] = _
     def parents: Seq[TypedClassDef] = {
       if (_parents eq null) _parents = cd.parents.flatMap {
-        tpe => symbols.instantiateType(tpe, typeMap).asInstanceOf[ClassType].lookupClass
+        tpe => typeOps.instantiateType(tpe, typeMap).asInstanceOf[ClassType].lookupClass
       }
       _parents
     }
@@ -79,7 +79,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
     private[this] var _ancestors: Seq[TypedClassDef] = _
     def ancestors: Seq[TypedClassDef] = {
       if (_ancestors eq null) _ancestors = cd.ancestors.map {
-        tcd => tcd.cd.typed(tcd.tps.map(symbols.instantiateType(_, typeMap)))
+        tcd => tcd.cd.typed(tcd.tps.map(typeOps.instantiateType(_, typeMap)))
       }
       _ancestors
     }
@@ -88,10 +88,10 @@ trait Definitions extends imperative.Trees { self: Trees =>
     def children: Seq[TypedClassDef] = {
       if (_children eq null) _children = cd.children.flatMap { cd =>
         val pct = cd.parents.find(_.id == id).get
-        symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(symbols.typeParamsOf)).map { tpSubst =>
+        symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(typeOps.typeParamsOf)).map { tpSubst =>
           val bound = tpSubst.map(_._1).toSet
           val fullSubst = tpSubst.toMap ++ cd.typeArgs.filterNot(bound).map(tp => tp -> tp.bounds)
-          symbols.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd
+          typeOps.instantiateType(ClassType(cd.id, cd.typeArgs), fullSubst).asInstanceOf[ClassType].tcd
         }
       }
       _children
@@ -108,7 +108,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
       if (_fields eq null) {
         _fields =
           if (typeMap.isEmpty) cd.fields
-          else cd.fields.map(vd => vd.copy(tpe = symbols.instantiateType(vd.tpe, typeMap)))
+          else cd.fields.map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, typeMap)))
       }
       _fields
     }

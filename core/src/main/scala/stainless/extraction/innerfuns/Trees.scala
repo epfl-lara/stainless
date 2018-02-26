@@ -29,8 +29,8 @@ trait Trees extends inlining.Trees { self =>
     protected def computeType(implicit s: Symbols): Type = fun.tpe match {
       case FunctionType(from, to) =>
         val tpMap = (tparams zip tps).toMap
-        val realFrom = from.map(s.instantiateType(_, tpMap))
-        val realTo = s.instantiateType(to, tpMap)
+        val realFrom = from.map(typeOps.instantiateType(_, tpMap))
+        val realTo = typeOps.instantiateType(to, tpMap)
         checkParamTypes(args.map(_.getType), realFrom, realTo)
       case _ => Untyped
     }
