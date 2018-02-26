@@ -58,7 +58,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
     libraryDependencies ++= Seq(
       compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
       ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    )
+    ),
+    // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
+    // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
+    resolvers += Resolver.bintrayRepo("epfl-lara", "maven")
   ) ++
     inConfig(Compile)(stainlessConfigSettings) ++
     inConfig(Test)(stainlessConfigSettings) ++

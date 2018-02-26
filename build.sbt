@@ -1,5 +1,9 @@
 import sbt.ScriptedPlugin
 
+enablePlugins(GitVersioning)
+git.baseVersion in ThisBuild := "0.1.0"
+git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
+
 val osInf = Option(System.getProperty("os.name")).getOrElse("")
 
 val isUnix    = osInf.indexOf("nix") >= 0 || osInf.indexOf("nux") >= 0
@@ -38,7 +42,8 @@ lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash scri
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
 lazy val baseSettings: Seq[Setting[_]] = Seq(
-  organization := "ch.epfl.lara"
+  organization := "ch.epfl.lara",
+  licenses := Seq("GPL-3.0" -> url("https://www.gnu.org/licenses/gpl-3.0.html"))
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
@@ -212,18 +217,18 @@ lazy val IntegrationTest = config("it") extend(Test)
 lazy val `stainless-core` = (project in file("core"))
   .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-core")
-  .settings(commonSettings)
+  .settings(commonSettings, publishMavenSettings)
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
-  .settings(commonSettings)
   .settings(
     // don't publish binaries - stainless-library is only consumed as a sources component
     publishArtifact in packageBin := false,
     crossVersion := CrossVersion.full,
     scalaSource in Compile := baseDirectory.value
   )
+  .settings(commonSettings, publishMavenSettings)
 
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
   .settings(
@@ -237,6 +242,7 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
       // Don't include scalaz3 dependency because it is OS dependent
       cp filter {_.data.getName.startsWith("scalaz3")}
     },
+    publish := (),
     skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
   )
   .dependsOn(`stainless-core`)
@@ -246,19 +252,19 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
 lazy val `stainless-scalac-assembly` = project
-  .settings(artifactSettings)
   .settings(
     name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
     packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
   )
+  .settings(artifactSettings, publishMavenSettings)
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
-  .settings(commonSettings)
+  .settings(commonSettings, publishMavenSettings)
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .disablePlugins(AssemblyPlugin)
@@ -271,13 +277,14 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .aggregate(`stainless-dotty-frontend`)
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
-  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
+  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
   .settings(baseSettings)
+  .settings(publishSbtSettings)
   .settings(
-    description := "Sbt plugin integrating Stainless in Sbt.",
+    description := "Plugin integrating Stainless in sbt.",
     sbtPlugin := true,
     // Could also add support for sbt "1.1.0" but a compatibility layer needs to be added to compile against both sbt 0.13 and 1
     crossSbtVersions := Vector("0.13.13"),
@@ -319,7 +326,21 @@ lazy val root = (project in file("."))
     publish := ()
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-assembly`)
+
+def commonPublishSettings = Seq(
+  bintrayOrganization := Some("epfl-lara")
+)
+
+// by default sbt-bintray publishes all sbt plugins in Ivy style
+def publishSbtSettings = commonPublishSettings ++ Seq(
+  bintrayRepository := "sbt-plugins"
+)
+
+// by default sbt-bintray publishes all artifacts but sbt plugins in Maven style
+def publishMavenSettings = commonPublishSettings ++ Seq(
+  bintrayRepository := "maven"
+)
 
 // FIXME assembly should be disabled at the top level, but isn't
 // FIXME assembly is not compatible with dotty -- some conflict with scala versions?
