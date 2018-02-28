@@ -37,7 +37,6 @@ lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 lazy val scalaVersionSetting: Setting[_] = scalaVersion := "2.11.8"
 
 lazy val artifactSettings: Seq[Setting[_]] = Seq(
-  version := "0.1",
   organization := "ch.epfl.lara",
   scalaVersionSetting
 )
