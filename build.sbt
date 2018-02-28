@@ -1,3 +1,4 @@
+import sbt.ScriptedPlugin
 
 val osInf = Option(System.getProperty("os.name")).getOrElse("")
 
@@ -24,6 +25,8 @@ lazy val nParallel = {
   }
 }
 
+val SupportedScalaVersions = Seq("2.11.8")
+
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
 // FIXME @nv: dotty compiler needs the scala-library and dotty-library (and maybe some other
@@ -34,11 +37,13 @@ lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash scri
 
 lazy val script = taskKey[Unit]("Generate the stainless Bash script")
 
-lazy val scalaVersionSetting: Setting[_] = scalaVersion := "2.11.8"
+lazy val baseSettings: Seq[Setting[_]] = Seq(
+  organization := "ch.epfl.lara"
+)
 
-lazy val artifactSettings: Seq[Setting[_]] = Seq(
-  organization := "ch.epfl.lara",
-  scalaVersionSetting
+lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
+  scalaVersion := crossScalaVersions.value.head,
+  crossScalaVersions := SupportedScalaVersions
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -210,6 +215,16 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(commonSettings)
   //.dependsOn(inox % "compile->compile;test->test")
 
+lazy val `stainless-library` = (project in file("frontends") / "library")
+  .disablePlugins(AssemblyPlugin)
+  .settings(commonSettings)
+  .settings(
+    // don't publish binaries - stainless-library is only consumed as a sources component
+    publishArtifact in packageBin := false,
+    crossVersion := CrossVersion.full,
+    scalaSource in Compile := baseDirectory.value
+  )
+
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
   .settings(
     name := "stainless-scalac",
@@ -258,11 +273,53 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
 
+lazy val `sbt-stainless` = (project in file("sbt-plugin"))
+  .enablePlugins(BuildInfoPlugin)
+  .settings(baseSettings)
+  .settings(
+    description := "Sbt plugin integrating Stainless in Sbt.",
+    sbtPlugin := true,
+    // Could also add support for sbt "1.1.0" but a compatibility layer needs to be added to compile against both sbt 0.13 and 1
+    crossSbtVersions := Vector("0.13.13"),
+    buildInfoUsePackageAsPath := true,
+    buildInfoPackage := "ch.epfl.lara.sbt.stainless",
+    buildInfoKeys := Seq[BuildInfoKey](
+      BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
+      "supportedScalaVersions" -> SupportedScalaVersions
+    )
+  )
+  .settings(scriptedSettings)
+  .settings(
+    scriptedDependencies := {
+      publishLocal.value
+      (publishLocal in `stainless-library`).value
+      (publishLocal in `stainless-scalac-assembly`).value
+    }
+  )
+
+def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
+  Seq(
+    scripted := scripted.tag(Tags.Test).evaluated,
+    scriptedLaunchOpts ++= Seq(
+      "-Xmx768m",
+      "-XX:MaxMetaspaceSize=384m",
+      "-Dplugin.version=" + version.value,
+      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
+    ),
+    scriptedBufferLog := false
+  )
+
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
-  .settings(scalaVersionSetting, sourcesInBase in Compile := false)
-  .dependsOn(`stainless-scalac`, `stainless-dotty`)
-  .aggregate(`stainless-core`, `stainless-scalac`, `stainless-dotty`)
+  .settings(artifactSettings)
+  .settings(
+    sourcesInBase in Compile := false,
+    // Don't publish root project
+    publishArtifact := false,
+    publish := ()
+  )
+  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`)
 
 // FIXME assembly should be disabled at the top level, but isn't
 // FIXME assembly is not compatible with dotty -- some conflict with scala versions?

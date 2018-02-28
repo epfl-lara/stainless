@@ -1,0 +1,3 @@
+> assertLogMessage
+> success/compile
+> failure/checkScalaFailures
