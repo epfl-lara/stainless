@@ -37,7 +37,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
         val tryExProgram = Try(extraction.extract(program, ctx))
         describe("and transformation") {
-          it("should be successful") { assert(tryExProgram.isSuccess) }
+          it("should be successful") { tryExProgram.get }
 
           if (tryExProgram.isSuccess) {
             val exProgram = tryExProgram.get

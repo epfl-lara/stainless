@@ -30,10 +30,11 @@ trait FunctionSplitting extends inox.ast.ProgramTransformer {
             val vars = closures.map(_.freshen)
             val varMap = (closures zip vars).toMap
 
-            val params = vars.map(v => typeOps.instantiateType(v, tpMap).asInstanceOf[Variable].toVal)
-            val body = typeOps.instantiateType(exprOps.replaceFromSymbols(varMap, recons(nes)), tpMap)
+            val inst = new typeOps.TypeInstantiator(tpMap)
+            val params = vars.map(v => inst.transform(v).asInstanceOf[Variable].toVal)
+            val body = inst.transform(exprOps.replaceFromSymbols(varMap, recons(nes)))
 
-            fds :+= new FunDef(id, tparams, params, typeOps.instantiateType(e.getType, tpMap), body, Set())
+            fds :+= new FunDef(id, tparams, params, inst.transform(e.getType), body, Set())
             (FunctionInvocation(id, fd.typeArgs, closures), 0)
           } else {
             (recons(nes), size)

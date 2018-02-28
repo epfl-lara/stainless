@@ -50,24 +50,24 @@ trait Trees extends holes.Trees with Definitions { self =>
   }
 
   /** $encodingof `this` */
-  case class This(ct: ClassType) extends Expr {
+  case class This(ct: ClassType) extends Expr with Terminal {
     def getType(implicit s: Symbols): Type = ct
   }
 
   /** $encodingof `super` */
-  case class Super(ct: ClassType) extends Expr {
+  case class Super(ct: ClassType) extends Expr with Terminal {
     def getType(implicit s: Symbols): Type = ct
   }
 
   /** $encodingof `expr.isInstanceOf[tpe]` */
-  case class IsInstanceOf(expr: Expr, tpe: Type) extends Expr {
+  case class IsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = {
       if (s.typesCompatible(expr.getType, tpe)) BooleanType() else Untyped
     }
   }
 
   /** $encodingof `expr.asInstanceOf[tpe]` */
-  case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr {
+  case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = {
       if (s.typesCompatible(expr.getType, tpe)) tpe else Untyped
     }
@@ -245,6 +245,10 @@ trait Printer extends holes.Printer {
       printNameWithPath(ct.id) // no type parameters in patterns
       p"($subs)"
 
+    case InstanceOfPattern(ovd, tpe) =>
+      ovd foreach (vd => p"${vd.toVariable} : ")
+      p"$tpe"
+
     case (tcd: TypedClassDef) => p"typed class ${tcd.id}[${tcd.tps}]"
 
     case _ => super.ppBody(tree)
@@ -275,6 +279,12 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.This(ct) =>
       (Seq(), Seq(), Seq(), Seq(ct), (_, _, _, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
 
+    case s.IsInstanceOf(e, tpe) =>
+      (Seq(), Seq(), Seq(e), Seq(tpe), (_, _, es, tps) => t.IsInstanceOf(es.head, tps.head))
+
+    case s.AsInstanceOf(e, tpe) =>
+      (Seq(), Seq(), Seq(e), Seq(tpe), (_, _, es, tps) => t.AsInstanceOf(es.head, tps.head))
+
     case _ => super.deconstruct(e)
   }
 
@@ -282,6 +292,10 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.ClassPattern(binder, ct, subs) =>
       (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, (_, vs, _, tps, subs) => {
         t.ClassPattern(vs.headOption.map(_.toVal), tps.head.asInstanceOf[t.ClassType], subs)
+      })
+    case s.InstanceOfPattern(binder, ct) =>
+      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), Seq(), (_, vs, _, tps, _) => {
+        t.InstanceOfPattern(vs.headOption.map(_.toVal), tps.head)
       })
 
     case _ => super.deconstruct(pattern)

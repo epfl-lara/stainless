@@ -21,7 +21,10 @@ trait InoxEncoder extends ProgramEncoder {
     inox.InoxProgram(t.NoSymbols
       .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
-        .map(fd => fd.copy(flags = fd.flags.filter { case Derived(_) | Unchecked => false case _ => true }))
+        .map(fd => fd.copy(flags = fd.flags.filter {
+          case Derived(_) | Unchecked | IsUnapply(_, _) => false
+          case _ => true
+        }))
         .map { fd =>
           if (fd.flags contains Extern) {
             val Lambda(Seq(vd), post) = fd.postOrTrue

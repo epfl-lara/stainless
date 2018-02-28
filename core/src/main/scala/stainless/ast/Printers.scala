@@ -51,14 +51,10 @@ trait Printer extends inox.ast.Printer {
     case WildcardPattern(None) => p"_"
     case WildcardPattern(Some(vd)) => p"${vd.toVariable}"
 
-    case ADTPattern(ovd, tpe, pats) =>
+    case ADTPattern(ovd, id, tps, pats) =>
       ovd foreach (vd => p"${vd.toVariable} @ ")
-      printNameWithPath(tpe.id) // print only the id because we don't want type parameters in patterns
+      printNameWithPath(id) // print only the id because we don't want type parameters in patterns
       p"($pats)"
-
-    case InstanceOfPattern(ovd, tpe) =>
-      ovd foreach (vd => p"${vd.toVariable} : ")
-      p"$tpe"
 
     case TuplePattern(ovd, subs) =>
       ovd foreach (vd => p"${vd.toVariable} : ")

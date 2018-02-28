@@ -26,12 +26,11 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
 
   test("Lookup Option classes") {
     val option = program.lookup[ADTSort]("stainless.lang.Option")
-    val some = program.lookup[ADTConstructor]("stainless.lang.Some")
-    val none = program.lookup[ADTConstructor]("stainless.lang.None")
+    val Seq(none, some) = option.constructors.sortBy(_.fields.size)
 
-    assert(option.cons.toSet == Set(some.id, none.id))
-    assert(some.sort == Some(option.id))
-    assert(none.sort == Some(option.id))
+    assert(option.constructors.map(_.id).toSet == Set(some.id, none.id))
+    assert(some.sort == option.id)
+    assert(none.sort == option.id)
 
     assert(some.fields.size == 1)
     assert(none.fields.isEmpty)
@@ -47,12 +46,11 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
 
   test("Lookup List classes") {
     val list = program.lookup[ADTSort]("stainless.collection.List")
-    val cons = program.lookup[ADTConstructor]("stainless.collection.Cons")
-    val nil  = program.lookup[ADTConstructor]("stainless.collection.Nil")
+    val Seq(nil, cons) = list.constructors.sortBy(_.fields.size)
 
-    assert(list.cons.toSet == Set(cons.id, nil.id))
-    assert(cons.sort == Some(list.id))
-    assert(nil.sort == Some(list.id))
+    assert(list.constructors.map(_.id).toSet == Set(cons.id, nil.id))
+    assert(cons.sort == list.id)
+    assert(nil.sort == list.id)
 
     assert(cons.fields.size == 2)
     assert(nil.fields.isEmpty)
@@ -72,19 +70,17 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
   }
 
   test("Lookup by definition type") {
-    program.lookup[ADTDefinition]("stainless.collection.List")
-    program.lookup[ADTDefinition]("stainless.collection.Cons")
-    program.lookup[ADTDefinition]("stainless.collection.Nil")
+    program.lookup[ADTSort]("stainless.collection.List")
   }
 
   test("Lookup non-library stuff") {
-    program.lookup[ADTConstructor]("Test.Toto")
+    program.lookup[ADTSort]("Test.Toto")
     program.lookup[FunDef]("Test.Toto")
   }
 
   test("lookup fails when looking up inexistent stuff") {
     try {
-      program.lookup[ADTDefinition]("stainless.collection.List2")
+      program.lookup[ADTSort]("stainless.collection.List2")
       fail("Expected to throw exception")
     } catch {
       case _: ADTLookupException => // ok

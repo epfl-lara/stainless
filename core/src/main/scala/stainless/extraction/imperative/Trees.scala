@@ -40,11 +40,14 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `obj.selector = value` */
   case class FieldAssignment(obj: Expr, selector: Identifier, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type =
-      getField(obj.getType, selector)
+    def getField(implicit s: Symbols): Option[ValDef] = self.getField(obj.getType, selector)
+
+    protected def computeType(implicit s: Symbols): Type = {
+      getField
         .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
         .map(_ => UnitType())
         .getOrElse(Untyped)
+    }
   }
 
   /** $encodingof `(while(cond) { ... }) invariant (pred)` */

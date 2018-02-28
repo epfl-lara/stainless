@@ -49,16 +49,16 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     val head = FreshIdentifier("head")
     val tail = FreshIdentifier("tail")
 
-    def mkSeq(es: Seq[Expr]): Expr = es.foldRight(nil())((h, t) => cons(h, t))
-    def seqAt(s: Expr, i: Int): Expr =
-      if (i <= 0) Assume(s is cons, s.getField(head))
-      else Assume(s is cons, seqAt(s.getField(tail), i - 1))
-
     val seqSort  = mkSort(seqID)()(_ => Seq(
       (FreshIdentifier("Cons"), Seq(ValDef(head, tpe), ValDef(tail, seq))),
       (FreshIdentifier("Nil"), Seq())
     ))
     val Seq(cons, nil) = seqSort.constructors
+
+    def mkSeq(es: Seq[Expr]): Expr = es.foldRight(nil())((h, t) => cons(h, t))
+    def seqAt(s: Expr, i: Int): Expr =
+      if (i <= 0) Assume(s is cons, s.getField(head))
+      else Assume(s is cons, seqAt(s.getField(tail), i - 1))
 
 
     /* ====================================
@@ -472,13 +472,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           })
         }
 
-        case (tpe1 @ ADTType(id, tps1), tpe2 @ ADTType(_, tps2)) =>
-          val sort: s.ADTSort = symbols.getSort(id)
+        case (tpe1 @ ADTType(id1, tps1), tpe2 @ ADTType(_, tps2)) =>
           val id = unificationCache.get((tpe1, tpe2)) match {
             case Some(fd) => fd.id
             case None => unifications.get((tpe1, tpe2)) match {
               case Some(id) => id
               case None =>
+                val sort = symbols.getSort(id1)
                 val id = FreshIdentifier(encodeName("unify_" + tpe1 + "_" + tpe2))
                 unifications += (tpe1, tpe2) -> id
                 unificationCache += (tpe1, tpe2) -> mkFunDef(id, Unchecked)()(_ => (
@@ -786,6 +786,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case s.IsInstanceOf(expr, tpe) if isObject(expr.getType lub tpe) =>
           instanceOf(transform(expr), encodeType(tpe))
 
+        case s.IsInstanceOf(expr, tpe) =>
+          t.BooleanLiteral(isSubtypeOf(expr.getType, tpe))
+
         case s.AsInstanceOf(expr, tpe) if isObject(expr.getType lub tpe) =>
           val exprType = expr.getType
           val te = transform(expr)
@@ -795,6 +798,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             else te
 
           t.Assert(check, Some("Cast error"), result)
+
+        case s.AsInstanceOf(expr, tpe) => transform(expr)
 
         case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType) =>
           let("res" :: obj, super.transform(e)) { res =>
@@ -892,9 +897,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
           case s.InstanceOfPattern(ob, tpe) =>
             val cond = if (isObject(in.getType lub tpe)) {
-              instanceOf(transform(ob.map(_.toVariable).getOrElse(in), encodeType(tpe)))
+              instanceOf(transform(ob.map(_.toVariable).getOrElse(in)), encodeType(tpe))
             } else {
-              t.BooleanLiteral(true)
+              t.BooleanLiteral(isSubtypeOf(in.getType, tpe))
             }
             (t.WildcardPattern(ob map transform), cond)
 

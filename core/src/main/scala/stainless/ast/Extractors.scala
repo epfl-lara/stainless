@@ -14,17 +14,13 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   protected type DeconstructedPattern = (Seq[Identifier], Seq[s.Variable], Seq[s.Expr], Seq[s.Type], Seq[s.Pattern], PatternBuilder)
 
   def deconstruct(pattern: s.Pattern): DeconstructedPattern = pattern match {
-    case s.InstanceOfPattern(binder, ct) =>
-      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), Seq(), (_, vs, _, tps, _) => {
-        t.InstanceOfPattern(vs.headOption.map(_.toVal), tps.head)
-      })
     case s.WildcardPattern(binder) =>
       (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(), Seq(), (_, vs, _, _, _) => {
         t.WildcardPattern(vs.headOption.map(_.toVal))
       })
-    case s.ADTPattern(binder, ct, subs) =>
-      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, (_, vs, _, tps, pats) => {
-        t.ADTPattern(vs.headOption.map(_.toVal), tps.head.asInstanceOf[t.ADTType], pats)
+    case s.ADTPattern(binder, id, tps, subs) =>
+      (Seq(id), binder.map(_.toVariable).toSeq, Seq(), tps, subs, (ids, vs, _, tps, pats) => {
+        t.ADTPattern(vs.headOption.map(_.toVal), ids.head, tps, pats)
       })
     case s.TuplePattern(binder, subs) =>
       (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(), subs, (_, vs, _, _, pats) => {
@@ -191,6 +187,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Extern => (Seq(), Seq(), Seq(), (_, _, _) => t.Extern)
     case s.Unchecked => (Seq(), Seq(), Seq(), (_, _, _) => t.Unchecked)
     case s.Derived(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.Derived(ids.head))
+    case s.IsUnapply(isEmpty, get) => (Seq(isEmpty, get), Seq(), Seq(), (ids, _, _) => t.IsUnapply(ids(0), ids(1)))
     case _ => super.deconstruct(f)
   }
 }

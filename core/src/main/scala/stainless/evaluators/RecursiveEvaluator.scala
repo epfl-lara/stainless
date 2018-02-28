@@ -119,7 +119,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
             } else {
               None
             }
-          case BooleanLiteral(false) => None
+          case BooleanLiteral(true) => None
           case other => throw EvalError(typeErrorMsg(other, BooleanType()))
         }
 

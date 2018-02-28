@@ -11,7 +11,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Extern extends Flag("extern", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
-  case class Unapply(v: Variable, isEmpty: Expr, get: Expr) extends Flag("unapply", Seq(v, isEmpty, get))
+  case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
     case ("extern", Seq()) => Extern

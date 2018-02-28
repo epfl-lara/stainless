@@ -46,15 +46,16 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
+      val inst = new typeOps.TypeInstantiator(tparamsMap)
       val freshVals = (args ++ free).map { vd =>
-        val tvd = vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
+        val tvd = inst.transform(vd)
         tvd -> tvd.freshen
       }
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val instBody = typeOps.instantiateType(withPath(body, reqPC), tparamsMap)
+      val instBody = inst.transform(withPath(body, reqPC))
 
       val fullBody = exprOps.preMap {
         case v: Variable => freeMap.get(v.toVal).map(_.toVariable)
@@ -74,7 +75,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
         name.id,
         tparams ++ tpFresh,
         freshParams,
-        typeOps.instantiateType(name.tpe.asInstanceOf[FunctionType].to, tparamsMap),
+        inst.transform(name.tpe.asInstanceOf[FunctionType].to),
         fullBody,
         name.flags ++ outer.flags + Derived(outer.id)
       ).copiedFrom(inner)

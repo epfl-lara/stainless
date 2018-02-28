@@ -372,6 +372,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     var flags = annotationsOf(sym) ++
       (if ((sym is Implicit) || (sym is Inline)) Some(xt.Inline) else None)
 
+    if (sym.name == nme.unapply) {
+      val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
+      val getDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.get)
+      flags += xt.IsUnapply(getIdentifier(isEmptyDenot.symbol), getIdentifier(getDenot.symbol))
+    }
+
     val id = getIdentifier(sym)
 
     // If this is a lazy field definition, drop the assignment/ accessing

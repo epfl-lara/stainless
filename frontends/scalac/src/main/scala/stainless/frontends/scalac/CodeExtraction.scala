@@ -432,6 +432,16 @@ trait CodeExtraction extends ASTExtractors {
       (if (sym.isImplicit) Set(xt.Inline, xt.Implicit) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
 
+    if (sym.name == nme.unapply) {
+      def matchesParams(member: Symbol) = member.paramss match {
+        case Nil        => true
+        case ps :: rest => (rest.isEmpty || isImplicitParamss(rest)) && (ps corresponds Seq())(_.tpe =:= _)
+      }
+      val isEmptySym = sym.info.finalResultType member nme.isEmpty filter matchesParams
+      val getSym = sym.info.finalResultType member nme.get filter matchesParams
+      flags += xt.IsUnapply(getIdentifier(isEmptySym), getIdentifier(getSym))
+    }
+
     val body =
       if (!(flags contains xt.IsField(true))) rhs
       else rhs match {

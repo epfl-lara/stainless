@@ -42,14 +42,6 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       case WildcardPattern(ob) =>
         bind(ob, in)
 
-      case InstanceOfPattern(ob, adt) =>
-        val tadt = adt.asInstanceOf[ADTType].getADT
-        if (tadt.root == tadt) {
-          bind(ob, in)
-        } else {
-          pp.empty withCond isInstOf(in, adt) merge bind(ob, in)
-        }
-
       case ADTPattern(ob, id, tps, subps) =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
@@ -65,7 +57,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
       case up @ UnapplyPattern(ob, id, tps, subps) =>
         val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply _).tupled
-        bind(ob, in) withCond up.isSome(in) merge subs
+        bind(ob, in) withCond Not(up.isEmpty(in)) merge subs
 
       case LiteralPattern(ob, lit) =>
         pp.empty withCond Equals(in, lit) merge bind(ob, in)
@@ -99,19 +91,19 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
   /** Converts the pattern applied to an input to a map between identifiers and expressions */
   def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef,Expr] = {
-    def bindIn(vd: Option[ValDef], cast: Option[ADTType] = None): Map[ValDef,Expr] = vd match {
+    def bindIn(vd: Option[ValDef]): Map[ValDef,Expr] = vd match {
       case None => Map()
-      case Some(vd) => Map(vd -> cast.map(asInstOf(in, _)).getOrElse(in))
+      case Some(vd) => Map(vd -> in)
     }
 
     pattern match {
-      case ADTPattern(b, adt, subps) =>
-        val tcons = adt.getADT.toConstructor
+      case ADTPattern(b, id, tps, subps) =>
+        val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subMaps = pairs.map(p => mapForPattern(adtSelector(asInstOf(in, adt), p._1.id), p._2))
+        val subMaps = pairs.map(p => mapForPattern(adtSelector(in, p._1.id), p._2))
         val together = subMaps.flatten.toMap
-        bindIn(b, Some(adt)) ++ together
+        bindIn(b) ++ together
 
       case TuplePattern(b, subps) =>
         val TupleType(tpes) = in.getType
@@ -122,12 +114,9 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         bindIn(b) ++ map
 
       case up @ UnapplyPattern(b, _, _, subps) =>
-        bindIn(b) ++ unwrapTuple(up.getUnsafe(in), subps.size).zip(subps).flatMap {
+        bindIn(b) ++ unwrapTuple(up.get(in), subps.size).zip(subps).flatMap {
           case (e, p) => mapForPattern(e, p)
         }.toMap
-
-      case InstanceOfPattern(b, adt: ADTType) =>
-        bindIn(b, Some(adt))
 
       case other =>
         bindIn(other.binder)

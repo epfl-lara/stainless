@@ -131,7 +131,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     val subPatterns = Seq()
   }
 
-  /** Pattern encoding `case binder @ ct(subPatterns...) =>`
+  /** Pattern encoding `case binder @ id(subPatterns...) =>`
     *
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
@@ -155,32 +155,29 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   case class UnapplyPattern(binder: Option[ValDef], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
     def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
-    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr = getFunction.flags.collectFirst {
-      case Unapply(v, isEmpty, _) => exprOps.replaceFromSymbols(Map(v -> scrut), isEmpty)
-    }.get
-
-    def get(scrut: Expr)(implicit s: Symbols): Expr = getFunction.flags.collectFirst {
-      case Unapply(v, _, get) => exprOps.replaceFromSymbols(Map(v -> scrut), get)
-    }.get
-
-    /** Construct a pattern matching against unapply(scrut) (as an if-expression)
-      *
-      * @param scrut The scrutinee of the pattern matching
-      * @param noneCase The expression that will happen if unapply(scrut) is None
-      * @param someCase How unapply(scrut).get will be handled in case it exists
-      */
-    def patternMatch(scrut: Expr, noneCase: Expr, someCase: Expr => Expr)(implicit s: Symbols): Expr = {
-      // We use this hand-coded if-then-else because we don't want to generate
-      // match exhaustiveness checks in the program
-      val tfd = getFunction
-      val (v, isEmpty, get) = tfd.flags.collectFirst { case Unapply(v, isEmpty, get) => (v, isEmpty, get) }.get
-      val binder = ValDef(FreshIdentifier("unap", true), tfd.returnType)
-      exprOps.freshenLocals(Let(
-        v.toVal,
-        FunctionInvocation(id, tps, Seq(scrut)),
-        IfExpr(isEmpty, noneCase, someCase(get))
-      ))
+    private def getIsEmpty(implicit s: Symbols): FunDef = {
+      getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
+        .flatMap(s.lookupFunction)
+        .filter(_.params.size == 1)
+        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
     }
+
+    private def getGet(implicit s: Symbols): FunDef = {
+      getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
+        .flatMap(s.lookupFunction)
+        .filter(_.params.size == 1)
+        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
+    }
+
+    private def invoke(fd: FunDef, scrut: Expr)(implicit s: Symbols): Expr = {
+      val unapplyCall = FunctionInvocation(id, tps, Seq(scrut))
+      val tpMap = s.instantiation(fd.params.head.tpe, unapplyCall.getType)
+        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern failed type instantiation"))
+      FunctionInvocation(fd.id, fd.typeArgs map tpMap, Seq(unapplyCall))
+    }
+
+    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr = invoke(getIsEmpty, scrut)
+    def get(scrut: Expr)(implicit s: Symbols): Expr = invoke(getGet, scrut)
   }
 
 

@@ -306,6 +306,7 @@ private class CanonicalFormBuilderImpl {
         case xt.Bounds(lo, hi) => storeType(lo); storeType(hi)
         case xt.IsField(isLazy) => storeBool(isLazy)
         case xt.Derived(id) => storeId(id)
+        case xt.IsUnapply(isEmpty, get) => storeId(isEmpty); storeId(get)
 
         // Nothing specific to add for these:
         case xt.Inline | xt.Implicit | xt.IsVar | xt.IsMutable |
