@@ -50,6 +50,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         reportError(pos, s"Scala collection API ($tp) no longer extracted, please use ${replacement}")
     }
 
+    def checkVariance(tdef: TypeDef): Unit = {
+      if (tdef.symbol.asType.isCovariant || tdef.symbol.asType.isContravariant)
+        reportError(tdef.pos, "Stainless supports only invariant type parameters")
+    }
+
     override def traverse(tree: Tree): Unit = {
       val sym = tree.symbol
       if (sym ne null) {
@@ -67,7 +72,14 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       } else super.traverse(tree)
 
       tree match {
-        case ClassDef(mods, name, tparams, impl) if sym.isAbstractClass =>
+        case ClassDef(mods, name, tparams, impl) =>
+          if (!sym.isAbstractClass
+            && !sym.isCaseClass
+            && !sym.isModuleClass
+            && !sym.isImplicit
+            && !sym.isNonBottomSubClass(definitions.AnnotationClass))
+            reportError(tree.pos, "Only abstract classes, case classes and objects are allowed in Stainless.")
+
           val firstParent = sym.info.firstParent
           if (firstParent != definitions.AnyRefTpe) {
             // we assume type-checked Scala code, so even though usually type arguments are not the same as
@@ -77,8 +89,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             val tparams = sym.info.typeParams
             if (tparams.size != parentTParams.size)
               reportError(tree.pos,
-                s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent}")
+                s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
           }
+          tparams.foreach(checkVariance)
           traverse(impl)
 
         case DefDef(_, _, _, _, _, rhs) if sym.isConstructor =>
@@ -90,13 +103,14 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
           atOwner(sym)(traverse(rhs))
 
-        case ValDef(_, _, _, rhs) if sym.owner.isAbstractClass && !sym.isParamAccessor => // param accessors are fields issued from constructors
-          reportError(tree.pos, s"Fields are not allowed in abstract classes.")
-          atOwner(sym)(traverse(rhs))
-
-        case ValDef(_, _, _, rhs) =>
-          // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
-          atOwner(sym)(traverse(rhs))
+//        case ValDef(_, _, _, rhs) if sym.owner.isAbstractClass && !sym.isParamAccessor => // param accessors are fields issued from constructors
+//          if (!(sym.isLazy || sym.hasAnnotation(definitions.ScalaInlineClass)))
+//            reportError(tree.pos, s"Fields are not allowed in abstract classes.")
+//          atOwner(sym)(traverse(rhs))
+//
+//        case ValDef(_, _, _, rhs) =>
+//          // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
+//          atOwner(sym)(traverse(rhs))
 
         case Super(_, _) if !currentOwner.isConstructor => // we need to allow super in constructors
           reportError(tree.pos, "Super calls are not allowed in Stainless.")

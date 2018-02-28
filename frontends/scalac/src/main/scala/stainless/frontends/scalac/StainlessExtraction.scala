@@ -7,6 +7,8 @@ import extraction.xlang.{trees => xt}
 import frontend.MasterCallBack
 import scala.tools.nsc._
 
+import stainless.frontend.UnsupportedCodeException
+
 /** Extract each compilation unit and forward them to the Compiler callback */
 trait StainlessExtraction extends SubComponent with CodeExtraction with FragmentChecker {
   import global._
@@ -26,7 +28,9 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
       if (!checker.hasErrors()) {
         val (unit, classes, functions) = extractUnit(u)
         callback(file, unit, classes, functions)
-      }
+      }/* else
+        // there seems to be some code that
+        throw new UnsupportedCodeException(NoPosition, "Unsupported fragment detected")*/
     }
   }
 }
