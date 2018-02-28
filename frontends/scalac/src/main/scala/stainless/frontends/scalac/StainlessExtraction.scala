@@ -8,7 +8,7 @@ import frontend.MasterCallBack
 import scala.tools.nsc._
 
 /** Extract each compilation unit and forward them to the Compiler callback */
-trait StainlessExtraction extends SubComponent with CodeExtraction {
+trait StainlessExtraction extends SubComponent with CodeExtraction with FragmentChecker {
   import global._
 
   val phaseName = "stainless"
@@ -21,8 +21,12 @@ trait StainlessExtraction extends SubComponent with CodeExtraction {
   class Phase(prev: scala.tools.nsc.Phase) extends StdPhase(prev) {
     def apply(u: CompilationUnit): Unit = {
       val file = u.source.file.absolute.path
-      val (unit, classes, functions) = extractUnit(u)
-      callback(file, unit, classes, functions)
+      val checker = new Checker
+      checker(u.body)
+      if (!checker.hasErrors()) {
+        val (unit, classes, functions) = extractUnit(u)
+        callback(file, unit, classes, functions)
+      }
     }
   }
 }
