@@ -70,7 +70,7 @@ package object frontend {
   }
 
   /** Get one callback for all active components. */
-  private def getMasterCallBack(ctx: inox.Context): MasterCallBack = {
+  def getMasterCallBack(ctx: inox.Context): MasterCallBack = {
     val activeComponents = getActiveComponents(ctx)
     val activeCallbacks = activeComponents map { c => getCallBack(c.name, ctx) }
 

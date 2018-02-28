@@ -216,11 +216,28 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
     extraClasspath := "", // no need for the classpath extension with scalac
-    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value)
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
+    assemblyExcludedJars in assembly := {
+      val cp = (fullClasspath in assembly).value
+      // Don't include scalaz3 dependency because it is OS dependent
+      cp filter {_.data.getName.startsWith("scalaz3")}
+    },
+    skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
+  )
   .dependsOn(`stainless-core`)
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
+
+// Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
+lazy val `stainless-scalac-assembly` = project
+  .settings(artifactSettings)
+  .settings(
+    name := "stainless-scalac-plugin",
+    crossVersion := CrossVersion.full, // because compiler api is not binary compatible
+    packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
+  )
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .disablePlugins(AssemblyPlugin)
