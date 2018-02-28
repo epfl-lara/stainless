@@ -158,24 +158,29 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         }
       }
 
-      private def transformPattern(scrut: s.Expr, pattern: s.Pattern): (t.Pattern, t.Expr) = {
-        def rec(in: s.Expr, pattern: s.Pattern): (t.Pattern, t.Expr) = pattern match {
+      private def transformPattern(scrut: s.Expr, pattern: s.Pattern): (t.Pattern, Map[t.Variable, t.Expr], t.Expr) = {
+        def rec(in: s.Expr, pattern: s.Pattern): (t.Pattern, Map[t.Variable, t.Expr], t.Expr) = pattern match {
           case s.WildcardPattern(ob) => (
             t.WildcardPattern(ob map transform).copiedFrom(pattern),
+            Map(),
             t.BooleanLiteral(true).copiedFrom(pattern)
           )
 
-          case s.InstanceOfPattern(ob, tpe) => (in.getType, tpe) match {
-            case (s.ClassType(id1, tps1), s.ClassType(id2, tps2))
-            if candidates(id1) && candidates(id2) =>
-
-            case (_, s.ClassType(id, tps)) if candidates(id) =>
-
-            case _ => (
-              t.InstanceOfPattern(ob map transform, transform(tpe)).copiedFrom(pattern),
-              t.BooleanLiteral(true).copiedFrom(pattern)
-            )
-          }
+          case s.InstanceOfPattern(ob, tpe) =>
+            if (Seq(in.getType, tpe).exists { case s.ClassType(id, _) => candidates(id) case _ => false }) {
+              val v = s.Variable.fresh("v", in.getType).copiedFrom(pattern)
+              (
+                t.WildcardPattern(Some(transform(v.toVal))).copiedFrom(pattern),
+                ob.map(vd => transform(vd).toVariable -> transform(s.AsInstanceOf(v, tpe).copiedFrom(pattern))).toMap,
+                transform(s.IsInstanceOf(v, tpe).copiedFrom(pattern))
+              )
+            } else {
+              (
+                t.InstanceOfPattern(ob map transform, transform(tpe)).copiedFrom(pattern),
+                Map(),
+                t.BooleanLiteral(true).copiedFrom(pattern)
+              )
+            }
 
           case s.ClassPattern(ob, ct, subs) =>
 
@@ -198,8 +203,8 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
             t.orJoin(constructors(id2).toSeq.sortBy(_.name).map { cid =>
               t.IsConstructor(texpr, cMap(cid)).copiedFrom(e)
             }).copiedFrom(e)
-          case (IsTyped(_, s.ClassType(id, tps)), _) if candidates(id) =>
-            t.IsInstanceOf(unwrap(expr), transform(tpe)).copiedFrom(e)
+          case (IsTyped(_, ct @ s.ClassType(id, tps)), _) if candidates(id) =>
+            t.BooleanLiteral(isSubtypeOf(ct, tpe)).copiedFrom(e)
           case (_, s.ClassType(id, tps)) if candidates(id) =>
             val texpr = transform(expr)
             t.orJoin(constructors(id).toSeq.sortBy(_.name).map { cid =>
