@@ -10,26 +10,38 @@ trait TypeOps extends inox.ast.TypeOps {
 
   def patternIsTyped(in: Type, pat: Pattern): Boolean = pat match {
     case WildcardPattern(ob) => ob.forall(vd => isSubtypeOf(in, vd.tpe))
+
     case LiteralPattern(ob, lit) =>
-      ob.forall(vd => isSubtypeOf(in, vd.tpe)) &&
+      ob.forall(vd => isSubtypeOf(vd.tpe, in)) &&
       isSubtypeOf(lit.getType, in)
-    case ADTPattern(ob, id, tps, subs) =>
-      ob.forall(vd => isSubtypeOf(in, vd.tpe)) &&
-      lookupConstructor(id, tps).exists { tcons =>
-        tcons.fields.size == subs.size &&
-        (tcons.fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.tpe, sub) }
-      }
-    case TuplePattern(ob, subs) =>
-      ob.forall(vd => isSubtypeOf(in, vd.tpe)) && (in match {
-        case TupleType(tps) =>
-          tps.size == subs.size &&
-          ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
-        case _ => false
-      })
+
+    case ADTPattern(ob, id, tps, subs) => in match {
+      case ADTType(sort, tps2) =>
+        tps == tps2 &&
+        ob.forall(vd => isSubtypeOf(in, vd.tpe)) &&
+        lookupConstructor(id).exists { cons =>
+          cons.sort == sort &&
+          cons.fields.size == subs.size &&
+          lookupSort(sort).exists(sort => sort.tparams.size == tps.size) &&
+          (cons.typed(tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.tpe, sub) }
+        }
+      case _ => false
+    }
+
+    case TuplePattern(ob, subs) => in match {
+      case TupleType(tps) =>
+        tps.size == subs.size &&
+        ob.forall(vd => isSubtypeOf(vd.tpe, in)) && 
+        ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
+      case _ => false
+    }
+
     case up @ UnapplyPattern(ob, id, tps, subs) =>
-      ob.forall(vd => isSubtypeOf(in, vd.tpe)) &&
+      ob.forall(vd => isSubtypeOf(vd.tpe, in)) &&
       lookupFunction(id).exists(_.tparams.size == tps.size) && {
         val unapp = up.getFunction
+        unapp.params.size == 1 &&
+        ob.forall(vd => isSubtypeOf(unapp.params.head.tpe, vd.tpe)) &&
         unapp.flags
           .collectFirst { case IsUnapply(isEmpty, get) => (isEmpty, get) }
           .exists { case (isEmpty, get) =>

@@ -7,6 +7,7 @@ package oo
 trait TypeOps extends imperative.TypeOps {
   protected val trees: Trees
   import trees._
+  import symbols._
 
   protected def unionType(tps: Seq[Type]): Type = tps match {
     case Seq() => NothingType()
@@ -226,5 +227,46 @@ trait TypeOps extends imperative.TypeOps {
 
     tps.map(tpMap)
   }
+
+  def patternInType(pat: Pattern): Type = pat match {
+    case WildcardPattern(_) => AnyType()
+    case LiteralPattern(_, lit) => lit.getType
+    case ADTPattern(_, id, tps, _) =>
+      lookupConstructor(id)
+        .map(cons => ADTType(cons.sort, tps))
+        .getOrElse(Untyped)
+    case TuplePattern(_, subs) => TupleType(subs map patternInType)
+    case ClassPattern(_, ct, subs) => ct
+    case UnapplyPattern(_, id, tps, _) =>
+      lookupFunction(id)
+        .filter(fd => fd.tparams.size == tps.size && fd.params.size == 1)
+        .map(fd => fd.typed(tps).params.head.tpe)
+        .getOrElse(Untyped)
+    case InstanceOfPattern(_, tpe) => tpe
+  }
+
+  override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
+    case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
+      pat.binder.forall(vd => isSubtypeOf(vd.tpe, in)) &&
+      patternIsTyped(patternInType(pat), pat)
+
+    case (_, ClassPattern(ob, ct, subs)) => in match {
+      case ct2 @ ClassType(id, tps) if isSubtypeOf(ct, ct2) =>
+        lookupClass(ct.id).exists { cls =>
+          cls.fields.size == subs.size &&
+          cls.tparams.size == ct.tps.size &&
+          (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.tpe, sub) }
+        }
+      case _ => patternIsTyped(patternInType(pat), pat)
+    }
+
+    case (_, InstanceOfPattern(ob, tpe)) =>
+      ob.forall(vd => isSubtypeOf(tpe, vd.tpe))
+
+    case (AnyType(), _) => patternIsTyped(patternInType(pat), pat)
+
+    case _ => super.patternIsTyped(in, pat)
+  }
+
 }
 
