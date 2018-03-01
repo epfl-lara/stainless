@@ -1,5 +1,12 @@
 package ch.epfl.lara.sbt.stainless
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.stream.Collectors
+import java.util.zip.ZipFile
+import java.util.zip.ZipEntry
+
 import sbt._
 import sbt.Keys._
 
@@ -71,15 +78,27 @@ object StainlessPlugin extends sbt.AutoPlugin {
   }
 
   private def stainlessExtraScalacOptions: Def.Initialize[Task[Seq[String]]] = Def.task {
+    val log = streams.value.log
+    val projectName = (name in thisProject).value
+
     val config = StainlessLibSources
     val sourceJars = fetchJars(update.value, config, _.classifier == Some(Artifact.SourceClassifier))
-
-    val projectName = (name in thisProject).value
-    val log = streams.value.log
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
 
+    val additionalSourceDirectories = sourceJars map { jar =>
+      val name = jar.getName.dropRight(4) // drop the ".jar" extension
+      val destDir = (target.value / name).toPath
+      // Don't unjar every time
+      if (!destDir.toFile.exists()) {
+        Files.createDirectories(destDir)
+        unjar(jar, destDir)
+        log.debug(s"[$projectName] Unzipped ${jar.getName} in $destDir")
+      }
+      destDir
+    }
+
     import java.io.File.pathSeparator
-    val sourcepath = Seq("-sourcepath", (sourceJars ++ sourceDirectories.value).mkString(pathSeparator))
+    val sourcepath = Seq("-sourcepath", (additionalSourceDirectories ++ sourceDirectories.value).mkString(pathSeparator))
 
     log.debug(s"[$projectName] Extra scalacOptions injected by stainless: ${sourcepath.mkString(" ")}.")
     sourcepath
@@ -95,5 +114,22 @@ object StainlessPlugin extends sbt.AutoPlugin {
       (art, file) <- m.artifacts
       if filter(art)
     } yield file
+  }
+
+  private def unjar(jar: File, destPath: Path): Unit = {
+    var archive: ZipFile = null
+    try {
+      archive = new ZipFile(jar)
+      import scala.collection.JavaConverters._
+      val entries: List[ZipEntry] = archive.stream().collect(Collectors.toList()).asScala.toList
+      entries foreach { entry =>
+        val entryDest = destPath.resolve(entry.getName())
+        if (!entry.isDirectory()) {
+          Files.createDirectories(entryDest.getParent)
+          Files.copy(archive.getInputStream(entry), entryDest, StandardCopyOption.REPLACE_EXISTING)
+        }
+      }
+    }
+    finally archive.close()
   }
 }
