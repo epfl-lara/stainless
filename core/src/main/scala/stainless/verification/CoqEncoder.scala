@@ -21,11 +21,11 @@ trait CoqEncoder {
 
   // to give unique names to the arguments we add for preconditions
   var i = 0
-  val hypName = "stainlessPrecondition"
+  val hypName = "contractHyp"
 
   def freshId(): CoqIdentifier = {
     i += 1
-    CoqIdentifier(FreshIdentifier(hypName + "i"))
+    CoqIdentifier(FreshIdentifier(hypName + i))
   }
 
   // ignore flags with an explicit warning
