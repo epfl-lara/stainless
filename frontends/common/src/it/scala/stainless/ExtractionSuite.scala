@@ -65,8 +65,9 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
   // Tests that programs are rejected either through the extractor or through
   // the TreeSanitizer.
-  def testRejectAll(dir: String): Unit = {
-    val (ctx, files) = testSetUp(dir)
+  def testRejectAll(dir: String, excludes: String*): Unit = {
+    val (ctx, allfiles) = testSetUp(dir)
+    val files = allfiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
     describe(s"Programs extraction in $dir") {
