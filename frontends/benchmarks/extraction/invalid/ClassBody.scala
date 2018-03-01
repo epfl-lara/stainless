@@ -5,5 +5,5 @@ object Top {
 
   def bar(x: Int): Unit = ()
 
-  bar(42) // not allwed here
+  bar(42) // not allowed here
 }

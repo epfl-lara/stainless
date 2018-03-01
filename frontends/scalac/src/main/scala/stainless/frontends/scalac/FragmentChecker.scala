@@ -16,7 +16,10 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   class Checker extends Traverser {
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
-    val RequireMethods = definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
+    val RequireMethods =
+      (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
+        + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
+
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.lang.collection.List",
@@ -110,7 +113,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
                 s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
           }
           tparams.foreach(checkVariance)
-          traverse(impl)
+          atOwner(sym)(traverse(impl))
 
         case DefDef(_, _, _, _, _, rhs) if sym.isConstructor =>
           if (!sym.info.paramss.flatten.isEmpty && sym.owner.isAbstractClass)
@@ -118,7 +121,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           atOwner(sym)(traverse(rhs))
 
         case DefDef(_, _, _, _, _, rhs) =>
-          // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
+          // recurse only inside `rhs`, as parameter/type parameters have been checked already in `checkType`
           atOwner(sym)(traverse(rhs))
 
         case Apply(fun, args) =>
@@ -129,9 +132,16 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           reportError(tree.pos, "Super calls are not allowed in Stainless.")
 
         case Template(parents, self, body) =>
-          for (t <- body if !(t.isDef || t.isType))
-            if (!RequireMethods(t.symbol)) // `require` is the only call allowed in class bodies
+          for (t <- body if !(t.isDef || t.isType || t.isEmpty)) {
+            // `require` is allowed inside classes, but not inside objects
+            if (RequireMethods(t.symbol))
+              if (currentOwner.isModuleClass)
+                reportError(t.pos, "`require` is not allowed inside object bodies.")
+              else ()
+            else
               reportError(t.pos, "Only definitions are allowed inside class bodies.")
+          }
+
           super.traverse(tree)
 
         case _ =>
