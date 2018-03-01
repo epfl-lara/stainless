@@ -13,18 +13,27 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   // defined by StainlessExtraction
   val ctx: inox.Context
 
-
   class Checker extends Traverser {
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
+    val RequireMethods = definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
 
-    private val stainlessType: Map[Symbol, String] = Map(
+    private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.lang.collection.List",
       definitions.NilModule -> "stainless.lang.collection.Nil",
+      definitions.OptionClass -> "stainless.lang.Option",
+      rootMirror.getRequiredClass("scala.util.Either") -> "stainless.lang.Either",
       definitions.ScalaPackageClass.info.decl(newTermName("Nil")) -> "stainless.lang.collection.Nil",
       rootMirror.getRequiredClass("scala.collection.immutable.Map") -> "stainless.lang.Map",
       rootMirror.getRequiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set"
     )
+
+    // method println is overloaded, so we need to add all overloads to our map
+    addOverloadsToMap(definitions.PredefModule.info.decl(newTermName("println")), "stainless.StdIn.println")
+
+    private def addOverloadsToMap(sym: Symbol, replacement: String): Unit = {
+      sym.alternatives.foreach(a => stainlessReplacement += a -> replacement)
+    }
 
     private val erroneousPositions = mutable.Set.empty[Int]
 
@@ -43,16 +52,25 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
     private def checkType(pos: Position, tpe: Type): Unit = {
       val errors = for {
         tp <- tpe
-        if stainlessType.contains(tp.dealias.typeSymbol)
-      } yield tp -> stainlessType(tp.typeSymbol)
+        if stainlessReplacement.contains(tp.dealias.typeSymbol)
+      } yield tp -> stainlessReplacement(tp.typeSymbol)
 
       for ((tp, replacement) <- errors.distinct)
-        reportError(pos, s"Scala collection API ($tp) no longer extracted, please use ${replacement}")
+        reportError(pos, s"Scala API ($tp) no longer extracted, please use ${replacement}")
     }
 
     def checkVariance(tdef: TypeDef): Unit = {
       if (tdef.symbol.asType.isCovariant || tdef.symbol.asType.isContravariant)
         reportError(tdef.pos, "Stainless supports only invariant type parameters")
+    }
+
+    private var classBody = false
+    def inClassBody[T](f: => T): T = {
+      val old = classBody
+      classBody = true
+      val res = f
+      classBody = old
+      res
     }
 
     override def traverse(tree: Tree): Unit = {
@@ -103,17 +121,18 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
           atOwner(sym)(traverse(rhs))
 
-//        case ValDef(_, _, _, rhs) if sym.owner.isAbstractClass && !sym.isParamAccessor => // param accessors are fields issued from constructors
-//          if (!(sym.isLazy || sym.hasAnnotation(definitions.ScalaInlineClass)))
-//            reportError(tree.pos, s"Fields are not allowed in abstract classes.")
-//          atOwner(sym)(traverse(rhs))
-//
-//        case ValDef(_, _, _, rhs) =>
-//          // recurse only inside `rhs`, as parameter/type parameters have been check already in `checkType`
-//          atOwner(sym)(traverse(rhs))
+        case Apply(fun, args) =>
+          if (stainlessReplacement.contains(sym))
+            reportError(tree.pos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
 
         case Super(_, _) if !currentOwner.isConstructor => // we need to allow super in constructors
           reportError(tree.pos, "Super calls are not allowed in Stainless.")
+
+        case Template(parents, self, body) =>
+          for (t <- body if !(t.isDef || t.isType))
+            if (!RequireMethods(t.symbol)) // `require` is the only call allowed in class bodies
+              reportError(t.pos, "Only definitions are allowed inside class bodies.")
+          super.traverse(tree)
 
         case _ =>
           super.traverse(tree)
