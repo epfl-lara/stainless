@@ -275,12 +275,12 @@ trait CoqEncoder {
       val preconditionName = freshId()
       val preconditionParam: Seq[(CoqIdentifier,CoqExpression)] = exprOps.preconditionOf(fd.fullBody) match {
         case None => Seq()
-        case Some(p) => Seq((preconditionName, transformTree(p)))
+        case Some(p) => Seq((preconditionName, transformTree(p) === TrueBoolean))
       }
       val returnType = exprOps.postconditionOf(fd.fullBody) match {
         case None => transformType(fd.returnType)
         case Some(Lambda(Seq(vd), post)) => 
-          Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post))
+          Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
       if (fd.isRecursive) {
@@ -324,7 +324,7 @@ trait CoqEncoder {
       }
       f match {
         case Some(fd) => 
-          println("found first function: " + fd.id)
+          // println("found first function: " + fd.id)
           transformFunction(fd) $ transformFunctionsInOrder(fds.filterNot(_ == fd))
         case None => ctx.reporter.fatalError(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
       }
@@ -359,14 +359,14 @@ trait CoqEncoder {
     RequireImport("Coq.Logic.Classical") $
     RequireImport("Omega") $
     OpenScope("bool_scope") $
-    RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
-    RawCommand( """Definition propInBool (P: Prop): bool :=
-                  | if (classicT P) 
-                  | then true
-                  | else false.
-                  |""".stripMargin) $
-    RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
-    RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
+    // RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
+    // RawCommand( """Definition propInBool (P: Prop): bool :=
+    //               | if (classicT P) 
+    //               | then true
+    //               | else false.
+    //               |""".stripMargin) $
+    // RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
+    // RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
     makeTactic(p.symbols.adts.values.toSeq) $
     manyCommands(p.symbols.adts.values.toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.toSeq)
