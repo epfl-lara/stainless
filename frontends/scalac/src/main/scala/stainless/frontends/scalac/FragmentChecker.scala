@@ -16,6 +16,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   class Checker extends Traverser {
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
+    val StainlessOld = rootMirror.getPackage(newTermName("stainless.lang")).info.decl(newTermName("old"))
     val RequireMethods =
       (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
         + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
@@ -123,6 +124,14 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         case DefDef(_, _, _, _, _, rhs) =>
           // recurse only inside `rhs`, as parameter/type parameters have been checked already in `checkType`
           atOwner(sym)(traverse(rhs))
+
+        case Apply(fun, List(arg)) if sym == StainlessOld =>
+          arg match {
+            case This(_) => ()
+            case t if t.symbol != null && t.symbol.isVariable => ()
+            case t =>
+              reportError(t.pos, s"Stainless `old` is only defined on `this` and variables.")
+          }
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
