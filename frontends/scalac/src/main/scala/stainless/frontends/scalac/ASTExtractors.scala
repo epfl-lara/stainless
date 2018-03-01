@@ -109,20 +109,8 @@ trait ASTExtractors {
     getResolvedTypeSym(sym) == realSym
   }
 
-  def isScalaSetSym(sym: Symbol) : Boolean = {
-    getResolvedTypeSym(sym) == scalaSetSym
-  }
-
-  def isScalaListSym(sym: Symbol): Boolean = {
-    getResolvedTypeSym(sym) == scalaListSym
-  }
-
   def isMapSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == mapSym
-  }
-
-  def isScalaMapSym(sym: Symbol) : Boolean = {
-    getResolvedTypeSym(sym) == scalaMapSym
   }
 
   def isFunction(sym: Symbol, i: Int) : Boolean =

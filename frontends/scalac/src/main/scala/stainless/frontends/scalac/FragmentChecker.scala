@@ -23,7 +23,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.lang.collection.List",
-      definitions.NilModule -> "stainless.lang.collection.Nil",
+      definitions.NilModule.moduleClass -> "stainless.lang.collection.Nil",
       definitions.OptionClass -> "stainless.lang.Option",
       rootMirror.getRequiredClass("scala.util.Either") -> "stainless.lang.Either",
       definitions.ScalaPackageClass.info.decl(newTermName("Nil")) -> "stainless.lang.collection.Nil",

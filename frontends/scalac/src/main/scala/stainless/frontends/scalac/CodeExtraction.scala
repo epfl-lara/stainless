@@ -680,9 +680,6 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
-    case Apply(TypeApply(s, _), _) if s.symbol.fullName startsWith "scala.collection.immutable.List" =>
-      outOfSubsetError(tr.pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
-
     case ExAssertExpression(e, oerr) =>
       xt.Assert(extractTree(e), oerr, xt.UnitLiteral().setPos(tr.pos))
 
@@ -1266,18 +1263,6 @@ trait CodeExtraction extends ASTExtractors {
     case TypeRef(_, sym, _) if isBigIntSym(sym) => xt.IntegerType()
     case TypeRef(_, sym, _) if isRealSym(sym)   => xt.RealType()
     case TypeRef(_, sym, _) if isStringSym(sym) => xt.StringType()
-
-    case TypeRef(_, sym, btt :: Nil) if isScalaSetSym(sym) =>
-      outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
-
-    case TypeRef(_, sym, btt :: Nil) if isScalaListSym(sym) =>
-      outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
-
-    case SingleType(_, sym) if sym.fullName == "scala.collection.immutable.Nil" =>
-      outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
-
-    case TypeRef(_, sym, List(a,b)) if isScalaMapSym(sym) =>
-      outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 
     case TypeRef(_, sym, btt :: Nil) if isSetSym(sym) =>
       xt.SetType(extractType(btt))
