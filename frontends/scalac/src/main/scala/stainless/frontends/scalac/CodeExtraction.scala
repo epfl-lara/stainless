@@ -778,13 +778,8 @@ trait CodeExtraction extends ASTExtractors {
      */
 
     case a @ ExAssign(sym, rhs) =>
-      dctx.mutableVars.get(sym) match {
-        case Some(fun) =>
-          xt.Assignment(fun().setPos(a.pos), extractTree(rhs))
-
-        case None =>
-          outOfSubsetError(a, "Undeclared variable.")
-      }
+      // we assume type-correct code, so `sym` must be defined and in scope
+      xt.Assignment(dctx.mutableVars(sym)().setPos(a.pos), extractTree(rhs))
 
     case wh @ ExWhile(cond, body) =>
       xt.While(extractTree(cond), extractTree(body), None)
