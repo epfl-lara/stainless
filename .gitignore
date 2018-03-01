@@ -73,3 +73,10 @@ out-classes
 
 # Visual Studio Code
 .vscode
+
+# Coq files
+*#
+*.aux
+*.glob
+*.v
+*.vo
