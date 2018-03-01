@@ -3,12 +3,6 @@
 package stainless
 package ast
 
-/* @nv: necessary to ensure the self-type bound of SymbolOps can be satisfied
- *      while at the same time having {{{val trees: stainless.ast.Trees}}} */
-trait TypeOps extends inox.ast.TypeOps {
-  protected val trees: Trees
-}
-
 trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees._
   import trees.exprOps._
