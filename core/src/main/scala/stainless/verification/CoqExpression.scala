@@ -153,6 +153,10 @@ case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = fold(TrueBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a && $b" }
 }
 
+case class Negb(e: CoqExpression) extends CoqExpression {
+  override def coqString = "negb " + e.coqString
+}
+
 case object TrueBoolean extends CoqExpression {
   override def coqString = "true"
 }
@@ -235,6 +239,7 @@ object CoqExpression {
   val implbFun = CoqLibraryConstant("implb")
   val andbFun = CoqLibraryConstant("andb")
   val orbFun = CoqLibraryConstant("orb")
+  val negbFun = CoqLibraryConstant("negb")
   val trueProp = CoqLibraryConstant("True")
   val falseProp = CoqLibraryConstant("False")
   val propSort = CoqLibraryConstant("Prop")
