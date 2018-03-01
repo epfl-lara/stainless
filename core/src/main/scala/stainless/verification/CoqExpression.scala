@@ -83,6 +83,8 @@ case class InductiveCase(constructor: CoqIdentifier, body: CoqExpression) {
   */
 sealed abstract class CoqExpression {
   def coqString: String
+
+  def ===(that: CoqExpression) = CoqEquals(this,that)
 }
 
 case object TypeSort extends CoqExpression {
@@ -131,7 +133,7 @@ case class Constructor(id: CoqExpression, args: Seq[CoqExpression]) extends CoqE
 
 case class CoqForall(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpression) extends CoqExpression {
   override def coqString = 
-    propInBool.coqString + "(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) => 
+    /*propInBool.coqString + */"(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) => 
       s"forall ${id.coqString}: ${tpe.coqString}, $acc"
     } + ")"
 }
@@ -166,7 +168,7 @@ case object FalseBoolean extends CoqExpression {
 }
 
 case class CoqEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = propInBool.coqString + "(" + e1.coqString + " = " + e2.coqString + ")"
+  override def coqString = /*propInBool.coqString + */"(" + e1.coqString + " = " + e2.coqString + ")"
 }
 
 
