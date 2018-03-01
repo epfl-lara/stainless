@@ -53,6 +53,7 @@ trait CoqEncoder {
     case ElementOfSet(t1,t2) => CoqBelongs(transformTree(t1), transformTree(t2))
     case Or(ts) => Orb(ts map transformTree)
     case And(ts) => Andb(ts map transformTree)
+    case Not(t) => Negb(transformTree(t))
     case Implies(t1,t2) => implb(transformTree(t1), transformTree(t2))
     case Equals(t1,t2) => CoqEquals(transformTree(t1), transformTree(t2))
     case BooleanLiteral(true) => TrueBoolean
@@ -71,14 +72,20 @@ trait CoqEncoder {
         (CoqIdentifier(id), transformType(tpe)) 
       }
       CoqForall(params, CoqEquals(transformTree(body),TrueBoolean))
-    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet.")
+    case Annotated(body, flags) =>
+      ignoreFlags(t.toString, flags.toSet)
+      transformTree(body)
+    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
   }
 
   // creates a case for a match expression
   def makeFunctionCase(mc: MatchCase): CoqCase = mc match {
     case MatchCase(pattern, None, rhs) => 
       CoqCase(transformPattern(pattern), transformTree(rhs))
-    case _ => ctx.reporter.fatalError(s"Guard in match cases are not supported by the Coq translation yet ($mc).")
+    case MatchCase(pattern, _, rhs) =>
+      ctx.reporter.warning(s"Guard in match cases are not supported by the Coq translation yet:\n$mc.")
+      ctx.reporter.warning(s"This guard was ignored during the translation.")
+      CoqCase(transformPattern(pattern), transformTree(rhs))
   }
 
   // transform patterns that appear in match cases
@@ -96,9 +103,9 @@ trait CoqEncoder {
 
   // transforms an ADT into an inductive type
   def transformADT(a: st.ADTDefinition): CoqCommand = {
-    println("TRANSFORMING")
-    println(a.asString(new PrinterOptions(printUniqueIds = true)))
-    println(CoqIdentifier(a.id).coqString)
+    // println("TRANSFORMING")
+    // println(a.asString(new PrinterOptions(printUniqueIds = true)))
+    // println(CoqIdentifier(a.id).coqString)
     if (a.root(p.symbols) != a) {
       ctx.reporter.debug(s"Skipping $a, since it is not the root of the ADT.")
       NoCommand
