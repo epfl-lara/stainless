@@ -14,9 +14,15 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   val ctx: inox.Context
 
   class Checker extends Traverser {
+    val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
-    val StainlessOld = rootMirror.getPackage(newTermName("stainless.lang")).info.decl(newTermName("old"))
+    val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
+
+    val BigInt_ApplyMethods =
+      (StainlessLangPackage.info.decl(newTermName("BigInt")).info.decl(nme.apply).alternatives
+      ++ rootMirror.getRequiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
+
     val RequireMethods =
       (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
         + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
@@ -132,6 +138,10 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             case t =>
               reportError(t.pos, s"Stainless `old` is only defined on `this` and variables.")
           }
+
+        case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
+          if (args.size != 1 || !args.head.isInstanceOf[Literal])
+            reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))

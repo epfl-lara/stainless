@@ -790,8 +790,6 @@ trait CodeExtraction extends ASTExtractors {
     case ExBigIntLiteral(n: Literal) =>
       xt.IntegerLiteral(BigInt(n.value.stringValue))
 
-    case ExBigIntLiteral(n) => outOfSubsetError(tr, "Non-literal BigInt constructor")
-
     case ExIntToBigInt(tree) =>
       extractTree(tree) match {
         case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
