@@ -5,7 +5,7 @@ package ast
 
 import org.scalatest._
 
-class TupleExtrationSuite extends FunSuite with InputUtils {
+class TupleExtractionSuite extends FunSuite with InputUtils {
 
   val sources = List(
     """|object Tup5 {
