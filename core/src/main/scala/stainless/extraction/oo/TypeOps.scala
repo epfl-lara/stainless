@@ -263,7 +263,12 @@ trait TypeOps extends imperative.TypeOps {
     case (_, InstanceOfPattern(ob, tpe)) =>
       ob.forall(vd => isSubtypeOf(tpe, vd.tpe))
 
-    case (AnyType(), _) => patternIsTyped(patternInType(pat), pat)
+    case (AnyType(), _) =>
+      if (patternInType(pat) == AnyType()) {
+        pat.binders.forall(vd => isSubtypeOf(AnyType(), vd.tpe))
+      } else {
+        patternIsTyped(patternInType(pat), pat)
+      }
 
     case _ => super.patternIsTyped(in, pat)
   }
