@@ -5,7 +5,7 @@ import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
-import inox.{Context => InoxContext, Reporter => InoxReporter}
+import inox.{Context => InoxContext, DefaultReporter => InoxDefaultReporter}
 import inox.DebugSection
 import stainless.frontend.MasterCallBack
 
@@ -30,12 +30,17 @@ class StainlessPluginComponent(val global: Global) extends PluginComponent with 
   override val runsAfter = List[String]("refchecks")
 }
 
-class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxReporter(debugSections) {
+class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxDefaultReporter(debugSections) {
   // FIXME: Mapping of stainless -> scalac positions
-  override def emit(msg: Message): Unit = msg.severity match {
-    case INFO => underlying.echo(NoPosition, msg.msg.toString)
-    case WARNING => underlying.warning(NoPosition, msg.msg.toString)
-    case ERROR  | FATAL | INTERNAL => underlying.error(NoPosition, msg.msg.toString)
-    case _ => underlying.echo(NoPosition, msg.msg.toString) // DEBUG messages are at reported at INFO level
+  override def emit(msg: Message): Unit = {
+    // FIXME: Reporting the message through the inox reporter shouldn't be needed. But without it the compilation error is
+    //        not reported. Maybe this is because stainless stops after the first error?
+    super.emit(msg)
+    msg.severity match {
+      case INFO => underlying.echo(NoPosition, msg.msg.toString)
+      case WARNING => underlying.warning(NoPosition, msg.msg.toString)
+      case ERROR | FATAL | INTERNAL => underlying.error(NoPosition, msg.msg.toString)
+      case _ => underlying.echo(NoPosition, msg.msg.toString) // DEBUG messages are at reported at INFO level
+    }
   }
 }

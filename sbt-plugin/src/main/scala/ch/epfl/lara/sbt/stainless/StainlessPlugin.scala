@@ -59,25 +59,16 @@ object StainlessPlugin extends sbt.AutoPlugin {
       compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
       ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
     )
-  ) ++ inConfig(Compile)(compileSettings)
+  ) ++
+    inConfig(Compile)(stainlessConfigSettings) ++
+    inConfig(Test)(stainlessConfigSettings) ++
+    inConfig(Compile)(compileSettings)
 
-  private lazy val compileSettings: Seq[Def.Setting[_]] = inTask(compile)(compileInputsSettings)
+  lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
+    managedSources ++= stainlessLibrary.value
+  )
 
-  private def compileInputsSettings: Seq[Setting[_]] = {
-    Seq(
-      compileInputs := {
-        val currentCompileInputs = compileInputs.value
-        val additionalScalacOptions = stainlessExtraScalacOptions.value
-
-        // FIXME: Properly merge possibly duplicate -sourcepath scalac options
-        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-        currentCompileInputs.copy(config = updatedConfig)
-      }
-    )
-  }
-
-  private def stainlessExtraScalacOptions: Def.Initialize[Task[Seq[String]]] = Def.task {
+  private def stainlessLibrary: Def.Initialize[Task[Seq[File]]] = Def.task {
     val log = streams.value.log
     val projectName = (name in thisProject).value
 
@@ -97,11 +88,22 @@ object StainlessPlugin extends sbt.AutoPlugin {
       destDir
     }
 
-    import java.io.File.pathSeparator
-    val sourcepath = Seq("-sourcepath", (additionalSourceDirectories ++ sourceDirectories.value).mkString(pathSeparator))
+    @annotation.tailrec
+    def allScalaSources(sourcesSoFar: Seq[File])(folders: Seq[Path]): Seq[File] = folders match {
+      case Nil => sourcesSoFar
+      case folder +: rest =>
+        import scala.collection.JavaConverters._
+        val paths = Files.list(folder).collect(Collectors.toList()).asScala
+        val dirs = paths.filter(_.toFile.isDirectory)
+        val sources = for {
+          path <- paths
+          file = path.toFile
+          if file.getName.endsWith("scala")
+        } yield file
+        allScalaSources(sources ++ sourcesSoFar)(dirs ++ rest)
+    }
 
-    log.debug(s"[$projectName] Extra scalacOptions injected by stainless: ${sourcepath.mkString(" ")}.")
-    sourcepath
+    allScalaSources(Seq.empty)(additionalSourceDirectories)
   }
 
   // allows to fetch dependencies scoped to the passed configuration
@@ -131,5 +133,24 @@ object StainlessPlugin extends sbt.AutoPlugin {
       }
     }
     finally archive.close()
+  }
+
+  private lazy val compileSettings: Seq[Def.Setting[_]] = inTask(compile)(compileInputsSettings)
+
+  private def compileInputsSettings: Seq[Setting[_]] = {
+    Seq(
+      compileInputs := {
+        val currentCompileInputs = compileInputs.value
+        val additionalScalacOptions = Seq(
+          "-Ystop-after:stainless",
+          "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
+        )
+
+        // FIXME: Properly merge possibly duplicate scalac options
+        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
+        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
+        currentCompileInputs.copy(config = updatedConfig)
+      }
+    )
   }
 }
