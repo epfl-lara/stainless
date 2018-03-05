@@ -61,7 +61,7 @@ trait TransformerWithType extends TreeTransformer {
     case s.Let(vd, e, b) =>
       t.Let(transform(vd), transform(e, vd.tpe), transform(b, tpe)).copiedFrom(expr)
     case s.Application(caller, args) =>
-      val s.FunctionType(from, to) = caller.getType
+      val s.FunctionType(from, to) = widen(caller.getType)
       t.Application(
         transform(caller, s.FunctionType(from, tpe)),
         (args zip from) map (p => transform(p._1, p._2))
@@ -165,16 +165,16 @@ trait TransformerWithType extends TreeTransformer {
       case _ => t.Tuple(es map (transform(_, s.AnyType()))).copiedFrom(expr)
     }
     case s.TupleSelect(tuple, index) =>
-      val s.TupleType(tps) = tuple.getType
+      val s.TupleType(tps) = widen(tuple.getType)
       val tt = s.TupleType(tps.zipWithIndex.map { case (tp, i) => if (i == index - 1) tpe else tp })
       t.TupleSelect(transform(tuple, tt), index).copiedFrom(expr)
     case s.FiniteSet(elems, base) =>
       t.FiniteSet(elems map (transform(_, base)), transform(base)).copiedFrom(expr)
     case s.SetAdd(set, elem) =>
-      val st @ s.SetType(base) = set.getType
+      val st @ s.SetType(base) = widen(set.getType)
       t.SetAdd(transform(set, st), transform(elem, base)).copiedFrom(expr)
     case s.ElementOfSet(elem, set) =>
-      val st @ s.SetType(base) = set.getType
+      val st @ s.SetType(base) = widen(set.getType)
       t.ElementOfSet(transform(elem, base), transform(set, st)).copiedFrom(expr)
     case s.SubsetOf(s1, s2) =>
       t.SubsetOf(transform(s1, s1.getType), transform(s2, s1.getType)).copiedFrom(expr)
