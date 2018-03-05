@@ -339,6 +339,8 @@ trait TransformerWithType extends TreeTransformer {
     case s.AsInstanceOf(e, tp) =>
       t.AsInstanceOf(transform(e, s.AnyType()), transform(tp)).copiedFrom(expr)
 
-    case term: t.Terminal => transform(term)
+    case term: t.Terminal => super.transform(term)
   }
+
+  override def transform(e: s.Expr): t.Expr = transform(e, e.getType)
 }

@@ -229,7 +229,7 @@ trait TypeOps extends imperative.TypeOps {
   }
 
   def patternInType(pat: Pattern): Type = pat match {
-    case WildcardPattern(_) => AnyType()
+    case WildcardPattern(ob) => ob.map(_.tpe).getOrElse(AnyType())
     case LiteralPattern(_, lit) => lit.getType
     case ADTPattern(_, id, tps, _) =>
       lookupConstructor(id)
@@ -247,7 +247,7 @@ trait TypeOps extends imperative.TypeOps {
 
   override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
     case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
-      pat.binder.forall(vd => isSubtypeOf(vd.tpe, in)) &&
+      pat.binder.forall(vd => isSubtypeOf(in, vd.tpe)) &&
       patternIsTyped(patternInType(pat), pat)
 
     case (_, ClassPattern(ob, ct, subs)) => in match {

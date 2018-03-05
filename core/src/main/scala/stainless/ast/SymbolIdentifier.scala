@@ -27,7 +27,7 @@ class SymbolIdentifier private(id: Identifier, val symbol: Symbol)
 
 object SymbolIdentifier {
   def apply(name: String): SymbolIdentifier = {
-    new SymbolIdentifier(FreshIdentifier(name), Symbol(name))
+    new SymbolIdentifier(FreshIdentifier(name.split("\\.").last), Symbol(name))
   }
 
   def apply(sym: Symbol): SymbolIdentifier = {
