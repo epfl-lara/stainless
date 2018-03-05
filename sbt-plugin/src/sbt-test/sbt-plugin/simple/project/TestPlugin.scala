@@ -42,7 +42,10 @@ class CollectingReporter extends xsbti.Reporter {
       override def toString = s"$position:$severity: $message"
     }
     //System.err.println(s"DEBUGME: Logging: $MyProblem")
-    buffer.append(MyProblem)
+    // Not all Log Levels from stainless are mapped into what sbt Log accepts. Hence, to avoid later failures, we only
+    // add to the `buffer` problems that have a non NULL `severity`.
+    if (MyProblem.severity != null)
+      buffer.append(MyProblem)
   }
 
   /** Reports a comment. */

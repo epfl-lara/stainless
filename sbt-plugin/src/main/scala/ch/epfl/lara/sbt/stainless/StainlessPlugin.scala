@@ -1,5 +1,12 @@
 package ch.epfl.lara.sbt.stainless
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.stream.Collectors
+import java.util.zip.ZipFile
+import java.util.zip.ZipEntry
+
 import sbt._
 import sbt.Keys._
 
@@ -52,37 +59,51 @@ object StainlessPlugin extends sbt.AutoPlugin {
       compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
       ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
     )
-  ) ++ inConfig(Compile)(compileSettings)
+  ) ++
+    inConfig(Compile)(stainlessConfigSettings) ++
+    inConfig(Test)(stainlessConfigSettings) ++
+    inConfig(Compile)(compileSettings)
 
-  private lazy val compileSettings: Seq[Def.Setting[_]] = inTask(compile)(compileInputsSettings)
+  lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
+    managedSources ++= stainlessLibrary.value
+  )
 
-  private def compileInputsSettings: Seq[Setting[_]] = {
-    Seq(
-      compileInputs := {
-        val currentCompileInputs = compileInputs.value
-        val additionalScalacOptions = stainlessExtraScalacOptions.value
+  private def stainlessLibrary: Def.Initialize[Task[Seq[File]]] = Def.task {
+    val log = streams.value.log
+    val projectName = (name in thisProject).value
 
-        // FIXME: Properly merge possibly duplicate -sourcepath scalac options
-        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-        currentCompileInputs.copy(config = updatedConfig)
-      }
-    )
-  }
-
-  private def stainlessExtraScalacOptions: Def.Initialize[Task[Seq[String]]] = Def.task {
     val config = StainlessLibSources
     val sourceJars = fetchJars(update.value, config, _.classifier == Some(Artifact.SourceClassifier))
-
-    val projectName = (name in thisProject).value
-    val log = streams.value.log
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
 
-    import java.io.File.pathSeparator
-    val sourcepath = Seq("-sourcepath", (sourceJars ++ sourceDirectories.value).mkString(pathSeparator))
+    val additionalSourceDirectories = sourceJars map { jar =>
+      val name = jar.getName.dropRight(4) // drop the ".jar" extension
+      val destDir = (target.value / name).toPath
+      // Don't unjar every time
+      if (!destDir.toFile.exists()) {
+        Files.createDirectories(destDir)
+        unjar(jar, destDir)
+        log.debug(s"[$projectName] Unzipped ${jar.getName} in $destDir")
+      }
+      destDir
+    }
 
-    log.debug(s"[$projectName] Extra scalacOptions injected by stainless: ${sourcepath.mkString(" ")}.")
-    sourcepath
+    @annotation.tailrec
+    def allScalaSources(sourcesSoFar: Seq[File])(folders: Seq[Path]): Seq[File] = folders match {
+      case Nil => sourcesSoFar
+      case folder +: rest =>
+        import scala.collection.JavaConverters._
+        val paths = Files.list(folder).collect(Collectors.toList()).asScala
+        val dirs = paths.filter(_.toFile.isDirectory)
+        val sources = for {
+          path <- paths
+          file = path.toFile
+          if file.getName.endsWith("scala")
+        } yield file
+        allScalaSources(sources ++ sourcesSoFar)(dirs ++ rest)
+    }
+
+    allScalaSources(Seq.empty)(additionalSourceDirectories)
   }
 
   // allows to fetch dependencies scoped to the passed configuration
@@ -95,5 +116,41 @@ object StainlessPlugin extends sbt.AutoPlugin {
       (art, file) <- m.artifacts
       if filter(art)
     } yield file
+  }
+
+  private def unjar(jar: File, destPath: Path): Unit = {
+    var archive: ZipFile = null
+    try {
+      archive = new ZipFile(jar)
+      import scala.collection.JavaConverters._
+      val entries: List[ZipEntry] = archive.stream().collect(Collectors.toList()).asScala.toList
+      entries foreach { entry =>
+        val entryDest = destPath.resolve(entry.getName())
+        if (!entry.isDirectory()) {
+          Files.createDirectories(entryDest.getParent)
+          Files.copy(archive.getInputStream(entry), entryDest, StandardCopyOption.REPLACE_EXISTING)
+        }
+      }
+    }
+    finally archive.close()
+  }
+
+  private lazy val compileSettings: Seq[Def.Setting[_]] = inTask(compile)(compileInputsSettings)
+
+  private def compileInputsSettings: Seq[Setting[_]] = {
+    Seq(
+      compileInputs := {
+        val currentCompileInputs = compileInputs.value
+        val additionalScalacOptions = Seq(
+          "-Ystop-after:stainless",
+          "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
+        )
+
+        // FIXME: Properly merge possibly duplicate scalac options
+        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
+        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
+        currentCompileInputs.copy(config = updatedConfig)
+      }
+    )
   }
 }
