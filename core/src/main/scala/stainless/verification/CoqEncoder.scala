@@ -43,8 +43,23 @@ trait CoqEncoder {
       CoqVariable(id)
     case ADT(ADTType(id, targs), args) =>
       Constructor(constructorIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
-    case FunctionInvocation(id, targs, args) =>
+    case FunctionInvocation(id, targs, args) 
+      if (exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None && 
+        exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None)
+      =>
       CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
+    case FunctionInvocation(id, targs, args) 
+      if exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None =>
+      CoqApplication(CoqLibraryConstant("proj1_sig"),
+        Seq(CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree)))
+      )
+    case FunctionInvocation(id, targs, args) 
+      if exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None =>
+      CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
+    case FunctionInvocation(id, targs, args) =>
+      CoqApplication(CoqLibraryConstant("proj1_sig"),
+        Seq(CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown))
+      )
     case Application(t, ts) =>
       CoqApplication(transformTree(t), ts.map(transformTree))
     case FiniteSet(args,tpe) =>
@@ -55,7 +70,9 @@ trait CoqEncoder {
     case And(ts) => Andb(ts map transformTree)
     case Not(t) => Negb(transformTree(t))
     case Implies(t1,t2) => implb(transformTree(t1), transformTree(t2))
-    case Equals(t1,t2) => CoqEquals(transformTree(t1), transformTree(t2))
+    case Equals(t1,t2) if (t1.getType == IntegerType()) => 
+      CoqApplication(CoqLibraryConstant("Zeq_bool"),  Seq(transformTree(t1), transformTree(t2)))
+    case Equals(t1,t2) => ctx.reporter.fatalError(s"The translation to Coq failed because equality is not supported for type ${t1.getType}.")
     case BooleanLiteral(true) => TrueBoolean
     case BooleanLiteral(false) => FalseBoolean
     case ADTSelector(adt, selector) => 
@@ -64,7 +81,7 @@ trait CoqEncoder {
           val typeParameters = args.map(transformType)
           CoqApplication(CoqIdentifier(selector), typeParameters :+ transformTree(adt))
         case _ => 
-          ctx.reporter.fatalError(s"The translation to Coq failed becuse $adt does not have an ADT type but ${adt.getType}.")
+          ctx.reporter.fatalError(s"The translation to Coq failed because $adt does not have an ADT type but ${adt.getType}.")
       }
     case Forall(args, body) =>
       val params = args.map { case vd@ValDef(id,tpe,flags) => 
@@ -75,6 +92,16 @@ trait CoqEncoder {
     case Annotated(body, flags) =>
       ignoreFlags(t.toString, flags.toSet)
       transformTree(body)
+    case GreaterEquals(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.geb"), Seq(transformTree(e1), transformTree(e2)))
+    case GreaterThan(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.gtb"), Seq(transformTree(e1), transformTree(e2)))
+    case Plus(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.add"), Seq(transformTree(e1), transformTree(e2)))
+    case Minus(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.sub"), Seq(transformTree(e1), transformTree(e2)))
+    case IntegerLiteral(i: BigInt) =>
+      CoqZNum(i) 
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
   }
 
@@ -283,11 +310,12 @@ trait CoqEncoder {
           Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
-      if (fd.isRecursive) {
+      (if (fd.isRecursive) {
         FixpointDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
       } else {
         NormalDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
-      }
+      })
+      RawCommand("Admit Obligations.")
     }
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }
@@ -308,6 +336,7 @@ trait CoqEncoder {
         { case (acc,arg) => Arrow(arg,acc) }
     case SetType(base) =>
       CoqSetType(transformType(base))
+    case IntegerType() => CoqZ
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
   }
 
@@ -332,22 +361,27 @@ trait CoqEncoder {
   }
 
   def makeTactic(adts: Seq[ADTDefinition]) = {
-    NoCommand
-// Ltac step := match goal with 
-//   | [ H: match ?t with _ => _ end |- _ ] => destruct t
-//   | [ H: ex _ _ |- _ ] => destruct H
-//   | [ H: isCons _ ?L |- _ ] => is_var L; destruct L
-//   | _ => 
-//       unfold Cons_type in * ||
-//       congruence || 
-//       simpl in * || 
-//       program_simpl || 
-//       intuition || 
-//       omega || 
-//       eauto || 
-//       discriminate
-//   end.
+    RawCommand("""
+ Ltac step := match goal with 
+   | [ H: match ?t with _ => _ end |- _ ] => destruct t
+   | [ H: ex _ _ |- _ ] => destruct H
+   | _ => 
+       congruence || 
+       simpl in * || 
+       program_simpl || 
+       intuition || 
+       omega || 
+       eauto || 
+       discriminate ||
+       (rewrite <- Zgt_is_gt_bool in *) ||
+       (rewrite Z.geb_le in *)
+   end.
 
+   Obligation Tactic := repeat step.""")
+
+//| [ H: isCons _ ?L |- _ ] => is_var L; destruct L
+//       unfold Cons_type in * ||
+   
 // Obligation Tactic := repeat step.
   }
 

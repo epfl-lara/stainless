@@ -95,6 +95,10 @@ case object CoqBool extends CoqExpression {
   override def coqString: String = "bool"
 }
 
+case object CoqZ extends CoqExpression {
+  override def coqString: String = "Z"
+}
+
 case class Arrow(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
   def coqString: String = {
     optP(e1) + " -> " + optP(e2)
@@ -152,7 +156,12 @@ case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
 }
 
 case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = fold(TrueBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a && $b" }
+  override def coqString = fold(TrueBoolean.coqString, es.map(_.coqString)) { 
+    case (a,b) => s"""match $a with
+      | true => $b
+      | false => false
+      end"""
+  }
 }
 
 case class Negb(e: CoqExpression) extends CoqExpression {
@@ -171,11 +180,25 @@ case class CoqEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression
   override def coqString = /*propInBool.coqString + */"(" + e1.coqString + " = " + e2.coqString + ")"
 }
 
+case class CoqZNum(i: BigInt) extends CoqExpression {
+  override def coqString = s"($i)%Z"
+}
 
+/**
+ * Greater or equals
+ */ 
+
+/*case class GreB(*e1: CoqExpression, e2:CoqExpression) {
+  override def coqString = 
+}*/
 
 /**
  * Set Operations
  */
+case object CoqUnknown extends CoqExpression {
+  override def coqString = "_"
+}
+
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
   override def coqString = throw new UnimplementedCoqExpression("Finite Sets are not implemented yet.")
 }
