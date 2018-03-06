@@ -21,19 +21,19 @@ object TestPlugin extends AutoPlugin {
 }
 
 class CollectingReporter extends xsbti.Reporter {
-  val buffer = collection.mutable.ArrayBuffer.empty[xsbti.Problem]
+  private val buffer = collection.mutable.ArrayBuffer.empty[xsbti.Problem]
 
-  def reset(): Unit = {
+  def reset(): Unit = synchronized {
     //System.err.println(s"DEBUGME: Clearing errors: $buffer")
     buffer.clear()
   }
-  def hasErrors: Boolean = buffer.exists(_.severity == Severity.Error)
-  def hasWarnings: Boolean = buffer.exists(_.severity == Severity.Warn)
+  def hasErrors: Boolean = synchronized { buffer.exists(_.severity == Severity.Error) }
+  def hasWarnings: Boolean = synchronized { buffer.exists(_.severity == Severity.Warn) }
   def printSummary(): Unit = ()
-  def problems: Array[xsbti.Problem] = buffer.toArray
+  def problems: Array[xsbti.Problem] = synchronized { buffer.toArray }
 
   /** Logs a message. */
-  def log(pos: xsbti.Position, msg: String, sev: xsbti.Severity): Unit = {
+  def log(pos: xsbti.Position, msg: String, sev: xsbti.Severity): Unit = synchronized {
     object MyProblem extends xsbti.Problem {
       def category: String = null
       def severity: Severity = sev
@@ -41,11 +41,8 @@ class CollectingReporter extends xsbti.Reporter {
       def position: Position = pos
       override def toString = s"$position:$severity: $message"
     }
-    //System.err.println(s"DEBUGME: Logging: $MyProblem")
-    // Not all Log Levels from stainless are mapped into what sbt Log accepts. Hence, to avoid later failures, we only
-    // add to the `buffer` problems that have a non NULL `severity`.
-    if (MyProblem.severity != null)
-      buffer.append(MyProblem)
+    // System.err.println(s"DEBUGME: Logging: $MyProblem")
+    buffer.append(MyProblem)
   }
 
   /** Reports a comment. */
