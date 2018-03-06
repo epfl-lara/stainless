@@ -15,7 +15,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
 
   override def requires: Plugins = plugins.JvmPlugin
-
   override def trigger: PluginTrigger = noTrigger // --> This plugin needs to be manually enabled
 
   object autoImport {
@@ -25,12 +24,19 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   import autoImport._
 
+  /**
+    * An (Ivy) configuration allowing us to manage dependencies outside of the project's classpath.
+    * Using a configurations enables to fetch dependencies via `update` (see the `fetchJars` method).
+    */
   private val StainlessLibSources = config("stainless-lib").hide
 
   override def globalSettings = Seq(
     onLoad := onLoad.value andThen checkProjectsScalaVersion
   )
 
+  /**
+    * Reports an error to the user if the `StainlessPlugin` is enabled on a module whose Scala version is unsupported.
+    */
   private def checkProjectsScalaVersion(state: State): State = {
     val extracted = Project.extract(state)
 
@@ -62,9 +68,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
     resolvers += Resolver.bintrayRepo("epfl-lara", "maven")
   ) ++
-    inConfig(Compile)(stainlessConfigSettings) ++
-    inConfig(Test)(stainlessConfigSettings) ++
-    inConfig(Compile)(compileSettings)
+    inConfig(Compile)(stainlessConfigSettings) ++ // overrides settings that are scoped (by sbt) at the `Compile` configuration
+    inConfig(Test)(stainlessConfigSettings) ++    // overrides settings that are scoped (by sbt) at the `Test` configuration
+    inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
     val library = ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
@@ -74,7 +80,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
         library
       )
     else Seq(
-      // The stainless library might still needed to compile the code even if stainless verification is disabled
+      // The stainless library might still be needed to compile the code even if stainless verification is disabled.
+      // This because the compiled code may refer to types/annotations defined in the stainless library.
       library
     )
   }
@@ -96,6 +103,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       val destDir = (target.value / name).toPath
       // Don't unjar every time
       if (!destDir.toFile.exists()) {
+        // unjar the stainless-library-sources.jar into the `destDirectory`
         Files.createDirectories(destDir)
         unjar(jar, destDir)
         log.debug(s"[$projectName] Unzipped ${jar.getName} in $destDir")
@@ -103,6 +111,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       destDir
     }
 
+    /** Collect all .scala files in the passed `folders`.*/
     @annotation.tailrec
     def allScalaSources(sourcesSoFar: Seq[File])(folders: Seq[Path]): Seq[File] = folders match {
       case Nil => sourcesSoFar
@@ -121,7 +130,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     allScalaSources(Seq.empty)(additionalSourceDirectories)
   }
 
-  // allows to fetch dependencies scoped to the passed configuration
+  /**
+    * Allows to fetch dependencies scoped to the passed configuration.
+    */
   private def fetchJars(report: UpdateReport, config: Configuration, filter: Artifact => Boolean): Seq[File] = {
     val toolReport = report.configuration(config.name) getOrElse
       sys.error(s"No ${config.name} configuration found. This is a bug on sbt-stainless, please report it: $IssueTracker")
@@ -158,7 +169,12 @@ object StainlessPlugin extends sbt.AutoPlugin {
         val currentCompileInputs = compileInputs.value
         if (stainlessIsEnabled.value) {
           val additionalScalacOptions = Seq(
+            // stopping after stainless because the pattern matching phase is skipped (hence binaries cannot always be produced if a phase is skipped)
             "-Ystop-after:stainless",
+            // skipping pattern matching because it's not supported by stainless
+            // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
+            // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
+            // that are run *after* the stainless phase.
             "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
           )
 
