@@ -39,8 +39,6 @@ lazy val extraClasspath = taskKey[String]("Classpath extensions passed directly 
 
 lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash script")
 
-lazy val script = taskKey[Unit]("Generate the stainless Bash script")
-
 lazy val baseSettings: Seq[Setting[_]] = Seq(
   organization := "ch.epfl.lara",
   licenses := Seq("GPL-3.0" -> url("https://www.gnu.org/licenses/gpl-3.0.html"))
@@ -145,63 +143,9 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
-  compile := (compile in Compile).dependsOn(script).value,
-
-  clean := {
-    clean.value
-    val scriptFile = root.base / "bin" / name.value
-    if (scriptFile.exists && scriptFile.isFile) {
-      scriptFile.delete
-    }
-  },
-
-  scriptPath := {
-    val cps = (managedClasspath in Runtime).value ++
-      (unmanagedClasspath in Runtime).value ++
-      (internalDependencyClasspath in Runtime).value
-
-    val out = (classDirectory      in Compile).value
-    val res = (resourceDirectory   in Compile).value
-
-    (res.getAbsolutePath +: out.getAbsolutePath +: cps.map(_.data.absolutePath)).mkString(System.getProperty("path.separator"))
-  },
-
   extraClasspath := {
     ((classDirectory in Compile).value.getAbsolutePath +: (dependencyClasspath in Compile).value.map(_.data.absolutePath))
       .mkString(System.getProperty("path.separator"))
-  },
-
-  script := {
-    val s = streams.value
-    try {
-      val binDir = root.base / "bin"
-      binDir.mkdirs
-
-      val scriptFile = binDir / name.value
-
-      if (scriptFile.exists) {
-        s.log.info("Regenerating '" + scriptFile.getName + "' script")
-        scriptFile.delete
-      } else {
-        s.log.info("Generating '" + scriptFile.getName + "' script")
-      }
-
-      val paths = scriptPath.value
-      IO.write(scriptFile, s"""|#!/usr/bin/env bash
-                               |
-                               |set -o posix
-                               |
-                               |set -o pipefail
-                               |
-                               |SCALACLASSPATH="$paths"
-                               |
-                               |java -Xmx2G -Xms512M -Xss64M -classpath "$${SCALACLASSPATH}" -Dscala.usejavacp=true stainless.Main $$@ 2>&1 | tee -i last.log
-                               |""".stripMargin)
-      scriptFile.setExecutable(true)
-    } catch {
-      case e: Throwable =>
-        s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
-    }
   }
 )
 
@@ -231,6 +175,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(commonSettings, publishMavenSettings)
 
 lazy val `stainless-scalac` = (project in file("frontends/scalac"))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
@@ -267,6 +212,7 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .settings(commonSettings, publishMavenSettings)
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+  .enablePlugins(JavaAppPackaging)
   .disablePlugins(AssemblyPlugin)
   .settings(
     name := "stainless-dotty",

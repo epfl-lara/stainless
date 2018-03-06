@@ -2,7 +2,7 @@
 
 package stainless
 
-import scala.util.{ Try, Success, Failure }
+import scala.util.{Success, Failure, Try}
 
 import org.scalatest._
 
@@ -65,15 +65,18 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
   // Tests that programs are rejected either through the extractor or through
   // the TreeSanitizer.
-  def testRejectAll(dir: String): Unit = {
-    val (ctx, files) = testSetUp(dir)
+  def testRejectAll(dir: String, excludes: String*): Unit = {
+    val (ctx, allfiles) = testSetUp(dir)
+    val files = allfiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
     describe(s"Programs extraction in $dir") {
       val tryPrograms = files map { f =>
         f -> Try {
-          val program = loadFiles(ctx, List(f))._2
-          extraction.extract(program, ctx)
+          val testCtx = TestContext.empty
+          val program = loadFiles(testCtx, List(f))._2
+          extraction.extract(program, testCtx)
+          testCtx.reporter.errorCount
         }
       }
 
@@ -83,7 +86,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
           case Failure(e: stainless.frontend.UnsupportedCodeException) => assert(true)
           case Failure(e: stainless.extraction.MissformedStainlessCode) => assert(true)
           case Failure(e) => assert(false, s"$f was rejected with $e")
-          case Success(_) => assert(false, s"$f was successfully extracted")
+          case Success(n) => assert(n > 0, s"$f was successfully extracted")
         }}
       }
     }

@@ -16,8 +16,6 @@ written and tested improvements to the information below.
 * SBT 0.13.x (Available from http://www.scala-sbt.org/)
 * `Sphinx restructured text tool <http://sphinx-doc.org/>`_ (for building local documentation)
 
-Linux & Mac OS-X
-----------------
 
 Get the sources of Stainless by cloning the official Stainless repository:
 
@@ -27,18 +25,25 @@ Get the sources of Stainless by cloning the official Stainless repository:
   Cloning into 'stainless'...
   // ...
   $ cd stainless
-  $ sbt clean compile
+  $ sbt clean universal:stage
   // takes about 1 minute
 
 The compilation will automatically generate the following two bash scripts:
-1. ``bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
-2. ``bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
+1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
+2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
 
-You may want to introduce a soft-link from ``bin/stainless-scalac`` to ``stainless``:
+You may want to introduce a soft-link from ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` to ``stainless``:
 
 .. code-block:: bash
 
-  $ ln -s bin/stainless-scalac stainless
+  $ ln -s frontends/scalac/target/universal/stage/bin/stainless-scalac stainless
+
+These scripts work for all platforms and allow additional control over the execution, such as
+passing JVM arguments or system properties:
+
+.. code-block:: bash
+
+  $ frontends/scalac/target/universal/stage/bin/stainless-scalac -Dscalaz3.debug.load=true -J-Xmx6G --help
 
 Note that Stainless is organized as a structure of several
 projects. The main project lives in ``core`` while the two available
@@ -60,15 +65,13 @@ repository. You will need a Git shell for windows, e.g.
   Cloning into 'stainless'...
   // ...
   $ cd stainless
-  $ sbt clean compile
+  $ sbt clean universal:stage
   // takes about 1 minutes
  
 Compilation will automatically generate the following two bash scripts:
-1. ``bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
-2. ``bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
+1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
+2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
-You will now need to either port the bash scripts to Windows, or to run them
-under Cygwin.
 
 .. _smt-solvers:
 
