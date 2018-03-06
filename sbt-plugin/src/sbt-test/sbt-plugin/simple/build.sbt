@@ -29,6 +29,11 @@ lazy val unsupported = (project in file("unsupported"))
   .enablePlugins(StainlessPlugin)
   .settings(scalaVersion := unsupportedScalaVersion)
 
+lazy val disabled = (project in file("disabled"))
+  .enablePlugins(StainlessPlugin)
+  .settings(commonSettings)
+  .settings(stainlessIsEnabled := false)
+
 def checkScalaFailuresTask(expectedErrorMessage: String) = Def.task {
   val reporter = savedReporter.value
   val ignore = (compile in Compile).failure.value

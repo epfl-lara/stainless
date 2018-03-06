@@ -20,6 +20,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   object autoImport {
     val stainlessVersion = settingKey[String]("The version of stainless to use")
+    val stainlessIsEnabled = settingKey[Boolean]("Flag controlling stainless verification")
   }
 
   import autoImport._
@@ -38,6 +39,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
       (id, proj) <- allBuildProjects
       if proj.autoPlugins.toSet.contains(StainlessPlugin)
       projRef = ProjectRef(extracted.currentUnit.unit.uri, id)
+      stainlessEnabled <- (stainlessIsEnabled in projRef).get(extracted.structure.data)
+      if stainlessEnabled
       sv <- (scalaVersion in projRef).get(extracted.structure.data)
       if !BuildInfo.supportedScalaVersions.contains(sv)
       projName <- (name in projRef).get(extracted.structure.data)
@@ -51,14 +54,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
     stainlessVersion := BuildInfo.stainlessVersion,
-    autoCompilerPlugins := true,
+    stainlessIsEnabled := true,
+    autoCompilerPlugins := stainlessIsEnabled.value,
     ivyConfigurations += StainlessLibSources,
-    // FIXME: The pluging currently expects that a SMT solver is in the $PATH. To fix this I need to know where the scalaz3 dependency
-    //        is deployed.
-    libraryDependencies ++= Seq(
-      compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
-      ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    ),
+    libraryDependencies ++= stainlessModules.value,
     // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
     // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
     resolvers += Resolver.bintrayRepo("epfl-lara", "maven")
@@ -66,6 +65,19 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(stainlessConfigSettings) ++
     inConfig(Test)(stainlessConfigSettings) ++
     inConfig(Compile)(compileSettings)
+
+  private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
+    val library = ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
+    if (stainlessIsEnabled.value)
+      Seq(
+        compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
+        library
+      )
+    else Seq(
+      // The stainless library might still needed to compile the code even if stainless verification is disabled
+      library
+    )
+  }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
     managedSources ++= stainlessLibrary.value
@@ -144,15 +156,18 @@ object StainlessPlugin extends sbt.AutoPlugin {
     Seq(
       compileInputs := {
         val currentCompileInputs = compileInputs.value
-        val additionalScalacOptions = Seq(
-          "-Ystop-after:stainless",
-          "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
-        )
+        if (stainlessIsEnabled.value) {
+          val additionalScalacOptions = Seq(
+            "-Ystop-after:stainless",
+            "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
+          )
 
-        // FIXME: Properly merge possibly duplicate scalac options
-        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-        currentCompileInputs.copy(config = updatedConfig)
+          // FIXME: Properly merge possibly duplicate scalac options
+          val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
+          val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
+          currentCompileInputs.copy(config = updatedConfig)
+        }
+        else currentCompileInputs
       }
     )
   }
