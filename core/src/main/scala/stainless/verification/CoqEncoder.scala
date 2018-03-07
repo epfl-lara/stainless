@@ -4,6 +4,8 @@ package verification
 import CoqEncoder._
 import CoqExpression._
 
+object optAdmitAll extends inox.FlagOptionDef("admit-all", false)
+
 trait CoqEncoder {
   implicit val debugSection = DebugSectionCoq
 
@@ -99,9 +101,17 @@ trait CoqEncoder {
     case Plus(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.add"), Seq(transformTree(e1), transformTree(e2)))
     case Minus(e1,e2) =>
-      CoqApplication(CoqLibraryConstant("Z.sub"), Seq(transformTree(e1), transformTree(e2)))
+      CoqApplication(CoqLibraryConstant("Z.sub"), Seq(transformTree(e1), transformTree(e2))) 
+    case Times(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.mul"), Seq(transformTree(e1), transformTree(e2)))
+    case Division(e1,e2) => 
+      CoqApplication(CoqLibraryConstant("Z.div"), Seq(transformTree(e1), transformTree(e2)))
+    case Modulo(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.modulo"), Seq(transformTree(e1), transformTree(e2)))
+    case Remainder(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.rem"), Seq(transformTree(e1), transformTree(e2)))
     case IntegerLiteral(i: BigInt) =>
-      CoqZNum(i) 
+      CoqZNum(i)
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
   }
 
@@ -310,12 +320,17 @@ trait CoqEncoder {
           Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
-      (if (fd.isRecursive) {
+      val tmp = (if (fd.isRecursive) {
         FixpointDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
       } else {
         NormalDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
       })
-      RawCommand("Admit Obligations.")
+      if (ctx.options.findOptionOrDefault(optAdmitAll)) {
+        tmp $
+        RawCommand("Admit Obligations.")
+      } else {
+        tmp
+      }
     }
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }

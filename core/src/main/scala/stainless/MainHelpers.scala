@@ -75,6 +75,7 @@ trait MainHelpers extends inox.MainHelpers {
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
     verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
     verification.optCoq -> Description(Verification, "Transform the program into a Coq program, and let Coq generate subgoals automatically"),
+    verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
