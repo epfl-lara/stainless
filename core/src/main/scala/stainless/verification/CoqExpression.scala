@@ -112,7 +112,7 @@ case class CoqMatch(matched: CoqExpression, cases: Seq[CoqCase]) extends CoqExpr
 }
 
 case class CoqVariable(id: Identifier) extends CoqExpression {
-  override def coqString = id.name
+  override def coqString = id.name.replaceAll("\\$","___")
 }
 
 case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
