@@ -34,7 +34,7 @@ trait TransformerWithType extends TreeTransformer {
         (subs zip getConstructor(id, tps).fields.map(_.tpe)) map (p => transform(p._1, p._2))
       ).copiedFrom(pat)
 
-    case s.TuplePattern(ob, subs) => tpe match {
+    case s.TuplePattern(ob, subs) => widen(tpe) match {
       case s.TupleType(tps) =>
         t.TuplePattern(ob map transform, (subs zip tps) map (p => transform(p._1, p._2))).copiedFrom(pat)
       case _ =>
@@ -42,7 +42,7 @@ trait TransformerWithType extends TreeTransformer {
     }
 
     case up @ s.UnapplyPattern(ob, id, tps, subs) =>
-      val subTps = up.getGet.returnType match {
+      val subTps = widen(up.getGet.returnType) match {
         case tpe if subs.size == 1 => Seq(tpe)
         case s.TupleType(tps2) => tps2
         case _ => subs.map(_ => s.AnyType())
@@ -66,7 +66,9 @@ trait TransformerWithType extends TreeTransformer {
         transform(caller, s.FunctionType(from, tpe)),
         (args zip from) map (p => transform(p._1, p._2))
       ).copiedFrom(expr)
-    case s.Lambda(args, body) => tpe match {
+    case s.Lambda(args, body) =>
+      println("lambda:", expr, widen(tpe))
+      widen(tpe) match {
       case s.FunctionType(from, to) => t.Lambda(args map transform, transform(body, to)).copiedFrom(expr)
       case _ => t.Lambda(args map transform, transform(body, s.AnyType())).copiedFrom(expr)
     }
@@ -75,6 +77,8 @@ trait TransformerWithType extends TreeTransformer {
     case s.Choose(res, pred) =>
       t.Choose(transform(res), transform(pred, s.BooleanType())).copiedFrom(expr)
     case fi @ s.FunctionInvocation(id, tps, args) =>
+      println("invocation:",fi, args zip fi.tfd.params.map(_.tpe),
+        args.map(_.getClass))
       t.FunctionInvocation(id, tps map transform,
         (args zip fi.tfd.params.map(_.tpe)) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IfExpr(cond, thenn, elze) =>
@@ -160,14 +164,12 @@ trait TransformerWithType extends TreeTransformer {
       t.BVNarrowingCast(transform(expr, expr.getType), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
     case s.BVWideningCast(expr, tpe) =>
       t.BVWideningCast(transform(expr, expr.getType), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
-    case s.Tuple(es) => tpe match {
+    case s.Tuple(es) => widen(tpe) match {
       case s.TupleType(tps) => t.Tuple((es zip tps) map (p => transform(p._1, p._2))).copiedFrom(expr)
       case _ => t.Tuple(es map (transform(_, s.AnyType()))).copiedFrom(expr)
     }
     case s.TupleSelect(tuple, index) =>
-      val s.TupleType(tps) = widen(tuple.getType)
-      val tt = s.TupleType(tps.zipWithIndex.map { case (tp, i) => if (i == index - 1) tpe else tp })
-      t.TupleSelect(transform(tuple, tt), index).copiedFrom(expr)
+      t.TupleSelect(transform(tuple, tuple.getType), index).copiedFrom(expr)
     case s.FiniteSet(elems, base) =>
       t.FiniteSet(elems map (transform(_, base)), transform(base)).copiedFrom(expr)
     case s.SetAdd(set, elem) =>
@@ -338,6 +340,10 @@ trait TransformerWithType extends TreeTransformer {
       t.IsInstanceOf(transform(e, s.AnyType()), transform(tp)).copiedFrom(expr)
     case s.AsInstanceOf(e, tp) =>
       t.AsInstanceOf(transform(e, s.AnyType()), transform(tp)).copiedFrom(expr)
+
+    // Termination expressions
+    case s.Decreases(measure, body) =>
+      t.Decreases(transform(measure, measure.getType), transform(body, tpe)).copiedFrom(expr)
 
     case term: t.Terminal => super.transform(term)
   }

@@ -97,6 +97,12 @@ trait TypeOps extends imperative.TypeOps {
     case (_, adt: ADTType) if adt.lookupSort.isEmpty => Some(Untyped)
     case (adt1: ADTType, adt2: ADTType) if adt1 == adt2 => Some(adt1)
 
+    case (RefinementType(vd1, p1), RefinementType(vd2, p2)) if vd1.tpe == vd2.tpe =>
+      val np2 = exprOps.replaceFromSymbols(Map(vd2 -> vd1.toVariable), p2)
+      Some(RefinementType(vd1, if (upper) or(p1, p2) else and(p1, p2)))
+    case (rt @ RefinementType(vd, p), tpe) if vd.tpe == tpe => Some(if (upper) tpe else rt)
+    case (tpe, rt @ RefinementType(vd, p)) if tpe == vd.tpe => Some(if (upper) tpe else rt)
+
     case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
     case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
     case (tpe, tp: TypeParameter) => Some(typeBound(tpe, tp.bounds, upper))
@@ -136,6 +142,36 @@ trait TypeOps extends imperative.TypeOps {
     else tps.reduceLeft(typeBound(_, _, upper))
   }
 
+  override def widen(tpe: Type): Type = tpe match {
+    case UnionType(Seq()) => NothingType()
+    case UnionType(tpes) => (tpes map widen).reduceLeft[Type] {
+      case (ct1: ClassType, ct2: ClassType) =>
+        val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet
+        val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet
+        val ans1 = ct1.tcd.ancestors.find(tcd => cd2Ans contains tcd.id)
+        val ans2 = ct2.tcd.ancestors.find(tcd => cd1Ans contains tcd.id)
+        (ans1, ans2) match {
+          case (Some(tcd1), Some(tcd2)) =>
+            val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {
+              case ((tp, tpe1), tpe2) =>
+                if (tp.isCovariant) Some(leastUpperBound(tpe1, tpe2))
+                else if (tp.isContravariant) Some(greatestLowerBound(tpe1, tpe2))
+                else if (tpe1 == tpe2) Some(tpe1)
+                else None
+            }
+            if (tps.forall(_.isDefined)) ClassType(tcd1.id, tps.map(_.get))
+            else AnyType()
+          case _ => Untyped
+        }
+      case (TupleType(tps1), TupleType(tps2)) if tps1.size == tps2.size =>
+        TupleType((tps1 zip tps2).map(p => leastUpperBound(p._1, p._2)))
+      case (FunctionType(from1, to1), FunctionType(from2, to2)) if from1.size == from2.size =>
+        FunctionType((from1 zip from2).map(p => greatestLowerBound(p._1, p._2)), leastUpperBound(to1, to2))
+      case (tp1, tp2) => if (tp1 == tp2) tp1 else AnyType()
+    }
+    case _ => super.widen(tpe)
+  }
+
   override def leastUpperBound(tp1: Type, tp2: Type): Type = typeBound(tp1, tp2, true)
   override def leastUpperBound(tps: Seq[Type]): Type = typeBound(tps, true)
 
@@ -165,6 +201,13 @@ trait TypeOps extends imperative.TypeOps {
       (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
     case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
       (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case (RefinementType(vd1, p1), RefinementType(vd2, p2)) => unify(vd1.tpe, vd2.tpe, free) match {
+      case Some(tpMap) if exprOps.postMap {
+        case v: Variable if v.id == vd1.id => Some(v.copy(id = vd2.id))
+        case _ => None
+      } (typeOps.instantiateType(p1, tpMap.toMap)) == p2 => tpMap
+      case _ => unsolvable
+    }
     case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
     case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
     case (tp: TypeParameter, _) if !(typeOps.typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)

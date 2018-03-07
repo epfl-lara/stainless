@@ -144,6 +144,9 @@ trait Trees extends holes.Trees with Definitions { self =>
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type) extends Type
 
+  /** $encodingof `{ vd: vd.tpe | pred }` */
+  case class RefinementType(vd: ValDef, pred: Expr) extends Type
+
 
   /* ========================================
    *              EXTRACTORS
@@ -297,7 +300,6 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
       (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), Seq(), (_, vs, _, tps, _) => {
         t.InstanceOfPattern(vs.headOption.map(_.toVal), tps.head)
       })
-
     case _ => super.deconstruct(pattern)
   }
 
@@ -308,6 +310,56 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.UnionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.UnionType(tps))
     case s.IntersectionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.IntersectionType(tps))
     case s.TypeBounds(lo, hi) => (Seq(), Seq(lo, hi), Seq(), (_, tps, _) => t.TypeBounds(tps(0), tps(1)))
+    case s.RefinementType(vd, pred) =>
+      def rec(e: s.Expr): (Seq[Identifier], Seq[s.Type], Seq[s.Flag], (Seq[Identifier], Seq[t.Type], Seq[t.Flag]) => t.Expr) = {
+        val (ids, vs, es, tps, recons) = deconstruct(e)
+        val recEs = es map rec
+        (
+          ids ++ recEs.flatMap(_._1),
+          vs.map(_.tpe) ++ tps ++ recEs.flatMap(_._2),
+          vs.flatMap(_.flags) ++ recEs.flatMap(_._3),
+          (nids, ntps, nflags) => {
+            val (pIds, pesIds) = nids.splitAt(ids.size)
+            var rids = pesIds
+
+            val (vsTps, restTps) = ntps.splitAt(vs.size)
+            val (pTps, pesTps) = restTps.splitAt(tps.size)
+            var rtps = pesTps
+
+            val (vsFlags, restFlags) = nflags.splitAt(vs.map(_.flags.size).sum)
+            var vflags = vsFlags
+            var rflags = restFlags
+
+            val nvs = for ((v, ntpe) <- vs zip vsTps) yield {
+              val (nvflags, rvflags) = vflags.splitAt(v.flags.size)
+              vflags = rvflags
+              t.Variable(v.id, ntpe, nvflags.toSet).copiedFrom(v)
+            }
+
+            val nes = for ((eids, etps, eflags, erecons) <- recEs) yield {
+              val (neids, reids) = rids.splitAt(eids.size)
+              rids = reids
+
+              val (netps, retps) = rtps.splitAt(etps.size)
+              rtps = retps
+
+              val (neflags, reflags) = rflags.splitAt(eflags.size)
+              rflags = reflags
+
+              erecons(neids, netps, neflags)
+            }
+            recons(pIds, nvs, nes, pTps).copiedFrom(e)
+          }
+        )
+      }
+
+      val (ids, tps, flags, recons) = rec(pred)
+      (ids, vd.tpe +: tps, vd.flags.toSeq ++ flags, (_, tps, flags) => {
+        val (vflags, pflags) = flags.splitAt(vd.flags.size)
+        val npred = recons(ids, tps.tail, pflags).copiedFrom(pred)
+        t.RefinementType(t.ValDef(vd.id, tps.head, vflags.toSet).copiedFrom(vd), npred).copiedFrom(tpe)
+      })
+
     case _ => super.deconstruct(tpe)
   }
 
@@ -325,6 +377,12 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
 trait TreeTransformer extends ast.TreeTransformer {
   val s: Trees
   val t: Trees
+
+  override def transform(tpe: s.Type): t.Type = tpe match {
+    case s.RefinementType(vd, pred) =>
+      t.RefinementType(transform(vd), transform(pred)).copiedFrom(tpe)
+    case _ => super.transform(tpe)
+  }
 
   def transform(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
     cd.id,
