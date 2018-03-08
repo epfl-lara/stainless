@@ -94,6 +94,10 @@ trait CoqEncoder {
     case Annotated(body, flags) =>
       ignoreFlags(t.toString, flags.toSet)
       transformTree(body)
+    case Let(vd, value, body) =>
+      //without type
+      CoqLet(CoqIdentifier(vd.id), transformTree(value), transformTree(body))
+    //Integer operations
     case GreaterEquals(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.geb"), Seq(transformTree(e1), transformTree(e2)))
     case GreaterThan(e1,e2) =>
@@ -352,6 +356,9 @@ trait CoqEncoder {
     case SetType(base) =>
       CoqSetType(transformType(base))
     case IntegerType() => CoqZ
+    case BVType(_) =>
+      ctx.reporter.warning(s"The translation to Coq currently converts the type $tpe (${tpe.getClass}) to BigInt.")
+      CoqZ
     case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
   }
 
