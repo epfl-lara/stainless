@@ -93,15 +93,17 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
                 if (constructors(id) == Set(id)) {
                   val subs = tpe.tcd(syms).fields.map(_ => s.WildcardPattern(None).copiedFrom(pat))
                   Some(s.ADTPattern(ob, constructorId(id), tps, subs).copiedFrom(iop))
+                } else if (roots(id) == id) {
+                  Some(s.WildcardPattern(ob).copiedFrom(iop))
                 } else {
                   val v = ob getOrElse ValDef(
                     FreshIdentifier("v"),
                     s.ADTType(roots(id), tps).copiedFrom(iop)
                   ).copiedFrom(iop)
 
-                  guards ++= constructors(id).toSeq.sortBy(_.name).map { cid =>
+                  guards :+= s.orJoin(constructors(id).toSeq.sortBy(_.name).map { cid =>
                     s.IsConstructor(v.toVariable, constructorId(cid)).copiedFrom(iop)
-                  }
+                  })
                   Some(s.WildcardPattern(Some(v)).copiedFrom(iop))
                 }
               case _ => None
