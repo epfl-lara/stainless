@@ -280,7 +280,7 @@ trait CICFA {
           val (absAdts, esc) = rec(adtExpr, in)
           val store = in.store ++ esc.store
           val resvals: Set[AbsValue] = absAdts.flatMap {
-            case ConsObject(cons, argvars) =>
+            case ConsObject(cons, argvars) if cons.id == sel.constructor.id =>
               val selarg = argvars(sel.selectorIndex)
               store.getOrElse(selarg, Set())
 
