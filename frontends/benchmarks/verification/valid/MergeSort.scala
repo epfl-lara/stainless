@@ -28,6 +28,11 @@ object MergeSort {
     case Cons(_, xs) => 1 + size(xs)
   }) ensuring(_ >= 0)
 
+  def lSize(llist: LList): BigInt = (llist match {
+    case LNil() => BigInt(0)
+    case LCons(_, xs) => 1 + lSize(xs)
+  }) ensuring (_ >= 0)
+
   def isSorted(list : List) : Boolean = list match {
     case Nil() => true
     case Cons(_, Nil()) => true
@@ -109,10 +114,15 @@ object MergeSort {
       case o @ LCons(x, LNil()) => o
       case LCons(x, LCons(y, ys)) => LCons(mergeFast(x, y), mergeMap(ys))
     }
-  } ensuring(res => lContent(res) == lContent(llist) && lIsSorted(res))
+  } ensuring { res =>
+    lContent(res) == lContent(llist) &&
+    lIsSorted(res) &&
+    (lSize(llist) > 1 ==> lSize(res) < lSize(llist))
+  }
 
   def mergeReduce(llist : LList) : List = {
     require(lIsSorted(llist))
+    decreases(lSize(llist))
 
     llist match {
       case LNil() => Nil()
