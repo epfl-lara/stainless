@@ -110,9 +110,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
       case (up @ UnapplyPattern(ob, id, tps, subs), scrut) =>
         val unapp = e(FunctionInvocation(id, tps, Seq(scrut)))
-        e(up.isEmpty(unapp)) match {
+        e(up.getIsEmpty.applied(Seq(unapp))) match {
           case BooleanLiteral(false) =>
-            val extracted = e(up.get(unapp))
+            val extracted = e(up.getGet.applied(Seq(unapp)))
             val res = (subs zip unwrapTuple(extracted, subs.size)) map (p => matchesPattern(p._1, p._2))
             if (res.forall(_.isDefined)) {
               Some(obind(ob, expr) ++ res.flatten.flatten)
