@@ -1770,7 +1770,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   def instrumentedGetField(ch: CodeHandler, cons: TypedADTConstructor, id: Identifier)
                           (implicit locals: Locals): Unit = {
-    cons.fields.zipWithIndex.find(_._1.id == id) match {
+    cons.definition.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
         val expType = cons.fields(i).tpe
 
@@ -1849,6 +1849,7 @@ trait CodeGeneration { self: CompilationUnit =>
           case "J" => LLoad(c)
           case _ => ALoad(c)
         })
+
         cch << PutField(cName, id.name, jvmt)
         c += 1
       }
