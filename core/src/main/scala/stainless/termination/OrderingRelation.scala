@@ -52,7 +52,7 @@ trait BVOrdering extends OrderingRelation { self: StructuralSize =>
 
   val description = "comparing bitvector arguments lexicographically"
 
-  def bvSize(e: Expr): Expr = bvAbs(e.getType.asInstanceOf[BVType]).applied(Seq(e))
+  def bvSize(e: Expr): Expr = FunctionInvocation(bvAbs(e.getType.asInstanceOf[BVType]).id, Seq(), Seq(e))
 
   /* Note: We swap the arguments to the [[lexicographicallySmaller]] call since
    * [[bvSize]] maps into negative values! (avoids -Integer.MIN_VALUE overflow) */

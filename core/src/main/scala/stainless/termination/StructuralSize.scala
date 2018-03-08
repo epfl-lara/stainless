@@ -25,17 +25,17 @@ trait StructuralSize { self: SolverProvider =>
    *
    * def integerAbs(x: BigInt): BigInt = if (x >= 0) x else -x
    */
-  val integerAbs: TypedFunDef = mkFunDef(FreshIdentifier("integerAbs"))()(_ => (
+  val integerAbs: FunDef = mkFunDef(FreshIdentifier("integerAbs"))()(_ => (
     Seq("x" :: IntegerType()), IntegerType(), { case Seq(x) =>
       if_ (x >= E(BigInt(0))) {
         x
       } else_ {
         -x
       }
-    })).typed
-  functions += integerAbs.fd
+    }))
+  functions += integerAbs
 
-  private val bvCache: MutableMap[BVType, TypedFunDef] = MutableMap.empty
+  private val bvCache: MutableMap[BVType, FunDef] = MutableMap.empty
 
   /* Negative absolute value for bitvector types
    *
@@ -44,21 +44,21 @@ trait StructuralSize { self: SolverProvider =>
    *
    * def bvAbs(x: BV): BV = if (x >= 0) -x else x
    */
-  def bvAbs(tpe: BVType): TypedFunDef = bvCache.getOrElseUpdate(tpe, {
-    val tfd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ => (
+  def bvAbs(tpe: BVType): FunDef = bvCache.getOrElseUpdate(tpe, {
+    val fd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ => (
       Seq("x" :: tpe), tpe, { case Seq(x) =>
         if_ (x >= E(0)) {
           -x
         } else_ {
           x
         }
-      })).typed
-    functions += tfd.fd
+      }))
+    functions += fd
     clearSolvers()
-    tfd
+    fd
   })
 
-  private val bv2IntegerCache: MutableMap[BVType, TypedFunDef] = MutableMap.empty
+  private val bv2IntegerCache: MutableMap[BVType, FunDef] = MutableMap.empty
 
   /* Absolute value for bitvector type into mathematical integers
    *
@@ -74,11 +74,11 @@ trait StructuralSize { self: SolverProvider =>
    *   1 + bvAbs2Integer(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
    * }) ensuring (_ >= 0)
    */
-  def bvAbs2Integer(tpe: BVType): TypedFunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
+  def bvAbs2Integer(tpe: BVType): FunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
     val funID = FreshIdentifier("bvAbs2Integer$" + tpe.size)
     val zero = BVLiteral(0, tpe.size)
     val one = BVLiteral(1, tpe.size)
-    val tfd = mkFunDef(funID)()(_ => (
+    val fd = mkFunDef(funID)()(_ => (
       Seq("x" :: tpe), IntegerType(), { case Seq(x) =>
         Ensuring(if_ (x === zero) {
           E(BigInt(0))
@@ -89,10 +89,10 @@ trait StructuralSize { self: SolverProvider =>
             E(BigInt(1)) + E(funID)(-(x + one))
           }
         }, \("res" :: IntegerType())(res => res >= E(BigInt(0))))
-      })).typed
-    functions += tfd.fd
+      }))
+    functions += fd
     clearSolvers()
-    tfd
+    fd
   })
 
   private val fullCache: MutableMap[Type, Identifier] = MutableMap.empty
@@ -142,10 +142,10 @@ trait StructuralSize { self: SolverProvider =>
     }).foldLeft[Expr](IntegerLiteral(0))(_ + _)
 
     case IntegerType() =>
-      integerAbs.applied(Seq(expr))
+      FunctionInvocation(integerAbs.id, Seq(), Seq(expr))
 
     case bv @ BVType(_) =>
-      bvAbs2Integer(bv).applied(Seq(expr))
+      FunctionInvocation(bvAbs2Integer(bv).id, Seq(), Seq(expr))
 
     case _ => IntegerLiteral(0)
   }
