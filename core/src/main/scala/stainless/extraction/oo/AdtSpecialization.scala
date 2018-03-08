@@ -83,11 +83,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         }
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
-          val v = t.Variable.fresh("v", t.ADTType(roots(id), tps map transform).copiedFrom(e)).copiedFrom(e)
-          t.AsInstanceOf(
-            t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e),
-            t.RefinementType(v.toVal, t.IsConstructor(v, constructorId(id)).copiedFrom(e)).copiedFrom(e)
-          ).copiedFrom(e)
+          t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
 
         case s.MatchExpr(scrut, cases) =>
           t.MatchExpr(transform(scrut), cases map { case cse @ s.MatchCase(pat, optGuard, rhs) =>

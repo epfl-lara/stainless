@@ -54,10 +54,8 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
     def parameterConds(vds: Seq[s.ValDef]): (Seq[s.ValDef], s.Expr) = {
       val (newParams, conds) = vds.map(vd => liftRefinements(vd.tpe) match {
         case s.RefinementType(vd2, pred) =>
-          (
-            vd.copy(tpe = vd2.tpe).copiedFrom(vd),
-            s.exprOps.replaceFromSymbols(Map(vd2 -> vd.toVariable), pred)
-          )
+          val nvd = vd.copy(tpe = vd2.tpe).copiedFrom(vd)
+          (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), pred))
         case _ =>
           (vd, s.BooleanLiteral(true).copiedFrom(vd))
       }).unzip
@@ -82,11 +80,6 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
 
           case _ => super.transform(e)
         }
-
-        // Clean up for casts introduced during AdtSpecialization
-        case s.AsInstanceOf(adt @ s.ADT(id, tps, es), s.RefinementType(vd, s.IsConstructor(v: Variable, cid)))
-        if vd == v.toVal && id == cid =>
-          transform(adt)
 
         case s.AsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
           case s.RefinementType(vd, pred) =>
@@ -147,7 +140,13 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
       val (newCons, conds) = sort.constructors.map { cons =>
         val (newFields, conds) = parameterConds(cons.fields)
         val newCons = cons.copy(fields = newFields).copiedFrom(cons)
-        val newCond = s.implies(isCons(v, cons.id), conds)
+        val newCond = s.implies(
+          isCons(v, cons.id).copiedFrom(cons),
+          s.exprOps.replaceFromSymbols(
+            newFields.map(vd => vd.toVariable -> s.ADTSelector(v, vd.id).copiedFrom(cons)).toMap,
+            conds
+          )
+        ).copiedFrom(cons)
         (newCons, newCond)
       }.unzip
 
@@ -191,7 +190,7 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
     // TODO: lift refinements to invariant?
     val classes: Seq[t.ClassDef] = syms.classes.values.toList.map(transformer.transform)
 
-    val functions: Seq[t.FunDef] = syms.functions.values.toList.map { fd =>
+    val functions: Seq[t.FunDef] = (syms.functions ++ invariants).values.toList.map { fd =>
       val withPre = if (invariants contains fd.id) {
         fd
       } else {

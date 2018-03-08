@@ -97,6 +97,11 @@ trait Trees extends holes.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
+  override protected def constructorType(tcons: TypedADTConstructor): Type = {
+    val v = Variable.fresh("v", ADTType(tcons.sort.id, tcons.tps))
+    RefinementType(v.toVal, IsConstructor(v, tcons.id))
+  }
+
   override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
     case ct: ClassType => ct.getField(selector)
     case _ => super.getField(tpe, selector)
