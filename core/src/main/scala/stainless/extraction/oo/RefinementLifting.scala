@@ -195,7 +195,7 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
         fd
       } else {
         val (newParams, conds) = parameterConds(fd.params)
-        val optPre = s.andJoin(s.exprOps.preconditionOf(fd.fullBody).toSeq :+ conds) match {
+        val optPre = s.andJoin(conds +: s.exprOps.preconditionOf(fd.fullBody).toSeq) match {
           case s.BooleanLiteral(true) => None
           case cond => Some(cond)
         }
