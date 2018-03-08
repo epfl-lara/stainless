@@ -45,6 +45,29 @@ trait TypeOps extends imperative.TypeOps {
       }
   }
 
+  // Simplified version of CNF optimized for subtyping between refinement types
+  // Note that the sort function we use to ensure normal CNF forms is consistent
+  // with the ADT constructor sort function in AdtSpecialization.
+  protected def cnf(pred: Expr): Expr = {
+    def rec(pred: Expr): Seq[Expr] = pred match {
+      case And(es) =>
+        es.flatMap(rec).sortBy(_.toString)
+      case Or(es) =>
+        es.map(rec).foldLeft(Seq[Expr](BooleanLiteral(false))) {
+          case (clauses, es) => es.flatMap(e => clauses.map(c => or(c, e) match {
+            case TopLevelOrs(es) => orJoin(es.sortBy(_.toString))
+          }))
+        }.sortBy(_.toString)
+      case e => Seq(e)
+    }
+
+    // We don't use simplifyByConstructors here because we don't want more
+    // simplifications than the CNF form, otherwise syntactic equalities upon
+    // which we rely for refinement type checking may be broken during the
+    // transformation pipeline.
+    andJoin(rec(pred))
+  }
+
   protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = ((tp1, tp2) match {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => Some(Untyped)
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => Some(Untyped)
@@ -98,8 +121,11 @@ trait TypeOps extends imperative.TypeOps {
     case (adt1: ADTType, adt2: ADTType) if adt1 == adt2 => Some(adt1)
 
     case (RefinementType(vd1, p1), RefinementType(vd2, p2)) if vd1.tpe == vd2.tpe =>
-      val np2 = exprOps.replaceFromSymbols(Map(vd2 -> vd1.toVariable), p2)
-      Some(RefinementType(vd1, if (upper) or(p1, p2) else and(p1, p2)))
+      // Here we preserve `vd2` as the typeBound used in subtyping checks will compare the
+      // typeBound result with the second type. This gets around the issue of identifier
+      // normalization in refinement types.
+      val np1 = exprOps.replaceFromSymbols(Map(vd1 -> vd2.toVariable), p1)
+      Some(RefinementType(vd2, if (upper) cnf(or(np1, p2)) else cnf(and(np1, p2))))
     case (rt @ RefinementType(vd, p), tpe) if vd.tpe == tpe => Some(if (upper) tpe else rt)
     case (tpe, rt @ RefinementType(vd, p)) if tpe == vd.tpe => Some(if (upper) tpe else rt)
 
@@ -169,6 +195,7 @@ trait TypeOps extends imperative.TypeOps {
         FunctionType((from1 zip from2).map(p => greatestLowerBound(p._1, p._2)), leastUpperBound(to1, to2))
       case (tp1, tp2) => if (tp1 == tp2) tp1 else AnyType()
     }
+    case RefinementType(vd, _) => widen(vd.tpe)
     case _ => super.widen(tpe)
   }
 
@@ -287,6 +314,18 @@ trait TypeOps extends imperative.TypeOps {
         .getOrElse(Untyped)
     case InstanceOfPattern(_, tpe) => tpe
   }
+
+  override protected def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
+    lookupFunction(id)
+      .filter(_.flags exists { case IsMethodOf(_) => true case _ => false })
+      .filter(_.params.isEmpty)
+      .flatMap { fd =>
+        lookupClass(fd.flags.collectFirst { case IsMethodOf(id) => id }.get).flatMap { cd =>
+          instantiation(ClassType(cd.id, cd.tparams.map(_.tp)), inType)
+            .filter(tpMap => cd.tparams forall (tpd => tpMap contains tpd.tp))
+            .map(tpMap => typeOps.instantiateType(fd.returnType, tpMap))
+        }
+      }.orElse(super.unapplyAccessorResultType(id, inType))
 
   override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
     case (_, _) if !isSubtypeOf(patternInType(pat), in) =>

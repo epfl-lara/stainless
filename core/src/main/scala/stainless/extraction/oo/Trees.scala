@@ -228,6 +228,11 @@ trait Printer extends holes.Printer {
     case TypeBounds(lo, hi) =>
       p"_ >: $lo <: $hi"
 
+    case RefinementType(vd, pred) =>
+      p"|{ $vd "
+      ctx.sb.append("|")
+      p"| $pred }"
+
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
 
@@ -242,6 +247,12 @@ trait Printer extends holes.Printer {
       }
 
     case This(_) => p"this"
+
+    case IsInstanceOf(e, tpe) =>
+      p"$e.isInstanceOf[$tpe]"
+
+    case AsInstanceOf(e, tpe) =>
+      p"$e.asInstanceOf[$tpe]"
 
     case ClassPattern(ob, ct, subs) =>
       ob foreach (vd => p"${vd.toVariable} @ ")

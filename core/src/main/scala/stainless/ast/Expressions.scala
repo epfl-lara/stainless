@@ -37,7 +37,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class Require(pred: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (pred.getType == BooleanType()) body.getType
+      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
       else Untyped
     }
   }
@@ -82,7 +82,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class Assert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (pred.getType == BooleanType()) body.getType
+      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
       else Untyped
     }
   }
@@ -178,12 +178,15 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     }
 
     def getGet(implicit s: Symbols): TypedFunDef = {
-      getAccessor(getFunction.flags.collectFirst { case IsUnapply(get, _) => get }
+      getAccessor(getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
         .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)")))
     }
 
-    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr = getIsEmpty.applied(Seq(scrut))
-    def get(scrut: Expr)(implicit s: Symbols): Expr = getGet.applied(Seq(scrut))
+    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr =
+      getIsEmpty.applied(Seq(FunctionInvocation(id, tps, Seq(scrut)).copiedFrom(this)))
+
+    def get(scrut: Expr)(implicit s: Symbols): Expr =
+      getGet.applied(Seq(FunctionInvocation(id, tps, Seq(scrut)).copiedFrom(this)))
   }
 
 
@@ -205,7 +208,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     */
   case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr, base: Type) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (size.getType == Int32Type()) {
+      if (s.isSubtypeOf(size.getType, Int32Type())) {
         ArrayType(checkParamTypes(
           (default +: elems.values.toSeq).map(_.getType),
           List.fill(elems.size + 1)(base),

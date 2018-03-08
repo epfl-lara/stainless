@@ -8,6 +8,15 @@ trait TypeOps extends inox.ast.TypeOps {
   import trees._
   import symbols._
 
+  protected def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
+    lookupFunction(id)
+      .filter(_.params.size == 1)
+      .flatMap { fd =>
+        instantiation(fd.params.head.tpe, inType)
+          .filter(tpMap => fd.typeArgs forall (tpMap contains _))
+          .map(typeOps.instantiateType(fd.returnType, _))
+      }
+
   def patternIsTyped(in: Type, pat: Pattern): Boolean = pat match {
     case WildcardPattern(ob) => ob.forall(vd => isSubtypeOf(in, vd.tpe))
 
@@ -18,7 +27,7 @@ trait TypeOps extends inox.ast.TypeOps {
     case ADTPattern(ob, id, tps, subs) => in match {
       case ADTType(sort, tps2) =>
         tps == tps2 &&
-        ob.forall(vd => isSubtypeOf(in, vd.tpe)) &&
+        ob.forall(vd => isSubtypeOf(vd.tpe, in)) &&
         lookupConstructor(id).exists { cons =>
           cons.sort == sort &&
           cons.fields.size == subs.size &&
@@ -45,29 +54,14 @@ trait TypeOps extends inox.ast.TypeOps {
         unapp.flags
           .collectFirst { case IsUnapply(isEmpty, get) => (isEmpty, get) }
           .exists { case (isEmpty, get) =>
-            lookupFunction(isEmpty).exists { isEmpty =>
-              isEmpty.params.size == 1 && {
-                val tpMap = instantiation(isEmpty.params.head.tpe, unapp.returnType)
-                tpMap.isDefined &&
-                (isEmpty.typeArgs forall (tpMap.get contains _)) &&
-                isEmpty.returnType == BooleanType()
-              }
-            } && lookupFunction(get).exists { get =>
-              get.params.size == 1 && {
-                val tpMap = instantiation(get.params.head.tpe, unapp.returnType)
-                tpMap.isDefined &&
-                (get.typeArgs forall (tpMap.get contains _)) && {
-                  val tfd = get.typed(get.typeArgs map tpMap.get)
-                  get.returnType match {
-                    case TupleType(tps) =>
-                      tps.size == subs.size &&
-                      ((tps.map(tfd.instantiate) zip subs) forall (patternIsTyped(_, _)).tupled)
-                    case tpe if subs.size == 1 =>
-                      patternIsTyped(tfd.instantiate(tpe), subs.head)
-                    case _ => false
-                  }
-                }
-              }
+            unapplyAccessorResultType(isEmpty, unapp.returnType).exists(_ == BooleanType()) &&
+            unapplyAccessorResultType(get, unapp.returnType).exists {
+              case TupleType(tps) =>
+                tps.size == subs.size &&
+                ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
+              case tpe if subs.size == 1 =>
+                patternIsTyped(tpe, subs.head)
+              case _ => false
             }
           }
       }

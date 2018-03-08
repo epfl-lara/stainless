@@ -1092,14 +1092,12 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd.copy(fullBody = inlineChecks(fd.fullBody))))
       .withSorts(newSymbols.sorts.values.toSeq)
 
-    /*
     for (fd <- finalSymbols.functions.values) {
       if (!finalSymbols.isSubtypeOf(fd.fullBody.getType(finalSymbols), fd.returnType)) {
         println(fd)
-        println(finalSymbols.explainTyping(fd.fullBody)(PrinterOptions()))
+        println(finalSymbols.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true, symbols = Some(finalSymbols))))
       }
     }
-    */
 
     finalSymbols
   }

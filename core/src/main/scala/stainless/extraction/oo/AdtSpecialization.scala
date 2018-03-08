@@ -10,11 +10,11 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
   val s: Trees
   val t: Trees
 
-  def transform(symbols: s.Symbols): t.Symbols = {
+  def transform(syms: s.Symbols): t.Symbols = {
     import s._
 
     val children: Map[Identifier, Set[Identifier]] =
-      symbols.classes.values
+      syms.classes.values
         .flatMap(cd => cd.parents.map(_ -> cd))
         .groupBy(_._1.id)
         .mapValues(_.map(_._2.id).toSet)
@@ -25,10 +25,10 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       } (children)
 
     val roots: Map[Identifier, Identifier] =
-      symbols.classes.values
+      syms.classes.values
         .flatMap { cd =>
           def root(id: Identifier): Option[Identifier] = {
-            val cd = symbols.getClass(id)
+            val cd = syms.getClass(id)
             cd.parents match {
               case Seq() => Some(id)
               case Seq(ct) if ct.tps == cd.typeArgs => root(ct.id)
@@ -42,13 +42,13 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       val rootSet = roots.values.toSet
 
       def isCandidate(id: Identifier): Boolean = {
-        val cd = symbols.getClass(id)
+        val cd = syms.getClass(id)
         val cs = children.getOrElse(id, Set.empty)
         (roots contains id) &&
         (cs forall isCandidate) &&
         (cs.isEmpty || cd.fields.isEmpty) &&
         (cs.isEmpty == !(cd.flags contains IsAbstract)) &&
-        ((cd.flags contains IsSealed) || cd.methods(symbols).isEmpty) &&
+        ((cd.flags contains IsSealed) || cd.methods(syms).isEmpty) &&
         (cd.typeArgs forall (tp => tp.isInvariant && !tp.flags.exists { case Bounds(_, _) => true case _ => false }))
       }
 
@@ -63,7 +63,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         if (cs.isEmpty) Set(id) else cs.flatMap(rec)
       }
 
-      symbols.classes.keys.map(id => id -> rec(id)).toMap
+      syms.classes.keys.map(id => id -> rec(id)).toMap
     }
 
     val constructorId: Map[Identifier, Identifier] = candidates.map { id =>
@@ -77,20 +77,17 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
 
       override def transform(e: s.Expr): t.Expr = e match {
-        case s.IsInstanceOf(e, s.ClassType(id, tps)) if candidates(id) =>
-          val te = transform(e)
-          val ttps = tps map transform
-          t.orJoin(constructors(id).toSeq.sortBy(_.name).map {
-            id => t.IsConstructor(te, constructorId(id)).setPos(e)
-          })
-
-        case s.ClassSelector(e, selector) => e.getType(symbols) match {
+        case s.ClassSelector(e, selector) => e.getType(syms) match {
           case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(e), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
-          t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
+          val v = t.Variable.fresh("v", t.ADTType(roots(id), tps map transform).copiedFrom(e)).copiedFrom(e)
+          t.AsInstanceOf(
+            t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e),
+            t.RefinementType(v.toVal, t.IsConstructor(v, constructorId(id)).copiedFrom(e)).copiedFrom(e)
+          ).copiedFrom(e)
 
         case s.MatchExpr(scrut, cases) =>
           t.MatchExpr(transform(scrut), cases map { case cse @ s.MatchCase(pat, optGuard, rhs) =>
@@ -98,7 +95,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
             val newPat = s.patternOps.postMap {
               case iop @ s.InstanceOfPattern(ob, tpe @ ClassType(id, tps)) if candidates(id) =>
                 if (constructors(id) == Set(id)) {
-                  val subs = tpe.tcd(symbols).fields.map(_ => s.WildcardPattern(None).copiedFrom(pat))
+                  val subs = tpe.tcd(syms).fields.map(_ => s.WildcardPattern(None).copiedFrom(pat))
                   Some(s.ADTPattern(ob, constructorId(id), tps, subs).copiedFrom(iop))
                 } else {
                   val v = ob getOrElse ValDef(
@@ -145,9 +142,9 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val functions: Seq[t.FunDef] = symbols.functions.values.toSeq.map(transformer.transform)
+    val functions: Seq[t.FunDef] = syms.functions.values.toSeq.map(transformer.transform)
 
-    val sorts: Seq[t.ADTSort] = symbols.classes.values.toSeq
+    val sorts: Seq[t.ADTSort] = syms.classes.values.toSeq
       .filter(cd => candidates(cd.id) && cd.parents.isEmpty)
       .map { sortCd =>
         val sortTparams = sortCd.tparams map transformer.transform
@@ -155,7 +152,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
           sortCd.id,
           sortTparams,
           constructors(sortCd.id).toSeq.sortBy(_.name).map { cid =>
-            val consCd = symbols.classes(cid)
+            val consCd = syms.classes(cid)
             val tpMap = (consCd.tparams.map(tpd => transformer.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
             new t.ADTConstructor(
               constructorId(cid),
@@ -170,10 +167,19 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         ).copiedFrom(sortCd)
       }
 
-    val classes: Seq[t.ClassDef] = symbols.classes.values
+    val classes: Seq[t.ClassDef] = syms.classes.values
       .filterNot(cd => candidates(cd.id))
       .map(transformer.transform).toSeq
 
-    t.NoSymbols.withFunctions(functions).withSorts(sorts).withClasses(classes)
+    val finalSyms = t.NoSymbols.withFunctions(functions).withSorts(sorts).withClasses(classes)
+
+    for (fd <- finalSyms.functions.values) {
+      if (!finalSyms.isSubtypeOf(fd.fullBody.getType(finalSyms), fd.returnType)) {
+        println(fd)
+        println(finalSyms.explainTyping(fd.fullBody)(t.PrinterOptions(printUniqueIds = true, symbols = Some(finalSyms))))
+      }
+    }
+
+    finalSyms
   }
 }

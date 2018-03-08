@@ -46,6 +46,11 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
       case _ => None
     } (tpe)
 
+    def dropRefinements(tpe: s.Type): s.Type = liftRefinements(tpe) match {
+      case s.RefinementType(vd, _) => vd.tpe
+      case _ => tpe
+    }
+
     def parameterConds(vds: Seq[s.ValDef]): (Seq[s.ValDef], s.Expr) = {
       val (newParams, conds) = vds.map(vd => liftRefinements(vd.tpe) match {
         case s.RefinementType(vd2, pred) =>
@@ -64,16 +69,35 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
       val s: self.s.type = self.s
       val t: self.t.type = self.t
 
+      override def transform(vd: s.ValDef): t.ValDef =
+        super.transform(vd.copy(tpe = dropRefinements(vd.tpe)).copiedFrom(vd))
+
       override def transform(e: s.Expr): t.Expr = e match {
-        case s.Let(vd, e, b) =>
-          t.Let(
-            transform(vd.copy(tpe = (liftRefinements(vd.tpe) match {
-              case s.RefinementType(vd2, pred) => vd2.tpe
-              case _ => vd.tpe
-            })).copiedFrom(vd)),
-            transform(e),
-            transform(b)
-          ).copiedFrom(e)
+        case s.IsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
+          case s.RefinementType(vd, pred) =>
+            transform(s.and(
+              s.IsInstanceOf(expr, vd.tpe).copiedFrom(e),
+              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred)
+            ).copiedFrom(e))
+
+          case _ => super.transform(e)
+        }
+
+        // Clean up for casts introduced during AdtSpecialization
+        case s.AsInstanceOf(adt @ s.ADT(id, tps, es), s.RefinementType(vd, s.IsConstructor(v: Variable, cid)))
+        if vd == v.toVal && id == cid =>
+          transform(adt)
+
+        case s.AsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
+          case s.RefinementType(vd, pred) =>
+            transform(s.Assert(
+              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred),
+              Some("Cast error"),
+              s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)
+            ).copiedFrom(e))
+
+          case _ => super.transform(e)
+        }
 
         case s.Choose(res, pred) =>
           val (Seq(nres), cond) = parameterConds(Seq(res))
@@ -87,6 +111,29 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
           val (nargs, cond) = parameterConds(args)
           t.Lambda(nargs map transform, t.assume(transform(cond), transform(body)).copiedFrom(e)).copiedFrom(e)
 
+        case s.MatchExpr(scrut, cses) =>
+          t.MatchExpr(transform(scrut), cses.map { case cse @ s.MatchCase(pat, guard, rhs) =>
+            var conds: Seq[s.Expr] = Seq.empty
+            val newPat = s.patternOps.postMap {
+              case pat @ s.InstanceOfPattern(ob, tpe) => liftRefinements(tpe) match {
+                case s.RefinementType(vd, pred) => 
+                  val binder = ob.getOrElse(vd)
+                  conds :+= s.exprOps.replaceFromSymbols(Map(vd -> binder.toVariable), pred)
+                  Some(s.InstanceOfPattern(Some(binder), vd.tpe).copiedFrom(pat))
+                case _ => None
+              }
+
+              case _ => None
+            } (pat)
+
+            val optGuard = s.andJoin(conds ++ guard) match {
+              case s.BooleanLiteral(true) => None
+              case cond => Some(cond)
+            }
+
+            t.MatchCase(transform(newPat), optGuard map transform, transform(rhs)).copiedFrom(cse)
+          }).copiedFrom(e)
+
         case _ => super.transform(e)
       }
 
@@ -95,7 +142,7 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
 
     val invariants: MutableMap[Identifier, s.FunDef] = MutableMap.empty
 
-    val sorts: Seq[t.ADTSort] = syms.sorts.values.toSeq.map { sort =>
+    val sorts: Seq[t.ADTSort] = syms.sorts.values.toList.map { sort =>
       val v = s.Variable.fresh("v", s.ADTType(sort.id, sort.typeArgs))
       val (newCons, conds) = sort.constructors.map { cons =>
         val (newFields, conds) = parameterConds(cons.fields)
@@ -142,9 +189,9 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
     }
 
     // TODO: lift refinements to invariant?
-    val classes: Seq[t.ClassDef] = syms.classes.values.toSeq.map(transformer.transform)
+    val classes: Seq[t.ClassDef] = syms.classes.values.toList.map(transformer.transform)
 
-    val functions: Seq[t.FunDef] = syms.functions.values.toSeq.map { fd =>
+    val functions: Seq[t.FunDef] = syms.functions.values.toList.map { fd =>
       val withPre = if (invariants contains fd.id) {
         fd
       } else {
@@ -154,12 +201,24 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
           case cond => Some(cond)
         }
 
-        fd.copy(fullBody = s.exprOps.withPrecondition(fd.fullBody, optPre)).copiedFrom(fd)
+        fd.copy(
+          fullBody = s.exprOps.withPrecondition(fd.fullBody, optPre),
+          returnType = dropRefinements(fd.returnType)
+        ).copiedFrom(fd)
       }
 
       transformer.transform(withPre)
     }
 
-    t.NoSymbols.withSorts(sorts).withClasses(classes).withFunctions(functions)
+    val finalSyms = t.NoSymbols.withSorts(sorts).withClasses(classes).withFunctions(functions)
+
+    for (fd <- finalSyms.functions.values) {
+      if (!finalSyms.isSubtypeOf(fd.fullBody.getType(finalSyms), fd.returnType)) {
+        println(fd)
+        println(finalSyms.explainTyping(fd.fullBody)(t.PrinterOptions(printUniqueIds = true, symbols = Some(finalSyms))))
+      }
+    }
+
+    finalSyms
   }
 }
