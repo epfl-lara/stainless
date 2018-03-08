@@ -97,6 +97,8 @@ trait CoqEncoder {
     case Let(vd, value, body) =>
       //without type
       CoqLet(CoqIdentifier(vd.id), transformTree(value), transformTree(body))
+    case Lambda(vds, body) =>
+      vds.foldRight(transformTree(body))((a,b) => CoqLambda(CoqIdentifier(a.id), b) )
     //Integer operations
     case GreaterEquals(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.geb"), Seq(transformTree(e1), transformTree(e2)))

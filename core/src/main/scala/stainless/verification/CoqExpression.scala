@@ -146,6 +146,10 @@ case class CoqLet(vd: CoqIdentifier, value: CoqExpression, body: CoqExpression) 
   override def coqString = s"let ${vd.coqString} := (${value.coqString}) in (${body.coqString})"
 }
 
+case class CoqLambda(vd: CoqIdentifier, body: CoqExpression) extends CoqExpression {
+  override def coqString = s"fun ${vd.coqString} => ${body.coqString} "
+}
+
 // This class is used to represent the strings we want to print as is
 case class RawExpression(s: String) extends CoqExpression {
   override def coqString = s
