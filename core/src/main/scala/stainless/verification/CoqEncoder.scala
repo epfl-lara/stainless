@@ -39,28 +39,35 @@ trait CoqEncoder {
   // transform a Stainless expression into a Coq expression
   def transformTree(t: st.Expr): CoqExpression = t match {
     case MatchExpr(scrut, cases) => 
-      CoqMatch(transformTree(scrut), cases.map(makeFunctionCase))
+      transformTree(matchToIfThenElse(t, false))
+    case IfExpr(cond, thenn, elze) =>
+      ifthenelse(
+        transformTree(cond),
+        transformType(t.getType),
+        CoqLambda(coqUnused, transformTree(thenn)),
+        CoqLambda(coqUnused, transformTree(elze)) 
+        ) 
     case Variable(id,tpe,flags) =>
       ignoreFlags(t.toString, flags)
-      CoqVariable(id)
+      makeFresh(id)
     case ADT(ADTType(id, targs), args) =>
       Constructor(constructorIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
     case FunctionInvocation(id, targs, args) 
       if (exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None && 
         exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None)
       =>
-      CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
+      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree))
     case FunctionInvocation(id, targs, args) 
       if exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None =>
       CoqApplication(CoqLibraryConstant("proj1_sig"),
-        Seq(CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree)))
+        Seq(CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree)))
       )
     case FunctionInvocation(id, targs, args) 
       if exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None =>
-      CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
+      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
     case FunctionInvocation(id, targs, args) =>
       CoqApplication(CoqLibraryConstant("proj1_sig"),
-        Seq(CoqApplication(CoqIdentifier(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown))
+        Seq(CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown))
       )
     case Application(t, ts) =>
       CoqApplication(transformTree(t), ts.map(transformTree))
@@ -74,21 +81,23 @@ trait CoqEncoder {
     case Implies(t1,t2) => implb(transformTree(t1), transformTree(t2))
     case Equals(t1,t2) if (t1.getType == IntegerType()) => 
       CoqApplication(CoqLibraryConstant("Zeq_bool"),  Seq(transformTree(t1), transformTree(t2)))
-    case Equals(t1,t2) => ctx.reporter.fatalError(s"The translation to Coq failed because equality is not supported for type ${t1.getType}.")
+    case Equals(t1,t2) => 
+      ctx.reporter.warning("Equality for type ${t1.getType} got translated to equality in Coq")
+      propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
     case BooleanLiteral(true) => TrueBoolean
     case BooleanLiteral(false) => FalseBoolean
     case ADTSelector(adt, selector) => 
       adt.getType match {
         case ADTType(_,args) => 
           val typeParameters = args.map(transformType)
-          CoqApplication(CoqIdentifier(selector), typeParameters :+ transformTree(adt))
+          CoqApplication(makeFresh(selector), typeParameters :+ transformTree(adt))
         case _ => 
           ctx.reporter.fatalError(s"The translation to Coq failed because $adt does not have an ADT type but ${adt.getType}.")
       }
     case Forall(args, body) =>
       val params = args.map { case vd@ValDef(id,tpe,flags) => 
         ignoreFlags(vd.toString, flags)
-        (CoqIdentifier(id), transformType(tpe)) 
+        (makeFresh(id), transformType(tpe)) 
       }
       CoqForall(params, CoqEquals(transformTree(body),TrueBoolean))
     case Annotated(body, flags) =>
@@ -96,9 +105,9 @@ trait CoqEncoder {
       transformTree(body)
     case Let(vd, value, body) =>
       //without type
-      CoqLet(CoqIdentifier(vd.id), transformTree(value), transformTree(body))
+      CoqLet(makeFresh(vd.id), transformTree(value), transformTree(body))
     case Lambda(vds, body) =>
-      vds.foldRight(transformTree(body))((a,b) => CoqLambda(CoqIdentifier(a.id), b) )
+      vds.foldRight(transformTree(body))((a,b) => CoqLambda(makeFresh(a.id), b) )
     //Integer operations
     case GreaterEquals(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.geb"), Seq(transformTree(e1), transformTree(e2)))
@@ -118,7 +127,11 @@ trait CoqEncoder {
       CoqApplication(CoqLibraryConstant("Z.rem"), Seq(transformTree(e1), transformTree(e2)))
     case IntegerLiteral(i: BigInt) =>
       CoqZNum(i)
-    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
+    case Tuple(es) => 
+      CoqTuple(es.map(transformTree))
+    case _ => 
+      ctx.reporter.warning(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
+      magic(transformType(t.getType))
   }
 
   // creates a case for a match expression
@@ -140,7 +153,11 @@ trait CoqEncoder {
     case WildcardPattern(Some(ValDef(id,tpe,flags))) => 
       ignoreFlags(p.toString, flags)
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
-      VariablePattern(Some(CoqIdentifier(id)))
+      VariablePattern(Some(makeFresh(id)))
+      case TuplePattern(None, ps) => CoqTuplePattern(ps.map(transformPattern))
+      //TODO same as wildcard pattern
+      case TuplePattern(Some(_), ps) => 
+        ctx.reporter.fatalError("...")
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
   }
 
@@ -157,14 +174,14 @@ trait CoqEncoder {
         case a: st.ADTSort =>
           ignoreFlags(a.toString, a.flags)
           InductiveDefinition(
-            CoqIdentifier(a.id),
+            makeFresh(a.id),
             a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
             a.cons.map(id => makeCase(a, p.symbols.adts(id)))
           )
         case a: st.ADTConstructor =>
           ignoreFlags(a.toString, a.flags)
           InductiveDefinition(
-            CoqIdentifier(a.id),
+            makeFresh(a.id),
             a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
             Seq(makeCase(a, a))
           )
@@ -188,7 +205,7 @@ trait CoqEncoder {
   def buildRecognizer(root: ADTDefinition, constructor: ADTDefinition): CoqCommand = constructor match {
     case a: st.ADTConstructor =>
       val element = rawIdentifier("src")
-      val tparams = root.tparams.map(t => CoqIdentifier(t.id))
+      val tparams = constructor.tparams.map(t => CoqIdentifier(t.id))
       val extraCase =
         if (root != constructor)
           Some(CoqCase(VariablePattern(None), falseProp))
@@ -198,7 +215,7 @@ trait CoqEncoder {
       NormalDefinition(
         recognizer(a.id),
         a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) } ++
-          Seq((element, Constructor(CoqIdentifier(root.id), tparams))),
+          Seq((element, Constructor(makeFresh(root.id), tparams))),
         propSort,
         CoqMatch(element, Seq(
           CoqCase(
@@ -210,7 +227,8 @@ trait CoqEncoder {
               trueProp
           )) ++ extraCase
         )
-      )
+      ) $
+      RawCommand(s"Hint Unfold  ${recognizer(a.id).coqString}. \n")
     case _ => NoCommand
   }
             // if (a.hasInvariant) 
@@ -236,10 +254,11 @@ trait CoqEncoder {
         TypeSort,
         Refinement(
           element,
-          CoqApplication(CoqIdentifier(root.id), tparams),
+          CoqApplication(makeFresh(root.id), tparams),
           CoqApplication(recognizer(constructor.id), tparams :+ element)
         )
-      )
+      ) $
+      RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}. \n")
     case _ => NoCommand
   }
 
@@ -268,7 +287,7 @@ trait CoqEncoder {
     val tparams = root.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) } 
 
     NormalDefinition(
-      CoqIdentifier(id),
+      makeFresh(id),
         tparams ++
         Seq(((element, CoqApplication(refinedIdentifier(constructor.id), root.tparams.map(t => CoqIdentifier(t.id)))))),
       transformType(tpe),
@@ -293,7 +312,7 @@ trait CoqEncoder {
       ignoreFlags(a.toString, a.flags)
       val fieldsTypes = a.fields.map(vd => transformType(vd.tpe))
       val arrowType = fieldsTypes.foldRight[CoqExpression](
-        Constructor(CoqIdentifier(root.id), root.tparams.map(t => CoqIdentifier(t.id)))) // the inductive type
+        Constructor(makeFresh(root.id), a.tparams.map(t => CoqIdentifier(t.id)))) // the inductive type
         { case (field, acc) => Arrow(field, acc)} // the parameters of the constructor
       InductiveCase(constructorIdentifier(a.id), arrowType)
     case _ =>
@@ -310,7 +329,7 @@ trait CoqEncoder {
       ctx.reporter.fatalError(s"The translation to Coq does not support mutual recursion (between ${fd.id.name} and ${mutual.get._1.name})")
     else {
       val tparams: Seq[(CoqIdentifier,CoqExpression)] = fd.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) }
-      val params: Seq[(CoqIdentifier,CoqExpression)] = fd.params.map { case vd => (CoqIdentifier(vd.id), transformType(vd.tpe)) }
+      val params: Seq[(CoqIdentifier,CoqExpression)] = fd.params.map { case vd => (makeFresh(vd.id), transformType(vd.tpe)) }
       val body = exprOps.withoutSpecs(fd.fullBody) match {
         case None => ctx.reporter.fatalError(s"We do not support functions with empty bodies: ${fd.id.name}")
         case Some(b) => transformTree(b)
@@ -323,20 +342,22 @@ trait CoqEncoder {
       val returnType = exprOps.postconditionOf(fd.fullBody) match {
         case None => transformType(fd.returnType)
         case Some(Lambda(Seq(vd), post)) => 
-          Refinement(CoqIdentifier(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
+          Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = (if (fd.isRecursive) {
-        FixpointDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
+        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body)
       } else {
-        NormalDefinition(CoqIdentifier(fd.id), allParams, returnType, body)
+        NormalDefinition(makeFresh(fd.id), allParams, returnType, body)
       })
-      if (ctx.options.findOptionOrDefault(optAdmitAll)) {
+      tmp
+      //if (ctx.options.findOptionOrDefault(optAdmitAll)) {
+      /*if (fd.flags.contains("library")) {
         tmp $
         RawCommand("Admit Obligations.")
       } else {
         tmp
-      }
+      }*/
     }
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }
@@ -346,22 +367,28 @@ trait CoqEncoder {
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
     case ADTType(id, args) if (adts(id).root == adts(id)) => 
-      CoqApplication(CoqIdentifier(id), args map transformType)
+      CoqApplication(makeFresh(id), args map transformType)
+    case ADTType(id, args) => 
+      refinedIdentifier(id)((args map transformType): _*) 
     case TypeParameter(id,flags) => 
       ignoreFlags(tpe.toString, flags)
       CoqIdentifier(id)
     case BooleanType() => CoqBool
-    case FunctionType(t1, t2) => 
-      val tt1 = t1.map(transformType)
-      tt1.foldLeft[CoqExpression](transformType(t2))
-        { case (acc,arg) => Arrow(arg,acc) }
+    case FunctionType(ts, t) => 
+      val tts = ts.map(transformType)
+      tts.foldRight[CoqExpression](transformType(t))
+        { case (arg,acc) => Arrow(arg,acc) }
     case SetType(base) =>
       CoqSetType(transformType(base))
     case IntegerType() => CoqZ
     case BVType(_) =>
       ctx.reporter.warning(s"The translation to Coq currently converts the type $tpe (${tpe.getClass}) to BigInt.")
       CoqZ
-    case _ => ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
+    case MapType(u, v) => mapType(transformType(u), transformType(v))
+    case TupleType(ts) => CoqTupleType(ts map transformType)
+    case _ => 
+      ctx.reporter.fatalError(s"The translation to Coq does not support the type $tpe (${tpe.getClass}).")
+      //magic(typeSort)
   }
 
   // finds an order in which to define the functions
@@ -387,7 +414,7 @@ trait CoqEncoder {
   def makeTactic(adts: Seq[ADTDefinition]) = {
     RawCommand("""
  Ltac step := match goal with 
-   | [ H: match ?t with _ => _ end |- _ ] => destruct t
+   | [ H: context[match ?t with _ => _ end] |- _ ] => destruct t
    | [ H: ex _ _ |- _ ] => destruct H
    | _ => 
        congruence || 
@@ -397,6 +424,7 @@ trait CoqEncoder {
        omega || 
        eauto || 
        discriminate ||
+       (autounfold in *) ||
        (rewrite <- Zgt_is_gt_bool in *) ||
        (rewrite Z.geb_le in *)
    end.
@@ -417,14 +445,22 @@ trait CoqEncoder {
     RequireImport("Coq.Logic.Classical") $
     RequireImport("Omega") $
     OpenScope("bool_scope") $
-    // RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
-    // RawCommand( """Definition propInBool (P: Prop): bool :=
-    //               | if (classicT P) 
-    //               | then true
-    //               | else false.
-    //               |""".stripMargin) $
-    // RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
-    // RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
+    RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
+    RawCommand("""Axiom unsupported: False. """) $
+    RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
+    RawCommand( """Definition propInBool (P: Prop): bool :=
+                  | if (classicT P) 
+                  | then true
+                  | else false.
+                  |""".stripMargin) $
+    RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.                    
+                 | destruct b.
+                 | - apply e1. reflexivity.
+                 | - apply e2. reflexivity.
+                 Qed.""".stripMargin) $
+    RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
+    RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
+    RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
     makeTactic(p.symbols.adts.values.toSeq) $
     manyCommands(p.symbols.adts.values.toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.toSeq)
@@ -437,7 +473,26 @@ trait CoqEncoder {
 }
 
 object CoqEncoder {
+
+  var m = Map[Identifier, CoqIdentifier] ()
+  var count = Map[String, Int]()
+
+  def makeFresh(id: Identifier): CoqIdentifier = {
+    if (m.contains(id)) m(id)
+    else {
+      val i = count.getOrElse(id.name,0)
+      count = count.updated(id.name, i +1)
+      val res = CoqIdentifier(new Identifier(id.name + (i+1), id.id, id.globalId))
+      m = m.updated(id, res)
+      res
+    } 
+  }
+  
+
   def deriveContradiction = RawExpression("""let contradiction: False := _ in match contradiction with end""")
+
+  def unsupportedExpression = RawExpression("""match unsupported with end""")
+  //def unsupportedExpression = RawExpression("""magic""")
 
   def constructorIdentifier(i: Identifier): CoqIdentifier = {
     CoqIdentifier(new Identifier(i.name + "_construct", i.id, i.globalId))

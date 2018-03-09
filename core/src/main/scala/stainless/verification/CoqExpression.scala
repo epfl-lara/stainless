@@ -85,6 +85,10 @@ sealed abstract class CoqExpression {
   def coqString: String
 
   def ===(that: CoqExpression) = CoqEquals(this,that)
+
+  def apply(es: CoqExpression*) = {
+    CoqApplication(this, es.toSeq)
+  }
 }
 
 case object TypeSort extends CoqExpression {
@@ -111,10 +115,6 @@ case class CoqMatch(matched: CoqExpression, cases: Seq[CoqCase]) extends CoqExpr
       cases.map(_.coqString).mkString("\n","\n","\nend")
 }
 
-case class CoqVariable(id: Identifier) extends CoqExpression {
-  override def coqString = id.name.replaceAll("\\$","___")
-}
-
 case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = optP(f) + args.map(arg => " " + optP(arg)).mkString
 }
@@ -122,8 +122,23 @@ case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends Co
 case class CoqIdentifier(id: Identifier) extends CoqExpression {
   override def coqString = {
     val res = id.name.replaceAll("\\$","___")
-    if (validCoqIdentifier(res)) res
-    else transformedName(res)
+      .replaceAll("::", "cons_")
+      .replaceAll(":\\+", "snoc_")
+      .replaceAll(":", "i_")
+      .replaceAll("\\+", "plus_")
+      .replaceAll("\\+\\+", "union_")
+      .replaceAll("--", "substract_")
+      .replaceAll("-", "minus_")
+      .replaceAll("&", "c_")
+    if (coqKeywords contains res) coqKeywords(res) 
+    else if (validCoqIdentifier(res)) res
+    else throw new Exception(s"$res is not a valid coq identifier")
+  }
+}
+
+case class CoqTuple(es: Seq[CoqExpression]) extends CoqExpression {
+  override def coqString = {
+    es.map(_.coqString).mkString("(", ",", ")")
   }
 }
 
@@ -164,18 +179,15 @@ case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
 }
 
 case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = fold(TrueBoolean.coqString, es.map(_.coqString)) { 
-    case (a,b) => s"""match $a with
-      | true => $b
-      | false => false
-      end"""
-  }
+  override def coqString = fold(TrueBoolean, es) { 
+    case (a,b) => ifthenelse(a, CoqBool, CoqLambda(coqUnused , b), CoqLambda(coqUnused, FalseBoolean))
+  }.coqString
 }
 
 case class Negb(e: CoqExpression) extends CoqExpression {
-  override def coqString = "negb " + e.coqString
+  override def coqString = negbFun(e).coqString
 }
-
+//todo remove
 case object TrueBoolean extends CoqExpression {
   override def coqString = "true"
 }
@@ -199,6 +211,10 @@ case class CoqZNum(i: BigInt) extends CoqExpression {
 /*case class GreB(*e1: CoqExpression, e2:CoqExpression) {
   override def coqString = 
 }*/
+
+case class CoqTupleType(ts: Seq[CoqExpression]) extends CoqExpression {
+  override def coqString = ts.map(optP).mkString("(", " * ", ")%type")
+}
 
 /**
  * Set Operations
@@ -230,7 +246,7 @@ case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression
   } catch {
     case UnimplementedCoqExpression(_) =>
       println(s"IMPORTANT WARNING (Soundness): could not refine type $tpe by $body, due to unimplemented operations")
-      tpe.coqString
+      s"{${id.coqString}: ${tpe.coqString} |   True}"
   }
 }
 
@@ -263,6 +279,12 @@ case class VariablePattern(id: Option[CoqIdentifier]) extends CoqPattern {
   override def coqString = if (id.isEmpty) "_" else id.get.coqString
 }
 
+case class CoqTuplePattern(ps: Seq[CoqPattern]) extends CoqPattern {
+  override def coqString = {
+    ps.map(_.coqString).mkString("(", ",", ")")
+  }
+}
+
 object CoqExpression {
   def fold[T](baseCase: T, exprs: Seq[T])(operation: (T,T) => T) = {
     if (exprs.size == 0) baseCase
@@ -277,6 +299,12 @@ object CoqExpression {
   val falseProp = CoqLibraryConstant("False")
   val propSort = CoqLibraryConstant("Prop")
   val propInBool = CoqLibraryConstant("propInBool")
+  val magic = CoqLibraryConstant("magic")
+  val typeSort = CoqLibraryConstant("Type")
+  val mapType = CoqLibraryConstant("map_type")
+  val ifthenelse = CoqLibraryConstant("ifthenelse")
+
+  val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 
   def implb(e1: CoqExpression, e2: CoqExpression): CoqExpression = {
     CoqApplication(implbFun, Seq(e1,e2))
@@ -290,7 +318,13 @@ object CoqExpression {
   def optP(e: CoqExpression) = if (requiresParentheses(e)) s"(${e.coqString})" else e.coqString
   def optP(e: CoqPattern) = if (requiresParentheses(e)) s"(${e.coqString})" else e.coqString
 
-  def validCoqIdentifier(s: String) = s matches """[\w_]+"""
+  def validCoqIdentifier(s: String) = s matches """[A-Z|a-z|_][\w_]*"""
+
+  val coqKeywords = Map(
+    "forall" -> "_forall",
+    "exists" -> "_exists",
+    "exists2" -> "_exists2"
+  )
 
   // FIXME: not thread safe
   var m: Map[String,String] = Map()
