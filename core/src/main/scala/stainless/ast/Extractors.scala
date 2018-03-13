@@ -30,9 +30,9 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), binder.map(_.toVariable).toSeq, Seq(lit), Seq(), Seq(), (_, vs, es, _, _) => {
         t.LiteralPattern(vs.headOption.map(_.toVal), es.head.asInstanceOf[t.Literal[_]])
       })
-    case s.UnapplyPattern(binder, id, tps, subs) =>
-      (Seq(id), binder.map(_.toVariable).toSeq, Seq(), tps, subs, (ids, vs, _, tps, pats) => {
-        t.UnapplyPattern(vs.headOption.map(_.toVal), ids.head, tps, pats)
+    case s.UnapplyPattern(binder, rec, id, tps, subs) =>
+      (Seq(id), binder.map(_.toVariable).toSeq, rec.toSeq, tps, subs, (ids, vs, es, tps, pats) => {
+        t.UnapplyPattern(vs.headOption.map(_.toVal), if (rec.isDefined) Some(es.head) else None, ids.head, tps, pats)
       })
   }
 

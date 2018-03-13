@@ -64,8 +64,9 @@ trait Printer extends inox.ast.Printer {
       ovd foreach (vd => p"${vd.toVariable} @ ")
       p"$lit"
 
-    case UnapplyPattern(ovd, id, tps, subs) =>
+    case UnapplyPattern(ovd, rec, id, tps, subs) =>
       ovd foreach (vd => p"${vd.toVariable} @ ")
+      rec.foreach(e => p"$e.")
       printNameWithPath(id)
       p"(${nary(subs)})"
 

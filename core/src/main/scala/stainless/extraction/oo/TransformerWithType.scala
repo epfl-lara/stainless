@@ -15,44 +15,37 @@ trait TransformerWithType extends TreeTransformer {
   }
 
   def transform(pat: s.Pattern, tpe: s.Type): t.Pattern = pat match {
-    case s.WildcardPattern(ob) =>
-      t.WildcardPattern(ob map transform).copiedFrom(pat)
+    case s.WildcardPattern(ob) => t.WildcardPattern(ob map transform).copiedFrom(pat)
 
-    case s.InstanceOfPattern(ob, tpe) =>
-      t.InstanceOfPattern(ob map transform, transform(tpe)).copiedFrom(pat)
+    case s.InstanceOfPattern(ob, tpe) => t.InstanceOfPattern(ob map transform, transform(tpe)).copiedFrom(pat)
 
     case s.ClassPattern(ob, ct, subs) =>
-      t.ClassPattern(
-        ob map transform,
-        transform(ct).asInstanceOf[t.ClassType],
-        (subs zip ct.tcd.fields.map(_.tpe)) map (p => transform(p._1, p._2))
-      ).copiedFrom(pat)
+      val rsubs = (subs zip ct.tcd.fields).map(p => transform(p._1, p._2.tpe))
+      t.ClassPattern(ob map transform, transform(ct).asInstanceOf[t.ClassType], rsubs).copiedFrom(pat)
 
     case s.ADTPattern(ob, id, tps, subs) =>
-      t.ADTPattern(
-        ob map transform, id, tps map transform,
-        (subs zip getConstructor(id, tps).fields.map(_.tpe)) map (p => transform(p._1, p._2))
-      ).copiedFrom(pat)
+      val rsubs = (subs zip getConstructor(id, tps).fields).map(p => transform(p._1, p._2.tpe))
+      t.ADTPattern(ob map transform, id, tps map transform, rsubs).copiedFrom(pat)
 
-    case s.TuplePattern(ob, subs) => widen(tpe) match {
-      case s.TupleType(tps) =>
-        t.TuplePattern(ob map transform, (subs zip tps) map (p => transform(p._1, p._2))).copiedFrom(pat)
-      case _ =>
-        t.TuplePattern(ob map transform, subs map (transform(_, s.AnyType()))).copiedFrom(pat)
-    }
+    case s.TuplePattern(ob, subs) =>
+      val tps = widen(tpe) match {
+        case s.TupleType(tps) => tps
+        case _ => subs map (_ => s.AnyType())
+      }
+      val rsubs = (subs zip tps).map(p => transform(p._1, p._2))
+      t.TuplePattern(ob map transform, rsubs).copiedFrom(pat)
 
-    case up @ s.UnapplyPattern(ob, id, tps, subs) =>
+    case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
       val subTps = widen(up.getGet.returnType) match {
         case tpe if subs.size == 1 => Seq(tpe)
         case s.TupleType(tps2) => tps2
         case _ => subs.map(_ => s.AnyType())
       }
-
-      t.UnapplyPattern(ob map transform, id, tps map transform,
-        (subs zip subTps) map (p => transform(p._1, p._2))).copiedFrom(pat)
+      val rsubs = (subs zip subTps).map(p => transform(p._1, p._2))
+      t.UnapplyPattern(ob map transform, rec map transform, id, tps map transform, rsubs).copiedFrom(pat)
 
     case s.LiteralPattern(ob, lit) =>
-      t.LiteralPattern(ob map transform, transform(lit).asInstanceOf[t.Literal[_]])
+      t.LiteralPattern(ob map transform, transform(lit).asInstanceOf[t.Literal[_]]).copiedFrom(pat)
   }
 
   def transform(expr: s.Expr, tpe: s.Type): t.Expr = expr match {
@@ -66,9 +59,7 @@ trait TransformerWithType extends TreeTransformer {
         transform(caller, s.FunctionType(from, tpe)),
         (args zip from) map (p => transform(p._1, p._2))
       ).copiedFrom(expr)
-    case s.Lambda(args, body) =>
-      println("lambda:", expr, widen(tpe))
-      widen(tpe) match {
+    case s.Lambda(args, body) => widen(tpe) match {
       case s.FunctionType(from, to) => t.Lambda(args map transform, transform(body, to)).copiedFrom(expr)
       case _ => t.Lambda(args map transform, transform(body, s.AnyType())).copiedFrom(expr)
     }
@@ -77,8 +68,6 @@ trait TransformerWithType extends TreeTransformer {
     case s.Choose(res, pred) =>
       t.Choose(transform(res), transform(pred, s.BooleanType())).copiedFrom(expr)
     case fi @ s.FunctionInvocation(id, tps, args) =>
-      println("invocation:",fi, args zip fi.tfd.params.map(_.tpe),
-        args.map(_.getClass))
       t.FunctionInvocation(id, tps map transform,
         (args zip fi.tfd.params.map(_.tpe)) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IfExpr(cond, thenn, elze) =>
@@ -87,11 +76,12 @@ trait TransformerWithType extends TreeTransformer {
       t.ADT(id, tps map transform,
         (args zip getConstructor(id, tps).fieldsTypes) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IsConstructor(e, id) =>
-      t.IsConstructor(transform(e, e.getType), id).copiedFrom(expr)
+      t.IsConstructor(transform(e), id).copiedFrom(expr)
     case s.ADTSelector(e, sel) =>
-      t.ADTSelector(transform(e, e.getType), sel).copiedFrom(expr)
+      t.ADTSelector(transform(e), sel).copiedFrom(expr)
     case s.Equals(lhs, rhs) =>
-      t.Equals(transform(lhs, s.AnyType()), transform(rhs, s.AnyType())).copiedFrom(expr)
+      val lub = widen(leastUpperBound(lhs.getType, rhs.getType))
+      t.Equals(transform(lhs, lub), transform(rhs, lub)).copiedFrom(expr)
     case s.And(es) =>
       t.And(es map (transform(_, s.BooleanType()))).copiedFrom(expr)
     case s.Or(es) =>
@@ -132,13 +122,17 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.Modulo(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
     case s.LessThan(lhs, rhs) =>
-      t.LessThan(transform(lhs, lhs.getType), transform(rhs, lhs.getType)).copiedFrom(expr)
+      val tp = widen(lhs.getType)
+      t.LessThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
     case s.GreaterThan(lhs, rhs) =>
-      t.GreaterThan(transform(lhs, lhs.getType), transform(rhs, lhs.getType)).copiedFrom(expr)
+      val tp = widen(lhs.getType)
+      t.GreaterThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
     case s.LessEquals(lhs, rhs) =>
-      t.LessEquals(transform(lhs, lhs.getType), transform(rhs, lhs.getType)).copiedFrom(expr)
+      val tp = widen(lhs.getType)
+      t.LessEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
     case s.GreaterEquals(lhs, rhs) =>
-      t.GreaterEquals(transform(lhs, lhs.getType), transform(rhs, lhs.getType)).copiedFrom(expr)
+      val tp = widen(lhs.getType)
+      t.GreaterEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
     case s.BVNot(e) =>
       val atpe = getArithmeticType(e, tpe)
       t.BVNot(transform(e, atpe)).copiedFrom(expr)
@@ -161,15 +155,15 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.BVLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
     case s.BVNarrowingCast(expr, tpe) =>
-      t.BVNarrowingCast(transform(expr, expr.getType), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
+      t.BVNarrowingCast(transform(expr), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
     case s.BVWideningCast(expr, tpe) =>
-      t.BVWideningCast(transform(expr, expr.getType), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
+      t.BVWideningCast(transform(expr), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
     case s.Tuple(es) => widen(tpe) match {
       case s.TupleType(tps) => t.Tuple((es zip tps) map (p => transform(p._1, p._2))).copiedFrom(expr)
       case _ => t.Tuple(es map (transform(_, s.AnyType()))).copiedFrom(expr)
     }
     case s.TupleSelect(tuple, index) =>
-      t.TupleSelect(transform(tuple, tuple.getType), index).copiedFrom(expr)
+      t.TupleSelect(transform(tuple), index).copiedFrom(expr)
     case s.FiniteSet(elems, base) =>
       t.FiniteSet(elems map (transform(_, base)), transform(base)).copiedFrom(expr)
     case s.SetAdd(set, elem) =>
@@ -179,30 +173,37 @@ trait TransformerWithType extends TreeTransformer {
       val st @ s.SetType(base) = widen(set.getType)
       t.ElementOfSet(transform(elem, base), transform(set, st)).copiedFrom(expr)
     case s.SubsetOf(s1, s2) =>
-      t.SubsetOf(transform(s1, s1.getType), transform(s2, s1.getType)).copiedFrom(expr)
+      val tp = widen(s1.getType)
+      t.SubsetOf(transform(s1, tp), transform(s2, tp)).copiedFrom(expr)
     case s.SetIntersection(s1, s2) =>
-      t.SetIntersection(transform(s1, s1.getType), transform(s2, s1.getType)).copiedFrom(expr)
+      val tp = widen(s1.getType)
+      t.SetIntersection(transform(s1, tp), transform(s2, tp)).copiedFrom(expr)
     case s.SetUnion(s1, s2) =>
-      t.SetUnion(transform(s1, s1.getType), transform(s2, s1.getType)).copiedFrom(expr)
+      val tp = widen(s1.getType)
+      t.SetUnion(transform(s1, tp), transform(s2, tp)).copiedFrom(expr)
     case s.SetDifference(s1, s2) =>
-      t.SetDifference(transform(s1, s1.getType), transform(s2, s1.getType)).copiedFrom(expr)
+      val tp = widen(s1.getType)
+      t.SetDifference(transform(s1, tp), transform(s2, tp)).copiedFrom(expr)
     case s.FiniteBag(elems, base) =>
       t.FiniteBag(
         elems.map(p => (transform(p._1, base), transform(p._2, s.IntegerType()))),
         transform(base)
       ).copiedFrom(expr)
     case s.BagAdd(bag, elem) =>
-      val bt @ s.BagType(base) = bag.getType
+      val bt @ s.BagType(base) = widen(bag.getType)
       t.BagAdd(transform(bag, bt), transform(elem, base)).copiedFrom(expr)
     case s.MultiplicityInBag(elem, bag) =>
-      val bt @ s.BagType(base) = bag.getType
+      val bt @ s.BagType(base) = widen(bag.getType)
       t.MultiplicityInBag(transform(elem, base), transform(bag, bt)).copiedFrom(expr)
     case s.BagIntersection(b1, b2) =>
-      t.BagIntersection(transform(b1, b1.getType), transform(b2, b1.getType)).copiedFrom(expr)
+      val tp = widen(b1.getType)
+      t.BagIntersection(transform(b1, tp), transform(b2, tp)).copiedFrom(expr)
     case s.BagUnion(b1, b2) =>
-      t.BagUnion(transform(b1, b1.getType), transform(b2, b1.getType)).copiedFrom(expr)
+      val tp = widen(b1.getType)
+      t.BagUnion(transform(b1, tp), transform(b2, tp)).copiedFrom(expr)
     case s.BagDifference(b1, b2) =>
-      t.BagDifference(transform(b1, b1.getType), transform(b2, b1.getType)).copiedFrom(expr)
+      val tp = widen(b1.getType)
+      t.BagDifference(transform(b1, tp), transform(b2, tp)).copiedFrom(expr)
     case s.FiniteMap(pairs, dflt, kt, vt) =>
       t.FiniteMap(
         pairs map (p => (transform(p._1, kt), transform(p._2, vt))),
@@ -211,10 +212,10 @@ trait TransformerWithType extends TreeTransformer {
         transform(vt)
       ).copiedFrom(expr)
     case s.MapApply(map, key) =>
-      val mt @ s.MapType(from, _) = map.getType
+      val mt @ s.MapType(from, _) = widen(map.getType)
       t.MapApply(transform(map, mt), transform(key, from)).copiedFrom(expr)
     case s.MapUpdated(map, key, value) =>
-      val mt @ s.MapType(from, to) = map.getType
+      val mt @ s.MapType(from, to) = widen(map.getType)
       t.MapUpdated(transform(map, mt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
     // Stainless expressions
@@ -230,11 +231,12 @@ trait TransformerWithType extends TreeTransformer {
     case s.Assert(pred, err, body) =>
       t.Assert(transform(pred, s.BooleanType()), err, transform(body, tpe)).copiedFrom(expr)
     case s.MatchExpr(scrut, cses) =>
+      val stpe = widen(scrut.getType)
       t.MatchExpr(
-        transform(scrut, scrut.getType),
+        transform(scrut),
         cses map { case cse @ s.MatchCase(pat, guard, rhs) =>
           t.MatchCase(
-            transform(pat, scrut.getType),
+            transform(pat, stpe),
             guard map (transform(_, s.BooleanType())),
             transform(rhs, tpe)
           ).copiedFrom(cse)
@@ -249,16 +251,16 @@ trait TransformerWithType extends TreeTransformer {
         transform(base)
       ).copiedFrom(expr)
     case s.ArraySelect(array, index) =>
-      t.ArraySelect(transform(array, array.getType), transform(index, s.Int32Type())).copiedFrom(expr)
+      t.ArraySelect(transform(array), transform(index, s.Int32Type())).copiedFrom(expr)
     case s.ArrayUpdated(array, index, value) =>
-      val at @ s.ArrayType(base) = array.getType
+      val at @ s.ArrayType(base) = widen(array.getType)
       t.ArrayUpdated(
         transform(array, at),
         transform(index, s.Int32Type()),
         transform(value, base)
       ).copiedFrom(expr)
     case s.ArrayLength(array) =>
-      t.ArrayLength(transform(array, array.getType)).copiedFrom(expr)
+      t.ArrayLength(transform(array)).copiedFrom(expr)
 
     // Inner function expressions
     case s.LetRec(fds, body) =>
@@ -283,25 +285,25 @@ trait TransformerWithType extends TreeTransformer {
 
     // Imperative expressions
     case s.Block(es, last) =>
-      t.Block(es map (e => transform(e, e.getType)), transform(last, tpe)).copiedFrom(expr)
+      t.Block(es map (e => transform(e)), transform(last, tpe)).copiedFrom(expr)
     case s.LetVar(vd, e, b) =>
       t.LetVar(transform(vd), transform(e, vd.tpe), transform(b, tpe)).copiedFrom(expr)
     case s.Assignment(v, value) =>
       t.Assignment(transform(v).asInstanceOf[t.Variable], transform(value, v.tpe)).copiedFrom(expr)
     case fa @ s.FieldAssignment(obj, sel, value) =>
       t.FieldAssignment(
-        transform(obj, obj.getType),
+        transform(obj),
         sel,
         transform(value, fa.getField.get.tpe)
       ).copiedFrom(expr)
     case s.While(cond, body, pred) =>
       t.While(
         transform(cond, s.BooleanType()),
-        transform(body, body.getType),
+        transform(body),
         pred map (transform(_, s.BooleanType()))
       ).copiedFrom(expr)
     case s.ArrayUpdate(array, index, value) =>
-      val at @ s.ArrayType(base) = array.getType
+      val at @ s.ArrayType(base) = widen(array.getType)
       t.ArrayUpdate(
         transform(array, at),
         transform(index, s.Int32Type()),
@@ -331,19 +333,19 @@ trait TransformerWithType extends TreeTransformer {
         (args zip ct.tcd.fields.map(_.tpe)) map (p => transform(p._1, p._2))
       ).copiedFrom(expr)
     case s.ClassSelector(e, sel) =>
-      t.ClassSelector(transform(e, e.getType), sel).copiedFrom(expr)
+      t.ClassSelector(transform(e), sel).copiedFrom(expr)
     case s.This(ct) =>
       t.This(transform(ct).asInstanceOf[t.ClassType]).copiedFrom(expr)
     case s.Super(ct) =>
       t.Super(transform(ct).asInstanceOf[t.ClassType]).copiedFrom(expr)
     case s.IsInstanceOf(e, tp) =>
-      t.IsInstanceOf(transform(e, s.AnyType()), transform(tp)).copiedFrom(expr)
+      t.IsInstanceOf(transform(e), transform(tp)).copiedFrom(expr)
     case s.AsInstanceOf(e, tp) =>
-      t.AsInstanceOf(transform(e, s.AnyType()), transform(tp)).copiedFrom(expr)
+      t.AsInstanceOf(transform(e), transform(tp)).copiedFrom(expr)
 
     // Termination expressions
     case s.Decreases(measure, body) =>
-      t.Decreases(transform(measure, measure.getType), transform(body, tpe)).copiedFrom(expr)
+      t.Decreases(transform(measure), transform(body, tpe)).copiedFrom(expr)
 
     case term: t.Terminal => super.transform(term)
   }

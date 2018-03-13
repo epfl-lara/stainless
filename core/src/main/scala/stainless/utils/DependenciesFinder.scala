@@ -35,7 +35,7 @@ class DependenciesFinder {
     }
 
     override def traverse(pat: xt.Pattern): Unit = pat match {
-      case xt.UnapplyPattern(_, id, _, _) =>
+      case xt.UnapplyPattern(_, _, id, _, _) =>
         deps += id
         super.traverse(pat)
 

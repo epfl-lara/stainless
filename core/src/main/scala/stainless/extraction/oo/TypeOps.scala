@@ -168,27 +168,30 @@ trait TypeOps extends imperative.TypeOps {
     else tps.reduceLeft(typeBound(_, _, upper))
   }
 
+  def leastUpperClassBound(ct1: ClassType, ct2: ClassType): Option[ClassType] = {
+    val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet
+    val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet
+    val ans1 = ct1.tcd.ancestors.find(tcd => cd2Ans contains tcd.id)
+    val ans2 = ct2.tcd.ancestors.find(tcd => cd1Ans contains tcd.id)
+    (ans1, ans2) match {
+      case (Some(tcd1), Some(tcd2)) =>
+        val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {
+          case ((tp, tpe1), tpe2) =>
+            if (tp.isCovariant) Some(leastUpperBound(tpe1, tpe2))
+            else if (tp.isContravariant) Some(greatestLowerBound(tpe1, tpe2))
+            else if (tpe1 == tpe2) Some(tpe1)
+            else None
+        }
+        if (tps.forall(_.isDefined)) Some(ClassType(tcd1.id, tps.map(_.get)))
+        else None
+      case _ => None
+    }
+  }
+
   override def widen(tpe: Type): Type = tpe match {
     case UnionType(Seq()) => NothingType()
     case UnionType(tpes) => (tpes map widen).reduceLeft[Type] {
-      case (ct1: ClassType, ct2: ClassType) =>
-        val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet
-        val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet
-        val ans1 = ct1.tcd.ancestors.find(tcd => cd2Ans contains tcd.id)
-        val ans2 = ct2.tcd.ancestors.find(tcd => cd1Ans contains tcd.id)
-        (ans1, ans2) match {
-          case (Some(tcd1), Some(tcd2)) =>
-            val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {
-              case ((tp, tpe1), tpe2) =>
-                if (tp.isCovariant) Some(leastUpperBound(tpe1, tpe2))
-                else if (tp.isContravariant) Some(greatestLowerBound(tpe1, tpe2))
-                else if (tpe1 == tpe2) Some(tpe1)
-                else None
-            }
-            if (tps.forall(_.isDefined)) ClassType(tcd1.id, tps.map(_.get))
-            else AnyType()
-          case _ => Untyped
-        }
+      case (ct1: ClassType, ct2: ClassType) => leastUpperClassBound(ct1, ct2).getOrElse(AnyType())
       case (TupleType(tps1), TupleType(tps2)) if tps1.size == tps2.size =>
         TupleType((tps1 zip tps2).map(p => leastUpperBound(p._1, p._2)))
       case (FunctionType(from1, to1), FunctionType(from2, to2)) if from1.size == from2.size =>
@@ -307,10 +310,10 @@ trait TypeOps extends imperative.TypeOps {
         .getOrElse(Untyped)
     case TuplePattern(_, subs) => TupleType(subs map patternInType)
     case ClassPattern(_, ct, subs) => ct
-    case UnapplyPattern(_, id, tps, _) =>
-      lookupFunction(id)
-        .filter(fd => fd.tparams.size == tps.size && fd.params.size == 1)
-        .map(fd => fd.typed(tps).params.head.tpe)
+    case UnapplyPattern(_, rec, id, tps, _) =>
+      val optFd = lookupFunction(id).filter(fd => fd.tparams.size == tps.size)
+      optFd.filter(_.params.size == 1 && rec.isEmpty).map(_.typed(tps).params.head.tpe)
+        .orElse(optFd.filter(_.params.size == 2 && rec.nonEmpty).map(_.typed(tps).params(1).tpe))
         .getOrElse(Untyped)
     case InstanceOfPattern(_, tpe) => tpe
   }

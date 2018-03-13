@@ -34,8 +34,13 @@ package object oo {
 
   object encoding extends TypeEncoding {
     val s: trees.type = trees
-    val t: holes.trees.type = holes.trees
+    val t: trees.type = trees
   }
 
-  val extractor = methods andThen adts andThen refinements andThen encoding
+  val checker = inox.ast.SymbolTransformer(new CheckingTransformer {
+    val s: trees.type = trees
+    val t: holes.trees.type = holes.trees
+  })
+
+  val extractor = methods andThen adts andThen refinements andThen encoding andThen checker
 }

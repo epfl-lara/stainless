@@ -49,7 +49,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val subTests = subps.zipWithIndex.map { case (p, i) => apply(tupleSelect(in, i+1, subps.size), p) }
         bind(ob, in) merge subTests
 
-      case up @ UnapplyPattern(ob, id, tps, subps) =>
+      case up @ UnapplyPattern(ob, _, _, _, subps) =>
         val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply _).tupled
         bind(ob, in) withCond Not(up.isEmpty(in)) merge subs
 
@@ -107,7 +107,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val map = maps.flatten.toMap
         bindIn(b) ++ map
 
-      case up @ UnapplyPattern(b, _, _, subps) =>
+      case up @ UnapplyPattern(b, _, _, _, subps) =>
         bindIn(b) ++ unwrapTuple(up.get(in), subps.size).zip(subps).flatMap {
           case (e, p) => mapForPattern(e, p)
         }.toMap
