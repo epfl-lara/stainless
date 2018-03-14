@@ -196,7 +196,7 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
-lazy val `stainless-scalac-assembly` = project
+lazy val `stainless-scalac-assembly` = (project in file("frontends/stainless-scalac-assembly"))
   .settings(
     name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible

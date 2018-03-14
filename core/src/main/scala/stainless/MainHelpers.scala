@@ -18,7 +18,13 @@ object MainHelpers {
   /** See [[frontend.allComponents]]. */
   val components: Seq[Component] = frontend.allComponents
 
-  val useParallelism = !System.getProperty("os.name").toLowerCase().contains("mac")
+  private lazy val nParallel: Option[Int] =
+    Option(System.getProperty("parallel"))
+      .flatMap(p => scala.util.Try(p.toInt).toOption)
+
+  private lazy val useParallelism: Boolean =
+    (nParallel.isEmpty || nParallel.exists(_ > 1)) &&
+    !System.getProperty("os.name").toLowerCase().contains("mac")
 
   /** Executor used to execute tasks concurrently. */
   // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
