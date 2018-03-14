@@ -14,8 +14,15 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   val ctx: inox.Context
 
   class Checker extends Traverser {
+    val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
+    val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
+
+    val BigInt_ApplyMethods =
+      (StainlessLangPackage.info.decl(newTermName("BigInt")).info.decl(nme.apply).alternatives
+      ++ rootMirror.getRequiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
+
     val RequireMethods =
       (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
         + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
@@ -23,7 +30,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.lang.collection.List",
-      definitions.NilModule -> "stainless.lang.collection.Nil",
+      definitions.NilModule.moduleClass -> "stainless.lang.collection.Nil",
       definitions.OptionClass -> "stainless.lang.Option",
       rootMirror.getRequiredClass("scala.util.Either") -> "stainless.lang.Either",
       definitions.ScalaPackageClass.info.decl(newTermName("Nil")) -> "stainless.lang.collection.Nil",
@@ -123,6 +130,18 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         case DefDef(_, _, _, _, _, rhs) =>
           // recurse only inside `rhs`, as parameter/type parameters have been checked already in `checkType`
           atOwner(sym)(traverse(rhs))
+
+        case Apply(fun, List(arg)) if sym == StainlessOld =>
+          arg match {
+            case This(_) => ()
+            case t if t.symbol != null && t.symbol.isVariable => ()
+            case t =>
+              reportError(t.pos, s"Stainless `old` is only defined on `this` and variables.")
+          }
+
+        case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
+          if (args.size != 1 || !args.head.isInstanceOf[Literal])
+            reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
