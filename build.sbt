@@ -207,9 +207,9 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
-lazy val `stainless-scalac-assembly` = (project in file("frontends") / "stainless-scalac-assembly")
+lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-scalac-plugin")
   .settings(
-    name := "stainless-scalac-assembly",
+    name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
     packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
   )
@@ -257,7 +257,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     scriptedDependencies := {
       publishLocal.value
       (publishLocal in `stainless-library`).value
-      (publishLocal in `stainless-scalac-assembly`).value
+      (publishLocal in `stainless-scalac-plugin`).value
     }
   )
 
@@ -283,7 +283,7 @@ lazy val root = (project in file("."))
     publish := ()
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-assembly`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
