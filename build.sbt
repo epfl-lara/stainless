@@ -58,10 +58,6 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt"),
 
-  // TODO: Reenable site.settings
-//  site.settings,
-//  site.sphinxSupport(),
-
   unmanagedJars in Runtime += {
     root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
   },
@@ -172,6 +168,9 @@ lazy val `stainless-core` = (project in file("core"))
   .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
+  .settings(site.settings)
+  .settings(site.sphinxSupport())
+
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
