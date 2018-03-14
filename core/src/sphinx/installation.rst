@@ -3,7 +3,9 @@
 Installing Stainless
 ====================
 
-Stainless is probably easiest to build on Linux-like
+Stainless can be very easily integrated with an sbt build by using the sbt-stainless plugin.
+
+If you are not using sbt, then Stainless is probably easiest to build on Linux-like
 platforms, but read on regarding other platforms.
 
 Due to its nature, this documentation section may not always
@@ -13,9 +15,48 @@ written and tested improvements to the information below.
 **Requirements:**
 
 * `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
-* SBT 0.13.x (Available from http://www.scala-sbt.org/)
+* sbt 0.13.x (Available from http://www.scala-sbt.org/)
 * `Sphinx restructured text tool <http://sphinx-doc.org/>`_ (for building local documentation)
 
+sbt
+---
+Setting up a sbt build file to use stainless it's a simple 4-steps procedure:
+
+1. Start by installing an external solver (see Section
+   ":ref:`smt-solvers`").
+
+2. Add the ``sbt-stainless`` plugin together with the required resolver to your ``project/plugins.sbt``
+
+.. code-block:: bash
+
+  resolvers += Resolver.url(“LARA sbt plugins releases",url("https://dl.bintray.com/epfl-lara/sbt-plugins/"))(Resolver.ivyStylePatterns)
+  addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
+
+Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
+
+3. In your project's build file, enable the ``StainlessPlugin`` on the modules that should be verified by stainless. Below is an example:
+
+.. code-block:: bash
+
+  // build.sbt
+  lazy val algorithm = (project in file("algorithm"))
+  .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
+  .settings(...)
+
+Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor a bit your build and code to use successfully stainless on a module.
+
+4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
+
+That's all there is to it. However, the ``sbt-stainless`` plugin currently has the following limitations you should know about:
+
+* Modules where the ``StainlessPlugin`` is enabled won't produce binaries when executing ``compile``. The reason for this limitation is that stainless currently needs to skip the pattern matching compiler phase. To somewhat mitigate this issue, the ``sbt-stainless`` plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell. Running ``compile`` when stainless is disabled will produce binaries as usual. 
+
+* No incremental compilation support. All sources (included the stainless-library sources) are recompiled (or, better, re-typechecked since when stainless is enabled compilation stops soon after the ``typecheck`` compiler phase) at every ``compile`` execution.
+
+Also, note that the ``sbt-stainless`` plugin only supports vanilla Scala. To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
+
+Linux & Mac OS-X
+----------------
 
 Get the sources of Stainless by cloning the official Stainless repository:
 
