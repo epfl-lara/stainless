@@ -11,10 +11,12 @@ import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableS
 import io.circe.Json
 
 import java.io.File
-import java.util.concurrent.{ ExecutionException, Future }
+import scala.concurrent.{ Await, Future }
+import scala.concurrent.duration._
 
 trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   import context.{ options, reporter }
+  import MainHelpers._
 
   private implicit val debugSection = DebugSectionFrontend
 
@@ -51,11 +53,14 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     recentIdentifiers.clear()
   }
 
-  final override def stop(): Unit = tasks foreach { _.cancel(true) } // no need to update state, it's a KILL.
+  final override def stop(): Unit = {
+    tasks foreach { Await.result(_, 1.seconds) } // no need to update state, it's a KILL.
+    tasks.clear()
+  }
 
   // Build the report
   final override def join(): Unit = try {
-    val newReports = tasks map { _.get } // blocking! TODO is there a more efficient "get all" version?
+    val newReports = Await.result(Future.sequence(tasks), Duration.Inf)
     val reports = (report +: newReports) filter { _ != null }
     if (reports.nonEmpty) report = reports reduce { _ ~ _ }
     tasks.clear()
@@ -65,7 +70,6 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   } catch {
     case SomeFatalError(e) =>
       stop()
-      tasks.clear()
       throw e
   }
 
@@ -83,7 +87,7 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
 
   /******************* Customisation Points *******************************************************/
 
-  protected val context: inox.Context
+  protected implicit val context: inox.Context
 
   protected type Report <: AbstractReport[Report]
 
@@ -187,13 +191,7 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
 
   private def processProgram(program: Program { val trees: xt.type }): Unit = {
     // Dispatch a task to the executor service instead of blocking this thread.
-    val task = new java.util.concurrent.Callable[Report] {
-      override def call(): Report = solve(program)
-    }
-
-    val future = MainHelpers.executor.submit(task)
-    this.synchronized { tasks += future }
-    // task.call() // For debug, comment the two previous lines and uncomment this one.
+    this.synchronized { tasks += doParallel(solve(program)) }
   }
 
 }

@@ -67,7 +67,7 @@ trait VerificationChecker { self =>
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
-    val results = MainHelpers.par(vcs) flatMap { vc =>
+    val results = MainHelpers.parallel(vcs map (vc => () => {
       if (stop) None else {
         val res = checkVC(vc, sf)
 
@@ -82,7 +82,7 @@ trait VerificationChecker { self =>
         if (interruptManager.isInterrupted) interruptManager.reset()
         Some(vc -> res)
       }
-    }
+    })).flatten
 
     initMap ++ results
   }

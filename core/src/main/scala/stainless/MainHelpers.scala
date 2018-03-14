@@ -4,12 +4,13 @@ package stainless
 
 import utils.JsonUtils
 
-import scala.collection.parallel.{ ExecutionContextTaskSupport, ForkJoinTasks }
-import scala.concurrent.ExecutionContext
+import scala.collection.parallel.ForkJoinTasks
+import scala.concurrent.{ ExecutionContext, Future, Await }
+import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
 import java.io.File
-import java.util.concurrent.{ Executors, ExecutorService }
+import java.util.concurrent.{ Executors, ExecutorService, ForkJoinPool }
 
 import io.circe.Json
 
@@ -26,30 +27,36 @@ object MainHelpers {
     (nParallel.isEmpty || nParallel.exists(_ > 1)) &&
     !System.getProperty("os.name").toLowerCase().contains("mac")
 
-  /** Executor used to execute tasks concurrently. */
-  // FIXME ideally, we should use the same underlying pool for the frontends' compiler...
-  // TODO add an option for the number of thread? (need to be moved in trait MainHelpers then).
-  val executor: ExecutorService = {
-    // Don't use a different parallel executor or `par` will dead lock.
-    if (useParallelism) ForkJoinTasks.defaultForkJoinPool
-    else Executors.newSingleThreadExecutor()
-  }
+  private lazy val currentThreadExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
+      def execute(runnable: Runnable) { runnable.run() }
+    })
 
-  /**
-   * Set up a parallel collection if parallelism is enabled.
-   *
-   * When parallelism is turned on, the returned parallel collection used the
-   * [[MainHelpers.executor]] to dispatch & balance tasks.
-   */
-  def par[A](collection: Seq[A]) = {
-    if (useParallelism) {
-      val pc = collection.par
-      pc.tasksupport = new ExecutionContextTaskSupport(ExecutionContext.fromExecutorService(executor))
-      pc
+  private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
+    nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
+  private lazy val multiThreadedExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(multiThreadedExecutor)
+
+  implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =
+    if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
+    else currentThreadExecutionContext
+
+  def doParallel[A](task: => A)(implicit ctx: inox.Context): Future[A] =
+    if (useParallelism && ctx.reporter.debugSections.isEmpty) {
+      Future { task }(multiThreadedExecutionContext)
     } else {
-      collection
+      Future.successful(task)
     }
-  }
+
+  def parallel[A](tasks: Seq[() => A])(implicit ctx: inox.Context): Seq[A] =
+    if (useParallelism && ctx.reporter.debugSections.isEmpty) {
+      val futureTasks = tasks.map(task => Future { task() }(multiThreadedExecutionContext))
+      Await.result(Future.sequence(futureTasks), Duration.Inf)
+    } else {
+      tasks.map(_())
+    }
+
+  def shutdown(): Unit = if (useParallelism) multiThreadedExecutor.shutdown()
 }
 
 trait MainHelpers extends inox.MainHelpers {
@@ -170,7 +177,7 @@ trait MainHelpers extends inox.MainHelpers {
 
     // Shutdown the pool for a clean exit.
     reporter.info("Shutting down executor service.")
-    MainHelpers.executor.shutdown()
+    MainHelpers.shutdown()
 
     val success = compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })
     System.exit(if (success) 0 else 1)
