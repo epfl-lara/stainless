@@ -94,6 +94,12 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
 )
 
+lazy val libraryFiles: Seq[(String, File)] = {
+  val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
+  val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
+  libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+}
+
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   libraryDependencies ++= Seq(
     "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
@@ -109,13 +115,17 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
   unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
-  unmanagedResourceDirectories in Compile += root.base / "frontends" / "library",
+  // We have to use managed resources here to keep sbt's source watcher happy
+  resourceGenerators in Compile += Def.task {
+    for ((libPath, libFile) <- libraryFiles) yield {
+      val resourceFile = (resourceManaged in Compile).value / libPath
+      IO.write(resourceFile, IO.read(libFile))
+      resourceFile
+    }
+  }.taskValue,
   test in assembly := {}, // Skip the test during assembly
 
   sourceGenerators in Compile += Def.task {
-    val fullLibraryPaths = ((root.base / "frontends" / "library") ** "*.scala").getPaths
-    val dropCount = (fullLibraryPaths.head indexOfSlice "library") + ("library".size + 1 /* for separator */)
-    val libraryPaths = fullLibraryPaths map { _ drop dropCount } // Drop the prefix of the path (i.e. everything before "library")
     val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
     def removeSlashU(in: String): String =
       in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
@@ -129,7 +139,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |  private val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
           |
           |  private val libraryPaths = List(
-          |    ${removeSlashU(libraryPaths.mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
+          |    ${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
           |  )
           |
           |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryPaths)
@@ -167,6 +177,7 @@ lazy val `stainless-core` = (project in file("core"))
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
   .settings(
+    name := "stainless-library",
     // don't publish binaries - stainless-library is only consumed as a sources component
     publishArtifact in packageBin := false,
     crossVersion := CrossVersion.full,
@@ -174,7 +185,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   )
   .settings(commonSettings, publishMavenSettings)
 
-lazy val `stainless-scalac` = (project in file("frontends/scalac"))
+lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
   .settings(
     name := "stainless-scalac",
@@ -196,22 +207,22 @@ lazy val `stainless-scalac` = (project in file("frontends/scalac"))
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
-lazy val `stainless-scalac-assembly` = (project in file("frontends/stainless-scalac-assembly"))
+lazy val `stainless-scalac-assembly` = (project in file("frontends") / "stainless-scalac-assembly")
   .settings(
-    name := "stainless-scalac-plugin",
+    name := "stainless-scalac-assembly",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
     packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
   )
   .settings(artifactSettings, publishMavenSettings)
 
-lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
+lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
   .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
   .settings(commonSettings, publishMavenSettings)
 
-lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   .enablePlugins(JavaAppPackaging)
   .disablePlugins(AssemblyPlugin)
   .settings(
