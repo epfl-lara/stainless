@@ -43,7 +43,7 @@ Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-p
   .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
   .settings(...)
 
-Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor a bit your build and code to use successfully stainless on a module.
+Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use stainless on a module.
 
 4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
 
