@@ -70,6 +70,7 @@ Get the sources of Stainless by cloning the official Stainless repository:
   // takes about 1 minute
 
 The compilation will automatically generate the following two bash scripts:
+
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
 
@@ -110,6 +111,7 @@ repository. You will need a Git shell for windows, e.g.
   // takes about 1 minutes
  
 Compilation will automatically generate the following two bash scripts:
+
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
