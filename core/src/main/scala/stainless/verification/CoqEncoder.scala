@@ -129,6 +129,16 @@ trait CoqEncoder {
       CoqZNum(i)
     case Tuple(es) => 
       CoqTuple(es.map(transformTree))
+    case AsInstanceOf(expr, tpe) => transformTree(expr) //ignore asInstanceOf and lets hope it is indeed an instance
+    case IsInstanceOf(expr, tpe) =>
+      tpe match {
+        case ADTType(id, args) =>
+          propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
+        case _ =>
+          ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
+      }
+
+
     case _ => 
       ctx.reporter.warning(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
       magic(transformType(t.getType))
@@ -155,9 +165,11 @@ trait CoqEncoder {
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
       VariablePattern(Some(makeFresh(id)))
       case TuplePattern(None, ps) => CoqTuplePattern(ps.map(transformPattern))
-      //TODO same as wildcard pattern
-      case TuplePattern(Some(_), ps) => 
-        ctx.reporter.fatalError("...")
+      case TuplePattern(Some(ValDef(id,tpe,flags)), ps) =>
+        ignoreFlags(p.toString, flags)
+        ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
+        //TODO not tested
+        CoqTuplePatternVd(ps.map(transformPattern), VariablePattern(Some(makeFresh(id))))
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
   }
 
@@ -437,33 +449,47 @@ trait CoqEncoder {
 // Obligation Tactic := repeat step.
   }
 
-  def transform(): CoqCommand = {
+  def header(): CoqCommand = {
     RequireImport("Coq.Program.Tactics") $
-    RequireImport("Coq.Program.Program") $
-    RequireImport("Coq.Lists.List") $
-    RequireImport("Coq.Lists.ListSet") $
-    RequireImport("Coq.Logic.Classical") $
-    RequireImport("Omega") $
-    OpenScope("bool_scope") $
-    RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
-    RawCommand("""Axiom unsupported: False. """) $
-    RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
-    RawCommand( """Definition propInBool (P: Prop): bool :=
-                  | if (classicT P) 
-                  | then true
-                  | else false.
-                  |""".stripMargin) $
-    RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.                    
+      RequireImport("Coq.Program.Program") $
+      RequireImport("Coq.Lists.List") $
+      RequireImport("Coq.Lists.ListSet") $
+      RequireImport("Coq.Logic.Classical") $
+      RequireImport("Omega") $
+      OpenScope("bool_scope") $
+      RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
+      RawCommand("""Axiom unsupported: False. """) $
+      RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
+      RawCommand( """Definition propInBool (P: Prop): bool :=
+                    | if (classicT P)
+                    | then true
+                    | else false.
+                    |""".stripMargin) $
+      RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.
                  | destruct b.
                  | - apply e1. reflexivity.
                  | - apply e2. reflexivity.
                  Qed.""".stripMargin) $
-    RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
-    RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
-    RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
-    makeTactic(p.symbols.adts.values.toSeq) $
-    manyCommands(p.symbols.adts.values.toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.toSeq)
+      RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
+      RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
+      RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""")
+  }
+
+  def transformLib(): CoqCommand = {
+    header() $
+    makeTactic(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq)$
+    manyCommands(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
+    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
+
+  }
+
+  def transform(): CoqCommand = {
+    //TODO not ideal
+    RawCommand("Load verif1.") $
+    header() $
+    makeTactic(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq) $
+    manyCommands(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
+    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq)
   }
 
   def getTParams(a: ADTDefinition) = a match {
@@ -481,8 +507,9 @@ object CoqEncoder {
     if (m.contains(id)) m(id)
     else {
       val i = count.getOrElse(id.name,0)
-      count = count.updated(id.name, i +1)
-      val res = CoqIdentifier(new Identifier(id.name + (i+1), id.id, id.globalId))
+      val freshName = if (i == 0) id.name else id.name + i
+        count = count.updated(id.name, i +1)
+      val res = CoqIdentifier(new Identifier(freshName, id.id, id.globalId))
       m = m.updated(id, res)
       res
     } 
@@ -521,6 +548,6 @@ object CoqEncoder {
       val ctx = context
     }
 
-    encoder.transform()
+    (encoder.transformLib(), encoder.transform())
   }
 }

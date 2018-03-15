@@ -279,6 +279,13 @@ case class VariablePattern(id: Option[CoqIdentifier]) extends CoqPattern {
   override def coqString = if (id.isEmpty) "_" else id.get.coqString
 }
 
+
+case class CoqTuplePatternVd(ps: Seq[CoqPattern], vd: VariablePattern) extends CoqPattern {
+  override def coqString = {
+    ps.map(_.coqString).mkString("(", ",", ")") + " as " + vd.coqString
+  }
+}
+
 case class CoqTuplePattern(ps: Seq[CoqPattern]) extends CoqPattern {
   override def coqString = {
     ps.map(_.coqString).mkString("(", ",", ")")
@@ -327,22 +334,5 @@ object CoqExpression {
   )
 
   // FIXME: not thread safe
-  var m: Map[String,String] = Map()
-
-  // FIXME: not thread safe
-  var i = 0
-  def freshName() = {
-    i += 1 // FIXME: not thread safe
-    "ascii" + i
-  }
-
-  def transformedName(s: String) = {
-    if (m.contains(s)) m(s)
-    else {
-      val v = freshName()
-      println(s"transforming $s to $v")
-      m += s -> v // FIXME: not thread safe
-      v
-    }
-  }
+  //var m: Map[String,String] = Map()
 }
