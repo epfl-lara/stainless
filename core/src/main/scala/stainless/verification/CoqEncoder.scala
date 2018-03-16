@@ -109,10 +109,15 @@ trait CoqEncoder {
     case Lambda(vds, body) =>
       vds.foldRight(transformTree(body))((a,b) => CoqLambda(makeFresh(a.id), b) )
     //Integer operations
+    case UMinus(e) => CoqApplication(CoqLibraryConstant("Z.opp"), Seq(transformTree(e)))
     case GreaterEquals(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.geb"), Seq(transformTree(e1), transformTree(e2)))
     case GreaterThan(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.gtb"), Seq(transformTree(e1), transformTree(e2)))
+    case LessEquals(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.leb"), Seq(transformTree(e1), transformTree(e2)))
+    case LessThan(e1,e2) =>
+      CoqApplication(CoqLibraryConstant("Z.ltb"), Seq(transformTree(e1), transformTree(e2)))
     case Plus(e1,e2) =>
       CoqApplication(CoqLibraryConstant("Z.add"), Seq(transformTree(e1), transformTree(e2)))
     case Minus(e1,e2) =>
@@ -129,6 +134,28 @@ trait CoqEncoder {
       CoqZNum(i)
     case Tuple(es) => 
       CoqTuple(es.map(transformTree))
+
+    /**
+      * coq encodes tuple type A * B * C as (A * B) * C so we can not write a generic ._2, because in case of
+      * (a,b) it would be match t with (_, c) => c end. whereas in case of
+      * (a,b,c) it would be match t with (_,b,_) => b end. or snd(fst t)
+      *
+      * If we encode (a,b,c,...) as pair(a, pair(b, pair(c, ... pair(z, unit) ...))) then we can always say
+      *
+      * ._1 = fst t
+      * ._2 = fst (snd t)
+      * ._3 = fst (snd (snd t))
+      *
+      * The only way this would fail is when we try to access a greater element than the tuple's length, but it
+      * will not typecheck in Scala anyway
+      *
+      */
+    case TupleSelect(tuple, idx) =>
+      ctx.reporter.warning(s"The translation to Coq assumes tuple $tuple to be a pair")
+      if (idx == 1)
+        fst(transformTree(tuple))
+      else
+        snd(transformTree(tuple))
     case AsInstanceOf(expr, tpe) => transformTree(expr) //ignore asInstanceOf and lets hope it is indeed an instance
     case IsInstanceOf(expr, tpe) =>
       tpe match {
@@ -137,7 +164,7 @@ trait CoqEncoder {
         case _ =>
           ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
       }
-
+    case Error(tpe, desc) => deriveContradiction //TODO is it ok?
 
     case _ => 
       ctx.reporter.warning(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
@@ -465,6 +492,7 @@ trait CoqEncoder {
                     | then true
                     | else false.
                     |""".stripMargin) $
+      RawCommand("""Hint Unfold propInBool.""")$
       RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.
                  | destruct b.
                  | - apply e1. reflexivity.
@@ -472,7 +500,8 @@ trait CoqEncoder {
                  Qed.""".stripMargin) $
       RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
       RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
-      RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""")
+      RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
+      RawCommand( """Set Default Timeout 10.""")
   }
 
   def transformLib(): CoqCommand = {
@@ -500,6 +529,8 @@ trait CoqEncoder {
 
 object CoqEncoder {
 
+
+  val freshIdName = "tmp"
   var m = Map[Identifier, CoqIdentifier] ()
   var count = Map[String, Int]()
 
@@ -513,6 +544,14 @@ object CoqEncoder {
       m = m.updated(id, res)
       res
     } 
+  }
+
+  def makeFresh(): CoqIdentifier = {
+
+    val i = count.getOrElse(freshIdName,0)
+    val freshName = if (i == 0) freshIdName else freshIdName + i
+    count = count.updated(freshIdName, i +1)
+    CoqIdentifier(FreshIdentifier(freshName))
   }
   
 

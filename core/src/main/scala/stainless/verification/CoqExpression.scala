@@ -311,6 +311,9 @@ object CoqExpression {
   val mapType = CoqLibraryConstant("map_type")
   val ifthenelse = CoqLibraryConstant("ifthenelse")
 
+  val fst = CoqLibraryConstant("fst")
+  val snd = CoqLibraryConstant("snd")
+
   val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 
   def implb(e1: CoqExpression, e2: CoqExpression): CoqExpression = {
