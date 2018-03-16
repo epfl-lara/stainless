@@ -506,7 +506,8 @@ trait CoqEncoder {
 
   def transformLib(): CoqCommand = {
     header() $
-    makeTactic(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq)$
+    //we need to get every adt into the tactic, as we  can define it only once
+    makeTactic(p.symbols.adts.values.toSeq)$
     manyCommands(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
 
@@ -515,8 +516,6 @@ trait CoqEncoder {
   def transform(): CoqCommand = {
     //TODO not ideal
     RawCommand("Load verif1.") $
-    header() $
-    makeTactic(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq) $
     manyCommands(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq)
   }
