@@ -455,7 +455,20 @@ trait CoqEncoder {
  Ltac step := match goal with 
    | [ H: context[match ?t with _ => _ end] |- _ ] => destruct t
    | [ H: ex _ _ |- _ ] => destruct H
-   | _ => 
+   |   H: exists _, _ |- _ => destruct H
+   | [ |- context[match ?t with _ => _ end]] =>
+       let matched := fresh "matched" in
+       destruct t eqn:matched
+   | [ |- context[if ?t then _ else _]] =>
+       let ifexpr := fresh "ifexpr" in
+       destruct t eqn:ifexpr
+   | [ H: context[match ?t with _ => _ end] |- _ ] =>
+       let matched := fresh "matched" in
+       destruct t eqn:matched
+   | [ H: context[if ?t then _ else _] |- _ ] =>
+       let ifexpr := fresh "ifexpr" in
+       destruct t eqn:ifexpr
+   | _ =>
        congruence || 
        simpl in * || 
        program_simpl || 
