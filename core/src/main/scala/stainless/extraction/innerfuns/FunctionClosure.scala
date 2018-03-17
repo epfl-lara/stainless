@@ -94,9 +94,9 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       // Directly nested functions with their p.c.
       val nestedWithPathsFull = {
         val funDefs = exprOps.directlyNestedFunDefs(fd.fullBody)
-        transformers.CollectorWithPC(s)(symbols) {
+        symbols.collectWithPC(fd.fullBody) {
           case (LetRec(fd1, body), path) => (fd1.filter(funDefs), path)
-        }.collect(fd.fullBody)
+        }
       }
 
       val nestedWithPaths = (for((fds, path) <- nestedWithPathsFull; fd <- fds) yield (fd, path)).toMap

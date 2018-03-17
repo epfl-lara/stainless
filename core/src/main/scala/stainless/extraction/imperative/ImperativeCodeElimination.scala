@@ -345,9 +345,15 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val (bodyVal, bodyScope, bodyFun) = toFunction(body)
           (Lambda(params, bodyScope(bodyVal)).copiedFrom(ld), (e: Expr) => e, Map())
 
+        case f @ Forall(params, body) =>
+          // Recall that Forall cannot mutate variables from the scope
+          val (bodyVal, bodyScope, bodyFun) = toFunction(body)
+          (Forall(params, bodyScope(bodyVal)).copiedFrom(f), (e: Expr) => e, Map())
+
         case c @ Choose(res, pred) =>
           //Recall that Choose cannot mutate variables from the scope
-          (c, (b2: Expr) => b2, Map())
+          val (predVal, predScope, predFun) = toFunction(pred)
+          (Choose(res, predScope(predVal)).copiedFrom(c), (e: Expr) => e, Map())
 
         case And(args) =>
           val ifExpr = args.reduceRight((el, acc) => IfExpr(el, acc, BooleanLiteral(false)))
