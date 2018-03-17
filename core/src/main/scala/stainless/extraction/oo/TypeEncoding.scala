@@ -1016,7 +1016,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       import newSymbols._
       import exprOps._
 
-      exprOps.preMap({
+      // TODO @nv: implement some controlled fixpoint here.
+      //           We should be able to call ourselves recursively on the output of simplification
+      //           in most cases, but some care has to be taken to terminate.
+      exprOps.postMap {
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`))),
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`)))
@@ -1030,14 +1033,16 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case fi @ FunctionInvocation(`subtypeID`, Seq(), args @ (Seq(_: ADT, _) | Seq(_, _: ADT))) =>
           val tfd = fi.tfd
           val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          Some(newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked))
+          val simp = newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked)
+          if (simp != body) Some(simp) else None
 
         case fi @ FunctionInvocation(`instanceID`, Seq(), args @ Seq(_, _: ADT)) =>
           val tfd = fi.tfd
           val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          Some(newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked))
+          val simp = newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked)
+          if (simp != body) Some(simp) else None
         case _ => None
-      }, applyRec = true) (e)
+      } (e)
     }
 
     val finalSymbols = NoSymbols
