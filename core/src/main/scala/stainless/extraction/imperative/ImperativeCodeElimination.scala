@@ -410,15 +410,14 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
         val (specs, body) = deconstructSpecs(fd.fullBody)
 
         val newSpecs = specs.map {
-          //probably not the cleanest way to do it, but if somehow we still have Old
-          //expressions at that point, they can be safely removed as the object is
-          //equals to its original value
-          case Postcondition(post) => Postcondition(exprOps.postMap {
-            case Old(e) => Some(e)
-            case _ => None
-          }(post).asInstanceOf[Lambda])
+          case Postcondition(ld @ Lambda(params, body)) =>
+            val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
+            Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
 
-          case spec => spec
+          case spec => spec.map { e =>
+            val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
+            scope(res)
+          }
         }
 
         val newBody = body.map { body =>
