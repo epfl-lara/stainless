@@ -6,7 +6,6 @@ package xlang
 
 trait Trees extends oo.Trees { self =>
 
-  case class IsField(isLazy: Boolean) extends Flag("field", Seq(isLazy))
   case object Ignore extends Flag("ignore", Seq.empty)
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
@@ -106,7 +105,6 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
   protected val t: Trees
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
-    case s.IsField(b) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsField(b))
     case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
     case _ => super.deconstruct(f)
   }

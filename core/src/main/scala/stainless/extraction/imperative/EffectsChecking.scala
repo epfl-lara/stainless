@@ -68,7 +68,7 @@ trait EffectsChecking { self =>
 
 
     def checkMutableField(fd: FunAbstraction): Unit = {
-      if (false) // FIXME fd.flags.exists { case IsField(_) => true case _ => false } && effects.isMutableType(fd.returnType))
+      if (fd.flags.exists { case IsField(_) => true case _ => false } && effects.isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd.getPos, "A global field cannot refer to a mutable object")
     }
 
