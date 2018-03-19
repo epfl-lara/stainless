@@ -46,7 +46,7 @@ trait Trees extends inlining.Trees { self =>
     val returnType: Type,
     val fullBody: Expr,
     val flags: Set[Flag]
-  ) extends inox.utils.Positioned {
+  ) extends Tree {
     def copy(
       id: Identifier = id,
       tparams: Seq[TypeParameterDef] = tparams,

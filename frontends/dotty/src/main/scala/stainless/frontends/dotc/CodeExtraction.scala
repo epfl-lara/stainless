@@ -370,7 +370,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
     var flags = annotationsOf(sym) ++
-      (if ((sym is Implicit) || (sym is Inline)) Some(xt.Inline) else None)
+      (if ((sym is Implicit) || (sym is Inline)) Some(xt.Inline) else None) ++
+      (if (!(sym is Method)) Some(xt.IsField(sym is Lazy)) else None)
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)

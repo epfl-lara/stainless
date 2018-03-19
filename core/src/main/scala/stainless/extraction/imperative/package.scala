@@ -16,7 +16,12 @@ package object imperative {
     object printer extends Printer { val trees: imperative.trees.type = imperative.trees }
   }
 
-  case class ImperativeEliminationException(pos: inox.utils.Position, msg: String) extends Exception(msg)
+  class ImperativeEliminationException(tree: inox.ast.Trees#Tree, msg: String)
+    extends MissformedStainlessCode(tree, msg)
+
+  object ImperativeEliminationException {
+    def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)
+  }
 
   object antiAliasing extends {
     val trees: imperative.trees.type = imperative.trees
