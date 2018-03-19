@@ -450,9 +450,9 @@ trait CoqEncoder {
     }
   }
 
-  def makeTactic(adts: Seq[ADTDefinition]) = {
+  def makeLibTactic(adts: Seq[ADTDefinition]) = {
     RawCommand("""
- Ltac step := match goal with 
+ Ltac libStep := match goal with
    | [ H: context[match ?t with _ => _ end] |- _ ] => destruct t
    | [ H: ex _ _ |- _ ] => destruct H
    |   H: exists _, _ |- _ => destruct H
@@ -481,12 +481,20 @@ trait CoqEncoder {
        (rewrite Z.geb_le in *)
    end.
 
-   Obligation Tactic := repeat step.""")
+   Obligation Tactic := repeat libStep.""")
 
 //| [ H: isCons _ ?L |- _ ] => is_var L; destruct L
 //       unfold Cons_type in * ||
-   
-// Obligation Tactic := repeat step.
+
+  }
+
+
+  def makeTactic(adts: Seq[ADTDefinition]) = {
+    RawCommand("""
+   Ltac step := libStep.
+
+   Obligation Tactic := repeat step.""")
+
   }
 
   def header(): CoqCommand = {
@@ -520,7 +528,7 @@ trait CoqEncoder {
   def transformLib(): CoqCommand = {
     header() $
     //we need to get every adt into the tactic, as we  can define it only once
-    makeTactic(p.symbols.adts.values.toSeq)$
+    makeLibTactic(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
 
@@ -529,6 +537,7 @@ trait CoqEncoder {
   def transform(): CoqCommand = {
     //TODO not ideal
     RawCommand("Load verif1.") $
+    makeTactic(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq)
   }
