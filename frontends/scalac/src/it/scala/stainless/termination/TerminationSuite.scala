@@ -15,6 +15,7 @@ class TerminationSuite extends ComponentTestSuite {
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     case "termination/valid/NNF" => Skip
+    case "termination/valid/HammingMemoized" => Ignore // Too slow, make regression unstable
     case "verification/valid/Nested14" => Ignore // Too slow, make regression unstable
     // smt-z3 crashes on some permutations of the MergeSort2 problem encoding due to Bags...
     case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
