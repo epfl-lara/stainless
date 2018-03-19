@@ -381,21 +381,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val id = getIdentifier(sym)
 
-    // If this is a lazy field definition, drop the assignment/ accessing
-    val body =
-      if (!(flags contains xt.IsField(true))) rhs
-      else rhs match {
-        case Block(List(Assign(_, realBody)), _) => realBody
-        case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
-      }
-
     val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
 
     val finalBody = if (rhs == tpd.EmptyTree) {
       flags += xt.IsAbstract
       xt.NoTree(returnType)
     } else {
-      xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
+      xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
     }
 
     //if (fctx.isExtern && !exists(_.isInstanceOf[NoTree])(finalBody)) {
@@ -403,7 +395,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     //}
 
     val fullBody = if (fctx.isExtern) {
-      xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(body.pos))
+      xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(rhs.pos))
     } else {
       finalBody
     }

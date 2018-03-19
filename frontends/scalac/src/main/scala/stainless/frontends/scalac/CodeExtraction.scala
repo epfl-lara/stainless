@@ -59,9 +59,6 @@ trait CodeExtraction extends ASTExtractors {
     (unit, allClasses, allFunctions)
   }
 
-
-
-
   private lazy val reporter = self.ctx.reporter
   implicit val debugSection = DebugSectionExtraction
 
