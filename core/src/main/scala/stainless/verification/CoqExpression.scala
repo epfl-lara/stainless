@@ -331,6 +331,7 @@ object CoqExpression {
   val typeSort = CoqLibraryConstant("Type")
   val mapType = CoqLibraryConstant("map_type")
   val ifthenelse = CoqLibraryConstant("ifthenelse")
+  val CoqUnit = CoqLibraryConstant("unit")
 
   val fst = CoqLibraryConstant("fst")
   val snd = CoqLibraryConstant("snd")

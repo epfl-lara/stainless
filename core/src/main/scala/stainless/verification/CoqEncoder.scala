@@ -409,6 +409,7 @@ trait CoqEncoder {
 
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
+    case UnitType() => CoqUnit
     case ADTType(id, args) if (sorts.contains(id)) => 
       CoqApplication(makeFresh(id), args map transformType)
     case ADTType(id, args) => 
