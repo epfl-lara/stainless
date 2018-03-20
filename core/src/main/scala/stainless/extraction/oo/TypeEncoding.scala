@@ -989,11 +989,12 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     val newSymbols = NoSymbols
       .withFunctions(
-        Seq(subtypeFunction, instanceFunction) ++ 
+        Seq(subtypeFunction, instanceFunction) ++
         unapplyFunctions ++
         fieldFunctions ++
         Seq(wrapFunction, unwrapFunction) ++
         unificationFunctions ++
+        optionIsEmpty ++ optionGet ++
         functions)
       .withSorts(
         Seq(seqSort, tpeSort, objSort) ++
