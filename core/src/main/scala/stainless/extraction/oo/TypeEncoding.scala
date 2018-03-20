@@ -636,7 +636,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       mkFunDef(FreshIdentifier(id.name), Unchecked, IsUnapply(isEmpty, get))() { _ =>
         (Seq("thiss" :: tpe, arg), T(option)(tt), { case Seq(thiss, x) =>
           if_ (instanceOf(x, thiss)) {
-            C(some)(tt)(tpl(mkSeq(cd.fields.map(vd => getField(x, vd.id)))))
+            C(some)(tt)(t.tupleWrap(cd.fields.map(vd => getField(x, vd.id))))
           } else_ {
             C(none)(tt)()
           }
@@ -796,11 +796,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           t.Assert(check, Some("Cast error"), result)
 
         case s.AsInstanceOf(expr, tpe) => transform(expr)
-
-        case (_: s.ADTSelector | _: s.MapApply) if isObject(e.getType) =>
-          let("res" :: obj, super.transform(e)) { res =>
-            t.Assume(instanceOf(res, encodeType(e.getType)), res)
-          }
 
         case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
           val fdScope = this in id
