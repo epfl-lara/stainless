@@ -310,7 +310,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val annots = annotationsOf(sym)
     val flags = annots ++
-      (if (sym is Abstract) Some(xt.IsAbstract) else None) ++
+      (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
       (if (sym is Sealed) Some(xt.IsSealed) else None)
 
     val optInv = if (invariants.isEmpty) None else Some {
