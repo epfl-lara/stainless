@@ -74,6 +74,9 @@ trait CoqEncoder {
     case FiniteSet(args,tpe) =>
       CoqFiniteSet(args map transformTree, transformType(tpe))
     case SetUnion(t1,t2) => CoqSetUnion(transformTree(t1), transformTree(t2))
+    case SetIntersection(t1,t2) => CoqSetIntersection(transformTree(t1), transformTree(t2))
+    case SetDifference(t1,t2) => CoqSetDifference(transformTree(t1), transformTree(t2))
+    case SubsetOf(t1,t2 ) => CoqSetSubset(transformTree(t1), transformTree(t2))
     case ElementOfSet(t1,t2) => CoqBelongs(transformTree(t1), transformTree(t2))
     case Or(ts) => Orb(ts map transformTree)
     case And(ts) => Andb(ts map transformTree)
@@ -82,7 +85,7 @@ trait CoqEncoder {
     case Equals(t1,t2) if (t1.getType == IntegerType()) => 
       CoqApplication(CoqLibraryConstant("Zeq_bool"),  Seq(transformTree(t1), transformTree(t2)))
     case Equals(t1,t2) => 
-      ctx.reporter.warning("Equality for type ${t1.getType} got translated to equality in Coq")
+      ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq")
       propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
     case BooleanLiteral(true) => TrueBoolean
     case BooleanLiteral(false) => FalseBoolean
@@ -506,6 +509,8 @@ trait CoqEncoder {
       RequireImport("Omega") $
       OpenScope("bool_scope") $
       RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
+      //TODO should be deducible from the previous one
+      RawCommand("""Axiom Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.""") $
       RawCommand("""Axiom unsupported: False. """) $
       RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
       RawCommand( """Definition propInBool (P: Prop): bool :=
@@ -521,13 +526,14 @@ trait CoqEncoder {
                  Qed.""".stripMargin) $
       RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
       RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
+      RawCommand( """ Definition set_subset {T: Type} (a b: set T): bool :=
+                        propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).""".stripMargin)$
       RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
       RawCommand( """Set Default Timeout 10.""")
   }
 
   def transformLib(): CoqCommand = {
     header() $
-    //we need to get every adt into the tactic, as we  can define it only once
     makeLibTactic(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)

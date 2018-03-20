@@ -227,8 +227,29 @@ case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends Co
   override def coqString = throw new UnimplementedCoqExpression("Finite Sets are not implemented yet.")
 }
 
+/*
+* The problem is that we do not know which kind of set is this, and for the fst parameter it is required
+*
+**/
 case class CoqSetUnion(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = throw new UnimplementedCoqExpression("Union of Sets are not implemented yet.")
+  override def coqString = s"set_union (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
+  //override def coqString = throw new UnimplementedCoqExpression("Union of Sets are not implemented yet.")
+}
+
+case class CoqSetIntersection(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
+  override def coqString = s"set_inter (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
+  //override def coqString = throw new UnimplementedCoqExpression("Intersection of Sets is not implemented yet.")
+}
+
+case class CoqSetDifference(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
+  override def coqString = s"set_diff (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
+
+  //override def coqString = throw new UnimplementedCoqExpression("Difference of Sets is not implemented yet.")
+}
+
+case class CoqSetSubset(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
+  override def coqString = s"set_subset ${e1.coqString} ${e2.coqString}"
+
 }
 
 case class CoqSetType(base: CoqExpression) extends CoqExpression {
