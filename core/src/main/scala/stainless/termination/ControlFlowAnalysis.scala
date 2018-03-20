@@ -169,6 +169,16 @@ trait CICFA {
     private val callers: MutableMap[Function, MutableSet[Function]] = MutableMap.empty
     private def getCallers(fun: Function): MutableSet[Function] = callers.getOrElseUpdate(fun, MutableSet.empty)
 
+    private val creator: MutableMap[Lambda, Function] = MutableMap.empty
+    private def createdBy(lambda: Function, fun: Function): Boolean = lambda match {
+      case f: LambdaFunction => creator.get(f.lambda) match {
+        case Some(`fun`) => true
+        case Some(f2: LambdaFunction) => createdBy(f2.lambda, fun)
+        case _ => false
+      }
+      case _ => false
+    }
+
     private val escapingVars: MutableSet[Variable] = MutableSet.empty
 
     val worklist = new ListBuffer[Function]()
@@ -227,6 +237,7 @@ trait CICFA {
           (resval, resesc)
 
         case lam @ Lambda(args, body) =>
+          creator(lam) = current
           val capvars = variablesOf(lam)
           escapingVars ++= capvars // make all captured variables as escaping
           val currSummary = getTabulation(lam)
@@ -380,7 +391,7 @@ trait CICFA {
     }
 
     while (!worklist.isEmpty) {
-      var fun = worklist.remove(0)
+      val fun = worklist.remove(0)
       seen += fun
 
       val oldSummary = getTabulation(fun)
@@ -398,27 +409,26 @@ trait CICFA {
         val newcallers = getCallers(fun).filterNot(worklist.contains)
         worklist ++= newcallers
 
-        if (fun == (fd: Function)) {
-          def escapingLambdas(rets: Set[AbsValue], seen: Set[AbsValue]): Set[Function] = (rets -- seen).flatMap {
-            case Closure(lam) => Set(lam: Function)
-            case co @ ConsObject(_, vars) =>
-              escapingLambdas(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + co)
-            case to @ TupleObject(_, vars) =>
-              escapingLambdas(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + to)
-            case _ => Set.empty[Function]
+        val escaping: Set[Lambda] = {
+          def rec(rets: Set[AbsValue], seen: Set[AbsValue]): Set[Lambda] = (rets -- seen).flatMap {
+            case Closure(lam) => Set(lam)
+            case co @ ConsObject(_, vars) => rec(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + co)
+            case to @ TupleObject(_, vars) => rec(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + to)
+            case _ => Set.empty[Lambda]
           }
 
-          val escaping = escapingLambdas(newret, Set.empty).filterNot(worklist.contains)
+          rec(newret, Set.empty).filterNot(worklist.contains)
+        }
 
+        if (fun == (fd: Function) || createdBy(fun, fd)) {
           // Register escaping lambda arguments as potentially containing external functions
-          for (fun <- escaping) {
-            val currSummary = getTabulation(fun)
-            val lambda = fun.asInstanceOf[LambdaFunction].lambda
+          for (lambda <- escaping) {
+            val currSummary = getTabulation(lambda)
             val newEnv = AbsEnv(lambda.args.map(vd => vd.toVariable -> Set(External: AbsValue)).toMap)
-            tabulation.update(fun, Summary(currSummary.in.join(newEnv), currSummary.out, currSummary.ret))
+            tabulation.update(lambda, Summary(currSummary.in.join(newEnv), currSummary.out, currSummary.ret))
           }
 
-          worklist ++= escaping
+          worklist ++= escaping.map(lam => lam: Function).filterNot(worklist.contains)
         }
       }
     }
