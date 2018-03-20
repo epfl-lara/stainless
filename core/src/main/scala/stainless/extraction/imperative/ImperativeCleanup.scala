@@ -29,6 +29,24 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
           case _ => super.transform(tpe)
         }
 
+        override def transform(expr: s.Expr): t.Expr = expr match {
+          // Desugar Boolean bitwise operations &, | and ^
+          case (_: s.BoolBitwiseAnd | _: s.BoolBitwiseOr | _: s.BoolBitwiseXor) =>
+            val (lhs, rhs, recons): (s.Expr, s.Expr, (t.Expr, t.Expr) => t.Expr) = expr match {
+              case s.BoolBitwiseAnd(lhs, rhs) => (lhs, rhs, t.And(_, _).copiedFrom(expr))
+              case s.BoolBitwiseOr(lhs, rhs) => (lhs, rhs, t.Or(_, _).copiedFrom(expr))
+              case s.BoolBitwiseXor(lhs, rhs) => (lhs, rhs, (l,r) => t.Not(t.Equals(l, r).copiedFrom(expr)).copiedFrom(expr))
+            }
+
+            val l = t.ValDef(FreshIdentifier("lhs"), transform(lhs.getType)).copiedFrom(lhs)
+            val r = t.ValDef(FreshIdentifier("rhs"), transform(rhs.getType)).copiedFrom(rhs)
+            t.Let(l, transform(lhs),
+              t.Let(r, transform(rhs),
+                recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
+
+          case _ => super.transform(expr)
+        }
+
         override def transform(vd: s.ValDef): t.ValDef = {
           val (newId, newTpe) = transform(vd.id, vd.tpe)
           t.ValDef(newId, newTpe, (vd.flags - s.IsVar) map transform).copiedFrom(vd)
