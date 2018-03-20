@@ -409,8 +409,8 @@ trait CoqEncoder {
 
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
-    // case ADTType(id, args) if (sorts(id).root == sorts(id)) => 
-    //   CoqApplication(makeFresh(id), args map transformType)
+    case ADTType(id, args) if (sorts.contains(id)) => 
+      CoqApplication(makeFresh(id), args map transformType)
     case ADTType(id, args) => 
       refinedIdentifier(id)((args map transformType): _*) 
     case TypeParameter(id,flags) => 
@@ -449,7 +449,9 @@ trait CoqEncoder {
         case Some(fd) => 
           // println("found first function: " + fd.id)
           transformFunction(fd) $ transformFunctionsInOrder(fds.filterNot(_ == fd))
-        case None => ctx.reporter.fatalError(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
+        case None => 
+          ctx.reporter.warning(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
+          NoCommand
       }
     }
   }
