@@ -50,7 +50,7 @@ trait CoqEncoder {
     case Variable(id,tpe,flags) =>
       ignoreFlags(t.toString, flags)
       makeFresh(id)
-    case ADT(ADTType(id, targs), args) =>
+    case ADT(id, targs, args) =>
       Constructor(constructorIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
     case FunctionInvocation(id, targs, args) 
       if (exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None && 
@@ -159,14 +159,14 @@ trait CoqEncoder {
         fst(transformTree(tuple))
       else
         snd(transformTree(tuple))
-    case AsInstanceOf(expr, tpe) => transformTree(expr) //ignore asInstanceOf and lets hope it is indeed an instance
-    case IsInstanceOf(expr, tpe) =>
-      tpe match {
-        case ADTType(id, args) =>
-          propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
-        case _ =>
-          ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
-      }
+    // case AsInstanceOf(expr, tpe) => transformTree(expr) //ignore asInstanceOf and lets hope it is indeed an instance
+    // case IsInstanceOf(expr, tpe) =>
+    //   tpe match {
+    //     case ADTType(id, args) =>
+    //       propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
+    //     case _ =>
+    //       ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
+    //   }
     case Error(tpe, desc) => deriveContradiction //TODO is it ok?
 
     case _ => 
@@ -186,9 +186,9 @@ trait CoqEncoder {
 
   // transform patterns that appear in match cases
   def transformPattern(p: Pattern): CoqPattern = p match {
-    case a@ADTPattern(_, adtType, subPatterns) => 
-      val unusedTypeParameters = (1 to getTParams(adts(adtType.id)).size).map(_ => VariablePattern(None))
-      InductiveTypePattern(constructorIdentifier(adtType.id), unusedTypeParameters ++ subPatterns.map(transformPattern))
+    case a@ADTPattern(_, id, _, subPatterns) => 
+      val unusedTypeParameters = (1 to getTParams(sorts(id)).size).map(_ => VariablePattern(None))
+      InductiveTypePattern(constructorIdentifier(id), unusedTypeParameters ++ subPatterns.map(transformPattern))
     case WildcardPattern(None) => VariablePattern(None)
     case WildcardPattern(Some(ValDef(id,tpe,flags))) => 
       ignoreFlags(p.toString, flags)
@@ -204,50 +204,50 @@ trait CoqEncoder {
   }
 
   // transforms an ADT into an inductive type
-  def transformADT(a: st.ADTDefinition): CoqCommand = {
+  def transformADT(a: st.ADTSort): CoqCommand = {
     // println("TRANSFORMING")
     // println(a.asString(new PrinterOptions(printUniqueIds = true)))
     // println(CoqIdentifier(a.id).coqString)
-    if (a.root(p.symbols) != a) {
-      ctx.reporter.debug(s"Skipping $a, since it is not the root of the ADT.")
-      NoCommand
-    } else {
-      (a match {
-        case a: st.ADTSort =>
+    // if (a.root(p.symbols) != a) {
+    //   ctx.reporter.debug(s"Skipping $a, since it is not the root of the ADT.")
+    //   NoCommand
+    // } else {
+      // (a match {
+      //   case a: st.ADTSort =>
           ignoreFlags(a.toString, a.flags)
           InductiveDefinition(
             makeFresh(a.id),
             a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
-            a.cons.map(id => makeCase(a, p.symbols.adts(id)))
-          )
-        case a: st.ADTConstructor =>
-          ignoreFlags(a.toString, a.flags)
-          InductiveDefinition(
-            makeFresh(a.id),
-            a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
-            Seq(makeCase(a, a))
-          )
-      }) $ 
+            a.constructors.map(c => makeCase(a, c))
+          ) $
+      //   case a: st.ADTConstructor =>
+      //     ignoreFlags(a.toString, a.flags)
+      //     InductiveDefinition(
+      //       makeFresh(a.id),
+      //       a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
+      //       Seq(makeCase(a, a))
+      //     )
+      // }) 
       buildRecognizers(a) $ 
       buildSubTypes(a) $ 
       buildAccessorsForChildren(a)
-    }
+    // }
   }
 
   // Define for each constructor of an ADT a function that identifies such elements
-  def buildRecognizers(a: ADTDefinition): CoqCommand = a match {
+  def buildRecognizers(a: Definition): CoqCommand = a match {
     case a: st.ADTSort =>
-      manyCommands(a.cons.map(c => buildRecognizer(a,adts(c))))
+      manyCommands(a.constructors.map(c => buildRecognizer(a, c)))
     case _ =>
       buildRecognizer(a,a)
   }
 
   // Define a function that identifies the case of an element of an inductive type
   // and checks that the invariant holds
-  def buildRecognizer(root: ADTDefinition, constructor: ADTDefinition): CoqCommand = constructor match {
+  def buildRecognizer(root: Definition, constructor: Definition): CoqCommand = constructor match {
     case a: st.ADTConstructor =>
       val element = rawIdentifier("src")
-      val tparams = constructor.tparams.map(t => CoqIdentifier(t.id))
+      val tparams = getTParams(constructor).map(t => CoqIdentifier(t.id))
       val extraCase =
         if (root != constructor)
           Some(CoqCase(VariablePattern(None), falseProp))
@@ -256,13 +256,13 @@ trait CoqEncoder {
 
       NormalDefinition(
         recognizer(a.id),
-        a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) } ++
+        getTParams(a).map { case p => (CoqIdentifier(p.id), TypeSort) } ++
           Seq((element, Constructor(makeFresh(root.id), tparams))),
         propSort,
         CoqMatch(element, Seq(
           CoqCase(
             {
-              val unusedTypeParameters = (1 to a.tparams.size).map(_ => VariablePattern(None))
+              val unusedTypeParameters = (1 to getTParams(a).size).map(_ => VariablePattern(None))
               val unusedFields = (1 to a.fields.size).map(_ => VariablePattern(None))
               InductiveTypePattern(constructorIdentifier(constructor.id), unusedTypeParameters ++ unusedFields)
             },
@@ -277,19 +277,19 @@ trait CoqEncoder {
             //   CoqApplication(CoqIdentifier(a.invariant.get.id), tparams :+ element)
             // else
 
-  def buildSubTypes(a: ADTDefinition): CoqCommand = a match {
-    case a: st.ADTSort =>
-      manyCommands(a.cons.map(c => buildSubType(a,adts(c))))
-    case a: st.ADTConstructor =>
-      buildSubType(a,a)
-  }
+  def buildSubTypes(a: ADTSort): CoqCommand = 
+      manyCommands(a.constructors.map(c => buildSubType(a, c)))
+    // case a: st.ADTSort =>
+    // case a: st.ADTConstructor =>
+    //   buildSubType(a,a)
+  
 
-  def buildSubType(root: ADTDefinition, constructor: ADTDefinition): CoqCommand = constructor match {
+  def buildSubType(root: ADTSort, constructor: ADTConstructor): CoqCommand = constructor match {
     case a: st.ADTConstructor =>
       val ttparams = root.tparams.map(p => (CoqIdentifier(p.id), TypeSort))
       val tparams = root.tparams.map(t => CoqIdentifier(t.id))
       val element = rawIdentifier("src")
-      println(a.invariant)
+      // println(a.invariant)
       NormalDefinition(
         refinedIdentifier(constructor.id),
         ttparams,
@@ -304,14 +304,15 @@ trait CoqEncoder {
     case _ => NoCommand
   }
 
-  def buildAccessorsForChildren(a: ADTDefinition): CoqCommand = a match {
-    case a: st.ADTSort =>
-      manyCommands(a.cons.map(c => buildAccessors(a,adts(c))))
-    case c: st.ADTConstructor =>
-      buildAccessors(c,c)
-  }
+  def buildAccessorsForChildren(a: ADTSort): CoqCommand = 
+  // a match {
+    // case a: st.ADTSort =>
+      manyCommands(a.constructors.map(c => buildAccessors(a, c)))
+  //   case c: st.ADTConstructor =>
+  //     buildAccessors(c,c)
+  // }
 
-  def buildAccessors(root: ADTDefinition, constructor: ADTDefinition): CoqCommand = constructor match {
+  def buildAccessors(root: ADTSort, constructor: ADTConstructor): CoqCommand = constructor match {
     case a: st.ADTConstructor =>
       manyCommands(a.fields.zipWithIndex.map{ case (ValDef(id,tpe,flags),i) => 
         buildAccessor(id,tpe,i,a.fields.size,root,constructor)
@@ -319,7 +320,7 @@ trait CoqEncoder {
     case _ => NoCommand
   }
 
-  def buildAccessor(id: Identifier, tpe: Type, i: Int, n: Int, root: ADTDefinition, constructor: ADTDefinition): CoqCommand = {
+  def buildAccessor(id: Identifier, tpe: Type, i: Int, n: Int, root: ADTSort, constructor: ADTConstructor): CoqCommand = {
     val element = rawIdentifier("src")
     val extraCase = 
       if (root != constructor)
@@ -337,7 +338,7 @@ trait CoqEncoder {
         Seq(
           CoqCase(
             {
-              val unusedTypeParameters = (1 to constructor.tparams.size).map(_ => VariablePattern(None))
+              val unusedTypeParameters = (1 to getTParams(constructor).size).map(_ => VariablePattern(None))
               val fields = (0 to n-1).map(i => VariablePattern(Some(rawIdentifier("f" + i))))
               InductiveTypePattern(constructorIdentifier(constructor.id), unusedTypeParameters ++ fields)
             },
@@ -349,12 +350,12 @@ trait CoqEncoder {
   }
 
   // creates a case for an inductive type
-  def makeCase(root: ADTDefinition, a: ADTDefinition) = a match { 
+  def makeCase(root: Definition, a: Definition) = a match { 
     case a: ADTConstructor =>
-      ignoreFlags(a.toString, a.flags)
+      // ignoreFlags(a.toString, a.flags)
       val fieldsTypes = a.fields.map(vd => transformType(vd.tpe))
       val arrowType = fieldsTypes.foldRight[CoqExpression](
-        Constructor(makeFresh(root.id), a.tparams.map(t => CoqIdentifier(t.id)))) // the inductive type
+        Constructor(makeFresh(root.id), getTParams(a).map(t => CoqIdentifier(t.id)))) // the inductive type
         { case (field, acc) => Arrow(field, acc)} // the parameters of the constructor
       InductiveCase(constructorIdentifier(a.id), arrowType)
     case _ =>
@@ -408,8 +409,8 @@ trait CoqEncoder {
 
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
-    case ADTType(id, args) if (adts(id).root == adts(id)) => 
-      CoqApplication(makeFresh(id), args map transformType)
+    // case ADTType(id, args) if (sorts(id).root == sorts(id)) => 
+    //   CoqApplication(makeFresh(id), args map transformType)
     case ADTType(id, args) => 
       refinedIdentifier(id)((args map transformType): _*) 
     case TypeParameter(id,flags) => 
@@ -453,7 +454,7 @@ trait CoqEncoder {
     }
   }
 
-  def makeLibTactic(adts: Seq[ADTDefinition]) = {
+  def makeLibTactic(adts: Seq[Definition]) = {
     RawCommand("""
  Ltac libStep := match goal with
    | [ H: context[match ?t with _ => _ end] |- _ ] => destruct t
@@ -492,7 +493,7 @@ trait CoqEncoder {
   }
 
 
-  def makeTactic(adts: Seq[ADTDefinition]) = {
+  def makeTactic(adts: Seq[Definition]) = {
     RawCommand("""
    Ltac step := libStep.
 
@@ -534,8 +535,8 @@ trait CoqEncoder {
 
   def transformLib(): CoqCommand = {
     header() $
-    makeLibTactic(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq)$
-    manyCommands(p.symbols.adts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
+    makeLibTactic(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq)$
+    manyCommands(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
 
   }
@@ -543,14 +544,15 @@ trait CoqEncoder {
   def transform(): CoqCommand = {
     //TODO not ideal
     RawCommand("Load verif1.") $
-    makeTactic(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq)$
-    manyCommands(p.symbols.adts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
+    makeTactic(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq)$
+    manyCommands(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq)
   }
 
-  def getTParams(a: ADTDefinition) = a match {
-    case a: ADTConstructor => a.tparams
+  def getTParams(a: Definition) = a match {
+    case a: ADTConstructor => sorts(a.sort).tparams
     case a: ADTSort => a.tparams
+    case _ => throw new Exception("getTParams " + a)
   }
 }
 
