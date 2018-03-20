@@ -140,7 +140,7 @@ trait DecreasesProcessor extends Processor { self =>
       if (success) {
         Some(fds.map(Cleared))
       } else {
-        Some(fds.map(Broken(_, DecreasesFailed)))
+        Some(fds.map(fd => Broken(fd, DecreasesFailed(fd))))
       }
     } else {
       None // nothing is cleared here, so other phases will apply

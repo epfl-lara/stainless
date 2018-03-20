@@ -29,7 +29,7 @@ object TerminationReport {
 
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
-    status: Status, verdict: String, kind: String,
+    status: Status, verdict: String,
     derivedFrom: Identifier
   ) extends AbstractReportHelper.Record
 
@@ -62,7 +62,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
   lazy val totalTime = (results map { _.time }).sum
 
   override lazy val annotatedRows = results map {
-    case Record(id, pos, time, status, verdict, kind, _) =>
+    case Record(id, pos, time, status, verdict, _) =>
       val level = levelOf(status)
       val symbol = if (status.isTerminating) "\u2713" else "\u2717"
       val extra = Seq(s"$symbol $verdict")

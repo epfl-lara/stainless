@@ -52,9 +52,10 @@ trait LoopProcessor extends OrderingProcessor {
           api.solveSAT(path and equality(srcTuple, resTuple)) match {
             case inox.solvers.SolverResponses.SatWithModel(model) =>
               val args = chain.fd.params.map(vd => model.vars(vd))
+              val fi = chain.fd.typed.applied(args)
               nonTerminating(chain.fd) = Broken(chain.fd,
-                if (chain.relations.exists(_.inLambda)) MaybeLoopsGivenInputs(name, args)
-                else LoopsGivenInputs(name, args)
+                if (chain.relations.exists(_.inLambda)) MaybeLoopsGivenInputs(fi)
+                else LoopsGivenInputs(fi)
               )
             case _ =>
           }

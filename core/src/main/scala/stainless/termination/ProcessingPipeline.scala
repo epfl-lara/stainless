@@ -235,8 +235,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
         reporter.info(s" => CLEARED ($reason)")
         clearedMap(fd) = reason
       case Broken(fd, msg) =>
-        reporter.info(s"Result for ${fd.id}")
-        reporter.info(s" => BROKEN ($reason) -> $msg")
+        reporter.warning(s"Result for ${fd.id}")
+        reporter.warning(s" => BROKEN ($reason)")
+        reporter.warning("  " + msg.asString.replaceAll("\n", "\n  "))
         brokenMap(fd) = (reason, msg)
     }
     running = false

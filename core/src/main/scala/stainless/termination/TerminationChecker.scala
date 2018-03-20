@@ -9,6 +9,7 @@ trait TerminationChecker {
   val program: Program { val trees: Trees }
   val context: inox.Context
   import program.trees._
+  import program.symbols._
 
   def terminates(fd: FunDef): TerminationGuarantee
 
@@ -22,13 +23,41 @@ trait TerminationChecker {
 
   sealed abstract class NonTerminating extends TerminationGuarantee {
     override def isGuaranteed: Boolean = false
+    def asString(implicit opts: PrinterOptions): String = this match {
+      case NotWellFormed(sorts) =>
+        s"Adts ${sorts.map(_.id.asString).mkString(", ")} are ill-formed"
+      case LoopsGivenInputs(fi) =>
+        if (fi.args.nonEmpty) {
+          val max = fi.tfd.params.map(_.asString.length).max
+          val model = for ((vd, e) <- fi.tfd.params zip fi.args) yield {
+            ("%-" + max + "s -> %s").format(vd.asString, e.asString)
+          }
+          s"Function ${fi.id.asString} loops given inputs:\n${model.mkString("\n")}"
+        } else {
+          s"Function ${fi.id.asString} loops when called"
+        }
+      case MaybeLoopsGivenInputs(fi) =>
+        if (fi.args.nonEmpty) {
+          val max = fi.tfd.params.map(_.asString.length).max
+          val model = for ((vd, e) <- fi.tfd.params zip fi.args) yield {
+            ("%-" + max + "s -> %s").format(vd.asString, e.asString)
+          }
+          s"Function ${fi.id.asString} maybe loops given inputs:\n${model.mkString("\n")}"
+        } else {
+          s"Function ${fi.id.asString} maybe loops when called"
+        }
+      case CallsNonTerminating(calls) =>
+        s"Calls non-terminating functions ${calls.map(_.id.asString).mkString(", ")}"
+      case DecreasesFailed(fd) =>
+        s"Decreases check failed for ${fd.id.asString}"
+    }
   }
 
   case class NotWellFormed(sorts: Set[ADTSort]) extends NonTerminating
-  case class LoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
-  case class MaybeLoopsGivenInputs(reason: String, args: Seq[Expr]) extends NonTerminating
+  case class LoopsGivenInputs(fi: FunctionInvocation) extends NonTerminating
+  case class MaybeLoopsGivenInputs(fi: FunctionInvocation) extends NonTerminating
   case class CallsNonTerminating(calls: Set[FunDef]) extends NonTerminating
-  case object DecreasesFailed extends NonTerminating
+  case class DecreasesFailed(fd: FunDef) extends NonTerminating
 
   case object NoGuarantee extends TerminationGuarantee {
     override def isGuaranteed: Boolean = false
