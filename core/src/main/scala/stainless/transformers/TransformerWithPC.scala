@@ -41,14 +41,12 @@ trait TransformerWithPC extends inox.transformers.TransformerWithPC {
       var soFar = env
 
       MatchExpr(rs, cases.map { c =>
-        val patternPathPos = conditionForPattern[Env](rs, c.pattern, includeBinders = true)
-        val patternPathNeg = conditionForPattern[Env](rs, c.pattern, includeBinders = false)
-
-        val sguard = c.optGuard.map(rec(_, soFar merge patternPathPos))
+        val patternPath = conditionForPattern[Env](rs, c.pattern, includeBinders = true)
+        val sguard = c.optGuard.map(rec(_, soFar merge patternPath))
         val guardOrTrue = sguard.getOrElse(BooleanLiteral(true))
 
-        val subPath = soFar merge (patternPathPos withCond guardOrTrue)
-        soFar = soFar merge (patternPathNeg withCond guardOrTrue).negate
+        val subPath = soFar merge (patternPath withCond guardOrTrue)
+        soFar = soFar merge (patternPath withCond guardOrTrue).negate
 
         MatchCase(c.pattern, sguard, rec(c.rhs, subPath)).copiedFrom(c)
       }).copiedFrom(e)
