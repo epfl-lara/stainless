@@ -42,5 +42,5 @@ package object oo {
     val t: holes.trees.type = holes.trees
   })
 
-  val extractor = methods andThen adts andThen refinements andThen encoding andThen checker
+  val extractor = methods andThen adts andThen refinements /* andThen encoding */ andThen checker
 }
