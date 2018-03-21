@@ -32,7 +32,7 @@ package object oo {
     val t: trees.type = trees
   }
 
-  object encoding extends TypeEncoding {
+  object encoding extends CoqTypeEncoding {
     val s: trees.type = trees
     val t: trees.type = trees
   }
