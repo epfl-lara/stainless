@@ -30,9 +30,9 @@ object CoqIO {
     val output = new collection.mutable.ListBuffer[String]
     val proc = s"coqc $fileName" ! ProcessLogger(output += _)
     if (output.isEmpty)
-      ctx.reporter.info("No output from Coq. Your program is valid.")
+      ctx.reporter.info(s"No output from Coq for file $fileName. Your program is valid.")
     else {
-      ctx.reporter.info("Coq gave some output:")
+      ctx.reporter.info(s"Coq gave some output for file $fileName:")
       for (l <- output) {
         if (l.contains("Error"))
           ctx.reporter.error(l)

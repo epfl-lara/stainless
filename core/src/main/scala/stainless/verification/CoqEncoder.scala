@@ -168,7 +168,7 @@ trait CoqEncoder {
     //       ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
     //   }
     case IsConstructor(expr, id) =>
-        propInBool(CoqApplication(recognizer(id), Seq(transformTree(expr))))
+        propInBool(CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr))))
         /*tpe match {
            case ADTType(id, args) =>
              propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
