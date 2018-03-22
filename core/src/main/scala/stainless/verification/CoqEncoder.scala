@@ -249,8 +249,9 @@ trait CoqEncoder {
       val element = rawIdentifier("src")
       val tparams = getTParams(constructor).map(t => CoqIdentifier(t.id))
       val extraCase =
-        if (root != constructor)
+        if (root.id.name != constructor.id.name) {
           Some(CoqCase(VariablePattern(None), falseProp))
+        }
         else
           None
 
@@ -323,7 +324,7 @@ trait CoqEncoder {
   def buildAccessor(id: Identifier, tpe: Type, i: Int, n: Int, root: ADTSort, constructor: ADTConstructor): CoqCommand = {
     val element = rawIdentifier("src")
     val extraCase = 
-      if (root != constructor)
+      if (root.id.name != constructor.id.name)
         Some(CoqCase(VariablePattern(None), deriveContradiction))
       else
         None
