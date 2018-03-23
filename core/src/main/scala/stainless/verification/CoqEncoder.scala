@@ -443,33 +443,35 @@ trait CoqEncoder {
 
   def makeLibTactic(adts: Seq[Definition]) = {
     RawCommand("""
+  Ltac easy :=
+        congruence ||
+        simpl in * ||
+        program_simpl ||
+        intuition ||
+        omega ||
+        ring ||
+        eauto ||
+        discriminate ||
+        (autounfold in *) ||
+        (rewrite <- Zgt_is_gt_bool in *) ||
+        (rewrite Z.geb_le in *).
+
  Ltac libStep := match goal with
-   | [ H: context[match ?t with _ => _ end] |- _ ] => destruct t
+   | _ => progress easy
    | [ H: ex _ _ |- _ ] => destruct H
    |   H: exists _, _ |- _ => destruct H
    | [ |- context[match ?t with _ => _ end]] =>
        let matched := fresh "matched" in
        destruct t eqn:matched
-   | [ |- context[if ?t then _ else _]] =>
-       let ifexpr := fresh "ifexpr" in
-       destruct t eqn:ifexpr
    | [ H: context[match ?t with _ => _ end] |- _ ] =>
        let matched := fresh "matched" in
        destruct t eqn:matched
-   | [ H: context[if ?t then _ else _] |- _ ] =>
-       let ifexpr := fresh "ifexpr" in
-       destruct t eqn:ifexpr
-   | _ =>
-       congruence || 
-       simpl in * || 
-       program_simpl || 
-       intuition || 
-       omega || 
-       eauto || 
-       discriminate ||
-       (autounfold in *) ||
-       (rewrite <- Zgt_is_gt_bool in *) ||
-       (rewrite Z.geb_le in *)
+   | [ H: context[ifthenelse ?b _ _ _] |- _ ] =>
+            let matched := fresh "matched" in
+            destruct b eqn:matched
+   | [ |- context[ifthenelse ?b _ _ _] ] =>
+             let matched := fresh "matched" in
+             destruct b eqn:matched
    end.
 
    Obligation Tactic := repeat libStep.""")
@@ -495,7 +497,9 @@ trait CoqEncoder {
       RequireImport("Coq.Lists.ListSet") $
       RequireImport("Coq.Logic.Classical") $
       RequireImport("Omega") $
+      RequireImport("ZArith") $
       OpenScope("bool_scope") $
+      OpenScope("Z_scope")$
       RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
       //TODO should be deducible from the previous one
       RawCommand("""Axiom Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.""") $
