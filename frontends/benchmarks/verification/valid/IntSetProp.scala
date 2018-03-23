@@ -1,7 +1,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-object IntSet {
+object IntSetProp {
   case class Empty() extends IntSet
   case class Node(left: IntSet,
                   elem: Int,
