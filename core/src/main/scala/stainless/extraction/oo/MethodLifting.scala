@@ -148,16 +148,40 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       val subCalls = (for (co <- cos) yield {
         firstOverrides(co).map { case (cid, either) =>
-          val descType = default.transform(tcd.descendants.find(_.id == cid).get.toType).asInstanceOf[t.ClassType]
+          val descendant = tcd.descendants.find(_.id == cid).get
+          val descType = default.transform(descendant.toType).asInstanceOf[t.ClassType]
           val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
-          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), either match {
-            case Left(nfd) => t.FunctionInvocation(
-              nfd.id,
-              descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
-              thiss +: fd.params.map(vd => transformer.transform(vd.toVariable))
-            ).copiedFrom(fd)
-            case Right(vd) => t.ClassSelector(thiss, vd.id).copiedFrom(fd)
-          })
+
+          def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr = 
+            if (newSymbols.isSubtypeOf(tpe, expected)) e
+            else t.AsInstanceOf(e, transformer.transform(expected)).copiedFrom(e)
+
+          val (tpe, expr) = either match {
+            case Left(nfd) =>
+              val ntpMap = descendant.typeMap ++ (nfd.typeArgs zip fd.typeArgs)
+              val args = (fd.params zip nfd.params).map { case (vd1, vd2) =>
+                wrap(
+                  transformer.transform(vd1.toVariable),
+                  s.typeOps.instantiateType(vd1.tpe, tpMap),
+                  s.typeOps.instantiateType(vd2.tpe, ntpMap)
+                )
+              }
+              (
+                s.typeOps.instantiateType(nfd.returnType, ntpMap),
+                t.FunctionInvocation(
+                  nfd.id,
+                  descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
+                  thiss +: args
+                ).copiedFrom(fd)
+              )
+            case Right(vd) => (
+              descendant.fields.find(_.id == vd.id).get.tpe,
+              t.ClassSelector(thiss, vd.id).copiedFrom(fd)
+            )
+          }
+
+          val expectedType = s.typeOps.instantiateType(fd.returnType, tpMap)
+          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), wrap(expr, tpe, expectedType))
         }
       }).flatten
 
