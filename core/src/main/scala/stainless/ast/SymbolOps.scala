@@ -8,8 +8,9 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees.exprOps._
   import symbols._
 
-  override protected def createSimplifier(opts: inox.solvers.PurityOptions) =
-    new SimplifierWithPC(opts) with transformers.SimplifierWithPC
+  override protected def createSimplifier(popts: inox.solvers.PurityOptions): SimplifierWithPC = new {
+    val opts: inox.solvers.PurityOptions = popts
+  } with transformers.SimplifierWithPC with SimplifierWithPC
 
   override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr)
                                                             (implicit ppP: PathProvider[P]): TransformerWithPC[P] =
