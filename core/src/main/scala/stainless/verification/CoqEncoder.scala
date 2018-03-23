@@ -501,8 +501,6 @@ trait CoqEncoder {
       OpenScope("bool_scope") $
       OpenScope("Z_scope")$
       RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
-      //TODO should be deducible from the previous one
-      RawCommand("""Axiom Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.""") $
       RawCommand("""Axiom unsupported: False. """) $
       RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
       RawCommand( """Definition propInBool (P: Prop): bool :=
@@ -510,12 +508,15 @@ trait CoqEncoder {
                     | then true
                     | else false.
                     |""".stripMargin) $
-      RawCommand("""Hint Unfold propInBool.""")$
+    RawCommand("""Lemma Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.
+                 | intros. pose proof classicT (x  = y) as H. destruct H; intuition.
+                 |Qed.""".stripMargin) $
+    RawCommand("""Hint Unfold propInBool.""")$
       RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.
                  | destruct b.
                  | - apply e1. reflexivity.
                  | - apply e2. reflexivity.
-                 Qed.""".stripMargin) $
+                 Defined.""".stripMargin) $
       RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
       RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
       RawCommand( """ Definition set_subset {T: Type} (a b: set T): bool :=
