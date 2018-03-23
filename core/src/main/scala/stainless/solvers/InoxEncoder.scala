@@ -95,7 +95,7 @@ trait InoxEncoder extends ProgramEncoder {
         ).copiedFrom(e)
 
       case s.Require(pred, body) =>
-        transform(body)
+        t.Assume(transform(pred), transform(body)).copiedFrom(e)
 
       case s.Ensuring(s.Require(pred, body), s.Lambda(Seq(res), post)) =>
         val vd = transform(res)
