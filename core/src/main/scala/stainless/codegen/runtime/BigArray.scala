@@ -12,14 +12,14 @@ final class BigArray(private val underlying: MutableMap[Int, AnyRef], val size: 
 
   // Uses mutation! Useful at building time.
   def insert(index: Int, value: AnyRef): Unit = {
-    if (index < 0 || index >= size) throw new java.lang.IndexOutOfBoundsException
+    if (index < 0 || index >= size) throw new CodeGenRuntimeException("Invalid array index: " + index)
     underlying += index -> value
   }
 
   def getElements: Iterable[(Int, AnyRef)] = underlying
 
   def get(index: Int): AnyRef = {
-    if (index < 0 || index >= size) throw new java.lang.IndexOutOfBoundsException
+    if (index < 0 || index >= size) throw new CodeGenRuntimeException("Invalid array index: " + index)
     underlying.getOrElse(index, default)
   }
 

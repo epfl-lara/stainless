@@ -13,7 +13,7 @@ final class Tuple (_elems: Array[AnyRef]) {
 
   def get(i: Int): AnyRef = {
     if (i < 0 || i >= elements.length)
-      throw new IllegalArgumentException("Invalid tuple index : " + i)
+      throw new CodeGenRuntimeException("Invalid tuple index : " + i)
 
     __read = (1 << i) | __read
 
