@@ -135,46 +135,21 @@ trait CoqEncoder {
       CoqApplication(CoqLibraryConstant("Z.rem"), Seq(transformTree(e1), transformTree(e2)))
     case IntegerLiteral(i: BigInt) =>
       CoqZNum(i)
+    case bvl @ BVLiteral(_,_) => CoqZNum(bvl.toBigInt)
     case Tuple(es) => 
       CoqTuple(es.map(transformTree))
 
-    /**
-      * coq encodes tuple type A * B * C as (A * B) * C so we can not write a generic ._2, because in case of
-      * (a,b) it would be match t with (_, c) => c end. whereas in case of
-      * (a,b,c) it would be match t with (_,b,_) => b end. or snd(fst t)
-      *
-      * If we encode (a,b,c,...) as pair(a, pair(b, pair(c, ... pair(z, unit) ...))) then we can always say
-      *
-      * ._1 = fst t
-      * ._2 = fst (snd t)
-      * ._3 = fst (snd (snd t))
-      *
-      * The only way this would fail is when we try to access a greater element than the tuple's length, but it
-      * will not typecheck in Scala anyway
-      *
-      */
     case TupleSelect(tuple, idx) =>
-      ctx.reporter.warning(s"The translation to Coq assumes tuple $tuple to be a pair")
-      if (idx == 1)
-        fst(transformTree(tuple))
-      else
-        snd(transformTree(tuple))
-    // case AsInstanceOf(expr, tpe) => transformTree(expr) //ignore asInstanceOf and lets hope it is indeed an instance
-    // case IsInstanceOf(expr, tpe) =>
-    //   tpe match {
-    //     case ADTType(id, args) =>
-    //       propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
-    //     case _ =>
-    //       ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
-    //   }
+      tuple.getType match  {
+        case tpe @ TupleType(_) =>
+          if (idx == 1)
+            (1 to tpe.dimension-idx).foldRight(transformTree(tuple)) {(idx, body) => fst(body)}
+          else
+            snd((1 to tpe.dimension-idx).foldRight(transformTree(tuple)) {(idx, body) => fst(body)})
+        case _ => ctx.reporter.fatalError("Tuple matching with incorrect type")
+      }
     case IsConstructor(expr, id) =>
         propInBool(CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr))))
-        /*tpe match {
-           case ADTType(id, args) =>
-             propInBool(CoqApplication(recognizer(id), (args map transformType) ++ Seq(transformTree(expr)) ))
-           case _ =>
-             ctx.reporter.fatalError(s"The translation to Coq does not support recognizers for the type $tpe (${tpe.getClass}).")
-         }*/
     case Error(tpe, desc) => deriveContradiction //TODO is it ok?
 
     case _ => 
