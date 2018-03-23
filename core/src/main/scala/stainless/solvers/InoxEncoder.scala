@@ -99,18 +99,28 @@ trait InoxEncoder extends ProgramEncoder {
 
       case s.Ensuring(s.Require(pred, body), s.Lambda(Seq(res), post)) =>
         val vd = transform(res)
+        val postWithAssumes = s.exprOps.postMap {
+          case as @ s.Assert(pred, _, body) => Some(s.Assume(pred, body).copiedFrom(as))
+          case _ => None
+        } (post)
+
         t.Assume(
           transform(pred),
           t.Let(vd, transform(body),
-            t.Assume(transform(post), vd.toVariable).copiedFrom(e)).copiedFrom(e)
+            t.Assume(transform(postWithAssumes), vd.toVariable).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e)
 
       case s.Ensuring(body, s.Lambda(Seq(res), post)) =>
         val vd = transform(res)
-        t.Let(vd, transform(body), t.Assume(transform(post), vd.toVariable).copiedFrom(e)).copiedFrom(e)
+        val postWithAssumes = s.exprOps.postMap {
+          case as @ s.Assert(pred, _, body) => Some(s.Assume(pred, body).copiedFrom(as))
+          case _ => None
+        } (post)
+
+        t.Let(vd, transform(body), t.Assume(transform(postWithAssumes), vd.toVariable).copiedFrom(e)).copiedFrom(e)
 
       case s.Assert(pred, error, body) =>
-        t.Assume(transform(pred), transform(body)).copiedFrom(e)
+        transform(body)
 
       case s.Annotated(body, _) => transform(body)
 
