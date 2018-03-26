@@ -1,4 +1,4 @@
-///* Copyright 2009-2016 EPFL, Lausanne */
+///* Copyright 2009-2018 EPFL, Lausanne */
 //
 // XXX: work in progress by Regis. Complain to him @regb!
 //

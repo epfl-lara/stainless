@@ -1,6 +1,6 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
 object Assert1 {
 

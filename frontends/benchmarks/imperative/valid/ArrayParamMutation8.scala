@@ -1,4 +1,4 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
 import stainless.lang._
 

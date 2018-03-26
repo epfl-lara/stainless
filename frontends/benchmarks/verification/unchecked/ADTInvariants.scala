@@ -1,4 +1,4 @@
-/* Coypright 2009-2016 EPFL, Lausanne */
+/* Coypright 2009-2018 EPFL, Lausanne */
 
 import stainless.lang._
 

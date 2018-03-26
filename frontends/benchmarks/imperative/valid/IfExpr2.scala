@@ -1,4 +1,4 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 import stainless.annotation._
 
 object IfExpr2 {
