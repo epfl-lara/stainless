@@ -188,10 +188,23 @@ trait CodeExtraction extends ASTExtractors {
       case i @ Import(_, _) =>
         imports ++= extractImports(i)
 
+      case pd @ PackageDef(ref, stats) =>
+        val (imports, classes, functions, modules, newClasses, newFunctions) = extractStatic(stats)
+        val pid = FreshIdentifier(extractRef(ref).mkString("$"))
+        subs :+= xt.ModuleDef(pid, imports, classes, functions, modules)
+        allClasses ++= newClasses
+        allFunctions ++= newFunctions
+
       case td @ ExObjectDef(_, _) =>
         val (obj, newClasses, newFunctions) = extractObject(td)
         subs :+= obj
         allClasses ++= newClasses
+        allFunctions ++= newFunctions
+
+      case md: ModuleDef if !md.symbol.isSynthetic && md.symbol.isCase =>
+        val (xcd, newFunctions) = extractClass(md)
+        classes :+= xcd.id
+        allClasses :+= xcd
         allFunctions ++= newFunctions
 
       case cd: ClassDef =>
@@ -230,7 +243,7 @@ trait CodeExtraction extends ASTExtractors {
   }
 
 
-  private def extractObject(obj: ClassDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+  private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val ExObjectDef(_, template) = obj
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
 
@@ -252,9 +265,9 @@ trait CodeExtraction extends ASTExtractors {
     AnyRefClass.tpe
   )
 
-  private def extractClass(cd: ClassDef): (xt.ClassDef, Seq[xt.FunDef]) = {
+  private def extractClass(cd: ImplDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = cd.symbol
-    val id = getIdentifier(sym)
+    val id = getIdentifier(sym.moduleClass.orElse(sym))
 
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
@@ -912,8 +925,8 @@ trait CodeExtraction extends ASTExtractors {
           (xt.TupleSelect(ex, 1), xt.TupleSelect(ex, 2))
       }, extractType(tpt))
 
-    case ExClassConstruction(tpt, args) =>
-      extractType(tpt) match {
+    case ExClassConstruction(tpe, args) =>
+      extractType(tpe)(dctx, tr.pos) match {
         case ct: xt.ClassType => xt.ClassConstructor(ct, args.map(extractTree))
         case _ => outOfSubsetError(tr, "Construction of a non-class type.")
       }

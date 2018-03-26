@@ -406,15 +406,10 @@ trait ASTExtractors {
       * visibility. Does not match on case objects or the automatically generated companion
       * objects of case classes (or any synthetic class). */
     object ExObjectDef {
-      def unapply(cd: ClassDef): Option[(String,Template)] = cd match {
-        case ClassDef(_, name, tparams, impl) if
-          (cd.symbol.isModuleClass || cd.symbol.hasPackageFlag) &&
-          tparams.isEmpty &&
-          !cd.symbol.isSynthetic &&
-          !cd.symbol.isCaseClass
-        => {
-          Some((name.toString, impl))
-        }
+      def unapply(md: ModuleDef): Option[(String, Template)] = md match {
+        case ModuleDef(_, name, impl) if
+          !md.symbol.isSynthetic &&
+          !md.symbol.isCase => Some((name.toString, impl))
         case _ => None
       }
     }
@@ -810,6 +805,10 @@ trait ASTExtractors {
         case Apply(TypeApply(Select(Apply(TypeApply(ExSelected("scala", "Predef", "ArrowAssoc"), List(tpeFrom)), List(from)), ExNamed("$minus$greater")), List(tpeTo)), List(to)) =>
           Some((Seq(tpeFrom.tpe, tpeTo.tpe), Seq(from, to)))
 
+        case Apply(TypeApply(e, tps), args) if
+          isTuple(e.symbol.owner.companionClass, args.size) &&
+          e.symbol.name.toString == "apply" => Some((tps.map(_.tpe), args))
+
         case _ => None
       }
     }
@@ -904,9 +903,16 @@ trait ASTExtractors {
     }
 
     object ExClassConstruction {
-      def unapply(tree: Apply): Option[(Tree,Seq[Tree])] = tree match {
+      def unapply(tree: Tree): Option[(Type, Seq[Tree])] = tree match {
         case Apply(s @ Select(New(tpt), n), args) if n == nme.CONSTRUCTOR =>
-          Some((tpt, args))
+          Some((tpt.tpe, args))
+
+        case Apply(e, args) if (
+          (e.symbol.owner.isModuleClass) &&
+          (e.symbol.isSynthetic) &&
+          (e.symbol.name.toString == "apply")
+        ) => Some((tree.tpe, args))
+
         case _ => None
       }
     }

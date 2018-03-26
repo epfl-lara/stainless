@@ -73,7 +73,7 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: MasterCa
 
   object stainlessExtraction extends {
     val global: ScalaCompiler.this.type = ScalaCompiler.this
-    val runsAfter = List[String]("refchecks")
+    val runsAfter = List[String]("typer")
     val runsRightAfter = None
     val ctx = ScalaCompiler.this.ctx
     val callback = ScalaCompiler.this.callback
@@ -86,11 +86,6 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: MasterCa
       analyzer.namerFactory   -> "resolve names, attach symbols to named trees",
       analyzer.packageObjects -> "load package objects",
       analyzer.typerFactory   -> "the meat and potatoes: type the trees",
-      patmat                  -> "translate match expressions",
-      superAccessors          -> "add super accessors in traits and nested classes",
-      extensionMethods        -> "add extension methods for inline classes",
-      pickler                 -> "serialize symbol tables",
-      refChecks               -> "reference/override checking, translate nested objects",
       stainlessExtraction     -> "extracts stainless trees out of scala trees"
       // TODO drop in replacement? add next phases, plus last phase to report VC results
     )
@@ -167,7 +162,6 @@ object ScalaCompiler {
     settings.usejavacp.value = false
     settings.deprecation.value = true
     settings.Yrangepos.value = true
-    settings.skip.value = List("patmat")
 
     settings
   }

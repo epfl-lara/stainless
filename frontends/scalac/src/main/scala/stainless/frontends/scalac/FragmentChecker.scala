@@ -151,7 +151,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           reportError(tree.pos, "Super calls are not allowed in Stainless.")
 
         case Template(parents, self, body) =>
-          for (t <- body if !(t.isDef || t.isType || t.isEmpty)) {
+          for (t <- body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[Import])) {
             // `require` is allowed inside classes, but not inside objects
             if (RequireMethods(t.symbol))
               if (currentOwner.isModuleClass)
