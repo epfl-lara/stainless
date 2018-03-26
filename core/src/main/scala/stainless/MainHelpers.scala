@@ -107,6 +107,14 @@ trait MainHelpers extends inox.MainHelpers {
 
   override protected def getName: String = "stainless"
 
+  override protected def displayUsage(reporter: inox.Reporter) = {
+    reporter.info("Usage: " +
+      Console.BOLD + getName + Console.RESET +
+      " [" + Console.UNDERLINED + "OPTION" + Console.RESET + "]... " +
+      Console.UNDERLINED + "FILE(S)" + Console.RESET + "..."
+    )
+  }
+
   /* NOTE: Should be implemented by a generated Main class in each compiler-specific project: */
   val factory: frontend.FrontendFactory
 
