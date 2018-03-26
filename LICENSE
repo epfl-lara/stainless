@@ -1,16 +1,4 @@
-Copyright 2009 by EPFL/LARA. All rights reserved.
-
-This project and all its files are licensed under GNU AGPLv3 or later version.
-
-If this license is not suitable for your business or project, please contact
-us for a full commercial license.
-
-Note: This license applies only to Stainless, not its submodules such as
-* Scala compiler front-end
-* Dotty compiler front-end
-* Inox
-* cafebabe
-
+Copyright 2009-2018 by EPFL/LARA. All rights reserved.
 
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
