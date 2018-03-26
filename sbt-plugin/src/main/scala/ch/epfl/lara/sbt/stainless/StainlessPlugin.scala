@@ -19,7 +19,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   object autoImport {
     val stainlessVersion = settingKey[String]("The version of stainless to use")
-    val stainlessIsEnabled = settingKey[Boolean]("Flag controlling stainless verification")
   }
 
   import autoImport._
@@ -45,8 +44,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
       (id, proj) <- allBuildProjects
       if proj.autoPlugins.toSet.contains(StainlessPlugin)
       projRef = ProjectRef(extracted.currentUnit.unit.uri, id)
-      stainlessEnabled <- (stainlessIsEnabled in projRef).get(extracted.structure.data)
-      if stainlessEnabled
       sv <- (scalaVersion in projRef).get(extracted.structure.data)
       if !BuildInfo.supportedScalaVersions.contains(sv)
       projName <- (name in projRef).get(extracted.structure.data)
@@ -60,8 +57,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
     stainlessVersion := BuildInfo.stainlessVersion,
-    stainlessIsEnabled := true,
-    autoCompilerPlugins := stainlessIsEnabled.value,
+    autoCompilerPlugins := true,
     ivyConfigurations += StainlessLibSources,
     libraryDependencies ++= stainlessModules.value,
     // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
@@ -73,16 +69,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    val library = ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    if (stainlessIsEnabled.value)
-      Seq(
-        compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
-        library
-      )
-    else Seq(
-      // The stainless library might still be needed to compile the code even if stainless verification is disabled.
-      // This because the compiled code may refer to types/annotations defined in the stainless library.
-      library
+    Seq(
+      compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
+      ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
     )
   }
 
@@ -167,23 +156,17 @@ object StainlessPlugin extends sbt.AutoPlugin {
     Seq(
       compileInputs := {
         val currentCompileInputs = compileInputs.value
-        if (stainlessIsEnabled.value) {
-          val additionalScalacOptions = Seq(
-            // stopping after stainless because the pattern matching phase is skipped (hence binaries cannot always be produced if a phase is skipped)
-            "-Ystop-after:stainless",
-            // skipping pattern matching because it's not supported by stainless
-            // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
-            // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
-            // that are run *after* the stainless phase.
-            "-Yskip:patmat,xsbt-dependency,xsbt-api,xsbt-analyzer"
-          )
+        val additionalScalacOptions = Seq(
+          // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
+          // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
+          // that are run *after* the stainless phase.
+          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer"
+        )
 
-          // FIXME: Properly merge possibly duplicate scalac options
-          val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-          val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-          currentCompileInputs.copy(config = updatedConfig)
-        }
-        else currentCompileInputs
+        // FIXME: Properly merge possibly duplicate scalac options
+        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
+        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
+        currentCompileInputs.copy(config = updatedConfig)
       }
     )
   }

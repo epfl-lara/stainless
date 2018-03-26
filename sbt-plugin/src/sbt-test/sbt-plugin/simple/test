@@ -1,7 +1,5 @@
 > assertLogMessage
 > success/compile
+# check that a module on which stainless verification passes compiles fine (i.e., binaries are produced)
+$ exists success/target/scala-2.11/classes/Extern1.class
 > failure/checkScalaFailures
-
-# check that a module on which stainless verification is disabled compiles fine (i.e., binaries are produced)
-> disabled/compile
-$ exists disabled/target/scala-2.11/classes/Extern1.class

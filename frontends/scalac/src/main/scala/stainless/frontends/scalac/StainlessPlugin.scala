@@ -27,7 +27,8 @@ class StainlessPluginComponent(val global: Global) extends PluginComponent with 
 
   // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?
   override val phaseName: String = "stainless"
-  override val runsAfter = List[String]("refchecks")
+  override val runsAfter = List[String]()
+  override val runsRightAfter = Some("typer")
 }
 
 class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxDefaultReporter(debugSections) {
