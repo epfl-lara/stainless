@@ -175,25 +175,17 @@ case class RawExpression(s: String) extends CoqExpression {
  */
 
 case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = fold(FalseBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a || $b" }
+  override def coqString = fold(falseBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a || $b" }
 }
 
 case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = fold(TrueBoolean, es) { 
-    case (a,b) => ifthenelse(a, CoqBool, CoqLambda(coqUnused , b), CoqLambda(coqUnused, FalseBoolean))
+  override def coqString = fold(trueBoolean, es) {
+    case (a,b) => ifthenelse(a, CoqBool, CoqLambda(coqUnused , b), CoqLambda(coqUnused, falseBoolean))
   }.coqString
 }
 
 case class Negb(e: CoqExpression) extends CoqExpression {
   override def coqString = negbFun(e).coqString
-}
-//todo remove
-case object TrueBoolean extends CoqExpression {
-  override def coqString = "true"
-}
-
-case object FalseBoolean extends CoqExpression {
-  override def coqString = "false"
 }
 
 case class CoqEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
@@ -206,10 +198,10 @@ case class CoqZNum(i: BigInt) extends CoqExpression {
 
 /**
  * Greater or equals
- */ 
+ */
 
 /*case class GreB(*e1: CoqExpression, e2:CoqExpression) {
-  override def coqString = 
+  override def coqString =
 }*/
 
 case class CoqTupleType(ts: Seq[CoqExpression]) extends CoqExpression {
@@ -279,7 +271,7 @@ case class UnimplementedExpression(s: String) extends CoqExpression {
 // used in the CoqMatch construct
 case class CoqCase(pattern: CoqPattern, body: CoqExpression) {
   def coqString: String = {
-    s"| ${pattern.coqString} => ${body.coqString}" 
+    s"| ${pattern.coqString} => ${body.coqString}"
   }
 }
 
@@ -291,7 +283,7 @@ abstract class CoqPattern {
 }
 
 case class InductiveTypePattern(id: CoqIdentifier, subPatterns: Seq[CoqPattern]) extends CoqPattern {
-  override def coqString = id.coqString + subPatterns.map((p: CoqPattern) => 
+  override def coqString = id.coqString + subPatterns.map((p: CoqPattern) =>
     " " + optP(p)
   ).mkString
 }
@@ -325,6 +317,9 @@ object CoqExpression {
   val negbFun = CoqLibraryConstant("negb")
   val trueProp = CoqLibraryConstant("True")
   val falseProp = CoqLibraryConstant("False")
+
+  val trueBoolean = CoqLibraryConstant("true")
+  val falseBoolean = CoqLibraryConstant("false")
   val propSort = CoqLibraryConstant("Prop")
   val propInBool = CoqLibraryConstant("propInBool")
   val magic = CoqLibraryConstant("magic")

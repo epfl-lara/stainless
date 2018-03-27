@@ -87,8 +87,8 @@ trait CoqEncoder {
     case Equals(t1,t2) => 
       ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq")
       propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
-    case BooleanLiteral(true) => TrueBoolean
-    case BooleanLiteral(false) => FalseBoolean
+    case BooleanLiteral(true) => trueBoolean
+    case BooleanLiteral(false) => falseBoolean
     case ADTSelector(adt, selector) => 
       adt.getType match {
         case ADTType(_,args) => 
@@ -102,7 +102,7 @@ trait CoqEncoder {
         ignoreFlags(vd.toString, flags)
         (makeFresh(id), transformType(tpe)) 
       }
-      CoqForall(params, CoqEquals(transformTree(body),TrueBoolean))
+      CoqForall(params, CoqEquals(transformTree(body),trueBoolean))
     case Annotated(body, flags) =>
       ignoreFlags(t.toString, flags.toSet)
       transformTree(body)
@@ -149,7 +149,7 @@ trait CoqEncoder {
         case _ => ctx.reporter.fatalError("Tuple matching with incorrect type")
       }
     case IsConstructor(expr, id) =>
-        propInBool(CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr))))
+        CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr)))
     case Error(tpe, desc) => deriveContradiction //TODO is it ok?
 
     case _ => 
@@ -233,7 +233,7 @@ trait CoqEncoder {
       val tparams = getTParams(constructor).map(t => CoqIdentifier(t.id))
       val extraCase =
         if (root.id.name != constructor.id.name) {
-          Some(CoqCase(VariablePattern(None), falseProp))
+          Some(CoqCase(VariablePattern(None), falseBoolean))
         }
         else
           None
@@ -242,7 +242,7 @@ trait CoqEncoder {
         recognizer(a.id),
         getTParams(a).map { case p => (CoqIdentifier(p.id), TypeSort) } ++
           Seq((element, Constructor(makeFresh(root.id), tparams))),
-        propSort,
+        CoqBool,
         CoqMatch(element, Seq(
           CoqCase(
             {
@@ -250,7 +250,7 @@ trait CoqEncoder {
               val unusedFields = (1 to a.fields.size).map(_ => VariablePattern(None))
               InductiveTypePattern(constructorIdentifier(constructor.id), unusedTypeParameters ++ unusedFields)
             },
-              trueProp
+            trueBoolean
           )) ++ extraCase
         )
       ) $
@@ -364,12 +364,12 @@ trait CoqEncoder {
       val preconditionName = freshId()
       val preconditionParam: Seq[(CoqIdentifier,CoqExpression)] = exprOps.preconditionOf(fd.fullBody) match {
         case None => Seq()
-        case Some(p) => Seq((preconditionName, transformTree(p) === TrueBoolean))
+        case Some(p) => Seq((preconditionName, transformTree(p) === trueBoolean))
       }
       val returnType = exprOps.postconditionOf(fd.fullBody) match {
         case None => transformType(fd.returnType)
         case Some(Lambda(Seq(vd), post)) => 
-          Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === TrueBoolean)
+          Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === trueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = (if (fd.isRecursive) {
@@ -522,7 +522,9 @@ trait CoqEncoder {
       RawCommand( """ Definition set_subset {T: Type} (a b: set T): bool :=
                         propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).""".stripMargin)$
       RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
-      RawCommand( """Set Default Timeout 10.""")
+      RawCommand( """Set Default Timeout 10.""") $
+      RawCommand("""Notation "'if' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
+                   |  (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).""".stripMargin)
   }
 
   def transformLib(): CoqCommand = {
