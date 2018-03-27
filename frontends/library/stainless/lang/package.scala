@@ -27,6 +27,20 @@ package object lang {
     }
   }
 
+  @library
+  abstract class Exception extends Throwable
+
+  @ignore
+  implicit class Throwing[T](underlying: => T) {
+    def throwing(pred: Exception => Boolean): T = try {
+      underlying
+    } catch {
+      case e: Exception =>
+        assert(pred(e))
+        throw e
+    }
+  }
+
   @inline @library def because(b: Boolean) = b
 
   @ignore def forall[A](p: A => Boolean): Boolean = sys.error("Can't execute quantified proposition")
