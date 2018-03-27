@@ -455,8 +455,6 @@ trait CoqEncoder {
         ring ||
         eauto ||
         discriminate ||
-        (rewrite <- Zgt_is_gt_bool in *) ||
-        (rewrite Z.geb_le in *) ||
         autorewrite with elimPropInBool in *.
 
  Ltac libStep := match goal with
@@ -504,7 +502,13 @@ trait CoqEncoder {
  Hint Rewrite x1 x2 x3 x4: elimPropInBool.
 
  Hint Rewrite eqb_true_iff: elimPropInBool.
- Hint Rewrite eqb_false_iff: elimPropInBool.""")
+ Hint Rewrite eqb_false_iff: elimPropInBool.
+ Hint Rewrite <- Zeq_is_eq_bool: elimPropInBool.
+ Hint Rewrite Z.leb_gt: elimPropInBool.
+ Hint Rewrite Z.leb_le: elimPropInBool.
+ Hint Rewrite Z.geb_leb: elimPropInBool.
+ Hint Rewrite <- Zgt_is_gt_bool: elimPropInBool.
+ Hint Rewrite Z.geb_le: elimPropInBool.""")
 
 //| [ H: isCons _ ?L |- _ ] => is_var L; destruct L
 //       unfold Cons_type in * ||
