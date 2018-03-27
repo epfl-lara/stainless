@@ -85,7 +85,7 @@ trait Printer extends oo.Printer {
   }
 }
 
-trait TreeDeconstructor extends oo.TreeDeconstructor {
+trait TreeDeconstructor extends throwing.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 

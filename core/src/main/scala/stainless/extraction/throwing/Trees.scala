@@ -4,7 +4,7 @@ package stainless
 package extraction
 package throwing
 
-trait Trees extends oo.Trees {
+trait Trees extends oo.Trees { self =>
 
   protected def getExceptionType(implicit s: Symbols): Option[Type] =
     s.lookup.get[ADTSort]("stainless.lang.Exception").map(sort => ADTType(sort.id, Seq()))
@@ -32,5 +32,29 @@ trait Trees extends oo.Trees {
       case Some(tpe) => checkParamType(ex.getType, tpe, NothingType())
       case _ => Untyped
     }
+  }
+
+  override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
+    case tree: Trees => new TreeDeconstructor {
+      protected val s: self.type = self
+      protected val t: tree.type = tree
+    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+
+    case _ => super.getDeconstructor(that)
+  }
+}
+
+trait TreeDeconstructor extends oo.TreeDeconstructor {
+  protected val s: Trees
+  protected val t: Trees
+
+  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+    case s.Throwing(body, pred) =>
+      (Seq(), Seq(), Seq(body, pred), Seq(), (_, _, es, _) => t.Throwing(es(0), es(1).asInstanceOf[t.Lambda]))
+
+    case s.Throw(ex) =>
+      (Seq(), Seq(), Seq(ex), Seq(), (_, _, es, _) => t.Throw(es.head))
+
+    case _ => super.deconstruct(e)
   }
 }
