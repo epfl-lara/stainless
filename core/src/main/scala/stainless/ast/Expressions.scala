@@ -92,8 +92,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
   /** $encodingof `... match { ... }`
     *
-    * '''cases''' should be nonempty. If you are not sure about this, you should use
-    * FIXME
+    * '''cases''' should be nonempty.
     *
     * @param scrutinee Expression to the left of the '''match''' keyword
     * @param cases A sequence of cases to match `scrutinee` against

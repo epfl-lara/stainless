@@ -34,6 +34,20 @@ trait Trees extends oo.Trees { self =>
     }
   }
 
+  /** Try-catch-finally block. Corresponds to Scala's *try { ... } catch { ... } finally { ... }* */
+  sealed case class Try(body: Expr, cases: Seq[MatchCase], finallizer: Option[Expr]) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = getExceptionType match {
+      case Some(tpe) if (
+        cases.forall { case MatchCase(pat, guard, rhs) =>
+          s.patternIsTyped(tpe, pat) &&
+          guard.forall(g => s.isSubtypeOf(g.getType, BooleanType()))
+        } && finallizer.forall(_.isTyped)
+      ) => s.leastUpperBound(body.getType +: cases.map(_.rhs.getType))
+
+      case _ => Untyped
+    }
+  }
+
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees => new TreeDeconstructor {
       protected val s: self.type = self
