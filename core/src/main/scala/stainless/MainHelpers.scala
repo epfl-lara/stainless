@@ -82,7 +82,8 @@ trait MainHelpers extends inox.MainHelpers {
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
-    utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
+    utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored"),
+    partialeval.optPartialEvalVC -> Description(Evaluators, "Partially evaluate verification conditions")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
@@ -98,6 +99,7 @@ trait MainHelpers extends inox.MainHelpers {
     termination.DebugSectionTermination,
     DebugSectionExtraction,
     frontend.DebugSectionFrontend,
+    partialeval.DebugSectionPartialEval,
     utils.DebugSectionRegistry
   )
 

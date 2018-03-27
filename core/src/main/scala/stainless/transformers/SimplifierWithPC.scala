@@ -21,7 +21,14 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
 
     case MatchExpr(scrut, cases) =>
       val (rs, ps) = simplify(scrut, path)
-      val (_, _, purity, newCases) = cases.foldLeft((path, false, ps, Seq[MatchCase]())) {
+      val (_, _, purity, newCases) = simplifyMatchCases(cases, rs, ps, path, simplifyCases = true)
+      (MatchExpr(rs, newCases), purity)
+
+    case _ => super.simplify(e, path)
+  }
+
+  protected def simplifyMatchCases(cases: Seq[MatchCase], rs: Expr, ps: Boolean, path: CNFPath, simplifyCases: Boolean) = {
+      cases.foldLeft((path, false, ps, Seq[MatchCase]())) {
         case (p @ (_, true, _, _), _) => p
         case ((soFar, _, purity, newCases), MatchCase(pattern, guard, rhs)) =>
           simplify(conditionForPattern[Path](rs, pattern, includeBinders = false).fullClause, soFar) match {
@@ -33,11 +40,11 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
                 case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)
                 case (BooleanLiteral(true), true) =>
                   // We know path withCond rg is true here but we need the binders
-                  val (rr, pr) = simplify(rhs, soFar merge path)
+                  val (rr, pr) = if (simplifyCases) simplify(rhs, soFar merge path) else (rhs, true)
                   (soFar, true, purity && pr, newCases :+ MatchCase(pattern, None, rr))
 
                 case (_, _) =>
-                  val (rr, pr) = simplify(rhs, soFar merge (path withCond rg))
+                  val (rr, pr) = if (simplifyCases) simplify(rhs, soFar merge (path withCond rg)) else (rhs, true)
                   val newGuard = if (rg == BooleanLiteral(true)) None else Some(rg)
                   (
                     soFar merge (path withCond rg).negate,
@@ -48,8 +55,6 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
               }
           }
       }
-      (MatchExpr(rs, newCases), purity)
-
-    case _ => super.simplify(e, path)
   }
+
 }

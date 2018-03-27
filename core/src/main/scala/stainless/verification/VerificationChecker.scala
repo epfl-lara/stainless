@@ -24,6 +24,13 @@ trait VerificationChecker { self =>
 
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
   private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
+  private lazy val partialEvalVC = options.findOptionOrDefault(partialeval.optPartialEvalVC)
+
+  private lazy val semantics = program.getSemantics(
+    stainlessSemantics.asInstanceOf[inox.SemanticsProvider { val trees: self.program.trees.type }] // FIXME
+  )
+
+  private lazy val partial = symbols.partialEvaluator(context, semantics)
 
   implicit val debugSection = DebugSectionVerification
 
@@ -92,14 +99,24 @@ trait VerificationChecker { self =>
     val s = sf.getNewSolver
 
     try {
-      val cond = simplifyLets(vc.condition)
-      reporter.synchronized {
-        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        reporter.debug(cond.asString)
-        reporter.debug("Solving with: " + s.name)
-      }
-
       val (time, tryRes) = timers.verification.runAndGetTime {
+        val cond = if (partialEvalVC) {
+          reporter.synchronized {
+            reporter.info(s" - Simplifying '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+            reporter.debug(vc.condition.asString)
+          }
+
+          partial.eval(vc.condition)
+        } else {
+          simplifyLets(vc.condition)
+        }
+
+        reporter.synchronized {
+          reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.debug(cond.asString)
+          reporter.debug("Solving with: " + s.name)
+        }
+
         s.assertCnstr(Not(cond))
         s.check(Model)
       }

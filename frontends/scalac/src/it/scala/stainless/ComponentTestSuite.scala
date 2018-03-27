@@ -27,7 +27,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     val exProgram = component.extract(program, ctx)
     exProgram.symbols.ensureWellFormed
 
-    assert(ctx.reporter.errorCount == 0)
+    assert(ctx.reporter.errorCount == 0, "Failed to extract benchmarks")
 
     (structure, program, exProgram)
   }

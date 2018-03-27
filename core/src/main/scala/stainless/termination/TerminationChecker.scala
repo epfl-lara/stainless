@@ -67,7 +67,7 @@ trait TerminationChecker {
 object TerminationChecker {
   def apply(p: TerminationProgram, ctx: inox.Context): TerminationChecker { val program: p.type } = new {
     val program: p.type = p
-    val context = ctx
+    val context = ctx.withOpts(partialeval.optPartialEvalVC(false))
   } with ProcessingPipeline { self =>
     import p.trees._
 
