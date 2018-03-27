@@ -378,7 +378,7 @@ trait CoqEncoder {
         FixpointDefinition(makeFresh(fd.id), allParams, returnType, body)
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-          RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}")
+          RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
       }
       tmp
       //if (ctx.options.findOptionOrDefault(optAdmitAll)) {
@@ -522,6 +522,7 @@ trait CoqEncoder {
       RequireImport("Coq.Lists.List") $
       RequireImport("Coq.Lists.ListSet") $
       RequireImport("Coq.Logic.Classical") $
+      RequireImport("Coq.Bool.Bool") $
       RequireImport("Omega") $
       RequireImport("ZArith") $
       OpenScope("bool_scope") $
