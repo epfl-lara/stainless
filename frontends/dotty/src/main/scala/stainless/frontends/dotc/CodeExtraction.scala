@@ -235,6 +235,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val sym = td.symbol
     val id = getIdentifier(sym)
 
+    val annots = annotationsOf(sym)
+    val flags = annots ++
+      (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
+      (if (sym is Sealed) Some(xt.IsSealed) else None)
+
     val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = sym.asClass.typeParams.map(extractTypeParam)
@@ -242,6 +247,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val parents = template.parents.flatMap(p => p.tpe match {
       case tpe if tpe.typeSymbol == defn.ObjectClass => None
+      case tpe if tpe.typeSymbol == defn.ThrowableClass && (flags contains "library") => None
       case tpe if defn.isProductClass(tpe.classSymbol) => None
       case tpe => Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
     })
@@ -307,11 +313,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case other =>
         reporter.warning(other.pos, "Could not extract tree in class: " + other)
     }
-
-    val annots = annotationsOf(sym)
-    val flags = annots ++
-      (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
-      (if (sym is Sealed) Some(xt.IsSealed) else None)
 
     val optInv = if (invariants.isEmpty) None else Some {
       val invId = cache fetchInvIdForClass sym
