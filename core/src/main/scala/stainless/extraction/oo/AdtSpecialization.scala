@@ -57,13 +57,27 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         .flatMap(id => descendants.getOrElse(id, Set.empty) + id)
     }
 
+    val extraConstructors: Map[Identifier, Identifier] = {
+      def isOpen(id: Identifier): Boolean = {
+        val cd = syms.classes(id)
+        (cd +: cd.descendants(syms)).exists {
+          cd => (cd.flags contains IsAbstract) && !(cd.flags contains IsSealed)
+        }
+      }
+
+      val openRoots = roots.values.toSet.filter(id => candidates(id) && isOpen(id))
+      val openConstructors = openRoots.map(id => id -> FreshIdentifier("Open")).toMap
+
+      candidates.filter(id => isOpen(id)).map(id => id -> openConstructors(roots(id))).toMap
+    }
+
     val constructors: Map[Identifier, Set[Identifier]] = {
       def rec(id: Identifier): Set[Identifier] = {
         val cs = children.getOrElse(id, Set.empty)
         if (cs.isEmpty) Set(id) else cs.flatMap(rec)
       }
 
-      syms.classes.keys.map(id => id -> rec(id)).toMap
+      syms.classes.keys.map(id => id -> (rec(id) ++ extraConstructors.get(id))).toMap
     }
 
     val constructorId: Map[Identifier, Identifier] = candidates.map { id =>
@@ -146,20 +160,26 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       .filter(cd => candidates(cd.id) && cd.parents.isEmpty)
       .map { sortCd =>
         val sortTparams = sortCd.tparams map transformer.transform
+        val optOpen = extraConstructors.get(sortCd.id)
         new t.ADTSort(
           sortCd.id,
           sortTparams,
           constructors(sortCd.id).toSeq.sortBy(_.name).map { cid =>
-            val consCd = syms.classes(cid)
-            val tpMap = (consCd.tparams.map(tpd => transformer.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
-            new t.ADTConstructor(
-              constructorId(cid),
-              sortCd.id,
-              consCd.fields map { vd =>
-                val tvd = transformer.transform(vd)
-                tvd.copy(tpe = t.typeOps.instantiateType(tvd.tpe, tpMap))
-              }
-            ).copiedFrom(consCd)
+            if (optOpen == Some(cid)) {
+              val field = t.ValDef(FreshIdentifier("x"), t.IntegerType().copiedFrom(sortCd)).copiedFrom(sortCd)
+              new t.ADTConstructor(cid, sortCd.id, Seq(field)).copiedFrom(sortCd)
+            } else {
+              val consCd = syms.classes(cid)
+              val tpMap = (consCd.tparams.map(tpd => transformer.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
+              new t.ADTConstructor(
+                constructorId(cid),
+                sortCd.id,
+                consCd.fields map { vd =>
+                  val tvd = transformer.transform(vd)
+                  tvd.copy(tpe = t.typeOps.instantiateType(tvd.tpe, tpMap))
+                }
+              ).copiedFrom(consCd)
+            }
           },
           (sortCd.flags - IsAbstract - IsSealed) map transformer.transform
         ).copiedFrom(sortCd)
