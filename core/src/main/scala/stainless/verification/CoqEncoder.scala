@@ -84,7 +84,9 @@ trait CoqEncoder {
     case Implies(t1,t2) => implb(transformTree(t1), transformTree(t2))
     case Equals(t1,t2) if (t1.getType == IntegerType()) => 
       CoqApplication(CoqLibraryConstant("Zeq_bool"),  Seq(transformTree(t1), transformTree(t2)))
-    case Equals(t1,t2) => 
+    case Equals(t1,t2) if (t1.getType == BooleanType()) =>
+      CoqApplication(CoqLibraryConstant("Bool.eqb"), Seq(transformTree(t1), transformTree(t2)))
+    case Equals(t1,t2) =>
       ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq")
       propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
     case BooleanLiteral(true) => trueBoolean
@@ -372,11 +374,12 @@ trait CoqEncoder {
           Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === trueBoolean)
       }
       val allParams = tparams ++ params ++ preconditionParam
-      val tmp = (if (fd.isRecursive) {
+      val tmp = if (fd.isRecursive) {
         FixpointDefinition(makeFresh(fd.id), allParams, returnType, body)
       } else {
-        NormalDefinition(makeFresh(fd.id), allParams, returnType, body)
-      })
+        NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
+          RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}")
+      }
       tmp
       //if (ctx.options.findOptionOrDefault(optAdmitAll)) {
       /*if (fd.flags.contains("library")) {
@@ -452,9 +455,9 @@ trait CoqEncoder {
         ring ||
         eauto ||
         discriminate ||
-        (autounfold in *) ||
         (rewrite <- Zgt_is_gt_bool in *) ||
-        (rewrite Z.geb_le in *).
+        (rewrite Z.geb_le in *) ||
+        autorewrite with elimPropInBool in *.
 
  Ltac libStep := match goal with
    | _ => progress easy
@@ -474,7 +477,34 @@ trait CoqEncoder {
              destruct b eqn:matched
    end.
 
-   Obligation Tactic := repeat libStep.""")
+   Obligation Tactic :=
+   solve [repeat libStep || (autounfold in *)] || (repeat libStep).
+
+
+ Lemma x1: forall P, propInBool P = true <-> P.
+ Proof.
+   repeat libStep || unfold propInBool in *.
+ Qed.
+
+ Lemma x2: forall P, propInBool P = false <-> (P -> False).
+ Proof.
+   repeat libStep || unfold propInBool in *.
+ Qed.
+
+ Lemma x3: forall P, negb (propInBool P) = false <-> P.
+ Proof.
+   repeat libStep || unfold propInBool in *.
+ Qed.
+
+ Lemma x4: forall P, negb (propInBool P) = true <-> (P -> False).
+ Proof.
+   repeat libStep || unfold propInBool in *.
+ Qed.
+
+ Hint Rewrite x1 x2 x3 x4: elimPropInBool.
+
+ Hint Rewrite eqb_true_iff: elimPropInBool.
+ Hint Rewrite eqb_false_iff: elimPropInBool.""")
 
 //| [ H: isCons _ ?L |- _ ] => is_var L; destruct L
 //       unfold Cons_type in * ||
@@ -483,11 +513,7 @@ trait CoqEncoder {
 
 
   def makeTactic(adts: Seq[Definition]) = {
-    RawCommand("""
-   Ltac step := libStep.
-
-   Obligation Tactic := repeat step.""")
-
+    NoCommand
   }
 
   def header(): CoqCommand = {
