@@ -269,6 +269,11 @@ trait CodeExtraction extends ASTExtractors {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
+    val annots = annotationsOf(sym)
+    val flags = annots ++
+      (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
+      (if (sym.isSealed) Some(xt.IsSealed) else None)
+
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
       case _ => Nil
@@ -280,14 +285,10 @@ trait CodeExtraction extends ASTExtractors {
 
     val parents = cd.impl.parents.flatMap(p => p.tpe match {
       case tpe if ignoreClasses(tpe) => None
+      case tpe if tpe =:= ThrowableTpe && (flags contains "library") => None
       case tp @ TypeRef(_, _, _) => Some(extractType(tp)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
       case _ => None
     })
-
-    val annots = annotationsOf(sym)
-    val flags = annots ++
-      (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
-      (if (sym.isSealed) Some(xt.IsSealed) else None)
 
     val constructorOpt = cd.impl.children.find {
       case ExConstructorDef() => true
