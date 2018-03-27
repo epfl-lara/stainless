@@ -285,6 +285,25 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       case _ => scala.sys.error("Unexpected type " + tpe)
     }
 
+    def isSubtypeOfClass(cd: s.ClassDef, tp1: Expr, tp2: Expr): Expr = {
+      def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
+        case tp +: xs =>
+          val (t1, t2) = (seq1.getField(head), seq2.getField(head))
+          val cond = if (tp.isCovariant) subtypeOf(t1, t2)
+        else if (tp.isContravariant) subtypeOf(t2, t1)
+        else t1 === t2
+        (seq1 is cons) &&
+        (seq2 is cons) &&
+        cond &&
+        rec(xs, seq1.getField(tail), seq2.getField(tail))
+        case Seq() => (seq1 is nil) && (seq2 is nil)
+      }
+
+      tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId) &&
+      tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId) &&
+      rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
+    }
+
     val subtypeFunction = mkFunDef(subtypeID, Unchecked)()(_ => (
       Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
         case Seq(tp1, tp2) => Seq(
@@ -301,26 +320,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             ) {
               case (cd, elze) => IfExpr(
                 tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId),
-                (
-                  tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId) && {
-                    def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
-                      case tp +: xs =>
-                        val (t1, t2) = (seq1.getField(head), seq2.getField(head))
-                        val cond = if (tp.isCovariant) subtypeOf(t1, t2)
-                          else if (tp.isContravariant) subtypeOf(t2, t1)
-                          else t1 === t2
-                        (seq1 is cons) &&
-                        (seq2 is cons) &&
-                        cond &&
-                        rec(xs, seq1.getField(tail), seq2.getField(tail))
-                      case Seq() => E(true)
-                    }
-
-                    rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
-                  }
-                ) || (
-                  orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2)))
-                ),
+                isSubtypeOfClass(cd, tp1, tp2) ||
+                orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2))),
                 elze
               )
             }
@@ -406,29 +407,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
 
     /* ====================================
-     *         INSTANCEOF FUNCTION
-     * ==================================== */
-
-    val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
-      Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
-        case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
-          (tp2 is bot) -> E(false),
-          (tp2 is top) -> E(true),
-          (tp2 is ref) -> tp1.getField(refPred)(e),
-          (tp2 is cls) -> (
-            (tp1 is cls) &&
-            andJoin(syms.classes.values.toSeq.filter(_.flags contains s.IsAbstract).map {
-              cd => !(tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId))
-            }) &&
-            subtypeOf(tp1, tp2)
-          )
-        ).foldRight(subtypeOf(tp1, tp2): Expr) {
-          case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
-        }).copiedFrom(e)
-      }))
-
-
-    /* ====================================
      *     REF-TYPE FIELDS & WRAPPERS
      * ==================================== */
 
@@ -455,7 +433,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     def getField(e: t.Expr, id: Identifier): t.Expr = FunctionInvocation(classFields(id).id, Seq(), Seq(e))
 
-    val classConstructors = syms.classes.values.map { cd =>
+    val classConstructors = syms.classes.values.filterNot(_.flags contains s.IsAbstract).map { cd =>
       val ct = s.ClassType(cd.id, cd.typeArgs)
       val tparamParams = cd.tparams.map(tpd => t.ValDef(tpd.id.freshen, tpe).copiedFrom(tpd))
       implicit val scope = TypeScope(cd.typeArgs zip tparamParams.map(_.toVariable))
@@ -472,6 +450,51 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     }.toMap
 
     val fieldFunctions: Seq[t.FunDef] = typeFunction +: (classFields.values.toSeq ++ classConstructors.values)
+
+
+    /* ====================================
+     *         INSTANCEOF FUNCTION
+     * ==================================== */
+
+    val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
+      Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
+        case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
+          (tp2 is bot) -> E(false),
+          (tp2 is top) -> !(tp1 is bot),
+          (tp2 is ref) -> tp2.getField(refPred)(e),
+          (tp2 is cls) -> (
+            (tp1 is cls) &&
+            syms.classes.values.toSeq.foldRight(E(false)) { case (cd, elze) =>
+              val optCons = if (cd.flags contains s.IsAbstract) None else Some(
+                isSubtypeOfClass(cd, tp1, tp2) &&
+                e === t.FunctionInvocation(
+                  classConstructors(cd.id).id,
+                  Seq(),
+                  cd.tparams.indices.map(i => seqAt(tp1.getField(clsTps), i)) ++
+                  cd.fields.map(vd => getField(e, vd.id))
+                )
+              )
+
+              IfExpr(
+                tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId),
+                orJoin(
+                  optCons.toSeq ++
+                  cd.typed(syms).children.map(c => instanceOf(e, encodeType(c.toType)(TypeScope(cd, tp2)))) ++
+                  (if (cd.flags contains s.IsSealed) None else Some(subtypeOf(tp1, tp2)))
+                ),
+                elze
+              )
+            }
+          )
+        ).foldRight(subtypeOf(tp1, tp2): Expr) {
+          case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
+        }).copiedFrom(e)
+      }))
+
+
+    /* ====================================
+     *     GENERAL WRAPPING/UNWRAPPING
+     * ==================================== */
 
     val unificationCache: MutableMap[(t.Type, t.Type), t.FunDef] = MutableMap.empty
     def unificationFunctions: Seq[t.FunDef] = unificationCache.values.toSeq
