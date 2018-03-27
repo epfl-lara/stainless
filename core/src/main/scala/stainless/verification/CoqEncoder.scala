@@ -193,30 +193,19 @@ trait CoqEncoder {
     // println("TRANSFORMING")
     // println(a.asString(new PrinterOptions(printUniqueIds = true)))
     // println(CoqIdentifier(a.id).coqString)
-    // if (a.root(p.symbols) != a) {
-    //   ctx.reporter.debug(s"Skipping $a, since it is not the root of the ADT.")
-    //   NoCommand
-    // } else {
-      // (a match {
-      //   case a: st.ADTSort =>
           ignoreFlags(a.toString, a.flags)
           InductiveDefinition(
             makeFresh(a.id),
             a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
             a.constructors.map(c => makeCase(a, c))
           ) $
-      //   case a: st.ADTConstructor =>
-      //     ignoreFlags(a.toString, a.flags)
-      //     InductiveDefinition(
-      //       makeFresh(a.id),
-      //       a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
-      //       Seq(makeCase(a, a))
-      //     )
-      // }) 
-      buildRecognizers(a) $ 
-      buildSubTypes(a) $ 
-      buildAccessorsForChildren(a)
-    // }
+          (if (a.constructors.size > 1)
+            buildRecognizers(a) $
+            buildSubTypes(a)
+          else
+            NoCommand
+          ) $
+          buildAccessorsForChildren(a)
   }
 
   // Define for each constructor of an ADT a function that identifies such elements
@@ -264,7 +253,7 @@ trait CoqEncoder {
             // else
 
   def buildSubTypes(a: ADTSort): CoqCommand = 
-      manyCommands(a.constructors.map(c => buildSubType(a, c)))
+    manyCommands(a.constructors.map(c => buildSubType(a, c)))
     // case a: st.ADTSort =>
     // case a: st.ADTConstructor =>
     //   buildSubType(a,a)
@@ -314,11 +303,14 @@ trait CoqEncoder {
       else
         None
     val tparams = root.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) } 
-
+    val refid = if (root.constructors.size > 1)
+                    refinedIdentifier(constructor.id)
+                else
+                    CoqIdentifier (constructor.id)
     NormalDefinition(
       makeFresh(id),
         tparams ++
-        Seq(((element, CoqApplication(refinedIdentifier(constructor.id), root.tparams.map(t => CoqIdentifier(t.id)))))),
+        Seq(((element, CoqApplication(refid, root.tparams.map(t => CoqIdentifier(t.id)))))),
       transformType(tpe),
       CoqMatch(element, 
         Seq(
@@ -554,6 +546,8 @@ trait CoqEncoder {
                         propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).""".stripMargin)$
       RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
       RawCommand( """Set Default Timeout 10.""") $
+      RawCommand( """Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
+                    |  (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).""".stripMargin) $
       RawCommand("""Notation "'if' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
                    |  (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).""".stripMargin)
   }
