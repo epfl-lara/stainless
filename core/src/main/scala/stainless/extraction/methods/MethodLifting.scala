@@ -2,13 +2,13 @@
 
 package stainless
 package extraction
-package oo
+package methods
 
 import inox.utils.{NoPosition, Position}
 
 trait MethodLifting extends inox.ast.SymbolTransformer { self =>
   val s: Trees
-  val t: Trees
+  val t: throwing.Trees
 
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._

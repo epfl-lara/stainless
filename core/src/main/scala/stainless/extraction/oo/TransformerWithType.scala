@@ -319,14 +319,6 @@ trait TransformerWithType extends TreeTransformer {
       t.BoolBitwiseXor(transform(lhs, s.BooleanType()), transform(rhs, s.BooleanType())).copiedFrom(expr)
 
     // OO expressions
-    case s.MethodInvocation(rec, id, tps, args) =>
-      val (recTpe +: argTps) = getFunction(id, tps).params.map(_.tpe)
-      t.MethodInvocation(
-        transform(rec, recTpe),
-        id,
-        tps map transform,
-        (args zip argTps) map (p => transform(p._1, p._2))
-      ).copiedFrom(expr)
     case s.ClassConstructor(ct, args) =>
       t.ClassConstructor(
         transform(ct).asInstanceOf[t.ClassType],
@@ -334,10 +326,6 @@ trait TransformerWithType extends TreeTransformer {
       ).copiedFrom(expr)
     case s.ClassSelector(e, sel) =>
       t.ClassSelector(transform(e), sel).copiedFrom(expr)
-    case s.This(ct) =>
-      t.This(transform(ct).asInstanceOf[t.ClassType]).copiedFrom(expr)
-    case s.Super(ct) =>
-      t.Super(transform(ct).asInstanceOf[t.ClassType]).copiedFrom(expr)
     case s.IsInstanceOf(e, tp) =>
       t.IsInstanceOf(transform(e), transform(tp)).copiedFrom(expr)
     case s.AsInstanceOf(e, tp) =>

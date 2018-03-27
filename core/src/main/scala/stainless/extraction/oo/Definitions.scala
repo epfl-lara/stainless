@@ -41,10 +41,6 @@ trait Definitions extends imperative.Trees { self: Trees =>
     def descendants(implicit s: Symbols): Seq[ClassDef] =
       children.flatMap(cd => cd +: cd.descendants).distinct
 
-    def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
-      s.functions.values.filter(_.flags contains IsMethodOf(id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
-    }
-
     def typeArgs = tparams map (_.tp)
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
@@ -184,7 +180,6 @@ trait Definitions extends imperative.Trees { self: Trees =>
   case object IsInvariant extends Flag("invariant", Seq.empty)
   case object IsAbstract extends Flag("abstract", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
-  case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
 

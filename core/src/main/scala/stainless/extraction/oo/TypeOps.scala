@@ -318,18 +318,6 @@ trait TypeOps extends imperative.TypeOps {
     case InstanceOfPattern(_, tpe) => tpe
   }
 
-  override protected def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
-    lookupFunction(id)
-      .filter(_.flags exists { case IsMethodOf(_) => true case _ => false })
-      .filter(_.params.isEmpty)
-      .flatMap { fd =>
-        lookupClass(fd.flags.collectFirst { case IsMethodOf(id) => id }.get).flatMap { cd =>
-          instantiation(ClassType(cd.id, cd.tparams.map(_.tp)), inType)
-            .filter(tpMap => cd.tparams forall (tpd => tpMap contains tpd.tp))
-            .map(tpMap => typeOps.instantiateType(fd.returnType, tpMap))
-        }
-      }.orElse(super.unapplyAccessorResultType(id, inType))
-
   override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
     case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
       pat.binder.forall(vd => isSubtypeOf(in, vd.tpe)) &&

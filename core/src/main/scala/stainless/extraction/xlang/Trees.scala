@@ -4,7 +4,7 @@ package stainless
 package extraction
 package xlang
 
-trait Trees extends oo.Trees { self =>
+trait Trees extends methods.Trees { self =>
 
   case object Ignore extends Flag("ignore", Seq.empty)
 
