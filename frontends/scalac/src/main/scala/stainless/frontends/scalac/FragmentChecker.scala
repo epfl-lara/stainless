@@ -131,6 +131,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           // recurse only inside `rhs`, as parameter/type parameters have been checked already in `checkType`
           atOwner(sym)(traverse(rhs))
 
+        case t: TypeDef if !t.symbol.isAliasType =>
+          reportError(t.pos, "Stainless doesn't support abstract type members")
+
         case Apply(fun, List(arg)) if sym == StainlessOld =>
           arg match {
             case This(_) => ()
