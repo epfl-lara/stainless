@@ -31,6 +31,13 @@ trait Trees extends throwing.Trees { self =>
     }
   }
 
+  type Symbols >: Null <: AbstractSymbols
+
+  trait AbstractSymbols
+    extends super.AbstractSymbols
+       with TypeOps { self0: Symbols =>
+  }
+
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
@@ -47,7 +54,6 @@ trait Trees extends throwing.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
-
 }
 
 trait Printer extends throwing.Printer {

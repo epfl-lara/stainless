@@ -10,7 +10,7 @@ package object methods {
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef]
-    ) extends ClassSymbols with TypeOps
+    ) extends ClassSymbols with AbstractSymbols
 
     object printer extends Printer { val trees: methods.trees.type = methods.trees }
   }
