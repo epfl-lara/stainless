@@ -24,10 +24,17 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/ChooseLIA" => Ignore
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
+
     // Require assume-checked to be turned off
     case "verification/valid/IntSet" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
+
+    // These require --partial-eval-vc, see PartialEvaluationSuite
+    case "verification/valid/PartialKVTrace"  => Skip
+    case "verification/valid/PartialCompiler" => Skip
+    case "verification/invalid/PartialSplit"  => Skip
+
     case _ => super.filter(ctx, name)
   }
 
@@ -101,3 +108,35 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
   }
 }
 
+class PartialEvaluationSuite extends SMTZ3VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      stainless.partialeval.optPartialEvalVC(true),
+      inox.solvers.optAssumeChecked(true)
+    ) ++ seq
+  }
+
+  override protected def optionsString(options: inox.Options): String = {
+    List(
+      "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head,
+      "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky),
+      "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels),
+      "partial-eval-vc=" + options.findOptionOrDefault(stainless.partialeval.optPartialEvalVC)
+    ).mkString(" ")
+  }
+
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    case "verification/valid/PartialKVTrace" => Test
+    // case "verification/valid/PartialCompiler" => Test
+    // case "verification/invalid/PartialSplit"  => Test
+
+    case "verification/valid/ParBalance"     => Ignore // broken (balanced_foldLeft_equivalence post)
+    case "verification/valid/Lists3"         => Ignore // broken (post)
+    case "verification/valid/ConcRope"       => Ignore // broken (appendPriv post)
+    case "verification/valid/ConcTree"       => Ignore // broken (appendPriv post)
+
+    case _ if name startsWith "verification/valid/IntSet" => Ignore
+
+    case _ => super.filter(ctx, name)
+  }
+}

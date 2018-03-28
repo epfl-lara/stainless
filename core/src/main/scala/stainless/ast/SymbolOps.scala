@@ -12,6 +12,15 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     val opts: inox.solvers.PurityOptions = popts
   } with transformers.SimplifierWithPC with SimplifierWithPC
 
+  protected class EvaluatorWithPC(val context: inox.Context, val semantics: Semantics) extends partialeval.EvaluatorWithPC {
+    val trees: self.trees.type = self.trees
+    val symbols: self.symbols.type = self.symbols
+  }
+
+  // FIXME: Find better name
+  def partialEvaluator(context: inox.Context, semantics: Semantics): EvaluatorWithPC =
+    new EvaluatorWithPC(context, semantics)
+
   override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr)
                                                             (implicit ppP: PathProvider[P]): TransformerWithPC[P] =
     new TransformerWithPC[P](path, f) with transformers.TransformerWithPC with TransformerWithFun {
