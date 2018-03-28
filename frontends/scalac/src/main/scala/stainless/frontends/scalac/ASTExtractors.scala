@@ -195,7 +195,7 @@ trait ASTExtractors {
     object ExThrowingExpression {
       def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
         case Apply(Select(Apply(
-          TypeApply(ExSelected("stainless", "lang", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
+          TypeApply(ExSelected("stainless", "lang", "package", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
           contract :: Nil
         ) => Some((body, contract))
 
