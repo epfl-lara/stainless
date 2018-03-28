@@ -50,7 +50,7 @@ trait Trees extends throwing.Trees { self =>
 
 }
 
-trait Printer extends oo.Printer {
+trait Printer extends throwing.Printer {
   protected val trees: Trees
   import trees._
 

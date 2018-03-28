@@ -58,6 +58,56 @@ trait Trees extends oo.Trees { self =>
   }
 }
 
+trait Printer extends oo.Printer {
+  protected val trees: Trees
+  import trees._
+
+  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+    case Throwing(Ensuring(body, post), pred) =>
+      p"""|{
+          |  $body
+          |} ensuring {
+          |  $post
+          |} throwing {
+          |  $pred
+          |}"""
+
+    case Throwing(body, pred) =>
+      p"""|{
+          |  $body
+          |} throwing {
+          |  $pred
+          |}"""
+
+    case Throw(ex) =>
+      p"throw $ex"
+
+    case Try(body, cases, fin) =>
+      p"""|try {
+          |  $body
+          |}"""
+      if (cases.nonEmpty) p"""| catch {
+                              |  ${nary(cases, "\n")}
+                              |}"""
+      if (fin.nonEmpty) p"""| finally {
+                            |  ${fin.get}
+                            |}"""
+
+    case _ => super.ppBody(tree)
+  }
+
+  override protected def noBracesSub(e: Tree): Seq[Expr] = e match {
+    case Throwing(bd, pred) => Seq(bd, pred)
+    case Try(e, _, f) => e +: f.toSeq
+    case _ => super.noBracesSub(e)
+  }
+
+  override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
+    case (_, Some(_: Throwing | _: Try)) => false
+    case _ => super.requiresParentheses(ex, within)
+  }
+}
+
 trait TreeDeconstructor extends oo.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
