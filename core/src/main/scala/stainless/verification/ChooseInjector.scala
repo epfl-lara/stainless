@@ -19,10 +19,13 @@ trait ChooseInjector extends inox.ast.SymbolTransformer {
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
             val vd = ValDef(FreshIdentifier("res"), tpe, Set.empty).copiedFrom(e)
-            Choose(vd, post
-              .map(l => symbols.application(l, Seq(vd.toVariable)))
-              .getOrElse(BooleanLiteral(true))
-              .copiedFrom(tpe)
+            Annotated(
+              Choose(vd, post
+                .map(l => symbols.application(l, Seq(vd.toVariable)))
+                .getOrElse(BooleanLiteral(true))
+                .copiedFrom(tpe)
+              ).copiedFrom(e),
+              Seq(Unchecked)
             ).copiedFrom(e)
 
           case ie @ IfExpr(c, t, e) =>
