@@ -28,8 +28,9 @@ object VerificationComponent extends SimpleComponent {
   implicit val debugSection = DebugSectionVerification
 
   private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
-    val injector = AssertionInjector(p, ctx)
-    val encoder = inox.ast.ProgramEncoder(p)(injector)
+    val assertions = AssertionInjector(p, ctx)
+    val chooses = ChooseInjector(p)
+    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
 
     import ctx._
     import encoder.targetProgram._
