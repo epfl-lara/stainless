@@ -35,6 +35,8 @@ trait ASTExtractors {
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
 
+  protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
+
   protected lazy val setSym       = classFromName("stainless.lang.Set")
   protected lazy val mapSym       = classFromName("stainless.lang.Map")
   protected lazy val bagSym       = classFromName("stainless.lang.Bag")
@@ -401,6 +403,7 @@ trait ASTExtractors {
         case Apply(
           ExSymbol("scala", "Predef$", "Ensuring") |
           ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "Throwing"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "StringDecorations"), Seq(arg)) => Some(arg)
@@ -538,6 +541,16 @@ trait ASTExtractors {
         case ExCall(Some(rec),
           ExSymbol("scala", "Predef$", "Ensuring", "ensuring") |
           ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring", "ensuring"),
+          _, Seq(contract)
+        ) => Some((rec, contract))
+        case _ => None
+      }
+    }
+
+    object ExThrowing {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case ExCall(Some(rec),
+          ExSymbol("stainless", "lang", "package$", "Throwing", "throwing"),
           _, Seq(contract)
         ) => Some((rec, contract))
         case _ => None

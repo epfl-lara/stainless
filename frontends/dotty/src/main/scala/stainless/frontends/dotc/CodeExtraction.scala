@@ -689,6 +689,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case Try(body, cses, fin) =>
+      val rb = extractTree(body)
+      val rc = cses.map(extractMatchCase)
+      xt.Try(rb, rc, if (fin == tpd.EmptyTree) None else Some(extractTree(fin)))
+
+    case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
+      xt.Throw(extractTree(arg))
+
     case Ident(_) if tr.tpe.signature.resSig.toString startsWith "scala.collection.immutable.Nil" =>
       outOfSubsetError(tr.pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
 
@@ -707,7 +715,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
-      val closure = post match {
+      xt.Ensuring(b, post match {
         case l: xt.Lambda => l
         case other =>
           val tpe = extractType(tr)
@@ -716,9 +724,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
           }).setPos(post)
-      }
+      })
 
-      xt.Ensuring(b, closure).setPos(post)
+    case ExThrowing(body, contract) =>
+      val pred = extractTree(contract)
+      val b = extractTreeOrNoTree(body)
+
+      xt.Throwing(b, pred match {
+        case l: xt.Lambda => l
+        case other =>
+          val tpe = extractType(exceptionSym.info)(dctx, contract.pos)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
+          xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
+      })
 
     // an optional "because" is allowed
     case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
