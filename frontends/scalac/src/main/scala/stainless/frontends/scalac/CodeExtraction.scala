@@ -701,6 +701,14 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case Try(body, cses, fin) =>
+      val rb = extractTree(body)
+      val rc = cses.map(extractMatchCase)
+      xt.Try(rb, rc, if (fin == EmptyTree) None else Some(extractTree(fin)))
+
+    case Throw(ex) =>
+      xt.Throw(extractTree(ex))
+
     case ExAssertExpression(e, oerr) =>
       xt.Assert(extractTree(e), oerr, xt.UnitLiteral().setPos(tr.pos))
 
@@ -711,18 +719,28 @@ trait CodeExtraction extends ASTExtractors {
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
-      val closure = post match {
+      xt.Ensuring(b, post match {
         case l: xt.Lambda => l
         case other =>
           val tpe = extractType(body)
-          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(post)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
           xt.Lambda(Seq(vd), extractType(contract) match {
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
           }).setPos(post)
-      }
+      })
 
-      xt.Ensuring(b, closure).setPos(post)
+    case ExThrowingExpression(body, contract) =>
+      val throwing = extractTree(contract)
+      val b = extractTreeOrNoTree(body)
+
+      xt.Throwing(b, throwing match {
+        case l: xt.Lambda => l
+        case other =>
+          val tpe = extractType(exceptionSym.info)(dctx, contract.pos)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
+          xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
+      })
 
     case t @ ExHoldsWithProofExpression(body, ExMaybeBecauseExpressionWrapper(proof)) =>
       val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType().setPos(tr.pos), Set.empty).setPos(tr.pos)

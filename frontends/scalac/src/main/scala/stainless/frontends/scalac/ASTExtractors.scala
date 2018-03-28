@@ -56,6 +56,8 @@ trait ASTExtractors {
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
 
+  protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
+
   protected lazy val setSym      = classFromName("stainless.lang.Set")
   protected lazy val mapSym      = classFromName("stainless.lang.Map")
   protected lazy val bagSym      = classFromName("stainless.lang.Bag")
@@ -187,6 +189,17 @@ trait ASTExtractors {
           => Some((body, contract))
 
         case _ => None
+      }
+    }
+
+    object ExThrowingExpression {
+      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
+        case Apply(Select(Apply(
+          TypeApply(ExSelected("stainless", "lang", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
+          contract :: Nil
+        ) => Some((body, contract))
+
+        case _ =>None
       }
     }
 

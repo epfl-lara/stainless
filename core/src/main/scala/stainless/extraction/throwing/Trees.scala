@@ -69,6 +69,14 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.Throw(ex) =>
       (Seq(), Seq(), Seq(ex), Seq(), (_, _, es, _) => t.Throw(es.head))
 
+    case s.Try(body, cases, fin) =>
+      val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
+      (cids, cvs, (body +: ces) ++ fin, ctps, (ids, vs, es, tps) => {
+        val newBody +: rest = es
+        val (nes, newFin) = if (fin.isEmpty) (rest, None) else (rest.init, rest.lastOption)
+        t.Try(newBody, crecons(ids, vs, nes, tps), newFin)
+      })
+
     case _ => super.deconstruct(e)
   }
 }
