@@ -16,6 +16,8 @@ import inox.solvers.PurityOptions
 import inox.evaluators.EvaluationResults
 
 import stainless.transformers._
+import stainless.utils.Perhaps
+import stainless.utils.Perhaps._
 
 trait EvaluatorWithPC extends SimplifierWithPC { self =>
 
@@ -72,8 +74,8 @@ trait EvaluatorWithPC extends SimplifierWithPC { self =>
           matchesCase(rs, c)(path).map(c -> _)
         }
 
-        matches.find(_.nonEmpty) match {
-          case Some(Some((c, (mapping, guard)))) =>
+        matches.takeWhile(_.isKnown).find(_.isYes).flatMap(_.toOption) match {
+          case Some(Yes((c, (mapping, guard)))) =>
             val subPath = guard.map(path withCond _).getOrElse(path)
             simplify(mappingToLet(mapping, c.rhs), subPath)
           case _ =>
@@ -159,7 +161,7 @@ trait EvaluatorWithPC extends SimplifierWithPC { self =>
   }
 
   private def matchesCase(scrut: Expr, caze: MatchCase)
-                         (path: CNFPath, allowWildcards: Boolean = false): Option[(Map[ValDef, Expr], Option[Expr])] = {
+                         (path: CNFPath, allowWildcards: Boolean = false): Perhaps[(Map[ValDef, Expr], Option[Expr])] = {
 
     def obind(ob: Option[ValDef], e: Expr): Map[ValDef, Expr] = {
       Map.empty[ValDef, Expr] ++ ob.map(_ -> e)
@@ -211,20 +213,24 @@ trait EvaluatorWithPC extends SimplifierWithPC { self =>
       case _ => None
     }
 
-    matchesPattern(caze.pattern, scrut, allowWildcards).flatMap { mapping =>
+    val result = matchesPattern(caze.pattern, scrut, allowWildcards) map { mapping =>
       caze.optGuard match {
         case Some(guard) =>
           val fullGuard = mappingToLet(mapping, guard)
           val (res, _) = simplify(fullGuard, path)
           if (res == BooleanLiteral(true)) {
-            Some((mapping, Some(fullGuard)))
+            Yes((mapping, Some(fullGuard)))
+          } else if (res == BooleanLiteral(false)) {
+            No
           } else {
-            None
+            Maybe
           }
         case None =>
-          Some((mapping, None))
+          Yes((mapping, None))
       }
     }
+
+    result.getOrElse(No)
   }
 
 }
