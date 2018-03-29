@@ -148,7 +148,7 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Returns the postcondition of an expression wrapped in Option */
   def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(l)))
+    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(expr)).copiedFrom(l))
     case Ensuring(_, post) => Some(post)
     case _                 => None
   }
