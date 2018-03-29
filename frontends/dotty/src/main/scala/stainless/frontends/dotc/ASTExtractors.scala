@@ -62,7 +62,7 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
+  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0 && size <= 22) && (sym == classFromName(s"scala.Tuple$size"))
 
   object TupleSymbol {
     // It is particularly time expensive so we cache this.
