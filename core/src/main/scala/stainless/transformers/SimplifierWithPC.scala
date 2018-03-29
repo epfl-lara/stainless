@@ -35,8 +35,9 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
                 case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)
                 case (BooleanLiteral(true), true) =>
                   // We know path withCond rg is true here but we need the binders
-                  val (rr, pr) = simplify(rhs, soFar merge path)
-                  (soFar, true, purity && pr, newCases :+ MatchCase(pattern, None, rr))
+                  val bindings = conditionForPattern[Path](rs, pattern, includeBinders = true).bindings
+                  val (rr, pr) = simplify(bindings.foldRight(rhs) { case ((i, e), b) => Let(i, e, b) }, soFar)
+                  (soFar, true, purity && pr, newCases :+ MatchCase(WildcardPattern(None).copiedFrom(pattern), None, rr))
 
                 case (_, _) =>
                   val (rr, pr) = simplify(rhs, soFar merge (path withCond rg))
@@ -52,11 +53,20 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
       }
 
       newCases match {
-        case Seq(MatchCase(pattern, guard, rhs)) if stop =>
-          val map = mapForPattern(rs, pattern)
-          simplify(replaceFromSymbols(map, rhs), guard map (path withCond _) getOrElse path)
-        case _ =>
-        (MatchExpr(rs, newCases), purity)
+        case Seq() => (
+          Assert(
+            BooleanLiteral(false).copiedFrom(e),
+            Some("No valid case"),
+            Choose(
+              ValDef(FreshIdentifier("res"), e.getType, Set.empty).copiedFrom(e),
+              BooleanLiteral(true).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e),
+          opts.assumeChecked
+        )
+
+        case Seq(MatchCase(WildcardPattern(None), None, rhs)) if stop => (rhs, purity)
+        case _ => (MatchExpr(rs, newCases).copiedFrom(e), purity)
       }
 
     case _ => super.simplify(e, path)
