@@ -48,7 +48,7 @@ object EvaluatorComponent extends SimpleComponent { self =>
 
   override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Analysis = {
     import ctx.{ implicitContext, reporter, timers }
-    import p.{ symbols }
+    import p._
 
     // Extract the body (with its precondition, if any) and the post condition (if any).
     def decomposeFunction(fd: FunDef): (Expr, Option[Expr]) = {
@@ -83,7 +83,7 @@ object EvaluatorComponent extends SimpleComponent { self =>
     // Evaluate the function's body and postcondition to determine its status
     def evalFunction(fd: FunDef): FunctionStatus = {
       val fid = fd.id
-      reporter.debug(s"Evaluating ${fid}")
+      reporter.info(s"Evaluating ${fid}")
 
       val (body, postOpt) = decomposeFunction(fd)
       val bodyValue = evaluate(s"$fid's body", body)
@@ -104,7 +104,33 @@ object EvaluatorComponent extends SimpleComponent { self =>
           }
       }
 
-      reporter.debug(s"Result for ${fid}: $status")
+      reporter.info(s"Result for ${fid} @${fd.getPos}:")
+
+      status match {
+        case BodyFailed(error) => reporter.warning(" => CRASHED")
+        case PostFailed(body, error) => reporter.warning(" => POSTCONDITION CRASHED")
+        case PostInvalid(body) => reporter.warning(" => POSTCONDITION INVALID")
+        case PostHeld(body) => reporter.info(" => SUCCESSFUL (w/ postcondition)")
+        case NoPost(body) => reporter.info(" => SUCCESSFUL")
+      }
+
+      val optError = status match {
+        case BodyFailed(error) => Some(error)
+        case PostFailed(_, error) => Some(error)
+        case _ => None
+      }
+
+      optError.foreach(error => reporter.warning(s"  $error"))
+
+      val optBody = status match {
+        case PostFailed(body, _) => Some(body)
+        case PostInvalid(body) => Some(body)
+        case PostHeld(body) => Some(body)
+        case NoPost(body) => Some(body)
+        case _ => None
+      }
+
+      optBody.foreach(body => reporter.info(s"Body evaluates to:\n  ${body.asString.split("\n").mkString("\n  ")}"))
 
       status
     }
