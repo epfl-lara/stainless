@@ -516,14 +516,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case (FunctionType(from1, to1), FunctionType(from2, to2)) => e match {
           case Lambda(args, body) =>
-            val newArgs = (args zip from2).map { case (vd, tpe) => vd.copy(tpe = tpe) }
+            val newArgs = (args zip from2).map { case (vd, tpe) => vd.copy(tpe = tpe).copiedFrom(vd) }
             val argMap = ((from1 zip from2) zip args).map { case ((tp1, tp2), vd) =>
-              vd.toVariable -> rec(vd.copy(tpe = tp2).toVariable, tp2, tp1)
+              vd.toVariable -> rec(vd.copy(tpe = tp2).copiedFrom(vd).toVariable, tp2, tp1)
             }.toMap
             val newBody = rec(exprOps.replaceFromSymbols(argMap, body), to1, to2)
             Lambda(newArgs, newBody).copiedFrom(e)
           case _ =>
-            val newArgs = from2.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+            val newArgs = from2.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(e))
             val appArgs = ((from1 zip from2) zip newArgs).map { case ((tp1, tp2), vd) =>
               rec(vd.toVariable, tp2, tp1)
             }
@@ -534,10 +534,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case (TupleType(tps1), TupleType(tps2)) => e match {
           case Tuple(es) => Tuple(((tps1 zip tps2) zip es).map {
             case ((tp1, tp2), e) => rec(e, tp1, tp2)
-          })
+          }).copiedFrom(e)
           case _ => Tuple((tps1 zip tps2).zipWithIndex.map {
-            case ((tp1, tp2), i) => rec(TupleSelect(e, i + 1), tp1, tp2)
-          })
+            case ((tp1, tp2), i) => rec(TupleSelect(e, i + 1).copiedFrom(e), tp1, tp2)
+          }).copiedFrom(e)
         }
 
         case (tpe1 @ ADTType(id1, tps1), tpe2 @ ADTType(id2, tps2)) if id1 == id2 =>
@@ -567,23 +567,31 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               id
             }
 
-          FunctionInvocation(id, Seq(), Seq(e))
+          FunctionInvocation(id, Seq(), Seq(e)).copiedFrom(e)
 
-        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("i" :: Int32Type())(i => rec(ArraySelect(e, i), b1, b2) === ArraySelect(res, i))
-        }
+        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("i" :: Int32Type().copiedFrom(e)).copiedFrom(e)) {
+            i => (rec(ArraySelect(e, i).copiedFrom(e), b1, b2) === ArraySelect(res, i).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: b1)(x => ElementOfSet(x, e) === ElementOfSet(rec(x, b1, b2), res))
-        }
+        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: b1).copiedFrom(e)) {
+            x => (ElementOfSet(x, e).copiedFrom(e) === ElementOfSet(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: b1)(x => MultiplicityInBag(x, e) === MultiplicityInBag(rec(x, b1, b2), res))
-        }
+        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: b1).copiedFrom(e)) {
+            x => (MultiplicityInBag(x, e).copiedFrom(e) === MultiplicityInBag(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: f1)(x => rec(MapApply(e, x), t1, t2) === MapApply(res, rec(x, f1, f2)))
-        }
+        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: f1).copiedFrom(e)) {
+            x => (rec(MapApply(e, x).copiedFrom(e), t1, t2) === MapApply(res, rec(x, f1, f2)).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
         case _ => e
       }
@@ -813,10 +821,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val te = transform(expr)
           val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
           val result = if (isObject(exprType) && !isObject(tpe)) unwrap(te, transform(tpe))
-            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(tpe))
+            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(exprType))
             else te
 
-          t.Assert(check, Some("Cast error"), result)
+          t.Assert(check, Some("Cast error"), result).copiedFrom(e)
 
         case s.AsInstanceOf(expr, tpe) => transform(expr)
 
@@ -829,9 +837,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           } ++ tps.map(encodeType)
 
           unifyTypes(
-            t.FunctionInvocation(id, Seq(), newArgs),
+            t.FunctionInvocation(id, Seq(), newArgs).copiedFrom(e),
             fdScope.transform(fd.returnType),
-            transform(fi.tfd.returnType)
+            transform(inType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) if scope rewrite v.id =>
@@ -848,7 +856,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           unifyTypes(
             t.ApplyLetRec(nvd.toVariable, Seq(), Seq(), newArgs),
             appScope.transform(fun.returnType),
-            transform(app.getType)
+            transform(inType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) =>
@@ -873,7 +881,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case e if isObject(e.getType) && !isObject(inType) =>
           unifyTypes(transform(e), transformGetType(e), transform(inType))
 
-        case _ => super.transform(e, inType)
+        case _ =>
+          super.transform(e, inType)
       }
 
       override def transform(e: s.Expr): t.Expr = transform(e, symbols.widen(e.getType))
