@@ -118,14 +118,12 @@ object EvaluatorComponent extends SimpleComponent { self =>
       }
     }
 
-    val toEval = filter(p, ctx)(funs).toList // Ensure we don't have a Stream beyond this point
-
-    reporter.debug(s"Processing ${toEval.size} parameterless functions: ${toEval mkString ", "}")
+    reporter.debug(s"Processing ${funs.size} parameterless functions: ${funs mkString ", "}")
 
     new EvaluatorAnalysis {
       override val program = p
       override val sources = funs.toSet
-      override val results = toEval map processFunction
+      override val results = funs map (id => processFunction(symbols.getFunction(id)))
     }
   }
 }

@@ -54,9 +54,8 @@ object TerminationComponent extends SimpleComponent {
 
     val c = TerminationChecker(p, ctx)
 
-    val toVerify = filter(p, ctx)(funs)
-
-    val res = toVerify map { fd =>
+    val res = funs map { id =>
+      val fd = getFunction(id)
       val (time, tryStatus) = timers.termination.runAndGetTime { c.terminates(fd) }
       tryStatus match {
         case Success(status) => fd -> (status, time)
