@@ -14,6 +14,7 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("extraction/valid")
   testRejectAll("extraction/invalid",
     "extraction/invalid/Variance.scala",
+    "extraction/invalid/TypeMember.scala",
     "extraction/invalid/TypeParams.scala",
     "extraction/invalid/Println.scala",
     "extraction/invalid/CtorParams.scala",
