@@ -5,7 +5,7 @@ import SFuns._
 
 object Lists {
 
-  abstract class List[A] {
+  sealed abstract class List[A] {
     def ::(el: A) = Cons(el, this)
   }
   case class Cons[A](head: A, tail: List[A]) extends List[A]

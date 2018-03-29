@@ -2,7 +2,7 @@ object PatternMatchingAliasingMutation3 {
 
   case class MutableObject(var x: Int)
 
-  abstract class A
+  sealed abstract class A
   case class B(m: MutableObject) extends A
   case class C(m: MutableObject) extends A
 
