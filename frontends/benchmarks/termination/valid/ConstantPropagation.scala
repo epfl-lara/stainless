@@ -3,7 +3,7 @@ import stainless.annotation._
 import stainless.collection._
 
 object IntLattice {
-  abstract class Element
+  sealed abstract class Element
   case class Bot() extends Element
   case class Top() extends Element
   case class BigIntVal(x: BigInt) extends Element
@@ -65,7 +65,7 @@ object ConstantPropagation {
     }
   }
 
-  abstract class Expr {
+  sealed abstract class Expr {
     def size: BigInt = this match {
       case Plus(lhs, rhs) => 1 + lhs.size + rhs.size
       case Times(lhs, rhs) => 1 + lhs.size + rhs.size
