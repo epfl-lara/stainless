@@ -84,7 +84,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       val root = roots(id)
       val cids = constructors(root)
       id -> (if (cids == Set(root)) id.freshen else id)
-    }.toMap
+    }.toMap ++ extraConstructors.values.map(id => id -> id)
 
     object transformer extends oo.TreeTransformer {
       val s: self.s.type = self.s
