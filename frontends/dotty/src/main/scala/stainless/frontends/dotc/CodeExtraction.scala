@@ -282,6 +282,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case vd @ ValDef(_, _, _) if vd.symbol is ParamAccessor =>
         // ignore
 
+      case vd @ ValDef(_, _, _) if vd.symbol is Mutable =>
+        outOfSubsetError(vd.pos, "Vars are not allowed in class bodies in Stainless.")
+
       case dd @ DefDef(nme.CONSTRUCTOR, _, _, _, _) =>
         // ignore
 
