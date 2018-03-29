@@ -6,6 +6,8 @@ package transformers
 trait SimplifierWithPC extends TransformerWithPC with inox.transformers.SimplifierWithPC {
   import trees._
   import symbols._
+  import exprOps.replaceFromSymbols
+
   def pp = implicitly[PathProvider[CNFPath]]
 
   override protected def simplify(e: Expr, path: CNFPath): (Expr, Boolean) = e match {
@@ -21,7 +23,7 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
 
     case MatchExpr(scrut, cases) =>
       val (rs, ps) = simplify(scrut, path)
-      val (_, _, purity, newCases) = cases.foldLeft((path, false, ps, Seq[MatchCase]())) {
+      val (_, stop, purity, newCases) = cases.foldLeft((path, false, ps, Seq[MatchCase]())) {
         case (p @ (_, true, _, _), _) => p
         case ((soFar, _, purity, newCases), MatchCase(pattern, guard, rhs)) =>
           simplify(conditionForPattern[Path](rs, pattern, includeBinders = false).fullClause, soFar) match {
@@ -48,7 +50,14 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
               }
           }
       }
-      (MatchExpr(rs, newCases), purity)
+
+      newCases match {
+        case Seq(MatchCase(pattern, guard, rhs)) if stop =>
+          val map = mapForPattern(rs, pattern)
+          simplify(replaceFromSymbols(map, rhs), guard map (path withCond _) getOrElse path)
+        case _ =>
+        (MatchExpr(rs, newCases), purity)
+      }
 
     case _ => super.simplify(e, path)
   }
