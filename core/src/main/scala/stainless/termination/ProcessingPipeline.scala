@@ -159,6 +159,18 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       guarantee
   }
 
+  private def processResult(result: Result, reason: String): Unit = result match {
+    case Cleared(fd) =>
+      reporter.info(s"Result for ${fd.id}")
+      reporter.info(s" => CLEARED ($reason)")
+      clearedMap(fd) = reason
+    case Broken(fd, msg) =>
+      reporter.warning(s"Result for ${fd.id}")
+      reporter.warning(s" => BROKEN ($reason)")
+      reporter.warning("  " + msg.asString.replaceAll("\n", "\n  "))
+      brokenMap(fd) = (reason, msg)
+  }
+
   private def generateProblems(funDef: FunDef): Seq[Problem] = {
     val funDefs = transitiveCallees(funDef) + funDef
     val pairs = allCalls.flatMap { case (id1, id2) =>
@@ -170,7 +182,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val allComponents = inox.utils.SCC.scc(callGraph)
 
     val notWellFormed = (for (fd <- funDefs; reason <- dtChecker check fd) yield {
-      brokenMap(fd) = ("WF-checker", reason)
+      processResult(Broken(fd, reason), "WF-checker")
       fd
     }).toSet
 
@@ -178,7 +190,9 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       fds.flatMap(fd => transitiveCallees(fd)) exists fds
     }
 
-    for (fd <- funDefs -- notWellFormed -- problemComponents.flatten) clearedMap(fd) = "Non-recursive"
+    for (fd <- funDefs -- notWellFormed -- problemComponents.flatten) {
+      processResult(Cleared(fd), "Non-recursive")
+    }
 
     val newProblems = problemComponents.filter(fds => fds.forall { fd =>
       !(terminationCache contains fd) && !(brokenMap contains fd)
@@ -186,7 +200,10 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
 
     // Consider @unchecked functions as terminating.
     val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains "unchecked"))
-    for (fd <- uncheckedProblems.toSet.flatten) clearedMap(fd) = "Unchecked"
+    for (fd <- uncheckedProblems.toSet.flatten) {
+      processResult(Cleared(fd), "Unchecked")
+    }
+
     toCheck.map(fds => Problem(fds.toSeq))
   }
 
@@ -229,17 +246,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     }
 
     running = true
-    for ((reason, results) <- it; result <- results if !interrupted) result match {
-      case Cleared(fd) =>
-        reporter.info(s"Result for ${fd.id}")
-        reporter.info(s" => CLEARED ($reason)")
-        clearedMap(fd) = reason
-      case Broken(fd, msg) =>
-        reporter.warning(s"Result for ${fd.id}")
-        reporter.warning(s" => BROKEN ($reason)")
-        reporter.warning("  " + msg.asString.replaceAll("\n", "\n  "))
-        brokenMap(fd) = (reason, msg)
-    }
+    for ((reason, results) <- it; result <- results if !interrupted) processResult(result, reason)
     running = false
     terminates(fd)
   }
