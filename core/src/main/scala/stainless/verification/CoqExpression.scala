@@ -3,8 +3,6 @@ package verification
 
 import CoqExpression._
 
-case class UnimplementedCoqExpression(msg: String) extends Exception(msg)
-
 /**
  * Commands represent top-level Gallina declarations
  */
@@ -41,27 +39,19 @@ case class InductiveDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,Coq
 
 case class FixpointDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], returnType: CoqExpression, body: CoqExpression) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
-  override def coqString = try {
+  override def coqString = {
     // println("Translating: " + id.coqString)
     s"Program Fixpoint ${id.coqString} ${paramString}: ${returnType.coqString} :=\n" +
       body.coqString + ".\n"
-  } catch {
-    case UnimplementedCoqExpression(_) =>
-      println(s"Warning: could not translate ${id.coqString} to Coq. Admitting definition for now.")
-      s"Definition ${id.coqString} ${paramString}: ${returnType.coqString}. Admitted."
   }
 }
 
 case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], returnType: CoqExpression, body: CoqExpression) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
-  override def coqString = try {
+  override def coqString = {
     // println("Translating: " + id.coqString)
     s"Program Definition ${id.coqString} ${paramString}: ${returnType.coqString} :=\n" +
       body.coqString + ".\n"
-  } catch {
-    case UnimplementedCoqExpression(_) =>
-      println(s"Warning: could not translate ${id.coqString} to Coq. Admitting definition for now.")
-      s"Program Definition ${id.coqString} ${paramString}: ${returnType.coqString}. Admitted."
   }
 }
 
@@ -216,7 +206,7 @@ case object CoqUnknown extends CoqExpression {
 }
 
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = throw new UnimplementedCoqExpression("Finite Sets are not implemented yet.")
+  override def coqString = magic(tpe).coqString
 }
 
 /*
@@ -249,23 +239,14 @@ case class CoqSetType(base: CoqExpression) extends CoqExpression {
 }
 
 case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = throw new UnimplementedCoqExpression("Set membership is not implemented yet.")
+  override def coqString = magic(CoqBool).coqString
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
 case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression) extends CoqExpression {
-  def coqString: String = try {
+  def coqString: String = {
     s"{${id.coqString}: ${tpe.coqString} | ${body.coqString}}"
-  } catch {
-    case UnimplementedCoqExpression(_) =>
-      println(s"IMPORTANT WARNING (Soundness): could not refine type $tpe by $body, due to unimplemented operations")
-      s"{${id.coqString}: ${tpe.coqString} |   True}"
   }
-}
-
-// This class is used to represent the expressions for which we didn't make a construct
-case class UnimplementedExpression(s: String) extends CoqExpression {
-  override def coqString = throw new UnimplementedCoqExpression(s)
 }
 
 // used in the CoqMatch construct
