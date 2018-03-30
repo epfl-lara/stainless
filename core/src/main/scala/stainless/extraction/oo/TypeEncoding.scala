@@ -216,8 +216,21 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) => obj
         case tp: s.TypeParameter if tparams contains tp => obj
         case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
+          new Exception().printStackTrace
           throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
         case _ => super.transform(tp)
+      }
+
+      override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
+        // @nv: the default `TransformerWithType` will have use a non-widened expected result
+        //      type in the lambda and this breaks the assumption of no intersection and union
+        //      types occuring as `inType`.
+        case s.Lambda(args, body) => symbols.widen(inType) match {
+          case ft: s.FunctionType => super.transform(e, ft.copy(to = symbols.widen(ft.to)).copiedFrom(ft))
+          case _ => super.transform(e, inType)
+        }
+
+        case _ => super.transform(e, inType)
       }
 
       // This transformer should be used instead of `transform` to transform types obtained
