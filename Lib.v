@@ -40,7 +40,7 @@ Definition set_subset {T: Type} (a b: set T): bool :=
   propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).
 
 Definition magic (T: Type): T := match unsupported with end.
-Set Default Timeout 10.
+Set Default Timeout 60.
 
 Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
   (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
@@ -151,7 +151,6 @@ Ltac destruct_ifthenelse :=
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
-
 Ltac program_simplify :=
   cbn -[Z.add]; intros ; destruct_all_rec_calls ; repeat (destruct_conjs; simpl proj1_sig in * );
   subst*; autoinjections ; try discriminates ;
@@ -159,4 +158,12 @@ Ltac program_simplify :=
 
 Ltac program_simpl := program_simplify ; try typeclasses eauto with program ; try program_solve_wf.
 
-Obligation Tactic := repeat program_simpl || libStep || destruct_ifthenelse.
+Ltac destruct_refinement :=
+  match goal with
+  | |- context[proj1_sig ?T] => destruct T
+  | H: context[proj1_sig ?T] |- _ => destruct T
+  end.
+
+Ltac t := program_simpl || libStep || destruct_ifthenelse || destruct_refinement.
+
+Obligation Tactic := repeat t.
