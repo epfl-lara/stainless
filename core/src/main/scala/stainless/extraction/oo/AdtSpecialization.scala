@@ -72,8 +72,8 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
 
     val constructors: Map[Identifier, Set[Identifier]] = {
       def rec(id: Identifier): Set[Identifier] = {
-        val cs = children.getOrElse(id, Set.empty)
-        if (cs.isEmpty) Set(id) else cs.flatMap(rec)
+        (if (syms.classes(id).flags contains IsAbstract) Set() else Set(id)) ++
+        children.getOrElse(id, Set.empty).flatMap(rec)
       }
 
       syms.classes.keys.map(id => id -> (rec(id) ++ extraConstructors.get(id))).toMap
