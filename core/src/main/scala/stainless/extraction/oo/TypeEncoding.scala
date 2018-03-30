@@ -216,7 +216,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) => obj
         case tp: s.TypeParameter if tparams contains tp => obj
         case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
-          new Exception().printStackTrace
           throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
         case _ => super.transform(tp)
       }
@@ -628,7 +627,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case None =>
           val Seq(option, some, none, isEmpty, get) =
             Seq("Option", "Some", "None", "Option.isEmpty", "Option.get")
-              .map(name => ast.SymbolIdentifier("stainless.lang" + name))
+              .map(name => ast.SymbolIdentifier("stainless.lang." + name))
           val value = FreshIdentifier("value")
           (option, some, none, isEmpty, get,
             Some(mkSort(option)("A") { case Seq(aT) => Seq((some, Seq(t.ValDef(value, aT))), (none, Seq())) }),
