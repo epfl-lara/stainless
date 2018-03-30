@@ -46,9 +46,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         val cs = children.getOrElse(id, Set.empty)
         (roots contains id) &&
         (cs forall isCandidate) &&
-        (cs.isEmpty || cd.fields.isEmpty) &&
-        (cs.isEmpty == !(cd.flags contains IsAbstract)) &&
-        //((cd.flags contains IsSealed) || cd.methods(syms).isEmpty) &&
+        (!(cd.flags contains IsAbstract) || (cs.isEmpty && cd.fields.isEmpty)) &&
         (cd.typeArgs forall (tp => tp.isInvariant && !tp.flags.exists { case Bounds(_, _) => true case _ => false }))
       }
 
