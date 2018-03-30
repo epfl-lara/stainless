@@ -12,6 +12,7 @@ import java.io.{ File, BufferedWriter, FileWriter }
 import java.nio.file.Files
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 
 import _root_.io.circe.Json
 
@@ -152,7 +153,7 @@ class RegistryTestSuite extends FunSuite {
 
     override def onCycleBegin() = ()
 
-    override def solve(program: Program { val trees: extraction.xlang.trees.type }): Report = {
+    override def solve(program: Program { val trees: extraction.xlang.trees.type }): Future[Report] = {
       val fns = program.symbols.functions.keySet map { _.name }
       val cls = program.symbols.classes.keySet map { _.name }
 
@@ -165,7 +166,7 @@ class RegistryTestSuite extends FunSuite {
 
       val report = MockReport(fns, cls)
       reports += report
-      report
+      Future.successful(report)
     }
 
     private val reports = ListBuffer[Report]()

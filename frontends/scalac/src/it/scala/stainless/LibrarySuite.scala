@@ -4,6 +4,9 @@ package stainless
 
 import org.scalatest._
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 class LibrarySuite extends FunSpec with InputUtils {
 
   describe("stainless library") {
@@ -24,7 +27,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = apply(funs, exProgram, ctx)
+      val analysis = Await.result(apply(funs, exProgram, ctx), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
@@ -39,7 +42,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = apply(funs, exProgram, ctx)
+      val analysis = Await.result(apply(funs, exProgram, ctx), Duration.Inf)
 
       assert(
         analysis.results forall { case (_, (g, _)) => g.isGuaranteed },

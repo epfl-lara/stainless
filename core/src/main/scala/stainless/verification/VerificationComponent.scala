@@ -3,6 +3,7 @@
 package stainless
 package verification
 
+import scala.concurrent.Future
 import scala.language.existentials
 
 /**
@@ -27,7 +28,7 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionVerification
 
-  private def check(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
+  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {
     val assertions = AssertionInjector(p, ctx)
     val chooses = ChooseInjector(p)
     val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
@@ -41,21 +42,17 @@ object VerificationComponent extends SimpleComponent {
 
     val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
 
-    VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).mapValues {
+    val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
       case VCResult(VCStatus.Invalid(model), s, t) =>
         VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
-    }
-  }
+    })
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): VerificationAnalysis = {
-    val res = check(funs, p, ctx)
-
-    new VerificationAnalysis {
+    res.map(r => new VerificationAnalysis {
       override val program: p.type = p
       override val sources = funs.toSet
-      override val results = res
-    }
+      override val results = r
+    })
   }
 }
 

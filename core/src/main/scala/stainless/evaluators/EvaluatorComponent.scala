@@ -5,8 +5,10 @@ package evaluators
 
 import inox.evaluators.EvaluationResults.{ EvaluatorError, RuntimeError, Successful }
 
-import scala.language.existentials
+import scala.concurrent.Future
 import scala.util.{ Success, Failure }
+
+import scala.language.existentials
 
 object DebugSectionEvaluator extends inox.DebugSection("eval")
 
@@ -46,7 +48,7 @@ object EvaluatorComponent extends SimpleComponent { self =>
 
   case class Result(fd: FunDef, status: FunctionStatus, time: Long)
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Analysis = {
+  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[Analysis] = {
     import ctx.{ implicitContext, reporter, timers }
     import p._
 
@@ -146,11 +148,11 @@ object EvaluatorComponent extends SimpleComponent { self =>
 
     reporter.debug(s"Processing ${funs.size} parameterless functions: ${funs mkString ", "}")
 
-    new EvaluatorAnalysis {
+    Future.successful(new EvaluatorAnalysis {
       override val program = p
       override val sources = funs.toSet
       override val results = funs map (id => processFunction(symbols.getFunction(id)))
-    }
+    })
   }
 }
 
