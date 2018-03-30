@@ -206,7 +206,7 @@ case object CoqUnknown extends CoqExpression {
 }
 
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = magic(tpe).coqString
+  override def coqString = magic(CoqSetType(tpe)).coqString
 }
 
 /*
