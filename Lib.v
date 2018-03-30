@@ -46,11 +46,10 @@ Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
   (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
 Notation "'if' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
-
+  
 Ltac easy :=
   congruence ||
-  simpl in * ||
-  program_simpl ||
+  cbn -[Z.add] in * ||
   intuition ||
   omega ||
   ring ||
@@ -152,5 +151,12 @@ Ltac destruct_ifthenelse :=
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
-Obligation Tactic := repeat libStep || destruct_ifthenelse.
 
+Ltac program_simplify :=
+  cbn -[Z.add]; intros ; destruct_all_rec_calls ; repeat (destruct_conjs; simpl proj1_sig in * );
+  subst*; autoinjections ; try discriminates ;
+  try (solve [ red ; intros ; destruct_conjs ; autoinjections ; discriminates ]).
+
+Ltac program_simpl := program_simplify ; try typeclasses eauto with program ; try program_solve_wf.
+
+Obligation Tactic := repeat program_simpl || libStep || destruct_ifthenelse.

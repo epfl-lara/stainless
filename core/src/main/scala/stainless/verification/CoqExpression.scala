@@ -41,7 +41,7 @@ case class FixpointDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqE
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
   override def coqString = {
     // println("Translating: " + id.coqString)
-    s"Program Fixpoint ${id.coqString} ${paramString}: ${returnType.coqString} :=\n" +
+    s"Program Fixpoint ${id.coqString} ${paramString} { measure ignore_termination }: ${returnType.coqString} :=\n" +
       body.coqString + ".\n"
   }
 }
