@@ -272,7 +272,7 @@ trait CoqEncoder {
         Refinement(
           element,
           CoqApplication(makeFresh(root.id), tparams),
-          CoqApplication(recognizer(constructor.id), tparams :+ element)
+          CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
         )
       ) $
       RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}. \n")
@@ -535,16 +535,14 @@ trait CoqEncoder {
                  | intros. pose proof classicT (x  = y) as H. destruct H; intuition.
                  |Qed.""".stripMargin) $
     RawCommand("""Hint Unfold propInBool.""")$
-      RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.
-                 | destruct b.
-                 | - apply e1. reflexivity.
-                 | - apply e2. reflexivity.
-                 Defined.""".stripMargin) $
-      RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
-      RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
-      RawCommand( """ Definition set_subset {T: Type} (a b: set T): bool :=
+      RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A :=
+                   |  match b as B return (b = B -> A) with
+                   |  | true => fun H => e1 H
+                   |  | false => fun H => e2 H
+                   |  end eq_refl.""".stripMargin) $
+      RawCommand( """Definition set_subset {T: Type} (a b: set T): bool :=
                         propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).""".stripMargin)$
-      RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
+      RawCommand( """Definition magic (T: Type): T := match unsupported with end.""") $
       RawCommand( """Set Default Timeout 10.""") $
       RawCommand( """Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
                     |  (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).""".stripMargin) $
