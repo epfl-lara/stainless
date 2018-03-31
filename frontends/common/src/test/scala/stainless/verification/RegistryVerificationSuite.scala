@@ -7,6 +7,9 @@ import extraction.xlang.{ trees => xt }
 
 import org.scalatest._
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 /*
  * A special test for --functions=therorem --check-models.
  *
@@ -43,7 +46,7 @@ class RegistryVerificationSuite extends FunSuite with InputUtils {
 
     val (_, program) = load(ctx, Seq(input), Some(filter))
     val analysis = component.apply(program, ctx)
-    val stats = analysis.toReport.stats
+    val stats = Await.result(analysis, Duration.Inf).toReport.stats
 
     // analysis.vrs foreach { r => info(r.toString) }
 

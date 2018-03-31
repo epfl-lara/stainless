@@ -220,6 +220,18 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case _ => super.transform(tp)
       }
 
+      override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
+        // @nv: the default `TransformerWithType` will have use a non-widened expected result
+        //      type in the lambda and this breaks the assumption of no intersection and union
+        //      types occuring as `inType`.
+        case s.Lambda(args, body) => symbols.widen(inType) match {
+          case ft: s.FunctionType => super.transform(e, ft.copy(to = symbols.widen(ft.to)).copiedFrom(ft))
+          case _ => super.transform(e, inType)
+        }
+
+        case _ => super.transform(e, inType)
+      }
+
       // This transformer should be used instead of `transform` to transform types obtained
       // through `getType` (these types aren't annotated in the program).
       private[this] val getTypeTransformer = new oo.TreeTransformer {
@@ -615,7 +627,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case None =>
           val Seq(option, some, none, isEmpty, get) =
             Seq("Option", "Some", "None", "Option.isEmpty", "Option.get")
-              .map(name => ast.SymbolIdentifier("stainless.lang" + name))
+              .map(name => ast.SymbolIdentifier("stainless.lang." + name))
           val value = FreshIdentifier("value")
           (option, some, none, isEmpty, get,
             Some(mkSort(option)("A") { case Seq(aT) => Seq((some, Seq(t.ValDef(value, aT))), (none, Seq())) }),

@@ -309,7 +309,7 @@ private class CanonicalFormBuilderImpl {
         case xt.IsUnapply(isEmpty, get) => storeId(isEmpty); storeId(get)
 
         // Nothing specific to add for these:
-        case xt.Inline | xt.Implicit | xt.IsVar | xt.IsMutable |
+        case xt.Inline | xt.Synthetic | xt.IsVar | xt.IsMutable |
              xt.IsInvariant | xt.IsAbstract | xt.IsSealed | xt.Ignore |
              xt.Extern | xt.Unchecked =>
       }

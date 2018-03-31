@@ -3,6 +3,7 @@
 package stainless
 package termination
 
+import scala.concurrent.Future
 import scala.util.{ Success, Failure }
 
 object TerminationComponent extends SimpleComponent {
@@ -46,7 +47,7 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  override def apply(funs: Seq[Identifier], p: TerminationProgram, ctx: inox.Context): TerminationAnalysis = {
+  override def apply(funs: Seq[Identifier], p: TerminationProgram, ctx: inox.Context): Future[Analysis] = {
     import p._
     import p.trees._
     import p.symbols._
@@ -63,11 +64,11 @@ object TerminationComponent extends SimpleComponent {
       }
     }
 
-    new TerminationAnalysis {
+    Future.successful(new TerminationAnalysis {
       override val checker: c.type = c
       override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
       override val sources = funs.toSet
-    }
+    })
   }
 }
 

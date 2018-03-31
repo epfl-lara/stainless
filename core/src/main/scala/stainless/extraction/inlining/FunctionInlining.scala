@@ -64,7 +64,7 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           throw MissformedStainlessCode(fd, "Can't inline recursive function")
         }
 
-        if ((fd.flags contains Implicit) && (fd.flags contains Inline)) {
+        if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) {
           None
         } else {
           Some(transformer.transform(fd.copy(

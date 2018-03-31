@@ -46,9 +46,8 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         val cs = children.getOrElse(id, Set.empty)
         (roots contains id) &&
         (cs forall isCandidate) &&
-        (cs.isEmpty || cd.fields.isEmpty) &&
-        (cs.isEmpty == !(cd.flags contains IsAbstract)) &&
-        //((cd.flags contains IsSealed) || cd.methods(syms).isEmpty) &&
+        ((cd.flags contains IsAbstract) || cs.isEmpty) &&
+        (!(cd.flags contains IsAbstract) || cd.fields.isEmpty) &&
         (cd.typeArgs forall (tp => tp.isInvariant && !tp.flags.exists { case Bounds(_, _) => true case _ => false }))
       }
 
@@ -73,8 +72,8 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
 
     val constructors: Map[Identifier, Set[Identifier]] = {
       def rec(id: Identifier): Set[Identifier] = {
-        val cs = children.getOrElse(id, Set.empty)
-        if (cs.isEmpty) Set(id) else cs.flatMap(rec)
+        (if (syms.classes(id).flags contains IsAbstract) Set() else Set(id)) ++
+        children.getOrElse(id, Set.empty).flatMap(rec)
       }
 
       syms.classes.keys.map(id => id -> (rec(id) ++ extraConstructors.get(id))).toMap
@@ -91,8 +90,8 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
 
       override def transform(e: s.Expr): t.Expr = e match {
-        case s.ClassSelector(e, selector) => e.getType(syms) match {
-          case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(e), selector).copiedFrom(e)
+        case s.ClassSelector(expr, selector) => syms.widen(expr.getType(syms)) match {
+          case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(expr), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
 

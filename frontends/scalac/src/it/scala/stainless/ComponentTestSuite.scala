@@ -2,6 +2,7 @@
 
 package stainless
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils {
@@ -95,7 +96,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
         val (uName, funs, program) = extractOne(path, ctx)
         assert(uName == name)
-        val report = component.apply(funs, program, ctx)
+        val report = Await.result(component.apply(funs, program, ctx), Duration.Inf)
         block(report, ctx.reporter)
       }
 
@@ -105,7 +106,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       val (funss, program) = extractAll(fs.map(_.getPath), ctx)
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx =>
-          val report = component.apply(funs, program, ctx)
+          val report = Await.result(component.apply(funs, program, ctx), Duration.Inf)
           block(report, ctx.reporter)
         }
       }

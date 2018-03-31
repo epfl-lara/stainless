@@ -440,7 +440,7 @@ trait CodeExtraction extends ASTExtractors {
     val id = getIdentifier(sym)
 
     var flags = annotationsOf(sym) ++
-      (if (sym.isImplicit) Set(xt.Inline, xt.Implicit) else Set()) ++
+      (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
 
     if (sym.name == nme.unapply) {

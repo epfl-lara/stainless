@@ -11,7 +11,7 @@ package object annotation {
 
 
   /** The annotated function or class' methods are not verified
-   *  by default (use --functions=... to override this). */
+    * by default (use --functions=... to override this). */
   @ignore
   class library    extends Annotation
 
@@ -23,5 +23,8 @@ package object annotation {
   @ignore
   class extern     extends Annotation
 
+  /** Don't unfold the function's body during verification. */
+  @ignore
+  class opaque     extends Annotation
 }
 

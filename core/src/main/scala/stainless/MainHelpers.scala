@@ -4,13 +4,9 @@ package stainless
 
 import utils.JsonUtils
 
-import scala.collection.parallel.ForkJoinTasks
-import scala.concurrent.{ ExecutionContext, Future, Await }
-import scala.concurrent.duration._
 import scala.util.{ Failure, Success }
 
 import java.io.File
-import java.util.concurrent.{ Executors, ExecutorService, ForkJoinPool }
 
 import io.circe.Json
 
@@ -18,45 +14,6 @@ object MainHelpers {
 
   /** See [[frontend.allComponents]]. */
   val components: Seq[Component] = frontend.allComponents
-
-  private lazy val nParallel: Option[Int] =
-    Option(System.getProperty("parallel"))
-      .flatMap(p => scala.util.Try(p.toInt).toOption)
-
-  private lazy val useParallelism: Boolean =
-    (nParallel.isEmpty || nParallel.exists(_ > 1)) &&
-    !System.getProperty("os.name").toLowerCase().contains("mac")
-
-  private lazy val currentThreadExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
-      def execute(runnable: Runnable) { runnable.run() }
-    })
-
-  private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
-    nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
-  private lazy val multiThreadedExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutor(multiThreadedExecutor)
-
-  implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =
-    if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
-    else currentThreadExecutionContext
-
-  def doParallel[A](task: => A)(implicit ctx: inox.Context): Future[A] =
-    if (useParallelism && ctx.reporter.debugSections.isEmpty) {
-      Future { task }(multiThreadedExecutionContext)
-    } else {
-      Future.successful(task)
-    }
-
-  def parallel[A](tasks: Seq[() => A])(implicit ctx: inox.Context): Seq[A] =
-    if (useParallelism && ctx.reporter.debugSections.isEmpty) {
-      val futureTasks = tasks.map(task => Future { task() }(multiThreadedExecutionContext))
-      Await.result(Future.sequence(futureTasks), Duration.Inf)
-    } else {
-      tasks.map(_())
-    }
-
-  def shutdown(): Unit = if (useParallelism) multiThreadedExecutor.shutdown()
 }
 
 trait MainHelpers extends inox.MainHelpers {
@@ -129,7 +86,7 @@ trait MainHelpers extends inox.MainHelpers {
     val ctx = setup(args)
     import ctx.{ reporter, timers }
 
-    if (!MainHelpers.useParallelism) {
+    if (!useParallelism) {
       reporter.warning(s"Parallelism is disabled.")
     }
 
@@ -188,7 +145,7 @@ trait MainHelpers extends inox.MainHelpers {
 
     // Shutdown the pool for a clean exit.
     reporter.info("Shutting down executor service.")
-    MainHelpers.shutdown()
+    stainless.shutdown()
 
     val success = compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })
     System.exit(if (success) 0 else 1)

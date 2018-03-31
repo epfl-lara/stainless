@@ -5,6 +5,8 @@ package stainless
 import extraction.xlang.{trees => xt}
 import utils.CheckFilter
 
+import scala.concurrent.Future
+
 import scala.language.existentials
 
 trait Component {
@@ -57,7 +59,7 @@ trait SimpleComponent extends Component { self =>
     val trees: self.trees.type
   } = CheckFilter(trees, ctx)
 
-  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Analysis = {
+  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Future[Analysis] = {
     val extracted = extract(program, ctx)
     import extracted.trees._
 
@@ -75,6 +77,6 @@ trait SimpleComponent extends Component { self =>
     apply(toProcess.map(_.id), extracted, ctx)
   }
 
-  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Analysis
+  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Future[Analysis]
 }
 

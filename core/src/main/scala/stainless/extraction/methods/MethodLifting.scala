@@ -116,7 +116,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.MethodInvocation(rec, id, tps, args) =>
-          val s.ClassType(_, ctps) = rec.getType(newSymbols)
+          val s.ClassType(_, ctps) = newSymbols.widen(rec.getType(newSymbols))
           t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
 
         case _ => super.transform(e)
