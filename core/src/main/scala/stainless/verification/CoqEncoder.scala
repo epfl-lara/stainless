@@ -367,7 +367,9 @@ trait CoqEncoder {
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
-        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body)
+        val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
+        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
+        RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
           RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
