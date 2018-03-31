@@ -1,4 +1,4 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -29,10 +29,10 @@ trait CoqVerificationChecker { self =>
   val VCResult = verification.VCResult
 
   def verify(funs: Seq[Identifier]) = {
-    println("Program to translate")
-    println(program.asString)
-    println("End of Program")
-    println("===============================")
+    // println("Program to translate")
+    // println(program.asString)
+    // println("End of Program")
+    // println("===============================")
     val (pLibCoq, pCoq) = CoqEncoder.transformProgram(program, context)
     val lib = CoqIO.writeToCoqFile(pLibCoq)
     val file = CoqIO.writeToCoqFile(pCoq)
