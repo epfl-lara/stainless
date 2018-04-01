@@ -160,10 +160,14 @@ Ltac program_simpl := program_simplify ; try typeclasses eauto with program ; tr
 
 Ltac destruct_refinement :=
   match goal with
-  | |- context[proj1_sig ?T] => destruct T
-  | H: context[proj1_sig ?T] |- _ => destruct T
+  | |- context[proj1_sig ?T] =>
+    let res := fresh "R" in
+    destruct T eqn:res
+  | H: context[proj1_sig ?T] |- _ =>
+    let res := fresh "R" in
+    destruct T eqn:res
   end.
 
-Ltac t := program_simpl || libStep || destruct_ifthenelse || destruct_refinement.
+Ltac t := (* program_simpl || *) libStep || destruct_ifthenelse || destruct_refinement.
 
 Obligation Tactic := repeat t.
