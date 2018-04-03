@@ -27,21 +27,23 @@ trait InductionTactic extends DefaultTactic {
     val fd = getFunction(id)
     (fd.body, firstSort(fd.params), fd.postcondition) match {
       case (Some(body), Some((tsort, arg)), Some(post)) =>
-        for (tcons <- tsort.constructors) yield {
+        (for (tcons <- tsort.constructors) yield {
           val selectors = selectorsOfParentType(tsort, tcons, arg.toVariable)
 
           val subCases = selectors.map { sel =>
             exprOps.replace(Map(arg.toVariable -> sel), implies(fd.precOrTrue, application(post, Seq(body))))
           }
 
-          val vc = exprOps.freshenLocals(implies(
-            and(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue),
-            implies(andJoin(subCases), application(post, Seq(body)))
-          ))
-
           val kind = VCKind.Info(VCKind.Postcondition, s"ind. on ${arg.asString} / ${tcons.id.asString}")
-          VC(vc, id, kind).setPos(fd)
-        }
+          getPostconditions(body, post).map { vc =>
+            val inductiveVC = exprOps.freshenLocals(implies(
+              and(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue),
+              implies(andJoin(subCases), vc)
+            ))
+
+            VC(inductiveVC, id, kind).setPos(fd)
+          }
+        }).flatten
 
       case (body, _, post) =>
         if (post.isDefined && body.isDefined) {
