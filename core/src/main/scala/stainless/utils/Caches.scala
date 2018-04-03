@@ -10,7 +10,7 @@ object Caches {
   /** Caches used by stainless' components are stored in the same directory, denoted by this option. */
   object optCacheDir extends inox.OptionDef[String] {
     val name = "cache-dir"
-    val default = "cache/"
+    val default = ".stainless-cache/"
     val parser = inox.OptionParsers.stringParser
     val usageRhs = "directory"
   }
