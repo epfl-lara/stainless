@@ -5,6 +5,8 @@ package stainless
 import extraction.xlang.{trees => xt}
 import utils.CheckFilter
 
+import scala.concurrent.Future
+
 import scala.language.existentials
 
 trait Component {
@@ -57,36 +59,24 @@ trait SimpleComponent extends Component { self =>
     val trees: self.trees.type
   } = CheckFilter(trees, ctx)
 
-  // Subclasses should use this method to determine which functions should be processed or not.
-  protected final def filter(program: SelfProgram, ctx: inox.Context)
-                            (functions: Seq[Identifier]): Seq[program.trees.FunDef] = {
-    import program.symbols
-    import program.trees._
-    import ctx.reporter
+  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Future[Analysis] = {
+    val extracted = extract(program, ctx)
+    import extracted.trees._
 
-    val filter = createFilter(program.trees, ctx)
-
-    val toProcess = functions
-      . map { fid => symbols.getFunction(fid) }
-      . filter { fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id) }
+    val filter = createFilter(extracted.trees, ctx)
+    val toProcess = extracted.symbols.functions.values.toSeq
+      .filter(fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id))
 
     for (fd <- toProcess) {
       if (fd.flags contains "library") {
         val fullName = fd.id.fullName
-        reporter.warning(s"Component [$name]: Forcing processing of $fullName which was assumed verified")
+        ctx.reporter.warning(s"Component [$name]: Forcing processing of $fullName which was assumed verified")
       }
     }
 
-    toProcess
+    apply(toProcess.map(_.id), extracted, ctx)
   }
 
-
-  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Analysis = {
-    val extracted = extract(program, ctx)
-    val functions = extracted.symbols.functions.values.toSeq map { _.id }
-    apply(functions, extracted, ctx)
-  }
-
-  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Analysis
+  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Future[Analysis]
 }
 

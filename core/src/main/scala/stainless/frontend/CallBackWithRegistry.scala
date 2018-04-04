@@ -16,7 +16,6 @@ import scala.concurrent.duration._
 
 trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   import context.{ options, reporter }
-  import MainHelpers._
 
   private implicit val debugSection = DebugSectionFrontend
 
@@ -95,7 +94,7 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   protected def onCycleBegin(): Unit
 
   /** Produce a report for the given program, in a blocking fashion. */
-  protected def solve(program: Program { val trees: xt.type }): Report
+  protected def solve(program: Program { val trees: xt.type }): Future[Report]
 
   protected final override val trees = xt // not customisable as not needed.
 
@@ -191,7 +190,7 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
 
   private def processProgram(program: Program { val trees: xt.type }): Unit = {
     // Dispatch a task to the executor service instead of blocking this thread.
-    this.synchronized { tasks += doParallel(solve(program)) }
+    this.synchronized { tasks += solve(program) }
   }
 
 }

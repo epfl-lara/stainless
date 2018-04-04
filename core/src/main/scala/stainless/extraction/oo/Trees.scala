@@ -12,21 +12,6 @@ trait Trees extends holes.Trees with Definitions { self =>
    *              EXPRESSIONS
    * ======================================== */
 
-  /** $encodingof `receiver.id[tps](args)` */
-  case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = receiver.getType match {
-      case ct: ClassType => (s.lookupFunction(id, tps), ct.lookupClass) match {
-        case (Some(tfd), Some(tcd)) =>
-          tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
-            .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
-            .map(tcd => typeOps.instantiateType(tfd.returnType, tcd.typeMap))
-            .getOrElse(Untyped)
-        case _ => Untyped
-      }
-      case _ => Untyped
-    }
-  }
-
   /** $encodingof `new id(args)` */
   case class ClassConstructor(ct: ClassType, args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = ct.lookupClass match {
@@ -47,16 +32,6 @@ trait Trees extends holes.Trees with Definitions { self =>
         }).getOrElse(Untyped)
       case _ => Untyped
     }
-  }
-
-  /** $encodingof `this` */
-  case class This(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct
-  }
-
-  /** $encodingof `super` */
-  case class Super(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct
   }
 
   /** $encodingof `expr.isInstanceOf[tpe]` */
@@ -202,14 +177,6 @@ trait Printer extends holes.Printer {
         p" extends ${nary(cd.parents, " with ")}"
       }
 
-      ctx.opts.symbols.foreach { implicit s =>
-        if (cd.methods.nonEmpty) {
-          p""" {
-              |  ${functions(cd.methods)}
-              |}"""
-        }
-      }
-
     case ClassType(id, tps) =>
       p"${id}${nary(tps, ", ", "[", "]")}"
 
@@ -244,15 +211,6 @@ trait Printer extends holes.Printer {
     case ClassSelector(cls, selector) =>
       p"$cls.$selector"
 
-    case MethodInvocation(caller, id, tps, args) =>
-      p"$caller.$id${nary(tps, ", ", "[", "]")}"
-      if (args.nonEmpty) {
-        // TODO: handle implicit arguments and/or default values
-        p"($args)"
-      }
-
-    case This(_) => p"this"
-
     case IsInstanceOf(e, tpe) =>
       p"$e.isInstanceOf[$tpe]"
 
@@ -275,7 +233,6 @@ trait Printer extends holes.Printer {
 
   override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
     case (_, Some(_: ClassConstructor)) => false
-    case (_, Some(MethodInvocation(_, _, _, args))) => !args.contains(ex)
     case _ => super.requiresParentheses(ex, within)
   }
 }
@@ -286,17 +243,11 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
   protected val t: Trees
 
   override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
-    case s.MethodInvocation(rec, id, tps, args) =>
-      (Seq(id), Seq(), rec +: args, tps, (ids, _, es, tps) => t.MethodInvocation(es(0), ids.head, tps, es.tail))
-
     case s.ClassConstructor(ct, args) =>
       (Seq(), Seq(), args, Seq(ct), (_, _, es, tps) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
 
     case s.ClassSelector(expr, selector) =>
       (Seq(selector), Seq(), Seq(expr), Seq(), (ids, _, es, _) => t.ClassSelector(es.head, ids.head))
-
-    case s.This(ct) =>
-      (Seq(), Seq(), Seq(), Seq(ct), (_, _, _, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
 
     case s.IsInstanceOf(e, tpe) =>
       (Seq(), Seq(), Seq(e), Seq(tpe), (_, _, es, tps) => t.IsInstanceOf(es.head, tps.head))
@@ -383,7 +334,6 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.IsInvariant => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInvariant)
     case s.IsAbstract => (Seq(), Seq(), Seq() ,(_, _, _) => t.IsAbstract)
     case s.IsSealed => (Seq(), Seq(), Seq(), (_, _, _) => t.IsSealed)
-    case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.Bounds(lo, hi) => (Seq(), Seq(), Seq(lo, hi), (_, _, tps) => t.Bounds(tps(0), tps(1)))
     case s.Variance(v) => (Seq(), Seq(), Seq(), (_, _, _) => t.Variance(v))
     case _ => super.deconstruct(f)

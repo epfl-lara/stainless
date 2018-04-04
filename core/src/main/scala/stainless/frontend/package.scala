@@ -44,9 +44,9 @@ package object frontend {
 
   /** CallBack factories for each component. */
   private val database = Map[String, inox.Context => CallBack](
-    verification.VerificationComponent.name -> { ctx => new verification.VerificationCallBack(ctx) },
-    termination.TerminationComponent.name -> { ctx => new termination.TerminationCallBack(ctx) },
-    evaluators.EvaluatorComponent.name -> { ctx => new evaluators.EvaluatorCallBack(ctx) }
+    verification.VerificationComponent.name -> { implicit ctx => new verification.VerificationCallBack },
+    termination.TerminationComponent.name -> { implicit ctx => new termination.TerminationCallBack },
+    evaluators.EvaluatorComponent.name -> { implicit ctx => new evaluators.EvaluatorCallBack }
   )
 
   private def getCallBack(name: String, ctx: inox.Context): CallBack = database(name)(ctx)

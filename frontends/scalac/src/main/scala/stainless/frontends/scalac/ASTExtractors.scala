@@ -56,6 +56,8 @@ trait ASTExtractors {
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
 
+  protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
+
   protected lazy val setSym      = classFromName("stainless.lang.Set")
   protected lazy val mapSym      = classFromName("stainless.lang.Map")
   protected lazy val bagSym      = classFromName("stainless.lang.Bag")
@@ -80,7 +82,7 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0) && (sym == classFromName(s"scala.Tuple$size"))
+  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0 && size <= 22) && (sym == classFromName(s"scala.Tuple$size"))
 
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
@@ -187,6 +189,17 @@ trait ASTExtractors {
           => Some((body, contract))
 
         case _ => None
+      }
+    }
+
+    object ExThrowingExpression {
+      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
+        case Apply(Select(Apply(
+          TypeApply(ExSelected("stainless", "lang", "package", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
+          contract :: Nil
+        ) => Some((body, contract))
+
+        case _ =>None
       }
     }
 

@@ -6,6 +6,7 @@ package verification
 import inox.solvers._
 
 import scala.util.{ Success, Failure }
+import scala.concurrent.Future
 
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
@@ -46,7 +47,7 @@ trait VerificationChecker { self =>
     else false
   }
 
-  def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
+  def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     val sf = options.findOption(inox.optTimeout) match {
       case Some(to) => getFactory.withTimeout(to)
       case None => getFactory
@@ -62,12 +63,15 @@ trait VerificationChecker { self =>
 
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
 
-  def checkVCs(vcs: Seq[VC], sf: SolverFactory { val program: self.program.type }, stopWhen: VCResult => Boolean = defaultStop): Map[VC, VCResult] = {
+  def checkVCs(vcs: Seq[VC],
+               sf: SolverFactory { val program: self.program.type },
+               stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     @volatile var stop = false
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
-    val results = MainHelpers.parallel(vcs map (vc => () => {
+    import MainHelpers._
+    val results = Future.traverse(vcs)(vc => Future {
       if (stop) None else {
         val res = checkVC(vc, sf)
 
@@ -82,9 +86,9 @@ trait VerificationChecker { self =>
         if (interruptManager.isInterrupted) interruptManager.reset()
         Some(vc -> res)
       }
-    })).flatten
+    }).map(_.flatten)
 
-    initMap ++ results
+    results.map(initMap ++ _)
   }
 
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
@@ -158,7 +162,7 @@ trait VerificationChecker { self =>
 
 object VerificationChecker {
   def verify(p: StainlessProgram, ctx: inox.Context)
-            (vcs: Seq[VC[p.trees.type]]): Map[VC[p.trees.type], VCResult[p.Model]] = {
+            (vcs: Seq[VC[p.trees.type]]): Future[Map[VC[p.trees.type], VCResult[p.Model]]] = {
     class Checker extends VerificationChecker {
       val program: p.type = p
       val context = ctx

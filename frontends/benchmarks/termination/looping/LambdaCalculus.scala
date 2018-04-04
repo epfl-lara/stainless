@@ -5,24 +5,24 @@ import stainless.collection._
 import stainless._
 
 object LambdaCalculus {
-  abstract class Term
+  sealed abstract class Term
   case class Var(x: BigInt) extends Term
   case class Abs(x: BigInt, body: Term) extends Term
   case class App(func: Term, arg: Term) extends Term
-  
+
   def fv(t: Term): Set[BigInt] = t match {
     case Var(x) => Set(x)
     case Abs(x, body) => fv(body) -- Set(x)
     case App(func, arg) => fv(func) ++ fv(arg)
   }
-  
+
   // [x->u]t
   def subst(x: BigInt, u: Term, t: Term): Term = t match {
     case Var(y) => if (x == y) u else t
     case Abs(y, body) => if (x == y) t else Abs(y, subst(x, u, body))
     case App(f, a) => App(subst(x, u, f), subst(x, u, a))
   }
-  
+
   /* Termination checker (LoopProcessor) says:
   ✗ Non-terminating for call: looping_eval(App(Abs(0, App(Var(0), Var(0))), Abs(0, App(Var(0), Var(0)))))
   i.e.

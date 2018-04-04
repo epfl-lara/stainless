@@ -269,6 +269,11 @@ trait CodeExtraction extends ASTExtractors {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
+    val annots = annotationsOf(sym)
+    val flags = annots ++
+      (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
+      (if (sym.isSealed) Some(xt.IsSealed) else None)
+
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
       case _ => Nil
@@ -280,14 +285,10 @@ trait CodeExtraction extends ASTExtractors {
 
     val parents = cd.impl.parents.flatMap(p => p.tpe match {
       case tpe if ignoreClasses(tpe) => None
+      case tpe if tpe =:= ThrowableTpe && (flags contains "library") => None
       case tp @ TypeRef(_, _, _) => Some(extractType(tp)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
       case _ => None
     })
-
-    val annots = annotationsOf(sym)
-    val flags = annots ++
-      (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
-      (if (sym.isSealed) Some(xt.IsSealed) else None)
 
     val constructorOpt = cd.impl.children.find {
       case ExConstructorDef() => true
@@ -439,7 +440,7 @@ trait CodeExtraction extends ASTExtractors {
     val id = getIdentifier(sym)
 
     var flags = annotationsOf(sym) ++
-      (if (sym.isImplicit) Set(xt.Inline, xt.Implicit) else Set()) ++
+      (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
 
     if (sym.name == nme.unapply) {
@@ -700,6 +701,14 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case Try(body, cses, fin) =>
+      val rb = extractTree(body)
+      val rc = cses.map(extractMatchCase)
+      xt.Try(rb, rc, if (fin == EmptyTree) None else Some(extractTree(fin)))
+
+    case Throw(ex) =>
+      xt.Throw(extractTree(ex))
+
     case ExAssertExpression(e, oerr) =>
       xt.Assert(extractTree(e), oerr, xt.UnitLiteral().setPos(tr.pos))
 
@@ -710,18 +719,28 @@ trait CodeExtraction extends ASTExtractors {
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
-      val closure = post match {
+      xt.Ensuring(b, post match {
         case l: xt.Lambda => l
         case other =>
           val tpe = extractType(body)
-          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(post)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
           xt.Lambda(Seq(vd), extractType(contract) match {
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
           }).setPos(post)
-      }
+      })
 
-      xt.Ensuring(b, closure).setPos(post)
+    case ExThrowingExpression(body, contract) =>
+      val throwing = extractTree(contract)
+      val b = extractTreeOrNoTree(body)
+
+      xt.Throwing(b, throwing match {
+        case l: xt.Lambda => l
+        case other =>
+          val tpe = extractType(exceptionSym.info)(dctx, contract.pos)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
+          xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
+      })
 
     case t @ ExHoldsWithProofExpression(body, ExMaybeBecauseExpressionWrapper(proof)) =>
       val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType().setPos(tr.pos), Set.empty).setPos(tr.pos)
@@ -740,7 +759,7 @@ trait CodeExtraction extends ASTExtractors {
     // If the because statement encompasses a holds statement
     case t @ ExBecauseExpression(ExHoldsExpression(body), proof) =>
       val vd = xt.ValDef(FreshIdentifier("holds"), xt.BooleanType().setPos(tr.pos), Set.empty).setPos(tr.pos)
-      val p = extractTreeOrNoTree(proof)
+      val p = extractTree(proof)
       val and = xt.And(p, vd.toVariable).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd), and).setPos(tr.pos)
       val b = extractTreeOrNoTree(body)
@@ -748,24 +767,24 @@ trait CodeExtraction extends ASTExtractors {
 
     case t @ ExComputesExpression(body, expected) =>
       val b = extractTreeOrNoTree(body).setPos(body.pos)
-      val expectedExpr = extractTreeOrNoTree(expected).setPos(expected.pos)
+      val expectedExpr = extractTree(expected).setPos(expected.pos)
       val vd = xt.ValDef(FreshIdentifier("res"), extractType(body), Set.empty).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd), xt.Equals(vd.toVariable, expectedExpr)).setPos(tr.pos)
       xt.Ensuring(b, post).setPos(post)
 
     case t @ ExBigLengthExpression(input) =>
-      xt.StringLength(extractTreeOrNoTree(input))
+      xt.StringLength(extractTree(input))
 
     case t @ ExBigSubstringExpression(input, start) =>
-      val in = extractTreeOrNoTree(input)
-      val st = extractTreeOrNoTree(start)
+      val in = extractTree(input)
+      val st = extractTree(start)
       val vd = xt.ValDef(FreshIdentifier("s", true), xt.StringType().setPos(t.pos), Set.empty).setPos(t.pos)
       xt.Let(vd, in, xt.SubString(vd.toVariable, st, xt.StringLength(vd.toVariable).setPos(t.pos)).setPos(t.pos))
 
     case t @ ExBigSubstring2Expression(input, start, end) =>
-      val in = extractTreeOrNoTree(input)
-      val st = extractTreeOrNoTree(start)
-      val en = extractTreeOrNoTree(end)
+      val in = extractTree(input)
+      val st = extractTree(start)
+      val en = extractTree(end)
       xt.SubString(in, st, en)
 
     case ExArrayLiteral(tpe, args) =>

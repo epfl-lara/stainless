@@ -1,5 +1,9 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
+import scala.collection.parallel.ForkJoinTasks
+import scala.concurrent.{ ExecutionContext, Future }
+import java.util.concurrent.Executors
+
 package object stainless {
 
   object DebugSectionExtraction extends inox.DebugSection("extraction")
@@ -95,4 +99,31 @@ package object stainless {
       }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
     }
   }
+
+
+  /* Parallelism utilities */
+
+  private lazy val nParallel: Option[Int] =
+    Option(System.getProperty("parallel"))
+      .flatMap(p => scala.util.Try(p.toInt).toOption)
+
+  lazy val useParallelism: Boolean =
+    (nParallel.isEmpty || nParallel.exists(_ > 1)) &&
+    !System.getProperty("os.name").toLowerCase().contains("mac")
+
+  private lazy val currentThreadExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
+      def execute(runnable: Runnable) { runnable.run() }
+    })
+
+  private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
+    nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
+  private lazy val multiThreadedExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(multiThreadedExecutor)
+
+  implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =
+    if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
+    else currentThreadExecutionContext
+
+  def shutdown(): Unit = if (useParallelism) multiThreadedExecutor.shutdown()
 }

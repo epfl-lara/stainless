@@ -1,9 +1,11 @@
-/* Copyright 2009-2016 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
 package verification
 
 import inox.solvers._
+
+import scala.concurrent.Future
 
 object DebugSectionCoq extends inox.DebugSection("coq")
 
@@ -26,21 +28,25 @@ trait CoqVerificationChecker { self =>
   type VCResult = verification.VCResult[program.Model]
   val VCResult = verification.VCResult
 
-  def verify(funs: Seq[Identifier]): Map[VC, VCResult] = {
-    println("Program to translate")
-    println(program.asString)
-    println("End of Program")
-    println("===============================")
+  def verify(funs: Seq[Identifier]) = {
+    // println("Program to translate")
+    // println(program.asString)
+    // println("End of Program")
+    // println("===============================")
     val (pLibCoq, pCoq) = CoqEncoder.transformProgram(program, context)
     val lib = CoqIO.writeToCoqFile(pLibCoq)
     val file = CoqIO.writeToCoqFile(pCoq)
     CoqIO.coqc(file, context)
-    Map()
+    Future(new VerificationAnalysis {
+      override val program: self.program.type = self.program
+      override val sources = Set[stainless.Identifier]()
+      override val results = Map[VC, VCResult]()
+    })
   }
 }
 
 object CoqVerificationChecker {
-  def verify(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
+  def verify(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context) = {
     object Checker extends CoqVerificationChecker {
       val program: p.type = p
       val context = ctx

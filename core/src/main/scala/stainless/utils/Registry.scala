@@ -370,8 +370,11 @@ trait Registry {
     deferredMethods ++= deferredFDs
 
     classes foreach { cd =>
-      if ((cd.flags contains xt.IsAbstract) && !(cd.flags contains xt.IsSealed))
-        reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
+      if (
+        (cd.flags contains xt.IsAbstract) &&
+        !(cd.flags contains xt.IsSealed) &&
+        !(cd.flags contains "library")
+      ) reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
     }
 
     process(readyCDs, readyFDs)

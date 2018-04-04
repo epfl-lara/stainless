@@ -272,7 +272,7 @@ trait CoqEncoder {
         Refinement(
           element,
           CoqApplication(makeFresh(root.id), tparams),
-          CoqApplication(recognizer(constructor.id), tparams :+ element)
+          CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
         )
       ) $
       RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}. \n")
@@ -367,7 +367,9 @@ trait CoqEncoder {
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
-        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body)
+        val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
+        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
+        RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
           RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
@@ -436,128 +438,19 @@ trait CoqEncoder {
     }
   }
 
-  def makeLibTactic(adts: Seq[Definition]) = {
-    RawCommand("""
-  Ltac easy :=
-        congruence ||
-        simpl in * ||
-        program_simpl ||
-        intuition ||
-        omega ||
-        ring ||
-        eauto ||
-        discriminate ||
-        autorewrite with elimPropInBool in *.
-
- Ltac libStep := match goal with
-   | _ => progress easy
-   | [ H: ex _ _ |- _ ] => destruct H
-   |   H: exists _, _ |- _ => destruct H
-   | [ |- context[match ?t with _ => _ end]] =>
-       let matched := fresh "matched" in
-       destruct t eqn:matched
-   | [ H: context[match ?t with _ => _ end] |- _ ] =>
-       let matched := fresh "matched" in
-       destruct t eqn:matched
-   | [ H: context[ifthenelse ?b _ _ _] |- _ ] =>
-            let matched := fresh "matched" in
-            destruct b eqn:matched
-   | [ |- context[ifthenelse ?b _ _ _] ] =>
-             let matched := fresh "matched" in
-             destruct b eqn:matched
-   end.
-
-   Obligation Tactic :=
-   solve [repeat libStep || (autounfold in *)] || (repeat libStep).
-
-
- Lemma x1: forall P, propInBool P = true <-> P.
- Proof.
-   repeat libStep || unfold propInBool in *.
- Qed.
-
- Lemma x2: forall P, propInBool P = false <-> (P -> False).
- Proof.
-   repeat libStep || unfold propInBool in *.
- Qed.
-
- Lemma x3: forall P, negb (propInBool P) = false <-> P.
- Proof.
-   repeat libStep || unfold propInBool in *.
- Qed.
-
- Lemma x4: forall P, negb (propInBool P) = true <-> (P -> False).
- Proof.
-   repeat libStep || unfold propInBool in *.
- Qed.
-
- Hint Rewrite x1 x2 x3 x4: elimPropInBool.
-
- Hint Rewrite eqb_true_iff: elimPropInBool.
- Hint Rewrite eqb_false_iff: elimPropInBool.
- Hint Rewrite <- Zeq_is_eq_bool: elimPropInBool.
- Hint Rewrite Z.leb_gt: elimPropInBool.
- Hint Rewrite Z.leb_le: elimPropInBool.
- Hint Rewrite Z.geb_leb: elimPropInBool.
- Hint Rewrite <- Zgt_is_gt_bool: elimPropInBool.
- Hint Rewrite Z.geb_le: elimPropInBool.""")
-
-//| [ H: isCons _ ?L |- _ ] => is_var L; destruct L
-//       unfold Cons_type in * ||
-
-  }
-
 
   def makeTactic(adts: Seq[Definition]) = {
     NoCommand
   }
 
   def header(): CoqCommand = {
-    RequireImport("Coq.Program.Tactics") $
-      RequireImport("Coq.Program.Program") $
-      RequireImport("Coq.Lists.List") $
-      RequireImport("Coq.Lists.ListSet") $
-      RequireImport("Coq.Logic.Classical") $
-      RequireImport("Coq.Bool.Bool") $
-      RequireImport("Omega") $
-      RequireImport("ZArith") $
-      OpenScope("bool_scope") $
-      OpenScope("Z_scope")$
-      RawCommand("""Axiom classicT: forall P: Prop, P + ~P.""") $
-      RawCommand("""Axiom unsupported: False. """) $
-      RawCommand(""" Axiom map_type: Type -> Type -> Type.""") $
-      RawCommand( """Definition propInBool (P: Prop): bool :=
-                    | if (classicT P)
-                    | then true
-                    | else false.
-                    |""".stripMargin) $
-    RawCommand("""Lemma Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.
-                 | intros. pose proof classicT (x  = y) as H. destruct H; intuition.
-                 |Qed.""".stripMargin) $
-    RawCommand("""Hint Unfold propInBool.""")$
-      RawCommand("""Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A.
-                 | destruct b.
-                 | - apply e1. reflexivity.
-                 | - apply e2. reflexivity.
-                 Defined.""".stripMargin) $
-      RawCommand( """Definition boolInProp (b: bool): Prop := b = true.""") $
-      RawCommand( """Coercion boolInProp: bool >-> Sortclass.""") $
-      RawCommand( """ Definition set_subset {T: Type} (a b: set T): bool :=
-                        propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).""".stripMargin)$
-      RawCommand( """ Definition magic (T: Type): T := match unsupported with end.""") $
-      RawCommand( """Set Default Timeout 10.""") $
-      RawCommand( """Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
-                    |  (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).""".stripMargin) $
-      RawCommand("""Notation "'if' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
-                   |  (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).""".stripMargin)
+    RawCommand("Load Lib.")
   }
 
   def transformLib(): CoqCommand = {
     header() $
-    makeLibTactic(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
     transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
-
   }
 
   def transform(): CoqCommand = {

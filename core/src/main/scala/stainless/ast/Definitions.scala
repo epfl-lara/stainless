@@ -9,6 +9,7 @@ import scala.collection.mutable.{Map => MutableMap}
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   case object Extern extends Flag("extern", Seq.empty)
+  case object Opaque extends Flag("opaque", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
@@ -16,6 +17,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
     case ("extern", Seq()) => Extern
+    case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
     case _ => super.extractFlag(name, args)
   }

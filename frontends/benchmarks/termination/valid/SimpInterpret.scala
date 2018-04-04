@@ -4,12 +4,12 @@ import stainless.annotation._
 import stainless.lang._
 
 object Interpret {
-  abstract class BoolTree
+  sealed abstract class BoolTree
   case class Eq(t1 : IntTree, t2 : IntTree) extends BoolTree
   case class And(t1 : BoolTree, t2 : BoolTree) extends BoolTree
   case class Not(t : BoolTree) extends BoolTree
 
-  abstract class IntTree
+  sealed abstract class IntTree
   case class Const(c:Int) extends IntTree
   case class Var() extends IntTree
   case class Plus(t1 : IntTree, t2 : IntTree) extends IntTree

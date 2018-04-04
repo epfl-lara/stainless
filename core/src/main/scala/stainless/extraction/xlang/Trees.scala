@@ -4,7 +4,7 @@ package stainless
 package extraction
 package xlang
 
-trait Trees extends oo.Trees { self =>
+trait Trees extends methods.Trees { self =>
 
   case object Ignore extends Flag("ignore", Seq.empty)
 
@@ -47,7 +47,7 @@ trait Trees extends oo.Trees { self =>
 }
 
 
-trait Printer extends oo.Printer {
+trait Printer extends methods.Printer {
   val trees: Trees
   import trees._
 
@@ -99,7 +99,7 @@ trait Printer extends oo.Printer {
 }
 
 
-trait TreeDeconstructor extends oo.TreeDeconstructor {
+trait TreeDeconstructor extends methods.TreeDeconstructor {
 
   protected val s: Trees
   protected val t: Trees

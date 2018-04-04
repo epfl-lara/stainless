@@ -3,11 +3,11 @@
 import stainless.lang._
 
 object HOTermination {
-  abstract class List[T]
+  sealed abstract class List[T]
   case class Cons[T](head: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
 
-  abstract class Option[T]
+  sealed abstract class Option[T]
   case class Some[T](value: T) extends Option[T]
   case class None[T]() extends Option[T]
 
@@ -16,7 +16,7 @@ object HOTermination {
     case Nil() => Nil()
   }
 
-  abstract class Expr
+  sealed abstract class Expr
   case class Invocation(e: Expr, args: List[Expr]) extends Expr
   case class Addition(e1: Expr, e2: Expr) extends Expr
   case class Variable(i: Int) extends Expr

@@ -29,6 +29,10 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
         initRun()
         callback.beginExtractions()
         onRun()
+      } catch {
+        case e: Throwable =>
+          ctx.reporter.error(s"Exception thrown during compilation: ${e.getMessage}")
+          throw e
       } finally {
         callback.endExtractions()
         onEnd()

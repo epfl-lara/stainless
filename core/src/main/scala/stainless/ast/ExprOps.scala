@@ -148,7 +148,7 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Returns the postcondition of an expression wrapped in Option */
   def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(l)))
+    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(expr)).copiedFrom(l))
     case Ensuring(_, post) => Some(post)
     case _                 => None
   }
@@ -157,7 +157,7 @@ trait ExprOps extends inox.ast.ExprOps {
   def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
     val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
-      Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
+      Seq(ValDef(FreshIdentifier("res"), s.widen(e.getType)).copiedFrom(e)),
       BooleanLiteral(true).copiedFrom(e)
     ).copiedFrom(e)))
 

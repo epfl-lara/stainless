@@ -2,7 +2,7 @@ object PatternMatchingAliasingMutation5 {
 
   case class A(var x: Int)
 
-  abstract class List
+  sealed abstract class List
   case class Cons(a: A, tail: List) extends List
   case class Nil() extends List
 

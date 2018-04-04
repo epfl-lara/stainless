@@ -235,6 +235,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val sym = td.symbol
     val id = getIdentifier(sym)
 
+    val annots = annotationsOf(sym)
+    val flags = annots ++
+      (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
+      (if (sym is Sealed) Some(xt.IsSealed) else None)
+
     val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = sym.asClass.typeParams.map(extractTypeParam)
@@ -242,6 +247,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val parents = template.parents.flatMap(p => p.tpe match {
       case tpe if tpe.typeSymbol == defn.ObjectClass => None
+      case tpe if tpe.typeSymbol == defn.ThrowableClass && (flags contains "library") => None
       case tpe if defn.isProductClass(tpe.classSymbol) => None
       case tpe => Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
     })
@@ -276,6 +282,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case vd @ ValDef(_, _, _) if vd.symbol is ParamAccessor =>
         // ignore
 
+      case vd @ ValDef(_, _, _) if vd.symbol is Mutable =>
+        outOfSubsetError(vd.pos, "Vars are not allowed in class bodies in Stainless.")
+
       case dd @ DefDef(nme.CONSTRUCTOR, _, _, _, _) =>
         // ignore
 
@@ -307,11 +316,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case other =>
         reporter.warning(other.pos, "Could not extract tree in class: " + other)
     }
-
-    val annots = annotationsOf(sym)
-    val flags = annots ++
-      (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
-      (if (sym is Sealed) Some(xt.IsSealed) else None)
 
     val optInv = if (invariants.isEmpty) None else Some {
       val invId = cache fetchInvIdForClass sym
@@ -370,8 +374,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
     var flags = annotationsOf(sym) ++
-      (if ((sym is Implicit) || (sym is Inline)) Some(xt.Inline) else None) ++
-      (if (!(sym is Method)) Some(xt.IsField(sym is Lazy)) else None)
+      (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
+      (if (sym is Inline) Set(xt.Inline) else Set()) ++
+      (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
@@ -688,6 +693,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
 
+    case Try(body, cses, fin) =>
+      val rb = extractTree(body)
+      val rc = cses.map(extractMatchCase)
+      xt.Try(rb, rc, if (fin == tpd.EmptyTree) None else Some(extractTree(fin)))
+
+    case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
+      xt.Throw(extractTree(arg))
+
     case Ident(_) if tr.tpe.signature.resSig.toString startsWith "scala.collection.immutable.Nil" =>
       outOfSubsetError(tr.pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
 
@@ -706,7 +719,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
-      val closure = post match {
+      xt.Ensuring(b, post match {
         case l: xt.Lambda => l
         case other =>
           val tpe = extractType(tr)
@@ -715,9 +728,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
           }).setPos(post)
-      }
+      })
 
-      xt.Ensuring(b, closure).setPos(post)
+    case ExThrowing(body, contract) =>
+      val pred = extractTree(contract)
+      val b = extractTreeOrNoTree(body)
+
+      xt.Throwing(b, pred match {
+        case l: xt.Lambda => l
+        case other =>
+          val tpe = extractType(exceptionSym.info)(dctx, contract.pos)
+          val vd = xt.ValDef(FreshIdentifier("res"), tpe, Set.empty).setPos(other)
+          xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
+      })
 
     // an optional "because" is allowed
     case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>

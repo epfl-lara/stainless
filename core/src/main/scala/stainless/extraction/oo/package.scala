@@ -17,11 +17,6 @@ package object oo {
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
-  object methods extends MethodLifting {
-    val s: trees.type = trees
-    val t: trees.type = trees
-  }
-
   object adts extends AdtSpecialization {
     val s: trees.type = trees
     val t: trees.type = trees
@@ -42,5 +37,5 @@ package object oo {
     val t: holes.trees.type = holes.trees
   })
 
-  val extractor = methods andThen adts andThen refinements andThen encoding andThen checker
+  val extractor = adts andThen refinements andThen encoding andThen checker
 }

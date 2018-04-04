@@ -1,6 +1,6 @@
 object PatternMatchingAliasingMutation2 {
 
-  abstract class A
+  sealed abstract class A
   case class B(var x: Int) extends A
   case class C(var y: Int) extends A
 

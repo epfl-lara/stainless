@@ -21,9 +21,10 @@ class SymbolsContext {
         if (sym is TypeParam) {
           sym.showName
         } else {
-          sym.fullName.toString.trim.split("\\.").map {
-            name => if (name.endsWith("$")) name.init else name
-          }.mkString(".")
+          sym.fullName.toString.trim.split("\\.")
+            .filter(_ != "package$")
+            .map(name => if (name.endsWith("$")) name.init else name)
+            .mkString(".")
         }
 
       ast.Symbol(name)

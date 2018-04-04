@@ -220,6 +220,18 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case _ => super.transform(tp)
       }
 
+      override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
+        // @nv: the default `TransformerWithType` will have use a non-widened expected result
+        //      type in the lambda and this breaks the assumption of no intersection and union
+        //      types occuring as `inType`.
+        case s.Lambda(args, body) => symbols.widen(inType) match {
+          case ft: s.FunctionType => super.transform(e, ft.copy(to = symbols.widen(ft.to)).copiedFrom(ft))
+          case _ => super.transform(e, inType)
+        }
+
+        case _ => super.transform(e, inType)
+      }
+
       // This transformer should be used instead of `transform` to transform types obtained
       // through `getType` (these types aren't annotated in the program).
       private[this] val getTypeTransformer = new oo.TreeTransformer {
@@ -285,6 +297,25 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       case _ => scala.sys.error("Unexpected type " + tpe)
     }
 
+    def isSubtypeOfClass(cd: s.ClassDef, tp1: Expr, tp2: Expr): Expr = {
+      def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
+        case tp +: xs =>
+          val (t1, t2) = (seq1.getField(head), seq2.getField(head))
+          val cond = if (tp.isCovariant) subtypeOf(t1, t2)
+        else if (tp.isContravariant) subtypeOf(t2, t1)
+        else t1 === t2
+        (seq1 is cons) &&
+        (seq2 is cons) &&
+        cond &&
+        rec(xs, seq1.getField(tail), seq2.getField(tail))
+        case Seq() => (seq1 is nil) && (seq2 is nil)
+      }
+
+      tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId) &&
+      tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId) &&
+      rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
+    }
+
     val subtypeFunction = mkFunDef(subtypeID, Unchecked)()(_ => (
       Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
         case Seq(tp1, tp2) => Seq(
@@ -301,26 +332,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             ) {
               case (cd, elze) => IfExpr(
                 tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId),
-                (
-                  tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId) && {
-                    def rec(tparams: Seq[s.TypeParameter], seq1: Expr, seq2: Expr): Expr = tparams match {
-                      case tp +: xs =>
-                        val (t1, t2) = (seq1.getField(head), seq2.getField(head))
-                        val cond = if (tp.isCovariant) subtypeOf(t1, t2)
-                          else if (tp.isContravariant) subtypeOf(t2, t1)
-                          else t1 === t2
-                        (seq1 is cons) &&
-                        (seq2 is cons) &&
-                        cond &&
-                        rec(xs, seq1.getField(tail), seq2.getField(tail))
-                      case Seq() => E(true)
-                    }
-
-                    rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
-                  }
-                ) || (
-                  orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2)))
-                ),
+                isSubtypeOfClass(cd, tp1, tp2) ||
+                orJoin(cd.parents.map(ct => subtypeOf(encodeType(ct)(TypeScope(cd, tp1)), tp2))),
                 elze
               )
             }
@@ -406,29 +419,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
 
     /* ====================================
-     *         INSTANCEOF FUNCTION
-     * ==================================== */
-
-    val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
-      Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
-        case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
-          (tp2 is bot) -> E(false),
-          (tp2 is top) -> E(true),
-          (tp2 is ref) -> tp1.getField(refPred)(e),
-          (tp2 is cls) -> (
-            (tp1 is cls) &&
-            andJoin(syms.classes.values.toSeq.filter(_.flags contains s.IsAbstract).map {
-              cd => !(tp1.getField(clsPtr) === IntegerLiteral(cd.id.globalId))
-            }) &&
-            subtypeOf(tp1, tp2)
-          )
-        ).foldRight(subtypeOf(tp1, tp2): Expr) {
-          case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
-        }).copiedFrom(e)
-      }))
-
-
-    /* ====================================
      *     REF-TYPE FIELDS & WRAPPERS
      * ==================================== */
 
@@ -455,7 +445,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
     def getField(e: t.Expr, id: Identifier): t.Expr = FunctionInvocation(classFields(id).id, Seq(), Seq(e))
 
-    val classConstructors = syms.classes.values.map { cd =>
+    val classConstructors = syms.classes.values.filterNot(_.flags contains s.IsAbstract).map { cd =>
       val ct = s.ClassType(cd.id, cd.typeArgs)
       val tparamParams = cd.tparams.map(tpd => t.ValDef(tpd.id.freshen, tpe).copiedFrom(tpd))
       implicit val scope = TypeScope(cd.typeArgs zip tparamParams.map(_.toVariable))
@@ -472,6 +462,51 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     }.toMap
 
     val fieldFunctions: Seq[t.FunDef] = typeFunction +: (classFields.values.toSeq ++ classConstructors.values)
+
+
+    /* ====================================
+     *         INSTANCEOF FUNCTION
+     * ==================================== */
+
+    val instanceFunction = mkFunDef(instanceID, Unchecked)()(_ => (
+      Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
+        case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
+          (tp2 is bot) -> E(false),
+          (tp2 is top) -> !(tp1 is bot),
+          (tp2 is ref) -> tp2.getField(refPred)(e),
+          (tp2 is cls) -> (
+            (tp1 is cls) &&
+            syms.classes.values.toSeq.foldRight(E(false)) { case (cd, elze) =>
+              val optCons = if (cd.flags contains s.IsAbstract) None else Some(
+                isSubtypeOfClass(cd, tp1, tp2) &&
+                e === t.FunctionInvocation(
+                  classConstructors(cd.id).id,
+                  Seq(),
+                  cd.tparams.indices.map(i => seqAt(tp1.getField(clsTps), i)) ++
+                  cd.fields.map(vd => getField(e, vd.id))
+                )
+              )
+
+              IfExpr(
+                tp2.getField(clsPtr) === IntegerLiteral(cd.id.globalId),
+                orJoin(
+                  optCons.toSeq ++
+                  cd.typed(syms).children.map(c => instanceOf(e, encodeType(c.toType)(TypeScope(cd, tp2)))) ++
+                  (if (cd.flags contains s.IsSealed) None else Some(subtypeOf(tp1, tp2)))
+                ),
+                elze
+              )
+            }
+          )
+        ).foldRight(subtypeOf(tp1, tp2): Expr) {
+          case ((cond, thenn), elze) => IfExpr(cond, thenn, elze)
+        }).copiedFrom(e)
+      }))
+
+
+    /* ====================================
+     *     GENERAL WRAPPING/UNWRAPPING
+     * ==================================== */
 
     val unificationCache: MutableMap[(t.Type, t.Type), t.FunDef] = MutableMap.empty
     def unificationFunctions: Seq[t.FunDef] = unificationCache.values.toSeq
@@ -493,14 +528,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case (FunctionType(from1, to1), FunctionType(from2, to2)) => e match {
           case Lambda(args, body) =>
-            val newArgs = (args zip from2).map { case (vd, tpe) => vd.copy(tpe = tpe) }
+            val newArgs = (args zip from2).map { case (vd, tpe) => vd.copy(tpe = tpe).copiedFrom(vd) }
             val argMap = ((from1 zip from2) zip args).map { case ((tp1, tp2), vd) =>
-              vd.toVariable -> rec(vd.copy(tpe = tp2).toVariable, tp2, tp1)
+              vd.toVariable -> rec(vd.copy(tpe = tp2).copiedFrom(vd).toVariable, tp2, tp1)
             }.toMap
             val newBody = rec(exprOps.replaceFromSymbols(argMap, body), to1, to2)
             Lambda(newArgs, newBody).copiedFrom(e)
           case _ =>
-            val newArgs = from2.map(tpe => ValDef(FreshIdentifier("x", true), tpe))
+            val newArgs = from2.map(tpe => ValDef(FreshIdentifier("x", true), tpe).copiedFrom(e))
             val appArgs = ((from1 zip from2) zip newArgs).map { case ((tp1, tp2), vd) =>
               rec(vd.toVariable, tp2, tp1)
             }
@@ -511,10 +546,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case (TupleType(tps1), TupleType(tps2)) => e match {
           case Tuple(es) => Tuple(((tps1 zip tps2) zip es).map {
             case ((tp1, tp2), e) => rec(e, tp1, tp2)
-          })
+          }).copiedFrom(e)
           case _ => Tuple((tps1 zip tps2).zipWithIndex.map {
-            case ((tp1, tp2), i) => rec(TupleSelect(e, i + 1), tp1, tp2)
-          })
+            case ((tp1, tp2), i) => rec(TupleSelect(e, i + 1).copiedFrom(e), tp1, tp2)
+          }).copiedFrom(e)
         }
 
         case (tpe1 @ ADTType(id1, tps1), tpe2 @ ADTType(id2, tps2)) if id1 == id2 =>
@@ -544,23 +579,31 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
               id
             }
 
-          FunctionInvocation(id, Seq(), Seq(e))
+          FunctionInvocation(id, Seq(), Seq(e)).copiedFrom(e)
 
-        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("i" :: Int32Type())(i => rec(ArraySelect(e, i), b1, b2) === ArraySelect(res, i))
-        }
+        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("i" :: Int32Type().copiedFrom(e)).copiedFrom(e)) {
+            i => (rec(ArraySelect(e, i).copiedFrom(e), b1, b2) === ArraySelect(res, i).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: b1)(x => ElementOfSet(x, e) === ElementOfSet(rec(x, b1, b2), res))
-        }
+        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: b1).copiedFrom(e)) {
+            x => (ElementOfSet(x, e).copiedFrom(e) === ElementOfSet(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: b1)(x => MultiplicityInBag(x, e) === MultiplicityInBag(rec(x, b1, b2), res))
-        }
+        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: b1).copiedFrom(e)) {
+            x => (MultiplicityInBag(x, e).copiedFrom(e) === MultiplicityInBag(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
-        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked))) {
-          res => forall("x" :: f1)(x => rec(MapApply(e, x), t1, t2) === MapApply(res, rec(x, f1, f2)))
-        }
+        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+          res => forall(("x" :: f1).copiedFrom(e)) {
+            x => (rec(MapApply(e, x).copiedFrom(e), t1, t2) === MapApply(res, rec(x, f1, f2)).copiedFrom(e)).copiedFrom(e)
+          }.copiedFrom(e)
+        }.copiedFrom(e)
 
         case _ => e
       }
@@ -584,7 +627,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case None =>
           val Seq(option, some, none, isEmpty, get) =
             Seq("Option", "Some", "None", "Option.isEmpty", "Option.get")
-              .map(name => ast.SymbolIdentifier("stainless.lang" + name))
+              .map(name => ast.SymbolIdentifier("stainless.lang." + name))
           val value = FreshIdentifier("value")
           (option, some, none, isEmpty, get,
             Some(mkSort(option)("A") { case Seq(aT) => Seq((some, Seq(t.ValDef(value, aT))), (none, Seq())) }),
@@ -790,10 +833,10 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val te = transform(expr)
           val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
           val result = if (isObject(exprType) && !isObject(tpe)) unwrap(te, transform(tpe))
-            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(tpe))
+            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(exprType))
             else te
 
-          t.Assert(check, Some("Cast error"), result)
+          t.Assert(check, Some("Cast error"), result).copiedFrom(e)
 
         case s.AsInstanceOf(expr, tpe) => transform(expr)
 
@@ -806,9 +849,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           } ++ tps.map(encodeType)
 
           unifyTypes(
-            t.FunctionInvocation(id, Seq(), newArgs),
+            t.FunctionInvocation(id, Seq(), newArgs).copiedFrom(e),
             fdScope.transform(fd.returnType),
-            transform(fi.tfd.returnType)
+            transform(inType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) if scope rewrite v.id =>
@@ -825,7 +868,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           unifyTypes(
             t.ApplyLetRec(nvd.toVariable, Seq(), Seq(), newArgs),
             appScope.transform(fun.returnType),
-            transform(app.getType)
+            transform(inType)
           )
 
         case app @ s.ApplyLetRec(v, tparams, tps, args) =>
@@ -850,7 +893,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case e if isObject(e.getType) && !isObject(inType) =>
           unifyTypes(transform(e), transformGetType(e), transform(inType))
 
-        case _ => super.transform(e, inType)
+        case _ =>
+          super.transform(e, inType)
       }
 
       override def transform(e: s.Expr): t.Expr = transform(e, symbols.widen(e.getType))

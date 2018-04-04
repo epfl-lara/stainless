@@ -26,7 +26,7 @@ trait InoxEncoder extends ProgramEncoder {
           case _ => true
         }))
         .map { fd =>
-          if (fd.flags contains Extern) {
+          if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
             val Lambda(Seq(vd), post) = fd.postOrTrue
             encoder.transform(fd.copy(fullBody = fd.precondition match {
               case Some(pre) =>
@@ -34,7 +34,7 @@ trait InoxEncoder extends ProgramEncoder {
 
               case None =>
                 Choose(vd, post)
-            }, flags = fd.flags - Extern))
+            }, flags = fd.flags - Extern - Opaque))
           } else {
             encoder.transform(fd)
           }

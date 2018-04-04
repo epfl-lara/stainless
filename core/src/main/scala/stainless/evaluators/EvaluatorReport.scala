@@ -56,7 +56,7 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
 
   override lazy val annotatedRows = results map {
     case Record(id, pos, status, time) =>
-      RecordRow(id, pos, levelOf(status), descriptionOf(status), time)
+      RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time)
   }
 
   private lazy val totalTime = (results map { _.time }).sum
@@ -71,12 +71,12 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
     case _ => Level.Error
   }
 
-  private def descriptionOf(status: Status): Seq[String] = status match {
-    case BodyFailed(error) => Seq(error, "crashed")
-    case PostFailed(body, error) => Seq(body, error)
-    case PostInvalid(body) => Seq(body, "invalid")
-    case PostHeld(body) => Seq(body, "valid")
-    case NoPost(body) => Seq(body, "")
+  private def descriptionOf(status: Status): String = status match {
+    case BodyFailed(error) => "crashed"
+    case PostFailed(body, error) => "crashed in post"
+    case PostInvalid(body) => "invalid post"
+    case PostHeld(body) => "successful w/ valid post"
+    case NoPost(body) => "successful"
   }
 }
 
