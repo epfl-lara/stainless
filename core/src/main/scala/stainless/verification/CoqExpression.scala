@@ -206,7 +206,7 @@ case object CoqUnknown extends CoqExpression {
 }
 
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = magic(CoqSetType(tpe)).coqString
+  override def coqString = optP(magic(CoqSetType(tpe)))
 }
 
 /*
@@ -239,7 +239,7 @@ case class CoqSetType(base: CoqExpression) extends CoqExpression {
 }
 
 case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = magic(CoqBool).coqString
+  override def coqString = optP(magic(CoqBool))
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
