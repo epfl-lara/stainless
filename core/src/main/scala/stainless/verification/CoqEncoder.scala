@@ -450,7 +450,7 @@ trait CoqEncoder {
   def transformLib(): CoqCommand = {
     header() $
     manyCommands(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq)
+    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq.sorted)
   }
 
   def transform(): CoqCommand = {
@@ -458,7 +458,7 @@ trait CoqEncoder {
     RawCommand("Load verif1.") $
     makeTactic(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq)
+    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq.sorted)
   }
 
   def getTParams(a: Definition) = a match {
