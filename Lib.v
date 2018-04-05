@@ -42,13 +42,14 @@ Definition set_subset {T: Type} (a b: set T): bool :=
 Definition magic (T: Type): T := match unsupported with end.
 Set Default Timeout 60.
 
-Notation "'if' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
+Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
   (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
-Notation "'if' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
+Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
   
 Ltac easy :=
   congruence ||
+  subst ||
   cbn -[Z.add] in * ||
   intuition ||
   omega ||
@@ -171,3 +172,19 @@ Ltac destruct_refinement :=
 Ltac t := (* program_simpl || *) libStep || destruct_ifthenelse || destruct_refinement.
 
 Obligation Tactic := repeat t.
+
+
+Definition bool_and b1 (b2: true = b1 -> bool): bool :=
+  match b1 as B return (B = b1 -> bool) with
+  | true => b2
+  | false => fun _ => false
+  end eq_refl.
+
+Notation "b1 &b b2" := (bool_and b1 (fun _ => b2)) (at level 80, right associativity).
+
+Lemma bool_and_iff: forall b1 b2,
+    (b1 &b b2) = true <-> b1 = true /\ b2 = true.
+  unfold bool_and; repeat libStep.
+Qed.
+
+Hint Rewrite bool_and_iff: libR.
