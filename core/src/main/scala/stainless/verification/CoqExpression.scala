@@ -206,7 +206,7 @@ case object CoqUnknown extends CoqExpression {
 }
 
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = optP(magic(CoqSetType(tpe)))
+  override def coqString = args.map(optP(_) + " :: ").mkString + "nil"
 }
 
 /*
@@ -214,23 +214,19 @@ case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends Co
 *
 **/
 case class CoqSetUnion(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = s"set_union (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
-  //override def coqString = throw new UnimplementedCoqExpression("Union of Sets are not implemented yet.")
+  override def coqString = s"set_union (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetIntersection(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_inter (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
-  //override def coqString = throw new UnimplementedCoqExpression("Intersection of Sets is not implemented yet.")
+  override def coqString = s"set_inter (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetDifference(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_diff (Aeq_dec_all _) ${e1.coqString} ${e2.coqString}"
-
-  //override def coqString = throw new UnimplementedCoqExpression("Difference of Sets is not implemented yet.")
+  override def coqString = s"set_diff (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetSubset(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_subset ${e1.coqString} ${e2.coqString}"
+  override def coqString = s"set_subset ${optP(e1)} ${optP(e2)}"
 
 }
 
@@ -239,7 +235,7 @@ case class CoqSetType(base: CoqExpression) extends CoqExpression {
 }
 
 case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = optP(magic(CoqBool))
+  override def coqString = s"set_mem (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}

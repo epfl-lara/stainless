@@ -32,8 +32,8 @@ trait CoqEncoder {
 
   // ignore flags with an explicit warning
   def ignoreFlags(s: String, flags: Set[Flag]) = {
-    if (!flags.isEmpty)
-      ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
+    //if (!flags.isEmpty)
+      //ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
   }
 
   // transform a Stainless expression into a Coq expression
@@ -429,7 +429,7 @@ trait CoqEncoder {
       }
       f match {
         case Some(fd) => 
-          // println("found first function: " + fd.id)
+          //println("found first function: " + fd.id)
           transformFunction(fd) $ transformFunctionsInOrder(fds.filterNot(_ == fd))
         case None => 
           ctx.reporter.warning(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
@@ -450,7 +450,7 @@ trait CoqEncoder {
   def transformLib(): CoqCommand = {
     header() $
     manyCommands(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq.sorted)
+    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq.sortBy(_.id.name))
   }
 
   def transform(): CoqCommand = {
@@ -458,7 +458,7 @@ trait CoqEncoder {
     RawCommand("Load verif1.") $
     makeTactic(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq)$
     manyCommands(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq.sorted)
+    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq.sortBy(_.id.name))
   }
 
   def getTParams(a: Definition) = a match {
