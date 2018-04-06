@@ -1012,21 +1012,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
 
     case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf =>
-      extractType(tpt) match {
-        case ct: xt.ClassType => xt.AsInstanceOf(extractTree(t), ct)
-        case _ =>
-          // XXX @nv: dotc generates spurious `asInstanceOf` casts for now, se
-          //          we will have to rely on later type checks within Stainless
-          //          to catch issues stemming from casts we ignored here.
-          // outOfSubsetError(tr, "asInstanceOf can only cast to class types")
-          extractTree(t)
-      }
+      xt.AsInstanceOf(extractTree(t), extractType(tpt))
 
     case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_isInstanceOf =>
-      extractType(tpt) match {
-        case ct: xt.ClassType => xt.IsInstanceOf(extractTree(t), ct)
-        case _ => outOfSubsetError(tr, "isInstanceOf can only be used with class types")
-      }
+      xt.IsInstanceOf(extractTree(t), extractType(tpt))
 
     case Match(scrut, cases) =>
       xt.MatchExpr(extractTree(scrut), cases.map(extractMatchCase))
