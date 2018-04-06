@@ -737,7 +737,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             }
 
             case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
-              (subs zip s.unwrapTupleType(up.getGet.returnType, subs.size)) foreach (p => traverse(p._1, p._2))
+              (subs zip up.subTypes(in)) foreach (p => traverse(p._1, p._2))
 
             case s.LiteralPattern(_, lit) if !isSimple(in.getType lub lit.getType) => simple = false
             case _ =>
@@ -932,7 +932,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
           if (rewrite(id)) {
             val rec = if (tps.nonEmpty) Some(tpl(mkSeq(tps map encodeType))) else None
-            val rsubs = (subs zip s.unwrapTupleType(up.getGet.returnType, subs.size)) map (p => transform(p._1, p._2))
+            val rsubs = (subs zip up.subTypes(tpe)) map (p => transform(p._1, p._2))
             t.UnapplyPattern(ob map transform, rec, id, Seq(), rsubs).copiedFrom(pat)
           } else {
             super.transform(pat, tpe)

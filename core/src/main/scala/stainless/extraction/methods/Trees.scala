@@ -6,6 +6,20 @@ package methods
 
 trait Trees extends throwing.Trees { self =>
 
+  override protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr =
+    if (s.lookupFunction(up.id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false }) && up.rec.isDefined) {
+      MethodInvocation(up.rec.get, up.id, up.tps, Seq(scrut))
+    } else {
+      super.unapplyScrut(scrut, up)
+    }
+
+  override protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr =
+    if (s.lookupFunction(id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false })) {
+      MethodInvocation(unapplied, id, Seq(), Seq())
+    } else {
+      super.unapplyAccessor(unapplied, id, up)
+    }
+
   /** $encodingof `this` */
   case class This(ct: ClassType) extends Expr with Terminal {
     def getType(implicit s: Symbols): Type = ct
@@ -31,12 +45,14 @@ trait Trees extends throwing.Trees { self =>
     }
   }
 
+
   type Symbols >: Null <: AbstractSymbols
 
   trait AbstractSymbols
     extends super.AbstractSymbols
        with TypeOps { self0: Symbols =>
   }
+
 
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 

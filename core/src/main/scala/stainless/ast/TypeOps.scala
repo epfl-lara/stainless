@@ -8,7 +8,7 @@ trait TypeOps extends inox.ast.TypeOps {
   import trees._
   import symbols._
 
-  protected def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
+  def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
     lookupFunction(id)
       .filter(_.params.size == 1)
       .flatMap { fd =>
@@ -59,7 +59,7 @@ trait TypeOps extends inox.ast.TypeOps {
         }) && unapp.flags
           .collectFirst { case IsUnapply(isEmpty, get) => (isEmpty, get) }
           .exists { case (isEmpty, get) =>
-            unapplyAccessorResultType(isEmpty, unapp.returnType).exists(_ == BooleanType()) &&
+            unapplyAccessorResultType(isEmpty, unapp.returnType).exists(isSubtypeOf(_, BooleanType())) &&
             unapplyAccessorResultType(get, unapp.returnType).exists {
               case TupleType(tps) =>
                 tps.size == subs.size &&
