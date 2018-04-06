@@ -832,10 +832,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val exprType = expr.getType
           val te = transform(expr)
           val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
-          val result = if (isObject(exprType) && !isObject(tpe)) unwrap(te, transform(tpe))
-            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(exprType))
-            else te
-
+          val result = unifyTypes(te, transform(exprType), transform(tpe))
           t.Assert(check, Some("Cast error"), result).copiedFrom(e)
 
         case s.AsInstanceOf(expr, tpe) => transform(expr)
