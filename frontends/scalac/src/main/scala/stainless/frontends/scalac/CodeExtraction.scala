@@ -1021,6 +1021,12 @@ trait CodeExtraction extends ASTExtractors {
       xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case c @ ExCall(rec, sym, tps, args) => rec match {
+      // Case object local values are treated differently by scalac for some reason
+      // so we need a special extractor here.
+      case None if sym.owner.isModuleClass && sym.owner.isCase && tps.isEmpty && args.isEmpty =>
+        val ct = extractType(sym.owner.tpe)(dctx, c.pos).asInstanceOf[xt.ClassType]
+        xt.MethodInvocation(xt.This(ct).setPos(c.pos), getIdentifier(sym), Seq(), Seq())
+
       case None =>
         dctx.localFuns.get(sym) match {
           case None =>
