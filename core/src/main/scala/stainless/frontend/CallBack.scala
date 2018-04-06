@@ -11,6 +11,7 @@ import extraction.xlang.{ trees => xt }
  * Frontends are required to follow this workflow (== one cycle):
  *  - when starting extracting compilation unit, [[beginExtractions]] should be called once;
  *  - the [[CallBack.apply]] method after extracting each compilation unit (i.e. a Scala file);
+ *  - the [[CallBack.failed]] method if the compilation unit extraction failed (or it contained errors);
  *  - finally, the frontend calls [[endExtractions]] to let the CallBack know all the data
  *    should be available by now.
  *
@@ -27,6 +28,7 @@ import extraction.xlang.{ trees => xt }
 trait CallBack {
   def beginExtractions(): Unit
   def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
+  def failed(): Unit
   def endExtractions(): Unit
 
   def stop(): Unit // Blocking "stop".

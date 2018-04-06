@@ -20,6 +20,10 @@ final class MasterCallBack(val callbacks: Seq[CallBack]) {
     callbacks foreach { c => c(file, unit, classes, functions) }
   }
 
+  def failed(): Unit = {
+    callbacks foreach { c => c.failed() }
+  }
+
   def endExtractions(): Unit = callbacks foreach { _.endExtractions() }
 
   def stop(): Unit = callbacks foreach { _.stop() }

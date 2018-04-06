@@ -14,7 +14,7 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
   private implicit val debugSection = DebugSectionFrontend
 
   private var thread: Thread = _
-  private var exception: Throwable = _
+  private val exceptions = new scala.collection.mutable.ListBuffer[Throwable]
 
   protected def initRun(): Unit // Called when initializing the thread (before callback initialisation).
   protected def onRun(): Unit // Called when the thread is running (after callback initialisation).
@@ -31,7 +31,8 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
         onRun()
       } catch {
         case e: Throwable =>
-          ctx.reporter.error(s"Exception thrown during compilation: ${e.getMessage}")
+          ctx.reporter.debug(s"Exception thrown during compilation: ${e.getMessage}")
+          callback.failed()
           throw e
       } finally {
         callback.endExtractions()
@@ -41,7 +42,9 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
 
     thread = new Thread(runnable, "stainless frontend")
     thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-      override def uncaughtException(t: Thread, e: Throwable): Unit = exception = e
+      override def uncaughtException(t: Thread, e: Throwable): Unit = {
+        ThreadedFrontend.this.synchronized(exceptions += e)
+      }
     })
 
     thread.start()
@@ -61,11 +64,13 @@ abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) ext
     rethrow()
   }
 
-  private def rethrow(): Unit = if (exception != null) {
-    val e = exception
-    exception = null
-    ctx.reporter.debug(s"Rethrowing exception emitted from within the compiler: ${e.getMessage}")
-    throw e
+  private def rethrow(): Unit = for (ex <- exceptions) ex match {
+    case UnsupportedCodeException(pos, msg) =>
+      ctx.reporter.error(pos, msg)
+    case _ =>
+      ctx.reporter.debug(s"Rethrowing exception emitted from within the compiler: ${ex.getMessage}")
+      exceptions.clear()
+      throw ex
   }
 }
 

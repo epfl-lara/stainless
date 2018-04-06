@@ -81,11 +81,32 @@ trait Registry {
     } else updateImpl(classes, functions)
   }
 
+  private[this] var hasFailed: Boolean = false
+
+  /**
+   * Mark this compilation run as containing a failure.
+   *
+   * This is useful for open class hierarchies that cannot be soundly verified if
+   * some compilation unit contained a failure. This property won't show up in the
+   * dependency graph so we explicitly track such problematic states.
+   */
+  final def failed(): Unit = synchronized(hasFailed = true)
+
   /**
    * To be called once every compilation unit were extracted.
    */
   final def checkpoint(): Option[xt.Symbols] = synchronized {
-    if (hasPersistentCache) {
+    if (hasFailed) {
+      deferredClasses.clear()
+      deferredFunctions.clear()
+      deferredNodes.clear()
+      recentClasses.clear()
+      recentFunctions.clear()
+      knownOpenClasses.clear()
+      deferredMethods.clear()
+      hasFailed = false
+      None
+    } else if (hasPersistentCache) {
       val res = process(deferredClasses, deferredFunctions)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
       deferredClasses.clear()
