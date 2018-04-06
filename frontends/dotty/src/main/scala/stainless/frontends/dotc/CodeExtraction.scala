@@ -869,6 +869,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExBigIntLiteral(Literal(cnst)) =>
       xt.IntegerLiteral(BigInt(cnst.stringValue))
 
+    case ExBigIntLiteral(_) => outOfSubsetError(tr, "Only literal arguments are allowed for BigInt.")
+
     case Apply(ExSymbol("scala", "math", "BigInt$", "int2bigInt"), Seq(t)) => extractTree(t) match {
       case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
       case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
