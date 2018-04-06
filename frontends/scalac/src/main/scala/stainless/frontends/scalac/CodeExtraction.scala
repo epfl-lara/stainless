@@ -860,6 +860,10 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExTyped(e, _) => extractTree(e)
 
+    // References to parameterless case objects will have the form of an `Ident`
+    case ex @ ExIdentifier(sym, tpt) if sym.isModule && sym.isCase =>
+      xt.ClassConstructor(extractType(tpt).asInstanceOf[xt.ClassType], Seq())
+
     case ex @ ExIdentifier(sym, tpt) =>
       dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
         case Some(builder) => builder().setPos(ex.pos)
