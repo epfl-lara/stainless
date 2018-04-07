@@ -24,9 +24,8 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
   test("Catch unsupported expressions") {
     for (u <- unsupported) {
       val ctx = stainless.TestContext.empty
-      assertThrows[frontend.UnsupportedCodeException] {
-        load(ctx, Seq(u))
-      }
+      load(ctx, Seq(u))
+      assert(ctx.reporter.errorCount > 0)
     }
   }
 
