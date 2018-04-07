@@ -1,3 +1,8 @@
+/**
+ * NOTE: This test won't run with the current stainless configuration
+ *       as the proofs in the function bodies will be simplified away!
+ */
+
 import stainless.lang._
 import stainless.annotation._
 
