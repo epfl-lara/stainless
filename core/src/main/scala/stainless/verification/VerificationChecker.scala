@@ -104,8 +104,13 @@ trait VerificationChecker { self =>
       }
 
       val (time, tryRes) = timers.verification.runAndGetTime {
-        s.assertCnstr(Not(cond))
-        s.check(Model)
+        if (vc.satisfiability) {
+          s.assertCnstr(cond)
+          s.check(Simple)
+        } else {
+          s.assertCnstr(Not(cond))
+          s.check(Model)
+        }
       }
 
       val vcres = tryRes match {
@@ -122,11 +127,17 @@ trait VerificationChecker { self =>
               case _ => VCStatus.Unknown
             }, Some(s), Some(time))
 
-          case Unsat =>
+          case Unsat if !vc.satisfiability =>
             VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
 
-          case SatWithModel(model) =>
-            VCResult(VCStatus.Invalid(model), s.getResultSolver, Some(time))
+          case SatWithModel(model) if !vc.satisfiability =>
+            VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver, Some(time))
+
+          case Sat if vc.satisfiability =>
+            VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+
+          case Unsat if vc.satisfiability =>
+            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver, Some(time))
         }
 
         case Failure(u: Unsupported) =>
@@ -143,10 +154,16 @@ trait VerificationChecker { self =>
           case VCStatus.Valid =>
             reporter.info(" => VALID")
 
-          case VCStatus.Invalid(cex) =>
+          case VCStatus.Invalid(reason) =>
             reporter.warning(" => INVALID")
-            reporter.warning("Found counter-example:")
-            reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+            reason match {
+              case VCStatus.CounterExample(cex) =>
+                reporter.warning("Found counter-example:")
+                reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+
+              case VCStatus.Unsatisfiable =>
+                reporter.warning("Property wasn't satisfiable")
+            }
 
           case status =>
             reporter.warning(" => " + status.name.toUpperCase)

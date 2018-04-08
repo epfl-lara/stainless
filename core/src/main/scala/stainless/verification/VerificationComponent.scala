@@ -43,8 +43,8 @@ object VerificationComponent extends SimpleComponent {
     val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
 
     val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
-      case VCResult(VCStatus.Invalid(model), s, t) =>
-        VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+      case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
+        VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
     })
 

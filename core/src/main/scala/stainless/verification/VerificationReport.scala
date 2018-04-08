@@ -26,16 +26,14 @@ object VerificationReport {
   }
 
   object Status {
-    type VariableName = String
-    type Value = String
-
     case object Valid extends Status("valid")
     case object ValidFromCache extends Status("valid from cache")
     case class Inconclusive(reason: String) extends Status(reason)
-    case class Invalid(counterexample: Map[VariableName, Value]) extends Status("invalid")
+    case class Invalid(reason: String) extends Status("invalid")
 
     def apply[Model <: StainlessProgram#Model](status: VCStatus[Model]): Status = status match {
-      case VCStatus.Invalid(model) => Invalid(model.vars map { case (vd, e) => vd.id.name -> e.toString })
+      case VCStatus.Invalid(VCStatus.CounterExample(model)) => Invalid("counter-example: " + model.asString)
+      case VCStatus.Invalid(VCStatus.Unsatisfiable) => Invalid("unsatisfiable")
       case VCStatus.Valid => Valid
       case VCStatus.ValidFromCache => ValidFromCache
       case inconclusive => Inconclusive(inconclusive.name)

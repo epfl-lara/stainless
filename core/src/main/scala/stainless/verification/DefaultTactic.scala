@@ -41,7 +41,7 @@ trait DefaultTactic extends Tactic {
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
         getPostconditions(body, post).map { vc =>
-          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, VCKind.Postcondition).setPos(fd)
+          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, VCKind.Postcondition, false).setPos(fd)
         }
       case _ => Nil
     }
@@ -58,68 +58,56 @@ trait DefaultTactic extends Tactic {
       val pre = fi.tfd.withParamSubst(args, fi.tfd.precondition.get)
       val vc = path implies exprOps.freshenLocals(pre)
       val fiS = sizeLimit(fi.asString, 40)
-      VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS")).setPos(fi)
+      VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
     }
   }
 
   def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
-
-    def eToVCKind(e: Expr) = e match {
-      case _ : MatchExpr =>
-        VCKind.ExhaustiveMatch
-
-      case Assert(_, Some(err), _) =>
-        if (err.startsWith("Array ")) {
-          VCKind.ArrayUsage
-        } else if (err.startsWith("Map ")) {
-          VCKind.MapUsage
-        } else if (err.endsWith("Overflow")) {
-          VCKind.Overflow
-        } else if (err.startsWith("Shift")) {
-          VCKind.Shift
-        } else if (err.startsWith("Division ")) {
-          VCKind.DivisionByZero
-        } else if (err.startsWith("Modulo ")) {
-          VCKind.ModuloByZero
-        } else if (err.startsWith("Remainder ")) {
-          VCKind.RemainderByZero
-        } else if (err.startsWith("Cast ")) {
-          VCKind.CastError
-        } else {
-          VCKind.AssertErr(err)
-        }
-
-      case _: Choose =>
-        VCKind.Choose
-
-      case _: ADT =>
-        VCKind.AdtInvariant
-
-      case _ =>
-        VCKind.Assert
-    }
-
     // We don't collect preconditions here, because these are handled by generatePreconditions
-    val calls = collectForConditions {
+    val bodyVCs = collectForConditions {
       case (m @ MatchExpr(scrut, cases), path) =>
-        (m, path implies orJoin(cases map (matchCaseCondition[Path](scrut, _).toClause)))
+        val condition = path implies orJoin(cases map (matchCaseCondition[Path](scrut, _).toClause))
+        VC(condition, id, VCKind.ExhaustiveMatch, false).setPos(m)
 
       case (e @ Error(_, _), path) =>
-        (e, Not(path.toClause))
+        val condition = Not(path.toClause)
+        VC(condition, id, VCKind.Assert, false).setPos(e)
 
-      case (a @ Assert(cond, _, _), path) =>
-        (a, path implies cond)
+      case (a @ Assert(cond, optErr, _), path) =>
+        val condition = path implies cond
+        val kind = optErr.map { err =>
+          if (err.startsWith("Array ")) VCKind.ArrayUsage
+          else if (err.startsWith("Map ")) VCKind.MapUsage
+          else if (err.endsWith("Overflow")) VCKind.Overflow
+          else if (err.startsWith("Shift")) VCKind.Shift
+          else if (err.startsWith("Division ")) VCKind.DivisionByZero
+          else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
+          else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
+          else if (err.startsWith("Cast ")) VCKind.CastError
+          else VCKind.AssertErr(err)
+        }.getOrElse(VCKind.Assert)
+        VC(condition, id, kind, false).setPos(a)
 
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
-        (c, path implies Not(Forall(Seq(res), Not(pred))))
+        if (path.conditions.isEmpty && exprOps.variablesOf(c).isEmpty) {
+          VC(pred, id, VCKind.Info(VCKind.Choose, "check-sat"), true).setPos(c)
+        } else {
+          val condition = path implies Not(Forall(Seq(res), Not(pred)))
+          VC(condition, id, VCKind.Choose, false).setPos(c)
+        }
 
-      case (a @ ADT(id, tps, args), path) if a.getConstructor.sort.hasInvariant =>
-        (a, path implies FunctionInvocation(a.getConstructor.sort.invariant.get.id, tps, Seq(a)))
+      case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
+        val condition = path implies FunctionInvocation(a.getConstructor.sort.invariant.get.id, tps, Seq(a))
+        VC(condition, id, VCKind.AdtInvariant, false).setPos(a)
     }(getFunction(id).fullBody)
 
-    calls.map { case (e, correctnessCond) =>
-      VC(correctnessCond, id, eToVCKind(e)).setPos(e)
+    val invariantSat = sorts.values.find(_.invariant.exists(_.id == id)).map { sort =>
+      val v = Variable.fresh("s", ADTType(sort.id, sort.typeArgs))
+      val condition = FunctionInvocation(id, sort.typeArgs, Seq(v))
+      VC(condition, id, VCKind.InvariantSat, true).setPos(sort)
     }
+
+    bodyVCs ++ invariantSat
   }
 }
 
