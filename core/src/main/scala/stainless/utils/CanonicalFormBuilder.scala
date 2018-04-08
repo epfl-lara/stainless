@@ -29,10 +29,7 @@ class CanonicalForm(val bytes: Array[Byte]) {
 
   override def equals(other: Any): Boolean = other match {
     // Because cf.bytes == bytes doesn't work, obviously.
-    case cf: CanonicalForm =>
-      (bytes.length == cf.bytes.length) &&
-      ((bytes zip cf.bytes) forall { p => p._1 == p._2 })
-
+    case cf: CanonicalForm => java.util.Arrays.equals(bytes, cf.bytes)
     case _ => false
   }
 }
