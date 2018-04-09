@@ -341,6 +341,17 @@ trait CoqEncoder {
   }
 
 
+  def getArgParams(args : Seq[(CoqIdentifier, (CoqIdentifier, CoqExpression))], argParams: Seq[Seq[(CoqIdentifier, CoqExpression)]]):Seq[Seq[(CoqIdentifier, CoqExpression)]] = {
+    if (args.isEmpty)
+      argParams
+    else {
+      val hd = args.head
+      val lst = if (argParams.isEmpty) Seq() else argParams.last
+      val temp = lst :+ (hd._2._1, CoqApplication(hd._1, lst map {case (name, expr) => name}))
+      getArgParams(args.tail, argParams :+ temp)
+    }
+
+  }
 
   // transform function definitions
   def transformFunction(fd: st.FunDef): CoqCommand = {
@@ -367,9 +378,19 @@ trait CoqEncoder {
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
-        val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
-        FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
+        val funName = makeFresh(fd.id)
+        val argNames = allParams map {case (arg,ty) => makeFresh(arg.coqString + "_" + funName.coqString)}
+        val argParams = getArgParams(argNames zip allParams, Seq(Seq()))
+        val argdefs = argNames zip argParams zip allParams.map {case (arg,ty) => ty} map {case (header, body) =>
+          NormalDefinition(header._1, header._2, typeSort, body)
+        }
+        //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
+
+
+        //val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
+        //FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
+        //RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
+        manyCommands(argdefs)
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
           RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
@@ -494,7 +515,14 @@ object CoqEncoder {
     count = count.updated(freshIdName, i +1)
     CoqIdentifier(FreshIdentifier(freshName))
   }
-  
+
+  def makeFresh(name: String): CoqIdentifier = {
+    val i = count.getOrElse(name,0)
+    val freshName = if (i == 0) name else name + i
+    count = count.updated(name, i +1)
+    CoqIdentifier(FreshIdentifier(freshName))
+  }
+
 
   def deriveContradiction = RawExpression("""let contradiction: False := _ in match contradiction with end""")
 
