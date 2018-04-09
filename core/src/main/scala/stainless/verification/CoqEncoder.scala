@@ -340,19 +340,6 @@ trait CoqEncoder {
       ctx.reporter.fatalError(s"The translation to Coq does not support $a as a constructor.")
   }
 
-
-  def getArgParams(args : Seq[(CoqIdentifier, (CoqIdentifier, CoqExpression))], argParams: Seq[Seq[(CoqIdentifier, CoqExpression)]]):Seq[Seq[(CoqIdentifier, CoqExpression)]] = {
-    if (args.isEmpty)
-      argParams
-    else {
-      val hd = args.head
-      val lst = if (argParams.isEmpty) Seq() else argParams.last
-      val temp = lst :+ (hd._2._1, CoqApplication(hd._1, lst map {case (name, expr) => name}))
-      getArgParams(args.tail, argParams :+ temp)
-    }
-
-  }
-
   // transform function definitions
   def transformFunction(fd: st.FunDef): CoqCommand = {
     ignoreFlags(fd.toString, fd.flags)
@@ -379,18 +366,35 @@ trait CoqEncoder {
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
         val funName = makeFresh(fd.id)
-        val argNames = allParams map {case (arg,ty) => makeFresh(arg.coqString + "_" + funName.coqString)}
-        val argParams = getArgParams(argNames zip allParams, Seq(Seq()))
-        val argdefs = argNames zip argParams zip allParams.map {case (arg,ty) => ty} map {case (header, body) =>
-          NormalDefinition(header._1, header._2, typeSort, body)
+        val returnTypeName = makeFresh(funName.coqString  +"_rt")
+        val allParams2 = allParams :+ (returnTypeName, returnType)
+        val allParamsMap = allParams2.toMap
+        val argTypes: Map[CoqIdentifier, CoqIdentifier] =
+          allParamsMap map { case (arg,ty) => (arg, makeFresh(arg.coqString + "_type"))}
+        // scan left to collect heads...
+
+        val allParamNames: Seq[CoqIdentifier] = allParams2 map (_._1)
+        val previousParams: Map[CoqIdentifier, Seq[CoqIdentifier]] =
+          allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a} toMap
+
+        val fullType: Map[CoqIdentifier, CoqExpression] =
+          allParamNames map {x => (x, argTypes(x)(previousParams(x):_*))} toMap
+
+        val argDefs: Seq[CoqCommand] = allParams2 map { case (x, body) =>
+          NormalDefinition(argTypes(x), previousParams(x) map(y => (y, fullType(y))), typeSort, body)
         }
+
         //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
 
 
         //val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
         //FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
         //RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
-        manyCommands(argdefs)
+        manyCommands(argDefs) $
+        CoqEquation(funName,
+                    allParams.map {case(x, _) => (x, fullType(x)) } ,
+                    fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body))) $
+        RawCommand("Solve Obligations with (repeat t).")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
           RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
