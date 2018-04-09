@@ -57,6 +57,6 @@ class InliningSuite extends FunSuite with InputUtils {
   test("Precondition of inlined functions should be checked") {
     val fun2 = program.lookup[FunDef]("Test.fun2")
     val vcs = VerificationGenerator.gen(program, ctx)(Seq(fun2.id))
-    assert(vcs.size == 3)
+    assert(vcs.size == 4)
   }
 }

@@ -44,6 +44,9 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
               t.Let(r, transform(rhs),
                 recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
 
+          // Cleanup leftover `old` nodes if they were used on a reference which is not actually mutated.
+          case s.Old(e) => transform(e)
+
           case _ => super.transform(expr)
         }
 

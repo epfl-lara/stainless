@@ -157,35 +157,43 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     val subPatterns = Seq()
   }
 
+  protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr = {
+    FunctionInvocation(up.id, up.tps, up.rec.toSeq :+ scrut)
+  }
+
+  protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr = {
+    val fd = s.lookupFunction(id)
+      .filter(_.params.size == 1)
+      .getOrElse(throw extraction.MissformedStainlessCode(up, "Invalid unapply accessor"))
+    val unapp = up.getFunction
+    val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
+      .getOrElse(throw extraction.MissformedStainlessCode(up, "Unapply pattern failed type instantiation"))
+    fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
+  }
+
   /** A custom pattern defined through an object's `unapply` function */
   sealed case class UnapplyPattern(binder: Option[ValDef], rec: Option[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
     def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
-    private def getAccessor(id: Identifier)(implicit s: Symbols): TypedFunDef = {
-      val fd = s.lookupFunction(id)
-        .filter(_.params.size == 1)
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Invalid unapply accessor"))
-      val unapp = getFunction
-      val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern failed type instantiation"))
-      fd.typed(fd.typeArgs map tpMap)
-    }
+    private def getIsEmpty(implicit s: Symbols): Identifier =
+      getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
+        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
 
-    def getIsEmpty(implicit s: Symbols): TypedFunDef = {
-      getAccessor(getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)")))
-    }
+    private def getGet(implicit s: Symbols): Identifier =
+      getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
+        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
 
-    def getGet(implicit s: Symbols): TypedFunDef = {
-      getAccessor(getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)")))
-    }
+    def isEmptyUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getIsEmpty, this).copiedFrom(this)
+    def getUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getGet, this).copiedFrom(this)
 
     def isEmpty(scrut: Expr)(implicit s: Symbols): Expr =
-      getIsEmpty.applied(Seq(FunctionInvocation(id, tps, rec.toSeq :+ scrut).copiedFrom(this)))
+      isEmptyUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
     def get(scrut: Expr)(implicit s: Symbols): Expr =
-      getGet.applied(Seq(FunctionInvocation(id, tps, rec.toSeq :+ scrut).copiedFrom(this)))
+      getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
+
+    def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
+      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
   }
 
 

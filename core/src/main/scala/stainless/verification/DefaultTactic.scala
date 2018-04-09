@@ -11,14 +11,39 @@ trait DefaultTactic extends Tactic {
   import program.trees._
   import program.symbols._
 
+  protected def getPostconditions(e: Expr, lambda: Lambda): Seq[Expr] = {
+    def rec(e: Expr, path: Path): Seq[Expr] = e match {
+      case Let(i, e, b) => rec(b, path withBinding (i -> e))
+      case Assert(cond, _, body) => rec(body, path withCond cond)
+      case IfExpr(c, t, e) => rec(t, path withCond c) ++ rec(e, path withCond not(c))
+      case MatchExpr(s, cases) =>
+        var soFar = path
+        (for (MatchCase(pattern, guard, rhs) <- cases) yield {
+          val guardOrTrue = guard.getOrElse(BooleanLiteral(true))
+
+          val patternPath = conditionForPattern[Path](s, pattern, includeBinders = true)
+          val vcs = rec(rhs, soFar merge (patternPath withCond guardOrTrue))
+
+          val patternPathNeg = conditionForPattern[Path](s, pattern, includeBinders = false)
+          val guardMapped = exprOps.replaceFromSymbols(mapForPattern(s, pattern), guardOrTrue)
+          soFar = soFar merge (patternPathNeg withCond guardMapped).negate
+          vcs
+        }).flatten
+
+      case _ => Seq((path implies application(lambda, Seq(e))).setPos(e))
+    }
+
+    rec(e, Path.empty)
+  }
+
   def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
       case (Some(post), Some(body)) =>
-        val vc = exprOps.freshenLocals(implies(fd.precOrTrue, application(post, Seq(body))))
-        Seq(VC(vc, id, VCKind.Postcondition).setPos(post))
-      case _ =>
-        Nil
+        getPostconditions(body, post).map { vc =>
+          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, VCKind.Postcondition).setPos(fd)
+        }
+      case _ => Nil
     }
   }
 

@@ -1,6 +1,6 @@
 # Stainless
 /bin/stainless-*
-cache/
+.stainless-cache/
 
 # Vim
 *.swp

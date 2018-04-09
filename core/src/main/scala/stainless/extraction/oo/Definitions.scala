@@ -132,11 +132,6 @@ trait Definitions extends imperative.Trees { self: Trees =>
     def getClass(id: Identifier): ClassDef = lookupClass(id).getOrElse(throw ClassLookupException(id))
     def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef = lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
 
-    // TODO(nv): remove this and fix the conditionForPattern in oo.SymbolOps
-    override protected def ensureWellFormedFunction(fd: FunDef) = {
-      typeCheck(fd.fullBody, fd.returnType)
-    }
-
     override def asString(implicit opts: PrinterOptions): String = {
       classes.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
         "\n\n-----------\n\n" +

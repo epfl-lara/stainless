@@ -39,9 +39,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     def getPrecondition(tfd: TypedFunDef): Option[Expr] =
       preCache.getOrElseUpdate(tfd, exprOps.preconditionOf(tfd.fullBody))
 
-    private[this] val postCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
-    @inline def getPostcondition(fd: FunDef): Option[Expr] = getPostcondition(fd.typed)
-    def getPostcondition(tfd: TypedFunDef): Option[Expr] =
+    private[this] val postCache: MutableMap[TypedFunDef, Option[Lambda]] = MutableMap.empty
+    @inline def getPostcondition(fd: FunDef): Option[Lambda] = getPostcondition(fd.typed)
+    def getPostcondition(tfd: TypedFunDef): Option[Lambda] =
       postCache.getOrElseUpdate(tfd, exprOps.postconditionOf(tfd.fullBody))
 
     protected class Lookup {
@@ -75,7 +75,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
 
-    @inline def postcondition(implicit s: Symbols): Option[Expr] = s.getPostcondition(fd)
+    @inline def postcondition(implicit s: Symbols): Option[Lambda] = s.getPostcondition(fd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
     @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), fd.returnType)), BooleanLiteral(true))
@@ -103,7 +103,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
     @inline def body: Option[Expr] = tfd.symbols.getBody(tfd)
 
-    @inline def postcondition: Option[Expr] = tfd.symbols.getPostcondition(tfd)
+    @inline def postcondition: Option[Lambda] = tfd.symbols.getPostcondition(tfd)
     @inline def hasPostcondition: Boolean = postcondition.isDefined
     @inline def postOrTrue: Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), tfd.returnType)), BooleanLiteral(true))

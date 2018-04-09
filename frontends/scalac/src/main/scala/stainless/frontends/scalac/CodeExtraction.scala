@@ -860,6 +860,10 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExTyped(e, _) => extractTree(e)
 
+    // References to parameterless case objects will have the form of an `Ident`
+    case ex @ ExIdentifier(sym, tpt) if sym.isModule && sym.isCase =>
+      xt.ClassConstructor(extractType(tpt).asInstanceOf[xt.ClassType], Seq())
+
     case ex @ ExIdentifier(sym, tpt) =>
       dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
         case Some(builder) => builder().setPos(ex.pos)
@@ -1021,6 +1025,12 @@ trait CodeExtraction extends ASTExtractors {
       xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case c @ ExCall(rec, sym, tps, args) => rec match {
+      // Case object local values are treated differently by scalac for some reason
+      // so we need a special extractor here.
+      case None if sym.owner.isModuleClass && sym.owner.isCase && tps.isEmpty && args.isEmpty =>
+        val ct = extractType(sym.owner.tpe)(dctx, c.pos).asInstanceOf[xt.ClassType]
+        xt.MethodInvocation(xt.This(ct).setPos(c.pos), getIdentifier(sym), Seq(), Seq())
+
       case None =>
         dctx.localFuns.get(sym) match {
           case None =>

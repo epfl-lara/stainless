@@ -737,7 +737,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             }
 
             case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
-              (subs zip s.unwrapTupleType(up.getGet.returnType, subs.size)) foreach (p => traverse(p._1, p._2))
+              (subs zip up.subTypes(in)) foreach (p => traverse(p._1, p._2))
 
             case s.LiteralPattern(_, lit) if !isSimple(in.getType lub lit.getType) => simple = false
             case _ =>
@@ -832,10 +832,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           val exprType = expr.getType
           val te = transform(expr)
           val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
-          val result = if (isObject(exprType) && !isObject(tpe)) unwrap(te, transform(tpe))
-            else if (!isObject(exprType) && isObject(tpe)) wrap(te, transform(exprType))
-            else te
-
+          val result = unifyTypes(te, transform(exprType), transform(tpe))
           t.Assert(check, Some("Cast error"), result).copiedFrom(e)
 
         case s.AsInstanceOf(expr, tpe) => transform(expr)
@@ -935,7 +932,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
           if (rewrite(id)) {
             val rec = if (tps.nonEmpty) Some(tpl(mkSeq(tps map encodeType))) else None
-            val rsubs = (subs zip s.unwrapTupleType(up.getGet.returnType, subs.size)) map (p => transform(p._1, p._2))
+            val rsubs = (subs zip up.subTypes(tpe)) map (p => transform(p._1, p._2))
             t.UnapplyPattern(ob map transform, rec, id, Seq(), rsubs).copiedFrom(pat)
           } else {
             super.transform(pat, tpe)

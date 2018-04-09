@@ -44,6 +44,8 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     processSymbols(symss)
   }
 
+  final override def failed(): Unit = registry.failed()
+
   final override def endExtractions(): Unit = {
     val symss = registry.checkpoint()
     processSymbols(symss)

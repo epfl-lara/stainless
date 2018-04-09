@@ -9,7 +9,7 @@ trait TypeOps extends oo.TypeOps { self =>
   import trees._
   import symbols._
 
-  override protected def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
+  override def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
     lookupFunction(id)
       .filter(_.flags exists { case IsMethodOf(_) => true case _ => false })
       .filter(_.params.isEmpty)
