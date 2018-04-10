@@ -117,20 +117,18 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         case _ => ()
       }
 
-      val newFd = fd.copy(returnType = effects.getReturnType(fd))
-
       val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
 
-      if (aliasedParams.isEmpty) {
+      val (newFd, newBody) = if (aliasedParams.isEmpty) {
         val newBody = body.map(makeSideEffectsExplicit(_, fd, env))
-        val newFullBody = exprOps.reconstructSpecs(specs, newBody, newFd.returnType)
-        if (!newFullBody.getPos.isDefined) newFullBody.setPos(newFd)
-        newFd.copy(fullBody = newFullBody)
+        (fd, newBody)
       } else {
-        val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
-        val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
+        val newFd = fd.copy(returnType = effects.getReturnType(fd))
 
-        val newBody = body.map { body =>
+        val newBody = body map { body =>
+          val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
+          val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
+
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
           val explicitBody = makeSideEffectsExplicit(freshBody, fd, env withBindings freshLocals)
 
@@ -143,24 +141,35 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
           }
         }
 
-        val newSpecs = specs.map {
-          case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
-            val newRes = ValDef(res.id.freshen, newFd.returnType).copiedFrom(res)
-            val newBody = exprOps.replaceSingle(
-              aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
-              aliasedParams.zipWithIndex.map { case (vd, i) =>
-                (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
-              }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
-              postBody
-            )
-
-            exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
-
-          case spec => spec
-        }
-
-        newFd.copy(fullBody = exprOps.reconstructSpecs(newSpecs, newBody, newFd.returnType))
+        (newFd, newBody)
       }
+
+      val newSpecs = specs map {
+        case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
+          val explicitBody = makeSideEffectsExplicit(postBody, fd, env)
+          val (newRes, resSubst) = if (aliasedParams.isEmpty) {
+            (res, Map.empty[Expr, Expr])
+          } else {
+            val newRes = ValDef(res.id.freshen, newFd.returnType, Seq.empty).copiedFrom(res)
+            val resSubst = Map[Expr, Expr](res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res))
+            (newRes, resSubst)
+          }
+
+          val newBody = exprOps.replaceSingle(
+            aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
+            aliasedParams.zipWithIndex.map { case (vd, i) =>
+              (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
+            }.toMap ++ resSubst,
+            explicitBody
+          )
+
+          exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
+
+        case spec => spec
+      }
+
+      val newFullBody = exprOps.reconstructSpecs(newSpecs, newBody, newFd.returnType).setPos(newFd)
+      newFd.copy(fullBody = newFullBody)
     }
 
     //We turn all local val of mutable objects into vars and explicit side effects
