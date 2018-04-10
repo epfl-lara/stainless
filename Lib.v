@@ -7,6 +7,7 @@ Require Import Coq.Bool.Bool.
 Require Import Coq.Strings.String.
 Require Import Omega.
 Require Import ZArith.
+Require Equations.Equations.
 
 Open Scope bool_scope.
 Open Scope Z_scope.
