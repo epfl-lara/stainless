@@ -10,12 +10,6 @@ import java.io.OutputStream
 import scala.reflect._
 import scala.reflect.runtime.universe._
 
-trait Serializer {
-  val trees: ast.Trees
-
-  protected def serialize(obj: Any, out: OutputStream): Unit
-}
-
 class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Boolean = false)
   extends InoxSerializer(trees, serializeProducts) {
   import trees._

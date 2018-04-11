@@ -13,7 +13,10 @@ import java.io.FileOutputStream
 import scala.collection.concurrent.TrieMap
 import scala.util.{ Success, Failure }
 
+import inox.utils.Serialization
 import inox.solvers.SolverFactory
+
+import scala.language.existentials
 
 object DebugSectionCacheHit extends inox.DebugSection("cachehit")
 object DebugSectionCacheMiss extends inox.DebugSection("cachemiss")
@@ -45,11 +48,20 @@ trait VerificationCache extends VerificationChecker { self =>
     //      and both added to the cache. Assuming the VC result is always the same, the
     //      second result will override the first one in the cache without creating bugs.
     //      The cache file will also contain twice the same information, but it is expected
-    //      that the even is rare enough and therefore will not result in huge cache files.
+    //      that the event is rare enough and therefore will not result in huge cache files.
 
     val (time, tryResult) = timers.verification.cache.runAndGetTime {
-      val canonic = transformers.Canonization.canonize(program)(vc)
-      if (contains(canonic)) {
+      val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
+        transformers.Canonization(program)(program.symbols, vc.condition)
+      val serializer = utils.Serializer(program.trees)
+
+      val outputStream = new java.io.ByteArrayOutputStream
+      outputStream.write(if (vc.satisfiability) 1 else 0)
+      serializer.serialize(canonicalSymbols, outputStream)
+      serializer.serialize(canonicalExpr, outputStream)
+      val serialization = new Serialization(outputStream.toByteArray)
+
+      if (vccache contains serialization) {
         reporter.synchronized {
           reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
           reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
@@ -60,16 +72,26 @@ trait VerificationCache extends VerificationChecker { self =>
       } else {
         reporter.synchronized {
           reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-          reporter.debug("Cache miss for VC")(DebugSectionCacheMiss)
-          reporter.debug(vc.condition)(DebugSectionCacheMiss)
-          reporter.debug("Canonical form:")(DebugSectionCacheMiss)
-          reporter.debug(serialize(canonic))(DebugSectionCacheMiss)
-          reporter.debug("--------------")(DebugSectionCacheMiss)
+          reporter.ifDebug { debug =>
+            implicit val debugSection = DebugSectionCacheMiss
+            debug("Cache miss for VC")
+            debug(vc.condition)
+
+            implicit val printerOpts = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))
+            debug("Canonical symbols:")
+            debug(" ## SORTS ##")
+            debug(canonicalSymbols.sorts.values.map(_.asString).toList.sorted.mkString("\n\n"))
+            debug(" ## FUNCTIONS ##")
+            debug(canonicalSymbols.functions.values.map(_.asString).toList.sorted.mkString("\n\n"))
+            debug("Canonical verification condition:")
+            debug(canonicalExpr)
+            debug("--------------")
+          } (DebugSectionCacheMiss)
         }
 
         val result = super.checkVC(vc,sf)
         if (result.isValid) {
-          add(canonic)
+          vccache addPersistently serialization
         }
 
         result
@@ -85,37 +107,20 @@ trait VerificationCache extends VerificationChecker { self =>
 
   private val cacheFile: File = utils.Caches.getCacheFile(context, "vccache.bin")
   private val vccache: Cache = CacheLoader.get(context, cacheFile)
-
-  private def contains(p: (Symbols, Expr)) = vccache contains serialize(p)
-  private def add(p: (Symbols, Expr)) = vccache addPersistently serialize(p)
-
-  /**
-    * Transforms the dependencies of a VC and a VC to a String
-    * The functions and ADTs representations are sorted to avoid non-determinism
-    */
-  private def serialize(p: (Symbols, Expr)): String = {
-    val uniq = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(p._1))
-    p._1.functions.values.map(fd => fd.asString(uniq)).toList.sorted.mkString("\n\n") +
-    "\n#\n" +
-    p._1.sorts.values.map(sort => sort.asString(uniq)).toList.sorted.mkString("\n\n") +
-    "\n#\n" +
-    p._2.asString(uniq)
-  }
-
 }
 
 /** Cache with the ability to save itself to disk. */
 private class Cache(cacheFile: File) {
   // API
-  def contains(serialized: String): Boolean = underlying contains serialized
-  def +=(serialized: String) = underlying += serialized -> unusedCacheValue
-  def addPersistently(serialized: String): Unit = {
+  def contains(serialized: Serialization): Boolean = underlying contains serialized
+  def +=(serialized: Serialization) = underlying += serialized -> unusedCacheValue
+  def addPersistently(serialized: Serialization): Unit = {
     this += serialized
     this.synchronized { oos writeObject serialized }
   }
 
   // Implementation details
-  private val underlying = TrieMap[String, Unit]() // Thread safe
+  private val underlying = TrieMap[Serialization, Unit]() // Thread safe
   private val unusedCacheValue = ()
 
   // output stream used to save verified VCs
@@ -174,13 +179,13 @@ private object CacheLoader {
 
         try {
           while (true) {
-            val s = ois.readObject.asInstanceOf[String]
+            val s = ois.readObject.asInstanceOf[Serialization]
             cache += s
           }
         } catch {
           case e: java.io.EOFException => // Silently consume expected exception.
         } finally {
-          closeStream(ctx,ois,cacheFile)
+          closeStream(ctx, ois, cacheFile)
         }
       }
 
