@@ -800,12 +800,7 @@ trait CodeExtraction extends ASTExtractors {
     case ExTuple(tpes, exprs) =>
       xt.Tuple(exprs map extractTree)
 
-    case ExOldExpression(t) => t match {
-      case t: This => xt.Old(extractTree(t))
-      case v if dctx.isVariable(v.symbol) =>
-        xt.Old(dctx.vars.get(v.symbol).orElse(dctx.mutableVars.get(v.symbol)).get())
-      case _ => outOfSubsetError(tr, "Old is only defined on `this` and variables")
-    }
+    case ExOldExpression(t) => xt.Old(extractTree(t))
 
     case ExErrorExpression(str, tpt) =>
       xt.Error(extractType(tpt), str)
