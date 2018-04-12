@@ -1,7 +1,7 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
-package transformers
+package utils
 
 import stainless.extraction.inlining.Trees
 

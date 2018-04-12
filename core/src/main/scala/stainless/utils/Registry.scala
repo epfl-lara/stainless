@@ -244,7 +244,7 @@ trait Registry {
     }
   }
 
-  private val canonization = transformers.XlangCanonization(xt)
+  private val canonization = utils.XlangCanonization(xt)
   private def buildCF(node: NodeValue) = node match {
     case Left(cd) => serializer.serialize(canonization(cd))
     case Right(fd) => serializer.serialize(canonization(fd))

@@ -48,7 +48,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
     val (time, tryResult) = timers.verification.cache.runAndGetTime {
       val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
-        transformers.Canonization(program)(program.symbols, vc.condition)
+        utils.Canonization(program)(program.symbols, vc.condition)
 
       val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
