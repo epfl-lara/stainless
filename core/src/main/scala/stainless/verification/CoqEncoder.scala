@@ -52,23 +52,11 @@ trait CoqEncoder {
       makeFresh(id)
     case ADT(id, targs, args) =>
       Constructor(constructorIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
-    case FunctionInvocation(id, targs, args) 
-      if (exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None && 
-        exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None)
-      =>
-      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree))
-    case FunctionInvocation(id, targs, args) 
+    case FunctionInvocation(id, targs, args)
       if exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None =>
-      CoqApplication(CoqLibraryConstant("proj1_sig"),
-        Seq(CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree)))
-      )
-    case FunctionInvocation(id, targs, args) 
-      if exprOps.postconditionOf(p.symbols.functions(id).fullBody) == None =>
-      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
+      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree))
     case FunctionInvocation(id, targs, args) =>
-      CoqApplication(CoqLibraryConstant("proj1_sig"),
-        Seq(CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown))
-      )
+      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
     case Application(t, ts) =>
       CoqApplication(transformTree(t), ts.map(transformTree))
     case FiniteSet(args,tpe) =>
@@ -393,8 +381,8 @@ trait CoqEncoder {
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
-                    fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body))) $
-        RawCommand("Solve Obligations with (repeat t).")
+                    fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
+        RawCommand("\nSolve Obligations with (repeat t).\n")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
           RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")

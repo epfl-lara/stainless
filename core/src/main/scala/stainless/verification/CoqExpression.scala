@@ -55,10 +55,16 @@ case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExp
   }
 }
 
-case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpression)], returnType: CoqExpression, cases: Seq[(CoqExpression, CoqExpression)]) extends CoqCommand {
+case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpression)], returnType: CoqExpression, cases: Seq[(CoqExpression, CoqExpression)], ignoreTermination: Boolean) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
   override def coqString = s"Equations ${id.coqString} $paramString : ${returnType.coqString} := \n" +
-    cases.map {case (cs, expr) => s"${cs.coqString} := ${expr.coqString}"}.mkString("", ";\n", ".")
+    cases.map {case (cs, expr) =>
+      if (ignoreTermination)
+        s"${cs.coqString} by rec ignore_termination lt :=\n" +
+        s"${cs.coqString} := ${expr.coqString}"
+      else
+      s"${cs.coqString} := ${expr.coqString}"
+    }.mkString("", ";\n", ".")
 }
 
 // This class is used to represent the strings we want to print as is
