@@ -634,16 +634,6 @@ trait ASTExtractors {
       }
     }
 
-    object ExHoleExpression {
-      def unapply(tree: Tree) : Option[(Tree, List[Tree])] = tree match {
-        case a @ Apply(TypeApply(s @ ExSymbol("stainless", "lang", "synthesis", "$qmark"), List(tpt)), args1)  =>
-            Some((tpt, args1))
-        case TypeApply(s @ ExSymbol("stainless", "lang", "synthesis", "$qmark$qmark$qmark"), List(tpt)) =>
-            Some((tpt, Nil))
-        case _ => None
-      }
-    }
-
     object ExChooseExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
         case a @ Apply(
