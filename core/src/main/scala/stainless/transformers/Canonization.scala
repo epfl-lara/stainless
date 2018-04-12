@@ -83,6 +83,78 @@ trait Canonization { self =>
 
     NoSymbols.withFunctions(newFunctions).withSorts(newSorts)
   }
+
+  protected class RegisteringTransformer extends inox.ast.TreeTransformer {
+    val s: self.trees.type = self.trees
+    val t: self.trees.type = self.trees
+
+    private var localCounter = 0
+    // Maps an original identifier to a normalized identifier
+    protected final val ids: mutable.Map[Identifier, Identifier] = mutable.Map.empty
+
+    final def registerId(id: Identifier): Identifier = ids.getOrElseUpdate(id, {
+      localCounter = localCounter + 1
+      new Identifier("x",localCounter,localCounter)
+    })
+
+    override def transform(id: Identifier): Identifier = ids.getOrElse(id, id)
+
+    override def transform(vd: ValDef): ValDef = {
+      registerId(vd.id)
+      super.transform(vd)
+    }
+
+    override def transform(tp: TypeParameterDef): TypeParameterDef = {
+      registerId(tp.id)
+      super.transform(tp)
+    }
+
+    override def transform(e: Expr): Expr = e match {
+      case v: Variable =>
+        registerId(v.id)
+        super.transform(v)
+      case _ => super.transform(e)
+    }
+
+    override def transform(tpe: Type): Type = tpe match {
+      case tp: TypeParameter =>
+        registerId(tp.id)
+        super.transform(tp)
+      case _ => super.transform(tpe)
+    }
+  }
+
+  def apply(expr: Expr): Expr = {
+    val transformer = new RegisteringTransformer
+    transformer.transform(expr)
+  }
+
+  def apply(fd: FunDef): FunDef = {
+    val transformer = new RegisteringTransformer
+    transformer.registerId(fd.id)
+    transformer.transform(fd)
+  }
+
+  def apply(sort: ADTSort): ADTSort = {
+    val transformer = new RegisteringTransformer
+    transformer.registerId(sort.id)
+    transformer.transform(sort)
+  }
+}
+
+trait XlangCanonization extends Canonization {
+  val trees: extraction.xlang.Trees
+  import trees._
+
+  protected class RegisteringTransformer
+    extends super.RegisteringTransformer
+       with extraction.oo.TreeTransformer
+
+  def apply(cd: ClassDef): ClassDef = {
+    val transformer = new RegisteringTransformer
+    transformer.registerId(cd.id)
+    transformer.transform(cd)
+  }
 }
 
 
@@ -94,4 +166,15 @@ object Canonization {
   def apply(tr: ast.Trees): Canonization { val trees: tr.type } = new {
     override val trees: tr.type = tr
   } with Canonization
+}
+
+object XlangCanonization {
+  def apply(p: inox.Program { val trees: extraction.xlang.Trees }): XlangCanonization { val trees: p.trees.type } = new {
+    override val trees: p.trees.type = p.trees
+  } with XlangCanonization
+
+  def apply(tr: extraction.xlang.Trees): XlangCanonization { val trees: tr.type } = new {
+    override val trees: tr.type = tr
+  } with XlangCanonization
+
 }
