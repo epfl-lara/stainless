@@ -19,7 +19,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
     *
     * The new identifiers in the mapping range from 120 to 144.
     *
-    * NEXT ID: 145
+    * NEXT ID: 146
     */
   override protected def classSerializers: Map[Class[_], Serializer[_]] =
     super.classSerializers ++ Map(
@@ -52,7 +52,11 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[Unchecked.type](141),
       classSerializer[Derived]       (142),
       classSerializer[IsField]       (143),
-      classSerializer[IsUnapply]     (144)
+      classSerializer[IsUnapply]     (144),
+
+      mappingSerializer[SymbolIdentifier](145)
+        (id => (id.globalId, id.id, id.symbol.path, id.symbol.id))
+        (p => new SymbolIdentifier(new Identifier(p._3.last, p._1, p._2), new Symbol(p._3, p._4)))
     )
 }
 
@@ -63,9 +67,9 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
   /** An extension to the set of registered classes in the `StainlessSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 180 to 221.
+    * The new identifiers in the mapping range from 180 to 227.
     *
-    * NEXT ID: 222
+    * NEXT ID: 228
     */
   override protected def classSerializers: Map[Class[_], Serializer[_]] =
     super.classSerializers ++ Map(
@@ -110,6 +114,12 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       // `UnionType` and `IntersectionType` are package-private to `oo`
       classSerializer[TypeBounds]       (209),
       classSerializer[RefinementType]   (210),
+      classSerializer[ClassDef]         (222),
+      classSerializer[IsInvariant.type] (223),
+      classSerializer[IsAbstract.type]  (224),
+      classSerializer[IsSealed.type]    (225),
+      classSerializer[Bounds]           (226),
+      classSerializer[Variance]         (227),
 
       // Throwing trees
       classSerializer[Throwing](211),

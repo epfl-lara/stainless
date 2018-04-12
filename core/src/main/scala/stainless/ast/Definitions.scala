@@ -15,11 +15,11 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
 
-  override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+  def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
-    case _ => super.extractFlag(name, args)
+    case _ => Annotation(name, args)
   }
 
   type Symbols >: Null <: AbstractSymbols

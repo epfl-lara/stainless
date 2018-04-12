@@ -31,10 +31,10 @@ trait CheckFilter {
     functions map fullNameToPath
   }
 
-  private def shouldBeChecked(fid: Identifier, flags: Set[trees.Flag]): Boolean = pathsOpt match {
+  private def shouldBeChecked(fid: Identifier, flags: Seq[trees.Flag]): Boolean = pathsOpt match {
     case None =>
-      val isLibrary = flags map { _.name } contains "library"
-      val isUnchecked = flags map { _.name } contains "unchecked"
+      val isLibrary = flags exists (_.name == "library")
+      val isUnchecked = flags contains Unchecked
       !(isLibrary || isUnchecked)
 
     case Some(paths) =>

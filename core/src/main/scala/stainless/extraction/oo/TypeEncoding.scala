@@ -453,7 +453,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       cd.id -> mkFunDef(cd.id.freshen, Unchecked)()(_ => (
         tparamParams ++ paramParams, obj, { case args =>
-          choose(ValDef(FreshIdentifier("ptr", true), obj, Set(Unchecked))) { res =>
+          choose(ValDef(FreshIdentifier("ptr", true), obj, Seq(Unchecked))) { res =>
             typeOf(res) === encodeType(ct) &&
             andJoin((cd.fields zip args.drop(tparamParams.size)).map(p => getField(res, p._1.id) === p._2))
           }
@@ -581,25 +581,25 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
           FunctionInvocation(id, Seq(), Seq(e)).copiedFrom(e)
 
-        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+        case (ArrayType(b1), ArrayType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Seq(Unchecked)).copiedFrom(e)) {
           res => forall(("i" :: Int32Type().copiedFrom(e)).copiedFrom(e)) {
             i => (rec(ArraySelect(e, i).copiedFrom(e), b1, b2) === ArraySelect(res, i).copiedFrom(e)).copiedFrom(e)
           }.copiedFrom(e)
         }.copiedFrom(e)
 
-        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+        case (SetType(b1), SetType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Seq(Unchecked)).copiedFrom(e)) {
           res => forall(("x" :: b1).copiedFrom(e)) {
             x => (ElementOfSet(x, e).copiedFrom(e) === ElementOfSet(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
           }.copiedFrom(e)
         }.copiedFrom(e)
 
-        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+        case (BagType(b1), BagType(b2)) => choose(ValDef(FreshIdentifier("res"), hi, Seq(Unchecked)).copiedFrom(e)) {
           res => forall(("x" :: b1).copiedFrom(e)) {
             x => (MultiplicityInBag(x, e).copiedFrom(e) === MultiplicityInBag(rec(x, b1, b2), res).copiedFrom(e)).copiedFrom(e)
           }.copiedFrom(e)
         }.copiedFrom(e)
 
-        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Set(Unchecked)).copiedFrom(e)) {
+        case (MapType(f1, t1), MapType(f2, t2)) => choose(ValDef(FreshIdentifier("res"), hi, Seq(Unchecked)).copiedFrom(e)) {
           res => forall(("x" :: f1).copiedFrom(e)) {
             x => (rec(MapApply(e, x).copiedFrom(e), t1, t2) === MapApply(res, rec(x, f1, f2)).copiedFrom(e)).copiedFrom(e)
           }.copiedFrom(e)

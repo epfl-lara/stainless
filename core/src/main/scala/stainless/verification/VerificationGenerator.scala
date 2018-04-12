@@ -46,7 +46,7 @@ object VerificationGenerator {
       val inductionTactic = InductionTactic(p, ctx)
 
       protected def getTactic(fd: p.trees.FunDef) =
-        if (fd.flags contains "induct") {
+        if (fd.flags exists (_.name == "induct")) {
           inductionTactic
         } else {
           defaultTactic

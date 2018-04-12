@@ -45,7 +45,7 @@ trait Trees extends inlining.Trees { self =>
     val params: Seq[ValDef],
     val returnType: Type,
     val fullBody: Expr,
-    val flags: Set[Flag]
+    val flags: Seq[Flag]
   ) extends Tree {
     def copy(
       id: Identifier = id,
@@ -53,7 +53,7 @@ trait Trees extends inlining.Trees { self =>
       params: Seq[ValDef] = params,
       returnType: Type = returnType,
       fullBody: Expr = fullBody,
-      flags: Set[Flag] = flags
+      flags: Seq[Flag] = flags
     ): FunAbstraction = to(self)(id, tparams, params, returnType, fullBody, flags)
 
     def to(t: Trees)(
@@ -62,7 +62,7 @@ trait Trees extends inlining.Trees { self =>
       params: Seq[t.ValDef],
       returnType: t.Type,
       fullBody: t.Expr,
-      flags: Set[t.Flag]
+      flags: Seq[t.Flag]
     ): t.FunAbstraction
 
     def toFun: FunDef = asInstanceOf[Outer].fd
@@ -79,7 +79,7 @@ trait Trees extends inlining.Trees { self =>
       params: Seq[t.ValDef],
       returnType: t.Type,
       fullBody: t.Expr,
-      flags: Set[t.Flag]
+      flags: Seq[t.Flag]
     ): t.Outer = t.Outer(new t.FunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(fd))
   }
 
@@ -93,7 +93,7 @@ trait Trees extends inlining.Trees { self =>
       params: Seq[t.ValDef],
       returnType: t.Type,
       fullBody: t.Expr,
-      flags: Set[t.Flag]
+      flags: Seq[t.Flag]
     ): t.Inner = t.Inner(t.LocalFunDef(
       t.ValDef(id, t.FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType), flags).copiedFrom(fd.name),
       tparams,

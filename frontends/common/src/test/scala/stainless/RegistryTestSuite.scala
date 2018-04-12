@@ -33,7 +33,7 @@ class RegistryTestSuite extends FunSuite {
   type ClassName = String
   type FunctionName = String
 
-  private val DEBUG = false
+  private val DEBUG = true
   private val testSuiteContext =
     if (DEBUG) stainless.TestContext.debug(utils.DebugSectionRegistry)
     else stainless.TestContext.empty

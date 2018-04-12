@@ -32,7 +32,7 @@ trait ASTExtractors {
    * clearly guarantees that functions can have a companion symbol. In
    * practice, however, it seems to work.
    */
-  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Map[String, Seq[Tree]] = {
+  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[Tree])] = {
     val actualSymbol = sym.accessedOrSelf
     val selfs = actualSymbol.annotations
     val owners = if (ignoreOwner) Set.empty else actualSymbol.owner.annotations
@@ -49,7 +49,10 @@ trait ASTExtractors {
       } else {
         None
       }
-    }).flatten.toMap
+    }).flatten.foldLeft[(Set[String], Seq[(String, Seq[Tree])])]((Set(), Seq())) {
+      case (acc @ (keys, _), (key, _)) if keys contains key => acc
+      case ((keys, seq), (key, args)) => (keys + key, seq :+ (key -> args))
+    }._2
   }
 
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")

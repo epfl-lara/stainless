@@ -5,27 +5,20 @@ package verification
 
 
 import java.io.File
-import java.io.ObjectInputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.io.FileInputStream
-import java.io.ObjectOutputStream
 import java.io.FileOutputStream
 
 import scala.collection.concurrent.TrieMap
 import scala.util.{ Success, Failure }
 
-import inox.utils.Serialization
 import inox.solvers.SolverFactory
 
 import scala.language.existentials
 
 object DebugSectionCacheHit extends inox.DebugSection("cachehit")
 object DebugSectionCacheMiss extends inox.DebugSection("cachemiss")
-
-class AppendingObjectOutputStream(os: java.io.OutputStream) extends ObjectOutputStream(os) {
-  override protected def writeStreamHeader() = {
-    reset()
-  }
-}
 
 /**
  * VerificationChecker with cache for VC results.
@@ -40,6 +33,9 @@ trait VerificationCache extends VerificationChecker { self =>
   import program.symbols._
   import program.trees._
 
+  private lazy val serializer = utils.Serializer(program.trees)
+  import serializer._
+
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
 
@@ -53,15 +49,10 @@ trait VerificationCache extends VerificationChecker { self =>
     val (time, tryResult) = timers.verification.cache.runAndGetTime {
       val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
         transformers.Canonization(program)(program.symbols, vc.condition)
-      val serializer = utils.Serializer(program.trees)
 
-      val outputStream = new java.io.ByteArrayOutputStream
-      outputStream.write(if (vc.satisfiability) 1 else 0)
-      serializer.serialize(canonicalSymbols, outputStream)
-      serializer.serialize(canonicalExpr, outputStream)
-      val serialization = new Serialization(outputStream.toByteArray)
+      val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      if (vccache contains serialization) {
+      if (vccache contains key) {
         reporter.synchronized {
           reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
           reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
@@ -91,7 +82,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
         val result = super.checkVC(vc,sf)
         if (result.isValid) {
-          vccache addPersistently serialization
+          vccache addPersistently key
         }
 
         result
@@ -107,91 +98,90 @@ trait VerificationCache extends VerificationChecker { self =>
 
   private val cacheFile: File = utils.Caches.getCacheFile(context, "vccache.bin")
   private val vccache: Cache = CacheLoader.get(context, cacheFile)
-}
 
-/** Cache with the ability to save itself to disk. */
-private class Cache(cacheFile: File) {
-  // API
-  def contains(serialized: Serialization): Boolean = underlying contains serialized
-  def +=(serialized: Serialization) = underlying += serialized -> unusedCacheValue
-  def addPersistently(serialized: Serialization): Unit = {
-    this += serialized
-    this.synchronized { oos writeObject serialized }
-  }
 
-  // Implementation details
-  private val underlying = TrieMap[Serialization, Unit]() // Thread safe
-  private val unusedCacheValue = ()
-
-  // output stream used to save verified VCs
-  private val oos = if (cacheFile.exists) {
-    new AppendingObjectOutputStream(new FileOutputStream(cacheFile, true))
-  } else {
-    new ObjectOutputStream(new FileOutputStream(cacheFile))
-  }
-}
-
-/**
- * Only two tasks for the cache loader:
- *  - initialize the cache from the file,
- *  - return the same [[Cache]] instance for the same [[File]].
- */
-private object CacheLoader {
-
-  private val db = scala.collection.mutable.Map[File, Cache]()
-
-  /**
-   * Opens an ObjectInputStream and catches corruption errors
-   */
-  def openStream(ctx: inox.Context, file: File): ObjectInputStream = {
-    try new ObjectInputStream(new FileInputStream(file))
-    catch {
-      case e: java.io.StreamCorruptedException =>
-        ctx.reporter.fatalError(s"The cache file '$file' is corrupt. Please delete it.")
+  /** Cache with the ability to save itself to disk. */
+  private class Cache(cacheFile: File) {
+    // API
+    def contains(key: SerializationResult): Boolean = underlying contains key
+    def +=(key: SerializationResult) = underlying += key -> unusedCacheValue
+    def addPersistently(key: SerializationResult): Unit = {
+      this += key
+      this.synchronized { serializer.serialize(key, out) }
     }
-  }
 
-  /**
-   * Closes an ObjectInputStream and catches potential IO errors
-   */
-  def closeStream(ctx: inox.Context, ois: ObjectInputStream, file: File) = {
-    try ois.close()
-    catch {
-      case e: java.io.IOException =>
-        ctx.reporter.error(s"Could not close ObjectInputStream of $file properly.")
-    }
-  }
+    // Implementation details
+    private val underlying = TrieMap[SerializationResult, Unit]() // Thread safe
+    private val unusedCacheValue = ()
 
+    // output stream used to save verified VCs
+    private val out =
+      if (cacheFile.exists) new FileOutputStream(cacheFile, true)
+      else new FileOutputStream(cacheFile)
+  }
 
 
   /**
-   * Create a cache with the data stored in the given file if it exists.
-   *
-   * NOTE This function assumes the file is not written by another process
-   *      while being loaded!
+   * Only two tasks for the cache loader:
+   *  - initialize the cache from the file,
+   *  - return the same [[Cache]] instance for the same [[File]].
    */
-  def get(ctx: inox.Context, cacheFile: File): Cache = this.synchronized {
-    db.getOrElseUpdate(cacheFile, {
-      val cache = new Cache(cacheFile)
+  private object CacheLoader {
 
-      if (cacheFile.exists) {
-        val ois = openStream(ctx, cacheFile)
+    private val db = scala.collection.mutable.Map[File, Cache]()
 
-        try {
-          while (true) {
-            val s = ois.readObject.asInstanceOf[Serialization]
-            cache += s
-          }
-        } catch {
-          case e: java.io.EOFException => // Silently consume expected exception.
-        } finally {
-          closeStream(ctx, ois, cacheFile)
-        }
+    /**
+     * Opens an ObjectInputStream and catches corruption errors
+     */
+    def openStream(ctx: inox.Context, file: File): InputStream = {
+      try new FileInputStream(file)
+      catch {
+        case e: java.io.FileNotFoundException =>
+          ctx.reporter.fatalError(s"Could not open cache file at $file.")
       }
+    }
 
-      cache
-    })
+    /**
+     * Closes an ObjectInputStream and catches potential IO errors
+     */
+    def closeStream(ctx: inox.Context, in: InputStream, file: File) = {
+      try in.close()
+      catch {
+        case e: java.io.IOException =>
+          ctx.reporter.error(s"Could not close InputStream of $file properly.")
+      }
+    }
+
+
+
+    /**
+     * Create a cache with the data stored in the given file if it exists.
+     *
+     * NOTE This function assumes the file is not written by another process
+     *      while being loaded!
+     */
+    def get(ctx: inox.Context, cacheFile: File): Cache = this.synchronized {
+      db.getOrElseUpdate(cacheFile, {
+        val cache = new Cache(cacheFile)
+
+        if (cacheFile.exists) {
+          val in = openStream(ctx, cacheFile)
+
+          try {
+            while (true) {
+              val s = serializer.deserialize[SerializationResult](in)
+              cache += s
+            }
+          } catch {
+            case e: java.io.EOFException => // Silently consume expected exception.
+          } finally {
+            closeStream(ctx, in, cacheFile)
+          }
+        }
+
+        cache
+      })
+    }
   }
-
 }
 

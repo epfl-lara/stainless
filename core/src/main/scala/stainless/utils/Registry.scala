@@ -7,7 +7,9 @@ import extraction.xlang.{ trees => xt }
 
 import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet, ListBuffer }
 
-import java.io.{ File, FileInputStream, FileOutputStream, IOException }
+import java.io.{ File, FileInputStream, FileOutputStream, IOException, ObjectInputStream, ObjectOutputStream }
+
+import scala.language.existentials
 
 object DebugSectionRegistry extends inox.DebugSection("registry")
 
@@ -52,6 +54,9 @@ trait Registry {
   import context.reporter
 
   implicit val debugSection = DebugSectionRegistry
+
+  private lazy val serializer = utils.Serializer(xt)
+  import serializer._
 
   /******************* Public Interface ***********************************************************/
 
@@ -120,88 +125,22 @@ trait Registry {
 
   /** Import the canonical form cache from the given file. Not thread-safe. */
   final def loadCache(file: File): Unit = synchronized {
-    val stream = new FileInputStream(file)
-
-    def assertValidCache(check: Boolean) = {
-      if (!check) reporter.fatalError(s"Invalid cache file $file")
-    }
-
-    def readBytes(size: Int): Array[Byte] = {
-      require(size > 0)
-      val bytes = new Array[Byte](size)
-      assertValidCache(size == stream.read(bytes))
-      bytes
-    }
-
-    def readInt(): Int = {
-      val bytes = readBytes(4)
-      BigInt(bytes).intValue
-    }
-
-    def readBool(): Boolean = {
-      val b = stream.read()
-      assertValidCache(b == 0 || b == 1)
-      b == 1
-    }
-
-    def readId(): Identifier = {
-      val len = readInt()
-      assertValidCache(len >= 0)
-      val idBytes = readBytes(len)
-      val globalId = readInt()
-      val id = readInt()
-      val name = new String(idBytes)
-      new Identifier(name, globalId, id)
-    }
+    val in = new FileInputStream(file)
 
     try {
-      val count = readInt()
-      assertValidCache(count >= 0)
-      reporter.debug(s"Reading $count pairs from ${file.getAbsolutePath}")
-      val mapping = MutableMap[Identifier, (CanonicalForm, Boolean, Int)]()
-
-      for { _ <- 0 until count } {
-        val id = readId()
-        val checked = readBool()
-        val size = readInt()
-        assertValidCache(size >= 0)
-        val bytes = readBytes(size)
-        val depsHash = readInt()
-
-        mapping += id -> (new CanonicalForm(bytes), checked, depsHash)
-      }
-
+      val size = serializer.deserialize[Int](in)
+      reporter.debug(s"Reading $size pairs from ${file.getAbsolutePath}")
+      val mapping: MutableMap[Identifier, (xt.Symbols, Boolean, Int)] = MutableMap.empty
+      for (i <- 0 until size) mapping += serializer.deserialize[(Identifier, (xt.Symbols, Boolean, Int))](in)
       persistentCache = Some(mapping.toMap)
     } finally {
-      stream.close()
+      in.close()
     }
   }
 
   /** Export the canonical form cache to the given file. Not thread-safe. */
   final def saveCache(file: File): Unit = synchronized {
-    val stream = new FileOutputStream(file)
-
-    def writeInt(x: Int): Unit = {
-      val bi = BigInt(x)
-      val repr = bi.toByteArray
-      val pad: Byte = if (x < 0) 0xFF.toByte else 0x00
-      val bytes = repr.reverse.padTo(4, pad).reverse
-      assert(bytes.size == 4)
-      stream.write(bytes)
-    }
-
-    def writeBool(b: Boolean): Unit = {
-      stream.write(if (b) 1 else 0)
-    }
-
-    def writeId(id: Identifier): Unit = {
-      val idBytes = id.name.getBytes
-      val len = idBytes.size
-      writeInt(len)
-      stream.write(idBytes)
-      writeInt(id.globalId)
-      writeInt(id.id)
-    }
+    val out = new FileOutputStream(file)
 
     def getId(node: NodeValue) = node match {
       case Left(cd) => cd.id
@@ -213,35 +152,30 @@ trait Registry {
       case Right(fd) => shouldBeChecked(fd)
     }
 
-    val localCFCache = MutableMap[Identifier, CanonicalForm]() // cache CanonicalForm and their hash.
-    def getCF(node: NodeValue): CanonicalForm = localCFCache.getOrElseUpdate(getId(node), buildCF(node))
+    val localCFCache = MutableMap[Identifier, SerializationResult]() // cache serializations and their hash.
+    def getCF(node: NodeValue): SerializationResult = localCFCache.getOrElseUpdate(getId(node), buildCF(node))
 
     var failure = false
     try {
       // For each (id, cf) in cache, save the related data.
       val nodes = graph.getNodes
       reporter.debug(s"Saving ${nodes.size} pairs to ${file.getAbsolutePath}")
-      writeInt(nodes.size)
+      serializer.serialize(nodes.size, out)
       nodes foreach { case (id, (node, deps)) =>
         val cf = getCF(node)
         val checked = isChecked(node)
-
-        writeId(id)
-        writeBool(checked)
-        writeInt(cf.bytes.size)
-        stream.write(cf.bytes)
-
         // For dependencies, we store only the hash of the sorted hashes for each dependency
         // TODO Instead of storing the hash, we could have a "generation ID", a bit like a versioning system.
         val hashes = deps.toSeq map { dep => getCF(nodes(dep)._1).hashCode }
-        writeInt(hashes.sorted.hashCode)
+
+        serializer.serialize(id -> (cf, checked, hashes.sorted.hashCode), out)
       }
     } catch {
       case e: IOException =>
         reporter.error(s"The registry cache couldn't be written to ${file.getAbsolutePath}, reason: $e")
         failure = true
     } finally {
-      stream.close()
+      out.close()
       if (failure) file.delete()
     }
   }
@@ -297,7 +231,7 @@ trait Registry {
       }
     }
 
-    private val cfCache = MutableMap[Identifier, CanonicalForm]()
+    private val cfCache = MutableMap[Identifier, SerializationResult]()
 
     override def equivalent(id: Identifier, deps: Set[Identifier],
                             oldInput: NodeValue, newInput: NodeValue): Boolean = {
@@ -311,12 +245,12 @@ trait Registry {
   }
 
   private def buildCF(node: NodeValue) = node match {
-    case Left(cd) => CanonicalFormBuilder(cd)
-    case Right(fd) => CanonicalFormBuilder(fd)
+    case Left(cd) => serializer.serialize(cd)
+    case Right(fd) => serializer.serialize(fd)
   }
 
   // See note about persistent cache at the top.
-  private var persistentCache: Option[Map[Identifier, (CanonicalForm, Boolean, Int)]] = None
+  private var persistentCache: Option[Map[Identifier, (xt.Symbols, Boolean, Int)]] = None
   private def hasPersistentCache = persistentCache.isDefined
   private val deferredClasses = ListBuffer[xt.ClassDef]()
   private val deferredFunctions = ListBuffer[xt.FunDef]()
@@ -334,28 +268,15 @@ trait Registry {
     }
 
     // If we have a cache (first cycle only), check if the node was already computed.
-    val result = persistentCache match {
-      case None =>
-        default
-
-      case Some(cache) =>
-        val (id, cf) = node match {
-          case Left(cd) => cd.id -> CanonicalFormBuilder(cd)
-          case Right(fd) => fd.id -> CanonicalFormBuilder(fd)
-        }
-
-        cache.get(id) match {
-          case None =>
-            default
-
-          case Some((cachedCf, checked, hash)) =>
-            // Compute the hashes of the extracted nodes with the hashes from the persistent cache.
-            // Mind the fact that we need to know all the definitions to compute the hash.
-            val hashes = deps.toSeq map deferredNodes map buildCF map { _.hashCode }
-            val currentHash = hashes.sorted.hashCode
-            (!checked || cachedCf != cf || hash != currentHash) && default
-        }
-    }
+    val result = persistentCache.flatMap { cache =>
+      cache.get(id).map { case (cachedCf, checked, hash) =>
+        // Compute the hashes of the extracted nodes with the hashes from the persistent cache.
+        // Mind the fact that we need to know all the definitions to compute the hash.
+        val hashes = deps.toSeq map deferredNodes map buildCF map { _.hashCode }
+        val currentHash = hashes.sorted.hashCode
+        (!checked || cachedCf != buildCF(node) || hash != currentHash) && default
+      }
+    }.getOrElse(default)
 
     reporter.debug(s"verdict for $id? $result")
 
@@ -394,7 +315,7 @@ trait Registry {
       if (
         (cd.flags contains xt.IsAbstract) &&
         !(cd.flags contains xt.IsSealed) &&
-        !(cd.flags contains "library")
+        !(cd.flags exists (_.name == "library"))
       ) reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
     }
 

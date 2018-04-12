@@ -51,7 +51,7 @@ trait Strengthener { self: OrderingRelation =>
 
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val postcondition = {
-          val res = ValDef(FreshIdentifier("res"), fd.returnType, Set.empty)
+          val res = ValDef.fresh("res", fd.returnType)
           val post = fd.postcondition match {
             case Some(post) if !ignorePosts => application(post, Seq(res.toVariable))
             case _ => BooleanLiteral(true)

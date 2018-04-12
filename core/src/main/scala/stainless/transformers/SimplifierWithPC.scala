@@ -58,7 +58,7 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
             BooleanLiteral(false).copiedFrom(e),
             Some("No valid case"),
             Choose(
-              ValDef(FreshIdentifier("res"), e.getType, Set.empty).copiedFrom(e),
+              ValDef.fresh("res", e.getType).copiedFrom(e),
               BooleanLiteral(true).copiedFrom(e)
             ).copiedFrom(e)
           ).copiedFrom(e),

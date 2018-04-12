@@ -34,7 +34,7 @@ trait InoxEncoder extends ProgramEncoder {
 
               case None =>
                 Choose(vd, post)
-            }, flags = fd.flags - Extern - Opaque))
+            }, flags = fd.flags.filterNot(f => f == Extern || f == Opaque)))
           } else {
             encoder.transform(fd)
           }
@@ -57,7 +57,7 @@ trait InoxEncoder extends ProgramEncoder {
   protected val arraySort: t.ADTSort = mkSort(arrayID, t.HasADTInvariant(arrayInvariantID))("A") {
     case Seq(aT) => Seq((
       arrayID.freshen,
-      Seq(t.ValDef(arr, t.MapType(t.Int32Type(), aT), Set.empty), t.ValDef(size, t.Int32Type(), Set.empty))
+      Seq(t.ValDef(arr, t.MapType(t.Int32Type(), aT)), t.ValDef(size, t.Int32Type()))
     ))
   }
   protected val Seq(arrayCons) = arraySort.constructors
@@ -90,7 +90,7 @@ trait InoxEncoder extends ProgramEncoder {
 
       case s.Error(tpe, desc) =>
         t.Choose(
-          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe), Set.empty).copiedFrom(e),
+          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e),
           t.BooleanLiteral(true).copiedFrom(e)
         ).copiedFrom(e)
 
@@ -177,7 +177,7 @@ trait InoxEncoder extends ProgramEncoder {
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(flags = vd.flags - s.Unchecked).copiedFrom(vd))
+      super.transform(vd.copy(flags = vd.flags.filterNot(_ == s.Unchecked)).copiedFrom(vd))
     }
   }
 

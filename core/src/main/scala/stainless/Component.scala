@@ -68,7 +68,7 @@ trait SimpleComponent extends Component { self =>
       .filter(fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id))
 
     for (fd <- toProcess) {
-      if (fd.flags contains "library") {
+      if (fd.flags exists (_.name == "library")) {
         val fullName = fd.id.fullName
         ctx.reporter.warning(s"Component [$name]: Forcing processing of $fullName which was assumed verified")
       }

@@ -87,26 +87,26 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   }
 
   object VarDef {
-    def apply(id: Identifier, tpe: Type, flags: Set[Flag]): ValDef = ValDef(id, tpe, flags + IsVar)
-    def unapply(d: Definition): Option[(Identifier, Type, Set[Flag])] = d match {
-      case vd: ValDef if vd.flags(IsVar) => Some((vd.id, vd.tpe, vd.flags))
+    def apply(id: Identifier, tpe: Type, flags: Seq[Flag]): ValDef = ValDef(id, tpe, (flags :+ IsVar).distinct)
+    def unapply(d: Definition): Option[(Identifier, Type, Seq[Flag])] = d match {
+      case vd: ValDef if vd.flags contains IsVar => Some((vd.id, vd.tpe, vd.flags))
       case _ => None
     }
   }
 
   override implicit def convertToVal = new VariableConverter[ValDef] {
     def convert(vs: VariableSymbol): ValDef = vs match {
-      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags - IsVar).copiedFrom(vs)
+      case VarDef(id, tpe, flags) => ValDef(id, tpe, flags filter (_ != IsVar)).copiedFrom(vs)
       case vd: ValDef => vd
-      case _ => ValDef(vs.id, vs.tpe, Set.empty).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, Seq.empty).copiedFrom(vs)
     }
   }
 
   implicit class VariableSymbolToVar(vs: VariableSymbol) {
     def toVar: ValDef = vs match {
       case vd: ValDef if vd.flags contains IsVar => vd
-      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags + IsVar).copiedFrom(vs)
-      case _ => ValDef(vs.id, vs.tpe, Set(IsVar)).copiedFrom(vs)
+      case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags :+ IsVar).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, Seq(IsVar)).copiedFrom(vs)
     }
   }
 
