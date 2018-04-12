@@ -54,7 +54,8 @@ trait EffectsChecking { self =>
             case adt @ ADT(id, tps, args) =>
               (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
                 if (effects.isMutableType(instanceType) && !(tdef.flags contains IsMutable))
-                  throw ImperativeEliminationException(e, "Cannot instantiate a non-mutable type parameter with a mutable type")
+                  throw ImperativeEliminationException(e,
+                    "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
               ADT(id, tps, args.map(rec(_, bindings)))
 
@@ -83,6 +84,13 @@ trait EffectsChecking { self =>
         val bodyEffects = effects(body)
         if (bodyEffects.nonEmpty)
           throw ImperativeEliminationException(post, "Postcondition has effects on: " + bodyEffects.head)
+
+        val oldEffects = effects(exprOps.postMap {
+          case Old(e) => Some(e)
+          case _ => None
+        } (body))
+        if (oldEffects.nonEmpty)
+          throw ImperativeEliminationException(post, s"Postcondition tries to mutate ${Old(oldEffects.head)}")
 
       case Decreases(meas, _) =>
         val measEffects = effects(meas)
