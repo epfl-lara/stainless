@@ -16,7 +16,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
     val tparams: Seq[TypeParameterDef],
     val parents: Seq[ClassType], // Set of direct parents
     val fields: Seq[ValDef],
-    val flags: Set[Flag]
+    val flags: Seq[Flag]
   ) extends Definition {
 
     def ancestors(implicit s: Symbols): Seq[TypedClassDef] = {
@@ -51,7 +51,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
       tparams: Seq[TypeParameterDef] = this.tparams,
       parents: Seq[ClassType] = this.parents,
       fields: Seq[ValDef] = this.fields,
-      flags: Set[Flag] = this.flags
+      flags: Seq[Flag] = this.flags
     ): ClassDef = new ClassDef(id, tparams, parents, fields, flags).setPos(this)
   }
 

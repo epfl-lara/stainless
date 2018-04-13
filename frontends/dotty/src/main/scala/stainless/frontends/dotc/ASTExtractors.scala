@@ -20,13 +20,16 @@ trait ASTExtractors {
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
-  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Map[String, Seq[tpd.Tree]] = {
+  def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     (for {
       a <- sym.annotations ++ (if (!ignoreOwner) sym.owner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
-    } yield (shortName, a.arguments)).toMap
+    } yield (shortName, a.arguments)).foldLeft[(Set[String], Seq[(String, Seq[tpd.Tree])])]((Set(), Seq())) {
+      case (acc @ (keys, _), (key, _)) if keys contains key => acc
+      case ((keys, seq), (key, args)) => (keys + key, seq :+ (key -> args))
+    }._2
   }
 
   // Well-known symbols that we match on

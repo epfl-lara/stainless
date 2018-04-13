@@ -29,7 +29,7 @@ object VerificationComponent extends SimpleComponent {
 
   implicit val debugSection = DebugSectionCoq
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {
+  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {    
     if (ctx.options.findOptionOrDefault(optCoq)) {
       CoqVerificationChecker.verify(funs, p, ctx)
     } else {
@@ -47,8 +47,8 @@ object VerificationComponent extends SimpleComponent {
       val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
 
       val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
-        case VCResult(VCStatus.Invalid(model), s, t) =>
-          VCResult(VCStatus.Invalid(model.encode(encoder.reverse)), s, t)
+        case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
+          VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
         case res => res.asInstanceOf[VCResult[p.Model]]
       })
 

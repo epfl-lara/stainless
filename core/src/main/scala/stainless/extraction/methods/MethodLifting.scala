@@ -86,7 +86,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
                   Seq.empty,
                   BooleanType(),
                   BooleanLiteral(true),
-                  Set(IsInvariant, IsMethodOf(cd.id))
+                  Seq(IsInvariant, IsMethodOf(cd.id))
                 ).setPos(pos)
                 Some(fd)
 
@@ -94,7 +94,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
               case _ => None
             }
 
-            val optCd = optInv.map(fd => cd.copy(flags = cd.flags + HasADTInvariant(fd.id)))
+            val optCd = optInv.map(fd => cd.copy(flags = cd.flags :+ HasADTInvariant(fd.id)))
             val newSymbols = symbols.withFunctions(optInv.toSeq).withClasses(optCd.toSeq)
             val newMapping = mapping ++ fs ++ optInv.map(fd => fd.id -> o.copy(fid = Some(fd.id)))
 
@@ -226,7 +226,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         arg +: (fd.params map transformer.transform),
         returnType,
         fullBody,
-        (fd.flags - IsMethodOf(cid) - IsInvariant - IsAbstract) map transformer.transform
+        fd.flags filterNot (f => f == IsMethodOf(cid) || f == IsInvariant || f == IsAbstract) map transformer.transform
       ).copiedFrom(fd)
     }
 

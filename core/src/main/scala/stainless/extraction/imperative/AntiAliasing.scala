@@ -145,7 +145,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
         val newSpecs = specs.map {
           case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
-            val newRes = ValDef(res.id.freshen, newFd.returnType, Set.empty).copiedFrom(res)
+            val newRes = ValDef(res.id.freshen, newFd.returnType).copiedFrom(res)
             val newBody = exprOps.replaceSingle(
               aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
               aliasedParams.zipWithIndex.map { case (vd, i) =>
@@ -193,7 +193,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful
 
-            val freshRes = ValDef(FreshIdentifier("res"), nfiType, Set.empty)
+            val freshRes = ValDef(FreshIdentifier("res"), nfiType)
 
             val extractResults = Block(
               for (((varsForIndex, expr), index) <- modifiedArgs.zipWithIndex; v <- varsForIndex) yield {

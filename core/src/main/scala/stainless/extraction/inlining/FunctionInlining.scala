@@ -69,7 +69,7 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
         } else {
           Some(transformer.transform(fd.copy(
             fullBody = inlineFunctionInvocations(fd.fullBody),
-            flags = fd.flags - Inline
+            flags = fd.flags filterNot (_ == Inline)
           )))
         }
       })

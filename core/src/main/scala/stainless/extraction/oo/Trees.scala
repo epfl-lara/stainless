@@ -300,7 +300,7 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
             val nvs = for ((v, ntpe) <- vs zip vsTps) yield {
               val (nvflags, rvflags) = vflags.splitAt(v.flags.size)
               vflags = rvflags
-              t.Variable(v.id, ntpe, nvflags.toSet).copiedFrom(v)
+              t.Variable(v.id, ntpe, nvflags).copiedFrom(v)
             }
 
             val nes = for ((eids, etps, eflags, erecons) <- recEs) yield {
@@ -324,7 +324,7 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
       (ids, vd.tpe +: tps, vd.flags.toSeq ++ flags, (_, tps, flags) => {
         val (vflags, pflags) = flags.splitAt(vd.flags.size)
         val npred = recons(ids, tps.tail, pflags).copiedFrom(pred)
-        t.RefinementType(t.ValDef(vd.id, tps.head, vflags.toSet).copiedFrom(vd), npred).copiedFrom(tpe)
+        t.RefinementType(t.ValDef(vd.id, tps.head, vflags).copiedFrom(vd), npred).copiedFrom(tpe)
       })
 
     case _ => super.deconstruct(tpe)

@@ -180,7 +180,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
               ).copiedFrom(consCd)
             }
           },
-          (sortCd.flags - IsAbstract - IsSealed) map transformer.transform
+          sortCd.flags filterNot (f => f == IsAbstract || f == IsSealed) map transformer.transform
         ).copiedFrom(sortCd)
       }
 

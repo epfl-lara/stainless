@@ -41,7 +41,7 @@ trait InductionTactic extends DefaultTactic {
               implies(andJoin(subCases), vc)
             ))
 
-            VC(inductiveVC, id, kind).setPos(fd)
+            VC(inductiveVC, id, kind, false).setPos(fd)
           }
         }).flatten
 
@@ -84,7 +84,7 @@ trait InductionTactic extends DefaultTactic {
           val fiS = sizeLimit(fi.asString, 25)
 
           val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
-          VC(vc, id, kind).setPos(fi)
+          VC(vc, id, kind, false).setPos(fi)
         }
 
       case (body, _) =>

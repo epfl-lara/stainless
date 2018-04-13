@@ -25,7 +25,7 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
       } with CheckingTransformer {
         override def transform(tpe: s.Type): t.Type = tpe match {
           case s.TypeParameter(id, flags) if flags contains s.IsMutable =>
-            t.TypeParameter(id, (flags - s.IsMutable) map transform).copiedFrom(tpe)
+            t.TypeParameter(id, (flags filterNot (_ == s.IsMutable)) map transform).copiedFrom(tpe)
           case _ => super.transform(tpe)
         }
 
@@ -52,7 +52,7 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
 
         override def transform(vd: s.ValDef): t.ValDef = {
           val (newId, newTpe) = transform(vd.id, vd.tpe)
-          t.ValDef(newId, newTpe, (vd.flags - s.IsVar) map transform).copiedFrom(vd)
+          t.ValDef(newId, newTpe, (vd.flags filterNot (_ == s.IsVar)) map transform).copiedFrom(vd)
         }
       }
 

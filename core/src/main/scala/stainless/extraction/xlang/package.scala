@@ -33,7 +33,7 @@ package object xlang {
       }))
 
     def transformSort(sort: s.ADTSort): t.ADTSort = transformer.transform(sort.copy(
-      flags = sort.flags - s.Ignore
+      flags = sort.flags filterNot (_ == s.Ignore)
     ))
 
     def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
@@ -41,7 +41,7 @@ package object xlang {
       cd.tparams.map(tdef => transformer.transform(tdef)),
       cd.parents.map(ct => transformer.transform(ct).asInstanceOf[t.ClassType]),
       cd.fields.map(vd => transformer.transform(vd)),
-      (cd.flags - s.Ignore).map(f => transformer.transform(f))
+      cd.flags filterNot (_ == s.Ignore) map transformer.transform
     ).copiedFrom(cd)
   }
 }

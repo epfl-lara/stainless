@@ -55,7 +55,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val (eRes, eScope, eFun) = toFunction(eExpr)
 
           val modifiedVars: Seq[Variable] = (tFun.keys ++ eFun.keys).toSet.intersect(varsInScope).toSeq
-          val res = ValDef(FreshIdentifier("res"), ite.getType, Set.empty)
+          val res = ValDef.fresh("res", ite.getType)
           val freshVars = modifiedVars.map(_.freshen)
           val iteType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
 
@@ -64,7 +64,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val iteExpr = IfExpr(cRes, replaceFromSymbols(cFun, tScope(thenVal)), replaceFromSymbols(cFun, eScope(elseVal))).copiedFrom(ite)
 
           val scope = (body: Expr) => {
-            val tupleVd = ValDef(FreshIdentifier("t"), iteType, Set.empty)
+            val tupleVd = ValDef.fresh("t", iteType)
             cScope(Let(tupleVd, iteExpr, Let(
               res,
               tupleSelect(tupleVd.toVariable, 1, modifiedVars.nonEmpty),
@@ -82,7 +82,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           val (scrutRes, scrutScope, scrutFun) = toFunction(scrut)
 
           val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq
-          val res = ValDef(FreshIdentifier("res"), m.getType, Set.empty)
+          val res = ValDef.fresh("res", m.getType)
           val freshVars = modifiedVars.map(_.freshen)
           val matchType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
 
@@ -105,7 +105,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           }).copiedFrom(m)
 
           val scope = (body: Expr) => {
-            val tupleVd = ValDef(FreshIdentifier("t"), matchType, Set.empty)
+            val tupleVd = ValDef.fresh("t", matchType)
             scrutScope(
               Let(tupleVd, matchE,
                 Let(res, tupleSelect(tupleVd.toVariable, 1, freshVars.nonEmpty),
@@ -120,18 +120,14 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
 
         case wh @ While(cond, body, optInv) =>
-          val name = ValDef(
-            FreshIdentifier(parent.id.name + "While"),
-            FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh),
-            Set.empty
-          ).copiedFrom(wh)
+          val name = ValDef.fresh(parent.id.name + "While", FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
 
           val newBody = IfExpr(cond,
             Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
             UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
 
           val newPost = Lambda(
-            Seq(ValDef(FreshIdentifier("bodyRes"), UnitType().copiedFrom(wh), Set.empty).copiedFrom(wh)),
+            Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
             and(
               Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
               optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
@@ -152,9 +148,9 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
             val (rVal, rScope, rFun) = toFunction(e)
             val scope = (body: Expr) => rVal match {
               case fi: FunctionInvocation =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), fi.tfd.returnType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
+                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", fi.tfd.returnType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case alr: ApplyLetRec =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef(FreshIdentifier("tmp"), alr.getType, Set.empty).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
+                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", alr.getType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
               case _ =>
                 rScope(replaceFromSymbols(rFun, accScope(body)))
             }
@@ -196,7 +192,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
           ).setPos(alr)
 
           val freshVars = modifiedVars.map(_.freshen)
-          val tmpTuple = ValDef(FreshIdentifier("t"), newInvoc.getType, Set.empty)
+          val tmpTuple = ValDef.fresh("t", newInvoc.getType)
 
           val scope = (body: Expr) => {
             argScope(Let(tmpTuple, newInvoc,
@@ -274,7 +270,7 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
                 val newSpecs = specs.map {
                   case Postcondition(post @ Lambda(Seq(res), postBody)) =>
-                    val newRes = ValDef(res.id.freshen, newReturnType, Set.empty)
+                    val newRes = ValDef(res.id.freshen, newReturnType)
 
                     val newBody = replaceSingle(
                       modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++

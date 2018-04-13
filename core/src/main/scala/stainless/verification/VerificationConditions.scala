@@ -6,7 +6,8 @@ package verification
 import inox.solvers.Solver
 
 /** This is just to hold some history information. */
-case class VC[T <: ast.Trees](condition: T#Expr, fd: Identifier, kind: VCKind) extends inox.utils.Positioned
+case class VC[T <: ast.Trees](condition: T#Expr, fd: Identifier, kind: VCKind, satisfiability: Boolean)
+  extends inox.utils.Positioned
 
 sealed abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name
@@ -33,6 +34,7 @@ object VCKind {
   case object PostTactic      extends VCKind("postcondition tactic", "tact.")
   case object Choose          extends VCKind("choose satisfiability", "choose")
   case object AdtInvariant    extends VCKind("adt invariant", "adt inv.")
+  case object InvariantSat    extends VCKind("invariant satisfiability", "inv. sat")
   case class  AssertErr(err: String)  extends VCKind("body assertion: " + err, "assert.")
 }
 
@@ -41,7 +43,11 @@ sealed abstract class VCStatus[+Model](val name: String) {
 }
 
 object VCStatus {
-  case class Invalid[+Model](cex: Model) extends VCStatus[Model]("invalid")
+  sealed abstract class Reason[+Model]
+  case class CounterExample[+Model](model: Model) extends Reason[Model]
+  case object Unsatisfiable extends Reason[Nothing]
+
+  case class Invalid[+Model](reason: Reason[Model]) extends VCStatus[Model]("invalid")
   case object Valid extends VCStatus[Nothing]("valid")
   case object ValidFromCache extends VCStatus[Nothing]("valid from cache")
   case object Unknown extends VCStatus[Nothing]("unknown")
