@@ -233,7 +233,7 @@ trait CoqEncoder {
           )) ++ extraCase
         )
       ) $
-      RawCommand(s"Hint Unfold  ${recognizer(a.id).coqString}. \n")
+      RawCommand(s"Hint Unfold  ${recognizer(a.id).coqString}: recognizers. \n")
     case _ => NoCommand
   }
             // if (a.hasInvariant) 
@@ -263,7 +263,7 @@ trait CoqEncoder {
           CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
         )
       ) $
-      RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}. \n")
+      RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements. \n")
     case _ => NoCommand
   }
 
@@ -369,7 +369,8 @@ trait CoqEncoder {
           allParamNames map {x => (x, argTypes(x)(previousParams(x):_*))} toMap
 
         val argDefs: Seq[CoqCommand] = allParams2 map { case (x, body) =>
-          NormalDefinition(argTypes(x), previousParams(x) map(y => (y, fullType(y))), typeSort, body)
+          NormalDefinition(argTypes(x), previousParams(x) map(y => (y, fullType(y))), typeSort, body) $
+          RawCommand(s"Hint Unfold ${argTypes(x).coqString}.\n\n")
         }
 
         //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
@@ -382,10 +383,13 @@ trait CoqEncoder {
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
                     fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
-        RawCommand("\nSolve Obligations with (repeat t).\n")
+        RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
+        RawCommand("Solve Obligations with (repeat t).") $
+        RawCommand("Fail Next Obligation.") $
+        RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n\n")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-          RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}.")
+        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.")
       }
       tmp
       //if (ctx.options.findOptionOrDefault(optAdmitAll)) {

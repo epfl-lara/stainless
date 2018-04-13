@@ -49,18 +49,22 @@ Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
   
 Ltac easy :=
-  congruence ||
-  subst ||
   cbn -[Z.add] in * ||
+  intros ||
+  subst ||
   intuition ||
+  autorewrite with libR in * ||
+  congruence ||
   omega ||
   ring ||
   eauto ||
   discriminate ||
-  autorewrite with libR in *.
+  autounfold in *.
 
 Ltac libStep := match goal with
   | _ => progress easy
+  | |- (S ?T <= ?T)%nat =>
+    unify T ignore_termination; apply False_ind; exact unsupported
   | [ H: ex _ _ |- _ ] => destruct H
   |   H: exists _, _ |- _ => destruct H
   | [ |- context[match ?t with _ => _ end]] =>
@@ -75,9 +79,6 @@ Ltac libStep := match goal with
   | [ |- context[ifthenelse ?b _ _ _] ] =>
             let matched := fresh "matched" in
             destruct b eqn:matched
-  | |- (S ?T <= ?T)%nat =>
-    unify T ignore_termination; apply False_ind; exact unsupported
-  | _ => autounfold in *
   end.
 
 Lemma trueProp: forall P, propInBool P = true <-> P.
@@ -163,14 +164,18 @@ Ltac program_simpl := program_simplify ; try typeclasses eauto with program ; tr
 Ltac destruct_refinement :=
   match goal with
   | |- context[proj1_sig ?T] =>
-    let res := fresh "R" in
+    let res := fresh "RR" in
     destruct T eqn:res
   | H: context[proj1_sig ?T] |- _ =>
-    let res := fresh "R" in
+    let res := fresh "RR" in
     destruct T eqn:res
   end.
 
-Ltac t := (* program_simpl || *) libStep || destruct_ifthenelse || destruct_refinement.
+Ltac t := (* program_simpl || *)
+  libStep || destruct_ifthenelse || destruct_refinement ||
+  (autounfold with recognizers in *) ||
+  (autounfold with refinements in *).
+
 
 Obligation Tactic := repeat t.
 
@@ -189,3 +194,5 @@ Lemma bool_and_iff: forall b1 b2,
 Qed.
 
 Hint Rewrite bool_and_iff: libR.
+
+Set Program Mode.
