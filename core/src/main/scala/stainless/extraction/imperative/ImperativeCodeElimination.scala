@@ -379,7 +379,13 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
 
         val newSpecs = specs.map {
           case Postcondition(ld @ Lambda(params, body)) =>
-            val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
+            // Remove `Old` trees for function parameters on which no effect occurred
+            val newBody = replaceSingle(
+              fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
+              body
+            )
+
+            val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
             Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
 
           case spec => spec.map { e =>

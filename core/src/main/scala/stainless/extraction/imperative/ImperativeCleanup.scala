@@ -44,9 +44,6 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
               t.Let(r, transform(rhs),
                 recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
 
-          // Cleanup leftover `old` nodes if they were used on a reference which is not actually mutated.
-          case s.Old(e) => transform(e)
-
           case _ => super.transform(expr)
         }
 
@@ -58,7 +55,17 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
 
       t.NoSymbols
         .withSorts(syms.sorts.values.toSeq map checker.transform)
-        .withFunctions(syms.functions.values.toSeq map checker.transform)
+        .withFunctions(syms.functions.values.toSeq map { fd =>
+          s.exprOps.preTraversal {
+            case o @ s.Old(v: s.Variable) if fd.params exists (_.toVariable == v) =>
+              throw MissformedStainlessCode(o, s"Stainless `old` can only occur in postconditions.")
+            case o @ s.Old(e) =>
+              throw MissformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
+            case _ =>
+          } (fd.fullBody)
+
+          checker.transform(fd)
+        })
     }
 
     val pureUnitSyms: t.Symbols = {
