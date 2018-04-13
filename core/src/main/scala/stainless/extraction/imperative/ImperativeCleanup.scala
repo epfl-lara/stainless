@@ -59,6 +59,9 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
           s.exprOps.preTraversal {
             case o @ s.Old(v: s.Variable) if fd.params exists (_.toVariable == v) =>
               throw MissformedStainlessCode(o, s"Stainless `old` can only occur in postconditions.")
+            case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
+              throw MissformedStainlessCode(o,
+                s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
             case o @ s.Old(e) =>
               throw MissformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
             case _ =>
