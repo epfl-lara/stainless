@@ -83,16 +83,16 @@ trait CompilationUnit extends CodeGeneration {
   })
 
   private[this] var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
-  protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = runtimeChooseMap(id)
-  protected def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = {
+  protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = synchronized(runtimeChooseMap(id))
+  protected def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
     runtimeChooseMap += id -> (params, tps, c)
     id
   }
 
   private[this] var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
-  protected def getForall(id: Int): (Seq[TypeParameter], Forall) = runtimeForallMap(id)
-  protected def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = {
+  protected def getForall(id: Int): (Seq[TypeParameter], Forall) = synchronized(runtimeForallMap(id))
+  protected def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
     runtimeForallMap += id -> (tps, f)
     id
@@ -460,7 +460,7 @@ trait CompilationUnit extends CodeGeneration {
 
     ch.freeze
 
-    loader.register(cf)
+    synchronized(loader.register(cf))
 
     new CompiledExpression(cf, e, args)
   }
