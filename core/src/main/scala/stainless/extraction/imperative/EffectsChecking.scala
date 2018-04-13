@@ -147,6 +147,10 @@ trait EffectsChecking { self =>
         case FiniteArray(elems, _) => elems.forall(isExpressionFresh)
         case LargeArray(elems, default, _, _) => elems.forall(p => isExpressionFresh(p._2)) && isExpressionFresh(default)
 
+        // We assume `old(.)` is fresh here, although such cases will probably be
+        // rejected later in `ImperativeCleanup`.
+        case Old(_) => true
+
         //function invocation always return a fresh expression, by hypothesis (global assumption)
         case FunctionInvocation(_, _, _) => true
 
