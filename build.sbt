@@ -1,5 +1,5 @@
 import sbt.ScriptedPlugin
-
+mappings in (Compile, packageDoc) := Seq()
 enablePlugins(GitVersioning)
 git.baseVersion in ThisBuild := "0.1.0"
 git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
@@ -14,7 +14,6 @@ val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
 val inoxVersion = "1.1.0-77-gcda28de"
-val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -41,7 +40,8 @@ lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash scri
 
 lazy val baseSettings: Seq[Setting[_]] = Seq(
   organization := "ch.epfl.lara",
-  licenses := Seq("AGPL-3.0" -> url("https://www.gnu.org/licenses/agpl-3.0.html"))
+  licenses := Seq("AGPL-3.0" -> url("https://www.gnu.org/licenses/agpl-3.0.html")),
+  mappings in (Compile, packageDoc) := Seq()
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
@@ -149,6 +149,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
+  mappings in (Compile, packageDoc) := Seq(),
   extraClasspath := {
     ((classDirectory in Compile).value.getAbsolutePath +: (dependencyClasspath in Compile).value.map(_.data.absolutePath))
       .mkString(System.getProperty("path.separator"))
@@ -170,6 +171,7 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(commonSettings, publishMavenSettings)
   .settings(site.settings)
   .settings(site.sphinxSupport())
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
   //.dependsOn(inox % "compile->compile;test->test")
 
@@ -183,6 +185,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
     scalaSource in Compile := baseDirectory.value
   )
   .settings(commonSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
@@ -204,6 +207,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
 lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-scalac-plugin")
@@ -213,27 +217,7 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
     packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
   )
   .settings(artifactSettings, publishMavenSettings)
-
-lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
-  .disablePlugins(AssemblyPlugin)
-  .settings(name := "stainless-dotty-frontend")
-  .dependsOn(`stainless-core`)
-  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
-  .settings(commonSettings, publishMavenSettings)
-
-lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
-  .enablePlugins(JavaAppPackaging)
-  .disablePlugins(AssemblyPlugin)
-  .settings(
-    name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler")
-  .dependsOn(`stainless-dotty-frontend`)
-  // Should truly depend on dotty, overriding the "provided" modifier above:
-  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
-  .aggregate(`stainless-dotty-frontend`)
-  //.dependsOn(inox % "test->test;it->test,it")
-  .configs(IntegrationTest)
-  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -252,6 +236,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     )
   )
   .settings(scriptedSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
   .settings(
     scriptedDependencies := {
       publishLocal.value
@@ -269,7 +254,8 @@ def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
       "-Dplugin.version=" + version.value,
       "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
     ),
-    scriptedBufferLog := false
+    scriptedBufferLog := false,
+    mappings in (Compile, packageDoc) := Seq()
   )
 
 lazy val root = (project in file("."))
@@ -281,8 +267,8 @@ lazy val root = (project in file("."))
     publishArtifact := false,
     publish := ()
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
