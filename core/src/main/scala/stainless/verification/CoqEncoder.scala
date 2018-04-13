@@ -31,7 +31,7 @@ trait CoqEncoder {
   }
 
   // ignore flags with an explicit warning
-  def ignoreFlags(s: String, flags: Set[Flag]) = {
+  def ignoreFlags(s: String, flags: Seq[Flag]) = {
     //if (!flags.isEmpty)
       //ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
   }
@@ -94,7 +94,7 @@ trait CoqEncoder {
       }
       CoqForall(params, CoqEquals(transformTree(body),trueBoolean))
     case Annotated(body, flags) =>
-      ignoreFlags(t.toString, flags.toSet)
+      ignoreFlags(t.toString, flags)
       transformTree(body)
     case Let(vd, value, body) =>
       //without type
