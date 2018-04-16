@@ -25,6 +25,10 @@ trait CoqEncoder {
   var i = 0
   val hypName = "contractHyp"
 
+  var lastTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
+  var rewriteTactic: CoqExpression = idtac
+
+  //TODO use make fresh uniformly
   def freshId(): CoqIdentifier = {
     i += 1
     CoqIdentifier(FreshIdentifier(hypName + i))
@@ -190,7 +194,8 @@ trait CoqEncoder {
           (if (a.constructors.size > 1)
             buildRecognizers(a) $
             buildExistsCreators(a) $
-            buildSubTypes(a)
+            buildSubTypes(a) $
+            buildAdtTactic(a)
           else
             NoCommand
           ) $
@@ -252,7 +257,7 @@ trait CoqEncoder {
     val varNames: Seq[CoqIdentifier] = varTypes map (_ => makeFresh())
 
     val existsExpr = CoqExists(varNames zip varTypes, CoqEquals(CoqApplication(constructorIdentifier(ctor.id), tParams ++ varNames), self))
-    val impl = Arrow(
+    val impl = BiArrow(
       CoqEquals(trueBoolean, CoqApplication(recognizer(ctor.id), tParams :+ self )),
       existsExpr
     )
@@ -355,6 +360,39 @@ trait CoqEncoder {
       ctx.reporter.fatalError(s"The translation to Coq does not support $a as a constructor.")
   }
 
+  def buildAdtTactic(sort: ADTSort): CoqCommand = {
+    val newTactic = makeFresh(s"${sort.id.name}_tactic")
+    val prevTactic = lastTactic
+    lastTactic = newTactic
+    CoqMatchTactic(newTactic,
+      sort.constructors.flatMap(con => makeTacticCases(con)) :+ CoqCase(VariablePattern(None), prevTactic)
+    ) $
+    updateObligationTactic()
+  }
+
+  def updateObligationTactic() : CoqCommand = {
+    RawCommand(s"Obligation Tactic := repeat (repeat ${lastTactic.coqString}; ${rewriteTactic.coqString}).")
+  }
+
+  def makeTacticCases(ctor: ADTConstructor) : Seq[CoqCase] = {
+    val existsCtor = existsCreatorName(ctor.id)
+    val rcg = CoqApplication(recognizer(ctor.id), getTParams(ctor).map(tp => CoqUnboundIdentifier(tp.id)))
+    Seq(
+      CoqCase(
+        CoqTacticPattern(Some(CoqEquals(trueBoolean, rcg)), None),
+        CoqSequence(Seq(applyLemma(existsCtor)))),
+      CoqCase(
+        CoqTacticPattern(Some(CoqEquals(rcg, trueBoolean)), None),
+        CoqSequence(Seq(applyLemma(eq_sym),applyLemma(existsCtor)))),
+      CoqCase(
+        CoqTacticPattern(None, Some(CoqEquals(trueBoolean, rcg))),
+        CoqSequence(Seq(applyLemma(existsCtor)))),
+      CoqCase(
+        CoqTacticPattern(None, Some(CoqEquals(rcg, trueBoolean))),
+        CoqSequence(Seq(applyLemma(eq_sym),applyLemma(existsCtor))))
+    )
+  }
+
   // transform function definitions
   def transformFunction(fd: st.FunDef): CoqCommand = {
     ignoreFlags(fd.toString, fd.flags)
@@ -401,7 +439,9 @@ trait CoqEncoder {
         }
 
         //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
-
+        val oldRewriteTactic = rewriteTactic
+        val newRewriteTactic = makeFresh("rwrtTac")
+        rewriteTactic = newRewriteTactic
 
         //val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
         //FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
@@ -413,7 +453,9 @@ trait CoqEncoder {
         RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
         RawCommand("Solve Obligations with (repeat t).") $
         RawCommand("Fail Next Obligation.") $
-        RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n\n")
+        RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
+        CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, rewrite(CoqLibraryConstant("${funName.coqString}_equation_1 in *")))) $
+        updateObligationTactic()
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
         RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.")
@@ -517,7 +559,7 @@ object CoqEncoder {
 
   val freshIdName = "tmp"
   var m = Map[Identifier, CoqIdentifier] ()
-  var count = Map[String, Int]()
+  var count = Map[String, Int](("t",1))
 
   def makeFresh(id: Identifier): CoqIdentifier = {
     if (m.contains(id)) m(id)

@@ -28,6 +28,16 @@ case class Sequence(e1: CoqCommand, e2: CoqCommand) extends CoqCommand {
   override def coqString = e1.coqString + "\n" + e2.coqString
 }
 
+case class CoqTactic(id: CoqIdentifier, tactics: Seq[CoqExpression]) extends CoqCommand {
+  override def coqString = s"Ltac ${id.coqString} := " + tactics.map (t => t.coqString).mkString("\n  || ") + "."
+}
+
+case class CoqMatchTactic(id: CoqIdentifier, cases: Seq[CoqCase]) extends CoqCommand {
+  override def coqString = s"Ltac ${id.coqString} := match goal with \n" +
+    cases.map(cs => cs.coqString + "\n").mkString(" ") +
+    "end."
+}
+
 case class InductiveDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], cases: Seq[InductiveCase]) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
   override def coqString = {
@@ -119,6 +129,13 @@ case class Arrow(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
   }
 }
 
+
+case class BiArrow(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
+  def coqString: String = {
+    optP(e1) + " <-> " + optP(e2)
+  }
+}
+
 case class CoqMatch(matched: CoqExpression, cases: Seq[CoqCase]) extends CoqExpression {
   override def coqString = 
     s"match ${matched.coqString} with" +
@@ -146,10 +163,21 @@ case class CoqIdentifier(id: Identifier) extends CoqExpression {
   }
 }
 
+case class CoqUnboundIdentifier(id: Identifier) extends  CoqExpression {
+  val coqIdentifier = CoqIdentifier(id)
+  override def coqString = {
+    "?" + coqIdentifier.coqString
+  }
+}
+
 case class CoqTuple(es: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = {
     es.map(_.coqString).mkString("(", ",", ")")
   }
+}
+
+case class CoqSequence(es: Seq[CoqExpression]) extends  CoqExpression {
+  override def coqString = es.map(_.coqString).mkString(";")
 }
 
 case class CoqLibraryConstant(s: String) extends CoqExpression {
@@ -309,6 +337,19 @@ case class CoqTuplePattern(ps: Seq[CoqPattern]) extends CoqPattern {
   }
 }
 
+case class CoqTacticPattern(context: Option[CoqExpression], goal: Option[CoqExpression], contextComplete: Boolean = false, goalComplete: Boolean = false) extends CoqPattern {
+  val contextString = if (context.isEmpty)
+    ""
+  else
+    if (contextComplete) s"H: ${context.get.coqString}" else s"H: context [${context.get.coqString}]"
+
+  val goalString = if (goal.isEmpty)
+    "_"
+  else
+  if (contextComplete) s"${goal.get.coqString}" else s"context [${goal.get.coqString}]"
+  override def coqString = s"[ $contextString |- $goalString ]"
+}
+
 object CoqExpression {
   def fold[T](baseCase: T, exprs: Seq[T])(operation: (T,T) => T) = {
     if (exprs.size == 0) baseCase
@@ -334,6 +375,11 @@ object CoqExpression {
 
   val fst = CoqLibraryConstant("fst")
   val snd = CoqLibraryConstant("snd")
+
+  val applyLemma = CoqLibraryConstant("apply")
+  val rewrite = CoqLibraryConstant("rewrite")
+  val eq_sym = CoqLibraryConstant("eq_sym")
+  val idtac = CoqLibraryConstant("idtac")
 
   val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 
