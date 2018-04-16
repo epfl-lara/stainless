@@ -154,6 +154,23 @@ Ltac destruct_ifthenelse :=
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
+Lemma ifthenelse_rewrite_1: forall T, forall b, forall e1 e2 value, (((b = true) -> (e1 = value)) /\ ((b = false) -> (e2 = value))) -> (ifthenelse b T (fun _ => e1) (fun _ => e2) = value).
+repeat libStep.
+Qed.
+
+
+Lemma ifthenelse_rewrite_2: forall T, forall b, forall e1 e2 value, (ifthenelse b T (fun _ => e1) (fun _ => e2) = value) -> (((b = true) -> (e1 = value)) /\ ((b = false) -> (e2 = value))).
+repeat libStep.
+Qed.
+
+Ltac rewrite_ifthenelse :=
+  match goal with
+  | H: context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] |- _ => apply ifthenelse_rewrite_2 in H
+  | H: context[?val = (ifthenelse ?b ?B ?e1 ?e2)] |- _ => apply eq_sym in H; apply ifthenelse_rewrite_2 in H
+  | [ |- context[?val = (ifthenelse ?b ?B ?e1 ?e2)] ] => apply eq_sym; apply ifthenelse_rewrite_1
+  | [ |- context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] ] => apply ifthenelse_rewrite_1
+  end.
+
 Ltac program_simplify :=
   cbn -[Z.add]; intros ; destruct_all_rec_calls ; repeat (destruct_conjs; simpl proj1_sig in * );
   subst*; autoinjections ; try discriminates ;
@@ -172,7 +189,7 @@ Ltac destruct_refinement :=
   end.
 
 Ltac t := (* program_simpl || *)
-  libStep || destruct_ifthenelse || destruct_refinement ||
+  libStep || rewrite_ifthenelse || destruct_ifthenelse || destruct_refinement ||
   (autounfold with recognizers in *) ||
   (autounfold with refinements in *).
 
@@ -194,5 +211,22 @@ Lemma bool_and_iff: forall b1 b2,
 Qed.
 
 Hint Rewrite bool_and_iff: libR.
+
+Theorem proj1: forall P Q: Prop, P /\ Q -> P.
+  intros P Q H.
+  inversion H.
+  apply H0. Qed.
+
+Theorem and_left : forall (P Q : Prop),
+  (P /\ Q) -> P.
+Proof.
+  intros P Q P_and_Q.
+  destruct P_and_Q.
+  exact H.
+Qed. 
+
+
+
+
 
 Set Program Mode.
