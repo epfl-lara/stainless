@@ -245,6 +245,11 @@ trait CodeExtraction extends ASTExtractors {
 
   private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val ExObjectDef(_, template) = obj
+
+    if (obj.impl.parents.exists(p => !ignoreClasses.contains(p.tpe))) {
+      outOfSubsetError(obj, "Objects cannot extend classes or implement traits, use a case object instead")
+    }
+
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
