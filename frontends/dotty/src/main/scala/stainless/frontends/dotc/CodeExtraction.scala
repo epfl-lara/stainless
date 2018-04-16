@@ -1095,11 +1095,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else                xt.BVWideningCast(extractTree(expr), newType)
 
     case ExCall(rec, sym, tps, args) => rec match {
-      // Case object local values are treated differently by dotty (same as scalac) for some
+      // Case object fields and methods are treated differently by dotty (same as scalac) for some
       // reason so we need a special extractor here.
-      case None if (sym.owner is ModuleClass) && (sym.owner is Case) && tps.isEmpty && args.isEmpty =>
+      case None if (sym.owner is ModuleClass) && (sym.owner is Case) =>
         val ct = extractType(sym.owner.thisType)(dctx, tr.pos).asInstanceOf[xt.ClassType]
-        xt.MethodInvocation(xt.This(ct).setPos(tr.pos), getIdentifier(sym), Seq(), Seq())
+        xt.MethodInvocation(
+          xt.ClassConstructor(ct, Seq()).setPos(tr.pos),
+          getIdentifier(sym),
+          tps map extractType,
+          args map extractTree
+        )
 
       case None =>
         dctx.localFuns.get(sym) match {
