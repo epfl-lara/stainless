@@ -189,6 +189,7 @@ trait CoqEncoder {
           ) $
           (if (a.constructors.size > 1)
             buildRecognizers(a) $
+            buildExistsCreators(a) $
             buildSubTypes(a)
           else
             NoCommand
@@ -236,9 +237,35 @@ trait CoqEncoder {
       RawCommand(s"Hint Unfold  ${recognizer(a.id).coqString}: recognizers. \n")
     case _ => NoCommand
   }
-            // if (a.hasInvariant) 
+            // if (a.hasInvariant)
             //   CoqApplication(CoqIdentifier(a.invariant.get.id), tparams :+ element)
             // else
+
+  def buildExistsCreators(a: ADTSort): CoqCommand =
+    manyCommands(a.constructors.map(c => buildExistsCreator(c)))
+
+  def buildExistsCreator(ctor: ADTConstructor): CoqCommand = {
+    val self = makeFresh("self")
+    val tParams = getTParams(ctor).map(tp => CoqIdentifier(tp.id))
+
+    val varTypes: Seq[CoqExpression] = ctor.fields.map(vd => transformType(vd.tpe))
+    val varNames: Seq[CoqIdentifier] = varTypes map (_ => makeFresh())
+
+    val existsExpr = CoqExists(varNames zip varTypes, CoqEquals(CoqApplication(constructorIdentifier(ctor.id), tParams ++ varNames), self))
+    val impl = Arrow(
+      CoqEquals(trueBoolean, CoqApplication(recognizer(ctor.id), tParams :+ self )),
+      existsExpr
+    )
+
+    val body = CoqForall(
+      Seq((self, CoqApplication(CoqIdentifier(ctor.sort), tParams))) ++ tParams.map(tp => (tp, TypeSort)),
+      impl)
+    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t."))
+  }
+
+  def existsCreatorName(id: Identifier): CoqIdentifier = {
+    CoqIdentifier(new Identifier(id.name + "_exists", id.id, id.globalId))
+  }
 
   def buildSubTypes(a: ADTSort): CoqCommand = 
     manyCommands(a.constructors.map(c => buildSubType(a, c)))

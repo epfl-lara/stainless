@@ -67,6 +67,14 @@ case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpress
     }.mkString("", ";\n", ".")
 }
 
+case class CoqLemma(name: CoqIdentifier, body: CoqExpression, proof: CoqCommand) extends CoqCommand {
+  override def coqString =
+      s"Lemma ${name.coqString}: ${body.coqString}. \n" +
+      proof.coqString +
+      s"\nQed.\n"
+
+}
+
 // This class is used to represent the strings we want to print as is
 case class RawCommand(s: String) extends CoqCommand {
   override def coqString = s
@@ -157,6 +165,13 @@ case class CoqForall(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpressi
     /*propInBool.coqString + */"(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) => 
       s"forall ${id.coqString}: ${tpe.coqString}, $acc"
     } + ")"
+}
+
+case class CoqExists(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpression) extends CoqExpression {
+  override def coqString =
+  /*propInBool.coqString + */"(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) =>
+    s"exists ${id.coqString}: ${tpe.coqString}, $acc"
+  } + ")"
 }
 
 case class CoqLet(vd: CoqIdentifier, value: CoqExpression, body: CoqExpression) extends CoqExpression {
