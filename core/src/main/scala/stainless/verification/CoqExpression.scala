@@ -300,6 +300,10 @@ case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression
   }
 }
 
+case class Rewrite(what: CoqExpression) extends CoqExpression {
+  override def coqString = s"rewrite ${what.coqString} in *"
+}
+
 // used in the CoqMatch construct
 case class CoqCase(pattern: CoqPattern, body: CoqExpression) {
   def coqString: String = {
@@ -377,7 +381,6 @@ object CoqExpression {
   val snd = CoqLibraryConstant("snd")
 
   val applyLemma = CoqLibraryConstant("apply")
-  val rewrite = CoqLibraryConstant("rewrite")
   val eq_sym = CoqLibraryConstant("eq_sym")
   val idtac = CoqLibraryConstant("idtac")
 

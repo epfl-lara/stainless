@@ -454,7 +454,7 @@ trait CoqEncoder {
         RawCommand("Solve Obligations with (repeat t).") $
         RawCommand("Fail Next Obligation.") $
         RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
-        CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, rewrite(CoqLibraryConstant("${funName.coqString}_equation_1 in *")))) $
+        CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, Rewrite(CoqLibraryConstant(s"${funName.coqString}_equation_1")))) $
         updateObligationTactic()
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
