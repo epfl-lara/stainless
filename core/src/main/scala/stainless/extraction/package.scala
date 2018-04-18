@@ -70,6 +70,7 @@ package object extraction {
     val pipeline =
       PartialFunctions     andThen
       xlang.extractor      andThen
+      anon.extractor       andThen
       methods.extractor    andThen
       throwing.extractor   andThen
       oo.extractor         andThen

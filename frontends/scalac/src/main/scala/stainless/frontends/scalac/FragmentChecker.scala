@@ -104,21 +104,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (!sym.isAbstractClass
             && !sym.isCaseClass
             && !sym.isModuleClass
+            && !sym.isAnonymousClass
             && !sym.isImplicit
             && !sym.isNonBottomSubClass(definitions.AnnotationClass))
-            reportError(tree.pos, "Only abstract classes, case classes and objects are allowed in Stainless.")
+            reportError(tree.pos, "Only abstract classes, case classes, anonymous classes, and objects are allowed in Stainless.")
 
-          val firstParent = sym.info.firstParent
-          if (firstParent != definitions.AnyRefTpe) {
-            // we assume type-checked Scala code, so even though usually type arguments are not the same as
-            // type parameters, we can assume the super type is fully applied (otherwise we could check via
-            // firstParent.typeSymbol.typeParams)
-            val parentTParams = firstParent.typeArgs
-            val tparams = sym.info.typeParams
-            if (tparams.size != parentTParams.size)
-              reportError(tree.pos,
-                s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
-          }
           tparams.foreach(checkVariance)
           atOwner(sym)(traverse(impl))
 

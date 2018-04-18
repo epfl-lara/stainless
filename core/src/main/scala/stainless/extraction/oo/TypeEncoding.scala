@@ -294,7 +294,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       case s.UnitType() => unit()
       case s.RealType() => real()
       case s.StringType() => str()
-      case _ => scala.sys.error("Unexpected type " + tpe)
+      case _ => scala.sys.error("Unexpected type " + tpe + s" (${tpe.getClass})")
     }
 
     def isSubtypeOfClass(cd: s.ClassDef, tp1: Expr, tp2: Expr): Expr = {
