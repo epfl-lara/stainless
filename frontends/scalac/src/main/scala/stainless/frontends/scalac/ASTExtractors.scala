@@ -440,6 +440,15 @@ trait ASTExtractors {
       }
     }
 
+    object ExNewAnonymousClass {
+      def unapply(tree: Tree): Option[(ClassDef, Apply)] = tree match {
+        case Block(List(cd: ClassDef), a @ Apply(Select(New(_), n), _))
+          if cd.symbol.isAnonymousClass && n == nme.CONSTRUCTOR =>
+            Some((cd, a))
+        case _ => None
+      }
+    }
+
     object ExCaseClassSyntheticJunk {
       def unapply(cd: Tree): Boolean = cd match {
         case ClassDef(_, _, _, _) if cd.symbol.isSynthetic => true

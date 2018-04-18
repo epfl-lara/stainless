@@ -13,6 +13,10 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
   def transform(syms: s.Symbols): t.Symbols = {
     import s._
 
+    implicit val printerOpts = new PrinterOptions(printUniqueIds = true, printTypes = false)
+
+    println(syms.asString)
+
     val children: Map[Identifier, Set[Identifier]] =
       syms.classes.values
         .flatMap(cd => cd.parents.map(_ -> cd))

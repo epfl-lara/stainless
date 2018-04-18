@@ -148,6 +148,10 @@ trait CodeExtraction extends ASTExtractors {
     }
   }
 
+  private var localClasses        : Seq[Identifier]       = Seq.empty
+  private var allLocalClasses     : Seq[xt.LocalClassDef] = Seq.empty
+  private var allLocalClassesFuns : Seq[xt.FunDef]        = Seq.empty
+
   private def extractStatic(stats: List[Tree]): (
     Seq[xt.Import],
     Seq[Identifier], // classes
@@ -202,13 +206,13 @@ trait CodeExtraction extends ASTExtractors {
         allFunctions ++= newFunctions
 
       case md: ModuleDef if !md.symbol.isSynthetic && md.symbol.isCase =>
-        val (xcd, newFunctions) = extractClass(md)
+        val (xcd, newFunctions) = extractClass(md)(DefContext())
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
 
       case cd: ClassDef =>
-        val (xcd, newFunctions) = extractClass(cd)
+        val (xcd, newFunctions) = extractClass(cd)(DefContext())
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
@@ -239,9 +243,15 @@ trait CodeExtraction extends ASTExtractors {
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
 
-    (imports, classes, functions, subs, allClasses, allFunctions)
+    (
+      imports,
+      classes,
+      functions,
+      subs,
+      allClasses,
+      allFunctions
+    )
   }
-
 
   private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val ExObjectDef(_, template) = obj
@@ -265,14 +275,15 @@ trait CodeExtraction extends ASTExtractors {
     AnyRefClass.tpe
   )
 
-  private def extractClass(cd: ImplDef): (xt.ClassDef, Seq[xt.FunDef]) = {
+  private def extractClass(cd: ImplDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
     val annots = annotationsOf(sym)
     val flags = annots ++
       (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
-      (if (sym.isSealed) Some(xt.IsSealed) else None)
+      (if (sym.isSealed) Some(xt.IsSealed) else None) ++
+      (if (sym.isAnonymousClass) Some(xt.IsAnonymous) else None)
 
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
@@ -281,7 +292,7 @@ trait CodeExtraction extends ASTExtractors {
 
     val tparams = extractTypeParams(tparamsSyms)
 
-    val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
+    val tpCtx = dctx.copy(tparams = dctx.tparams ++ (tparamsSyms zip tparams).toMap)
 
     val parents = cd.impl.parents.flatMap(p => p.tpe match {
       case tpe if ignoreClasses(tpe) => None
@@ -697,6 +708,12 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private def extractTree(tr: Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
+    case ExNewAnonymousClass(cd, app) =>
+      val (xcd, methods) = extractClass(cd)
+      val xt.ClassConstructor(_, args) = extractTree(app) // FIXME: error handling
+
+      xt.LetClass(xt.LocalClassDef(xcd, methods), args)
+
     case Block(es, e) =>
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
