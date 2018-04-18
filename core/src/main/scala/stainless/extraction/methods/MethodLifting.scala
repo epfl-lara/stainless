@@ -13,6 +13,8 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
   def transform(symbols: s.Symbols): t.Symbols = {
     import s._
 
+    implicit val popts = new PrinterOptions(printUniqueIds = true, symbols = Some(symbols))
+
     for (fd <- symbols.functions.values) {
       import symbols._
       if (!isSubtypeOf(fd.fullBody.getType, fd.returnType)) {

@@ -68,14 +68,15 @@ package object extraction {
     ctx: inox.Context
   ): Program { val trees: extraction.trees.type } = {
     val pipeline =
-      PartialFunctions     andThen
-      xlang.extractor      andThen
-      methods.extractor    andThen
-      throwing.extractor   andThen
-      oo.extractor         andThen
-      holes.extractor      andThen
-      imperative.extractor andThen
-      innerfuns.extractor  andThen
+      PartialFunctions       andThen
+      xlang.extractor        andThen
+      innerclasses.extractor andThen
+      methods.extractor      andThen
+      throwing.extractor     andThen
+      oo.extractor           andThen
+      holes.extractor        andThen
+      imperative.extractor   andThen
+      innerfuns.extractor    andThen
       inlining.extractor
 
     TreeSanitizer.check(program) // Might throw some MissformedStainlessCode

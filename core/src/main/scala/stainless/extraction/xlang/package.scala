@@ -19,11 +19,11 @@ package object xlang {
     * these trees to `oo.Trees` simply consists in an identity mapping. */
   object extractor extends oo.SimpleSymbolTransformer {
     val s: trees.type = trees
-    val t: methods.trees.type = methods.trees
+    val t: innerclasses.trees.type = innerclasses.trees
 
     object transformer extends ast.TreeTransformer {
       val s: trees.type = trees
-      val t: methods.trees.type = methods.trees
+      val t: innerclasses.trees.type = innerclasses.trees
     }
 
     def transformFunction(fd: s.FunDef): t.FunDef = transformer.transform(fd.copy(
