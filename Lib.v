@@ -1,12 +1,12 @@
 Require Import Coq.Program.Tactics.
 Require Import Coq.Program.Program.
 Require Import Coq.Lists.List.
-Require Import Coq.Lists.ListSet.
 Require Import Coq.Logic.Classical.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Strings.String.
 Require Import Omega.
 Require Import ZArith.
+Require Import stdpp.set.
 Require Equations.Equations.
 
 Open Scope bool_scope.
@@ -22,7 +22,7 @@ Definition propInBool (P: Prop): bool :=
  then true
  else false.
 
-Hint Unfold propInBool.
+(* Hint Unfold propInBool. *)
 
 Lemma Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.
   intros.
@@ -38,10 +38,10 @@ Definition ifthenelse b A (e1: true =b -> A) (e2: false = b -> A): A :=
   end eq_refl.
 
 Definition set_subset {T: Type} (a b: set T): bool :=
-  propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).
+  propInBool ((set_difference a b) = set_empty).
 
 Definition magic (T: Type): T := match unsupported with end.
-Set Default Timeout 10.
+Set Default Timeout 60.
 
 Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
   (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
@@ -183,6 +183,7 @@ Ltac rewrite_ifthenelse :=
   | H: context[?val = (ifthenelse ?b ?B ?e1 ?e2)] |- _ => apply eq_sym in H; apply ifthenelse_rewrite_2 in H
   | [ |- context[?val = (ifthenelse ?b ?B ?e1 ?e2)] ] => apply eq_sym; apply ifthenelse_rewrite_1 *)
   | [ |- context[(ifthenelse _ _ _ _) = _] ] => apply ifthenelse_rewrite_3
+  | [ |- context[_ = (ifthenelse _ _ _ _)] ] => apply eq_sym; apply ifthenelse_rewrite_3
   end.
 
 Ltac program_simplify :=
@@ -204,8 +205,7 @@ Ltac destruct_refinement :=
 
 Ltac t := (* program_simpl || *)
   libStep || rewrite_ifthenelse || destruct_ifthenelse || destruct_refinement ||
-          (autounfold with refinements in *) ||
-                           eauto.
+          (autounfold with refinements in *).
 
 
 Obligation Tactic := repeat t.

@@ -78,6 +78,8 @@ trait CoqEncoder {
       CoqApplication(CoqLibraryConstant("Zeq_bool"),  Seq(transformTree(t1), transformTree(t2)))
     case Equals(t1,t2) if (t1.getType == BooleanType()) =>
       CoqApplication(CoqLibraryConstant("Bool.eqb"), Seq(transformTree(t1), transformTree(t2)))
+    case Equals(t1,t2) if t1.getType.isInstanceOf[SetType] =>
+      CoqSetEquals(transformTree(t1),transformTree(t2))
     case Equals(t1,t2) =>
       ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq")
       propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
@@ -265,7 +267,7 @@ trait CoqEncoder {
     val body = CoqForall(
       Seq((self, CoqApplication(CoqIdentifier(ctor.sort), tParams))) ++ tParams.map(tp => (tp, TypeSort)),
       impl)
-    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t."))
+    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t || autounfold with recognizers in * || eauto."))
   }
 
   def existsCreatorName(id: Identifier): CoqIdentifier = {
@@ -371,25 +373,28 @@ trait CoqEncoder {
   }
 
   def updateObligationTactic() : CoqCommand = {
-    RawCommand(s"Obligation Tactic := repeat (repeat ${lastTactic.coqString}; ${rewriteTactic.coqString}).")
+    RawCommand(s"""Obligation Tactic := (repeat t ||
+      |  ${lastTactic.coqString} ||
+      |  ${rewriteTactic.coqString} ||
+      |  autounfold with recognizers in * ||
+      |  rewrite propInBool in * ); eauto.""".stripMargin)
   }
 
   def makeTacticCases(ctor: ADTConstructor) : Seq[CoqCase] = {
     val existsCtor = existsCreatorName(ctor.id)
-    val rcg = CoqApplication(recognizer(ctor.id), getTParams(ctor).map(tp => CoqUnboundIdentifier(tp.id)))
+    val ids: Seq[CoqIdentifier] = getTParams(ctor).map(tp => CoqIdentifier(tp.id)) :+ makeFresh("self")
+    val rcg = CoqApplication(recognizer(ctor.id), ids.map(id => CoqUnboundIdentifier(id)))
+    val label = poseNew(Mark(ids, ctor.id.name + "_exists"))
+    val pose = {hyp: CoqExpression =>
+      PoseProof(CoqApplication(proj1(CoqApplication(existsCtor, Seq(CoqUnknown, CoqUnknown))), Seq(hyp)))
+    }
     Seq(
       CoqCase(
         CoqTacticPattern(Some(CoqEquals(trueBoolean, rcg)), None),
-        CoqSequence(Seq(applyLemma(existsCtor)))),
+        CoqSequence(Seq(label, pose(coqHypName)))),
       CoqCase(
         CoqTacticPattern(Some(CoqEquals(rcg, trueBoolean)), None),
-        CoqSequence(Seq(applyLemma(eq_sym),applyLemma(existsCtor)))),
-      CoqCase(
-        CoqTacticPattern(None, Some(CoqEquals(trueBoolean, rcg))),
-        CoqSequence(Seq(applyLemma(existsCtor)))),
-      CoqCase(
-        CoqTacticPattern(None, Some(CoqEquals(rcg, trueBoolean))),
-        CoqSequence(Seq(applyLemma(eq_sym),applyLemma(existsCtor))))
+        CoqSequence(Seq(label, pose(eq_sym(coqHypName)))))
     )
   }
 
@@ -453,7 +458,7 @@ trait CoqEncoder {
         RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
         RawCommand("Solve Obligations with (repeat t).") $
         RawCommand("Fail Next Obligation.") $
-        RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
+        //RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
         CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, Rewrite(CoqLibraryConstant(s"${funName.coqString}_equation_1")))) $
         updateObligationTactic()
       } else {

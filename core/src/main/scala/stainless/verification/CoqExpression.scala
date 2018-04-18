@@ -163,10 +163,9 @@ case class CoqIdentifier(id: Identifier) extends CoqExpression {
   }
 }
 
-case class CoqUnboundIdentifier(id: Identifier) extends  CoqExpression {
-  val coqIdentifier = CoqIdentifier(id)
+case class CoqUnboundIdentifier(id: CoqIdentifier) extends  CoqExpression {
   override def coqString = {
-    "?" + coqIdentifier.coqString
+    "?" + id.coqString
   }
 }
 
@@ -261,7 +260,21 @@ case object CoqUnknown extends CoqExpression {
 }
 
 case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends CoqExpression {
-  override def coqString = args.map(optP(_) + " :: ").mkString + "nil"
+  override def coqString = args.foldLeft[CoqExpression](CoqSetEmpty(tpe))(
+    (acc, singl) => CoqSetUnion(acc, CoqSetSingleton(singl))
+  ).coqString
+}
+
+case class CoqSetEmpty(tpe: CoqExpression) extends CoqExpression {
+  override def coqString = s"@set_empty ${optP(tpe)}"
+}
+
+case class CoqSetSingleton(e: CoqExpression) extends CoqExpression {
+  override def coqString = s"set_singleton ${optP(e)}"
+}
+
+case class CoqSetEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
+  override def coqString = s"propInBool (${optP(e1)} ≡ ${optP(e2)})"
 }
 
 /*
@@ -269,19 +282,19 @@ case class CoqFiniteSet(args: Seq[CoqExpression], tpe: CoqExpression) extends Co
 *
 **/
 case class CoqSetUnion(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = s"set_union (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
+  override def coqString = s"set_union ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetIntersection(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_inter (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
+  override def coqString = s"set_intersection ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetDifference(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_diff (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
+  override def coqString = s"set_difference ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetSubset(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"set_subset ${optP(e1)} ${optP(e2)}"
+  override def coqString = s"propInBool (set_subset ${optP(e1)} ${optP(e2)})"
 
 }
 
@@ -290,7 +303,7 @@ case class CoqSetType(base: CoqExpression) extends CoqExpression {
 }
 
 case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = s"set_mem (Aeq_dec_all _) ${optP(e1)} ${optP(e2)}"
+  override def coqString = s"propInBool (set_elem_of ${optP(e1)} ${optP(e2)})"
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
@@ -302,6 +315,17 @@ case class Refinement(id: CoqIdentifier, tpe: CoqExpression, body: CoqExpression
 
 case class Rewrite(what: CoqExpression) extends CoqExpression {
   override def coqString = s"rewrite ${what.coqString} in *"
+}
+
+case class Mark(names: Seq[CoqExpression], label: String) extends CoqExpression {
+  override def coqString = {
+    val joinedString = names.map(exp => exp.coqString).mkString("(", ",", ")")
+    "Mark " + joinedString + " \"" + label + "\""
+  }
+}
+
+case class PoseProof(expr: CoqExpression) extends CoqExpression {
+  override def coqString: String = s"pose proof ${optP(expr)}"
 }
 
 // used in the CoqMatch construct
@@ -345,7 +369,7 @@ case class CoqTacticPattern(context: Option[CoqExpression], goal: Option[CoqExpr
   val contextString = if (context.isEmpty)
     ""
   else
-    if (contextComplete) s"H: ${context.get.coqString}" else s"H: context [${context.get.coqString}]"
+    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"H: context [${context.get.coqString}]"
 
   val goalString = if (goal.isEmpty)
     "_"
@@ -383,6 +407,11 @@ object CoqExpression {
   val applyLemma = CoqLibraryConstant("apply")
   val eq_sym = CoqLibraryConstant("eq_sym")
   val idtac = CoqLibraryConstant("idtac")
+
+  val poseNew = CoqLibraryConstant("poseNew")
+  val coqHypName = CoqLibraryConstant("H")
+
+  val proj1 = CoqLibraryConstant("proj1")
 
   val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 
