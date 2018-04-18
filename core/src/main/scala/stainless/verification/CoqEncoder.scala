@@ -428,10 +428,10 @@ trait CoqEncoder {
 
         val allParamNames: Seq[CoqIdentifier] = allParams2 map (_._1)
         val previousParams: Map[CoqIdentifier, Seq[CoqIdentifier]] =
-          allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a} toMap
+          (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
 
         val fullType: Map[CoqIdentifier, CoqExpression] =
-          allParamNames map {x => (x, argTypes(x)(previousParams(x):_*))} toMap
+          (allParamNames map {x => (x, argTypes(x)(previousParams(x):_*))}).toMap
 
         val argDefs: Seq[CoqCommand] = allParams2 map { case (x, body) =>
           NormalDefinition(argTypes(x), previousParams(x) map(y => (y, fullType(y))), typeSort, body) $

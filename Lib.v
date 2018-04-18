@@ -41,28 +41,29 @@ Definition set_subset {T: Type} (a b: set T): bool :=
   propInBool ((set_diff (Aeq_dec_all _) a b) = empty_set T).
 
 Definition magic (T: Type): T := match unsupported with end.
-Set Default Timeout 60.
+Set Default Timeout 10.
 
 Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
   (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
 Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
   
-Ltac easy :=
+Ltac fast :=
   cbn -[Z.add] in * ||
   intros ||
   subst ||
   intuition ||
   autorewrite with libR in * ||
   congruence ||
-  omega ||
-  ring ||
-  eauto ||
   discriminate ||
-  autounfold in *.
+  autounfold in *
+.
+
+Ltac slow :=
+  omega || ring || eauto.
 
 Ltac libStep := match goal with
-  | _ => progress easy
+  | _ => progress fast
   | |- (S ?T <= ?T)%nat =>
     unify T ignore_termination; apply False_ind; exact unsupported
   | [ H: ex _ _ |- _ ] => destruct H
@@ -116,7 +117,7 @@ Lemma match_or:
   forall b A e1 e2,
     (exists p: true = b,  e1 p = ifthenelse b A e1 e2) \/
     (exists p: false = b, e2 p = ifthenelse b A e1 e2).
-  intros; destruct b; repeat libStep.
+  intros; destruct b; repeat libStep; eauto.
 Qed.
 
 Inductive Marked {T}: T -> string -> Type :=
@@ -131,6 +132,9 @@ Ltac isThere P :=
 Ltac termNotThere p :=
   let P := type of p in
   tryif (isThere P) then fail else idtac.
+
+
+Ltac poseNew E := termNotThere E; pose proof E.
 
 Ltac splitite b B e1 e2 :=
   termNotThere (Mark (b,B,e1,e2) "hello");
@@ -154,6 +158,7 @@ Ltac destruct_ifthenelse :=
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
+
 Lemma ifthenelse_rewrite_1: forall T, forall b, forall e1 e2 value, (((b = true) -> (e1 = value)) /\ ((b = false) -> (e2 = value))) -> (ifthenelse b T (fun _ => e1) (fun _ => e2) = value).
 repeat libStep.
 Qed.
@@ -163,12 +168,21 @@ Lemma ifthenelse_rewrite_2: forall T, forall b, forall e1 e2 value, (ifthenelse 
 repeat libStep.
 Qed.
 
+
+Lemma ifthenelse_rewrite_3: forall T b e1 e2 value,
+    (forall H1: true = b, e1 H1 = value) ->
+    (forall H2: false = b, e2 H2 = value) ->
+    ifthenelse b T e1 e2 = value.
+Proof.
+  repeat libStep.  
+Qed.
+
 Ltac rewrite_ifthenelse :=
   match goal with
-  | H: context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] |- _ => apply ifthenelse_rewrite_2 in H
+(*  | H: context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] |- _ => apply ifthenelse_rewrite_2 in H
   | H: context[?val = (ifthenelse ?b ?B ?e1 ?e2)] |- _ => apply eq_sym in H; apply ifthenelse_rewrite_2 in H
-  | [ |- context[?val = (ifthenelse ?b ?B ?e1 ?e2)] ] => apply eq_sym; apply ifthenelse_rewrite_1
-  | [ |- context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] ] => apply ifthenelse_rewrite_1
+  | [ |- context[?val = (ifthenelse ?b ?B ?e1 ?e2)] ] => apply eq_sym; apply ifthenelse_rewrite_1 *)
+  | [ |- context[(ifthenelse _ _ _ _) = _] ] => apply ifthenelse_rewrite_3
   end.
 
 Ltac program_simplify :=
@@ -190,8 +204,8 @@ Ltac destruct_refinement :=
 
 Ltac t := (* program_simpl || *)
   libStep || rewrite_ifthenelse || destruct_ifthenelse || destruct_refinement ||
-  (autounfold with recognizers in *) ||
-  (autounfold with refinements in *).
+          (autounfold with refinements in *) ||
+                           eauto.
 
 
 Obligation Tactic := repeat t.
@@ -226,7 +240,6 @@ Proof.
 Qed. 
 
 
-
-
-
 Set Program Mode.
+
+(* Notation "'<' x '>'" := (exist _ x _). *)
