@@ -373,11 +373,14 @@ trait CoqEncoder {
   }
 
   def updateObligationTactic() : CoqCommand = {
-    RawCommand(s"""Obligation Tactic := (repeat t ||
-      |  ${lastTactic.coqString} ||
-      |  ${rewriteTactic.coqString} ||
-      |  autounfold with recognizers in * ||
-      |  rewrite propInBool in * ); eauto.""".stripMargin)
+    val t = makeFresh("t")
+    RawCommand(s"""Ltac ${t.coqString} := 
+                  |  t ||
+                  |  ${lastTactic.coqString} ||
+                  |  ${rewriteTactic.coqString} ||
+                  |  autounfold with recognizers in * ||
+                  |  rewrite propInBool in *.""".stripMargin) $
+    RawCommand(s"Obligation Tactic := repeat ${t.coqString}.")
   }
 
   def makeTacticCases(ctor: ADTConstructor) : Seq[CoqCase] = {
@@ -535,7 +538,11 @@ trait CoqEncoder {
   }
 
   def header(): CoqCommand = {
-    RawCommand("Load Lib.")
+    RawCommand("Require Import SLC.Lib.") $
+    RawCommand("Require Import SLC.PropBool.") $
+    RawCommand("Require Import SLC.Booleans.") $
+    RawCommand("Require Import SLC.Sets.") $
+    RawCommand("Set Program Mode.")
   }
 
   def transformLib(): CoqCommand = {

@@ -1,44 +1,25 @@
 Require Import Coq.Program.Tactics.
 Require Import Coq.Program.Program.
 Require Import Coq.Lists.List.
-Require Import Coq.Logic.Classical.
-Require Import Coq.Bool.Bool.
 Require Import Coq.Strings.String.
 Require Import Omega.
 Require Import ZArith.
 Require Import stdpp.set.
+
 Require Equations.Equations.
 
 Open Scope bool_scope.
 Open Scope Z_scope.
 
-Axiom classicT: forall P: Prop, P + ~P.
 Axiom unsupported: False. 
 Axiom map_type: Type -> Type -> Type.
 Axiom ignore_termination: nat.
 
-Definition propInBool (P: Prop): bool :=
- if (classicT P)
- then true
- else false.
-
-(* Hint Unfold propInBool. *)
-
-Lemma Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.
-  intros.
-  pose proof classicT (x  = y) as H.
-  destruct H; intuition.
-Qed.
-
-
-Definition ifthenelse b A (e1: true =b -> A) (e2: false = b -> A): A :=
+Definition ifthenelse b A (e1: true = b -> A) (e2: false = b -> A): A :=
   match b as B return (B = b -> A) with
   | true => fun H => e1 H
   | false => fun H => e2 H
   end eq_refl.
-
-Definition set_subset {T: Type} (a b: set T): bool :=
-  propInBool ((set_difference a b) = set_empty).
 
 Definition magic (T: Type): T := match unsupported with end.
 Set Default Timeout 60.
@@ -82,31 +63,6 @@ Ltac libStep := match goal with
             destruct b eqn:matched
   end.
 
-Lemma trueProp: forall P, propInBool P = true <-> P.
-Proof.
-  repeat libStep || unfold propInBool in *.
-Qed.
-
-Lemma falseProp: forall P, propInBool P = false <-> (P -> False).
-Proof.
-  repeat libStep || unfold propInBool in *.
-Qed.
-
-Lemma falseNegProp: forall P, negb (propInBool P) = false <-> P.
-Proof.
-  repeat libStep || unfold propInBool in *.
-Qed.
-
-Lemma trueNegProp: forall P, negb (propInBool P) = true <-> (P -> False).
-Proof.
-  repeat libStep || unfold propInBool in *.
-Qed.
-
-Hint Rewrite trueProp falseProp falseNegProp trueNegProp: libR.
-
-Hint Rewrite eqb_true_iff: libR.
-Hint Rewrite eqb_false_iff: libR.
-Hint Rewrite <- Zeq_is_eq_bool: libR.
 Hint Rewrite Z.leb_gt: libR.
 Hint Rewrite Z.leb_le: libR.
 Hint Rewrite Z.geb_leb: libR.
@@ -210,22 +166,7 @@ Ltac t := (* program_simpl || *)
 
 Obligation Tactic := repeat t.
 
-
-Definition bool_and b1 (b2: true = b1 -> bool): bool :=
-  match b1 as B return (B = b1 -> bool) with
-  | true => b2
-  | false => fun _ => false
-  end eq_refl.
-
-Notation "b1 &b b2" := (bool_and b1 (fun _ => b2)) (at level 80, right associativity).
-
-Lemma bool_and_iff: forall b1 b2,
-    (b1 &b b2) = true <-> b1 = true /\ b2 = true.
-  unfold bool_and; repeat libStep.
-Qed.
-
-Hint Rewrite bool_and_iff: libR.
-
+(*
 Theorem proj1: forall P Q: Prop, P /\ Q -> P.
   intros P Q H.
   inversion H.
@@ -238,8 +179,6 @@ Proof.
   destruct P_and_Q.
   exact H.
 Qed. 
+*)
 
-
-Set Program Mode.
-
-(* Notation "'<' x '>'" := (exist _ x _). *)
+Notation "'<' x '>'" := (exist _ x _).

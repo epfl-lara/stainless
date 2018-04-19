@@ -77,5 +77,6 @@ out-classes
 *#
 *.aux
 *.glob
-*.v
+verif*.v
 *.vo
+*.v.d

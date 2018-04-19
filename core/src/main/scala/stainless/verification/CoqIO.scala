@@ -28,7 +28,7 @@ object CoqIO {
   def coqc(fileName: String, ctx: inox.Context) = { 
     ctx.reporter.debug(s"Invoking: coqc $fileName")
     val output = new collection.mutable.ListBuffer[String]
-    val proc = s"coqc $fileName" ! ProcessLogger(output += _)
+    val proc = s"coqc -R . SLC $fileName" ! ProcessLogger(output += _)
     if (output.isEmpty)
       ctx.reporter.info(s"No output from Coq for file $fileName. Your program is valid.")
     else {

@@ -303,7 +303,7 @@ case class CoqSetType(base: CoqExpression) extends CoqExpression {
 }
 
 case class CoqBelongs(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = s"propInBool (set_elem_of ${optP(e1)} ${optP(e2)})"
+  override def coqString = s"set_elem_of ${optP(e1)} ${optP(e2)}"
 }
 
 // represents the refinement of the type `tpe` by `body`, i.e. {id: tpe | body}
@@ -369,7 +369,7 @@ case class CoqTacticPattern(context: Option[CoqExpression], goal: Option[CoqExpr
   val contextString = if (context.isEmpty)
     ""
   else
-    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"H: context [${context.get.coqString}]"
+    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"H: ${context.get.coqString}"
 
   val goalString = if (goal.isEmpty)
     "_"
