@@ -11,6 +11,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
+  case object PartialEval extends Flag("partialEval", Seq.empty)
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
@@ -19,6 +20,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
+    case ("partialEval", Seq()) => PartialEval
     case _ => Annotation(name, args)
   }
 

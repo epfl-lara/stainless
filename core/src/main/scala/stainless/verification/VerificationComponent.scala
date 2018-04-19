@@ -6,6 +6,9 @@ package verification
 import scala.concurrent.Future
 import scala.language.existentials
 
+import extraction.xlang.{trees => xt}
+import partialeval.PartialEvaluator
+
 /**
  * Strict Arithmetic Mode:
  *
@@ -25,6 +28,12 @@ object VerificationComponent extends SimpleComponent {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
   })
+
+  override def extract(program: Program { val trees: xt.type }, ctx: inox.Context): SelfProgram = {
+    val extracted = super.extract(program, ctx)
+    val partialEvaluator = PartialEvaluator(extracted, ctx)
+    inox.ast.ProgramEncoder(extracted)(partialEvaluator).targetProgram
+  }
 
   implicit val debugSection = DebugSectionVerification
 

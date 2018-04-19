@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import scala.collection.mutable.{Map => MutableMap}
+
 trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees._
   import trees.exprOps._
