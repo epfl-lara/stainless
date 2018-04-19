@@ -97,8 +97,9 @@ trait DefaultTactic extends Tactic {
         }
 
       case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
-        val condition = path implies FunctionInvocation(a.getConstructor.sort.invariant.get.id, tps, Seq(a))
-        VC(condition, id, VCKind.AdtInvariant, false).setPos(a)
+        val invId = a.getConstructor.sort.invariant.get.id
+        val condition = path implies FunctionInvocation(invId, tps, Seq(a))
+        VC(condition, id, VCKind.AdtInvariant(invId), false).setPos(a)
     }(getFunction(id).fullBody)
 
     val invariantSat = sorts.values.find(_.invariant.exists(_.id == id)).map { sort =>
