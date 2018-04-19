@@ -30,6 +30,7 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
 
+    case "verification/invalid/PartialSplit" => Ignore // too slow/memory hungry for now
     case _ => super.filter(ctx, name)
   }
 
@@ -99,6 +100,10 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
+
+    // These tests make CVC4 crash
+    case "verification/valid/PartialCompiler" => Ignore
+    case "verification/valid/PartialKVTrace" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
