@@ -743,33 +743,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
       })
 
-    // an optional "because" is allowed
-    case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd),
-        xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
-      ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
-
-    case t @ ExHolds(body, proof) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd),
-        xt.And(Seq(extractTree(proof), vd.toVariable)).setPos(tr.pos)
-      ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
-
-    case t @ ExHolds(body) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd), vd.toVariable).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
-
-    // If the because statement encompasses a holds statement
-    case t @ ExBecause(ExHolds(body), proof) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd),
-        xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
-      ).setPos(tr.pos)
-      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
+    case t @ ExHolds(body, proofOpt) =>
+      val vd = xt.ValDef(FreshIdentifier("proof"), xt.BooleanType().setPos(tr.pos), Seq.empty).setPos(tr.pos)
+      val fullBody = extractTreeOrNoTree(body)
+      val bodyExpr = xt.exprOps.withoutSpecs(fullBody).getOrElse(fullBody)
+      val preOpt = xt.exprOps.preconditionOf(fullBody)
+      val proofExpr = proofOpt.map(extractTree).getOrElse(xt.BooleanLiteral(true).setPos(tr.pos))
+      val newBody = preOpt.map(pre => xt.Require(pre, proofExpr).setPos(tr.pos)).getOrElse(proofExpr)
+      val and = xt.And(vd.toVariable, bodyExpr).setPos(tr.pos)
+      val post = xt.Lambda(Seq(vd), and).setPos(tr.pos)
+      xt.Ensuring(newBody, post).setPos(post)
 
     case t @ ExComputes(body, expected) =>
       val tpe = extractType(body)

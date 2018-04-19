@@ -561,6 +561,20 @@ trait ASTExtractors {
     }
 
     object ExHolds {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, Option[tpd.Tree])] = tree match {
+        case ExHoldsOnly(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
+          Some((body, Some(proof)))
+        case ExHoldsOnly(body, proof) =>
+          Some((body, Some(proof)))
+        case ExHoldsOnly(body) =>
+          Some((body, None))
+        case ExBecause(ExHoldsOnly(body), proof) =>
+          Some((body, Some(proof)))
+        case _ => None
+      }
+    }
+
+    object ExHoldsOnly {
       def unapplySeq(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "BooleanDecorations", "holds"),

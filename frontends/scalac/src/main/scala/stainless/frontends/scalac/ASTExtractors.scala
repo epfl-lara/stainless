@@ -206,8 +206,18 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches the `holds` expression at the end of any boolean expression, and returns the boolean expression.*/
+    /** Matches any of the three types of `holds` expression at the end of any boolean expression */
     object ExHoldsExpression {
+      def unapply(tree: Tree): Option[(Tree, Option[Tree])] = tree match {
+        case ExHoldsExpressionOnly(body) => Some((body, None))
+        case ExHoldsWithProofExpression(body, ExMaybeBecauseExpressionWrapper(proof)) => Some((body, Some(proof)))
+        case ExBecauseExpression(ExHoldsExpressionOnly(body), proof) => Some((body, Some(proof)))
+        case _ => None
+       }
+    }
+
+    /** Matches the `holds` expression at the end of any boolean expression, and returns the boolean expression.*/
+    object ExHoldsExpressionOnly {
       def unapply(tree: Select) : Option[Tree] = tree match {
         case Select(
           Apply(ExSelected("stainless", "lang", "package", "BooleanDecorations"), realExpr :: Nil),
