@@ -238,7 +238,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val annots = annotationsOf(sym)
     val flags = annots ++
       (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
-      (if (sym is Sealed) Some(xt.IsSealed) else None)
+      (if (sym is Sealed) Some(xt.IsSealed) else None) ++
+      (if ((sym is ModuleClass) && (sym is Case)) Some(xt.IsCaseObject) else None)
 
     val template = td.rhs.asInstanceOf[tpd.Template]
 

@@ -272,7 +272,8 @@ trait CodeExtraction extends ASTExtractors {
     val annots = annotationsOf(sym)
     val flags = annots ++
       (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
-      (if (sym.isSealed) Some(xt.IsSealed) else None)
+      (if (sym.isSealed) Some(xt.IsSealed) else None) ++
+      (if (sym.tpe.typeSymbol.isModuleClass && sym.isCase) Some(xt.IsCaseObject) else None)
 
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)

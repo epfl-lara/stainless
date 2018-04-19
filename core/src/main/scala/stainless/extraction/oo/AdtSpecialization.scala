@@ -85,6 +85,17 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       id -> (if (cids == Set(root)) id.freshen else id)
     }.toMap ++ extraConstructors.values.map(id => id -> id)
 
+    lazy val caseObjectConstructorFun: Map[Identifier, t.FunDef] = {
+      def makeFun(cd: ClassDef): (Identifier, t.FunDef) = {
+        val ct = cd.typed(syms).toType
+        cd.id -> new t.FunDef(
+          cd.id.freshen, Seq.empty, Seq.empty, transformer.transform(ct),
+          t.ADT(constructorId(cd.id), Seq.empty, Seq.empty).setPos(cd), Seq(t.Inline)
+        ).setPos(cd)
+      }
+      syms.classes.values.filter(_.flags contains IsCaseObject).map(makeFun).toMap
+    }
+
     object transformer extends oo.TreeTransformer {
       val s: self.s.type = self.s
       val t: self.t.type = self.t
@@ -94,6 +105,9 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
           case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(expr), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
+
+        case s.ClassConstructor(s.ClassType(id, Seq()), Seq()) if caseObjectConstructorFun contains id =>
+          t.FunctionInvocation(caseObjectConstructorFun(id).id, Seq(), Seq()).copiedFrom(e)
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
           t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
@@ -153,7 +167,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val functions: Seq[t.FunDef] = syms.functions.values.toSeq.map(transformer.transform)
+    val functions: Seq[t.FunDef] = syms.functions.values.toSeq.map(transformer.transform) ++ caseObjectConstructorFun.values.toSeq
 
     val sorts: Seq[t.ADTSort] = syms.classes.values.toSeq
       .filter(cd => candidates(cd.id) && cd.parents.isEmpty)
