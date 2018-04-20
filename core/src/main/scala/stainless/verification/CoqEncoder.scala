@@ -379,6 +379,7 @@ trait CoqEncoder {
     RawCommand(s"""Ltac ${t.coqString} := 
                   |  t ||
                   |  ${lastTactic.coqString} ||
+                  |  t_sets ||
                   |  ${rewriteTactic.coqString} ||
                   |  autounfold with recognizers in * ||
                   |  rewrite propInBool in *.""".stripMargin) $
@@ -544,8 +545,8 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.PropBool.") $
     RawCommand("Require Import SLC.Booleans.") $
     // RawCommand("Require Import SLC.Sets.") $
-    RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import stdpp.set.") $
+    RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import SLC.Tactics.") $
     RawCommand("Set Program Mode.")
   }

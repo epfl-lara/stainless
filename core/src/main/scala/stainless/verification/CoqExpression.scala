@@ -274,7 +274,7 @@ case class CoqSetSingleton(e: CoqExpression) extends CoqExpression {
 }
 
 case class CoqSetEquals(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
-  override def coqString = s"propInBool (${optP(e1)} ≡ ${optP(e2)})"
+  override def coqString = s"set_equality ${optP(e1)} ${optP(e2)}"
 }
 
 /*
@@ -294,8 +294,7 @@ case class CoqSetDifference(e1: CoqExpression, e2: CoqExpression) extends  CoqEx
 }
 
 case class CoqSetSubset(e1: CoqExpression, e2: CoqExpression) extends  CoqExpression {
-  override def coqString = s"propInBool (set_subset ${optP(e1)} ${optP(e2)})"
-
+  override def coqString = s"set_subset ${optP(e1)} ${optP(e2)}"
 }
 
 case class CoqSetType(base: CoqExpression) extends CoqExpression {

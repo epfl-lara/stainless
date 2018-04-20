@@ -42,6 +42,27 @@ Proof.
   repeat libStep || unfold propInBool in *.
 Qed.
 
+Lemma trueProp2: forall P, true = propInBool P <-> P.
+Proof.
+  repeat libStep || unfold propInBool in *.
+Qed.
+
+Lemma falseProp2: forall P, false = propInBool P <-> (P -> False).
+Proof.
+  repeat libStep || unfold propInBool in *.
+Qed.
+
+Lemma falseNegProp2: forall P, false = negb (propInBool P) <-> P.
+Proof.
+  repeat libStep || unfold propInBool in *.
+Qed.
+
+Lemma trueNegProp2: forall P, true = negb (propInBool P) <-> (P -> False).
+Proof.
+  repeat libStep || unfold propInBool in *.
+Qed.
+
+
 Lemma equivProps: forall P1 P2,
     propInBool P1 = propInBool P2 <->
     (P1 <-> P2).

@@ -75,6 +75,7 @@ out-classes
 
 # Coq files
 *#
+.#*
 *.aux
 *.glob
 verif*.v
