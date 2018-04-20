@@ -80,3 +80,4 @@ out-classes
 verif*.v
 *.vo
 *.v.d
+.lia.cache

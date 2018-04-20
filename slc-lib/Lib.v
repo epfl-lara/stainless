@@ -159,13 +159,6 @@ Ltac destruct_refinement :=
     destruct T eqn:res
   end.
 
-Ltac t := (* program_simpl || *)
-  libStep || rewrite_ifthenelse || destruct_ifthenelse || destruct_refinement ||
-          (autounfold with refinements in *).
-
-
-Obligation Tactic := repeat t.
-
 (*
 Theorem proj1: forall P Q: Prop, P /\ Q -> P.
   intros P Q H.

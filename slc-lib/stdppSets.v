@@ -1,27 +1,16 @@
-Require Import Coq.Bool.Bool.
-Require Import Coq.Logic.FunctionalExtensionality.
+Require Import stdpp.set.
+Require Import stdpp.base.
 
-Require Import SLC.Lib.
 Require Import SLC.PropBool.
 
-Open Scope bool_scope.
-
-Definition set A := A -> bool.
-
-Definition set_intersection {A} (s1 s2 : set A) x := s1 x && s2 x.
-
-Definition set_union {A} (s1 s2 : set A) x := s1 x || s2 x.
-
-Definition set_mem {A} (s: set A) x := s x.
-Definition set_elem_of {A} x (s: set A) := set_mem s x. (* alias *)
-
-Definition set_subset {A} (s1 s2 : set A): bool :=
+Definition set_difference {A} (s1 s2: set A) := s1 ∖ s2.
+Definition set_subset {A} (s1 s2 : set A): bool := propInBool (s1 ⊆ s2).
+  
   propInBool (forall x, implb (s1 x) (s2 x) = true).
 
 Definition set_equality {A} (s1 s2 : set A): bool :=
   propInBool (s1 = s2).
 
-Definition set_difference {A} (s1 s2: set A) x := s1 x && negb (s2 x).
 
 Notation "s1 '==' s2" := (set_equality s1 s2) (at level 50).
 
@@ -58,4 +47,4 @@ Qed.
 
 Hint Resolve union_empty_l union_empty_r: sets.
 
-Ltac t_sets := autorewrite with sets in *; t_sets_aux.
+Ltac t_sets := t_sets_aux; try firstorder; eauto with sets.

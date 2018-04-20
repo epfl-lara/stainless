@@ -26,6 +26,7 @@ trait CoqEncoder {
   val hypName = "contractHyp"
 
   var lastTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
+  var mainTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
   var rewriteTactic: CoqExpression = idtac
 
   //TODO use make fresh uniformly
@@ -374,6 +375,7 @@ trait CoqEncoder {
 
   def updateObligationTactic() : CoqCommand = {
     val t = makeFresh("t")
+    mainTactic = t
     RawCommand(s"""Ltac ${t.coqString} := 
                   |  t ||
                   |  ${lastTactic.coqString} ||
@@ -459,7 +461,7 @@ trait CoqEncoder {
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
                     fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
         RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
-        RawCommand("Solve Obligations with (repeat t).") $
+        RawCommand(s"Solve Obligations with (repeat ${mainTactic.coqString}).") $
         RawCommand("Fail Next Obligation.") $
         //RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
         CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, Rewrite(CoqLibraryConstant(s"${funName.coqString}_equation_1")))) $
@@ -541,7 +543,10 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.Lib.") $
     RawCommand("Require Import SLC.PropBool.") $
     RawCommand("Require Import SLC.Booleans.") $
-    RawCommand("Require Import SLC.Sets.") $
+    // RawCommand("Require Import SLC.Sets.") $
+    RawCommand("Require Import SLC.stdppSets.") $
+    RawCommand("Require Import stdpp.set.") $
+    RawCommand("Require Import SLC.Tactics.") $
     RawCommand("Set Program Mode.")
   }
 
