@@ -80,6 +80,11 @@ Inductive Marked {T}: T -> string -> Type :=
   Mark: forall t s, Marked t s
 .
 
+Ltac clearMarked :=
+  repeat match goal with
+         | H: Marked _ _ |- _ => clear H
+         end.
+
 Ltac isThere P :=
   match goal with
   | H: ?Q |- _ => unify P Q
@@ -93,8 +98,7 @@ Ltac termNotThere p :=
 Ltac poseNew E := termNotThere E; pose proof E.
 
 Ltac splitite b B e1 e2 :=
-  termNotThere (Mark (b,B,e1,e2) "hello");
-  pose proof (Mark (b,B,e1,e2) "hello");
+  poseNew (Mark (b,B,e1,e2) "splitting if then else");
   let HH1 := fresh "H1" in
   let HH2 := fresh "H2" in
   let A1 := fresh "A1" in

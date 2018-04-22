@@ -2,6 +2,7 @@ Require Import stdpp.set.
 Require Import stdpp.base.
 
 Require Import SLC.PropBool.
+Require Import SLC.Lib.
 
 Definition set_difference {A} (s1 s2: set A) := s1 ∖ s2.
 Definition set_subset {A} (s1 s2 : set A): bool := propInBool (s1 ⊆ s2).
@@ -21,6 +22,12 @@ Hint Unfold set_empty.
 Hint Unfold set_singleton.
 Hint Unfold set_difference.
 
+Lemma coqToSetEquality:
+  forall {T} (a b: set T), a = b -> a ≡ b.
+Proof.
+  set_solver.
+Qed.
+  
 (*
 Lemma union_empty_l:
   forall {T} (s: set T), set_union s set_empty = s.
@@ -36,4 +43,10 @@ Qed.
 
 Hint Resolve union_empty_l union_empty_r: sets. *)
 
-Ltac t_sets := set_solver.
+Ltac t_sets :=
+  match goal with
+  | H: ?a = ?b |- _ =>
+    poseNew (Mark (a,b) "coqToSetEquality");
+    poseNew (coqToSetEquality _ _ H)
+  | _ => set_solver
+  end.

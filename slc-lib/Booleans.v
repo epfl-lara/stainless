@@ -31,6 +31,12 @@ Proof.
   repeat libStep.
 Qed.
 
+Lemma rewrite_and_true2:
+  forall a b: bool, b &&b true = a -> b = a.
+Proof.
+  repeat libStep.
+Qed.
+
 Lemma rewrite_true_and:
   forall b: bool, true &&b b = b.
 Proof.
@@ -54,6 +60,7 @@ Hint Rewrite rewrite_true_and: libR.
 Hint Rewrite rewrite_and_false: libR.
 Hint Rewrite rewrite_false_and: libR.
 
+
 Ltac literal b :=
   (unify b true) + (unify b false).
 
@@ -61,5 +68,9 @@ Ltac not_literal b := tryif literal b then fail else idtac.
 
 Ltac t_bool :=
   match goal with
+  | H: ?b &&b true = ?a |- _ =>
+    let H2 := fresh H in
+    poseNew (Mark (a,b) "rewrite_and_true");
+    pose proof (rewrite_and_true2 _ _ H) as H2
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   end.
