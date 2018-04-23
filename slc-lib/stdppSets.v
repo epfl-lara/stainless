@@ -50,3 +50,5 @@ Ltac t_sets :=
     poseNew (coqToSetEquality _ _ H)
   | _ => set_solver
   end.
+
+Notation "'<' x '>'" := (exist _ x _).

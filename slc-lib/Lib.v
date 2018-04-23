@@ -177,5 +177,3 @@ Proof.
   exact H.
 Qed. 
 *)
-
-Notation "'<' x '>'" := (exist _ x _).
