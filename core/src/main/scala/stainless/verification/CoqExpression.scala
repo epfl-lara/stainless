@@ -368,7 +368,7 @@ case class CoqTacticPattern(context: Option[CoqExpression], goal: Option[CoqExpr
   val contextString = if (context.isEmpty)
     ""
   else
-    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"H: ${context.get.coqString}"
+    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"${coqHypName.coqString}: ${context.get.coqString}"
 
   val goalString = if (goal.isEmpty)
     "_"
