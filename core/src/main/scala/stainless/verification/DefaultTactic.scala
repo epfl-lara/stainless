@@ -64,7 +64,7 @@ trait DefaultTactic extends Tactic {
 
   def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
     // We don't collect preconditions here, because these are handled by generatePreconditions
-    val bodyVCs = collectForConditions {
+    collectForConditions {
       case (m @ MatchExpr(scrut, cases), path) =>
         val condition = path implies orJoin(cases map (matchCaseCondition[Path](scrut, _).toClause))
         VC(condition, id, VCKind.ExhaustiveMatch, false).setPos(m)
@@ -101,14 +101,6 @@ trait DefaultTactic extends Tactic {
         val condition = path implies FunctionInvocation(invId, tps, Seq(a))
         VC(condition, id, VCKind.AdtInvariant(invId), false).setPos(a)
     }(getFunction(id).fullBody)
-
-    val invariantSat = sorts.values.find(_.invariant.exists(_.id == id)).map { sort =>
-      val v = Variable.fresh("s", ADTType(sort.id, sort.typeArgs))
-      val condition = FunctionInvocation(id, sort.typeArgs, Seq(v))
-      VC(condition, id, VCKind.InvariantSat, true).setPos(sort)
-    }
-
-    bodyVCs ++ invariantSat
   }
 }
 
