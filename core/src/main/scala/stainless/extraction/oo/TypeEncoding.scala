@@ -12,7 +12,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
   val t: Trees
 
   def transform(syms: s.Symbols): t.Symbols = {
-    import t.{forall => _, _}
+    import t._
     import t.dsl._
     import s.TypeParameterWrapper
 
