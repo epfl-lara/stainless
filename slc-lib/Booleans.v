@@ -71,6 +71,10 @@ Ltac t_bool :=
   | H: ?b &&b true = ?a |- _ =>
     let H2 := fresh H in
     poseNew (Mark (a,b) "rewrite_and_true");
-    pose proof (rewrite_and_true2 _ _ H) as H2
+    pose proof (rewrite_and_true2 _ _ H) as H2                            
+  | H: eqb ?a ?b = true |- _ =>
+    let H2 := fresh H in
+    poseNew (Mark (a,b) "eqb_true_iff");
+    pose proof (proj1 (eqb_true_iff _ _) H) as H2                
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   end.
