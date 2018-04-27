@@ -74,19 +74,22 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
         case s.IsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
           case s.RefinementType(vd, pred) =>
             transform(s.and(
-              s.IsInstanceOf(expr, vd.tpe).copiedFrom(e),
-              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred)
+              isInstOf(expr, vd.tpe).copiedFrom(e),
+              s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred)
             ).copiedFrom(e))
 
           case _ => super.transform(e)
         }
 
         case s.AsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
+          case s.RefinementType(vd, s.BooleanLiteral(true)) =>
+            transform(asInstOf(expr, vd.tpe).copiedFrom(e))
+
           case s.RefinementType(vd, pred) =>
             transform(s.Assert(
-              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred),
+              s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred),
               Some("Cast error"),
-              s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)
+              asInstOf(expr, vd.tpe).copiedFrom(e)
             ).copiedFrom(e))
 
           case _ => super.transform(e)
