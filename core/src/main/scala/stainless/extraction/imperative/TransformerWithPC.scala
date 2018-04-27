@@ -11,7 +11,7 @@ trait TransformerWithPC extends stainless.transformers.TransformerWithPC {
   override protected def rec(e: Expr, env: Env): Expr = e match {
     case LetVar(vd, v, b) =>
       val sv = rec(v, env)
-      val sb = rec(v, env withBinding vd -> sv)
+      val sb = rec(b, env withBinding vd -> sv)
       LetVar(vd, sv, sb).copiedFrom(e)
 
     case _ => super.rec(e, env)
