@@ -188,6 +188,26 @@ trait TypeOps extends imperative.TypeOps {
     }
   }
 
+  def greatestLowerClassBound(ct1: ClassType, ct2: ClassType): Option[ClassType] = {
+    val cd1Desc = ct1.tcd.descendants.map(_.id).toSet
+    val cd2Desc = ct2.tcd.descendants.map(_.id).toSet
+    val desc1 = ct1.tcd.descendants.find(tcd => cd2Desc contains tcd.id)
+    val desc2 = ct2.tcd.descendants.find(tcd => cd1Desc contains tcd.id)
+    (desc1, desc2) match {
+      case (Some(tcd1), Some(tcd2)) =>
+        val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {
+          case ((tp, tpe1), tpe2) =>
+            if (tp.isCovariant) Some(greatestLowerBound(tpe1, tpe2))
+            else if (tp.isContravariant) Some(leastUpperBound(tpe1, tpe2))
+            else if (tpe1 == tpe2) Some(tpe1)
+            else None
+        }
+        if (tps.forall(_.isDefined)) Some(ClassType(tcd1.id, tps.map(_.get)))
+        else None
+      case _ => None
+    }
+  }
+
   override def widen(tpe: Type): Type = tpe match {
     case UnionType(Seq()) => NothingType()
     case UnionType(tpes) => (tpes map widen).reduceLeft[Type] {
@@ -344,6 +364,50 @@ trait TypeOps extends imperative.TypeOps {
       }
 
     case _ => super.patternIsTyped(in, pat)
+  }
+
+  def encodableType(tpe: Type): Type = {
+    def top(variance: Boolean) = if (variance) AnyType() else NothingType()
+    def unify(tp1: Type, tp2: Type, variance: Boolean): Type = (tp1, tp2) match {
+      case (ct1: ClassType, ct2: ClassType) => rec(
+        (if (variance) leastUpperClassBound(ct1, ct2) else greatestLowerClassBound(ct1, ct2))
+          .getOrElse(top(variance)),
+        variance
+      )
+
+      case (FunctionType(from1, to1), FunctionType(from2, to2)) =>
+        if (from1.size != from2.size) top(variance)
+        else FunctionType((from1 zip from2).map(p => unify(p._1, p._2, !variance)), unify(to1, to2, variance))
+
+      case (TupleType(tps1), TupleType(tps2)) =>
+        if (tps1.size != tps2.size) top(variance)
+        else TupleType((tps1 zip tps2).map(p => unify(p._1, p._2, variance)))
+
+      case (tp1, tp2) if tp1 == tp2 => tp1
+      case _ => top(variance)
+    }
+
+    def rec(tpe: Type, variance: Boolean): Type = {
+      if (!typeOps.exists {
+        case (_: UnionType | _: IntersectionType | _: TypeBounds) => true
+        case _ => false
+      } (tpe)) tpe else (tpe match {
+        case UnionType(Seq()) => top(!variance)
+        case UnionType(tps) => tps.map(rec(_, variance)).reduceLeft(unify(_, _, variance))
+        case IntersectionType(Seq()) => top(variance)
+        case IntersectionType(tps) => tps.map(rec(_, variance)).reduceLeft(unify(_, _, !variance))
+        case FunctionType(from, to) => FunctionType(from.map(rec(_, !variance)), rec(to, variance))
+        case TupleType(tps) => TupleType(tps.map(rec(_, variance)))
+        case ct @ ClassType(id, tps) =>
+          ClassType(id, (ct.tcd.cd.typeArgs zip tps).map { case (tp, tpe) =>
+            if (tp.isContravariant) rec(tpe, !variance)
+            else rec(tpe, variance)
+          })
+        case NAryType(tps, recons) => recons(tps.map(rec(_, variance)))
+      })
+    }
+
+    rec(tpe, true)
   }
 
 }
