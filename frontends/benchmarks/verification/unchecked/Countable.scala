@@ -1,5 +1,5 @@
 import stainless.lang._
-object EmptyInstantiation {
+object Countable {
   // an instance of Countable[T] gives a bijection between T and BigInt
   abstract class Countable[T] {
     require(

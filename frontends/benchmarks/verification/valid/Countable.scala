@@ -1,5 +1,5 @@
 import stainless.lang._
-object EmptyInstantiation {
+object Countable {
   // an instance of Countable[T] gives a bijection between T and BigInt
   case class Countable[T](f: T => BigInt, g: BigInt => T) {
     require(
