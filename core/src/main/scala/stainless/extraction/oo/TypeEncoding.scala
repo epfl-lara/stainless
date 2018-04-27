@@ -178,9 +178,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       override def transform(tp: s.Type): t.Type = tp match {
         case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) => obj
-        case tp: s.TypeParameter if tparams contains tp => obj
+
         case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
           throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
+
+        case tp: s.TypeParameter => super.transform(tp.copy(
+          flags = tp.flags.filterNot { case s.Variance(_) => true case _ => false }
+        ).copiedFrom(tp))
+
         case _ => super.transform(tp)
       }
 
@@ -219,7 +224,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       case _: s.ClassType => true
       case s.NothingType() | s.AnyType() => true
       case (_: s.UnionType) | (_: s.IntersectionType) => true
-      case tp: s.TypeParameter if scope.tparams contains tp => true
       case _ => false
     }
 
@@ -609,7 +613,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         })
       }
 
-      rec(e, tpe, expected)(tpeScope, expectedScope)
+      rec(e, syms.encodableType(tpe), syms.encodableType(expected))(tpeScope, expectedScope)
     }
 
 
@@ -832,7 +836,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         case s.AsInstanceOf(expr, tpe) if isObject(expr.getType lub tpe) =>
           val exprType = expr.getType
           val te = transform(expr)
-          val check = subtypeOf(if (isObject(exprType)) typeOf(te) else encodeType(exprType), encodeType(tpe))
+          val check = if (isObject(exprType)) instanceOf(te, encodeType(tpe))
+            else subtypeOf(encodeType(exprType), encodeType(tpe))
           val result = unifyTypes(te, exprType, tpe)(this, this)
           t.Assert(check, Some("Cast error"), result).copiedFrom(e)
 
@@ -1012,7 +1017,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
         fd.to(t)(
           fd.id,
           tparams,
-          newParams ++ tparamParams,
+          tparamParams ++ newParams,
           returnType,
           t.exprOps.reconstructSpecs(newSpecs, newBody, returnType),
           fd.flags map scope.transform
@@ -1052,33 +1057,45 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       import newSymbols._
       import exprOps._
 
-      // TODO @nv: implement some controlled fixpoint here.
-      //           We should be able to call ourselves recursively on the output of simplification
-      //           in most cases, but some care has to be taken to terminate.
-      exprOps.postMap {
+      val simplifier = newSymbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
+      import simplifier._
+
+      val res = transformWithPC(e, CNFPath.empty)((e, path, op) => e match {
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`))),
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`)))
-        )) => None
+        )) => e
 
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
           ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _)),
           ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _))
-        )) => None
+        )) => e
+
+        case Assert(p, Some("Cast error"), in) => op.rec(p, path) match {
+          case BooleanLiteral(true) => op.rec(in, path)
+          case _ => op.superRec(e, path)
+        }
+
+        case fi @ FunctionInvocation(`instanceID` | `subtypeID`, _, _)
+        if (path contains fi) || (path contains Not(fi)) =>
+          BooleanLiteral(path contains fi)
 
         case fi @ FunctionInvocation(`subtypeID`, Seq(), args @ (Seq(_: ADT, _) | Seq(_, _: ADT))) =>
           val tfd = fi.tfd
           val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          val simp = newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked)
-          if (simp != body) Some(simp) else None
+          simplifier.transform(body, path)
 
         case fi @ FunctionInvocation(`instanceID`, Seq(), args @ Seq(_, _: ADT)) =>
           val tfd = fi.tfd
           val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          val simp = newSymbols.simplifyExpr(body)(inox.solvers.PurityOptions.assumeChecked)
-          if (simp != body) Some(simp) else None
-        case _ => None
-      } (e)
+          simplifier.transform(body, path)
+
+        case _ => op.superRec(e, path)
+      })
+
+      println("simplifying="+e)
+      println(res)
+      res
     }
 
     val finalSymbols = NoSymbols
