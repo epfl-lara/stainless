@@ -1060,7 +1060,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       val simplifier = newSymbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
       import simplifier._
 
-      val res = transformWithPC(e, CNFPath.empty)((e, path, op) => e match {
+      transformWithPC(e, CNFPath.empty)((e, path, op) => e match {
         case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`))),
           ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`)))
@@ -1092,10 +1092,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case _ => op.superRec(e, path)
       })
-
-      println("simplifying="+e)
-      println(res)
-      res
     }
 
     val finalSymbols = NoSymbols
