@@ -26,5 +26,9 @@ package object annotation {
   /** Don't unfold the function's body during verification. */
   @ignore
   class opaque     extends Annotation
+
+  /** Specify that the annotated function is pure, which will be checked. */
+  @ignore
+  class pure       extends Annotation
 }
 

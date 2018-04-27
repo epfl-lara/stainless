@@ -61,7 +61,7 @@ trait EffectsAnalysis {
     case _ => Set.empty
   } (fd.fullBody))
 
-  private lazy val locals: Map[Variable, FunAbstraction] = inners.map(inner => inner.fd.name.toVariable -> inner).toMap
+  private lazy val locals: Map[Identifier, FunAbstraction] = inners.map(inner => inner.fd.name.id -> inner).toMap
 
   // fill up the global map!
   private lazy val effects: Map[FunAbstraction, Set[Variable]] = {
@@ -105,7 +105,7 @@ trait EffectsAnalysis {
     val secondLevelMutated: Set[Variable] = {
       val calls = exprOps.collect[(FunAbstraction, Seq[Expr])] {
         case fi @ FunctionInvocation(_, _, args) => Set(Outer(fi.tfd.fd) -> args)
-        case ApplyLetRec(v, _, _, args) => Set(locals(v) -> args)
+        case ApplyLetRec(v, _, _, args) => Set(locals(v.id) -> args)
         case _ => Set.empty
       } (expr)
 

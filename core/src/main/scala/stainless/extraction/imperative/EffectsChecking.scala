@@ -12,9 +12,20 @@ trait EffectsChecking { self =>
     implicit val s = effects.symbols
     import effects.symbols._
 
+    def checkPurity(fd: FunAbstraction): Unit = {
+      val funEffects = effects(fd.fullBody)
+
+      if (fd.flags.exists(_.name == "pure") && !funEffects.isEmpty)
+        throw ImperativeEliminationException(fd, s"Function marked @pure cannot have side-effects")
+
+      if (funEffects.exists(_.flags.exists(_.name == "pure")))
+        throw ImperativeEliminationException(fd, s"Functions cannot mutate closed-over variables marked @pure")
+    }
+
     def checkFunction(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
       checkMutableField(fd)
       checkEffectsLocations(fd)
+      checkPurity(fd)
 
       val bindings = vds ++ fd.params
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>

@@ -23,10 +23,19 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
         val s: self.s.type = self.s
         val t: self.t.type = self.t
       } with CheckingTransformer {
+        def isImperativeFlag(f: s.Flag): Boolean = f.name match {
+          case "pure" | "var" | "mutable" => true
+          case _ => false
+        }
+
         override def transform(tpe: s.Type): t.Type = tpe match {
           case s.TypeParameter(id, flags) if flags contains s.IsMutable =>
-            t.TypeParameter(id, (flags filterNot (_ == s.IsMutable)) map transform).copiedFrom(tpe)
+            t.TypeParameter(id, (flags filterNot isImperativeFlag) map transform).copiedFrom(tpe)
           case _ => super.transform(tpe)
+        }
+
+        def transformFunction(fd: s.FunDef): t.FunDef = {
+          transform(fd.copy(flags = fd.flags filterNot isImperativeFlag))
         }
 
         override def transform(expr: s.Expr): t.Expr = expr match {
@@ -44,6 +53,15 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
               t.Let(r, transform(rhs),
                 recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
 
+          case s.Variable(id, tpe, flags) =>
+            t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform)
+
+          case s.LetRec(defs, body) =>
+            val newDefs = defs map { case s.LocalFunDef(name, tparams, body) =>
+              t.LocalFunDef(transform(name), tparams.map(transform), transform(body).asInstanceOf[t.Lambda])
+            }
+            t.LetRec(newDefs, transform(body))
+
           // Cleanup leftover `old` nodes if they were used on a reference which is not actually mutated.
           case s.Old(e) => transform(e)
 
@@ -52,13 +70,13 @@ trait ImperativeCleanup extends inox.ast.SymbolTransformer { self =>
 
         override def transform(vd: s.ValDef): t.ValDef = {
           val (newId, newTpe) = transform(vd.id, vd.tpe)
-          t.ValDef(newId, newTpe, (vd.flags filterNot (_ == s.IsVar)) map transform).copiedFrom(vd)
+          t.ValDef(newId, newTpe, (vd.flags filterNot isImperativeFlag) map transform).copiedFrom(vd)
         }
       }
 
       t.NoSymbols
         .withSorts(syms.sorts.values.toSeq map checker.transform)
-        .withFunctions(syms.functions.values.toSeq map checker.transform)
+        .withFunctions(syms.functions.values.toSeq map checker.transformFunction)
     }
 
     val pureUnitSyms: t.Symbols = {
