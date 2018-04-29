@@ -1433,6 +1433,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)
       xt.ArrayType(tp)
 
+    case ta @ TypeAlias(tp) => extractType(tp)
+
     case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
       xt.FunctionType(Seq(), xt.UnitType())
 
@@ -1443,7 +1445,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       extractType(tr)
 
     case RefinedType(p, name, tpe) =>
-      val bt = extractType(p)
       val idx = p.classSymbol.typeParams.indexWhere(_.name == name)
       (extractType(p), idx) match {
         case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
@@ -1459,8 +1460,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       })
 
     case tt @ TermRef(_, _) => extractType(tt.widenTermRefExpr)
-
-    case ta @ TypeAlias(tp) => extractType(tp)
 
     case tb @ TypeBounds(lo, hi) => extractType(hi)
 
