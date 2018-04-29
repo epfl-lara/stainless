@@ -76,29 +76,40 @@ object StainlessPlugin extends sbt.AutoPlugin {
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
-    managedSources ++= stainlessLibrary.value
+    managedSources ++= fetchAndUnzipStainlessLibrary.value,
+    managedSourceDirectories += stainlessLibraryLocation.value
   )
 
-  private def stainlessLibrary: Def.Initialize[Task[Seq[File]]] = Def.task {
+  private def stainlessLibraryLocation = Def.setting {
+    target.value / s"stainless-library_${scalaVersion.value}"
+  }
+
+  private def fetchAndUnzipStainlessLibrary: Def.Initialize[Task[Seq[File]]] = Def.task {
     val log = streams.value.log
     val projectName = (name in thisProject).value
 
     val config = StainlessLibSources
-    val sourceJars = fetchJars(update.value, config, _.classifier == Some(Artifact.SourceClassifier))
+    val sourceJars = fetchJars(
+      update.value,
+      config,
+      artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
+    )
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
+    if (sourceJars.length > 1)
+      log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
 
     val additionalSourceDirectories = sourceJars map { jar =>
-      val name = jar.getName.dropRight(4) // drop the ".jar" extension
-      val destDir = (target.value / name).toPath
+      val destDir = stainlessLibraryLocation.value
       // Don't unjar every time
-      if (!destDir.toFile.exists()) {
+      if (!destDir.exists()) {
         // unjar the stainless-library-sources.jar into the `destDirectory`
-        Files.createDirectories(destDir)
-        unjar(jar, destDir)
+        Files.createDirectories(destDir.toPath)
+        unjar(jar, destDir.toPath)
         log.debug(s"[$projectName] Unzipped ${jar.getName} in $destDir")
       }
-      destDir
+      destDir.toPath
     }
+
 
     /** Collect all .scala files in the passed `folders`.*/
     @annotation.tailrec
@@ -124,7 +135,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     */
   private def fetchJars(report: UpdateReport, config: Configuration, filter: Artifact => Boolean): Seq[File] = {
     val toolReport = report.configuration(config.name) getOrElse
-      sys.error(s"No ${config.name} configuration found. This is a bug on sbt-stainless, please report it: $IssueTracker")
+      sys.error(s"No ${config.name} configuration found. $reportBugText")
 
     for {
       m <- toolReport.modules
@@ -170,4 +181,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
       }
     )
   }
+
+  private def reportBugText: String = s"This is a bug on sbt-stainless, please report it: $IssueTracker"
 }
