@@ -394,13 +394,15 @@ trait CoqEncoder {
     val pose = {hyp: CoqExpression =>
       PoseProof(CoqApplication(proj1(CoqApplication(existsCtor, Seq(CoqUnknown, CoqUnknown))), Seq(hyp)))
     }
+    val h1 = makeFresh("H1")
+    val h2 = makeFresh("H2")
     Seq(
       CoqCase(
-        CoqTacticPattern(Some(CoqEquals(trueBoolean, rcg)), None),
-        CoqSequence(Seq(label, pose(coqHypName)))),
+        CoqTacticPattern(Map(h1 -> CoqEquals(trueBoolean, rcg))),
+        CoqSequence(Seq(label, pose(h1)))),
       CoqCase(
-        CoqTacticPattern(Some(CoqEquals(rcg, trueBoolean)), None),
-        CoqSequence(Seq(label, pose(eq_sym(coqHypName)))))
+        CoqTacticPattern(Map(h2 -> CoqEquals(rcg, trueBoolean))),
+        CoqSequence(Seq(label, pose(eq_sym(h2)))))
     )
   }
 
@@ -452,12 +454,17 @@ trait CoqEncoder {
         //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
         val oldRewriteTactic = rewriteTactic
         val newRewriteTactic = makeFresh("rwrtTac")
+        val phaseA = makeFresh("rwrtTac_A")
+        val phaseB = makeFresh("rwrtTac_B")
         rewriteTactic = newRewriteTactic
 
         val ids = (tparams ++ params) map (_._1)
-        val label = poseNew(Mark(ids, funName.coqString + "_equation"))
+        val label = poseNew(Mark(ids, "unfolding " + funName.coqString + "_equation"))
+        val label2 = poseNew(Mark(ids, "unfolded " + funName.coqString + "_equation"))
         val pose = PoseProof(CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids))
-        val rwrtTarget =  CoqApplication(funName, ids.map(id => CoqUnboundIdentifier(id)))
+        val rwrtTarget =  CoqContext(CoqApplication(funName, ids.map(id => CoqUnboundIdentifier(id))))
+        val markedUnfolding = Marked(ids map (id => CoqUnboundIdentifier(id)), "unfdolding " + funName.coqString + "_equation")
+
 
         //val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
         //FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
@@ -471,12 +478,19 @@ trait CoqEncoder {
         RawCommand("Fail Next Obligation.") $
         //RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
         //CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, Rewrite(CoqLibraryConstant(s"${funName.coqString}_equation_1")))) $
-        CoqMatchTactic(newRewriteTactic, Seq(
-          CoqCase(CoqTacticPattern(Some(rwrtTarget), None),
-            CoqSequence(Seq(label, pose))),
-          CoqCase(CoqTacticPattern(None, Some(rwrtTarget)),
-            CoqSequence(Seq(label, pose)))
+        CoqMatchTactic(phaseA, Seq(
+          CoqCase(CoqTacticPattern(Map(makeFresh("H") -> rwrtTarget)),
+            CoqSequence(Seq(label))),
+          CoqCase(CoqTacticPattern(Map(), rwrtTarget),
+            CoqSequence(Seq(label)))
         )) $
+        CoqMatchTactic(phaseB, Seq(
+          CoqCase(CoqTacticPattern(Map(makeFresh("H") -> rwrtTarget)),
+            CoqSequence(Seq(label2, pose))),
+          CoqCase(CoqTacticPattern(Map(), rwrtTarget),
+            CoqSequence(Seq(label2, pose)))
+          )) $
+        RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.") $
         updateObligationTactic()
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $

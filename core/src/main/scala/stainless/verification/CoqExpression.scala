@@ -323,6 +323,17 @@ case class Mark(names: Seq[CoqExpression], label: String) extends CoqExpression 
   }
 }
 
+case class Marked(names: Seq[CoqExpression], label: String) extends CoqExpression {
+  override def coqString = {
+    val joinedString = names.map(exp => exp.coqString).mkString("(", ",", ")")
+    "Marked " + joinedString + " \"" + label + "\""
+  }
+}
+
+case class CoqContext(expr: CoqExpression) extends CoqExpression {
+  override def coqString = s"context[${expr.coqString}]"
+}
+
 case class PoseProof(expr: CoqExpression) extends CoqExpression {
   override def coqString: String = s"pose proof ${optP(expr)}"
 }
@@ -364,16 +375,9 @@ case class CoqTuplePattern(ps: Seq[CoqPattern]) extends CoqPattern {
   }
 }
 
-case class CoqTacticPattern(context: Option[CoqExpression], goal: Option[CoqExpression], contextComplete: Boolean = false, goalComplete: Boolean = false) extends CoqPattern {
-  val contextString = if (context.isEmpty)
-    ""
-  else
-    if (contextComplete) s"${coqHypName.coqString}: ${context.get.coqString}" else s"${coqHypName.coqString}: ${context.get.coqString}"
-
-  val goalString = if (goal.isEmpty)
-    "_"
-  else
-  if (contextComplete) s"${goal.get.coqString}" else s"context [${goal.get.coqString}]"
+case class CoqTacticPattern(context: Map[CoqIdentifier, CoqExpression], goal: CoqExpression = CoqUnknown) extends CoqPattern {
+  val contextString:String = context.map { case (id,e) => id.coqString + ": " + e.coqString}.mkString(", ")
+  val goalString = goal.coqString
   override def coqString = s"[ $contextString |- $goalString ]"
 }
 
@@ -408,7 +412,6 @@ object CoqExpression {
   val idtac = CoqLibraryConstant("idtac")
 
   val poseNew = CoqLibraryConstant("poseNew")
-  val coqHypName = CoqLibraryConstant("H")
 
   val proj1 = CoqLibraryConstant("proj1")
 
