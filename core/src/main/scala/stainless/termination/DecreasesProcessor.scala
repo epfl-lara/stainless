@@ -79,7 +79,7 @@ trait DecreasesProcessor extends Processor { self =>
           val inlinedRelations: Set[Relation] = {
             def rec(fd: FunDef, seen: Set[FunDef]): Set[Relation] = getRelations(fd).flatMap { r =>
               val target = r.call.tfd.fd
-              if (seen(target)) {
+              if (seen(target) || target.measure.isDefined) {
                 Set(r)
               } else {
                 rec(target, seen + target).map(r compose _)
