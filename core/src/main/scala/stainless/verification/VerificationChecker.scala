@@ -75,6 +75,7 @@ trait VerificationChecker { self =>
       checkVCs(vcs, stopWhen)
     } finally {
       factoryCache.values.foreach(_.shutdown())
+      factoryCache.clear()
     }
   }
 
@@ -127,52 +128,49 @@ trait VerificationChecker { self =>
   protected def checkAdtInvariantModel(vc: VC, invId: Identifier, model: Model): VCStatus = {
     import inox.evaluators.EvaluationResults._
 
-    val evaledModelVars = model.vars.mapValues(v => evaluator.eval(v))
-    val failed = evaledModelVars.values.find(_.result.isEmpty)
-    failed foreach {
-      case RuntimeError(msg) =>
-        reporter.warning(s"- Argument to ADT constructor leads to runtime error: $msg")
-      case EvaluatorError(msg) =>
-        reporter.warning(s"- Argument to ADT constructor leads to evaluation error: $msg")
-      case _ =>
-        reporter.internalError(s"Expected evaluation of argument to have failed")
+    val Seq((inv @ FunctionInvocation(_, invTps, Seq(adt @ ADT(adtId, tps, args))), path)) =
+      collectWithPC(vc.condition) { case (fi @ FunctionInvocation(`invId`, _, _), path) => (fi, path) }
+
+    def success: VCStatus = {
+      reporter.debug("- Model validated.")
+      VCStatus.Invalid(VCStatus.CounterExample(model))
     }
 
-    if (failed.isDefined) return VCStatus.Unknown
+    def failure(reason: String): VCStatus = {
+      reporter.warning(reason)
+      VCStatus.Unknown
+    }
 
-    val invs = exprOps.collect[FunctionInvocation] {
-      case fi: FunctionInvocation if fi.id == invId => Set(fi)
-      case _ => Set()
-    } (vc.condition)
+    evaluator.eval(path.toClause, model) match {
+      case Successful(BooleanLiteral(true)) => // path condition was true, we must evaluate invariant
+      case Successful(BooleanLiteral(false)) => return success
+      case Successful(e) => return failure(s"- ADT inv. path condition unexpectedly evaluates to: ${e.asString}")
+      case RuntimeError(msg) => return failure(s"- ADT inv. path condition leads to runtime error: $msg")
+      case EvaluatorError(msg) => return failure(s"- ADT inv. path condition leads to evaluator error: $msg")
+    }
 
-    val inv @ FunctionInvocation(`invId`, invTps, Seq(adt @ ADT(adtId, tps, args))) = invs.head
+    val evaledArgs = args.map { arg =>
+      val wrapped = path.bindings.foldRight(arg) { case ((vd, e), b) => let(vd, e, b) }
+      evaluator.eval(wrapped, model)
+    }
 
-    val evaledArgs = evaledModelVars.mapValues(_.result.get)
-    val newArgs = args map (arg => exprOps.replaceFromSymbols(evaledArgs, arg))
+    val newArgs = evaledArgs.map {
+      case Successful(e) => e
+      case RuntimeError(msg) => return failure(s"- ADT inv. argument leads to runtime error: $msg")
+      case EvaluatorError(msg) => return failure(s"- ADT inv. argument leads to evaluator error: $msg")
+    }
 
     val newAdt = ADT(adtId, tps, newArgs)
-
     val adtVar = Variable(FreshIdentifier("adt"), adt.getType(symbols), Seq())
     val newInv = FunctionInvocation(invId, invTps, Seq(adtVar))
     val newModel = inox.Model(program, context)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
     val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
 
     evaluator.eval(newCondition, newModel) match {
-      case Successful(BooleanLiteral(false)) =>
-        reporter.debug("- Model validated.")
-        VCStatus.Invalid(VCStatus.CounterExample(model))
-
-      case Successful(_) =>
-        reporter.debug("- Invalid model.")
-        VCStatus.Unknown
-
-      case RuntimeError(msg) =>
-        reporter.warning(s"- Model leads to runtime error: $msg")
-        VCStatus.Unknown
-
-      case EvaluatorError(msg) =>
-        reporter.warning(s"- Model leads to evaluation error: $msg")
-        VCStatus.Unknown
+      case Successful(BooleanLiteral(false)) => success
+      case Successful(_) => failure("- Invalid model.")
+      case RuntimeError(msg) => failure(s"- Model leads to runtime error: $msg")
+      case EvaluatorError(msg) => failure(s"- Model leads to evaluation error: $msg")
     }
   }
 
