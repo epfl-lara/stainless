@@ -330,8 +330,8 @@ case class Marked(names: Seq[CoqExpression], label: String) extends CoqExpressio
   }
 }
 
-case class CoqContext(expr: CoqExpression) extends CoqExpression {
-  override def coqString = s"context[${expr.coqString}]"
+case class CoqContext(e: CoqExpression) extends CoqExpression {
+  override def coqString = s"context[${e.coqString}]"
 }
 
 case class PoseProof(expr: CoqExpression) extends CoqExpression {
@@ -375,8 +375,8 @@ case class CoqTuplePattern(ps: Seq[CoqPattern]) extends CoqPattern {
   }
 }
 
-case class CoqTacticPattern(context: Map[CoqIdentifier, CoqExpression], goal: CoqExpression = CoqUnknown) extends CoqPattern {
-  val contextString:String = context.map { case (id,e) => id.coqString + ": " + e.coqString}.mkString(", ")
+case class CoqTacticPattern(context: Map[CoqIdentifier,CoqExpression], goal: CoqExpression = CoqUnknown) extends CoqPattern {
+  val contextString = context.map { case (id,e) => id.coqString + ": " + e.coqString }.mkString(", ")
   val goalString = goal.coqString
   override def coqString = s"[ $contextString |- $goalString ]"
 }

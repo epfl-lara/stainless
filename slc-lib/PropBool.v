@@ -71,7 +71,7 @@ Proof.
 Qed.
 
 Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libR.
-
+Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libR.
 
 Lemma equal_booleans: forall b1 b2: bool,
     (b1 = true -> b2 = true) ->
@@ -80,3 +80,13 @@ Lemma equal_booleans: forall b1 b2: bool,
 Proof.
   destruct b1; destruct b2; repeat libStep.
 Qed.
+
+Ltac t_propbool :=
+  match goal with
+  | H: true = propInBool ?P |- _ =>
+    poseNew (Mark P "trueProp2");
+    pose proof (proj1 (trueProp2 _) H)
+  | H: propInBool ?P = true |- _ =>
+    poseNew (Mark P "trueProp");
+    pose proof (proj1 (trueProp _) H)
+  end.

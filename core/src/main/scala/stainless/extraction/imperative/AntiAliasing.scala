@@ -187,8 +187,8 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
             val allParams: Seq[Variable] = modifiedArgs.flatMap(_._1)
             val duplicatedParams = allParams.diff(allParams.distinct).distinct
-            if (duplicatedParams.nonEmpty)
-              throw FatalError("Illegal passing of aliased parameter: " + duplicatedParams.head)
+            //if (duplicatedParams.nonEmpty)
+              //throw MissformedStainlessCode(duplicatedParams.head, "Illegal passing of aliased parameter: " + duplicatedParams.head)
 
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful

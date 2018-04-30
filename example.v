@@ -186,19 +186,23 @@ Hint Unfold content_comp_proj.
 Solve Obligations with (repeat t2).
 Fail Next Obligation.
 
-Ltac rwrtTac_1 := match goal with
-  | H: context[content ?T ?l] |- _ =>
-    poseNew (Mark (T,l) "content_equation");
-    pose proof (content_equation_1 T l)
-  | _ => idtac
-end.
+Ltac rwrtTac_1 :=
+  repeat match goal with
+         | H: context[content ?T ?l] |- _ =>
+            poseNew (Mark (T,l) "unfolding content_equation")
+         | |- context[content ?T ?l] =>
+            poseNew (Mark (T,l) "unfolding content_equation")
+         end.
 
-Ltac rwrtTac_2 := match goal with
-  | |- context[content ?T ?l] =>
-    poseNew (Mark (T,l) "content_equation");
-    pose proof (content_equation_1 T l)
-  | _ => idtac
-end.
+Ltac rwrtTac_2 :=
+  repeat match goal with
+         | H: Marked (?T,?l) "unfolding content_equation" |- context[content ?T ?l] =>
+              poseNew (Mark (T,l) "unfolded content_equation");
+              pose proof (content_equation_1 T l)
+         | H: Marked (?T,?l) "unfolding content_equation", H2: context[content ?T ?l] |- _ =>
+              poseNew (Mark (T,l) "unfolded content_equation");
+              pose proof (content_equation_1 T l)
+  end.
 
 (*
 Ltac rwrtTac :=
@@ -212,7 +216,7 @@ Ltac rwrtTac :=
   end.*)
 
 
-Ltac rwrtTac := progress (rwrtTac_1;rwrtTac_2).
+Ltac rwrtTac := rwrtTac_1; rwrtTac_2.
 
 Ltac t5 := 
   t ||
@@ -260,51 +264,9 @@ contains T thiss2 v1 := ifthenelse (isCons _ thiss2) bool (fun _ => propInBool (
 
 Hint Unfold contains_comp_proj.
 
-Obligation Tactic := idtac.
-
-Next Obligation. repeat t5. Qed.
-Next Obligation.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  t5.
-  (* here *)
-  t5.
-  t5.
-  repeat t5.
-
-  
+Obligation Tactic := idtac.  
 Solve Obligations with (repeat t5).
+
 Fail Next Obligation.
 Ltac rwrtTac1 := rwrtTac
   || rewrite contains_equation_1 in *.

@@ -85,6 +85,12 @@ Ltac clearMarked :=
          | H: Marked _ _ |- _ => clear H
          end.
 
+Ltac clearUseless :=
+  repeat match goal with
+         | H: ?t = ?t |- _ => clear H
+         | _ => clearMarked
+         end.
+
 Ltac isThere P :=
   match goal with
   | H: ?Q |- _ => unify P Q
