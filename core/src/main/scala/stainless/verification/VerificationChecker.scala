@@ -3,10 +3,12 @@
 package stainless
 package verification
 
+import inox.Options
 import inox.solvers._
 
 import scala.util.{ Success, Failure }
 import scala.concurrent.Future
+import scala.collection.mutable
 
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
@@ -17,6 +19,7 @@ object DebugSectionVerification extends inox.DebugSection("verification")
 trait VerificationChecker { self =>
   val program: Program
   val context: inox.Context
+  val semantics: program.Semantics
 
   import context._
   import program._
@@ -25,6 +28,7 @@ trait VerificationChecker { self =>
 
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
   private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
+  private lazy val checkModels = options.findOptionOrDefault(optCheckModels)
 
   implicit val debugSection = DebugSectionVerification
 
@@ -36,9 +40,27 @@ trait VerificationChecker { self =>
   type VCResult = verification.VCResult[program.Model]
   val VCResult = verification.VCResult
 
-  protected def getFactory: SolverFactory {
+  type TimeoutSolverFactory = SolverFactory {
     val program: self.program.type
     type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
+  }
+
+  lazy val evaluator = semantics.getEvaluator(context)
+
+  protected def createFactory(opts: Options): TimeoutSolverFactory
+
+  protected val factoryCache: mutable.Map[Options, TimeoutSolverFactory] = mutable.Map()
+  protected def getFactory(opts: inox.Options = options): TimeoutSolverFactory = {
+    factoryCache.getOrElseUpdate(opts, opts.findOption(inox.optTimeout) match {
+      case Some(to) => createFactory(opts).withTimeout(to)
+      case None => createFactory(opts)
+    })
+  }
+
+  /** @see [[checkAdtInvariantModel]] */
+  protected def getFactoryForVC(vc: VC): TimeoutSolverFactory = vc.kind match {
+    case _: VCKind.AdtInvariant => getFactory(Options(Seq(optCheckModels(false))))
+    case _ => getFactory()
   }
 
   protected def defaultStop(res: VCResult): Boolean = {
@@ -48,24 +70,18 @@ trait VerificationChecker { self =>
   }
 
   def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
-    val sf = options.findOption(inox.optTimeout) match {
-      case Some(to) => getFactory.withTimeout(to)
-      case None => getFactory
-    }
-
     try {
       reporter.debug("Checking Verification Conditions...")
-      checkVCs(vcs, sf, stopWhen)
+      checkVCs(vcs, stopWhen)
     } finally {
-      sf.shutdown()
+      factoryCache.values.foreach(_.shutdown())
+      factoryCache.clear()
     }
   }
 
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
 
-  def checkVCs(vcs: Seq[VC],
-               sf: SolverFactory { val program: self.program.type },
-               stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
+  def checkVCs(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     @volatile var stop = false
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
@@ -73,6 +89,7 @@ trait VerificationChecker { self =>
     import MainHelpers._
     val results = Future.traverse(vcs)(vc => Future {
       if (stop) None else {
+        val sf = getFactoryForVC(vc)
         val res = checkVC(vc, sf)
 
         val shouldStop = stopWhen(res)
@@ -89,6 +106,72 @@ trait VerificationChecker { self =>
     }).map(_.flatten)
 
     results.map(initMap ++ _)
+  }
+
+  /** Check whether the model for the ADT invariant specified by the given (invalid) VC is
+   *  valid, ie. whether evalutating the invariant with the given model actually returns `false`.
+   *
+   *  One needs to be careful, because simply evaluating the invariant over the model
+   *  returned by Inox fails with a 'adt invariant' violation. While this is expected,
+   *  we cannot know whether it was the invariant that we are interested in at this point
+   *  or some other invariant that failed.
+   *
+   *  Instead, we need to put the constructed ADT value in the model when evaluating the
+   *  condition, in order for the evaluator to not attempt to re-construct it.
+   *
+   *  As such, we instead need to:
+   *  - evaluate the ADT's arguments to figure out whether those are valid.
+   *  - rebuild the ADT over its evaluated arguments, and add it to the model under a fresh name.
+   *  - rewrite the invariant's invocation to be applied to this new variable instead.
+   *  - evaluate the resulting condition under the new model.
+   */
+  protected def checkAdtInvariantModel(vc: VC, invId: Identifier, model: Model): VCStatus = {
+    import inox.evaluators.EvaluationResults._
+
+    val Seq((inv @ FunctionInvocation(_, invTps, Seq(adt @ ADT(adtId, tps, args))), path)) =
+      collectWithPC(vc.condition) { case (fi @ FunctionInvocation(`invId`, _, _), path) => (fi, path) }
+
+    def success: VCStatus = {
+      reporter.debug("- Model validated.")
+      VCStatus.Invalid(VCStatus.CounterExample(model))
+    }
+
+    def failure(reason: String): VCStatus = {
+      reporter.warning(reason)
+      VCStatus.Unknown
+    }
+
+    evaluator.eval(path.toClause, model) match {
+      case Successful(BooleanLiteral(true)) => // path condition was true, we must evaluate invariant
+      case Successful(BooleanLiteral(false)) => return success
+      case Successful(e) => return failure(s"- ADT inv. path condition unexpectedly evaluates to: ${e.asString}")
+      case RuntimeError(msg) => return failure(s"- ADT inv. path condition leads to runtime error: $msg")
+      case EvaluatorError(msg) => return failure(s"- ADT inv. path condition leads to evaluator error: $msg")
+    }
+
+    val evaledArgs = args.map { arg =>
+      val wrapped = path.bindings.foldRight(arg) { case ((vd, e), b) => let(vd, e, b) }
+      evaluator.eval(wrapped, model)
+    }
+
+    val newArgs = evaledArgs.map {
+      case Successful(e) => e
+      case RuntimeError(msg) => return failure(s"- ADT inv. argument leads to runtime error: $msg")
+      case EvaluatorError(msg) => return failure(s"- ADT inv. argument leads to evaluator error: $msg")
+    }
+
+    val newAdt = ADT(adtId, tps, newArgs)
+    val adtVar = Variable(FreshIdentifier("adt"), adt.getType(symbols), Seq())
+    val newInv = FunctionInvocation(invId, invTps, Seq(adtVar))
+    val newModel = inox.Model(program, context)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
+    val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
+
+    evaluator.eval(newCondition, newModel) match {
+      case Successful(BooleanLiteral(false)) => success
+      case Successful(_) => failure("- Invalid model.")
+      case RuntimeError(msg) => failure(s"- Model leads to runtime error: $msg")
+      case EvaluatorError(msg) => failure(s"- Model leads to evaluation error: $msg")
+    }
   }
 
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
@@ -129,6 +212,11 @@ trait VerificationChecker { self =>
 
           case Unsat if !vc.satisfiability =>
             VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+
+          case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
+            val VCKind.AdtInvariant(invId) = vc.kind
+            val status = checkAdtInvariantModel(vc, invId, model)
+            VCResult(status, s.getResultSolver, Some(time))
 
           case SatWithModel(model) if !vc.satisfiability =>
             VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver, Some(time))
@@ -183,8 +271,9 @@ object VerificationChecker {
     class Checker extends VerificationChecker {
       val program: p.type = p
       val context = ctx
+      val semantics = program.getSemantics
 
-      protected def getFactory = solvers.SolverFactory(p, ctx)
+      protected def createFactory(opts: Options) = solvers.SolverFactory(p, ctx.withOpts(opts.options: _*))
     }
 
     val checker = if (ctx.options.findOptionOrDefault(optVCCache)) {
