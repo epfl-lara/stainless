@@ -37,7 +37,11 @@ trait DefaultTactic extends Tactic {
           case _ => false
         }).copiedFrom(b)
 
-        Seq((path implies Let(res, e, body).copiedFrom(e)).setPos(e))
+        if (body != BooleanLiteral(true)) {
+          Seq((path implies Let(res, e, body).copiedFrom(e)).setPos(e))
+        } else {
+          Seq()
+        }
     }
 
     rec(e, Path.empty)
@@ -54,11 +58,18 @@ trait DefaultTactic extends Tactic {
     }
   }
 
-  protected def getPrecondition(pre: Expr): Expr = pre match {
-    case TopLevelAnds(es) => andJoin(es.filterNot {
-      case Annotated(e, flags) => flags contains Unchecked
-      case _ => false
-    }).copiedFrom(pre)
+  protected def getPrecondition(pre: Expr): Option[Expr] = pre match {
+    case TopLevelAnds(es) =>
+      val pred = andJoin(es.filterNot {
+        case Annotated(e, flags) => flags contains Unchecked
+        case _ => false
+      }).copiedFrom(pre)
+
+      if (pred != BooleanLiteral(true)) {
+        Some(pred)
+      } else {
+        None
+      }
   }
 
   def generatePreconditions(id: Identifier): Seq[VC] = {
@@ -68,11 +79,13 @@ trait DefaultTactic extends Tactic {
       case (fi: FunctionInvocation, path) if fi.tfd.precondition.isDefined => (fi, path)
     }(fd.fullBody)
 
-    calls.map { case (fi @ FunctionInvocation(_, _, args), path) =>
-      val pre = fi.tfd.withParamSubst(args, getPrecondition(fi.tfd.precondition.get))
-      val vc = path implies exprOps.freshenLocals(pre)
-      val fiS = sizeLimit(fi.asString, 40)
-      VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
+    calls.flatMap { case (fi @ FunctionInvocation(_, _, args), path) =>
+      getPrecondition(fi.tfd.precondition.get).map { pred =>
+        val pre = fi.tfd.withParamSubst(args, pred)
+        val vc = path implies exprOps.freshenLocals(pre)
+        val fiS = sizeLimit(fi.asString, 40)
+        VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
+      }
     }
   }
 

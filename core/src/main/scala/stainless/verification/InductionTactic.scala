@@ -63,7 +63,7 @@ trait InductionTactic extends DefaultTactic {
           case (fi: FunctionInvocation, path) if fi.tfd.hasPrecondition => (fi, path)
         }(body)
 
-        for {
+        (for {
           (fi @ FunctionInvocation(_, _, args), path) <- calls
           pre = fi.tfd.precondition.get
           tcons <- tsort.constructors
@@ -76,15 +76,17 @@ trait InductionTactic extends DefaultTactic {
             )
           }
 
-          val vc = exprOps.freshenLocals(path
-            .withConds(Seq(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue) ++ subCases)
-            .implies(fi.tfd.withParamSubst(args, getPrecondition(pre))))
+          getPrecondition(pre).map { pred =>
+            val vc = exprOps.freshenLocals(path
+              .withConds(Seq(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue) ++ subCases)
+              .implies(fi.tfd.withParamSubst(args, pred)))
 
-          // Crop the call to display it properly
-          val fiS = sizeLimit(fi.asString, 25)
-          val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
-          VC(vc, id, kind, false).setPos(fi)
-        }
+            // Crop the call to display it properly
+            val fiS = sizeLimit(fi.asString, 25)
+            val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
+            VC(vc, id, kind, false).setPos(fi)
+          }
+        }).flatten
 
       case (body, _) =>
         if (body.isDefined) {
