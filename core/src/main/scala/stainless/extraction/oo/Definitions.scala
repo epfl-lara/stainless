@@ -175,6 +175,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
   case object IsInvariant extends Flag("invariant", Seq.empty)
   case object IsAbstract extends Flag("abstract", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
+  case object IsCaseObject extends Flag("caseObject", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
 

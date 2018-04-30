@@ -272,7 +272,8 @@ trait CodeExtraction extends ASTExtractors {
     val annots = annotationsOf(sym)
     val flags = annots ++
       (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
-      (if (sym.isSealed) Some(xt.IsSealed) else None)
+      (if (sym.isSealed) Some(xt.IsSealed) else None) ++
+      (if (sym.tpe.typeSymbol.isModuleClass && sym.isCase) Some(xt.IsCaseObject) else None)
 
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
@@ -1025,11 +1026,16 @@ trait CodeExtraction extends ASTExtractors {
       xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case c @ ExCall(rec, sym, tps, args) => rec match {
-      // Case object local values are treated differently by scalac for some reason
+      // Case object fields and methods are treated differently by scalac for some reason
       // so we need a special extractor here.
-      case None if sym.owner.isModuleClass && sym.owner.isCase && tps.isEmpty && args.isEmpty =>
+      case None if sym.owner.isModuleClass && sym.owner.isCase =>
         val ct = extractType(sym.owner.tpe)(dctx, c.pos).asInstanceOf[xt.ClassType]
-        xt.MethodInvocation(xt.This(ct).setPos(c.pos), getIdentifier(sym), Seq(), Seq())
+        xt.MethodInvocation(
+          xt.ClassConstructor(ct, Seq.empty).setPos(c.pos),
+          getIdentifier(sym),
+          tps map extractType,
+          args map extractTree
+        )
 
       case None =>
         dctx.localFuns.get(sym) match {

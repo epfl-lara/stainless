@@ -331,6 +331,7 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
   }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
+    case s.IsCaseObject => (Seq(), Seq(), Seq(), (_, _, _) => t.IsCaseObject)
     case s.IsInvariant => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInvariant)
     case s.IsAbstract => (Seq(), Seq(), Seq() ,(_, _, _) => t.IsAbstract)
     case s.IsSealed => (Seq(), Seq(), Seq(), (_, _, _) => t.IsSealed)
