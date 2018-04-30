@@ -78,11 +78,10 @@ trait InductionTactic extends DefaultTactic {
 
           val vc = exprOps.freshenLocals(path
             .withConds(Seq(IsConstructor(arg.toVariable, tcons.id), fd.precOrTrue) ++ subCases)
-            .implies(fi.tfd.withParamSubst(args, pre)))
+            .implies(fi.tfd.withParamSubst(args, getPrecondition(pre))))
 
           // Crop the call to display it properly
           val fiS = sizeLimit(fi.asString, 25)
-
           val kind = VCKind.Info(VCKind.Precondition, s"call $fiS, ind. on (${arg.asString} : ${tcons.id.asString})")
           VC(vc, id, kind, false).setPos(fi)
         }

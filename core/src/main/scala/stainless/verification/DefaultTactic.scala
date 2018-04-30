@@ -30,7 +30,14 @@ trait DefaultTactic extends Tactic {
           vcs
         }).flatten
 
-      case _ => Seq((path implies application(lambda, Seq(e))).setPos(e))
+      case _ =>
+        val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+        val body = andJoin(es.filterNot {
+          case Annotated(e, flags) => flags contains Unchecked
+          case _ => false
+        }).copiedFrom(b)
+
+        Seq((path implies Let(res, e, body).copiedFrom(e)).setPos(e))
     }
 
     rec(e, Path.empty)
@@ -47,6 +54,13 @@ trait DefaultTactic extends Tactic {
     }
   }
 
+  protected def getPrecondition(pre: Expr): Expr = pre match {
+    case TopLevelAnds(es) => andJoin(es.filterNot {
+      case Annotated(e, flags) => flags contains Unchecked
+      case _ => false
+    }).copiedFrom(pre)
+  }
+
   def generatePreconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
 
@@ -55,7 +69,7 @@ trait DefaultTactic extends Tactic {
     }(fd.fullBody)
 
     calls.map { case (fi @ FunctionInvocation(_, _, args), path) =>
-      val pre = fi.tfd.withParamSubst(args, fi.tfd.precondition.get)
+      val pre = fi.tfd.withParamSubst(args, getPrecondition(fi.tfd.precondition.get))
       val vc = path implies exprOps.freshenLocals(pre)
       val fiS = sizeLimit(fi.asString, 40)
       VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
