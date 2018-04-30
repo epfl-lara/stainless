@@ -93,7 +93,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
         .filter(cd => candidates(cd.id) && (cd.flags contains IsCaseObject))
         .map(cd => cd.id -> new t.FunDef(
           cd.id.freshen, Seq(), Seq(), transform(cd.typed(syms).toType.setPos(cd)),
-          t.ADT(constructorId(cd.id), Seq(), Seq()).setPos(cd), Seq(t.Inline)
+          t.ADT(constructorId(cd.id), Seq(), Seq()).setPos(cd), Seq(t.Inline, t.Derived(cd.id))
         ).setPos(cd)).toMap
 
       override def transform(e: s.Expr): t.Expr = e match {

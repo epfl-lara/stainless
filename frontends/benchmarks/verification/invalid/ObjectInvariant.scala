@@ -1,5 +1,5 @@
 
-object hello {
+object ObjectInvariants {
 
   abstract class Foo {
     require(foo != 0)
