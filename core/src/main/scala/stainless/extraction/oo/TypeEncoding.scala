@@ -997,17 +997,24 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         val newSpecs = specs.map {
           case s.exprOps.Precondition(pre) =>
-            t.exprOps.Precondition(t.andJoin(
-              (scope.transform(pre) +: tparamConds) ++ paramConds
-            ))
+            val tpre = scope.transform(pre)
+            t.exprOps.Precondition(t.andJoin(tparamConds ++ paramConds) match {
+              case cond if cond != BooleanLiteral(true) =>
+                t.and(t.Annotated(cond, Seq(t.Unchecked)).copiedFrom(fd), tpre).copiedFrom(pre)
+              case _ =>
+                tpre
+            })
 
           case s.exprOps.Postcondition(post) =>
             val Lambda(Seq(res), body) = scope.transform(post)
-            t.exprOps.Postcondition(Lambda(Seq(res), and(body, if (isObject(fd.returnType)) {
-              instanceOf(res.toVariable, encodeType(fd.returnType).copiedFrom(post)).copiedFrom(post)
+            t.exprOps.Postcondition(t.Lambda(Seq(res), and(if (isObject(fd.returnType)) {
+              t.Annotated(
+                instanceOf(res.toVariable, encodeType(fd.returnType).copiedFrom(fd)).copiedFrom(fd),
+                Seq(t.Unchecked)
+              ).copiedFrom(fd)
             } else {
               E(true).copiedFrom(post)
-            }).copiedFrom(post)).copiedFrom(post))
+            }, body).copiedFrom(post)).copiedFrom(post))
 
           case spec => spec.map(t)(scope.transform)
         }
@@ -1095,7 +1102,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
     }
 
     val finalSymbols = NoSymbols
-      .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd.copy(fullBody = inlineChecks(fd.fullBody))))
+      .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd/*.copy(fullBody = inlineChecks(fd.fullBody))*/))
       .withSorts(newSymbols.sorts.values.toSeq)
 
     for (fd <- finalSymbols.functions.values) {
