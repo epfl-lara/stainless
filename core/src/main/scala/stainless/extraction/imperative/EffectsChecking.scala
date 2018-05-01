@@ -54,7 +54,8 @@ trait EffectsChecking { self =>
             case adt @ ADT(id, tps, args) =>
               (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
                 if (effects.isMutableType(instanceType) && !(tdef.flags contains IsMutable))
-                  throw ImperativeEliminationException(e, "Cannot instantiate a non-mutable type parameter with a mutable type")
+                  throw ImperativeEliminationException(e,
+                    "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
               ADT(id, tps, args.map(rec(_, bindings)))
 
@@ -83,6 +84,13 @@ trait EffectsChecking { self =>
         val bodyEffects = effects(body)
         if (bodyEffects.nonEmpty)
           throw ImperativeEliminationException(post, "Postcondition has effects on: " + bodyEffects.head)
+
+        val oldEffects = effects(exprOps.postMap {
+          case Old(e) => Some(e)
+          case _ => None
+        } (body))
+        if (oldEffects.nonEmpty)
+          throw ImperativeEliminationException(post, s"Postcondition tries to mutate ${Old(oldEffects.head)}")
 
       case Decreases(meas, _) =>
         val measEffects = effects(meas)
@@ -138,6 +146,10 @@ trait EffectsChecking { self =>
 
         case FiniteArray(elems, _) => elems.forall(isExpressionFresh)
         case LargeArray(elems, default, _, _) => elems.forall(p => isExpressionFresh(p._2)) && isExpressionFresh(default)
+
+        // We assume `old(.)` is fresh here, although such cases will probably be
+        // rejected later in `ImperativeCleanup`.
+        case Old(_) => true
 
         //function invocation always return a fresh expression, by hypothesis (global assumption)
         case FunctionInvocation(_, _, _) => true

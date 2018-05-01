@@ -30,7 +30,18 @@ trait DefaultTactic extends Tactic {
           vcs
         }).flatten
 
-      case _ => Seq((path implies application(lambda, Seq(e))).setPos(e))
+      case _ =>
+        val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+        val body = andJoin(es.filterNot {
+          case Annotated(e, flags) => flags contains Unchecked
+          case _ => false
+        }).copiedFrom(b)
+
+        if (body != BooleanLiteral(true)) {
+          Seq((path implies Let(res, e, body).copiedFrom(e)).setPos(e))
+        } else {
+          Seq()
+        }
     }
 
     rec(e, Path.empty)
@@ -47,6 +58,20 @@ trait DefaultTactic extends Tactic {
     }
   }
 
+  protected def getPrecondition(pre: Expr): Option[Expr] = pre match {
+    case TopLevelAnds(es) =>
+      val pred = andJoin(es.filterNot {
+        case Annotated(e, flags) => flags contains Unchecked
+        case _ => false
+      }).copiedFrom(pre)
+
+      if (pred != BooleanLiteral(true)) {
+        Some(pred)
+      } else {
+        None
+      }
+  }
+
   def generatePreconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
 
@@ -54,17 +79,19 @@ trait DefaultTactic extends Tactic {
       case (fi: FunctionInvocation, path) if fi.tfd.precondition.isDefined => (fi, path)
     }(fd.fullBody)
 
-    calls.map { case (fi @ FunctionInvocation(_, _, args), path) =>
-      val pre = fi.tfd.withParamSubst(args, fi.tfd.precondition.get)
-      val vc = path implies exprOps.freshenLocals(pre)
-      val fiS = sizeLimit(fi.asString, 40)
-      VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
+    calls.flatMap { case (fi @ FunctionInvocation(_, _, args), path) =>
+      getPrecondition(fi.tfd.precondition.get).map { pred =>
+        val pre = fi.tfd.withParamSubst(args, pred)
+        val vc = path implies exprOps.freshenLocals(pre)
+        val fiS = sizeLimit(fi.asString, 40)
+        VC(vc, id, VCKind.Info(VCKind.Precondition, s"call $fiS"), false).setPos(fi)
+      }
     }
   }
 
   def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
     // We don't collect preconditions here, because these are handled by generatePreconditions
-    val bodyVCs = collectForConditions {
+    collectForConditions {
       case (m @ MatchExpr(scrut, cases), path) =>
         val condition = path implies orJoin(cases map (matchCaseCondition[Path](scrut, _).toClause))
         VC(condition, id, VCKind.ExhaustiveMatch, false).setPos(m)
@@ -97,17 +124,10 @@ trait DefaultTactic extends Tactic {
         }
 
       case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
-        val condition = path implies FunctionInvocation(a.getConstructor.sort.invariant.get.id, tps, Seq(a))
-        VC(condition, id, VCKind.AdtInvariant, false).setPos(a)
+        val invId = a.getConstructor.sort.invariant.get.id
+        val condition = path implies FunctionInvocation(invId, tps, Seq(a))
+        VC(condition, id, VCKind.AdtInvariant(invId), false).setPos(a)
     }(getFunction(id).fullBody)
-
-    val invariantSat = sorts.values.find(_.invariant.exists(_.id == id)).map { sort =>
-      val v = Variable.fresh("s", ADTType(sort.id, sort.typeArgs))
-      val condition = FunctionInvocation(id, sort.typeArgs, Seq(v))
-      VC(condition, id, VCKind.InvariantSat, true).setPos(sort)
-    }
-
-    bodyVCs ++ invariantSat
   }
 }
 

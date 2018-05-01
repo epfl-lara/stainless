@@ -238,7 +238,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val annots = annotationsOf(sym)
     val flags = annots ++
       (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
-      (if (sym is Sealed) Some(xt.IsSealed) else None)
+      (if (sym is Sealed) Some(xt.IsSealed) else None) ++
+      (if ((sym is ModuleClass) && (sym is Case)) Some(xt.IsCaseObject) else None)
 
     val template = td.rhs.asInstanceOf[tpd.Template]
 
@@ -1079,6 +1080,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.pos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.pos)
 
+    case ExSymbol("scala", "Predef", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
+
     case ExThisCall(tt, sym, tps, args) =>
       val thiss = xt.This(extractType(tt)(dctx, tr.pos).asInstanceOf[xt.ClassType]).setPos(tr.pos)
       if (sym is ParamAccessor) {
@@ -1095,11 +1098,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else                xt.BVWideningCast(extractTree(expr), newType)
 
     case ExCall(rec, sym, tps, args) => rec match {
-      // Case object local values are treated differently by dotty (same as scalac) for some
+      // Case object fields and methods are treated differently by dotty (same as scalac) for some
       // reason so we need a special extractor here.
-      case None if (sym.owner is ModuleClass) && (sym.owner is Case) && tps.isEmpty && args.isEmpty =>
+      case None if (sym.owner is ModuleClass) && (sym.owner is Case) =>
         val ct = extractType(sym.owner.thisType)(dctx, tr.pos).asInstanceOf[xt.ClassType]
-        xt.MethodInvocation(xt.This(ct).setPos(tr.pos), getIdentifier(sym), Seq(), Seq())
+        xt.MethodInvocation(
+          xt.ClassConstructor(ct, Seq()).setPos(tr.pos),
+          getIdentifier(sym),
+          tps map extractType,
+          args map extractTree
+        )
 
       case None =>
         dctx.localFuns.get(sym) match {
@@ -1425,6 +1433,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)
       xt.ArrayType(tp)
 
+    case ta @ TypeAlias(tp) => extractType(tp)
+
     case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
       xt.FunctionType(Seq(), xt.UnitType())
 
@@ -1435,7 +1445,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       extractType(tr)
 
     case RefinedType(p, name, tpe) =>
-      val bt = extractType(p)
       val idx = p.classSymbol.typeParams.indexWhere(_.name == name)
       (extractType(p), idx) match {
         case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
@@ -1451,8 +1460,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       })
 
     case tt @ TermRef(_, _) => extractType(tt.widenTermRefExpr)
-
-    case ta @ TypeAlias(tp) => extractType(tp)
 
     case tb @ TypeBounds(lo, hi) => extractType(hi)
 

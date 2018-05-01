@@ -27,8 +27,8 @@ object MergeSort2 {
     }
   } ensuring { res =>
     isSorted(res) &&
-    bag(res) == bag(l1) ++ bag(l2) &&
-    res.size == l1.size + l2.size
+    res.size == l1.size + l2.size &&
+    bag(res) == bag(l1) ++ bag(l2)
   }
 
   def split(list: List[BigInt]): (List[BigInt], List[BigInt]) = {
@@ -41,10 +41,10 @@ object MergeSort2 {
         (Cons(x1, s1), Cons(x2, s2))
     }
   } ensuring { res =>
-    bag(res._1) ++ bag(res._2) == bag(list) &&
     res._1.size + res._2.size == list.size &&
     res._1.size > 0 &&
-    res._2.size > 0
+    res._2.size > 0 &&
+    bag(res._1) ++ bag(res._2) == bag(list)
   }
 
   def mergeSort(list: List[BigInt]): List[BigInt] = {
@@ -56,7 +56,7 @@ object MergeSort2 {
     }
   } ensuring { res =>
     isSorted(res) &&
-    bag(res) == bag(list) &&
-    res.size == list.size
+    res.size == list.size &&
+    bag(res) == bag(list)
   }
 }

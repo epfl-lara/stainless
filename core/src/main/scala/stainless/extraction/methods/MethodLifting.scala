@@ -150,7 +150,7 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
         firstOverrides(co).map { case (cid, either) =>
           val descendant = tcd.descendants.find(_.id == cid).get
           val descType = default.transform(descendant.toType).asInstanceOf[t.ClassType]
-          val thiss = t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg)
+          val thiss = t.Annotated(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg), Seq(t.Unchecked))
 
           def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr = 
             if (newSymbols.isSubtypeOf(tpe, expected)) e

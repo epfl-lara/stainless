@@ -190,6 +190,7 @@ trait EffectsAnalysis {
     case ADT(_, _, es) => es.flatMap(getReferencedVariables).toList
     case ArraySelect(a, _) => getReferencedVariables(a)
     case Assert(_, _, e) => getReferencedVariables(e)
+    case Annotated(e, _) => getReferencedVariables(e)
     case _ => Nil
   }
 

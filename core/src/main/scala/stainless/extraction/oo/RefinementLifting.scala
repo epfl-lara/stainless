@@ -74,19 +74,22 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
         case s.IsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
           case s.RefinementType(vd, pred) =>
             transform(s.and(
-              s.IsInstanceOf(expr, vd.tpe).copiedFrom(e),
-              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred)
+              isInstOf(expr, vd.tpe).copiedFrom(e),
+              s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred)
             ).copiedFrom(e))
 
           case _ => super.transform(e)
         }
 
         case s.AsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
+          case s.RefinementType(vd, s.BooleanLiteral(true)) =>
+            transform(asInstOf(expr, vd.tpe).copiedFrom(e))
+
           case s.RefinementType(vd, pred) =>
             transform(s.Assert(
-              s.exprOps.replaceFromSymbols(Map(vd -> s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)), pred),
+              s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred),
               Some("Cast error"),
-              s.AsInstanceOf(expr, vd.tpe).copiedFrom(e)
+              asInstOf(expr, vd.tpe).copiedFrom(e)
             ).copiedFrom(e))
 
           case _ => super.transform(e)
@@ -154,11 +157,12 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
       val optInv = if (cond == s.BooleanLiteral(true)) {
         None
       } else {
+        val uncheckedCond = s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(sort)
         val inv = sort.invariant match {
           case Some(fd) =>
             fd.copy(fullBody = s.and(
               s.typeOps.instantiateType(
-                s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), cond),
+                s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), uncheckedCond),
                 (sort.typeArgs zip fd.typeArgs).toMap
               ),
               fd.fullBody
@@ -171,7 +175,7 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
                 Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
                 s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
                   s.typeOps.instantiateType(
-                    s.exprOps.replaceFromSymbols(Map(v -> thiss), cond),
+                    s.exprOps.replaceFromSymbols(Map(v -> thiss), uncheckedCond),
                     (sort.typeArgs zip tparams).toMap
                   )
                 })
@@ -194,14 +198,30 @@ trait RefinementLifting extends inox.ast.SymbolTransformer { self =>
       val withPre = if (invariants contains fd.id) {
         fd
       } else {
-        val (newParams, conds) = parameterConds(fd.params)
-        val optPre = s.andJoin(conds +: s.exprOps.preconditionOf(fd.fullBody).toSeq) match {
-          case s.BooleanLiteral(true) => None
-          case cond => Some(cond)
+        val (newParams, cond) = parameterConds(fd.params)
+        val optPre = cond match {
+          case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
+            case Some(pre) => Some(s.and(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd), pre).copiedFrom(pre))
+            case None => Some(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd))
+          }
+          case _ => s.exprOps.preconditionOf(fd.fullBody)
+        }
+
+        val optPost = liftRefinements(fd.returnType) match {
+          case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
+            case Some(post @ s.Lambda(Seq(res), body)) =>
+              Some(s.Lambda(Seq(res), s.and(s.Annotated(
+                exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
+                Seq(s.Unchecked)
+              ).copiedFrom(fd), body).copiedFrom(body)).copiedFrom(post))
+            case None =>
+              Some(s.Lambda(Seq(vd2), s.Annotated(pred, Seq(s.Unchecked)).copiedFrom(fd)).copiedFrom(fd))
+          }
+          case _ => s.exprOps.postconditionOf(fd.fullBody)
         }
 
         fd.copy(
-          fullBody = s.exprOps.withPrecondition(fd.fullBody, optPre),
+          fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
           returnType = dropRefinements(fd.returnType)
         ).copiedFrom(fd)
       }

@@ -33,6 +33,22 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     (structure, program, exProgram)
   }
 
+  private def extractFunctions(program: Program { val trees: extraction.xlang.trees.type },
+                               exProgram: Program { val trees: component.trees.type },
+                               unit: extraction.xlang.trees.UnitDef): Seq[Identifier] = {
+    val unitDefs = unit.allFunctions(program.symbols) ++ unit.allClasses
+    val allDefs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
+      def derived(flags: Seq[component.trees.Flag]): Boolean =
+        (defs & flags.collect { case component.trees.Derived(id) => id }.toSet).nonEmpty
+
+      defs ++
+      exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
+      exProgram.symbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
+    } (unitDefs.toSet)
+
+    allDefs.filter(exProgram.symbols.functions contains _).toSeq
+  }
+
   // Ensure no tests share data inappropriately, but is really slow... Use with caution!
   private def extractOne(file: String, ctx: inox.Context)
               : (String, Seq[Identifier], Program { val trees: component.trees.type }) = {
@@ -42,19 +58,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     val uOpt = structure find { _.isMain }
     val u = uOpt.get
 
-    val unitFuns = u.allFunctions(program.symbols)
-    val allFuns = inox.utils.fixpoint { (funs: Set[Identifier]) =>
-      funs ++ exProgram.symbols.functions.values.flatMap { fd =>
-        val source = fd.flags.collect { case component.trees.Derived(id) => id }.toSet
-        if ((source intersect funs).nonEmpty) {
-          Some(fd.id)
-        } else {
-          None
-        }
-      }
-    } (unitFuns.filter(exProgram.symbols.functions contains _).toSet)
-
-    (u.id.name, allFuns.toSeq, exProgram)
+    (u.id.name, extractFunctions(program, exProgram, u), exProgram)
   }
 
   // More efficient, but might mix tests together...
@@ -63,18 +67,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     val (structure, program, exProgram) = extractStructure(files, ctx)
 
     (for (u <- structure if u.isMain) yield {
-      val unitFuns = u.allFunctions(program.symbols)
-      val allFuns = inox.utils.fixpoint { (funs: Set[Identifier]) =>
-        funs ++ exProgram.symbols.functions.values.flatMap { fd =>
-          val source = fd.flags.collect { case component.trees.Derived(id) => id }.toSet
-          if ((source intersect funs).nonEmpty) {
-            Some(fd.id)
-          } else {
-            None
-          }
-        }
-      } (unitFuns.filter(exProgram.symbols.functions contains _).toSet)
-      (u.id.name, allFuns.toSeq)
+      (u.id.name, extractFunctions(program, exProgram, u))
     }, exProgram)
   }
 

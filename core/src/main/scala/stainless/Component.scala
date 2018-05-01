@@ -77,6 +77,6 @@ trait SimpleComponent extends Component { self =>
     apply(toProcess.map(_.id), extracted, ctx)
   }
 
-  def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Future[Analysis]
+  private[stainless] def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Future[Analysis]
 }
 

@@ -24,6 +24,7 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/ChooseLIA" => Ignore
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
+    case "verification/invalid/ForallAssoc" => Ignore
     // Require assume-checked to be turned off
     case "verification/valid/IntSet" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))

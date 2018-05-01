@@ -89,11 +89,28 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       val s: self.s.type = self.s
       val t: self.t.type = self.t
 
+      val caseObjectFunctions: Map[Identifier, t.FunDef] = syms.classes.values
+        .filter(cd => candidates(cd.id) && (cd.flags contains IsCaseObject))
+        .map(cd => cd.id -> new t.FunDef(
+          cd.id.freshen, Seq(), Seq(), transform(cd.typed(syms).toType.setPos(cd)),
+          t.ADT(constructorId(cd.id), Seq(), Seq()).setPos(cd), Seq(t.Inline, t.Derived(cd.id))
+        ).setPos(cd)).toMap
+
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassSelector(expr, selector) => syms.widen(expr.getType(syms)) match {
-          case s.ClassType(id, tps) if candidates(id) => t.ADTSelector(transform(expr), selector).copiedFrom(e)
+          case s.ClassType(id, tps) if candidates(id) =>
+            /* TODO: use unchecked access once the effect system is a bit smarter
+            val vd = t.ValDef.fresh("e", t.ADTType(roots(id), tps map transform).copiedFrom(e)).copiedFrom(e)
+            t.Let(vd, transform(expr),
+              t.Annotated(t.ADTSelector(vd.toVariable, selector).copiedFrom(e), Seq(t.Unchecked)).copiedFrom(e)
+            ).copiedFrom(e)
+            */
+            t.ADTSelector(transform(expr), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
+
+        case s.ClassConstructor(s.ClassType(id, Seq()), Seq()) if caseObjectFunctions contains id =>
+          t.FunctionInvocation(caseObjectFunctions(id).id, Seq(), Seq()).copiedFrom(e)
 
         case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
           t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
@@ -153,7 +170,9 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val functions: Seq[t.FunDef] = syms.functions.values.toSeq.map(transformer.transform)
+    val functions: Seq[t.FunDef] =
+      syms.functions.values.toSeq.map(transformer.transform) ++
+      transformer.caseObjectFunctions.values
 
     val sorts: Seq[t.ADTSort] = syms.classes.values.toSeq
       .filter(cd => candidates(cd.id) && cd.parents.isEmpty)
