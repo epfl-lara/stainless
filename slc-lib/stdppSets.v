@@ -49,6 +49,7 @@ Ltac t_sets :=
     poseNew (Mark (a,b) "coqToSetEquality");
     poseNew (coqToSetEquality _ _ H)
   | _ => set_solver
+  | _ => apply False_ind; set_solver
   end.
 
 Notation "'<' x '>'" := (exist _ x _).
