@@ -40,7 +40,7 @@ lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash scri
 
 lazy val baseSettings: Seq[Setting[_]] = Seq(
   organization := "ch.epfl.lara",
-  licenses := Seq("AGPL-V3" -> url("https://www.gnu.org/licenses/agpl-3.0.html"))
+  licenses := Seq("AGPL-V3" -> url("https://www.gnu.org/licenses/agpl-3.0.html")),
   mappings in (Compile, packageDoc) := Seq()
 )
 
