@@ -398,6 +398,8 @@ trait CoqEncoder {
     val pose = {hyp: CoqExpression =>
       PoseProof(CoqApplication(proj1(CoqApplication(existsCtor, Seq(CoqUnknown, CoqUnknown))), Seq(hyp)))
     }
+    val h1 = makeFresh("H1")
+    val h2 = makeFresh("H2")
     Seq(
       CoqCase(
         CoqTacticPattern(Map[CoqIdentifier,CoqExpression](h -> CoqEquals(trueBoolean, rcg))),
