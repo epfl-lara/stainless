@@ -1060,58 +1060,6 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    def inlineChecks(e: Expr): Expr = {
-      import newSymbols._
-      import exprOps._
-
-      val simplifier = newSymbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
-      import simplifier._
-
-      transformWithPC(e, CNFPath.empty)((e, path, op) => e match {
-        case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
-          ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`))),
-          ADT(tpl.id, Seq(), Seq(ADTSelector(_, `tail`)))
-        )) => e
-
-        case fi @ FunctionInvocation(`subtypeID`, Seq(), Seq(
-          ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _)),
-          ADT(fun.id, Seq(), Seq(ADTSelector(_, `tail`), _))
-        )) => e
-
-        case Assert(p, Some("Cast error"), in) => op.rec(p, path) match {
-          case BooleanLiteral(true) => op.rec(in, path)
-          case _ => op.superRec(e, path)
-        }
-
-        case fi @ FunctionInvocation(`instanceID` | `subtypeID`, _, _)
-        if (path contains fi) || (path contains Not(fi)) =>
-          BooleanLiteral(path contains fi)
-
-        case fi @ FunctionInvocation(`subtypeID`, Seq(), args @ (Seq(_: ADT, _) | Seq(_, _: ADT))) =>
-          val tfd = fi.tfd
-          val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          simplifier.transform(body, path)
-
-        case fi @ FunctionInvocation(`instanceID`, Seq(), args @ Seq(_, _: ADT)) =>
-          val tfd = fi.tfd
-          val body = freshenLocals(tfd.withParamSubst(args, tfd.fullBody))
-          simplifier.transform(body, path)
-
-        case _ => op.superRec(e, path)
-      })
-    }
-
-    val finalSymbols = NoSymbols
-      .withFunctions(newSymbols.functions.values.toSeq.map(fd => fd/*.copy(fullBody = inlineChecks(fd.fullBody))*/))
-      .withSorts(newSymbols.sorts.values.toSeq)
-
-    for (fd <- finalSymbols.functions.values) {
-      if (!finalSymbols.isSubtypeOf(fd.fullBody.getType(finalSymbols), fd.returnType)) {
-        println(fd)
-        println(finalSymbols.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true, symbols = Some(finalSymbols))))
-      }
-    }
-
-    finalSymbols
+    newSymbols
   }
 }
