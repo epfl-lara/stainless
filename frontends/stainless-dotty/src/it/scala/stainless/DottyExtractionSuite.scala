@@ -19,7 +19,8 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/invalid/Println.scala",
     "extraction/invalid/CtorParams.scala",
     "extraction/invalid/ClassBody.scala",
-    "extraction/invalid/Require.scala")
+    "extraction/invalid/Require.scala",
+    "extraction/invalid/Hole.scala")
 
 }
 

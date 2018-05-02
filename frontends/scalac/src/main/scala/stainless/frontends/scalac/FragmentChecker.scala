@@ -27,6 +27,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
         + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
 
+    val ScalaHole = definitions.PredefModule.info.decl(newTermName("$qmark$qmark$qmark"))
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.lang.collection.List",
@@ -148,6 +149,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             case t =>
               reportError(t.pos, s"Stainless `old` is only defined on `this` and variables.")
           }
+
+        case t: Select if sym == ScalaHole =>
+          reportError(t.pos, "scala.Predef.??? is not supported, please use stainless.lang.choose instead.")
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
           if (args.size != 1 || !args.head.isInstanceOf[Literal])
