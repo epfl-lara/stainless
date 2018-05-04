@@ -37,6 +37,7 @@ Ltac fast :=
   autorewrite with libR in * ||
   congruence ||
   discriminate ||
+  done ||
   autounfold in *
 .
 
@@ -62,12 +63,28 @@ Ltac libStep := match goal with
             let matched := fresh "matched" in
             destruct b eqn:matched
   end.
-
+  
 Hint Rewrite Z.leb_gt: libR.
 Hint Rewrite Z.leb_le: libR.
 Hint Rewrite Z.geb_leb: libR.
 Hint Rewrite <- Zgt_is_gt_bool: libR.
 Hint Rewrite Z.geb_le: libR.
+
+Lemma Zeq_bool_neq2:
+  ∀ x y : Z,  Zeq_bool x y = false <-> (x <> y).
+Proof.
+  intuition;
+    repeat match goal with
+           | _ => libStep
+           | H: _ |- _ => apply Zeq_bool_neq in H
+           | H: _ |- _ => apply Positive_as_OT.compare_eq in H
+           | x: Z |- _ => destruct x
+           | _ => progress (unfold Zeq_bool in *)
+           | _ => progress (unfold CompOpp in *)                                                
+           end.
+Qed.
+
+Hint Rewrite Zeq_bool_neq2: libR.
 
 Lemma match_or:
   forall b A e1 e2,

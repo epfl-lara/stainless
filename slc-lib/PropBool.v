@@ -89,4 +89,18 @@ Ltac t_propbool :=
   | H: propInBool ?P = true |- _ =>
     poseNew (Mark P "trueProp");
     pose proof (proj1 (trueProp _) H)
+  | H: false = propInBool ?P |- _ =>
+    poseNew (Mark P "falseProp2");
+    pose proof (proj1 (trueProp2 _) H)
+  | H: propInBool ?P = false |- _ =>
+    poseNew (Mark P "falseProp");
+    pose proof (proj1 (trueProp _) H)
+  | H: propInBool ?P = ?b |- _ =>
+    let pib := fresh "pib" in
+    poseNew (Mark H "destruct bool prop");
+    destruct b eqn:pib
+  | H: ?b = propInBool ?P |- _ =>
+    let pib := fresh "pib" in
+    poseNew (Mark H "destruct bool prop");
+    destruct b eqn:pib
   end.

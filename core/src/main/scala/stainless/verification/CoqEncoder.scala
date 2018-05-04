@@ -409,6 +409,7 @@ trait CoqEncoder {
     RawCommand(s"""Ltac ${t.coqString} :=
                   |  t ||
                   |  ${lastTactic.coqString} ||
+                  |  slow ||
                   |  t_sets ||
                   |  rewrite_ifthenelse ||
                   |  destruct_ifthenelse ||
