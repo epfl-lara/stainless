@@ -53,7 +53,6 @@ trait CoqEncoder {
     val tpe: Type = scrut.getType
     tpe match {
       case adt @ ADTType(_, _) => {
-        println(adt.getSort.constructors)
         val ctorsIds: Seq[Identifier] = adt.getSort.constructors map (_.id)
         //non guarded matches without sub patterns
         val unguardedADTs: Seq[Identifier] =
@@ -76,7 +75,7 @@ trait CoqEncoder {
       else
         transformTree(matchToIfThenElse(t, false))
     case IfExpr(cond, thenn, elze) =>
-      ifthenelse(
+      IfThenElse(
         transformTree(cond),
         transformType(t.getType),
         CoqLambda(coqUnused, transformTree(thenn)),
@@ -112,7 +111,7 @@ trait CoqEncoder {
     case Equals(t1,t2) if t1.getType.isInstanceOf[SetType] =>
       CoqSetEquals(transformTree(t1),transformTree(t2))
     case Equals(t1,t2) =>
-      ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq")
+      ctx.reporter.warning(s"Equality for type ${t1.getType} got translated to equality in Coq") //remove warning for lists and other cases where this is on purpose
       propInBool(CoqEquals(transformTree(t1),transformTree(t2)))
     case BooleanLiteral(true) => trueBoolean
     case BooleanLiteral(false) => falseBoolean
@@ -417,7 +416,7 @@ trait CoqEncoder {
                   |  autounfold with recognizers in *.""".stripMargin) $
                   //  ||
                   // |  rewrite propInBool in *
-    RawCommand(s"Obligation Tactic := repeat ${t.coqString}.")
+    RawCommand(s"\nObligation Tactic := repeat ${t.coqString}.\n")
   }
 
   def makeTacticCases(ctor: ADTConstructor) : Seq[CoqCase] = {
@@ -526,15 +525,14 @@ trait CoqEncoder {
         val h1 = makeFresh("H1")
         val h2 = makeFresh("H2")
 
+        SeparatorComment(s"Start of ${fd.id.name}") $
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
                     fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
         RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
-        RawCommand(s"Solve Obligations with (repeat ${mainTactic.coqString}).") $
-        RawCommand("Fail Next Obligation.") $
-        //RawCommand(s"Hint Rewrite ${funName.coqString}_equation_1: unfolding.\n") $
-        //CoqTactic(newRewriteTactic, Seq(oldRewriteTactic, Rewrite(CoqLibraryConstant(s"${funName.coqString}_equation_1")))) $
+        RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).") $
+        RawCommand("Fail Next Obligation.\n") $
         CoqMatchTactic(phaseA, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget)),
             CoqSequence(Seq(label))),
@@ -547,11 +545,12 @@ trait CoqEncoder {
           CoqCase(CoqTacticPattern(Map(h2 -> markedUnfolding), rwrtTarget),
             CoqSequence(Seq(label2, pose)))
         )) $
-        RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.") $
-        updateObligationTactic()
+        RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.\n") $
+        updateObligationTactic() $
+        SeparatorComment(s"End of ${fd.id.name}")
       } else {
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.")
+        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n")
       }
       tmp
       //if (ctx.options.findOptionOrDefault(optAdmitAll)) {

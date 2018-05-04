@@ -34,8 +34,8 @@ case class CoqTactic(id: CoqIdentifier, tactics: Seq[CoqExpression]) extends Coq
 
 case class CoqMatchTactic(id: CoqIdentifier, cases: Seq[CoqCase]) extends CoqCommand {
   override def coqString = s"Ltac ${id.coqString} := match goal with \n" +
-    cases.map(cs => cs.coqString + "\n").mkString(" ") +
-    "end."
+    cases.map(cs => "\t" + tabulate(cs.coqString) + "\n").mkString +
+    "end.\n"
 }
 
 case class InductiveDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], cases: Seq[InductiveCase]) extends CoqCommand {
@@ -61,28 +61,33 @@ case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExp
   override def coqString = {
     // println("Translating: " + id.coqString)
     s"Definition ${id.coqString} ${paramString}: ${returnType.coqString} :=\n" +
-      body.coqString + ".\nFail Next Obligation.\n\n"
+      body.coqString + ".\n\nFail Next Obligation.\n"
   }
 }
 
 case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpression)], returnType: CoqExpression, cases: Seq[(CoqExpression, CoqExpression)], ignoreTermination: Boolean) extends CoqCommand {
-  val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
+  val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString})" }.mkString(" ")
   override def coqString = s"Equations ${id.coqString} $paramString : ${returnType.coqString} := \n" +
     cases.map {case (cs, expr) =>
       if (ignoreTermination)
-        s"${cs.coqString} by rec ignore_termination lt :=\n" +
-        s"${cs.coqString} := ${expr.coqString}"
+        s"\t${cs.coqString} by rec ignore_termination lt :=\n" +
+        s"\t${cs.coqString} := ${tabulate(expr.coqString)}"
       else
-      s"${cs.coqString} := ${expr.coqString}"
+      s"\n${cs.coqString} := ${tabulate(expr.coqString)}"
     }.mkString("", ";\n", ".")
 }
 
 case class CoqLemma(name: CoqIdentifier, body: CoqExpression, proof: CoqCommand) extends CoqCommand {
   override def coqString =
       s"Lemma ${name.coqString}: ${body.coqString}. \n" +
-      proof.coqString +
+      "Proof.\n" +
+      s"\t${tabulate(proof.coqString)}" +
       s"\nQed.\n"
 
+}
+
+case class SeparatorComment(s: String) extends CoqCommand {
+  override def coqString = "(***********************\n  " + s + "\n ***********************)\n"
 }
 
 // This class is used to represent the strings we want to print as is
@@ -176,7 +181,13 @@ case class CoqTuple(es: Seq[CoqExpression]) extends CoqExpression {
 }
 
 case class CoqSequence(es: Seq[CoqExpression]) extends  CoqExpression {
-  override def coqString = es.map(_.coqString).mkString(";")
+  override def coqString = {
+    val tmp = es.map(_.coqString).mkString(";")
+    if (tmp.length > charsPerLine)
+      tmp.replace(";", ";\n")
+    else
+      tmp
+  }
 }
 
 case class CoqLibraryConstant(s: String) extends CoqExpression {
@@ -218,13 +229,27 @@ case class RawExpression(s: String) extends CoqExpression {
  * Boolean operations and propositions
  */
 
+case class IfThenElse(cond: CoqExpression, tpe: CoqExpression, tCond: CoqExpression, eCond: CoqExpression) extends CoqExpression {
+  override def coqString = {
+    val cString = optP(cond)
+    val tpeString = optP(tpe)
+    val tString = optP(tCond)
+    val eString = optP(eCond)
+    if (!cString.contains("\n"))
+      s"ifthenelse $cString $tpeString\n\t${tabulate(tString)}\n\t${tabulate(eString)}"
+    else
+      s"ifthenelse\n\t${tabulate(cString)}\n\t${tabulate(tpeString)}\n\t${tabulate(tString)}\n\t${tabulate(eString)}"
+
+  }
+}
+
 case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = fold(falseBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a || $b" }
 }
 
 case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
   override def coqString = fold(trueBoolean, es) {
-    case (a,b) => ifthenelse(a, CoqBool, CoqLambda(coqUnused , b), CoqLambda(coqUnused, falseBoolean))
+    case (a,b) => IfThenElse(a, CoqBool, CoqLambda(coqUnused , b), CoqLambda(coqUnused, falseBoolean))
   }.coqString
 }
 
@@ -341,7 +366,14 @@ case class PoseProof(expr: CoqExpression) extends CoqExpression {
 // used in the CoqMatch construct
 case class CoqCase(pattern: CoqPattern, body: CoqExpression) {
   def coqString: String = {
-    s"| ${pattern.coqString} => ${body.coqString}"
+    val pString = pattern.coqString
+    val bString = body.coqString
+    if (bString.contains("\n") || bString.length + pString.length > charsPerLine) {
+      s"| $pString => \n\t\t${tabulate(bString,2)}"
+    } else {
+      s"| $pString => $bString"
+    }
+
   }
 }
 
@@ -417,6 +449,8 @@ object CoqExpression {
 
   val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 
+  val charsPerLine = 80
+
   def implb(e1: CoqExpression, e2: CoqExpression): CoqExpression = {
     CoqApplication(implbFun, Seq(e1,e2))
   }
@@ -428,6 +462,11 @@ object CoqExpression {
 
   def optP(e: CoqExpression) = if (requiresParentheses(e)) s"(${e.coqString})" else e.coqString
   def optP(e: CoqPattern) = if (requiresParentheses(e)) s"(${e.coqString})" else e.coqString
+
+  def tabulate(s: String, n: Int = 1): String = {
+    val tabs = ((1 to n).map(_ => "\t").mkString)
+    s.replace("\n", "\n" + tabs)
+  }
 
   def validCoqIdentifier(s: String) = s matches """[A-Z|a-z|_][\w_]*"""
 

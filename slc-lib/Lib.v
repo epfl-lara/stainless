@@ -70,6 +70,23 @@ Hint Rewrite Z.geb_leb: libR.
 Hint Rewrite <- Zgt_is_gt_bool: libR.
 Hint Rewrite Z.geb_le: libR.
 
+Lemma geb_le2: ∀ n m : Z, (m ≤ n)%Z -> (m <=? n)%Z = true.
+Proof.
+  repeat libStep.
+Qed.
+Lemma geb_le3: ∀ n m : Z, (m ≤ n)%Z -> (n >=? m)%Z = true.
+Proof.
+  repeat libStep.
+Qed.
+Lemma geb_le4: ∀ n m : Z, (m >= n)%Z -> (m >=? n)%Z = true.
+Proof.
+  repeat libStep || omega.
+Qed.
+Lemma geb_le5: ∀ n m : Z, (m >= n)%Z -> (n <=? n)%Z = true.
+Proof.
+  repeat libStep.
+Qed.
+
 Lemma Zeq_bool_neq2:
   ∀ x y : Z,  Zeq_bool x y = false <-> (x <> y).
 Proof.
@@ -80,7 +97,7 @@ Proof.
            | H: _ |- _ => apply Positive_as_OT.compare_eq in H
            | x: Z |- _ => destruct x
            | _ => progress (unfold Zeq_bool in *)
-           | _ => progress (unfold CompOpp in *)                                                
+           | _ => progress (unfold CompOpp in *)
            end.
 Qed.
 
@@ -160,13 +177,23 @@ Proof.
   repeat libStep.  
 Qed.
 
+Lemma ifthenelse_rewrite_4: forall {T} (b: bool) (e1 e2 value: T),
+  (if b then e1 else e2) = value -> 
+    ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
+Proof.
+  repeat libStep.
+Qed.
+
+
 Ltac rewrite_ifthenelse :=
   match goal with
 (*  | H: context[(ifthenelse ?b ?B ?e1 ?e2) = ?val] |- _ => apply ifthenelse_rewrite_2 in H
   | H: context[?val = (ifthenelse ?b ?B ?e1 ?e2)] |- _ => apply eq_sym in H; apply ifthenelse_rewrite_2 in H
   | [ |- context[?val = (ifthenelse ?b ?B ?e1 ?e2)] ] => apply eq_sym; apply ifthenelse_rewrite_1 *)
-  | [ |- context[(ifthenelse _ _ _ _) = _] ] => apply ifthenelse_rewrite_3
-  | [ |- context[_ = (ifthenelse _ _ _ _)] ] => apply eq_sym; apply ifthenelse_rewrite_3
+  | [ |- (ifthenelse _ _ _ _) = _ ] => apply ifthenelse_rewrite_3
+  | [ |- _ = (ifthenelse _ _ _ _) ] => apply eq_sym; apply ifthenelse_rewrite_3
+  | [ H: (if ?b then ?e1 else ?e2) = ?value |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ H)
+  | [ H: ?value = if ?b then ?e1 else ?e2 |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ (eq_sym H))
   end.
 
 Ltac program_simplify :=
