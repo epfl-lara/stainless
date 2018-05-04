@@ -438,26 +438,46 @@ trait CoqEncoder {
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
         val funName = makeFresh(fd.id)
+
+        //create a name for the return type
         val returnTypeName = makeFresh(funName.coqString  +"_rt")
-        val allParams2 = allParams :+ (returnTypeName, returnType)
-        val allParamsMap = allParams2.toMap
-        val argTypes: Map[CoqIdentifier, CoqIdentifier] =
-          allParamsMap map { case (arg,ty) => (arg, makeFresh(arg.coqString + "_type"))}
+        //val allParams2 = allParams :+ (returnTypeName, returnType)
+
+        val dependentParams: Map[CoqIdentifier, CoqExpression] = (preconditionParam :+ (returnTypeName, returnType)).toMap
+
+
+
+        //val allParamsMap = allParams2.toMap
+        //val argTypes: Map[CoqIdentifier, CoqIdentifier] =
+        //  allParamsMap map { case (arg,ty) => (arg, makeFresh(arg.coqString + "_type"))}
+        val dependentParamNames: Map[CoqIdentifier, CoqIdentifier] =
+          dependentParams map {case (arg, _) => (arg, makeFresh(arg.coqString + "_type"))}
+
         // scan left to collect heads...
 
-        val allParamNames: Seq[CoqIdentifier] = allParams2 map (_._1)
-        val previousParams: Map[CoqIdentifier, Seq[CoqIdentifier]] =
-          (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
+        val allParamMap: Map[CoqIdentifier, CoqExpression] = (allParams :+ (returnTypeName, returnType)).toMap
+        //important to keep order
+        val allParamNames: Seq[CoqIdentifier] = (allParams map (_._1)) :+ returnTypeName
+
+        val dependsOn: Map[CoqIdentifier, Seq[CoqIdentifier]] =
+          /*dependentParams map {case (name, tpe) =>
+            (name, allParamMap.keys.filter(param => varsIn(tpe) contains(param)).toSeq)
+          }*/
+        (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
 
         val fullType: Map[CoqIdentifier, CoqExpression] =
-          (allParamNames map {x => (x, argTypes(x)(previousParams(x):_*))}).toMap
+          allParamMap map {
+            case (x,tpe) => if (dependentParamNames contains x)
+              (x, dependentParamNames(x)(dependsOn(x):_*))
+              else
+              (x, tpe)
+          }
 
-        val argDefs: Seq[CoqCommand] = allParams2 map { case (x, body) =>
-          NormalDefinition(argTypes(x), previousParams(x) map(y => (y, fullType(y))), typeSort, body) $
-          RawCommand(s"Hint Unfold ${argTypes(x).coqString}.\n\n")
+        val argDefs: Seq[CoqCommand] = dependentParams.toSeq map { case (x, body) =>
+          NormalDefinition(dependentParamNames(x), dependsOn(x) map(y => (y, fullType(y))), typeSort, body) $
+          RawCommand(s"Hint Unfold ${dependentParamNames(x).coqString}.\n\n")
         }
 
-        //val retDef = NormalDefinition(makeFresh(funName.coqString + "_return_type"), ???, )
         val oldRewriteTactic = rewriteTactic
         val newRewriteTactic = makeFresh("rwrtTac")
         val phaseA = makeFresh("rwrtTac_A")
@@ -474,9 +494,6 @@ trait CoqEncoder {
         val h1 = makeFresh("H1")
         val h2 = makeFresh("H2")
 
-        //val paramString = allParams.map { case (arg,ty) => arg.coqString + " " }.mkString
-        //FixpointDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        //RawCommand(s"Arguments ${makeFresh(fd.id).coqString} $paramString : simpl never.")
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
@@ -516,7 +533,52 @@ trait CoqEncoder {
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }
 
+  def varsIn (tree: CoqExpression): Set[CoqIdentifier] = tree match {
+    case Arrow(e1,e2) => varsIn(e1) ++ varsIn(e2)
+    case BiArrow(e1,e2) => varsIn(e1) ++ varsIn(e2)
+    case CoqMatch(matched,cases) => varsIn(matched) ++ cases flatMap {case CoqCase(pattern, cse) =>
+      varsIn(cse) //TODO take vars introduced by pattern into consideration
+    }
+    case CoqApplication(fun, params) => varsIn(fun) ++ params flatMap varsIn
+    case CoqIdentifier(id) => Set(CoqIdentifier(id))
+    case CoqUnboundIdentifier(_) => Set()
+    case CoqTuple(es) => (es flatMap varsIn).toSet
+    case CoqSequence(es) => (es flatMap varsIn).toSet
+    case CoqLibraryConstant(_) => Set()
+    case Constructor(id, args) => varsIn(id) ++ args flatMap varsIn
+    case CoqForall(args, body) =>
+      (varsIn(body) ++ args.flatMap {case (_, tpe) => varsIn(tpe)}) -- (args map {case (id, _) => id})
+    case CoqExists(args, body) =>
+      (varsIn(body) ++ args.flatMap {case (_, tpe) => varsIn(tpe)}) -- (args map {case (id, _) => id})
+    case CoqLet(id, value, body) => varsIn(id) ++ (varsIn(body) - id)
+    case CoqLambda(id, body) => varsIn(body) - id
+    case RawExpression(_) => Set()
+    case Orb(es) => (es flatMap varsIn).toSet
+    case Andb(es) => (es flatMap varsIn).toSet
+    case Negb(e) => varsIn(e)
+    case CoqEquals(e1,e2) => varsIn(e1) ++ varsIn(e2)
+    case CoqZNum(_) => Set()
+    case CoqTupleType(es) => (es flatMap varsIn).toSet
+    case CoqUnknown => Set()
+    case CoqFiniteSet(args, tpe) => (args flatMap varsIn).toSet ++ varsIn(tpe)
+    case CoqSetEmpty(tpe) => varsIn(tpe)
+    case CoqSetSingleton(e) => varsIn(e)
+    case CoqSetEquals(e1,e2) => varsIn(e1) ++ varsIn(e2)
+    case CoqSetUnion(e1,e2)  => varsIn(e1) ++ varsIn(e2)
+    case CoqSetIntersection(e1,e2)  => varsIn(e1) ++ varsIn(e2)
+    case CoqSetDifference(e1,e2)  => varsIn(e1) ++ varsIn(e2)
+    case CoqSetSubset(e1,e2)  => varsIn(e1) ++ varsIn(e2)
+    case CoqSetType(e) => varsIn(e)
+    case CoqBelongs(e1,e2) => varsIn(e1) ++ varsIn(e2)
+    case Refinement(id, tpe, body) => (varsIn(tpe) ++ varsIn(body)) - id
+    case Rewrite(e) => varsIn(e)
+    case Mark(es, _) => (es flatMap varsIn).toSet
+    case Marked(es, _) => (es flatMap varsIn).toSet
+    case CoqContext(e) => varsIn(e)
+    case PoseProof(e) => varsIn(e)
 
+    case _ => Set()
+  }
 
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
