@@ -41,10 +41,29 @@ trait CoqEncoder {
       //ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
   }
 
+  def isExhaustive(scrut: Expr, cases: Seq[MatchCase]): Boolean = {
+    val tpe: Type = scrut.getType
+    tpe match {
+      case adt @ ADTType(_, _) => {
+        println(adt.getSort.constructors)
+        val ctorsIds: Seq[Identifier] = adt.getSort.constructors map (_.id)
+        //non guarded matches without sub patterns
+        val unguardedADTs: Seq[Identifier] =
+          cases filter {case MatchCase(_,g,_) => g.isEmpty} map {a => a.pattern} collect {case ADTPattern(_, id, _,Seq()) => id}
+        ctorsIds forall (unguardedADTs contains _)
+
+      }
+      case _ => false
+    }
+  }
+
   // transform a Stainless expression into a Coq expression
   def transformTree(t: st.Expr): CoqExpression = t match {
     case MatchExpr(scrut, cases) =>
-      transformTree(matchToIfThenElse(t, false))
+      if(isExhaustive(scrut, cases))
+        CoqMatch(transformTree(scrut), cases map makeFunctionCase)
+      else
+        transformTree(matchToIfThenElse(t, false))
     case IfExpr(cond, thenn, elze) =>
       ifthenelse(
         transformTree(cond),
@@ -167,7 +186,7 @@ trait CoqEncoder {
   // transform patterns that appear in match cases
   def transformPattern(p: Pattern): CoqPattern = p match {
     case a@ADTPattern(_, id, _, subPatterns) =>
-      val unusedTypeParameters = (1 to getTParams(sorts(id)).size).map(_ => VariablePattern(None))
+      val unusedTypeParameters = (1 to getTParams(constructors(id)).size).map(_ => VariablePattern(None))
       InductiveTypePattern(constructorIdentifier(id), unusedTypeParameters ++ subPatterns.map(transformPattern))
     case WildcardPattern(None) => VariablePattern(None)
     case WildcardPattern(Some(ValDef(id,tpe,flags))) =>

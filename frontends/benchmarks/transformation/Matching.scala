@@ -1,6 +1,6 @@
 object Matching {
 
-  abstract class X
+  sealed abstract class X
   case class A() extends X
   case class B() extends X
 
