@@ -41,6 +41,14 @@ trait CoqEncoder {
       //ctx.reporter.warning(s"Coq translation ignored flags for $s:\n" + flags.mkString(", ") + "\n")
   }
 
+  def freePatterns(p: Pattern): Boolean = {
+    p match {
+      case WildcardPattern(_) => true
+      case TuplePattern(_, es) => es forall freePatterns
+      case _ => false
+    }
+  }
+
   def isExhaustive(scrut: Expr, cases: Seq[MatchCase]): Boolean = {
     val tpe: Type = scrut.getType
     tpe match {
@@ -49,8 +57,11 @@ trait CoqEncoder {
         val ctorsIds: Seq[Identifier] = adt.getSort.constructors map (_.id)
         //non guarded matches without sub patterns
         val unguardedADTs: Seq[Identifier] =
-          cases filter {case MatchCase(_,g,_) => g.isEmpty} map {a => a.pattern} collect {case ADTPattern(_, id, _,Seq()) => id}
-        ctorsIds forall (unguardedADTs contains _)
+          cases collect {
+            case MatchCase(ADTPattern(_, id, _, subPatterns), guard, _) if subPatterns forall freePatterns => id
+          }
+        cases.forall {case MatchCase(_,g,_) => g.isEmpty} &&
+          (ctorsIds forall (unguardedADTs contains _))
 
       }
       case _ => false
@@ -454,6 +465,7 @@ trait CoqEncoder {
         case Some(Lambda(Seq(vd), post)) =>
           Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === trueBoolean)
       }
+      //exprOps.postconditionOf(fd.fullBody) flatMap(a => exprOps.variablesOf(a.body))
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {
         val funName = makeFresh(fd.id)
