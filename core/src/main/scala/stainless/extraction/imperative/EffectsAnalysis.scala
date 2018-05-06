@@ -190,6 +190,10 @@ trait EffectsAnalysis {
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }
 
+    // We truncate the effects path if it depends on the type of the
+    // input parameter.
+    // Note that we could instead keep the full path and guard the effect
+    // with the relevant type checks if more precision is needed at some point.
     def truncate(effect: Effect): Effect = {
       def rec(tpe: Type, path: Seq[Accessor]): Seq[Accessor] = (tpe, path) match {
         case (adt: ADTType, _) if adt.getSort.constructors.size > 1 => Seq()
