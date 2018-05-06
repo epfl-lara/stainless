@@ -63,18 +63,190 @@ trait EffectsAnalysis {
 
   private lazy val locals: Map[Variable, FunAbstraction] = inners.map(inner => inner.fd.name.toVariable -> inner).toMap
 
+  sealed abstract class Accessor
+  case class FieldAccessor(selector: Identifier) extends Accessor
+  case class ArrayAccessor(index: Expr) extends Accessor
+
+  case class Target(path: Seq[Accessor]) {
+    def +(elem: Accessor) = Target(path :+ elem)
+
+    def on(that: Expr): Set[Effect] = (that, path) match {
+      case (Annotated(e, _), _) => this on e
+      case (Assert(_, _, e), _) => this on e
+      case (Let(_, _, e), _) => this on e
+      case (ADT(id, _, args), FieldAccessor(fid) +: rest) =>
+        Target(rest) on args(getConstructor(id).fields.indexWhere(_.id == fid))
+      case (ADTSelector(e, id), _) => Target(FieldAccessor(id) +: path) on e
+      case (ArraySelect(e, idx), _) => Target(ArrayAccessor(idx) +: path) on e
+      case (v: Variable, _) => Set(Effect(v, this))
+      // In this case, we are performing effects on something fresh so the
+      // effects can be immediately forgotten
+      case _ if path.isEmpty => Set()
+      case _ =>
+        throw MissformedStainlessCode(that, s"Couldn't compute precise effect of ${this} on $that.")
+    }
+
+    def prefixOf(that: Target): Boolean = {
+      val fieldPath = path.filter(_.isInstanceOf[FieldAccessor])
+      fieldPath == that.path.filter(_.isInstanceOf[FieldAccessor]).take(fieldPath.size)
+    }
+
+    def asString(implicit opts: PrinterOptions): String = path.map {
+      case FieldAccessor(id) => s".${id.asString}"
+      case ArrayAccessor(idx) => s"(${idx.asString})"
+    }.mkString("")
+
+    override def toString: String = asString(PrinterOptions.fromContext(inox.Context.printNames))
+  }
+
+  case class Effect(receiver: Variable, target: Target) {
+    lazy val getType: Type = {
+      @scala.annotation.tailrec
+      def rec(tpe: Type, path: Seq[Accessor]): Type = (tpe, path) match {
+        case (adt: ADTType, FieldAccessor(fid) +: xs) =>
+          val vd = adt.getSort.constructors.flatMap(_.fields).find(_.id == fid)
+          rec(vd.map(_.tpe).getOrElse(Untyped), xs)
+        case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
+          rec(base, xs)
+        case (_, Nil) => tpe
+        case _ => Untyped
+      }
+
+      rec(receiver.tpe, target.path)
+    }
+
+    def +(elem: Accessor) = Effect(receiver, target + elem)
+
+    def on(that: Expr): Set[Effect] = target on that
+
+    def prefixOf(that: Effect): Boolean =
+      receiver == that.receiver && (target prefixOf that.target)
+
+    def asString(implicit opts: PrinterOptions): String = s"Effect(${receiver.asString}${target.asString})"
+    override def toString: String = asString(PrinterOptions.fromContext(inox.Context.printNames))
+  }
+
+  def getEffect(expr: Expr): Option[Effect] = {
+    def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
+      case v: Variable => Some(Effect(v, Target(path)))
+      case _ if exprOps.variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
+      case ADTSelector(e, id) => rec(e, FieldAccessor(id) +: path)
+      case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
+      case ADT(id, _, args) => path match {
+        case FieldAccessor(fid) +: rest =>
+          rec(args(getConstructor(id).fields.indexWhere(_.id == fid)), rest)
+        case _ =>
+          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+      }
+      case Assert(_, _, e) => rec(e, path)
+      case Annotated(e, _) => rec(e, path)
+      case _ =>
+        throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+    }
+
+    rec(expr, Seq())
+  }
+
+  def getExactEffect(expr: Expr): Effect = getEffect(expr) match {
+    case Some(effect) => effect
+    case _ => throw MissformedStainlessCode(expr, "Couldn't compute exact effect targets")
+  }
+
+  protected def localEffects(expr: Expr): Set[Effect] = {
+    def mapEffect(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
+      env.get(effect.receiver).map(e => e.copy(target = Target(e.target.path ++ effect.target.path)))
+
+    def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
+      case Let(vd, e, b) =>
+        rec(e, env) ++ rec(b, env ++ getEffect(e).map(vd.toVariable -> _))
+
+      case MatchExpr(scrut, cses) =>
+        rec(scrut, env) ++ cses.flatMap { case MatchCase(pattern, guard, rhs) =>
+          val newEnv = env ++ mapForPattern(scrut, pattern).flatMap { case (v, e) =>
+            getEffect(e).flatMap(effect => mapEffect(effect, env)).map(v.toVariable -> _)
+          }
+          guard.toSeq.flatMap(rec(_, newEnv)).toSet ++ rec(rhs, newEnv)
+        }
+
+      case ArrayUpdate(o, idx, v) =>
+        rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
+        getEffect(o).map(_ + ArrayAccessor(idx)).flatMap(mapEffect(_, env))
+
+      case FieldAssignment(o, id, v) =>
+        rec(o, env) ++ rec(v, env) ++
+        getEffect(o).map(_ + FieldAccessor(id)).flatMap(mapEffect(_, env))
+
+      case Application(callee, args) =>
+        val ft @ FunctionType(_, _) = callee.getType
+        val effects = functionTypeEffects(ft)
+        rec(callee, env) ++ args.flatMap(rec(_, env)) ++
+        args.map(getEffect).zipWithIndex
+          .filter(p => effects contains p._2)
+          .flatMap(_._1)
+          .flatMap(mapEffect(_, env))
+
+      case Assignment(v, value) => rec(value, env) ++ env.get(v)
+
+      case Operator(es, _) => es.flatMap(rec(_, env)).toSet
+    }
+
+    def truncate(effect: Effect): Effect = {
+      def rec(tpe: Type, path: Seq[Accessor]): Seq[Accessor] = (tpe, path) match {
+        case (adt: ADTType, _) if adt.getSort.constructors.size > 1 => Seq()
+        case (adt: ADTType, FieldAccessor(id) +: xs) =>
+          val vd = adt.getSort.constructors.head.fields.find(_.id == id)
+          FieldAccessor(id) +: rec(vd.map(_.tpe).getOrElse(Untyped), xs)
+        case (ArrayType(base), ArrayAccessor(idx) +: xs) => ArrayAccessor(idx) +: rec(base, xs)
+        case _ => Seq()
+      }
+
+      Effect(effect.receiver, Target(rec(effect.receiver.tpe, effect.target.path)))
+    }
+
+    val initEnv = exprOps.variablesOf(expr).map(v => v -> Effect(v, Target(Seq()))).toMap
+    rec(expr, initEnv).map(truncate)
+  }
+
+  private def expressionEffects(expr: Expr, effects: Map[FunAbstraction, Set[Effect]]): Set[Effect] = {
+    val freeVars = exprOps.variablesOf(expr)
+
+    val firstLevelMutated: Set[Effect] = localEffects(expr)
+
+    val secondLevelMutated: Set[Effect] = {
+      val calls = exprOps.collect[(FunAbstraction, Seq[Expr])] {
+        case fi @ FunctionInvocation(_, _, args) => Set(Outer(fi.tfd.fd) -> args)
+        case ApplyLetRec(v, _, _, args) => Set(locals(v) -> args)
+        case _ => Set.empty
+      } (expr)
+
+      calls.flatMap { case (fd, args) =>
+        val fdCurrentEffects: Set[Effect] = effects(fd)
+        val fdArgs = (fd.params.map(_.toVariable) zip args).toMap
+        val invocEffects = fdCurrentEffects.flatMap(e => fdArgs.get(e.receiver) match {
+          case Some(arg) => e on arg
+          case None => Seq(e) // This effect occurs on some variable captured from scope
+        })
+
+        val effectsOnFreeVars = invocEffects.filter(e => freeVars contains e.receiver)
+        val effectsOnLocalFreeVars = fdCurrentEffects.filterNot(e => fdArgs contains e.receiver)
+        effectsOnFreeVars ++ effectsOnLocalFreeVars
+      }
+    }
+
+    firstLevelMutated ++ secondLevelMutated
+  }
+
   // fill up the global map!
-  private lazy val effects: Map[FunAbstraction, Set[Variable]] = {
-    inox.utils.fixpoint { (effects: Map[FunAbstraction, Set[Variable]]) =>
+  private lazy val effects: Map[FunAbstraction, Set[Effect]] = {
+    inox.utils.fixpoint { (effects: Map[FunAbstraction, Set[Effect]]) =>
       effects.keys.map(fd => fd -> {
         exprOps.withoutSpecs(fd.fullBody).map(body => expressionEffects(body, effects)).getOrElse(Set.empty)
       }).toMap
-    } ((outers ++ inners).map(fd => fd -> Set.empty[Variable]).toMap)
+    } ((outers ++ inners).map(fd => fd -> Set.empty[Effect]).toMap)
   }
 
-  //TODO: should return a set of ids (to support local fundef)
-  def apply(fd: FunDef): Set[Int] = apply(Outer(fd))
-  def apply(fd: FunAbstraction): Set[Int] = effectsIndices(fd, effects(fd))
+  def apply(fd: FunDef): Set[Effect] = apply(Outer(fd))
+  def apply(fd: FunAbstraction): Set[Effect] = effects(fd)
 
   /** Return all effects of expr
     *
@@ -89,40 +261,7 @@ trait EffectsAnalysis {
     *
     * We are assuming no aliasing.
     */
-  def apply(expr: Expr): Set[Variable] = expressionEffects(expr, effects)
-
-  private def expressionEffects(expr: Expr, effects: Map[FunAbstraction, Set[Variable]]): Set[Variable] = {
-    val freeVars = exprOps.variablesOf(expr)
-
-    val firstLevelMutated: Set[Variable] = {
-      val localAliases = freeVars.map(v => v -> computeLocalAliases(v, expr)).toMap
-      freeVars.filter { v =>
-        val aliases = localAliases(v)
-        exprOps.exists(expr => aliases.exists(v => isMutationOf(expr, v)))(expr)
-      }
-    }
-
-    val secondLevelMutated: Set[Variable] = {
-      val calls = exprOps.collect[(FunAbstraction, Seq[Expr])] {
-        case fi @ FunctionInvocation(_, _, args) => Set(Outer(fi.tfd.fd) -> args)
-        case ApplyLetRec(v, _, _, args) => Set(locals(v) -> args)
-        case _ => Set.empty
-      } (expr)
-
-      calls.flatMap { case (fd, args) =>
-        val fdCurrentEffects: Set[Variable] = effects(fd)
-        val invocEffects = fdCurrentEffects.flatMap(v => findArgumentForParam(fd, args, v) match {
-          case Some(arg) => getReferencedVariables(arg)
-          case None => Set(v) //this v is captured from scope and not an actual function parameter
-        })
-
-        val effectsOnLocalFreeVars = fdCurrentEffects -- fd.params.map(_.toVariable)
-        (freeVars intersect invocEffects) ++ effectsOnLocalFreeVars
-      }
-    }
-
-    firstLevelMutated ++ secondLevelMutated
-  }
+  def apply(expr: Expr): Set[Effect] = expressionEffects(expr, effects)
 
 
   private val mutableTypes: MutableMap[Type, Boolean] = MutableMap.empty
@@ -163,11 +302,8 @@ trait EffectsAnalysis {
   }
 
   private[imperative] def getAliasedParams(fd: FunAbstraction): Seq[ValDef] = {
-    val ownEffects = apply(fd)
-    fd.params.zipWithIndex.flatMap {
-      case (vd, i) if ownEffects(i) => Some(vd)
-      case _ => None
-    }
+    val receivers = apply(fd).map(_.receiver)
+    fd.params.filter(vd => receivers(vd.toVariable))
   }
 
   private[imperative] def getReturnType(fd: FunAbstraction): Type = {
@@ -175,106 +311,6 @@ trait EffectsAnalysis {
     tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
   }
 
-  private[imperative] def getReturnedExpressions(expr: Expr): Seq[Expr] = expr match {
-    case Let(_, _, rest) => getReturnedExpressions(rest)
-    case LetVar(_, _, rest) => getReturnedExpressions(rest)
-    case Block(_, rest) => getReturnedExpressions(rest)
-    case IfExpr(_, thenn, elze) => getReturnedExpressions(thenn) ++ getReturnedExpressions(elze)
-    case MatchExpr(_, cses) => cses.flatMap(cse => getReturnedExpressions(cse.rhs))
-    case e => Seq(e)
-  }
-
-  private[imperative] def getReferencedVariables(expr: Expr): List[Variable] = expr match {
-    case v: Variable => List(v)
-    case ADTSelector(e, _) => getReferencedVariables(e)
-    case ADT(_, _, es) => es.flatMap(getReferencedVariables).toList
-    case ArraySelect(a, _) => getReferencedVariables(a)
-    case Assert(_, _, e) => getReferencedVariables(e)
-    case Annotated(e, _) => getReferencedVariables(e)
-    case _ => Nil
-  }
-
-  private[imperative] def getReceiverVariable(expr: Expr): Option[Variable] = expr match {
-    case v: Variable => Some(v)
-    case ADTSelector(e, _) => getReceiverVariable(e)
-    case ArraySelect(a, _) => getReceiverVariable(a)
-    case _ => None
-  }
-
-  /*
-   * Check if expr is mutating variable id. This only checks if the expression
-   * is the mutation operation, and will not perform expression traversal to
-   * see if a sub-expression mutates something.
-   */
-  private def isMutationOf(expr: Expr, v: Variable): Boolean = expr match {
-    case ArrayUpdate(o, _, _) => getReferencedVariables(o).exists(_ == v)
-    case FieldAssignment(obj, _, _) => getReferencedVariables(obj).exists(_ == v)
-    case Application(callee, args) =>
-      val ft @ FunctionType(_, _) = callee.getType
-      val effects = functionTypeEffects(ft)
-      args.map(getReferencedVariables(_)).zipWithIndex.exists {
-        case (argVars, index) => argVars.exists(_ == v) && effects.contains(index)
-      }
-    case Assignment(v2, _) => v == v2
-    case _ => false
-  }
-
   private def showFunDefWithEffect(fdsEffects: Map[FunDef, Set[Identifier]]): String =
     fdsEffects.filter(p => p._2.nonEmpty).map(p => (p._1.id, p._2)).toString
-
-  private def findArgumentForParam(fd: FunAbstraction, args: Seq[Expr], param: Variable): Option[Expr] = {
-    val index = fd.params.indexWhere(vd => vd.toVariable == param)
-    if (index >= 0) Some(args(index)) else None
-  }
-
-  //return the set of modified variables arguments to a function invocation,
-  //given the effect of the fun def invoked.
-  //private def functionInvocationEffects(fi: FunctionInvocation, effects: Set[Int]): Set[Identifier] = {
-  //  fi.args.zipWithIndex.filter(p => effects.contains(p._2)).flatMap{ case (arg, _) => {
-  //    findReferencedIds(arg)
-  //  }}.toSet
-
-  //  //.map(arg => findReferencedIds(arg)).zipWithIndex.
-  //  //
-  //  //flatMap{ case (ids, i) =>
-  //  //  if(effects.contains(i)) 
-  //  //  case (ids, i) if effects.contains(i) => ids
-  //  //  case _ => Set[Identifier]()
-  //  //}
-  //}
-
-
-  //for a given id, compute the identifiers that alias it or some part of the object refered by id
-  private def computeLocalAliases(v: Variable, body: Expr): Set[Variable] = {
-    def pre(expr: Expr, vs: Set[Variable]): Set[Variable] = expr match {
-      case l @ Let(vd, v: Variable, _) if vs contains v => vs + vd.toVariable
-      case m @ MatchExpr(v: Variable, cses) if vs contains v =>
-        val newVs = cses.flatMap(mc => mc.pattern.binders).map(_.toVariable)
-        vs ++ newVs
-      case e => vs
-    }
-    def combiner(e: Expr, ctx: Set[Variable], vs: Seq[Set[Variable]]): Set[Variable] = ctx ++ vs.toSet.flatten + v
-    val res = exprOps.preFoldWithContext(pre, combiner)(body, Set(v))
-    res
-  }
-
-
-  //I think this is not needed anymore, and we actually need the findReferencedIds
-  //private def findReceiverId(o: Expr): Option[Identifier] = o match {
-  //  case Variable(id) => Some(id)
-  //  case CaseClassSelector(_, e, _) => findReceiverId(e)
-  //  case ArraySelect(a, _) => findReceiverId(a)
-  //  case _ => None
-  //}
-
-  //TODO: as we are clarifying the notion of effects on functions/expression, we probably
-  //should use a structure such as a pair of Set[Int] and Set[Identifier] to represent
-  //effects
-
-  //returns the set of indices (from its parameters) that the fun def modified, given
-  //the set of identifiers that the fun def modifies. It might lose some information
-  //such as closure mutating a local variable
-  private def effectsIndices(fd: FunAbstraction, vs: Set[Variable]): Set[Int] = {
-    vs.map(v => fd.params.indexWhere(_.toVariable == v)).filter(_ != -1)
-  }
 }

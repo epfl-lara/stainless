@@ -72,6 +72,8 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
       val symbols: newSyms.type = newSyms
     } with EffectsAnalysis
 
+    import effects._
+
     checkEffects(effects)
 
     type Environment = (Set[ValDef], Map[ValDef, Expr], Map[ValDef, LocalFunDef])
@@ -98,24 +100,6 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
      */
     def updateFunction(fd: FunAbstraction, env: Environment): FunAbstraction = {
       val aliasedParams = effects.getAliasedParams(fd)
-
-      //val newParams = fd.params.map(vd => vd.getType match {
-      //  case (ft: FunctionType) => {
-      //    val nft = makeFunctionTypeExplicit(ft)
-      //    if(ft == nft) vd else ValDef(vd.id.duplicate(tpe = nft))
-      //  }
-      //  case (cct: CaseClassType) => ccdMap.get(cct.classDef) match {
-      //    case Some(ncd) => ValDef(vd.id.duplicate(tpe = ncd.typed))
-      //    case None => vd
-      //  }
-      //  case _ => vd
-      //})
-
-      effects.getReturnedExpressions(fd.fullBody).foreach {
-        case v: Variable if aliasedParams.contains(v.toVal) =>
-          throw FatalError("Cannot return a shared reference to a mutable object")
-        case _ => ()
-      }
 
       val newFd = fd.copy(returnType = effects.getReturnType(fd))
 
@@ -176,19 +160,27 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         type Env = Environment
         val initEnv: Env = env
 
-        def mapApplication(args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Int], env: Env): Expr = {
+        def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
           if (fiEffects.nonEmpty) {
-            val modifiedArgs: Seq[(Seq[Variable], Expr)] = args.zipWithIndex
-              .filter { case (arg, i) => fiEffects.contains(i) }
-              .map { arg =>
-                val rArg = exprOps.replaceFromSymbols(env.rewritings, arg._1)
-                (effects.getReferencedVariables(rArg).filter(v => effects.isMutableType(v.tpe)), rArg)
+            val localEffects = (formalArgs zip args)
+              .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
+              .filter { case (effects, _) => effects.nonEmpty }
+              .map { case (effects, arg) =>
+                val rArg = exprOps.replaceFromSymbols(env.rewritings, arg)
+                effects map (e => (e, e on rArg))
               }
 
-            val allParams: Seq[Variable] = modifiedArgs.flatMap(_._1)
-            val duplicatedParams = allParams.diff(allParams.distinct).distinct
-            //if (duplicatedParams.nonEmpty)
-              //throw MissformedStainlessCode(duplicatedParams.head, "Illegal passing of aliased parameter: " + duplicatedParams.head)
+            for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
+              val aliased = effects.toSeq.tails.flatMap {
+                case e1 +: es => es.collect { case e2 if (e1 prefixOf e2) || (e2 prefixOf e1) => (e1, e2) }
+                case Nil => Nil
+              }
+
+              if (aliased.nonEmpty) {
+                val (e1, _) = aliased.next
+                throw MissformedStainlessCode(e1.receiver, "Illegal passing of aliased parameter")
+              }
+            }
 
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful
@@ -196,31 +188,20 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             val freshRes = ValDef(FreshIdentifier("res"), nfiType)
 
             val extractResults = Block(
-              for (((varsForIndex, expr), index) <- modifiedArgs.zipWithIndex; v <- varsForIndex) yield {
+              for {
+                (effects, index) <- localEffects.zipWithIndex
+                (outerEffect, innerEffects) <- effects
+                effect <- innerEffects
+              } yield {
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
-                val newValue = expr match {
-                  case cs: ADTSelector =>
-                    val (rec, path) = fieldPath(cs)
-                    objectUpdateToCopy(rec, path, resSelect)
-
-                  case as: ArraySelect =>
-                    val (rec, path) = fieldPath(as)
-                    objectUpdateToCopy(rec, path, resSelect)
-
-                  case cc @ ADT(id, tps, es) =>
-                    val (_, vd) = (es zip cc.getConstructor.definition.fields).find {
-                      case (va: Variable, _) => va == v
-                      case _ => false
-                    }.get
-                    ADTSelector(resSelect, vd.id)
-                    //TODO: this only checks for a top level modified id,
-                    //      must generalize to any number of nested case classes
-                    //      must also handle combination of case class and selectors
-
-                  case _ => resSelect
+                def select(expr: Expr, path: Seq[Accessor]): Expr = path match {
+                  case FieldAccessor(id) +: xs => select(ADTSelector(expr, id), xs)
+                  case ArrayAccessor(idx) +: xs => select(ArraySelect(expr, idx), xs)
+                  case Nil => expr
                 }
 
-                Assignment(v, newValue).setPos(expr)
+                val newValue = applyEffect(effect, select(resSelect, outerEffect.target.path))
+                Assignment(effect.receiver, newValue).setPos(args(index))
               },
               TupleSelect(freshRes.toVariable, 1))
 
@@ -275,30 +256,23 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val (receiver, path) = fieldPath(ra, List(ArrayIndex(i)))
-
-            effects.getReceiverVariable(receiver) match {
-              case None => throw FatalError("Unsupported form of array update: " + up)
-              case Some(ov) =>
-                if (env.bindings.contains(ov.toVal)) {
-                  rec(Assignment(ov, objectUpdateToCopy(receiver, path, v).copiedFrom(up)).copiedFrom(up), env)
-                } else {
-                  throw FatalError("Unsupported form of array update: " + up)
-                }
+            val effect = getExactEffect(ra)
+            if (env.bindings contains effect.receiver.toVal) {
+              val applied = applyEffect(effect + ArrayAccessor(i), v)
+              rec(Assignment(effect.receiver, applied).copiedFrom(up), env)
+            } else {
+              throw MissformedStainlessCode(up, "Unsupported form of array update")
             }
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val (receiver, path) = fieldPath(so, List(ADTField(id)))
-
-            effects.getReceiverVariable(so) match {
-              case None => throw FatalError("Unsupported form of field assignment: " + as)
-              case Some(ov) =>
-                if (env.bindings.contains(ov.toVal)) {
-                  rec(Assignment(ov, objectUpdateToCopy(receiver, path, v).copiedFrom(as)).copiedFrom(as), env)
-                } else {
-                  throw FatalError("Unsupported form of field assignment: " + as)
-                }
+            val effect = getExactEffect(so)
+            implicit val opts = PrinterOptions(printUniqueIds = true, symbols = Some(newSyms))
+            if (env.bindings contains effect.receiver.toVal) {
+              val applied = applyEffect(effect + FieldAccessor(id), v)
+              rec(Assignment(effect.receiver, applied).copiedFrom(as), env)
+            } else {
+              throw MissformedStainlessCode(as, "Unsupported form of field assignment")
             }
 
           //we need to replace local fundef by the new updated fun defs.
@@ -342,7 +316,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               .foreach(aliasedArg => throw FatalError("Illegal passing of aliased parameter: " + aliasedArg))
 
             val nfi = FunctionInvocation(id, tps, args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(fi)
-            mapApplication(args, nfi, fi.tfd.instantiate(effects.getReturnType(fd)), effects(fd), env)
+            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(effects.getReturnType(fd)), effects(fd), env)
 
           case alr @ ApplyLetRec(fun, tparams, tps, args) =>
             val fd = Inner(env.locals(fun.toVal))
@@ -355,16 +329,17 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               fun.copy(tpe = FunctionType(fd.params.map(_.tpe), effects.getReturnType(fd))), tparams, tps,
               args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(alr)
             val resultType = typeOps.instantiateType(effects.getReturnType(fd), (tparams zip tps).toMap)
-            mapApplication(args, nfi, resultType, effects(fd), env)
+            mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
 
-          case app @ Application(callee, args) =>
-            val ft @ FunctionType(_, to) = callee.getType
-            to match {
-              case TupleType(tps) if effects.isMutableType(tps.last) =>
-                val nfi = Application(rec(callee, env), args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(app)
-                mapApplication(args, nfi, to, effects.functionTypeEffects(ft), env)
-              case _ => Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
-            }
+          case app @ Application(callee, args) => callee.getType match {
+            case ft @ FunctionType(from, to @ TupleType(tps)) if effects.isMutableType(tps.last) =>
+              val nfi = Application(rec(callee, env), args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(app)
+              val ftEffects = effects.functionTypeEffects(ft)
+              val params = from.map(tpe => ValDef.fresh("x", tpe))
+              val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Target(Seq())) }
+              mapApplication(params, args, nfi, to, appEffects.toSet, env)
+            case _ => Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
+          }
 
           case Operator(es, recons) => recons(es.map(rec(_, env)))
         }).copiedFrom(e)
@@ -372,7 +347,6 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
       transformer.transform(body)
     }
-
 
     //for each fun def, all the vars the the body captures.
     //Only mutable types.
@@ -382,51 +356,29 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
       freeVars.filter(v => effects.isMutableType(v.tpe))
     }
 
-
-    //private def extractFieldPath(o: Expr): (Expr, List[Identifier]) = {
-    //  def rec(o: Expr): List[Identifier] = o match {
-    //    case CaseClassSelector(_, r, i) =>
-    //      val res = toFieldPath(r)
-    //      (res._1, i::res)
-    //    case expr => (expr, Nil)
-    //  }
-    //  val res = rec(o)
-    //  (res._1, res._2.reverse)
-    //}
-
-    sealed trait Field
-    case class ADTField(id: Identifier) extends Field
-    case class ArrayIndex(e: Expr) extends Field
-
-    //given a nested arrayselect and class selectors, return the receiver expression along
-    //with the path from left to right
-    //Does not consider FieldAssignment and ArrayUpdate as they only make sense on
-    //the first level, and it seems cleaner to define path only on select operators
-    def fieldPath(e: Expr, accPath: List[Field] = Nil): (Expr, List[Field]) = e match {
-      case ADTSelector(r, id) => fieldPath(r, ADTField(id) :: accPath)
-      case ArraySelect(a, index) => fieldPath(a, ArrayIndex(index) :: accPath)
-      case e => (e, accPath)
-    }
-
     //given a receiver object (mutable class or array, usually as a reference id),
     //and a path of field/index access, build a copy of the original object, with
     //properly updated values
-    def objectUpdateToCopy(receiver: Expr, path: List[Field], newValue: Expr): Expr = path match {
-      case ADTField(id) :: fs =>
-        val adt @ ADTType(_, tps) = receiver.getType
-        val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
-        val rec = objectUpdateToCopy(ADTSelector(receiver, id), fs, newValue).setPos(newValue)
+    def applyEffect(effect: Effect, newValue: Expr): Expr = {
+      def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
+        case FieldAccessor(id) :: fs =>
+          val adt @ ADTType(_, tps) = receiver.getType
+          val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
+          val r = rec(ADTSelector(receiver, id).copiedFrom(newValue), fs)
 
-        ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
-          if (vd.id == id) rec
-          else ADTSelector(receiver, vd.id).copiedFrom(receiver)
-        })
+          ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
+            if (vd.id == id) r
+            else ADTSelector(receiver, vd.id).copiedFrom(receiver)
+          }).copiedFrom(newValue)
 
-      case ArrayIndex(index) :: fs =>
-        val rec = objectUpdateToCopy(ArraySelect(receiver, index).setPos(newValue), fs, newValue)
-        ArrayUpdated(receiver, index, rec).setPos(newValue)
+        case ArrayAccessor(index) :: fs =>
+          val r = rec(ArraySelect(receiver, index).copiedFrom(newValue), fs)
+          ArrayUpdated(receiver, index, r).copiedFrom(newValue)
 
-      case Nil => newValue
+        case Nil => newValue
+      }
+
+      rec(effect.receiver, effect.target.path)
     }
 
     val finalSyms = NoSymbols
@@ -434,6 +386,13 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
       .withFunctions(for (fd <- newSyms.functions.values.toSeq) yield {
         updateFunction(Outer(fd), Environment.empty).toFun
       })
+
+    for (fd <- finalSyms.functions.values) {
+      if (!finalSyms.isSubtypeOf(fd.fullBody.getType(finalSyms), fd.returnType)) {
+        println(fd)
+        println(finalSyms.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true, symbols = Some(finalSyms))))
+      }
+    }
 
     finalSyms
   }
