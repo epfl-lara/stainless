@@ -13,6 +13,7 @@ trait DefaultTactic extends Tactic {
 
   protected def getPostconditions(e: Expr, lambda: Lambda): Seq[Expr] = {
     def rec(e: Expr, path: Path): Seq[Expr] = e match {
+      case NoTree(_) => Seq()
       case Let(i, e, b) => rec(b, path withBinding (i -> e))
       case Assert(cond, _, body) => rec(body, path withCond cond)
       case IfExpr(c, t, e) => rec(t, path withCond c) ++ rec(e, path withCond not(c))

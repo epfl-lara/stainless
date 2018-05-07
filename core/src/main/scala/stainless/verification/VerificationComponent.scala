@@ -29,18 +29,20 @@ object VerificationComponent extends SimpleComponent {
   implicit val debugSection = DebugSectionVerification
 
   override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {
+    import ctx._
+
     val assertions = AssertionInjector(p, ctx)
     val chooses = ChooseInjector(p)
-    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
-
-    import ctx._
-    import encoder.targetProgram._
-    import encoder.targetProgram.trees._
-    import encoder.targetProgram.symbols._
 
     reporter.debug(s"Generating VCs for those functions: ${funs map { _.uniqueName } mkString ", "}")
 
-    val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
+    // We do not need to encode empty trees as chooses when generating the VCs,
+    // as we rely on having empty trees to filter out some VCs.
+    val assertionEncoder = inox.ast.ProgramEncoder(p)(assertions)
+    val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, ctx)(funs)
+
+    // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
+    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
 
     val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
       case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
