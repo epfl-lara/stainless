@@ -87,8 +87,14 @@ trait EffectsAnalysis {
     }
 
     def prefixOf(that: Target): Boolean = {
-      val fieldPath = path.filter(_.isInstanceOf[FieldAccessor])
-      fieldPath == that.path.filter(_.isInstanceOf[FieldAccessor]).take(fieldPath.size)
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
+        case (Seq(), _) => true
+        case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) => rec(xs1, xs2)
+        case (FieldAccessor(id1) +: xs1, FieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
+        case _ => false
+      }
+
+      rec(path, that.path)
     }
 
     def asString(implicit opts: PrinterOptions): String = path.map {
@@ -130,6 +136,7 @@ trait EffectsAnalysis {
     def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
       case v: Variable => Some(Effect(v, Target(path)))
       case _ if exprOps.variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
+      case _ if !isMutableType(expr.getType) => None
       case ADTSelector(e, id) => rec(e, FieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
       case ADT(id, _, args) => path match {
@@ -140,6 +147,9 @@ trait EffectsAnalysis {
       }
       case Assert(_, _, e) => rec(e, path)
       case Annotated(e, _) => rec(e, path)
+      case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
+      case (_: FiniteArray | _: LargeArray) => None
+      case Old(_) => None
       case _ =>
         throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
     }
@@ -152,63 +162,46 @@ trait EffectsAnalysis {
     case _ => throw MissformedStainlessCode(expr, "Couldn't compute exact effect targets")
   }
 
-  protected def localEffects(expr: Expr): Set[Effect] = {
-    def mapEffect(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
-      env.get(effect.receiver).map(e => e.copy(target = Target(e.target.path ++ effect.target.path)))
+  private def localEffects(expr: Expr): Set[Effect] = {
+    def effect(expr: Expr, env: Map[Variable, Effect]): Option[Effect] =
+      getEffect(expr).flatMap { case Effect(receiver, Target(path)) =>
+        env.get(receiver).map(e => e.copy(target = Target(e.target.path ++ path)))
+      }
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
-      case Let(vd, e, b) =>
-        rec(e, env) ++ rec(b, env ++ getEffect(e).map(vd.toVariable -> _))
+      case Let(vd, e, b) if isMutableType(vd.tpe) =>
+        rec(e, env) ++ rec(b, env ++ effect(e, env).map(vd.toVariable -> _))
 
-      case MatchExpr(scrut, cses) =>
+      case MatchExpr(scrut, cses) if isMutableType(scrut.getType) =>
         rec(scrut, env) ++ cses.flatMap { case MatchCase(pattern, guard, rhs) =>
-          val newEnv = env ++ mapForPattern(scrut, pattern).flatMap { case (v, e) =>
-            getEffect(e).flatMap(effect => mapEffect(effect, env)).map(v.toVariable -> _)
+          val newEnv = env ++ mapForPattern(scrut, pattern).flatMap {
+            case (v, e) => effect(e, env).map(v.toVariable -> _)
           }
           guard.toSeq.flatMap(rec(_, newEnv)).toSet ++ rec(rhs, newEnv)
         }
 
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
-        getEffect(o).map(_ + ArrayAccessor(idx)).flatMap(mapEffect(_, env))
+        effect(o, env).map(_ + ArrayAccessor(idx))
 
       case FieldAssignment(o, id, v) =>
         rec(o, env) ++ rec(v, env) ++
-        getEffect(o).map(_ + FieldAccessor(id)).flatMap(mapEffect(_, env))
+        effect(o, env).map(_ + FieldAccessor(id))
 
       case Application(callee, args) =>
         val ft @ FunctionType(_, _) = callee.getType
         val effects = functionTypeEffects(ft)
         rec(callee, env) ++ args.flatMap(rec(_, env)) ++
-        args.map(getEffect).zipWithIndex
+        args.map(effect(_, env)).zipWithIndex
           .filter(p => effects contains p._2)
           .flatMap(_._1)
-          .flatMap(mapEffect(_, env))
 
       case Assignment(v, value) => rec(value, env) ++ env.get(v)
 
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }
 
-    // We truncate the effects path if it depends on the type of the
-    // input parameter.
-    // Note that we could instead keep the full path and guard the effect
-    // with the relevant type checks if more precision is needed at some point.
-    def truncate(effect: Effect): Effect = {
-      def rec(tpe: Type, path: Seq[Accessor]): Seq[Accessor] = (tpe, path) match {
-        case (adt: ADTType, _) if adt.getSort.constructors.size > 1 => Seq()
-        case (adt: ADTType, FieldAccessor(id) +: xs) =>
-          val vd = adt.getSort.constructors.head.fields.find(_.id == id)
-          FieldAccessor(id) +: rec(vd.map(_.tpe).getOrElse(Untyped), xs)
-        case (ArrayType(base), ArrayAccessor(idx) +: xs) => ArrayAccessor(idx) +: rec(base, xs)
-        case _ => Seq()
-      }
-
-      Effect(effect.receiver, Target(rec(effect.receiver.tpe, effect.target.path)))
-    }
-
-    val initEnv = exprOps.variablesOf(expr).map(v => v -> Effect(v, Target(Seq()))).toMap
-    rec(expr, initEnv).map(truncate)
+    rec(expr, exprOps.variablesOf(expr).map(v => v -> Effect(v, Target(Seq()))).toMap)
   }
 
   private def expressionEffects(expr: Expr, effects: Map[FunAbstraction, Set[Effect]]): Set[Effect] = {
@@ -237,7 +230,41 @@ trait EffectsAnalysis {
       }
     }
 
-    firstLevelMutated ++ secondLevelMutated
+    // We truncate the effects path if it depends on unavailable information,
+    // such as some ADT constructor guard or a concrete array index.
+    // Note that we could instead keep the full path and guard the effect
+    // with the relevant checks if more precision is needed at some point.
+    def truncate(effect: Effect): Effect = {
+      def rec(tpe: Type, path: Seq[Accessor]): Seq[Accessor] = (tpe, path) match {
+        case (adt: ADTType, _) if adt.getSort.constructors.size > 1 => Seq()
+        case (adt: ADTType, FieldAccessor(id) +: xs) =>
+          val vd = adt.getSort.constructors.head.fields.find(_.id == id)
+          FieldAccessor(id) +: rec(vd.map(_.tpe).getOrElse(Untyped), xs)
+        case (_, ArrayAccessor(_) +: xs) => Seq()
+        case _ => Seq()
+      }
+
+      Effect(effect.receiver, Target(rec(effect.receiver.tpe, effect.target.path)))
+    }
+
+    // We merge paths that are prefixes of one another or point to the same array
+    def merge(targets: Set[Target]): Set[Target] = {
+      // This truncates the path `p2` depending on `p1`
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Seq[Accessor] = (p1, p2) match {
+        case _ if p1.isEmpty || p2.isEmpty => Seq()
+        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Seq()
+        case (x1 +: xs1, x2 +: xs2) if x1 == x2 => x1 +: rec(xs1, xs2)
+        case _ => p2
+      }
+
+      val merged = targets.flatMap(t1 => targets.map(t2 => Target(rec(t1.path, t2.path))))
+      merged.filterNot(t1 => (merged - t1).exists(t2 => t2 prefixOf t1))
+    }
+
+    (firstLevelMutated ++ secondLevelMutated)
+      .map(truncate)
+      .groupBy(_.receiver)
+      .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
   }
 
   // fill up the global map!

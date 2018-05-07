@@ -161,7 +161,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         val initEnv: Env = env
 
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
-          if (fiEffects.nonEmpty) {
+          if (fiEffects.exists(e => formalArgs contains e.receiver.toVal)) {
             val localEffects = (formalArgs zip args)
               .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
               .filter { case (effects, _) => effects.nonEmpty }
