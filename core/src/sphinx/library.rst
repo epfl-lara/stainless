@@ -50,30 +50,34 @@ Annotations
 Stainless provides some special annotations in the package ``stainless.annotation``,
 which instruct Stainless to handle some functions or objects in a specialized way.
 
-+-------------------+--------------------------------------------------------+
-| Annotation        | Meaning                                                |
-+===================+========================================================+
-| ``@library``      | Treat this object/function as library, don't try       |
-|                   | to verify its specification. Can be overridden by      |
-|                   | including a function name in the ``--functions``       |
-|                   | command line option.                                   |
-+-------------------+--------------------------------------------------------+
-| ``@induct``       | Use the inductive tactic when generating               |
-|                   | verification conditions.                               |
-+-------------------+--------------------------------------------------------+
-| ``@ignore``       | Ignore this definition when extracting Stainless trees.|
-|                   | This annotation is useful to define functions          |
-|                   | that are not in Stainless's language but will be       |
-|                   | hard-coded into specialized trees, or to include       |
-|                   | code written in full Scala which is not verifiable     |
-|                   | by Stainless.                                          |
-+-------------------+--------------------------------------------------------+
-| ``@inline``       | Inline this function. Stainless will refuse to inline  |
-|                   | (mutually) recursive functions.                        |
-+-------------------+--------------------------------------------------------+
-| ``@extern``       | Only extract the contracts of a function, replacing    |
-|                   | its body by a ``choose`` expression.                   |
-+-------------------+--------------------------------------------------------+
++-------------------+----------------------------------------------------------------+
+| Annotation        | Meaning                                                        |
++===================+================================================================+
+| ``@library``      | Treat this object/function as library, don't try               |
+|                   | to verify its specification. Can be overridden by              |
+|                   | including a function name in the ``--functions``               |
+|                   | command line option.                                           |
++-------------------+----------------------------------------------------------------+
+| ``@induct``       | Use the inductive tactic when generating                       |
+|                   | verification conditions.                                       |
++-------------------+----------------------------------------------------------------+
+| ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
+|                   | This annotation is useful to define functions                  |
+|                   | that are not in Stainless's language but will be               |
+|                   | hard-coded into specialized trees, or to include               |
+|                   | code written in full Scala which is not verifiable             |
+|                   | by Stainless.                                                  |
++-------------------+----------------------------------------------------------------+
+| ``@inline``       | Inline this function. Stainless will refuse to inline          |
+|                   | (mutually) recursive functions.                                |
++-------------------+----------------------------------------------------------------+
+| ``@inlineOnce``   | Inline this function but only once, which is allowed           |
+                    | even on (mutually) recursive functions.                        |
+                    | Note: A recursive function will not be inlined within itself.  |
++-------------------+----------------------------------------------------------------+
+| ``@extern``       | Only extract the contracts of a function, replacing            |
+|                   | its body by a ``choose`` expression.                           |
++-------------------+----------------------------------------------------------------+
 
 List[T]
 -------
