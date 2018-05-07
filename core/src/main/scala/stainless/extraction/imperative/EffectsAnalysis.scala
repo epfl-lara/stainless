@@ -148,7 +148,7 @@ trait EffectsAnalysis {
       case Assert(_, _, e) => rec(e, path)
       case Annotated(e, _) => rec(e, path)
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
-      case (_: FiniteArray | _: LargeArray) => None
+      case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
       case Old(_) => None
       case _ =>
         throw MissformedStainlessCode(expr, "Couldn't compute effect targets")

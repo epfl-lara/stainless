@@ -21,12 +21,6 @@ trait EffectsChecking { self =>
 
         // check return value
         if (effects.isMutableType(bd.getType) && !isExpressionFresh(bd)) {
-          println(bd.getClass)
-          bd match {
-            case Let(vd, e, b) =>
-              println(b.getClass)
-            case _ =>
-          }
           throw ImperativeEliminationException(bd,
             "Cannot return a shared reference to a mutable object: " + bd)
         }
@@ -164,7 +158,7 @@ trait EffectsChecking { self =>
         case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
 
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
-        case ArrayUpdated(_, _, _) => true
+        case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !effects.isMutableType(base)
 
         // These cases cover some limitations due to dotty inlining
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
