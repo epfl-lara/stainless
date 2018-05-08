@@ -37,10 +37,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(name, tparams, Lambda(args, body)) = inner
 
-      //println("inner: " + inner)
-      //println("pc: " + pc)
-      //println("free: " + free.map(_.uniqueName))
-
       val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
       val tpFresh = outer.tparams map { _.freshen }
@@ -111,8 +107,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
           f.name.id -> (calls ++ pcCalls)
         }.toMap
       )
-      //println("nested funs: " + nestedFuns)
-      //println("call graph: " + callGraph)
 
       // All free variables one should include.
       // Contains free vars of the function itself plus of all transitively called functions.
