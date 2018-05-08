@@ -99,13 +99,10 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassSelector(expr, selector) => syms.widen(expr.getType(syms)) match {
           case s.ClassType(id, tps) if candidates(id) =>
-            /* TODO: use unchecked access once the effect system is a bit smarter
             val vd = t.ValDef.fresh("e", t.ADTType(roots(id), tps map transform).copiedFrom(e)).copiedFrom(e)
             t.Let(vd, transform(expr),
               t.Annotated(t.ADTSelector(vd.toVariable, selector).copiedFrom(e), Seq(t.Unchecked)).copiedFrom(e)
             ).copiedFrom(e)
-            */
-            t.ADTSelector(transform(expr), selector).copiedFrom(e)
           case _ => super.transform(e)
         }
 

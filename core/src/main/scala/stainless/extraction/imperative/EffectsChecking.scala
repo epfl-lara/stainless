@@ -32,8 +32,13 @@ trait EffectsChecking { self =>
 
           def rec(e: Expr, bindings: Set[ValDef]): Expr = e match {
             case l @ Let(vd, e, b) if effects.isMutableType(vd.tpe) =>
-              if (!isExpressionFresh(e))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
+              if (!isExpressionFresh(e)) try {
+                // Check if a precise effect can be computed
+                effects.getEffect(e)
+              } catch {
+                case _: MissformedStainlessCode =>
+                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
+              }
               Let(vd, rec(e, bindings), rec(b, bindings + vd)).copiedFrom(l)
 
             case l @ LetVar(vd, e, b) if effects.isMutableType(vd.tpe) =>

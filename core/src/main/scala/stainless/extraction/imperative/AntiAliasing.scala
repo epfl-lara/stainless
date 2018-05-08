@@ -185,7 +185,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful
 
-            val freshRes = ValDef(FreshIdentifier("res"), nfiType)
+            val freshRes = ValDef(FreshIdentifier("res"), nfiType).copiedFrom(nfi)
 
             val extractResults = Block(
               for {
@@ -193,14 +193,16 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
                 (outerEffect, innerEffects) <- effects
                 effect <- innerEffects
               } yield {
+                val pos = args(index).getPos
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
                 def select(expr: Expr, path: Seq[Accessor]): Expr = path match {
-                  case FieldAccessor(id) +: xs => select(ADTSelector(expr, id), xs)
-                  case ArrayAccessor(idx) +: xs => select(ArraySelect(expr, idx), xs)
+                  case FieldAccessor(id) +: xs => select(ADTSelector(expr, id).setPos(pos), xs)
+                  case ArrayAccessor(idx) +: xs => select(ArraySelect(expr, idx).setPos(pos), xs)
                   case Nil => expr
                 }
 
-                val newValue = applyEffect(effect, select(resSelect, outerEffect.target.path))
+                val result = select(resSelect, outerEffect.target.path)
+                val newValue = applyEffect(effect, Annotated(result, Seq(Unchecked)).setPos(pos))
                 Assignment(effect.receiver, newValue).setPos(args(index))
               },
               TupleSelect(freshRes.toVariable, 1))
@@ -218,8 +220,15 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         protected def rec(e: Expr, env: Env): Expr = (e match {
           case l @ Let(vd, e, b) if effects.isMutableType(vd.tpe) =>
             val newExpr = rec(e, env)
-            val newBody = rec(b, env withBinding vd)
-            LetVar(vd, newExpr, newBody).copiedFrom(l)
+            getKnownEffect(newExpr) match {
+              case Some(_) =>
+                val newBody = rec(b, env withRewritings Map(vd -> newExpr))
+                Let(vd, newExpr, newBody).copiedFrom(l)
+
+              case None =>
+                val newBody = rec(b, env withBinding vd)
+                LetVar(vd, newExpr, newBody).copiedFrom(l)
+            }
 
           case l @ LetVar(vd, e, b) if effects.isMutableType(vd.tpe) =>
             val newExpr = rec(e, env)
@@ -267,7 +276,6 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
             val effect = getExactEffect(so)
-            implicit val opts = PrinterOptions(printUniqueIds = true, symbols = Some(newSyms))
             if (env.bindings contains effect.receiver.toVal) {
               val applied = applyEffect(effect + FieldAccessor(id), v)
               rec(Assignment(effect.receiver, applied).copiedFrom(as), env)
@@ -364,15 +372,15 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         case FieldAccessor(id) :: fs =>
           val adt @ ADTType(_, tps) = receiver.getType
           val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
-          val r = rec(ADTSelector(receiver, id).copiedFrom(newValue), fs)
+          val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
 
           ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
             if (vd.id == id) r
-            else ADTSelector(receiver, vd.id).copiedFrom(receiver)
+            else Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case ArrayAccessor(index) :: fs =>
-          val r = rec(ArraySelect(receiver, index).copiedFrom(newValue), fs)
+          val r = rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
           ArrayUpdated(receiver, index, r).copiedFrom(newValue)
 
         case Nil => newValue
@@ -389,7 +397,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
     for (fd <- finalSyms.functions.values) {
       if (!finalSyms.isSubtypeOf(fd.fullBody.getType(finalSyms), fd.returnType)) {
-        println(fd)
+        println(fd.asString(PrinterOptions(printUniqueIds = true)))
         println(finalSyms.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true, symbols = Some(finalSyms))))
       }
     }

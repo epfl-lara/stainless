@@ -70,20 +70,14 @@ trait EffectsAnalysis {
   case class Target(path: Seq[Accessor]) {
     def +(elem: Accessor) = Target(path :+ elem)
 
-    def on(that: Expr): Set[Effect] = (that, path) match {
-      case (Annotated(e, _), _) => this on e
-      case (Assert(_, _, e), _) => this on e
-      case (Let(_, _, e), _) => this on e
-      case (ADT(id, _, args), FieldAccessor(fid) +: rest) =>
-        Target(rest) on args(getConstructor(id).fields.indexWhere(_.id == fid))
-      case (ADTSelector(e, id), _) => Target(FieldAccessor(id) +: path) on e
-      case (ArraySelect(e, idx), _) => Target(ArrayAccessor(idx) +: path) on e
-      case (v: Variable, _) => Set(Effect(v, this))
-      // In this case, we are performing effects on something fresh so the
-      // effects can be immediately forgotten
-      case _ if path.isEmpty => Set()
-      case _ =>
-        throw MissformedStainlessCode(that, s"Couldn't compute precise effect of ${this} on $that.")
+    def on(that: Expr): Option[Effect] = {
+      def rec(expr: Expr, path: Seq[Accessor]): Expr = path match {
+        case FieldAccessor(id) +: xs => rec(ADTSelector(expr, id), xs)
+        case ArrayAccessor(idx) +: xs => rec(ArraySelect(expr, idx), xs)
+        case Seq() => expr
+      }
+
+      getEffect(rec(that, path))
     }
 
     def prefixOf(that: Target): Boolean = {
@@ -123,7 +117,7 @@ trait EffectsAnalysis {
 
     def +(elem: Accessor) = Effect(receiver, target + elem)
 
-    def on(that: Expr): Set[Effect] = target on that
+    def on(that: Expr): Option[Effect] = target on that
 
     def prefixOf(that: Effect): Boolean =
       receiver == that.receiver && (target prefixOf that.target)
@@ -136,7 +130,6 @@ trait EffectsAnalysis {
     def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
       case v: Variable => Some(Effect(v, Target(path)))
       case _ if exprOps.variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
-      case _ if !isMutableType(expr.getType) => None
       case ADTSelector(e, id) => rec(e, FieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
       case ADT(id, _, args) => path match {
@@ -150,6 +143,14 @@ trait EffectsAnalysis {
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
       case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
       case Old(_) => None
+      case Let(vd, e, b) if !isMutableType(vd.tpe) => rec(b, path)
+      case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
+        case (Some(ee), Some(be)) if be.receiver == vd.toVariable =>
+          Some(Effect(ee.receiver, Target(ee.target.path ++ be.target.path)))
+        case (_, Some(be)) => Some(be)
+        case _ =>
+          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+      }
       case _ =>
         throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
     }
@@ -160,6 +161,12 @@ trait EffectsAnalysis {
   def getExactEffect(expr: Expr): Effect = getEffect(expr) match {
     case Some(effect) => effect
     case _ => throw MissformedStainlessCode(expr, "Couldn't compute exact effect targets")
+  }
+
+  def getKnownEffect(expr: Expr): Option[Effect] = try {
+    getEffect(expr)
+  } catch {
+    case _: MissformedStainlessCode => None
   }
 
   private def localEffects(expr: Expr): Set[Effect] = {
