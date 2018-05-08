@@ -97,9 +97,7 @@ trait CICFA {
   private val emptyEnv = AbsEnv(Map())
 
   /** A helper function for combining multiple abstract values */
-  private def flatten(envs: Seq[AbsEnv]): AbsEnv = {
-    AbsEnv(envs.flatMap(_.store).toMap)
-  }
+  private def flatten(envs: Seq[AbsEnv]): AbsEnv = envs.foldLeft(emptyEnv)(_ join _)
 
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
@@ -185,209 +183,206 @@ trait CICFA {
     worklist += fd
 
     // the order of traversal is very important here, so using a custom traversal
-    private def rec(e: Expr, in: AbsEnv)(implicit current: Function): (Set[AbsValue], AbsEnv) = {
-      //println("Considering Expr: " + e)
-      val res: (Set[AbsValue], AbsEnv) = e match {
-        case Let(vd, v, body) =>
-          val (res, escenv) = rec(v, in)
-          val (bres, bescenv) = rec(body, AbsEnv(in.store + (vd.toVariable -> res)))
-          (bres, escenv ++ bescenv)
+    private def rec(e: Expr, in: AbsEnv)(implicit current: Function): (Set[AbsValue], AbsEnv) = e match {
+      case Let(vd, v, body) =>
+        val (res, escenv) = rec(v, in)
+        val (bres, bescenv) = rec(body, AbsEnv(in.store + (vd.toVariable -> res)) join escenv)
+        (bres, escenv join bescenv)
 
-        case Application(callee, args) =>
-          val (targets, escenv) = rec(callee, in)
-          val absres = args.map(rec(_, in))
-          val absargs = absres.map(_._1)
-          val argescenv = flatten(absres.map(_._2))
+      case Application(callee, args) =>
+        val (targets, escenv) = rec(callee, in)
+        val absres = args.map(rec(_, in))
+        val absargs = absres.map(_._1)
+        val argescenv = flatten(absres.map(_._2))
 
-          val resabs = targets.map {
-            case Closure(lam) =>
-              getCallers(lam) += current
+        val resabs = targets.map {
+          case Closure(lam) =>
+            getCallers(lam) += current
 
-              // record that the lambda is applied
-              appliedLambdas += lam
+            // record that the lambda is applied
+            appliedLambdas += lam
 
-              // create a new store with mapping for arguments and escaping variables
-              val argstore = in.store.filterKeys(escapingVars) ++
-                (lam.args.map(_.toVariable) zip absargs) ++
-                escenv.store ++
-                argescenv.store
-              val argenv = AbsEnv(argstore)
+            // create a new store with mapping for arguments and escaping variables
+            val argstore = in.store.filterKeys(escapingVars) ++
+              (lam.args.map(_.toVariable) zip absargs) ++
+              escenv.store ++
+              argescenv.store
+            val argenv = AbsEnv(argstore)
 
-              val currSummary = getTabulation(lam)
-              if (!seen(lam) || !currSummary.in.greaterEquals(argenv)) {
-                val join = currSummary.in.join(argenv)
-                // here the input state has changed, so we need to reanalyze the callee
-                // (if it is not already scheduled to be analyzed)
-                if (!worklist.contains(lam))
-                  worklist += lam
-                // update the in fact of the summary
-                tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
-              }
-
-              // use the out fact as a temporary result
-              (currSummary.ret, currSummary.out)
-            case _ =>
-              // record all lambdas passed to external calls
-              recordPassedLambdas(absargs.flatten[AbsValue].toSet, in)
-              // invoking an external lambda will result in another external lambda
-              (Set(External), emptyEnv)
-          }
-          val resval = resabs.foldLeft(Set[AbsValue]()) { case (acc, (resvals, _)) => acc ++ resvals }
-          val resesc = argescenv ++ flatten(resabs.map(_._2).toSeq)
-          (resval, resesc)
-
-        case lam @ Lambda(args, body) =>
-          creator(lam) = current
-          val capvars = variablesOf(lam)
-          escapingVars ++= capvars // make all captured variables as escaping
-          val currSummary = getTabulation(lam)
-          val capenv = AbsEnv(in.store.filterKeys(capvars))
-          if (!currSummary.in.greaterEquals(capenv)) {
-            val join = currSummary.in.join(capenv)
-            tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
-          }
-          (Set(Closure(lam)), AbsEnv(in.store.filterKeys(capvars)))
-
-        case fi @ FunctionInvocation(_, _, args) =>
-          val fd = fi.tfd.fd
-          // update the callers info
-          getCallers(fd) += current
-          // (a) join the arguments passed in with the `in` fact in the summary.
-          //     If the join results in a greater value, add the function back to the worklist.
-          val absres = args.map(rec(_, in))
-          val absargs = absres.map(_._1)
-          val argesc = flatten(absres.map(_._2))
-          val newenv = in ++ argesc
-          val argstore = newenv.store.filterKeys(escapingVars) ++
-            (fd.params.map(_.toVariable) zip absargs)
-          val argenv = AbsEnv(argstore)
-
-          val currSummary = getTabulation(fd)
-          if (!seen(fd) || !currSummary.in.greaterEquals(argenv)) {
-            val join = currSummary.in.join(argenv)
-            // here the input state has changed, so we need to reanalyze the callee
-            // (if it is not already scheduled to be analyzed)
-            if (!worklist.contains(fd))
-              worklist += fd
-            // update the in fact of the summary
-            tabulation.update(fd, Summary(join, currSummary.out, currSummary.ret))
-          }
-          // use the out fact as a temporary result
-          (currSummary.ret, argesc ++ currSummary.out)
-
-        case adt @ ADT(id, tps, args) =>
-          val absres = args.map(rec(_, in))
-          val absargs = absres.map(_._1)
-          val argesc = flatten(absres.map(_._2))
-          // create a new object
-          val obj = getOrCreateObject(adt)
-          // make all argument variables escaping as they represent addresses that could be live across functions
-          escapingVars ++= obj.argvars
-          // construct an escaping environment
-          val esc = (obj.argvars zip absargs).toMap ++ argesc.store
-          (Set(obj), AbsEnv(esc))
-
-        case sel @ ADTSelector(adtExpr, selector) =>
-          val (absAdts, esc) = rec(adtExpr, in)
-          val store = in.store ++ esc.store
-          val resvals: Set[AbsValue] = absAdts.flatMap {
-            case ConsObject(cons, argvars) if cons.id == sel.constructor.id =>
-              val selarg = argvars(sel.selectorIndex)
-              store.getOrElse(selarg, Set())
-
-            // here, we are dereferencing an external ADT and hence should be external
-            case External => Set(External: AbsValue)
-
-            // these are type incompatible entries
-            case _ => Set[AbsValue]()
-          }
-          (resvals, esc)
-
-        case tp @ Tuple(args) =>
-          val absres = args.map(rec(_, in))
-          val absargs = absres.map(_._1)
-          val argesc = flatten(absres.map(_._2))
-          // create a new object
-          val obj = getOrCreateObject(tp)
-          // make all argument variables escaping as they represent addresses that could be live across functions
-          escapingVars ++= obj.argvars
-          // construct an escaping environment
-          val esc = (obj.argvars zip absargs).toMap ++ argesc.store
-          (Set(obj), AbsEnv(esc))
-
-        case TupleSelect(tp, index) =>
-          val (absTups, esc) = rec(tp, in)
-          val store = in.store ++ esc.store
-          val resvals: Set[AbsValue] = absTups.flatMap {
-            case TupleObject(_, argvars) =>
-              val selarg = argvars(index - 1)
-              store.getOrElse(selarg, Set())
-
-            // here, we are dereferencing an external Tuple and hence should be external
-            case External => Set(External: AbsValue)
-
-            // these are type incompatible entries
-            case _ => Set[AbsValue]()
-          }
-          (resvals, esc)
-
-        case IfExpr(cond, th, el) =>
-          val (_, condesc) = rec(cond, in)
-          val Seq((tval, tesc), (eval, eesc)) = Seq(th, el).map(ie => rec(ie, in))
-          (tval ++ eval, condesc ++ tesc ++ eesc)
-
-        case MatchExpr(scrut, cases) =>
-          import Path.{ CloseBound, Condition }
-          var resenv: AbsEnv = emptyEnv
-          val absres = for (cse <- cases) yield {
-            val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
-            val realCond = patCond withConds cse.optGuard.toSeq
-            val rhsIn = realCond.elements.foldLeft(in) {
-              case (in, CloseBound(vd, e)) =>
-                val (res, resc) = rec(e, in)
-                resenv ++= resc
-                AbsEnv(in.store + (vd.toVariable -> res))
-              case (in, Condition(cond)) =>
-                val (res, resc) = rec(cond, in)
-                resenv ++= resc
-                in
-              // Note that case pattern paths can't contain open bounds.
-              case _ => scala.sys.error("Should never happen")
+            val currSummary = getTabulation(lam)
+            if (!seen(lam) || !currSummary.in.greaterEquals(argenv)) {
+              val join = currSummary.in.join(argenv)
+              // here the input state has changed, so we need to reanalyze the callee
+              // (if it is not already scheduled to be analyzed)
+              if (!worklist.contains(lam))
+                worklist += lam
+              // update the in fact of the summary
+              tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
             }
-            rec(cse.rhs, rhsIn)
+
+            // use the out fact as a temporary result
+            (currSummary.ret, currSummary.out)
+          case _ =>
+            // record all lambdas passed to external calls
+            recordPassedLambdas(absargs.flatten[AbsValue].toSet, in)
+            // invoking an external lambda will result in another external lambda
+            (Set(External), emptyEnv)
+        }
+        val resval = resabs.foldLeft(Set[AbsValue]()) { case (acc, (resvals, _)) => acc ++ resvals }
+        val resesc = argescenv join flatten(resabs.map(_._2).toSeq)
+        (resval, resesc)
+
+      case lam @ Lambda(args, body) =>
+        creator(lam) = current
+        val capvars = variablesOf(lam)
+        escapingVars ++= capvars // make all captured variables as escaping
+        val currSummary = getTabulation(lam)
+        val capenv = AbsEnv(in.store.filterKeys(capvars))
+        if (!currSummary.in.greaterEquals(capenv)) {
+          val join = currSummary.in.join(capenv)
+          tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
+        }
+        (Set(Closure(lam)), AbsEnv(in.store.filterKeys(capvars)))
+
+      case fi @ FunctionInvocation(_, _, args) =>
+        val fd = fi.tfd.fd
+        // update the callers info
+        getCallers(fd) += current
+        // (a) join the arguments passed in with the `in` fact in the summary.
+        //     If the join results in a greater value, add the function back to the worklist.
+        val absres = args.map(rec(_, in))
+        val absargs = absres.map(_._1)
+        val argesc = flatten(absres.map(_._2))
+        val newenv = in ++ argesc
+        val argstore = newenv.store.filterKeys(escapingVars) ++
+          (fd.params.map(_.toVariable) zip absargs)
+        val argenv = AbsEnv(argstore)
+
+        val currSummary = getTabulation(fd)
+        if (!seen(fd) || !currSummary.in.greaterEquals(argenv)) {
+          val join = currSummary.in.join(argenv)
+          // here the input state has changed, so we need to reanalyze the callee
+          // (if it is not already scheduled to be analyzed)
+          if (!worklist.contains(fd))
+            worklist += fd
+          // update the in fact of the summary
+          tabulation.update(fd, Summary(join, currSummary.out, currSummary.ret))
+        }
+        // use the out fact as a temporary result
+        (currSummary.ret, argesc join currSummary.out)
+
+      case adt @ ADT(id, tps, args) =>
+        val absres = args.map(rec(_, in))
+        val absargs = absres.map(_._1)
+        val argesc = flatten(absres.map(_._2))
+        // create a new object
+        val obj = getOrCreateObject(adt)
+        // make all argument variables escaping as they represent addresses that could be live across functions
+        escapingVars ++= obj.argvars
+        // construct an escaping environment
+        val esc = (obj.argvars zip absargs).toMap ++ argesc.store
+        (Set(obj), AbsEnv(esc))
+
+      case sel @ ADTSelector(adtExpr, selector) =>
+        val (absAdts, esc) = rec(adtExpr, in)
+        val store = in.store ++ esc.store
+        val resvals: Set[AbsValue] = absAdts.flatMap {
+          case ConsObject(cons, argvars) if cons.id == sel.constructor.id =>
+            val selarg = argvars(sel.selectorIndex)
+            store.getOrElse(selarg, Set())
+
+          // here, we are dereferencing an external ADT and hence should be external
+          case External => Set(External: AbsValue)
+
+          // these are type incompatible entries
+          case _ => Set[AbsValue]()
+        }
+        (resvals, esc)
+
+      case tp @ Tuple(args) =>
+        val absres = args.map(rec(_, in))
+        val absargs = absres.map(_._1)
+        val argesc = flatten(absres.map(_._2))
+        // create a new object
+        val obj = getOrCreateObject(tp)
+        // make all argument variables escaping as they represent addresses that could be live across functions
+        escapingVars ++= obj.argvars
+        // construct an escaping environment
+        val esc = (obj.argvars zip absargs).toMap ++ argesc.store
+        (Set(obj), AbsEnv(esc))
+
+      case TupleSelect(tp, index) =>
+        val (absTups, esc) = rec(tp, in)
+        val store = in.store ++ esc.store
+        val resvals: Set[AbsValue] = absTups.flatMap {
+          case TupleObject(_, argvars) =>
+            val selarg = argvars(index - 1)
+            store.getOrElse(selarg, Set())
+
+          // here, we are dereferencing an external Tuple and hence should be external
+          case External => Set(External: AbsValue)
+
+          // these are type incompatible entries
+          case _ => Set[AbsValue]()
+        }
+        (resvals, esc)
+
+      case IfExpr(cond, th, el) =>
+        val (_, condesc) = rec(cond, in)
+        val Seq((tval, tesc), (eval, eesc)) = Seq(th, el).map(ie => rec(ie, in))
+        (tval ++ eval, condesc join tesc join eesc)
+
+      case MatchExpr(scrut, cases) =>
+        import Path.{ CloseBound, Condition }
+        var resenv: AbsEnv = emptyEnv
+        val absres = for (cse <- cases) yield {
+          val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
+          val realCond = patCond withConds cse.optGuard.toSeq
+          val rhsIn = realCond.elements.foldLeft(in) {
+            case (in, CloseBound(vd, e)) =>
+              val (res, resc) = rec(e, in)
+              resenv = resenv join resc
+              AbsEnv(in.store + (vd.toVariable -> res))
+            case (in, Condition(cond)) =>
+              val (res, resc) = rec(cond, in)
+              resenv = resenv join resc
+              in
+            // Note that case pattern paths can't contain open bounds.
+            case _ => scala.sys.error("Should never happen")
           }
-          (absres.flatMap(_._1).toSet, resenv ++ flatten(absres.map(_._2)))
+          rec(cse.rhs, rhsIn)
+        }
+        (absres.flatMap(_._1).toSet, resenv join flatten(absres.map(_._2)))
 
-        case v: Variable => (in.store.getOrElse(v, Set()), emptyEnv)
+      case v: Variable =>
+        (in.store.getOrElse(v, Set()), emptyEnv)
 
-        case Ensuring(body, Lambda(Seq(resvd), pred)) =>
-          val (resb, escb) = rec(body, in)
-          // this will record some calls made via contracts
-          // we can ignore its result value and escaping set as it cannot be used
-          rec(pred, in + (resvd.toVariable -> resb))
-          (resb, escb)
+      case Ensuring(body, Lambda(Seq(resvd), pred)) =>
+        val (resb, escb) = rec(body, in)
+        // this will record some calls made via contracts
+        // we can ignore its result value and escaping set as it cannot be used
+        rec(pred, in + (resvd.toVariable -> resb))
+        (resb, escb)
 
-        case Require(pred, body) =>
-          // pred cannot have an escaping set
-          rec(pred, in)
-          rec(body, in)
+      case Require(pred, body) =>
+        // pred cannot have an escaping set
+        rec(pred, in)
+        rec(body, in)
 
-        case Assert(pred, _, body) =>
-          // pred cannot have an escaping set
-          rec(pred, in)
-          rec(body, in)
+      case Assert(pred, _, body) =>
+        // pred cannot have an escaping set
+        rec(pred, in)
+        rec(body, in)
 
-        case NoTree(_) => (Set(), emptyEnv)
+      case Annotated(e, _) => rec(e, in)
 
-        case Operator(args, op) =>
-          // every other operator will just add more esc sets and its return values cannot contain closures
-          val absres = args.map(rec(_, in))
-          (Set(), flatten(absres.map(_._2)))
-        // TODO: need to handle sets and maps
-      }
+      case NoTree(_) => (Set(), emptyEnv)
 
-      //println(s"Result of $e: ${res._1.mkString(",")} and ${res._2}")
-      res
+      case Operator(args, op) =>
+        // every other operator will just add more esc sets and its return values cannot contain closures
+        val absres = args.map(rec(_, in))
+        (Set(), flatten(absres.map(_._2)))
+      // TODO: need to handle sets and maps
     }
 
     while (!worklist.isEmpty) {
@@ -395,7 +390,6 @@ trait CICFA {
       seen += fun
 
       val oldSummary = getTabulation(fun)
-      //println(s"Analyzing: $currfunid under ${oldSummary.in}")
 
       val (newret, newesc) = rec(fun.body, oldSummary.in)(fun)
 
