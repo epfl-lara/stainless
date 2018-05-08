@@ -174,12 +174,25 @@ trait VerificationChecker { self =>
     }
   }
 
+  private def  simplifyAssertions(expr: Expr): Expr = {
+    def rec(expr: Expr): Expr = expr match {
+      case Annotated(e, Seq(Unchecked)) =>
+        exprOps.postMap {
+          case Assert(_, _, e) => Some(e)
+          case _ => None
+        } (e)
+      case Operator(es, recons) => recons(es map rec)
+    }
+
+    rec(expr)
+  }
+
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
 
     try {
-      val cond = simplifyLets(vc.condition)
+      val cond = simplifyLets(simplifyAssertions(vc.condition))
       reporter.synchronized {
         reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
         reporter.debug(cond.asString)
