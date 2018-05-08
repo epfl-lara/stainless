@@ -28,26 +28,22 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasInlineOnceFlag = tfd.fd.flags contains InlineOnce
 
-        if (hasInlineFlag && transitivelyCalls(tfd.fd, tfd.fd)) {
-          throw MissformedStainlessCode(tfd.fd, "Can't inline recursive function, use @inlineOnce instead")
-        }
-
         def willInline = hasInlineFlag || (hasInlineOnceFlag && !inlinedOnce.contains(tfd.id))
+
         if (!willInline) {
           return fi
         }
 
         val body = exprOps.withoutSpecs(tfd.fullBody)
         val uncheckedBody = body match {
+          case None => NoTree(tfd.returnType)
           case Some(body) => annotated(body, Unchecked)
-          case None if hasInlineOnceFlag => NoTree(tfd.returnType)
-          case None => throw MissformedStainlessCode(tfd.fd, "Inlining function with empty body: not supported, use @inlineOnce instead")
         }
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
         def addPreconditionAssertion(e: Expr) = pre match {
           case None => e
-          case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.fd.id.name), e).copiedFrom(fi)
+          case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
         }
 
         val post = exprOps.postconditionOf(tfd.fullBody)
@@ -74,33 +70,45 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
     }
 
+    for (fd <- symbols.functions.values) {
+      val hasInlineFlag = fd.flags contains Inline
+      val hasInlineOnceFlag = fd.flags contains InlineOnce
+
+      if (hasInlineFlag && hasInlineOnceFlag) {
+        throw MissformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
+      }
+
+      if (hasInlineFlag && transitivelyCalls(fd, fd)) {
+        throw MissformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
+      }
+
+      if (hasInlineFlag && exprOps.withoutSpecs(fd.fullBody).isEmpty) {
+        throw MissformedStainlessCode(fd, "Inlining function with empty body: not supported, use @inlineOnce instead")
+      }
+    }
+
     val afterInlining = s.NoSymbols
       .withSorts(symbols.sorts.values.toSeq)
-      .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap { fd =>
-        if ((fd.flags contains Inline) && (fd.flags contains InlineOnce)) {
-          throw MissformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
-        }
-        if ((fd.flags contains Inline) && transitivelyCalls(fd, fd)) {
-          throw MissformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
-        }
-
-        if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) {
-          None
-        } else {
+      .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap {
+        case fd if (fd.flags contains Synthetic) && (fd.flags contains Inline) => None
+        case fd =>
           Some(fd.copy(
             fullBody = new Inliner(fd).transform(fd.fullBody),
             flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
           ))
-        }
       })
 
     val inlinedOnceFuns = symbols.functions.values.filter(_.flags contains InlineOnce).map(_.id).toSet
-    def isCandidate(fd: FunDef) = inlinedOnceFuns.contains(fd.id) && fd.flags.contains(Synthetic)
 
-    val pruned = afterInlining.functions.values.toSeq.flatMap { fd =>
-      val callers = afterInlining.transitiveCallers(fd)
-      if (isCandidate(fd) && callers.forall(isCandidate)) None
-      else Some(fd.copy(flags = fd.flags filterNot (_ == Synthetic)))
+    def isCandidate(fd: FunDef) =
+      inlinedOnceFuns.contains(fd.id) && fd.flags.contains(Synthetic)
+
+    def canBePruned(fd: FunDef) =
+      isCandidate(fd) && afterInlining.transitiveCallers(fd).forall(isCandidate)
+
+    val pruned = afterInlining.functions.values.toSeq.flatMap {
+      case fd if canBePruned(fd) => None
+      case fd => Some(fd.copy(flags = fd.flags filterNot (_ == Synthetic)))
     }
 
     t.NoSymbols
