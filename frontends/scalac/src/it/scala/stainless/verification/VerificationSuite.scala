@@ -29,8 +29,6 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/IntSet" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
-    // Require check-models to be turned off
-    case "verification/invalid/ParentInvariant" => WithContext(ctx.withOpts(inox.solvers.optCheckModels(false)))
 
     case _ => super.filter(ctx, name)
   }
