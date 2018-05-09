@@ -674,6 +674,7 @@ trait CoqEncoder {
     RawCommand("Require Import stdpp.set.") $
     RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import SLC.Tactics.") $
+    RawCommand("Require Import SLC.Ints.") $
     RawCommand("Set Program Mode.")
   }
 
