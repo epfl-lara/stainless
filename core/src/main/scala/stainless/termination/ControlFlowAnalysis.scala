@@ -69,15 +69,9 @@ trait CICFA {
       case (k, v) => store.contains(k) && other.store(k).subsetOf(store(k))
     }
 
-    def join(other: AbsEnv): AbsEnv = {
-      val ikeys = store.keySet.intersect(other.store.keySet)
-      val jstore = (store.keySet ++ other.store.keySet).map {
-        case v if ikeys(v)                => (v -> (store(v) ++ other.store(v)))
-        case v if store.contains(v)       => (v -> store(v))
-        case v if other.store.contains(v) => (v -> other.store(v))
-      }.toMap
-      AbsEnv(jstore)
-    }
+    def join(other: AbsEnv): AbsEnv = AbsEnv((store.keySet ++ other.store.keys).map { k =>
+      k -> (store.getOrElse(k, Set.empty) ++ other.store.getOrElse(k, Set.empty))
+    }.toMap)
 
     // this is a disjoint union, where only the new keys that
     // are found are added to the map (this likely to be efficient)
@@ -404,14 +398,21 @@ trait CICFA {
         worklist ++= newcallers
 
         val escaping: Set[Lambda] = {
-          def rec(rets: Set[AbsValue], seen: Set[AbsValue]): Set[Lambda] = (rets -- seen).flatMap {
-            case Closure(lam) => Set(lam)
-            case co @ ConsObject(_, vars) => rec(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + co)
-            case to @ TupleObject(_, vars) => rec(vars.flatMap(v => newesc.store.getOrElse(v, Set.empty)).toSet, seen + to)
-            case _ => Set.empty[Lambda]
+          val seen: MutableSet[AbsValue] = MutableSet.empty
+          val lambdas: MutableSet[Lambda] = MutableSet.empty
+
+          def rec(in: AbsValue): Unit = if (!seen(in)) {
+            seen += in
+            in match {
+              case Closure(lam) => lambdas += lam
+              case ConsObject(_, vars) => for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
+              case TupleObject(_, vars) => for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
+              case External =>
+            }
           }
 
-          rec(newret, Set.empty).filterNot(worklist.contains)
+          for (in <- newret) rec(in)
+          lambdas.toSet.filterNot(worklist contains _)
         }
 
         if (fun == (fd: Function) || createdBy(fun, fd)) {
