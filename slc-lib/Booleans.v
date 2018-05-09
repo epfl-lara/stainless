@@ -155,7 +155,6 @@ Ltac literal b :=
 
 Ltac not_literal b := tryif literal b then fail else idtac.
 
-
 Ltac t_bool :=
   match goal with
   | H: ?b &&b true = ?a |- _ =>
@@ -182,5 +181,13 @@ Ltac t_bool :=
     let H2 := fresh H in
     poseNew (Mark (a,b) "if_then_false");
     pose proof (if_then_false2 _ _ (eq_sym H)) as H2    
+  | H: ?b <> true |- _ => 
+    let H2 := fresh H in
+    poseNew (Mark (b) "eq_true_not_negb");
+    pose proof (eq_true_not_negb _ H) as H2
+  | H: true <> ?b |- _ => 
+    let H2 := fresh H in
+    poseNew (Mark (b) "eq_true_not_negb");
+    pose proof (eq_true_not_negb _ (not_eq_sym H)) as H2
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   end.
