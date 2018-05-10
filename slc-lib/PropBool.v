@@ -10,6 +10,9 @@ Definition propInBool (P: Prop): bool :=
  then true
  else false.
 
+Notation "'B@(' p ')'" := (propInBool p) (at level 80).
+
+
 (* Hint Unfold propInBool. *)
 
 Definition set_subset {T: Type} (a b: set T): bool :=

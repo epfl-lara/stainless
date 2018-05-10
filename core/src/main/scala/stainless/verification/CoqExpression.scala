@@ -359,8 +359,12 @@ case class CoqContext(e: CoqExpression) extends CoqExpression {
   override def coqString = s"context[${e.coqString}]"
 }
 
-case class PoseProof(expr: CoqExpression) extends CoqExpression {
-  override def coqString: String = s"pose proof ${optP(expr)}"
+case class PoseProof(expr: CoqExpression, as :Option[CoqIdentifier] = None) extends CoqExpression {
+  override def coqString: String = if (as.isEmpty) s"pose proof ${optP(expr)}" else s"pose proof ${optP(expr)} as ${as.get.coqString}"
+}
+
+case class CoqFresh(name: String) extends CoqExpression {
+  override def coqString = "fresh \"" + name + "\""
 }
 
 // used in the CoqMatch construct
