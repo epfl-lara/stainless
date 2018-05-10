@@ -473,28 +473,21 @@ trait CoqEncoder {
 
         //create a name for the return type
         val returnTypeName = makeFresh(funName.coqString  +"_rt")
-        //val allParams2 = allParams :+ (returnTypeName, returnType)
 
         val dependentParams: Map[CoqIdentifier, CoqExpression] = (preconditionParam :+ (returnTypeName, returnType)).toMap
 
 
-
-        //val allParamsMap = allParams2.toMap
-        //val argTypes: Map[CoqIdentifier, CoqIdentifier] =
-        //  allParamsMap map { case (arg,ty) => (arg, makeFresh(arg.coqString + "_type"))}
         val dependentParamNames: Map[CoqIdentifier, CoqIdentifier] =
           dependentParams map {case (arg, _) => (arg, makeFresh(arg.coqString + "_type"))}
 
         // scan left to collect heads...
 
         val allParamMap: Map[CoqIdentifier, CoqExpression] = (allParams :+ (returnTypeName, returnType)).toMap
+
         //important to keep order
         val allParamNames: Seq[CoqIdentifier] = (allParams map (_._1)) :+ returnTypeName
 
         val dependsOn: Map[CoqIdentifier, Seq[CoqIdentifier]] =
-          /*dependentParams map {case (name, tpe) =>
-            (name, allParamMap.keys.filter(param => varsIn(tpe) contains(param)).toSeq)
-          }*/
         (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
 
         val fullType: Map[CoqIdentifier, CoqExpression] =
@@ -570,53 +563,6 @@ trait CoqEncoder {
     // ctx.reporter.internalError("The translation to Coq does not support Functions yet.")
   }
 
-  def varsIn (tree: CoqExpression): Set[CoqIdentifier] = tree match {
-    case Arrow(e1,e2) => varsIn(e1) ++ varsIn(e2)
-    case BiArrow(e1,e2) => varsIn(e1) ++ varsIn(e2)
-    case CoqMatch(matched,cases) => varsIn(matched) ++ cases flatMap {case CoqCase(pattern, cse) =>
-      varsIn(cse) //TODO take vars introduced by pattern into consideration
-    }
-    case CoqApplication(fun, params) => varsIn(fun) ++ params flatMap varsIn
-    case CoqIdentifier(id) => Set(CoqIdentifier(id))
-    case CoqUnboundIdentifier(_) => Set()
-    case CoqTuple(es) => (es flatMap varsIn).toSet
-    case CoqSequence(es) => (es flatMap varsIn).toSet
-    case CoqLibraryConstant(_) => Set()
-    case Constructor(id, args) => varsIn(id) ++ args flatMap varsIn
-    case CoqForall(args, body) =>
-      (varsIn(body) ++ args.flatMap {case (_, tpe) => varsIn(tpe)}) -- (args map {case (id, _) => id})
-    case CoqExists(args, body) =>
-      (varsIn(body) ++ args.flatMap {case (_, tpe) => varsIn(tpe)}) -- (args map {case (id, _) => id})
-    case CoqLet(id, value, body) => varsIn(id) ++ (varsIn(body) - id)
-    case CoqLambda(id, body) => varsIn(body) - id
-    case RawExpression(_) => Set()
-    case Orb(es) => (es flatMap varsIn).toSet
-    case Andb(es) => (es flatMap varsIn).toSet
-    case Negb(e) => varsIn(e)
-    case CoqEquals(e1,e2) => varsIn(e1) ++ varsIn(e2)
-    case CoqZNum(_) => Set()
-    case CoqTupleType(es) => (es flatMap varsIn).toSet
-    case CoqUnknown => Set()
-    case CoqFiniteSet(args, tpe) => (args flatMap varsIn).toSet ++ varsIn(tpe)
-    case CoqSetEmpty(tpe) => varsIn(tpe)
-    case CoqSetSingleton(e) => varsIn(e)
-    case CoqSetEquals(e1,e2) => varsIn(e1) ++ varsIn(e2)
-    case CoqSetUnion(e1,e2)  => varsIn(e1) ++ varsIn(e2)
-    case CoqSetIntersection(e1,e2)  => varsIn(e1) ++ varsIn(e2)
-    case CoqSetDifference(e1,e2)  => varsIn(e1) ++ varsIn(e2)
-    case CoqSetSubset(e1,e2)  => varsIn(e1) ++ varsIn(e2)
-    case CoqSetType(e) => varsIn(e)
-    case CoqBelongs(e1,e2) => varsIn(e1) ++ varsIn(e2)
-    case Refinement(id, tpe, body) => (varsIn(tpe) ++ varsIn(body)) - id
-    case Rewrite(e) => varsIn(e)
-    case Mark(es, _) => (es flatMap varsIn).toSet
-    case Marked(es, _) => (es flatMap varsIn).toSet
-    case CoqContext(e) => varsIn(e)
-    case PoseProof(e,_) => varsIn(e)
-
-    case _ => Set()
-  }
-
   // translate a Stainless type to a Coq type
   def transformType(tpe: st.Type): CoqExpression = tpe match {
     case UnitType() => CoqUnit
@@ -684,18 +630,12 @@ trait CoqEncoder {
     RawCommand("Set Program Mode.")
   }
 
-  def transformLib(): CoqCommand = {
-    header() $
-    manyCommands(p.symbols.sorts.values.filter(_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(_.flags.contains("library")).toSeq.sortBy(_.id.name))
-  }
-
   def transform(): CoqCommand = {
-    //TODO not ideal
-    RawCommand("Load verif1.") $
-    makeTactic(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq)$
-    manyCommands(p.symbols.sorts.values.filter(!_.flags.contains("library")).toSeq.map(transformADT)) $
-    transformFunctionsInOrder(p.symbols.functions.values.filter(!_.flags.contains("library")).toSeq.sortBy(_.id.name))
+    header() $
+    //RawCommand("Load verif1.") $
+    makeTactic(p.symbols.sorts.values.toSeq)$
+    manyCommands(p.symbols.sorts.values.toSeq.map(transformADT)) $
+    transformFunctionsInOrder(p.symbols.functions.values.toSeq.sortBy(_.id.name))
   }
 
   def getTParams(a: Definition) = a match {
@@ -772,6 +712,6 @@ object CoqEncoder {
       val ctx = context
     }
 
-    (encoder.transformLib(), encoder.transform())
+    encoder.transform()
   }
 }

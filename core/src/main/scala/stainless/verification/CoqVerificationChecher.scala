@@ -33,8 +33,7 @@ trait CoqVerificationChecker { self =>
     // println(program.asString)
     // println("End of Program")
     // println("===============================")
-    val (pLibCoq, pCoq) = CoqEncoder.transformProgram(program, context)
-    val lib = CoqIO.writeToCoqFile(pLibCoq)
+    val pCoq = CoqEncoder.transformProgram(program, context)
     val file = CoqIO.writeToCoqFile(pCoq)
     CoqIO.coqc(file, context)
     Future(new VerificationAnalysis {

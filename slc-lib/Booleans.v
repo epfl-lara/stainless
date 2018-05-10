@@ -155,6 +155,45 @@ Ltac literal b :=
 
 Ltac not_literal b := tryif literal b then fail else idtac.
 
+
+(* Not done yet *)
+Ltac t_bool_simpl := 
+  match goal with
+  | H: negb ?b = true |- _ =>
+    let H2 := fresh "H" in
+    poseNew(Mark H "not_bool_eq_true");
+    pose proof (negb_true_iff _ H) as H2;
+    rewrite H2 in *
+  | H: negb ?b = false |- _ =>
+    poseNew(Mark H "not_bool_eq_false");
+    pose proof (negb_false_iff _ H) as H2;
+    rewrite H2 in *
+  | H: true = negb ?b |- _ =>
+    poseNew(Mark H "true_eq_not_bool");
+    pose proof (negb_true_iff _ (eq_sym H)) as H2;
+    rewrite H2 in *
+  | H: false = negb ?b |- _ =>
+    poseNew(Mark H "false_eq_not_bool");
+    pose proof (negb_false_iff _ (eq_sym H)) as H2
+
+  | H: ?b = true |- _ =>
+    poseNew(Mark (H) "bool_eq_true");
+    rewrite H in *;
+    clear H
+  | H: ?b = false |- _ =>
+    poseNew(Mark (H) "bool_eq_false");
+    rewrite H in *;
+    clear H
+  | H: true = ?b |- _ =>
+    poseNew(Mark (H) "true_eq_bool");
+    rewrite H in *
+  | H: false = ?b |- _ =>
+    poseNew(Mark (H) "false_eq_bool");
+    pose proof (eq_sym H)
+
+
+  end.
+
 Ltac t_bool :=
   match goal with
   | H: ?b &&b true = ?a |- _ =>
@@ -183,11 +222,20 @@ Ltac t_bool :=
     pose proof (if_then_false2 _ _ (eq_sym H)) as H2    
   | H: ?b <> true |- _ => 
     let H2 := fresh H in
-    poseNew (Mark (b) "eq_true_not_negb");
-    pose proof (eq_true_not_negb _ H) as H2
+    poseNew (Mark (b) "not_true_is_false");
+    pose proof (not_true_is_false _ H) as H2
   | H: true <> ?b |- _ => 
     let H2 := fresh H in
-    poseNew (Mark (b) "eq_true_not_negb");
-    pose proof (eq_true_not_negb _ (not_eq_sym H)) as H2
+    poseNew (Mark (b) "not_true_is_false");
+    pose proof (not_true_is_false _ (not_eq_sym H)) as H2
+  | H: ?b <> false |- _ => 
+    let H2 := fresh H in
+    poseNew (Mark (b) "not_false_is_true");
+    pose proof (not_false_is_true _ H) as H2
+  | H: false <> ?b |- _ => 
+    let H2 := fresh H in
+    poseNew (Mark (b) "not_false_is_true");
+    pose proof (not_false_is_true _ (not_eq_sym H)) as H2
+
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   end.
