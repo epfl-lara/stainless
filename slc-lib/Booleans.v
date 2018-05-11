@@ -85,10 +85,12 @@ Ltac splitite b B e1 e2 :=
   let A2 := fresh "A2" in
   let B1 := fresh "b1" in
   let B2 := fresh "B2" in
+  let cpA1 := fresh "cpA1" in
+  let cpA2 := fresh "cpA2" in
   destruct (match_or b B e1 e2) as [ HH1 | HH2 ];
   [
-    destruct HH1 as [ A1 B1 ]; (destruct A1 + destruct B1) |
-    destruct HH2 as [ A2 B2 ]; (destruct A2 + destruct B2)
+    destruct HH1 as [ A1 B1 ]; pose proof A1 as cpA1; (destruct A1 + destruct B1) |
+    destruct HH2 as [ A2 B2 ]; pose proof A2 as cpA2; (destruct A2 + destruct B2)
   ]
 .
 
