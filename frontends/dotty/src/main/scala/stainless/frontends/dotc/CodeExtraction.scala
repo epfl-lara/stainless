@@ -243,7 +243,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val template = td.rhs.asInstanceOf[tpd.Template]
 
-    val extparams = sym.asClass.typeParams.map(extractTypeParam)
+    val extparams = extractTypeParams(sym.asClass.typeParams)(DefContext())
     val tpCtx = DefContext((sym.asClass.typeParams zip extparams).toMap)
 
     val parents = template.parents.flatMap(p => p.tpe match {
@@ -351,7 +351,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     // Type params of the function itself
     val extparams = typeParamSymbols(tdefs)
-    val ntparams = typeParams.getOrElse(extparams map extractTypeParam)
+    val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
     val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
@@ -429,14 +429,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       None
   })
 
-  private val etpCache = MutableMap[Symbol, xt.TypeParameter]()
-  private def extractTypeParam(sym: Symbol): xt.TypeParameter = etpCache.getOrElseUpdate(sym, {
-    val variance =
-      if (sym is Covariant) Some(xt.Variance(true))
-      else if (sym is Contravariant) Some(xt.Variance(false))
-      else None
-    xt.TypeParameter(getIdentifier(sym), variance.toSeq)
-  })
+  private def extractTypeParams(syms: Seq[Symbol])(implicit dctx: DefContext): Seq[xt.TypeParameter] = {
+    syms.foldLeft((dctx, Seq[xt.TypeParameter]())) { case ((dctx, tparams), sym) =>
+      val variance =
+        if (sym is Covariant) Some(xt.Variance(true))
+        else if (sym is Contravariant) Some(xt.Variance(false))
+        else None
+
+      val bounds = sym.info match {
+        case TypeBounds(lo, hi) =>
+          Some(xt.Bounds(extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos)))
+        case _ => None
+      }
+
+      val tp = xt.TypeParameter(getIdentifier(sym), variance.toSeq ++ bounds).setPos(sym.pos)
+      (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
+    }._2
+  }
 
   private def extractPattern(p: tpd.Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {
     case b @ Bind(name, t @ Typed(pat, tpt)) =>
@@ -582,7 +591,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams, vparams)
     }.foldLeft(dctx) { case (dctx, (sym, tparams, vparams)) =>
       val extparams = typeParamSymbols(tparams)
-      val ntparams = extparams map extractTypeParam
+      val ntparams = extractTypeParams(extparams)(dctx)
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
       val paramTypes = vparams.map { param =>
@@ -1382,7 +1391,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case ct: ConstantType => extractType(ct.value.tpe)
 
-    case tr: TypeRef if dctx.tparams.isDefinedAt(tr.symbol) => dctx.tparams(tr.symbol)
+    case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
+      dctx.tparams(tr.symbol)
 
     // dotty < 0.4-RC01
     case hk @ HKApply(tycon, args) =>
@@ -1415,22 +1425,22 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 
     case tr: TypeRef if isSetSym(tr.symbol) =>
-      val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)
+      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
       xt.SetType(tp)
 
     case tr: TypeRef if isBagSym(tr.symbol) =>
-      val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)
+      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
       xt.BagType(tp)
 
     case tr: TypeRef if isMapSym(tr.symbol) =>
-      val Seq(from, to) = tr.classSymbol.typeParams.map(extractTypeParam)
+      val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
       xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
 
     case tr: TypeRef if TupleSymbol.unapply(tr.classSymbol).isDefined =>
-      xt.TupleType(tr.classSymbol.typeParams.map(extractTypeParam))
+      xt.TupleType(extractTypeParams(tr.classSymbol.typeParams))
 
     case tr: TypeRef if isArrayClassSym(tr.symbol) =>
-      val Seq(tp) = tr.classSymbol.typeParams.map(extractTypeParam)
+      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
       xt.ArrayType(tp)
 
     case ta @ TypeAlias(tp) => extractType(tp)
@@ -1459,7 +1469,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         sym => xt.TypeParameter(getIdentifier(sym), Seq())
       })
 
-    case tt @ TermRef(_, _) => extractType(tt.widenTermRefExpr)
+    case tt @ TermRef(_, _) =>
+      extractType(tt.widenTermRefExpr)
 
     case tb @ TypeBounds(lo, hi) => extractType(hi)
 

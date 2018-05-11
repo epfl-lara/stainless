@@ -205,6 +205,18 @@ trait Printer extends holes.Printer {
       ctx.sb.append("|")
       p"| $pred }"
 
+    case tpd: TypeParameterDef =>
+      tpd.tp.flags collectFirst { case Variance(v) => v } foreach (if (_) p"+" else p"-")
+      p"${tpd.tp}"
+      tpd.tp.flags collectFirst { case Bounds(lo, hi) => (lo, hi) } foreach { case (lo, hi) =>
+        if (lo != NothingType()) p" >: $lo"
+        if (hi != AnyType()) p" <: $hi"
+      }
+
+    case TypeParameter(id, flags) =>
+      p"$id"
+      for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(ctx.opts)}"
+
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
 

@@ -183,7 +183,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
 
         case tp: s.TypeParameter => super.transform(tp.copy(
-          flags = tp.flags.filterNot { case s.Variance(_) => true case _ => false }
+          flags = tp.flags.filterNot { case (_: s.Variance | _: s.Bounds) => true case _ => false }
         ).copiedFrom(tp))
 
         case _ => super.transform(tp)
@@ -524,16 +524,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
      * cache of the ADT unification functions. */
     def unifyTypes(e: t.Expr, tpe: s.Type, expected: s.Type)(tpeScope: TypeScope, expectedScope: TypeScope): t.Expr = {
 
-      def containsObj(tpe: t.Type): Boolean = t.typeOps.exists { case `obj` => true case _ => false } (tpe)
-
       val unifications: MutableMap[(t.Type, t.Type), Identifier] = MutableMap.empty
 
       def rec(e: t.Expr, lo: s.Type, hi: s.Type)(loScope: TypeScope, hiScope: TypeScope): t.Expr = {
         if (lo == hi) e
-        else if (isSimple(lo)(loScope) && isSimple(hi)(hiScope)) e
         else if (isObject(lo)(loScope) && isObject(hi)(hiScope)) e
-        else if (isObject(lo)(loScope)) unwrap(e, hiScope transform hi)
-        else if (isObject(hi)(hiScope)) wrap(e, lo)(loScope)
+        else if (isObject(lo)(loScope) && isSimple(hi)(hiScope)) unwrap(e, hiScope transform hi)
+        else if (isSimple(lo)(loScope) && isObject(hi)(hiScope)) wrap(e, lo)(loScope)
         else ((e, lo, hi) match {
           case (Lambda(args, body), s.FunctionType(from1, to1), s.FunctionType(from2, to2)) =>
             val newArgs = (args zip from2).map { case (vd, tpe) => vd.copy(tpe = hiScope.transform(tpe)).copiedFrom(vd) }
@@ -553,6 +550,9 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
             Tuple((tps1 zip tps2).zipWithIndex map {
               case ((tp1, tp2), i) => rec(TupleSelect(e, i + 1).copiedFrom(e), tp1, tp2)(loScope, hiScope)
             }).copiedFrom(e)
+
+          case (_, _: s.TypeParameter, _) | (_, _, _: s.TypeParameter) =>
+            rec(wrap(e, lo)(loScope), s.AnyType(), hi)(loScope, hiScope)
 
           /*
         case (tpe1 @ ADTType(id1, tps1), tpe2 @ ADTType(id2, tps2)) if id1 == id2 =>
@@ -845,7 +845,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
           val fdScope = this in id
-          val fd = getFunction(id)
+          val fd = getFunction(id, tps)
           unifyTypes(
             t.FunctionInvocation(id,
               tps map transform,
