@@ -143,19 +143,71 @@ Hint Rewrite rewrite_false_and: libR.
 
 Lemma if_then_false:
   forall b (e1: true = b -> bool),
-           ifthenelse b bool e1 (fun _ => false) = true ->
-           b = true /\ exists H: true = b, e1 H = true.
+           ifthenelse b bool e1 (fun _ => false) = true <->
+           exists H: true = b, e1 H = true.
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
 
 Lemma if_then_false2:
   forall b e1,
-           (ifthenelse b bool (fun _ => e1) (fun _ => false)) = true ->
+           (ifthenelse b bool (fun _ => e1) (fun _ => false)) = true <->
            b = true /\ e1 = true.
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
+
+
+Lemma if_then_true:
+  forall b (e1: true = b -> bool),
+           ifthenelse b bool e1 (fun _ => true) = false <->
+           exists H: true = b, e1 H = false.
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl.
+Qed.
+
+Lemma if_then_true2:
+  forall b e1,
+           (ifthenelse b bool (fun _ => e1) (fun _ => true)) = false <->
+           b = true /\ e1 = false.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
+
+Lemma if_false_else:
+  forall b (e2: false = b -> bool),
+           ifthenelse b bool (fun _ => false) e2 = true <->
+           exists H: false = b, e2 H = true.
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl.
+Qed.
+
+Lemma if_false_else2:
+  forall b e2,
+           (ifthenelse b bool (fun _ => false) (fun _ => e2)) = true <->
+           b = false /\ e2 = true.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
+
+Lemma if_true_else:
+  forall b (e2: false = b -> bool),
+           ifthenelse b bool (fun _ => true) e2 = false <->
+           exists H: false = b, e2 H = false.
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl.
+Qed.
+
+Lemma if_true_else2:
+  forall b e2,
+           (ifthenelse b bool (fun _ => true) (fun _ => e2)) = false <->
+           b = false /\ e2 = false.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
+
+Hint Rewrite if_then_false if_then_false2 if_then_true if_then_true2: libR.
+Hint Rewrite if_true_else if_true_else2 if_false_else if_false_else2 :libR.
 
 Ltac literal b :=
   (unify b true) + (unify b false).

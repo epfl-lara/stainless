@@ -42,7 +42,7 @@ Hint Unfold set_difference : sets.
 
 Ltac t_sets_aux :=
   autounfold with sets in *;
-    repeat t || firstorder.
+    repeat t_base || firstorder.
 
 Lemma union_empty_l:
   forall {T} (s: set T), set_union s set_empty = s.

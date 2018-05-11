@@ -25,7 +25,7 @@ trait CoqEncoder {
   var i = 0
   val hypName = "contractHyp"
 
-  var lastTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
+  var lastTactic: CoqExpression = idtac
   var mainTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
   var rewriteTactic: CoqExpression = idtac
 
@@ -297,7 +297,7 @@ trait CoqEncoder {
     val body = CoqForall(
       Seq((self, CoqApplication(CoqIdentifier(ctor.sort), tParams))) ++ tParams.map(tp => (tp, TypeSort)),
       impl)
-    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t || ifthenelse_step || autounfold with recognizers in * || eauto."))
+    CoqLemma(existsCreatorName(ctor.id), body, RawCommand(s"repeat ${mainTactic.coqString} || eauto."))
   }
 
   def existsCreatorName(id: Identifier): CoqIdentifier = {
@@ -406,7 +406,7 @@ trait CoqEncoder {
     val t = makeFresh("t")
     mainTactic = t
     RawCommand(s"""Ltac ${t.coqString} :=
-                  |  t ||
+                  |  t_base ||
                   |  ${lastTactic.coqString} ||
                   |  slow ||
                   |  t_sets ||
@@ -633,6 +633,7 @@ trait CoqEncoder {
 
   def transform(): CoqCommand = {
     header() $
+    updateObligationTactic() $
     //RawCommand("Load verif1.") $
     makeTactic(p.symbols.sorts.values.toSeq)$
     manyCommands(p.symbols.sorts.values.toSeq.map(transformADT)) $
