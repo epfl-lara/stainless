@@ -27,36 +27,38 @@ object VerificationComponent extends SimpleComponent {
     val t: extraction.trees.type = extraction.trees
   })
 
-  implicit val debugSection = DebugSectionCoq
+  implicit val debugSection = DebugSectionVerification
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {    
+  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {
     if (ctx.options.findOptionOrDefault(optCoq)) {
       CoqVerificationChecker.verify(funs, p, ctx)
     } else {
-      val assertions = AssertionInjector(p, ctx)
-      val chooses = ChooseInjector(p)
-      val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
+    import ctx._
 
-      import ctx._
-      import encoder.targetProgram._
-      import encoder.targetProgram.trees._
-      import encoder.targetProgram.symbols._
+    val assertions = AssertionInjector(p, ctx)
+    val chooses = ChooseInjector(p)
 
-      reporter.debug(s"Generating VCs for those functions: ${funs map { _.uniqueName } mkString ", "}")
+    reporter.debug(s"Generating VCs for those functions: ${funs map { _.uniqueName } mkString ", "}")
 
-      val vcs = VerificationGenerator.gen(encoder.targetProgram, ctx)(funs)
+    // We do not need to encode empty trees as chooses when generating the VCs,
+    // as we rely on having empty trees to filter out some VCs.
+    val assertionEncoder = inox.ast.ProgramEncoder(p)(assertions)
+    val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, ctx)(funs)
 
-      val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
-        case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-          VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
-        case res => res.asInstanceOf[VCResult[p.Model]]
-      })
+    // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
+    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
 
-      res.map(r => new VerificationAnalysis {
-        override val program: p.type = p
-        override val sources = funs.toSet
-        override val results = r
-      })
+    val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
+      case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
+        VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
+      case res => res.asInstanceOf[VCResult[p.Model]]
+    })
+
+    res.map(r => new VerificationAnalysis {
+      override val program: p.type = p
+      override val sources = funs.toSet
+      override val results = r
+    })
     }
   }
 }

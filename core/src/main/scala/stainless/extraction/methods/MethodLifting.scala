@@ -214,8 +214,14 @@ trait MethodLifting extends inox.ast.SymbolTransformer { self =>
       }
 
       val newSpecs = specs.map(_.map(t)(transformer.transform(_)))
-      val newBody = conds.foldRight(elze) { case ((cond, res), elze) =>
+      val dispatchBody = conds.foldRight(elze) { case ((cond, res), elze) =>
         t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
+      }
+
+      val newBody = if (!fd.flags.contains(IsInvariant)) dispatchBody else {
+        // If `fd` is an invariant, we need to conjoin both the constructor's and parent's invariants,
+        // otherwise we would only end up the checking the former.
+        t.and(dispatchBody, elze.copiedFrom(dispatchBody))
       }
 
       val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
