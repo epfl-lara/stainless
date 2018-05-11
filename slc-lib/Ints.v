@@ -1,4 +1,5 @@
 Require Import SLC.Lib.
+Require Import SLC.Booleans.
 Require Import ZArith.
 Require Import stdpp.set.
 
@@ -27,12 +28,24 @@ Proof.
   repeat libStep.
 Qed.
 
+Lemma geb_le6: forall x y, ((x <= y) -> False) -> (x <=? y = false).
+Proof.
+  repeat libStep || omega.
+Qed.
+
+Lemma geb_rwrt: forall x y, (x < y) -> (y <= x) -> False.
+Proof.
+  repeat libStep || omega.
+Qed.
+
+
+
 Lemma Zeq_bool_neq2:
   ∀ x y : Z,  Zeq_bool x y = false <-> (x <> y).
 Proof.
   intuition;
     repeat match goal with
-           | _ => libStep
+           | _ => libStep || ifthenelse_step
            | H: _ |- _ => apply Zeq_bool_neq in H
            | H: _ |- _ => apply Positive_as_OT.compare_eq in H
            | x: Z |- _ => destruct x

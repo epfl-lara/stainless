@@ -7,6 +7,7 @@ Hint Rewrite eqb_true_iff: libR.
 Hint Rewrite eqb_false_iff: libR.
 Hint Rewrite <- Zeq_is_eq_bool: libR.
 Hint Rewrite orb_true_iff: libR.
+Hint Rewrite orb_false_iff: libR.
 
 (*
 Definition bool_and b1 (b2: true = b1 -> bool): bool :=
@@ -47,6 +48,12 @@ Lemma match_or:
 Qed.
 
 Ltac ifthenelse_step := match goal with
+  | [ |- context[match ?t with _ => _ end]] =>
+      let matched := fresh "matched" in
+      destruct t eqn:matched
+  | [ H: context[match ?t with _ => _ end] |- _ ] =>
+      let matched := fresh "matched" in
+      destruct t eqn:matched
   | [ H: context[ifthenelse ?b _ _ _] |- _ ] =>
             let matched := fresh "matched" in
             destruct b eqn:matched
@@ -67,7 +74,7 @@ Lemma ifthenelse_rewrite_4: forall {T} (b: bool) (e1 e2 value: T),
   (if b then e1 else e2) = value -> 
     ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
 Proof.
-  repeat libStep.
+  repeat libStep || ifthenelse_step.
 Qed.
 
 Ltac splitite b B e1 e2 :=
@@ -102,13 +109,13 @@ Ltac rewrite_ifthenelse :=
 Lemma rewrite_and_true:
   forall b: bool, b &&b true = b.
 Proof.
-  repeat libStep.
+  repeat libStep || ifthenelse_step.
 Qed.
 
 Lemma rewrite_and_true2:
   forall a b: bool, b &&b true = a -> b = a.
 Proof.
-  repeat libStep.
+  repeat libStep || ifthenelse_step.
 Qed.
 
 Lemma rewrite_true_and:
@@ -120,7 +127,7 @@ Qed.
 Lemma rewrite_and_false:
   forall b: bool, b &&b false = false.
 Proof.
-  repeat libStep.
+  repeat libStep || ifthenelse_step.
 Qed.
 
 Lemma rewrite_false_and:
@@ -156,7 +163,17 @@ Ltac literal b :=
 Ltac not_literal b := tryif literal b then fail else idtac.
 
 
-(* Not done yet *)
+Ltac t_bool_simpl :=
+  match goal with
+  | H: ?b = ?l |- _ => 
+    not_literal b; literal l; rewrite H in *
+  | H: ?l = ?b |- _ => 
+    not_literal b; literal l; rewrite <- H in *
+    
+  end.
+
+
+(* Not done yet 
 Ltac t_bool_simpl := 
   match goal with
   | H: negb ?b = true |- _ =>
@@ -193,10 +210,11 @@ Ltac t_bool_simpl :=
 
 
   end.
+*)
 
 Ltac t_bool :=
   match goal with
-  | H: ?b &&b true = ?a |- _ =>
+  (*| H: ?b &&b true = ?a |- _ =>
     let H2 := fresh H in
     poseNew (Mark (a,b) "rewrite_and_true");
     pose proof (rewrite_and_true2 _ _ H) as H2                            
@@ -236,6 +254,6 @@ Ltac t_bool :=
     let H2 := fresh H in
     poseNew (Mark (b) "not_false_is_true");
     pose proof (not_false_is_true _ (not_eq_sym H)) as H2
-
+  *)
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   end.

@@ -297,7 +297,7 @@ trait CoqEncoder {
     val body = CoqForall(
       Seq((self, CoqApplication(CoqIdentifier(ctor.sort), tParams))) ++ tParams.map(tp => (tp, TypeSort)),
       impl)
-    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t || autounfold with recognizers in * || eauto."))
+    CoqLemma(existsCreatorName(ctor.id), body, RawCommand("repeat t || ifthenelse_step || autounfold with recognizers in * || eauto."))
   }
 
   def existsCreatorName(id: Identifier): CoqIdentifier = {
@@ -410,6 +410,7 @@ trait CoqEncoder {
                   |  ${lastTactic.coqString} ||
                   |  slow ||
                   |  t_sets ||
+                  |  ifthenelse_step ||
                   |  rewrite_ifthenelse ||
                   |  destruct_ifthenelse ||
                   |  autounfold with definitions in * ||

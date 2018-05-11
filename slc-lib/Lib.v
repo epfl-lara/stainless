@@ -32,7 +32,7 @@ Ltac fast :=
 .
 
 Ltac slow :=
-  omega || ring || eauto.
+  omega || ring (*|| eauto.*).
 
 Ltac libStep := match goal with
   | _ => progress fast
@@ -40,12 +40,6 @@ Ltac libStep := match goal with
     unify T ignore_termination; apply False_ind; exact unsupported
   | [ H: ex _ _ |- _ ] => destruct H
   |   H: exists _, _ |- _ => destruct H
-  | [ |- context[match ?t with _ => _ end]] =>
-      let matched := fresh "matched" in
-      destruct t eqn:matched
-  | [ H: context[match ?t with _ => _ end] |- _ ] =>
-      let matched := fresh "matched" in
-      destruct t eqn:matched
   end.
   
 
@@ -53,6 +47,8 @@ Ltac libStep := match goal with
 Inductive Marked {T}: T -> string -> Type :=
   Mark: forall t s, Marked t s
 .
+
+Notation "'internal'" := (Marked _ _) (at level 50).
 
 Ltac clearMarked :=
   repeat match goal with
@@ -89,12 +85,19 @@ Ltac destruct_refinement :=
   match goal with
   | |- context[proj1_sig ?T] =>
     let res := fresh "RR" in
-    destruct T eqn:res
+    let r := fresh "r" in
+    let cP := fresh "copy" in
+    let P := fresh "P" in
+    destruct T as [ r P ] eqn:res;
+    pose proof P as cP
   | H: context[proj1_sig ?T] |- _ =>
     let res := fresh "RR" in
-    destruct T eqn:res
+    let r := fresh "r" in
+    let cP := fresh "copy" in
+    let P := fresh "P" in
+    destruct T as [ r P ] eqn:res;
+    pose proof P as cP
   end.
-
 (*
 Theorem proj1: forall P Q: Prop, P /\ Q -> P.
   intros P Q H.
