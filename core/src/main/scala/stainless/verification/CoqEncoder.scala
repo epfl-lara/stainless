@@ -562,7 +562,7 @@ trait CoqEncoder {
         SeparatorComment(s"Start of ${fd.id.name}") $
         // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n")
+        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") $
         // RawCommand(s"""Print "Verified ${fd.id.name}...".""") $
         SeparatorComment(s"End of ${fd.id.name}")
       }
