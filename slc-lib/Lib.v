@@ -48,7 +48,7 @@ Inductive Marked {T}: T -> string -> Type :=
   Mark: forall t s, Marked t s
 .
 
-Notation "'internal'" := (Marked _ _) (at level 50).
+(* Notation "'internal'" := (Marked _ _) (at level 50). *)
 
 Ltac clearMarked :=
   repeat match goal with
@@ -89,6 +89,7 @@ Ltac destruct_refinement :=
     let cP := fresh "copy" in
     let P := fresh "P" in
     destruct T as [ r P ] eqn:res;
+    pose proof (Mark P "not_usable");
     pose proof P as cP
   | H: context[proj1_sig ?T] |- _ =>
     let res := fresh "RR" in
@@ -96,8 +97,27 @@ Ltac destruct_refinement :=
     let cP := fresh "copy" in
     let P := fresh "P" in
     destruct T as [ r P ] eqn:res;
+    pose proof (Mark P "not_usable");
     pose proof P as cP
   end.
+
+
+Ltac is_mark H :=
+  match type of H with
+  | Marked _ _ => idtac
+  end.
+
+Ltac not_mark H := tryif is_mark H then fail else idtac.
+
+Ltac not_usable H :=
+  match goal with
+  | H1: Marked H "not_usable" |- _ => idtac
+  end.
+
+Ltac usable H := not_mark H; tryif not_usable H then fail else idtac.
+
+
+
 (*
 Theorem proj1: forall P Q: Prop, P /\ Q -> P.
   intros P Q H.

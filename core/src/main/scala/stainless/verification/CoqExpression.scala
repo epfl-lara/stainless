@@ -450,6 +450,7 @@ object CoqExpression {
   val poseNew = CoqLibraryConstant("poseNew")
 
   val proj1 = CoqLibraryConstant("proj1")
+  val proj1_sig = CoqLibraryConstant("proj1_sig")
 
   val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
 

@@ -86,11 +86,19 @@ trait CoqEncoder {
       makeFresh(id)
     case ADT(id, targs, args) =>
       Constructor(constructorIdentifier(id), targs.map(transformType) ++ args.map(transformTree))
-    case FunctionInvocation(id, targs, args)
-      if exprOps.preconditionOf(p.symbols.functions(id).fullBody) == None =>
-      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree))
     case FunctionInvocation(id, targs, args) =>
-      CoqApplication(makeFresh(id), targs.map(transformType) ++ args.map(transformTree) :+ CoqUnknown)
+      val allArgs = targs.map(transformType) ++ args.map(transformTree)
+      val allArgs_and_hyp = 
+        if (exprOps.preconditionOf(p.symbols.functions(id).fullBody).isEmpty)
+          allArgs
+        else
+          allArgs :+ CoqUnknown 
+      
+      if (exprOps.postconditionOf(p.symbols.functions(id).fullBody).isEmpty)
+        CoqApplication(makeFresh(id), allArgs_and_hyp)
+      else
+        proj1_sig(CoqApplication(makeFresh(id), allArgs_and_hyp))
+
     case Application(t, ts) =>
       CoqApplication(transformTree(t), ts.map(transformTree))
     case FiniteSet(args,tpe) =>
@@ -528,6 +536,7 @@ trait CoqEncoder {
         )))
 
         SeparatorComment(s"Start of ${fd.id.name}") $
+        // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
@@ -547,10 +556,15 @@ trait CoqEncoder {
         )) $
         RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.\n") $
         updateObligationTactic() $
+        // RawCommand(s"""Print "Verified ${fd.id.name}...".""") $
         SeparatorComment(s"End of ${fd.id.name}")
       } else {
+        SeparatorComment(s"Start of ${fd.id.name}") $
+        // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
         RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n")
+        // RawCommand(s"""Print "Verified ${fd.id.name}...".""") $
+        SeparatorComment(s"End of ${fd.id.name}")
       }
       tmp
       //if (ctx.options.findOptionOrDefault(optAdmitAll)) {

@@ -62,6 +62,26 @@ Ltac ifthenelse_step := match goal with
             destruct b eqn:matched
 end.
 
+Lemma ifthenelse_rewrite_2: forall T b e1 e2 value,
+    ifthenelse b T e1 e2 = value <->
+    (
+      (exists H1: true = b, e1 H1 = value) \/
+      (exists H2: false = b, e2 H2 = value)
+    ).
+Proof.
+  repeat libStep || ifthenelse_step; eauto.
+Qed.
+
+Lemma ifthenelse_rewrite_2': forall T b e1 e2 value,
+    value = ifthenelse b T e1 e2 <->
+    (
+      (exists H1: true = b, e1 H1 = value) \/
+      (exists H2: false = b, e2 H2 = value)
+    ).
+Proof.
+  repeat libStep || ifthenelse_step; eauto.
+Qed.
+
 Lemma ifthenelse_rewrite_3: forall T b e1 e2 value,
     (forall H1: true = b, e1 H1 = value) ->
     (forall H2: false = b, e2 H2 = value) ->
@@ -70,33 +90,57 @@ Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
-Lemma ifthenelse_rewrite_4: forall {T} (b: bool) (e1 e2 value: T),
+Lemma ifthenelse_rewrite_4: forall T (b: bool) (e1 e2 value: T),
   (if b then e1 else e2) = value -> 
     ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
+Lemma ifthenelse_rewrite_4': forall T (b: bool) (e1 e2 value: T),
+  value = (if b then e1 else e2) -> 
+    ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
+
+Hint Rewrite ifthenelse_rewrite_2: libR.
+Hint Rewrite ifthenelse_rewrite_2': libR.
+Hint Rewrite ifthenelse_rewrite_4: libR.
+Hint Rewrite ifthenelse_rewrite_4': libR.
+
 Ltac splitite b B e1 e2 :=
-  poseNew (Mark (b,B,e1,e2) "splitting if then else");
+  let S := fresh "S" in
   let HH1 := fresh "H1" in
   let HH2 := fresh "H2" in
+  let M1 := fresh "M1" in 
+  let M2 := fresh "M2" in 
   let A1 := fresh "A1" in
   let A2 := fresh "A2" in
-  let B1 := fresh "b1" in
+  let B1 := fresh "B1" in
   let B2 := fresh "B2" in
   let cpA1 := fresh "cpA1" in
   let cpA2 := fresh "cpA2" in
+  poseNew (Mark (b,B,e1,e2) "splitting if then else");
   destruct (match_or b B e1 e2) as [ HH1 | HH2 ];
   [
-    destruct HH1 as [ A1 B1 ]; pose proof A1 as cpA1; (destruct A1 + destruct B1) |
-    destruct HH2 as [ A2 B2 ]; pose proof A2 as cpA2; (destruct A2 + destruct B2)
-  ]
+    destruct HH1 as [ A1 B1 ];
+    pose proof (Mark A1 "not_usable") as M1;
+    rewrite <- A1 in *;
+    try destruct B1;
+    pose proof A1 as cpA1
+      |
+    destruct HH2 as [ A2 B2 ];
+    pose proof (Mark A2 "not_usable") as M2;
+    rewrite <- A2 in *;
+    try destruct B2;
+    pose proof A2 as cpA2
+    ]
 .
 
 Ltac destruct_ifthenelse :=
   match goal with
-  | H: context[ifthenelse ?b ?B ?e1 ?e2] |- _ => splitite b B e1 e2
+  | H: context[ifthenelse ?b ?B ?e1 ?e2] |- _ => usable H; splitite b B e1 e2
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
@@ -104,8 +148,8 @@ Ltac rewrite_ifthenelse :=
   match goal with
   | [ |- (ifthenelse _ _ _ _) = _ ] => apply ifthenelse_rewrite_3
   | [ |- _ = (ifthenelse _ _ _ _) ] => apply eq_sym; apply ifthenelse_rewrite_3
-  | [ H: (if ?b then ?e1 else ?e2) = ?value |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ H)
-  | [ H: ?value = if ?b then ?e1 else ?e2 |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ (eq_sym H))
+(*  | [ H: (if ?b then ?e1 else ?e2) = ?value |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ H)
+  | [ H: ?value = if ?b then ?e1 else ?e2 |- _ ] => poseNew(Mark H "if_then_else_rewrite"); pose proof(ifthenelse_rewrite_4 _ _ _ _ (eq_sym H)) *)
   end.
 
 Lemma rewrite_and_true:
@@ -211,19 +255,33 @@ Qed.
 Hint Rewrite if_then_false if_then_false2 if_then_true if_then_true2: libR.
 Hint Rewrite if_true_else if_true_else2 if_false_else if_false_else2 :libR.
 
+Lemma negb_equal:
+  forall b1 b2,
+    negb b1 = negb b2 <-> b1 = b2.
+Proof.
+  destruct b1; destruct b2; repeat libStep.
+Qed.
+
+Hint Rewrite negb_equal: libR.
+
 Ltac literal b :=
   (unify b true) + (unify b false).
 
 Ltac not_literal b := tryif literal b then fail else idtac.
 
-
 Ltac t_bool_simpl :=
   match goal with
   | H: ?b = ?l |- _ => 
-    not_literal b; literal l; rewrite H in *
+    usable H; not_literal b; literal l; rewrite H in *
   | H: ?l = ?b |- _ => 
-    not_literal b; literal l; rewrite <- H in *
-    
+    usable H; not_literal b; literal l; rewrite <- H in *    
+  end.
+
+Ltac t_bool :=
+  match goal with
+  | _ => apply eq_true_not_negb
+  | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
+  | _ => t_bool_simpl
   end.
 
 
@@ -266,8 +324,7 @@ Ltac t_bool_simpl :=
   end.
 *)
 
-Ltac t_bool :=
-  match goal with
+
   (*| H: ?b &&b true = ?a |- _ =>
     let H2 := fresh H in
     poseNew (Mark (a,b) "rewrite_and_true");
@@ -309,5 +366,3 @@ Ltac t_bool :=
     poseNew (Mark (b) "not_false_is_true");
     pose proof (not_false_is_true _ (not_eq_sym H)) as H2
   *)
-  | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
-  end.
