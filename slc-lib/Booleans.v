@@ -40,13 +40,6 @@ Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :
 Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
 
-Lemma match_or:
-  forall b A e1 e2,
-    (exists p: true = b,  e1 p = ifthenelse b A e1 e2) \/
-    (exists p: false = b, e2 p = ifthenelse b A e1 e2).
-  intros; destruct b; repeat libStep; eauto.
-Qed.
-
 Ltac ifthenelse_step := match goal with
   | [ |- context[match ?t with _ => _ end]] =>
       let matched := fresh "matched" in
@@ -109,6 +102,13 @@ Hint Rewrite ifthenelse_rewrite_2': libR.
 Hint Rewrite ifthenelse_rewrite_4: libR.
 Hint Rewrite ifthenelse_rewrite_4': libR.
 
+Lemma match_or:
+  forall b A e1 e2,
+    (exists p: true = b,  e1 p = ifthenelse b A e1 e2) \/
+    (exists p: false = b, e2 p = ifthenelse b A e1 e2).
+  intros; destruct b; repeat libStep; eauto.
+Qed.
+
 Ltac splitite b B e1 e2 :=
   let S := fresh "S" in
   let HH1 := fresh "H1" in
@@ -125,17 +125,19 @@ Ltac splitite b B e1 e2 :=
   destruct (match_or b B e1 e2) as [ HH1 | HH2 ];
   [
     destruct HH1 as [ A1 B1 ];
+    try rewrite <- A1 in *;
+    try rewrite <- B1 in *;
+    clear B1;
     pose proof (Mark A1 "not_usable") as M1;
-    rewrite <- A1 in *;
-    try destruct B1;
-    pose proof A1 as cpA1
+    pose proof A1 as cpA1 
       |
     destruct HH2 as [ A2 B2 ];
+    try rewrite <- A2 in *;
+    try rewrite <- B2 in *;
+    clear B2;
     pose proof (Mark A2 "not_usable") as M2;
-    rewrite <- A2 in *;
-    try destruct B2;
-    pose proof A2 as cpA2
-    ]
+    pose proof A2 as cpA2 
+  ]
 .
 
 Ltac destruct_ifthenelse :=
