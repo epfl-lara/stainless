@@ -241,7 +241,7 @@ trait VerificationChecker { self =>
             VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver, Some(time))
         }
 
-        case Failure(u: Unsupported) =>
+        case Failure(u: inox.Unsupported) =>
           reporter.warning(u.getMessage)
           VCResult(VCStatus.Unsupported, Some(s), Some(time))
 
