@@ -13,12 +13,11 @@ import scala.language.existentials
   * types that can appear once extraction and pre-processing has finished.
   *
   * The hierarhcy is
-  *   extraction < inlining < innerfuns < imperative < holes < oo < throwing < methods < xlang
+  *   extraction < inlining < innerfuns < imperative < oo < throwing < methods < xlang
   *
   * Inlining adds support for function inlining.
   * Innerfuns adds inner functions.
   * Imperative adds imperative features.
-  * Holes adds the hole (???) synthesis construct.
   * OO adds object-oriented features.
   * Throwing handles exception lifting.
   * Methods takes care of method lifting.
@@ -73,7 +72,6 @@ package object extraction {
       methods.extractor    andThen
       throwing.extractor   andThen
       oo.extractor         andThen
-      holes.extractor      andThen
       imperative.extractor andThen
       innerfuns.extractor  andThen
       inlining.extractor

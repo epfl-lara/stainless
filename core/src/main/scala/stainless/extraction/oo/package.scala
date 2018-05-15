@@ -34,7 +34,7 @@ package object oo {
 
   val checker = inox.ast.SymbolTransformer(new CheckingTransformer {
     val s: trees.type = trees
-    val t: holes.trees.type = holes.trees
+    val t: imperative.trees.type = imperative.trees
   })
 
   val extractor = adts andThen refinements andThen encoding andThen checker

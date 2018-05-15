@@ -6,7 +6,7 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Trees extends holes.Trees with Definitions { self =>
+trait Trees extends imperative.Trees with Definitions { self =>
 
   /* ========================================
    *              EXPRESSIONS
@@ -143,7 +143,7 @@ trait Trees extends holes.Trees with Definitions { self =>
 }
 
 
-trait Printer extends holes.Printer {
+trait Printer extends imperative.Printer {
   protected val trees: Trees
   import trees._
 
@@ -250,7 +250,7 @@ trait Printer extends holes.Printer {
 }
 
 
-trait TreeDeconstructor extends holes.TreeDeconstructor {
+trait TreeDeconstructor extends imperative.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
