@@ -763,8 +763,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           }
 
           override def traverse(tpe: s.Type): Unit = tpe match {
-            case s.ClassType(_, _) => simple = false
-            case s.RefinementType(_, _) => simple = false
+            case _ if isObject(tpe) => simple = false
             case _ => super.traverse(tpe)
           }
 
@@ -822,12 +821,14 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
       override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
         case s.ClassConstructor(ct, args) =>
+          val encodedTps = ct.tps map encodeType
+          val cdScope = TypeScope(ct.tcd.cd.typeArgs zip encodedTps)
           val fd = classConstructors(ct.id)
-          val newArgs = (ct.tcd.fields zip args).map { case (vd, arg) =>
-            unifyTypes(transform(arg), arg.getType, vd.tpe)(this, this)
-          }
-
-          t.FunctionInvocation(fd.id, Seq(), ct.tps.map(encodeType) ++ newArgs).copiedFrom(e)
+          t.FunctionInvocation(fd.id, Seq(),
+            encodedTps ++ (ct.tcd.cd.fields zip args).map { case (vd, arg) =>
+              unifyTypes(transform(arg), arg.getType, vd.tpe)(this, cdScope)
+            }
+          ).copiedFrom(e)
 
         case s.ClassSelector(expr, id) =>
           getField(transform(expr), id).copiedFrom(e)
@@ -850,14 +851,13 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
 
         case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
           val fdScope = this in id
-          val fd = getFunction(id, tps)
           unifyTypes(
             t.FunctionInvocation(id, Seq(),
-              (tps map encodeType) ++ (fd.params zip args).map { case (vd, arg) =>
+              (tps map encodeType) ++ (getFunction(id).params zip args).map { case (vd, arg) =>
                 unifyTypes(transform(arg), arg.getType, vd.tpe)(this, fdScope)
               }
             ).copiedFrom(e),
-            fd.returnType,
+            fi.getType,
             inType
           )(fdScope, this)
 
@@ -872,7 +872,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
                 unifyTypes(transform(arg), arg.getType, vd.tpe)(this, appScope)
               }
             ).copiedFrom(app),
-            fun.returnType,
+            app.getType,
             inType
           )(appScope, this)
 
