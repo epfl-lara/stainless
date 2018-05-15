@@ -29,7 +29,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   lazy val reporter = inoxCtx.reporter
   implicit val debugSection = DebugSectionExtraction
 
-  implicit def dottyPosToInoxPos(p: Position): inox.utils.Position = {
+  implicit def dottyPosToInoxPos(p: Position): inox.utils.Position = scala.util.Try({
     if (!p.exists) {
       inox.utils.NoPosition
     } else if (p.start != p.end) {
@@ -43,7 +43,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       inox.utils.OffsetPosition(sp.line + 1, sp.column + 1, sp.point,
                                 ctx.source.file.file)
     }
-  }
+  }).toOption.getOrElse(inox.utils.NoPosition)
 
   private def getIdentifier(sym: Symbol): SymbolIdentifier = cache fetch sym
 
@@ -438,7 +438,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       val bounds = sym.info match {
         case TypeBounds(lo, hi) =>
-          Some(xt.Bounds(extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos)))
+          val (loType, hiType) = (extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos))
+          if (loType != xt.NothingType() || hiType != xt.AnyType()) Some(xt.Bounds(loType, hiType))
+          else None
         case _ => None
       }
 

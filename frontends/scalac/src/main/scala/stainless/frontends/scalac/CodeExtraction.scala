@@ -510,7 +510,9 @@ trait CodeExtraction extends ASTExtractors {
 
       val bounds = sym.info match {
         case TypeBounds(lo, hi) =>
-          Some(xt.Bounds(extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos)))
+          val (loType, hiType) = (extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos))
+          if (loType != xt.NothingType() || hiType != xt.AnyType()) Some(xt.Bounds(loType, hiType))
+          else None
         case _ => None
       }
 
