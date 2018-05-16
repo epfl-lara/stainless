@@ -72,8 +72,8 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 |                   | (mutually) recursive functions.                                |
 +-------------------+----------------------------------------------------------------+
 | ``@inlineOnce``   | Inline this function but only once, which is allowed           |
-                    | even on (mutually) recursive functions.                        |
-                    | Note: A recursive function will not be inlined within itself.  |
+|                   | even on (mutually) recursive functions.                        |
+|                   | Note: A recursive function will not be inlined within itself.  |
 +-------------------+----------------------------------------------------------------+
 | ``@extern``       | Only extract the contracts of a function, replacing            |
 |                   | its body by a ``choose`` expression.                           |
