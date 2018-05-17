@@ -27,10 +27,10 @@ Lemma coqToSetEquality:
 Proof.
   set_solver.
 Qed.
-  
+
 (*
 Lemma union_empty_l:
-  forall {T} (s: set T), set_union s set_empty = s.
+  forall T (s: set T), set_union s set_empty = s.
 Proof.
   intros; apply functional_extensionality; t_sets_aux.
 Qed.
