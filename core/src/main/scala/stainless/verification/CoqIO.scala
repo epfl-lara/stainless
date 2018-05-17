@@ -14,15 +14,27 @@ object CoqIO {
   
   implicit val debugSection = DebugSectionCoq
 
+  def writeToCoqFile(file: String, c: CoqCommand): Unit = {
+    val s = new FileWriter(file)
+    s.write(c.coqString)
+    s.close()
+  }
+
+  def makeFilename(name: String): String = s"tmp/$name.v"
+
   def writeToCoqFile(c: CoqCommand): String = {
     this.synchronized {
       i += 1 // we atomically increment this variable
     }
     val file = s"$fileName$i.v"
-    val s = new FileWriter(file)
-    s.write(c.coqString)
-    s.close()
+    writeToCoqFile(file,c)
     file
+  }
+
+  def writeToCoqFile(m: Seq[(String, CoqCommand)]): Seq[String] = {
+    val filenames = m.map {case (name, command) => (makeFilename(name), command)}
+    filenames.foreach {case (fname, command) => writeToCoqFile(fname, command)}
+    filenames.map(_._1)
   }
 
   def coqc(fileName: String, ctx: inox.Context) = { 

@@ -25,8 +25,10 @@ trait CoqEncoder {
   var i = 0
   val hypName = "contractHyp"
 
+  val initTactic = CoqIdentifier(FreshIdentifier("t"))
+
   var lastTactic: CoqExpression = idtac
-  var mainTactic: CoqIdentifier = CoqIdentifier(FreshIdentifier("t"))
+  var mainTactic: CoqIdentifier = initTactic
   var rewriteTactic: CoqExpression = idtac
 
   //TODO use make fresh uniformly
@@ -453,7 +455,7 @@ trait CoqEncoder {
   }
 
   // transform function definitions
-  def transformFunction(fd: st.FunDef): CoqCommand = {
+  def transformFunction(fd: st.FunDef, admitObligations: Boolean = false): CoqCommand = {
     ignoreFlags(fd.toString, fd.flags)
     val mutual = p.symbols.functions.find{ case (_,fd2) => fd != fd2 && transitivelyCalls(fd, fd2) && transitivelyCalls(fd2, fd) }
     if (mutual.isDefined)
@@ -537,12 +539,20 @@ trait CoqEncoder {
 
         SeparatorComment(s"Start of ${fd.id.name}") $
         // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
+        (if (admitObligations)
+          RawCommand(s"Obligation Tactic:=${idtac.coqString}.")
+        else
+          NoCommand) $
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
                     fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
         RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
-        RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).") $
+        (if (admitObligations)
+          RawCommand("\nAdmit Obligations.")
+        else
+          RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).")
+        ) $
         RawCommand("Fail Next Obligation.\n") $
         CoqMatchTactic(phaseA, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget)),
@@ -609,7 +619,7 @@ trait CoqEncoder {
   // finds an order in which to define the functions
   // does not work for mutually recursive functions
   // highly non optimized
-  def transformFunctionsInOrder(fds: Seq[FunDef]): CoqCommand = {
+  def transformFunctionsInOrder(fds: Seq[FunDef], admitObligations: Boolean = false): CoqCommand = {
     if (fds.isEmpty) NoCommand
     else {
       val f = fds.find { fd =>
@@ -620,12 +630,55 @@ trait CoqEncoder {
       f match {
         case Some(fd) =>
           //println("found first function: " + fd.id)
-          transformFunction(fd) $ transformFunctionsInOrder(fds.filterNot(_ == fd))
+          transformFunction(fd, admitObligations) $ transformFunctionsInOrder(fds.filterNot(_ == fd), admitObligations)
         case None =>
           ctx.reporter.warning(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
           NoCommand
       }
     }
+  }
+
+  def totalOrder(fds: Seq[FunDef]): Seq[FunDef] = {
+    if (fds.isEmpty) Seq()
+    else {
+      val f = fds.find { fd =>
+        fds.forall(fd2 => fd == fd2 || !transitivelyCalls(fd,fd2))
+      }
+      f match {
+        case Some(fd) =>
+          Seq(fd) ++ totalOrder(fds.filterNot(_ == fd))
+        case None =>
+          ctx.reporter.warning(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
+          Seq()
+      }
+    }
+  }
+
+  def dependentFunctions(fds: Seq[FunDef]): Seq[(FunDef, Seq[FunDef])] = {
+    val to = totalOrder(fds)
+    to.map((fd:FunDef) => fd -> fds.filter((fd2:FunDef) => fd != fd2 && transitivelyCalls(fd,fd2)))
+  }
+
+  def makeFilePerFunction(): Seq[(String, CoqCommand)] = {
+    ///reset initial state
+
+    val funs = p.symbols.functions.values.toSeq.sortBy(_.id.name)
+
+    val funDeps = dependentFunctions(funs)
+    funDeps
+      .map {case (f, d) =>
+        lastTactic = idtac
+        mainTactic = initTactic
+        rewriteTactic = idtac
+        makeFresh(f.id).coqString -> (
+          header() $
+          updateObligationTactic() $
+          makeTactic(p.symbols.sorts.values.toSeq)$
+          manyCommands(p.symbols.sorts.values.toSeq.map(transformADT))$
+          transformFunctionsInOrder(d,true) $
+          transformFunction(f))
+      }
+
   }
 
 
@@ -722,12 +775,12 @@ object CoqEncoder {
     else l.tail.foldLeft(l.head)(_ $ _)
   }
 
-  def transformProgram(program: StainlessProgram, context: inox.Context) = {
+  def transformProgram(program: StainlessProgram, context: inox.Context): Seq[(String, CoqCommand)] = {
     object encoder extends CoqEncoder {
       val p = program
       val ctx = context
     }
 
-    encoder.transform()
+    encoder.makeFilePerFunction() :+ ("verif1" -> encoder.transform())
   }
 }

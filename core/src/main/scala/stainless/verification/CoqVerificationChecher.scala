@@ -34,8 +34,10 @@ trait CoqVerificationChecker { self =>
     // println("End of Program")
     // println("===============================")
     val pCoq = CoqEncoder.transformProgram(program, context)
-    val file = CoqIO.writeToCoqFile(pCoq)
-    CoqIO.coqc(file, context)
+    val files = CoqIO.writeToCoqFile(pCoq)
+    files.foreach(file => {
+      context.reporter.info(s"Verifying file $file")
+      CoqIO.coqc(file, context)})
     Future(new VerificationAnalysis {
       override val program: self.program.type = self.program
       override val sources = Set[stainless.Identifier]()
