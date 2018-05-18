@@ -743,28 +743,16 @@ trait CodeExtraction extends ASTExtractors {
           xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
       })
 
-    case t @ ExHoldsWithProofExpression(body, ExMaybeBecauseExpressionWrapper(proof)) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val p = extractTreeOrNoTree(proof)
-      val and = xt.And(p, vd.toVariable).setPos(tr.pos)
+    case t @ ExHoldsExpression(body, proofOpt) =>
+      val vd = xt.ValDef(FreshIdentifier("proof"), xt.BooleanType().setPos(tr.pos), Seq.empty).setPos(tr.pos)
+      val fullBody = extractTreeOrNoTree(body)
+      val bodyExpr = xt.exprOps.withoutSpecs(fullBody).getOrElse(fullBody)
+      val preOpt = xt.exprOps.preconditionOf(fullBody)
+      val proofExpr = proofOpt.map(extractTree).getOrElse(xt.BooleanLiteral(true).setPos(tr.pos))
+      val and = xt.And(vd.toVariable, bodyExpr).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd), and).setPos(tr.pos)
-      val b = extractTreeOrNoTree(body)
-      xt.Ensuring(b, post).setPos(post)
-
-    case t @ ExHoldsExpression(body) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd), vd.toVariable).setPos(tr.pos)
-      val b = extractTreeOrNoTree(body)
-      xt.Ensuring(b, post).setPos(post)
-
-    // If the because statement encompasses a holds statement
-    case t @ ExBecauseExpression(ExHoldsExpression(body), proof) =>
-      val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
-      val p = extractTree(proof)
-      val and = xt.And(p, vd.toVariable).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd), and).setPos(tr.pos)
-      val b = extractTreeOrNoTree(body)
-      xt.Ensuring(b, post).setPos(post)
+      val newBody = preOpt.map(pre => xt.Require(pre, proofExpr).setPos(tr.pos)).getOrElse(proofExpr)
+      xt.Ensuring(newBody, post).setPos(post)
 
     case t @ ExComputesExpression(body, expected) =>
       val b = extractTreeOrNoTree(body).setPos(body.pos)
