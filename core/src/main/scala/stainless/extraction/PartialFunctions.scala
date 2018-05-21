@@ -5,17 +5,13 @@ package extraction
 
 import scala.language.existentials
 
-class PartialFunctions(val previous: ExtractionPhase { val t: xlang.trees.type })
-  extends PipelinePhase
-     with SimpleOOPhase {
+trait PartialFunctions extends PipelinePhase with SimpleOOPhase { self =>
+  val t: self.s.type
+  import s._
 
-  override final protected val s: xlang.trees.type = xlang.trees
-  override final protected val t: xlang.trees.type = xlang.trees
-  import xlang.trees._
-
-  private class PartialFunctionsTransformer(symbols: s.Symbols) extends oo.TreeTransformer {
-    override final val s: xlang.trees.type = xlang.trees
-    override final val t: xlang.trees.type = xlang.trees
+  private class PartialFunctionsTransformer(symbols: Symbols) extends oo.TreeTransformer {
+    override final val s: self.s.type = self.s
+    override final val t: self.t.type = self.t
 
     val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.$tilde$greater")
 
@@ -31,12 +27,12 @@ class PartialFunctions(val previous: ExtractionPhase { val t: xlang.trees.type }
       }
 
       rewrittenCases match {
-        case Seq(MatchCase(_: WildcardPattern, None, _)) =>
-          None
+        case Seq(MatchCase(_: WildcardPattern, None, _)) => None
 
-        case cases =>
-          val fallback = MatchCase(WildcardPattern(None), None, BooleanLiteral(false)).copiedFrom(body)
-          Some(MatchExpr(scrut, cases :+ fallback).copiedFrom(body))
+        case cases => Some(MatchExpr(scrut, cases :+ MatchCase(
+          WildcardPattern(None).copiedFrom(body), None,
+          BooleanLiteral(false).copiedFrom(body)
+        ).copiedFrom(body)).copiedFrom(body))
       }
     }
 
@@ -93,5 +89,16 @@ class PartialFunctions(val previous: ExtractionPhase { val t: xlang.trees.type }
 
   final override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     new PartialFunctionsTransformer(symbols).transform(fd)
+  }
+}
+
+object PartialFunctions {
+  def apply(trees: xlang.Trees)(prev: ExtractionPhase { val t: trees.type }): PartialFunctions {
+    val s: trees.type
+    val t: trees.type
+  } = new PartialFunctions {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override val previous: prev.type = prev
   }
 }

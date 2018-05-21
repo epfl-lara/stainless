@@ -4,11 +4,33 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
-  val s: Trees
-  val t: inlining.Trees
+import scala.collection.mutable.{Map => MutableMap}
 
-  def transform(symbols: s.Symbols): t.Symbols = {
+trait FunctionClosure extends PipelinePhase { self =>
+  val s: Trees
+  val t: ast.Trees
+
+  private[this] val functionCache: MutableMap[Identifier, Seq[t.FunDef]] = MutableMap.empty
+  private[this] val sortCache: MutableMap[Identifier, t.ADTSort] = MutableMap.empty
+
+  // For ADT transformation
+  private[this] object identity extends ast.TreeTransformer {
+    val s: self.s.type = self.s
+    val t: self.t.type = self.t
+  }
+
+  override def nextSymbols(id: Identifier): t.Symbols = {
+    val symbols = lastSymbols(id)
+    t.NoSymbols
+      .withFunctions(symbols.functions.values.toSeq.flatMap { fd =>
+        functionCache.getOrElseUpdate(fd.id, transformFunction(symbols, fd))
+      })
+      .withSorts(symbols.sorts.values.toSeq.map { sort =>
+        sortCache.getOrElseUpdate(sort.id, identity.transform(sort))
+      })
+  }
+
+  protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
     import s._
     import symbols._
 
@@ -201,14 +223,17 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       newFd +: closedFds.flatMap(close)
     }
 
-    // For ADT transformation
-    object identity extends ast.TreeTransformer {
-      val s: self.s.type = self.s
-      val t: self.t.type = self.t
-    }
+    close(fd)
+  }
+}
 
-    t.NoSymbols
-      .withFunctions(symbols.functions.values.toSeq.flatMap(close))
-      .withSorts(symbols.sorts.values.toSeq.map(identity.transform))
+object FunctionClosure {
+  def apply(ts: Trees, tt: inlining.Trees)(prev: ExtractionPhase { val t: ts.type }): FunctionClosure {
+    val s: ts.type
+    val t: tt.type
+  } = new FunctionClosure {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
+    override val previous: prev.type = prev
   }
 }

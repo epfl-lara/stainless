@@ -17,31 +17,18 @@ package object xlang {
 
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from
     * these trees to `oo.Trees` simply consists in an identity mapping. */
-  object extractor extends oo.SimpleSymbolTransformer {
-    val s: trees.type = trees
-    val t: methods.trees.type = methods.trees
+  val extractor = PipelineBuilder(trees, methods.trees)(prev => new SimpleOOPhase with PipelinePhase {
+    override val s: trees.type = trees
+    override val t: methods.trees.type = methods.trees
+    override protected val previous: prev.type = prev
 
-    object transformer extends ast.TreeTransformer {
-      val s: trees.type = trees
-      val t: methods.trees.type = methods.trees
-    }
+    override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef =
+      transformer.transform(fd.copy(flags = fd.flags.filter { case s.Ignore => false case _ => true }))
 
-    def transformFunction(fd: s.FunDef): t.FunDef = transformer.transform(fd.copy(
-      flags = fd.flags.filter {
-        case s.Ignore => false
-        case _ => true
-      }))
+    override protected def transformSort(symbols: s.Symbols, sort: s.ADTSort): t.ADTSort =
+      transformer.transform(sort.copy(flags = sort.flags filterNot (_ == s.Ignore)))
 
-    def transformSort(sort: s.ADTSort): t.ADTSort = transformer.transform(sort.copy(
-      flags = sort.flags filterNot (_ == s.Ignore)
-    ))
-
-    def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
-      cd.id,
-      cd.tparams.map(tdef => transformer.transform(tdef)),
-      cd.parents.map(ct => transformer.transform(ct).asInstanceOf[t.ClassType]),
-      cd.fields.map(vd => transformer.transform(vd)),
-      cd.flags filterNot (_ == s.Ignore) map transformer.transform
-    ).copiedFrom(cd)
-  }
+    override protected def transformClass(symbols: s.Symbols, cd: s.ClassDef): t.ClassDef =
+      transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
+  })
 }
