@@ -9,6 +9,9 @@ trait ExtractionPhase { self =>
   val s: ast.Trees
   val t: ast.Trees
 
+  implicit val context: inox.Context
+  protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
+
   protected def lastSymbols(id: Identifier): s.Symbols
 
   def nextSymbols(id: Identifier): t.Symbols
