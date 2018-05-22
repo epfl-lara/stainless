@@ -4,14 +4,25 @@ package stainless
 package extraction
 package inlining
 
-trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
-  val s: Trees
-  val t: extraction.Trees
+import scala.collection.mutable.{Map => MutableMap}
 
-  def transform(symbols: s.Symbols): t.Symbols = {
+trait FunctionInlining extends PipelinePhase { self =>
+  val s: Trees
+  val t: ast.Trees
+
+  private[this] val functionCache: MutableMap[Identifier, Option[t.FunDef]] = MutableMap.empty
+  private[this] val sortCache: MutableMap[Identifier, t.ADTSort] = MutableMap.empty
+
+  private object identity extends ast.TreeTransformer {
+    val s: self.s.type = self.s
+    val t: self.t.type = self.t
+  }
+
+  override def nextSymbols(id: Identifier): t.Symbols = {
+    val symbols = lastSymbols(id)
+
     import s._
     import symbols._
-    import CallGraphOrderings._
 
     class Inliner(within: FunDef, inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
@@ -65,11 +76,6 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    object transformer extends ast.TreeTransformer {
-      val s: self.s.type = self.s
-      val t: self.t.type = self.t
-    }
-
     for (fd <- symbols.functions.values) {
       val hasInlineFlag = fd.flags contains Inline
       val hasInlineOnceFlag = fd.flags contains InlineOnce
@@ -87,32 +93,30 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val afterInlining = s.NoSymbols
-      .withSorts(symbols.sorts.values.toSeq)
-      .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap {
-        case fd if (fd.flags contains Synthetic) && (fd.flags contains Inline) => None
-        case fd =>
-          Some(fd.copy(
+    val newSymbols = t.NoSymbols
+      .withSorts(symbols.sorts.values.toSeq.map { sort =>
+        sortCache.getOrElseUpdate(sort.id, identity.transform(sort))
+      })
+      .withFunctions(symbols.functions.values.toSeq.flatMap { fd =>
+        functionCache.getOrElseUpdate(fd.id, {
+          if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
+          else Some(identity.transform(fd.copy(
             fullBody = new Inliner(fd).transform(fd.fullBody),
-            flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
-          ))
+            flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f == Synthetic)
+          )))
+        })
       })
 
     val inlinedOnceFuns = symbols.functions.values.filter(_.flags contains InlineOnce).map(_.id).toSet
 
-    def isCandidate(fd: FunDef) =
-      inlinedOnceFuns.contains(fd.id) && fd.flags.contains(Synthetic)
+    def isCandidate(id: Identifier): Boolean =
+      (inlinedOnceFuns contains id) && (symbols.getFunction(id).flags contains Synthetic)
 
-    def canBePruned(fd: FunDef) =
-      isCandidate(fd) && afterInlining.transitiveCallers(fd).forall(isCandidate)
-
-    val pruned = afterInlining.functions.values.toSeq.flatMap {
-      case fd if canBePruned(fd) => None
-      case fd => Some(fd.copy(flags = fd.flags filterNot (_ == Synthetic)))
-    }
+    def isPrunable(id: Identifier): Boolean =
+      isCandidate(id) && newSymbols.transitiveCallers(id).forall(isCandidate)
 
     t.NoSymbols
-      .withSorts(afterInlining.sorts.values.map(transformer.transform).toSeq)
-      .withFunctions(pruned.map(transformer.transform).toSeq)
+      .withSorts(newSymbols.sorts.values.toSeq)
+      .withFunctions(newSymbols.functions.values.filterNot(fd => isPrunable(fd.id)).toSeq)
   }
 }
