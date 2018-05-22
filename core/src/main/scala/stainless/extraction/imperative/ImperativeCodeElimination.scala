@@ -4,14 +4,13 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
-  val trees: Trees
-  lazy val s: trees.type = trees
-  lazy val t: trees.type = trees
-  import trees._
+trait ImperativeCodeElimination extends PipelinePhase with SimplePhase {
+  val s: Trees
+  val t: s.type
+  import s._
 
-  def transform(syms: Symbols): Symbols = {
-    import syms._
+  override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
+    import symbols._
     import exprOps._
 
     /* varsInScope refers to variable declared in the same level scope.
@@ -373,36 +372,43 @@ trait ImperativeCodeElimination extends inox.ast.SymbolTransformer {
       case _ => false
     }
 
-    val newFds = for (fd <- syms.functions.values) yield {
-      if (!exprOps.exists(requireRewriting)(fd.fullBody)) fd else {
-        val (specs, body) = deconstructSpecs(fd.fullBody)
+    if (!exprOps.exists(requireRewriting)(fd.fullBody)) fd else {
+      val (specs, body) = deconstructSpecs(fd.fullBody)
 
-        val newSpecs = specs.map {
-          case Postcondition(ld @ Lambda(params, body)) =>
-            // Remove `Old` trees for function parameters on which no effect occurred
-            val newBody = replaceSingle(
-              fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
-              body
-            )
+      val newSpecs = specs.map {
+        case Postcondition(ld @ Lambda(params, body)) =>
+          // Remove `Old` trees for function parameters on which no effect occurred
+          val newBody = replaceSingle(
+            fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
+            body
+          )
 
-            val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
-            Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
+          val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
+          Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
 
-          case spec => spec.map { e =>
-            val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
-            scope(res)
-          }
-        }
-
-        val newBody = body.map { body =>
-          val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
+        case spec => spec.map { e =>
+          val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
           scope(res)
         }
-
-        fd.copy(fullBody = reconstructSpecs(newSpecs, newBody, fd.returnType))
       }
-    }
 
-    NoSymbols.withFunctions(newFds.toSeq).withSorts(syms.sorts.values.toSeq)
+      val newBody = body.map { body =>
+        val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
+        scope(res)
+      }
+
+      fd.copy(fullBody = reconstructSpecs(newSpecs, newBody, fd.returnType))
+    }
+  }
+}
+
+object ImperativeCodeElimination {
+  def apply(trees: Trees)(prev: ExtractionPhase { val t: trees.type }): ExtractionPhase {
+    val s: trees.type
+    val t: trees.type
+  } = new ImperativeCodeElimination {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override protected val previous: prev.type = prev
   }
 }
