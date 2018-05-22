@@ -659,7 +659,7 @@ trait CoqEncoder {
     to.map((fd:FunDef) => fd -> fds.filter((fd2:FunDef) => fd != fd2 && transitivelyCalls(fd,fd2)))
   }
 
-  def makeFilePerFunction(): Seq[(String, CoqCommand)] = {
+  def makeFilePerFunction(): Seq[(Identifier, String, CoqCommand)] = {
     ///reset initial state
 
     val funs = p.symbols.functions.values.toSeq.sortBy(_.id.name)
@@ -670,13 +670,13 @@ trait CoqEncoder {
         lastTactic = idtac
         mainTactic = initTactic
         rewriteTactic = idtac
-        makeFresh(f.id).coqString -> (
+        (f.id, makeFresh(f.id).coqString, (
           header() $
           updateObligationTactic() $
           makeTactic(p.symbols.sorts.values.toSeq)$
           manyCommands(p.symbols.sorts.values.toSeq.map(transformADT))$
           transformFunctionsInOrder(d,true) $
-          transformFunction(f))
+          transformFunction(f)))
       }
 
   }
@@ -775,12 +775,12 @@ object CoqEncoder {
     else l.tail.foldLeft(l.head)(_ $ _)
   }
 
-  def transformProgram(program: StainlessProgram, context: inox.Context): Seq[(String, CoqCommand)] = {
+  def transformProgram(program: StainlessProgram, context: inox.Context): Seq[(Identifier, String, CoqCommand)] = {
     object encoder extends CoqEncoder {
       val p = program
       val ctx = context
     }
 
-    encoder.makeFilePerFunction() :+ ("verif1" -> encoder.transform())
+    encoder.makeFilePerFunction() //:+ ("verif1" -> encoder.transform())
   }
 }
