@@ -49,11 +49,11 @@ Note that if you are using ``.scala`` build files you need to use the fully qual
 
 That's all there is to it. However, the ``sbt-stainless`` plugin currently has the following limitations you should know about:
 
-* Modules where the ``StainlessPlugin`` is enabled won't produce binaries when executing ``compile``. The reason for this limitation is that stainless currently needs to skip the pattern matching compiler phase. To somewhat mitigate this issue, the ``sbt-stainless`` plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell. Running ``compile`` when stainless is disabled will produce binaries as usual. 
+* No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.
 
-* No incremental compilation support. All sources (included the stainless-library sources) are recompiled (or, better, re-typechecked since when stainless is enabled compilation stops soon after the ``typecheck`` compiler phase) at every ``compile`` execution.
+* The plugin only supports vanilla Scala. To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
-Also, note that the ``sbt-stainless`` plugin only supports vanilla Scala. To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
+Also, note that the plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell.
 
 Linux & Mac OS-X
 ----------------
