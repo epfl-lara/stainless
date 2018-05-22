@@ -152,6 +152,12 @@ case class CoqApplication(f: CoqExpression, args: Seq[CoqExpression]) extends Co
 }
 
 case class CoqIdentifier(id: Identifier) extends CoqExpression {
+  override def equals(o: scala.Any): Boolean = o match {
+      //TODO FIXME
+    case that@CoqIdentifier(thatID) => id.equals(thatID) && coqString.equals(that.coqString)
+    case _ => false
+  }
+
   override def coqString = {
     val res = id.name.replaceAll("\\$","___")
       .replaceAll("::", "cons_")
@@ -212,8 +218,11 @@ case class CoqExists(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpressi
   } + ")"
 }
 
-case class CoqLet(vd: CoqIdentifier, value: CoqExpression, body: CoqExpression) extends CoqExpression {
-  override def coqString = s"let ${vd.coqString} := (${value.coqString}) in (${body.coqString})"
+case class CoqLet(vd: CoqIdentifier, tpe: Option[CoqExpression], value: CoqExpression, body: CoqExpression) extends CoqExpression {
+  override def coqString = if (tpe.isDefined)
+    s"let ${vd.coqString}: ${tpe.get.coqString} := (${value.coqString}) in (${body.coqString})"
+  else
+    s"let ${vd.coqString} := (${value.coqString}) in (${body.coqString})"
 }
 
 case class CoqLambda(vd: CoqIdentifier, body: CoqExpression) extends CoqExpression {
