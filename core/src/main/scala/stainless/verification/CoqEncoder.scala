@@ -187,7 +187,7 @@ trait CoqEncoder {
     case IsConstructor(expr, id) =>
         CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr)))
     case Error(tpe, desc) => deriveContradiction //TODO is it ok?
-
+    case Assume(pred, body) => Arrow(transformTree(pred), transformTree(body))//IfThenElse(transformTree(pred), transformType(t.getType), CoqLambda(coqUnused, transformTree(body)), CoqLambda(coqUnused, deriveContradiction))
     case _ =>
       ctx.reporter.warning(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
       magic(transformType(t.getType))
