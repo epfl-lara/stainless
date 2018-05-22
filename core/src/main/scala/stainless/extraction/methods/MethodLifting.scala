@@ -10,7 +10,7 @@ import inox.utils.Position
 
 trait MethodLifting extends PipelinePhase { self =>
   val s: Trees
-  val t: throwing.Trees
+  val t: oo.Trees
   import s._
 
   private[this] val functionCache : MutableMap[Identifier, t.FunDef] = MutableMap.empty
@@ -272,5 +272,16 @@ trait MethodLifting extends PipelinePhase { self =>
       fullBody,
       fd.flags filterNot (f => f == IsMethodOf(cid) || f == IsInvariant || f == IsAbstract) map transformer.transform
     ).copiedFrom(fd)
+  }
+}
+
+object MethodLifting {
+  def apply(ts: Trees, tt: oo.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+    val s: ts.type
+    val t: tt.type
+  } = new MethodLifting {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
+    override protected val previous: prev.type = prev
   }
 }
