@@ -144,7 +144,7 @@ trait CoqEncoder {
       transformTree(body)
     case Let(vd, value, body) =>
       //without type
-      CoqLet(makeFresh(vd.id), transformTree(value), transformTree(body))
+      CoqLet(makeFresh(vd.id), None, transformTree(value), transformTree(body))
     case Lambda(vds, body) =>
       vds.foldRight(transformTree(body))((a,b) => CoqLambda(makeFresh(a.id), b) )
     //Integer operations
@@ -187,7 +187,10 @@ trait CoqEncoder {
     case IsConstructor(expr, id) =>
         CoqApplication(recognizer(id), getTParams(getConstructor(id)).map(_ => CoqUnknown) ++ Seq(transformTree(expr)))
     case Error(tpe, desc) => deriveContradiction //TODO is it ok?
-    case Assume(pred, body) => Arrow(transformTree(pred), transformTree(body))//IfThenElse(transformTree(pred), transformType(t.getType), CoqLambda(coqUnused, transformTree(body)), CoqLambda(coqUnused, deriveContradiction))
+    case Assume(pred, body) =>
+      CoqLet(makeFresh("assumption"), None, magic(CoqEquals(transformTree(pred), trueBoolean)), transformTree(body) )
+    case Assert(pred,_,body ) =>
+      CoqLet(makeFresh("assertion"), Some(CoqEquals(transformTree(pred), trueBoolean)), CoqUnknown, transformTree(body) )
     case _ =>
       ctx.reporter.warning(s"The translation to Coq does not support expression `${t.getClass}` yet: $t.")
       magic(transformType(t.getType))
@@ -498,8 +501,25 @@ trait CoqEncoder {
         //important to keep order
         val allParamNames: Seq[CoqIdentifier] = (allParams map (_._1)) :+ returnTypeName
 
+
+        if (fd.id.name.contains("chunk")) {
+          ctx.reporter.info(s"$allParamNames\n\n\n")
+
+          for (x <- allParamNames) {
+            for (y <- allParamNames) {
+              println(s"$x - $y : ${if (x==y) "true" else "false"}, ${x.id} - ${y.id}: ${if (x.id==y.id) "true" else "false"}")
+            }
+          }
+
+          ctx.reporter.info(s"${(allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).mkString("\n")}")
+          val tmp: Seq[(CoqIdentifier, Seq[CoqIdentifier])] = allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}
+          ctx.reporter.info("\n\n\n")
+          ctx.reporter.info(s"${tmp.toMap.mkString("\n")}")
+        }
+
         val dependsOn: Map[CoqIdentifier, Seq[CoqIdentifier]] =
         (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
+
 
         val fullType: Map[CoqIdentifier, CoqExpression] =
           allParamMap map {
@@ -531,7 +551,7 @@ trait CoqEncoder {
         val markedUnfolding = Marked(ids.map(CoqUnboundIdentifier(_)), "unfolding " + funName.coqString + "_equation")
         val rwrtTarget = CoqContext(CoqApplication(funName, ids.map(id => CoqUnboundIdentifier(id))))
 
-        val let = CoqLet(u, CoqFresh("U"), CoqSequence(Seq(
+        val let = CoqLet(u, None, CoqFresh("U"), CoqSequence(Seq(
           poseNew(Mark(ids, "unfolded " + funName.coqString + "_equation")),
           PoseProof(CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids), Some(u)),
           Rewrite(u)
