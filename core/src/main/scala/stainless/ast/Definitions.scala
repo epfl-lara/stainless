@@ -29,7 +29,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   trait AbstractSymbols
     extends super.AbstractSymbols
        with TypeOps
-       with SymbolOps { self0: Symbols =>
+       with SymbolOps
+       with CallGraph
+       with DependencyGraph { self0: Symbols =>
 
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
