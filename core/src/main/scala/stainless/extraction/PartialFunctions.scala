@@ -5,11 +5,11 @@ package extraction
 
 import scala.language.existentials
 
-trait PartialFunctions extends PipelinePhase with SimpleOOPhase { self =>
+trait PartialFunctions extends PipelinePhase with oo.SimplePhase { self =>
   val t: self.s.type
   import s._
 
-  private class PartialFunctionsTransformer(symbols: Symbols) extends oo.TreeTransformer {
+  override protected def getTransformer(symbols: Symbols) = new oo.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
@@ -85,10 +85,6 @@ trait PartialFunctions extends PipelinePhase with SimpleOOPhase { self =>
 
       case other => other
     }
-  }
-
-  final override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
-    new PartialFunctionsTransformer(symbols).transform(fd)
   }
 }
 

@@ -36,6 +36,8 @@ package object extraction {
       case _ => super.getDeconstructor(that)
     }
 
+    object Uncached extends Flag("uncached", Seq())
+
     override val exprOps: ExprOps { val trees: self.type } = new {
       protected val trees: self.type = self
     } with ExprOps
@@ -45,7 +47,15 @@ package object extraction {
   trait Printer extends ast.Printer with termination.Printer
 
   /** Unifies all stainless tree extractors */
-  trait TreeDeconstructor extends ast.TreeDeconstructor with termination.TreeDeconstructor
+  trait TreeDeconstructor extends ast.TreeDeconstructor with termination.TreeDeconstructor {
+    protected val s: Trees
+    protected val t: Trees
+
+    override def deconstruct(flag: s.Flag): DeconstructedFlag = flag match {
+      case s.Uncached => (Seq(), Seq(), Seq(), (_, _, _) => t.Uncached)
+      case _ => super.deconstruct(flag)
+    }
+  }
 
   /** Unifies all stainless expression operations */
   trait ExprOps extends ast.ExprOps with termination.ExprOps

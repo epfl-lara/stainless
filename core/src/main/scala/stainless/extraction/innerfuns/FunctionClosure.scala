@@ -6,31 +6,18 @@ package innerfuns
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait FunctionClosure extends PipelinePhase { self =>
+trait FunctionClosure extends PipelinePhase with CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: ast.Trees
 
-  private[this] val functionCache: MutableMap[Identifier, Seq[t.FunDef]] = MutableMap.empty
-  private[this] val sortCache: MutableMap[Identifier, t.ADTSort] = MutableMap.empty
+  override protected type FunctionResult = Seq[t.FunDef]
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
 
-  // For ADT transformation
-  private[this] object identity extends ast.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
-  }
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
 
-  override def nextSymbols(id: Identifier): t.Symbols = {
-    val symbols = lastSymbols(id)
-    t.NoSymbols
-      .withFunctions(symbols.functions.values.toSeq.flatMap { fd =>
-        functionCache.getOrElseUpdate(fd.id, transformFunction(symbols, fd))
-      })
-      .withSorts(symbols.sorts.values.toSeq.map { sort =>
-        sortCache.getOrElseUpdate(sort.id, identity.transform(sort))
-      })
-  }
-
-  protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
+  override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
     import s._
     import symbols._
 
@@ -112,7 +99,7 @@ trait FunctionClosure extends PipelinePhase { self =>
       // Directly nested functions with their p.c.
       val nestedWithPathsFull = {
         val funDefs = exprOps.directlyNestedFunDefs(fd.fullBody)
-        symbols.collectWithPC(fd.fullBody) {
+        collectWithPC(fd.fullBody) {
           case (LetRec(fd1, body), path) => (fd1.filter(funDefs), path)
         }
       }

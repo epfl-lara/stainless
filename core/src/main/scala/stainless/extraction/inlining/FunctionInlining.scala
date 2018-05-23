@@ -6,28 +6,30 @@ package inlining
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait FunctionInlining extends PipelinePhase { self =>
+trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: ast.Trees
+  import s._
 
-  private[this] val functionCache: MutableMap[Identifier, Option[t.FunDef]] = MutableMap.empty
-  private[this] val sortCache: MutableMap[Identifier, t.ADTSort] = MutableMap.empty
+  override protected type FunctionResult = Option[t.FunDef]
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
 
-  private object identity extends ast.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
+  private[this] object identity extends ast.TreeTransformer {
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
   }
 
-  override def nextSymbols(id: Identifier): t.Symbols = {
-    val symbols = lastSymbols(id)
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
 
-    import s._
+  override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
     import symbols._
 
-    class Inliner(within: FunDef, inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
+    class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
       override def transform(expr: s.Expr): t.Expr = expr match {
-        case fi: FunctionInvocation if fi.tfd.id != within.id =>
+        case fi: FunctionInvocation if fi.tfd.id != fd.id =>
           inlineFunctionInvocations(fi.copy(args = fi.args map transform))
 
         case _ => super.transform(expr)
@@ -71,11 +73,19 @@ trait FunctionInlining extends PipelinePhase { self =>
           }
         }
 
-        val inliner = new Inliner(within, if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
+        val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
         inliner.transform(result)
       }
     }
 
+    if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
+    else Some(identity.transform(fd.copy(
+      fullBody = new Inliner().transform(fd.fullBody),
+      flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f == Synthetic)
+    )))
+  }
+
+  override protected def transformSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     for (fd <- symbols.functions.values) {
       val hasInlineFlag = fd.flags contains Inline
       val hasInlineOnceFlag = fd.flags contains InlineOnce
@@ -84,7 +94,7 @@ trait FunctionInlining extends PipelinePhase { self =>
         throw MissformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
       }
 
-      if (hasInlineFlag && transitivelyCalls(fd, fd)) {
+      if (hasInlineFlag && context.transitivelyCalls(fd, fd)) {
         throw MissformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
       }
 
@@ -93,19 +103,7 @@ trait FunctionInlining extends PipelinePhase { self =>
       }
     }
 
-    val newSymbols = t.NoSymbols
-      .withSorts(symbols.sorts.values.toSeq.map { sort =>
-        sortCache.getOrElseUpdate(sort.id, identity.transform(sort))
-      })
-      .withFunctions(symbols.functions.values.toSeq.flatMap { fd =>
-        functionCache.getOrElseUpdate(fd.id, {
-          if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
-          else Some(identity.transform(fd.copy(
-            fullBody = new Inliner(fd).transform(fd.fullBody),
-            flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f == Synthetic)
-          )))
-        })
-      })
+    val newSymbols = super.transformSymbols(context, symbols)
 
     val inlinedOnceFuns = symbols.functions.values.filter(_.flags contains InlineOnce).map(_.id).toSet
 

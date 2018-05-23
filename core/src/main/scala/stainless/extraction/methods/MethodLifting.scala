@@ -13,14 +13,14 @@ trait MethodLifting extends PipelinePhase { self =>
   val t: oo.Trees
   import s._
 
-  private[this] val functionCache : MutableMap[Identifier, t.FunDef] = MutableMap.empty
-  private[this] val classCache    : MutableMap[Identifier, (t.ClassDef, Option[t.FunDef])] = MutableMap.empty
+  private[this] final val funCache   = new ExtractionCache[s.FunDef, t.FunDef]
+  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]
 
   private sealed trait Override { val cid: Identifier }
   private case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[Override]) extends Override
   private case class ValOverride(cid: Identifier, vd: s.ValDef) extends Override
 
-  private object identity extends oo.TreeTransformer {
+  private[this] object identity extends oo.TreeTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t
   }
@@ -48,8 +48,8 @@ trait MethodLifting extends PipelinePhase { self =>
 
     val default = new BaseTransformer(symbols)
 
-    symbols.classes.values.foreach { cd =>
-      val (cls, fun) = classCache.getOrElseUpdate(cd.id, {
+    for (cd <- symbols.classes.values) {
+      val (cls, fun) = classCache.cached(cd, symbols) {
         if (cd.parents.nonEmpty) {
           (identity.transform(cd), None)
         } else {
@@ -63,22 +63,22 @@ trait MethodLifting extends PipelinePhase { self =>
               default.transform(fd)
             }
 
-          symbols.functions.values
-            .filterNot(functionCache contains _.id)
-            .foreach(fd => functionCache(fd.id) = transformMethod(fd))
+          for (fd <- symbols.functions.values if !(funCache contains (fd, symbols))) {
+            funCache(fd, symbols) = transformMethod(fd)
+          }
 
           (
             identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id)))),
             invariant.map(transformMethod)
           )
         }
-      })
+      }
 
       classes += cls
       functions ++= fun
     }
 
-    functions ++= symbols.functions.values.map(fd => functionCache(fd.id))
+    functions ++= symbols.functions.values.map(funCache(_, symbols))
 
     t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
   }

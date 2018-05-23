@@ -4,7 +4,7 @@ package stainless
 package extraction
 package throwing
 
-trait ExceptionLifting extends PipelinePhase with SimpleOOPhase { self =>
+trait ExceptionLifting extends PipelinePhase with oo.SimplePhase { self =>
   val s: Trees
   val t: ast.Trees
 }
