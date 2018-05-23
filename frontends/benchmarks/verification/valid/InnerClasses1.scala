@@ -10,7 +10,9 @@ object InnerClasses1 {
     case class Stuff() extends Bar {
       def hello: BigInt = 42
     }
+
     val s: Stuff = Stuff()
+
     s.hello
   }
 
