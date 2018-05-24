@@ -655,16 +655,9 @@ trait CodeExtraction extends ASTExtractors {
       dctx.withLocalFun(sym, name, tparams.map(tp => xt.TypeParameterDef(tp)))
     }
 
-    val cctx = es.collect {
-      case cd: ClassDef => cd
-    }.foldLeft(fctx) { case (dctx, cd) =>
-      val (xcd, methods) = extractClass(cd)(dctx)
-      dctx.withLocalClass(xcd.id, xcd, methods)
-    }
-
     val (vds, vctx) = es.collect {
       case v @ ValDef(_, name, tpt, _) => (v.symbol, name, tpt)
-    }.foldLeft((Map.empty[Symbol, xt.ValDef], cctx)) { case ((vds, dctx), (sym, name, tpt)) =>
+    }.foldLeft((Map.empty[Symbol, xt.ValDef], fctx)) { case ((vds, dctx), (sym, name, tpt)) =>
       if (!sym.isMutable) {
         val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
         (vds + (sym -> vd), dctx.withNewVar(sym, () => vd.toVariable))
@@ -674,27 +667,34 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
+    val cctx = es.collect {
+      case cd: ClassDef => cd
+    }.foldLeft(vctx) { case (dctx, cd) =>
+      val (xcd, methods) = extractClass(cd)(dctx)
+      dctx.withLocalClass(xcd.id, xcd, methods)
+    }
+
     def rec(es: List[Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
       case (e @ ExAssertExpression(contract, oerr)) :: xs =>
-        val const = extractTree(contract)(vctx)
+        val const = extractTree(contract)(cctx)
         val b     = rec(xs)
         xt.Assert(const, oerr, b).setPos(e.pos)
 
       case (e @ ExRequiredExpression(contract)) :: xs =>
-        val pre = extractTree(contract)(vctx)
+        val pre = extractTree(contract)(cctx)
         val b   = rec(xs)
         xt.Require(pre, b).setPos(e.pos)
 
       case (e @ ExDecreasesExpression(ranks)) :: xs =>
-        val rs = ranks.map(extractTree(_)(vctx))
+        val rs = ranks.map(extractTree(_)(cctx))
         val b = rec(xs)
         xt.Decreases(xt.tupleWrap(rs), b).setPos(e.pos)
 
       case (d @ ExFunctionDef(sym, tparams, vparams, tpt, rhs)) :: xs =>
-        val (vd, tdefs) = vctx.localFuns(sym)
-        val fd = extractFunction(sym, tparams, vparams, rhs, typeParams = Some(tdefs.map(_.tp)))(vctx)
+        val (vd, tdefs) = cctx.localFuns(sym)
+        val fd = extractFunction(sym, tparams, vparams, rhs, typeParams = Some(tdefs.map(_.tp)))(cctx)
         val letRec = xt.LocalFunDef(vd, tdefs, xt.Lambda(fd.params, fd.fullBody).setPos(d.pos))
 
         rec(xs) match {
@@ -703,28 +703,27 @@ trait CodeExtraction extends ASTExtractors {
         }
 
       case (cd: ClassDef) :: xs =>
-        val (xcd, methods) = extractClass(cd)(vctx)
+        val (xcd, methods) = extractClass(cd)(cctx)
         val body = rec(xs)
-        val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(vctx)
-        if (xcd.parents.isEmpty) outOfSubsetError(cd.pos, "Local classes must extend a single non-local abstract class or trait")
+        val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(cctx)
         xt.LetClass(xt.LocalClassDef(xcd, methods), body, retType).setPos(cd.pos)
 
       case (v @ ValDef(mods, name, tpt, _)) :: xs =>
         if (mods.isMutable) {
-          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(vctx), rec(xs)).setPos(v.pos)
+          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(cctx), rec(xs)).setPos(v.pos)
         } else {
-          xt.Let(vds(v.symbol), extractTree(v.rhs)(vctx), rec(xs)).setPos(v.pos)
+          xt.Let(vds(v.symbol), extractTree(v.rhs)(cctx), rec(xs)).setPos(v.pos)
         }
 
       case x :: Nil =>
-        extractTree(x)(vctx)
+        extractTree(x)(cctx)
 
       case x :: rest =>
         rec(rest) match {
           case xt.Block(elems, last) =>
-            xt.Block(extractTree(x)(vctx) +: elems, last).setPos(x.pos)
+            xt.Block(extractTree(x)(cctx) +: elems, last).setPos(x.pos)
           case e =>
-            xt.Block(Seq(extractTree(x)(vctx)), e).setPos(x.pos)
+            xt.Block(Seq(extractTree(x)(cctx)), e).setPos(x.pos)
         }
     }
 

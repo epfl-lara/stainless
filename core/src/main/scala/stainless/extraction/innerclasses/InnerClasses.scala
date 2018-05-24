@@ -91,10 +91,16 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       // in the methods, although they are of the same types.
       val subst = (freeVariables map (_.id) zip newFields).toMap
       val newMethods = (localInv.toSeq ++ lcd.methods).map { fd =>
-        val body = exprOps.postMap {
-          case v: Variable if subst contains v.id => Some(ClassSelector(This(typedClass.toType), subst(v.id).id))
+        val body = exprOps.preMap {
+          case Assignment(v, e) if subst contains v.id =>
+            throw new MissformedStainlessCode(v, "Local classes cannot mutate closed-over variables")
+
+          case v: Variable if subst contains v.id =>
+            Some(ClassSelector(This(typedClass.toType), subst(v.id).id))
+
           case _ => None
         } (fd.fullBody)
+
         fd.copy(fullBody = body)
       }
 
