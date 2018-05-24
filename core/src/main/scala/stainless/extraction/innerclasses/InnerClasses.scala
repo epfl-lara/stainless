@@ -101,7 +101,7 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       liftedClass.id -> LiftedClass(liftedClass, freeVariables, newMethods, localTypedClass.toType)
     }
 
-    class LocalClassesCollector(var tparams: Set[TypeParameterDef]) extends transformers.CollectorWithPC { self =>
+    class LocalClassesCollector(tparams: Set[TypeParameterDef]) extends transformers.CollectorWithPC { self =>
       val trees: s.type = s
       val symbols: syms.type = syms
       import trees._
@@ -137,6 +137,15 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     val localClassDefs = syms.functions.values.toSeq.flatMap(collectLocalClassDefs(_))
     val localClasses = localClassDefs.map(liftLocalClass(_)).toMap
 
+    for (ctx <- localClassDefs; fd <- ctx.lcd.methods) {
+      val hasApplyLetRec = exprOps.exists {
+        case _: ApplyLetRec => true
+        case _ => false
+      } (fd.fullBody)
+
+      if (hasApplyLetRec) throw MissformedStainlessCode(fd, "Inner classes cannot reference local functions")
+    }
+
     object transformer extends innerclasses.TreeTransformer {
       val s: self.s.type = self.s
       val t: self.t.type = self.t
@@ -170,8 +179,8 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     val sorts        = syms.sorts.values.map(transformer.transform).toSeq
 
     val res = t.NoSymbols.withFunctions(functions).withClasses(classes).withSorts(sorts)
-    // implicit val popts = new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))
-    // println(res.asString)
+    implicit val popts = new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))
+    println(res.asString)
     // res.ensureWellFormed
     res
   }
