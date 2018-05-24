@@ -4,8 +4,6 @@ package stainless
 package extraction
 package innerfuns
 
-import scala.collection.mutable.{Map => MutableMap}
-
 trait FunctionClosure extends PipelinePhase with CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: ast.Trees

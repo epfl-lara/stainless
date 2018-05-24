@@ -4,8 +4,6 @@ package stainless
 package extraction
 package oo
 
-import scala.collection.mutable.{Map => MutableMap}
-
 trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
   val s: Trees
   val t: Trees

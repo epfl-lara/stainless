@@ -4,8 +4,6 @@ package stainless
 package extraction
 package inlining
 
-import scala.collection.mutable.{Map => MutableMap}
-
 trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: ast.Trees
