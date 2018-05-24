@@ -386,3 +386,14 @@ trait AntiAliasing extends PipelinePhase with SimpleSorts with SimpleFunctions w
   override protected def transformSort(analysis: SymbolsAnalysis, sort: ADTSort): ADTSort =
     analysis.transformer.transform(sort)
 }
+
+object AntiAliasing {
+  def apply(trees: Trees)(prev: ExtractionPhase { val t: trees.type }): ExtractionPhase {
+    val s: trees.type
+    val t: trees.type
+  } = new AntiAliasing {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override protected val previous: prev.type = prev
+  }
+}
