@@ -211,7 +211,7 @@ trait IdentityFunctions extends SimpleFunctions { self =>
 }
 
 trait SimplePhase extends ExtractionPhase with SimpleSorts with SimpleFunctions { self =>
-  override protected type TransformerContext = ast.TreeTransformer {
+  override protected type TransformerContext <: ast.TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }

@@ -39,7 +39,7 @@ trait IdentityClasses extends SimpleClasses { self =>
 }
 
 trait SimplePhase extends CachingPhase with extraction.SimplePhase with SimpleClasses { self =>
-  override protected type TransformerContext = oo.TreeTransformer {
+  protected type TransformerContext <: oo.TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }
