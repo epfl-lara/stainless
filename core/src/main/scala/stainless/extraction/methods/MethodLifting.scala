@@ -4,8 +4,6 @@ package stainless
 package extraction
 package methods
 
-import scala.collection.mutable.{Map => MutableMap}
-
 import inox.utils.Position
 
 trait MethodLifting extends PipelinePhase { self =>
@@ -83,10 +81,6 @@ trait MethodLifting extends PipelinePhase { self =>
     t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
   }
 
-  private[this] val childrenCache: MutableMap[Identifier, Seq[Identifier]] = MutableMap.empty
-  private[this] def children(cid: Identifier)(symbols: s.Symbols): Seq[Identifier] =
-    childrenCache.getOrElseUpdate(cid, symbols.getClass(cid).children(symbols).map(_.id))
-
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, FunOverride])
   private[this] def metadata(cid: Identifier)(symbols: s.Symbols): Metadata = {
     def firstSymbol(cid: Identifier, vd: ValDef): Option[Symbol] = {
@@ -100,11 +94,11 @@ trait MethodLifting extends PipelinePhase { self =>
     val overrides: Map[Symbol, Override] = {
       def rec(id: Identifier): Map[Symbol, Override] = {
         val cd = symbols.getClass(id)
-        val cids = children(id)(symbols)
-        val ctrees = if (cids.isEmpty) {
+        val children = cd.children(symbols)
+        val ctrees = if (children.isEmpty) {
           Seq(cd.fields.flatMap(vd => firstSymbol(id, vd).map(_ -> ValOverride(id, vd))).toMap)
         } else {
-          cids.map(rec)
+          children.map(ccd => rec(ccd.id))
         }
 
         val newOverrides = cd.methods(symbols).map { fid =>
@@ -225,7 +219,7 @@ trait MethodLifting extends PipelinePhase { self =>
 
     val returnType = transformer.transform(fd.returnType)
 
-    val notFullyOverriden: Boolean = !(symbols.getClass(cid).flags contains IsSealed) || {
+    val notFullyOverriden: Boolean = !(cd.flags contains IsSealed) || {
       def rec(o: Override): Boolean = o match {
         case FunOverride(_, Some(_), _) => true
         case FunOverride(_, _, children) => children.forall(rec)
@@ -233,8 +227,8 @@ trait MethodLifting extends PipelinePhase { self =>
       }
 
       val coMap = cos.map(co => co.cid -> co).toMap
-      children(cid)(symbols).exists {
-        ccid => !(coMap contains ccid) || !rec(coMap(ccid))
+      cd.children(symbols).exists {
+        ccd => !(coMap contains ccd.id) || !rec(coMap(ccd.id))
       }
     }
 
