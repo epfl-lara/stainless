@@ -185,8 +185,8 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     val sorts        = syms.sorts.values.map(transformer.transform).toSeq
 
     val res = t.NoSymbols.withFunctions(functions).withClasses(classes).withSorts(sorts)
-    implicit val popts = new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))
-    println(res.asString)
+    // implicit val popts = new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))
+    // println(res.asString)
     // res.ensureWellFormed
     res
   }
