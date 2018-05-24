@@ -4,15 +4,14 @@ package stainless
 package extraction
 package imperative
 
-trait EffectsChecking { self =>
-  val trees: Trees
-  import trees._
+trait EffectsChecker { self: EffectsAnalyzer =>
+  import s._
 
-  def checkEffects(effects: EffectsAnalysis { val trees: self.trees.type }): Unit = {
-    implicit val s = effects.symbols
-    import effects.symbols._
+  def checkFunction(fd: FunDef)(symbols: Symbols, effects: EffectsAnalysis): Unit = {
+    import symbols._
+    import effects._
 
-    def checkFunction(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
+    def check(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
       checkMutableField(fd)
       checkEffectsLocations(fd)
 
@@ -20,44 +19,44 @@ trait EffectsChecking { self =>
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
 
         // check return value
-        if (effects.isMutableType(bd.getType) && !isExpressionFresh(bd)) {
+        if (isMutableType(bd.getType) && !isExpressionFresh(bd)) {
           throw ImperativeEliminationException(bd,
             "Cannot return a shared reference to a mutable object: " + bd)
         }
 
         object traverser extends inox.transformers.Transformer {
-          val trees: self.trees.type = self.trees
+          val trees: self.s.type = self.s
           type Env = Set[ValDef]
           val initEnv = fd.params.toSet
 
           def rec(e: Expr, bindings: Set[ValDef]): Expr = e match {
-            case l @ Let(vd, e, b) if effects.isMutableType(vd.tpe) =>
+            case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
               if (!isExpressionFresh(e)) try {
                 // Check if a precise effect can be computed
-                effects.getEffect(e)
+                getEffect(e)
               } catch {
                 case _: MissformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
               }
               Let(vd, rec(e, bindings), rec(b, bindings + vd)).copiedFrom(l)
 
-            case l @ LetVar(vd, e, b) if effects.isMutableType(vd.tpe) =>
+            case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
               if (!isExpressionFresh(e))
                 throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
               LetVar(vd, rec(e, bindings), rec(b, bindings + vd)).copiedFrom(l)
 
             case l @ LetRec(fds, body) =>
-              fds.foreach(fd => checkFunction(Inner(fd), bindings))
+              fds.foreach(fd => check(Inner(fd), bindings))
               LetRec(fds, rec(body, bindings)).copiedFrom(l)
 
             case l @ Lambda(args, body) =>
-              if (effects.isMutableType(body.getType) && !isExpressionFresh(body))
+              if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
               Lambda(args, rec(body, bindings ++ args)).copiedFrom(l)
 
             case adt @ ADT(id, tps, args) =>
               (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
-                if (effects.isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
                   throw ImperativeEliminationException(e,
                     "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
@@ -71,12 +70,10 @@ trait EffectsChecking { self =>
       }
     }
 
-
     def checkMutableField(fd: FunAbstraction): Unit = {
-      if (fd.flags.exists { case IsField(_) => true case _ => false } && effects.isMutableType(fd.returnType))
+      if (fd.flags.exists { case IsField(_) => true case _ => false } && isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
     }
-
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
       case Require(pre, _) =>
@@ -148,7 +145,7 @@ trait EffectsChecking { self =>
      * as it can not contains reference to a mutable object, by definition
      */
     def isExpressionFresh(expr: Expr): Boolean = {
-      def rec(expr: Expr, bindings: Set[ValDef]): Boolean = !effects.isMutableType(expr.getType) || (expr match {
+      def rec(expr: Expr, bindings: Set[ValDef]): Boolean = !isMutableType(expr.getType) || (expr match {
         case v: Variable => bindings(v.toVal)
         case ADT(_, _, args) => args.forall(rec(_, bindings))
 
@@ -163,7 +160,7 @@ trait EffectsChecking { self =>
         case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
 
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
-        case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !effects.isMutableType(base)
+        case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !isMutableType(base)
 
         // These cases cover some limitations due to dotty inlining
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
@@ -179,11 +176,13 @@ trait EffectsChecking { self =>
       rec(expr, Set.empty)
     }
 
-    for (fd <- effects.symbols.functions.values) {
-      checkFunction(Outer(fd), Set.empty)
-    }
+    check(Outer(fd), Set.empty)
+  }
 
-    for (sort <- effects.symbols.sorts.values; fd <- sort.invariant) {
+  def checkSort(sort: ADTSort)(symbols: Symbols, effects: EffectsAnalysis): Unit = {
+    import symbols._
+
+    for (fd <- sort.invariant) {
       val invEffects = effects(fd)
       if (invEffects.nonEmpty)
         throw ImperativeEliminationException(fd, "Invariant has effects on: " + invEffects.head)

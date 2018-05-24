@@ -6,28 +6,19 @@ package imperative
 
 import inox._
 
-trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { self =>
-  val trees: Trees
-  lazy val s: trees.type = trees
-  lazy val t: trees.type = trees
-  import trees._
+trait AntiAliasing extends PipelinePhase with SimpleSorts with SimpleFunctions with EffectsAnalyzer with EffectsChecker { self =>
+  import s._
 
-  def transform(syms: Symbols): Symbols = {
+  protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
+    import symbols._
 
     object transformer extends SelfTreeTransformer {
-      import syms._
-
-      object effects extends {
-        val trees: self.trees.type = self.trees
-        val symbols: syms.type = syms
-      } with EffectsAnalysis
-
       //convert a function type with mutable parameters, into a function type
       //that returns the mutable parameters. This makes explicit all possible
       //effects of the function. This should be used for higher order functions
       //declared as parameters.
       def makeFunctionTypeExplicit(tpe: FunctionType): FunctionType = {
-        val newReturnTypes = tpe.from.filter(t => effects.isMutableType(t))
+        val newReturnTypes = tpe.from.filter(t => isMutableType(t))
         if (newReturnTypes.isEmpty) tpe
         else FunctionType(tpe.from, TupleType(tpe.to +: newReturnTypes))
       }
@@ -63,18 +54,16 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         case _ => super.transform(tpe)
       }
     }
+  }
 
-    val newSyms = syms.transform(transformer)
-    import newSyms._
+  override protected type TransformerContext = SymbolsAnalysis
+  override protected def getContext(symbols: Symbols) = SymbolsAnalysis(symbols, EffectsAnalysis(symbols))
 
-    object effects extends {
-      val trees: self.trees.type = self.trees
-      val symbols: newSyms.type = newSyms
-    } with EffectsAnalysis
+  override protected def transformFunction(analysis: SymbolsAnalysis, fd: FunDef): FunDef = {
+    import analysis._
+    import symbols._
 
-    import effects._
-
-    checkEffects(effects)
+    checkFunction(fd)(symbols, effects)
 
     type Environment = (Set[ValDef], Map[ValDef, Expr], Map[ValDef, LocalFunDef])
     implicit class EnvWrapper(env: Environment) {
@@ -156,7 +145,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
     ): Expr = {
 
       object transformer extends inox.transformers.Transformer {
-        val trees: self.trees.type = self.trees
+        val trees: self.s.type = self.s
         type Env = Environment
         val initEnv: Env = env
 
@@ -207,7 +196,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               },
               TupleSelect(freshRes.toVariable, 1))
 
-            if (effects.isMutableType(nfiType)) {
+            if (isMutableType(nfiType)) {
               LetVar(freshRes, nfi, rec(extractResults, env withBinding freshRes))
             } else {
               Let(freshRes, nfi, rec(extractResults, env))
@@ -218,7 +207,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
         }
 
         protected def rec(e: Expr, env: Env): Expr = (e match {
-          case l @ Let(vd, e, b) if effects.isMutableType(vd.tpe) =>
+          case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = rec(e, env)
             getKnownEffect(newExpr) match {
               case Some(_) =>
@@ -230,12 +219,12 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
                 LetVar(vd, newExpr, newBody).copiedFrom(l)
             }
 
-          case l @ LetVar(vd, e, b) if effects.isMutableType(vd.tpe) =>
+          case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = rec(e, env)
             val newBody = rec(b, env withBinding vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
-          case m @ MatchExpr(scrut, cses) if effects.isMutableType(scrut.getType) =>
+          case m @ MatchExpr(scrut, cses) if isMutableType(scrut.getType) =>
             if (effects(scrut).nonEmpty) {
               def liftEffects(e: Expr): (Seq[(ValDef, Expr)], Expr) = e match {
                 case ArraySelect(e, i) if effects(i).nonEmpty =>
@@ -293,7 +282,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
           case l @ Lambda(params, body) =>
             val ft @ FunctionType(_, _) = l.getType
-            val ownEffects = effects.functionTypeEffects(ft)
+            val ownEffects = functionTypeEffects(ft)
             val aliasedParams: Seq[ValDef] = params.zipWithIndex.flatMap {
               case (vd, i) if ownEffects.contains(i) => Some(vd)
               case _ => None
@@ -339,15 +328,17 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
             val resultType = typeOps.instantiateType(effects.getReturnType(fd), (tparams zip tps).toMap)
             mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
 
-          case app @ Application(callee, args) => callee.getType match {
-            case ft @ FunctionType(from, to @ TupleType(tps)) if effects.isMutableType(tps.last) =>
+          case app @ Application(callee, args) =>
+            val ft @ FunctionType(from, to) = callee.getType
+            val ftEffects = functionTypeEffects(ft)
+            if (ftEffects.nonEmpty) {
               val nfi = Application(rec(callee, env), args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(app)
-              val ftEffects = effects.functionTypeEffects(ft)
               val params = from.map(tpe => ValDef.fresh("x", tpe))
               val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Target(Seq())) }
               mapApplication(params, args, nfi, to, appEffects.toSet, env)
-            case _ => Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
-          }
+            } else {
+              Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
+            }
 
           case Operator(es, recons) => recons(es.map(rec(_, env)))
         }).copiedFrom(e)
@@ -361,7 +352,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
     def varsInScope(fd: FunAbstraction): Set[Variable] = {
       val allFreeVars = exprOps.variablesOf(fd.fullBody)
       val freeVars = allFreeVars -- fd.params.map(_.toVariable)
-      freeVars.filter(v => effects.isMutableType(v.tpe))
+      freeVars.filter(v => isMutableType(v.tpe))
     }
 
     //given a receiver object (mutable class or array, usually as a reference id),
@@ -389,19 +380,9 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
       rec(effect.receiver, effect.target.path)
     }
 
-    val finalSyms = NoSymbols
-      .withSorts(newSyms.sorts.values.toSeq)
-      .withFunctions(for (fd <- newSyms.functions.values.toSeq) yield {
-        updateFunction(Outer(fd), Environment.empty).toFun
-      })
-
-    for (fd <- finalSyms.functions.values) {
-      if (!finalSyms.isSubtypeOf(fd.fullBody.getType(finalSyms), fd.returnType)) {
-        println(fd.asString(PrinterOptions(printUniqueIds = true)))
-        println(finalSyms.explainTyping(fd.fullBody)(PrinterOptions(printUniqueIds = true, symbols = Some(finalSyms))))
-      }
-    }
-
-    finalSyms
+    transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun)
   }
+
+  override protected def transformSort(analysis: SymbolsAnalysis, sort: ADTSort): ADTSort =
+    analysis.transformer.transform(sort)
 }
