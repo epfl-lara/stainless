@@ -4,8 +4,6 @@ package stainless
 package extraction
 package imperative
 
-import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
-
 /** Provides effect analysis for full Stainless language
   *
   * This holds state for caching the current state of the analysis, so if
