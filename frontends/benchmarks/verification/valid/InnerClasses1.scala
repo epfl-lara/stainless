@@ -8,7 +8,7 @@ object InnerClasses1 {
 
   def bar: BigInt = {
     case class Stuff() extends Bar {
-      def hello: BigInt = 42
+      def hello: BigInt = Some(BigInt(42)).get
     }
 
     val s: Stuff = Stuff()

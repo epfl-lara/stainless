@@ -6,7 +6,7 @@ object InnerClasses1 {
     def something: BigInt
   }
 
-  def foo[A](x: A, l: BigInt): Test = {
+  def foo(x: A, l: BigInt): Test = {
     require(l > 1)
     case class FooBarBaz(a: A) extends Test {
       def something: BigInt = l
@@ -14,13 +14,9 @@ object InnerClasses1 {
     FooBarBaz(x)
   }
 
-  abstract class Bar {
-    def hello: BigInt
-  }
-
   def bar: BigInt = {
-    case class Stuff() extends Bar {
-      def hello: BigInt = 42
+    case class Stuff() {
+      def hello: BigInt = Some(BigInt(42)).get
     }
     Stuff().hello
   }

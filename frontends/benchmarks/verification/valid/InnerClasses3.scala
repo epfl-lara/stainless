@@ -2,7 +2,9 @@ import stainless.lang._
 
 object InnerClasses3 {
 
-  abstract class Test {
+  abstract class Foo {}
+
+  abstract class Test extends Foo {
     def something: BigInt
   }
 
