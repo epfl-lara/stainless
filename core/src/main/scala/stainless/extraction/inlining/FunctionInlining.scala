@@ -6,7 +6,7 @@ package inlining
 
 trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySorts { self =>
   val s: Trees
-  val t: ast.Trees
+  val t: extraction.Trees
   import s._
 
   override protected type FunctionResult = Option[t.FunDef]
@@ -114,5 +114,16 @@ trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySort
     t.NoSymbols
       .withSorts(newSymbols.sorts.values.toSeq)
       .withFunctions(newSymbols.functions.values.filterNot(fd => isPrunable(fd.id)).toSeq)
+  }
+}
+
+object FunctionInlining {
+  def apply(ts: Trees, tt: extraction.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+    val s: ts.type
+    val t: tt.type
+  } = new FunctionInlining {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
+    override protected val previous: prev.type = prev
   }
 }

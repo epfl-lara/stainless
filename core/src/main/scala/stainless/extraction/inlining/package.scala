@@ -14,8 +14,5 @@ package object inlining {
     object printer extends Printer { val trees: inlining.trees.type = inlining.trees }
   }
 
-  object extractor extends FunctionInlining {
-    val s: trees.type = trees
-    val t: extraction.trees.type = extraction.trees
-  }
+  val extractor = PipelineBuilder(trees, extraction.trees)(FunctionInlining(trees, extraction.trees))
 }
