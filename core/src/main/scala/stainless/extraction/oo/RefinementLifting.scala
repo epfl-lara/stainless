@@ -14,9 +14,11 @@ trait RefinementLifting extends PipelinePhase with SimpleFunctions with SimpleCl
   override protected def registerSorts(symbols: t.Symbols, sorts: Seq[(t.ADTSort, Option[t.FunDef])]): t.Symbols =
     symbols.withSorts(sorts.map(_._1)).withFunctions(sorts.flatMap(_._2))
 
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
+
   protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
     import symbols._
 
     def liftRefinements(tpe: s.Type): s.Type = s.typeOps.postMap {
