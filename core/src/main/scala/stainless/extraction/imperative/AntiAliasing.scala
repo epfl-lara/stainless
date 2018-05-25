@@ -6,7 +6,7 @@ package imperative
 
 import inox._
 
-trait AntiAliasing extends PipelinePhase with SimpleSorts with SimpleFunctions with EffectsAnalyzer with EffectsChecker { self =>
+trait AntiAliasing extends CachingPhase with SimpleSorts with SimpleFunctions with EffectsAnalyzer with EffectsChecker { self =>
   import s._
 
   protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
@@ -388,12 +388,12 @@ trait AntiAliasing extends PipelinePhase with SimpleSorts with SimpleFunctions w
 }
 
 object AntiAliasing {
-  def apply(trees: Trees)(prev: ExtractionPhase { val t: trees.type }): ExtractionPhase {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: trees.type
     val t: trees.type
   } = new AntiAliasing {
     override val s: trees.type = trees
     override val t: trees.type = trees
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

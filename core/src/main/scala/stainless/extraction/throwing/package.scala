@@ -15,5 +15,5 @@ package object throwing {
     object printer extends Printer { val trees: throwing.trees.type = throwing.trees }
   }
 
-  val extractor = PipelineBuilder(trees, oo.trees)(ExceptionLifting(trees, oo.trees))
+  def extractor(implicit ctx: inox.Context) = ExceptionLifting(trees, oo.trees)
 }

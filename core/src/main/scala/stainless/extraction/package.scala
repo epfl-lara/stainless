@@ -72,14 +72,8 @@ package object extraction {
   case class MissformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
-  val partials = PipelineBuilder(xlang.trees, xlang.trees)(PartialFunctions(xlang.trees))
-
-  def extract(
-    program: Program { val trees: xlang.trees.type },
-    ctx: inox.Context
-  ): Program { val trees: extraction.trees.type } = {
+  def pipeline(implicit ctx: inox.Context) = {
     val pipeline =
-      partials             andThen
       xlang.extractor      andThen
       methods.extractor    andThen
       throwing.extractor   andThen
@@ -88,7 +82,6 @@ package object extraction {
       innerfuns.extractor  andThen
       inlining.extractor
 
-    TreeSanitizer.check(program) // Might throw some MissformedStainlessCode
     program.transform(pipeline)
   }
 }

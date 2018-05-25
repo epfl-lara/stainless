@@ -6,7 +6,7 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait RefinementLifting extends PipelinePhase with SimpleFunctions with SimpleClasses { self =>
+trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleClasses { self =>
   val s: Trees
   val t: Trees
 
@@ -236,12 +236,12 @@ trait RefinementLifting extends PipelinePhase with SimpleFunctions with SimpleCl
 }
 
 object RefinementLifting {
-  def apply(ts: Trees, tt: Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new RefinementLifting {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

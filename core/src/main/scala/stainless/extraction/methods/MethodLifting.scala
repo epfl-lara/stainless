@@ -6,7 +6,7 @@ package methods
 
 import inox.utils.Position
 
-trait MethodLifting extends PipelinePhase { self =>
+trait MethodLifting extends ExtractionPhase { self =>
   val s: Trees
   val t: oo.Trees
   import s._
@@ -36,8 +36,7 @@ trait MethodLifting extends PipelinePhase { self =>
     }
   }
 
-  override final def nextSymbols(id: Identifier): t.Symbols = {
-    val symbols = previous.getSymbols(id)
+  override final def transform(symbols: s.Symbols): t.Symbols = {
     assert(symbols.sorts.isEmpty,
       "Unexpected sorts in method lifting: " + symbols.sorts.keys.map(_.asString).mkString(", "))
 
@@ -270,12 +269,12 @@ trait MethodLifting extends PipelinePhase { self =>
 }
 
 object MethodLifting {
-  def apply(ts: Trees, tt: oo.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new MethodLifting {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

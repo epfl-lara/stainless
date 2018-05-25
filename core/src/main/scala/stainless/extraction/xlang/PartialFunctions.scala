@@ -2,10 +2,11 @@
 
 package stainless
 package extraction
+package xlang
 
 import scala.language.existentials
 
-trait PartialFunctions extends PipelinePhase with oo.SimplePhase { self =>
+trait PartialFunctions extends oo.SimplePhase { self =>
   val t: self.s.type
   import s._
 
@@ -89,12 +90,12 @@ trait PartialFunctions extends PipelinePhase with oo.SimplePhase { self =>
 }
 
 object PartialFunctions {
-  def apply(trees: xlang.Trees)(prev: ExtractionPhase { val t: trees.type }): PartialFunctions {
+  def apply(trees: xlang.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: trees.type
     val t: trees.type
   } = new PartialFunctions {
     override val s: trees.type = trees
     override val t: trees.type = trees
-    override val previous: prev.type = prev
+    override val context = ctx
   }
 }

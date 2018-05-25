@@ -11,7 +11,7 @@ package imperative
   * common case is the generation of function returning tuple with
   * Unit in it, which can be safely eliminated.
   */
-trait ImperativeCleanup extends PipelinePhase with SimplePhase { self =>
+trait ImperativeCleanup extends SimplePhase { self =>
   val s: Trees
   val t: extraction.Trees
 
@@ -67,12 +67,12 @@ trait ImperativeCleanup extends PipelinePhase with SimplePhase { self =>
 }
 
 object ImperativeCleanup {
-  def apply(ts: Trees, tt: extraction.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new ImperativeCleanup {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

@@ -4,7 +4,7 @@ package stainless
 package extraction
 package oo
 
-trait AdtSpecialization extends PipelinePhase with SimpleFunctions with SimpleSorts { self =>
+trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSorts { self =>
   val s: Trees
   val t: Trees
 
@@ -209,12 +209,12 @@ trait AdtSpecialization extends PipelinePhase with SimpleFunctions with SimpleSo
 }
 
 object AdtSpecialization {
-  def apply(ts: Trees, tt: Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new AdtSpecialization {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

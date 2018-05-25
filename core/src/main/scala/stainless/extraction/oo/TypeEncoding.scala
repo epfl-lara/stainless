@@ -8,7 +8,7 @@ import inox.utils.Graphs._
 import scala.collection.mutable.{Map => MutableMap}
 
 trait TypeEncoding
-  extends PipelinePhase
+  extends ExtractionPhase
      with SimpleSorts
      with SimpleFunctions
      with oo.CachingPhase
@@ -1095,13 +1095,13 @@ trait TypeEncoding
 }
 
 object TypeEncoding {
-  def apply(ts: Trees, tt: imperative.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: imperative.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new {
     override val s: ts.type = ts
     override val t: tt.type = tt
   } with TypeEncoding {
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

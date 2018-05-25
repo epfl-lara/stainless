@@ -4,7 +4,7 @@ package stainless
 package extraction
 package inlining
 
-trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySorts { self =>
+trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: extraction.Trees
   import s._
@@ -118,12 +118,12 @@ trait FunctionInlining extends PipelinePhase with CachingPhase with IdentitySort
 }
 
 object FunctionInlining {
-  def apply(ts: Trees, tt: extraction.Trees)(prev: ExtractionPhase { val t: ts.type }): ExtractionPhase {
+  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new FunctionInlining {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

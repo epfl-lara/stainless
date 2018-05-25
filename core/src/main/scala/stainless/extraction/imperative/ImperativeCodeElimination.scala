@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination extends PipelinePhase with SimplePhase {
+trait ImperativeCodeElimination extends SimplePhase {
   val s: Trees
   val t: s.type
   import s._
@@ -403,12 +403,12 @@ trait ImperativeCodeElimination extends PipelinePhase with SimplePhase {
 }
 
 object ImperativeCodeElimination {
-  def apply(trees: Trees)(prev: ExtractionPhase { val t: trees.type }): ExtractionPhase {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: trees.type
     val t: trees.type
   } = new ImperativeCodeElimination {
     override val s: trees.type = trees
     override val t: trees.type = trees
-    override protected val previous: prev.type = prev
+    override val context = ctx
   }
 }

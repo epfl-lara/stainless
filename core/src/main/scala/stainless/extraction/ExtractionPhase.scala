@@ -5,14 +5,12 @@ package extraction
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait ExtractionPhase { self =>
+trait ExtractionPhase extends inox.ast.SymbolTransformer { self =>
   val s: extraction.Trees
   val t: ast.Trees
 
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
-
-  def getSymbols(id: Identifier): t.Symbols
 
 
   /** Represents a definition dependency with some identifier `id`.
@@ -95,55 +93,7 @@ trait ExtractionPhase { self =>
   }
 }
 
-trait PipelinePhase extends ExtractionPhase { self =>
-  protected val previous: ExtractionPhase { val t: self.s.type }
-}
-
-trait PipelineBuilder { self =>
-  val s: ast.Trees
-  val t: ast.Trees
-
-  def build(previous: ExtractionPhase { val t: self.s.type }): ExtractionPhase {
-    val s: previous.s.type
-    val t: self.t.type
-  }
-
-  def andThen(that: PipelineBuilder { val s: self.t.type }): PipelineBuilder {
-    val s: self.s.type
-    val t: that.t.type
-  } = new PipelineBuilder {
-    override val s: self.s.type = self.s
-    override val t: that.t.type = that.t
-
-    override def build(previous: ExtractionPhase { val t: self.s.type }): ExtractionPhase {
-      val s: previous.s.type
-      val t: that.t.type
-    } = that.build(self.build(previous))
-  }
-}
-
-object PipelineBuilder {
-  def apply(ts: ast.Trees, tt: ast.Trees)(
-    // @nv: We actually need a dependent function type here but these are not easily expressible
-    //      in scala, so we use this weaker API with an asInstanceOf cast.
-    // Actual expected parameter type:
-    //   (prev: ExtractionPhase { val t: ts.type }) => ExtractionPhase { val s: prev.s.type; val t: tt.type }
-    builder: (ExtractionPhase { val t: ts.type }) => ExtractionPhase { val t: tt.type }
-  ): PipelineBuilder { val s: ts.type; val t: tt.type } = new PipelineBuilder {
-    val s: ts.type = ts
-    val t: tt.type = tt
-
-    override def build(previous: ExtractionPhase { val t: ts.type }): ExtractionPhase {
-      val s: previous.s.type
-      val t: tt.type
-    } = builder(previous).asInstanceOf[ExtractionPhase {
-      val s: previous.s.type
-      val t: tt.type
-    }]
-  }
-}
-
-trait CachingPhase extends PipelinePhase { self =>
+trait CachingPhase extends ExtractionPhase { self =>
   protected type FunctionResult
   private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
 
@@ -159,8 +109,7 @@ trait CachingPhase extends PipelinePhase { self =>
   protected def transformSort(context: TransformerContext, sort: s.ADTSort): SortResult
   protected def registerSorts(symbols: t.Symbols, sorts: Seq[SortResult]): t.Symbols
 
-  override final def getSymbols(id: Identifier): t.Symbols = {
-    val symbols = previous.getSymbols(id)
+  override final def transform(symbols: s.Symbols): t.Symbols = {
     val context = getContext(symbols)
     transformSymbols(context, symbols)
   }

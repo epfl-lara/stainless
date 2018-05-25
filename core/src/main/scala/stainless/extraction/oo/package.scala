@@ -17,9 +17,8 @@ package object oo {
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
-  val adts = PipelineBuilder(trees, trees)(AdtSpecialization(trees, trees))
-  val refinements = PipelineBuilder(trees, trees)(RefinementLifting(trees, trees))
-  val encoding = PipelineBuilder(trees, imperative.trees)(TypeEncoding(trees, imperative.trees))
-
-  val extractor = adts andThen refinements andThen encoding
+  def extractor(implicit ctx: inox.Context) =
+    AdtSpecialization(trees, trees) andThen
+    RefinementLifting(trees, trees) andThen
+    TypeEncoding(trees, imperative.trees)
 }

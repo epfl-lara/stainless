@@ -23,9 +23,8 @@ package object imperative {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)
   }
 
-  val antiAliasing = PipelineBuilder(trees, trees)(AntiAliasing(trees))
-  val imperativeElimination = PipelineBuilder(trees, trees)(ImperativeCodeElimination(trees))
-  val cleanup = PipelineBuilder(trees, innerfuns.trees)(ImperativeCleanup(trees, innerfuns.trees))
-
-  val extractor = antiAliasing andThen imperativeElimination andThen cleanup
+  def extractor(implicit ctx: inox.Context) =
+    AntiAliasing(trees) andThen
+    ImperativeCodeElimination(trees) andThen
+    ImperativeCleanup(trees, innerfuns.trees)
 }

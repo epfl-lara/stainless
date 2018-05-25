@@ -4,7 +4,7 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure extends PipelinePhase with CachingPhase with IdentitySorts { self =>
+trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: ast.Trees
 
@@ -213,12 +213,12 @@ trait FunctionClosure extends PipelinePhase with CachingPhase with IdentitySorts
 }
 
 object FunctionClosure {
-  def apply(ts: Trees, tt: inlining.Trees)(prev: ExtractionPhase { val t: ts.type }): FunctionClosure {
+  def apply(ts: Trees, tt: inlining.Trees)(implicit ctx: inox.Context): ExtractionPhase {
     val s: ts.type
     val t: tt.type
   } = new FunctionClosure {
     override val s: ts.type = ts
     override val t: tt.type = tt
-    override val previous: prev.type = prev
+    override val context = ctx
   }
 }
