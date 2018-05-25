@@ -12,9 +12,7 @@ trait ExtractionPhase { self =>
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
-  protected def lastSymbols(id: Identifier): s.Symbols
-
-  def nextSymbols(id: Identifier): t.Symbols
+  def getSymbols(id: Identifier): t.Symbols
 
 
   /** Represents a definition dependency with some identifier `id`.
@@ -99,8 +97,6 @@ trait ExtractionPhase { self =>
 
 trait PipelinePhase extends ExtractionPhase { self =>
   protected val previous: ExtractionPhase { val t: self.s.type }
-
-  override protected final def lastSymbols(id: Identifier): s.Symbols = previous.nextSymbols(id)
 }
 
 trait PipelineBuilder { self =>
@@ -147,7 +143,7 @@ object PipelineBuilder {
   }
 }
 
-trait CachingPhase extends ExtractionPhase { self =>
+trait CachingPhase extends PipelinePhase { self =>
   protected type FunctionResult
   private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
 
@@ -163,8 +159,8 @@ trait CachingPhase extends ExtractionPhase { self =>
   protected def transformSort(context: TransformerContext, sort: s.ADTSort): SortResult
   protected def registerSorts(symbols: t.Symbols, sorts: Seq[SortResult]): t.Symbols
 
-  override final def nextSymbols(id: Identifier): t.Symbols = {
-    val symbols = lastSymbols(id)
+  override final def getSymbols(id: Identifier): t.Symbols = {
+    val symbols = previous.getSymbols(id)
     val context = getContext(symbols)
     transformSymbols(context, symbols)
   }

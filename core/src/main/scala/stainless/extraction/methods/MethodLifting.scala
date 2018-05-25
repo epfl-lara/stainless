@@ -37,7 +37,7 @@ trait MethodLifting extends PipelinePhase { self =>
   }
 
   override final def nextSymbols(id: Identifier): t.Symbols = {
-    val symbols = lastSymbols(id)
+    val symbols = previous.getSymbols(id)
     assert(symbols.sorts.isEmpty,
       "Unexpected sorts in method lifting: " + symbols.sorts.keys.map(_.asString).mkString(", "))
 
