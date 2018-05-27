@@ -140,7 +140,7 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     import s._
 
     val (newParams, cond) = context.parameterConds(fd.params)
@@ -171,7 +171,7 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     ).copiedFrom(fd))
   }
 
-  override protected def transformSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
     import s._
     import context.symbols._
 
@@ -229,14 +229,14 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     (newSort, newInv)
   }
 
-  override protected def transformClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
     // TODO: lift refinements to invariant?
     context.transform(cd)
   }
 }
 
 object RefinementLifting {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new RefinementLifting {

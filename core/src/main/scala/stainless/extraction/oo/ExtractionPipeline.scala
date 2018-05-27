@@ -11,14 +11,14 @@ trait CachingPhase extends extraction.CachingPhase { self =>
   protected type ClassResult
   private lazy val classCache = new ExtractionCache[s.ClassDef, ClassResult]
 
-  protected def transformClass(context: TransformerContext, cd: s.ClassDef): ClassResult
+  protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult
   protected def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols
 
-  override protected def transformSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     registerClasses(
-      super.transformSymbols(context, symbols),
+      super.extractSymbols(context, symbols),
       symbols.classes.values.map { cd =>
-        classCache.cached(cd, symbols)(transformClass(context, cd))
+        classCache.cached(cd, symbols)(extractClass(context, cd))
       }.toSeq
     )
   }
@@ -35,7 +35,7 @@ trait IdentityClasses extends SimpleClasses { self =>
     override val t: self.t.type = self.t
   }
 
-  override protected def transformFunction(context: TransformerContext, cd: s.ClassDef): t.ClassDef = identity.transform(cd)
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = identity.transform(cd)
 }
 
 trait SimplePhase extends CachingPhase with extraction.SimplePhase with SimpleClasses { self =>
@@ -44,5 +44,5 @@ trait SimplePhase extends CachingPhase with extraction.SimplePhase with SimpleCl
     val t: self.t.type
   }
 
-  override protected def transformClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = context.transform(cd)
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = context.transform(cd)
 }

@@ -9,7 +9,7 @@ trait ImperativeCodeElimination extends SimplePhase {
   val t: s.type
   import s._
 
-  override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._
 
@@ -403,7 +403,7 @@ trait ImperativeCodeElimination extends SimplePhase {
 }
 
 object ImperativeCodeElimination {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
   } = new ImperativeCodeElimination {

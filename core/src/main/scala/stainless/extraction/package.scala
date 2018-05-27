@@ -73,15 +73,12 @@ package object extraction {
     extends Exception(msg)
 
   def pipeline(implicit ctx: inox.Context) = {
-    val pipeline =
-      xlang.extractor      andThen
-      methods.extractor    andThen
-      throwing.extractor   andThen
-      oo.extractor         andThen
-      imperative.extractor andThen
-      innerfuns.extractor  andThen
-      inlining.extractor
-
-    program.transform(pipeline)
+    xlang.extractor      andThen
+    methods.extractor    andThen
+    throwing.extractor   andThen
+    oo.extractor         andThen
+    imperative.extractor andThen
+    innerfuns.extractor  andThen
+    inlining.extractor
   }
 }

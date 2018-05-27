@@ -5,7 +5,7 @@ package extraction
 package xlang
 
 /** Inspect trees, detecting illegal structures. */
-trait TreeSanitizer extends ExtractionPhase {
+trait TreeSanitizer extends ExtractionPipeline {
   val s: Trees
   val t: s.type
   import s._
@@ -65,7 +65,7 @@ trait TreeSanitizer extends ExtractionPhase {
 }
 
 object TreeSanitizer {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
   } = new TreeSanitizer {

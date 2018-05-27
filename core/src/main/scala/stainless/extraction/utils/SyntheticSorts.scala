@@ -4,7 +4,7 @@ package stainless
 package extraction
 package utils
 
-trait SyntheticSorts { self: ExtractionPhase =>
+trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
 
   protected object OptionSort {
     import t._

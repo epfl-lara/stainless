@@ -20,7 +20,7 @@ package object xlang {
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from
     * these trees to `oo.Trees` simply consists in an identity mapping. */
   def extractor(implicit ctx: inox.Context) = {
-    val lowering: ExtractionPhase {
+    val lowering: ExtractionPipeline {
       val s: trees.type
       val t: methods.trees.type
     } = new oo.SimplePhase {
@@ -28,13 +28,13 @@ package object xlang {
       override val t: methods.trees.type = methods.trees
       override val context = ctx
 
-      override protected def transformFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
+      override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
         transformer.transform(fd.copy(flags = fd.flags.filter { case s.Ignore => false case _ => true }))
 
-      override protected def transformSort(transformer: TransformerContext, sort: s.ADTSort): t.ADTSort =
+      override protected def extractSort(transformer: TransformerContext, sort: s.ADTSort): t.ADTSort =
         transformer.transform(sort.copy(flags = sort.flags filterNot (_ == s.Ignore)))
 
-      override protected def transformClass(transformer: TransformerContext, cd: s.ClassDef): t.ClassDef =
+      override protected def extractClass(transformer: TransformerContext, cd: s.ClassDef): t.ClassDef =
         transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 

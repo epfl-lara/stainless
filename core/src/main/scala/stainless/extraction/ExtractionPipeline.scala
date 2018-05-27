@@ -5,14 +5,55 @@ package extraction
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait ExtractionPhase extends inox.ast.SymbolTransformer { self =>
+trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
 
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
+  def extract(symbols: s.Symbols): t.Symbols
 
+  def invalidate(id: Identifier): Unit
+
+  def andThen(that: ExtractionPipeline { val s: self.t.type }): ExtractionPipeline {
+    val s: self.s.type
+    val t: that.t.type
+  } = new ExtractionPipeline {
+    override val s: self.s.type = self.s
+    override val t: that.t.type = that.t
+
+    override def extract(symbols: s.Symbols): t.Symbols = {
+      that.extract(self.extract(symbols))
+    }
+
+    override def invalidate(id: Identifier): Unit = {
+      self.invalidate(id)
+      that.invalidate(id)
+    }
+  }
+}
+
+object ExtractionPipeline {
+  def apply(transformer: ast.TreeTransformer)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: transformer.s.type
+    val t: transformer.t.type
+  } = new ExtractionPipeline { self =>
+    override val s: transformer.s.type = transformer.s
+    override val t: transformer.t.type = transformer.t
+    override val context = ctx
+
+    override def extract(symbols: s.Symbols): t.Symbols =
+      symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
+        val s: self.s.type
+        val t: self.t.type
+      }])
+
+    override def invalidate(id: Identifier): Unit = ()
+  }
+}
+
+trait ExtractionCaches { self: ExtractionPipeline =>
   /** Represents a definition dependency with some identifier `id`.
     * Such a dependency can be either a
     * - function definition
@@ -93,7 +134,7 @@ trait ExtractionPhase extends inox.ast.SymbolTransformer { self =>
   }
 }
 
-trait CachingPhase extends ExtractionPhase { self =>
+trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
   protected type FunctionResult
   private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
 
@@ -103,24 +144,24 @@ trait CachingPhase extends ExtractionPhase { self =>
   protected type TransformerContext
   protected def getContext(symbols: s.Symbols): TransformerContext
 
-  protected def transformFunction(context: TransformerContext, fd: s.FunDef): FunctionResult
+  protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult
   protected def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols
 
-  protected def transformSort(context: TransformerContext, sort: s.ADTSort): SortResult
+  protected def extractSort(context: TransformerContext, sort: s.ADTSort): SortResult
   protected def registerSorts(symbols: t.Symbols, sorts: Seq[SortResult]): t.Symbols
 
-  override final def transform(symbols: s.Symbols): t.Symbols = {
+  override final def extract(symbols: s.Symbols): t.Symbols = {
     val context = getContext(symbols)
-    transformSymbols(context, symbols)
+    extractSymbols(context, symbols)
   }
 
-  protected def transformSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+  protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val functions = symbols.functions.values.map { fd =>
-      funCache.cached(fd, symbols)(transformFunction(context, fd))
+      funCache.cached(fd, symbols)(extractFunction(context, fd))
     }.toSeq
 
     val sorts = symbols.sorts.values.map { sort =>
-      sortCache.cached(sort, symbols)(transformSort(context, sort))
+      sortCache.cached(sort, symbols)(extractSort(context, sort))
     }.toSeq
 
     registerSorts(registerFunctions(t.NoSymbols, functions), sorts)
@@ -138,7 +179,7 @@ trait IdentitySorts extends SimpleSorts { self =>
     override val t: self.t.type = self.t
   }
 
-  override protected def transformSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = identity.transform(sort)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = identity.transform(sort)
 }
 
 trait SimpleFunctions extends CachingPhase {
@@ -152,15 +193,15 @@ trait IdentityFunctions extends SimpleFunctions { self =>
     override val t: self.t.type = self.t
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = identity.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = identity.transform(fd)
 }
 
-trait SimplePhase extends ExtractionPhase with SimpleSorts with SimpleFunctions { self =>
+trait SimplePhase extends ExtractionPipeline with SimpleSorts with SimpleFunctions { self =>
   override protected type TransformerContext <: ast.TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected def transformSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
 }

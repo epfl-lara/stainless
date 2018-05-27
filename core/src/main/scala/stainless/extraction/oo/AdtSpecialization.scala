@@ -166,10 +166,10 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
     }
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
 
   override protected type ClassResult = Either[t.ClassDef, (Option[t.ADTSort], Seq[t.FunDef])]
-  override protected def transformClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
     import context.{t => _, s => _, _}
     if (isCandidate(cd.id)) {
       if (cd.parents.isEmpty) {
@@ -209,7 +209,7 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
 }
 
 object AdtSpecialization {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new AdtSpecialization {

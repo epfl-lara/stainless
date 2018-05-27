@@ -15,7 +15,7 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def transformFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
     import s._
     import symbols._
 
@@ -213,7 +213,7 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
 }
 
 object FunctionClosure {
-  def apply(ts: Trees, tt: inlining.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new FunctionClosure {

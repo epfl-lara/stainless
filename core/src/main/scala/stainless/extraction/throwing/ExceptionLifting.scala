@@ -10,7 +10,7 @@ trait ExceptionLifting extends oo.SimplePhase { self =>
 }
 
 object ExceptionLifting {
-  def apply(ts: Trees, tt: ast.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: ast.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new ExceptionLifting {

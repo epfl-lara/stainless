@@ -50,7 +50,7 @@ trait ImperativeCleanup extends SimplePhase { self =>
     }
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     s.exprOps.preTraversal {
       case o @ s.Old(v: s.Variable) if fd.params exists (_.toVariable == v) =>
         throw MissformedStainlessCode(o, s"Stainless `old` can only occur in postconditions.")
@@ -62,12 +62,12 @@ trait ImperativeCleanup extends SimplePhase { self =>
         case _ =>
     } (fd.fullBody)
 
-    super.transformFunction(context, fd)
+    super.extractFunction(context, fd)
   }
 }
 
 object ImperativeCleanup {
-  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new ImperativeCleanup {

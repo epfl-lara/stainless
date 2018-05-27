@@ -6,7 +6,7 @@ package methods
 
 import inox.utils.Position
 
-trait MethodLifting extends ExtractionPhase { self =>
+trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
   val s: Trees
   val t: oo.Trees
   import s._
@@ -269,7 +269,7 @@ trait MethodLifting extends ExtractionPhase { self =>
 }
 
 object MethodLifting {
-  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new MethodLifting {

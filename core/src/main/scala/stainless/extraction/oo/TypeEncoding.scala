@@ -8,7 +8,7 @@ import inox.utils.Graphs._
 import scala.collection.mutable.{Map => MutableMap}
 
 trait TypeEncoding
-  extends ExtractionPhase
+  extends ExtractionPipeline
      with SimpleSorts
      with SimpleFunctions
      with oo.CachingPhase
@@ -1081,21 +1081,21 @@ trait TypeEncoding
       OptionSort.sorts
   }
 
-  override protected def transformSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    super.transformSymbols(context, symbols).withFunctions(context.functions).withSorts(context.sorts)
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    super.extractSymbols(context, symbols).withFunctions(context.functions).withSorts(context.sorts)
   }
 
-  override protected def transformFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected def transformSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
 
   // Classes are simply dropped by this extraction phase
   override protected type ClassResult = Unit
-  override protected def transformClass(context: TransformerContext, symbols: s.Symbols): ClassResult = ()
+  override protected def extractClass(context: TransformerContext, symbols: s.Symbols): ClassResult = ()
   override protected def registerClasses(symbols: t.Symbols, classes: Seq[Unit]): t.Symbols = symbols
 }
 
 object TypeEncoding {
-  def apply(ts: Trees, tt: imperative.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(ts: Trees, tt: imperative.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new {

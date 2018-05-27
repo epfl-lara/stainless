@@ -90,7 +90,7 @@ trait PartialFunctions extends oo.SimplePhase { self =>
 }
 
 object PartialFunctions {
-  def apply(trees: xlang.Trees)(implicit ctx: inox.Context): ExtractionPhase {
+  def apply(trees: xlang.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
   } = new PartialFunctions {
