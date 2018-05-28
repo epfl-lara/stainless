@@ -6,10 +6,10 @@ object InnerClasses1 {
     def something: BigInt
   }
 
-  def foo(x: A, l: BigInt): Test = {
+  def foo(x: BigInt, l: BigInt): Test = {
     require(l > 1)
-    case class FooBarBaz(a: A) extends Test {
-      def something: BigInt = l
+    case class FooBarBaz(a: BigInt) extends Test {
+      def something: BigInt = a + l
     }
     FooBarBaz(x)
   }
