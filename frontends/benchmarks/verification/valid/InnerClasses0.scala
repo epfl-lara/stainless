@@ -11,7 +11,8 @@ object InnerClasses0 {
     case class FooBarBaz(a: BigInt) extends Test {
       def something: BigInt = a + l
     }
-    FooBarBaz(x)
+    val abc = FooBarBaz(x)
+    FooBarBaz(abc.a)
   }
 
   def test = {

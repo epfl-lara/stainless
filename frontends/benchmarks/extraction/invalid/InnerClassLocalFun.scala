@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object InnerClasses3 {
+object InnerClassLocalFun {
 
   abstract class Test {
     def something: BigInt

@@ -63,6 +63,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (xt.ValDef, Seq[xt.TypeParameterDef])] = Map(),
+    localClasses: Map[Identifier, (xt.ClassDef, Seq[xt.FunDef])] = Map(),
     isExtern: Boolean = false
   ) {
     def union(that: DefContext) = {
@@ -70,6 +71,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
            this.vars ++ that.vars,
            this.mutableVars ++ that.mutableVars,
            this.localFuns ++ that.localFuns,
+           this.localClasses ++ that.localClasses,
            this.isExtern || that.isExtern)
     }
 
@@ -94,6 +96,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     def withLocalFun(sym: Symbol, vd: xt.ValDef, tparams: Seq[xt.TypeParameterDef]) = {
       copy(localFuns = this.localFuns + (sym -> ((vd, tparams))))
     }
+
+    def withLocalClass(id: Identifier, cd: xt.ClassDef, methods: Seq[xt.FunDef]) = {
+      copy(localClasses = this.localClasses + (id -> (cd, methods)))
+    }
   }
 
   // This one never fails, on error, it returns Untyped
@@ -102,6 +108,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       extractType(tpt)
     } catch {
       case e: frontend.UnsupportedCodeException =>
+        println((e.pos, "[ignored] " + e.getMessage, e))
         reporter.debug(e.pos, "[ignored] " + e.getMessage, e)
         xt.Untyped
     }
@@ -187,7 +194,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         allFunctions ++= newFunctions
 
       case cd @ ExClassDef() =>
-        val (xcd, newFunctions) = extractClass(cd)
+        val (xcd, newFunctions) = extractClass(cd)(DefContext())
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
@@ -231,7 +238,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     (module, allClasses, allFunctions)
   }
 
-  private def extractClass(td: tpd.TypeDef): (xt.ClassDef, Seq[xt.FunDef]) = {
+  private def extractClass(td: tpd.TypeDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = td.symbol
     val id = getIdentifier(sym)
 
@@ -244,17 +251,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = sym.asClass.typeParams.map(extractTypeParam)
-    val tpCtx = DefContext((sym.asClass.typeParams zip extparams).toMap)
+    val tpCtx = dctx union DefContext((sym.asClass.typeParams zip extparams).toMap)
 
     val parents = template.parents.flatMap(p => p.tpe match {
       case tpe if tpe.typeSymbol == defn.ObjectClass => None
       case tpe if tpe.typeSymbol == defn.ThrowableClass && (flags exists (_.name == "library")) => None
       case tpe if defn.isProductClass(tpe.classSymbol) => None
-      case tpe => Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
+      case tpe if extractType(tpe)(tpCtx, p.pos).isInstanceOf[xt.ClassType] =>
+        Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
+      case tpe => None
     })
 
     val args = template.constr.vparamss.flatten
-    val fieldCtx = DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
+    val fieldCtx = dctx union DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
     val fields = args.map { vd =>
       val tpe = stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
       val vdSym = sym.info.decl(vd.symbol.name).symbol
@@ -372,8 +381,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (params :+ vd, dctx.withNewVar(param.symbol -> expr))
     }
 
-    val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
-
     var flags = annotationsOf(sym) ++
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
@@ -389,11 +396,29 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
 
-    val finalBody = if (rhs == tpd.EmptyTree) {
+    lazy val retType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
+
+    val (finalBody, returnType) = if (rhs == tpd.EmptyTree) {
       flags :+= xt.IsAbstract
-      xt.NoTree(returnType)
+      (xt.NoTree(retType).setPos(rhs.pos), retType)
     } else {
-      xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
+      val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
+      val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
+        case xt.LetClass(lcd, _, _) => Set(lcd)
+        case _ => Set()
+      } (fullBody)
+
+      if (localClasses.isEmpty) (fullBody, retType)
+      else {
+        // If the function contains local classes, we need to add those to the context in order to type its body.
+        val tctx = localClasses.toSeq.foldLeft(nctx) {
+          case (ctx, xt.LocalClassDef(cd, methods)) => ctx.withLocalClass(cd.id, cd, methods)
+        }
+
+        val returnType = stainlessType(sym.info.finalResultType)(tctx, sym.pos)
+        val bctx = fctx.copy(localClasses = fctx.localClasses ++ tctx.localClasses)
+        (xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(bctx)), returnType)
+      }
     }
 
     //if (fctx.isExtern && !exists(_.isInstanceOf[NoTree])(finalBody)) {
@@ -614,6 +639,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       }
     }
 
+    val (lcds, cctx) = es.collect {
+      case cd @ ExClassDef() => cd
+    }.foldLeft((Map.empty[Symbol, (xt.ClassDef, Seq[xt.FunDef])], vctx)) { case ((lcds, dctx), cd) =>
+      val (xcd, methods) = extractClass(cd)(dctx)
+      (lcds + (cd.symbol -> (xcd, methods)), dctx.withLocalClass(xcd.id, xcd, methods))
+    }
+
     def rec(es: List[tpd.Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
@@ -641,6 +673,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.pos)
           case other => xt.LetRec(Seq(letRec), other).setPos(d.pos)
         }
+
+      case (cd @ ExClassDef()) :: xs =>
+        val (xcd, methods) = lcds(cd.symbol)
+        val rest = xs.dropWhile(_.symbol is Synthetic) // drop synthetic module coming after local class decl
+        val body = rec(rest)
+        val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(cctx)
+        xt.LetClass(xt.LocalClassDef(xcd, methods), body, retType).setPos(cd.pos)
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
         if (v.symbol is Mutable) {
@@ -841,6 +880,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
         case None => id.tpe match {
           case TermRef(tt: ThisType, _) =>
+            // @romac - TODO
             xt.FieldAssignment(
               xt.This(extractType(tt)(dctx, id.pos).asInstanceOf[xt.ClassType]).setPos(id.pos),
               getIdentifier(id.symbol),
@@ -1037,6 +1077,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case t @ This(_) =>
       extractType(t) match {
         case ct: xt.ClassType => xt.This(ct)
+        case lct: xt.LocalClassType => xt.This(lct.toClassType)
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
@@ -1072,6 +1113,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case NamedArg(name, arg) => extractTree(arg)
 
     case ExConstructor(tpe, args) => extractType(tpe)(dctx, tr.pos) match {
+      case lct: xt.LocalClassType => xt.LocalClassConstructor(lct, args map extractTree)
       case ct: xt.ClassType => xt.ClassConstructor(ct, args map extractTree)
       case tt: xt.TupleType => xt.Tuple(args map extractTree)
       case _ => outOfSubsetError(tr, "Unexpected constructor " + tr)
@@ -1083,11 +1125,33 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExSymbol("scala", "Predef", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
 
     case ExThisCall(tt, sym, tps, args) =>
-      val thiss = xt.This(extractType(tt)(dctx, tr.pos).asInstanceOf[xt.ClassType]).setPos(tr.pos)
-      if (sym is ParamAccessor) {
-        xt.ClassSelector(thiss, getIdentifier(sym))
-      } else {
-        xt.MethodInvocation(thiss, getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+      extractType(tt)(dctx, tr.pos) match {
+        case ct: xt.ClassType =>
+          val thiss = xt.This(ct).setPos(tr.pos)
+          if (sym is ParamAccessor) {
+            xt.ClassSelector(thiss, getIdentifier(sym))
+          } else {
+            xt.MethodInvocation(thiss, getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+          }
+
+        case lct: xt.LocalClassType =>
+          val thiss = xt.This(lct.toClassType).setPos(tr.pos)
+          val id = getIdentifier(sym)
+
+          if (sym is ParamAccessor) {
+            // @romac: TODO
+            xt.ClassSelector(thiss, id)
+          } else {
+            val (cd, methods) = dctx.localClasses(lct.id)
+            val fd = methods.find(_.id == id).get
+            xt.LocalMethodInvocation(
+              thiss,
+              xt.ValDef(id, xt.FunctionType(fd.params.map(_.tpe), fd.returnType)).toVariable,
+              fd.tparams.map(_.tp),
+              tps.map(extractType),
+              extractArgs(sym, args)
+            )
+          }
       }
 
     case ExCastCall(expr, from, to) =>
@@ -1123,6 +1187,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
           } else {
             xt.MethodInvocation(extractTree(lhs), getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+          }
+
+        case lct: xt.LocalClassType =>
+          if (sym is ParamAccessor) {
+            // @romac - TODO
+            xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
+          } else {
+            val (cd, methods) = dctx.localClasses(lct.id)
+            val id = getIdentifier(sym)
+            val fd = methods.find(_.id == id).get
+            xt.LocalMethodInvocation(
+              extractTree(lhs),
+              xt.ValDef(id, xt.FunctionType(fd.params.map(_.tpe), fd.returnType)).toVariable,
+              fd.tparams.map(_.tp),
+              tps.map(extractType),
+              extractArgs(sym, args)
+            )
           }
 
         case ft: xt.FunctionType =>
@@ -1361,8 +1442,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     extractType(t.tpe)(dctx, t.pos)
   }
 
-  private val etCache = MutableMap[Type, xt.Type]()
-  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElseUpdate(tpt, (tpt match {
+  private val etCache = MutableMap[(Type, DefContext), xt.Type]()
+
+  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElseUpdate((tpt, dctx), (tpt match {
     case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
     case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
     case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
@@ -1373,8 +1455,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
 
     // `isRef` seems to be needed here instead of `==`, as the latter
-    // seems to be too lax, and makes the whole test suite fail. - @romac
-    case tpe if tpe.isRef(defn.AnyClass)            => xt.AnyType()
+    // seems to be too lax and also applies to generic types. - @romac
+    case tpe if tpe.isRef(defn.AnyClass) => xt.AnyType()
 
     case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
     case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
@@ -1453,11 +1535,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           recons(tps.updated(idx, extractType(tpe)))
       }
 
-    case tt @ TypeRef(_, _) if tt.classSymbol.exists =>
+    case tt @ TypeRef(_, _) if tt.classSymbol.exists && tt.classSymbol != defn.AnyClass =>
       val sym = tt.classSymbol
-      xt.ClassType(getIdentifier(sym), sym.typeParams.map {
-        sym => xt.TypeParameter(getIdentifier(sym), Seq())
-      })
+      val id = getIdentifier(sym)
+      val tparams = sym.typeParams.map { sym =>
+        xt.TypeParameter(getIdentifier(sym), Seq())
+      }
+      dctx.localClasses.get(id) match {
+        case Some((cd, _)) => xt.LocalClassType(cd.id, tparams)
+        case None => xt.ClassType(id, tparams)
+      }
 
     case tt @ TermRef(_, _) => extractType(tt.widenTermRefExpr)
 
@@ -1465,6 +1552,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => extractType(tp)
     case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => extractType(tp)
+    case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+    case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+
     case ot: OrType => extractType(ot.join)
 
     case pp @ TypeParamRef(binder, num) =>

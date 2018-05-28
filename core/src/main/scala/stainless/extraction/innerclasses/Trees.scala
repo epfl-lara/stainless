@@ -91,14 +91,18 @@ trait Printer extends methods.Printer {
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LocalClassDef(cd, methods) =>
       p"""|$cd {
-          |  ${nary(methods, "\n\n")}
-          |}"""
+          |"""
+      methods foreach { md =>
+        p"""|  $md
+            |"""
+      }
+      p"}"
 
     case LetClass(lcd, body, _) =>
-      p"""|{
-          |  $lcd
-          |  $body
-          |}"""
+      p"""|
+          |$lcd
+          |$body
+          |"""
 
     case LocalClassConstructor(ct, args) =>
       p"$ct(${nary(args, ", ")})"
