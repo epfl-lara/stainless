@@ -480,10 +480,11 @@ trait CodeExtraction extends ASTExtractors {
       .copy(tparams = dctx.tparams ++ (tparams zip ntparams))
       .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
 
+    lazy val retType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
+
     val (finalBody, returnType) = if (rhs == EmptyTree) {
       flags :+= xt.IsAbstract
-      val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
-      (xt.NoTree(returnType).setPos(sym.pos), returnType)
+      (xt.NoTree(retType).setPos(sym.pos), retType)
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
       val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
@@ -491,8 +492,10 @@ trait CodeExtraction extends ASTExtractors {
         case _ => Set()
       } (fullBody)
 
-      if (localClasses.isEmpty) (fullBody, stainlessType(sym.info.finalResultType)(nctx, sym.pos))
+      if (localClasses.isEmpty) (fullBody, retType)
       else {
+        // If the function contains local classes, we need to add those to the
+        // context in order to type its body.
         val tctx = localClasses.toSeq.foldLeft(nctx) {
           case (ctx, xt.LocalClassDef(cd, methods)) => ctx.withLocalClass(cd.id, cd, methods)
         }
@@ -901,9 +904,10 @@ trait CodeExtraction extends ASTExtractors {
 
     // References to parameterless case objects will have the form of an `Ident`
     case ex @ ExIdentifier(sym, tpt) if sym.isModule && sym.isCase =>
-      dctx.localClasses.get(getIdentifier(sym)) match {
-        case Some(cd) => xt.LocalClassConstructor(extractType(tpt).asInstanceOf[xt.LocalClassType], Seq())
-        case None => xt.ClassConstructor(extractType(tpt).asInstanceOf[xt.ClassType], Seq())
+      extractType(tpt) match {
+        case lct: xt.LocalClassType => xt.LocalClassConstructor(lct, Seq())
+        case ct: xt.ClassType => xt.ClassConstructor(ct, Seq())
+        case _ => outOfSubsetError(tr, "Unexpected constructor " + tr)
       }
 
     case ex @ ExIdentifier(sym, tpt) =>
@@ -1112,14 +1116,14 @@ trait CodeExtraction extends ASTExtractors {
             case _ => outOfSubsetError(tr, "Unexpected call")
           }
 
-        case ct: xt.LocalClassType =>
+        case lct: xt.LocalClassType =>
           val isMethod = sym.isMethod &&
             !sym.isCaseAccessor && !sym.accessedOrSelf.isCaseAccessor &&
             !(sym.isAccessor && sym.owner.isImplicit)
 
           args match {
             case args if isMethod =>
-              val (cd, methods) = dctx.localClasses(ct.id)
+              val (cd, methods) = dctx.localClasses(lct.id)
               val id = getIdentifier(sym)
               val fd = methods.find(_.id == id).get
               xt.LocalMethodInvocation(
@@ -1130,8 +1134,10 @@ trait CodeExtraction extends ASTExtractors {
                 extractArgs(sym, args)
               )
             case Seq() =>
+              // @romac: TODO
               xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
             case Seq(rhs) =>
+              // @romac: TODO
               val getter = sym.accessed.getterIn(sym.owner)
               xt.FieldAssignment(extractTree(lhs), getIdentifier(getter), extractTree(rhs))
             case _ => outOfSubsetError(tr, "Unexpected call")
