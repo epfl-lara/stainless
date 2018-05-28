@@ -24,5 +24,5 @@ object InnerClasses3 {
     bar(true, 3)
   }
 
-  def test = foo(false, 2)
+  def test = (foo(false, 2).something == 3).holds
 }

@@ -1,8 +1,8 @@
 // Disabled until https://github.com/epfl-lara/stainless/issues/241 is fixed
-//
-// import stainless.lang._
 
-// object InnerClasses2 {
+import stainless.lang._
+
+object InnerClasses2 {
 
 //   abstract class Test {
 //     def something: BigInt
@@ -27,4 +27,5 @@
 //   def test = {
 //     foo[BigInt](1, 2).something == BigInt(2 + 3 + 4)
 //   }.holds
-// }
+
+}

@@ -31,15 +31,17 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     import s._
     import syms.Path
 
-    implicit val printerOpts = new PrinterOptions(printUniqueIds = true, symbols = Some(syms))
+    case class LocalClassContext(lcd: LocalClassDef, path: Path, tparams: Set[TypeParameterDef])
 
-    // println(syms.asString)
+    case class LiftedClass(
+      cd: ClassDef,
+      newArgs: Seq[Expr],
+      methods: Seq[FunDef],
+      localClassType: ClassType
+    )
 
-    case class LocalClassCtx(lcd: LocalClassDef, path: Path, tparams: Set[TypeParameterDef])
-    case class LiftedClass(cd: ClassDef, freeVars: Seq[ValDef], methods: Seq[FunDef], localCt: ClassType)
-
-    def liftLocalClass(lCtx: LocalClassCtx): (Identifier, LiftedClass) = {
-      val LocalClassCtx(lcd, path, tctx) = lCtx
+    def liftLocalClass(lCtx: LocalClassContext): (Identifier, LiftedClass) = {
+      val LocalClassContext(lcd, path, tctx) = lCtx
 
       // Convert the path condition to a (positioned) expression
       val pathCondition = path.toClause
@@ -58,20 +60,36 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
         ).setPos(lcd))
       }
 
-      // Collect all free variables in class's methods
+      // Collect all free fields in the methods
+      val freeFields = (lcd.methods.flatMap { fd =>
+        exprOps.collect[(ValDef, ClassType)] {
+          case cs @ ClassSelector(This(outerClassType), id) if !lcd.fields.exists(_.id == id) =>
+            Set(ValDef(id, cs.getType(syms)) -> outerClassType)
+          case _ => Set()
+        } (fd.fullBody)
+      }).distinctBy(_._1.id).sortBy(_._1.id)
+
+      // Collect all free variables in the methods
       val methodsFreeVars = lcd.methods.flatMap { fd =>
         exprOps.variablesOf(fd.fullBody).map(_.toVal) -- fd.params.toSet
-      }.toSet
+      }
 
       // Collect free variables of the local invariant
-      val invFreeVars = localInv.map(inv => exprOps.variablesOf(inv.fullBody).map(_.toVal)).getOrElse(Seq.empty)
-      val freeVariables = (methodsFreeVars ++ invFreeVars).toSeq.distinctBy(_.id).sortBy(_.id)
-      val newFields = freeVariables.map(_.freshen)
+      val invFreeVars = localInv.map { inv =>
+        exprOps.variablesOf(inv.fullBody).map(_.toVal)
+      }.getOrElse(Seq.empty)
+
+      val freeVariables = (methodsFreeVars ++ invFreeVars).distinctBy(_.id).sortBy(_.id)
+      val freeDefs = freeFields.map(_._1) ++ freeVariables
+
+      val newFields = freeDefs.map(_.freshen)
+      val newVarArgs = freeVariables.map(_.toVariable)
+      val newFieldArgs = freeFields map { case (vd, ct) => ClassSelector(This(ct), vd.id) }
+      val newArgs = newFieldArgs ++ newVarArgs
 
       // Collect all free type parameters of all parents, minus the local class's own
       val parentsTypeParams = lcd.cd.parents.toSet.flatMap(typeOps.typeParamsOf).map(TypeParameterDef(_)) -- lcd.cd.tparams.toSet
       val freeTypeParams = (tctx ++ parentsTypeParams).toSeq.distinctBy(_.id).sortBy(_.id)
-
 
       // Lift as a toplevel class with additional fields and type parameters
       val liftedClass = lcd.cd.copy(
@@ -89,7 +107,7 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       // Can't use replaceFromSymbols for some reason as it seems that the typed
       // of the free variables in the invariant are sometimes not `==` to the ones
       // in the methods, although they are of the same types.
-      val subst = (freeVariables map (_.id) zip newFields).toMap
+      val subst = (freeDefs map (_.id) zip newFields).toMap
       val newMethods = (localInv.toSeq ++ lcd.methods).map { fd =>
         val body = exprOps.preMap {
           case Assignment(v, e) if subst contains v.id =>
@@ -98,13 +116,16 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
           case v: Variable if subst contains v.id =>
             Some(ClassSelector(This(typedClass.toType), subst(v.id).id))
 
+          case ClassSelector(This(_), id) if subst contains id =>
+            Some(ClassSelector(This(typedClass.toType), subst(id).id))
+
           case _ => None
         } (fd.fullBody)
 
         fd.copy(fullBody = body)
       }
 
-      liftedClass.id -> LiftedClass(liftedClass, freeVariables, newMethods, localTypedClass.toType)
+      liftedClass.id -> LiftedClass(liftedClass, newArgs, newMethods, localTypedClass.toType)
     }
 
     class LocalClassesCollector(tparams: Set[TypeParameterDef]) extends transformers.CollectorWithPC { self =>
@@ -112,10 +133,10 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       val symbols: syms.type = syms
       import trees._
 
-      type Result = LocalClassCtx
+      type Result = LocalClassContext
 
       protected def step(e: Expr, path: Env): List[Result] = e match {
-        case LetClass(lcd, _, _) => List(LocalClassCtx(lcd, path, tparams))
+        case LetClass(lcd, _, _) => List(LocalClassContext(lcd, path, tparams))
         case LetRec(fds, body) => fds.toList flatMap { fd =>
           val collector = new LocalClassesCollector(tparams ++ fd.tparams) {
             override def initEnv = path
@@ -131,9 +152,9 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     // with a varying number of free type parameters. We must pick
     // the one with the most of them, ie. the one collected by `collector` in the
     // `LocalClassesCollector#step`.
-    def collectLocalClassDefs(fd: FunDef): Seq[LocalClassCtx] = {
-      val localClasses = new LocalClassesCollector(fd.tparams.toSet).collect(fd.fullBody)
-      localClasses
+    def collectLocalClassDefs(fd: FunDef): Seq[LocalClassContext] = {
+      new LocalClassesCollector(fd.tparams.toSet)
+        .collect(fd.fullBody)
         .groupBy(_.lcd.id)
         .mapValues(ctxs => ctxs.sortBy(_.tparams.size).reverse.head)
         .values
@@ -149,7 +170,8 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
         case _ => false
       } (fd.fullBody)
 
-      if (hasApplyLetRec) throw MissformedStainlessCode(fd, "Inner classes cannot reference local functions")
+      if (hasApplyLetRec)
+        throw MissformedStainlessCode(fd, "Inner classes cannot reference local functions")
     }
 
     object transformer extends innerclasses.TreeTransformer {
@@ -161,7 +183,7 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
 
         case s.LocalClassConstructor(ct, args) => super.transform {
           val lc = localClasses(ct.id)
-          s.ClassConstructor(lc.localCt, args ++ lc.freeVars.map(_.toVariable))
+          s.ClassConstructor(lc.localClassType, args ++ lc.newArgs)
         }
 
         case s.LocalMethodInvocation(caller, method, _, tps, args) => super.transform {
