@@ -1,7 +1,7 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
-package partialeval
+package transformers
 
 import scala.language.existentials
 import scala.concurrent.duration._
@@ -16,17 +16,19 @@ import inox.evaluators.EvaluationResults
 
 import stainless.transformers._
 
+object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
+
 case class PartialEvalError(msg: String) extends Exception(msg)
 
-class PartialEvaluatorWithPC(
-  val program: StainlessProgram,
-  val context: Context
-) extends TransformerWithPC { self =>
+trait PartialEvaluatorWithPC extends TransformerWithPC { self =>
+  implicit val context: inox.Context
+  protected val semantics: inox.SemanticsProvider { val trees: self.trees.type }
 
-  val trees: program.trees.type = program.trees
-  val symbols: program.symbols.type = program.symbols
+  private[this] val program = inox.Program(trees)(symbols)
+  private[this] val programSemantics = semantics.getSemantics(program)
+  private[this] val solver = programSemantics.getSolver(context).withTimeout(150.millis).toAPI
+  private[this] val groundEvaluator = programSemantics.getEvaluator(context)
 
-  import program._
   import trees._
   import symbols.{simplifier => _, _}
   import exprOps._
@@ -58,11 +60,7 @@ class PartialEvaluatorWithPC(
     }
   }
 
-  private[this] implicit val debugSection = partialeval.DebugSectionPartialEval
-
-  private[this] lazy val semantics = program.getSemantics
-  private[this] lazy val solver = semantics.getSolver(context).withTimeout(150.millis).toAPI
-  private[this] lazy val groundEvaluator = semantics.getEvaluator(context)
+  private[this] implicit val debugSection = DebugSectionPartialEval
 
   private[this] val maxUnfoldingSteps: Int = 50
   private[this] var unfoldingStepsLeft: Map[Identifier, Int] = Map().withDefault(_ => maxUnfoldingSteps)
@@ -367,7 +365,7 @@ class PartialEvaluatorWithPC(
       case e => super.rec(e, path)
     }
 
-    val simpl = simplifyGround(res)(semantics, context)
+    val simpl = simplifyGround(res)(programSemantics, context)
     cache(expr) = path -> simpl
     simpl
   }
@@ -496,5 +494,4 @@ class PartialEvaluatorWithPC(
       case _ => MatchExpr(rs, newCases).copiedFrom(e)
     }
   }
-
 }

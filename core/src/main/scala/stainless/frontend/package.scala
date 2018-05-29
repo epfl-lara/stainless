@@ -28,7 +28,7 @@ package object frontend {
    * is required to [[stop]] or [[join]] the returned compiler to free resources.
    */
   def build(ctx: inox.Context, compilerArgs: Seq[String], factory: FrontendFactory): Frontend = {
-    factory(ctx, compilerArgs, getMasterCallBack(ctx))
+    factory(ctx, compilerArgs, getStainlessCallBack(ctx))
   }
 
   /**
@@ -41,15 +41,6 @@ package object frontend {
     termination.TerminationComponent,
     evaluators.EvaluatorComponent
   )
-
-  /** CallBack factories for each component. */
-  private val database = Map[String, inox.Context => CallBack](
-    verification.VerificationComponent.name -> { implicit ctx => new verification.VerificationCallBack },
-    termination.TerminationComponent.name -> { implicit ctx => new termination.TerminationCallBack },
-    evaluators.EvaluatorComponent.name -> { implicit ctx => new evaluators.EvaluatorCallBack }
-  )
-
-  private def getCallBack(name: String, ctx: inox.Context): CallBack = database(name)(ctx)
 
   /**
    * Based on the context option, return the list of active component (e.g. verification, termination).
@@ -70,13 +61,9 @@ package object frontend {
   }
 
   /** Get one callback for all active components. */
-  def getMasterCallBack(ctx: inox.Context): MasterCallBack = {
+  def getStainlessCallBack(implicit ctx: inox.Context): CallBack = {
     val activeComponents = getActiveComponents(ctx)
-    val activeCallbacks = activeComponents map { c => getCallBack(c.name, ctx) }
-
-    // Distribute events to active components:
-    new MasterCallBack(activeCallbacks)
+    new StainlessCallBack(activeComponents)
   }
-
 }
 

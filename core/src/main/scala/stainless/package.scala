@@ -45,25 +45,26 @@ package object stainless {
     object printer extends ast.Printer { val trees: stainless.trees.type = stainless.trees }
   }
 
-  implicit val stainlessSemantics: inox.SemanticsProvider { val trees: stainless.trees.type } = new inox.SemanticsProvider {
-    val trees: stainless.trees.type = stainless.trees
+  implicit val stainlessSemantics: inox.SemanticsProvider { val trees: stainless.trees.type } =
+    new inox.SemanticsProvider {
+      val trees: stainless.trees.type = stainless.trees
 
-    def getSemantics(p: inox.Program { val trees: stainless.trees.type }): p.Semantics = new inox.Semantics { self =>
-      val trees: p.trees.type = p.trees
-      val symbols: p.symbols.type = p.symbols
-      val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
-        p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
+      def getSemantics(p: inox.Program { val trees: stainless.trees.type }): p.Semantics = new inox.Semantics { self =>
+        val trees: p.trees.type = p.trees
+        val symbols: p.symbols.type = p.symbols
+        val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
+          p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-      protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
-        val program: self.program.type
-        type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
-      } = solvers.SolverFactory(self.program, ctx)
+        protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
+          val program: self.program.type
+          type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
+        } = solvers.SolverFactory(self.program, ctx)
 
-      protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
-        val program: self.program.type
-      } = evaluators.Evaluator(self.program, ctx)
-    }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
-  }
+        protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
+          val program: self.program.type
+        } = evaluators.Evaluator(self.program, ctx)
+      }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
+    }
 
   def encodingSemantics(ts: ast.Trees)
                        (transformer: inox.ast.TreeTransformer { val s: ts.type; val t: stainless.trees.type }):

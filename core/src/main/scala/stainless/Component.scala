@@ -13,12 +13,12 @@ trait Component {
   val name: String
   val description: String
 
-  type Analysis <: AbstractAnalysis
-
-  val lowering: inox.ast.SymbolTransformer {
+  val lowering: extraction.ExtractionPipeline {
     val s: extraction.trees.type
     val t: extraction.trees.type
   }
+
+  def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context): ComponentRun
 }
 
 object optFunctions extends inox.OptionDef[Seq[String]] {
@@ -28,55 +28,69 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
   val usageRhs = "f1,f2,..."
 }
 
-trait SimpleComponent extends Component { self =>
+trait ComponentRun { self =>
+  val component: Component
   val trees: ast.Trees
+  implicit val context: inox.Context
+  protected val pipeline: extraction.StainlessPipeline
 
-  type SelfProgram = Program { val trees: self.trees.type }
+  import context._
 
-  def extract(program: Program { val trees: xt.type }, ctx: inox.Context): SelfProgram = {
-    val checker = inox.ast.SymbolTransformer(new extraction.CheckingTransformer {
-      val s: extraction.trees.type = extraction.trees
-      val t: self.trees.type = self.trees
-    })
+  type Analysis <: AbstractAnalysis
 
-    val lowering = MainHelpers.components.filterNot(_ == this).foldRight(checker) {
-      (l, r) => l.lowering andThen r
-    }
-
-    try {
-      extraction.extract(program, ctx).transform(lowering)
-    } catch {
-      case extraction.MissformedStainlessCode(tree, msg) =>
-        ctx.reporter.fatalError(tree.getPos, msg)
+  protected final val lowering: extraction.ExtractionPipeline {
+    val s: extraction.trees.type
+    val t: extraction.trees.type
+  } = {
+    val otherComponents = MainHelpers.components.filterNot(_ == component)
+    if (otherComponents.isEmpty) {
+      extraction.ExtractionPipeline(new ast.TreeTransformer {
+        override val s: extraction.trees.type = extraction.trees
+        override val t: extraction.trees.type = extraction.trees
+      })
+    } else {
+      otherComponents.map(_.lowering).reduceLeft(_ andThen _)
     }
   }
 
-  private val marks = new utils.AtomicMarks[Identifier]
-  def onCycleBegin(): Unit = marks.clear()
+  /* Override point for pipeline extensions in certain components.
+   * For example, the partial evaluator pipeline in the verification component. */
+  protected def createPipeline: extraction.StainlessPipeline = pipeline andThen lowering
 
-  // Subclasses can customise the filter here.
-  protected def createFilter(trees: self.trees.type, ctx: inox.Context): CheckFilter {
-    val trees: self.trees.type
-  } = CheckFilter(trees, ctx)
+  private[this] final val extractionPipeline = createPipeline andThen extraction.completer(trees)
 
-  def apply(program: Program { val trees: xt.type }, ctx: inox.Context): Future[Analysis] = {
-    val extracted = extract(program, ctx)
-    import extracted.trees._
+  /* Override point for filter extensions in certain components.
+   * For example, the evaluating component only evaluates parameterless functions. */
+  protected def createFilter: CheckFilter { val trees: self.trees.type } = CheckFilter(trees, context)
 
-    val filter = createFilter(extracted.trees, ctx)
-    val toProcess = extracted.symbols.functions.values.toSeq
-      .filter(fd => filter.shouldBeChecked(fd) && marks.compareAndSet(fd.id))
+  private[this] final val extractionFilter = createFilter
 
-    for (fd <- toProcess) {
+  def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
+    val exSymbols = extractionPipeline.extract(symbols)
+
+    val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
+      ids ++ exSymbols.functions.values.toSeq
+        .filter(_.flags.exists { case trees.Derived(id) => ids(id) case _ => false })
+        .filter(extractionFilter.shouldBeChecked)
+        .map(_.id)
+    } (exSymbols.lookupFunction(id).filter(extractionFilter.shouldBeChecked).map(_.id).toSet)
+
+    val toProcess = toCheck.toSeq.sortBy(exSymbols.getFunction(_).getPos)
+
+    for (id <- toProcess) {
+      val fd = exSymbols.getFunction(id)
       if (fd.flags exists (_.name == "library")) {
         val fullName = fd.id.fullName
-        ctx.reporter.warning(s"Component [$name]: Forcing processing of $fullName which was assumed verified")
+        reporter.warning(s"Component [${component.name}]: Forcing processing of $fullName which was assumed verified")
       }
     }
 
-    apply(toProcess.map(_.id), extracted, ctx)
+    apply(toProcess, exSymbols)
+  } catch {
+    case extraction.MissformedStainlessCode(tree, msg) =>
+      reporter.fatalError(tree.getPos, msg)
   }
 
-  private[stainless] def apply(functions: Seq[Identifier], program: SelfProgram, ctx: inox.Context): Future[Analysis]
+  private[stainless] def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis]
 }
 

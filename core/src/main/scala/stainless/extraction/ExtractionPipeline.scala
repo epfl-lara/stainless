@@ -73,10 +73,14 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   }
 
   /** Represents a cache key with all it's `Uncached` dependencies. */
-  protected class CacheKey private(private val id: Identifier, private val dependencies: Set[Dependency]) {
-    override val hashCode: Int = (id, dependencies).hashCode
+  protected class CacheKey private(
+    private[ExtractionCaches] val id: Identifier,
+    private[ExtractionCaches] val keys: Set[Dependency],
+    private[ExtractionCaches] val dependencies: Set[Identifier]) {
+
+    override val hashCode: Int = (id, keys).hashCode
     override def equals(that: Any): Boolean = that match {
-      case ck: CacheKey => id == ck.id && dependencies == ck.dependencies
+      case ck: CacheKey => id == ck.id && keys == ck.keys
       case _ => false
     }
   }
@@ -114,11 +118,13 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         } getOrElse (throw inox.FatalError(s"Unexpected dependency in ${id.asString}: ${did.asString}"))
 
         optKey.map(new Dependency(did, _))
-      })
+      }, symbols.dependencies(id))
     }
 
     def apply(d: s.Definition)(implicit symbols: s.Symbols): CacheKey = apply(d.id)
   }
+
+  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
 
   protected class ExtractionCache[+Key <: s.Definition, T] {
     private[this] final val cache: MutableMap[CacheKey, T] = MutableMap.empty
@@ -131,6 +137,16 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     def update(key: Key, symbols: s.Symbols, value: T) = cache.update(CacheKey(key)(symbols), value)
     def get(key: Key, symbols: s.Symbols): Option[T] = cache.get(CacheKey(key)(symbols))
     def apply(key: Key, symbols: s.Symbols): T = cache(CacheKey(key)(symbols))
+
+    private[ExtractionCaches] def invalidate(id: Identifier): Unit = synchronized {
+      cache.retain { case (key, _) => key.id != id && !(key.dependencies contains id) }
+    }
+
+    self.synchronized(caches += this)
+  }
+
+  override def invalidate(id: Identifier): Unit = {
+    for (cache <- caches) cache.invalidate(id)
   }
 }
 

@@ -6,13 +6,9 @@ package termination
 import scala.concurrent.Future
 import scala.util.{ Success, Failure }
 
-object TerminationComponent extends SimpleComponent {
+object TerminationComponent extends Component {
   override val name = "termination"
   override val description = "Check program termination."
-
-  override val trees: termination.trees.type = termination.trees
-
-  override type Analysis = TerminationAnalysis
 
   override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
@@ -47,16 +43,27 @@ object TerminationComponent extends SimpleComponent {
     }
   }
 
-  override def apply(funs: Seq[Identifier], p: TerminationProgram, ctx: inox.Context): Future[Analysis] = {
-    import p._
-    import p.trees._
-    import p.symbols._
-    import ctx._
+  override def run(pipeline: extraction.StainlessPipeline)(implicit ctx: inox.Context) = {
+    new TerminationRun(pipeline)
+  }
+}
 
-    val c = TerminationChecker(p, ctx)
+class TerminationRun(override val pipeline: extraction.StainlessPipeline)
+                    (override implicit val context: inox.Context) extends ComponentRun {
+  override val name = TerminationComponent.name
+  override val trees: termination.trees.type = termination.trees
 
-    val res = funs map { id =>
-      val fd = getFunction(id)
+  override type Analysis = TerminationAnalysis
+
+  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+    import trees._
+    import context._
+
+    val p = inox.Program(trees)(symbols)
+    val c = TerminationChecker(p, context)
+
+    val res = functions map { id =>
+      val fd = symbols.getFunction(id)
       val (time, tryStatus) = timers.termination.runAndGetTime { c.terminates(fd) }
       tryStatus match {
         case Success(status) => fd -> (status, time)
@@ -67,7 +74,7 @@ object TerminationComponent extends SimpleComponent {
     Future.successful(new TerminationAnalysis {
       override val checker: c.type = c
       override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
-      override val sources = funs.toSet
+      override val sources = functions.toSet
     })
   }
 }
