@@ -15,6 +15,7 @@ trait ImperativeCleanup extends SimplePhase { self =>
   val s: Trees
   val t: extraction.Trees
 
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
   protected class TransformerContext(symbols: s.Symbols) extends CheckingTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t

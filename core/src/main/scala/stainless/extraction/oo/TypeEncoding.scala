@@ -15,7 +15,7 @@ trait TypeEncoding
      with utils.SyntheticSorts { self =>
 
   val s: Trees
-  val t: imperative.Trees
+  val t: Trees
 
   import t._
   import t.dsl._
@@ -355,8 +355,8 @@ trait TypeEncoding
     rec(cd.typeArgs, tp1.getField(clsTps), tp2.getField(clsTps))
   }
 
-  private[this] def subtypeFunction(implicit symbols: s.Symbols): t.FunDef = mkFunDef(subtypeID, Unchecked)()(_ => (
-    Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
+  private[this] def subtypeFunction(implicit symbols: s.Symbols): t.FunDef =
+    mkFunDef(subtypeID, Unchecked, Uncached)()(_ => (Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
       case Seq(tp1, tp2) => Seq(
         (tp2 is top) -> E(true),
         (tp1 is bot) -> E(true),
@@ -501,8 +501,8 @@ trait TypeEncoding
    *         INSTANCEOF FUNCTION
    * ==================================== */
 
-  def instanceFunction(implicit symbols: s.Symbols): t.FunDef = mkFunDef(instanceID, Unchecked)()(_ => (
-    Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
+  private[this] def instanceFunction(implicit symbols: s.Symbols): t.FunDef =
+    mkFunDef(instanceID, Unchecked, Uncached)()(_ => (Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
       case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
         (tp2 is bot) -> E(false),
         (tp2 is top) -> !(tp1 is bot),
@@ -1090,12 +1090,12 @@ trait TypeEncoding
 
   // Classes are simply dropped by this extraction phase
   override protected type ClassResult = Unit
-  override protected def extractClass(context: TransformerContext, symbols: s.Symbols): ClassResult = ()
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = ()
   override protected def registerClasses(symbols: t.Symbols, classes: Seq[Unit]): t.Symbols = symbols
 }
 
 object TypeEncoding {
-  def apply(ts: Trees, tt: imperative.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new {

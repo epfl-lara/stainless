@@ -22,6 +22,7 @@ trait ExtractionPipeline { self =>
   } = new ExtractionPipeline {
     override val s: self.s.type = self.s
     override val t: that.t.type = that.t
+    override val context = self.context
 
     override def extract(symbols: s.Symbols): t.Symbols = {
       that.extract(self.extract(symbols))
@@ -35,7 +36,8 @@ trait ExtractionPipeline { self =>
 }
 
 object ExtractionPipeline {
-  def apply(transformer: ast.TreeTransformer)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(transformer: ast.TreeTransformer { val s: Trees; val t: ast.Trees })
+           (implicit ctx: inox.Context): ExtractionPipeline {
     val s: transformer.s.type
     val t: transformer.t.type
   } = new ExtractionPipeline { self =>
@@ -49,6 +51,19 @@ object ExtractionPipeline {
         val t: self.t.type
       }])
 
+    override def invalidate(id: Identifier): Unit = ()
+  }
+
+  def apply(transformer: inox.ast.SymbolTransformer { val s: Trees; val t: ast.Trees })
+           (implicit ctx: inox.Context): ExtractionPipeline {
+    val s: transformer.s.type
+    val t: transformer.t.type
+  } = new ExtractionPipeline {
+    override val s: transformer.s.type = transformer.s
+    override val t: transformer.t.type = transformer.t
+    override val context = ctx
+
+    override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
     override def invalidate(id: Identifier): Unit = ()
   }
 }
@@ -126,7 +141,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 
   private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
 
-  protected class ExtractionCache[+Key <: s.Definition, T] {
+  protected class ExtractionCache[Key <: s.Definition, T] {
     private[this] final val cache: MutableMap[CacheKey, T] = MutableMap.empty
 
     def cached(key: Key, symbols: s.Symbols)(builder: => T): T = {

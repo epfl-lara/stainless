@@ -6,6 +6,8 @@ package verification
 import scala.concurrent.Future
 import scala.language.existentials
 
+import extraction._
+
 /**
  * Strict Arithmetic Mode:
  *
@@ -18,18 +20,18 @@ object VerificationComponent extends Component {
   override val description = "Verification of function contracts"
 
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
-    val s: extraction.trees.type = extraction.trees
-    val t: extraction.trees.type = extraction.trees
+    val s: trees.type = trees
+    val t: trees.type = trees
   })
 
-  override def run(pipeline: extraction.StainlessPipeline)(implicit ctx: inox.Context) = {
+  override def run(pipeline: StainlessPipeline)(implicit ctx: inox.Context) = {
     new VerificationRun(pipeline)
   }
 }
 
-class VerificationRun(override val pipeline: extraction.StainlessPipeline)
+class VerificationRun(override val pipeline: StainlessPipeline)
                      (override implicit val context: inox.Context) extends ComponentRun {
-  override val name = VerificationComponent.name
+  override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
 
   override type Analysis = VerificationAnalysis

@@ -167,8 +167,16 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
 
   override protected type ClassResult = Either[t.ClassDef, (Option[t.ADTSort], Seq[t.FunDef])]
+  override protected def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols = {
+    classes.foldLeft(symbols) {
+      case (symbols, Left(cd)) => symbols.withClasses(Seq(cd))
+      case (symbols, Right((optSort, optFd))) => symbols.withSorts(optSort.toSeq).withFunctions(optFd.toSeq)
+    }
+  }
+
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
     import context.{t => _, s => _, _}
     if (isCandidate(cd.id)) {

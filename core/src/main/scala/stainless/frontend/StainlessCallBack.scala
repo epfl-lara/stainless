@@ -14,7 +14,7 @@ import java.io.File
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
-class StainlessCallBack(components: Seq[Component])(implicit ctx: inox.Context)
+class StainlessCallBack(components: Seq[Component])(override implicit val context: inox.Context)
   extends CallBack with CheckFilter { self =>
 
   protected final override val trees = extraction.xlang.trees
@@ -208,4 +208,3 @@ class StainlessCallBack(components: Seq[Component])(implicit ctx: inox.Context)
     }
   }
 }
-

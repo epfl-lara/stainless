@@ -4,11 +4,13 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination extends SimplePhase {
+trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
   val s: Trees
   val t: s.type
   import s._
 
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._

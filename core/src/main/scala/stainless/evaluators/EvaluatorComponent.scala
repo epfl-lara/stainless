@@ -50,7 +50,7 @@ object EvaluatorRun {
 
 class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
                   (override implicit val context: inox.Context) extends ComponentRun {
-  override val name = EvaluatorComponent.name
+  override val component = EvaluatorComponent
   override val trees: stainless.trees.type = stainless.trees
 
   import trees._

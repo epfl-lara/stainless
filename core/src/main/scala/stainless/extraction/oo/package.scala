@@ -17,8 +17,15 @@ package object oo {
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) =
+  def extractor(implicit ctx: inox.Context) = {
+    val lowering = ExtractionPipeline(new CheckingTransformer {
+      override val s: trees.type = trees
+      override val t: imperative.trees.type = imperative.trees
+    })
+
     AdtSpecialization(trees, trees) andThen
     RefinementLifting(trees, trees) andThen
-    TypeEncoding(trees, imperative.trees)
+    TypeEncoding(trees, trees)      andThen
+    lowering
+  }
 }

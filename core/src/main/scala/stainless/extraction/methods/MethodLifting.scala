@@ -36,7 +36,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     }
   }
 
-  override final def transform(symbols: s.Symbols): t.Symbols = {
+  override final def extract(symbols: s.Symbols): t.Symbols = {
     assert(symbols.sorts.isEmpty,
       "Unexpected sorts in method lifting: " + symbols.sorts.keys.map(_.asString).mkString(", "))
 

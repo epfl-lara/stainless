@@ -16,14 +16,15 @@ trait PartialEvaluation
   import context._
   import s._
 
+  protected val semantics: inox.SemanticsProvider { val trees: s.type }
+
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
   protected class TransformerContext(syms: s.Symbols) extends transformers.PartialEvaluatorWithPC {
     override val trees: s.type = s
     override implicit val symbols: syms.type = syms
     override val context = self.context
-
-    override val semantics = extraction.extractionSemantics
+    override val semantics = self.semantics
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
@@ -46,12 +47,16 @@ trait PartialEvaluation
 }
 
 object PartialEvaluation {
-  def apply(trees: extraction.Trees)(implicit ctx: inox.Context): extraction.ExtractionPipeline {
-    val s: trees.type
-    val t: trees.type
+  def apply(tr: extraction.Trees)(
+    implicit ctx: inox.Context,
+    sems: inox.SemanticsProvider { val trees: tr.type }
+  ): extraction.ExtractionPipeline {
+    val s: tr.type
+    val t: tr.type
   } = new PartialEvaluation {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
+    override val s: tr.type = tr
+    override val t: tr.type = tr
     override val context = ctx
+    override val semantics = sems
   }
 }

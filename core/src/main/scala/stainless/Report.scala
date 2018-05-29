@@ -72,8 +72,9 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   /** Filter, sort & process rows. */
   private def processRows(full: Boolean): Seq[Row] = {
+    val ordering = Ordering.Tuple2(implicitly[Ordering[Identifier]], implicitly[Ordering[inox.utils.Position]])
     for {
-      RecordRow(id, pos, level, extra, time) <- annotatedRows sortBy { r => r.id -> r.pos }
+      RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
       contents = (id.name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
     } yield Row(contents map { str => Cell(withColor(str, level)) })

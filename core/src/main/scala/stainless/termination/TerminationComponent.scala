@@ -50,7 +50,7 @@ object TerminationComponent extends Component {
 
 class TerminationRun(override val pipeline: extraction.StainlessPipeline)
                     (override implicit val context: inox.Context) extends ComponentRun {
-  override val name = TerminationComponent.name
+  override val component = TerminationComponent
   override val trees: termination.trees.type = termination.trees
 
   override type Analysis = TerminationAnalysis

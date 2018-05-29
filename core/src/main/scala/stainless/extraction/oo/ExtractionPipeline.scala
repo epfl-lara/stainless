@@ -5,8 +5,7 @@ package extraction
 package oo
 
 trait CachingPhase extends extraction.CachingPhase { self =>
-  protected val s: Trees
-  protected val t: Trees
+  val s: Trees
 
   protected type ClassResult
   private lazy val classCache = new ExtractionCache[s.ClassDef, ClassResult]
@@ -25,6 +24,8 @@ trait CachingPhase extends extraction.CachingPhase { self =>
 }
 
 trait SimpleClasses extends CachingPhase {
+  val t: Trees
+
   override protected type ClassResult = t.ClassDef
   override protected def registerClasses(symbols: t.Symbols, classes: Seq[t.ClassDef]): t.Symbols = symbols.withClasses(classes)
 }

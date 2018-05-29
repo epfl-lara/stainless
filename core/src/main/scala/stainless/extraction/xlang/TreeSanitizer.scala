@@ -6,15 +6,17 @@ package xlang
 
 /** Inspect trees, detecting illegal structures. */
 trait TreeSanitizer extends ExtractionPipeline {
-  val s: Trees
+  val s: innerfuns.Trees
   val t: s.type
   import s._
 
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
-  override final def transform(symbols: s.Symbols): t.Symbols = {
+  override final def extract(symbols: s.Symbols): t.Symbols = {
     symbols.functions.values foreach checkPrecondition
     symbols
   }
+
+  override final def invalidate(id: Identifier): Unit = ()
 
   private sealed abstract class Action
   private case object Continue extends Action

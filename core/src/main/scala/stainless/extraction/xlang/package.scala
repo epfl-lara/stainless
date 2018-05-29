@@ -23,10 +23,17 @@ package object xlang {
     val lowering: ExtractionPipeline {
       val s: trees.type
       val t: methods.trees.type
-    } = new oo.SimplePhase {
+    } = new oo.SimplePhase { self =>
       override val s: trees.type = trees
       override val t: methods.trees.type = methods.trees
       override val context = ctx
+
+      override protected type TransformerContext = identity.type
+      override protected def getContext(symbols: s.Symbols) = identity
+      protected final object identity extends oo.TreeTransformer {
+        override val s: self.s.type = self.s
+        override val t: self.t.type = self.t
+      }
 
       override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
         transformer.transform(fd.copy(flags = fd.flags.filter { case s.Ignore => false case _ => true }))

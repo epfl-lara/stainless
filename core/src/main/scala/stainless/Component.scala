@@ -13,7 +13,7 @@ trait Component {
   val name: String
   val description: String
 
-  val lowering: extraction.ExtractionPipeline {
+  val lowering: inox.ast.SymbolTransformer {
     val s: extraction.trees.type
     val t: extraction.trees.type
   }
@@ -49,7 +49,7 @@ trait ComponentRun { self =>
         override val t: extraction.trees.type = extraction.trees
       })
     } else {
-      otherComponents.map(_.lowering).reduceLeft(_ andThen _)
+      extraction.ExtractionPipeline(otherComponents.map(_.lowering).reduceLeft(_ andThen _))
     }
   }
 

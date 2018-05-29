@@ -6,11 +6,18 @@ package throwing
 
 trait ExceptionLifting extends oo.SimplePhase { self =>
   val s: Trees
-  val t: ast.Trees
+  val t: oo.Trees
+
+  override protected type TransformerContext = transformer.type
+  override protected def getContext(symbols: s.Symbols) = transformer
+  protected object transformer extends oo.TreeTransformer {
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
+  }
 }
 
 object ExceptionLifting {
-  def apply(ts: Trees, tt: ast.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new ExceptionLifting {
