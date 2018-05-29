@@ -12,9 +12,6 @@ package object frontend {
 
   /**
    * The persistent caches are stored in the same directory, denoted by this option.
-   *
-   * Each [[CallBackWithRegistry]] store its cache in different files to avoid
-   * confusion with custom filters.
    */
   object optPersistentCache extends inox.FlagOptionDef("cache", false)
 

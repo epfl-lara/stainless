@@ -8,7 +8,8 @@ import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
 
-import io.circe.Json
+import io.circe._
+import io.circe.syntax._
 
 import java.io.File
 import scala.concurrent.{ Await, Future }
@@ -95,13 +96,46 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     }
   }
 
-  protected case class Report(reports: Seq[AbstractReport[_]]) extends AbstractReport[Report] {
+  protected trait RunReport { val run: ComponentRun; val report: run.Report }
+  protected def RunReport(r: ComponentRun)(re: r.Report): RunReport { val run: r.type; val report: re.type } =
+    new RunReport { val run: r.type = r; val report: re.type = re }
+
+  protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
     val name = "stainless"
+
+    override def ~(other: Report): Report = Report(
+      (reports ++ other.reports).groupBy(_.run).map {
+        case (run, reports) => RunReport(run)(reports.map(_.report.asInstanceOf[run.Report]) reduce (_ ~ _))
+      }.toSeq
+    )
+
+    override lazy val annotatedRows = reports.flatMap(_.report.annotatedRows: Seq[RecordRow])
+
+    override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
+
+    override def filter(ids: Set[Identifier]): Report =
+      Report(reports.map(rr => RunReport(rr.run)(rr.report filter ids)))
+
+    override lazy val stats: stainless.ReportStats = {
+      val reportStats = reports.map(_.report.stats)
+      ReportStats(
+        reportStats.map(_.total         ).sum,
+        reportStats.map(_.time          ).sum,
+        reportStats.map(_.valid         ).sum,
+        reportStats.map(_.validFromCache).sum,
+        reportStats.map(_.invalid       ).sum,
+        reportStats.map(_.unknown       ).sum)
+    }
   }
 
   /** Parse a JSON value into a proper Report. We assume this doesn't fail. */
-  protected def parseReportCache(json: Json): Report
-
+  protected def parseReportCache(json: Json): Report = json.as[Seq[(String, Json)]] match {
+    case Right(jsons) => Report(runs.flatMap { run =>
+      jsons.find(_._1 == run.component.name)
+        .map(p => RunReport(run)(run.parse(p._2)): RunReport)
+    })
+    case Left(error) => throw error
+  }
 
   // See assumption/requirements in [[CallBack]]
   final override def getReport: Option[Report] = Option(report)
@@ -202,7 +236,8 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
       // Dispatch a task to the executor service instead of blocking this thread.
-      val componentReports = runs.map(run => run(id, funSyms).map(_.toReport))
+      val componentReports: Seq[Future[RunReport]] =
+        runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }
     }

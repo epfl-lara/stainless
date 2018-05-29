@@ -23,6 +23,19 @@ case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, 
   def isValid = unknown + invalid == 0
 }
 
+object Level extends Enumeration {
+  type Type = Value
+  val Error, Warning, Normal = Value
+}
+
+case class RecordRow(
+  id: Identifier,
+  pos: Position,
+  level: Level.Type,
+  extra: Seq[String],
+  time: Long
+)
+
 /**
  * Text version of [[AbstractAnalysis]] that holds the basic information a user might be interested in.
  *
@@ -54,24 +67,14 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   final def isSuccess: Boolean = stats.isValid
 
-  protected object Level extends Enumeration {
-    type Type = Value
-    val Error, Warning, Normal = Value
-  }
   protected type Level = Level.Type
 
-  protected case class RecordRow(
-    id: Identifier,
-    pos: Position,
-    level: Level,
-    extra: Seq[String],
-    time: Long
-  )
-
-  protected def annotatedRows: Seq[RecordRow]
+  protected[stainless] def annotatedRows: Seq[RecordRow]
 
   /** Filter, sort & process rows. */
   private def processRows(full: Boolean): Seq[Row] = {
+    // @nv: scala suddently came out with a divering implicit resolution here so we have no other choice
+    //      than to manually provide a correct odering to the sort below.
     val ordering = Ordering.Tuple2(implicitly[Ordering[Identifier]], implicitly[Ordering[inox.utils.Position]])
     for {
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)

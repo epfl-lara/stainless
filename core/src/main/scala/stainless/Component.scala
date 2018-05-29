@@ -5,6 +5,8 @@ package stainless
 import extraction.xlang.{trees => xt}
 import utils.CheckFilter
 
+import io.circe._
+
 import scala.concurrent.Future
 
 import scala.language.existentials
@@ -36,7 +38,10 @@ trait ComponentRun { self =>
 
   import context._
 
-  type Analysis <: AbstractAnalysis
+  type Report <: AbstractReport[Report]
+  type Analysis <: AbstractAnalysis { type Report = self.Report }
+
+  def parse(json: Json): Report
 
   protected final val lowering: extraction.ExtractionPipeline {
     val s: extraction.trees.type

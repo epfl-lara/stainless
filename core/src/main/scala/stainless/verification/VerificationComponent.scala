@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import io.circe._
+
 import scala.concurrent.Future
 import scala.language.existentials
 
@@ -34,7 +36,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
   override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
 
+  override type Report = VerificationReport
   override type Analysis = VerificationAnalysis
+
+  override def parse(json: Json): Report = VerificationReport.parse(json)
 
   override protected def createPipeline = pipeline andThen PartialEvaluation(extraction.trees) andThen lowering
 

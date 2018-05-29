@@ -5,6 +5,8 @@ package evaluators
 
 import inox.evaluators.EvaluationResults.{ EvaluatorError, RuntimeError, Successful }
 
+import io.circe._
+
 import scala.concurrent.Future
 import scala.util.{ Success, Failure }
 
@@ -56,8 +58,12 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
   import trees._
   import EvaluatorRun._
 
+  override type Report = EvaluatorReport
   override type Analysis = EvaluatorAnalysis
-  implicit val debugSection = DebugSectionEvaluator
+
+  override def parse(json: Json): Report = EvaluatorReport.parse(json)
+
+  private implicit val debugSection = DebugSectionEvaluator
 
   override def createFilter = EvaluatorCheckFilter(trees, context)
 

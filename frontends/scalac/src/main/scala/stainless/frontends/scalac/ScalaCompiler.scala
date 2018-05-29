@@ -4,7 +4,7 @@ package stainless
 package frontends.scalac
 
 import ast.SymbolIdentifier
-import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, MasterCallBack }
+import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
 
 import scala.tools.nsc.{ Global, Settings => NSCSettings, CompilerCommand }
 import scala.reflect.internal.Positions
@@ -67,7 +67,7 @@ class SymbolMapping {
 
 }
 
-class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: MasterCallBack, cache: SymbolMapping)
+class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack, cache: SymbolMapping)
   extends Global(settings, new SimpleReporter(settings, ctx.reporter))
      with Positions {
 
@@ -107,7 +107,7 @@ object ScalaCompiler {
     override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
-    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: MasterCallBack): Frontend =
+    override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
         var underlying: ScalaCompiler#Run = _
         val cache = SymbolMapping.empty

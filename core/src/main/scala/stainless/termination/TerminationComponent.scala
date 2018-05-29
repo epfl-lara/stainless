@@ -3,6 +3,8 @@
 package stainless
 package termination
 
+import io.circe._
+
 import scala.concurrent.Future
 import scala.util.{ Success, Failure }
 
@@ -53,7 +55,10 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
   override val component = TerminationComponent
   override val trees: termination.trees.type = termination.trees
 
+  override type Report = TerminationReport
   override type Analysis = TerminationAnalysis
+
+  override def parse(json: Json): Report = TerminationReport.parse(json)
 
   override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
     import trees._
