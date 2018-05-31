@@ -22,8 +22,7 @@ sbt
 ---
 Setting up a sbt build file to use stainless it's a simple 4-steps procedure:
 
-1. Start by installing an external solver (see Section
-   ":ref:`smt-solvers`").
+1. Start by installing an external solver (see Section `External Solvers`_").
 
 2. Add the ``sbt-stainless`` plugin together with the required resolver to your ``project/plugins.sbt``
 
@@ -115,8 +114,6 @@ Compilation will automatically generate the following two bash scripts:
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
-
-.. _smt-solvers:
 
 External Solvers
 ----------------

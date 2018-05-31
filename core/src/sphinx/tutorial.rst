@@ -10,8 +10,10 @@ This tutorial shows how to:
   * define lists as algebraic data types
   * use sets and recursive function to specify data structures
 
-See :doc:`gettingstarted` about how to setup the command line
+See `Getting Started`_ about how to setup the command line
 tool.
+
+.. _`Getting Started`: gettingstarted.rst
 
 Warm-up: Max
 ------------
@@ -182,8 +184,10 @@ Defining Lists and Their Properties
 We next consider sorting an unbounded number of elements.
 For this purpose, we define a data structure for lists of
 integers.  Stainless has a built-in data type of parametric
-lists, see :doc:`library`, but here we define
+lists, see `library`_, but here we define
 our own variant instead.
+
+.. _library: library.rst
 
 Lists
 ^^^^^

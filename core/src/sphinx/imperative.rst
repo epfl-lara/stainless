@@ -3,12 +3,14 @@
 Imperative
 ==========
 
-To complement the core :doc:`Pure Scala <purescala>` language, Stainless
+To complement the core `Pure Scala`_ language, Stainless
 proposes a few extensions to that core language.
 
 On the technical side, these extensions do not have specific treatment in the
-back-end of Stainless. Instead, they are desugared into :doc:`Pure Scala <purescala>`
+back-end of Stainless. Instead, they are desugared into `Pure Scala`_
 constructs during a preprocessing phase in the Stainless front-end.
+
+.. _Pure Scala: purescala.rst
 
 Imperative Code
 ---------------

@@ -21,7 +21,7 @@ Stainless attempts to strike a delicate balance between the
 convenience of use on the one hand and the simplicity of
 reasoning on the other hand. Stainless supports verification
 of Scala programs by applying a succession of semantic-preserving
-transformations to the :doc:`Pure Scala <purescala>` fragment until
+transformations to the `Pure Scala`_ fragment until
 it fits into the fragment supported by
 `Inox <https://github.com/epfl-lara/inox>`_.
 The Pure Scala fragment is at the core of
@@ -37,7 +37,7 @@ are designed to work well with automated reasoning and Stainless's
 language fragment.
 
 In addition to this pure fragment, Stainless supports certain
-:doc:`imperative <imperative>` features.
+`Imperative`_ features.
 Features thus introduced are handled by
 a translation into Pure Scala concepts. They are often more
 than just syntactic sugar, because some of them require
@@ -49,9 +49,12 @@ e.g. concurrency with a shared mutable heap, though it might
 support more manageable forms of concurrency in the future.
 
 If you would like to use Stainless now, check the
-:doc:`gettingstarted`
-section and try our :doc:`Tutorial <tutorial>`.
+`Getting started`_
+section and try our `Tutorial`_.
 To learn more about the functionality that Stainless provides, read on below.
+
+.. _Getting started: gettingstarted.rst
+.. _Tutorial: tutorial.rst
 
 Software Verification
 ---------------------
@@ -92,7 +95,7 @@ Stainless will also verify for each call site that the precondition of the invok
 function cannot be violated.
 
 Stainless supports verification of a significant part of the Scala language, described in
-:doc:`purescala` and :doc:`imperative`.
+`Pure Scala`_ and `Imperative`_.
 
 Program Termination
 -------------------
@@ -133,3 +136,5 @@ can be shown terminating as follows:
 
 It is also possible to add a pre-condition (``require(...)``) *before* ``decreases``.
 
+.. _Pure Scala: purescala.rst
+.. _Imperative: imperative.rst

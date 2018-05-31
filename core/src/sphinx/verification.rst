@@ -9,10 +9,13 @@ specifications as annotations and attempt to prove --- or disprove --- their
 validity.
 
 One of the core modules of Stainless is a verifier for the subset of Scala described
-in the sections :doc:`purescala` and :doc:`imperative`. In this
+in the sections `Pure Scala`_ and `Imperative`_. In this
 section, we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
 by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.
+
+.. _Pure Scala: purescala.rst
+.. _Imperative: imperative.rst
 
 Verification conditions
 -----------------------

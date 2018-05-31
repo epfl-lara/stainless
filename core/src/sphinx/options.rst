@@ -22,7 +22,9 @@ By default, ``--verification`` is chosen.
 
 * ``--verification``
 
-  Proves or disproves function contracts, as explained in the :doc:`verification` section.
+  Proves or disproves function contracts, as explained in the `verification`_ section.
+
+  .. _verification: verification.rst
 
 * ``--termination``
 
