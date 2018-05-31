@@ -289,7 +289,9 @@ Methods of these classes are mapped to specialized trees within SMT solvers.
 For code generation, we rely on Java Sets and Maps.
 
 The API of these classes is a subset of the Scala API and can be found
-in the :doc:`purescala` section.
+in the `Pure Scala`_ section.
+
+.. _Pure Scala: purescala.rst
 
 Additionally, the following functions for Sets are provided in the
 ``stainless.collection`` package:

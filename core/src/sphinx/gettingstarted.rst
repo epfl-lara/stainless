@@ -5,7 +5,9 @@ Getting Started
 
 Stainless is currently only available as a command line tool,
 which exposes most of the functionality. See the
-:doc:`installation documentation <installation>`
+`installation documentation`_.
+
+.. _installation documentation: installation.rst
 for more information.
 
 Stainless compilation will generate two scripts for you, namely
@@ -24,7 +26,9 @@ To see the main options, use
   $ ./stainless --help
 
 in your command line shell while in the top-level Stainless directory.
-You may also wish to consult the :doc:`available command-line options <options>`.
+You may also wish to consult the `available command-line options`_.
+
+.. _available command-line options: options.rst
 
 You can try some of the examples from ``frontends/benchmarks``
 distributed with Stainless:
