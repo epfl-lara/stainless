@@ -670,11 +670,11 @@ trait CodeExtraction extends ASTExtractors {
       }
     }
 
-    val cctx = es.collect {
+    val (lcds, cctx) = es.collect {
       case cd: ClassDef => cd
-    }.foldLeft(vctx) { case (dctx, cd) =>
+    }.foldLeft((Map.empty[Symbol, (xt.ClassDef, Seq[xt.FunDef])], vctx)) { case ((lcds, dctx), cd) =>
       val (xcd, methods) = extractClass(cd)(dctx)
-      dctx.withLocalClass(xcd.id, xcd, methods)
+      (lcds + (cd.symbol -> (xcd, methods)), dctx.withLocalClass(xcd.id, xcd, methods))
     }
 
     def rec(es: List[Tree]): xt.Expr = es match {
@@ -706,7 +706,7 @@ trait CodeExtraction extends ASTExtractors {
         }
 
       case (cd: ClassDef) :: xs =>
-        val (xcd, methods) = extractClass(cd)(cctx)
+        val (xcd, methods) = lcds(cd.symbol)
         val body = rec(xs)
         val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(cctx)
         xt.LetClass(xt.LocalClassDef(xcd, methods), body, retType).setPos(cd.pos)
