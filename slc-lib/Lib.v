@@ -78,8 +78,9 @@ Ltac isNotMatch  M :=
   end.
 
 Ltac rewrite_equations :=
-  repeat match goal with
+  match goal with
   | U: _ = exist _ _ _ |- _ => rewrite U in *
+  | U: exist _ _ _ = _ |- _ => rewrite <- U in *
   | U: _ = ?E |- _ => 
       match goal with
       | H: Marked U "equation" |- _ => isNotMatch E; rewrite U in *  
@@ -117,48 +118,30 @@ Ltac not_usable H :=
 
 Ltac usable H := not_mark H; tryif not_usable H then fail else idtac.
 
+Ltac define m t :=
+  let M := fresh "M" in
+  pose t as m;
+  assert (t = m) as M; auto;
+  pose (Mark M "remembering m").
+
+Ltac destruct_refinement_aux T :=
+  let m := fresh "mres" in
+  let r := fresh "r" in
+  let cP := fresh "copyP" in
+  let P := fresh "P" in
+  let MM := fresh "MM" in
+  poseNamed MM (Mark T "destruct_refinement");
+  pose proof (Mark MM "mark");
+  define m T;
+  autounfold in m;
+  destruct m as [ r P ];
+  pose proof (Mark P "not_usable");
+  pose proof P as cP.                   
+
 Ltac destruct_refinement :=
   match goal with
-  | |- context[proj1_sig ?T] =>
-    let res := fresh "RR" in
-    let r := fresh "r" in
-    let cP := fresh "copy" in
-    let P := fresh "P" in
-    let MM := fresh "MM" in
-    poseNamed MM (Mark T "destruct_refinement");
-    pose proof (Mark MM "mark");
-    destruct T as [ r P ] eqn:res;
-    pose proof (Mark P "not_usable");
-    pose proof P as cP;
-    try rewrite res in *
-  | H: context[proj1_sig ?T] |- _ =>
-    let res := fresh "RR" in
-    let r := fresh "r" in
-    let cP := fresh "copy" in
-    let P := fresh "P" in
-    let MM := fresh "MM" in
-    usable H;
-    poseNamed MM (Mark T "destruct_refinement");
-    pose proof (Mark MM "mark");
-    destruct T as [ r P ] eqn:res in H;
-    pose proof (Mark P "not_usable");
-    pose proof P as cP;
-    try rewrite res in *
+  | |- context[proj1_sig ?T] => destruct_refinement_aux T
+  | H: context[proj1_sig ?T] |- _ => destruct_refinement_aux T
   end.
 
 
-
-(*
-Theorem proj1: forall P Q: Prop, P /\ Q -> P.
-  intros P Q H.
-  inversion H.
-  apply H0. Qed.
-
-Theorem and_left : forall (P Q : Prop),
-  (P /\ Q) -> P.
-Proof.
-  intros P Q P_and_Q.
-  destruct P_and_Q.
-  exact H.
-Qed. 
-*)
