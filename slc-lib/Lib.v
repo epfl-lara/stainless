@@ -20,11 +20,13 @@ Set Default Timeout 60.
 
   
 Ltac fast :=
-  cbn -[Z.add] in * ||
   intros ||
+  cbn -[Z.add] in * ||
   subst ||
   intuition ||
-  autorewrite with libR in * ||
+  (progress autorewrite with libInts in *) ||
+  (progress autorewrite with libProp in *) ||
+  (progress autorewrite with libBool in *) ||
   congruence ||
   discriminate ||
   done ||
@@ -40,6 +42,8 @@ Ltac libStep := match goal with
     unify T ignore_termination; apply False_ind; exact unsupported
   | [ H: ex _ _ |- _ ] => destruct H
   |   H: exists _, _ |- _ => destruct H
+  | H: sig _ |- _ => destruct H
+  | H: exist _ _ _ = exist _ _ _ |- _ => inversion H; clear H
   end.
   
 
