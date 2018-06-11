@@ -70,7 +70,7 @@ Ltac isThere P :=
   | H: ?Q |- _ => unify P Q
   end.
 
-Ltac isNotMatch M :=
+Ltac isNotMatch  M :=
   match M with
   | match _ with _ => _ end => fail 1
   | match _ with _ => _ end _ => fail 1
@@ -102,26 +102,6 @@ Ltac program_simplify :=
 
 Ltac program_simpl := program_simplify ; try typeclasses eauto with program ; try program_solve_wf.
 
-Ltac destruct_refinement :=
-  match goal with
-  | |- context[proj1_sig ?T] =>
-    let res := fresh "RR" in
-    let r := fresh "r" in
-    let cP := fresh "copy" in
-    let P := fresh "P" in
-    destruct T as [ r P ] eqn:res;
-    pose proof (Mark P "not_usable");
-    pose proof P as cP
-  | H: context[proj1_sig ?T] |- _ =>
-    let res := fresh "RR" in
-    let r := fresh "r" in
-    let cP := fresh "copy" in
-    let P := fresh "P" in
-    destruct T as [ r P ] eqn:res;
-    pose proof (Mark P "not_usable");
-    pose proof P as cP
-  end.
-
 
 Ltac is_mark H :=
   match type of H with
@@ -136,6 +116,35 @@ Ltac not_usable H :=
   end.
 
 Ltac usable H := not_mark H; tryif not_usable H then fail else idtac.
+
+Ltac destruct_refinement :=
+  match goal with
+  | |- context[proj1_sig ?T] =>
+    let res := fresh "RR" in
+    let r := fresh "r" in
+    let cP := fresh "copy" in
+    let P := fresh "P" in
+    let MM := fresh "MM" in
+    poseNamed MM (Mark T "destruct_refinement");
+    pose proof (Mark MM "mark");
+    destruct T as [ r P ] eqn:res;
+    pose proof (Mark P "not_usable");
+    pose proof P as cP;
+    try rewrite res in *
+  | H: context[proj1_sig ?T] |- _ =>
+    let res := fresh "RR" in
+    let r := fresh "r" in
+    let cP := fresh "copy" in
+    let P := fresh "P" in
+    let MM := fresh "MM" in
+    usable H;
+    poseNamed MM (Mark T "destruct_refinement");
+    pose proof (Mark MM "mark");
+    destruct T as [ r P ] eqn:res in H;
+    pose proof (Mark P "not_usable");
+    pose proof P as cP;
+    try rewrite res in *
+  end.
 
 
 
