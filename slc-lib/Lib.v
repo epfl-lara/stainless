@@ -66,6 +66,12 @@ Ltac isThere P :=
   | H: ?Q |- _ => unify P Q
   end.
 
+Ltac isMatch M :=
+  match M with
+  | match _ with _ => _ end => fail 1
+  | _ => idtac
+  end.
+
 Ltac termNotThere p :=
   let P := type of p in
   tryif (isThere P) then fail else idtac.
