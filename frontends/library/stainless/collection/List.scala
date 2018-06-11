@@ -290,17 +290,19 @@ sealed abstract class List[T] {
 
   def splitAt(e: T): List[List[T]] =  split(Cons(e, Nil()))
 
-  def split(seps: List[T]): List[List[T]] = this match {
-    case Cons(h, t) =>
-      if (seps.contains(h)) {
-        Cons(Nil(), t.split(seps))
-      } else {
-        val r = t.split(seps)
-        Cons(Cons(h, r.head), r.tail)
-      }
-    case Nil() =>
-      Cons(Nil(), Nil())
-  }
+  def split(seps: List[T]): List[List[T]] = {
+    this match {
+      case Cons(h, t) =>
+        if (seps.contains(h)) {
+          Cons[List[T]](Nil(), t.split(seps))
+        } else {
+          val r = t.split(seps)
+          Cons[List[T]](Cons(h, r.head), r.tail)
+        }
+      case Nil() =>
+        Cons[List[T]](Nil[T](), Nil[List[T]]())
+    } 
+  } ensuring((res: List[List[T]]) => res != Nil[List[T]]())
 
   def evenSplit: (List[T], List[T]) = {
     val c = size/2

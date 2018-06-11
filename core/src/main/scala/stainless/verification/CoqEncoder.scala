@@ -421,6 +421,7 @@ trait CoqEncoder {
     RawCommand(s"""Ltac ${t.coqString} :=
                   |  t_base ||
                   |  ${lastTactic.coqString} ||
+                  |  rewrite_equations ||
                   |  slow ||
                   |  t_sets ||
                   |  (progress autorewrite with libCase in *) ||
@@ -555,7 +556,7 @@ trait CoqEncoder {
         val let = CoqLet(u, None, CoqFresh("U"), CoqSequence(Seq(
           poseNew(Mark(ids, "unfolded " + funName.coqString + "_equation")),
           PoseProof(CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids), Some(u)),
-          Rewrite(u)
+          PoseProof(Mark(Seq(u),"equation"))
         )))
 
         SeparatorComment(s"Start of ${fd.id.name}") $
