@@ -73,8 +73,8 @@ Proof.
   repeat libStep || unfold propInBool in * || ifthenelse_step.
 Qed.
 
-Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libR.
-Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libR.
+Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libProp.
+Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libProp.
 
 (*
 Lemma equal_booleans: forall b1 b2: bool,
@@ -100,8 +100,8 @@ Proof.
   intros A B; pose proof (classicT A); repeat libStep.
 Qed.
 
-Hint Rewrite implication: libR.
-Hint Rewrite implication2: libR.
+Hint Rewrite implication: libProp.
+Hint Rewrite implication2: libProp.
 
 Ltac t_propbool :=
   match goal with
