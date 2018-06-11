@@ -238,89 +238,47 @@ Ltac t_bool :=
   end.
 
 
-(* Not done yet 
-Ltac t_bool_simpl := 
-  match goal with
-  | H: negb ?b = true |- _ =>
-    let H2 := fresh "H" in
-    poseNew(Mark H "not_bool_eq_true");
-    pose proof (negb_true_iff _ H) as H2;
-    rewrite H2 in *
-  | H: negb ?b = false |- _ =>
-    poseNew(Mark H "not_bool_eq_false");
-    pose proof (negb_false_iff _ H) as H2;
-    rewrite H2 in *
-  | H: true = negb ?b |- _ =>
-    poseNew(Mark H "true_eq_not_bool");
-    pose proof (negb_true_iff _ (eq_sym H)) as H2;
-    rewrite H2 in *
-  | H: false = negb ?b |- _ =>
-    poseNew(Mark H "false_eq_not_bool");
-    pose proof (negb_false_iff _ (eq_sym H)) as H2
 
-  | H: ?b = true |- _ =>
-    poseNew(Mark (H) "bool_eq_true");
-    rewrite H in *;
-    clear H
-  | H: ?b = false |- _ =>
-    poseNew(Mark (H) "bool_eq_false");
-    rewrite H in *;
-    clear H
-  | H: true = ?b |- _ =>
-    poseNew(Mark (H) "true_eq_bool");
-    rewrite H in *
-  | H: false = ?b |- _ =>
-    poseNew(Mark (H) "false_eq_bool");
-    pose proof (eq_sym H)
+Lemma if_then_false0:
+  forall b: bool, forall e1,
+           (if b then e1 else false) = true <->
+           b = true /\ e1 = true.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
 
 
-  end.
-*)
+Lemma if_then_true0:
+  forall b: bool, forall e1,
+           (if b then e1 else true) = false <->
+           b = true /\ e1 = false.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
+
+Lemma if_false_else0:
+  forall b: bool, forall e2,
+           (if b then false else e2) = true <->
+           b = false /\ e2 = true.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
 
 
-  (*| H: ?b &&b true = ?a |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark (a,b) "rewrite_and_true");
-    pose proof (rewrite_and_true2 _ _ H) as H2                            
-  | H: eqb ?a ?b = true |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark H "eqb_true_iff");
-    pose proof (proj1 (eqb_true_iff _ _) H) as H2                             
-  | H: ifthenelse ?b bool ?a _ = true |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark (a,b) "if_then_false2");
-    pose proof (if_then_false2 _ _ H) as H2                              
-  | H: true = ifthenelse ?b bool ?a _ |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark (a,b) "if_then_false2");
-    pose proof (if_then_false2 _ _ (eq_sym H)) as H2                          
-  | H: ifthenelse ?b bool ?a _ = true |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark (a,b) "if_then_false");
-    pose proof (if_then_false _ _ H) as H2                              
-  | H: true = ifthenelse ?b bool ?a _ |- _ =>
-    let H2 := fresh H in
-    poseNew (Mark (a,b) "if_then_false");
-    pose proof (if_then_false2 _ _ (eq_sym H)) as H2    
-  | H: ?b <> true |- _ => 
-    let H2 := fresh H in
-    poseNew (Mark (b) "not_true_is_false");
-    pose proof (not_true_is_false _ H) as H2
-  | H: true <> ?b |- _ => 
-    let H2 := fresh H in
-    poseNew (Mark (b) "not_true_is_false");
-    pose proof (not_true_is_false _ (not_eq_sym H)) as H2
-  | H: ?b <> false |- _ => 
-    let H2 := fresh H in
-    poseNew (Mark (b) "not_false_is_true");
-    pose proof (not_false_is_true _ H) as H2
-  | H: false <> ?b |- _ => 
-    let H2 := fresh H in
-    poseNew (Mark (b) "not_false_is_true");
-    pose proof (not_false_is_true _ (not_eq_sym H)) as H2
-  *)
+Lemma if_true_else0:
+  forall b: bool, forall e2,
+           (if b then true else e2) = false <->
+           b = false /\ e2 = false.
+Proof.
+  repeat libStep || ifthenelse_step.
+Qed.
 
+Hint Rewrite if_then_true0 : libBool.
+Hint Rewrite if_then_false0 : libBool.
+Hint Rewrite if_true_else0 : libBool.
+Hint Rewrite if_false_else0 : libBool.
 
+(**
 Lemma rewrite_and_true:
   forall b: bool, b &&b true = b.
 Proof.
@@ -349,9 +307,9 @@ Lemma rewrite_false_and:
   forall b: bool, false &&b b = false.
 Proof.
   repeat libStep.
-Qed.
+Qed. 
 
 Hint Rewrite rewrite_and_true: libBool.
 Hint Rewrite rewrite_true_and: libBool.
 Hint Rewrite rewrite_and_false: libBool.
-Hint Rewrite rewrite_false_and: libBool.
+Hint Rewrite rewrite_false_and: libBool.**)

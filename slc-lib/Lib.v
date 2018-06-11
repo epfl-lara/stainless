@@ -73,7 +73,17 @@ Ltac isThere P :=
 Ltac isNotMatch M :=
   match M with
   | match _ with _ => _ end => fail 1
+  | match _ with _ => _ end _ => fail 1
   | _ => idtac
+  end.
+
+Ltac rewrite_equations :=
+  repeat match goal with
+  | U: _ = exist _ _ _ |- _ => rewrite U in *
+  | U: _ = ?E |- _ => 
+      match goal with
+      | H: Marked U "equation" |- _ => isNotMatch E; rewrite U in *  
+      end
   end.
 
 Ltac termNotThere p :=
