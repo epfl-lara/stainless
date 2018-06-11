@@ -70,7 +70,7 @@ Ltac isThere P :=
   | H: ?Q |- _ => unify P Q
   end.
 
-Ltac isMatch M :=
+Ltac isNotMatch M :=
   match M with
   | match _ with _ => _ end => fail 1
   | _ => idtac
