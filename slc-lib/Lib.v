@@ -76,6 +76,7 @@ Ltac termNotThere p :=
 
 
 Ltac poseNew E := termNotThere E; pose proof E.
+Ltac poseNamed M E := termNotThere E; pose proof E as M.
 
 
 Ltac program_simplify :=

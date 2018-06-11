@@ -113,7 +113,9 @@ Ltac splitite b B e1 e2 :=
   let B2 := fresh "BB" in
   let cpX := fresh "cpX" in
   let cpY := fresh "cpY" in
-  poseNew (Mark b "splitting if then else");
+  let MM := fresh "Mark" in
+  poseNamed MM (Mark b "splitting if then else");
+  pose proof (Mark MM "splitting if then else");
   destruct (match_or b B e1 e2) as [ HH1 | HH2 ];
   [
     destruct HH1 as [ X B1 ];
