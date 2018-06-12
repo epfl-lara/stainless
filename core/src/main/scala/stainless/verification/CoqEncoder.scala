@@ -421,7 +421,6 @@ trait CoqEncoder {
     RawCommand(s"""Ltac ${t.coqString} :=
                   |  t_base ||
                   |  ${lastTactic.coqString} ||
-                  |  rewrite_equations ||
                   |  slow ||
                   |  t_sets ||
                   |  (progress autorewrite with libCase in *) ||
