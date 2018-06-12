@@ -575,6 +575,7 @@ trait CoqEncoder {
         else
           RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).")
         ) $
+        RawCommand("Obligation Tactic := idtac.") $
         RawCommand("Fail Next Obligation.\n") $
         CoqMatchTactic(phaseA, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget)),
