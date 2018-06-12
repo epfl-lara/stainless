@@ -155,6 +155,7 @@ Ltac destruct_refinement :=
   match goal with
   | |- context[proj1_sig ?T] => no_proj_in T; destruct_refinement_aux T
   | H: context[proj1_sig ?T] |- _ => no_proj_in T; usable H; destruct_refinement_aux T
+  | _ := context[proj1_sig ?T] |- _ => no_proj_in T; destruct_refinement_aux T
   end.
 
 
