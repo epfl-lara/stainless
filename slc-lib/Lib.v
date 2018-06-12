@@ -131,6 +131,13 @@ Ltac define m t :=
   assert (t = m) as M; auto;
   pose (Mark M "remembering m").
 
+Ltac pose_let a b :=
+  poseNew (Mark (a, b) "rewrite_let");  
+  (*If only mark for a, we might miss some equations, this way we have useless hypotheses*)
+  let A := fresh "A" in
+  assert (a = b) as A; [auto | idtac].
+
+
 Ltac destruct_refinement_aux T :=
   let m := fresh "mres" in
   let r := fresh "r" in
@@ -156,6 +163,12 @@ Ltac destruct_refinement :=
   | |- context[proj1_sig ?T] => no_proj_in T; destruct_refinement_aux T
   | H: context[proj1_sig ?T] |- _ => no_proj_in T; usable H; destruct_refinement_aux T
   | _ := context[proj1_sig ?T] |- _ => no_proj_in T; destruct_refinement_aux T
+  end.
+
+(* If we have a := b : T in the context, we can pose it *)
+Ltac rewrite_let :=
+  match goal with
+  | H := ?b : ?T |- _ => not_mark b;pose_let H b
   end.
 
 

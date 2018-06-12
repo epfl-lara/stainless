@@ -7,6 +7,7 @@ Ltac t_base := (* program_simpl || *)
   t_bool ||
   t_propbool ||
   rewrite_equations ||
+  rewrite_let ||
   destruct_refinement ||
   (autounfold with refinements in *).
 
