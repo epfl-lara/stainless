@@ -178,10 +178,11 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     } catch {
       case e: syms.TypeErrorException =>
         reporter.error(e.pos, e.getMessage)
-        reporter.error(s"The extracted sub-program in not well formed.")
+        reporter.error(s"The extracted sub-program is not well formed.")
         reporter.error(s"Symbols are:")
         reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
         reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+        reporter.error(syms.explainTyping(e.obj)(xt.PrinterOptions(printUniqueIds = true, symbols = Some(syms))))
         reporter.fatalError(s"Aborting from CallBackWithRegistry")
     }
 

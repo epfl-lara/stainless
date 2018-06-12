@@ -9,9 +9,12 @@ trait TypeOps extends methods.TypeOps {
   import trees._
   import symbols._
 
-  // override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = (tp1, tp2) match {
-  //   case (lct: LocalClassType, rct) => rct // FIXME
-  //   case (lct, rct: LocalClassType) => lct // FIXME
-  //   case _ => super.typeBound(tp1, tp2, upper)
-  // }
+  // @romac - FIXME
+  override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = (tp1, tp2) match {
+    case (lct: LocalClassType, rct: LocalClassType) if lct == rct => lct
+    case (lct: LocalClassType, rct: LocalClassType) => Untyped
+    case (lct: LocalClassType, rct) => rct
+    case (lct, rct: LocalClassType) => lct
+    case _ => super.typeBound(tp1, tp2, upper)
+  }
 }

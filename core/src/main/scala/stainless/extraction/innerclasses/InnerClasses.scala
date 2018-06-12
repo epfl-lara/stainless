@@ -136,7 +136,7 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       type Result = LocalClassContext
 
       protected def step(e: Expr, path: Env): List[Result] = e match {
-        case LetClass(lcd, _, _) => List(LocalClassContext(lcd, path, tparams))
+        case LetClass(lcd, _) => List(LocalClassContext(lcd, path, tparams))
         case LetRec(fds, body) => fds.toList flatMap { fd =>
           val collector = new LocalClassesCollector(tparams ++ fd.tparams) {
             override def initEnv = path
@@ -165,6 +165,9 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
     val localClasses = localClassDefs.map(liftLocalClass(_)).toMap
 
     for (ctx <- localClassDefs; fd <- ctx.lcd.methods) {
+      // if (ctx.lcd.cd.parents.isEmpty)
+      //   throw MissformedStainlessCode(ctx.lcd, "Inner classes must extend a global class")
+
       val hasApplyLetRec = exprOps.exists {
         case _: ApplyLetRec => true
         case _ => false
@@ -179,10 +182,10 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
       val t: self.t.type = self.t
 
       override def transform(e: s.Expr): t.Expr = e match {
-        case s.LetClass(lcd, body, _) => transform(body)
+        case s.LetClass(lcd, body) => transform(body)
 
         case s.LocalClassConstructor(ct, args) => super.transform {
-          val lc = localClasses(ct.id)
+          val lc = localClasses(ct.cd.id)
           s.ClassConstructor(lc.localClassType, args ++ lc.newArgs)
         }
 
@@ -190,11 +193,18 @@ trait InnerClasses extends inox.ast.SymbolTransformer { self =>
           s.MethodInvocation(caller, method.id, tps, args)
         }
 
+        case s.LocalClassSelector(expr, id, _) => super.transform {
+          s.ClassSelector(expr, id)
+        }
+
         case _ => super.transform(e)
       }
 
       override def transform(tpe: s.Type): t.Type = tpe match {
-        case lct: s.LocalClassType => super.transform(lct.toClassType)
+        case lct: s.LocalClassType =>
+          val lc = localClasses(lct.cd.id)
+          super.transform(lc.localClassType)
+
         case _ => super.transform(tpe)
       }
     }

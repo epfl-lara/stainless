@@ -47,13 +47,12 @@ class DependenciesFinder {
         deps += id
         super.traverse(e)
 
-      case xt.LetClass(lcd, body, tpe) =>
+      case xt.LetClass(lcd, body) =>
         withinLocalClass(lcd.cd.id) {
           traverse(lcd.cd)
           lcd.methods.foreach(traverse)
           deps --= lcd.methods.map(_.id).toSet
           traverse(body)
-          traverse(tpe)
         }
 
       case xt.MethodInvocation(_, id, _, _) =>

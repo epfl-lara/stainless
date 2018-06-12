@@ -488,7 +488,7 @@ trait CodeExtraction extends ASTExtractors {
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
       val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
-        case xt.LetClass(lcd, _, _) => Set(lcd)
+        case xt.LetClass(lcd, _) => Set(lcd)
         case _ => Set()
       } (fullBody)
 
@@ -708,8 +708,7 @@ trait CodeExtraction extends ASTExtractors {
       case (cd: ClassDef) :: xs =>
         val (xcd, methods) = lcds(cd.symbol)
         val body = rec(xs)
-        val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(cctx)
-        xt.LetClass(xt.LocalClassDef(xcd, methods), body, retType).setPos(cd.pos)
+        xt.LetClass(xt.LocalClassDef(xcd, methods), body).setPos(cd.pos)
 
       case (v @ ValDef(mods, name, tpt, _)) :: xs =>
         if (mods.isMutable) {
@@ -1123,7 +1122,7 @@ trait CodeExtraction extends ASTExtractors {
 
           args match {
             case args if isMethod =>
-              val (cd, methods) = dctx.localClasses(lct.id)
+              val (cd, methods) = dctx.localClasses(lct.cd.id)
               val id = getIdentifier(sym)
               val fd = methods.find(_.id == id).get
               xt.LocalMethodInvocation(
@@ -1134,8 +1133,10 @@ trait CodeExtraction extends ASTExtractors {
                 extractArgs(sym, args)
               )
             case Seq() =>
-              // @romac: TODO
-              xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
+              val (cd, _) = dctx.localClasses(lct.cd.id)
+              val id = getIdentifier(sym)
+              val field = cd.fields.collectFirst { case vd @ xt.ValDef(`id`, _, _) => vd }
+              xt.LocalClassSelector(extractTree(lhs), id, field.map(_.tpe).getOrElse(xt.Untyped))
             case Seq(rhs) =>
               // @romac: TODO
               val getter = sym.accessed.getterIn(sym.owner)
@@ -1423,7 +1424,7 @@ trait CodeExtraction extends ASTExtractors {
     case tr @ TypeRef(_, sym, tps) if sym.isClass =>
       val id = getIdentifier(sym)
       dctx.localClasses.get(id) match {
-        case Some((cd, _)) => xt.LocalClassType(cd.id, tps.map(extractType))
+        case Some((cd, _)) => xt.LocalClassType(cd, tps.map(extractType))
         case None => xt.ClassType(id, tps.map(extractType))
       }
 
@@ -1434,7 +1435,7 @@ trait CodeExtraction extends ASTExtractors {
       val id = getIdentifier(tt.sym)
       val params = tt.sym.typeParams.map(dctx.tparams)
       dctx.localClasses.get(id) match {
-        case Some((cd, _)) => xt.LocalClassType(cd.id, params)
+        case Some((cd, _)) => xt.LocalClassType(cd, params)
         case None => xt.ClassType(id, params)
       }
 

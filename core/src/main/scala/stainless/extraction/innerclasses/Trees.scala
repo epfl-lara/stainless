@@ -34,23 +34,28 @@ trait Trees extends methods.Trees { self =>
 
   case class TypedLocalClassDef(lcd: LocalClassDef, tcd: TypedClassDef)(implicit val symbols: Symbols) extends Tree {
     @inline def id: Identifier = lcd.id
-
     @inline def typeMap: Map[TypeParameter, Type] = tcd.typeMap
-
     @inline def fields: Seq[ValDef] = tcd.fields
-
     @inline def methods: Seq[FunDef] = lcd.methods
-
     @inline def toType = tcd.toType
     @inline def parentType = lcd.parent.toType
   }
 
-  case class LetClass(lcd: LocalClassDef, body: Expr, tpe: Type) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = tpe
+  case class LetClass(lcd: LocalClassDef, body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = {
+      body.getType(s.withClasses(Seq(lcd.cd)))
+    }
   }
 
   case class LocalClassConstructor(lct: LocalClassType, args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): LocalClassType = lct
+  }
+
+  case class LocalClassSelector(expr: Expr, selector: Identifier, tpe: Type) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = expr.getType match {
+      case lct: LocalClassType => tpe
+      case _ => Untyped
+    }
   }
 
   case class LocalMethodInvocation(
@@ -70,8 +75,22 @@ trait Trees extends methods.Trees { self =>
     }
   }
 
-  case class LocalClassType(id: Identifier, tps: Seq[Type]) extends Type {
-    val toClassType: ClassType = ClassType(id, tps)
+  case class LocalClassType(cd: ClassDef, tps: Seq[Type]) extends Type {
+    lazy val toClassType: ClassType = ClassType(cd.id, tps)
+    lazy val toNonLocalType: ClassType = cd.parents.headOption.getOrElse(toClassType)
+
+    def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
+      def rec(tcd: TypedClassDef): Option[ValDef] = {
+        tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }
+          .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
+      }
+      rec(cd.typed)
+    }
+  }
+
+  override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
+    case lct: LocalClassType => lct.getField(selector)
+    case _ => super.getField(tpe, selector)
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
@@ -98,7 +117,7 @@ trait Printer extends methods.Printer {
       }
       p"}"
 
-    case LetClass(lcd, body, _) =>
+    case LetClass(lcd, body) =>
       p"""|
           |$lcd
           |$body
@@ -106,6 +125,9 @@ trait Printer extends methods.Printer {
 
     case LocalClassConstructor(ct, args) =>
       p"$ct(${nary(args, ", ")})"
+
+    case LocalClassSelector(expr, id, _) =>
+      p"$expr.$id" 
 
     case LocalMethodInvocation(caller, method, tparams, tps, args) =>
       p"$caller.${method.id}${nary(tps, ", ", "[", "]")}"
@@ -128,16 +150,16 @@ trait TreeDeconstructor extends methods.TreeDeconstructor {
   protected val t: Trees
 
   override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
-    case s.LocalClassType(id, tps) => (Seq(id), tps, Seq(), (ids, tps, _) =>
-        t.LocalClassType(ids(0), tps))
+    case s.LocalClassType(cd, tps) => (Seq(), tps, Seq(), (_, tps, _) =>
+        t.LocalClassType(cd.asInstanceOf[t.ClassDef], tps))
 
     case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
-    case s.LetClass(lcd, body, tpe) =>
-      (Seq(), Seq(), Seq(body), Seq(tpe), (_, _, es, tps) =>
-        t.LetClass(lcd.asInstanceOf[t.LocalClassDef], es(0), tps(0)))
+    case s.LetClass(lcd, body) =>
+      (Seq(), Seq(), Seq(body), Seq(), (_, _, es, _) =>
+        t.LetClass(lcd.asInstanceOf[t.LocalClassDef], es(0)))
 
     case s.LocalClassConstructor(lct, args) =>
       (Seq(), Seq(), args, Seq(lct), (_, _, es, tps) =>
@@ -148,6 +170,10 @@ trait TreeDeconstructor extends methods.TreeDeconstructor {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
         t.LocalMethodInvocation(es(0), vs(0), ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es.tail)
       })
+
+    case s.LocalClassSelector(expr, id, tpe) =>
+      (Seq(), Seq(), Seq(expr), Seq(tpe), (_, _, es, tps) =>
+          t.LocalClassSelector(es(0), id, tps(0)))
 
     case _ => super.deconstruct(e)
   }

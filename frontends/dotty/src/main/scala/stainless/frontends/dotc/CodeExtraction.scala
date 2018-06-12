@@ -404,7 +404,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
       val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
-        case xt.LetClass(lcd, _, _) => Set(lcd)
+        case xt.LetClass(lcd, _) => Set(lcd)
         case _ => Set()
       } (fullBody)
 
@@ -676,10 +676,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case (cd @ ExClassDef()) :: xs =>
         val (xcd, methods) = lcds(cd.symbol)
-        val rest = xs.dropWhile(_.symbol is Synthetic) // drop synthetic module coming after local class decl
+        // Drop synthetic modules Dotty inserts after local class declarations
+        val rest = xs.dropWhile(x => x.symbol.is(Synthetic) && x.symbol.is(Module))
         val body = rec(rest)
-        val retType = if (xs.isEmpty) xt.UnitType() else extractType(xs.last)(cctx)
-        xt.LetClass(xt.LocalClassDef(xcd, methods), body, retType).setPos(cd.pos)
+        xt.LetClass(xt.LocalClassDef(xcd, methods), body).setPos(cd.pos)
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
         if (v.symbol is Mutable) {
@@ -1139,10 +1139,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           val id = getIdentifier(sym)
 
           if (sym is ParamAccessor) {
-            // @romac: TODO
-            xt.ClassSelector(thiss, id)
+            val (cd, _) = dctx.localClasses(lct.cd.id)
+            val id = getIdentifier(sym)
+            val field = cd.fields.collectFirst { case vd @ xt.ValDef(`id`, _, _) => vd }
+            xt.LocalClassSelector(thiss, id, field.map(_.tpe).getOrElse(xt.Untyped))
           } else {
-            val (cd, methods) = dctx.localClasses(lct.id)
+            val (cd, methods) = dctx.localClasses(lct.cd.id)
             val fd = methods.find(_.id == id).get
             xt.LocalMethodInvocation(
               thiss,
@@ -1191,10 +1193,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
         case lct: xt.LocalClassType =>
           if (sym is ParamAccessor) {
-            // @romac - TODO
-            xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
+            val (cd, _) = dctx.localClasses(lct.cd.id)
+            val id = getIdentifier(sym)
+            val field = cd.fields.collectFirst { case vd @ xt.ValDef(`id`, _, _) => vd }
+            xt.LocalClassSelector(extractTree(lhs), id, field.map(_.tpe).getOrElse(xt.Untyped))
           } else {
-            val (cd, methods) = dctx.localClasses(lct.id)
+            val (cd, methods) = dctx.localClasses(lct.cd.id)
             val id = getIdentifier(sym)
             val fd = methods.find(_.id == id).get
             xt.LocalMethodInvocation(
@@ -1542,7 +1546,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         xt.TypeParameter(getIdentifier(sym), Seq())
       }
       dctx.localClasses.get(id) match {
-        case Some((cd, _)) => xt.LocalClassType(cd.id, tparams)
+        case Some((cd, _)) => xt.LocalClassType(cd, tparams)
         case None => xt.ClassType(id, tparams)
       }
 
