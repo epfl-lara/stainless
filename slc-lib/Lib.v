@@ -138,10 +138,16 @@ Ltac destruct_refinement_aux T :=
   pose proof (Mark P "not_usable");
   pose proof P as cP.                   
 
+Ltac no_proj_in T :=
+  match T with
+  | context[proj1_sig _] => fail 1
+  | _ => idtac
+  end.
+
 Ltac destruct_refinement :=
   match goal with
-  | |- context[proj1_sig ?T] => destruct_refinement_aux T
-  | H: context[proj1_sig ?T] |- _ => usable H; destruct_refinement_aux T
+  | |- context[proj1_sig ?T] => no_proj_in T; destruct_refinement_aux T
+  | H: context[proj1_sig ?T] |- _ => no_proj_in T; usable H; destruct_refinement_aux T
   end.
 
 
