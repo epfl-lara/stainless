@@ -145,21 +145,26 @@ trait TreeTransformer extends oo.TreeTransformer {
   val t: methods.Trees
 }
 
-trait TreeDeconstructor extends methods.TreeDeconstructor {
+trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   protected val s: Trees
   protected val t: Trees
 
+  object transformer extends TreeTransformer {
+    val s: self.s.type = self.s
+    val t: self.t.type = self.t
+  }
+
   override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
-    case s.LocalClassType(cd, tps) => (Seq(), tps, Seq(), (_, tps, _) =>
-        t.LocalClassType(cd.asInstanceOf[t.ClassDef], tps))
+    case s.LocalClassType(cd: s.ClassDef, tps) => (Seq(), tps, Seq(), (_, tps, _) =>
+      t.LocalClassType(transformer.transform(cd), tps))
 
     case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
-    case s.LetClass(lcd, body) =>
+    case s.LetClass(s.LocalClassDef(cd, methods), body) =>
       (Seq(), Seq(), Seq(body), Seq(), (_, _, es, _) =>
-        t.LetClass(lcd.asInstanceOf[t.LocalClassDef], es(0)))
+        t.LetClass(t.LocalClassDef(transformer.transform(cd), methods.map(transformer.transform)), es(0)))
 
     case s.LocalClassConstructor(lct, args) =>
       (Seq(), Seq(), args, Seq(lct), (_, _, es, tps) =>
@@ -173,7 +178,7 @@ trait TreeDeconstructor extends methods.TreeDeconstructor {
 
     case s.LocalClassSelector(expr, id, tpe) =>
       (Seq(), Seq(), Seq(expr), Seq(tpe), (_, _, es, tps) =>
-          t.LocalClassSelector(es(0), id, tps(0)))
+        t.LocalClassSelector(es(0), id, tps(0)))
 
     case _ => super.deconstruct(e)
   }
