@@ -77,8 +77,15 @@ Ltac isNotMatch  M :=
   | _ => idtac
   end.
 
+Ltac literal b :=
+  (unify b true) + (unify b false).
+
+Ltac not_literal b := tryif literal b then fail else idtac.
+
 Ltac rewrite_equations :=
   match goal with
+  | U: true = ?b |- _ => not_literal b; apply eq_sym in U
+  | U: false = ?b |- _ => not_literal b; apply eq_sym in U
   | U: _ = exist _ _ _ |- _ => rewrite U in *
   | U: exist _ _ _ = _ |- _ => rewrite <- U in *
   | U: _ = ?E |- _ => 

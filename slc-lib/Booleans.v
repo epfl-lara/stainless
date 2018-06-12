@@ -217,11 +217,6 @@ Qed.
 
 Hint Rewrite negb_equal: libBool.
 
-Ltac literal b :=
-  (unify b true) + (unify b false).
-
-Ltac not_literal b := tryif literal b then fail else idtac.
-
 Ltac t_bool_simpl :=
   match goal with
   | H: ?b = ?l |- _ => 

@@ -423,10 +423,10 @@ trait CoqEncoder {
                   |  ${lastTactic.coqString} ||
                   |  slow ||
                   |  t_sets ||
-                  |  (progress autorewrite with libCase in *) ||
                   |  ifthenelse_step ||
                   |  rewrite_ifthenelse ||
                   |  destruct_ifthenelse ||
+                  |  (progress autorewrite with libCase in *) ||
                   |  autounfold with definitions in * ||
                   |  ${rewriteTactic.coqString} ||
                   |  autounfold with recognizers in *.""".stripMargin) $
