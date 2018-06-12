@@ -6,6 +6,7 @@ Ltac t_base := (* program_simpl || *)
   libStep ||
   t_bool ||
   t_propbool ||
+  rewrite_equations ||
   destruct_refinement ||
   (autounfold with refinements in *).
 

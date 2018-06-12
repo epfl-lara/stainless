@@ -67,7 +67,7 @@ case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExp
 
 case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpression)], returnType: CoqExpression, cases: Seq[(CoqExpression, CoqExpression)], ignoreTermination: Boolean) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString})" }.mkString(" ")
-  override def coqString = s"Equations ${id.coqString} $paramString : ${returnType.coqString} := \n" +
+  override def coqString = s"Equations (noind) ${id.coqString} $paramString : ${returnType.coqString} := \n" +
     cases.map {case (cs, expr) =>
       if (ignoreTermination)
         s"\t${cs.coqString} by rec ignore_termination lt :=\n" +
