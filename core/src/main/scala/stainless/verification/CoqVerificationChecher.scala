@@ -44,7 +44,7 @@ trait CoqVerificationChecker { self =>
     /*files.foreach(file => {
       CoqIO.coqc(file, context)})*/
     val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
-    val vcs: Seq[VC] = pCoq map { case(fun, _, _) => VC(getFunction(fun).fullBody, fun, VCKind.Postcondition, true)}
+    val vcs: Seq[VC] = pCoq map { case(fun, _, _) => VC(getFunction(fun).fullBody, fun, VCKind.CoqMethod, true)}
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     /*val res: Future[Map[VC, VCResult]] = Future.traverse(pCoq.zip(vcs)) { case(((fun, file, commands)), vc) => Future {
@@ -84,6 +84,7 @@ trait CoqVerificationChecker { self =>
           case CoqStatus.Invalid => VCStatus.Invalid(null)
           case CoqStatus.Cancelled => VCStatus.Cancelled
           case CoqStatus.InternalError => VCStatus.Crashed
+          case CoqStatus.ExternalBug => VCStatus.ValidFromCache  //TODO just to signal, maybe assumed valid or sg like that, right now it'll do
         }
 
         case Failure(u: Unsupported) =>

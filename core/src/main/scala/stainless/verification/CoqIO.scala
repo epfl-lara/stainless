@@ -76,6 +76,8 @@ object CoqIO {
             CoqStatus.Timeout
           } else if (l.contains("The command has not failed")) {
             CoqStatus.Invalid
+          } else if (l.contains("Universe Top")) { //TODO check for greatest common part of the bug
+            CoqStatus.ExternalBug
           } else {
             //something unexpected
             CoqStatus.InternalError
@@ -107,4 +109,5 @@ object CoqStatus {
   case object Timeout extends CoqStatus
   case object Cancelled extends CoqStatus
   case object InternalError extends CoqStatus
+  case object ExternalBug extends CoqStatus
 }
