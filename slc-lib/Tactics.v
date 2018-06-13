@@ -24,3 +24,5 @@ Ltac t_base := (* program_simpl || *)
   autounfold with recognizers in *.
 
 Obligation Tactic := repeat t. *)
+
+Notation "'<' x '>'" := (exist _ x _).

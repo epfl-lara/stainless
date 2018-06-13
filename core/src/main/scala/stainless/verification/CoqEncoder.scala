@@ -422,6 +422,7 @@ trait CoqEncoder {
                   |  t_base ||
                   |  ${lastTactic.coqString} ||
                   |  slow ||
+                  |  autorewrite with libSet in * ||
                   |  t_sets ||
                   |  ifthenelse_step ||
                   |  rewrite_ifthenelse ||

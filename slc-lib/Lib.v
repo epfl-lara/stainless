@@ -22,6 +22,9 @@ Ltac isProp P :=
   let T := type of P in
     unify T Prop.
 
+Inductive Marked {T}: T -> string -> Type :=
+  Mark: forall t s, Marked t s.
+
 Ltac duplicate_intro :=
   match goal with
   | |- forall H: ?P, _ =>
@@ -29,6 +32,7 @@ Ltac duplicate_intro :=
     let H2 := fresh "intro_copy" in
     isProp P;
     intros H;
+    pose proof (Mark H "not_usable");
     pose proof H as H2
   | |- forall H: ?P, _ =>
     intros H
@@ -61,12 +65,6 @@ Ltac libStep := match goal with
   | H: sig _ |- _ => destruct H
   | H: exist _ _ _ = exist _ _ _ |- _ => inversion H; clear H
   end.
-  
-
-
-Inductive Marked {T}: T -> string -> Type :=
-  Mark: forall t s, Marked t s
-.
 
 (* Notation "'internal'" := (Marked _ _) (at level 50). *)
 
