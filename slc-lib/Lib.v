@@ -18,9 +18,24 @@ Axiom ignore_termination: nat.
 Definition magic (T: Type): T := match unsupported with end.
 Set Default Timeout 60.
 
+Ltac isProp P := 
+  let T := type of P in
+    unify T Prop.
+
+Ltac duplicate_intro :=
+  match goal with
+  | |- forall H: ?P, _ =>
+    let H := fresh "intro_H" in
+    let H2 := fresh "intro_copy" in
+    isProp P;
+    intros H;
+    pose proof H as H2
+  | |- forall H: ?P, _ =>
+    intros H
+  end.
   
 Ltac fast :=
-  intros ||
+  (repeat duplicate_intro) ||
   cbn -[Z.add] in * ||
   subst ||
   intuition ||
@@ -32,6 +47,7 @@ Ltac fast :=
   done ||
   autounfold in *
 .
+
 
 Ltac slow :=
   omega || ring (*|| eauto.*).
