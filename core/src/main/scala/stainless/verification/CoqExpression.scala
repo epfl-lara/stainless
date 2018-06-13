@@ -252,8 +252,11 @@ case class IfThenElse(cond: CoqExpression, tpe: CoqExpression, tCond: CoqExpress
   }
 }
 
+
 case class Orb(es: Seq[CoqExpression]) extends CoqExpression {
-  override def coqString = fold(falseBoolean.coqString, es.map(_.coqString)) { case (a,b) => s"$a || $b" }
+  override def coqString = fold(falseBoolean, es) {
+    case (a,b) => IfThenElse(a, CoqBool, CoqLambda(coqUnused, trueBoolean), CoqLambda(coqUnused,b))
+  }.coqString
 }
 
 case class Andb(es: Seq[CoqExpression]) extends CoqExpression {
