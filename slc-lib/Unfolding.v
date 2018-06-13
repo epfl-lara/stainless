@@ -19,9 +19,15 @@ Ltac isNotMatch  M :=
   | _ => idtac
   end.
 
+Ltac isApplication  M :=
+  match M with
+  | ?M1 ?M2 => idtac
+  end.
+                
 Ltac rewrite_unfoldings :=
   repeat match goal with
          | H: Rewrite ?T ?t1 ?t2 |- _ =>
+           isApplication t1;
            isNotMatch t2;
            rewrite (rewrite_to_equal _ _ _ H) in *
 (*           let r := constr:(rewrite_to_equal _ _ _ H) in
