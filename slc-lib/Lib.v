@@ -118,21 +118,12 @@ Ltac pose_let a b :=
   let A := fresh "A" in
   assert (a = b) as A; [auto | idtac].
 
-
 Ltac destruct_refinement_aux T :=
-  let m := fresh "mres" in
-  let r := fresh "r" in
-  let cP := fresh "copyP" in
-  let P := fresh "P" in
+  let R := fresh "Prp" in
   let MM := fresh "MM" in
   poseNamed MM (Mark T "destruct_refinement");
   pose proof (Mark MM "mark");
-  pose proof (proj2_sig T).
-(*  define m T;
-  autounfold in m;
-  destruct m as [ r P ];
-  pose proof (Mark P "not_usable");
-  pose proof P as cP.                   *)
+  pose proof (proj2_sig T) as R.
 
 Ltac no_proj_in T :=
   match T with

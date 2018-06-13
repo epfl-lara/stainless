@@ -17,7 +17,9 @@ Proof.
   unfold Rewrite; auto.
 Qed.
     
-Ltac add_equation E := pose proof (equal_to_rewrite _ _ _ E).
+Ltac add_equation E :=
+  let U := fresh "U" in
+  pose proof (equal_to_rewrite _ _ _ E) as U.
 
 Ltac isNotMatch  M :=
   match M with
