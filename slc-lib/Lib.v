@@ -75,14 +75,6 @@ Ltac literal b :=
 
 Ltac not_literal b := tryif literal b then fail else idtac.
 
-Ltac rewrite_equations :=
-  match goal with
-  | U: true = ?b |- _ => not_literal b; apply eq_sym in U
-  | U: false = ?b |- _ => not_literal b; apply eq_sym in U
-  | U: _ = exist _ _ _ |- _ => rewrite U in *
-  | U: exist _ _ _ = _ |- _ => rewrite <- U in *
-  end.
-
 Ltac termNotThere p :=
   let P := type of p in
   tryif (isThere P) then fail else idtac.

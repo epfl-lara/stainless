@@ -221,8 +221,6 @@ Ltac t_bool_simpl :=
   match goal with
   | H: ?b = ?l |- _ => 
     usable H; not_literal b; literal l; rewrite H in *
-  | H: ?l = ?b |- _ => 
-    usable H; not_literal b; literal l; rewrite <- H in *    
   end.
 
 Ltac t_bool :=
