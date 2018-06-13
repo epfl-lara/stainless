@@ -88,10 +88,6 @@ Ltac rewrite_equations :=
   | U: false = ?b |- _ => not_literal b; apply eq_sym in U
   | U: _ = exist _ _ _ |- _ => rewrite U in *
   | U: exist _ _ _ = _ |- _ => rewrite <- U in *
-  | U: _ = ?E |- _ => 
-      match goal with
-      | H: Marked U "equation" |- _ => isNotMatch E; rewrite U in *  
-      end
   end.
 
 Ltac termNotThere p :=
@@ -146,11 +142,12 @@ Ltac destruct_refinement_aux T :=
   let MM := fresh "MM" in
   poseNamed MM (Mark T "destruct_refinement");
   pose proof (Mark MM "mark");
-  define m T;
+  pose proof (proj2_sig T).
+(*  define m T;
   autounfold in m;
   destruct m as [ r P ];
   pose proof (Mark P "not_usable");
-  pose proof P as cP.                   
+  pose proof P as cP.                   *)
 
 Ltac no_proj_in T :=
   match T with
@@ -160,9 +157,9 @@ Ltac no_proj_in T :=
 
 Ltac destruct_refinement :=
   match goal with
-  | |- context[proj1_sig ?T] => no_proj_in T; destruct_refinement_aux T
-  | H: context[proj1_sig ?T] |- _ => no_proj_in T; usable H; destruct_refinement_aux T
-  | _ := context[proj1_sig ?T] |- _ => no_proj_in T; destruct_refinement_aux T
+  | |- context[proj1_sig ?T] => destruct_refinement_aux T
+  | H: context[proj1_sig ?T] |- _ => usable H; destruct_refinement_aux T
+  | _ := context[proj1_sig ?T] |- _ => destruct_refinement_aux T
   end.
 
 (* If we have a := b : T in the context, we can pose it *)

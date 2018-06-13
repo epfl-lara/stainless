@@ -552,11 +552,12 @@ trait CoqEncoder {
         val markedUnfolding = Marked(ids.map(CoqUnboundIdentifier(_)), "unfolding " + funName.coqString + "_equation")
         val rwrtTarget = CoqContext(CoqApplication(funName, ids.map(id => CoqUnboundIdentifier(id))))
 
-        val let = CoqLet(u, None, CoqFresh("U"), CoqSequence(Seq(
-          poseNew(Mark(ids, "unfolded " + funName.coqString + "_equation")),
-          PoseProof(CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids), Some(u)),
-          PoseProof(Mark(Seq(u), "equation"))
-        )))
+        val let = 
+          CoqSequence(Seq(
+            poseNew(Mark(ids, "unfolded " + funName.coqString + "_equation")),
+            CoqLibraryConstant("add_equation") 
+              (CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids))
+          ))
 
         SeparatorComment(s"Start of ${fd.id.name}") $
         // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
@@ -717,7 +718,8 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import SLC.Tactics.") $
     RawCommand("Require Import SLC.Ints.") $
-    RawCommand("Set Program Mode.")
+    RawCommand("Require Import SLC.Unfolding.") $
+    RawCommand("Set Program Mode.\n\n")
   }
 
   def transform(): CoqCommand = {

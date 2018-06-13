@@ -44,7 +44,7 @@ CAMLFLAGS         := $(COQMF_CAMLFLAGS)
 HASNATDYNLINK     := $(COQMF_HASNATDYNLINK)
 
 Makefile.conf: 
-	coq_makefile -R . SLC Booleans.v Ints.v Lib.v PropBool.v Sets.v stdppSets.v Tactics.v -o Makefile
+	coq_makefile -Q . SLC -o Makefile Booleans.v Ints.v Lib.v PropBool.v Sets.v stdppSets.v Tactics.v Unfolding.v
 
 # This file can be created by the user to hook into double colon rules or
 # add any other Makefile code he may need

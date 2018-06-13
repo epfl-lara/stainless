@@ -1,12 +1,14 @@
 Require Import SLC.Lib.
 Require Import SLC.Booleans.
 Require Import SLC.PropBool.
+Require Import SLC.Unfolding.
 
 Ltac t_base := (* program_simpl || *)
   libStep ||
   t_bool ||
   t_propbool ||
   rewrite_equations ||
+  rewrite_unfoldings ||
   rewrite_let ||
   destruct_refinement ||
   (autounfold with refinements in *).
