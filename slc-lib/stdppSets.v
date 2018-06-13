@@ -28,22 +28,62 @@ Proof.
   set_solver.
 Qed.
 
-(*
-Lemma union_empty_l:
-  forall T (s: set T), set_union s set_empty = s.
+
+Lemma union_empty_l_eq:
+  forall T (s: set T), s ∪ ∅ ≡ s.
 Proof.
-  intros; apply functional_extensionality; t_sets_aux.
+  intros. set_solver.
 Qed.
+
+Lemma union_empty_r_eq:
+  forall {T} (s: set T), ∅ ∪ s ≡ s.
+Proof.
+  intros. set_solver. 
+Qed.
+
+
+Lemma union_empty_l:
+  forall T (s: set T), s ∪ ∅ = s.
+Admitted.
 
 Lemma union_empty_r:
-  forall {T} (s: set T), set_union set_empty s = s.
-Proof.
-  intros; apply functional_extensionality; t_sets_aux.
+  forall {T} (s: set T), ∅ ∪ s = s.
+Admitted.
+
+
+Hint Resolve union_empty_l union_empty_r: sets.
+
+
+Lemma union_equals_eq:
+  forall {T} (s1 s2 s3: set T),
+    s2 ≡ s3 -> s1 ∪ s2 ≡ s1 ∪ s3. intros. set_solver.
 Qed.
 
-Hint Resolve union_empty_l union_empty_r: sets. *)
+
+Lemma union_equals:
+  forall {T} (s1 s2 s3: set T),
+    s2 ≡ s3 -> s1 ∪ s2 = s1 ∪ s3. 
+Admitted.
+
+Lemma subs_eq:
+  forall {T} (s1 s2: set T),
+    s1 ≡ s2 <-> s1 ⊆ s2 /\ s2 ⊆ s1.
+intros. set_solver.
+Qed.
+
+Lemma union_contains: 
+  forall {T} (x: T) (s1 s2: set T),
+    (x ∈ s1) \/ (x ∈ s2) <-> x ∈ (s1 ∪ s2).
+Proof.
+  intros. set_solver.
+Qed.
+
+Ltac simplify_sets :=
+  repeat (rewrite union_empty_l in *) || (rewrite union_empty_r in *). 
+
 
 Ltac t_sets :=
+  simplify_sets ||
   match goal with
   | H: ?a = ?b |- _ =>
     poseNew (Mark (a,b) "coqToSetEquality");
@@ -51,5 +91,6 @@ Ltac t_sets :=
   | _ => set_solver
   | _ => apply False_ind; set_solver
   end.
+
 
 Notation "'<' x '>'" := (exist _ x _).
