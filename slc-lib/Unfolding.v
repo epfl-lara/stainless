@@ -11,10 +11,18 @@ Proof.
 Qed.
   
 Ltac add_equation E := pose proof (equal_to_rewrite _ _ _ E).
-    
+
+Ltac isNotMatch  M :=
+  match M with
+  | match _ with _ => _ end => fail 1
+  | match _ with _ => _ end _ => fail 1
+  | _ => idtac
+  end.
+
 Ltac rewrite_unfoldings :=
   repeat match goal with
          | H: Rewrite ?T ?t1 ?t2 |- _ =>
+           isNotMatch t2;
            rewrite (rewrite_to_equal _ _ _ H) in *
 (*           let r := constr:(rewrite_to_equal _ _ _ H) in
                revert H;

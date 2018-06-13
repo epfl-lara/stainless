@@ -70,13 +70,6 @@ Ltac isThere P :=
   | H: ?Q |- _ => unify P Q
   end.
 
-Ltac isNotMatch  M :=
-  match M with
-  | match _ with _ => _ end => fail 1
-  | match _ with _ => _ end _ => fail 1
-  | _ => idtac
-  end.
-
 Ltac literal b :=
   (unify b true) + (unify b false).
 
