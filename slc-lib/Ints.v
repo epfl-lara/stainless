@@ -11,6 +11,7 @@ Hint Rewrite Z.geb_leb: libInts.
 Hint Rewrite <- Zgt_is_gt_bool: libInts.
 Hint Rewrite Z.geb_le: libInts.
 Hint Rewrite Z.ltb_lt: libInts.
+Hint Rewrite Z.ltb_ge: libInts.
 Hint Rewrite <- Zeq_is_eq_bool: libInts.
 
 Lemma geb_le2: ∀ n m : Z, (m ≤ n)%Z -> (m <=? n)%Z = true.
