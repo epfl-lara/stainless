@@ -99,6 +99,8 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
+    // Makes CVC4 crash with a NullPointerException
+    case "verification/valid/InnerClasses3" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
