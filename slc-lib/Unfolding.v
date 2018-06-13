@@ -1,4 +1,5 @@
 Require Import SLC.Lib.
+Require Import SLC.Booleans.
 
 Definition Rewrite T t1 t2 := @eq T t1 t2.
 
@@ -21,12 +22,22 @@ Ltac add_equation E :=
   let U := fresh "U" in
   pose proof (equal_to_rewrite _ _ _ E) as U.
 
-Ltac isNotMatch  M :=
-  match M with
-  | match _ with _ => _ end => fail 1
-  | match _ with _ => _ end _ => fail 1
+Ltac unknown b :=
+  match goal with
+  | H: b = true |- _ => fail 1
+  | H: b = false |- _ => fail 1
   | _ => idtac
   end.
+
+Ltac not_rewritable  M :=
+  match M with
+  | match _ with _ => _ end => idtac
+  | match _ with _ => _ end _ => idtac
+  | ifthenelse ?b _ _ _ => unknown b; idtac
+  | exist _ ?N _ => not_rewritable N
+  end.
+
+Ltac writable M := tryif not_rewritable M then fail else idtac.
 
 Ltac is_application  M :=
   match M with
@@ -39,7 +50,7 @@ Ltac rewrite_unfoldings :=
   repeat match goal with
          | H: Rewrite ?T ?t1 ?t2 |- _ =>
            is_application t1;
-           isNotMatch t2;
+           writable t2;
            rewrite (rewrite_to_equal _ _ _ H) in *
 (*           let r := constr:(rewrite_to_equal _ _ _ H) in
                revert H;
