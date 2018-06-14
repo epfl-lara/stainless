@@ -82,7 +82,13 @@ Lemma union_left:
 Proof.
   intros; set_solver.
 Qed.
-  
+
+Lemma intersection_right:
+  forall T (s1 s2 s3: set T),
+    s1 ⊆ s2 ∩ s3 <-> (s1 ⊆ s2 /\ s1 ⊆ s3).
+Proof.
+  intros; set_solver.
+Qed.
 (*
 Lemma union_contains: 
   forall {T} (x: T) (s1 s2: set T),
@@ -92,11 +98,21 @@ Proof.
 Qed.
 *)
 
-Hint Rewrite union_empty_l: libSet.
+
+Lemma empty_subset:
+  forall T (s: set T),
+    ∅ ⊆ s.
+Proof.
+  set_solver.
+Qed.
+  
+Hint Resolve empty_subset: b_sets.
+
+  Hint Rewrite union_empty_l: libSet.
 Hint Rewrite union_empty_r: libSet.
 Hint Rewrite subs_eq: libSet.
 Hint Rewrite union_left: libSet.
-
+Hint Rewrite intersection_right: libSet.
 
 Ltac t_sets :=
   match goal with
@@ -106,4 +122,4 @@ Ltac t_sets :=
     poseNew (coqToSetEquality _ _ H)
   | _ => set_solver
   | _ => apply False_ind; set_solver
-  end.
+  end; auto 1 with b_sets.

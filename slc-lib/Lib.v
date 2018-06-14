@@ -43,9 +43,9 @@ Ltac fast :=
   cbn -[Z.add] in * ||
   subst ||
   intuition ||
-  (progress autorewrite with libInts in *) ||
-  (progress autorewrite with libProp in *) ||
-  (progress autorewrite with libBool in *) ||
+  (progress autorewrite with libBool libProp libInts in *) ||
+ (* (progress autorewrite with libProp in * ) ||
+  (progress autorewrite with libBool in * ) || *)
   congruence ||
   discriminate ||
   done ||

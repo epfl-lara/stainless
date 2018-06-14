@@ -13,34 +13,34 @@ Hint Rewrite Z.geb_le: libInts.
 Hint Rewrite Z.ltb_lt: libInts.
 Hint Rewrite Z.ltb_ge: libInts.
 Hint Rewrite <- Zeq_is_eq_bool: libInts.
-
+(*
 Lemma geb_le2: ∀ n m : Z, (m ≤ n)%Z -> (m <=? n)%Z = true.
 Proof.
-  repeat libStep.
+  intros; autorewrite with libInts in *; repeat fast.
 Qed.
 Lemma geb_le3: ∀ n m : Z, (m ≤ n)%Z -> (n >=? m)%Z = true.
 Proof.
-  repeat libStep.
+  intros; autorewrite with libInts in *; repeat fast.
 Qed.
 Lemma geb_le4: ∀ n m : Z, (m >= n)%Z -> (m >=? n)%Z = true.
 Proof.
-  repeat libStep || omega.
+  intros; autorewrite with libInts in *; repeat fast; omega.
 Qed.
 Lemma geb_le5: ∀ n m : Z, (m >= n)%Z -> (n <=? n)%Z = true.
 Proof.
-  repeat libStep.
-Qed.
+  intros; autorewrite with libInts in *; repeat fast.
+Qed.  
 
 Lemma geb_le6: forall x y, ((x <= y) -> False) -> (x <=? y = false).
 Proof.
-  repeat libStep || omega.
+  intros; autorewrite with libInts in *; repeat fast; omega.
 Qed.
 
 Lemma geb_rwrt: forall x y, (x < y) -> (y <= x) -> False.
 Proof.
-  repeat libStep || omega.
+  intros; autorewrite with libInts in *; repeat fast; omega.
 Qed.
-
+*)
 
 
 Lemma Zeq_bool_neq2:
