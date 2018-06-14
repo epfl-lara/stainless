@@ -10,6 +10,7 @@ Ltac t_base := (* program_simpl || *)
   rewrite_equations ||
   rewrite_unfoldings ||
   rewrite_let ||
+  autorewrite with libBoolExists in * |- ||
   destruct_refinement ||
   (autounfold with refinements in *).
 

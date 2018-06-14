@@ -3,6 +3,14 @@ Require Import SLC.Lib.
 Require Import ZArith.
 Require Import Coq.Bool.Bool.
 
+Lemma false_or:
+  forall A, False \/ A <-> A.
+Proof.
+  intuition.
+Qed.
+
+Hint Rewrite false_or: libBool.
+
 Hint Rewrite eqb_true_iff: libBool.
 Hint Rewrite eqb_false_iff: libBool.
 Hint Rewrite orb_true_iff: libBool.
@@ -12,8 +20,8 @@ Hint Rewrite andb_false_iff: libBool.
 
 Notation "b1 &&b b2" := (if b1 then b2 else false) (at level 50). 
 
-Definition ifthenelse b A (e1: true = b -> A) (e2: false = b -> A): A :=
-  match b as B return (B = b -> A) with
+Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A :=
+  match b as B return (b = B -> A) with
   | true => fun H => e1 H
   | false => fun H => e2 H
   end eq_refl.
@@ -42,8 +50,8 @@ end.
 Lemma ifthenelse_rewrite_2: forall T b e1 e2 value,
     ifthenelse b T e1 e2 = value <->
     (
-      (exists H1: true = b, e1 H1 = value) \/
-      (exists H2: false = b, e2 H2 = value)
+      (exists H1: b = true, e1 H1 = value) \/
+      (exists H2: b = false, e2 H2 = value)
     ).
 Proof.
   repeat libStep || ifthenelse_step; eauto.
@@ -52,16 +60,16 @@ Qed.
 Lemma ifthenelse_rewrite_2': forall T b e1 e2 value,
     value = ifthenelse b T e1 e2 <->
     (
-      (exists H1: true = b, e1 H1 = value) \/
-      (exists H2: false = b, e2 H2 = value)
+      (exists H1: b = true, e1 H1 = value) \/
+      (exists H2: b = false, e2 H2 = value)
     ).
 Proof.
   repeat libStep || ifthenelse_step; eauto.
 Qed.
 
 Lemma ifthenelse_rewrite_3: forall T b e1 e2 value,
-    (forall H1: true = b, e1 H1 = value) ->
-    (forall H2: false = b, e2 H2 = value) ->
+    (forall H1: b = true, e1 H1 = value) ->
+    (forall H2: b = false, e2 H2 = value) ->
     ifthenelse b T e1 e2 = value.
 Proof.
   repeat libStep || ifthenelse_step.
@@ -98,8 +106,8 @@ Ltac rewrite_ifthenelse :=
 
 Lemma match_or:
   forall b A e1 e2,
-    (exists p: true = b,  e1 p = ifthenelse b A e1 e2) \/
-    (exists p: false = b, e2 p = ifthenelse b A e1 e2).
+    (exists p: b = true,  e1 p = ifthenelse b A e1 e2) \/
+    (exists p: b = false, e2 p = ifthenelse b A e1 e2).
   intros; destruct b; repeat libStep; eauto.
 Qed.
 
@@ -143,9 +151,9 @@ Ltac destruct_ifthenelse :=
   end.
 
 Lemma if_then_false:
-  forall b (e1: true = b -> bool),
+  forall b (e1: b = true -> bool),
            ifthenelse b bool e1 (fun _ => false) = true <->
-           exists H: true = b, e1 H = true.
+           exists H: b = true, e1 H = true.
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
@@ -160,9 +168,9 @@ Qed.
 
 
 Lemma if_then_true:
-  forall b (e1: true = b -> bool),
+  forall b (e1: b = true -> bool),
            ifthenelse b bool e1 (fun _ => true) = false <->
-           exists H: true = b, e1 H = false.
+           exists H: b = true, e1 H = false.
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
@@ -176,9 +184,9 @@ Proof.
 Qed.
 
 Lemma if_false_else:
-  forall b (e2: false = b -> bool),
+  forall b (e2: b = false -> bool),
            ifthenelse b bool (fun _ => false) e2 = true <->
-           exists H: false = b, e2 H = true.
+           exists H: b = false, e2 H = true.
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
@@ -192,9 +200,9 @@ Proof.
 Qed.
 
 Lemma if_true_else:
-  forall b (e2: false = b -> bool),
+  forall b (e2: b = false -> bool),
            ifthenelse b bool (fun _ => true) e2 = false <->
-           exists H: false = b, e2 H = false.
+           exists H: b = false, e2 H = false.
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
@@ -273,38 +281,10 @@ Hint Rewrite if_then_false0 : libBool.
 Hint Rewrite if_true_else0 : libBool.
 Hint Rewrite if_false_else0 : libBool.
 
-(**
-Lemma rewrite_and_true:
-  forall b: bool, b &&b true = b.
+Lemma equal_booleans: forall b1 b2: bool,
+    (b1 = true -> b2 = true) ->
+    (b2 = true -> b1 = true) ->
+    b1 = b2.
 Proof.
-  repeat libStep || ifthenelse_step.
+  destruct b1; destruct b2; repeat libStep.
 Qed.
-
-Lemma rewrite_and_true2:
-  forall a b: bool, b &&b true = a -> b = a.
-Proof.
-  repeat libStep || ifthenelse_step.
-Qed.
-
-Lemma rewrite_true_and:
-  forall b: bool, true &&b b = b.
-Proof.
-  repeat libStep.
-Qed.
-
-Lemma rewrite_and_false:
-  forall b: bool, b &&b false = false.
-Proof.
-  repeat libStep || ifthenelse_step.
-Qed.
-
-Lemma rewrite_false_and:
-  forall b: bool, false &&b b = false.
-Proof.
-  repeat libStep.
-Qed. 
-
-Hint Rewrite rewrite_and_true: libBool.
-Hint Rewrite rewrite_true_and: libBool.
-Hint Rewrite rewrite_and_false: libBool.
-Hint Rewrite rewrite_false_and: libBool.**)

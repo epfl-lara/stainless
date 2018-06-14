@@ -51,7 +51,7 @@ Ltac rewrite_unfoldings :=
          | H: Rewrite ?T ?t1 ?t2 |- _ =>
            is_application t1;
            writable t2;
-           rewrite (rewrite_to_equal _ _ _ H) in *
+           rewrite H in *
 (*           let r := constr:(rewrite_to_equal _ _ _ H) in
                revert H;
                (rewrite r in * |-; intros H; try rewrite r) ||
@@ -67,3 +67,14 @@ Ltac rewrite_equations :=
   | U: exist _ _ _ = _ |- _ => rewrite <- U in *
   end.
 
+
+Ltac clearUnusedRewrites :=
+    repeat match goal with
+           | H: Rewrite _ _ ?t2 |- _ => not_rewritable t2; clear H
+           end.
+   
+Ltac clearRewrites :=
+    repeat match goal with
+           | H: Rewrite _ _ ?t2 |- _ => clear H
+           end.
+   

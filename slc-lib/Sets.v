@@ -17,10 +17,11 @@ Definition set_union {A} (s1 s2 : set A) x := s1 x || s2 x.
 Definition set_elem_of {A} x (s: set A) := s x.
 
 Definition set_subset {A} (s1 s2 : set A): bool :=
-  propInBool (forall x, implb (s1 x) (s2 x) = true).
+  propInBool (forall x, s1 x = true -> s2 x = true).
+Notation "s1 '⊆' s2" := (set_subset s1 s2) (at level 50).
 
 Definition set_equality {A} (s1 s2 : set A): bool :=
-  propInBool (s1 = s2).
+  (s1 ⊆ s2) && (s2 ⊆ s1).
 
 Definition set_difference {A} (s1 s2: set A) x := s1 x && negb (s2 x).
 
@@ -28,7 +29,6 @@ Definition set_empty {A}: set A := fun (x: A) => false.
 Definition set_singleton {A} (x: A): set A := fun (y: A) => propInBool (x = y).
 
 Notation "s1 '==' s2" := (set_equality s1 s2) (at level 50).
-Notation "s1 '⊆' s2" := (set_subset s1 s2) (at level 50).
 Notation "s1 '∪' s2" := (set_union s1 s2) (at level 10).
 Notation "s1 '∩' s2" := (set_intersection s1 s2) (at level 10).
 Notation "x '∈' s" := (set_elem_of x s) (at level 20).
@@ -67,10 +67,10 @@ Hint Rewrite union_empty_l union_empty_r: libSet.
 
 Lemma in_union:
   forall T (s1 s2: set T) x,
-    ((x ∈ s1 ∪ s2) = true) <->
+    (x ∈ s1 ∪ s2) =
     (
-      ((x ∈ s1) = true) \/
-      ((x ∈ s2) = true)
+      (x ∈ s1) ||
+      (x ∈ s2)
     ).
 Proof.
   repeat fast || t_sets_aux || autorewrite with libBool in *.
@@ -78,10 +78,10 @@ Qed.
 
 Lemma in_intersection:
   forall T (s1 s2: set T) x,
-    ((x ∈ s1 ∩ s2) = true) <->
+    (x ∈ s1 ∩ s2) =
     (
-      ((x ∈ s1) = true) /\
-      ((x ∈ s2) = true)
+      (x ∈ s1) &&
+      (x ∈ s2)
     ).
 Proof.
   repeat fast || t_sets_aux || autorewrite with libBool in *.
@@ -89,21 +89,133 @@ Qed.
 
 Lemma in_singleton:
   forall T (x y: T),
-    ((x ∈ {{ y }}) = true) <-> x = y.
+    (x ∈ {{ y }}) = (propInBool (x = y)).
 Proof.
   repeat fast || t_sets_aux || autorewrite with libProp in *.
 Qed.
 
 Lemma in_emptyset:
   forall T (x: T),
-    ((x ∈ ∅) = true) <-> False.
+    (x ∈ ∅) = false.
 Proof.
   repeat fast || t_sets_aux || autorewrite with libProp in *.
 Qed.
-  
+
+Hint Unfold set_equality.
+     
 Hint Rewrite in_union: libSet.
 Hint Rewrite in_intersection: libSet.
 Hint Rewrite in_singleton: libSet.
 Hint Rewrite in_emptyset: libSet.
 
-Ltac t_sets := idtac.
+
+Lemma subset_union:
+  forall T (s s1 s2: set T),
+    (s1 ∪ s2 ⊆ s) =
+    (
+      (s1 ⊆ s) &&
+      (s2 ⊆ s)
+    ).
+Proof.
+  repeat fast ||
+         autounfold with i_sets in * ||
+         autorewrite with libProp in *; eauto.
+  apply equal_booleans; repeat fast || autorewrite with libProp libBool in * || apply_any.
+Qed.  
+
+Lemma subset_intersection:
+  forall T (s s1 s2: set T),
+    (s ⊆ s1 ∩ s2) =
+    (
+      (s ⊆ s1) &&
+      (s ⊆ s2)
+    ).
+Proof.
+  repeat fast ||
+         autounfold with i_sets in * ||
+         autorewrite with libProp in *; eauto.
+  apply equal_booleans; repeat fast || autorewrite with libProp libBool in * || apply_any;
+    firstorder (repeat fast || autorewrite with libBool in *).
+Qed.  
+
+Hint Rewrite subset_union: libSet.
+Hint Rewrite subset_intersection: libSet.
+
+Lemma singleton_subset:
+  forall T (x: T) s,
+    ({{ x }} ⊆ s) = (x ∈ s).
+Proof.
+  repeat fast || autounfold with i_sets in *.
+  apply equal_booleans; repeat fast || autorewrite with libProp in * || apply_any.
+Qed.
+
+Hint Rewrite singleton_subset: libSet.
+
+Lemma empty_subset:
+  forall T (s: set T),
+    (∅ ⊆ s) = true.
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp in *.
+Qed.
+
+Hint Rewrite empty_subset: libSet.
+
+Lemma subset_union1:
+  forall T (s s1 s2: set T),
+    (s ⊆ s1) = true ->
+    (s ⊆ (s1 ∪ s2)) = true.
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+Qed.     
+
+Lemma subset_union2:
+  forall T (s s1 s2: set T),
+    (s ⊆ s2) = true ->
+    (s ⊆ (s1 ∪ s2)) = true.
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+Qed.     
+
+Hint Resolve subset_union1 subset_union2: b_sets.
+
+Lemma factor_left:
+  forall T (a b c d: set T),
+    (a ∪ b) ∩ c ⊆ d = (a ∩ c ⊆ d) && (b ∩ c ⊆ d).
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+  apply equal_booleans;
+    repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *;
+    firstorder (repeat fast || autorewrite with libBool in *).
+Qed.                
+
+
+Lemma factor_left2:
+  forall T (a b c d: set T),
+    c ∩ (a ∪ b) ⊆ d = (c ∩ a ⊆ d) && (c ∩ b ⊆ d).
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+  apply equal_booleans;
+    repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *;
+    firstorder (repeat fast || autorewrite with libBool in *).
+Qed.                
+
+Hint Rewrite factor_left factor_left2: libSet.
+
+
+Lemma singleton_intersect_subset:
+  forall T x (s1 s2: set T),
+    ({{ x }} ∩ s1 ⊆ s2) = ((negb (x ∈ s1)) || x ∈ s2).
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+  apply equal_booleans;
+    repeat fast || autorewrite with libProp libBool in *.
+  - destruct (s1 x) eqn:E; repeat fast.
+    right. apply_any; repeat fast || autorewrite with libProp libBool in *.
+  - destruct (s1 x0) eqn:E; repeat fast.
+Qed.
+
+Hint Rewrite singleton_intersect_subset: libSet.
+
+Ltac t_sets := auto 2 with b_sets.
+
+

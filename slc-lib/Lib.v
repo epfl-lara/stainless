@@ -41,7 +41,7 @@ Ltac fast :=
   (repeat duplicate_intro) ||
   cbn -[Z.add] in * ||
   subst ||
-  intuition ||
+  (intuition auto) ||
   (progress autorewrite with libBool libProp libInts in *) ||
  (* (progress autorewrite with libProp in * ) ||
   (progress autorewrite with libBool in * ) || *)
@@ -167,4 +167,8 @@ Ltac rewrite_let :=
   | H := ?b : ?T |- _ => not_mark b;pose_let H b
   end.
 
+Ltac apply_any :=
+  match goal with
+  | H: _ |- _ => apply H
+  end.
 

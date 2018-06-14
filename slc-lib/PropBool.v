@@ -76,16 +76,6 @@ Qed.
 Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libProp.
 Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libProp.
 
-(*
-Lemma equal_booleans: forall b1 b2: bool,
-    (b1 = true -> b2 = true) ->
-    (b2 = true -> b1 = true) ->
-    b1 = b2.
-Proof.
-  destruct b1; destruct b2; repeat libStep.
-Qed.
-*)
-
 Lemma implication:
   forall A B: Prop,
     (A \/ (B -> False)) <-> (B -> A).
@@ -103,27 +93,21 @@ Qed.
 Hint Rewrite implication: libProp.
 Hint Rewrite implication2: libProp.
 
+Ltac has_prop_in_bool E :=
+  match E with
+  | context[propInBool] => idtac
+  end.
+
 Ltac t_propbool :=
   match goal with
-  | H: propInBool ?P = ?b |- _ =>
+  | H: ?E = ?b |- _ =>
     let pib := fresh "pib" in
+    has_prop_in_bool E;
     not_literal b;  
     destruct b eqn:pib
-  | H: ?b = propInBool ?P |- _ =>
+  | H: ?b = ?E |- _ =>
     let pib := fresh "pib" in
+    has_prop_in_bool E;
     not_literal b;
     destruct b eqn:pib
   end.
-
-  (*| H: true = propInBool ?P |- _ =>
-    poseNew (Mark P "trueProp2");
-    pose proof (proj1 (trueProp2 _) H)
-  | H: propInBool ?P = true |- _ =>
-    poseNew (Mark P "trueProp");
-    pose proof (proj1 (trueProp _) H)
-  | H: false = propInBool ?P |- _ =>
-    poseNew (Mark P "falseProp2");
-    pose proof (proj1 (falseProp2 _) H)
-  | H: propInBool ?P = false |- _ =>
-    poseNew (Mark P "falseProp");
-    pose proof (proj1 (falseProp _) H)*)
