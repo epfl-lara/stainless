@@ -150,72 +150,33 @@ Ltac destruct_ifthenelse :=
   | |- context[ifthenelse ?b ?B ?e1 ?e2] => splitite b B e1 e2
   end.
 
-Lemma if_then_false:
-  forall b (e1: b = true -> bool),
-           ifthenelse b bool e1 (fun _ => false) = true <->
-           exists H: b = true, e1 H = true.
-Proof.
-  repeat libStep || ifthenelse_step || exists eq_refl.
-Qed.
-
 Lemma if_then_false2:
   forall b e1,
-           (ifthenelse b bool (fun _ => e1) (fun _ => false)) = true <->
-           b = true /\ e1 = true.
+           (ifthenelse b bool (fun _ => e1) (fun _ => false)) = b && e1.
 Proof.
   repeat libStep || ifthenelse_step.
-Qed.
-
-
-Lemma if_then_true:
-  forall b (e1: b = true -> bool),
-           ifthenelse b bool e1 (fun _ => true) = false <->
-           exists H: b = true, e1 H = false.
-Proof.
-  repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
 
 Lemma if_then_true2:
   forall b e1,
-           (ifthenelse b bool (fun _ => e1) (fun _ => true)) = false <->
-           b = true /\ e1 = false.
+           (ifthenelse b bool (fun _ => e1) (fun _ => true)) = (negb b || e1).
 Proof.
   repeat libStep || ifthenelse_step.
-Qed.
-
-Lemma if_false_else:
-  forall b (e2: b = false -> bool),
-           ifthenelse b bool (fun _ => false) e2 = true <->
-           exists H: b = false, e2 H = true.
-Proof.
-  repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
 
 Lemma if_false_else2:
   forall b e2,
-           (ifthenelse b bool (fun _ => false) (fun _ => e2)) = true <->
-           b = false /\ e2 = true.
+           (ifthenelse b bool (fun _ => false) (fun _ => e2)) = (negb b && e2).
 Proof.
   repeat libStep || ifthenelse_step.
-Qed.
-
-Lemma if_true_else:
-  forall b (e2: b = false -> bool),
-           ifthenelse b bool (fun _ => true) e2 = false <->
-           exists H: b = false, e2 H = false.
-Proof.
-  repeat libStep || ifthenelse_step || exists eq_refl.
 Qed.
 
 Lemma if_true_else2:
   forall b e2,
-           (ifthenelse b bool (fun _ => true) (fun _ => e2)) = false <->
-           b = false /\ e2 = false.
+           (ifthenelse b bool (fun _ => true) (fun _ => e2)) = (b || e2).
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
-
-Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.
 Hint Rewrite if_true_else2 if_false_else2 if_then_false2 if_then_true2: libBool.
 
 Lemma negb_equal:
@@ -241,37 +202,30 @@ Ltac t_bool :=
   end.
 
 
-
 Lemma if_then_false0:
   forall b: bool, forall e1,
-           (if b then e1 else false) = true <->
-           b = true /\ e1 = true.
+           (if b then e1 else false) = b && e1.
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
-
 Lemma if_then_true0:
   forall b: bool, forall e1,
-           (if b then e1 else true) = false <->
-           b = true /\ e1 = false.
+           (if b then e1 else true) = (e1 || negb b).
 Proof.
-  repeat libStep || ifthenelse_step.
+  destruct e1; repeat libStep || ifthenelse_step.
 Qed.
 
 Lemma if_false_else0:
   forall b: bool, forall e2,
-           (if b then false else e2) = true <->
-           b = false /\ e2 = true.
+           (if b then false else e2) = (negb b && e2).
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
-
 Lemma if_true_else0:
   forall b: bool, forall e2,
-           (if b then true else e2) = false <->
-           b = false /\ e2 = false.
+           (if b then true else e2) = (b || e2).
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.

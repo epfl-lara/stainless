@@ -111,3 +111,41 @@ Ltac t_propbool :=
     not_literal b;
     destruct b eqn:pib
   end.
+
+Lemma if_then_false:
+  forall b (e1: b = true -> bool),
+           ifthenelse b bool e1 (fun _ => false) =
+           propInBool (exists H: b = true, e1 H = true).
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
+  rewrite (Eqdep_dec.UIP_refl_bool true x) in *; auto.
+Qed.
+
+Lemma if_then_true:
+  forall b (e1: b = true -> bool),
+           ifthenelse b bool e1 (fun _ => true) = 
+           negb b || propInBool (exists H: b = true, e1 H).
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
+  rewrite (Eqdep_dec.UIP_refl_bool true x) in *; repeat libStep.
+Qed.
+
+Lemma if_false_else:
+  forall b (e2: b = false -> bool),
+           ifthenelse b bool (fun _ => false) e2 =
+           propInBool (exists H: b = false, e2 H = true).
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
+  rewrite (Eqdep_dec.UIP_refl_bool false x) in *; auto.
+Qed.
+
+Lemma if_true_else:
+  forall b (e2: b = false -> bool),
+           ifthenelse b bool (fun _ => true) e2 = 
+           b || propInBool (exists H: b = false, e2 H).
+Proof.
+  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
+  rewrite (Eqdep_dec.UIP_refl_bool false x) in *; repeat libStep.
+Qed.
+
+Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.
