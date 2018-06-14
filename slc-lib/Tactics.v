@@ -26,3 +26,4 @@ Ltac t_base := (* program_simpl || *)
 Obligation Tactic := repeat t. *)
 
 Notation "'<' x '>'" := (exist _ x _).
+Notation "'‵' a" := (proj1_sig a) (at level 50).

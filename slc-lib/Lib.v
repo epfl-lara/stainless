@@ -34,8 +34,7 @@ Ltac duplicate_intro :=
     intros H;
     pose proof (Mark H "not_usable");
     pose proof H as H2
-  | |- forall H: ?P, _ =>
-    intros H
+  | _ => intros
   end.
   
 Ltac fast :=
@@ -56,6 +55,12 @@ Ltac fast :=
 Ltac slow :=
   omega || ring (*|| eauto.*).
 
+Ltac is_construct t :=
+  let x := fresh in
+  (let eq := constr:(ltac:(eexists ?[x]; only [x]: econstructor; reflexivity)
+    : exists x, x = t) in
+  idtac) + fail.
+
 Ltac libStep := match goal with
   | _ => progress fast
   | |- (S ?T <= ?T)%nat =>
@@ -64,6 +69,10 @@ Ltac libStep := match goal with
   |   H: exists _, _ |- _ => destruct H
   | H: sig _ |- _ => destruct H
   | H: exist _ _ _ = exist _ _ _ |- _ => inversion H; clear H
+  | [ H: ?F _ = ?F _ |- _ ] => is_construct F; inversion H; clear H
+  | [ H: ?F _ _ = ?F _ _ |- _ ] => is_construct F; inversion H; clear H
+  | [ H: ?F _ _ _ = ?F _ _ _ |- _ ] => is_construct F; inversion H; clear H
+  | [ H: ?F _ _ _ _ = ?F _ _ _ _ |- _ ] => is_construct F; inversion H; clear H
   end.
 
 (* Notation "'internal'" := (Marked _ _) (at level 50). *)

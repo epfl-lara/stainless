@@ -416,9 +416,10 @@ trait CoqEncoder {
   }
 
   def updateObligationTactic() : CoqCommand = {
+    val t1 = makeFresh("t")
     val t = makeFresh("t")
     mainTactic = t
-    RawCommand(s"""Ltac ${t.coqString} :=
+    RawCommand(s"""Ltac ${t1.coqString} :=
                   |  t_base ||
                   |  ${lastTactic.coqString} ||
                   |  slow ||
@@ -428,11 +429,11 @@ trait CoqEncoder {
                   |  rewrite_ifthenelse ||
                   |  destruct_ifthenelse ||
                   |  (progress autorewrite with libCase in *) ||
-                  |  autounfold with definitions in * ||
+                  |  autounfold with definitions in *.""".stripMargin) $
+    RawCommand(s"""Ltac ${t.coqString} :=
+                  |  ${t1.coqString} ||
                   |  ${rewriteTactic.coqString} ||
                   |  autounfold with recognizers in *.""".stripMargin) $
-                  //  ||
-                  // |  rewrite propInBool in *
     RawCommand(s"\nObligation Tactic := repeat ${t.coqString}.\n")
   }
 
@@ -714,12 +715,13 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.Lib.") $
     RawCommand("Require Import SLC.PropBool.") $
     RawCommand("Require Import SLC.Booleans.") $
-    // RawCommand("Require Import SLC.Sets.") $
-    RawCommand("Require Import stdpp.set.") $
-    RawCommand("Require Import SLC.stdppSets.") $
+    RawCommand("Require Import SLC.Sets.") $
+    // RawCommand("Require Import stdpp.set.") $
+    // RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import SLC.Tactics.") $
     RawCommand("Require Import SLC.Ints.") $
     RawCommand("Require Import SLC.Unfolding.") $
+    RawCommand("Require Import ZArith.") $
     RawCommand("Set Program Mode.\n\n")
   }
 
