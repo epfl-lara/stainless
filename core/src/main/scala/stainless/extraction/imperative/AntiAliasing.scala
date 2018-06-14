@@ -119,14 +119,10 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
 
       val newFd = fd.copy(returnType = effects.getReturnType(fd))
 
-      val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
-
       if (aliasedParams.isEmpty) {
-        val newBody = body.map(makeSideEffectsExplicit(_, fd, env))
-        val newFullBody = exprOps.reconstructSpecs(specs, newBody, newFd.returnType)
-        if (!newFullBody.getPos.isDefined) newFullBody.setPos(newFd)
-        newFd.copy(fullBody = newFullBody)
+        newFd.copy(fullBody = makeSideEffectsExplicit(fd.fullBody, fd, env))
       } else {
+        val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
         val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
 
@@ -151,7 +147,7 @@ trait AntiAliasing extends inox.ast.SymbolTransformer with EffectsChecking { sel
               aliasedParams.zipWithIndex.map { case (vd, i) =>
                 (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
               }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
-              postBody
+              makeSideEffectsExplicit(postBody, fd, env)
             )
 
             exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
