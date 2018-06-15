@@ -1,7 +1,6 @@
 Require Import Coq.Bool.Bool.
 Require Import Coq.Logic.FunctionalExtensionality.
 
-Require Import SLC.Tactics.
 Require Import SLC.PropBool.
 Require Import SLC.Booleans.
 Require Import SLC.Lib.
@@ -49,13 +48,12 @@ Hint Unfold set_equality. (* always unfold *)
 
 Ltac t_sets_aux :=
   autounfold with i_sets in *;
-    repeat t_base || firstorder.
+    repeat fast || firstorder.
 
 Lemma union_empty_l:
   forall T (s: set T), set_union s set_empty = s.
 Proof.
   intros; apply functional_extensionality; t_sets_aux.
-  autorewrite with libBool in *; intuition.
 Qed.
 
 Lemma union_empty_r:
@@ -360,17 +358,13 @@ Hint Resolve subset_union4: b_sets.
 Hint Resolve subset_intersection3: b_sets.
 Hint Resolve subset_intersection4: b_sets.
 
-
-Hint Extern 0 => autorewrite with libBool libProp libSets in *: b_sets.
-Hint Extern 0 => repeat fast: b_sets.
-Hint Extern 30 =>
+Ltac t_sets := 
   match goal with
-  | H: ?s1 ⊆ ?s2 |- ?s1 ⊆ ?s3 => apply subset_trans with s2
-  end: b_sets.
-Hint Extern 30 =>
-  match goal with
-  | H: ?s2 ⊆ ?s3 |- ?s1 ⊆ ?s3 => apply subset_trans with s2
-  end: b_sets.
-
-Ltac t_sets := auto 3 with b_sets.
+  | H: ?s1 ⊆ ?s2 = true |- ?s1 ⊆ ?s3 = true =>
+    apply subset_trans with s2;
+    solve [ repeat fast || autorewrite with libSet libBool libProp in * ] 
+  | H: ?s2 ⊆ ?s3 = true |- ?s1 ⊆ ?s3 = true => 
+    apply subset_trans with s2;
+    solve [ repeat fast || autorewrite with libSet libBool libProp in * ]
+  end.
 
