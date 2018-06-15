@@ -148,17 +148,11 @@ Ltac destruct_refinement_aux T :=
   pose proof (Mark MM "mark");
   pose proof (proj2_sig T) as R.
 
-Ltac no_proj_in T :=
-  match T with
-  | context[proj1_sig _] => fail 1
-  | _ => idtac
-  end.
-
 Ltac destruct_refinement :=
   match goal with
   | |- context[proj1_sig ?T] => destruct_refinement_aux T
   | H: context[proj1_sig ?T] |- _ => usable H; destruct_refinement_aux T
-  | _ := context[proj1_sig ?T] |- _ => destruct_refinement_aux T
+  | H := context[proj1_sig ?T] |- _ => destruct_refinement_aux T
   end.
 
 (* If we have a := b : T in the context, we can pose it *)
@@ -172,3 +166,9 @@ Ltac apply_any :=
   | H: _ |- _ => apply H
   end.
 
+Ltac instantiate_any :=
+  match goal with
+  | H1: forall x, _ -> _, H2: _ |- _ =>
+    poseNew (Mark (H1,H2) "instantiation");
+    pose proof (H1 _ H2)
+  end.

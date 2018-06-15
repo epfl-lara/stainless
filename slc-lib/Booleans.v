@@ -17,6 +17,8 @@ Hint Rewrite orb_true_iff: libBool.
 Hint Rewrite orb_false_iff: libBool.
 Hint Rewrite andb_true_iff: libBool.
 Hint Rewrite andb_false_iff: libBool.
+Hint Rewrite negb_true_iff: libBool.
+Hint Rewrite negb_false_iff: libBool.
 
 Notation "b1 &&b b2" := (if b1 then b2 else false) (at level 50). 
 

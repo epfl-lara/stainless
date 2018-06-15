@@ -60,7 +60,7 @@ Ltac rewrite_unfoldings :=
 
 Ltac rewrite_equations :=
   match goal with
-  | U: Rewrite ?T ?t1 ?t2 |- _ => is_application t2; not_application t1; apply swap_rewrite in U
+  | U: Rewrite ?T ?t1 ?t2 |- _ => is_application t2; not_application t1; unfold Rewrite in U
   | U: true = ?b |- _ => not_literal b; apply eq_sym in U
   | U: false = ?b |- _ => not_literal b; apply eq_sym in U
   | U: _ = exist _ _ _ |- _ => rewrite U in *

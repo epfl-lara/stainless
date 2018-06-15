@@ -149,3 +149,11 @@ Proof.
 Qed.
 
 Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.
+
+Lemma obvious_exist:
+  forall (P1 P2: Prop), (exists _ : P1, P2) <-> (P1 /\ P2).
+Proof.
+  repeat libStep.
+Qed.
+
+Hint Rewrite obvious_exist: libProp.

@@ -722,7 +722,14 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.Ints.") $
     RawCommand("Require Import SLC.Unfolding.") $
     RawCommand("Require Import ZArith.") $
-    RawCommand("Set Program Mode.\n\n")
+    RawCommand("Set Program Mode.\n") $
+    RawCommand("Opaque set_elem_of.") $
+    RawCommand("Opaque set_union.") $
+    RawCommand("Opaque set_intersection.") $
+    RawCommand("Opaque set_subset.") $
+    RawCommand("Opaque set_empty.") $
+    RawCommand("Opaque set_singleton.") $
+    RawCommand("Opaque set_difference.")
   }
 
   def transform(): CoqCommand = {

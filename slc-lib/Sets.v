@@ -31,6 +31,7 @@ Definition set_singleton {A} (x: A): set A := fun (y: A) => propInBool (x = y).
 Notation "s1 '==' s2" := (set_equality s1 s2) (at level 50).
 Notation "s1 '∪' s2" := (set_union s1 s2) (at level 10).
 Notation "s1 '∩' s2" := (set_intersection s1 s2) (at level 10).
+Notation "s1 '∖' s2" := (set_difference s1 s2) (at level 10).
 Notation "x '∈' s" := (set_elem_of x s) (at level 20).
 Notation "'{{' s '}}'" := (set_singleton s) (at level 50).
 Notation "'∅'" := (set_empty) (at level 50).
@@ -43,6 +44,8 @@ Hint Unfold set_equality : i_sets.
 Hint Unfold set_empty : i_sets.
 Hint Unfold set_singleton : i_sets.
 Hint Unfold set_difference : i_sets.
+
+Hint Unfold set_equality. (* always unfold *)
 
 Ltac t_sets_aux :=
   autounfold with i_sets in *;
@@ -99,11 +102,18 @@ Proof.
   repeat fast || t_sets_aux || autorewrite with libProp in *.
 Qed.
 
-Hint Unfold set_equality.
+Lemma in_difference:
+  forall T x (s1 s2: set T),
+    x ∈ s1 ∖ s2 = x ∈ s1 && negb (x ∈ s2).
+Proof.
+  repeat fast || t_sets_aux || autorewrite with libProp in *.
+Qed.
+
      
 Hint Rewrite in_union: libSet.
 Hint Rewrite in_intersection: libSet.
 Hint Rewrite in_singleton: libSet.
+Hint Rewrite in_difference: libSet.
 Hint Rewrite in_emptyset: libSet.
 
 
@@ -136,6 +146,7 @@ Qed.
 
 Hint Resolve subset_union_true: b_sets.
 
+
 Lemma subset_intersection:
   forall T (s s1 s2: set T),
     (s ⊆ s1 ∩ s2) =
@@ -165,7 +176,42 @@ Proof.
 Qed.  
 
 Hint Resolve subset_intersection_true: b_sets.
-                
+
+
+Lemma subset_difference:
+  forall T (s s1 s2: set T),
+    (s ⊆ s1 ∖ s2) =
+    (
+      (s ⊆ s1) &&
+      (s ∩ s2 == ∅)
+    ).
+Proof.
+  repeat fast ||
+         autounfold with i_sets in * ||
+         autorewrite with libProp in *; eauto.
+  apply equal_booleans;
+    repeat fast || autorewrite with libProp libBool in * || instantiate_any.
+  - destruct (s2 x) eqn:S; repeat t_bool || fast.
+    unshelve epose proof (H3 x _); repeat fast || autorewrite with libBool in *.
+Qed.  
+
+Hint Rewrite subset_difference: libSet.
+
+Lemma subset_difference_true:
+  forall T (s s1 s2: set T),
+    (s ⊆ s1 = true) ->
+    ((s ∩ s2 == ∅) = true) ->
+    (s ⊆ s1 ∖ s2 = true).
+Proof.
+  repeat fast ||
+         autounfold with i_sets in * ||
+         autorewrite with libProp libBool in *.
+  destruct (s2 x) eqn:S; repeat t_bool || fast.
+  unshelve epose proof (H2 x _); repeat fast || autorewrite with libBool in *.
+Qed. 
+  
+Hint Resolve subset_difference_true: b_sets.
+
 
 Lemma singleton_subset:
   forall T (x: T) s,
@@ -254,7 +300,6 @@ Proof.
     repeat fast || autorewrite with libProp libBool in *.
   - destruct (s1 x) eqn:E; repeat fast.
     right. apply_any; repeat fast || autorewrite with libProp libBool in *.
-  - destruct (s1 x0) eqn:E; repeat fast.
 Qed.
 
 Hint Rewrite singleton_intersect_subset: libSet.
@@ -315,6 +360,7 @@ Hint Resolve subset_union4: b_sets.
 Hint Resolve subset_intersection3: b_sets.
 Hint Resolve subset_intersection4: b_sets.
 
+
 Hint Extern 0 => autorewrite with libBool libProp libSets in *: b_sets.
 Hint Extern 0 => repeat fast: b_sets.
 Hint Extern 30 =>
@@ -327,5 +373,4 @@ Hint Extern 30 =>
   end: b_sets.
 
 Ltac t_sets := auto 3 with b_sets.
-
 
