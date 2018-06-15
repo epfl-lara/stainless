@@ -107,19 +107,19 @@ trait Printer extends methods.Printer {
   protected val trees: Trees
   import trees._
 
+  protected def localMethods(funs: Seq[FunDef]): PrintWrapper = {
+    implicit pctx: PrinterContext => withSymbols(funs.map(Left(_)), "def")
+  }
+
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LocalClassDef(cd, methods) =>
       p"""|$cd {
-          |"""
-      methods foreach { md =>
-        p"""|  $md
-            |"""
-      }
-      p"}"
+          |  ${localMethods(methods)}
+          |}"""
 
     case LetClass(lcd, body) =>
-      p"""|
-          |$lcd
+      p"""|$lcd
+          |
           |$body
           |"""
 
