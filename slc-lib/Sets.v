@@ -362,9 +362,9 @@ Ltac t_sets :=
   match goal with
   | H: ?s1 ⊆ ?s2 = true |- ?s1 ⊆ ?s3 = true =>
     apply subset_trans with s2;
-    solve [ repeat fast || autorewrite with libSet libBool libProp in * ] 
+    solve [ repeat fast || autorewrite with libSet libBool libProp in *; auto 3 with b_sets ] 
   | H: ?s2 ⊆ ?s3 = true |- ?s1 ⊆ ?s3 = true => 
     apply subset_trans with s2;
-    solve [ repeat fast || autorewrite with libSet libBool libProp in * ]
+    solve [ repeat fast || autorewrite with libSet libBool libProp in *; auto 3 with b_sets ]
   end.
 
