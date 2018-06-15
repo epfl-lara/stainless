@@ -729,7 +729,7 @@ trait CoqEncoder {
     RawCommand("Opaque set_subset.") $
     RawCommand("Opaque set_empty.") $
     RawCommand("Opaque set_singleton.") $
-    RawCommand("Opaque set_difference.")
+    RawCommand("Opaque set_difference.\n")
   }
 
   def transform(): CoqCommand = {
