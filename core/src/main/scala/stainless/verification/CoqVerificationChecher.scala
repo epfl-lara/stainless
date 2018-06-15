@@ -70,6 +70,7 @@ trait CoqVerificationChecker { self =>
         CoqIO.coqc(fName, context)
 
       }
+      context.reporter.info(s"Total time: ${time / 1000.0}s")
       val vcres: VCStatus = tryRes match {
         case _ if interruptManager.isInterrupted => {
           interruptManager.reset()
