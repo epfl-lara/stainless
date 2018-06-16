@@ -1,7 +1,6 @@
 Require Import SLC.Lib.
 Require Import SLC.Booleans.
 Require Import Coq.Logic.Classical.
-Require Import stdpp.set.
 
 Axiom classicT: forall P: Prop, P + ~P.
 
@@ -14,9 +13,6 @@ Notation "'B@(' p ')'" := (propInBool p) (at level 80).
 
 
 (* Hint Unfold propInBool. *)
-
-Definition set_subset {T: Type} (a b: set T): bool :=
-  propInBool ((set_difference a b) ≡ set_empty).
 
 Lemma Aeq_dec_all: forall T: Type, forall x y: T, {x = y} + {x <> y}.
   intros.
@@ -124,7 +120,7 @@ Qed.
 Lemma if_then_true:
   forall b (e1: b = true -> bool),
            ifthenelse b bool e1 (fun _ => true) = 
-           negb b || propInBool (exists H: b = true, e1 H).
+           negb b || propInBool (exists H: b = true, e1 H = true).
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
   rewrite (Eqdep_dec.UIP_refl_bool true x) in *; repeat libStep.
@@ -142,7 +138,7 @@ Qed.
 Lemma if_true_else:
   forall b (e2: b = false -> bool),
            ifthenelse b bool (fun _ => true) e2 = 
-           b || propInBool (exists H: b = false, e2 H).
+           b || propInBool (exists H: b = false, e2 H = true).
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
   rewrite (Eqdep_dec.UIP_refl_bool false x) in *; repeat libStep.
@@ -153,7 +149,7 @@ Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExist
 Lemma obvious_exist:
   forall (P1 P2: Prop), (exists _ : P1, P2) <-> (P1 /\ P2).
 Proof.
-  repeat libStep.
+  repeat libStep; eauto.
 Qed.
 
 Hint Rewrite obvious_exist: libProp.

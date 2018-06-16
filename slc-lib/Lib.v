@@ -4,7 +4,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.Strings.String.
 Require Import Omega.
 Require Import ZArith.
-Require Import stdpp.set.
 
 Require Equations.Equations.
 
@@ -36,18 +35,22 @@ Ltac duplicate_intro :=
     pose proof H as H2
   | _ => intros
   end.
-  
+
+Ltac rewrite_everywhere :=
+  repeat match goal with
+         | H: _ |- _ => rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts) in H
+         end.
+
 Ltac fast :=
   (repeat duplicate_intro) ||
   cbn -[Z.add] in * ||
   subst ||
   (intuition auto) ||
-  (progress autorewrite with libBool libProp libInts in *) ||
- (* (progress autorewrite with libProp in * ) ||
-  (progress autorewrite with libBool in * ) || *)
+(*  (progress autorewrite with libBool libProp libInts in * ) || *)
+  (progress rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts)) || 
+  rewrite_everywhere ||
   congruence ||
   discriminate ||
-  done ||
   autounfold in *
 .
 

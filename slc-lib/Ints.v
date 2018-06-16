@@ -1,7 +1,6 @@
 Require Import SLC.Lib.
 Require Import SLC.Booleans.
 Require Import ZArith.
-Require Import stdpp.set.
 
 Open Scope Z_scope.
 
@@ -44,13 +43,13 @@ Qed.
 
 
 Lemma Zeq_bool_neq2:
-  ∀ x y : Z,  Zeq_bool x y = false <-> (x <> y).
+  forall x y : Z,  Zeq_bool x y = false <-> (x <> y).
 Proof.
   intuition;
     repeat match goal with
            | _ => libStep || ifthenelse_step
            | H: _ |- _ => apply Zeq_bool_neq in H
-           | H: _ |- _ => apply Positive_as_OT.compare_eq in H
+           | H: _ |- _ => apply Pos.compare_eq in H
            | x: Z |- _ => destruct x
            | _ => progress (unfold Zeq_bool in *)
            | _ => progress (unfold CompOpp in *)
@@ -58,7 +57,7 @@ Proof.
 Qed.
                            
 Lemma Zeq_bool_neq3:
-  ∀ x y : Z, false = Zeq_bool x y <-> (x <> y).
+  forall x y : Z, false = Zeq_bool x y <-> (x <> y).
 Proof.
   intuition.
   - apply eq_sym in H.
