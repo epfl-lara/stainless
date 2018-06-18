@@ -83,7 +83,7 @@ trait Trees extends holes.Trees with Definitions { self =>
   }
 
   /** Type associated to instances of [[ClassConstructor]] */
-   case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
+   case class ClassType(id: Identifier, tps: Seq[Type], flags: Seq[Flag] = Seq.empty) extends Type {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
     def tcd(implicit s: Symbols): TypedClassDef = s.getClass(id, tps)
 
@@ -177,8 +177,8 @@ trait Printer extends holes.Printer {
         p" extends ${nary(cd.parents, " with ")}"
       }
 
-    case ClassType(id, tps) =>
-      p"${id}${nary(tps, ", ", "[", "]")}"
+    case ClassType(id, tps, flags) =>
+      p"${nary(flags, " ", "", " ")}${id}${nary(tps, ", ", "[", "]")}"
 
     case AnyType() =>
       p"Any"
@@ -271,7 +271,7 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
   }
 
   override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
-    case s.ClassType(id, tps) => (Seq(id), tps, Seq(), (ids, tps, _) => t.ClassType(ids.head, tps))
+    case s.ClassType(id, tps, flags) => (Seq(id), tps, flags, (ids, tps, flags) => t.ClassType(ids.head, tps, flags))
     case s.AnyType() => (Seq(), Seq(), Seq(), (_, _, _) => t.AnyType())
     case s.NothingType() => (Seq(), Seq(), Seq(), (_, _, _) => t.NothingType())
     case s.UnionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.UnionType(tps))

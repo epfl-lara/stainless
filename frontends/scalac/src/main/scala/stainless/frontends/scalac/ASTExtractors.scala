@@ -37,22 +37,27 @@ trait ASTExtractors {
     val selfs = actualSymbol.annotations
     val owners = if (ignoreOwner) Set.empty else actualSymbol.owner.annotations
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
-    (for {
-      a <- (selfs ++ owners ++ companions)
-      name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
-    } yield {
-      if (name startsWith "stainless.annotation.") {
-        val shortName = name drop "stainless.annotation.".length
-        Some(shortName, a.args)
-      } else if (name == "inline") {
-        Some(name, a.args)
-      } else {
-        None
-      }
-    }).flatten.foldLeft[(Set[String], Seq[(String, Seq[Tree])])]((Set(), Seq())) {
-      case (acc @ (keys, _), (key, _)) if keys contains key => acc
-      case ((keys, seq), (key, args)) => (keys + key, seq :+ (key -> args))
-    }._2
+
+    (selfs ++ owners ++ companions)
+      .map(getAnnotation)
+      .flatten
+      .foldLeft[(Set[String], Seq[(String, Seq[Tree])])]((Set(), Seq())) {
+        case (acc @ (keys, _), (key, _)) if keys contains key => acc
+        case ((keys, seq), (key, args)) => (keys + key, seq :+ (key -> args))
+      }._2
+  }
+
+  def getAnnotation(a: AnnotationInfo): Option[(String, Seq[Tree])] = {
+    val name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
+
+    if (name startsWith "stainless.annotation.") {
+      val shortName = name drop "stainless.annotation.".length
+      Some(shortName, a.args)
+    } else if (name == "inline") {
+      Some(name, a.args)
+    } else {
+      None
+    }
   }
 
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")

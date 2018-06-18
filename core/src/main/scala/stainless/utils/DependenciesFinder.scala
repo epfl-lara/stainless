@@ -43,7 +43,7 @@ class DependenciesFinder {
     }
 
     override def traverse(tpe: xt.Type): Unit = tpe match {
-      case xt.ClassType(id, _) =>
+      case xt.ClassType(id, _, flags) if !flags.contains(xt.Extern) =>
         deps += id
         super.traverse(tpe)
 

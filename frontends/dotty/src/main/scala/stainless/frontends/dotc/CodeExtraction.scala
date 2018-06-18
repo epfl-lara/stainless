@@ -532,7 +532,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           sym.owner.companionClass.exists && sym.owner.companionClass.is(Case)) {
         val id = getIdentifier(sym.owner.symbol.companionClass)
         val tps = f match { case TypeApply(un, tps) => tps map extractType case _ => Seq.empty }
-        (xt.ClassPattern(binder, xt.ClassType(id, tps).setPos(p.pos), subPatterns).setPos(p.pos), nctx)
+        (xt.ClassPattern(binder, xt.ClassType(id, tps, Seq()).setPos(p.pos), subPatterns).setPos(p.pos), nctx)
       } else {
         val id = getIdentifier(sym)
         val tps = f match { case TypeApply(un, tps) => tps map extractType case _ => Seq.empty }
@@ -962,17 +962,17 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       val somePairs = pairs.map { case (key, value) =>
         key -> xt.ClassConstructor(
-          xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(value),
+          xt.ClassType(getIdentifier(someSymbol), Seq(to), Seq()).setPos(value),
           Seq(value)
         ).setPos(value)
       }
 
       val dflt = xt.ClassConstructor(
-        xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+        xt.ClassType(getIdentifier(noneSymbol), Seq(to), Seq()).setPos(tr.pos),
         Seq.empty
       ).setPos(tr.pos)
 
-      val optTo = xt.ClassType(getIdentifier(optionSymbol), Seq(to))
+      val optTo = xt.ClassType(getIdentifier(optionSymbol), Seq(to), Seq())
       xt.FiniteMap(somePairs, dflt, extractType(tptFrom), optTo)
 
     case Apply(TypeApply(
@@ -1052,8 +1052,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case Apply(TypeApply(ExSymbol("stainless", "collection", "List$", "apply"), Seq(tpt)), args) =>
       val tpe = extractType(tpt)
-      val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe))
-      val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(tpe))
+      val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe), Seq())
+      val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(tpe), Seq())
       extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(tr.pos)) {
         case (e, ls) => xt.ClassConstructor(cons, Seq(e, ls)).setPos(e)
       }
@@ -1156,9 +1156,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "apply", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), _)), "apply", Seq(rhs)) =>
             val (l, r) = (extractTree(lhs), extractTree(rhs))
-            val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos)
+            val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to), Seq()).setPos(tr.pos)
             xt.Assert(
               xt.IsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe).setPos(tr.pos),
               Some("Map undefined at this index"),
@@ -1168,7 +1168,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
               ).setPos(tr.pos)
             )
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "isDefinedAt" | "contains", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), _)), "isDefinedAt" | "contains", Seq(rhs)) =>
             xt.Not(xt.Equals(
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
@@ -1177,11 +1177,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "updated" | "+", Seq(key, value)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), _)), "updated" | "+", Seq(key, value)) =>
             xt.MapUpdated(
               extractTree(lhs), extractTree(key),
               xt.ClassConstructor(
-                xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos),
+                xt.ClassType(getIdentifier(someSymbol), Seq(to), Seq()).setPos(tr.pos),
                 Seq(extractTree(value))
               ).setPos(tr.pos)
             )
