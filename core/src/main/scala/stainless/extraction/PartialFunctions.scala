@@ -19,7 +19,7 @@ object PartialFunctions extends inox.ast.SymbolTransformer {
     override def transform(e: Expr): Expr = super.transform(e) match {
       case fi @ FunctionInvocation(ast.SymbolIdentifier("stainless.lang.PartialFunction.apply"), _, _) =>
         val FunctionInvocation(_, froms :+ to, Seq(fun)) = fi
-        val ct = ClassType(optPFClass.get.id, Seq(tupleTypeWrap(froms), to))
+        val ct = ClassType(optPFClass.get.id, Seq(tupleTypeWrap(froms), to), Seq())
 
         val (pre, body) = fun match {
           case Lambda(vds, body0) =>

@@ -280,7 +280,7 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           Map(scope.transform(vd) -> unwrap(nvd.toVariable, scope.transform(vd.tpe))),
           scope.transform(pred))
         ref(t.Lambda(Seq(nvd), t.and(instanceOf(nvd.toVariable, encodeType(vd.tpe)), npred)))
-      case s.ClassType(id, tps) => cls(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
+      case s.ClassType(id, tps, _) => cls(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
       case s.ADTType(id, tps) => adt(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
       case s.ArrayType(base) => arr(encodeType(base))
       case s.SetType(base) => set(encodeType(base))
@@ -758,8 +758,8 @@ trait TypeEncoding extends inox.ast.SymbolTransformer { self =>
           }
 
           override def traverse(tpe: s.Type): Unit = tpe match {
-            case s.ClassType(_, _) => simple = false
-            case s.RefinementType(_, _) => simple = false
+            case _: s.ClassType => simple = false
+            case _: s.RefinementType => simple = false
             case _ => super.traverse(tpe)
           }
 

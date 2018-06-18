@@ -98,7 +98,7 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassSelector(expr, selector) => syms.widen(expr.getType(syms)) match {
-          case s.ClassType(id, tps) if candidates(id) =>
+          case s.ClassType(id, tps, _) if candidates(id) =>
             /* TODO: use unchecked access once the effect system is a bit smarter
             val vd = t.ValDef.fresh("e", t.ADTType(roots(id), tps map transform).copiedFrom(e)).copiedFrom(e)
             t.Let(vd, transform(expr),
@@ -109,17 +109,17 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
           case _ => super.transform(e)
         }
 
-        case s.ClassConstructor(s.ClassType(id, Seq()), Seq()) if caseObjectFunctions contains id =>
+        case s.ClassConstructor(s.ClassType(id, Seq(), _), Seq()) if caseObjectFunctions contains id =>
           t.FunctionInvocation(caseObjectFunctions(id).id, Seq(), Seq()).copiedFrom(e)
 
-        case s.ClassConstructor(s.ClassType(id, tps), args) if candidates(id) =>
+        case s.ClassConstructor(s.ClassType(id, tps, _), args) if candidates(id) =>
           t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
 
         case s.MatchExpr(scrut, cases) =>
           t.MatchExpr(transform(scrut), cases map { case cse @ s.MatchCase(pat, optGuard, rhs) =>
             var guards: Seq[Expr] = Nil
             val newPat = s.patternOps.postMap {
-              case iop @ s.InstanceOfPattern(ob, tpe @ ClassType(id, tps)) if candidates(id) =>
+              case iop @ s.InstanceOfPattern(ob, tpe @ ClassType(id, tps, _)) if candidates(id) =>
                 if (constructors(id) == Set(id)) {
                   val subs = tpe.tcd(syms).fields.map(_ => s.WildcardPattern(None).copiedFrom(pat))
                   Some(s.ADTPattern(ob, constructorId(id), tps, subs).copiedFrom(iop))
@@ -151,13 +151,13 @@ trait AdtSpecialization extends inox.ast.SymbolTransformer { self =>
       }
 
       override def transform(pat: s.Pattern): t.Pattern = pat match {
-        case s.ClassPattern(binder, s.ClassType(id, tps), subs) if candidates(id) =>
+        case s.ClassPattern(binder, s.ClassType(id, tps, _), subs) if candidates(id) =>
           t.ADTPattern(binder map transform, constructorId(id), tps map transform, subs map transform).copiedFrom(pat)
         case _ => super.transform(pat)
       }
 
       override def transform(tpe: s.Type): t.Type = tpe match {
-        case s.ClassType(id, tps) if candidates(id) =>
+        case s.ClassType(id, tps, _) if candidates(id) =>
           if (id == roots(id)) {
             t.ADTType(id, tps map transform).copiedFrom(tpe)
           } else {

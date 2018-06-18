@@ -284,7 +284,7 @@ trait TypeOps extends imperative.TypeOps {
       unificationSolution((tps1 zip tps2).toList ++ tl)
     case (ct: ClassType, _) :: tl if ct.lookupClass.isEmpty => unsolvable
     case (_, ct: ClassType) :: tl if ct.lookupClass.isEmpty => unsolvable
-    case (ClassType(id1, tps1), ClassType(id2, tps2)) :: tl if id1 == id2 =>
+    case (ClassType(id1, tps1, _), ClassType(id2, tps2, _)) :: tl if id1 == id2 =>
       unificationSolution((tps1 zip tps2).toList ++ tl)
     case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) :: tl if ts1.size == ts2.size =>
       unificationSolution((ts1 zip ts2).toList ++ tl)
@@ -344,7 +344,7 @@ trait TypeOps extends imperative.TypeOps {
       patternIsTyped(patternInType(pat), pat)
 
     case (_, ClassPattern(ob, ct, subs)) => in match {
-      case ct2 @ ClassType(id, tps) if isSubtypeOf(ct, ct2) =>
+      case ct2 @ ClassType(id, tps, _) if isSubtypeOf(ct, ct2) =>
         lookupClass(ct.id).exists { cls =>
           cls.fields.size == subs.size &&
           cls.tparams.size == ct.tps.size &&
@@ -398,11 +398,11 @@ trait TypeOps extends imperative.TypeOps {
         case IntersectionType(tps) => tps.map(rec(_, variance)).reduceLeft(unify(_, _, !variance))
         case FunctionType(from, to) => FunctionType(from.map(rec(_, !variance)), rec(to, variance))
         case TupleType(tps) => TupleType(tps.map(rec(_, variance)))
-        case ct @ ClassType(id, tps) =>
+        case ct @ ClassType(id, tps, flags) =>
           ClassType(id, (ct.tcd.cd.typeArgs zip tps).map { case (tp, tpe) =>
             if (tp.isContravariant) rec(tpe, !variance)
             else rec(tpe, variance)
-          })
+          }, flags)
         case NAryType(tps, recons) => recons(tps.map(rec(_, variance)))
       })
     }

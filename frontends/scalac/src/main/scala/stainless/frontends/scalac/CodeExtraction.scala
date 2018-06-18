@@ -1083,7 +1083,7 @@ trait CodeExtraction extends ASTExtractors {
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "apply", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "apply", Seq(rhs)) =>
             val (l, r) = (extractTree(lhs), extractTree(rhs))
             val someTpe = xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos)
             xt.Assert(
@@ -1095,7 +1095,7 @@ trait CodeExtraction extends ASTExtractors {
               ).setPos(tr.pos)
             )
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "isDefinedAt" | "contains", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "isDefinedAt" | "contains", Seq(rhs)) =>
             xt.Not(xt.Equals(
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
@@ -1104,7 +1104,7 @@ trait CodeExtraction extends ASTExtractors {
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "updated" | "+", Seq(key, value)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "updated" | "+", Seq(key, value)) =>
             xt.MapUpdated(
               extractTree(lhs), extractTree(key),
               xt.ClassConstructor(
@@ -1113,7 +1113,7 @@ trait CodeExtraction extends ASTExtractors {
               ).setPos(tr.pos)
             )
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "+", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "+", Seq(rhs)) =>
             val value = extractTree(rhs)
             xt.MapUpdated(
               extractTree(lhs), xt.TupleSelect(value, 1).setPos(tr.pos),
@@ -1123,7 +1123,7 @@ trait CodeExtraction extends ASTExtractors {
               ).setPos(tr.pos)
             )
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "++", Seq(rhs)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "++", Seq(rhs)) =>
             extractTree(rhs) match {
               case xt.FiniteMap(pairs,  default, keyType, valueType) =>
                 pairs.foldLeft(extractTree(lhs)) { case (map, (k, v)) =>
@@ -1133,7 +1133,7 @@ trait CodeExtraction extends ASTExtractors {
               case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
             }
 
-          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "getOrElse", Seq(key, orElse)) =>
+          case (xt.MapType(_, xt.ClassType(_, Seq(to), Seq())), "getOrElse", Seq(key, orElse)) =>
             xt.MethodInvocation(
               xt.MapApply(extractTree(lhs), extractTree(key)).setPos(tr.pos),
               getIdentifier(optionSymbol.tpe.member(TermName("getOrElse"))),
@@ -1368,7 +1368,15 @@ trait CodeExtraction extends ASTExtractors {
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract refined type: "+tpt+" ("+tpt.getClass+")")
       }
 
-    case AnnotatedType(_, tpe) => extractType(tpe)
+    case AnnotatedType(annots, tpe) =>
+      extractType(tpe) match {
+        case xt.ClassType(id, tps, _) =>
+          val flags = annots.map(getAnnotation).flatten.map((xt.extractFlag _).tupled)
+          xt.ClassType(id, tps, flags)
+
+        case _ =>
+          outOfSubsetError(tpt.typeSymbol.pos, s"Could not extract annotated type because it is not a class type: $tpt")
+      }
 
     case _ =>
       if (tpt ne null) {
