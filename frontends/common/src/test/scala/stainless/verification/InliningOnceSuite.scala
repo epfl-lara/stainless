@@ -29,9 +29,10 @@ class InliningOnceSuite extends FunSpec with InputUtils {
          |  }
          |}""".stripMargin
 
-    val ctx = stainless.TestContext.empty
-    val (funs, xlangProgram) = load(ctx, List(source))
-    val program = VerificationComponent.extract(xlangProgram, ctx)
+    implicit val ctx = stainless.TestContext.empty
+    val (funs, xlangProgram) = load(List(source))
+    val run = VerificationComponent.run(extraction.pipeline)
+    val program = inox.Program(run.trees)(run extract xlangProgram)
 
     import program.trees._
 
@@ -74,8 +75,8 @@ class InliningOnceSuite extends FunSpec with InputUtils {
          |  }
          |}""".stripMargin
 
-    val ctx = stainless.TestContext.empty
-    val (funs, xlangProgram) = load(ctx, List(source))
+    implicit val ctx = stainless.TestContext.empty
+    val (funs, xlangProgram) = load(List(source))
 
     val annFuns = xlangProgram.symbols.functions.values.map {
       case fd if fd.id.name == "foo" || fd.id.name == "bar" => fd.copy(flags = fd.flags ++ Seq(xlangProgram.trees.Synthetic))
@@ -83,7 +84,8 @@ class InliningOnceSuite extends FunSpec with InputUtils {
     }.toSeq
 
     val annProgram = inox.Program(xlangProgram.trees)(xlangProgram.symbols.withFunctions(annFuns))
-    val program = VerificationComponent.extract(annProgram, ctx)
+    val run = VerificationComponent.run(extraction.pipeline)
+    val program = inox.Program(run.trees)(run extract annProgram)
 
     import program.trees._
 

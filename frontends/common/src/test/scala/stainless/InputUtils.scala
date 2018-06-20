@@ -3,7 +3,7 @@
 package stainless
 
 import extraction.xlang.{ trees => xt }
-import frontend.{ CallBack, MasterCallBack }
+import frontend.CallBack
 import utils.{ CheckFilter, DependenciesFinder, Registry }
 
 import scala.collection.mutable.ListBuffer
@@ -15,9 +15,8 @@ trait InputUtils {
   type Filter = CheckFilter { val trees: xt.type }
 
   /** Compile and extract the given files' **content** (& the library). */
-  def load(context: inox.Context, contents: Seq[String], filterOpt: Option[Filter] = None):
-          (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
-
+  def load(contents: Seq[String], filterOpt: Option[Filter] = None)
+          (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
     val files = contents.map { content =>
       val file = File.createTempFile("stainless", ".scala")
       file.deleteOnExit()
@@ -27,12 +26,12 @@ trait InputUtils {
       file.getAbsolutePath
     }
 
-    loadFiles(context, files, filterOpt)
+    loadFiles(files, filterOpt)
   }
 
   /** Compile and extract the given files (& the library). */
-  def loadFiles(ctx: inox.Context, files: Seq[String], filterOpt: Option[Filter] = None):
-               (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+  def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None)
+               (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     // Use the callback to collect the trees.
     val units = ListBuffer[xt.UnitDef]()
@@ -89,8 +88,7 @@ trait InputUtils {
       }
     }
 
-    val master = new MasterCallBack(Seq(callback))
-    val compiler = Main.factory(ctx, files, master)
+    val compiler = Main.factory(ctx, files, callback)
     compiler.run()
 
     // Wait for compilation to finish to produce the whole program

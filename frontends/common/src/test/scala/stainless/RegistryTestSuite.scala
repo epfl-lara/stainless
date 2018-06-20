@@ -134,39 +134,61 @@ class RegistryTestSuite extends FunSuite {
       MockReport(functions ++ other.functions, classes ++ other.classes)
   }
 
+  /** A simply dummy analysis that wraps our [[MockReport]]. */
+  private case class MockAnalysis(report: MockReport) extends AbstractAnalysis {
+    override val name = "dummy"
+    override type Report = MockReport
+    override def toReport = report
+  }
+
   /**
-   * Mock callback for the purpose of testing the [[Registry]].
+   * Mock component for the purpose of testing the [[Registry]].
    *
    * [[filter]] needs to be set/updated before every frontend run.
    * It also provides a way to clear previously generated reports with [[popReports]].
    *
-   * NOTE here we don't use the report from [[CallBackWithRegistry]] because it
+   * NOTE here we don't use the report from [[StainlessCallBack]] because it
    *      is not cleared upon new compilation.
    */
-  private class MockCallBack(override val context: inox.Context) extends CallBackWithRegistry {
+  private class MockComponent extends Component {
+    val name = "mockcomponent"
+    val description = "componing for testing stainless callback"
 
-    override val cacheSubDirectory = "mockcallback" // shouldn't be used here...
-    override def parseReportCache(json: Json) = ??? // unused
-    assert(context.options.findOption(frontend.optPersistentCache).isEmpty)
+    val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+      override val s: extraction.trees.type = extraction.trees
+      override val t: extraction.trees.type = extraction.trees
+    })
 
-    override type Report = MockReport
+    def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
+      new MockComponentRun(pipeline)
+  }
 
-    override def onCycleBegin() = ()
+  /** Mock component run associated to [[MockComponent]]. */
+  private class MockComponentRun(override val pipeline: extraction.StainlessPipeline)
+                                (override implicit val context: inox.Context) extends ComponentRun {
+    override val component = MockComponent
+    override val trees: stainless.trees.type = stainless.trees
 
-    override def solve(program: Program { val trees: extraction.xlang.trees.type }): Future[Report] = {
-      val fns = program.symbols.functions.keySet map { _.name }
-      val cls = program.symbols.classes.keySet map { _.name }
+    type Report = MockReport
+    type Analysis = MockAnalysis
+
+    def parse(json: Json): Report = ???
+
+    override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+      val fns = symbols.functions.keySet map { _.name }
+      val cls = symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
       implicit val printOpts = program.trees.PrinterOptions.fromContext(context)
       import context.reporter
       reporter.debug(s"MockCallBack got the following to solve:")
-      reporter.debug(s"\tfunctions: " + (program.symbols.functions.keySet map { _.asString } mkString ", "))
-      reporter.debug(s"\tclasses:   " + (program.symbols.classes.keySet map { _.asString } mkString ", "))
+      reporter.debug(s"\tfunctions: " + (symbols.functions.keySet map { _.asString } mkString ", "))
+      reporter.debug(s"\tclasses:   " + (symbols.classes.keySet map { _.asString } mkString ", "))
 
       val report = MockReport(fns, cls)
+      val analysis = MockAnalysis(report)
       reports += report
-      Future.successful(report)
+      Future.successful(analysis)
     }
 
     private val reports = ListBuffer[Report]()
