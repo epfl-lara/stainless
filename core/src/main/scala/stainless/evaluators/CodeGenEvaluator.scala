@@ -63,7 +63,11 @@ trait CodeGenEvaluator
 
       val tpChoose = typeOps.instantiateType(choose, tpMap)
 
-      val inputsMap = (params zip inputs.toSeq).map {
+      val realParams = params.map { vd =>
+        vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpMap))
+      }
+
+      val inputsMap = (realParams zip inputs.toSeq).map {
         case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.tpe)
       }.toMap
 
