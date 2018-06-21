@@ -3,7 +3,7 @@
 package stainless
 package extraction
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.concurrent.TrieMap
 
 trait ExtractionPipeline { self =>
   val s: extraction.Trees
@@ -142,7 +142,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
 
   protected class ExtractionCache[Key <: s.Definition, T] {
-    private[this] final val cache: MutableMap[CacheKey, T] = MutableMap.empty
+    private[this] final val cache: TrieMap[CacheKey, T] = TrieMap.empty
 
     def cached(key: Key, symbols: s.Symbols)(builder: => T): T = {
       cache.getOrElseUpdate(CacheKey(key)(symbols), builder)
