@@ -64,7 +64,7 @@ trait EffectsAnalyzer extends CachingPhase {
     }
 
     def apply(fd: FunDef): Set[Effect] = effects(Outer(fd))
-    def apply(fun: FunAbstraction): Set[Effect] = effects(fun)
+    def apply(fun: FunAbstraction): Set[Effect] = effects.get(fun).getOrElse(Set()) // FIXME
     def apply(expr: Expr)(implicit symbols: Symbols): Set[Effect] = expressionEffects(expr, this)
 
     private[EffectsAnalyzer] def local(id: Identifier): FunAbstraction = locals(id)
