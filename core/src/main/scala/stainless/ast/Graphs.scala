@@ -51,3 +51,4 @@ trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
     g
   }
 }
+

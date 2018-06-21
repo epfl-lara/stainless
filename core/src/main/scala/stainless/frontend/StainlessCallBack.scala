@@ -234,7 +234,6 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       }
 
       reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
-      println(funSyms)
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =

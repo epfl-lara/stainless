@@ -50,6 +50,7 @@ trait Trees extends throwing.Trees { self =>
 
   trait AbstractSymbols
     extends super.AbstractSymbols
+       with DependencyGraph
        with TypeOps { self0: Symbols =>
   }
 
