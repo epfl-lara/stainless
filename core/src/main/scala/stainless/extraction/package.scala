@@ -72,7 +72,7 @@ package object extraction {
   case class MissformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
-  def pipeline(implicit ctx: inox.Context) = {
+  def pipeline(implicit ctx: inox.Context): StainlessPipeline = {
     xlang.extractor      andThen
     methods.extractor    andThen
     throwing.extractor   andThen

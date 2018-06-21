@@ -54,12 +54,13 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
       }
 
       val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           val some = sort.constructors.find(_.fields.nonEmpty).get
           createFunction(sort.id, some.id, some.fields.head.id)
         }
-        case None => syntheticGet(symbols)
+        case None => syntheticFunction
       }
     }
 

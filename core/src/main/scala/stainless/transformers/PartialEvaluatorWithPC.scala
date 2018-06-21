@@ -24,10 +24,10 @@ trait PartialEvaluatorWithPC extends TransformerWithPC { self =>
   implicit val context: inox.Context
   protected val semantics: inox.SemanticsProvider { val trees: self.trees.type }
 
-  private[this] val program = inox.Program(trees)(symbols)
-  private[this] val programSemantics = semantics.getSemantics(program)
-  private[this] val solver = programSemantics.getSolver(context).withTimeout(150.millis).toAPI
-  private[this] val groundEvaluator = programSemantics.getEvaluator(context)
+  private[this] lazy val program = inox.Program(trees)(symbols)
+  private[this] lazy val programSemantics = semantics.getSemantics(program)
+  private[this] lazy val solver = programSemantics.getSolver(context).withTimeout(150.millis).toAPI
+  private[this] lazy val groundEvaluator = programSemantics.getEvaluator(context)
 
   import trees._
   import symbols.{simplifier => _, _}
@@ -40,7 +40,7 @@ trait PartialEvaluatorWithPC extends TransformerWithPC { self =>
 
   override implicit def pp = Path
 
-  private val simplifier = symbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
+  private lazy val simplifier = symbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
 
   private var doNotUnfold: Set[Identifier] = Set.empty
   private def canUnfold(id: Identifier): Boolean = !doNotUnfold.contains(id)
