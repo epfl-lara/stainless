@@ -75,7 +75,9 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
       functions ++= fun
     }
 
-    functions ++= symbols.functions.values.map(funCache(_, symbols))
+    functions ++= symbols.functions.values map { fd =>
+      funCache.cached(fd, symbols)(default.transform(fd))
+    }
 
     t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
   }

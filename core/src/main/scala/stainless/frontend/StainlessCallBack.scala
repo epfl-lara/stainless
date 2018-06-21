@@ -219,21 +219,22 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
       val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
 
-      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
+      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ Seq(syms.functions(id)))
 
       try {
-        syms.ensureWellFormed
+        funSyms.ensureWellFormed
       } catch {
-        case e: syms.TypeErrorException =>
+        case e: funSyms.TypeErrorException =>
           reporter.error(e.pos, e.getMessage)
           reporter.error(s"The extracted sub-program in not well formed.")
           reporter.error(s"Symbols are:")
-          reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-          reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+          reporter.error(s"functions -> [${funSyms.functions.keySet.toSeq.sorted mkString ", "}]")
+          reporter.error(s"classes   -> [\n  ${funSyms.classes.values mkString "\n  "}\n]")
           reporter.fatalError(s"Aborting from StainlessCallBack")
       }
 
-      reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+      reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
+      println(funSyms)
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
