@@ -503,21 +503,6 @@ trait CoqEncoder {
         val allParamNames: Seq[CoqIdentifier] = (allParams map (_._1)) :+ returnTypeName
 
 
-        if (fd.id.name.contains("chunk")) {
-          ctx.reporter.info(s"$allParamNames\n\n\n")
-
-          for (x <- allParamNames) {
-            for (y <- allParamNames) {
-              println(s"$x - $y : ${if (x==y) "true" else "false"}, ${x.id} - ${y.id}: ${if (x.id==y.id) "true" else "false"}")
-            }
-          }
-
-          ctx.reporter.info(s"${(allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).mkString("\n")}")
-          val tmp: Seq[(CoqIdentifier, Seq[CoqIdentifier])] = allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}
-          ctx.reporter.info("\n\n\n")
-          ctx.reporter.info(s"${tmp.toMap.mkString("\n")}")
-        }
-
         val dependsOn: Map[CoqIdentifier, Seq[CoqIdentifier]] =
         (allParamNames zip allParamNames.scanLeft(Seq[CoqIdentifier]()) {(l,a) => l :+ a}).toMap
 
