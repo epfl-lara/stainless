@@ -46,9 +46,9 @@ Ltac fast :=
   cbn -[Z.add] in * ||
   subst ||
   (intuition auto) ||
-(*  (progress autorewrite with libBool libProp libInts in * ) || *)
-  (progress rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts)) || 
-  rewrite_everywhere ||
+  (progress fastautorewrite with libBool libProp libInts in * ) || 
+(*  (progress rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts)) ||  *)
+(*  rewrite_everywhere || *)
   congruence ||
   discriminate ||
   autounfold in *
