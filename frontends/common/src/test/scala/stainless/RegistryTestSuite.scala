@@ -103,7 +103,7 @@ class RegistryTestSuite extends FunSuite {
 
     // Create our frontend with a mock component
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
-    val compiler = Main.factory(testSuiteContext, filePaths, new MockCallBack())
+    val compiler = Main.factory(testSuiteContext, filePaths, new frontend.StainlessCallBack(Seq(MockComponent))(testSuiteContext))
     val run = MockComponent.run(extraction.pipeline(testSuiteContext))(testSuiteContext)
 
     body(fileMapping, compiler, run)
@@ -169,14 +169,13 @@ class RegistryTestSuite extends FunSuite {
     type Report = MockReport
     type Analysis = MockAnalysis
 
-    val lowering = (new extraction.xlang.trees.IdentitySymbolTransformer {}).asInstanceOf[inox.ast.SymbolTransformer{val s: stainless.extraction.trees.type; val t: stainless.extraction.trees.type}]
+    val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+      override val s: extraction.trees.type = extraction.trees
+      override val t: extraction.trees.type = extraction.trees
+    })
 
     def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
-      new MockComponentRun(IdentityPipeline(context))
-  }
-
-  object IdentityPipeline {
-    def apply(implicit ctx: inox.Context): extraction.StainlessPipeline = extraction.ExtractionPipeline(new extraction.xlang.trees.IdentitySymbolTransformer {}).asInstanceOf[extraction.StainlessPipeline]
+      new MockComponentRun(pipeline)
   }
 
   /** Mock component run associated to [[MockComponent]]. */
