@@ -18,9 +18,9 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
   """
 
   implicit val ctx = stainless.TestContext.empty
-  val (_, xlangProgram) = load(ctx, Seq(contents))
+  val (_, xlangProgram) = load(Seq(contents))
   val run = verification.VerificationComponent.run(extraction.pipeline)
-  val program = inox.Program(stainless.trees)(run extract xlangProgram)
+  val program = inox.Program(stainless.trees)(run extract xlangProgram.symbols)
   import program.trees._
 
   test("Lookup Option classes") {

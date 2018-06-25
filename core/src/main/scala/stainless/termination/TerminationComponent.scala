@@ -12,6 +12,9 @@ object TerminationComponent extends Component {
   override val name = "termination"
   override val description = "Check program termination."
 
+  override type Report = TerminationReport
+  override type Analysis = TerminationAnalysis
+
   override object lowering extends inox.ast.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
@@ -54,9 +57,6 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
                     (override implicit val context: inox.Context) extends ComponentRun {
   override val component = TerminationComponent
   override val trees: termination.trees.type = termination.trees
-
-  override type Report = TerminationReport
-  override type Analysis = TerminationAnalysis
 
   override def parse(json: Json): Report = TerminationReport.parse(json)
 

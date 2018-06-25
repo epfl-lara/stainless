@@ -32,9 +32,9 @@ class InliningOnceSuite extends FunSpec with InputUtils {
     implicit val ctx = stainless.TestContext.empty
     val (funs, xlangProgram) = load(List(source))
     val run = VerificationComponent.run(extraction.pipeline)
-    val program = inox.Program(run.trees)(run extract xlangProgram)
+    val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
 
-    import program.trees._
+    import stainless.trees._
 
     val foo = program.lookup[FunDef]("Test.foo")
     val bar = program.lookup[FunDef]("Test.bar")
@@ -85,9 +85,9 @@ class InliningOnceSuite extends FunSpec with InputUtils {
 
     val annProgram = inox.Program(xlangProgram.trees)(xlangProgram.symbols.withFunctions(annFuns))
     val run = VerificationComponent.run(extraction.pipeline)
-    val program = inox.Program(run.trees)(run extract annProgram)
+    val program = inox.Program(run.trees)(run extract annProgram.symbols)
 
-    import program.trees._
+    import stainless.trees._
 
     it("should make foo disappear") {
       assert(program.symbols.lookup.get[FunDef]("Test.foo").isEmpty)

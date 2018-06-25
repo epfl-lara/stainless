@@ -35,7 +35,7 @@ class InliningSuite extends FunSuite with InputUtils {
   implicit val ctx = stainless.TestContext.empty
   val (funs, xlangProgram) = load(List(source))
   val run = VerificationComponent.run(extraction.pipeline)
-  val program = inox.Program(run.trees)(run extract xlangProgram)
+  val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
 
   import program.trees._
 

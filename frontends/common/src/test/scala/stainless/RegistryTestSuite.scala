@@ -3,7 +3,7 @@
 package stainless
 
 import extraction.xlang.{ trees => xt }
-import frontend.{ CallBackWithRegistry, Frontend, MasterCallBack }
+import frontend.{ Frontend, CallBack }
 import utils.CheckFilter
 
 import inox.utils.ASCIIHelpers.Row
@@ -64,7 +64,7 @@ class RegistryTestSuite extends FunSuite {
    *                      functions that should be re-processed.
    */
   protected def testScenario(name: String, initialState: UpdateEvent, events: Seq[UpdateEvent]): Unit = {
-    common(name, initialState.contents.keySet) { case (fileMapping, compiler, callback) =>
+    common(name, initialState.contents.keySet) { case (fileMapping, compiler, run) =>
       // Process all events
       val allEvents = initialState +: events
       allEvents.zipWithIndex foreach { case (event, i) =>
@@ -73,7 +73,7 @@ class RegistryTestSuite extends FunSuite {
         writeContents(fileMapping, event.contents)
         compiler.run()
         compiler.join()
-        val report = callback.popReport
+        val report = run.popReport()
 
         if (event.expected.strict) {
           assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
@@ -89,7 +89,7 @@ class RegistryTestSuite extends FunSuite {
   }
 
   private def common(name: String, filenames: Set[FileName])
-                    (body: (Map[FileName, File], Frontend, MockCallBack) => Unit): Unit = test(name) {
+                    (body: (Map[FileName, File], Frontend, MockComponentRun) => Unit): Unit = test(name) {
     val basedir = Files.createTempDirectory("RegistryTestSuite").toFile
     basedir.deleteOnExit()
 
@@ -101,13 +101,12 @@ class RegistryTestSuite extends FunSuite {
       fn -> file
     }).toMap
 
-    // Create our frontend with a mock callback
-    val callback = new MockCallBack(testSuiteContext)
-    val master = new MasterCallBack(Seq(callback))
+    // Create our frontend with a mock component
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
-    val compiler = Main.factory(testSuiteContext, filePaths, master)
+    val compiler = Main.factory(testSuiteContext, filePaths, new MockCallBack())
+    val run = MockComponent.run(extraction.pipeline(testSuiteContext))(testSuiteContext)
 
-    body(fileMapping, compiler, callback)
+    body(fileMapping, compiler, run)
   }
 
   private def writeContents(fileMapping: Map[FileName, File], contents: Map[FileName, Content]): Unit = {
@@ -141,6 +140,19 @@ class RegistryTestSuite extends FunSuite {
     override def toReport = report
   }
 
+  private class MockCallBack extends CallBack {
+    def beginExtractions(): Unit = ()
+    def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = ()
+    def failed(): Unit = ()
+    def endExtractions(): Unit = ()
+
+    def stop(): Unit = () // Blocking "stop".
+
+    def join(): Unit = () // Wait until all tasks have finished.
+
+    def getReport: Option[AbstractReport[_]] = ???
+  }
+
   /**
    * Mock component for the purpose of testing the [[Registry]].
    *
@@ -150,27 +162,28 @@ class RegistryTestSuite extends FunSuite {
    * NOTE here we don't use the report from [[StainlessCallBack]] because it
    *      is not cleared upon new compilation.
    */
-  private class MockComponent extends Component {
+  private object MockComponent extends Component {
     val name = "mockcomponent"
     val description = "componing for testing stainless callback"
 
-    val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
-      override val s: extraction.trees.type = extraction.trees
-      override val t: extraction.trees.type = extraction.trees
-    })
+    type Report = MockReport
+    type Analysis = MockAnalysis
+
+    val lowering = (new extraction.xlang.trees.IdentitySymbolTransformer {}).asInstanceOf[inox.ast.SymbolTransformer{val s: stainless.extraction.trees.type; val t: stainless.extraction.trees.type}]
 
     def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
-      new MockComponentRun(pipeline)
+      new MockComponentRun(IdentityPipeline(context))
+  }
+
+  object IdentityPipeline {
+    def apply(implicit ctx: inox.Context): extraction.StainlessPipeline = extraction.ExtractionPipeline(new extraction.xlang.trees.IdentitySymbolTransformer {}).asInstanceOf[extraction.StainlessPipeline]
   }
 
   /** Mock component run associated to [[MockComponent]]. */
   private class MockComponentRun(override val pipeline: extraction.StainlessPipeline)
                                 (override implicit val context: inox.Context) extends ComponentRun {
     override val component = MockComponent
-    override val trees: stainless.trees.type = stainless.trees
-
-    type Report = MockReport
-    type Analysis = MockAnalysis
+    override val trees: extraction.xlang.trees.type = extraction.xlang.trees
 
     def parse(json: Json): Report = ???
 
@@ -179,7 +192,7 @@ class RegistryTestSuite extends FunSuite {
       val cls = symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
-      implicit val printOpts = program.trees.PrinterOptions.fromContext(context)
+      implicit val printOpts = trees.PrinterOptions.fromContext(context)
       import context.reporter
       reporter.debug(s"MockCallBack got the following to solve:")
       reporter.debug(s"\tfunctions: " + (symbols.functions.keySet map { _.asString } mkString ", "))

@@ -21,7 +21,7 @@ class OpaqueSuite extends FunSuite with InputUtils {
   implicit val ctx = stainless.TestContext.empty
   val (_, xlangProgram) = load(sources)
   val run = verification.VerificationComponent.run(extraction.pipeline)
-  val program = inox.Program(run.trees)(run extract xlangProgram)
+  val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
   val encoded = solvers.InoxEncoder(program, ctx).targetProgram
 
   test("Encoding of opaque functions removes body") {

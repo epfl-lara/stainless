@@ -11,16 +11,19 @@ import scala.concurrent.Future
 
 import scala.language.existentials
 
-trait Component {
+trait Component { self =>
   val name: String
   val description: String
+
+  type Report <: AbstractReport[Report]
+  type Analysis <: AbstractAnalysis { type Report = self.Report }
 
   val lowering: inox.ast.SymbolTransformer {
     val s: extraction.trees.type
     val t: extraction.trees.type
   }
 
-  def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context): ComponentRun
+  def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context): ComponentRun { val component: self.type }
 }
 
 object optFunctions extends inox.OptionDef[Seq[String]] {
@@ -38,8 +41,8 @@ trait ComponentRun { self =>
 
   import context._
 
-  type Report <: AbstractReport[Report]
-  type Analysis <: AbstractAnalysis { type Report = self.Report }
+  type Report = component.Report
+  type Analysis = component.Analysis
 
   def parse(json: Json): Report
 

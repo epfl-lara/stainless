@@ -21,6 +21,9 @@ object VerificationComponent extends Component {
   override val name = "verification"
   override val description = "Verification of function contracts"
 
+  override type Report = VerificationReport
+  override type Analysis = VerificationAnalysis
+
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: trees.type = trees
     val t: trees.type = trees
@@ -35,9 +38,6 @@ class VerificationRun(override val pipeline: StainlessPipeline)
                      (override implicit val context: inox.Context) extends ComponentRun {
   override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
-
-  override type Report = VerificationReport
-  override type Analysis = VerificationAnalysis
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 

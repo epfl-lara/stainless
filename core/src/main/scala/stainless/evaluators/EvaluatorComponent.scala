@@ -27,6 +27,9 @@ object EvaluatorComponent extends Component { self =>
   override val name = "eval"
   override val description = "Evaluation of parameterless functions"
 
+  override type Report = EvaluatorReport
+  override type Analysis = EvaluatorAnalysis
+
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
@@ -57,9 +60,6 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
 
   import trees._
   import EvaluatorRun._
-
-  override type Report = EvaluatorReport
-  override type Analysis = EvaluatorAnalysis
 
   override def parse(json: Json): Report = EvaluatorReport.parse(json)
 
