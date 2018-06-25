@@ -34,14 +34,6 @@ trait DependencyGraph extends ast.DependencyGraph {
         classes += ct.id
         super.traverse(expr)
 
-      case MatchExpr(_, cses) =>
-        cses.flatMap { case MatchCase(pat, _, _) =>
-          patternOps.collect[Identifier] {
-            case ClassPattern(_, ct, _) => Set(ct.id)
-            case _ => Set()
-          } (pat)
-        }.toSet
-
       case _ =>
         super.traverse(expr)
     }
