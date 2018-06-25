@@ -61,6 +61,10 @@ trait Trees extends throwing.Trees { self =>
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
     }
+
+    def invariant(implicit s: Symbols): Option[FunDef] = {
+      methods map s.functions find (_.flags contains IsInvariant)
+    }
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {

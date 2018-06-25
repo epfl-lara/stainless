@@ -9,6 +9,11 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
   val t: Trees
 
   private[this] def root(id: Identifier)(implicit symbols: s.Symbols): Identifier = {
+    // println("========================")
+    // println(id)
+    // println("========================")
+    // println(symbols)
+    // println("========================")
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 

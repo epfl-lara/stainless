@@ -13,6 +13,12 @@ trait DependencyGraph extends ast.DependencyGraph {
   private class ClassCollector extends TreeTraverser {
     var classes: Set[Identifier] = Set.empty
 
+    def invariants: Set[Identifier] = {
+      classes.map(symbols.classes).flatMap { cd =>
+        cd.flags.collectFirst { case HasADTInvariant(id) => id }
+      }
+    }
+
     override def traverse(tpe: Type): Unit = tpe match {
       case ClassType(id, _) =>
         classes += id
@@ -42,13 +48,22 @@ trait DependencyGraph extends ast.DependencyGraph {
   private def collectClasses(fd: FunDef): Set[Identifier] = {
     val collector = new ClassCollector
     collector.traverse(fd)
-    collector.classes
+    collector.classes ++ collector.invariants
+  }
+
+  private def collectClasses(cd: ClassDef): Set[Identifier] = {
+    val collector = new ClassCollector
+    collector.traverse(cd)
+    collector.classes ++ collector.invariants
   }
 
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
     var g = super.computeDependencyGraph
     for ((_, fd) <- symbols.functions; id <- collectClasses(fd)) {
       g += SimpleEdge(fd.id, id)
+    }
+    for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
+      g += SimpleEdge(cd.id, id)
     }
     g
   }

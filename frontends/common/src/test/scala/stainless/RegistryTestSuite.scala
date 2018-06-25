@@ -2,6 +2,8 @@
 
 package stainless
 
+import scala.language.existentials
+
 import extraction.xlang.{ trees => xt }
 import frontend.{ Frontend, CallBack }
 import utils.CheckFilter

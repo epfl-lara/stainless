@@ -218,8 +218,9 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val deps = syms.dependencies(id)
       val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
       val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
+      val invDeps = clsDeps.flatMap(_.invariant(syms))
 
-      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ Seq(syms.functions(id)))
+      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ invDeps ++ Seq(syms.functions(id)))
 
       try {
         funSyms.ensureWellFormed
