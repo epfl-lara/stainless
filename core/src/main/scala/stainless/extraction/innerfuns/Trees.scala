@@ -67,6 +67,11 @@ trait Trees extends inlining.Trees { self =>
 
     def toFun: FunDef = asInstanceOf[Outer].fd
     def toLocal: LocalFunDef = asInstanceOf[Inner].fd
+
+    override def toString: String = {
+      if (isInstanceOf[Outer]) asInstanceOf[Outer].toString
+      else asInstanceOf[Inner].toString
+    }
   }
 
   case class Outer(fd: FunDef) extends FunAbstraction(
