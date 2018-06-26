@@ -18,8 +18,6 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.trees._
     import sourceProgram.symbols._
 
-    println(sourceProgram)
-
     inox.InoxProgram(t.NoSymbols
       .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq

@@ -46,9 +46,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     val default = new BaseTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
-      invalidate(cd.id) // FIXME
-
-      val (cls, fun) = classCache.cached(cd, symbols) {
+      val (cls, fun) = { // FIXME: Re-enable cache
         if (cd.parents.nonEmpty) {
           (identity.transform(cd), None)
         } else {
@@ -77,17 +75,17 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
         }
       }
 
+      classCache(cd, symbols) = (cls, fun) // FIXME: Re-enable cache
+
       classes += cls
       functions ++= fun
     }
 
-    functions ++= symbols.functions.values.map { fd =>
+    functions ++= symbols.functions.values map { fd =>
       funCache.cached(fd, symbols)(default.transform(fd))
     }
 
-    val res = t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
-    println(res)
-    res
+    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, FunOverride])
