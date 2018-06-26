@@ -186,6 +186,8 @@ class RegistryTestSuite extends FunSuite {
     override val component = MockComponent
     override val trees: extraction.xlang.trees.type = extraction.xlang.trees
 
+    import component.{Report, Analysis}
+
     def parse(json: Json): Report = ???
 
     override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
