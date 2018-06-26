@@ -59,6 +59,7 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
   override val trees: stainless.trees.type = stainless.trees
 
   import trees._
+  import component.{Report, Analysis}
   import EvaluatorRun._
 
   override def parse(json: Json): Report = EvaluatorReport.parse(json)

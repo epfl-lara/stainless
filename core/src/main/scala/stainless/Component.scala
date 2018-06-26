@@ -40,9 +40,7 @@ trait ComponentRun { self =>
   protected val pipeline: extraction.StainlessPipeline
 
   import context._
-
-  type Report = component.Report
-  type Analysis = component.Analysis
+  import component.{Report, Analysis}
 
   def parse(json: Json): Report
 

@@ -39,6 +39,8 @@ class VerificationRun(override val pipeline: StainlessPipeline)
   override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
 
+  import component.{Report, Analysis}
+
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
   // override protected def createPipeline = pipeline andThen PartialEvaluation(extraction.trees) andThen lowering

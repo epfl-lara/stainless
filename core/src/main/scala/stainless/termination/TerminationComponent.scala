@@ -58,6 +58,8 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
   override val component = TerminationComponent
   override val trees: termination.trees.type = termination.trees
 
+  import component.{Report, Analysis}
+
   override def parse(json: Json): Report = TerminationReport.parse(json)
 
   override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {

@@ -96,8 +96,8 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     }
   }
 
-  protected trait RunReport { val run: ComponentRun; val report: run.Report }
-  protected def RunReport(r: ComponentRun)(re: r.Report): RunReport { val run: r.type; val report: re.type } =
+  protected trait RunReport { val run: ComponentRun; val report: run.component.Report }
+  protected def RunReport(r: ComponentRun)(re: r.component.Report): RunReport { val run: r.type; val report: re.type } =
     new RunReport { val run: r.type = r; val report: re.type = re }
 
   protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
@@ -105,7 +105,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
     override def ~(other: Report): Report = Report(
       (reports ++ other.reports).groupBy(_.run).map {
-        case (run, reports) => RunReport(run)(reports.map(_.report.asInstanceOf[run.Report]) reduce (_ ~ _))
+        case (run, reports) => RunReport(run)(reports.map(_.report.asInstanceOf[run.component.Report]) reduce (_ ~ _))
       }.toSeq
     )
 
