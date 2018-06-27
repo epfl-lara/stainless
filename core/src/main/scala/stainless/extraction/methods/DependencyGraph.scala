@@ -32,10 +32,13 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
 
     def invariants: Set[Identifier] = {
       classes flatMap { cid =>
-        // println(cid -> symbols.functions.values.find(isInvariant))
         def isInvariant(fd: FunDef) = fd.flags.contains(IsInvariant) && fd.flags.contains(IsMethodOf(cid))
         symbols.functions.values.find(isInvariant).map(_.id)
       }
+    }
+
+    def methods: Set[Identifier] = {
+      classes.map(symbols.classes).flatMap(_.methods(symbols))
     }
 
     override def traverse(flag: Flag): Unit = flag match {
@@ -63,7 +66,36 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
   private def collectClasses(fd: FunDef): Set[Identifier] = {
     val collector = new ClassCollector
     collector.traverse(fd)
-    collector.classes ++ collector.invariants
+    collector.classes ++ collector.invariants ++ collector.methods // ++ overrides(fd) ++ overriden(fd)
+  }
+
+  private def overriden(fd: FunDef): Set[Identifier] = {
+    (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
+      case None => Set.empty
+      case Some(cid) =>
+        val cd = symbols.classes(cid)
+        if (cd.parents.isEmpty) Set.empty
+        else {
+          cd.ancestors(symbols).flatMap { tcd =>
+            tcd.cd.methods(symbols).filter(_.name == fd.id.name)
+          }.toSet
+        }
+    }
+  }
+
+  private def overrides(fd: FunDef): Set[Identifier] = {
+    (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
+      case None => Set.empty
+      case Some(cid) =>
+        symbols.classes(cid)
+          .descendants(symbols)
+          .flatMap(_.methods(symbols))
+          .map(symbols.functions)
+          .filter(_.id.name == fd.id.name)
+          // .filter(_.getType == fd.getType)
+          .map(_.id)
+          .toSet
+    }
   }
 
   private def collectClasses(cd: ClassDef): Set[Identifier] = {

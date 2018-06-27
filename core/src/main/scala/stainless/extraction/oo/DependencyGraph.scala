@@ -22,6 +22,9 @@ trait DependencyGraph extends ast.DependencyGraph {
     override def traverse(tpe: Type): Unit = tpe match {
       case ClassType(id, _) =>
         classes += id
+        symbols.classes(id).descendants(symbols) foreach { cd =>
+          classes += cd.id
+        }
         super.traverse(tpe)
       case _ =>
         super.traverse(tpe)

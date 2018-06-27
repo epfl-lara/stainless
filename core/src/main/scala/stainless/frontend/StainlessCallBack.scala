@@ -220,7 +220,9 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val deps = syms.dependencies(id)
       val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
       val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
-      val invDeps = clsDeps.flatMap(_.invariant(syms))
+
+      // @romac: FIXME - Should be taken care of by the dependency graph
+      val invDeps = clsDeps.flatMap(cd => cd.methods(syms).map(syms.functions) ++ cd.invariant(syms))
 
       val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ invDeps ++ Seq(syms.functions(id)))
 
