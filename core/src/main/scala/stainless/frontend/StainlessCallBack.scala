@@ -207,14 +207,16 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
 
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
-    def shouldProcess(id: Identifier): Boolean = this.synchronized {
-      val res = toProcess(id)
-      toProcess -= id
-      res
+    def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
+      !syms.functions(id).flags.exists(_.name == "library") || this.synchronized {
+        val res = toProcess(id)
+        toProcess -= id
+        res
+      }
     }
 
     // The registry tells us something should be verified in these symbols.
-    for (syms <- symss; id <- syms.functions.keys if shouldProcess(id)) {
+    for (syms <- symss; id <- syms.functions.keys if shouldProcess(id, syms)) {
       val deps = syms.dependencies(id)
       val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
       val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
