@@ -46,46 +46,55 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     val default = new BaseTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
-      val (cls, fun) = { // FIXME: Re-enable cache
+      val (cls, fun) = {
         if (cd.parents.nonEmpty) {
-          (identity.transform(cd), None)
+          classCache.cached(cd, symbols) {
+            (identity.transform(cd), None)
+          }
         } else {
           val (invariant, functionToOverrides) = metadata(cd.id)(symbols)
 
           def transformMethod(fd: FunDef): t.FunDef = {
-            if (fd.flags exists { case IsMethodOf(_) => true case _ => false }) {
-              val o = functionToOverrides(fd.id)
-              makeFunction(o.cid, fd.id, o.children)(symbols)
-            } else {
-              default.transform(fd)
-            }
+            val o = functionToOverrides(fd.id)
+            makeFunction(o.cid, fd.id, o.children)(symbols)
           }
 
-          cd.methods(symbols)
+          println(s"Methods of ${cd.id}: " + cd.methods(symbols))
+
+          val funs = cd.methods(symbols)
             .map(symbols.functions)
-            .filterNot(funCache contains (_, symbols))
-            .foreach { fd =>
-              funCache(fd, symbols) = transformMethod(fd)
+            .map { fd =>
+              funCache.cached(fd, symbols)(transformMethod(fd))
             }
 
-          (
-            identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id)))),
-            invariant.map(transformMethod)
-          )
+          functions ++= funs
+
+          val inv = invariant map { inv =>
+            funCache.cached(inv, symbols)(transformMethod(inv))
+          }
+
+          classCache.cached(cd, symbols) {
+            val cls = identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id))))
+            (cls, inv)
+          }
         }
       }
-
-      classCache(cd, symbols) = (cls, fun) // FIXME: Re-enable cache
 
       classes += cls
       functions ++= fun
     }
 
-    functions ++= symbols.functions.values map { fd =>
-      funCache.cached(fd, symbols)(default.transform(fd))
-    }
+    functions ++= symbols.functions.values
+      .filterNot(_.flags exists { case IsMethodOf(_) => true case _ => false })
+      .map { fd =>
+        println(s"Is ${fd.id} in cache: ${funCache.contains(fd, symbols)}")
+        funCache.cached(fd, symbols)(default.transform(fd))
+      }
 
-    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    val res = t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    // println("\nAFTER METHOD LIFTING\n==================\n")
+    // println(res)
+    res
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, FunOverride])
