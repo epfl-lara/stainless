@@ -47,7 +47,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
 
     for (cd <- symbols.classes.values) {
       val (cls, fun) = {
-        if (cd.parents.nonEmpty) {
+        if (false && cd.parents.nonEmpty) {
           classCache.cached(cd, symbols) {
             (identity.transform(cd), None)
           }
@@ -59,7 +59,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
             makeFunction(o.cid, fd.id, o.children)(symbols)
           }
 
-          println(s"Methods of ${cd.id}: " + cd.methods(symbols))
+          // println(s"Methods of ${cd.id}: " + cd.methods(symbols))
 
           val funs = cd.methods(symbols)
             .map(symbols.functions)
@@ -87,11 +87,13 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     functions ++= symbols.functions.values
       .filterNot(_.flags exists { case IsMethodOf(_) => true case _ => false })
       .map { fd =>
-        println(s"Is ${fd.id} in cache: ${funCache.contains(fd, symbols)}")
+        // println(s"Is ${fd.id} in cache: ${funCache.contains(fd, symbols)}")
         funCache.cached(fd, symbols)(default.transform(fd))
       }
 
     val res = t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    // println("\nBEFORE METHOD LIFTING\n==================\n")
+    // println(symbols)
     // println("\nAFTER METHOD LIFTING\n==================\n")
     // println(res)
     res
