@@ -69,8 +69,8 @@ trait Trees extends inlining.Trees { self =>
     def toLocal: LocalFunDef = asInstanceOf[Inner].fd
 
     override def toString: String = {
-      if (isInstanceOf[Outer]) asInstanceOf[Outer].toString
-      else asInstanceOf[Inner].toString
+      if (isInstanceOf[Outer]) toFun.toString
+      else toLocal.toString
     }
   }
 

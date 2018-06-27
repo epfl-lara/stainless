@@ -64,7 +64,7 @@ trait EffectsAnalyzer extends CachingPhase {
     }
 
     def apply(fd: FunDef): Set[Effect] = effects(Outer(fd))
-    def apply(fun: FunAbstraction): Set[Effect] = effects.get(fun).getOrElse(Set()) // FIXME
+    def apply(fun: FunAbstraction): Set[Effect] = effects(fun)
     def apply(expr: Expr)(implicit symbols: Symbols): Set[Effect] = expressionEffects(expr, this)
 
     private[EffectsAnalyzer] def local(id: Identifier): FunAbstraction = locals(id)
@@ -82,6 +82,11 @@ trait EffectsAnalyzer extends CachingPhase {
       val aliasedParams = getAliasedParams(fd)
       tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
     }
+
+    def asString(implicit printerOpts: PrinterOptions): String =
+      s"EffectsAnalysis(effects: ${effects.map(e => e._1.id -> e._2)}, locals: $locals)"
+
+    override def toString: String = asString
   }
 
   private[this] val effectsCache = new ExtractionCache[FunDef, EffectsAnalysis]
@@ -90,8 +95,8 @@ trait EffectsAnalyzer extends CachingPhase {
     def empty: EffectsAnalysis = new EffectsAnalysis(Map.empty, Map.empty)
 
     def apply(fd: FunDef)(implicit symbols: Symbols): EffectsAnalysis = {
-      val fds = symbols.transitiveCallees(fd) + fd
-      val lookups = fds map (effectsCache get (_, symbols))
+      val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
+      val lookups = fds.map(effectsCache get (_, symbols))
       val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
       val prevEffects = lookups.flatten.foldLeft(EffectsAnalysis.empty)(_ merge _)
 
