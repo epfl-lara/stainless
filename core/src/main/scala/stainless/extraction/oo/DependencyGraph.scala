@@ -13,18 +13,9 @@ trait DependencyGraph extends ast.DependencyGraph {
   private class ClassCollector extends TreeTraverser {
     var classes: Set[Identifier] = Set.empty
 
-    def invariants: Set[Identifier] = {
-      classes.map(symbols.classes).flatMap { cd =>
-        cd.flags.collectFirst { case HasADTInvariant(id) => id }
-      }
-    }
-
     override def traverse(tpe: Type): Unit = tpe match {
       case ClassType(id, _) =>
         classes += id
-        symbols.classes(id).descendants(symbols) foreach { cd =>
-          classes += cd.id
-        }
         super.traverse(tpe)
       case _ =>
         super.traverse(tpe)
@@ -51,13 +42,13 @@ trait DependencyGraph extends ast.DependencyGraph {
   private def collectClasses(fd: FunDef): Set[Identifier] = {
     val collector = new ClassCollector
     collector.traverse(fd)
-    collector.classes ++ collector.invariants
+    collector.classes
   }
 
   private def collectClasses(cd: ClassDef): Set[Identifier] = {
     val collector = new ClassCollector
     collector.traverse(cd)
-    collector.classes ++ collector.invariants
+    collector.classes
   }
 
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
@@ -68,6 +59,18 @@ trait DependencyGraph extends ast.DependencyGraph {
     for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
       g += SimpleEdge(cd.id, id)
     }
+
+    for (cd <- symbols.classes.values) {
+      cd.flags.collectFirst { case HasADTInvariant(id) => id }
+              .foreach { inv => g += SimpleEdge(cd.id, inv) }
+
+      if (cd.flags contains IsSealed) {
+        cd.descendants(symbols) foreach { dd =>
+          g += SimpleEdge(cd.id, dd.id)
+        }
+      }
+    }
+
     g
   }
 

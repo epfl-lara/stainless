@@ -30,17 +30,6 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
   private class ClassCollector extends TreeTraverser {
     var classes: Set[Identifier] = Set.empty
 
-    def invariants: Set[Identifier] = {
-      classes flatMap { cid =>
-        def isInvariant(fd: FunDef) = fd.flags.contains(IsInvariant) && fd.flags.contains(IsMethodOf(cid))
-        symbols.functions.values.find(isInvariant).map(_.id)
-      }
-    }
-
-    def methods: Set[Identifier] = {
-      classes.map(symbols.classes).flatMap(_.methods(symbols))
-    }
-
     override def traverse(flag: Flag): Unit = flag match {
       case IsMethodOf(id) =>
         classes += id
@@ -66,7 +55,39 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
   private def collectClasses(fd: FunDef): Set[Identifier] = {
     val collector = new ClassCollector
     collector.traverse(fd)
-    collector.classes ++ collector.invariants ++ collector.methods // ++ overrides(fd) ++ overriden(fd)
+    collector.classes
+  }
+
+  private def collectClasses(cd: ClassDef): Set[Identifier] = {
+    val collector = new ClassCollector
+    collector.traverse(cd)
+    collector.classes
+  }
+
+  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
+    var g = super.computeDependencyGraph
+    for ((_, fd) <- symbols.functions; id <- collectClasses(fd)) {
+      g += SimpleEdge(fd.id, id)
+    }
+    for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
+      g += SimpleEdge(cd.id, id)
+    }
+
+    for (cd <- symbols.classes.values) {
+      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
+    }
+
+    for (fd <- symbols.functions.values) {
+      overriden(fd) foreach { id => g += SimpleEdge(fd.id, id) }
+      overrides(fd) foreach { id => g += SimpleEdge(fd.id, id) }
+    }
+
+    g
+  }
+
+  private def invariant(cd: ClassDef): Option[Identifier] = {
+    def isInvariant(fd: FunDef) = fd.flags.contains(IsInvariant) && fd.flags.contains(IsMethodOf(cd.id))
+    symbols.functions.values.find(isInvariant).map(_.id)
   }
 
   private def overriden(fd: FunDef): Set[Identifier] = {
@@ -92,27 +113,10 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
           .flatMap(_.methods(symbols))
           .map(symbols.functions)
           .filter(_.id.name == fd.id.name)
-          // .filter(_.getType == fd.getType)
           .map(_.id)
           .toSet
     }
   }
 
-  private def collectClasses(cd: ClassDef): Set[Identifier] = {
-    val collector = new ClassCollector
-    collector.traverse(cd)
-    collector.classes ++ collector.invariants
-  }
-
-  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeDependencyGraph
-    for ((_, fd) <- symbols.functions; id <- collectClasses(fd)) {
-      g += SimpleEdge(fd.id, id)
-    }
-    for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
-      g += SimpleEdge(cd.id, id)
-    }
-    g
-  }
 
 }

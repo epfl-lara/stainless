@@ -208,7 +208,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
     def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
-      !syms.functions(id).flags.exists(_.name == "library") || this.synchronized {
+      !syms.functions(id).flags.exists(_.name == "library") && this.synchronized {
         val res = toProcess(id)
         toProcess -= id
         res
@@ -217,14 +217,11 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
     // The registry tells us something should be verified in these symbols.
     for (syms <- symss; id <- syms.functions.keys if shouldProcess(id, syms)) {
-      val deps = syms.dependencies(id)
+      val deps = syms.dependencies(id) + id
       val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
       val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
 
-      // @romac: FIXME - Should be taken care of by the dependency graph
-      val invDeps = clsDeps.flatMap(cd => cd.methods(syms).map(syms.functions) ++ cd.invariant(syms))
-
-      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ invDeps ++ Seq(syms.functions(id)))
+      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
 
       try {
         funSyms.ensureWellFormed
