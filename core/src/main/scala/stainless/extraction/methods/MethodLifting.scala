@@ -54,9 +54,9 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
         } else {
           val (invariant, functionToOverrides) = metadata(cd.id)(symbols)
 
-          def transformMethod(fd: FunDef): t.FunDef = {
+          def transformMethod(fd: FunDef)(syms: Symbols): t.FunDef = {
             val o = functionToOverrides(fd.id)
-            makeFunction(o.cid, fd.id, o.children)(symbols)
+            makeFunction(o.cid, fd.id, o.children)(syms)
           }
 
           // println(s"Methods of ${cd.id}: " + cd.methods(symbols))
@@ -64,13 +64,13 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
           val funs = cd.methods(symbols)
             .map(symbols.functions)
             .map { fd =>
-              funCache.cached(fd, symbols)(transformMethod(fd))
+              funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
             }
 
           functions ++= funs
 
           val inv = invariant map { inv =>
-            funCache.cached(inv, symbols)(transformMethod(inv))
+            funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
           }
 
           classCache.cached(cd, symbols) {
