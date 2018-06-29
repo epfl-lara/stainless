@@ -33,7 +33,7 @@ class OpaqueSuite extends FunSuite with InputUtils {
     } (fd.fullBody))
   }
 
-  test("Opaque functions loose body information") {
+  test("Opaque functions lose body information") {
     import program.trees._
     import program.trees.dsl._
 

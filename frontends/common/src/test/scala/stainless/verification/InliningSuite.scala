@@ -33,7 +33,7 @@ class InliningSuite extends FunSuite with InputUtils {
        |}""".stripMargin
 
   implicit val ctx = stainless.TestContext.empty
-  val (funs, xlangProgram) = load(List(source))
+  val (funs, xlangProgram) = load(Seq(source))
   val run = VerificationComponent.run(extraction.pipeline)
   val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
 

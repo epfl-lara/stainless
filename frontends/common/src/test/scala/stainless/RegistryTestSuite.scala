@@ -56,6 +56,8 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
+  private val typeEncodingFuns = Set("isSubtypeOf", "IsTyped", "isInstanceOf", "unwrap", "wrap", "getType")
+
   /**
    * Test a scenario.
    *
@@ -78,7 +80,7 @@ class RegistryTestSuite extends FunSuite {
         val report = run.popReport()
 
         if (event.expected.strict) {
-          assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
+          assert((report.functions -- typeEncodingFuns) === event.expected.functions, "Collected functions mismatch expectation (strict)")
           assert(report.classes === event.expected.classes, "Collected classes mismatch expectation (strict)")
         } else {
           assert((report.functions & event.expected.functions) === event.expected.functions,
@@ -88,6 +90,10 @@ class RegistryTestSuite extends FunSuite {
         }
       }
     }
+  }
+
+  private class MockCallBack(run: ComponentRun)(implicit ctx: inox.Context) extends frontend.StainlessCallBack(Seq(MockComponent)) {
+    override protected val runs = Seq(run)
   }
 
   private def common(name: String, filenames: Set[FileName])
@@ -105,8 +111,8 @@ class RegistryTestSuite extends FunSuite {
 
     // Create our frontend with a mock component
     val filePaths = fileMapping.values.toSeq map { _.getAbsolutePath }
-    val compiler = Main.factory(testSuiteContext, filePaths, new frontend.StainlessCallBack(Seq(MockComponent))(testSuiteContext))
     val run = MockComponent.run(extraction.pipeline(testSuiteContext))(testSuiteContext)
+    val compiler = Main.factory(testSuiteContext, filePaths, new MockCallBack(run)(testSuiteContext))
 
     body(fileMapping, compiler, run)
   }
@@ -120,7 +126,6 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
-  /** A simply dummy report for our [[MockCallBack]]. */
   private case class MockReport(functions: Set[FunctionName], classes: Set[ClassName]) extends AbstractReport[MockReport] {
     override val name = "dummy"
 
@@ -140,19 +145,6 @@ class RegistryTestSuite extends FunSuite {
     override val name = "dummy"
     override type Report = MockReport
     override def toReport = report
-  }
-
-  private class MockCallBack extends CallBack {
-    def beginExtractions(): Unit = ()
-    def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = ()
-    def failed(): Unit = ()
-    def endExtractions(): Unit = ()
-
-    def stop(): Unit = () // Blocking "stop".
-
-    def join(): Unit = () // Wait until all tasks have finished.
-
-    def getReport: Option[AbstractReport[_]] = ???
   }
 
   /**
@@ -203,6 +195,7 @@ class RegistryTestSuite extends FunSuite {
 
       val report = MockReport(fns, cls)
       val analysis = MockAnalysis(report)
+
       reports += report
       Future.successful(analysis)
     }
