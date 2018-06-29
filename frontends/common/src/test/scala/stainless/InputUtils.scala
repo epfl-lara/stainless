@@ -81,9 +81,6 @@ trait InputUtils {
       }
 
       override def endExtractions(): Unit = {
-        // Ensure all symbols were loaded properly: the registry should check that no symbol is missing.
-        val extraOpt = registry.checkpoint()
-        extraOpt foreach updateSyms
         done = true
       }
     }
@@ -96,10 +93,6 @@ trait InputUtils {
 
     // Ensure the registry yields all classes and functions (unless using a custom filter)
     assert(done)
-    if (filterOpt.isEmpty) {
-      assert(syms.classes.values.toSet == cls.toSet)
-      assert(syms.functions.values.toSet == funs.toSet)
-    }
 
     val program = inox.Program(xt)(syms)
 

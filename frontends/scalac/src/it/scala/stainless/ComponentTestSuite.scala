@@ -21,7 +21,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  private class ExtractionRun(val run: ComponentRun { val component: self.component.type })(implicit ctx: inox.Context) {
+  private class ExtractionRun()(implicit ctx: inox.Context) {
+
+    val run = component.run(extraction.pipeline)
 
     type Structure = (
       Seq[extraction.xlang.trees.UnitDef],
@@ -35,13 +37,14 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     )
 
     def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols) = run.apply(id, symbols)
-    private[stainless] def apply(functions: Seq[Identifier], symbols: run.trees.Symbols) = run.apply(functions, symbols)
 
-    private def extractStructure(files: Seq[String]): Structure = {
+    def apply(functions: Seq[Identifier], symbols: run.trees.Symbols) = run.apply(functions, symbols)
+
+    def extractStructure(files: Seq[String]): Structure = {
       val (structure, program) = loadFiles(files)
 
       program.symbols.ensureWellFormed
-      val exProgram = inox.Program(run.trees)(run.extract(program.symbols))
+      val exProgram = inox.Program(run.trees)(run extract program.symbols)
       exProgram.symbols.ensureWellFormed
 
       assert(ctx.reporter.errorCount == 0)
@@ -84,7 +87,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         (u.id.name, extractFunctions(program, exProgram, u))
       }, exProgram)
     }
-
   }
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
@@ -94,7 +96,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     // Toggle this variable if you need to debug one specific test.
     // You might also want to run `it:testOnly *<some test suite>* -- -z "<some test filter>"`.
-    val DEBUG = false
+    val DEBUG = true
 
     if (DEBUG) {
 
@@ -103,7 +105,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         path = file.getPath
         name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val run = new ExtractionRun(component.run(extraction.pipeline))
+        val run = new ExtractionRun()
         val (uName, funs, program) = run.extractOne(path)
         assert(uName == name)
         val report = Await.result(run.apply(funs, program.symbols), Duration.Inf)
@@ -113,7 +115,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     } else {
 
       implicit val ctx = inox.TestContext.empty
-      val run = new ExtractionRun(component.run(extraction.pipeline))
+      val run = new ExtractionRun()
       val (funss, program) = run.extractAll(fs.map(_.getPath))
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
