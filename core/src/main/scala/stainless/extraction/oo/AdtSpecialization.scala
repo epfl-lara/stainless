@@ -35,6 +35,8 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
     isCandidate(id) && (symbols.getClass(id).flags contains s.IsCaseObject)
   }
 
+  private[this] val extraConstructorCache = new ExtractionCache[s.ClassDef, Identifier]
+
   private case class ClassInfo(constructors: Seq[Identifier], objectFunction: Option[t.FunDef], id: Identifier)
   private[this] val infoCache = new ExtractionCache[s.ClassDef, ClassInfo]
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
@@ -45,14 +47,11 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
       assert(isCandidate(id))
 
       val classes = cd +: cd.descendants
-      val extraConstructor: Option[Identifier] =
-        if (classes.exists(cd => (cd.flags contains IsAbstract) && !(cd.flags contains IsSealed))) {
-          Some(FreshIdentifier("Open"))
-        } else {
-          None
-        }
+      val extraConstructors: Seq[Identifier] = classes
+        .filter(cd => (cd.flags contains IsAbstract) && !(cd.flags contains IsSealed))
+        .map(cd => extraConstructorCache.cached(cd, symbols)(FreshIdentifier("Open")))
 
-      val constructors = classes.filterNot(_.flags contains IsAbstract).map(_.id) ++ extraConstructor
+      val constructors = classes.filterNot(_.flags contains IsAbstract).map(_.id) ++ extraConstructors
 
       val constructorId = if (cd.parents.isEmpty && !(cd.flags contains IsAbstract)) {
         cd.id.freshen
