@@ -66,10 +66,12 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
 
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
     var g = super.computeDependencyGraph
-    for ((_, fd) <- symbols.functions; id <- collectClasses(fd)) {
+
+    for (fd <- symbols.functions.values; id <- collectClasses(fd)) {
       g += SimpleEdge(fd.id, id)
     }
-    for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
+
+    for (cd <- symbols.classes.values; id <- collectClasses(cd)) {
       g += SimpleEdge(cd.id, id)
     }
 

@@ -53,21 +53,22 @@ trait DependencyGraph extends ast.DependencyGraph {
 
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
     var g = super.computeDependencyGraph
-    for ((_, fd) <- symbols.functions; id <- collectClasses(fd)) {
+
+    for (fd <- symbols.functions.values; id <- collectClasses(fd)) {
       g += SimpleEdge(fd.id, id)
     }
-    for ((_, cd) <- symbols.classes; id <- collectClasses(cd)) {
+
+    for (cd <- symbols.classes.values; id <- collectClasses(cd)) {
       g += SimpleEdge(cd.id, id)
     }
 
     for (cd <- symbols.classes.values) {
-      cd.flags.collectFirst { case HasADTInvariant(id) => id }
-              .foreach { inv => g += SimpleEdge(cd.id, inv) }
+      cd.flags
+        .collectFirst { case HasADTInvariant(id) => id }
+        .foreach { inv => g += SimpleEdge(cd.id, inv) }
 
-      if (cd.flags contains IsSealed) {
-        cd.descendants(symbols) foreach { dd =>
-          g += SimpleEdge(cd.id, dd.id)
-        }
+      cd.descendants(symbols) foreach { dd =>
+        g += SimpleEdge(cd.id, dd.id)
       }
     }
 
