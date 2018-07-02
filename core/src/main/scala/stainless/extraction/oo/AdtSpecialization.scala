@@ -9,11 +9,6 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
   val t: Trees
 
   private[this] def root(id: Identifier)(implicit symbols: s.Symbols): Identifier = {
-    // println("========================")
-    // println(id)
-    // println("========================")
-    // println(symbols)
-    // println("========================")
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
@@ -66,8 +61,13 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
       }
 
       val objectFunction = if (isCaseObject(id)) {
+        val vd = t.ValDef(FreshIdentifier("v"), t.ADTType(
+          root(id),
+          cd.typed.toType.tps.map(tpe => context.transform(tpe))
+        ).copiedFrom(cd)).copiedFrom(cd)
+        val returnTpe = t.RefinementType(vd, t.IsConstructor(vd.toVariable, constructorId).copiedFrom(cd)).copiedFrom(cd)
         Some(new t.FunDef(
-          cd.id.freshen, Seq(), Seq(), context.transform(cd.typed.toType.setPos(cd)),
+          cd.id.freshen, Seq(), Seq(), returnTpe,
           t.ADT(constructorId, Seq(), Seq()).setPos(cd), Seq(t.Inline, t.Derived(cd.id))
         ).setPos(cd))
       } else {
