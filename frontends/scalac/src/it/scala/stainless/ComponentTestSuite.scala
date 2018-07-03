@@ -21,9 +21,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  private object ExtractionRun {
-    val ctx = stainless.TestContext.empty
-    val run = component.run(extraction.pipeline(ctx))(ctx)
+  private class ComponentTestRun(val run: ComponentRun { val component: self.component.type }) {
+
+    implicit val ctx: run.context.type = run.context
 
     type Structure = (
       Seq[extraction.xlang.trees.UnitDef],
@@ -36,13 +36,13 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       }
     )
 
-    def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols)(implicit ctx: inox.Context) =
+    def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols) =
       run.apply(id, symbols)
 
-    def apply(functions: Seq[Identifier], symbols: run.trees.Symbols)(implicit ctx: inox.Context) =
+    def apply(functions: Seq[Identifier], symbols: run.trees.Symbols) =
       run.apply(functions, symbols)
 
-    def extractStructure(files: Seq[String])(implicit ctx: inox.Context): Structure = {
+    def extractStructure(files: Seq[String]): Structure = {
       val (structure, program) = loadFiles(files)
 
       program.symbols.ensureWellFormed
@@ -57,7 +57,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     def extractFunctions(program: Program { val trees: extraction.xlang.trees.type },
                          exProgram: Program { val trees: run.trees.type },
                          unit: extraction.xlang.trees.UnitDef)
-                        (implicit ctx: inox.Context): Seq[Identifier] = {
+                        : Seq[Identifier] = {
       val unitDefs = unit.allFunctions(program.symbols) ++ unit.allClasses
       val allDefs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
         def derived(flags: Seq[run.trees.Flag]): Boolean =
@@ -72,7 +72,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     }
 
     // Ensure no tests share data inappropriately, but is really slow... Use with caution!
-    def extractOne(file: String)(implicit ctx: inox.Context): (String, Seq[Identifier], Program { val trees: run.trees.type }) = {
+    def extractOne(file: String): (String, Seq[Identifier], Program { val trees: run.trees.type }) = {
       val (structure, program, exProgram) = extractStructure(Seq(file))
 
       assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
@@ -83,7 +83,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     }
 
     // More efficient, but might mix tests together...
-    def extractAll(files: Seq[String])(implicit ctx: inox.Context): (Seq[(String, Seq[Identifier])], Program { val trees: run.trees.type }) = {
+    def extractAll(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: run.trees.type }) = {
       val (structure, program, exProgram) = extractStructure(files)
 
       (for (u <- structure if u.isMain) yield {
@@ -108,18 +108,24 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         path = file.getPath
         name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val (uName, funs, program) = ExtractionRun.extractOne(path)
+        val run = new ComponentTestRun(component.run(extraction.pipeline))
+        val (uName, funs, program) = run.extractOne(path)
         assert(uName == name)
-        val report = Await.result(ExtractionRun.apply(funs, program.symbols), Duration.Inf)
+        val report = Await.result(run.apply(funs, program.symbols), Duration.Inf)
         block(report, ctx.reporter)
       }
 
     } else {
-
-      val (funss, program) = ExtractionRun.extractAll(fs.map(_.getPath))(stainless.TestContext.empty)
+      val emptCtx = inox.TestContext.empty
+      val run = new ComponentTestRun(component.run(extraction.pipeline(emptCtx))(emptCtx))
+      val (funss, program) = run.extractAll(fs.map(_.getPath))
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-          val report = Await.result(ExtractionRun.apply(funs, program.symbols), Duration.Inf)
+          val run = new ComponentTestRun(component.run(extraction.pipeline))
+
+          // We need to cast the symbols here because the program is extracted using a different ComponentTestRun instance
+          // than the one the component is ran with. This should be safe (tm) because the trees are the same behind the scenes. - @romac
+          val report = Await.result(run.apply(funs, program.symbols.asInstanceOf[run.run.trees.Symbols]), Duration.Inf)
           block(report, ctx.reporter)
         }
       }

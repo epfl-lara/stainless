@@ -25,14 +25,15 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
+
     // Require assume-checked to be turned off
     case "verification/valid/IntSet" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
 
-    case "verification/valid/PartialKVTrace" => Ignore
-    case "verification/valid/PartialCompiler" => Ignore
-    case "verification/invalid/PartialSplit" => Ignore
+    case "verification/valid/PartialKVTrace" => Skip
+    case "verification/valid/PartialCompiler" => Skip
+    case "verification/invalid/PartialSplit" => Skip
     case _ => super.filter(ctx, name)
   }
 
