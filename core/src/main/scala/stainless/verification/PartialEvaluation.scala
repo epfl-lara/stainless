@@ -28,6 +28,10 @@ trait PartialEvaluation
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+    if (fd.flags exists (_.name == "partialEval")) partialEvalFunction(context, fd) else fd
+  }
+
+  protected def partialEvalFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     implicit val symbols = context.symbols
     implicit val debugSection = transformers.DebugSectionPartialEval
 
