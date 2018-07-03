@@ -30,7 +30,9 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
 
-    case "verification/invalid/PartialSplit" => Ignore // too slow/memory hungry for now
+    case "verification/valid/PartialKVTrace" => Ignore
+    case "verification/valid/PartialCompiler" => Ignore
+    case "verification/invalid/PartialSplit" => Ignore
     case _ => super.filter(ctx, name)
   }
 
