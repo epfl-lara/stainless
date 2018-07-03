@@ -76,11 +76,14 @@ trait InputUtils {
         cls ++= classes
         funs ++= functions
 
-        val extraOpt = registry.update(classes, functions)
-        extraOpt foreach updateSyms
+        // val extraOpt = registry.update(classes, functions)
+        // extraOpt foreach updateSyms
       }
 
       override def endExtractions(): Unit = {
+        // registry.update(cls, funs)
+        // val extraOpt = registry.checkpoint()
+        // extraOpt foreach updateSyms
         done = true
       }
     }
@@ -94,7 +97,7 @@ trait InputUtils {
     // Ensure the registry yields all classes and functions (unless using a custom filter)
     assert(done)
 
-    val program = inox.Program(xt)(syms)
+    val program = inox.Program(xt)(xt.NoSymbols.withClasses(cls).withFunctions(funs))
 
     (units.toSeq.sortBy(_.id.name), program)
   }

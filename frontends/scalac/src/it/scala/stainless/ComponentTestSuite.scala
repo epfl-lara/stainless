@@ -21,9 +21,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  private class ExtractionRun()(implicit ctx: inox.Context) {
-
-    val run = component.run(extraction.pipeline)
+  private object ExtractionRun {
+    val ctx = stainless.TestContext.empty
+    val run = component.run(extraction.pipeline(ctx))(ctx)
 
     type Structure = (
       Seq[extraction.xlang.trees.UnitDef],
@@ -36,11 +36,13 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       }
     )
 
-    def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols) = run.apply(id, symbols)
+    def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols)(implicit ctx: inox.Context) =
+      run.apply(id, symbols)
 
-    def apply(functions: Seq[Identifier], symbols: run.trees.Symbols) = run.apply(functions, symbols)
+    def apply(functions: Seq[Identifier], symbols: run.trees.Symbols)(implicit ctx: inox.Context) =
+      run.apply(functions, symbols)
 
-    def extractStructure(files: Seq[String]): Structure = {
+    def extractStructure(files: Seq[String])(implicit ctx: inox.Context): Structure = {
       val (structure, program) = loadFiles(files)
 
       program.symbols.ensureWellFormed
@@ -54,7 +56,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     def extractFunctions(program: Program { val trees: extraction.xlang.trees.type },
                          exProgram: Program { val trees: run.trees.type },
-                         unit: extraction.xlang.trees.UnitDef): Seq[Identifier] = {
+                         unit: extraction.xlang.trees.UnitDef)
+                        (implicit ctx: inox.Context): Seq[Identifier] = {
       val unitDefs = unit.allFunctions(program.symbols) ++ unit.allClasses
       val allDefs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
         def derived(flags: Seq[run.trees.Flag]): Boolean =
@@ -69,7 +72,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     }
 
     // Ensure no tests share data inappropriately, but is really slow... Use with caution!
-    def extractOne(file: String): (String, Seq[Identifier], Program { val trees: run.trees.type }) = {
+    def extractOne(file: String)(implicit ctx: inox.Context): (String, Seq[Identifier], Program { val trees: run.trees.type }) = {
       val (structure, program, exProgram) = extractStructure(Seq(file))
 
       assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
@@ -80,7 +83,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     }
 
     // More efficient, but might mix tests together...
-    def extractAll(files: Seq[String]): (Seq[(String, Seq[Identifier])], Program { val trees: run.trees.type }) = {
+    def extractAll(files: Seq[String])(implicit ctx: inox.Context): (Seq[(String, Seq[Identifier])], Program { val trees: run.trees.type }) = {
       val (structure, program, exProgram) = extractStructure(files)
 
       (for (u <- structure if u.isMain) yield {
@@ -96,30 +99,27 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     // Toggle this variable if you need to debug one specific test.
     // You might also want to run `it:testOnly *<some test suite>* -- -z "<some test filter>"`.
-    val DEBUG = true
+    val DEBUG = false
 
     if (DEBUG) {
 
       for {
-        file <- fs
+        file <- fs.sortBy(_.getPath)
         path = file.getPath
         name = file.getName dropRight ".scala".length
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val run = new ExtractionRun()
-        val (uName, funs, program) = run.extractOne(path)
+        val (uName, funs, program) = ExtractionRun.extractOne(path)
         assert(uName == name)
-        val report = Await.result(run.apply(funs, program.symbols), Duration.Inf)
+        val report = Await.result(ExtractionRun.apply(funs, program.symbols), Duration.Inf)
         block(report, ctx.reporter)
       }
 
     } else {
 
-      implicit val ctx = inox.TestContext.empty
-      val run = new ExtractionRun()
-      val (funss, program) = run.extractAll(fs.map(_.getPath))
+      val (funss, program) = ExtractionRun.extractAll(fs.map(_.getPath))(stainless.TestContext.empty)
       for ((name, funs) <- funss) {
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-          val report = Await.result(run.apply(funs, program.symbols), Duration.Inf)
+          val report = Await.result(ExtractionRun.apply(funs, program.symbols), Duration.Inf)
           block(report, ctx.reporter)
         }
       }
