@@ -56,8 +56,6 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
-  private val typeEncodingFuns = Set("isSubtypeOf", "IsTyped", "isInstanceOf", "unwrap", "wrap", "getType")
-
   /**
    * Test a scenario.
    *
@@ -80,7 +78,7 @@ class RegistryTestSuite extends FunSuite {
         val report = run.popReport()
 
         if (event.expected.strict) {
-          assert((report.functions -- typeEncodingFuns) === event.expected.functions, "Collected functions mismatch expectation (strict)")
+          assert(report.functions === event.expected.functions, "Collected functions mismatch expectation (strict)")
           assert(report.classes === event.expected.classes, "Collected classes mismatch expectation (strict)")
         } else {
           assert((report.functions & event.expected.functions) === event.expected.functions,
@@ -92,9 +90,7 @@ class RegistryTestSuite extends FunSuite {
     }
   }
 
-  private class MockCallBack(run: ComponentRun)(implicit ctx: inox.Context) extends frontend.StainlessCallBack(Seq(MockComponent)) {
-    override protected val runs = Seq(run)
-  }
+  private class MockCallBack(run: ComponentRun)(implicit ctx: inox.Context) extends frontend.StainlessCallBack(Seq(MockComponent))
 
   private def common(name: String, filenames: Set[FileName])
                     (body: (Map[FileName, File], Frontend, MockComponentRun) => Unit): Unit = test(name) {
@@ -168,8 +164,10 @@ class RegistryTestSuite extends FunSuite {
       override val t: extraction.trees.type = extraction.trees
     })
 
-    def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
-      new MockComponentRun(pipeline)
+    private[this] val runCache = scala.collection.mutable.Map.empty[inox.Context, MockComponentRun]
+
+    override def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
+      runCache.getOrElseUpdate(context, new MockComponentRun(pipeline))
   }
 
   /** Mock component run associated to [[MockComponent]]. */
@@ -182,8 +180,12 @@ class RegistryTestSuite extends FunSuite {
 
     def parse(json: Json): Report = ???
 
+    private val typeEncodingFuns = Set(
+      "isSubtypeOf", "IsTyped", "isInstanceOf", "unwrap", "wrap", "getType", "get", "isEmpty"
+    )
+
     override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
-      val fns = symbols.functions.keySet map { _.name }
+      val fns = symbols.functions.keySet map { _.name } filterNot typeEncodingFuns
       val cls = symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
