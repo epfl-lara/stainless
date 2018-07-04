@@ -17,16 +17,17 @@ trait AntiAliasing
   protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
     import symbols._
 
+    //convert a function type with mutable parameters, into a function type
+    //that returns the mutable parameters. This makes explicit all possible
+    //effects of the function. This should be used for higher order functions
+    //declared as parameters.
+    def makeFunctionTypeExplicit(tpe: FunctionType): FunctionType = {
+      val newReturnTypes = tpe.from.filter(t => isMutableType(t))
+      if (newReturnTypes.isEmpty) tpe
+      else FunctionType(tpe.from, TupleType(tpe.to +: newReturnTypes))
+    }
+
     object transformer extends SelfTreeTransformer {
-      //convert a function type with mutable parameters, into a function type
-      //that returns the mutable parameters. This makes explicit all possible
-      //effects of the function. This should be used for higher order functions
-      //declared as parameters.
-      def makeFunctionTypeExplicit(tpe: FunctionType): FunctionType = {
-        val newReturnTypes = tpe.from.filter(t => isMutableType(t))
-        if (newReturnTypes.isEmpty) tpe
-        else FunctionType(tpe.from, TupleType(tpe.to +: newReturnTypes))
-      }
 
       // XXX: since LetRec and ApplyLetRec use the fun variable to encode
       //      the type of the corresponding function, we have to make sure to
@@ -340,7 +341,7 @@ trait AntiAliasing
               val nfi = Application(rec(callee, env), args.map(arg => rec(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(app)
               val params = from.map(tpe => ValDef.fresh("x", tpe))
               val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Target(Seq())) }
-              mapApplication(params, args, nfi, to, appEffects.toSet, env)
+              mapApplication(params, args, nfi, makeFunctionTypeExplicit(ft).to, appEffects.toSet, env)
             } else {
               Application(rec(callee, env), args.map(rec(_, env))).copiedFrom(app)
             }
