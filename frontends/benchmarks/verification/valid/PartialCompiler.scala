@@ -21,9 +21,10 @@ object comp {
 
   case class Error(msg: String)
 
+  @partialEval(body = false, calls = true)
   def interpret(expr: Expr, ctx: Context)(fuel: Int): Either[Error, Int] = {
     require(fuel >= 0)
-    decreases(fuel)
+    // decreases(fuel)
 
     if (fuel == 0) Left(Error("No more fuel")) else expr match {
       case Num(value) => Right(value)
@@ -57,19 +58,16 @@ object comp {
   //   interpret(program, ctx)(42)
   // }
 
-  @partialEval
   def left_unbound(y: Int) = {
     val ctx: Context = Map("y" -> Num(y))
     interpret(program, ctx)(42)                                // Left(Error("Unbound variable: x"))
   } ensuring { _ == Left[Error, Int](Error("Unbound variable: x")) }
 
-  @partialEval
   def left_fuel(x: Int) = {
     val ctx: Context = Map("x" -> Num(x))
     interpret(program, ctx)(2)                                // Left(Error("No more fuel"))
   } ensuring { _ == Left[Error, Int](Error("No more fuel")) }
 
-  @partialEval
   def right(x: Int) = {
     interpret(program, Map("x" -> Num(x)))(42)                 // Right(10 * (ctx("x") + random(42)))
   } // ensuring { _ == Right[Error, Int](10 * (x + random(42))) }

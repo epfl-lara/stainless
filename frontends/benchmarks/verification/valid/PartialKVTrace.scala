@@ -23,7 +23,7 @@ object kv {
 
   def interpret(op: Op)(kv: Map[String, String], trace: List[Label], fuel: BigInt): (Option[String], List[Label]) = {
     require(fuel >= 0)
-    decreases(fuel)
+    // decreases(fuel)
 
     op match {
       case Pure(value) =>
@@ -56,7 +56,7 @@ object kv {
     }
   }
 
-  @partialEval
+  @partialEval(body = true, calls = false)
   def result(map: Map[String, String], init: List[Label], fuel: BigInt) = {
     require(fuel > 10)
     interpret(program)(map, init, fuel)
