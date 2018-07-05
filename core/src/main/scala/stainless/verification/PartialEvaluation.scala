@@ -42,7 +42,7 @@ trait PartialEvaluation
 
     if (context.partialEvalBody(fd.id))
       partialEvalFunction(context, fd)
-    else if (invocations.nonEmpty && !fd.flags.contains(s.Unchecked))
+    else if (!fd.flags.contains(s.Unchecked) && invocations.nonEmpty)
       partialEvalInvocations(context, fd, invocations)
     else
       fd.copy(flags = fd.flags filterNot (_.name == "partialEval"))
@@ -71,7 +71,7 @@ trait PartialEvaluation
     implicit val debugSection = transformers.DebugSectionPartialEval
 
     def eval(e: s.Expr): s.Expr = symbols.transformWithPC(e)((e, path, op) => e match {
-      case fi: s.FunctionInvocation if toEval contains fi.id =>
+      case fi: s.FunctionInvocation if fi.id != fd.id && toEval.contains(fi.id) =>
         reporter.debug(s" - Partially evaluating call to '${toEval.mkString(", ")}' in '${fd.id}' at ${fd.getPos}...")
         reporter.debug(s"   Before: " + fi)
         val (elapsed, res) = timers.partialeval.runAndGetTime(context.transform(fi, path))
