@@ -25,10 +25,27 @@ trait PartialEvaluation
     override implicit val symbols: syms.type = syms
     override val context = self.context
     override val semantics = self.semantics
+
+    val partialEvalFlags: Map[Identifier, s.PartialEval] = syms.functions.values.map { fd =>
+      val flag = fd.flags collectFirst { case f: s.PartialEval => f }
+      (fd.id, flag getOrElse s.PartialEval(false, false))
+    }.toMap
+
+    val partialEvalBody: Set[Identifier] = syms.functions.keys.filter(partialEvalFlags(_).body).toSet
+    val partialEvalCalls: Set[Identifier] = syms.functions.keys.filter(partialEvalFlags(_).calls).toSet
+
+    def partialEvalInvocations(id: Identifier): Set[Identifier] = syms.callees(id) & partialEvalCalls
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    if (fd.flags exists (_.name == "partialEval")) partialEvalFunction(context, fd) else fd
+    lazy val invocations = context.partialEvalInvocations(fd.id)
+
+    if (context.partialEvalBody(fd.id))
+      partialEvalFunction(context, fd)
+    else if (invocations.nonEmpty && !fd.flags.contains(s.Unchecked))
+      partialEvalInvocations(context, fd, invocations)
+    else
+      fd.copy(flags = fd.flags filterNot (_.name == "partialEval"))
   }
 
   protected def partialEvalFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
@@ -48,6 +65,29 @@ trait PartialEvaluation
 
     fd.copy(fullBody = newBody, flags = fd.flags filterNot (_.name == "partialEval"))
   }
+
+  protected def partialEvalInvocations(context: TransformerContext, fd: s.FunDef, toEval: Set[Identifier]): t.FunDef = {
+    implicit val symbols = context.symbols
+    implicit val debugSection = transformers.DebugSectionPartialEval
+
+    def eval(e: s.Expr): s.Expr = symbols.transformWithPC(e)((e, path, op) => e match {
+      case fi: s.FunctionInvocation if toEval contains fi.id =>
+        reporter.debug(s" - Partially evaluating call to '${toEval.mkString(", ")}' in '${fd.id}' at ${fd.getPos}...")
+        reporter.debug(s"   Before: " + fi)
+        val (elapsed, res) = timers.partialeval.runAndGetTime(context.transform(fi, path))
+        reporter.debug(s"   After: " + res.get)
+        reporter.debug(s"   Time elapsed: " + "%.4f".format(elapsed.millis.toUnit(SECONDS)) + " seconds\n")
+        res.get
+
+      case _ => op.superRec(e, path)
+    })
+
+    val body = exprOps.withoutSpecs(fd.fullBody)
+    val newBody = body.map(eval).map(exprOps.withBody(fd.fullBody, _)).getOrElse(fd.fullBody)
+
+    fd.copy(fullBody = newBody, flags = fd.flags filterNot (_.name == "partialEval"))
+  }
+
 }
 
 object PartialEvaluation {

@@ -23,11 +23,6 @@ package object annotation {
   @ignore
   class extern       extends Annotation
 
-  /** The annotated function or class method is partially evaluated
-   *  and its body is replaced by the result of the evaluation. */
-  @ignore
-  class partialEval  extends Annotation
-
   /** Don't unfold the function's body during verification. */
   @ignore
   class opaque       extends Annotation
@@ -37,5 +32,10 @@ package object annotation {
     * Note: A recursive function will not be inlined within itself. */
   @ignore
   class inlineOnce   extends Annotation
+
+  /** The annotated function or class method is partially evaluated
+   *  and its body is replaced by the result of the evaluation. */
+  @ignore
+  class partialEval(body: Boolean, calls: Boolean) extends Annotation
 }
 
