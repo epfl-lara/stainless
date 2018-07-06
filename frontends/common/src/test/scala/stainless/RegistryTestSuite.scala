@@ -154,7 +154,7 @@ class RegistryTestSuite extends FunSuite {
    */
   private object MockComponent extends Component {
     val name = "mockcomponent"
-    val description = "componing for testing stainless callback"
+    val description = "Component for testing Stainless callback"
 
     type Report = MockReport
     type Analysis = MockAnalysis
@@ -184,9 +184,11 @@ class RegistryTestSuite extends FunSuite {
       "isSubtypeOf", "IsTyped", "isInstanceOf", "unwrap", "wrap", "getType", "get", "isEmpty"
     )
 
+    private val typeEncodingClasses = Set("Seq", "Type", "Object", "Option")
+
     override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
       val fns = symbols.functions.keySet map { _.name } filterNot typeEncodingFuns
-      val cls = symbols.classes.keySet map { _.name }
+      val cls = ((symbols.classes.keySet map { _.name }) ++ (symbols.sorts.keySet map { _.name })) filterNot typeEncodingClasses
 
       implicit val debugSection = frontend.DebugSectionFrontend
       implicit val printOpts = trees.PrinterOptions.fromContext(context)
@@ -324,7 +326,7 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        classes = Set("Top", "MyOption"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -335,7 +337,7 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        classes = Set("Top", "MyOption"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -348,7 +350,7 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        classes = Set("Top", "MyOption"),
         functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
@@ -370,7 +372,7 @@ class RegistryTestSuite extends FunSuite {
       UpdateEvent(
         Map("BBB" -> sourceBv3),
         Expectation(
-          classes = Set("Top", "Bottom"),
+          classes = Set("Top"),
           functions = Set("hun", "prop", "inv")
         )
       )
