@@ -24,7 +24,7 @@ object comp {
   @partialEval(body = false, calls = true)
   def interpret(expr: Expr, ctx: Context)(fuel: Int): Either[Error, Int] = {
     require(fuel >= 0)
-    // decreases(fuel)
+    decreases(fuel)
 
     if (fuel == 0) Left(Error("No more fuel")) else expr match {
       case Num(value) => Right(value)

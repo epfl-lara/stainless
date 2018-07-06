@@ -23,7 +23,7 @@ object kv {
 
   def interpret(op: Op)(kv: Map[String, String], trace: List[Label], fuel: BigInt): (Option[String], List[Label]) = {
     require(fuel >= 0)
-    // decreases(fuel)
+    decreases(fuel)
 
     op match {
       case Pure(value) =>
