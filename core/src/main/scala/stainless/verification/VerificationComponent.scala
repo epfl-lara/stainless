@@ -35,9 +35,10 @@ object VerificationComponent extends Component {
 }
 
 class VerificationRun(override val pipeline: StainlessPipeline)
-                     (override implicit val context: inox.Context) extends ComponentRun {
+                     (override implicit val context: inox.Context) extends {
   override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
+} with ComponentRun {
 
   import component.{Report, Analysis}
 

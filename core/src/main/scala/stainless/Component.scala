@@ -44,7 +44,7 @@ trait ComponentRun { self =>
 
   def parse(json: Json): Report
 
-  protected final lazy val lowering: extraction.ExtractionPipeline {
+  protected final val lowering: extraction.ExtractionPipeline {
     val s: extraction.trees.type
     val t: extraction.trees.type
   } = {
