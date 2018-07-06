@@ -76,13 +76,13 @@ trait Registry {
    *
    * TODO when caching is implemented further in the pipeline, s/Option/Seq/.
    */
-  final def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = synchronized {
+  final def update(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = synchronized {
     if (hasPersistentCache) {
       deferredClasses ++= classes
       deferredFunctions ++= functions
       deferredNodes ++= classes map { cd => cd.id -> Left(cd) }
       deferredNodes ++= functions map { fd => fd.id -> Right(fd) }
-      None
+      Seq()
     } else updateImpl(classes, functions)
   }
 
@@ -100,7 +100,7 @@ trait Registry {
   /**
    * To be called once every compilation unit were extracted.
    */
-  final def checkpoint(): Option[xt.Symbols] = synchronized {
+  final def checkpoint(): Seq[xt.Symbols] = synchronized {
     if (hasFailed) {
       deferredClasses.clear()
       deferredFunctions.clear()
@@ -110,7 +110,7 @@ trait Registry {
       knownOpenClasses.clear()
       deferredMethods.clear()
       hasFailed = false
-      None
+      Seq()
     } else if (hasPersistentCache) {
       val res = process(deferredClasses, deferredFunctions)
       persistentCache = None // remove the persistent cache after it's used once, the ICG can take over from here.
@@ -284,7 +284,7 @@ trait Registry {
     result
   }
 
-  private def updateImpl(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+  private def updateImpl(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = {
     def isReady(cd: xt.ClassDef): Boolean = getTopLevels(classes, cd) match {
       case Some(tops) if tops.isEmpty =>
         (cd.flags contains xt.IsSealed) || // Explicitly sealed is good.
@@ -323,8 +323,7 @@ trait Registry {
     process(readyCDs, readyFDs)
   }
 
-
-  private def checkpointImpl(): Option[xt.Symbols] = {
+  private def checkpointImpl(): Seq[xt.Symbols] = {
     // Get all nodes from graph, remove the ones not in recentClasses or recentFunctions.
     val nodes = graph.getNodes map { _._2._1 }
     val toRemove = nodes collect {
@@ -346,7 +345,7 @@ trait Registry {
 
     val res = if (frozen) {
       assert(defaultRes.isEmpty)
-      graph.unfreeze() map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
+      graph.unfreeze().map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }.toSeq
     } else {
       frozen = true
       defaultRes
@@ -369,7 +368,7 @@ trait Registry {
     res
   }
 
-  private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Option[xt.Symbols] = {
+  private def process(classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Seq[xt.Symbols] = {
     // Compute direct dependencies and insert the new information into our dependency graph
     val clusters = computeClusters(classes)
     val invariants = computeInvariantMapping(functions)
@@ -386,16 +385,7 @@ trait Registry {
       newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input, deps)) }
     }
 
-    if (results.isEmpty) None
-    else {
-      // Group into one set of Symbols to avoid verifying the same things several times
-      // TODO this is just because we don't have caching later on in the pipeline (YET).
-      // Also, it doesn't work 100% of the time.
-      val (clsSets, funsSets) = results.unzip
-      val cls = (Set[xt.ClassDef]() /: clsSets) { _ union _ }
-      val funs = (Set[xt.FunDef]() /: funsSets) { _ union _ }
-      Some(xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq))
-    }
+    results.map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
   }
 
 

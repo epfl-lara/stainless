@@ -7,7 +7,7 @@ import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
 import inox.{Context => InoxContext, DefaultReporter => InoxDefaultReporter}
 import inox.DebugSection
-import stainless.frontend.MasterCallBack
+import stainless.frontend.CallBack
 
 class StainlessPlugin(override val global: Global) extends Plugin {
   override val name: String = "stainless-plugin"
@@ -22,7 +22,7 @@ class StainlessPluginComponent(val global: Global) extends PluginComponent with 
     val adapter = new ReporterAdapter(global.reporter, Set())
     InoxContext.empty.copy(reporter = adapter)
   }
-  override protected val callback: MasterCallBack = stainless.frontend.getMasterCallBack(ctx)
+  override protected val callback: CallBack = stainless.frontend.getStainlessCallBack(ctx)
   override protected val cache: SymbolMapping = new SymbolMapping
 
   // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?

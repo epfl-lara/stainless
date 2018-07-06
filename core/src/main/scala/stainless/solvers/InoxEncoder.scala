@@ -22,7 +22,7 @@ trait InoxEncoder extends ProgramEncoder {
       .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
         .map(fd => fd.copy(flags = fd.flags.filter {
-          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) => false
+          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval(_, _) => false
           case _ => true
         }))
         .map { fd =>

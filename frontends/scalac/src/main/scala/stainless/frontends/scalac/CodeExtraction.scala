@@ -280,7 +280,7 @@ trait CodeExtraction extends ASTExtractors {
       case _ => Nil
     }
 
-    val tparams = extractTypeParams(tparamsSyms)
+    val tparams = extractTypeParams(tparamsSyms)(DefContext())
 
     val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
 
@@ -501,10 +501,24 @@ trait CodeExtraction extends ASTExtractors {
       None
   }
 
-  private def extractTypeParams(syms: Seq[Symbol]): Seq[xt.TypeParameter] = syms.map { sym =>
-    val variance = if (sym.isCovariant) Some(xt.Variance(true)) else if (sym.isContravariant) Some(xt.Variance(false)) else None
-    val id = getIdentifier(sym)
-    xt.TypeParameter(id, variance.toSeq)
+  private def extractTypeParams(syms: Seq[Symbol])(implicit dctx: DefContext): Seq[xt.TypeParameter] = {
+    syms.foldLeft((dctx, Seq[xt.TypeParameter]())) { case ((dctx, tparams), sym) =>
+      val variance =
+        if (sym.isCovariant) Some(xt.Variance(true))
+        else if (sym.isContravariant) Some(xt.Variance(false))
+        else None
+
+      val bounds = sym.info match {
+        case TypeBounds(lo, hi) =>
+          val (loType, hiType) = (extractType(lo)(dctx, sym.pos), extractType(hi)(dctx, sym.pos))
+          if (loType != xt.NothingType() || hiType != xt.AnyType()) Some(xt.Bounds(loType, hiType))
+          else None
+        case _ => None
+      }
+
+      val tp = xt.TypeParameter(getIdentifier(sym), variance.toSeq ++ bounds).setPos(sym.pos)
+      (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
+    }._2
   }
 
   private def extractPattern(p: Tree, binder: Option[xt.ValDef] = None)(implicit dctx: DefContext): (xt.Pattern, DefContext) = p match {
@@ -612,7 +626,7 @@ trait CodeExtraction extends ASTExtractors {
       case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams)
     }.foldLeft(dctx) { case (dctx, (sym, tparams)) =>
       val extparams = typeParamSymbols(sym.typeParams.map(_.tpe))
-      val tparams = extractTypeParams(extparams)
+      val tparams = extractTypeParams(extparams)(dctx)
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip tparams).toMap)
 
       val paramTypes = sym.info.paramss.flatten.map { sym =>

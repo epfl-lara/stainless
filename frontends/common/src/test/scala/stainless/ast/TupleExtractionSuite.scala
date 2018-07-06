@@ -35,11 +35,12 @@ class TupleExtractionSuite extends FunSuite with InputUtils {
        |} """.stripMargin
   )
 
-  val ctx = stainless.TestContext.empty
-  val (_, xlangProgram) = load(ctx, sources)
-  val program = verification.VerificationComponent.extract(xlangProgram, ctx)
+  implicit val ctx = stainless.TestContext.empty
+  val (_, xlangProgram) = load(sources)
+  val run = verification.VerificationComponent.run(extraction.pipeline)
+  val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
 
-  import program.trees._
+  import stainless.trees._
 
   /* Mini DSL for testing purposes */
 

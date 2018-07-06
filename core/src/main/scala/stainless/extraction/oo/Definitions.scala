@@ -119,6 +119,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
 
   trait AbstractSymbols
     extends super.AbstractSymbols
+       with DependencyGraph
        with TypeOps
        with SymbolOps { self0: Symbols =>
 

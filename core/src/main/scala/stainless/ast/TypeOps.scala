@@ -66,6 +66,7 @@ trait TypeOps extends inox.ast.TypeOps {
                 ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
               case tpe if subs.size == 1 =>
                 patternIsTyped(tpe, subs.head)
+              case UnitType() if subs.isEmpty => true
               case _ => false
             }
           }

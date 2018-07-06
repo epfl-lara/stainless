@@ -50,6 +50,7 @@ trait Trees extends throwing.Trees { self =>
 
   trait AbstractSymbols
     extends super.AbstractSymbols
+       with DependencyGraph
        with TypeOps { self0: Symbols =>
   }
 
@@ -59,6 +60,10 @@ trait Trees extends throwing.Trees { self =>
   implicit class ClassDefWrapper(cd: ClassDef) {
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
+    }
+
+    def invariant(implicit s: Symbols): Option[FunDef] = {
+      methods map s.functions find (_.flags contains IsInvariant)
     }
   }
 

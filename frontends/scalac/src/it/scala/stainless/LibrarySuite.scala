@@ -11,23 +11,24 @@ class LibrarySuite extends FunSpec with InputUtils {
 
   describe("stainless library") {
     val opts = inox.Options(Seq(inox.optSelectedSolvers(Set("smt-z3"))))
-    val ctx = stainless.TestContext(opts)
+    implicit val ctx = stainless.TestContext(opts)
     import ctx.reporter
 
-    val tryProgram = scala.util.Try(loadFiles(ctx, Seq.empty)._2)
+    val tryProgram = scala.util.Try(loadFiles(Seq.empty)._2)
     it("should be extractable") {
       assert(tryProgram.isSuccess, "Extraction crashed with exception")
       assert(reporter.errorCount == 0, "Extraction had errors")
     }
 
     it("should verify") {
-      import verification.VerificationComponent._
-      val exProgram = extract(tryProgram.get, ctx)
+      import verification.VerificationComponent
+      val run = VerificationComponent.run(extraction.pipeline)
+      val exProgram = inox.Program(run.trees)(run extract tryProgram.get.symbols)
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = Await.result(apply(funs, exProgram, ctx), Duration.Inf)
+      val analysis = Await.result(run.apply(funs, exProgram.symbols), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
@@ -36,13 +37,14 @@ class LibrarySuite extends FunSpec with InputUtils {
     }
 
     it("should terminate") {
-      import termination.TerminationComponent._
-      val exProgram = extract(tryProgram.get, ctx)
+      import termination.TerminationComponent
+      val run = TerminationComponent.run(extraction.pipeline)
+      val exProgram = inox.Program(run.trees)(run extract tryProgram.get.symbols)
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = Await.result(apply(funs, exProgram, ctx), Duration.Inf)
+      val analysis = Await.result(run.apply(funs, exProgram.symbols), Duration.Inf)
 
       assert(
         analysis.results forall { case (_, (g, _)) => g.isGuaranteed },

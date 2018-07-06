@@ -3,8 +3,12 @@
 package stainless
 package verification
 
+import io.circe._
+
 import scala.concurrent.Future
 import scala.language.existentials
+
+import extraction._
 
 /**
  * Strict Arithmetic Mode:
@@ -13,38 +17,55 @@ import scala.language.existentials
  */
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
 
-object VerificationComponent extends SimpleComponent {
+object VerificationComponent extends Component {
   override val name = "verification"
   override val description = "Verification of function contracts"
 
-  override val trees: stainless.trees.type = stainless.trees
-
+  override type Report = VerificationReport
   override type Analysis = VerificationAnalysis
 
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
-    val s: extraction.trees.type = extraction.trees
-    val t: extraction.trees.type = extraction.trees
+    val s: trees.type = trees
+    val t: trees.type = trees
   })
+
+  override def run(pipeline: StainlessPipeline)(implicit ctx: inox.Context) = {
+    new VerificationRun(pipeline)
+  }
+}
+
+class VerificationRun(override val pipeline: StainlessPipeline)
+                     (override implicit val context: inox.Context) extends ComponentRun {
+  override val component = VerificationComponent
+  override val trees: stainless.trees.type = stainless.trees
+
+  import component.{Report, Analysis}
+
+  override def parse(json: Json): Report = VerificationReport.parse(json)
+
+  override protected def createPipeline = pipeline andThen PartialEvaluation(extraction.trees) andThen lowering
 
   implicit val debugSection = DebugSectionVerification
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[VerificationAnalysis] = {
-    import ctx._
+  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
+    import context._
 
-    val assertions = AssertionInjector(p, ctx)
+    val p = inox.Program(trees)(symbols)
+
+    val assertions = AssertionInjector(p, context)
     val chooses = ChooseInjector(p)
 
-    reporter.debug(s"Generating VCs for those functions: ${funs map { _.uniqueName } mkString ", "}")
+    reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
 
     // We do not need to encode empty trees as chooses when generating the VCs,
     // as we rely on having empty trees to filter out some VCs.
     val assertionEncoder = inox.ast.ProgramEncoder(p)(assertions)
-    val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, ctx)(funs)
+    val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
 
     // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
     val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
 
-    val res = VerificationChecker.verify(encoder.targetProgram, ctx)(vcs).map(_.mapValues {
+    val res = VerificationChecker.verify(encoder.targetProgram, context)(vcs).map(_.mapValues {
       case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
         VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
@@ -52,7 +73,7 @@ object VerificationComponent extends SimpleComponent {
 
     res.map(r => new VerificationAnalysis {
       override val program: p.type = p
-      override val sources = funs.toSet
+      override val sources = functions.toSet
       override val results = r
     })
   }

@@ -2,19 +2,41 @@
 
 package stainless
 package extraction
+package xlang
 
 import scala.language.existentials
 
-object PartialFunctions extends inox.ast.SymbolTransformer {
-  val s: xlang.trees.type = xlang.trees
-  val t: xlang.trees.type = xlang.trees
-  import xlang.trees._
+trait PartialFunctions extends oo.SimplePhase { self =>
+  val t: self.s.type
+  import s._
 
-  override def transform(symbols: Symbols): Symbols = symbols.transform(new oo.TreeTransformer {
-    val s: xlang.trees.type = xlang.trees
-    val t: xlang.trees.type = xlang.trees
+  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
+    override final val s: self.s.type = self.s
+    override final val t: self.t.type = self.t
 
     val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.$tilde$greater")
+
+    /** Infer the partial function's precondition, by replacing every
+     *  right-hand side of the pattern match with `true`.
+     *  If there is only a single case, and it is a wildcard,
+     *  we don't need to infer any precondition.
+     */
+    def inferPrecondition(body: MatchExpr): Option[Expr] = {
+      val MatchExpr(scrut, cases) = body
+      val rewrittenCases = cases map { c =>
+        c.copy(rhs = BooleanLiteral(true).copiedFrom(c))
+      }
+
+      rewrittenCases match {
+        case Seq(MatchCase(_: WildcardPattern, None, _)) => None
+
+        case cases => Some(MatchExpr(scrut, cases :+ MatchCase(
+          WildcardPattern(None).copiedFrom(body), None,
+          BooleanLiteral(false).copiedFrom(body)
+        ).copiedFrom(body)).copiedFrom(body))
+      }
+    }
 
     override def transform(e: Expr): Expr = super.transform(e) match {
       case fi @ FunctionInvocation(ast.SymbolIdentifier("stainless.lang.PartialFunction.apply"), _, _) =>
@@ -65,27 +87,16 @@ object PartialFunctions extends inox.ast.SymbolTransformer {
 
       case other => other
     }
+  }
+}
 
-    /** Infer the partial function's precondition, by replacing every
-     *  right-hand side of the pattern match with `true`.
-     *  If there is only a single case, and it is a wildcard,
-     *  we don't need to infer any precondition.
-     */
-    def inferPrecondition(body: MatchExpr): Option[Expr] = {
-      val MatchExpr(scrut, cases) = body
-      val rewrittenCases = cases map { c =>
-        c.copy(rhs = BooleanLiteral(true).copiedFrom(c))
-      }
-
-      rewrittenCases match {
-        case Seq(MatchCase(_: WildcardPattern, None, _)) =>
-          None
-
-        case cases =>
-          val fallback = MatchCase(WildcardPattern(None), None, BooleanLiteral(false)).copiedFrom(body)
-          Some(MatchExpr(scrut, cases :+ fallback).copiedFrom(body))
-      }
-    }
-
-  })
+object PartialFunctions {
+  def apply(trees: xlang.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
+  } = new PartialFunctions {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override val context = ctx
+  }
 }

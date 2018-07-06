@@ -8,9 +8,7 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
   import symbols._
   import exprOps.replaceFromSymbols
 
-  def pp = implicitly[PathProvider[CNFPath]]
-
-  override protected def simplify(e: Expr, path: CNFPath): (Expr, Boolean) = e match {
+  override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case Assert(pred, oerr, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (BooleanLiteral(false), true) =>
@@ -29,7 +27,7 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
           simplify(conditionForPattern[Path](rs, pattern, includeBinders = false).fullClause, soFar) match {
             case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)
             case (rc, pc) =>
-              val path = conditionForPattern[CNFPath](rs, pattern, includeBinders = true)
+              val path = conditionForPattern[Env](rs, pattern, includeBinders = true)
               val (rg, pg) = guard.map(simplify(_, soFar merge path)).getOrElse((BooleanLiteral(true), true))
               (and(rc, rg), pc && pg) match {
                 case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)

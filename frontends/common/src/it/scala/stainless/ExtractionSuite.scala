@@ -17,11 +17,11 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
   }
 
   def testExtractAll(dir: String): Unit = {
-    val (ctx, files) = testSetUp(dir)
+    implicit val (ctx, files) = testSetUp(dir)
     import ctx.reporter
 
     describe(s"Program extraction in $dir") {
-      val tryProgram = scala.util.Try(loadFiles(ctx, files)._2)
+      val tryProgram = scala.util.Try(loadFiles(files)._2)
       it("should be successful") { assert(tryProgram.isSuccess) }
 
       if (tryProgram.isSuccess) {
@@ -35,25 +35,25 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
           }
         }
 
-        val tryExProgram = Try(extraction.extract(program, ctx))
+        val tryExSymbols: Try[extraction.trees.Symbols] = Try(extraction.pipeline extract program.symbols)
         describe("and transformation") {
-          it("should be successful") { tryExProgram.get }
+          it("should be successful") { tryExSymbols.get }
 
-          if (tryExProgram.isSuccess) {
-            val exProgram = tryExProgram.get
+          if (tryExSymbols.isSuccess) {
+            val exSymbols = tryExSymbols.get
             it("should produce no errors") { assert(reporter.errorCount == 0) }
 
             it("should typecheck") {
-              exProgram.symbols.ensureWellFormed
-              for (fd <- exProgram.symbols.functions.values.toSeq) {
-                import exProgram.symbols._
+              exSymbols.ensureWellFormed
+              for (fd <- exSymbols.functions.values.toSeq) {
+                import exSymbols._
                 assert(isSubtypeOf(fd.fullBody.getType, fd.returnType))
               }
             }
 
             it("should typecheck without matches") {
-              for (fd <- exProgram.symbols.functions.values.toSeq) {
-                import exProgram.symbols._
+              for (fd <- exSymbols.functions.values.toSeq) {
+                import exSymbols._
                 assert(isSubtypeOf(matchToIfThenElse(fd.fullBody).getType, fd.returnType))
               }
             }
@@ -73,9 +73,9 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
     describe(s"Programs extraction in $dir") {
       val tryPrograms = files map { f =>
         f -> Try {
-          val testCtx = TestContext.empty
-          val program = loadFiles(testCtx, List(f))._2
-          extraction.extract(program, testCtx)
+          implicit val testCtx = TestContext.empty
+          val program = loadFiles(List(f))._2
+          extraction.pipeline extract program.symbols
           testCtx.reporter.errorCount
         }
       }
