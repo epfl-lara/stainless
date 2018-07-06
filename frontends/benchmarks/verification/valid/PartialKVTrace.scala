@@ -21,6 +21,7 @@ object kv {
   def put(key: String, value: String)(next: () => Op): Op = Put(key, value, next)
   def pure(value: Option[String]): Op                     = Pure(value)
 
+  @partialEval
   def interpret(op: Op)(kv: Map[String, String], trace: List[Label], fuel: BigInt): (Option[String], List[Label]) = {
     require(fuel >= 0)
     decreases(fuel)
@@ -56,7 +57,6 @@ object kv {
     }
   }
 
-  @partialEval(body = true, calls = false)
   def result(map: Map[String, String], init: List[Label], fuel: BigInt) = {
     require(fuel > 10)
     interpret(program)(map, init, fuel)

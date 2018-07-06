@@ -33,9 +33,8 @@ package object annotation {
   @ignore
   class inlineOnce   extends Annotation
 
-  /** The annotated function or class method is partially evaluated
-   *  and its body is replaced by the result of the evaluation. */
+  /** Instruct Stainless to partially evaluate calls to the annotated function. */
   @ignore
-  class partialEval(body: Boolean, calls: Boolean) extends Annotation
+  class partialEval extends Annotation
 }
 

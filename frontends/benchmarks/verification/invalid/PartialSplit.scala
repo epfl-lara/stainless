@@ -14,28 +14,26 @@ object split {
 
   val spent = List(
     S(Alice   ,     0),
-    // S(Bob     ,  3000),
+    S(Bob     ,  3000),
     S(Charlie ,  4000)
   )
 
-  @partialEval(body = true, calls = false)
-  val all = spent.map(_.who)
+  val all = partialEval(spent.map(_.who))
 
-  @partialEval(body = true, calls = false)
-  val pairs = {
-    for {
+  val pairs = partialEval {
+    (for {
       a <- all
       b <- all
-    } yield (a, b)
-  } filter { case (a, b) => a != b }
+    } yield (a, b)) filter { case (a, b) => a != b }
+  }
 
-  @partialEval(body = true, calls = false) val total     = spent.foldLeft(BigInt(0)) { case (acc, S(_, a)) => acc + a }
-  @partialEval(body = true, calls = false) val perPerson = total / spent.length
-  @partialEval(body = true, calls = false) val diff      = spent map { case S(w, a) => S(w, perPerson - a) }
-  @partialEval(body = true, calls = false) val pos       = diff.filter(_.amount >= 0)
-  @partialEval(body = true, calls = false) val neg       = diff.filter(_.amount < 0)
-  @partialEval(body = true, calls = false) val posTotal  = pos.map(_.amount).foldLeft(BigInt(0))(_ + _)
-  @partialEval(body = true, calls = false) val negTotal  = neg.map(_.amount).foldLeft(BigInt(0))(_ + _)
+  val total     = partialEval { spent.foldLeft(BigInt(0)) { case (acc, S(_, a)) => acc + a } }
+  val perPerson = partialEval { total / spent.length }
+  val diff      = partialEval { spent map { case S(w, a) => S(w, perPerson - a) } }
+  val pos       = partialEval { diff.filter(_.amount >= 0) }
+  val neg       = partialEval { diff.filter(_.amount < 0) }
+  val posTotal  = partialEval { pos.map(_.amount).foldLeft(BigInt(0))(_ + _) }
+  val negTotal  = partialEval { neg.map(_.amount).foldLeft(BigInt(0))(_ + _) }
 
   type Transfers = List[((P, P), BigInt)]
 

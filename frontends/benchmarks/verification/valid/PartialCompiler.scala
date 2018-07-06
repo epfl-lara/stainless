@@ -15,13 +15,10 @@ object comp {
   type Context = Map[String, Expr]
 
   @extern
-  def random(max: Int): Int = {
-    42
-  }
+  def random(max: Int): Int = 42
 
   case class Error(msg: String)
 
-  @partialEval(body = false, calls = true)
   def interpret(expr: Expr, ctx: Context)(fuel: Int): Either[Error, Int] = {
     require(fuel >= 0)
     decreases(fuel)
@@ -52,24 +49,18 @@ object comp {
 
   val program: Expr = Mul(Num(10), Add(Var("x"), Rand(Num(42))))
 
-  // @partialEval
-  // def unknown(ctx: Context) = {
-  //   require(ctx.contains("x") && forall((f: Int) => f > 0 ==> interpret(ctx("x"), ctx)(f).isRight))
-  //   interpret(program, ctx)(42)
-  // }
-
-  def left_unbound(y: Int) = {
+  def left_unbound(y: Int) = partialEval {
     val ctx: Context = Map("y" -> Num(y))
     interpret(program, ctx)(42)                                // Left(Error("Unbound variable: x"))
   } ensuring { _ == Left[Error, Int](Error("Unbound variable: x")) }
 
-  def left_fuel(x: Int) = {
+  def left_fuel(x: Int) = partialEval {
     val ctx: Context = Map("x" -> Num(x))
     interpret(program, ctx)(2)                                // Left(Error("No more fuel"))
   } ensuring { _ == Left[Error, Int](Error("No more fuel")) }
 
-  def right(x: Int) = {
+  def right(x: Int) = partialEval {
     interpret(program, Map("x" -> Num(x)))(42)                 // Right(10 * (ctx("x") + random(42)))
-  } // ensuring { _ == Right[Error, Int](10 * (x + random(42))) }
+  } ensuring { _.isRight }
 
 }
