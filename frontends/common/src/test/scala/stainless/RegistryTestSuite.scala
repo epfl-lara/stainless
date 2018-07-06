@@ -180,12 +180,8 @@ class RegistryTestSuite extends FunSuite {
 
     def parse(json: Json): Report = ???
 
-    private val typeEncodingFuns = Set(
-      "isSubtypeOf", "IsTyped", "isInstanceOf", "unwrap", "wrap", "getType", "get", "isEmpty"
-    )
-
-    override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
-      val fns = symbols.functions.keySet map { _.name } filterNot typeEncodingFuns
+    override def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = {
+      val fns = symbols.functions.keySet map { _.name }
       val cls = symbols.classes.keySet map { _.name }
 
       implicit val debugSection = frontend.DebugSectionFrontend
@@ -199,6 +195,13 @@ class RegistryTestSuite extends FunSuite {
       val analysis = MockAnalysis(report)
 
       reports += report
+
+      super.extract(symbols)
+    }
+
+    override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+      val report = MockReport(Set.empty, Set.empty)
+      val analysis = MockAnalysis(report)
       Future.successful(analysis)
     }
 
