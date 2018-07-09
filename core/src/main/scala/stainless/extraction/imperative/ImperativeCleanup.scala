@@ -21,9 +21,14 @@ trait ImperativeCleanup extends SimplePhase { self =>
     val t: self.t.type = self.t
     import symbols._
 
+    def isImperativeFlag(f: s.Flag): Boolean = f match {
+      case s.IsPure | s.IsVar| s.IsMutable => true
+      case _ => false
+    }
+
     override def transform(tpe: s.Type): t.Type = tpe match {
-      case s.TypeParameter(id, flags) if flags contains s.IsMutable =>
-        t.TypeParameter(id, (flags filterNot (_ == s.IsMutable)) map transform).copiedFrom(tpe)
+      case s.TypeParameter(id, flags) if flags exists isImperativeFlag =>
+        t.TypeParameter(id, flags filterNot isImperativeFlag map transform).copiedFrom(tpe)
       case _ => super.transform(tpe)
     }
 
@@ -42,12 +47,15 @@ trait ImperativeCleanup extends SimplePhase { self =>
           t.Let(r, transform(rhs),
             recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
 
+      case s.Variable(id, tpe, flags) =>
+        t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform)
+
       case _ => super.transform(expr)
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
       val (newId, newTpe) = transform(vd.id, vd.tpe)
-      t.ValDef(newId, newTpe, (vd.flags filterNot (_ == s.IsVar)) map transform).copiedFrom(vd)
+      t.ValDef(newId, newTpe, (vd.flags filterNot isImperativeFlag) map transform).copiedFrom(vd)
     }
   }
 
@@ -76,7 +84,7 @@ trait ImperativeCleanup extends SimplePhase { self =>
 
     body foreach checkNoOld
 
-    super.extractFunction(context, fd)
+    super.extractFunction(context, fd.copy(flags = fd.flags filterNot context.isImperativeFlag))
   }
 }
 

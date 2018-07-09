@@ -98,7 +98,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     def convert(vs: VariableSymbol): ValDef = vs match {
       case VarDef(id, tpe, flags) => ValDef(id, tpe, flags filter (_ != IsVar)).copiedFrom(vs)
       case vd: ValDef => vd
-      case _ => ValDef(vs.id, vs.tpe, Seq.empty).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, vs.flags).copiedFrom(vs)
     }
   }
 
@@ -106,11 +106,12 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     def toVar: ValDef = vs match {
       case vd: ValDef if vd.flags contains IsVar => vd
       case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags :+ IsVar).copiedFrom(vs)
-      case _ => ValDef(vs.id, vs.tpe, Seq(IsVar)).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, (vs.flags :+ IsVar).distinct).copiedFrom(vs)
     }
   }
 
   case object IsVar extends Flag("var", Seq.empty)
+  case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
@@ -121,6 +122,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   /* ========================================
    *               EXTRACTORS
    * ======================================== */
+
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("pure", Seq()) => IsPure
+    case _ => super.extractFlag(name, args)
+  }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees =>new TreeDeconstructor {
@@ -237,6 +243,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
+    case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case _ => super.deconstruct(f)
   }

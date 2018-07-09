@@ -14,6 +14,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     def check(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
       checkMutableField(fd)
       checkEffectsLocations(fd)
+      checkPurity(fd)
 
       val bindings = vds ++ fd.params
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
@@ -133,6 +134,11 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       case _ => ()
     }(fd.fullBody)
+
+    def checkPurity(fd: FunAbstraction): Unit = {
+      if (fd.flags.exists(_.name == "pure") && !effects(fd.fullBody).isEmpty)
+        throw ImperativeEliminationException(fd, s"Function marked @pure cannot have side-effects")
+    }
 
     /* A fresh expression is an expression that is newly created
      * and does not share memory with existing values and variables.

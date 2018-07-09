@@ -27,6 +27,10 @@ package object annotation {
   @ignore
   class opaque       extends Annotation
 
+  /** Specify that the annotated function is pure, which will be checked. */
+  @ignore
+  class pure         extends Annotation
+
   /** Inline this function, but only once.
     * This might be useful if one wants to eg. inline a recursive function.
     * Note: A recursive function will not be inlined within itself. */
