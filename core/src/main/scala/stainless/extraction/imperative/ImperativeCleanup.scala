@@ -51,17 +51,25 @@ trait ImperativeCleanup extends SimplePhase { self =>
     }
   }
 
+  private def checkNoOld(expr: s.Expr): Unit = s.exprOps.preTraversal {
+    case o @ s.Old(_) =>
+      throw MissformedStainlessCode(o, s"Stainless `old` can only occur in postconditions.")
+    case _ => ()
+  } (expr)
+
+  private def checkValidOldUsage(expr: s.Expr): Unit = s.exprOps.preTraversal {
+    case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
+      throw MissformedStainlessCode(o,
+        s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
+    case o @ s.Old(e) =>
+      throw MissformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
+    case _ => ()
+  } (expr)
+
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    s.exprOps.preTraversal {
-      case o @ s.Old(v: s.Variable) if fd.params exists (_.toVariable == v) =>
-        throw MissformedStainlessCode(o, s"Stainless `old` can only occur in postconditions.")
-      case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
-        throw MissformedStainlessCode(o,
-          s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
-        case o @ s.Old(e) =>
-          throw MissformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
-        case _ =>
-    } (fd.fullBody)
+    s.exprOps.preconditionOf(fd.fullBody) foreach checkNoOld
+    s.exprOps.withoutSpecs(fd.fullBody) foreach checkNoOld
+    s.exprOps.postconditionOf(fd.fullBody) foreach checkValidOldUsage
 
     super.extractFunction(context, fd)
   }
