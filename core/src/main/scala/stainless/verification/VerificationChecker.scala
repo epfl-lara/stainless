@@ -179,14 +179,15 @@ trait VerificationChecker { self =>
     val s = sf.getNewSolver
 
     try {
-      val cond = simplifyLets(vc.condition)
-      reporter.synchronized {
-        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        reporter.debug(cond.asString)
-        reporter.debug("Solving with: " + s.name)
-      }
-
       val (time, tryRes) = timers.verification.runAndGetTime {
+        val cond = simplifyLets(vc.condition)
+
+        reporter.synchronized {
+          reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.debug(cond.asString)
+          reporter.debug("Solving with: " + s.name)
+        }
+
         if (vc.satisfiability) {
           s.assertCnstr(cond)
           s.check(Simple)
