@@ -172,10 +172,11 @@ class RegistryTestSuite extends FunSuite {
 
   /** Mock component run associated to [[MockComponent]]. */
   private class MockComponentRun(override val pipeline: extraction.StainlessPipeline)
-                                (override implicit val context: inox.Context) extends ComponentRun {
-    override val component = MockComponent
-    override val trees: extraction.xlang.trees.type = extraction.xlang.trees
-
+                                (override implicit val context: inox.Context)
+  extends {
+    val component = MockComponent
+    val trees: extraction.xlang.trees.type = extraction.xlang.trees
+  } with ComponentRun {
     import component.{Report, Analysis}
 
     def parse(json: Json): Report = ???
