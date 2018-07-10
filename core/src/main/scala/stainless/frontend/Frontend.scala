@@ -12,7 +12,7 @@ package frontend
  * Implementations of [[Frontend]] are required to rethrow exception emitted
  * in background thread (if any) when [[join]] or [[stop]] are invoked.
  */
-abstract class Frontend(val callback: MasterCallBack) {
+abstract class Frontend(val callback: CallBack) {
   /** Proceed to extract the trees in a non-blocking way. */
   def run(): Unit
 
@@ -38,9 +38,9 @@ abstract class Frontend(val callback: MasterCallBack) {
   }
 
   // See assumption/requirements in [[CallBack]]
-  final def getReports: Seq[AbstractReport[_]] = {
+  final def getReport: Option[AbstractReport[_]] = {
     assert(!isRunning)
-    callback.getReports
+    callback.getReport
   }
 }
 

@@ -2,60 +2,61 @@
 
 package stainless
 package extraction
-
-import xlang.{ trees => xt }
+package xlang
 
 /** Inspect trees, detecting illegal structures. */
-object TreeSanitizer {
-
-  import xt.exprOps
-  import exprOps.Deconstructor
+trait TreeSanitizer extends ExtractionPipeline {
+  val s: innerfuns.Trees
+  val t: s.type
+  import s._
 
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
-  def check(program: Program { val trees: xt.type }): Unit = {
-    val funs = program.symbols.functions.values
-    funs foreach checkPrecondition
+  override final def extract(symbols: s.Symbols): t.Symbols = {
+    symbols.functions.values foreach checkPrecondition
+    symbols
   }
+
+  override final def invalidate(id: Identifier): Unit = ()
 
   private sealed abstract class Action
   private case object Continue extends Action
-  private case class ContinueWith(e: xt.Expr) extends Action
+  private case class ContinueWith(e: Expr) extends Action
   private case object Stop extends Action
 
-  private def traverse(e: xt.Expr)(visitor: xt.Expr => Action): Unit = {
-    def rec(f: xt.Expr) = traverse(f)(visitor)
+  private def traverse(e: Expr)(visitor: Expr => Action): Unit = {
+    def rec(f: Expr) = traverse(f)(visitor)
     visitor(e) match{
       case Stop => /* nothing */
       case ContinueWith(e) => rec(e)
       case Continue =>
-        val Deconstructor(es, _) = e
+        val Operator(es, _) = e
         es foreach rec
     }
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
 
-  private def checkPrecondition(fd: xt.FunDef): Unit =
+  private def checkPrecondition(fd: FunDef): Unit =
     checkPrecondition(fd.id, fd.fullBody)
 
-  private def checkPrecondition(lfd: xt.LocalFunDef): Unit =
+  private def checkPrecondition(lfd: LocalFunDef): Unit =
     checkPrecondition(lfd.name.id, lfd.body.body)
 
-  private def checkPrecondition(id: Identifier, body: xt.Expr): Unit = {
+  private def checkPrecondition(id: Identifier, body: Expr): Unit = {
     exprOps withoutSpecs body foreach { bareBody =>
       traverse(bareBody) {
-        case e: xt.Require =>
+        case e: Require =>
           throw MissformedStainlessCode(e, s"$id contains an unexpected `require`.")
 
-        case e: xt.Decreases =>
+        case e: Decreases =>
           throw MissformedStainlessCode(e, s"$id contains an unexpected `decreases`.")
 
-        case e: xt.LetRec =>
+        case e: LetRec =>
           // Traverse LocalFunDef independently
           e.fds foreach checkPrecondition
           ContinueWith(e.body)
 
-        case e: xt.Lambda =>
+        case e: Lambda =>
           checkPrecondition(FreshIdentifier("lambda"), e.body)
           Stop
 
@@ -63,6 +64,15 @@ object TreeSanitizer {
       }
     }
   }
-
 }
 
+object TreeSanitizer {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
+  } = new TreeSanitizer {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override val context = ctx
+  }
+}

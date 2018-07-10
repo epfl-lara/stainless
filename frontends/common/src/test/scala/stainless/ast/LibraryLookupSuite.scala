@@ -7,8 +7,6 @@ import org.scalatest._
 
 class LibraryLookupSuite extends FunSuite with InputUtils {
 
-  val ctx = stainless.TestContext.empty
-
   val contents = """
     import stainless.lang._
     import stainless.collection._
@@ -19,9 +17,10 @@ class LibraryLookupSuite extends FunSuite with InputUtils {
     }
   """
 
-  val (_, xlangProgram) = load(ctx, Seq(contents))
-  val program = verification.VerificationComponent.extract(xlangProgram, ctx)
-
+  implicit val ctx = stainless.TestContext.empty
+  val (_, xlangProgram) = load(Seq(contents))
+  val run = verification.VerificationComponent.run(extraction.pipeline)
+  val program = inox.Program(stainless.trees)(run extract xlangProgram.symbols)
   import program.trees._
 
   test("Lookup Option classes") {

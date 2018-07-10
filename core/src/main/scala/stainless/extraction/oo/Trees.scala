@@ -6,7 +6,7 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Trees extends holes.Trees with Definitions { self =>
+trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
 
   /* ========================================
    *              EXPRESSIONS
@@ -143,7 +143,7 @@ trait Trees extends holes.Trees with Definitions { self =>
 }
 
 
-trait Printer extends holes.Printer {
+trait Printer extends imperative.Printer {
   protected val trees: Trees
   import trees._
 
@@ -205,6 +205,18 @@ trait Printer extends holes.Printer {
       ctx.sb.append("|")
       p"| $pred }"
 
+    case tpd: TypeParameterDef =>
+      tpd.tp.flags collectFirst { case Variance(v) => v } foreach (if (_) p"+" else p"-")
+      p"${tpd.tp}"
+      tpd.tp.flags collectFirst { case Bounds(lo, hi) => (lo, hi) } foreach { case (lo, hi) =>
+        if (lo != NothingType()) p" >: $lo"
+        if (hi != AnyType()) p" <: $hi"
+      }
+
+    case TypeParameter(id, flags) =>
+      p"$id"
+      for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(ctx.opts)}"
+
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
 
@@ -238,7 +250,7 @@ trait Printer extends holes.Printer {
 }
 
 
-trait TreeDeconstructor extends holes.TreeDeconstructor {
+trait TreeDeconstructor extends imperative.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
@@ -338,6 +350,25 @@ trait TreeDeconstructor extends holes.TreeDeconstructor {
     case s.Bounds(lo, hi) => (Seq(), Seq(), Seq(lo, hi), (_, _, tps) => t.Bounds(tps(0), tps(1)))
     case s.Variance(v) => (Seq(), Seq(), Seq(), (_, _, _) => t.Variance(v))
     case _ => super.deconstruct(f)
+  }
+}
+
+trait TreeOps extends ast.TreeOps { self: Trees =>
+
+  trait TreeTraverser extends super.TreeTraverser {
+    override def traverse(tpe: Type): Unit = tpe match {
+      case RefinementType(vd, pred) =>
+        traverse(vd)
+        traverse(pred)
+      case _ => super.traverse(tpe)
+    }
+
+    def traverse(cd: ClassDef): Unit = {
+      cd.tparams.foreach(traverse)
+      cd.parents.foreach(traverse)
+      cd.fields.foreach(traverse)
+      cd.flags.foreach(traverse)
+    }
   }
 }
 

@@ -5,6 +5,8 @@ package evaluators
 
 import inox.evaluators.EvaluationResults.{ EvaluatorError, RuntimeError, Successful }
 
+import io.circe._
+
 import scala.concurrent.Future
 import scala.util.{ Success, Failure }
 
@@ -21,23 +23,25 @@ object DebugSectionEvaluator extends inox.DebugSection("eval")
  *
  * Timeout is handled using --max-calls=<N>.
  */
-object EvaluatorComponent extends SimpleComponent { self =>
+object EvaluatorComponent extends Component { self =>
   override val name = "eval"
   override val description = "Evaluation of parameterless functions"
 
-  override val trees: stainless.trees.type = stainless.trees
-  import trees.{ exprOps, BooleanLiteral, Expr, FunDef }
-
+  override type Report = EvaluatorReport
   override type Analysis = EvaluatorAnalysis
-  implicit val debugSection = DebugSectionEvaluator
 
   override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
   })
 
-  override def createFilter(trees: self.trees.type, ctx: inox.Context) =
-    EvaluatorCheckFilter(trees, ctx)
+  override def run(pipeline: extraction.StainlessPipeline)(implicit ctx: inox.Context) = {
+    new EvaluatorRun(pipeline)
+  }
+}
+
+object EvaluatorRun {
+  import stainless.trees._
 
   sealed abstract class FunctionStatus
   case class BodyFailed(error: String) extends FunctionStatus
@@ -47,10 +51,29 @@ object EvaluatorComponent extends SimpleComponent { self =>
   case class PostInvalid(bodyValue: Expr) extends FunctionStatus
 
   case class Result(fd: FunDef, status: FunctionStatus, time: Long)
+}
 
-  override def apply(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Future[Analysis] = {
-    import ctx.{ implicitContext, reporter, timers }
-    import p._
+class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
+                  (override implicit val context: inox.Context) extends {
+  override val component = EvaluatorComponent
+  override val trees: stainless.trees.type = stainless.trees
+} with ComponentRun {
+
+  import trees._
+  import component.{Report, Analysis}
+  import EvaluatorRun._
+
+  override def parse(json: Json): Report = EvaluatorReport.parse(json)
+
+  private implicit val debugSection = DebugSectionEvaluator
+
+  override def createFilter = EvaluatorCheckFilter(trees, context)
+
+  override def apply(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
+    import context._
+
+    val p = inox.Program(trees)(symbols)
+    import p.{symbols => _, _}
 
     // Extract the body (with its precondition, if any) and the post condition (if any).
     def decomposeFunction(fd: FunDef): (Expr, Option[Expr]) = {
@@ -146,12 +169,12 @@ object EvaluatorComponent extends SimpleComponent { self =>
       }
     }
 
-    reporter.debug(s"Processing ${funs.size} parameterless functions: ${funs mkString ", "}")
+    reporter.debug(s"Processing ${functions.size} parameterless functions: ${functions mkString ", "}")
 
     Future.successful(new EvaluatorAnalysis {
       override val program = p
-      override val sources = funs.toSet
-      override val results = funs map (id => processFunction(symbols.getFunction(id)))
+      override val sources = functions.toSet
+      override val results = functions map (id => processFunction(symbols.getFunction(id)))
     })
   }
 }

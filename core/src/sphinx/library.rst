@@ -78,6 +78,10 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@extern``       | Only extract the contracts of a function, replacing            |
 |                   | its body by a ``choose`` expression.                           |
 +-------------------+----------------------------------------------------------------+
+| ``@partialEval``  | Partially evaluate calls to this function.                     |
+|                   | Note: ``stainless.lang.partialEval`` can also be used to       |
+|                   | partially evaluate an expression.                              |
++-------------------+----------------------------------------------------------------+
 
 List[T]
 -------

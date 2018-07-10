@@ -4,19 +4,30 @@ package stainless
 package extraction
 package inlining
 
-trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
+trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val s: Trees
   val t: extraction.Trees
+  import s._
 
-  def transform(symbols: s.Symbols): t.Symbols = {
-    import s._
+  override protected type FunctionResult = Option[t.FunDef]
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
+
+  private[this] object identity extends ast.TreeTransformer {
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
+  }
+
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
+
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
     import symbols._
-    import CallGraphOrderings._
 
-    class Inliner(within: FunDef, inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
+    class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
       override def transform(expr: s.Expr): t.Expr = expr match {
-        case fi: FunctionInvocation if fi.tfd.id != within.id =>
+        case fi: FunctionInvocation if fi.tfd.id != fd.id =>
           inlineFunctionInvocations(fi.copy(args = fi.args map transform))
 
         case _ => super.transform(expr)
@@ -60,16 +71,19 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
           }
         }
 
-        val inliner = new Inliner(within, if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
+        val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
         inliner.transform(result)
       }
     }
 
-    object transformer extends ast.TreeTransformer {
-      val s: self.s.type = self.s
-      val t: self.t.type = self.t
-    }
+    if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
+    else Some(identity.transform(fd.copy(
+      fullBody = new Inliner().transform(fd.fullBody),
+      flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f == Synthetic)
+    )))
+  }
 
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     for (fd <- symbols.functions.values) {
       val hasInlineFlag = fd.flags contains Inline
       val hasInlineOnceFlag = fd.flags contains InlineOnce
@@ -78,7 +92,7 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
         throw MissformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
       }
 
-      if (hasInlineFlag && transitivelyCalls(fd, fd)) {
+      if (hasInlineFlag && context.transitivelyCalls(fd, fd)) {
         throw MissformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
       }
 
@@ -87,32 +101,29 @@ trait FunctionInlining extends inox.ast.SymbolTransformer { self =>
       }
     }
 
-    val afterInlining = s.NoSymbols
-      .withSorts(symbols.sorts.values.toSeq)
-      .withFunctions(symbols.functions.values.toSeq.sorted(functionOrdering).flatMap {
-        case fd if (fd.flags contains Synthetic) && (fd.flags contains Inline) => None
-        case fd =>
-          Some(fd.copy(
-            fullBody = new Inliner(fd).transform(fd.fullBody),
-            flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
-          ))
-      })
+    val newSymbols = super.extractSymbols(context, symbols)
 
     val inlinedOnceFuns = symbols.functions.values.filter(_.flags contains InlineOnce).map(_.id).toSet
 
-    def isCandidate(fd: FunDef) =
-      inlinedOnceFuns.contains(fd.id) && fd.flags.contains(Synthetic)
+    def isCandidate(id: Identifier): Boolean =
+      (inlinedOnceFuns contains id) && (symbols.getFunction(id).flags contains Synthetic)
 
-    def canBePruned(fd: FunDef) =
-      isCandidate(fd) && afterInlining.transitiveCallers(fd).forall(isCandidate)
-
-    val pruned = afterInlining.functions.values.toSeq.flatMap {
-      case fd if canBePruned(fd) => None
-      case fd => Some(fd.copy(flags = fd.flags filterNot (_ == Synthetic)))
-    }
+    def isPrunable(id: Identifier): Boolean =
+      isCandidate(id) && newSymbols.transitiveCallers(id).forall(isCandidate)
 
     t.NoSymbols
-      .withSorts(afterInlining.sorts.values.map(transformer.transform).toSeq)
-      .withFunctions(pruned.map(transformer.transform).toSeq)
+      .withSorts(newSymbols.sorts.values.toSeq)
+      .withFunctions(newSymbols.functions.values.filterNot(fd => isPrunable(fd.id)).toSeq)
+  }
+}
+
+object FunctionInlining {
+  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: ts.type
+    val t: tt.type
+  } = new FunctionInlining {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
+    override val context = ctx
   }
 }

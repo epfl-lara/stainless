@@ -15,8 +15,5 @@ package object methods {
     object printer extends Printer { val trees: methods.trees.type = methods.trees }
   }
 
-  object extractor extends MethodLifting {
-    val s: trees.type = trees
-    val t: throwing.trees.type = throwing.trees
-  }
+  def extractor(implicit ctx: inox.Context) = MethodLifting(trees, throwing.trees)
 }

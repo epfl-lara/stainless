@@ -20,7 +20,7 @@ class RegistryVerificationSuite extends FunSuite with InputUtils {
 
   test(s"special --functions=theorem --check-models test") {
     val options = Seq(inox.solvers.optCheckModels(true), optFunctions("theorem" :: Nil))
-    val ctx = stainless.TestContext(inox.Options(options))
+    implicit val ctx = stainless.TestContext(inox.Options(options))
     val filter = utils.CheckFilter(xt, ctx)
     val component = VerificationComponent
 
@@ -44,8 +44,13 @@ class RegistryVerificationSuite extends FunSuite with InputUtils {
          |}
          |""".stripMargin
 
-    val (_, program) = load(ctx, Seq(input), Some(filter))
-    val analysis = component.apply(program, ctx)
+    val (_, program) = load(Seq(input), Some(filter))
+    import program.trees._
+
+    val theorem = program.symbols.lookup.get[FunDef]("TestFunctionsOption.theorem").get
+
+    val run = component.run(extraction.pipeline)
+    val analysis = run.apply(theorem.id, program.symbols)
     val stats = Await.result(analysis, Duration.Inf).toReport.stats
 
     // analysis.vrs foreach { r => info(r.toString) }

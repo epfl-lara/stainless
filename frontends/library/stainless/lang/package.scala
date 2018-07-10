@@ -82,6 +82,10 @@ package object lang {
   def old[T](value: T): T = value
 
   @library
+  @partialEval
+  def partialEval[A](x: A): A = x
+
+  @library
   implicit class SpecsDecorations[A](val underlying: A) {
     @ignore
     def computes(target: A) = {

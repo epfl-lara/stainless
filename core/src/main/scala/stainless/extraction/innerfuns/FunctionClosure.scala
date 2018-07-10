@@ -4,11 +4,18 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
+trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
   val s: Trees
-  val t: inlining.Trees
+  val t: ast.Trees
 
-  def transform(symbols: s.Symbols): t.Symbols = {
+  override protected type FunctionResult = Seq[t.FunDef]
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
+
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
+
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
     import s._
     import symbols._
 
@@ -36,10 +43,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
 
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(name, tparams, Lambda(args, body)) = inner
-
-      //println("inner: " + inner)
-      //println("pc: " + pc)
-      //println("free: " + free.map(_.uniqueName))
 
       val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
@@ -94,7 +97,7 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       // Directly nested functions with their p.c.
       val nestedWithPathsFull = {
         val funDefs = exprOps.directlyNestedFunDefs(fd.fullBody)
-        symbols.collectWithPC(fd.fullBody) {
+        collectWithPC(fd.fullBody) {
           case (LetRec(fd1, body), path) => (fd1.filter(funDefs), path)
         }
       }
@@ -111,8 +114,6 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
           f.name.id -> (calls ++ pcCalls)
         }.toMap
       )
-      //println("nested funs: " + nestedFuns)
-      //println("call graph: " + callGraph)
 
       // All free variables one should include.
       // Contains free vars of the function itself plus of all transitively called functions.
@@ -207,14 +208,17 @@ trait FunctionClosure extends inox.ast.SymbolTransformer { self =>
       newFd +: closedFds.flatMap(close)
     }
 
-    // For ADT transformation
-    object identity extends ast.TreeTransformer {
-      val s: self.s.type = self.s
-      val t: self.t.type = self.t
-    }
+    close(fd)
+  }
+}
 
-    t.NoSymbols
-      .withFunctions(symbols.functions.values.toSeq.flatMap(close))
-      .withSorts(symbols.sorts.values.toSeq.map(identity.transform))
+object FunctionClosure {
+  def apply(ts: Trees, tt: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: ts.type
+    val t: tt.type
+  } = new FunctionClosure {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
+    override val context = ctx
   }
 }

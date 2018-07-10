@@ -11,14 +11,16 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
+  case object PartialEval extends Flag("partialEval", Seq())
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
 
-  def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+  def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
+    case ("partialEval", Seq()) => PartialEval
     case _ => Annotation(name, args)
   }
 
@@ -27,7 +29,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   trait AbstractSymbols
     extends super.AbstractSymbols
        with TypeOps
-       with SymbolOps { self0: Symbols =>
+       with SymbolOps
+       with CallGraph
+       with DependencyGraph { self0: Symbols =>
 
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)

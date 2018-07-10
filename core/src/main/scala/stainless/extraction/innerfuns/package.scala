@@ -14,8 +14,5 @@ package object innerfuns {
     object printer extends Printer { val trees: innerfuns.trees.type = innerfuns.trees }
   }
 
-  object extractor extends FunctionClosure {
-    val s: trees.type = trees
-    val t: inlining.trees.type = inlining.trees
-  }
+  def extractor(implicit ctx: inox.Context) = FunctionClosure(trees, inlining.trees)
 }

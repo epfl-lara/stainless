@@ -72,48 +72,10 @@ trait TypeOps extends imperative.TypeOps {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => Some(Untyped)
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => Some(Untyped)
     case (ct1: ClassType, ct2: ClassType) =>
-      val (c1, c2) = (ct1.tcd, ct2.tcd)
-
       if (upper) {
-        val (an1, an2) = (c1 +: c1.ancestors, c2 +: c2.ancestors)
-        val bounds = an1.find(_.cd == c2.cd).map(_ -> c2)
-          .orElse(an2.find(_.cd == c1.cd).map(c1 -> _))
-
-        bounds.flatMap { case (c1, c2) =>
-          val tps = (c1.cd.typeArgs zip (c1.tps zip c2.tps)).map { case (tp, (t1, t2)) =>
-            if (tp.isCovariant) typeBound(t1, t2, upper)
-            else if (tp.isContravariant) typeBound(t1, t2, !upper)
-            else if (t1 == t2) t1
-            else Untyped
-          }
-
-          if ((tps zip (c1.tps zip c2.tps)).forall { case (tp, (t1, t2)) => tp == t1 || tp == t2 }) {
-            Some(c1.cd.typed(tps).toType)
-          } else {
-            None
-          }
-        }
+        leastUpperClassBound(ct1, ct2)
       } else {
-        val (ds1, ds2) = (c1 +: c1.descendants, c2 +: c2.descendants)
-        val bounds = ds1.find(_.cd == c2.cd).map(_ -> c2)
-          .orElse(ds2.find(_.cd == c1.cd).map(c1 -> _))
-
-        bounds.flatMap { case (c1, c2) =>
-          val tps = (c1.cd.typeArgs zip (c1.tps zip c2.tps)).map { case (tp, (t1, t2)) =>
-            if (t1 == tp) t2
-            else if (t2 == tp) t1
-            else if (tp.isCovariant) typeBound(t1, t2, upper)
-            else if (tp.isContravariant) typeBound(t1, t2, !upper)
-            else if (t1 == t2) t1
-            else Untyped
-          }
-
-          if ((tps zip (c1.tps zip c2.tps)).forall { case (tp, (t1, t2)) => tp == t1 || tp == t2 }) {
-            Some(c1.cd.typed(tps).toType)
-          } else {
-            None
-          }
-        }
+        greatestLowerClassBound(ct1, ct2)
       }
 
     case (adt: ADTType, _) if adt.lookupSort.isEmpty => Some(Untyped)
@@ -129,11 +91,17 @@ trait TypeOps extends imperative.TypeOps {
     case (rt @ RefinementType(vd, p), tpe) if vd.tpe == tpe => Some(if (upper) tpe else rt)
     case (tpe, rt @ RefinementType(vd, p)) if tpe == vd.tpe => Some(if (upper) tpe else rt)
 
-    case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
-    case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
-    case (tpe, tp: TypeParameter) => Some(typeBound(tpe, tp.bounds, upper))
     case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
     case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
+
+    case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
+    case (tp: TypeParameter, tpe) if upper && isSubtypeOf(tpe, tp.lowerBound) => Some(tp)
+    case (tp: TypeParameter, tpe) if !upper && isSubtypeOf(tp.upperBound, tpe) => Some(tp)
+    case (tpe, tp: TypeParameter) if upper && isSubtypeOf(tpe, tp.lowerBound) => Some(tp)
+    case (tpe, tp: TypeParameter) if !upper && isSubtypeOf(tp.upperBound, tpe) => Some(tp)
+
+    case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
+    case (tpe, tp: TypeParameter) => Some(typeBound(tpe, tp.bounds, upper))
 
     case (tp, AnyType()) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
     case (AnyType(), tp) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
@@ -169,10 +137,10 @@ trait TypeOps extends imperative.TypeOps {
   }
 
   def leastUpperClassBound(ct1: ClassType, ct2: ClassType): Option[ClassType] = {
-    val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet
-    val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet
-    val ans1 = ct1.tcd.ancestors.find(tcd => cd2Ans contains tcd.id)
-    val ans2 = ct2.tcd.ancestors.find(tcd => cd1Ans contains tcd.id)
+    val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet + ct1.id
+    val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet + ct2.id
+    val ans1 = (ct1.tcd +: ct1.tcd.ancestors).find(tcd => cd2Ans contains tcd.id)
+    val ans2 = (ct2.tcd +: ct2.tcd.ancestors).find(tcd => cd1Ans contains tcd.id)
     (ans1, ans2) match {
       case (Some(tcd1), Some(tcd2)) =>
         val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {
@@ -189,10 +157,10 @@ trait TypeOps extends imperative.TypeOps {
   }
 
   def greatestLowerClassBound(ct1: ClassType, ct2: ClassType): Option[ClassType] = {
-    val cd1Desc = ct1.tcd.descendants.map(_.id).toSet
-    val cd2Desc = ct2.tcd.descendants.map(_.id).toSet
-    val desc1 = ct1.tcd.descendants.find(tcd => cd2Desc contains tcd.id)
-    val desc2 = ct2.tcd.descendants.find(tcd => cd1Desc contains tcd.id)
+    val cd1Desc = ct1.tcd.descendants.map(_.id).toSet + ct1.id
+    val cd2Desc = ct2.tcd.descendants.map(_.id).toSet + ct2.id
+    val desc1 = (ct1.tcd +: ct1.tcd.descendants).find(tcd => cd2Desc contains tcd.id)
+    val desc2 = (ct2.tcd +: ct2.tcd.descendants).find(tcd => cd1Desc contains tcd.id)
     (desc1, desc2) match {
       case (Some(tcd1), Some(tcd2)) =>
         val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {

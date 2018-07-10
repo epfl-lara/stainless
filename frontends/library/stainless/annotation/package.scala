@@ -13,24 +13,28 @@ package object annotation {
   /** The annotated function or class' methods are not verified
     * by default (use --functions=... to override this). */
   @ignore
-  class library    extends Annotation
+  class library      extends Annotation
 
   /** Apply the "induct" tactic during verification of the annotated function. */
   @ignore
-  class induct     extends Annotation
+  class induct       extends Annotation
 
   /** Only extract the contracts and replace the annotated function's body with a choose. */
   @ignore
-  class extern     extends Annotation
+  class extern       extends Annotation
 
   /** Don't unfold the function's body during verification. */
   @ignore
-  class opaque     extends Annotation
+  class opaque       extends Annotation
 
   /** Inline this function, but only once.
     * This might be useful if one wants to eg. inline a recursive function.
     * Note: A recursive function will not be inlined within itself. */
   @ignore
-  class inlineOnce extends Annotation
+  class inlineOnce   extends Annotation
+
+  /** Instruct Stainless to partially evaluate calls to the annotated function. */
+  @ignore
+  class partialEval extends Annotation
 }
 

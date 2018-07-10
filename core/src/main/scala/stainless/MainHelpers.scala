@@ -55,6 +55,7 @@ trait MainHelpers extends inox.MainHelpers {
     termination.DebugSectionTermination,
     DebugSectionExtraction,
     frontend.DebugSectionFrontend,
+    transformers.DebugSectionPartialEval,
     utils.DebugSectionRegistry
   )
 
@@ -97,7 +98,7 @@ trait MainHelpers extends inox.MainHelpers {
       compiler.run()
       compiler.join()
 
-      compiler.getReports foreach { _.emit(ctx) }
+      compiler.getReport foreach { _.emit(ctx) }
     }
 
     def watchRunCycle() = try {
@@ -133,7 +134,7 @@ trait MainHelpers extends inox.MainHelpers {
     ctx.options.findOption(optJson) foreach { file =>
       val output = if (file.isEmpty) optJson.default else file
       reporter.info(s"Printing JSON summary to $output")
-      exportJson(compiler.getReports, output)
+      exportJson(compiler.getReport, output)
     }
 
     reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
@@ -144,17 +145,16 @@ trait MainHelpers extends inox.MainHelpers {
     reporter.info("Shutting down executor service.")
     stainless.shutdown()
 
-    val success = compiler.getReports.nonEmpty && (compiler.getReports forall { _.isSuccess })
+    val success = compiler.getReport.exists(_.isSuccess)
     System.exit(if (success) 0 else 1)
   } catch {
     case _: inox.FatalError => System.exit(2)
   }
 
   /** Exports the reports to the given file in JSON format. */
-  private def exportJson(reports: Seq[AbstractReport[_]], file: String): Unit = {
-    val json = Json.fromFields(reports map { r => (r.name -> r.emitJson) })
+  private def exportJson(report: Option[AbstractReport[_]], file: String): Unit = {
+    val json = Json.fromFields(report map { r => (r.name -> r.emitJson) })
     JsonUtils.writeFile(new File(file), json)
   }
-
 }
 

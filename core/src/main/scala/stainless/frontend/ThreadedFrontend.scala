@@ -10,7 +10,7 @@ package frontend
  * If an exception is thrown from within the compiler, it is re-thrown upon
  * stopping or joining.
  */
-abstract class ThreadedFrontend(callback: MasterCallBack, ctx: inox.Context) extends Frontend(callback) {
+abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends Frontend(callback) {
   private implicit val debugSection = DebugSectionFrontend
 
   private var thread: Thread = _
