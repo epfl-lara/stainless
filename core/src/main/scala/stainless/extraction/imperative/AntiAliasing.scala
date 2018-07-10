@@ -17,10 +17,10 @@ trait AntiAliasing
   protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
     import symbols._
 
-    //convert a function type with mutable parameters, into a function type
-    //that returns the mutable parameters. This makes explicit all possible
-    //effects of the function. This should be used for higher order functions
-    //declared as parameters.
+    // Convert a function type with mutable parameters, into a function type
+    // that returns the mutable parameters. This makes explicit all possible
+    // effects of the function. This should be used for higher order functions
+    // declared as parameters.
     def makeFunctionTypeExplicit(tpe: FunctionType): FunctionType = {
       val newReturnTypes = tpe.from.filter(t => isMutableType(t))
       if (newReturnTypes.isEmpty) tpe
