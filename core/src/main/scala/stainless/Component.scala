@@ -63,13 +63,13 @@ trait ComponentRun { self =>
    * For example, the partial evaluator pipeline in the verification component. */
   protected def createPipeline: extraction.StainlessPipeline = pipeline andThen lowering
 
-  private[this] final lazy val extractionPipeline = createPipeline andThen extraction.completer(trees)
+  private[this] final val extractionPipeline = createPipeline andThen extraction.completer(trees)
 
   /* Override point for filter extensions in certain components.
    * For example, the evaluating component only evaluates parameterless functions. */
   protected def createFilter: CheckFilter { val trees: self.trees.type } = CheckFilter(trees, context)
 
-  private[this] final lazy val extractionFilter = createFilter
+  private[this] final val extractionFilter = createFilter
 
   /** Sends the symbols through the extraction pipeline. */
   def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = extractionPipeline extract symbols
