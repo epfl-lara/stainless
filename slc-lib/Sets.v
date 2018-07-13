@@ -353,6 +353,61 @@ Hint Rewrite subset_union4: libSet.
 Hint Rewrite subset_intersection3: libSet.
 Hint Rewrite subset_intersection4: libSet.
 
+Lemma diff_union:
+  forall T (s1 s2 s3: set T),
+    (s1 ∪ s2) ∖ s3 = (s1 ∖ s3) ∪ (s2 ∖ s3).
+Proof.
+  repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
+  apply functional_extensionality; repeat fast.
+  destruct (s1 x) eqn:E1; repeat fast;
+  destruct (s2 x) eqn:E2; repeat fast;
+  destruct (s3 x) eqn:E3; repeat fast.
+Qed.
+
+Hint Rewrite diff_union: libSet.
+
+Lemma diff_singleton:
+  forall T (a: T),
+    ({{ a }} ∖ {{ a }}) = ∅.
+Proof.
+  repeat fast || autounfold with i_sets in * || apply functional_extensionality.
+  destruct (B@(a = x)); repeat fast.
+Qed.  
+
+Lemma diff_singleton2:
+  forall T (a b: T),
+    ({{ a }} ∖ {{ b }}) = if (B@(a = b)) then ∅ else {{ a }}.
+Proof.
+  repeat fast || ifthenelse_step || autounfold with i_sets in * || apply functional_extensionality ||
+         autorewrite with libProp in * ||
+         match goal with
+         | |- context[propInBool ?P] =>
+           let H := fresh "H" in
+           destruct (propInBool P) eqn:H
+         end.
+Qed.
+
+Lemma diff_singleton3:
+  forall T (a: T) (s: set T),
+    ({{ a }} ∖ s) = if (a ∈ s) then ∅ else {{ a }}.
+Proof.
+  repeat fast || ifthenelse_step || autounfold with i_sets in * || apply functional_extensionality ||
+         autorewrite with libProp in * || t_bool ||
+         match goal with
+         | |- context[propInBool ?P] =>
+           let H := fresh "H" in
+           destruct (propInBool P) eqn:H
+         | H: context[propInBool ?P] |- _ =>
+           let H := fresh "H" in
+           destruct (propInBool P) eqn:H
+         end.
+Qed.
+
+Hint Rewrite diff_singleton3: libSet.
+Hint Rewrite diff_singleton2: libSet.
+Hint Rewrite diff_singleton: libSet.
+  
+
 Hint Resolve subset_union3: b_sets.
 Hint Resolve subset_union4: b_sets.
 Hint Resolve subset_intersection3: b_sets.

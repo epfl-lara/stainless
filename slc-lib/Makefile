@@ -65,20 +65,20 @@ VERBOSE ?=
 # Time the Coq process (set to non empty), and how (see default value)
 TIMED?=
 TIMECMD?=
-# Use /usr/bin/env time on linux, gtime on Mac OS
+# Use command time on linux, gtime on Mac OS
 TIMEFMT?="$* (real: %e, user: %U, sys: %S, mem: %M ko)"
 ifneq (,$(TIMED))
-ifeq (0,$(shell /usr/bin/env time -f $(TIMEFMT) true >/dev/null 2>/dev/null; echo $$?))
-STDTIME?=/usr/bin/env time -f $(TIMEFMT)
+ifeq (0,$(shell command time -f $(TIMEFMT) true >/dev/null 2>/dev/null; echo $$?))
+STDTIME?=command time -f $(TIMEFMT)
 else
 ifeq (0,$(shell gtime -f $(TIMEFMT) true >/dev/null 2>/dev/null; echo $$?))
 STDTIME?=gtime -f $(TIMEFMT)
 else
-STDTIME?=time
+STDTIME?=command time
 endif
 endif
 else
-STDTIME?=/usr/bin/env time -f $(TIMEFMT)
+STDTIME?=command time -f $(TIMEFMT)
 endif
 
 # Coq binaries
@@ -86,7 +86,6 @@ COQC     ?= "$(COQBIN)coqc"
 COQTOP   ?= "$(COQBIN)coqtop"
 COQCHK   ?= "$(COQBIN)coqchk"
 COQDEP   ?= "$(COQBIN)coqdep"
-GALLINA  ?= "$(COQBIN)gallina"
 COQDOC   ?= "$(COQBIN)coqdoc"
 COQMKFILE ?= "$(COQBIN)coq_makefile"
 
@@ -256,7 +255,6 @@ VO = vo
 
 VOFILES = $(VFILES:.v=.$(VO))
 GLOBFILES = $(VFILES:.v=.glob)
-GFILES = $(VFILES:.v=.g)
 HTMLFILES = $(VFILES:.v=.html)
 GHTMLFILES = $(VFILES:.v=.g.html)
 BEAUTYFILES = $(addsuffix .beautified,$(VFILES))
@@ -442,8 +440,6 @@ all-mli.tex: $(MLIFILES:.mli=.cmi)
 	$(HIDE)$(CAMLDOC) -latex \
 		-o $@ -m A $(CAMLDEBUG) $(CAMLDOCFLAGS) $(MLIFILES)
 
-gallina: $(GFILES)
-
 all.ps: $(VFILES)
 	$(SHOW)'COQDOC -ps $(GAL)'
 	$(HIDE)$(COQDOC) \
@@ -564,7 +560,6 @@ clean::
 	$(HIDE)find . -name .coq-native -type d -empty -delete
 	$(HIDE)rm -f $(VOFILES)
 	$(HIDE)rm -f $(VOFILES:.vo=.vio)
-	$(HIDE)rm -f $(GFILES)
 	$(HIDE)rm -f $(BEAUTYFILES) $(VFILES:=.old)
 	$(HIDE)rm -f all.ps all-gal.ps all.pdf all-gal.pdf all.glob all-mli.tex
 	$(HIDE)rm -f $(VFILES:.v=.glob)
@@ -682,10 +677,6 @@ $(addsuffix .timing.diff,$(VFILES)): %.timing.diff : %.before-timing %.after-tim
 $(BEAUTYFILES): %.v.beautified: %.v
 	$(SHOW)'BEAUTIFY $<'
 	$(HIDE)$(TIMER) $(COQC) $(COQDEBUG) $(COQFLAGS) $(COQLIBS) -beautify $<
-
-$(GFILES): %.g: %.v
-	$(SHOW)'GALLINA $<'
-	$(HIDE)$(GALLINA) $<
 
 $(TEXFILES): %.tex: %.v
 	$(SHOW)'COQDOC -latex $<'

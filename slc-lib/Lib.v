@@ -1,7 +1,8 @@
+Require Import Coq.Strings.String.
+
 Require Import Coq.Program.Tactics.
 Require Import Coq.Program.Program.
 Require Import Coq.Lists.List.
-Require Import Coq.Strings.String.
 Require Import Omega.
 Require Import ZArith.
 
@@ -22,7 +23,27 @@ Ltac isProp P :=
     unify T Prop.
 
 Inductive Marked {T}: T -> string -> Type :=
-  Mark: forall t s, Marked t s.
+  Mark: forall t n, Marked t n.
+
+Open Scope string_scope.
+
+Definition not_usable := "0".
+Definition remember := "1".
+Definition rewrite_let := "2".
+Definition destruct_refinement := "3".
+Definition mrk := "4".
+Definition instantiation := "5".
+Definition split_ite := "6".
+Definition constructors := "7".
+
+Opaque not_usable.
+Opaque remember.
+Opaque rewrite_let.
+Opaque destruct_refinement.
+Opaque mrk.
+Opaque instantiation.
+Opaque split_ite.
+Opaque constructors.
 
 Ltac duplicate_intro :=
   match goal with
@@ -31,7 +52,7 @@ Ltac duplicate_intro :=
     let H2 := fresh "intro_copy" in
     isProp P;
     intros H;
-    pose proof (Mark H "not_usable");
+    pose proof (Mark H not_usable);
     pose proof H as H2
   | _ => intros
   end.
@@ -46,7 +67,7 @@ Ltac fast :=
   cbn -[Z.add] in * ||
   subst ||
   (intuition auto) ||
-  (progress fastautorewrite with libBool libProp libInts in * ) || 
+  (progress autorewrite with libBool libProp libInts in * ) || 
 (*  (progress rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts)) ||  *)
 (*  rewrite_everywhere || *)
   congruence ||
@@ -64,10 +85,25 @@ Ltac is_construct t :=
     : exists x, x = t) in
   idtac) + fail.
 
+Ltac copy_destruct_exists :=
+    match goal with
+    |   H: exists x: ?P, _ |- _ =>
+        isProp P;
+          let x := fresh "ex" x in
+          let D := fresh "D" in
+          let copyx := fresh "copy_" x in
+          let NU := fresh "NU" in
+          destruct H as [ x D ];
+          pose proof (Mark x not_usable) as NU;
+          pose proof x as copyx
+    end.
+
+
 Ltac libStep := match goal with
   | _ => progress fast
   | |- (S ?T <= ?T)%nat =>
     unify T ignore_termination; apply False_ind; exact unsupported
+  | _ => copy_destruct_exists
   | [ H: ex _ _ |- _ ] => destruct H
   |   H: exists _, _ |- _ => destruct H
   | H: sig _ |- _ => destruct H
@@ -127,7 +163,7 @@ Ltac not_mark H := tryif is_mark H then fail else idtac.
 
 Ltac not_usable H :=
   match goal with
-  | H1: Marked H "not_usable" |- _ => idtac
+  | H1: Marked H ?n |- _ => unify n not_usable; idtac
   end.
 
 Ltac usable H := not_mark H; tryif not_usable H then fail else idtac.
@@ -136,10 +172,10 @@ Ltac define m t :=
   let M := fresh "M" in
   pose t as m;
   assert (t = m) as M; auto;
-  pose (Mark M "remembering m").
+  pose (Mark M remember).
 
 Ltac pose_let a b :=
-  poseNew (Mark (a, b) "rewrite_let");  
+  poseNew (Mark (a, b) rewrite_let);  
   (*If only mark for a, we might miss some equations, this way we have useless hypotheses*)
   let A := fresh "A" in
   assert (a = b) as A; [auto | idtac].
@@ -147,8 +183,8 @@ Ltac pose_let a b :=
 Ltac destruct_refinement_aux T :=
   let R := fresh "Prp" in
   let MM := fresh "MM" in
-  poseNamed MM (Mark T "destruct_refinement");
-  pose proof (Mark MM "mark");
+  poseNamed MM (Mark T destruct_refinement);
+  pose proof (Mark MM mrk);
   pose proof (proj2_sig T) as R.
 
 Ltac destruct_refinement :=
@@ -172,6 +208,6 @@ Ltac apply_any :=
 Ltac instantiate_any :=
   match goal with
   | H1: forall x, _ -> _, H2: _ |- _ =>
-    poseNew (Mark (H1,H2) "instantiation");
+    poseNew (Mark (H1,H2) instantiation);
     pose proof (H1 _ H2)
   end.

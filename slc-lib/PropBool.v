@@ -113,8 +113,8 @@ Lemma if_then_false:
            ifthenelse b bool e1 (fun _ => false) =
            propInBool (exists H: b = true, e1 H = true).
 Proof.
-  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
-  rewrite (Eqdep_dec.UIP_refl_bool true x) in *; auto.
+  repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.                                       
+  rewrite (Eqdep_dec.UIP_refl_bool true exH) in *; auto.
 Qed.
 
 Lemma if_then_true:
@@ -123,7 +123,7 @@ Lemma if_then_true:
            negb b || propInBool (exists H: b = true, e1 H = true).
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
-  rewrite (Eqdep_dec.UIP_refl_bool true x) in *; repeat libStep.
+  rewrite (Eqdep_dec.UIP_refl_bool true exH) in *; repeat libStep.
 Qed.
 
 Lemma if_false_else:
@@ -132,7 +132,7 @@ Lemma if_false_else:
            propInBool (exists H: b = false, e2 H = true).
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
-  rewrite (Eqdep_dec.UIP_refl_bool false x) in *; auto.
+  rewrite (Eqdep_dec.UIP_refl_bool false exH) in *; auto.
 Qed.
 
 Lemma if_true_else:
@@ -141,7 +141,7 @@ Lemma if_true_else:
            b || propInBool (exists H: b = false, e2 H = true).
 Proof.
   repeat libStep || ifthenelse_step || exists eq_refl || t_bool || autorewrite with libProp in *.
-  rewrite (Eqdep_dec.UIP_refl_bool false x) in *; repeat libStep.
+  rewrite (Eqdep_dec.UIP_refl_bool false exH) in *; repeat libStep.
 Qed.
 
 Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.

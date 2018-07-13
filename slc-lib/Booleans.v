@@ -31,6 +31,25 @@ Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :
 Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
   (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
 
+Lemma ite_true:
+  forall b A (e1: b = true -> A) (e2: b = false -> A) (H: b = true),
+    ifthenelse b A (e1: b = true -> A) (e2: b = false -> A) = e1 H.
+Proof.
+  repeat fast.
+Qed.
+
+Lemma ite_false:
+  forall b A (e1: b = true -> A) (e2: b = false -> A) (H: b = false),
+    ifthenelse b A (e1: b = true -> A) (e2: b = false -> A) = e2 H.
+Proof.
+  repeat fast.
+Qed.
+
+Notation "'ifb' '(' b ')' '{' T '}' 'then' '{' p1 '}' e1 'else' '{' p2 '}' e2" :=
+  (ifthenelse b T (fun p1 => e1) (fun p2 => e2)) (at level 80).
+Notation "'ifb' '(' b ')' '{' T '}' 'then' e1 'else' e2" :=
+  (ifthenelse b T (fun _ => e1) (fun _ => e2)) (at level 80).
+
 Ltac ifthenelse_step := match goal with
   | [ |- context[match ?t with _ => _ end]] =>
       let matched := fresh "matched" in
@@ -123,23 +142,23 @@ Ltac splitite b B e1 e2 :=
   let B2 := fresh "BB" in
   let cpX := fresh "cpX" in
   let cpY := fresh "cpY" in
-  let MM := fresh "Mark" in
-  poseNamed MM (Mark b "splitting if then else");
-  pose proof (Mark MM "splitting if then else");
+  let MM := fresh "Mrk" in
+  poseNamed MM (Mark b split_ite);
+  pose proof (Mark MM split_ite);
   destruct (match_or b B e1 e2) as [ HH1 | HH2 ];
   [
     destruct HH1 as [ X B1 ];
     try rewrite <- X in *;
     try rewrite <- B1 in *;
     clear B1;
-    pose proof (Mark X "not_usable") as M1;
+    pose proof (Mark X not_usable) as M1;
     pose proof X as cpX
       |
     destruct HH2 as [ Y B2 ];
     try rewrite <- Y in *;
     try rewrite <- B2 in *;
     clear B2;
-    pose proof (Mark Y "not_usable") as M2;
+    pose proof (Mark Y not_usable) as M2;
     pose proof Y as cpY 
   ]
 .
@@ -196,11 +215,14 @@ Ltac t_bool_simpl :=
 
 Ltac t_bool :=
   match goal with
+  | H: ?b = true |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_true b A e1 e2 H)) 
+  | H: ?b = false |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_false b A e1 e2 H)) 
+  | H: ?b = true, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_true b A e1 e2 H)) 
+  | H: ?b = false, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_false b A e1 e2 H)) 
   | _ => apply eq_true_not_negb
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   | _ => t_bool_simpl
   end.
-
 
 Lemma if_then_false0:
   forall b: bool, forall e1,
