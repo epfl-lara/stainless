@@ -382,7 +382,7 @@ trait Registry {
 
     // Critical Section
     val results: Seq[Result] = this.synchronized {
-      newNodes flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input, deps)) }
+      newNodes.toList flatMap { case (id, input, deps) => graph.update(id, input, deps, isOfInterest(input, deps)) }
     }
 
     results.map { case (cls, funs) => xt.NoSymbols.withClasses(cls.toSeq).withFunctions(funs.toSeq) }
