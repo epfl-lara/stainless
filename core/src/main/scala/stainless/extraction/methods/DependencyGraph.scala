@@ -80,7 +80,6 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     }
 
     for (fd <- symbols.functions.values) {
-      overriden(fd) foreach { id => g += SimpleEdge(fd.id, id) }
       overrides(fd) foreach { id => g += SimpleEdge(fd.id, id) }
     }
 
@@ -92,20 +91,6 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     symbols.functions.values.find(isInvariant).map(_.id)
   }
 
-  private def overriden(fd: FunDef): Set[Identifier] = {
-    (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
-      case None => Set.empty
-      case Some(cid) =>
-        val cd = symbols.classes(cid)
-        if (cd.parents.isEmpty) Set.empty
-        else {
-          cd.ancestors(symbols).flatMap { tcd =>
-            tcd.cd.methods(symbols).filter(_.name == fd.id.name)
-          }.toSet
-        }
-    }
-  }
-
   private def overrides(fd: FunDef): Set[Identifier] = {
     (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
       case None => Set.empty
@@ -113,9 +98,7 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
         symbols.classes(cid)
           .descendants(symbols)
           .flatMap(_.methods(symbols))
-          .map(symbols.functions)
-          .filter(_.id.name == fd.id.name)
-          .map(_.id)
+          .filter(_.symbol == fd.id.asInstanceOf[SymbolIdentifier].symbol)
           .toSet
     }
   }
