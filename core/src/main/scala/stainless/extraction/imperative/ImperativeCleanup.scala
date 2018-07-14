@@ -16,7 +16,7 @@ trait ImperativeCleanup extends SimplePhase { self =>
   val t: extraction.Trees
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
-  protected class TransformerContext(symbols: s.Symbols) extends CheckingTransformer {
+  protected class TransformerContext(val symbols: s.Symbols) extends CheckingTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t
     import symbols._
@@ -67,9 +67,14 @@ trait ImperativeCleanup extends SimplePhase { self =>
   } (expr)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    s.exprOps.preconditionOf(fd.fullBody) foreach checkNoOld
-    s.exprOps.withoutSpecs(fd.fullBody) foreach checkNoOld
-    s.exprOps.postconditionOf(fd.fullBody) foreach checkValidOldUsage
+    val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(context.symbols)
+
+    specs foreach {
+      case post: s.exprOps.Postcondition => post foreach checkValidOldUsage
+      case spec => spec foreach checkNoOld
+    }
+
+    body foreach checkNoOld
 
     super.extractFunction(context, fd)
   }
