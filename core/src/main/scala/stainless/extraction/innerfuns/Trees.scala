@@ -68,10 +68,9 @@ trait Trees extends inlining.Trees { self =>
     def toFun: FunDef = asInstanceOf[Outer].fd
     def toLocal: LocalFunDef = asInstanceOf[Inner].fd
 
-    override def toString: String = {
-      if (isInstanceOf[Outer]) toFun.toString
-      else toLocal.toString
-    }
+    override def toString = asString(PrinterOptions.fromContext(inox.Context.printNames))
+
+    def asString(implicit popts: PrinterOptions): String
   }
 
   case class Outer(fd: FunDef) extends FunAbstraction(
@@ -86,6 +85,8 @@ trait Trees extends inlining.Trees { self =>
       fullBody: t.Expr,
       flags: Seq[t.Flag]
     ): t.Outer = t.Outer(new t.FunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(fd))
+
+    override def asString(implicit popts: PrinterOptions): String = fd.asString
   }
 
   case class Inner(fd: LocalFunDef) extends FunAbstraction(
@@ -104,6 +105,8 @@ trait Trees extends inlining.Trees { self =>
       tparams,
       t.Lambda(params, fullBody).copiedFrom(fullBody)
     ))
+
+    override def asString(implicit popts: PrinterOptions): String = fd.asString
   }
 
   object FunInvocation {
