@@ -21,7 +21,9 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  private class ComponentTestRun(val run: ComponentRun { val component: self.component.type }) {
+  private class ComponentTestRun(
+    val run: ComponentRun { val component: self.component.type }
+  ) {
 
     implicit val ctx: run.context.type = run.context
 
@@ -123,9 +125,14 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
           val run = new ComponentTestRun(component.run(extraction.pipeline))
 
-          // We need to cast the symbols here because the program is extracted using a different ComponentTestRun instance
-          // than the one the component is ran with. This should be safe (tm) because the trees are the same behind the scenes. - @romac
-          val report = Await.result(run.apply(funs, program.symbols.asInstanceOf[run.run.trees.Symbols]), Duration.Inf)
+          // We need to cast the symbols here because the program is extracted using
+          // a different ComponentTestRun instance than the one the component is ran with.
+          // This should be safe (tm) because the trees are the same behind the scenes. - @romac
+          val report = Await.result(
+            run.apply(funs, program.symbols.asInstanceOf[run.run.trees.Symbols]),
+            Duration.Inf
+          )
+
           block(report, ctx.reporter)
         }
       }
