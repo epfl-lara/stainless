@@ -46,38 +46,28 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     val default = new BaseTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
-      val (cls, fun) = {
-        if (false && cd.parents.nonEmpty) {
-          classCache.cached(cd, symbols) {
-            (identity.transform(cd), None)
-          }
-        } else {
-          val (invariant, functionToOverrides) = metadata(cd.id)(symbols)
+      val (invariant, functionToOverrides) = metadata(cd.id)(symbols)
 
-          def transformMethod(fd: FunDef)(syms: Symbols): t.FunDef = {
-            val o = functionToOverrides(fd.id)
-            makeFunction(o.cid, fd.id, o.children)(syms)
-          }
+      def transformMethod(fd: FunDef)(syms: Symbols): t.FunDef = {
+        val o = functionToOverrides(fd.id)
+        makeFunction(o.cid, fd.id, o.children)(syms)
+      }
 
-          // println(s"Methods of ${cd.id}: " + cd.methods(symbols))
-
-          val funs = cd.methods(symbols)
-            .map(symbols.functions)
-            .map { fd =>
-              funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
-            }
-
-          functions ++= funs
-
-          val inv = invariant map { inv =>
-            funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
-          }
-
-          classCache.cached(cd, symbols) {
-            val cls = identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id))))
-            (cls, inv)
-          }
+      val funs = cd.methods(symbols)
+        .map(symbols.functions)
+        .map { fd =>
+          funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
         }
+
+      functions ++= funs
+
+      val inv = invariant map { inv =>
+        funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
+      }
+
+      val (cls, fun) = classCache.cached(cd, symbols) {
+        val cls = identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id))))
+        (cls, inv)
       }
 
       classes += cls
@@ -87,16 +77,10 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     functions ++= symbols.functions.values
       .filterNot(_.flags exists { case IsMethodOf(_) => true case _ => false })
       .map { fd =>
-        // println(s"Is ${fd.id} in cache: ${funCache.contains(fd, symbols)}")
         funCache.cached(fd, symbols)(default.transform(fd))
       }
 
-    val res = t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
-    // println("\nBEFORE METHOD LIFTING\n==================\n")
-    // println(symbols)
-    // println("\nAFTER METHOD LIFTING\n==================\n")
-    // println(res)
-    res
+    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, FunOverride])
