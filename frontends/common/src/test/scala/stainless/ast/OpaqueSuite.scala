@@ -22,7 +22,8 @@ class OpaqueSuite extends FunSuite with InputUtils {
   val (_, xlangProgram) = load(sources)
   val run = verification.VerificationComponent.run(extraction.pipeline)
   val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
-  val encoded = solvers.InoxEncoder(program, ctx).targetProgram
+  val chooses = inox.ast.ProgramEncoder(program)(verification.ChooseInjector(program))
+  val encoded = solvers.InoxEncoder(chooses.targetProgram, ctx).targetProgram
 
   test("Encoding of opaque functions removes body") {
     import encoded.trees._
@@ -37,9 +38,10 @@ class OpaqueSuite extends FunSuite with InputUtils {
     import program.trees._
     import program.trees.dsl._
 
-    val factory = solvers.SolverFactory(program, ctx)
+    val encoded = inox.ast.ProgramEncoder(program)(verification.ChooseInjector(program)).targetProgram
+    val factory = solvers.SolverFactory(encoded, ctx)
 
-    val fd = program.lookup[FunDef]("Opaque.test")
+    val fd = encoded.lookup[FunDef]("Opaque.test")
     val v = Variable.fresh("v", IntegerType())
     val clause = fd(v) === v + IntegerLiteral(1)
 

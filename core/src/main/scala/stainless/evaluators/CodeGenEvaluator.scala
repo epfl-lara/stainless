@@ -71,14 +71,30 @@ trait CodeGenEvaluator
         case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.tpe)
       }.toMap
 
-      val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
+      val res = model.chooses.get(choose.res.id -> newTypes) match {
+        case Some(value) =>
+          val vars = inputsMap map { case (k, v) => k.toVal -> v }
+          val subModel = inox.Model(model.program, context)(vars, model.chooses)
 
-      val res = try {
-        self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
-      } catch {
-        case e: java.lang.RuntimeException =>
-          throw new runtime.CodeGenRuntimeException(e.getMessage)
+          eval(value, subModel) match {
+            case EvaluationResults.Successful(result) =>
+              result
+            case EvaluationResults.RuntimeError(msg) =>
+              throw new runtime.CodeGenRuntimeException(msg)
+            case EvaluationResults.EvaluatorError(msg) =>
+              throw new runtime.CodeGenRuntimeException(msg)
+          }
+
+        case None =>
+          val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
+          try {
+            self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
+          } catch {
+            case e: java.lang.RuntimeException =>
+              throw new runtime.CodeGenRuntimeException(e.getMessage)
+          }
       }
+
 
       valueToJVM(res)(this)
     }
