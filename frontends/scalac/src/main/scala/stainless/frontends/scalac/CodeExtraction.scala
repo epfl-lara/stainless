@@ -302,10 +302,19 @@ trait CodeExtraction extends ASTExtractors {
       if df.symbol.isAccessor && df.symbol.isParamAccessor && !name.endsWith("_$eq") => df.symbol
     }
 
-    val fields = (symbols zip vds).map { case (sym, vd) =>
-      val tpe = stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+    val fields = (symbols zip vds) map { case (sym, vd) =>
       val id = getIdentifier(sym)
-      val flags = annotationsOf(sym, ignoreOwner = true)
+      val allFlags = annotationsOf(sym, ignoreOwner = true)
+      val isIgnored = allFlags contains xt.Ignore
+      val flags = allFlags.filterNot(_ == xt.Ignore)
+
+      // Flags marked @ignore are extracted as having type BigInt, in order
+      // for us to not have to extract their type while keeping a value
+      // around for equality/effect analysis.
+      val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
+                else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+
+      // @romac: TODO - Once we have @pure, mark as var if not @pure
       if (sym.accessedOrSelf.isMutable) xt.VarDef(id, tpe, flags).setPos(sym.pos)
       else xt.ValDef(id, tpe, flags).setPos(sym.pos)
     }

@@ -39,7 +39,9 @@ trait ASTExtractors {
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
-      name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
+      name = a.atp.safeToString
+        .replaceAllLiterally(".package.", ".")
+        .replaceAllLiterally(" @scala.annotation.meta.field", "")
     } yield {
       if (name startsWith "stainless.annotation.") {
         val shortName = name drop "stainless.annotation.".length

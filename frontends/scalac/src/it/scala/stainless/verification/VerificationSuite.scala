@@ -31,6 +31,10 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
 
+    // Otherwise fail because validation of lucky models reports errors which should be ignored
+    // TODO: Re-enable when bug fixed in Inox
+    case "verification/valid/IgnoredField" => WithContext(ctx.withOpts(inox.solvers.unrolling.optFeelingLucky(false)))
+
     // Too slow
     case "verification/invalid/PartialSplit" => Skip
 

@@ -19,7 +19,12 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.symbols._
 
     inox.InoxProgram(t.NoSymbols
-      .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
+      .withSorts(sourceProgram.symbols.sorts.values.toSeq
+        .map(sort => sort.copy(flags = sort.flags.filter {
+          case Extern => false
+          case _ => true
+        }))
+        .map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
         .map(fd => fd.copy(flags = fd.flags.filter {
           case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval | Extern | Opaque => false
@@ -153,7 +158,7 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Application(caller, args) =>
         val s.FunctionType(from, to) = caller.getType
         t.Application(transform(caller).copiedFrom(e), args map transform).copiedFrom(e)
-        
+
       case _ => super.transform(e)
     }
 

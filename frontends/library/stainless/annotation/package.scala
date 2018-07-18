@@ -6,8 +6,8 @@ import scala.annotation.Annotation
 
 package object annotation {
 
-  /** The annotated symbols is not extracted at all. For internal usage only. */
-  private[stainless] class ignore extends Annotation
+  /** The annotated symbols is not extracted at all. */
+  class ignore extends Annotation
 
 
   /** The annotated function or class' methods are not verified

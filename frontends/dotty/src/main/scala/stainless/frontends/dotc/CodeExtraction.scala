@@ -255,11 +255,21 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val args = template.constr.vparamss.flatten
     val fieldCtx = DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
-    val fields = args.map { vd =>
-      val tpe = stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
+    val fields = args map { vd =>
       val vdSym = sym.info.decl(vd.symbol.name).symbol
       val id = getIdentifier(vdSym)
-      val flags = annotationsOf(vdSym, ignoreOwner = true)
+
+      val allFlags = annotationsOf(vdSym, ignoreOwner = true)
+      val isIgnored = allFlags contains xt.Ignore
+      val flags = allFlags.filterNot(_ == xt.Ignore)
+
+      // Flags marked @ignore are extracted as having type BigInt, in order
+      // for us to not have to extract their type while keeping a value
+      // around for equality/effect analysis.
+      val tpe = if (isIgnored) xt.IntegerType()
+                else stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
+
+      // @romac: TODO - Once we have @pure, mark as var if not @pure
       if (vdSym.symbol is Mutable) xt.VarDef(id, tpe, flags).setPos(vd.pos)
       else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
