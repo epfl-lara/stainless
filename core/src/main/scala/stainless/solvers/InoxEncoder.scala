@@ -22,7 +22,7 @@ trait InoxEncoder extends ProgramEncoder {
       .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
         .map(fd => fd.copy(flags = fd.flags.filter {
-          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval => false
+          case Derived(_) | IsField(_) | Unchecked | Ghost | IsUnapply(_, _) | PartialEval => false
           case _ => true
         }))
         .map { fd =>
@@ -166,7 +166,7 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Application(caller, args) =>
         val s.FunctionType(from, to) = caller.getType
         t.Application(transform(caller).copiedFrom(e), args map transform).copiedFrom(e)
-        
+
       case _ => super.transform(e)
     }
 
@@ -177,7 +177,9 @@ trait InoxEncoder extends ProgramEncoder {
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(flags = vd.flags.filterNot(_ == s.Unchecked)).copiedFrom(vd))
+      super.transform(vd.copy(
+        flags = vd.flags.filterNot(f => f == s.Unchecked || f == s.Ghost)
+      ).copiedFrom(vd))
     }
   }
 

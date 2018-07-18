@@ -129,4 +129,7 @@ package object lang {
     scala.Predef.print(x)
   }
 
+  @inline @library
+  def ghost[A](@ghost x: A): Unit = ()
+
 }
