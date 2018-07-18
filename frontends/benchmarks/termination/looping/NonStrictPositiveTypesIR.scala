@@ -1,4 +1,4 @@
-object NonStrictPositiveTypesIR extends App {
+object NonStrictPositiveTypesIR {
   case class A(m: (A => Boolean) => Boolean)
 
   // f is not recursive, and does not directly refer to named functions

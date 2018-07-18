@@ -218,7 +218,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private def extractObject(td: tpd.TypeDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
-    val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(td.rhs.asInstanceOf[tpd.Template].body)
+    val template = td.rhs.asInstanceOf[tpd.Template]
+    if (template.parents.exists(isValidParent(_))) {
+      outOfSubsetError(td, "Objects cannot extend classes or implement traits, use a case object instead")
+    }
+
+    val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
       getIdentifier(td.symbol),
@@ -229,6 +234,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ).setPos(td.pos)
 
     (module, allClasses, allFunctions)
+  }
+
+  private def isValidParent(parent: tpd.Tree, inLibrary: Boolean = false): Boolean = parent.tpe match {
+    case tpe if tpe.typeSymbol == defn.ObjectClass => false
+    case tpe if tpe.typeSymbol == defn.ThrowableClass && inLibrary => false
+    case tpe if defn.isProductClass(tpe.classSymbol) => false
+    case tpe => true
   }
 
   private def extractClass(td: tpd.TypeDef): (xt.ClassDef, Seq[xt.FunDef]) = {
@@ -246,12 +258,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val extparams = extractTypeParams(sym.asClass.typeParams)(DefContext())
     val tpCtx = DefContext((sym.asClass.typeParams zip extparams).toMap)
 
-    val parents = template.parents.flatMap(p => p.tpe match {
-      case tpe if tpe.typeSymbol == defn.ObjectClass => None
-      case tpe if tpe.typeSymbol == defn.ThrowableClass && (flags exists (_.name == "library")) => None
-      case tpe if defn.isProductClass(tpe.classSymbol) => None
-      case tpe => Some(extractType(tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
-    })
+    val inLibrary = flags exists (_.name == "library")
+    val parents = template.parents.filter(isValidParent(_, inLibrary)).map(p => extractType(p.tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
 
     val args = template.constr.vparamss.flatten
     val fieldCtx = DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
