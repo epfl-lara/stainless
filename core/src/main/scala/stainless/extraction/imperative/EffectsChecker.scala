@@ -4,12 +4,32 @@ package stainless
 package extraction
 package imperative
 
+sealed abstract class CheckResult
+object CheckResult {
+  case object Ok extends CheckResult
+  case object Skip extends CheckResult
+  case class Error(err: ImperativeEliminationException) extends CheckResult
+}
+
 trait EffectsChecker { self: EffectsAnalyzer =>
   import s._
 
-  def checkFunction(fd: FunDef)(symbols: Symbols, effects: EffectsAnalysis): Unit = {
+  protected def checkFunction(fd: FunDef)(symbols: Symbols, effects: EffectsAnalysis): CheckResult = {
     import symbols._
     import effects._
+
+    def isMutableSynthetic(id: Identifier): Boolean = {
+      val fd = symbols.functions(id)
+      fd.flags.contains(Synthetic) &&
+      fd.params.exists(vd => isMutableType(vd.tpe)) &&
+      !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
+    }
+
+    // We can safely get rid of the function as we are assured
+    // by the registry that, if the erroneous function being considered is
+    // still present in the symbols, then it must be used somewhere else,
+    // which is where we will want to report the error from, and abort the pipeline.
+    if (isMutableSynthetic(fd.id)) return CheckResult.Skip
 
     def check(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
       checkMutableField(fd)
@@ -54,6 +74,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
               Lambda(args, rec(body, bindings ++ args)).copiedFrom(l)
+
+            case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
+              throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
 
             case adt @ ADT(id, tps, args) =>
               (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
@@ -182,7 +205,12 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       rec(expr, Set.empty)
     }
 
-    check(Outer(fd), Set.empty)
+    try {
+      check(Outer(fd), Set.empty)
+      CheckResult.Ok
+    } catch {
+      case e: ImperativeEliminationException => CheckResult.Error(e)
+    }
   }
 
   def checkSort(sort: ADTSort)(symbols: Symbols, effects: EffectsAnalysis): Unit = {

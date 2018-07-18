@@ -283,8 +283,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        ((t.symbol is Synthetic) && !(t.symbol is Implicit))
+        (t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol)) ||
+        (annotationsOf(t.symbol) contains xt.Ignore)
       ) =>
         // ignore
 
@@ -303,10 +303,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       // Class invariants
       case ExRequire(body) =>
         invariants :+= extractTree(body)(defCtx)
-
-      // Default arguments of copy method
-      case dd @ DefDef(name, _, _, _, _) if dd.symbol.name.toString.startsWith("copy$default$") =>
-        // @nv: FIXME - check with dotty team about this and default arguments in general
 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
@@ -385,7 +381,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     var flags = annotationsOf(sym) ++
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
-      (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set())
+      (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
+      (if (isCopyMethod(sym) || isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)

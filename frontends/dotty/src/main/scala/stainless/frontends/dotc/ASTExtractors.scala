@@ -22,7 +22,7 @@ trait ASTExtractors {
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     (for {
-      a <- sym.annotations ++ (if (!ignoreOwner) sym.owner.annotations else Set.empty)
+      a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
@@ -149,6 +149,20 @@ trait ASTExtractors {
   def hasStringType(t: tpd.Tree) = isStringSym(t.tpe.typeSymbol)
 
 //  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
+
+  def isDefaultGetter(sym: Symbol) = {
+    sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
+  }
+
+  def isCopyMethod(sym: Symbol) = {
+    sym.name.isTermName && sym.name.toTermName.toString == "copy"
+  }
+
+  def canExtractSynthetic(sym: Symbol) = {
+    (sym is Implicit) ||
+    isDefaultGetter(sym) ||
+    isCopyMethod(sym)
+  }
 
   import AuxiliaryExtractors._
   import ExpressionExtractors._
@@ -442,7 +456,7 @@ trait ASTExtractors {
             !dd.symbol.is(Label)
           ) || (
             (dd.symbol is Synthetic) &&
-            (dd.symbol is Implicit) &&
+            canExtractSynthetic(dd.symbol) &&
             !(getAnnotations(tpt.symbol) contains "ignore")
           )) {
             Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))

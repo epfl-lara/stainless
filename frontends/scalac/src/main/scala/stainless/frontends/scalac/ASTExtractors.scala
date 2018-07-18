@@ -139,6 +139,12 @@ trait ASTExtractors {
 
   def hasBooleanType(t: Tree) = t.tpe.widen =:= BooleanClass.tpe
 
+  def isDefaultGetter(sym: Symbol) = sym.name containsName nme.DEFAULT_GETTER_STRING
+
+  def isCopyMethod(sym: Symbol) = sym.name == nme.copy
+
+  def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
+
   /** A set of helpers for extracting trees.*/
   object ExtractorHelpers {
     /** Extracts the identifier as `"Ident(name)"` (who needs this?!) */
@@ -477,9 +483,10 @@ trait ASTExtractors {
             dd.symbol.isImplicit &&
             dd.symbol.isMethod &&
             !(getAnnotations(tpt.symbol) contains "ignore")
-          ) || (
-            !dd.symbol.isSynthetic
-          )) {
+          ) ||
+            !dd.symbol.isSynthetic ||
+            canExtractSynthetic(dd.symbol)
+          ) {
             Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
           } else {
             None

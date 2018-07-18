@@ -9,10 +9,14 @@ import inox._
 trait AntiAliasing
   extends CachingPhase
      with SimpleSorts
-     with SimpleFunctions
      with EffectsAnalyzer
      with EffectsChecker { self =>
   import s._
+
+  override protected type FunctionResult = Option[FunDef]
+
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
 
   protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
     import symbols._
@@ -65,11 +69,15 @@ trait AntiAliasing
   override protected type TransformerContext = SymbolsAnalysis
   override protected def getContext(symbols: Symbols) = SymbolsAnalysis(symbols, EffectsAnalysis(symbols))
 
-  override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): FunDef = {
+  override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): Option[FunDef] = {
     import analysis._
     import symbols._
 
-    checkFunction(fd)(symbols, effects)
+    checkFunction(fd)(symbols, effects) match {
+      case CheckResult.Ok => ()
+      case CheckResult.Skip => return None
+      case CheckResult.Error(err) => throw err
+    }
 
     type Environment = (Set[ValDef], Map[ValDef, Expr], Map[ValDef, LocalFunDef])
     implicit class EnvWrapper(env: Environment) {
@@ -382,7 +390,7 @@ trait AntiAliasing
       rec(effect.receiver, effect.target.path)
     }
 
-    transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun)
+    Some(transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun))
   }
 
   override protected def extractSort(analysis: SymbolsAnalysis, sort: ADTSort): ADTSort =
