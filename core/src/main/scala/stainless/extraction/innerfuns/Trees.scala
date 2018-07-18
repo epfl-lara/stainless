@@ -146,7 +146,7 @@ trait Printer extends inlining.Printer {
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
       defs foreach { case (LocalFunDef(name, tparams, Lambda(args, body))) =>
-        for (f <- name.flags) p"""|${f.asString(ctx.opts)}
+        for (f <- name.flags) p"""|@${f.asString(ctx.opts)}
                                   |"""
         p"def ${name.id}${nary(tparams, ", ", "[", "]")}"
         if (args.nonEmpty) p"(${args})"
