@@ -13,6 +13,7 @@ trait TreeSanitizer extends ExtractionPipeline {
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
   override final def extract(symbols: s.Symbols): t.Symbols = {
     symbols.functions.values foreach checkPrecondition
+    symbols.functions.values foreach (fd => checkEquality(fd)(symbols))
     symbols
   }
 
@@ -64,6 +65,35 @@ trait TreeSanitizer extends ExtractionPipeline {
       }
     }
   }
+
+  /* This detects equality comparisons between values of unrelated types */
+
+  private def checkEquality(fd: FunDef)(implicit symbols: Symbols): Unit = {
+    checkEquality(fd.id, fd.fullBody)
+  }
+
+  private def checkEquality(lfd: LocalFunDef)(implicit symbols: Symbols): Unit = {
+    checkEquality(lfd.name.id, lfd.body.body)
+  }
+
+  private def checkEquality(id: Identifier, body: Expr)(implicit symbols: Symbols): Unit = {
+    traverse(body) {
+      case e @ Equals(lhs, rhs) if !symbols.isSubtypeOf(lhs.getType, rhs.getType) && !symbols.isSubtypeOf(rhs.getType, lhs.getType)  =>
+        throw MissformedStainlessCode(e, s"Invalid comparison between values of unrelated types.")
+
+      // case e @ Equals(lhs, rhs) =>
+      //   println((e, lhs.getType, rhs.getType, symbols.typesCompatible(lhs.getType, rhs.getType)))
+      //   Continue
+
+      case e: LetRec =>
+        // Traverse LocalFunDef independently
+        e.fds foreach checkEquality
+        ContinueWith(e.body)
+
+      case e => Continue
+    }
+  }
+
 }
 
 object TreeSanitizer {
