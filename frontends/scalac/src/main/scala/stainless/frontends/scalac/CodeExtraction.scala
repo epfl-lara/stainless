@@ -304,9 +304,8 @@ trait CodeExtraction extends ASTExtractors {
 
     val fields = (symbols zip vds) map { case (sym, vd) =>
       val id = getIdentifier(sym)
-      val allFlags = annotationsOf(sym, ignoreOwner = true)
-      val isIgnored = allFlags contains xt.Ignore
-      val flags = allFlags.filterNot(_ == xt.Ignore)
+      val flags = annotationsOf(sym, ignoreOwner = true)
+      val isIgnored = flags contains xt.Ignore
 
       // Flags marked @ignore are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value

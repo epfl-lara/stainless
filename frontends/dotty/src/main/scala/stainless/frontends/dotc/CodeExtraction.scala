@@ -259,9 +259,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val vdSym = sym.info.decl(vd.symbol.name).symbol
       val id = getIdentifier(vdSym)
 
-      val allFlags = annotationsOf(vdSym, ignoreOwner = true)
-      val isIgnored = allFlags contains xt.Ignore
-      val flags = allFlags.filterNot(_ == xt.Ignore)
+      val flags = annotationsOf(vdSym, ignoreOwner = true)
+      val isIgnored = flags contains xt.Ignore
 
       // Flags marked @ignore are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value

@@ -3,7 +3,9 @@
 package stainless
 package frontend
 
-import extraction.xlang.{ trees => xt }
+import scala.language.existentials
+
+import extraction.xlang.{ TreeSanitizer, trees => xt }
 import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
@@ -223,25 +225,37 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
       val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
 
-      try {
-        funSyms.ensureWellFormed
+      val saneSyms = try {
+        TreeSanitizer(xt).extract(funSyms)
       } catch {
-        case e: funSyms.TypeErrorException =>
-          reporter.error(e.pos, e.getMessage)
-          reporter.error(s"The extracted sub-program in not well formed.")
-          reporter.error(s"Symbols are:")
-          reporter.error(s"functions -> [${funSyms.functions.keySet.toSeq.sorted mkString ", "}]")
-          reporter.error(s"classes   -> [\n  ${funSyms.classes.values mkString "\n  "}\n]")
-          reporter.fatalError(s"Aborting from StainlessCallBack")
+        case e: extraction.MissformedStainlessCode =>
+          reportError(e.tree.getPos, e.getMessage, funSyms)
+          funSyms
       }
 
-      reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
+      try {
+        saneSyms.ensureWellFormed
+      } catch {
+        case e: saneSyms.TypeErrorException =>
+          reportError(e.pos, e.getMessage, saneSyms)
+      }
+
+      reporter.debug(s"Solving program with ${saneSyms.functions.size} functions & ${saneSyms.classes.size} classes")
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
-        runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
+        runs.map(run => run(id, saneSyms).map(a => RunReport(run)(a.toReport)))
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }
     }
+  }
+
+  private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
+    reporter.error(pos, msg)
+    reporter.error(s"The extracted sub-program in not well formed.")
+    reporter.error(s"Symbols are:")
+    reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.fatalError(s"Aborting from StainlessCallBack")
   }
 }

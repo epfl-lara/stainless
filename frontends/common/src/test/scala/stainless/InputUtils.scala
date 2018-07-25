@@ -2,7 +2,9 @@
 
 package stainless
 
-import extraction.xlang.{ trees => xt }
+import scala.language.existentials
+
+import extraction.xlang.{ trees => xt, TreeSanitizer }
 import frontend.CallBack
 import utils.{ CheckFilter, DependenciesFinder, Registry }
 
@@ -96,8 +98,10 @@ trait InputUtils {
     // Ensure the registry yields all classes and functions (unless using a custom filter)
     assert(done)
 
+    val saneSyms = TreeSanitizer(xt) extract syms
+
     // val program = inox.Program(xt)(xt.NoSymbols.withClasses(cls).withFunctions(funs))
-    val program = inox.Program(xt)(syms)
+    val program = inox.Program(xt)(saneSyms)
 
     (units.toSeq.sortBy(_.id.name), program)
   }
