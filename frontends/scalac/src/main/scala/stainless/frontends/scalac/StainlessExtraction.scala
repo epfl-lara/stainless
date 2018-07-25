@@ -24,7 +24,12 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
       val file = u.source.file.absolute.path
       val checker = new Checker
       checker(u.body)
-      if (!checker.hasErrors()) {
+
+      // then check ghost accesses
+      val ghostChecker = new GhostAnnotationChecker
+      ghostChecker(u.body)
+
+      if (!hasErrors()) {
         val (unit, classes, functions) = extractUnit(u)
         callback(file, unit, classes, functions)
       } /* else
