@@ -132,9 +132,10 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |
           |object Main extends MainHelpers {
           |
-          |  private val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
+          |  val extraClasspath = "${extraClasspath.value}"
+          |  val extraCompilerArguments = List("-classpath", "${extraClasspath.value}")
           |
-          |  private val libraryPaths = List(
+          |  val libraryPaths = List(
           |    ${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
           |  )
           |
