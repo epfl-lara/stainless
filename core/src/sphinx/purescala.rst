@@ -214,8 +214,8 @@ Postconditions constraint the resulting value, and is expressed using `ensuring`
     a + 1
   } ensuring { res => res > a }
 
-Body Assertsions
-****************
+Body Assertions
+***************
 
 Assertions constrain intermediate expressions within the body of a function.
 

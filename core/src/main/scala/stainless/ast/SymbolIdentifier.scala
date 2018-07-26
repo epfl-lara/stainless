@@ -8,6 +8,8 @@ class Symbol private[stainless](val path: Seq[String], private[stainless] val id
 
   val name: String = path.mkString(".")
 
+  def freshen: Symbol = Symbol(name)
+
   override def equals(that: Any): Boolean = that match {
     case s: Symbol => id == s.id
     case _ => false

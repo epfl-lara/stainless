@@ -59,6 +59,13 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
     val t: self.t.type = self.t
   }
 
+  private[this] object IsLaw {
+    def unapply(f: s.Flag): Option[s.Expr] = f match {
+      case s.Annotation("law", Seq(expr: s.Expr)) => Some(expr)
+      case _ => None
+    }
+  }
+
   private class BaseTransformer(symbols: s.Symbols) extends oo.TreeTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t
@@ -75,6 +82,11 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   }
 
   override final def extract(symbols: s.Symbols): t.Symbols = {
+    // println("\nAFTER SUPER CALLS\n==============\n\n")
+    // println(symbols.asString(new s.PrinterOptions(printUniqueIds = true, symbols = Some(symbols))))
+    // println()
+    // println()
+
     assert(symbols.sorts.isEmpty,
       "Unexpected sorts in method lifting: " + symbols.sorts.keys.map(_.asString).mkString(", "))
 
@@ -118,7 +130,12 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
         funCache.cached(fd, symbols)(default.transform(fd))
       }
 
-    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    val res = t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    // println("\nAFTER METHOD LIFTING\n==============\n\n")
+    // println(res.asString(new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))))
+    // println()
+    // println()
+    res
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, FunOverride])

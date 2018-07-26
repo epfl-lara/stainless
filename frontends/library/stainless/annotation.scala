@@ -42,6 +42,12 @@ class inlineOnce   extends Annotation
 @ignore
 class partialEval extends Annotation
 
+/** Mark this function as expressing a law that must be satisfied
+  * by instances or subclasses of the enclosing class.
+  */
+@ignore
+class law          extends Annotation
+
 /**
  * Code annotated with @ghost is removed after stainless extraction.
  *
@@ -51,3 +57,4 @@ class partialEval extends Annotation
  */
 @ignore @field @getter @setter @param
 class ghost extends StaticAnnotation
+

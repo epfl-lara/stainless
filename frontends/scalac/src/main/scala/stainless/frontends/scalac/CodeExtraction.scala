@@ -1091,7 +1091,10 @@ trait CodeExtraction extends ASTExtractors {
     case s: Super =>
       extractType(s) match {
         case ct: xt.ClassType => xt.Super(ct)
-        // @romac - TODO: case lct: xt.LocalClassType => xt.Super(lct.toClassType)
+
+        // TODO: uncommment when inner classes are supported
+        // case lct: xt.LocalClassType => xt.Super(lct.toClassType)
+
         case _ => outOfSubsetError(s, s"Invalid usage of `super`")
       }
 

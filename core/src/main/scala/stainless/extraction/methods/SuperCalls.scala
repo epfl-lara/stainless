@@ -58,8 +58,7 @@ import stainless.ast.SymbolIdentifier.IdentifierOps
  * }
  * }}}
  */
-trait SuperCalls
-  extends CachingPhase
+trait SuperCalls extends oo.CachingPhase
   with DependentlyCachedFunctions
   with IdentitySorts
   with oo.IdentityClasses { self =>
@@ -150,14 +149,14 @@ trait SuperCalls
           fullBody = s.exprOps.replaceFromSymbols(freshMap, fd.fullBody)
         )
 
-        val rewrittenFun = fd.copy(
-          fullBody = s.MethodInvocation(
-            s.This(cd.typed(symbols).toType),
-            dupId,
-            fd.tparams.map(_.tp),
-            fd.params.map(_.toVariable)
-          )
+        val newBody = s.MethodInvocation(
+          s.This(cd.typed(symbols).toType),
+          dupId,
+          fd.tparams.map(_.tp),
+          fd.params.map(_.toVariable)
         )
+
+        val rewrittenFun = fd.copy(fullBody = s.exprOps.withBody(fd.fullBody, newBody))
 
         Seq(rewrittenFun, superFun).map(context.transform(_))
     }
