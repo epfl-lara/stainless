@@ -13,6 +13,8 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   // defined by StainlessExtraction
   val ctx: inox.Context
 
+  import ExpressionExtractors.ExCall
+
   class Checker extends Traverser {
     val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
@@ -108,6 +110,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             && !sym.isNonBottomSubClass(definitions.AnnotationClass))
             reportError(tree.pos, "Only abstract classes, case classes and objects are allowed in Stainless.")
 
+          val parents = impl.parents.map(_.tpe).filterNot(ignoreClasses)
+
+          if (parents.length > 1)
+            reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
+
           val firstParent = sym.info.firstParent
           if (firstParent != definitions.AnyRefTpe) {
             // we assume type-checked Scala code, so even though usually type arguments are not the same as
@@ -153,12 +160,13 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (args.size != 1 || !args.head.isInstanceOf[Literal])
             reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
 
+      case ExCall(Some(s @ Select(rec: Super, _)), _, _, _) =>
+        if (s.symbol.isAbstract && !s.symbol.isConstructor)
+          reportError(tree.pos, "Cannot issue a super call to an abstract method.")
+
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
             reportError(tree.pos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
-
-        case Super(_, _) if !currentOwner.isConstructor => // we need to allow super in constructors
-          reportError(tree.pos, "Super calls are not allowed in Stainless.")
 
         case Template(parents, self, body) =>
           for (t <- body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[Import])) {

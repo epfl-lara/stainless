@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object methods {
 
   object trees extends methods.Trees with oo.ClassSymbols {
@@ -15,5 +17,7 @@ package object methods {
     object printer extends Printer { val trees: methods.trees.type = methods.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = MethodLifting(trees, throwing.trees)
+  def extractor(implicit ctx: inox.Context) =
+    SuperCalls(trees) andThen
+    MethodLifting(trees, throwing.trees)
 }
