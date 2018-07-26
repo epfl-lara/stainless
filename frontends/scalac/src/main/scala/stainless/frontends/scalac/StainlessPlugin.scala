@@ -13,7 +13,7 @@ class StainlessPlugin(override val global: Global) extends Plugin {
   override val name: String = "stainless-plugin"
   override val description: String = "stainless scala compiler plugin"
   override val components: List[PluginComponent] = {
-    List(new StainlessPluginComponent(global))
+    List(new StainlessPluginComponent(global), new GhostPluginComponent(global))
   }
 }
 
@@ -30,6 +30,11 @@ class StainlessPluginComponent(val global: Global) extends PluginComponent with 
   override val runsAfter = List[String]()
   override val runsRightAfter = Some("typer")
 }
+
+class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
+  override val runsAfter = List[String]("pickler")
+}
+
 
 class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxDefaultReporter(debugSections) {
   // FIXME: Mapping of stainless -> scalac positions
