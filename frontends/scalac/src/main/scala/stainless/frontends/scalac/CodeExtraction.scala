@@ -258,7 +258,7 @@ trait CodeExtraction extends ASTExtractors {
     (module, allClasses, allFunctions)
   }
 
-  private val ignoreClasses = Set(
+  protected val ignoreClasses = Set(
     ObjectClass.tpe,
     SerializableClass.tpe,
     ProductRootClass.tpe,
@@ -1004,6 +1004,13 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
+    case s: Super =>
+      extractType(s) match {
+        case ct: xt.ClassType => xt.Super(ct)
+        // @romac - TODO: case lct: xt.LocalClassType => xt.Super(lct.toClassType)
+        case _ => outOfSubsetError(s, s"Invalid usage of `super`")
+      }
+
     case ExArrayFill(baseType, length, defaultValue) =>
       val lengthRec = extractTree(length)
       val defaultValueRec = extractTree(defaultValue)
@@ -1357,6 +1364,9 @@ trait CodeExtraction extends ASTExtractors {
 
     case tt: ThisType =>
       xt.ClassType(getIdentifier(tt.sym), tt.sym.typeParams.map(dctx.tparams))
+
+    case st @ SuperType(thisTpe, superTpe) =>
+      extractType(superTpe)
 
     case SingleType(pre, sym) if sym.isModule =>
       xt.ClassType(getIdentifier(sym.moduleClass), Nil)
