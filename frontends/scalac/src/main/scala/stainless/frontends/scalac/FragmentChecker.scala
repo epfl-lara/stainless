@@ -276,17 +276,6 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (parents.length > 1)
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
 
-          val firstParent = sym.info.firstParent
-          if (firstParent != definitions.AnyRefTpe) {
-            // we assume type-checked Scala code, so even though usually type arguments are not the same as
-            // type parameters, we can assume the super type is fully applied (otherwise we could check via
-            // firstParent.typeSymbol.typeParams)
-            val parentTParams = firstParent.typeArgs
-            val tparams = sym.info.typeParams
-            // if (tparams.size != parentTParams.size)
-            //   reportError(tree.pos,
-            //     s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
-          }
           tparams.foreach(checkVariance)
           atOwner(sym)(traverse(impl))
 
