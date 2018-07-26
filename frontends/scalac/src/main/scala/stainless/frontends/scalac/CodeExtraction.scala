@@ -31,7 +31,7 @@ trait CodeExtraction extends ASTExtractors {
   import ExpressionExtractors._
   import scala.collection.immutable.Set
 
-  val ignoreClasses = Set(
+  val ignoredClasses = Set(
     ObjectClass.tpe,
     SerializableClass.tpe,
     ProductRootClass.tpe,
@@ -288,7 +288,7 @@ trait CodeExtraction extends ASTExtractors {
     val tpCtx = DefContext((tparamsSyms zip tparams).toMap)
 
     val parents = cd.impl.parents.flatMap(p => p.tpe match {
-      case tpe if ignoreClasses(tpe) => None
+      case tpe if ignoredClasses(tpe) => None
       case tpe if tpe =:= ThrowableTpe && (flags exists (_.name == "library")) => None
       case tp @ TypeRef(_, _, _) => Some(extractType(tp)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
       case _ => None
@@ -1088,6 +1088,13 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
+    case s: Super =>
+      extractType(s) match {
+        case ct: xt.ClassType => xt.Super(ct)
+        // @romac - TODO: case lct: xt.LocalClassType => xt.Super(lct.toClassType)
+        case _ => outOfSubsetError(s, s"Invalid usage of `super`")
+      }
+
     case ExArrayFill(baseType, length, defaultValue) =>
       val lengthRec = extractTree(length)
       val defaultValueRec = extractTree(defaultValue)
@@ -1439,6 +1446,9 @@ trait CodeExtraction extends ASTExtractors {
     case tt: ThisType =>
       xt.ClassType(getIdentifier(tt.sym), tt.sym.typeParams.map(dctx.tparams))
 
+    case st @ SuperType(thisTpe, superTpe) =>
+      extractType(superTpe)
+
     case SingleType(pre, sym) if sym.isModule =>
       xt.ClassType(getIdentifier(sym.moduleClass), Nil)
 
@@ -1455,7 +1465,7 @@ trait CodeExtraction extends ASTExtractors {
        * Scala might infer a type for C such as: Product with Serializable with C
        * we generalize to the first known type, e.g. C.
        */
-      parents.find(ptpe => !ignoreClasses(ptpe)).map(extractType) match {
+      parents.find(ptpe => !ignoredClasses(ptpe)).map(extractType) match {
         case Some(tpe) =>
           tpe
 

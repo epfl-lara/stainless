@@ -25,7 +25,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   // defined by StainlessExtraction
   val ctx: inox.Context
 
-
+  import ExpressionExtractors.ExCall
   import StructuralExtractors.ExObjectDef
 
   private val erroneousPositions = mutable.Set.empty[Int]
@@ -258,7 +258,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
       tree match {
         case od @ ExObjectDef(_, tmpl) =>
-          if (tmpl.parents.exists(p => !ignoreClasses.contains(p.tpe))) {
+          if (tmpl.parents.exists(p => !ignoredClasses.contains(p.tpe))) {
             reportError(tree.pos, "Objects cannot extend classes or implement traits, use a case object instead")
           }
           super.traverse(od)
@@ -270,6 +270,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             && !sym.isImplicit
             && !sym.isNonBottomSubClass(definitions.AnnotationClass))
             reportError(tree.pos, "Only abstract classes, case classes and objects are allowed in Stainless.")
+
+          val parents = impl.parents.map(_.tpe).filterNot(ignoredClasses)
+
+          if (parents.length > 1)
+            reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
 
           val firstParent = sym.info.firstParent
           if (firstParent != definitions.AnyRefTpe) {
@@ -316,12 +321,13 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (args.size != 1 || !args.head.isInstanceOf[Literal])
             reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
 
+      case ExCall(Some(s @ Select(rec: Super, _)), _, _, _) =>
+        if (s.symbol.isAbstract && !s.symbol.isConstructor)
+          reportError(tree.pos, "Cannot issue a super call to an abstract method.")
+
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
             reportError(tree.pos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
-
-        case Super(_, _) if !currentOwner.isConstructor => // we need to allow super in constructors
-          reportError(tree.pos, "Super calls are not allowed in Stainless.")
 
         case Template(parents, self, body) =>
           for (t <- body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[Import])) {

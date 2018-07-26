@@ -35,4 +35,8 @@ object SymbolIdentifier {
   }
 
   def unapply(id: SymbolIdentifier): Option[String] = Some(id.symbol.name)
+
+  final implicit class IdentifierOps(val id: Identifier) extends AnyVal {
+    def unsafeToSymbolIdentifier: SymbolIdentifier = id.asInstanceOf[SymbolIdentifier]
+  }
 }

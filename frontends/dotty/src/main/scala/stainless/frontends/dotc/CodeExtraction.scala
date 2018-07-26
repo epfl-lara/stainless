@@ -266,6 +266,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val inLibrary = flags exists (_.name == "library")
     val parents = template.parents.filter(isValidParent(_, inLibrary)).map(p => extractType(p.tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
 
+    if (parents.length > 1) {
+      outOfSubsetError(td.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
+    }
+
     def isField(vd: tpd.ValDef) = {
       !vd.symbol.is(Accessor) && vd.symbol.is(ParamAccessor)
     }
@@ -1187,6 +1191,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
+    case s @ Super(_, _) =>
+      extractType(s) match {
+        case ct: xt.ClassType => xt.Super(ct)
+        // @romac - TODO: case lct: xt.LocalClassType => xt.Super(lct.toClassType)
+        case _ => outOfSubsetError(s, s"Invalid usage of `super`")
+      }
+
     case Apply(Apply(
       TypeApply(Select(Apply(ExSymbol("scala", "Predef$", s), Seq(lhs)), ExNamed("updated")), _),
       Seq(index, value)
@@ -1242,6 +1253,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else                xt.BVWideningCast(extractTree(expr), newType)
 
     case ExCall(rec, sym, tps, args) => rec match {
+      case Some(Select(rec @ Super(_, _), m)) if (sym is Abstract) && m != CONSTRUCTOR =>
+        outOfSubsetError(tr.pos, "Cannot issue a super call to an abstract method.")
+
       // Case object fields and methods are treated differently by dotty (same as scalac) for some
       // reason so we need a special extractor here.
       case None if (sym.owner is ModuleClass) && (sym.owner is Case) =>
@@ -1586,6 +1600,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tt @ ThisType(tr) =>
       extractType(tr)
 
+    case st @ SuperType(thisTpe, superTpe) =>
+      extractType(superTpe)
+
     case RefinedType(p, name, tpe) =>
       val idx = p.classSymbol.typeParams.indexWhere(_.name == name)
       (extractType(p), idx) match {
@@ -1608,6 +1625,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => extractType(tp)
     case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => extractType(tp)
+    case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+    case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+
     case ot: OrType => extractType(ot.join)
 
     case pp @ TypeParamRef(binder, num) =>
