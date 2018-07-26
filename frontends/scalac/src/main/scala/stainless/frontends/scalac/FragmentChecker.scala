@@ -84,6 +84,14 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (field.symbol.hasAnnotation(ghostAnnotation))
             sym.addAnnotation(ghostAnnotation)
         case _ =>
+      } else if (sym.isSetter && sym.hasAnnotation(ghostAnnotation)) {
+        // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
+        // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
+        sym.removeAnnotation(ghostAnnotation)
+        sym.info.params.head.addAnnotation(ghostAnnotation)
+      } else if (sym.isModuleOrModuleClass && sym.companionClass.hasAnnotation(ghostAnnotation)) {
+        sym.addAnnotation(ghostAnnotation)
+        sym.moduleClass.addAnnotation(ghostAnnotation)
       }
     }
 
@@ -112,7 +120,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           super.traverse(tree)
 
         case m: MemberDef  =>
-          if (m.symbol.isSynthetic)
+          if (m.symbol.isSynthetic || m.symbol.isAccessor)
             propagateGhostAnnotation(m)
 
           // we consider some synthetic methods as being inside ghost but don't auto-annotate as such because we
@@ -123,14 +131,14 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           else
             super.traverse(m)
 
-        case f @ Apply(fun, args) if fun.symbol.hasAnnotation(ghostAnnotation) =>
-          traverse(fun)
-          withinGhostContext(traverseTrees(args))
-
         case CaseDef(pat, guard, body) =>
           withinPatternContext(traverse(pat))
           traverse(guard)
           traverse(body)
+
+        case f @ Apply(fun, args) if fun.symbol.hasAnnotation(ghostAnnotation) =>
+          traverse(fun)
+          withinGhostContext(traverseTrees(args))
 
         case Apply(fun, args) if patternContext =>
           super.traverse(fun)
