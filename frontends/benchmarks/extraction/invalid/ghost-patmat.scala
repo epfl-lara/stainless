@@ -1,3 +1,5 @@
+package ghost.patmat
+
 import stainless.lang._
 import stainless.annotation.ghost
 
@@ -5,7 +7,7 @@ sealed trait GhostList
 case class GhostCons(@ghost val head: BigInt, val tail: GhostList) extends GhostList
 case class GhostNil() extends GhostList
 
-object GhostMethods {
+object GhostPatmat {
 
   def patmatch(): Unit = {
     val x = GhostCons(BigInt(10), GhostCons(BigInt(2), GhostNil()))

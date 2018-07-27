@@ -1,3 +1,5 @@
+package ghost.methods
+
 import stainless.lang._
 import stainless.annotation.ghost
 
