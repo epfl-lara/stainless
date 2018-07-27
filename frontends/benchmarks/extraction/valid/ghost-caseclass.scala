@@ -1,3 +1,5 @@
+package ghost.caseclass
+
 import stainless.lang._
 import stainless.annotation.ghost
 
