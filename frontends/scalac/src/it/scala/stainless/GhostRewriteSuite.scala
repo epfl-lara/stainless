@@ -22,8 +22,9 @@ class GhostRewriteSuite extends FunSpec {
 
   class CheckingGlobal(settings: Settings) extends Global(settings, reporter) {
 
+    private val ctx: inox.Context = stainless.TestContext.empty
 
-    override def loadPlugins() = List(new StainlessPlugin(this))
+    override def loadPlugins() = List(new StainlessPlugin(this, ctx))
 
     class GhostChecks extends Traverser {
       val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
