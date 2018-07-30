@@ -13,6 +13,8 @@ package object proof {
   @library
   case class ProofOps(prop: Boolean) {
     def because(proof: Boolean): Boolean = proof && prop
+
+    @ghost
     def neverHolds: Boolean = {
       require(!prop)
       !prop
@@ -29,7 +31,7 @@ package object proof {
   def by(proof: Boolean)(prop: Boolean): Boolean =
     proof && prop
 
-  @library
+  @library @ghost
   def check(prop: Boolean): Boolean = {
     require(prop)
     prop
