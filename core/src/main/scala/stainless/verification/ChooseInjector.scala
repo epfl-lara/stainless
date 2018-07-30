@@ -33,6 +33,9 @@ trait ChooseInjector extends inox.ast.SymbolTransformer {
               cse => cse.copy(rhs = injectChooses(cse.rhs)).copiedFrom(cse)
             }).copiedFrom(me)
 
+          case let @ Let(x, v, b) =>
+            Let(x, v, injectChooses(b)).copiedFrom(let)
+
           case _ => e
         }
 

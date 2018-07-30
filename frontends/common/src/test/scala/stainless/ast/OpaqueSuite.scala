@@ -38,7 +38,7 @@ class OpaqueSuite extends FunSuite with InputUtils {
     import program.trees._
     import program.trees.dsl._
 
-    val encoded = inox.ast.ProgramEncoder(program)(verification.ChooseInjector(program)).targetProgram
+    val encoded = chooses.targetProgram
     val factory = solvers.SolverFactory(encoded, ctx)
 
     val fd = encoded.lookup[FunDef]("Opaque.test")
