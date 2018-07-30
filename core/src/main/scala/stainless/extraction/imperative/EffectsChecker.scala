@@ -161,8 +161,36 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }(fd.fullBody)
 
     def checkPurity(fd: FunAbstraction): Unit = {
-      if (fd.flags.exists(_.name == "pure") && !effects(fd.fullBody).isEmpty)
+      val effs = effects(fd.fullBody)
+
+      if (isPure(fd) && !effs.isEmpty)
         throw ImperativeEliminationException(fd, s"Function marked @pure cannot have side-effects")
+
+      if (isGhost(fd) && effs.exists(eff => !validGhostEffects(eff)))
+        throw ImperativeEliminationException(fd, s"Ghost function cannot have effect on non-ghost state")
+    }
+
+    def isPure(fd: FunAbstraction): Boolean = fd.flags.contains(IsPure)
+    def isGhost(fd: FunAbstraction): Boolean = fd.flags.contains(Ghost)
+
+    def validGhostEffects(eff: Effect) = eff match {
+      case Effect(rec, target) => isGhostTarget(rec, target.path)
+    }
+
+    def isGhostTarget(rec: Expr, path: Seq[Accessor]): Boolean = {
+      def go(expr: Expr, path: Seq[Accessor]): Boolean = path match {
+        case FieldAccessor(selector) +: rest =>
+          val tpe @ ADTType(_, _) = expr.getType(symbols)
+          val field = tpe.getField(selector).get
+          field.flags.contains(Ghost) && go(ADTSelector(expr, selector), rest)
+
+        case ArrayAccessor(index) +: rest =>
+          go(ArraySelect(expr, index), rest)
+
+        case Seq() => true
+      }
+
+      go(rec, path)
     }
 
     /* A fresh expression is an expression that is newly created

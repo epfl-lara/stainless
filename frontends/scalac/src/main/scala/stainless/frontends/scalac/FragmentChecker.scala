@@ -101,10 +101,19 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
      * if they touch ghost code
      */
     private def effectivelyGhost(sym: Symbol): Boolean = {
-      (sym.isSynthetic
-        && (
-          (sym.owner.isCaseClass && (sym.name == nme.equals_ || (sym.name == nme.productElement)))
-          || (sym.owner.companionClass.isCaseClass && sym.name == nme.unapply)
+      sym.isSynthetic &&
+      (
+        (
+          sym.owner.isCaseClass &&
+          (
+            sym.name == nme.equals_ ||
+            sym.name == nme.productElement ||
+            sym.name == nme.hashCode_
+          )
+        ) ||
+        (
+          sym.owner.companionClass.isCaseClass &&
+          sym.name == nme.unapply
         )
       )
     }
