@@ -47,6 +47,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[ArrayType](138),
 
       // Stainless Flags
+      classSerializer[Ghost.type]      (147),
       classSerializer[Extern.type]     (139),
       classSerializer[Opaque.type]     (140),
       classSerializer[Unchecked.type]  (141),

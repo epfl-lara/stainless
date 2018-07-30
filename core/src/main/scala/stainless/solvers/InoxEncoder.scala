@@ -19,7 +19,7 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.symbols._
 
     def keepFlag(flag: Flag): Boolean = flag match {
-      case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private => false
+      case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Ghost => false
       case Derived(_) | IsField(_) | IsUnapply(_, _) => false
       case _ => true
     }
@@ -169,7 +169,9 @@ trait InoxEncoder extends ProgramEncoder {
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(flags = vd.flags.filterNot(_ == s.Unchecked)).copiedFrom(vd))
+      super.transform(vd.copy(
+        flags = vd.flags.filterNot(f => f == s.Unchecked || f == s.Ghost)
+      ).copiedFrom(vd))
     }
   }
 
