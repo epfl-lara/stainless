@@ -350,7 +350,7 @@ trait ASTExtractors {
           case _ => None
         }
 
-        optCall.map { case (rec, sym, tps, args) => (rec.filterNot(_.symbol is Module), sym, tps, args) }
+        optCall.map { case (rec, sym, tps, args) => (rec.filterNot(r => (r.symbol is Module) && !(r.symbol is Case)), sym, tps, args) }
       }
     }
 
@@ -572,11 +572,11 @@ trait ASTExtractors {
     object ExBecause {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case ExCall(Some(rec),
-          ExSymbol("stainless", "proof", "package$", "ProofOps", "because"),
+          ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps", "because"),
           Seq(), Seq(proof)
         ) =>
           def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
-            case Apply(ExSymbol("stainless", "proof", "package$", "ProofOps$", "apply"), Seq(body)) => Some(body)
+            case Apply(ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps$", "apply"), Seq(body)) => Some(body)
             case Block(Seq(v @ ValDef(_, _, _)), e) => extract(e).filter(_.symbol == v.symbol).map(_ => v.rhs)
             case Inlined(_, members, last) => extract(Block(members, last))
             case _ => None

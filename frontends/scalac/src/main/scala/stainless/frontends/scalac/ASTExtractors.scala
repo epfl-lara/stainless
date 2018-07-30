@@ -238,8 +238,9 @@ trait ASTExtractors {
     /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause.*/
     object ExBecauseExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(Select(Apply(ExSelected("stainless", "proof", "package", "boolean2ProofOps"), body :: Nil), ExNamed("because")), proof :: Nil) =>
-          Some((body, proof))
+        case Apply(Select(
+          Apply(ExSelected("stainless", "proof" | "equations", "package", "boolean2ProofOps"), body :: Nil),
+          ExNamed("because")), proof :: Nil) => Some((body, proof))
         case _ => None
        }
     }
@@ -1121,7 +1122,7 @@ trait ASTExtractors {
         }
 
         res.map { case (rec, sym, tps, args) =>
-          val newRec = rec.filter(r => r.symbol == null || (!r.symbol.isModule && !r.symbol.isModuleClass))
+          val newRec = rec.filter(r => r.symbol == null || !(r.symbol.isModule && !r.symbol.isCase || r.symbol.isModuleClass))
           (newRec, sym, tps, args)
         }
       }
