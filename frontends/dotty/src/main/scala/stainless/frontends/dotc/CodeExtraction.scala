@@ -160,8 +160,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        ((t.symbol is Synthetic) && !(t.symbol is Implicit))
+        annotationsOf(t.symbol).contains(xt.Ignore) ||
+        (t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol))
       ) =>
         // ignore
 
@@ -382,7 +382,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
-      (if (isCopyMethod(sym) || isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set())
+      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
+      (if (isCopyMethod(sym)) Set(xt.Synthetic) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)

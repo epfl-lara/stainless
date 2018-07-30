@@ -326,7 +326,10 @@ trait CodeExtraction extends ASTExtractors {
       case EmptyTree =>
         // ignore
 
-      case t if annotationsOf(t.symbol) contains xt.Ignore =>
+      case t if (
+        annotationsOf(t.symbol).contains(xt.Ignore) ||
+        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
+      ) =>
         // ignore
 
       case ExRequiredExpression(body) =>
@@ -444,7 +447,8 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym) ++
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
-      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
+      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
+      (if (isCopyMethod(sym)) Set(xt.Synthetic) else Set())
 
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {
