@@ -8,10 +8,9 @@ import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
 import inox.DebugSection
 import stainless.frontend.CallBack
 
-class StainlessPlugin(
-  override val global: Global,
+class StainlessPlugin(override val global: Global) extends Plugin {
   val stainlessContext: inox.Context = inox.Context.empty
-) extends Plugin {
+
   override val name: String = "stainless-plugin"
   override val description: String = "stainless scala compiler plugin"
   override val components: List[PluginComponent] = List(
