@@ -5,22 +5,27 @@ import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
-import inox.{Context => InoxContext, DefaultReporter => InoxDefaultReporter}
 import inox.DebugSection
 import stainless.frontend.CallBack
 
 class StainlessPlugin(override val global: Global) extends Plugin {
+  val stainlessContext: inox.Context = inox.Context.empty
+
   override val name: String = "stainless-plugin"
   override val description: String = "stainless scala compiler plugin"
-  override val components: List[PluginComponent] = {
-    List(new StainlessPluginComponent(global))
-  }
+  override val components: List[PluginComponent] = List(
+    new StainlessPluginComponent(global, stainlessContext),
+    new GhostPluginComponent(global)
+  )
 }
 
-class StainlessPluginComponent(val global: Global) extends PluginComponent with StainlessExtraction {
+class StainlessPluginComponent(
+  val global: Global,
+  val stainlessContext: inox.Context = inox.Context.empty
+) extends PluginComponent with StainlessExtraction {
   override implicit val ctx: inox.Context = {
     val adapter = new ReporterAdapter(global.reporter, Set())
-    InoxContext.empty.copy(reporter = adapter)
+    stainlessContext.copy(reporter = adapter)
   }
   override protected val callback: CallBack = stainless.frontend.getStainlessCallBack(ctx)
   override protected val cache: SymbolMapping = new SymbolMapping
@@ -31,7 +36,12 @@ class StainlessPluginComponent(val global: Global) extends PluginComponent with 
   override val runsRightAfter = Some("typer")
 }
 
-class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxDefaultReporter(debugSections) {
+class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
+  override val runsAfter = List[String]("pickler")
+}
+
+
+class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.DefaultReporter(debugSections) {
   // FIXME: Mapping of stainless -> scalac positions
   override def emit(msg: Message): Unit = {
     // FIXME: Reporting the message through the inox reporter shouldn't be needed. But without it the compilation error is

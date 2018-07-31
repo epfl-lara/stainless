@@ -8,14 +8,19 @@ import scala.language.implicitConversions
 package object lang {
   import stainless.proof._
 
+  @inline @library
+  def ghost[A](@ghost value: A): Unit = ()
+
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
+    // @ghost
     def holds : Boolean = {
       underlying
     } ensuring {
       (res: Boolean) => res
     }
 
+    // @ghost
     def holds(becauseOfThat: Boolean) = {
       underlying
     } ensuring {
