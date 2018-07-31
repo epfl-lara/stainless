@@ -168,7 +168,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case vd @ ValDef(_, _, _) if vd.symbol is Module =>
         // ignore
 
-      case t @ ExSymbol("stainless", "annotation", "package$", "ignore") if t.isInstanceOf[tpd.TypeDef] =>
+      case t @ ExSymbol("stainless", "annotation", "ignore") if t.isInstanceOf[tpd.TypeDef] =>
         // don't extract the `ignore` annotation class
 
       case i @ Import(_, _) =>
