@@ -383,7 +383,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
       (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
-      (if (isCopyMethod(sym)) Set(xt.Synthetic) else Set())
+      (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Annotation("specialMethod", Seq("copy"))) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)

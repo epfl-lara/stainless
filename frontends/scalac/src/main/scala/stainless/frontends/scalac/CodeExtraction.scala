@@ -448,7 +448,7 @@ trait CodeExtraction extends ASTExtractors {
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
       (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
-      (if (isCopyMethod(sym)) Set(xt.Synthetic) else Set())
+      (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Annotation("specialMethod", Seq("copy"))) else Set())
 
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {

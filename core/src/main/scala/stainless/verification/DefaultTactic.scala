@@ -90,6 +90,17 @@ trait DefaultTactic extends Tactic {
     }
   }
 
+  object CopyMethodInvocationWithInv {
+    val copyMethod = Annotation("specialMethod", Seq("copy"))
+
+    def unapply(expr: Expr): Option[(FunctionInvocation, TypedFunDef)] = (expr, expr.getType) match {
+      case (fi: FunctionInvocation, tpe: ADTType) if fi.tfd.flags.contains(copyMethod) && tpe.getSort.hasInvariant =>
+        Some((fi, tpe.getSort.invariant.get))
+      case _ =>
+        None
+    }
+  }
+
   def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
     // We don't collect preconditions here, because these are handled by generatePreconditions
     collectForConditions {
@@ -123,6 +134,10 @@ trait DefaultTactic extends Tactic {
           val condition = path implies Not(Forall(Seq(res), Not(pred)))
           VC(condition, id, VCKind.Choose, false).setPos(c)
         }
+
+      case (c @ CopyMethodInvocationWithInv(fi, inv), path) =>
+        val condition = path implies FunctionInvocation(inv.id, fi.tps, Seq(fi))
+        VC(condition, id, VCKind.AdtInvariant(inv.id), false).setPos(c)
 
       case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
         val invId = a.getConstructor.sort.invariant.get.id
