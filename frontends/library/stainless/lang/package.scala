@@ -13,12 +13,14 @@ package object lang {
 
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
+    // @ghost
     def holds : Boolean = {
       underlying
     } ensuring {
       (res: Boolean) => res
     }
 
+    // @ghost
     def holds(becauseOfThat: Boolean) = {
       underlying
     } ensuring {
