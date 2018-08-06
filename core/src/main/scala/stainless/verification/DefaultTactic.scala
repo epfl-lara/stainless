@@ -137,7 +137,7 @@ trait DefaultTactic extends Tactic {
 
       case (c @ CopyMethodInvocationWithInv(fi, inv), path) =>
         val condition = path implies FunctionInvocation(inv.id, fi.tps, Seq(fi))
-        VC(condition, id, VCKind.AdtInvariant(inv.id), false).setPos(c)
+        VC(condition, id, VCKind.AdtInvariant(inv.id, copy = true), false).setPos(c)
 
       case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
         val invId = a.getConstructor.sort.invariant.get.id
