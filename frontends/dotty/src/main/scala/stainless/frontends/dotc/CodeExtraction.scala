@@ -382,7 +382,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
-      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
+      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline, xt.Annotation("specialMethod", Seq("defaultGetter"))) else Set()) ++
       (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Annotation("specialMethod", Seq("copy"))) else Set())
 
     if (sym.name == nme.unapply) {
@@ -406,8 +406,15 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     //  reporter.warning(finalBody.getPos, "External function could be extracted as Leon tree: "+finalBody)
     //}
 
+    // We need to uncheck the body of `copy` methods, as they would otherwise
+    // yield an invalid VC if the class has an invariant. Such invariants are
+    // instead checked at use site.
+    val uncheckBody = isCopyMethod(sym)
+
     val fullBody = if (fctx.isExtern) {
       xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(rhs.pos))
+    } else if (uncheckBody) {
+      xt.annotated(finalBody, xt.Unchecked)
     } else {
       finalBody
     }

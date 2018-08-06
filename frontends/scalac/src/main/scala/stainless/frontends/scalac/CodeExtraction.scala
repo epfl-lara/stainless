@@ -447,7 +447,7 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym) ++
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
-      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
+      (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline, xt.Annotation("specialMethod", Seq("defaultGetter"))) else Set()) ++
       (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Annotation("specialMethod", Seq("copy"))) else Set())
 
     if (sym.name == nme.unapply) {
@@ -483,8 +483,15 @@ trait CodeExtraction extends ASTExtractors {
       xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
     }
 
+    // We need to uncheck the body of `copy` methods, as they would otherwise
+    // yield an invalid VC if the class has an invariant. Such invariants are
+    // instead checked at use site.
+    val uncheckBody = isCopyMethod(sym)
+
     val fullBody = if (fctx.isExtern) {
       xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(body.pos))
+    } else if (uncheckBody) {
+      xt.annotated(finalBody, xt.Unchecked)
     } else {
       finalBody
     }
