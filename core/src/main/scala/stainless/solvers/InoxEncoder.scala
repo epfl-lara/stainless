@@ -22,23 +22,10 @@ trait InoxEncoder extends ProgramEncoder {
       .withSorts(sourceProgram.symbols.sorts.values.toSeq.map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
         .map(fd => fd.copy(flags = fd.flags.filter {
-          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) => false
+          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval | Extern | Opaque => false
           case _ => true
         }))
-        .map { fd =>
-          if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
-            val Lambda(Seq(vd), post) = fd.postOrTrue
-            encoder.transform(fd.copy(fullBody = fd.precondition match {
-              case Some(pre) =>
-                Require(pre, Choose(vd, post))
-
-              case None =>
-                Choose(vd, post)
-            }, flags = fd.flags.filterNot(f => f == Extern || f == Opaque)))
-          } else {
-            encoder.transform(fd)
-          }
-        }))
+        .map(encoder.transform)))
   }
 
   import t.dsl._

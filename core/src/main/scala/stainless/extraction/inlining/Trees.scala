@@ -10,7 +10,7 @@ trait Trees extends extraction.Trees { self =>
   case object InlineOnce extends Flag("inlineOnce", Seq())
   case object Synthetic extends Flag("synthetic", Seq())
 
-  override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("inline", Seq()) => Inline
     case ("inlineOnce", Seq()) => InlineOnce
     case _ => super.extractFlag(name, args)

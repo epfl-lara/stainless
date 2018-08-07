@@ -4,7 +4,7 @@ package stainless
 package evaluators
 
 trait EvaluatorAnalysis extends AbstractAnalysis {
-  import EvaluatorComponent.Result
+  import EvaluatorRun.Result
   import EvaluatorReport.Record
 
   val program: StainlessProgram
@@ -13,11 +13,11 @@ trait EvaluatorAnalysis extends AbstractAnalysis {
 
   private lazy val records = results map { case Result(fd, status, time) =>
     val textStatus = status match {
-      case EvaluatorComponent.BodyFailed(error)       => EvaluatorReport.BodyFailed(error)
-      case EvaluatorComponent.PostFailed(body, error) => EvaluatorReport.PostFailed(body.toString, error)
-      case EvaluatorComponent.PostInvalid(body)       => EvaluatorReport.PostInvalid(body.toString)
-      case EvaluatorComponent.PostHeld(body)          => EvaluatorReport.PostHeld(body.toString)
-      case EvaluatorComponent.NoPost(body)            => EvaluatorReport.NoPost(body.toString)
+      case EvaluatorRun.BodyFailed(error)       => EvaluatorReport.BodyFailed(error)
+      case EvaluatorRun.PostFailed(body, error) => EvaluatorReport.PostFailed(body.toString, error)
+      case EvaluatorRun.PostInvalid(body)       => EvaluatorReport.PostInvalid(body.toString)
+      case EvaluatorRun.PostHeld(body)          => EvaluatorReport.PostHeld(body.toString)
+      case EvaluatorRun.NoPost(body)            => EvaluatorReport.NoPost(body.toString)
     }
     Record(fd.id, fd.getPos, textStatus, time)
   }

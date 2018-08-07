@@ -17,25 +17,15 @@ package object oo {
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
-  object adts extends AdtSpecialization {
-    val s: trees.type = trees
-    val t: trees.type = trees
+  def extractor(implicit ctx: inox.Context) = {
+    val lowering = ExtractionPipeline(new CheckingTransformer {
+      override val s: trees.type = trees
+      override val t: imperative.trees.type = imperative.trees
+    })
+
+    AdtSpecialization(trees, trees) andThen
+    RefinementLifting(trees, trees) andThen
+    TypeEncoding(trees, trees)      andThen
+    lowering
   }
-
-  object refinements extends RefinementLifting {
-    val s: trees.type = trees
-    val t: trees.type = trees
-  }
-
-  object encoding extends CoqTypeEncoding {
-    val s: trees.type = trees
-    val t: trees.type = trees
-  }
-
-  val checker = inox.ast.SymbolTransformer(new CheckingTransformer {
-    val s: trees.type = trees
-    val t: holes.trees.type = holes.trees
-  })
-
-  val extractor = adts andThen refinements andThen encoding andThen checker
 }

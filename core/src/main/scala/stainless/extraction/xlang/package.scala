@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object xlang {
 
   object trees extends xlang.Trees with oo.ClassSymbols {
@@ -17,31 +19,34 @@ package object xlang {
 
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from
     * these trees to `oo.Trees` simply consists in an identity mapping. */
-  object extractor extends oo.SimpleSymbolTransformer {
-    val s: trees.type = trees
-    val t: methods.trees.type = methods.trees
+  def extractor(implicit ctx: inox.Context) = {
+    val lowering: ExtractionPipeline {
+      val s: trees.type
+      val t: methods.trees.type
+    } = new oo.SimplePhase { self =>
+      override val s: trees.type = trees
+      override val t: methods.trees.type = methods.trees
+      override val context = ctx
 
-    object transformer extends ast.TreeTransformer {
-      val s: trees.type = trees
-      val t: methods.trees.type = methods.trees
+      override protected type TransformerContext = identity.type
+      override protected def getContext(symbols: s.Symbols) = identity
+      protected final object identity extends oo.TreeTransformer {
+        override val s: self.s.type = self.s
+        override val t: self.t.type = self.t
+      }
+
+      override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
+        transformer.transform(fd.copy(flags = fd.flags.filter { case s.Ignore => false case _ => true }))
+
+      override protected def extractSort(transformer: TransformerContext, sort: s.ADTSort): t.ADTSort =
+        transformer.transform(sort.copy(flags = sort.flags filterNot (_ == s.Ignore)))
+
+      override protected def extractClass(transformer: TransformerContext, cd: s.ClassDef): t.ClassDef =
+        transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 
-    def transformFunction(fd: s.FunDef): t.FunDef = transformer.transform(fd.copy(
-      flags = fd.flags.filter {
-        case s.Ignore => false
-        case _ => true
-      }))
-
-    def transformSort(sort: s.ADTSort): t.ADTSort = transformer.transform(sort.copy(
-      flags = sort.flags filterNot (_ == s.Ignore)
-    ))
-
-    def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
-      cd.id,
-      cd.tparams.map(tdef => transformer.transform(tdef)),
-      cd.parents.map(ct => transformer.transform(ct).asInstanceOf[t.ClassType]),
-      cd.fields.map(vd => transformer.transform(vd)),
-      cd.flags filterNot (_ == s.Ignore) map transformer.transform
-    ).copiedFrom(cd)
+    TreeSanitizer(trees) andThen
+    PartialFunctions(trees) andThen
+    lowering
   }
 }

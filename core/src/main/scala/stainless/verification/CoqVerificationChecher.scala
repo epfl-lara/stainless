@@ -12,6 +12,8 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
+import scala.language.existentials
+
 object DebugSectionCoq extends inox.DebugSection("coq")
 
 trait CoqVerificationChecker { self =>
@@ -88,7 +90,7 @@ trait CoqVerificationChecker { self =>
           case CoqStatus.ExternalBug => VCStatus.ValidFromCache  //TODO just to signal, maybe assumed valid or sg like that, right now it'll do
         }
 
-        case Failure(u: Unsupported) =>
+        case Failure(u: inox.Unsupported) =>
           reporter.warning(u.getMessage)
           VCStatus.Unsupported
 

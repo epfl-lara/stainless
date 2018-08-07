@@ -4,7 +4,7 @@ package stainless
 package extraction
 
 package object inlining {
-  
+
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
@@ -14,8 +14,5 @@ package object inlining {
     object printer extends Printer { val trees: inlining.trees.type = inlining.trees }
   }
 
-  object extractor extends FunctionInlining {
-    val s: trees.type = trees
-    val t: extraction.trees.type = extraction.trees
-  }
+  def extractor(implicit ctx: inox.Context) = FunctionInlining(trees, extraction.trees)
 }

@@ -410,7 +410,7 @@ trait CompilationUnit extends CodeGeneration {
 
   def compileExpression(e: Expr, args: Seq[ValDef]): CompiledExpression = {
     if (e.getType == Untyped) {
-      throw new Unsupported(e, s"Cannot compile untyped expression.")
+      throw new UnsupportedTree(e, s"Cannot compile untyped expression.")
     }
 
     val id = exprCounter.nextGlobal

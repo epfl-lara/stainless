@@ -19,6 +19,8 @@ trait ExprOps extends inox.ast.ExprOps {
     def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Specification
 
     final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
+
+    final def foreach(f: Expr => Unit): Unit = f(expr)
   }
 
   /** Precondition contract that corresponds to [[Expressions.Require]]. */

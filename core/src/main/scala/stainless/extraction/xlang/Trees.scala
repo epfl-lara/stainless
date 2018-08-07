@@ -8,7 +8,7 @@ trait Trees extends methods.Trees { self =>
 
   case object Ignore extends Flag("ignore", Seq.empty)
 
-  override def extractFlag(name: String, args: Seq[Any]): Flag = (name, args) match {
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("ignore", Seq()) => Ignore
     case ("extern", Seq()) => Extern
     case _ => super.extractFlag(name, args)

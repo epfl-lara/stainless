@@ -8,7 +8,7 @@ import java.nio.file.{ Files, StandardCopyOption }
 
 /** A Frontend factory which takes as input: context + compiler arguments + callback */
 trait FrontendFactory {
-  def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: MasterCallBack): Frontend
+  def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend
 
   protected val extraCompilerArguments: Seq[String] = Nil
   protected val libraryPaths: Seq[String]

@@ -8,16 +8,27 @@ import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
 
-import io.circe.Json
+import io.circe._
+import io.circe.syntax._
 
 import java.io.File
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
-trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
+class StainlessCallBack(components: Seq[Component])(override implicit val context: inox.Context)
+  extends CallBack with CheckFilter { self =>
+
+  protected final override val trees = extraction.xlang.trees
+  protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
+
   import context.{ options, reporter }
 
+  private[this] val runs = components.map(_.run(pipeline))
+
   private implicit val debugSection = DebugSectionFrontend
+
+  /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
+  protected val cacheSubDirectory: String = "stainless"
 
   /******************* Public Interface: Override CallBack ***************************************/
 
@@ -28,8 +39,6 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
       loadCaches()
       firstCycle = false
     }
-
-    onCycleBegin()
   }
 
   final override def apply(file: String, unit: xt.UnitDef,
@@ -39,7 +48,11 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
 
     // Update our state with the new data, producing new symbols through the registry.
-    recentIdentifiers ++= (classes map { _.id }) ++ (functions map { _.id })
+    this.synchronized {
+      recentIdentifiers ++= (classes map { _.id }) ++ (functions map { _.id })
+      toProcess ++= functions map { _.id }
+    }
+
     val symss = registry.update(classes, functions)
     processSymbols(symss)
   }
@@ -52,6 +65,7 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
 
     if (report != null) report = report.filter(recentIdentifiers.toSet)
     recentIdentifiers.clear()
+    toProcess.clear()
   }
 
   final override def stop(): Unit = {
@@ -82,29 +96,49 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
     }
   }
 
-  // See assumption/requirements in [[CallBack]]
-  final override def getReport: Option[Report] = Option(report)
+  protected trait RunReport { val run: ComponentRun; val report: run.component.Report }
+  protected def RunReport(r: ComponentRun)(re: r.component.Report): RunReport { val run: r.type; val report: re.type } =
+    new RunReport { val run: r.type = r; val report: re.type = re }
 
+  protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
+    val name = "stainless"
 
-  /******************* Customisation Points *******************************************************/
+    override def ~(other: Report): Report = Report(
+      (reports ++ other.reports).groupBy(_.run).map {
+        case (run, reports) => RunReport(run)(reports.map(_.report.asInstanceOf[run.component.Report]) reduce (_ ~ _))
+      }.toSeq
+    )
 
-  protected implicit val context: inox.Context
+    override lazy val annotatedRows = reports.flatMap(_.report.annotatedRows: Seq[RecordRow])
 
-  protected type Report <: AbstractReport[Report]
+    override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
 
-  /** Reset state for a new cycle. */
-  protected def onCycleBegin(): Unit
+    override def filter(ids: Set[Identifier]): Report =
+      Report(reports.map(rr => RunReport(rr.run)(rr.report filter ids)))
 
-  /** Produce a report for the given program, in a blocking fashion. */
-  protected def solve(program: Program { val trees: xt.type }): Future[Report]
-
-  protected final override val trees = xt // not customisable as not needed.
-
-  /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
-  protected val cacheSubDirectory: String
+    override lazy val stats: stainless.ReportStats = {
+      val reportStats = reports.map(_.report.stats)
+      ReportStats(
+        reportStats.map(_.total         ).sum,
+        reportStats.map(_.time          ).sum,
+        reportStats.map(_.valid         ).sum,
+        reportStats.map(_.validFromCache).sum,
+        reportStats.map(_.invalid       ).sum,
+        reportStats.map(_.unknown       ).sum)
+    }
+  }
 
   /** Parse a JSON value into a proper Report. We assume this doesn't fail. */
-  protected def parseReportCache(json: Json): Report
+  protected def parseReportCache(json: Json): Report = json.as[Seq[(String, Json)]] match {
+    case Right(jsons) => Report(runs.flatMap { run =>
+      jsons.find(_._1 == run.component.name)
+        .map(p => RunReport(run)(run.parse(p._2)): RunReport)
+    })
+    case Left(error) => throw error
+  }
+
+  // See assumption/requirements in [[CallBack]]
+  final override def getReport: Option[Report] = Option(report)
 
 
   /******************* Internal State *************************************************************/
@@ -114,6 +148,9 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
 
   /** Set of classes/functions seen during the last callback cycle. */
   private val recentIdentifiers = MutableSet[Identifier]()
+
+  /** Set of functions that still need to be processed. */
+  private val toProcess = MutableSet[Identifier]()
 
   private val registry = new Registry {
     override val context = self.context
@@ -169,31 +206,42 @@ trait CallBackWithRegistry extends CallBack with CheckFilter { self =>
   }
 
 
-  private def processSymbols(symss: Iterable[xt.Symbols]): Unit = symss foreach { syms =>
-    // The registry tells us something should be verified in these symbols.
-    val program = inox.Program(extraction.xlang.trees)(syms)
-
-    try {
-      syms.ensureWellFormed
-    } catch {
-      case e: syms.TypeErrorException =>
-        reporter.error(e.pos, e.getMessage)
-        reporter.error(s"The extracted sub-program in not well formed.")
-        reporter.error(s"Symbols are:")
-        reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-        reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-        reporter.fatalError(s"Aborting from CallBackWithRegistry")
+  private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
+    def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
+      !syms.functions(id).flags.exists(_.name == "library") && this.synchronized {
+        val res = toProcess(id)
+        toProcess -= id
+        res
+      }
     }
 
-    reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+    // The registry tells us something should be verified in these symbols.
+    for (syms <- symss; id <- syms.functions.keys if shouldProcess(id, syms)) {
+      val deps = syms.dependencies(id) + id
+      val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
+      val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
 
-    processProgram(program)
+      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
+
+      try {
+        funSyms.ensureWellFormed
+      } catch {
+        case e: funSyms.TypeErrorException =>
+          reporter.error(e.pos, e.getMessage)
+          reporter.error(s"The extracted sub-program in not well formed.")
+          reporter.error(s"Symbols are:")
+          reporter.error(s"functions -> [${funSyms.functions.keySet.toSeq.sorted mkString ", "}]")
+          reporter.error(s"classes   -> [\n  ${funSyms.classes.values mkString "\n  "}\n]")
+          reporter.fatalError(s"Aborting from StainlessCallBack")
+      }
+
+      reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
+
+      // Dispatch a task to the executor service instead of blocking this thread.
+      val componentReports: Seq[Future[RunReport]] =
+        runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
+      val futureReport = Future.sequence(componentReports).map(Report)
+      this.synchronized { tasks += futureReport }
+    }
   }
-
-  private def processProgram(program: Program { val trees: xt.type }): Unit = {
-    // Dispatch a task to the executor service instead of blocking this thread.
-    this.synchronized { tasks += solve(program) }
-  }
-
 }
-

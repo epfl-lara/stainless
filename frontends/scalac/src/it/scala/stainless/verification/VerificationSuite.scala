@@ -25,10 +25,14 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
+
     // Require assume-checked to be turned off
     case "verification/valid/IntSet" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetInv" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
     case "verification/valid/IntSetUnit" => WithContext(ctx.withOpts(inox.solvers.optAssumeChecked(false)))
+
+    // Too slow
+    case "verification/invalid/PartialSplit" => Skip
 
     case _ => super.filter(ctx, name)
   }
@@ -99,6 +103,10 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
+
+    // These tests make CVC4 crash
+    case "verification/valid/PartialCompiler" => Ignore
+    case "verification/valid/PartialKVTrace" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
