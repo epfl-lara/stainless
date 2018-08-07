@@ -20,11 +20,13 @@ trait PartialEvaluation
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  protected class TransformerContext(syms: s.Symbols) extends transformers.PartialEvaluatorWithPC {
+  protected class TransformerContext(syms: s.Symbols) extends transformers.FastPartialEvaluator {
     override val trees: s.type = s
     override implicit val symbols: syms.type = syms
     override val context = self.context
     override val semantics = self.semantics
+
+    override implicit val opts: inox.solvers.PurityOptions = inox.solvers.PurityOptions.assumeChecked
 
     val toPartialEval: Set[Identifier] =
       syms.functions.values.filter(_.flags contains s.PartialEval).map(_.id).toSet
@@ -49,7 +51,7 @@ trait PartialEvaluation
         reporter.debug(s" - Partially evaluating call to '${toEval.mkString(", ")}' in '${fd.id}' at ${fd.getPos}...")
         reporter.debug(s"   Path condition: $path")
         reporter.debug(s"   Before: $fi")
-        val (elapsed, res) = timers.partialeval.runAndGetTime(context.transform(fi, path))
+        val (elapsed, res) = timers.partialeval.runAndGetTime(context.transform(fi, context.CNFPath(path)))
         reporter.debug(s"   After: ${res.get}")
         reporter.debug(s"   Time elapsed: " + "%.4f".format(elapsed.millis.toUnit(SECONDS)) + " seconds\n")
         res.get

@@ -16,8 +16,6 @@ import inox.evaluators.EvaluationResults
 
 import stainless.transformers._
 
-object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
-
 case class PartialEvalError(msg: String) extends Exception(msg)
 
 trait PartialEvaluatorWithPC extends TransformerWithPC { self =>
