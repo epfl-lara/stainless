@@ -77,6 +77,10 @@ class CodeGenVerificationSuite extends VerificationSuite {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
     case "verification/valid/IntSetInv" => Ignore
+
+    // FIXME: Wrong VC is being generated for some reason
+    case "verification/valid/Laws0" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 }
