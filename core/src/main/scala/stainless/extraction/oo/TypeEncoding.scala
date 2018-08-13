@@ -502,7 +502,7 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] def instanceFunction(implicit symbols: s.Symbols): t.FunDef =
-    mkFunDef(instanceID, Unchecked, Uncached)()(_ => (Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
+    mkFunDef(instanceID, Unchecked, Uncached, PartialEval)()(_ => (Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
       case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
         (tp2 is bot) -> E(false),
         (tp2 is top) -> !(tp1 is bot),

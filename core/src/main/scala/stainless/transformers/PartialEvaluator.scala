@@ -37,8 +37,6 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
     case fi @ FunctionInvocation(id, tps, args) if canUnfold(fi.id) && !fi.tfd.fd.flags.contains(Extern) =>
       val (rargs, pargs) = args.map(simplify(_, path)).unzip
 
-      println(s"Attempting to unfold $fi")
-
       unfold(fi, rargs, path) match {
         case Some(unfolded) => simplify(unfolded, path)
         case None => (FunctionInvocation(id, tps, rargs), pargs.foldLeft(true)(_ && _))
@@ -104,7 +102,6 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
 
 }
 
-
 trait FastPartialEvaluator extends PartialEvaluator with inox.transformers.SimplifierWithCNFPath {
   override type Env = CNFPath
   override implicit def pp = CNFPath
@@ -114,8 +111,6 @@ trait SlowPartialEvaluator extends PartialEvaluator { self =>
 
   import trees._
   import symbols.{simplifier => _, _}
-  import exprOps._
-  import dsl._
 
   import context.reporter
 
