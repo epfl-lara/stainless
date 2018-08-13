@@ -55,7 +55,7 @@ trait DatatypeChecker {
         case ADTType(sort.id, _) if !pol => false
         case adt: ADTType if seen(adt) => true
         case adt: ADTType =>
-          adt.getSort.constructors.forall(tc => tc.fieldsTypes.forall(isPositive(_, pol, seen + adt)))
+          adt.getSort.constructors.forall(tc => tc.fields.map(_.tpe).forall(isPositive(_, pol, seen + adt)))
         case FunctionType(from, to) => from.forall(isPositive(_, !pol, seen)) && isPositive(to, pol, seen)
         case NAryType(tps, _) => tps.forall(isPositive(_, pol, seen))
       }

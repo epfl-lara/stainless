@@ -909,7 +909,7 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExForallExpression(contract) =>
       extractTree(contract) match {
-        case l: xt.Lambda => xt.Forall(l.args, l.body).setPos(l)
+        case l: xt.Lambda => xt.Forall(l.params, l.body).setPos(l)
         case pred => extractType(contract) match {
           case xt.FunctionType(from, to) =>
             val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))
