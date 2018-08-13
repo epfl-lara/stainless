@@ -124,9 +124,6 @@ trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type) extends Type
 
-  /** $encodingof `{ vd: vd.tpe | pred }` */
-  case class RefinementType(vd: ValDef, pred: Expr) extends Type
-
 
   /* ========================================
    *              EXTRACTORS
@@ -200,11 +197,6 @@ trait Printer extends imperative.Printer {
     case TypeBounds(lo, hi) =>
       p"_ >: $lo <: $hi"
 
-    case RefinementType(vd, pred) =>
-      p"|{ $vd "
-      ctx.sb.append("|")
-      p"| $pred }"
-
     case tpd: TypeParameterDef =>
       tpd.tp.flags collectFirst { case Variance(v) => v } foreach (if (_) p"+" else p"-")
       p"${tpd.tp}"
@@ -254,18 +246,18 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.ClassConstructor(ct, args) =>
-      (Seq(), Seq(), args, Seq(ct), (_, _, es, tps) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
+      (Seq(), Seq(), args, Seq(ct), Seq(), (_, _, es, tps, _) => t.ClassConstructor(tps.head.asInstanceOf[t.ClassType], es))
 
     case s.ClassSelector(expr, selector) =>
-      (Seq(selector), Seq(), Seq(expr), Seq(), (ids, _, es, _) => t.ClassSelector(es.head, ids.head))
+      (Seq(selector), Seq(), Seq(expr), Seq(), Seq(), (ids, _, es, _, _) => t.ClassSelector(es.head, ids.head))
 
     case s.IsInstanceOf(e, tpe) =>
-      (Seq(), Seq(), Seq(e), Seq(tpe), (_, _, es, tps) => t.IsInstanceOf(es.head, tps.head))
+      (Seq(), Seq(), Seq(e), Seq(tpe), Seq(), (_, _, es, tps, _) => t.IsInstanceOf(es.head, tps.head))
 
     case s.AsInstanceOf(e, tpe) =>
-      (Seq(), Seq(), Seq(e), Seq(tpe), (_, _, es, tps) => t.AsInstanceOf(es.head, tps.head))
+      (Seq(), Seq(), Seq(e), Seq(tpe), Seq(), (_, _, es, tps, _) => t.AsInstanceOf(es.head, tps.head))
 
     case _ => super.deconstruct(e)
   }
@@ -282,63 +274,13 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
     case _ => super.deconstruct(pattern)
   }
 
-  override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
-    case s.ClassType(id, tps) => (Seq(id), tps, Seq(), (ids, tps, _) => t.ClassType(ids.head, tps))
-    case s.AnyType() => (Seq(), Seq(), Seq(), (_, _, _) => t.AnyType())
-    case s.NothingType() => (Seq(), Seq(), Seq(), (_, _, _) => t.NothingType())
-    case s.UnionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.UnionType(tps))
-    case s.IntersectionType(tps) => (Seq(), tps, Seq(), (_, tps, _) => t.IntersectionType(tps))
-    case s.TypeBounds(lo, hi) => (Seq(), Seq(lo, hi), Seq(), (_, tps, _) => t.TypeBounds(tps(0), tps(1)))
-    case s.RefinementType(vd, pred) =>
-      def rec(e: s.Expr): (Seq[Identifier], Seq[s.Type], Seq[s.Flag], (Seq[Identifier], Seq[t.Type], Seq[t.Flag]) => t.Expr) = {
-        val (ids, vs, es, tps, recons) = deconstruct(e)
-        val recEs = es map rec
-        (
-          ids ++ recEs.flatMap(_._1),
-          vs.map(_.tpe) ++ tps ++ recEs.flatMap(_._2),
-          vs.flatMap(_.flags) ++ recEs.flatMap(_._3),
-          (nids, ntps, nflags) => {
-            val (pIds, pesIds) = nids.splitAt(ids.size)
-            var rids = pesIds
-
-            val (vsTps, restTps) = ntps.splitAt(vs.size)
-            val (pTps, pesTps) = restTps.splitAt(tps.size)
-            var rtps = pesTps
-
-            val (vsFlags, restFlags) = nflags.splitAt(vs.map(_.flags.size).sum)
-            var vflags = vsFlags
-            var rflags = restFlags
-
-            val nvs = for ((v, ntpe) <- vs zip vsTps) yield {
-              val (nvflags, rvflags) = vflags.splitAt(v.flags.size)
-              vflags = rvflags
-              t.Variable(v.id, ntpe, nvflags).copiedFrom(v)
-            }
-
-            val nes = for ((eids, etps, eflags, erecons) <- recEs) yield {
-              val (neids, reids) = rids.splitAt(eids.size)
-              rids = reids
-
-              val (netps, retps) = rtps.splitAt(etps.size)
-              rtps = retps
-
-              val (neflags, reflags) = rflags.splitAt(eflags.size)
-              rflags = reflags
-
-              erecons(neids, netps, neflags)
-            }
-            recons(pIds, nvs, nes, pTps).copiedFrom(e)
-          }
-        )
-      }
-
-      val (ids, tps, flags, recons) = rec(pred)
-      (ids, vd.tpe +: tps, vd.flags.toSeq ++ flags, (_, tps, flags) => {
-        val (vflags, pflags) = flags.splitAt(vd.flags.size)
-        val npred = recons(ids, tps.tail, pflags).copiedFrom(pred)
-        t.RefinementType(t.ValDef(vd.id, tps.head, vflags).copiedFrom(vd), npred).copiedFrom(tpe)
-      })
-
+  override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
+    case s.ClassType(id, tps) => (Seq(id), Seq(), Seq(), tps, Seq(), (ids, _, _, tps, _) => t.ClassType(ids.head, tps))
+    case s.AnyType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.AnyType())
+    case s.NothingType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.NothingType())
+    case s.UnionType(tps) => (Seq(), Seq(), Seq(), tps, Seq(), (_, _, _, tps, _) => t.UnionType(tps))
+    case s.IntersectionType(tps) => (Seq(), Seq(), Seq(), tps, Seq(), (_, _, _, tps, _) => t.IntersectionType(tps))
+    case s.TypeBounds(lo, hi) => (Seq(), Seq(), Seq(), Seq(lo, hi), Seq(), (_, _, _, tps, _) => t.TypeBounds(tps(0), tps(1)))
     case _ => super.deconstruct(tpe)
   }
 
@@ -356,13 +298,6 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
 trait TreeOps extends ast.TreeOps { self: Trees =>
 
   trait TreeTraverser extends super.TreeTraverser {
-    override def traverse(tpe: Type): Unit = tpe match {
-      case RefinementType(vd, pred) =>
-        traverse(vd)
-        traverse(pred)
-      case _ => super.traverse(tpe)
-    }
-
     def traverse(cd: ClassDef): Unit = {
       cd.tparams.foreach(traverse)
       cd.parents.foreach(traverse)
@@ -375,12 +310,6 @@ trait TreeOps extends ast.TreeOps { self: Trees =>
 trait TreeTransformer extends ast.TreeTransformer {
   val s: Trees
   val t: Trees
-
-  override def transform(tpe: s.Type): t.Type = tpe match {
-    case s.RefinementType(vd, pred) =>
-      t.RefinementType(transform(vd), transform(pred)).copiedFrom(tpe)
-    case _ => super.transform(tpe)
-  }
 
   def transform(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
     cd.id,

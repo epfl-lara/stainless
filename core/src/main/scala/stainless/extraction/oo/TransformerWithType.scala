@@ -69,7 +69,7 @@ trait TransformerWithType extends TreeTransformer {
       t.IfExpr(transform(cond, s.BooleanType()), transform(thenn, tpe), transform(elze, tpe)).copiedFrom(expr)
     case s.ADT(id, tps, args) =>
       t.ADT(id, tps map transform,
-        (args zip getConstructor(id, tps).fieldsTypes) map (p => transform(p._1, p._2))).copiedFrom(expr)
+        (args zip getConstructor(id, tps).fields.map(_.tpe)) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IsConstructor(e, id) =>
       t.IsConstructor(transform(e), id).copiedFrom(expr)
     case s.ADTSelector(e, sel) =>

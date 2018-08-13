@@ -425,10 +425,10 @@ trait CodeGeneration { self: CompilationUnit =>
           cch.freeze
         }
 
-        val argMapping = lambda.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
+        val argMapping = lambda.params.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
         val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
         val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
-          .withParameters(params ++ l.args).withTypeParameters(tps)
+          .withParameters(params ++ l.params).withTypeParameters(tps)
 
         locally {
           val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")

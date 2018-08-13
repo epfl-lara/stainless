@@ -116,15 +116,15 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.MethodInvocation(rec, id, tps, args) =>
-      (Seq(id), Seq(), rec +: args, tps, (ids, _, es, tps) => t.MethodInvocation(es(0), ids.head, tps, es.tail))
+      (Seq(id), Seq(), rec +: args, tps, Seq(), (ids, _, es, tps, _) => t.MethodInvocation(es(0), ids.head, tps, es.tail))
 
     case s.This(ct) =>
-      (Seq(), Seq(), Seq(), Seq(ct), (_, _, _, tps) => t.This(tps.head.asInstanceOf[t.ClassType]))
+      (Seq(), Seq(), Seq(), Seq(ct), Seq(), (_, _, _, tps, _) => t.This(tps.head.asInstanceOf[t.ClassType]))
 
     case s.Super(ct) =>
-      (Seq(), Seq(), Seq(), Seq(ct), (_, _, _, tps) => t.Super(tps.head.asInstanceOf[t.ClassType]))
+      (Seq(), Seq(), Seq(), Seq(ct), Seq(), (_, _, _, tps, _) => t.Super(tps.head.asInstanceOf[t.ClassType]))
 
     case _ => super.deconstruct(e)
   }

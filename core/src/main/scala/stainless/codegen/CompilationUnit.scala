@@ -319,7 +319,7 @@ trait CompilationUnit extends CodeGeneration {
       // identify case class type of ct
       jvmClassNameToCons(cons.getClass.getName) match {
         case Some(cons) =>
-          val exFields = (fields zip getConstructor(cons.id, adt.tps).fieldsTypes).map {
+          val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.tpe)).map {
             case (e, tpe) => jvmToValue(e, tpe)
           }
           ADT(cons.id, adt.tps, exFields)

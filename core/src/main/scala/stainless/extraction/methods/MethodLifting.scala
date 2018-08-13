@@ -29,7 +29,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
-        val s.ClassType(_, ctps) = symbols.widen(rec.getType(symbols))
+        val s.ClassType(_, ctps) = rec.getType(symbols)
         t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
 
       case _ => super.transform(e)

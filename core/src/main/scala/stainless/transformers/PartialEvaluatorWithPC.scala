@@ -394,7 +394,7 @@ trait PartialEvaluatorWithPC extends TransformerWithPC { self =>
     if (path contains IsConstructor(e, id)) {
       Some(true)
     } else {
-      val adt @ ADTType(_, tps) = widen(e.getType)
+      val adt @ ADTType(_, tps) = e.getType
       val sort = adt.getSort
       val cons = getConstructor(id, tps)
       val alts = (sort.constructors.toSet - cons).map(_.id)
