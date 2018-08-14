@@ -8,7 +8,6 @@ trait Trees extends extraction.Trees { self =>
 
   case object Inline extends Flag("inline", Seq())
   case object InlineOnce extends Flag("inlineOnce", Seq())
-  case object Synthetic extends Flag("synthetic", Seq())
 
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("inline", Seq()) => Inline
@@ -37,7 +36,6 @@ trait TreeDeconstructor extends extraction.TreeDeconstructor {
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.Inline => (Seq(), Seq(), Seq(), (_, _, _) => t.Inline)
     case s.InlineOnce => (Seq(), Seq(), Seq(), (_, _, _) => t.InlineOnce)
-    case s.Synthetic => (Seq(), Seq(), Seq(), (_, _, _) => t.Synthetic)
     case _ => super.deconstruct(f)
   }
 }

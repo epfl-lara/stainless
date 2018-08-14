@@ -18,8 +18,9 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.trees._
     import sourceProgram.symbols._
 
-    def keepFlag(f: Flag): Boolean = f match {
-      case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval | Extern | Opaque => false
+    def keepFlag(flag: Flag): Boolean = flag match {
+      case Unchecked | Synthetic | PartialEval | Extern | Opaque => false
+      case Derived(_) | IsField(_) | IsUnapply(_, _) => false
       case _ => true
     }
 
