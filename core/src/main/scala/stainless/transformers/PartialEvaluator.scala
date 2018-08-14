@@ -52,6 +52,20 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         (Require(rp, rb).copiedFrom(e), opts.assumeChecked)
     }
 
+    case Application(e, es)  =>
+      val (caller, recons): (Expr, Expr => Expr) = simplify(e, path) match {
+        case (Assume(pred, e), _) => (e, assume(pred, _))
+        case (e, _) => (e, expr => expr)
+      }
+
+      path.expand(caller) match {
+        case (l: Lambda) =>
+          simplify(recons(l.withParamSubst(es, l.body)), path)
+        case _ =>
+          val (res, _) = es.map(simplify(_, path)).unzip
+          (application(caller, res), opts.assumeChecked)
+      }
+
     case _ => super.simplify(e, path)
   }
 
@@ -110,30 +124,20 @@ trait FastPartialEvaluator extends PartialEvaluator with inox.transformers.Simpl
 trait SlowPartialEvaluator extends PartialEvaluator { self =>
 
   import trees._
-  import symbols.{simplifier => _, _}
+  import symbols._
 
   import context.reporter
 
-  private[this] lazy val program = inox.Program(trees)(symbols)
-  private[this] lazy val programSemantics = semantics.getSemantics(program)
-  private[this] lazy val solver = programSemantics.getSolver(context).withTimeout(150.millis).toAPI
-  private[this] lazy val simplifier = symbols.simplifier(inox.solvers.PurityOptions.assumeChecked)
+  val program = inox.Program(trees)(symbols)
+  val solver = semantics.getSemantics(program).getSolver(context).withTimeout(150.millis).toAPI
 
   class SlowPath private[SlowPartialEvaluator] (
     val path: Path
   ) extends PathLike[SlowPath] with SolvingPath {
 
     override def implies(cond: Expr): Boolean = {
-      if (cond.getType != BooleanType()) {
-        reporter.error(s"$cond should have type Boolean, found: ${cond.getType}")
-        reporter.error(explainTyping(cond)(PrinterOptions(printUniqueIds = false, symbols = Some(symbols))))
-        assert(cond.getType == BooleanType())
-      }
-
-      simplifier.transform(path implies cond) match {
-        case BooleanLiteral(res) => res
-        case res => solver.solveVALID(res).getOrElse(false)
-      }
+      if (cond.getType != BooleanType()) return false
+      solver.solveVALID(path implies cond).getOrElse(false)
     }
 
     override def merge(that: SlowPath): SlowPath = new SlowPath(path merge that.path)
