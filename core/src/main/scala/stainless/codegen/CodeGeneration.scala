@@ -113,7 +113,10 @@ trait CodeGeneration { self: CompilationUnit =>
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
   }
 
-  def defToJVMName(d: Definition): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(d.id)
+  private def defToJVMName(id: Identifier): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(id)
+  def defToJVMName(sort: ADTSort): String = defToJVMName(sort.id)
+  def defToJVMName(cons: ADTConstructor): String = defToJVMName(cons.id)
+  def defToJVMName(fd: FunDef): String = defToJVMName(fd.id)
 
   private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
   private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
