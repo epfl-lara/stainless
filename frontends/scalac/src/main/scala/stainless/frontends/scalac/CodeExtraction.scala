@@ -313,9 +313,8 @@ trait CodeExtraction extends ASTExtractors {
       val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
                 else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      // @romac: TODO - Once we have @pure, mark as var if not @pure
-      if (sym.accessedOrSelf.isMutable) xt.VarDef(id, tpe, flags).setPos(sym.pos)
-      else xt.ValDef(id, tpe, flags).setPos(sym.pos)
+      // TODO: Once we have it, make it a ValDef if annotated with @pure
+      xt.VarDef(id, tpe, flags).setPos(vd.pos)
     }
 
     val defCtx = tpCtx.withNewVars((symbols zip fields.map(vd => () => vd.toVariable)).toMap)

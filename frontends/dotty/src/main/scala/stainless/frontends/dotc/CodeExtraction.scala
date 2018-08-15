@@ -268,9 +268,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val tpe = if (isIgnored) xt.IntegerType()
                 else stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
 
-      // @romac: TODO - Once we have @pure, mark as var if not @pure
-      if (vdSym.symbol is Mutable) xt.VarDef(id, tpe, flags).setPos(vd.pos)
-      else xt.ValDef(id, tpe, flags).setPos(vd.pos)
+      // TODO: Once we have it, make it a ValDef if annotated with @pure
+      xt.VarDef(id, tpe, flags).setPos(vd.pos)
     }
 
     val defCtx = tpCtx.withNewVars((args.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
