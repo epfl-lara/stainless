@@ -305,7 +305,7 @@ trait CodeExtraction extends ASTExtractors {
     val fields = (symbols zip vds) map { case (sym, vd) =>
       val id = getIdentifier(sym)
       val flags = annotationsOf(sym, ignoreOwner = true)
-      val isIgnored = flags contains xt.Ignore
+      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
 
       // Flags marked @ignore are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value
@@ -313,8 +313,8 @@ trait CodeExtraction extends ASTExtractors {
       val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
                 else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      // TODO: Once we have it, make it a ValDef if annotated with @pure
-      xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      if (sym.accessedOrSelf.isMutable || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(sym.pos)
+      else xt.ValDef(id, tpe, flags).setPos(sym.pos)
     }
 
     val defCtx = tpCtx.withNewVars((symbols zip fields.map(vd => () => vd.toVariable)).toMap)

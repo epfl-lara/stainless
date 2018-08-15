@@ -260,7 +260,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val id = getIdentifier(vdSym)
 
       val flags = annotationsOf(vdSym, ignoreOwner = true)
-      val isIgnored = flags contains xt.Ignore
+      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
 
       // Flags marked @ignore are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value
@@ -268,8 +268,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val tpe = if (isIgnored) xt.IntegerType()
                 else stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
 
-      // TODO: Once we have it, make it a ValDef if annotated with @pure
-      xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      if ((vdSym.symbol is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
     val defCtx = tpCtx.withNewVars((args.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
