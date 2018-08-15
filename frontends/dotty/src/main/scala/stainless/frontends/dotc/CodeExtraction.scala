@@ -383,7 +383,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
       (if (isDefaultGetter(sym)) Set(xt.Synthetic, xt.Inline, xt.Annotation("specialMethod", Seq("defaultGetter"))) else Set()) ++
-      (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Annotation("specialMethod", Seq("copy"))) else Set())
+      (if (isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline, xt.Annotation("specialMethod", Seq("copy"))) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
@@ -402,36 +402,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
     }
 
-    //if (fctx.isExtern && !exists(_.isInstanceOf[NoTree])(finalBody)) {
-    //  reporter.warning(finalBody.getPos, "External function could be extracted as Leon tree: "+finalBody)
-    //}
-
-    // We need to uncheck the body of `copy` methods, as they would otherwise
-    // yield an invalid VC if the class has an invariant. Such invariants are
-    // instead checked at use site.
-    val uncheckBody = isCopyMethod(sym)
-
     val fullBody = if (fctx.isExtern) {
       xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(rhs.pos))
-    } else if (uncheckBody) {
-      xt.annotated(finalBody, xt.Unchecked)
     } else {
       finalBody
     }
 
-    // Post-extraction sanity checks
-
-    val fd = new xt.FunDef(
+    new xt.FunDef(
       id,
       ntparams.map(tp => xt.TypeParameterDef(tp)),
       newParams,
       returnType,
       fullBody,
-      flags.distinct)
-
-    fd.setPos(sym.pos)
-
-    fd
+      flags.distinct
+    ).setPos(sym.pos)
   }
 
   private def typeParamSymbols(tdefs: Seq[tpd.TypeDef]): Seq[Symbol] = tdefs.flatMap(_.tpe match {

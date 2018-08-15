@@ -36,19 +36,21 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
       private def inlineFunctionInvocations(fi: FunctionInvocation): Expr = {
         val (tfd, args) = (fi.tfd, fi.args)
 
+        val isSynthetic = tfd.fd.flags contains Synthetic
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasInlineOnceFlag = tfd.fd.flags contains InlineOnce
 
         def willInline = hasInlineFlag || (hasInlineOnceFlag && !inlinedOnce.contains(tfd.id))
 
-        if (!willInline) {
-          return fi
-        }
+        if (!willInline) return fi
 
-        val body = exprOps.withoutSpecs(tfd.fullBody)
-        val uncheckedBody = body match {
-          case None => NoTree(tfd.returnType)
+        // We need to keep the body as-is for `@synthetic` methods, such as
+        // `copy` or implicit conversions for implicit classes, in order to
+        // later on check that the class invariant is valid.
+        val body = exprOps.withoutSpecs(tfd.fullBody) match {
+          case Some(body) if isSynthetic => body
           case Some(body) => annotated(body, Unchecked)
+          case _ => NoTree(tfd.returnType)
         }
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
@@ -64,7 +66,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
             Let(vd, e, Assume(post, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
         }
 
-        val newBody = addPreconditionAssertion(addPostconditionAssumption(uncheckedBody))
+        val newBody = addPreconditionAssertion(addPostconditionAssumption(body))
         val result = exprOps.freshenLocals {
           (tfd.params zip args).foldRight(newBody: Expr) {
             case ((vd, e), body) => let(vd, e, body)

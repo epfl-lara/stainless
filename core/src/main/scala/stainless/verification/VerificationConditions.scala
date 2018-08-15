@@ -35,7 +35,7 @@ object VCKind {
   case object Choose          extends VCKind("choose satisfiability", "choose")
   case object InvariantSat    extends VCKind("invariant satisfiability", "inv. sat")
   case class  AssertErr(err: String) extends VCKind("body assertion: " + err, "assert.")
-  case class  AdtInvariant(inv: Identifier, copy: Boolean = false) extends VCKind("adt invariant", "adt inv.")
+  case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

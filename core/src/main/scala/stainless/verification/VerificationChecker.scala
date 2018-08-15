@@ -128,30 +128,8 @@ trait VerificationChecker { self =>
   protected def checkAdtInvariantModel(vc: VC, invId: Identifier, model: Model): VCStatus = {
     import inox.evaluators.EvaluationResults._
 
-    object CopyMethodInvocation {
-      val isCopyMethod = Annotation("specialMethod", Seq("copy"))
-      def unapply(expr: Expr): Option[FunctionInvocation] = expr match {
-        case fi: FunctionInvocation if functions(fi.id).flags contains isCopyMethod => Some(fi)
-        case _ => None
-      }
-    }
-
-    // If we are checking the ADT invariant due to an invocation of `copy`,
-    // we need to inline and simplify its invocation, before we can get
-    // our hands on the underlying ADT.
-    val condition = vc.kind match {
-      case VCKind.AdtInvariant(_, true) =>
-        exprOps.postMap {
-          case CopyMethodInvocation(fi) => Some(simplifyExpr(fi.inlined))
-          case _ => None
-        } (vc.condition)
-
-      case _ => vc.condition
-    }
-
-    val Seq((inv, adt, path)) = collectWithPC(condition) {
+    val Seq((inv, adt, path)) = collectWithPC(vc.condition) {
       case (inv @ FunctionInvocation(`invId`, _, Seq(adt: ADT)), path) => (inv, adt, path)
-      case (inv @ FunctionInvocation(`invId`, _, Seq(Annotated(adt: ADT, _))), path) => (inv, adt, path)
     }
 
     def success: VCStatus = {
@@ -250,7 +228,7 @@ trait VerificationChecker { self =>
             VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
 
           case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
-            val VCKind.AdtInvariant(invId, _) = vc.kind
+            val VCKind.AdtInvariant(invId) = vc.kind
             val status = checkAdtInvariantModel(vc, invId, model)
             VCResult(status, s.getResultSolver, Some(time))
 
