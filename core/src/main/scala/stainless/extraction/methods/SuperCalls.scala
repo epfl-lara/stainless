@@ -81,12 +81,11 @@ trait SuperCalls extends oo.CachingPhase
     import s._
     import symbols._
 
-    private def findFirstSuperDef(symbol: Symbol, ct: s.ClassType): Option[(s.FunDef, s.ClassDef)] = {
+    private def findFirstSuperDef(symbol: Symbol, ct: s.ClassType): Option[(SymbolIdentifier, s.ClassDef)] = {
       val cd = classes(ct.id)
       cd.methods(symbols)
         .find(_.symbol == symbol)
-        .map(functions)
-        .map(fd => (fd, cd))
+        .map(sym => (sym, cd))
         .orElse {
           cd.parents.headOption flatMap { ct =>
             findFirstSuperDef(symbol, ct)
@@ -104,8 +103,7 @@ trait SuperCalls extends oo.CachingPhase
         val superRefs = s.exprOps.collect[(Identifier, Identifier)] {
           case s.Super(ct) =>
             val symbol = fd.id.unsafeToSymbolIdentifier.symbol
-            val Some((superFun, superClass)) = findFirstSuperDef(symbol, ct)
-            val superFunId = superFun.id.unsafeToSymbolIdentifier
+            val Some((superFunId, superClass)) = findFirstSuperDef(symbol, ct)
 
             val superSymbol = prefixedSymbol(superClass.id.asString, superFunId.symbol)
             Set(superFunId -> SymbolIdentifier(superSymbol))
@@ -119,9 +117,8 @@ trait SuperCalls extends oo.CachingPhase
     }.toMap
 
     override def transform(e: s.Expr): t.Expr = e match {
-      case s.MethodInvocation(s.Super(ct), id, tps, args) => super.transform {
-        s.MethodInvocation(s.This(ct), superId(id), tps, args)
-      }
+      case s.MethodInvocation(s.Super(ct), id, tps, args) =>
+        super.transform(s.MethodInvocation(s.This(ct), superId(id), tps, args))
 
       case _ => super.transform(e)
     }
