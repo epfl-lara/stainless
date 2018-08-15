@@ -139,16 +139,9 @@ trait SuperCalls extends oo.CachingPhase
         assert(cid.isDefined)
         assert(symbols.classes.contains(cid.get))
 
+        val superFun = s.exprOps.freshenTypeParams(fd.copy(id = dupId), freshenIdentifiers = true)
+
         val cd = symbols.classes(cid.get)
-
-        val freshParams = fd.params map (_.freshen)
-        val freshMap = (fd.params zip freshParams.map(_.toVariable)).toMap
-        val superFun = fd.copy(
-          id = dupId,
-          params = freshParams,
-          fullBody = s.exprOps.replaceFromSymbols(freshMap, fd.fullBody)
-        )
-
         val newBody = s.MethodInvocation(
           s.This(cd.typed(symbols).toType),
           dupId,

@@ -181,4 +181,33 @@ trait ExprOps extends inox.ast.ExprOps {
     }
     specs.foldLeft(newBody)(withSpec)
   }
+
+  /** Freshen the type parameters of the given [[FunDef]].
+    * If `freshenParams` is set to `true`, then the parameters' identifiers
+    * will be freshened as well.
+    */
+  def freshenTypeParams(fd: FunDef, freshenIdentifiers: Boolean = false): FunDef = {
+    val freshTypeParams = fd.tparams map (_.freshen)
+    val freshTypeParamsMap = fd.tparams.map(_.tp).zip(freshTypeParams map (_.tp)).toMap
+
+    def freshenParam(vd: ValDef): ValDef = {
+      val fresh = if (freshenIdentifiers) vd.freshen else vd
+      fresh.copy(tpe = typeOps.instantiateType(vd.tpe, freshTypeParamsMap))
+    }
+
+    val freshParams = fd.params map freshenParam
+    val freshParamsMap = (fd.params zip freshParams.map(_.toVariable)).toMap
+
+    fd.copy(
+      params = freshParams,
+      tparams = freshTypeParams,
+      returnType = typeOps.instantiateType(fd.returnType, freshTypeParamsMap),
+      fullBody = typeOps.instantiateType(
+        exprOps.replaceFromSymbols(freshParamsMap, fd.fullBody),
+        freshTypeParamsMap
+      )
+    )
+  }
+
+
 }
