@@ -56,7 +56,7 @@ package object proof {
       WithProof(x, _ == _, proof, prop)
     }
 
-    def qed: Boolean = { prop }.holds
+    def qed: Boolean = prop
   }
 
   @library

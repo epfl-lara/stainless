@@ -25,7 +25,7 @@ package object equations {
 
   @library
   case class EqEvidence[A](x: A, y: A, evidence: () => Boolean) {
-    require(x == y)
+    require(x == y && evidence())
 
     @inline
     def |(that: EqProof[A]): EqProof[A] = {
@@ -45,7 +45,10 @@ package object equations {
     require(x == y)
 
     @inline
-    def ==|(proof: => Boolean): EqEvidence[A] = EqEvidence(x, y, () => proof)
+    def ==|(proof: => Boolean): EqEvidence[A] = {
+      require(proof)
+      EqEvidence(x, y, () => proof)
+    }
 
     @inline
     def qed: Boolean = (x == y).holds
