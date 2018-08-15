@@ -5,10 +5,10 @@ package extraction
 package xlang
 
 /** Inspect trees, detecting illegal structures. */
-trait TreeSanitizer extends ExtractionPipeline {
-  val s: xlang.Trees
-  val t: s.type
-  import s._
+trait TreeSanitizer {
+
+  val trees: xlang.Trees
+  import trees._
 
   abstract class Visitor extends (FunDef => Unit) {
     def visit(fd: FunDef): Unit = visit(fd.id, fd.fullBody)
@@ -19,13 +19,10 @@ trait TreeSanitizer extends ExtractionPipeline {
   }
 
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
-  override final def extract(symbols: s.Symbols): t.Symbols = {
+  def check(symbols: Symbols): Unit = {
     symbols.functions.values foreach CheckPrecondition
     symbols.functions.values foreach CheckIgnoredFields(symbols)
-    symbols
   }
-
-  override final def invalidate(id: Identifier): Unit = ()
 
   private sealed abstract class Action
   private case object Continue extends Action
@@ -95,7 +92,7 @@ trait TreeSanitizer extends ExtractionPipeline {
               val ignoredFields = tcd.fields.filter(_.flags contains Ignore).map(_.id).mkString(", ")
               throw MissformedStainlessCode(
                 e,
-                s"Cannot build an instance of a class with ignored fields in non-extern context" +
+                s"Cannot build an instance of a class with ignored fields in non-extern context " +
                 s"($ct has ignored fields: $ignoredFields)."
               )
 
@@ -110,12 +107,9 @@ trait TreeSanitizer extends ExtractionPipeline {
 }
 
 object TreeSanitizer {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: trees.type
-    val t: trees.type
-  } = new TreeSanitizer {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  def apply(tr: xlang.Trees)(implicit ctx: inox.Context): TreeSanitizer { val trees: tr.type } = {
+    new TreeSanitizer {
+      override val trees: tr.type = tr
+    }
   }
 }

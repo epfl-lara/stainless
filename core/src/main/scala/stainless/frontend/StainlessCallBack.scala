@@ -225,26 +225,25 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
       val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
 
-      val saneSyms = try {
-        TreeSanitizer(xt).extract(funSyms)
+      try {
+        TreeSanitizer(xt).check(funSyms)
       } catch {
         case e: extraction.MissformedStainlessCode =>
           reportError(e.tree.getPos, e.getMessage, funSyms)
-          funSyms
       }
 
       try {
-        saneSyms.ensureWellFormed
+        funSyms.ensureWellFormed
       } catch {
-        case e: saneSyms.TypeErrorException =>
-          reportError(e.pos, e.getMessage, saneSyms)
+        case e: funSyms.TypeErrorException =>
+          reportError(e.pos, e.getMessage, funSyms)
       }
 
-      reporter.debug(s"Solving program with ${saneSyms.functions.size} functions & ${saneSyms.classes.size} classes")
+      reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
-        runs.map(run => run(id, saneSyms).map(a => RunReport(run)(a.toReport)))
+        runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }
     }

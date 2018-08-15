@@ -98,12 +98,10 @@ trait InputUtils {
     // Ensure the registry yields all classes and functions (unless using a custom filter)
     assert(done)
 
-    val saneSyms = TreeSanitizer(xt) extract syms
+    // Check that extracted symbols are valid
+    TreeSanitizer(xt) check syms
 
-    // val program = inox.Program(xt)(xt.NoSymbols.withClasses(cls).withFunctions(funs))
-    val program = inox.Program(xt)(saneSyms)
-
-    (units.toSeq.sortBy(_.id.name), program)
+    (units.toSeq.sortBy(_.id.name), inox.Program(xt)(syms))
   }
 
 }
