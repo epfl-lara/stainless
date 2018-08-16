@@ -670,6 +670,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case x :: Nil =>
         extractTree(x)(vctx)
 
+      case (x @ Block(_, _)) :: rest =>
+        val re = rec(rest)
+        val (elems, last) = re match {
+          case xt.Block(elems, last) => (elems, last)
+          case e => (Seq(), e)
+        }
+
+        extractTree(x)(vctx) match {
+          case xt.Decreases(m, b) => xt.Decreases(m, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case xt.Require(pre, b) => xt.Require(pre, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case b => xt.Block(b +: elems, last).setPos(x.pos)
+        }
+
       case x :: rest =>
         rec(rest) match {
           case xt.Block(elems, last) =>
