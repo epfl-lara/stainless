@@ -18,18 +18,17 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.trees._
     import sourceProgram.symbols._
 
+    def keepFlag(f: Flag): Boolean = f match {
+      case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval | Extern | Opaque => false
+      case _ => true
+    }
+
     inox.InoxProgram(t.NoSymbols
       .withSorts(sourceProgram.symbols.sorts.values.toSeq
-        .map(sort => sort.copy(flags = sort.flags.filter {
-          case Extern => false
-          case _ => true
-        }))
+        .map(sort => sort.copy(flags = sort.flags.filter(keepFlag)))
         .map(encoder.transform))
       .withFunctions(sourceProgram.symbols.functions.values.toSeq
-        .map(fd => fd.copy(flags = fd.flags.filter {
-          case Derived(_) | IsField(_) | Unchecked | IsUnapply(_, _) | PartialEval | Extern | Opaque => false
-          case _ => true
-        }))
+        .map(fd => fd.copy(flags = fd.flags.filter(keepFlag)))
         .map(encoder.transform)))
   }
 
