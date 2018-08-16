@@ -13,7 +13,10 @@ trait CallGraph extends inox.ast.CallGraph {
     case MatchExpr(_, cses) =>
       cses.flatMap { case MatchCase(pat, _, _) =>
         patternOps.collect[Identifier] {
-          case UnapplyPattern(_, _, id, _, _) => Set(id)
+          case UnapplyPattern(_, _, id, _, _) =>
+            Set(id) ++ symbols.lookupFunction(id).toSeq.flatMap { fd =>
+              fd.flags.collect { case IsUnapply(isEmpty, get) => Seq(isEmpty, get) }.flatten
+            }
           case _ => Set()
         } (pat)
       }.toSet
