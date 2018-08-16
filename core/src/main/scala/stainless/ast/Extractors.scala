@@ -125,72 +125,52 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     )
   }
 
-  override def deconstruct(expr: s.Expr): DeconstructedExpr = expr match {
+  override def deconstruct(expr: s.Expr): Deconstructed[t.Expr] = expr match {
     case s.NoTree(tpe) =>
-      (Seq(), Seq(), Seq(), Seq(tpe), (_, _, _, tps) => t.NoTree(tps.head))
+      (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.NoTree(tps.head))
     case s.Error(tpe, desc) =>
-      (Seq(), Seq(), Seq(), Seq(tpe), (_, _, _, tps) => t.Error(tps.head, desc))
+      (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.Error(tps.head, desc))
     case s.Require(pred, body) =>
-      (Seq(), Seq(), Seq(pred, body), Seq(), (_, _, es, _) => t.Require(es(0), es(1)))
+      (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.Require(es(0), es(1)))
     case s.Ensuring(body, pred) =>
-      (Seq(), Seq(), Seq(body, pred), Seq(), (_, _, es, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
+      (Seq(), Seq(), Seq(body, pred), Seq(), Seq(), (_, _, es, _, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
     case s.Assert(pred, error, body) =>
-      (Seq(), Seq(), Seq(pred, body), Seq(), (_, _, es, _) => t.Assert(es(0), error, es(1)))
+      (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.Assert(es(0), error, es(1)))
     case s.Annotated(body, flags) =>
-      val dflags = flags.map(deconstruct)
-
-      (dflags.flatMap(_._1), Seq(), body +: dflags.flatMap(_._2), dflags.flatMap(_._3), (ids, _, es, tps) => {
-        val body +: fexprs = es
-
-        var vids = ids
-        var ves = fexprs
-        var vtps = tps
-        val flags = dflags.map { case (fids, fes, ftps, frecons) =>
-          val (currIds, nextIds) = vids.splitAt(fids.size)
-          vids = nextIds
-
-          val (currEs, nextEs) = ves.splitAt(fes.size)
-          ves = nextEs
-
-          val (currTps, nextTps) = vtps.splitAt(ftps.size)
-          vtps = nextTps
-
-          frecons(currIds, currEs, currTps)
-        }
-
-        t.Annotated(body, flags)
+      (Seq(), Seq(), Seq(body), Seq(), flags, (_, _, es, _, flags) => {
+        t.Annotated(es(0), flags)
       })
 
     case s.MatchExpr(scrut, cases) =>
       val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
-      (cids, cvs, scrut +: ces, ctps, (ids, vs, es, tps) => {
+      (cids, cvs, scrut +: ces, ctps, Seq(), (ids, vs, es, tps, _) => {
         val newScrut +: nes = es
         t.MatchExpr(newScrut, crecons(ids, vs, nes, tps))
       })
 
     case s.FiniteArray(elems, base) =>
-      (Seq(), Seq(), elems, Seq(base), (_, _, es, tps) => t.FiniteArray(es, tps.head))
+      (Seq(), Seq(), elems, Seq(base), Seq(), (_, _, es, tps, _) => t.FiniteArray(es, tps.head))
 
     case s.LargeArray(elems, default, size, base) =>
       val (keys, values) = elems.toSeq.unzip
-      (Seq(), Seq(), values :+ default :+ size, Seq(base), {
-        case (_, _, es :+ nd :+ ns, tps) => t.LargeArray((keys zip es).toMap, nd, ns, tps.head)
+      (Seq(), Seq(), values :+ default :+ size, Seq(base), Seq(), {
+        case (_, _, es :+ nd :+ ns, tps, _) => t.LargeArray((keys zip es).toMap, nd, ns, tps.head)
       })
 
     case s.ArraySelect(array, index) =>
-      (Seq(), Seq(), Seq(array, index), Seq(), (_, _, es, _) => t.ArraySelect(es(0), es(1)))
+      (Seq(), Seq(), Seq(array, index), Seq(), Seq(), (_, _, es, _, _) => t.ArraySelect(es(0), es(1)))
 
     case s.ArrayUpdated(array, index, value) =>
-      (Seq(), Seq(), Seq(array, index, value), Seq(), (_, _, es, _) => t.ArrayUpdated(es(0), es(1), es(2)))
+      (Seq(), Seq(), Seq(array, index, value), Seq(), Seq(), (_, _, es, _, _) => t.ArrayUpdated(es(0), es(1), es(2)))
 
     case s.ArrayLength(array) =>
-      (Seq(), Seq(), Seq(array), Seq(), (_, _, es, _) => t.ArrayLength(es.head))
+      (Seq(), Seq(), Seq(array), Seq(), Seq(), (_, _, es, _, _) => t.ArrayLength(es.head))
 
     case _ => super.deconstruct(expr)
   }
 
-  override def deconstruct(tpe: s.Type): DeconstructedType = tpe match {
-    case s.ArrayType(base) => (Seq(), Seq(base), Seq(), (_, tps, _) => t.ArrayType(tps(0)))
+  override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
+    case s.ArrayType(base) => (Seq(), Seq(), Seq(), Seq(base), Seq(), (_, _, _, tps, _) => t.ArrayType(tps(0)))
     case _ => super.deconstruct(tpe)
   }
 

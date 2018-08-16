@@ -159,7 +159,7 @@ trait ExprOps extends inox.ast.ExprOps {
   def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
     val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
-      Seq(ValDef(FreshIdentifier("res"), s.widen(e.getType)).copiedFrom(e)),
+      Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
       BooleanLiteral(true).copiedFrom(e)
     ).copiedFrom(e)))
 

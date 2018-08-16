@@ -103,10 +103,10 @@ trait TypeOps extends imperative.TypeOps {
     case (tp: TypeParameter, tpe) => Some(typeBound(tp.bounds, tpe, upper))
     case (tpe, tp: TypeParameter) => Some(typeBound(tpe, tp.bounds, upper))
 
-    case (tp, AnyType()) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
-    case (AnyType(), tp) if tp.unveilUntyped.isTyped => Some(if (upper) AnyType() else tp)
-    case (NothingType(), tp) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType())
-    case (tp, NothingType()) if tp.unveilUntyped.isTyped => Some(if (upper) tp else NothingType())
+    case (tp, AnyType()) if tp.getType.isTyped => Some(if (upper) AnyType() else tp)
+    case (AnyType(), tp) if tp.getType.isTyped => Some(if (upper) AnyType() else tp)
+    case (NothingType(), tp) if tp.getType.isTyped => Some(if (upper) tp else NothingType())
+    case (tp, NothingType()) if tp.getType.isTyped => Some(if (upper) tp else NothingType())
 
     case (UnionType(tps), tp) if upper => Some(unionType(tp +: tps))
     case (UnionType(tps), tp) if !upper => Some(unionType(tps.map(tpe => typeBound(tpe, tp, false))))
@@ -128,7 +128,7 @@ trait TypeOps extends imperative.TypeOps {
     case (t1, t2) if t1 == t2 => Some(t1)
 
     case _ => None
-  }).getOrElse(if (upper) UnionType(Seq(tp1, tp2)) else IntersectionType(Seq(tp1, tp2))).unveilUntyped
+  }).getOrElse(if (upper) UnionType(Seq(tp1, tp2)) else IntersectionType(Seq(tp1, tp2))).getType
 
   /** Computes the tightest bound (upper or lower) of a sequence of types */
   private def typeBound(tps: Seq[Type], upper: Boolean): Type = {
@@ -176,7 +176,7 @@ trait TypeOps extends imperative.TypeOps {
     }
   }
 
-  override def widen(tpe: Type): Type = tpe match {
+  def widen(tpe: Type): Type = tpe match {
     case UnionType(Seq()) => NothingType()
     case UnionType(tpes) => (tpes map widen).reduceLeft[Type] {
       case (ct1: ClassType, ct2: ClassType) => leastUpperClassBound(ct1, ct2).getOrElse(AnyType())
@@ -187,7 +187,7 @@ trait TypeOps extends imperative.TypeOps {
       case (tp1, tp2) => if (tp1 == tp2) tp1 else AnyType()
     }
     case RefinementType(vd, _) => widen(vd.tpe)
-    case _ => super.widen(tpe)
+    case _ => tpe
   }
 
   override def leastUpperBound(tp1: Type, tp2: Type): Type = typeBound(tp1, tp2, true)

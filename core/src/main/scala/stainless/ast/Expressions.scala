@@ -204,7 +204,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `Array(elems...)` */
   sealed case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = {
-      checkParamTypes(elems.map(_.getType), List.fill(elems.size)(base), ArrayType(base).unveilUntyped)
+      checkParamTypes(elems.map(_.getType), List.fill(elems.size)(base), unveilUntyped(ArrayType(base)))
     }
   }
 
@@ -216,11 +216,11 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   sealed case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr, base: Type) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = {
       if (s.isSubtypeOf(size.getType, Int32Type())) {
-        ArrayType(checkParamTypes(
+        unveilUntyped(ArrayType(checkParamTypes(
           (default +: elems.values.toSeq).map(_.getType),
           List.fill(elems.size + 1)(base),
           base
-        )).unveilUntyped
+        )))
       } else {
         Untyped
       }
@@ -238,7 +238,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   /** $encodingof `array.updated(index, value)` */
   sealed case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type()) => ArrayType(s.leastUpperBound(base, value.getType)).unveilUntyped
+      case (ArrayType(base), Int32Type()) => unveilUntyped(ArrayType(s.leastUpperBound(base, value.getType)))
       case _ => Untyped
     }
   }

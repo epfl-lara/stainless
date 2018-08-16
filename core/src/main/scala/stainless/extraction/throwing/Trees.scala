@@ -184,16 +184,16 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.Throwing(body, pred) =>
-      (Seq(), Seq(), Seq(body, pred), Seq(), (_, _, es, _) => t.Throwing(es(0), es(1).asInstanceOf[t.Lambda]))
+      (Seq(), Seq(), Seq(body, pred), Seq(), Seq(), (_, _, es, _, _) => t.Throwing(es(0), es(1).asInstanceOf[t.Lambda]))
 
     case s.Throw(ex) =>
-      (Seq(), Seq(), Seq(ex), Seq(), (_, _, es, _) => t.Throw(es.head))
+      (Seq(), Seq(), Seq(ex), Seq(), Seq(), (_, _, es, _, _) => t.Throw(es.head))
 
     case s.Try(body, cases, fin) =>
       val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
-      (cids, cvs, (body +: ces) ++ fin, ctps, (ids, vs, es, tps) => {
+      (cids, cvs, (body +: ces) ++ fin, ctps, Seq(), (ids, vs, es, tps, _) => {
         val newBody +: rest = es
         val (nes, newFin) = if (fin.isEmpty) (rest, None) else (rest.init, rest.lastOption)
         t.Try(newBody, crecons(ids, vs, nes, tps), newFin)

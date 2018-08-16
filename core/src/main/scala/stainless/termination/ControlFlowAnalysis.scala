@@ -117,7 +117,7 @@ trait CICFA {
           else AbsEnv(n.fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
 
         case l: LambdaFunction =>
-          AbsEnv(l.lambda.args.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+          AbsEnv(l.lambda.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
       }, emptyEnv, Set())
     })
 
@@ -198,7 +198,7 @@ trait CICFA {
 
             // create a new store with mapping for arguments and escaping variables
             val argstore = in.store.filterKeys(escapingVars) ++
-              (lam.args.map(_.toVariable) zip absargs) ++
+              (lam.params.map(_.toVariable) zip absargs) ++
               escenv.store ++
               argescenv.store
             val argenv = AbsEnv(argstore)
@@ -419,7 +419,7 @@ trait CICFA {
           // Register escaping lambda arguments as potentially containing external functions
           for (lambda <- escaping) {
             val currSummary = getTabulation(lambda)
-            val newEnv = AbsEnv(lambda.args.map(vd => vd.toVariable -> Set(External: AbsValue)).toMap)
+            val newEnv = AbsEnv(lambda.params.map(vd => vd.toVariable -> Set(External: AbsValue)).toMap)
             tabulation.update(lambda, Summary(currSummary.in.join(newEnv), currSummary.out, currSummary.ret))
           }
 
