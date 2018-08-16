@@ -31,7 +31,9 @@ object VerificationReport {
     case class Inconclusive(reason: String) extends Status(reason)
     case class Invalid(reason: String) extends Status("invalid")
 
-    def apply[Model <: StainlessProgram#Model](status: VCStatus[Model]): Status = status match {
+    def apply[Model <: StainlessProgram#Model](program: inox.Program)
+                                              (status: VCStatus[program.Model])
+                                              (implicit opts: program.trees.PrinterOptions): Status = status match {
       case VCStatus.Invalid(VCStatus.CounterExample(model)) => Invalid("counter-example: " + model.asString)
       case VCStatus.Invalid(VCStatus.Unsatisfiable) => Invalid("unsatisfiable")
       case VCStatus.Valid => Valid

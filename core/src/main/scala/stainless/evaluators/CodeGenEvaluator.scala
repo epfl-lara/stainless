@@ -74,7 +74,7 @@ trait CodeGenEvaluator
       val res = model.chooses.get(choose.res.id -> newTypes) match {
         case Some(value) =>
           val vars = inputsMap map { case (k, v) => k.toVal -> v }
-          val subModel = inox.Model(model.program, context)(vars, model.chooses)
+          val subModel = inox.Model(model.program)(vars, model.chooses)
 
           eval(value, subModel) match {
             case EvaluationResults.Successful(result) =>
