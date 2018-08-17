@@ -79,7 +79,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
     if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
     else Some(identity.transform(fd.copy(
       fullBody = new Inliner().transform(fd.fullBody),
-      flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f == Synthetic)
+      flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
     )))
   }
 
