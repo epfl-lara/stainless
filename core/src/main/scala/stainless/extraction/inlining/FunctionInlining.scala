@@ -61,9 +61,14 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         val post = exprOps.postconditionOf(tfd.fullBody)
         def addPostconditionAssumption(e: Expr) = post match {
-          case None => e
+          // We can't assume the post on @synthetic methods as it won't be checked anywhere.
+          // It is thus inlined into an assertion here.
+          case Some(Lambda(Seq(vd), post)) if isSynthetic =>
+            val err = Some("Inlined postcondition of " + tfd.id.name)
+            Let(vd, e, Assert(post, err, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
           case Some(Lambda(Seq(vd), post)) =>
             Let(vd, e, Assume(post, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
+          case _ => e
         }
 
         val newBody = addPreconditionAssertion(addPostconditionAssumption(body))
