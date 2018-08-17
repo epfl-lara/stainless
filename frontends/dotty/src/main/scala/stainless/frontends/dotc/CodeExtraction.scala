@@ -272,6 +272,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
+    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
+
     val defCtx = tpCtx.withNewVars((args.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
     var invariants: Seq[xt.Expr] = Seq.empty
@@ -303,6 +305,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       // Class invariants
       case ExRequire(body) =>
         invariants :+= extractTree(body)(defCtx)
+
+      case t @ ExFunctionDef(fsym, _, _, _, _)
+        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          // we cannot extract copy method if the class has ignored fields as
+          // the type of copy and the getters mention what might be a type we
+          // cannot extract.
 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>

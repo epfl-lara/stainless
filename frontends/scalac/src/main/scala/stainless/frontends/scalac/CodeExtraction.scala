@@ -317,6 +317,8 @@ trait CodeExtraction extends ASTExtractors {
       else xt.ValDef(id, tpe, flags).setPos(sym.pos)
     }
 
+    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
+
     val defCtx = tpCtx.withNewVars((symbols zip fields.map(vd => () => vd.toVariable)).toMap)
 
     var invariants: Seq[xt.Expr] = Seq.empty
@@ -334,6 +336,12 @@ trait CodeExtraction extends ASTExtractors {
 
       case ExRequiredExpression(body) =>
         invariants :+= extractTree(body)(defCtx)
+
+      case t @ ExFunctionDef(fsym, _, _, _, _)
+        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          // we cannot extract copy method if the class has ignored fields as
+          // the type of copy and the getters mention what might be a type we
+          // cannot extract.
 
       case t @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
         methods :+= extractFunction(fsym, tparams, vparams, rhs)(defCtx)
