@@ -4,18 +4,9 @@ package stainless
 package transformers
 
 import scala.language.existentials
-
 import scala.concurrent.duration._
-import scala.collection.mutable.{Map => MutableMap}
-import scala.util.DynamicVariable
 
-import inox.{Context, Semantics}
-import inox.utils._
-import inox.solvers._
-import inox.solvers.SolverResponses._
-import inox.evaluators.EvaluationResults
-
-trait SimplifierWithSolver extends SimplifierWithPC { self =>
+trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   import trees._
   import symbols._
 
@@ -46,6 +37,5 @@ trait SimplifierWithSolver extends SimplifierWithPC { self =>
   }
 
   override def initEnv = Env.empty
-  override def pp = Env
 }
 

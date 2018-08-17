@@ -19,7 +19,7 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
   import exprOps._
   import dsl._
 
-  override final protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
+  override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case fi @ FunctionInvocation(id, tps, args) =>
       val tfd = fi.tfd
       val (rargs, pargs) = args.map(simplify(_, path)).unzip

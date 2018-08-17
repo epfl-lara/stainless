@@ -41,7 +41,9 @@ trait PartialEvaluation
       override val context = self.context
       override val semantics = self.semantics
       override val opts = inox.solvers.PurityOptions.assumeChecked
-    } with transformers.PartialEvaluator with transformers.SimplifierWithSolver
+    } with transformers.PartialEvaluator with transformers.SimplifierWithSolver {
+      override def pp = Env
+    }
 
     private[this] val hasPartialEvalFlag: Set[Identifier] =
       symbols.functions.values.filter(_.flags contains s.PartialEval).map(_.id).toSet
