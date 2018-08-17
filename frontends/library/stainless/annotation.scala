@@ -4,6 +4,8 @@ package stainless
 package annotation
 
 import scala.annotation.Annotation
+import scala.annotation.StaticAnnotation
+import scala.annotation.meta._
 
 /** The annotated symbols is not extracted at all. For internal usage only. */
 class ignore extends Annotation
@@ -40,3 +42,12 @@ class inlineOnce   extends Annotation
 @ignore
 class partialEval extends Annotation
 
+/**
+ * Code annotated with @ghost is removed after stainless extraction.
+ *
+ * Code that can be annotated with @ghost: classes, method and value definitions, method parameters.
+ *
+ * See the Stainless specification for details.
+ */
+@ignore @field @getter @setter @param
+class ghost extends StaticAnnotation
