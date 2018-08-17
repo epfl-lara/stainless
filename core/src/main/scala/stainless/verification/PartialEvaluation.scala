@@ -54,21 +54,21 @@ trait PartialEvaluation
     private[this] def invocationsToEval(id: Identifier): Set[Identifier] =
       symbols.callees(id) & hasPartialEvalFlag
 
-    def shouldPartialEval(fd: s.FunDef): Boolean =
-      invocationsToEval(fd.id).nonEmpty
+    def shouldPartialEval(fd: FunDef): Boolean =
+      invocationsToEval(fd.id).nonEmpty && !(fd.flags contains Synthetic)
 
-    private[this] def partialEval(fi: s.FunctionInvocation, path: Path, simple: Boolean = false): s.Expr = {
+    private[this] def partialEval(fi: FunctionInvocation, path: Path, simple: Boolean = false): Expr = {
       if (simple)
         simpleSimplifier.transform(fi, simpleSimplifier.Env(path))
       else
         solvingSimplifier.transform(fi, solvingSimplifier.Env(path))
     }
 
-    final def transform(fd: s.FunDef): t.FunDef = {
+    final def transform(fd: FunDef): FunDef = {
       val toEval = invocationsToEval(fd.id)
 
-      def eval(e: s.Expr): s.Expr = symbols.transformWithPC(e)((e, path, op) => e match {
-        case fi: s.FunctionInvocation if fi.id != fd.id && toEval(fi.id) =>
+      def eval(e: Expr): Expr = symbols.transformWithPC(e)((e, path, op) => e match {
+        case fi: FunctionInvocation if fi.id != fd.id && toEval(fi.id) =>
           reporter.debug(s" - Partially evaluating call to '${toEval.mkString(", ")}' in '${fd.id}' at ${fd.getPos}...")
           reporter.debug(s"   Path condition: $path")
           reporter.debug(s"   Before: $fi")
@@ -84,11 +84,11 @@ trait PartialEvaluation
         case _ => op.superRec(e, path)
       })
 
-      fd.copy(fullBody = eval(fd.fullBody), flags = fd.flags filterNot (_ == s.PartialEval))
+      fd.copy(fullBody = eval(fd.fullBody), flags = fd.flags filterNot (_ == PartialEval))
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: FunDef): FunDef = {
     if (context shouldPartialEval fd) context.transform(fd) else fd
   }
 }
