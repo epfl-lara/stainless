@@ -6,7 +6,6 @@ package transformers
 trait SimplifierWithPC extends TransformerWithPC with inox.transformers.SimplifierWithPC {
   import trees._
   import symbols._
-  import exprOps.replaceFromSymbols
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case Assert(pred, oerr, body) => simplify(pred, path) match {
@@ -17,6 +16,20 @@ trait SimplifierWithPC extends TransformerWithPC with inox.transformers.Simplifi
       case (rp, _) =>
         val (rb, _) = simplify(body, path withCond rp)
         (Assert(rp, oerr, rb).copiedFrom(e), opts.assumeChecked)
+    }
+
+    case Require(pred, body) => simplify(pred, path) match {
+      case (BooleanLiteral(true), true) => simplify(body, path)
+      case (rp, _) =>
+        val (rb, _) = simplify(body, path withCond rp)
+        (Require(rp, rb).copiedFrom(e), opts.assumeChecked)
+    }
+
+    case Ensuring(body, l @ Lambda(Seq(res), pred)) => simplify(pred, path) match {
+      case (BooleanLiteral(true), true) => simplify(body, path)
+      case (rp, _) =>
+        val (rb, _) = simplify(body, path)
+        (Ensuring(rb, Lambda(Seq(res), rp).copiedFrom(l)).copiedFrom(e), opts.assumeChecked)
     }
 
     case MatchExpr(scrut, cases) =>

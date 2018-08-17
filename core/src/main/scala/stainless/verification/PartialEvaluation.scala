@@ -5,6 +5,8 @@ package verification
 
 import scala.concurrent.duration._
 
+object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
+
 trait PartialEvaluation
   extends extraction.CachingPhase
      with extraction.IdentitySorts
@@ -16,34 +18,30 @@ trait PartialEvaluation
   import context._
   import s._
 
+  implicit val debugSection = DebugSectionPartialEval
+
   protected val semantics: inox.SemanticsProvider { val trees: s.type }
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  protected abstract class FastTransformer extends {
-    override val trees: s.type = s
-    override val context = self.context
-    override val semantics = self.semantics
-    override implicit val opts: inox.solvers.PurityOptions = inox.solvers.PurityOptions.assumeChecked
-  } with transformers.FastPartialEvaluator 
+  protected class TransformerContext(val symbols: s.Symbols) { self0 =>
+    import symbols._
 
-  protected abstract class SlowTransformer extends {
-    override val trees: s.type = s
-    override val context = self.context
-    override val semantics = self.semantics
-    override implicit val opts: inox.solvers.PurityOptions = inox.solvers.PurityOptions.assumeChecked
-  } with transformers.SlowPartialEvaluator
+    private[this] val simpleSimplifier = new {
+      override val trees: s.type = s
+      override val symbols: self0.symbols.type = self0.symbols
+      override val opts = inox.solvers.PurityOptions.assumeChecked
+    } with transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
+      override def pp = Env
+    }
 
-  protected class TransformerContext(val symbols: s.Symbols) { self =>
-    import symbols.Path
-
-    private[this] val fastTransformer = new {
-      override implicit val symbols: self.symbols.type = self.symbols
-    } with FastTransformer
-
-    private[this] val slowTransformer = new {
-      override implicit val symbols: self.symbols.type = self.symbols
-    } with SlowTransformer
+    private[this] val solvingSimplifier = new {
+      override val trees: s.type = s
+      override val symbols: self0.symbols.type = self0.symbols
+      override val context = self.context
+      override val semantics = self.semantics
+      override val opts = inox.solvers.PurityOptions.assumeChecked
+    } with transformers.PartialEvaluator with transformers.SimplifierWithSolver
 
     private[this] val hasPartialEvalFlag: Set[Identifier] =
       symbols.functions.values.filter(_.flags contains s.PartialEval).map(_.id).toSet
@@ -57,16 +55,14 @@ trait PartialEvaluation
     def shouldPartialEval(fd: s.FunDef): Boolean =
       invocationsToEval(fd.id).nonEmpty
 
-    private[this] def partialEval(fi: s.FunctionInvocation, path: Path, fast: Boolean = false): s.Expr = {
-      if (fast)
-        fastTransformer.transform(fi, fastTransformer.CNFPath(path))
+    private[this] def partialEval(fi: s.FunctionInvocation, path: Path, simple: Boolean = false): s.Expr = {
+      if (simple)
+        simpleSimplifier.transform(fi, simpleSimplifier.Env(path))
       else
-        slowTransformer.transform(fi, slowTransformer.SlowPath(path))
+        solvingSimplifier.transform(fi, solvingSimplifier.Env(path))
     }
 
     final def transform(fd: s.FunDef): t.FunDef = {
-      implicit val debugSection = transformers.DebugSectionPartialEval
-
       val toEval = invocationsToEval(fd.id)
 
       def eval(e: s.Expr): s.Expr = symbols.transformWithPC(e)((e, path, op) => e match {
@@ -76,7 +72,7 @@ trait PartialEvaluation
           reporter.debug(s"   Before: $fi")
 
           val (elapsed, res) = timers.partialeval.runAndGetTime {
-            partialEval(fi, path, fast = isSynthetic(fi.id))
+            partialEval(fi, path, simple = isSynthetic(fi.id))
           }
 
           reporter.debug(s"   After: ${res.get}")
@@ -97,8 +93,7 @@ trait PartialEvaluation
 
 object PartialEvaluation {
   def apply(tr: extraction.Trees)(
-    implicit ctx: inox.Context,
-    sems: inox.SemanticsProvider { val trees: tr.type }
+    implicit ctx: inox.Context, sems: inox.SemanticsProvider { val trees: tr.type }
   ): extraction.ExtractionPipeline {
     val s: tr.type
     val t: tr.type
