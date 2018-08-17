@@ -62,11 +62,18 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         res
       }
 
+      def unfold(inlined: Expr): (Expr, Boolean) = {
+        dynSteps.set(dynSteps.get + (id -> (dynSteps.get()(id) - 1)))
+        val res = simplify(inlined, path)
+        dynSteps.set(dynSteps.get + (id -> (dynSteps.get()(id) + 1)))
+        res
+      }
+
       inlined
         .filter(_ => isUnfoldable(id))
         .filter(!containsChoose(_))
         .filter(isProductiveUnfolding)
-        .map(simplify(_, path))
+        .map(unfold)
         .getOrElse (
           FunctionInvocation(id, tps, rargs).copiedFrom(fi),
           pargs.foldLeft(isPureFunction(id))(_ && _)
