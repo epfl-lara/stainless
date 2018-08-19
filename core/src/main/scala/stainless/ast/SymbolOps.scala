@@ -250,6 +250,35 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
    * Path manipulation
    * ================= */
 
+  /** Folds the path into an expression that shares the path's outer lets
+    *
+    * The folding shares all outer bindings in an wrapping sequence of
+    * let-expressions. The inner condition is then passed as the first
+    * argument of the `recons` function and must be shared out between
+    * the reconstructions of `es` which will only feature the bindings
+    * from the current path.
+    *
+    * This method is useful to reconstruct if-expressions or assumptions
+    * where the condition can be added to the expression in a position
+    * that implies further positions.
+    */
+  def withShared(path: Path, es: Seq[Expr], recons: (Expr, Seq[Expr]) => Expr): Expr = {
+    import Path._
+
+    val (outers, rest) = path.elements span { !_.isInstanceOf[Condition] }
+    val bindings = rest collect { case CloseBound(vd, e) => vd -> e }
+    val cond = fold[Expr](BooleanLiteral(true), Let, And(_, _))(rest)
+
+    def wrap(e: Expr): Expr = {
+      val subst = bindings.map(p => p._1 -> p._1.toVariable.freshen).toMap
+      val replace = exprOps.replaceFromSymbols(subst, _: Expr)
+      bindings.foldRight(replace(e)) { case ((vd, e), b) => Let(subst(vd).toVal, replace(e), b) }
+    }
+
+    val full = recons(cond, es.map(wrap))
+    fold[Expr](full, Let, (_, _) => scala.sys.error("Should never happen!"))(outers)
+  }
+
   /** Merges the given [[Path]] into the provided [[Expressions.Expr]].
     *
     * This method expects to run on a [[Definitions.FunDef.fullBody]] and merges into
@@ -264,24 +293,24 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     def unwrap(e: Expr): Lambda = e match {
       case Let(i, e, b) =>
         val Lambda(args, body) = unwrap(b)
-        Lambda(args, let(i, e, body)).copiedFrom(e)
+        Lambda(args, Let(i, e, body)).copiedFrom(e)
       case l: Lambda => l
       case _ => scala.sys.error("Should never happen!")
     }
 
     def spec(cond: Expr, es: Seq[Expr]): Expr = es match {
-      case Seq(e) => req(cond, e)
-      case Seq(e, pre) => req(and(cond, pre), e)
-      case Seq(e, pre, post) => ensur(req(and(cond, pre), e), unwrap(post))
+      case Seq(e) => Require(cond, e)
+      case Seq(e, pre) => Require(And(cond, pre), e)
+      case Seq(e, pre, post) => Ensuring(Require(And(cond, pre), e), unwrap(post))
       case _ => scala.sys.error("Should never happen!")
     }
 
     expr match {
       case Let(i, e, b) => withPath(b, path withBinding (i -> e))
-      case Require(pre, b) => path withShared (Seq(b, pre), spec)
-      case Ensuring(Require(pre, b), post) => path withShared (Seq(b, pre, post), spec)
-      case Ensuring(b, post) => path withShared (Seq(b, BooleanLiteral(true), post), spec)
-      case b => path withShared (Seq(b), spec)
+      case Require(pre, b) => withShared(path, Seq(b, pre), spec)
+      case Ensuring(Require(pre, b), post) => withShared(path, Seq(b, pre, post), spec)
+      case Ensuring(b, post) => withShared(path, Seq(b, BooleanLiteral(true), post), spec)
+      case b => withShared(path, Seq(b), spec)
     }
   }
 }
