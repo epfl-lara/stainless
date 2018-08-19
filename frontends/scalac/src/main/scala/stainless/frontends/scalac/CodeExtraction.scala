@@ -563,7 +563,15 @@ trait CodeExtraction extends ASTExtractors {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
-          outOfSubsetError(s, "Invalid type "+s.tpe+" for .isInstanceOf")
+          outOfSubsetError(s, "Invalid instance pattern: " + s)
+      }
+
+    case id @ Ident(_) if id.tpe.typeSymbol.isCase =>
+      extractType(id) match {
+        case ct: xt.ClassType =>
+          (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
+        case _ =>
+          outOfSubsetError(id, "Invalid instance pattern: " + id)
       }
 
     case a @ Apply(fn, args) =>
