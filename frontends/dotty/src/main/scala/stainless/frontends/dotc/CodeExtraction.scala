@@ -932,32 +932,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case Typed(e, _) =>
       extractTree(e)
 
-    case Inlined(_, members, body) =>
-      val block = extractBlock(members :+ body)
-      val expr = xt.exprOps.withoutSpecs(block)
-      val uncheckedBody = expr match {
-        case None => outOfSubsetError(tr, "Can't inline empty body")
-        case Some(expr) => xt.annotated(expr, xt.Unchecked)
+    case Inlined(call, members, body) =>
+      def rec(expr: xt.Expr): xt.Expr = expr match {
+        case xt.Let(vd, e, b) => xt.Let(vd, e, rec(b)).copiedFrom(expr)
+        case xt.LetRec(fds, b) => xt.LetRec(fds, rec(b)).copiedFrom(expr)
+        case xt.Decreases(_, _) =>
+          outOfSubsetError(tr, "No measure should be specified on inlined functions")
+        case xt.Require(pre, b) =>
+          xt.Assert(pre, Some("Inlined precondition"), rec(b)).copiedFrom(expr)
+        case xt.Ensuring(b, xt.Lambda(Seq(vd), post)) =>
+          xt.Let(vd, rec(b), xt.Assume(post, vd.toVariable).copiedFrom(expr)).copiedFrom(expr)
+        case xt.NoTree(_) =>
+          outOfSubsetError(tr, "Can't inline empty body")
+        case _ =>
+          xt.annotated(expr, xt.Unchecked)
       }
 
-      val pre = xt.exprOps.preconditionOf(block)
-      def addPre(e: xt.Expr) = pre match {
-        case None => e
-        case Some(pre) => xt.Assert(pre, Some("Inlined precondition"), e).copiedFrom(e)
-      }
-
-      if (xt.exprOps.measureOf(block).isDefined) {
-        outOfSubsetError(tr, "No measure should be specified on inlined functions")
-      }
-
-      val post = xt.exprOps.postconditionOf(block)
-      def addPost(e: xt.Expr) = post match {
-        case None => e
-        case Some(xt.Lambda(Seq(vd), post)) =>
-          xt.Let(vd, e, xt.Assume(post, vd.toVariable).copiedFrom(e)).copiedFrom(e)
-      }
-
-      addPre(addPost(uncheckedBody))
+      rec(extractBlock(members :+ body))
 
     case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "choose"), Seq(tpt)), Seq(pred)) =>
       extractTree(pred) match {
