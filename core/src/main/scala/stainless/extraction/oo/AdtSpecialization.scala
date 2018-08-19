@@ -22,6 +22,7 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
           val cs = cd.children
           (cd.parents.size <= 1) &&
           (cs forall rec) &&
+          (cd.parents forall (_.tps == cd.typeArgs)) &&
           ((cd.flags contains IsAbstract) || cs.isEmpty) &&
           (!(cd.flags contains IsAbstract) || cd.fields.isEmpty) &&
           (cd.typeArgs forall (tp => tp.isInvariant && !tp.flags.exists { case Bounds(_, _) => true case _ => false }))
