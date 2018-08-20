@@ -115,9 +115,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             // firstParent.typeSymbol.typeParams)
             val parentTParams = firstParent.typeArgs
             val tparams = sym.info.typeParams
-            if (tparams.size != parentTParams.size)
-              reportError(tree.pos,
-                s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
+            // if (tparams.size != parentTParams.size)
+            //   reportError(tree.pos,
+            //     s"Stainless supports only simple type hierarchies: Class should define the same type parameters as its super class ${firstParent.typeSymbol.tpe}")
           }
           tparams.foreach(checkVariance)
           atOwner(sym)(traverse(impl))

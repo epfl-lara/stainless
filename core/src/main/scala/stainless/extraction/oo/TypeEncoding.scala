@@ -49,7 +49,6 @@ trait TypeEncoding
   private[this] val tpeID = FreshIdentifier("Type")
   private[this] val tpe   = T(tpeID)()
 
-
   /* ====================================
    *           TYPE SEQUENCE
    * ====================================
@@ -81,7 +80,6 @@ trait TypeEncoding
   private[this] def seqAt(s: Expr, i: Int): Expr =
     if (i <= 0) Assume(s is cons, s.getField(head))
     else Assume(s is cons, seqAt(s.getField(tail), i - 1))
-
 
   /* ====================================
    *           TYPE ADTS
@@ -116,6 +114,9 @@ trait TypeEncoding
      * "id" field corresponds to `A` name
      * "tps" field corresponds to `T1,...,Tn` type parameters */
     (FreshIdentifier("Adt"), Seq("id" :: IntegerType(), "tps" :: seq)),
+
+    /* Type bounds, corresponds to Scala's {{{_ :> T <: U}}} */
+    (FreshIdentifier("Bounds"), Seq("lo" :: tpe, "hi" :: tpe)),
 
     /* Array type, corresponds to {{{Array[base]}}} in Scala */
     (FreshIdentifier("Array"), Seq("base" :: tpe)),
@@ -158,12 +159,13 @@ trait TypeEncoding
   ))
 
   private[this] val Seq(
-    bot, top, ref, cls, adt, arr, set, bag, map, fun, tpl, bool, int, bv, char, unit, real, str
+    bot, top, ref, cls, adt, bounds, arr, set, bag, map, fun, tpl, bool, int, bv, char, unit, real, str
   ) = tpeSort.constructors
 
   private[this] val Seq(refPred) = ref.fields.map(_.id)
   private[this] val Seq(clsPtr, clsTps) = cls.fields.map(_.id)
   private[this] val Seq(adtPtr, adtTps) = adt.fields.map(_.id)
+  private[this] val Seq(boundLo, boundHi) = bounds.fields.map(_.id)
   private[this] val Seq(arrBase) = arr.fields.map(_.id)
   private[this] val Seq(setBase) = set.fields.map(_.id)
   private[this] val Seq(bagBase) = bag.fields.map(_.id)
@@ -171,7 +173,6 @@ trait TypeEncoding
   private[this] val Seq(funFrom, funTo) = fun.fields.map(_.id)
   private[this] val Seq(tplTps) = tpl.fields.map(_.id)
   private[this] val Seq(bvSize) = bv.fields.map(_.id)
-
 
   /* ====================================
    *   TRANFORMATION/ENCODING CONTEXT
@@ -183,9 +184,10 @@ trait TypeEncoding
     override val t: self.t.type = self.t
 
     override def transform(tp: s.Type): t.Type = tp match {
-      case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) => obj
+      case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) | (_: s.TypeBounds) =>
+        obj
 
-      case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
+      case (_: s.UnionType) | (_: s.IntersectionType) =>
         throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
 
       case tp: s.TypeParameter if tparams contains tp => obj
@@ -230,7 +232,7 @@ trait TypeEncoding
   }
 
   private[this] def isObject(tpe: s.Type)(implicit scope: TypeScope): Boolean = tpe match {
-    case _: s.ClassType => true
+    case (_: s.ClassType) | (_: s.TypeBounds) => true
     case s.NothingType() | s.AnyType() => true
     case tp: s.TypeParameter => scope.tparams contains tp
     case (_: s.UnionType) | (_: s.IntersectionType) => true
@@ -292,6 +294,7 @@ trait TypeEncoding
       ref(t.Lambda(Seq(nvd), t.and(instanceOf(nvd.toVariable, encodeType(vd.tpe)), npred)))
     case s.ClassType(id, tps) => cls(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
     case s.ADTType(id, tps) => adt(IntegerLiteral(id.globalId), mkSeq(tps map encodeType))
+    case s.TypeBounds(lo, hi) => bounds(encodeType(lo), encodeType(hi))
     case s.ArrayType(base) => arr(encodeType(base))
     case s.SetType(base) => set(encodeType(base))
     case s.BagType(base) => bag(encodeType(base))
@@ -387,6 +390,19 @@ trait TypeEncoding
               elze
             )
           }
+        ),
+        (tp1 is bounds) -> (
+          subtypeOf(tp1.getField(boundHi), tp2) &&
+          subtypeOf(tp1.getField(boundLo), tp2)
+        ),
+        (tp2 is bounds) -> (
+          (
+            (tp2.getField(boundLo) is bot) &&
+            (tp2.getField(boundHi) is top)
+          ) || (
+            subtypeOf(tp1, tp2.getField(boundHi)) &&
+            subtypeOf(tp2.getField(boundLo), tp1)
+          )
         ),
         (tp1 is tpl) -> (
           (tp2 is tpl) && (
@@ -1082,7 +1098,9 @@ trait TypeEncoding
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    super.extractSymbols(context, symbols).withFunctions(context.functions).withSorts(context.sorts)
+    val res = super.extractSymbols(context, symbols).withFunctions(context.functions).withSorts(context.sorts)
+    println(res)
+    res
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
