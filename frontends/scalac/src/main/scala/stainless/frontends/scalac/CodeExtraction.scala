@@ -1018,12 +1018,14 @@ trait CodeExtraction extends ASTExtractors {
     case ExAsInstanceOf(expr, tt) =>
       extractType(tt) match {
         case ct: xt.ClassType => xt.AsInstanceOf(extractTree(expr), ct)
+        case tb: xt.TypeBounds => xt.AsInstanceOf(extractTree(expr), tb)
         case _ => outOfSubsetError(tr, "asInstanceOf can only cast to class types")
       }
 
     case ExIsInstanceOf(expr, tt) =>
       extractType(tt) match {
         case ct: xt.ClassType => xt.IsInstanceOf(extractTree(expr), ct)
+        case tb: xt.TypeBounds => xt.IsInstanceOf(extractTree(expr), tb)
         case _ => outOfSubsetError(tr, "isInstanceOf can only be used with class types")
       }
 
@@ -1346,6 +1348,9 @@ trait CodeExtraction extends ASTExtractors {
     case UnitTpe    => xt.UnitType()
     case AnyTpe     => xt.AnyType()
     case NothingTpe => xt.NothingType()
+
+    case e: ExistentialType if e.isRepresentableWithWildcards =>
+      xt.TypeBounds(xt.NothingType(), xt.AnyType())
 
     case ct: ConstantType => extractType(ct.value.tpe)
 
