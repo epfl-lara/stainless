@@ -45,6 +45,14 @@ trait TreeSanitizer {
     override def visit(id: Identifier, body: Expr): Unit = {
       exprOps withoutSpecs body foreach { bareBody =>
         traverse(bareBody) {
+          case wh@While(c,b,_) => 
+            visit(FreshIdentifier("while condition"), c) 
+            visit(FreshIdentifier("while body"),(exprOps withoutDecreases b) match{
+              case Some(mod) => mod
+              case None      => b  
+            }) 
+            Stop 
+            
           case e: Require =>
             throw MissformedStainlessCode(e, s"$id contains an unexpected `require`.")
 

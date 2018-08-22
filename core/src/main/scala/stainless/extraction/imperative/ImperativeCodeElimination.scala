@@ -123,6 +123,8 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
         case wh @ While(cond, body, optInv) =>
           val name = ValDef.fresh(parent.id.name + "While", FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
 
+          val measure = measureOf(body)
+
           val newBody = IfExpr(cond,
             Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
             UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
@@ -136,7 +138,13 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           ).copiedFrom(wh)
 
           val fullBody = Lambda(Seq.empty,
-            withPostcondition(withPrecondition(newBody, optInv).copiedFrom(wh), Some(newPost)).copiedFrom(wh))
+            withPostcondition(
+              withPrecondition(
+                withMeasure(newBody,measure)
+              ,optInv).copiedFrom(wh), Some(newPost)
+            ).copiedFrom(wh)
+          )
+
           val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
           toFunction(newExpr)
 
