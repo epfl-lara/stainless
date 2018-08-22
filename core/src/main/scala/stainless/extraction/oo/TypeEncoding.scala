@@ -5,7 +5,7 @@ package extraction
 package oo
 
 import inox.utils.Graphs._
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.concurrent.TrieMap
 
 trait TypeEncoding
   extends ExtractionPipeline
@@ -183,7 +183,7 @@ trait TypeEncoding
     override val t: self.t.type = self.t
 
     override def transform(tp: s.Type): t.Type = tp match {
-      case s.NothingType() | s.AnyType() | (_: s.ClassType) | (_: s.RefinementType) => obj
+      case s.NothingType() | s.AnyType() | (_: s.ClassType) => obj
 
       case (_: s.TypeBounds) | (_: s.UnionType) | (_: s.IntersectionType) =>
         throw MissformedStainlessCode(tp, s"Type $tp should never occur in input.")
@@ -541,15 +541,17 @@ trait TypeEncoding
    *     GENERAL WRAPPING/UNWRAPPING
    * ==================================== */
 
+  /*
   val unificationCache: MutableMap[(t.Type, t.Type), t.FunDef] = MutableMap.empty
   def unificationFunctions: Seq[t.FunDef] = unificationCache.values.toSeq
+  */
 
   /* Transforms `e` of type `tpe` into an expression of type `expected`.
    * Note that neither `tpe` nor `expected` will contain type parameters so we can maintain a global
    * cache of the ADT unification functions. */
   def unifyTypes(e: t.Expr, tpe: s.Type, expected: s.Type)(tpeScope: TypeScope, expectedScope: TypeScope): t.Expr = {
 
-    val unifications: MutableMap[(t.Type, t.Type), Identifier] = MutableMap.empty
+    //val unifications: MutableMap[(t.Type, t.Type), Identifier] = MutableMap.empty
 
     def rec(e: t.Expr, lo: s.Type, hi: s.Type)(loScope: TypeScope, hiScope: TypeScope): t.Expr = {
       if (lo == hi) e
@@ -648,19 +650,33 @@ trait TypeEncoding
    *          UNAPPLY FUNCTIONS
    * ==================================== */
 
-  // The computation of `OptionSort.Info` takes uncachable dependencies into account so we
+  // The computation of `OptionSort` info takes uncachable dependencies into account so we
   // can validly use it as a cache key here without risking extraction unsoundness.
   // The `UnapplyInfo` class then contains its own caches for definitions that require
   // dependency checks.
-  private[this] val unapplyCache = scala.collection.mutable.Map.empty[OptionSort.Info, UnapplyInfo]
-  private[this] def unapplyInfo(implicit symbols: s.Symbols): UnapplyInfo = {
-    val info = OptionSort.info
-    unapplyCache.getOrElseUpdate(info, UnapplyInfo(symbols, info))
+  private[this] class OptionInfo(implicit symbols: s.Symbols) {
+    val option = OptionSort.option
+    val some = OptionSort.some
+    val none = OptionSort.none
+    val isEmpty = OptionSort.isEmpty
+    val get = OptionSort.get
+
+    override def equals(that: Any): Boolean = that match {
+      case oi: OptionInfo => option == oi.option && isEmpty == oi.isEmpty && get == oi.get
+      case _ => false
+    }
+
+    override val hashCode: Int = (option, isEmpty, get).hashCode
   }
 
-  private case class UnapplyInfo(symbols: s.Symbols, info: OptionSort.Info) {
-    protected val implicitSymbols: s.Symbols = symbols
-    protected val OptionSort.Info(option, some, none, isEmpty, get) = info
+  private[this] val unapplyCache = TrieMap.empty[OptionInfo, UnapplyInfo]
+  private[this] def unapplyInfo(implicit symbols: s.Symbols): UnapplyInfo = {
+    val info = new OptionInfo
+    unapplyCache.getOrElseUpdate(info, UnapplyInfo(info))
+  }
+
+  private case class UnapplyInfo(info: OptionInfo) {
+    import info._
 
     val unwrapUnapplierFunction: t.FunDef =
       mkFunDef(FreshIdentifier("IsTyped"), Unchecked, Synthetic, IsUnapply(isEmpty, get))("T") { case Seq(aT) =>
@@ -692,7 +708,7 @@ trait TypeEncoding
       }).copiedFrom(sub)
 
     val classUnapplierCache = new ExtractionCache[s.ClassDef, t.FunDef]
-    def classUnapplier(id: Identifier): t.FunDef = {
+    def classUnapplier(id: Identifier)(implicit symbols: s.Symbols): t.FunDef = {
       val cd = symbols.getClass(id)
       classUnapplierCache.cached(cd, symbols) {
         val arg = t.ValDef(FreshIdentifier("x"), obj)
@@ -710,7 +726,9 @@ trait TypeEncoding
       }
     }
 
-    def unapplyFunctions: Seq[t.FunDef] = {
+    def sorts(implicit symbols: s.Symbols): Seq[t.ADTSort] = OptionSort.sorts
+
+    def functions(implicit symbols: s.Symbols): Seq[t.FunDef] = {
       val patterns = scala.collection.mutable.Set.empty[Identifier]
       val traverser = new s.TreeTraverser {
         override def traverse(pat: s.Pattern): Unit = pat match {
@@ -723,7 +741,7 @@ trait TypeEncoding
 
       symbols.functions.values.foreach(fd => traverser.traverse(fd))
 
-      Seq(unwrapUnapplierFunction, instanceUnapplierFunction) ++ patterns.map(classUnapplier)
+      Seq(unwrapUnapplierFunction, instanceUnapplierFunction) ++ OptionSort.functions ++ patterns.map(classUnapplier)
     }
   }
 
@@ -1072,13 +1090,12 @@ trait TypeEncoding
       Seq(typeFunction) ++
       symbols.classes.values.flatMap(cd => constructor(cd.id) +: cd.fields.map(vd => field(cd.id, vd.id))) ++
       Seq(subtypeFunction, instanceFunction) ++
-      unapplyFunctions ++
-      Seq(wrapFunction, unwrapFunction) ++
-      OptionSort.functions
+      unapplies.functions ++
+      Seq(wrapFunction, unwrapFunction)
 
     def sorts: Seq[t.ADTSort] =
       Seq(seqSort, tpeSort, objSort) ++
-      OptionSort.sorts
+      unapplies.sorts
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {

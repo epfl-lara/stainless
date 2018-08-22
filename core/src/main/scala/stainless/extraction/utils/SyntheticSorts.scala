@@ -54,7 +54,6 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
       }
 
       val cache = new ExtractionCache[s.ADTSort, t.FunDef]
-
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           val some = sort.constructors.find(_.fields.nonEmpty).get
@@ -64,21 +63,17 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
       }
     }
 
-    case class Info(option: Identifier, some: Identifier, none: Identifier,
-                    isEmpty: Identifier, get: Identifier)
+    private[this] def optionSort(implicit symbols: s.Symbols): inox.ast.Trees#ADTSort =
+      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").getOrElse(syntheticOption)
 
-    def info(implicit symbols: s.Symbols): Info = {
-      val optionSort = symbols.lookup.get[s.ADTSort]("stainless.lang.Option").getOrElse(syntheticOption)
-      val some = optionSort.constructors.find(_.fields.nonEmpty).get.id
-      val none = optionSort.constructors.find(_.fields.isEmpty).get.id
+    def option(implicit symbols: s.Symbols): Identifier = optionSort.id
+    def some(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.nonEmpty).get.id
+    def none(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.isEmpty).get.id
 
-      val isEmpty = symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty")
-        .getOrElse(syntheticIsEmpty(symbols)).id
-      val get = symbols.lookup.get[s.FunDef]("stainless.lang.Option.get")
-        .getOrElse(syntheticGet(symbols)).id
-
-      Info(optionSort.id, some, none, isEmpty, get)
-    }
+    def isEmpty(implicit symbols: s.Symbols): Identifier =
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").getOrElse(syntheticIsEmpty(symbols)).id
+    def get(implicit symbols: s.Symbols): Identifier =
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.get").getOrElse(syntheticGet(symbols)).id
 
     def sorts(implicit symbols: s.Symbols): Seq[t.ADTSort] =
       symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
