@@ -127,11 +127,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
           val measure = measures.headOption.map { case Measure(m) => m }
 
-          val newBody = IfExpr(cond,
-            Block(
-              Seq(reconstructSpecs(otherSpecs, without, body.getType)),
-              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
-            UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+          val newBody = Block(
+            Seq(reconstructSpecs(otherSpecs, without, body.getType)),
+            IfExpr(cond,ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+                    UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+          ).copiedFrom(wh)
 
           val newPost = Lambda(
             Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
@@ -141,17 +141,28 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
             ).copiedFrom(wh)
           ).copiedFrom(wh)
 
+          val boolCond: Seq[Expr] = cond match {
+            case Block(_,l) if l.getType == BooleanType() => Seq(l)
+            case s          if s.getType == BooleanType() => Seq(s)
+            case _                                        => Seq(BooleanLiteral(true)) 
+          }
+
           val fullBody = Lambda(Seq.empty,
             withPostcondition(
               withPrecondition(
-                withMeasure(newBody, measure).copiedFrom(wh),
-                optInv
+                withMeasure(newBody, measure).copiedFrom(wh),                
+                optInv match {  
+                  case Some(inv) => Some(andJoin(boolCond :+ inv))
+                  case None      => Some(andJoin(boolCond))
+                }
               ).copiedFrom(wh),
               Some(newPost)
             ).copiedFrom(wh)
           )
 
-          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
+          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), 
+            IfExpr(cond,ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+                    UnitLiteral().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
           toFunction(newExpr)
 
         case Block(Seq(), expr) =>
