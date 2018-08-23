@@ -18,7 +18,7 @@ lazy val success = (project in file("success"))
 lazy val failure = (project in file("failure"))
   .enablePlugins(StainlessPlugin)
   .settings(commonSettings)
-  .settings(checkScalaFailures := checkScalaFailuresTask("reqreq contains an unexpected `require`.").value)
+  .settings(checkScalaFailures := checkScalaFailuresTask("Unexpected `require`.").value)
 
 // This is a project on which the Stainless plugin is not enabled and hence the unsupported Scala version error should NOT be reported
 lazy val ignore = (project in file("ignore"))
