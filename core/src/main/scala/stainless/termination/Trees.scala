@@ -174,14 +174,6 @@ trait ExprOps extends ast.ExprOps {
       b
   }
 
-   def withoutDecreases(e: Expr): Option[Expr] = e match {
-    case Decreases(_, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Require(s, Decreases(_, b))              => Some(Require(s,b))
-    case Ensuring(Require(s, Decreases(_, b)), p) => Some(Ensuring(Require(s,b), p))
-    case Ensuring(Decreases(_, b), p)             => Some(Ensuring(b, p))
-    case _                                        => Option(e).filterNot(_.isInstanceOf[NoTree])
-  }
-
   override def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val measure = measureOf(e).map(Measure)
     val (specs, body) = super.deconstructSpecs(e)
