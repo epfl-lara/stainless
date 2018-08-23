@@ -123,10 +123,14 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
         case wh @ While(cond, body, optInv) =>
           val name = ValDef.fresh(parent.id.name + "While", FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
 
-          val measure = measureOf(body)
+          val (specs, without) = deconstructSpecs(body)
+          val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
+          val measure = measures.headOption.map { case Measure(m) => m }
 
           val newBody = IfExpr(cond,
-            Block(Seq(body), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
+            Block(
+              Seq(reconstructSpecs(otherSpecs, without, body.getType)),
+              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
             UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
 
           val newPost = Lambda(
@@ -140,8 +144,10 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           val fullBody = Lambda(Seq.empty,
             withPostcondition(
               withPrecondition(
-                withMeasure(newBody,measure)
-              ,optInv).copiedFrom(wh), Some(newPost)
+                withMeasure(newBody, measure).copiedFrom(wh),
+                optInv
+              ).copiedFrom(wh),
+              Some(newPost)
             ).copiedFrom(wh)
           )
 
