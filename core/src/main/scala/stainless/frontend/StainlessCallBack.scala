@@ -3,7 +3,9 @@
 package stainless
 package frontend
 
-import extraction.xlang.{ trees => xt }
+import scala.language.existentials
+
+import extraction.xlang.{ TreeSanitizer, trees => xt }
 import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
@@ -207,8 +209,9 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
 
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
+    val ignoreFlags = Set("library", "synthetic")
     def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
-      !syms.functions(id).flags.exists(_.name == "library") && this.synchronized {
+      !syms.functions(id).flags.exists(f => ignoreFlags contains f.name) && this.synchronized {
         val res = toProcess(id)
         toProcess -= id
         res
@@ -224,15 +227,17 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
 
       try {
+        TreeSanitizer(xt).check(funSyms)
+      } catch {
+        case e: extraction.MissformedStainlessCode =>
+          reportError(e.tree.getPos, e.getMessage, funSyms)
+      }
+
+      try {
         funSyms.ensureWellFormed
       } catch {
         case e: funSyms.TypeErrorException =>
-          reporter.error(e.pos, e.getMessage)
-          reporter.error(s"The extracted sub-program in not well formed.")
-          reporter.error(s"Symbols are:")
-          reporter.error(s"functions -> [${funSyms.functions.keySet.toSeq.sorted mkString ", "}]")
-          reporter.error(s"classes   -> [\n  ${funSyms.classes.values mkString "\n  "}\n]")
-          reporter.fatalError(s"Aborting from StainlessCallBack")
+          reportError(e.pos, e.getMessage, funSyms)
       }
 
       reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
@@ -243,5 +248,14 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }
     }
+  }
+
+  private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
+    reporter.error(pos, msg)
+    reporter.error(s"The extracted sub-program in not well formed.")
+    reporter.error(s"Symbols are:")
+    reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.fatalError(s"Aborting from StainlessCallBack")
   }
 }

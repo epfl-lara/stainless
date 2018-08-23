@@ -13,7 +13,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-126-g334f862"
+val inoxVersion = "1.1.0-191-g03c930c"
 val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
 
 lazy val nParallel = {
@@ -173,7 +173,6 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(site.settings)
   .settings(site.sphinxSupport())
   .settings(mappings in (Compile, packageDoc) := Seq())
-
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")

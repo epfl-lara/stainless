@@ -37,6 +37,7 @@ object VCKind {
   case object CoqMethod       extends VCKind("coq function", "coq fun.")
   case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
   case class  AssertErr(err: String) extends VCKind("body assertion: " + err, "assert.")
+  case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

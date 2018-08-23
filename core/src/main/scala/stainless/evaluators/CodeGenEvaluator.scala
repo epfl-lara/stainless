@@ -13,13 +13,13 @@ import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
-import scala.collection.JavaConverters._
-
 import java.lang.reflect.Constructor
 
 import inox.evaluators._
 import evaluators._
 
+import scala.util.Try
+import scala.collection.JavaConverters._
 import scala.collection.mutable.{Map => MutableMap}
 
 trait CodeGenEvaluator
@@ -74,7 +74,7 @@ trait CodeGenEvaluator
       val res = model.chooses.get(choose.res.id -> newTypes) match {
         case Some(value) =>
           val vars = inputsMap map { case (k, v) => k.toVal -> v }
-          val subModel = inox.Model(model.program, context)(vars, model.chooses)
+          val subModel = inox.Model(model.program)(vars, model.chooses)
 
           eval(value, subModel) match {
             case EvaluationResults.Successful(result) =>
@@ -131,13 +131,8 @@ trait CodeGenEvaluator
     }.getOrElse(EvaluationResults.EvaluatorError(s"Couldn't compile expression: $expr"))
   }
 
-  private def compileExpr(expr: Expr, args: Seq[ValDef]): Option[CompiledExpression] = try {
-    timers.evaluators.codegen.compilation.run { Some(compileExpression(expr, args)) }
-  } catch {
-    case t: Throwable =>
-      reporter.warning(expr.getPos, "Error while compiling expression: " + t.getMessage)
-      None
-  }
+  private def compileExpr(expr: Expr, args: Seq[ValDef]): Try[CompiledExpression] =
+    timers.evaluators.codegen.compilation.run { Try(compileExpression(expr, args)) }
 
   override def compile(expr: Expr, args: Seq[ValDef]) = {
     compileExpr(expr, args).map(ce => (model: program.Model) => {
@@ -155,6 +150,9 @@ trait CodeGenEvaluator
         case e: runtime.CodeGenRuntimeException =>
           EvaluationResults.RuntimeError(e.getMessage)
 
+        case e: java.lang.ClassCastException =>
+          EvaluationResults.RuntimeError(e.getMessage)
+
         case e: java.lang.ExceptionInInitializerError =>
           EvaluationResults.RuntimeError(e.getException.getMessage)
 
@@ -164,13 +162,16 @@ trait CodeGenEvaluator
         case e: java.lang.OutOfMemoryError =>
           EvaluationResults.RuntimeError("Out of memory")
       }
-    })
+    }).recover {
+      case t: Throwable =>
+        (model: program.Model) => EvaluationResults.EvaluatorError(t.getMessage)
+    }.toOption
   }
 }
 
 object CodeGenEvaluator {
   def apply(p: StainlessProgram, ctx: inox.Context): DeterministicEvaluator { val program: p.type } = {
-    val split = FunctionSplitting(p, max = 5000)
+    val split = FunctionSplitting(p, size = 5000, slots = 100)
     EncodingEvaluator(p)(split)(new {
       val program: split.targetProgram.type = split.targetProgram
       val context = ctx

@@ -22,6 +22,7 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
           val cs = cd.children
           (cd.parents.size <= 1) &&
           (cs forall rec) &&
+          (cd.parents forall (_.tps == cd.typeArgs)) &&
           ((cd.flags contains IsAbstract) || cs.isEmpty) &&
           (!(cd.flags contains IsAbstract) || cd.fields.isEmpty) &&
           (cd.typeArgs forall (tp => tp.isInvariant && !tp.flags.exists { case Bounds(_, _) => true case _ => false }))
@@ -100,7 +101,7 @@ trait AdtSpecialization extends CachingPhase with SimpleFunctions with SimpleSor
     protected implicit val implicitContext: TransformerContext = this
 
     override def transform(e: s.Expr): t.Expr = e match {
-      case s.ClassSelector(expr, selector) => symbols.widen(expr.getType) match {
+      case s.ClassSelector(expr, selector) => expr.getType match {
         case s.ClassType(id, tps) if isCandidate(id) =>
           val vd = t.ValDef.fresh("e", t.ADTType(root(id), tps map transform).copiedFrom(e)).copiedFrom(e)
           t.Let(vd, transform(expr),

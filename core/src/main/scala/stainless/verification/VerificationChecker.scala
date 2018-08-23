@@ -128,8 +128,9 @@ trait VerificationChecker { self =>
   protected def checkAdtInvariantModel(vc: VC, invId: Identifier, model: Model): VCStatus = {
     import inox.evaluators.EvaluationResults._
 
-    val Seq((inv @ FunctionInvocation(_, invTps, Seq(adt @ ADT(adtId, tps, args))), path)) =
-      collectWithPC(vc.condition) { case (fi @ FunctionInvocation(`invId`, _, _), path) => (fi, path) }
+    val Seq((inv, adt, path)) = collectWithPC(vc.condition) {
+      case (inv @ FunctionInvocation(`invId`, _, Seq(adt: ADT)), path) => (inv, adt, path)
+    }
 
     def success: VCStatus = {
       reporter.debug("- Model validated.")
@@ -149,7 +150,7 @@ trait VerificationChecker { self =>
       case EvaluatorError(msg) => return failure(s"- ADT inv. path condition leads to evaluator error: $msg")
     }
 
-    val evaledArgs = args.map { arg =>
+    val evaledArgs = adt.args.map { arg =>
       val wrapped = path.bindings.foldRight(arg) { case ((vd, e), b) => let(vd, e, b) }
       evaluator.eval(wrapped, model)
     }
@@ -160,10 +161,10 @@ trait VerificationChecker { self =>
       case EvaluatorError(msg) => return failure(s"- ADT inv. argument leads to evaluator error: $msg")
     }
 
-    val newAdt = ADT(adtId, tps, newArgs)
+    val newAdt = ADT(adt.id, adt.tps, newArgs)
     val adtVar = Variable(FreshIdentifier("adt"), adt.getType(symbols), Seq())
-    val newInv = FunctionInvocation(invId, invTps, Seq(adtVar))
-    val newModel = inox.Model(program, context)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
+    val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
+    val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
     val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
 
     evaluator.eval(newCondition, newModel) match {

@@ -54,6 +54,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[Derived]         (142),
       classSerializer[IsField]         (143),
       classSerializer[IsUnapply]       (144),
+      classSerializer[Synthetic.type]  (182),
 
       mappingSerializer[SymbolIdentifier](145)
         (id => (id.globalId, id.id, id.symbol.path, id.symbol.id))
@@ -68,9 +69,9 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
   /** An extension to the set of registered classes in the `StainlessSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 180 to 229.
+    * The new identifiers in the mapping range from 180 to 230.
     *
-    * NEXT ID: 230
+    * NEXT ID: 231
     */
   override protected def classSerializers: Map[Class[_], Serializer[_]] =
     super.classSerializers ++ Map(
@@ -80,7 +81,6 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       // Inlining trees
       classSerializer[Inline.type]    (181),
       classSerializer[InlineOnce.type](228),
-      classSerializer[Synthetic.type] (182),
 
       // Inner-function trees
       classSerializer[LocalFunDef](183),
@@ -102,6 +102,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[BoolBitwiseXor] (197),
       classSerializer[IsVar.type]     (198),
       classSerializer[IsMutable.type] (199),
+      classSerializer[IsPure.type]    (230),
 
       // Object-oriented trees
       classSerializer[ClassConstructor] (200),

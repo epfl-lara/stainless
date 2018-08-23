@@ -90,7 +90,7 @@ trait Trees extends inlining.Trees { self =>
   }
 
   case class Inner(fd: LocalFunDef) extends FunAbstraction(
-    fd.name.id, fd.tparams, fd.body.args, fd.name.tpe.asInstanceOf[FunctionType].to, fd.body.body, fd.name.flags) {
+    fd.name.id, fd.tparams, fd.body.params, fd.name.tpe.asInstanceOf[FunctionType].to, fd.body.body, fd.name.flags) {
     setPos(fd.name)
 
     def to(t: Trees)(
@@ -146,7 +146,7 @@ trait Printer extends inlining.Printer {
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
       defs foreach { case (LocalFunDef(name, tparams, Lambda(args, body))) =>
-        for (f <- name.flags) p"""|${f.asString(ctx.opts)}
+        for (f <- name.flags) p"""|@${f.asString(ctx.opts)}
                                   |"""
         p"def ${name.id}${nary(tparams, ", ", "[", "]")}"
         if (args.nonEmpty) p"(${args})"
@@ -166,7 +166,7 @@ trait Printer extends inlining.Printer {
                                 |"""
 
       p"def ${name.id}${nary(tparams, ", ", "[", "]")}"
-      if (body.args.nonEmpty) p"(${body.args})"
+      if (body.params.nonEmpty) p"(${body.params})"
       p": ${name.tpe.asInstanceOf[FunctionType].to} = "
       p"${body.body}"
 
@@ -198,13 +198,14 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.LetRec(defs, body) => (
       Seq(),
       defs map (_.name.toVariable),
       defs.map(_.body) :+ body,
       defs.flatMap(_.tparams).map(_.tp),
-      (_, vs, es, tps) => {
+      Seq(),
+      (_, vs, es, tps, _) => {
         var restTps = tps
         t.LetRec(
           (vs zip es.init zip defs).map { case ((v, e), d) =>
@@ -217,7 +218,7 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
       })
 
     case s.ApplyLetRec(fun, tparams, tps, args) =>
-      (Seq(), Seq(fun), args, tparams ++ tps, (_, vs, es, tps) => {
+      (Seq(), Seq(fun), args, tparams ++ tps, Seq(), (_, vs, es, tps, _) => {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
         t.ApplyLetRec(vs.head, ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es)
       })

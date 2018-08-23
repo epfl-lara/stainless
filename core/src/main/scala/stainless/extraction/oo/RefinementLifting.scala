@@ -19,6 +19,7 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
   protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
+    import s._
     import symbols._
 
     def liftRefinements(tpe: s.Type): s.Type = s.typeOps.postMap {

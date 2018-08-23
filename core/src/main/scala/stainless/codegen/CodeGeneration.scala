@@ -113,7 +113,10 @@ trait CodeGeneration { self: CompilationUnit =>
     scala.reflect.NameTransformer.encode(id.uniqueName).replaceAll("\\.", "\\$")
   }
 
-  def defToJVMName(d: Definition): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(d.id)
+  private def defToJVMName(id: Identifier): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(id)
+  def defToJVMName(sort: ADTSort): String = defToJVMName(sort.id)
+  def defToJVMName(cons: ADTConstructor): String = defToJVMName(cons.id)
+  def defToJVMName(fd: FunDef): String = defToJVMName(fd.id)
 
   private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
   private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
@@ -425,10 +428,10 @@ trait CodeGeneration { self: CompilationUnit =>
           cch.freeze
         }
 
-        val argMapping = lambda.args.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
+        val argMapping = lambda.params.zipWithIndex.map { case (v, i) => v.id -> i }.toMap
         val closureMapping = closures.map { case (id, jvmt) => id -> (afName, id.uniqueName, jvmt) }.toMap
         val newLocals = NoLocals.withArgs(argMapping).withFields(closureMapping)
-          .withParameters(params ++ l.args).withTypeParameters(tps)
+          .withParameters(params ++ l.params).withTypeParameters(tps)
 
         locally {
           val apm = cf.addMethod(s"L$ObjectClass;", "apply", s"[L$ObjectClass;")

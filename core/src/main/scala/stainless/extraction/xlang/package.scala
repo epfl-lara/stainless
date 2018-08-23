@@ -33,6 +33,10 @@ package object xlang {
       protected final object identity extends oo.TreeTransformer {
         override val s: self.s.type = self.s
         override val t: self.t.type = self.t
+
+        override def transform(vd: s.ValDef): t.ValDef = {
+          super.transform(vd.copy(flags = vd.flags filterNot (_ == s.Ignore)))
+        }
       }
 
       override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
@@ -45,7 +49,6 @@ package object xlang {
         transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 
-    TreeSanitizer(trees) andThen
     PartialFunctions(trees) andThen
     lowering
   }

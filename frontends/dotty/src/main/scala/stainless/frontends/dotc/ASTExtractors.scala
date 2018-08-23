@@ -22,7 +22,7 @@ trait ASTExtractors {
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     (for {
-      a <- sym.annotations ++ (if (!ignoreOwner) sym.owner.annotations else Set.empty)
+      a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
@@ -149,6 +149,20 @@ trait ASTExtractors {
   def hasStringType(t: tpd.Tree) = isStringSym(t.tpe.typeSymbol)
 
 //  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
+
+  def isDefaultGetter(sym: Symbol) = {
+    sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
+  }
+
+  def isCopyMethod(sym: Symbol) = {
+    sym.name.isTermName && sym.name.toTermName.toString == "copy"
+  }
+
+  def canExtractSynthetic(sym: Symbol) = {
+    (sym is Implicit) ||
+    isDefaultGetter(sym) ||
+    isCopyMethod(sym)
+  }
 
   import AuxiliaryExtractors._
   import ExpressionExtractors._
@@ -350,7 +364,7 @@ trait ASTExtractors {
           case _ => None
         }
 
-        optCall.map { case (rec, sym, tps, args) => (rec.filterNot(_.symbol is Module), sym, tps, args) }
+        optCall.map { case (rec, sym, tps, args) => (rec.filterNot(r => (r.symbol is Module) && !(r.symbol is Case)), sym, tps, args) }
       }
     }
 
@@ -442,7 +456,7 @@ trait ASTExtractors {
             !dd.symbol.is(Label)
           ) || (
             (dd.symbol is Synthetic) &&
-            (dd.symbol is Implicit) &&
+            canExtractSynthetic(dd.symbol) &&
             !(getAnnotations(tpt.symbol) contains "ignore")
           )) {
             Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
@@ -572,11 +586,11 @@ trait ASTExtractors {
     object ExBecause {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case ExCall(Some(rec),
-          ExSymbol("stainless", "proof", "package$", "ProofOps", "because"),
+          ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps", "because"),
           Seq(), Seq(proof)
         ) =>
           def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
-            case Apply(ExSymbol("stainless", "proof", "package$", "ProofOps$", "apply"), Seq(body)) => Some(body)
+            case Apply(ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps$", "apply"), Seq(body)) => Some(body)
             case Block(Seq(v @ ValDef(_, _, _)), e) => extract(e).filter(_.symbol == v.symbol).map(_ => v.rhs)
             case Inlined(_, members, last) => extract(Block(members, last))
             case _ => None

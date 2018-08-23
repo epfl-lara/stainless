@@ -79,6 +79,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
     res.map(r => new VerificationAnalysis {
       override val program: p.type = p
+      override val context = VerificationRun.this.context
       override val sources = functions.toSet
       override val results = r
     })

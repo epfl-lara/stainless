@@ -35,7 +35,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `obj.selector = value` */
   case class FieldAssignment(obj: Expr, selector: Identifier, value: Expr) extends Expr with CachingTyped {
-    def getField(implicit s: Symbols): Option[ValDef] = self.getField(s.widen(obj.getType), selector)
+    def getField(implicit s: Symbols): Option[ValDef] = self.getField(obj.getType, selector)
 
     protected def computeType(implicit s: Symbols): Type = {
       getField
@@ -57,7 +57,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `array(index) = value` */
   case class ArrayUpdate(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = s.widen(array.getType) match {
+    protected def computeType(implicit s: Symbols): Type = array.getType match {
       case ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), UnitType())
       case _ => Untyped
     }
@@ -98,7 +98,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     def convert(vs: VariableSymbol): ValDef = vs match {
       case VarDef(id, tpe, flags) => ValDef(id, tpe, flags filter (_ != IsVar)).copiedFrom(vs)
       case vd: ValDef => vd
-      case _ => ValDef(vs.id, vs.tpe, Seq.empty).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, vs.flags).copiedFrom(vs)
     }
   }
 
@@ -106,11 +106,12 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     def toVar: ValDef = vs match {
       case vd: ValDef if vd.flags contains IsVar => vd
       case vd: ValDef => VarDef(vd.id, vd.tpe, vd.flags :+ IsVar).copiedFrom(vs)
-      case _ => ValDef(vs.id, vs.tpe, Seq(IsVar)).copiedFrom(vs)
+      case _ => ValDef(vs.id, vs.tpe, (vs.flags :+ IsVar).distinct).copiedFrom(vs)
     }
   }
 
   case object IsVar extends Flag("var", Seq.empty)
+  case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {
@@ -121,6 +122,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   /* ========================================
    *               EXTRACTORS
    * ======================================== */
+
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("pure", Seq()) => IsPure
+    case _ => super.extractFlag(name, args)
+  }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees =>new TreeDeconstructor {
@@ -199,44 +205,45 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
-  override def deconstruct(e: s.Expr): DeconstructedExpr = e match {
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.BoolBitwiseAnd(lhs, rhs) =>
-      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseAnd(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.BoolBitwiseAnd(es(0), es(1)))
 
     case s.BoolBitwiseOr(lhs, rhs) =>
-      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseOr(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.BoolBitwiseOr(es(0), es(1)))
 
     case s.BoolBitwiseXor(lhs, rhs) =>
-      (Seq(), Seq(), Seq(lhs, rhs), Seq(), (_, _, es, _) => t.BoolBitwiseXor(es(0), es(1)))
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.BoolBitwiseXor(es(0), es(1)))
 
     case s.Block(exprs, last) =>
-      (Seq(), Seq(), exprs :+ last, Seq(), (_, _, es, _) => t.Block(es.init, es.last))
+      (Seq(), Seq(), exprs :+ last, Seq(), Seq(), (_, _, es, _, _) => t.Block(es.init, es.last))
 
     case s.LetVar(vd, value, expr) =>
-      (Seq(), Seq(vd.toVariable), Seq(value, expr), Seq(), (_, vs, es, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
+      (Seq(), Seq(vd.toVariable), Seq(value, expr), Seq(), Seq(), (_, vs, es, _, _) => t.LetVar(vs.head.toVal, es(0), es(1)))
 
     // @nv: we DON'T return `v` as a variable here as it should not be removed from the
     //      set of free variables in `e`!
     case s.Assignment(v, value) =>
-      (Seq(), Seq(), Seq(v, value), Seq(), (_, _, es, _) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
+      (Seq(), Seq(), Seq(v, value), Seq(), Seq(), (_, _, es, _, _) => t.Assignment(es(0).asInstanceOf[t.Variable], es(1)))
 
     case s.FieldAssignment(obj, selector, value) =>
-      (Seq(selector), Seq(), Seq(obj, value), Seq(), (ids, _, es, _) => t.FieldAssignment(es(0), ids.head, es(1)))
+      (Seq(selector), Seq(), Seq(obj, value), Seq(), Seq(), (ids, _, es, _, _) => t.FieldAssignment(es(0), ids.head, es(1)))
 
     case s.While(cond, body, pred) =>
-      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), (_, _, es, _) => t.While(es(0), es(1), es.drop(2).headOption))
+      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), Seq(), (_, _, es, _, _) => t.While(es(0), es(1), es.drop(2).headOption))
 
     case s.ArrayUpdate(array, index, value) =>
-      (Seq(), Seq(), Seq(array, index, value), Seq(), (_, _, es, _) => t.ArrayUpdate(es(0), es(1), es(2)))
+      (Seq(), Seq(), Seq(array, index, value), Seq(), Seq(), (_, _, es, _, _) => t.ArrayUpdate(es(0), es(1), es(2)))
 
     case s.Old(e) =>
-      (Seq(), Seq(), Seq(e), Seq(), (_, _, es, _) => t.Old(es.head))
+      (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Old(es.head))
 
     case _ => super.deconstruct(e)
   }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
+    case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case _ => super.deconstruct(f)
   }

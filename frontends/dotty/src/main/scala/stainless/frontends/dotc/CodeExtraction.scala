@@ -160,15 +160,15 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        ((t.symbol is Synthetic) && !(t.symbol is Implicit))
+        annotationsOf(t.symbol).contains(xt.Ignore) ||
+        (t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol))
       ) =>
         // ignore
 
       case vd @ ValDef(_, _, _) if vd.symbol is Module =>
         // ignore
 
-      case t @ ExSymbol("stainless", "annotation", "package$", "ignore") if t.isInstanceOf[tpd.TypeDef] =>
+      case t @ ExSymbol("stainless", "annotation", "ignore") if t.isInstanceOf[tpd.TypeDef] =>
         // don't extract the `ignore` annotation class
 
       case i @ Import(_, _) =>
@@ -255,14 +255,24 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val args = template.constr.vparamss.flatten
     val fieldCtx = DefContext((typeParamSymbols(template.constr.tparams) zip extparams).toMap)
-    val fields = args.map { vd =>
-      val tpe = stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
+    val fields = args map { vd =>
       val vdSym = sym.info.decl(vd.symbol.name).symbol
       val id = getIdentifier(vdSym)
+
       val flags = annotationsOf(vdSym, ignoreOwner = true)
-      if (vdSym.symbol is Mutable) xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
+
+      // Flags marked @ignore are extracted as having type BigInt, in order
+      // for us to not have to extract their type while keeping a value
+      // around for equality/effect analysis.
+      val tpe = if (isIgnored) xt.IntegerType()
+                else stainlessType(vd.tpt.tpe)(fieldCtx, vd.pos)
+
+      if ((vdSym.symbol is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
       else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
+
+    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
 
     val defCtx = tpCtx.withNewVars((args.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
@@ -275,8 +285,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        ((t.symbol is Synthetic) && !(t.symbol is Implicit))
+        (t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol)) ||
+        (annotationsOf(t.symbol) contains xt.Ignore)
       ) =>
         // ignore
 
@@ -296,9 +306,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case ExRequire(body) =>
         invariants :+= extractTree(body)(defCtx)
 
-      // Default arguments of copy method
-      case dd @ DefDef(name, _, _, _, _) if dd.symbol.name.toString.startsWith("copy$default$") =>
-        // @nv: FIXME - check with dotty team about this and default arguments in general
+      case t @ ExFunctionDef(fsym, _, _, _, _)
+        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          // we cannot extract copy method if the class has ignored fields as
+          // the type of copy and the getters mention what might be a type we
+          // cannot extract.
 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
@@ -377,7 +389,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     var flags = annotationsOf(sym) ++
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
-      (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set())
+      (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
+      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
@@ -396,29 +409,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
     }
 
-    //if (fctx.isExtern && !exists(_.isInstanceOf[NoTree])(finalBody)) {
-    //  reporter.warning(finalBody.getPos, "External function could be extracted as Leon tree: "+finalBody)
-    //}
-
     val fullBody = if (fctx.isExtern) {
       xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(rhs.pos))
     } else {
       finalBody
     }
 
-    // Post-extraction sanity checks
-
-    val fd = new xt.FunDef(
+    new xt.FunDef(
       id,
       ntparams.map(tp => xt.TypeParameterDef(tp)),
       newParams,
       returnType,
       fullBody,
-      flags.distinct)
-
-    fd.setPos(sym.pos)
-
-    fd
+      flags.distinct
+    ).setPos(sym.pos)
   }
 
   private def typeParamSymbols(tdefs: Seq[tpd.TypeDef]): Seq[Symbol] = tdefs.flatMap(_.tpe match {
@@ -670,6 +674,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case x :: Nil =>
         extractTree(x)(vctx)
 
+      case (x @ Block(_, _)) :: rest =>
+        val re = rec(rest)
+        val (elems, last) = re match {
+          case xt.Block(elems, last) => (elems, last)
+          case e => (Seq(), e)
+        }
+
+        extractTree(x)(vctx) match {
+          case xt.Decreases(m, b) => xt.Decreases(m, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case xt.Require(pre, b) => xt.Require(pre, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case b => xt.Block(b +: elems, last).setPos(x.pos)
+        }
+
       case x :: rest =>
         rec(rest) match {
           case xt.Block(elems, last) =>
@@ -911,32 +928,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case Typed(e, _) =>
       extractTree(e)
 
-    case Inlined(_, members, body) =>
-      val block = extractBlock(members :+ body)
-      val expr = xt.exprOps.withoutSpecs(block)
-      val uncheckedBody = expr match {
-        case None => outOfSubsetError(tr, "Can't inline empty body")
-        case Some(expr) => xt.annotated(expr, xt.Unchecked)
+    case Inlined(call, members, body) =>
+      def rec(expr: xt.Expr): xt.Expr = expr match {
+        case xt.Let(vd, e, b) => xt.Let(vd, e, rec(b)).copiedFrom(expr)
+        case xt.LetRec(fds, b) => xt.LetRec(fds, rec(b)).copiedFrom(expr)
+        case xt.Decreases(_, _) =>
+          outOfSubsetError(tr, "No measure should be specified on inlined functions")
+        case xt.Require(pre, b) =>
+          xt.Assert(pre, Some("Inlined precondition"), rec(b)).copiedFrom(expr)
+        case xt.Ensuring(b, xt.Lambda(Seq(vd), post)) =>
+          xt.Let(vd, rec(b), xt.Assume(post, vd.toVariable).copiedFrom(expr)).copiedFrom(expr)
+        case xt.NoTree(_) =>
+          outOfSubsetError(tr, "Can't inline empty body")
+        case _ =>
+          xt.annotated(expr, xt.Unchecked)
       }
 
-      val pre = xt.exprOps.preconditionOf(block)
-      def addPre(e: xt.Expr) = pre match {
-        case None => e
-        case Some(pre) => xt.Assert(pre, Some("Inlined precondition"), e).copiedFrom(e)
-      }
-
-      if (xt.exprOps.measureOf(block).isDefined) {
-        outOfSubsetError(tr, "No measure should be specified on inlined functions")
-      }
-
-      val post = xt.exprOps.postconditionOf(block)
-      def addPost(e: xt.Expr) = post match {
-        case None => e
-        case Some(xt.Lambda(Seq(vd), post)) =>
-          xt.Let(vd, e, xt.Assume(post, vd.toVariable).copiedFrom(e)).copiedFrom(e)
-      }
-
-      addPre(addPost(uncheckedBody))
+      rec(extractBlock(members :+ body))
 
     case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "choose"), Seq(tpt)), Seq(pred)) =>
       extractTree(pred) match {

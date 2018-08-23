@@ -39,7 +39,9 @@ trait ASTExtractors {
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
-      name = a.atp.safeToString.replaceAll("\\.package\\.", ".")
+      name = a.atp.safeToString
+        .replaceAllLiterally(".package.", ".")
+        .replaceAllLiterally(" @scala.annotation.meta.field", "")
     } yield {
       if (name startsWith "stainless.annotation.") {
         val shortName = name drop "stainless.annotation.".length
@@ -136,6 +138,12 @@ trait ASTExtractors {
   def hasRealType(t: Tree) = isRealSym(t.tpe.typeSymbol)
 
   def hasBooleanType(t: Tree) = t.tpe.widen =:= BooleanClass.tpe
+
+  def isDefaultGetter(sym: Symbol) = sym.name containsName nme.DEFAULT_GETTER_STRING
+
+  def isCopyMethod(sym: Symbol) = sym.name == nme.copy
+
+  def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
 
   /** A set of helpers for extracting trees.*/
   object ExtractorHelpers {
@@ -238,8 +246,9 @@ trait ASTExtractors {
     /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause.*/
     object ExBecauseExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(Select(Apply(ExSelected("stainless", "proof", "package", "boolean2ProofOps"), body :: Nil), ExNamed("because")), proof :: Nil) =>
-          Some((body, proof))
+        case Apply(Select(
+          Apply(ExSelected("stainless", "proof" | "equations", "package", "boolean2ProofOps"), body :: Nil),
+          ExNamed("because")), proof :: Nil) => Some((body, proof))
         case _ => None
        }
     }
@@ -474,9 +483,10 @@ trait ASTExtractors {
             dd.symbol.isImplicit &&
             dd.symbol.isMethod &&
             !(getAnnotations(tpt.symbol) contains "ignore")
-          ) || (
-            !dd.symbol.isSynthetic
-          )) {
+          ) ||
+            !dd.symbol.isSynthetic ||
+            canExtractSynthetic(dd.symbol)
+          ) {
             Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
           } else {
             None
@@ -1121,7 +1131,7 @@ trait ASTExtractors {
         }
 
         res.map { case (rec, sym, tps, args) =>
-          val newRec = rec.filter(r => r.symbol == null || (!r.symbol.isModule && !r.symbol.isModuleClass))
+          val newRec = rec.filter(r => r.symbol == null || !(r.symbol.isModule && !r.symbol.isCase || r.symbol.isModuleClass))
           (newRec, sym, tps, args)
         }
       }

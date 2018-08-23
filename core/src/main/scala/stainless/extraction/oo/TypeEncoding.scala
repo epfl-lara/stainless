@@ -245,7 +245,7 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] val typeField = FreshIdentifier("getType")
-  private[this] val typeFunction = mkFunDef(typeField, Unchecked)()(_ => (
+  private[this] val typeFunction = mkFunDef(typeField, Unchecked, Synthetic)()(_ => (
     Seq("e" :: obj), tpe, { case Seq(e) => choose("res" :: tpe)(_ => E(true)) }))
 
   private[this] val typeOf = (e: Expr) => FunctionInvocation(typeField, Seq(), Seq(e))
@@ -267,7 +267,7 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] val unwrapFunction: t.FunDef =
-    mkFunDef(FreshIdentifier("unwrap"), Unchecked)("T") { case Seq(aT) =>
+    mkFunDef(FreshIdentifier("unwrap"), Unchecked, Synthetic)("T") { case Seq(aT) =>
       (Seq("x" :: obj), aT, { case Seq(x) => choose("res" :: aT)(_ => E(true)) })
     }
 
@@ -316,7 +316,7 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] val wrapFunction: t.FunDef =
-    mkFunDef(FreshIdentifier("wrap"), Unchecked)("T") { case Seq(aT) =>
+    mkFunDef(FreshIdentifier("wrap"), Unchecked, Synthetic)("T") { case Seq(aT) =>
       (Seq("x" :: aT, "tpe" :: tpe), obj, { case Seq(x, tpe) =>
         choose("res" :: obj)(res => unwrap(res, aT) === x && typeOf(res) === tpe)
       })
@@ -356,7 +356,7 @@ trait TypeEncoding
   }
 
   private[this] def subtypeFunction(implicit symbols: s.Symbols): t.FunDef =
-    mkFunDef(subtypeID, Unchecked, Uncached)()(_ => (Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
+    mkFunDef(subtypeID, Unchecked, Uncached, Synthetic)()(_ => (Seq("tp1" :: tpe, "tp2" :: tpe), BooleanType(), {
       case Seq(tp1, tp2) => Seq(
         (tp2 is top) -> E(true),
         (tp1 is bot) -> E(true),
@@ -451,7 +451,7 @@ trait TypeEncoding
         implicit val scope = TypeScope(cd, typeOf(arg.toVariable))
 
         val resTpe = scope.transform(vd.tpe)
-        mkFunDef(id, Unchecked)()(_ => (Seq(arg), resTpe, {
+        mkFunDef(id, Unchecked, Synthetic)()(_ => (Seq(arg), resTpe, {
           case Seq(_) => choose("res" :: resTpe) { res =>
             if (isObject(vd.tpe)) {
               instanceOf(res, encodeType(vd.tpe))
@@ -468,7 +468,7 @@ trait TypeEncoding
         implicit val scope = TypeScope(cd.typeArgs zip tparamParams.map(_.toVariable))
         val paramParams = cd.fields.map(vd => t.ValDef(vd.id.freshen, scope.transform(vd.tpe)))
 
-        mkFunDef(cd.id.freshen, Unchecked)()(_ => (
+        mkFunDef(cd.id.freshen, Unchecked, Synthetic)()(_ => (
           tparamParams ++ paramParams, obj, { case args =>
             choose(ValDef(FreshIdentifier("ptr", true), obj, Seq(Unchecked))) { res =>
               typeOf(res) === encodeType(ct) &&
@@ -502,7 +502,7 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] def instanceFunction(implicit symbols: s.Symbols): t.FunDef =
-    mkFunDef(instanceID, Unchecked, Uncached)()(_ => (Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
+    mkFunDef(instanceID, Unchecked, Uncached, Synthetic, PartialEval)()(_ => (Seq("e" :: obj, "tp2" :: tpe), BooleanType(), {
       case Seq(e, tp2) => let("tp1" :: tpe, typeOf(e))(tp1 => Seq(
         (tp2 is bot) -> E(false),
         (tp2 is top) -> !(tp1 is bot),
@@ -663,7 +663,7 @@ trait TypeEncoding
     protected val OptionSort.Info(option, some, none, isEmpty, get) = info
 
     val unwrapUnapplierFunction: t.FunDef =
-      mkFunDef(FreshIdentifier("IsTyped"), Unchecked, IsUnapply(isEmpty, get))("T") { case Seq(aT) =>
+      mkFunDef(FreshIdentifier("IsTyped"), Unchecked, Synthetic, IsUnapply(isEmpty, get))("T") { case Seq(aT) =>
         (Seq("thiss" :: tpe, "x" :: obj), T(option)(aT), { case Seq(thiss, x) =>
           if_ (instanceOf(x, thiss)) {
             C(some)(aT)(unwrap(x, aT))
@@ -674,7 +674,7 @@ trait TypeEncoding
       }
 
     val instanceUnapplierFunction: t.FunDef =
-      mkFunDef(FreshIdentifier("IsTyped"), Unchecked, IsUnapply(isEmpty, get))() { _ =>
+      mkFunDef(FreshIdentifier("IsTyped"), Unchecked, Synthetic, IsUnapply(isEmpty, get))() { _ =>
         (Seq("thiss" :: tpe, "x" :: obj), T(option)(obj), { case Seq(thiss, x) =>
           if_ (instanceOf(x, thiss)) {
             C(some)(obj)(x)
@@ -698,7 +698,7 @@ trait TypeEncoding
         val arg = t.ValDef(FreshIdentifier("x"), obj)
         implicit val scope = TypeScope(cd, typeOf(arg.toVariable))(symbols)
         val tt = t.tupleTypeWrap(cd.fields.map(vd => if (isObject(vd.tpe)) obj else scope.transform(vd.tpe)))
-        mkFunDef(FreshIdentifier(id.name), Unchecked, IsUnapply(isEmpty, get))() { _ =>
+        mkFunDef(FreshIdentifier(id.name), Unchecked, Synthetic, IsUnapply(isEmpty, get))() { _ =>
           (Seq("thiss" :: tpe, arg), T(option)(tt), { case Seq(thiss, x) =>
             if_ (instanceOf(x, thiss)) {
               C(some)(tt)(t.tupleWrap(cd.fields.map(vd => getField(id, vd.id)(x)(symbols))))

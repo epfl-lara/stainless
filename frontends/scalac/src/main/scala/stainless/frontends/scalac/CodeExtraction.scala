@@ -302,13 +302,22 @@ trait CodeExtraction extends ASTExtractors {
       if df.symbol.isAccessor && df.symbol.isParamAccessor && !name.endsWith("_$eq") => df.symbol
     }
 
-    val fields = (symbols zip vds).map { case (sym, vd) =>
-      val tpe = stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+    val fields = (symbols zip vds) map { case (sym, vd) =>
       val id = getIdentifier(sym)
       val flags = annotationsOf(sym, ignoreOwner = true)
-      if (sym.accessedOrSelf.isMutable) xt.VarDef(id, tpe, flags).setPos(sym.pos)
+      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
+
+      // Flags marked @ignore are extracted as having type BigInt, in order
+      // for us to not have to extract their type while keeping a value
+      // around for equality/effect analysis.
+      val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
+                else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+
+      if (sym.accessedOrSelf.isMutable || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(sym.pos)
       else xt.ValDef(id, tpe, flags).setPos(sym.pos)
     }
+
+    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
 
     val defCtx = tpCtx.withNewVars((symbols zip fields.map(vd => () => vd.toVariable)).toMap)
 
@@ -320,16 +329,19 @@ trait CodeExtraction extends ASTExtractors {
         // ignore
 
       case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        (t.symbol.isSynthetic && !t.symbol.isImplicit)
+        annotationsOf(t.symbol).contains(xt.Ignore) ||
+        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
       ) =>
         // ignore
 
       case ExRequiredExpression(body) =>
         invariants :+= extractTree(body)(defCtx)
 
-      case dd @ DefDef(_, name, _, _, _, _) if dd.symbol.name.toString.startsWith("copy$default$") =>
-        // @nv: FIXME - think about handling default value functions
+      case t @ ExFunctionDef(fsym, _, _, _, _)
+        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          // we cannot extract copy method if the class has ignored fields as
+          // the type of copy and the getters mention what might be a type we
+          // cannot extract.
 
       case t @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
         methods :+= extractFunction(fsym, tparams, vparams, rhs)(defCtx)
@@ -442,7 +454,8 @@ trait CodeExtraction extends ASTExtractors {
 
     var flags = annotationsOf(sym) ++
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
-      (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set())
+      (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
+      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {
@@ -550,7 +563,15 @@ trait CodeExtraction extends ASTExtractors {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
-          outOfSubsetError(s, "Invalid type "+s.tpe+" for .isInstanceOf")
+          outOfSubsetError(s, "Invalid instance pattern: " + s)
+      }
+
+    case id @ Ident(_) if id.tpe.typeSymbol.isCase =>
+      extractType(id) match {
+        case ct: xt.ClassType =>
+          (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
+        case _ =>
+          outOfSubsetError(id, "Invalid instance pattern: " + id)
       }
 
     case a @ Apply(fn, args) =>
@@ -692,6 +713,19 @@ trait CodeExtraction extends ASTExtractors {
 
       case x :: Nil =>
         extractTree(x)(vctx)
+
+      case (x @ Block(_, _)) :: rest =>
+        val re = rec(rest)
+        val (elems, last) = re match {
+          case xt.Block(elems, last) => (elems, last)
+          case e => (Seq(), e)
+        }
+
+        extractTree(x)(vctx) match {
+          case xt.Decreases(m, b) => xt.Decreases(m, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case xt.Require(pre, b) => xt.Require(pre, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case b => xt.Block(b +: elems, last).setPos(x.pos)
+        }
 
       case x :: rest =>
         rec(rest) match {
@@ -909,7 +943,7 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExForallExpression(contract) =>
       extractTree(contract) match {
-        case l: xt.Lambda => xt.Forall(l.args, l.body).setPos(l)
+        case l: xt.Lambda => xt.Forall(l.params, l.body).setPos(l)
         case pred => extractType(contract) match {
           case xt.FunctionType(from, to) =>
             val args = from.map(tpe => xt.ValDef(FreshIdentifier("x", true), tpe).setPos(pred))

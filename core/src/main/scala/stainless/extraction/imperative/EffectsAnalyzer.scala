@@ -94,6 +94,20 @@ trait EffectsAnalyzer extends CachingPhase {
   protected object EffectsAnalysis {
     def empty: EffectsAnalysis = new EffectsAnalysis(Map.empty, Map.empty)
 
+  private def functionEffects(fd: FunAbstraction, effects: EffectsAnalysis)(implicit symbols: Symbols): Set[Effect] =
+    exprOps.withoutSpecs(fd.fullBody) match {
+      case Some(body) =>
+        expressionEffects(body, effects)
+      case None if fd.flags.exists(_.name == "extern") && !fd.flags.exists(_.name == "pure") =>
+        fd.params
+          .filter(vd => isMutableType(vd.getType))
+          .map(_.toVariable)
+          .map(Effect(_, Target(Seq.empty)))
+          .toSet
+      case _ =>
+        Set.empty
+    }
+
     def apply(fd: FunDef)(implicit symbols: Symbols): EffectsAnalysis = {
       val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
       val lookups = fds.map(effectsCache get (_, symbols))
@@ -116,7 +130,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
         val effects = inox.utils.fixpoint { (effects: EffectsAnalysis) =>
           new EffectsAnalysis(effects.effects.map { case (fd, _) =>
-            fd -> withoutSpecs(fd.fullBody).map(expressionEffects(_, effects)).getOrElse(Set.empty)
+            fd -> functionEffects(fd, effects)
           }, effects.locals)
         } (prevEffects merge baseEffects)
 
