@@ -32,8 +32,8 @@ trait ExtractionPipeline { self =>
           context.reporter.debug(res.asString(t.PrinterOptions.fromContext(context)))
           context.reporter.debug("\n\n")
         }
-      } else {
-        // output only the functions given by --functions=f1,f2,...
+      } else if (symbols.functions.exists { case (id,_) => funs.get.contains(id.name) }) {
+        // output only the functions given by --functions=f1,f2,..., if there are any in the symbols
         context.reporter.synchronized {
           context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
           context.reporter.debug(symbols.functions.filter { case (id,_) => funs.get.contains(id.name) }
