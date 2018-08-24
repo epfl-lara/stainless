@@ -13,6 +13,8 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   // defined by StainlessExtraction
   val ctx: inox.Context
 
+  import StructuralExtractors.ExObjectDef
+
   class Checker extends Traverser {
     val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
@@ -100,6 +102,12 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       } else super.traverse(tree)
 
       tree match {
+        case od @ ExObjectDef(_, tmpl) =>
+          if (tmpl.parents.exists(p => !ignoreClasses.contains(p.tpe))) {
+            reportError(tree.pos, "Objects cannot extend classes or implement traits, use a case object instead")
+          }
+          super.traverse(od)
+
         case ClassDef(mods, name, tparams, impl) =>
           if (!sym.isAbstractClass
             && !sym.isCaseClass

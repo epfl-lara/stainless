@@ -31,7 +31,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
           program.symbols.ensureWellFormed
           for (fd <- program.symbols.functions.values.toSeq) {
             import program.symbols._
-            assert(isSubtypeOf(fd.fullBody.getType, fd.returnType))
+            assert(isSubtypeOf(fd.fullBody.getType, fd.getType))
           }
         }
 
@@ -47,14 +47,14 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
               exSymbols.ensureWellFormed
               for (fd <- exSymbols.functions.values.toSeq) {
                 import exSymbols._
-                assert(isSubtypeOf(fd.fullBody.getType, fd.returnType))
+                assert(isSubtypeOf(fd.fullBody.getType, fd.getType))
               }
             }
 
             it("should typecheck without matches") {
               for (fd <- exSymbols.functions.values.toSeq) {
                 import exSymbols._
-                assert(isSubtypeOf(matchToIfThenElse(fd.fullBody).getType, fd.returnType))
+                assert(isSubtypeOf(matchToIfThenElse(fd.fullBody).getType, fd.getType))
               }
             }
           }

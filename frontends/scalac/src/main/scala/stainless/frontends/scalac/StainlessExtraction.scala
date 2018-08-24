@@ -27,9 +27,9 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
       if (!checker.hasErrors()) {
         val (unit, classes, functions) = extractUnit(u)
         callback(file, unit, classes, functions)
-      }/* else
+      } /* else
         // there seems to be some code that
-        throw new UnsupportedCodeException(NoPosition, "Unsupported fragment detected")*/
+        throw new UnsupportedCodeException(NoPosition, "Unsupported fragment detected") */
     }
   }
 }

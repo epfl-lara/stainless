@@ -31,6 +31,12 @@ trait CodeExtraction extends ASTExtractors {
   import ExpressionExtractors._
   import scala.collection.immutable.Set
 
+  val ignoreClasses = Set(
+    ObjectClass.tpe,
+    SerializableClass.tpe,
+    ProductRootClass.tpe,
+    AnyRefClass.tpe
+  )
 
   /** Extract the classes and functions from the given compilation unit. */
   def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
@@ -245,6 +251,7 @@ trait CodeExtraction extends ASTExtractors {
 
   private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val ExObjectDef(_, template) = obj
+
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
@@ -257,13 +264,6 @@ trait CodeExtraction extends ASTExtractors {
 
     (module, allClasses, allFunctions)
   }
-
-  private val ignoreClasses = Set(
-    ObjectClass.tpe,
-    SerializableClass.tpe,
-    ProductRootClass.tpe,
-    AnyRefClass.tpe
-  )
 
   private def extractClass(cd: ImplDef): (xt.ClassDef, Seq[xt.FunDef]) = {
     val sym = cd.symbol

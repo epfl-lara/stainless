@@ -1,4 +1,4 @@
-object NonStrictPositiveTypes extends App {
+object NonStrictPositiveTypes {
   case class A(m: (A => Boolean) => Boolean)
 
   def looping(): A => Boolean = y => y.m(looping())
