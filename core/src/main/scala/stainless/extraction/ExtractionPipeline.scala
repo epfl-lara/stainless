@@ -8,11 +8,30 @@ trait ExtractionPipeline { self =>
   val t: ast.Trees
 
   val phaseName: String
+  // This boolean is `true` for extraction pipelines that should be printed for debugging
+  // It is set to `true` for the basic building blocks of the pipeline
+  val debugTransformation: Boolean
 
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
   def extract(symbols: s.Symbols): t.Symbols
+
+  // `extractWithDebug` is a wrapper around `extract` which outputs trees for debugging
+  def extractWithDebug(symbols: s.Symbols): t.Symbols = {
+    implicit val debugSection = inox.ast.DebugSectionTrees
+    val res = extract(symbols)
+    if (debugTransformation) {
+      context.reporter.synchronized {
+        context.reporter.debug("\n\n\n\nSymbols before extraction " + this)
+        context.reporter.debug(symbols.asString(printerOpts))
+        context.reporter.debug("\n\nSymbols after extraction " + this)
+        context.reporter.debug(res.asString(t.PrinterOptions.fromContext(context)))
+        context.reporter.debug("\n\n")
+      }
+    }
+    res
+  }
 
   def invalidate(id: Identifier): Unit
 
@@ -24,9 +43,10 @@ trait ExtractionPipeline { self =>
     override val t: that.t.type = that.t
     override val context = self.context
     override val phaseName = self.phaseName + ":" + that.phaseName
+    override val debugTransformation = false
 
     override def extract(symbols: s.Symbols): t.Symbols = {
-      that.extract(self.extract(symbols))
+      that.extractWithDebug(self.extractWithDebug(symbols))
     }
 
     override def invalidate(id: Identifier): Unit = {
@@ -47,6 +67,8 @@ object ExtractionPipeline {
     override val context = ctx
     override val phaseName = "<unknown>"
 
+    override val debugTransformation = true
+
     override def extract(symbols: s.Symbols): t.Symbols =
       symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
         val s: self.s.type
@@ -65,6 +87,8 @@ object ExtractionPipeline {
     override val t: transformer.t.type = transformer.t
     override val context = ctx
     override val phaseName = "<unknown>"
+
+    override val debugTransformation = true
 
     override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
     override def invalidate(id: Identifier): Unit = ()
@@ -166,6 +190,8 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 }
 
 trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
+  override val debugTransformation = true
+
   protected type FunctionResult
   private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
 
