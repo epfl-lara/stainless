@@ -285,5 +285,6 @@ object MethodLifting {
     override val s: ts.type = ts
     override val t: tt.type = tt
     override val context = ctx
+    override val debugTransformation = true
   }
 }

@@ -102,6 +102,8 @@ package object extraction {
     override val context = ctx
     override val phaseName = "completer"
 
+    override val debugTransformation = true
+
     override def invalidate(id: Identifier): Unit = ()
     override def extract(symbols: s.Symbols): t.Symbols = completeSymbols(symbols)(to)
   }
