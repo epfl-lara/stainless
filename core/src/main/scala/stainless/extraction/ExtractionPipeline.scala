@@ -22,12 +22,29 @@ trait ExtractionPipeline { self =>
     implicit val debugSection = inox.ast.DebugSectionTrees
     val res = extract(symbols)
     if (debugTransformation) {
-      context.reporter.synchronized {
-        context.reporter.debug("\n\n\n\nSymbols before extraction " + this)
-        context.reporter.debug(symbols.asString(printerOpts))
-        context.reporter.debug("\n\nSymbols after extraction " + this)
-        context.reporter.debug(res.asString(t.PrinterOptions.fromContext(context)))
-        context.reporter.debug("\n\n")
+      val funs = context.options.findOption(optFunctions)
+      if (funs.isEmpty) {
+        // output all the symbols
+        context.reporter.synchronized {
+          context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
+          context.reporter.debug(symbols.asString(printerOpts))
+          context.reporter.debug("\n\nSymbols after extraction " + this +  "\n")
+          context.reporter.debug(res.asString(t.PrinterOptions.fromContext(context)))
+          context.reporter.debug("\n\n")
+        }
+      } else {
+        // output only the functions given by --functions=f1,f2,...
+        context.reporter.synchronized {
+          context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
+          context.reporter.debug(symbols.functions.filter { case (id,_) => funs.get.contains(id.name) }
+                                        .map(_._2.asString(printerOpts))
+                                        .mkString("\n\n"))
+          context.reporter.debug("\n\nSymbols after extraction " + this +  "\n")
+          context.reporter.debug(res.functions.filter { case (id,_) => funs.get.contains(id.name) }
+                                        .map(_._2.asString(t.PrinterOptions.fromContext(context)))
+                                        .mkString("\n\n"))
+          context.reporter.debug("\n\n")
+        }
       }
     }
     res
