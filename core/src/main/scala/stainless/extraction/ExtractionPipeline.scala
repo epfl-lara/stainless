@@ -22,27 +22,26 @@ trait ExtractionPipeline { self =>
     implicit val debugSection = inox.ast.DebugSectionTrees
     val res = extract(symbols)
     if (debugTransformation) {
-      val funs = context.options.findOption(optFunctions)
-      if (funs.isEmpty) {
-        // output all the symbols
+      val objs = context.options.findOption(optDebugObjects)
+      val symbolsToPrint = 
+        if (objs.isEmpty) symbols
+        else 
+          s.NoSymbols.
+            withFunctions(symbols.functions.values.toSeq.filter { fd => objs.get.contains(fd.id.name) }).
+            withSorts(symbols.sorts.values.toSeq.filter { s => objs.get.contains(s.id.name) })
+      val resToPrint = 
+        if (objs.isEmpty) res
+        else 
+          t.NoSymbols.
+            withFunctions(res.functions.values.toSeq.filter { fd => objs.get.contains(fd.id.name) }).
+            withSorts(res.sorts.values.toSeq.filter { s => objs.get.contains(s.id.name) })
+
+      if (!symbolsToPrint.functions.isEmpty || !symbolsToPrint.sorts.isEmpty) {
         context.reporter.synchronized {
           context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
-          context.reporter.debug(symbols.asString(printerOpts))
+          context.reporter.debug(symbolsToPrint.asString(printerOpts))
           context.reporter.debug("\n\nSymbols after extraction " + this +  "\n")
-          context.reporter.debug(res.asString(t.PrinterOptions.fromContext(context)))
-          context.reporter.debug("\n\n")
-        }
-      } else if (symbols.functions.exists { case (id,_) => funs.get.contains(id.name) }) {
-        // output only the functions given by --functions=f1,f2,..., if there are any in the symbols
-        context.reporter.synchronized {
-          context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
-          context.reporter.debug(symbols.functions.filter { case (id,_) => funs.get.contains(id.name) }
-                                        .map(_._2.asString(printerOpts))
-                                        .mkString("\n\n"))
-          context.reporter.debug("\n\nSymbols after extraction " + this +  "\n")
-          context.reporter.debug(res.functions.filter { case (id,_) => funs.get.contains(id.name) }
-                                        .map(_._2.asString(t.PrinterOptions.fromContext(context)))
-                                        .mkString("\n\n"))
+          context.reporter.debug(resToPrint.asString(t.PrinterOptions.fromContext(context)))
           context.reporter.debug("\n\n")
         }
       }
