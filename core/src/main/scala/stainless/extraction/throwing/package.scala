@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object throwing {
 
   object trees extends throwing.Trees with oo.ClassSymbols {
@@ -15,5 +17,6 @@ package object throwing {
     object printer extends Printer { val trees: throwing.trees.type = throwing.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = ExceptionLifting(trees, oo.trees)
+  def extractor(implicit ctx: inox.Context) = 
+    DebugPipeline("throwing.ExceptionLifting", ExceptionLifting(trees, oo.trees))
 }

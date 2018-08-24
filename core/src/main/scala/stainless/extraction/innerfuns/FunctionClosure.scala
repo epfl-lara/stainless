@@ -12,8 +12,6 @@ trait FunctionClosure
   val s: Trees
   val t: ast.Trees
 
-  override val phaseName = "innerfuns.FunctionClosure"
-
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols

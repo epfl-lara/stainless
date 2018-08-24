@@ -19,8 +19,6 @@ trait ImperativeCleanup
   val s: Trees
   val t: extraction.Trees
 
-  override val phaseName = "imperative.ImperativeCleanup"
-
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
   protected class TransformerContext(val symbols: s.Symbols) extends CheckingTransformer {
     val s: self.s.type = self.s

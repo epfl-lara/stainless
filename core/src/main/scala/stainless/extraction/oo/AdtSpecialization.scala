@@ -13,8 +13,6 @@ trait AdtSpecialization
   val s: Trees
   val t: Trees
 
-  override val phaseName = "oo.AdtSpecialization"
-
   private[this] def root(id: Identifier)(implicit symbols: s.Symbols): Identifier = {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }

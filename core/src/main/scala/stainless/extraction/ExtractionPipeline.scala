@@ -7,10 +7,10 @@ trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
 
-  val phaseName: String
-
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
+  // `targetPrinterOpts` isn't implicit to avoid ambiguous references
+  protected def targetPrinterOpts: t.PrinterOptions = t.PrinterOptions.fromContext(context)
 
   def extract(symbols: s.Symbols): t.Symbols
 
@@ -23,7 +23,6 @@ trait ExtractionPipeline { self =>
     override val s: self.s.type = self.s
     override val t: that.t.type = that.t
     override val context = self.context
-    override val phaseName = self.phaseName + ":" + that.phaseName
 
     override def extract(symbols: s.Symbols): t.Symbols = {
       that.extract(self.extract(symbols))
@@ -45,7 +44,6 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
-    override val phaseName = "<unknown>"
 
     override def extract(symbols: s.Symbols): t.Symbols =
       symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
@@ -64,7 +62,6 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
-    override val phaseName = "<unknown>"
 
     override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
     override def invalidate(id: Identifier): Unit = ()
@@ -89,14 +86,7 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   override final def extract(symbols: s.Symbols): t.Symbols = {
     val context = getContext(symbols)
-    val result = extractSymbols(context, symbols)
-
-    if (self.context.reporter.debugSections contains utils.DebugSectionPositions) {
-      val posChecker = utils.PositionChecker(self.phaseName)(self.t)(self.context)
-      result.functions.values.toSeq.foreach(posChecker.traverse)
-    }
-
-    result
+    extractSymbols(context, symbols)
   }
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {

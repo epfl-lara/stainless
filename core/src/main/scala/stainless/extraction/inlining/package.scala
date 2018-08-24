@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import scala.language.existentials
+
 package object inlining {
 
   object trees extends Trees with inox.ast.SimpleSymbols {
@@ -14,5 +16,6 @@ package object inlining {
     object printer extends Printer { val trees: inlining.trees.type = inlining.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = FunctionInlining(trees, extraction.trees)
+  def extractor(implicit ctx: inox.Context) = 
+    DebugPipeline("inlining.FunctionInlining", FunctionInlining(trees, extraction.trees))
 }

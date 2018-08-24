@@ -14,8 +14,6 @@ trait AntiAliasing
      with GhostChecker { self =>
   import s._
 
-  override val phaseName = "imperative.AntiAliasing"
-
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
   override protected final val funCache = new DependencyCache[s.FunDef, FunctionResult]

@@ -273,16 +273,20 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
     val (outers, rest) = path.elements span { !_.isInstanceOf[Condition] }
     val bindings = rest collect { case CloseBound(vd, e) => vd -> e }
-    val cond = fold[Expr](BooleanLiteral(true).setPos(pos), let, and(_, _))(rest)
+    val cond = fold[Expr](
+      BooleanLiteral(true).setPos(pos), 
+      Let(_,_,_).setPos(pos), 
+      And(_, _).setPos(pos)
+    )(rest)
 
     def wrap(e: Expr): Expr = {
       val subst = bindings.map(p => p._1 -> p._1.toVariable.freshen).toMap
       val replace = exprOps.replaceFromSymbols(subst, _: Expr)
-      bindings.foldRight(replace(e)) { case ((vd, e), b) => let(subst(vd).toVal, replace(e), b) }
+      bindings.foldRight(replace(e)) { case ((vd, e), b) => Let(subst(vd).toVal, replace(e), b).setPos(pos) }
     }
 
     val full = recons(cond, es.map(wrap))
-    fold[Expr](full, let, (_, _) => scala.sys.error("Should never happen!"))(outers)
+    fold[Expr](full, Let(_,_,_).setPos(pos), (_, _) => scala.sys.error("Should never happen!"))(outers)
   }
 
   /** Merges the given [[Path]] into the provided [[Expressions.Expr]].

@@ -17,8 +17,6 @@ trait RefinementLifting
   val s: Trees
   val t: Trees
 
-  override val phaseName = "oo.RefinementLifting"
-
   override protected type SortResult = (t.ADTSort, Option[t.FunDef])
   override protected def registerSorts(symbols: t.Symbols, sorts: Seq[(t.ADTSort, Option[t.FunDef])]): t.Symbols =
     symbols.withSorts(sorts.map(_._1)).withFunctions(sorts.flatMap(_._2))

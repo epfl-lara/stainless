@@ -13,8 +13,6 @@ trait ExceptionLifting
   val s: Trees
   val t: oo.Trees
 
-  override val phaseName = "throwing.ExceptionLifting"
-
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 }

@@ -27,7 +27,6 @@ package object xlang {
       override val s: trees.type = trees
       override val t: methods.trees.type = methods.trees
       override val context = ctx
-      override val phaseName = "xlang"
 
       override protected type TransformerContext = identity.type
       override protected def getContext(symbols: s.Symbols) = identity
@@ -50,7 +49,7 @@ package object xlang {
         transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 
-    PartialFunctions(trees) andThen
-    lowering
+    DebugPipeline("xlang.PartialFunctions", PartialFunctions(trees)) andThen
+    DebugPipeline("xlang.lowering", lowering)
   }
 }
