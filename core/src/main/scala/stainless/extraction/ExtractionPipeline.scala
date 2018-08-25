@@ -21,22 +21,19 @@ trait ExtractionPipeline { self =>
   def extractWithDebug(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = inox.ast.DebugSectionTrees
     val res = extract(symbols)
-    if (debugTransformation) {
+    val phases = context.options.findOption(optDebugPhases)
+    if (debugTransformation && 
+        (phases.isEmpty || (phases.isDefined && phases.get.exists(this.toString.contains _)))) {
       val objs = context.options.findOption(optDebugObjects)
       val symbolsToPrint = 
         if (objs.isEmpty) symbols
-        else 
-          s.NoSymbols.
-            withFunctions(symbols.functions.values.toSeq.filter { fd => objs.get.contains(fd.id.name) }).
-            withSorts(symbols.sorts.values.toSeq.filter { s => objs.get.contains(s.id.name) })
+        else symbols.filterObjects(objs.get.toSet)
       val resToPrint = 
         if (objs.isEmpty) res
-        else 
-          t.NoSymbols.
-            withFunctions(res.functions.values.toSeq.filter { fd => objs.get.contains(fd.id.name) }).
-            withSorts(res.sorts.values.toSeq.filter { s => objs.get.contains(s.id.name) })
+        else res.filterObjects(objs.get.toSet)
 
-      if (!symbolsToPrint.functions.isEmpty || !symbolsToPrint.sorts.isEmpty) {
+      if (!symbolsToPrint.functions.isEmpty || !symbolsToPrint.sorts.isEmpty ||
+          !resToPrint.functions.isEmpty || !resToPrint.sorts.isEmpty) {
         context.reporter.synchronized {
           context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
           context.reporter.debug(symbolsToPrint.asString(printerOpts))
