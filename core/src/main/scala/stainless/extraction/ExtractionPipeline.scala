@@ -35,9 +35,9 @@ trait ExtractionPipeline { self =>
       if (!symbolsToPrint.functions.isEmpty || !symbolsToPrint.sorts.isEmpty ||
           !resToPrint.functions.isEmpty || !resToPrint.sorts.isEmpty) {
         context.reporter.synchronized {
-          context.reporter.debug("\n\n\n\nSymbols before extraction " + this + "\n")
+          context.reporter.debug("\n\n\n\nSymbols before " + this + "\n")
           context.reporter.debug(symbolsToPrint.asString(printerOpts))
-          context.reporter.debug("\n\nSymbols after extraction " + this +  "\n")
+          context.reporter.debug("\n\nSymbols after " + this +  "\n")
           context.reporter.debug(resToPrint.asString(t.PrinterOptions.fromContext(context)))
           context.reporter.debug("\n\n")
         }
