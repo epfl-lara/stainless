@@ -17,6 +17,41 @@ trait ExtractionPipeline { self =>
 
   def extract(symbols: s.Symbols): t.Symbols
 
+  // make a String representation for a table of Symbols `s`, only keeping 
+  // functions and classes who names appear in `objs`
+  def symbolsToString(tt: ast.Trees)(s: tt.Symbols, objs: Set[String]): String = {
+    val printerOpts = tt.PrinterOptions.fromContext(context)
+    val printerOpts2 = oo.trees.PrinterOptions.fromContext(context)
+    def objectsToString(m: Iterable[(Identifier,tt.Definition)]): String = 
+      m.collect { 
+        case (id,d) if objs.isEmpty || objs.contains(id.name) => 
+          d.asString(tt.PrinterOptions.fromContext(context))
+      }.mkString("\n\n")
+
+    val functions = objectsToString(s.functions)
+    val sorts = objectsToString(s.sorts)
+    val classes = 
+      if (tt == oo.trees) 
+        // we do the casts in both directions since the compiler doesn't 
+        // recognize that tt == oo.trees
+        objectsToString(s.asInstanceOf[oo.trees.Symbols]
+                         .classes
+                         .asInstanceOf[Iterable[(Identifier,tt.Definition)]])
+      else
+        ""
+
+    def wrapWith(header: String, s: String) = {
+      if (s.isEmpty) ""
+      else 
+        "-------------" + header + "-------------\n" +
+        s + "\n\n"
+    }
+
+    wrapWith("Functions", functions) ++
+    wrapWith("Sorts", sorts) ++
+    wrapWith("Classes", classes)
+  }
+
   // `extractWithDebug` is a wrapper around `extract` which outputs trees for debugging
   def extractWithDebug(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = inox.ast.DebugSectionTrees
@@ -24,21 +59,16 @@ trait ExtractionPipeline { self =>
     val phases = context.options.findOption(optDebugPhases)
     if (debugTransformation && 
         (phases.isEmpty || (phases.isDefined && phases.get.exists(this.toString.contains _)))) {
-      val objs = context.options.findOption(optDebugObjects)
-      val symbolsToPrint = 
-        if (objs.isEmpty) symbols
-        else symbols.filterObjects(objs.get.toSet)
-      val resToPrint = 
-        if (objs.isEmpty) res
-        else res.filterObjects(objs.get.toSet)
+      val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+      val symbolsToPrint = symbolsToString(s)(symbols, objs)
+      val resToPrint = symbolsToString(t)(res, objs)
 
-      if (!symbolsToPrint.functions.isEmpty || !symbolsToPrint.sorts.isEmpty ||
-          !resToPrint.functions.isEmpty || !resToPrint.sorts.isEmpty) {
+      if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
         context.reporter.synchronized {
           context.reporter.debug("\n\n\n\nSymbols before " + this + "\n")
-          context.reporter.debug(symbolsToPrint.asString(printerOpts))
+          context.reporter.debug(symbolsToPrint)
           context.reporter.debug("\n\nSymbols after " + this +  "\n")
-          context.reporter.debug(resToPrint.asString(t.PrinterOptions.fromContext(context)))
+          context.reporter.debug(resToPrint)
           context.reporter.debug("\n\n")
         }
       }
