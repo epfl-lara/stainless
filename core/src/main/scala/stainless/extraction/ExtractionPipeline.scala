@@ -9,7 +9,8 @@ trait ExtractionPipeline { self =>
 
   val phaseName: String
   // This boolean is `true` for extraction pipelines that should be printed for debugging
-  // It is set to `true` for the basic building blocks of the pipeline
+  // It is set to `true` for the basic building blocks of the pipeline, and set 
+  // to `false` when combining components using ̀`andThen`.
   val debugTransformation: Boolean
 
   implicit val context: inox.Context
@@ -18,7 +19,7 @@ trait ExtractionPipeline { self =>
   def extract(symbols: s.Symbols): t.Symbols
 
   // make a String representation for a table of Symbols `s`, only keeping 
-  // functions and classes who names appear in `objs`
+  // functions and classes whose names appear in `objs`
   def symbolsToString(tt: ast.Trees)(s: tt.Symbols, objs: Set[String]): String = {
     val printerOpts = tt.PrinterOptions.fromContext(context)
     val printerOpts2 = oo.trees.PrinterOptions.fromContext(context)
