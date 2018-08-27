@@ -29,12 +29,5 @@ trait ClassSymbols { self: Trees =>
       this.sorts,
       this.classes ++ classes.map(cd => cd.id -> cd)
     )
-
-    override def filterObjects(objs: Set[String]) = {
-      NoSymbols.
-        withFunctions(this.functions.values.toSeq.filter { fd => objs.contains(fd.id.name) }).
-        withSorts(this.sorts.values.toSeq.filter { s => objs.contains(s.id.name) }).
-        withClasses(this.classes.values.toSeq.filter { cd => objs.contains(cd.id.name) })
-    }
   }
 }
