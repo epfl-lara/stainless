@@ -204,14 +204,23 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
       defs map (_.name.toVariable),
       defs.map(_.body) :+ body,
       defs.flatMap(_.tparams).map(_.tp),
-      Seq(),
-      (_, vs, es, tps, _) => {
+      defs.flatMap(_.name.flags),
+      (_, vs, es, tps, fs) => {
         var restTps = tps
+        var restFlags = fs
         t.LetRec(
           (vs zip es.init zip defs).map { case ((v, e), d) =>
-            val (tps, rest) = restTps splitAt d.tparams.size
-            restTps = rest
-            t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
+            val (tps, tpsRest) = restTps splitAt d.tparams.size
+            restTps = tpsRest
+
+            val (fs, flagsRest) = restFlags splitAt d.name.flags.size
+            restFlags = flagsRest
+
+            t.LocalFunDef(
+              v.toVal.copy(flags = fs),
+              tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])),
+              e.asInstanceOf[t.Lambda]
+            )
           },
           es.last
         )
