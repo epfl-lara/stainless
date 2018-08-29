@@ -127,11 +127,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
           val measure = measures.headOption.map { case Measure(m) => m }
 
-          val newBody = IfExpr(cond,
-            Block(
-              Seq(reconstructSpecs(otherSpecs, without, body.getType)),
-              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
-            UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+          val newBody = Block(
+            Seq(reconstructSpecs(otherSpecs, without, body.getType)),
+            IfExpr(cond,ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+                    UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+          ).copiedFrom(wh)
 
           val newPost = Lambda(
             Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
@@ -145,13 +145,19 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
             withPostcondition(
               withPrecondition(
                 withMeasure(newBody, measure).copiedFrom(wh),
-                optInv
+                optInv match { 
+                  case Some(inv) => Some(and(inv,cond))
+                  case None      => Some(cond)  
+                }
               ).copiedFrom(wh),
               Some(newPost)
             ).copiedFrom(wh)
           )
 
-          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
+          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), 
+            IfExpr(cond,ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+                    UnitLiteral().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
+
           toFunction(newExpr)
 
         case Block(Seq(), expr) =>

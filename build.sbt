@@ -1,5 +1,5 @@
 import sbt.ScriptedPlugin
-
+mappings in (Compile, packageDoc) := Seq()
 enablePlugins(GitVersioning)
 git.baseVersion in ThisBuild := "0.1.0"
 git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
@@ -149,6 +149,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
+  mappings in (Compile, packageDoc) := Seq(),
   extraClasspath := {
     ((classDirectory in Compile).value.getAbsolutePath +: (dependencyClasspath in Compile).value.map(_.data.absolutePath))
       .mkString(System.getProperty("path.separator"))
@@ -170,6 +171,7 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(commonSettings, publishMavenSettings)
   .settings(site.settings)
   .settings(site.sphinxSupport())
+  .settings(mappings in (Compile, packageDoc) := Seq())
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
@@ -182,6 +184,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
     scalaSource in Compile := baseDirectory.value
   )
   .settings(commonSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
@@ -203,6 +206,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
 lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-scalac-plugin")
@@ -212,6 +216,7 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
     packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
   )
   .settings(artifactSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
   .disablePlugins(AssemblyPlugin)
@@ -219,6 +224,7 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
   .settings(commonSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   .enablePlugins(JavaAppPackaging)
@@ -233,6 +239,7 @@ lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -251,6 +258,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     )
   )
   .settings(scriptedSettings)
+  .settings(mappings in (Compile, packageDoc) := Seq())
   .settings(
     scriptedDependencies := {
       publishLocal.value
@@ -258,6 +266,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       (publishLocal in `stainless-scalac-plugin`).value
     }
   )
+  
 
 def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
   Seq(
@@ -268,7 +277,8 @@ def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
       "-Dplugin.version=" + version.value,
       "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
     ),
-    scriptedBufferLog := false
+    scriptedBufferLog := false,
+    mappings in (Compile, packageDoc) := Seq()
   )
 
 lazy val root = (project in file("."))

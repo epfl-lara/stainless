@@ -72,7 +72,7 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
+  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr = {
     (pred.filterNot(_ == BooleanLiteral(true)), expr) match {
       case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
       case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
@@ -84,6 +84,7 @@ trait ExprOps extends inox.ast.ExprOps {
       case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
       case (None, b)                                          => b
     }
+  }  
 
   /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
     *
