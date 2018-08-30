@@ -9,6 +9,8 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val t: extraction.Trees
   import s._
 
+  override val phaseName = "inlining.FunctionInlining"
+
   override protected type FunctionResult = Option[t.FunDef]
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
@@ -28,7 +30,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
       override def transform(expr: s.Expr): t.Expr = expr match {
         case fi: FunctionInvocation if fi.tfd.id != fd.id =>
-          inlineFunctionInvocations(fi.copy(args = fi.args map transform))
+          inlineFunctionInvocations(fi.copy(args = fi.args map transform)).copiedFrom(fi)
 
         case _ => super.transform(expr)
       }
@@ -50,7 +52,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         val body = exprOps.withoutSpecs(tfd.fullBody) match {
           case Some(body) if isSynthetic => body
           case Some(body) => annotated(body, Unchecked)
-          case _ => NoTree(tfd.returnType)
+          case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
         }
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
@@ -65,9 +67,9 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           // It is thus inlined into an assertion here.
           case Some(Lambda(Seq(vd), post)) if isSynthetic =>
             val err = Some("Inlined postcondition of " + tfd.id.name)
-            Let(vd, e, Assert(post, err, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
+            Let(vd, e, Assert(post, err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case Some(Lambda(Seq(vd), post)) =>
-            Let(vd, e, Assume(post, vd.toVariable).copiedFrom(fi)).copiedFrom(fi)
+            Let(vd, e, Assume(post, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case _ => e
         }
 

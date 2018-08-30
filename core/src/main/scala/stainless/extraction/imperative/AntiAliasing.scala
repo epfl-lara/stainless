@@ -13,6 +13,8 @@ trait AntiAliasing
      with EffectsChecker { self =>
   import s._
 
+  override val phaseName = "imperative.AntiAliasing"
+
   override protected type FunctionResult = Option[FunDef]
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
