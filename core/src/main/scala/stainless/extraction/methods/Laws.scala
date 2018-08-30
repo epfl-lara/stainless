@@ -109,9 +109,8 @@ trait Laws extends oo.CachingPhase
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    transformer.transform {
-      if (context isLaw fd) context rewriteLaw fd else fd
-    }
+    if (context.isLaw(fd)) transformer.transform(context.rewriteLaw(fd))
+    else transformer.transform(fd)
   }
 
 }

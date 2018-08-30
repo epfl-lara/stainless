@@ -97,6 +97,7 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
 
     for (cd <- symbols.classes.values) {
       invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
+      laws(cd) foreach { law => g += SimpleEdge(cd.id, law) }
     }
 
     inox.utils.fixpoint(addEdgesToOverrides)(g)
@@ -105,6 +106,11 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
   private def invariant(cd: ClassDef): Option[Identifier] = {
     def isInvariant(fd: FunDef) = fd.flags.contains(IsInvariant) && fd.flags.contains(IsMethodOf(cd.id))
     symbols.functions.values.find(isInvariant).map(_.id)
+  }
+
+  private def laws(cd: ClassDef): Set[Identifier] = {
+    def isLaw(fd: FunDef) = fd.flags.exists(_.name == "law") && fd.flags.contains(IsMethodOf(cd.id))
+    symbols.functions.values.filter(isLaw).map(_.id).toSet
   }
 
   private def overrides(fd: FunDef): Set[Identifier] = {
