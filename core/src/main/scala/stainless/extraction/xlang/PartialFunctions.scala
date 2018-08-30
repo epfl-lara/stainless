@@ -10,6 +10,8 @@ trait PartialFunctions extends oo.SimplePhase { self =>
   val t: self.s.type
   import s._
 
+  override val phaseName = "xlang.PartialFunctions"
+
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
   protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
     override final val s: self.s.type = self.s

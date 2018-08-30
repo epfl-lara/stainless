@@ -17,6 +17,8 @@ trait TypeEncoding
   val s: Trees
   val t: Trees
 
+  override val phaseName = "oo.TypeEncoding"
+
   import t._
   import t.dsl._
   import s.TypeParameterWrapper
