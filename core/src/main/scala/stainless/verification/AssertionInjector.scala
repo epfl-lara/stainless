@@ -100,7 +100,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       // Check division by zero, and if requested/meaningful, check for overflow
       val newE = super.transform(e)
       val rest = e.getType match {
-        case s.BVType(size) if strictArithmetic =>
+        case s.BVType(true, size) if strictArithmetic =>
           // Overflow happens when -MinValue / -1
           t.Assert(
             t.Not(t.And(
@@ -110,6 +110,8 @@ trait AssertionInjector extends ast.TreeTransformer {
             Some("Division Overflow"),
             newE
           ).copiedFrom(e)
+        case s.BVType(false, size) if strictArithmetic =>
+          throw new Exception("Division is not implemented for unsigned bitvectors in strict arithmetic mode.")
 
         case _ => newE
       }
@@ -117,7 +119,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
           case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Division by zero"),
@@ -128,7 +130,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Remainder by zero"),
         super.transform(e)
@@ -138,7 +140,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Modulo by zero"),
         super.transform(e)
@@ -164,7 +166,7 @@ trait AssertionInjector extends ast.TreeTransformer {
 
   private object BVTyped {
     def unapply(e: s.Expr): Option[(Int, s.Expr)] = e.getType match {
-      case s.BVType(size) => Some(size -> e)
+      case s.BVType(_, size) => Some(size -> e)
       case _ => None
     }
   }

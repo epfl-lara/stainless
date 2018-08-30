@@ -44,7 +44,7 @@ trait TypeEncoding
   private[this] val (map,  mapValue)  = (FreshIdentifier("Map"),       FreshIdentifier("value"))
   private[this] val unit = FreshIdentifier("Unit")
 
-  private[this] val bv: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Bigvector" + i))
+  private[this] val bv: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Bitvector" + i))
   private[this] val bvValue: Int => Identifier = new CachedID[Int](_ => FreshIdentifier("value"))
 
   private[this] val tpl: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Tuple" + i))
