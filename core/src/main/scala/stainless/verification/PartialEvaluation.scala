@@ -16,6 +16,8 @@ trait PartialEvaluation
   val s: extraction.Trees
   val t: s.type
 
+  override val phaseName = "PartialEvaluation"
+
   import context._
   import s._
 

@@ -23,6 +23,8 @@ package object oo {
       override val t: imperative.trees.type = imperative.trees
     })
 
+    import utils.PositionChecker
+
     AdtSpecialization(trees, trees) andThen
     RefinementLifting(trees, trees) andThen
     TypeEncoding(trees, trees)      andThen

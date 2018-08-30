@@ -12,6 +12,8 @@ trait FunctionClosure
   val s: Trees
   val t: ast.Trees
 
+  override val phaseName = "innerfuns.FunctionClosure"
+
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
@@ -65,7 +67,7 @@ trait FunctionClosure
       val instBody = inst.transform(withPath(body, reqPC))
 
       val fullBody = exprOps.preMap {
-        case v: Variable => freeMap.get(v.toVal).map(_.toVariable)
+        case v: Variable => freeMap.get(v.toVal).map(_.toVariable.copiedFrom(v))
 
         case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
           Some(Let(freeMap(id), v, r).copiedFrom(let))
