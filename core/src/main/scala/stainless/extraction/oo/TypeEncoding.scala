@@ -302,7 +302,7 @@ trait TypeEncoding
     case tp: s.TypeParameter => top()
     case s.BooleanType() => bool()
     case s.IntegerType() => int()
-    case s.BVType(size) => bv(IntegerLiteral(size))
+    case s.BVType(true, size) => bv(IntegerLiteral(size))
     case s.CharType() => char()
     case s.UnitType() => unit()
     case s.RealType() => real()

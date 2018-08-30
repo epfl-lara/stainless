@@ -144,7 +144,7 @@ trait StructuralSize { self: SolverProvider =>
     case IntegerType() =>
       FunctionInvocation(integerAbs.id, Seq(), Seq(expr))
 
-    case bv @ BVType(_) =>
+    case bv @ BVType(_, _) =>
       FunctionInvocation(bvAbs2Integer(bv).id, Seq(), Seq(expr))
 
     case _ => IntegerLiteral(0)

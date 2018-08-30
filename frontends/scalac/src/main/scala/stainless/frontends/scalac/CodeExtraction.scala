@@ -1001,14 +1001,14 @@ trait CodeExtraction extends ASTExtractors {
     case ExBVNot(e)      => injectCast(xt.BVNot)(e)
 
     case ExNotEquals(l, r) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (bi @ xt.BVLiteral(_, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
-      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
+      case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
+      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
       case _ => injectCasts(xt.Equals)(l, r)
     }).setPos(tr.pos))
 
     case ExEquals(l, r) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (bi @ xt.BVLiteral(_, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
-      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
+      case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
+      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
       case _ => injectCasts(xt.Equals)(l, r)
     }
 
@@ -1111,7 +1111,7 @@ trait CodeExtraction extends ASTExtractors {
 
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
-          case (xt.IntegerType() | xt.BVType(_) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
+          case (xt.IntegerType() | xt.BVType(_, _) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
 
           case (xt.SetType(_), "+",  Seq(rhs)) => xt.SetAdd(extractTree(lhs), extractTree(rhs))
           case (xt.SetType(_), "++", Seq(rhs)) => xt.SetUnion(extractTree(lhs), extractTree(rhs))
@@ -1200,12 +1200,12 @@ trait CodeExtraction extends ASTExtractors {
           case (_, "<",   Seq(rhs)) => injectCasts(xt.LessThan)(lhs, rhs)
           case (_, "<=",  Seq(rhs)) => injectCasts(xt.LessEquals)(lhs, rhs)
 
-          case (xt.BVType(_), "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
-          case (xt.BVType(_), "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
-          case (xt.BVType(_), "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
-          case (xt.BVType(_), "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
-          case (xt.BVType(_), ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
-          case (xt.BVType(_), ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
+          case (xt.BVType(_, _), "|",   Seq(rhs)) => injectCasts(xt.BVOr)(lhs, rhs)
+          case (xt.BVType(_, _), "&",   Seq(rhs)) => injectCasts(xt.BVAnd)(lhs, rhs)
+          case (xt.BVType(_, _), "^",   Seq(rhs)) => injectCasts(xt.BVXor)(lhs, rhs)
+          case (xt.BVType(_, _), "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft)(lhs, rhs)
+          case (xt.BVType(_, _), ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight)(lhs, rhs)
+          case (xt.BVType(_, _), ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight)(lhs, rhs)
 
           case (xt.BooleanType(), "|", Seq(rhs)) => xt.BoolBitwiseOr(extractTree(lhs), extractTree(rhs))
           case (xt.BooleanType(), "&", Seq(rhs)) => xt.BoolBitwiseAnd(extractTree(lhs), extractTree(rhs))
@@ -1215,28 +1215,28 @@ trait CodeExtraction extends ASTExtractors {
           case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
 
           case (tpe, "toByte", Seq()) => tpe match {
-            case xt.BVType(8) => extractTree(lhs)
-            case xt.BVType(16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(8))
+            case xt.BVType(true, 8) => extractTree(lhs)
+            case xt.BVType(true, 16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 8))
             case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
           }
 
           case (tpe, "toShort", Seq()) => tpe match {
-            case xt.BVType(8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(16))
-            case xt.BVType(16) => extractTree(lhs)
-            case xt.BVType(32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(16))
+            case xt.BVType(true, 8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 16))
+            case xt.BVType(true, 16) => extractTree(lhs)
+            case xt.BVType(true, 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 16))
             case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
           }
 
           case (tpe, "toInt", Seq()) => tpe match {
-            case xt.BVType(8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(32))
-            case xt.BVType(32) => extractTree(lhs)
-            case xt.BVType(64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(32))
+            case xt.BVType(true, 8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 32))
+            case xt.BVType(true, 32) => extractTree(lhs)
+            case xt.BVType(true, 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 32))
             case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
           }
 
           case (tpe, "toLong", Seq()) => tpe match {
-            case xt.BVType(8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(64))
-            case xt.BVType(64) => extractTree(lhs)
+            case xt.BVType(true, 8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 64))
+            case xt.BVType(true, 64) => extractTree(lhs)
             case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
           }
 
@@ -1278,8 +1278,8 @@ trait CodeExtraction extends ASTExtractors {
                              (lhs0: Tree, rhs0: Tree, shift: Boolean)
                              (implicit dctx: DefContext): xt.Expr = {
     def checkBits(tr: Tree, tpe: xt.Type) = tpe match {
-      case xt.BVType(8 | 16 | 32 | 64) => // Byte, Short, Int or Long are ok
-      case xt.BVType(s) => outOfSubsetError(tr, s"Unexpected integer of $s bits")
+      case xt.BVType(_, 8 | 16 | 32 | 64) => // Byte, Short, Int or Long are ok
+      case xt.BVType(_, s) => outOfSubsetError(tr, s"Unexpected integer of $s bits")
       case _ => // non-bitvector types are ok too
     }
 
@@ -1292,20 +1292,20 @@ trait CodeExtraction extends ASTExtractors {
     checkBits(rhs0, rtpe)
 
     val id = { e: xt.Expr => e }
-    val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(32).copiedFrom(e)).copiedFrom(e) }
-    val widen64 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(64).copiedFrom(e)).copiedFrom(e) }
+    val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(true, 32).copiedFrom(e)).copiedFrom(e) }
+    val widen64 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(true, 64).copiedFrom(e)).copiedFrom(e) }
 
     val (lctor, rctor) = (ltpe, rtpe) match {
-      case (xt.BVType(64), xt.BVType(64))          => (id, id)
-      case (xt.BVType(64), xt.BVType(_))           => (id, widen64)
-      case (xt.BVType(_),  xt.BVType(64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
-      case (xt.BVType(_),  xt.BVType(64))          => (widen64, id)
-      case (xt.BVType(32), xt.BVType(32))          => (id, id)
-      case (xt.BVType(32), xt.BVType(_))           => (id, widen32)
-      case (xt.BVType(_),  xt.BVType(32))          => (widen32, id)
-      case (xt.BVType(_),  xt.BVType(_))           => (widen32, widen32)
+      case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id)
+      case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64)
+      case (xt.BVType(true, _),  xt.BVType(true, 64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
+      case (xt.BVType(true, _),  xt.BVType(true, 64))          => (widen64, id)
+      case (xt.BVType(true, 32), xt.BVType(true, 32))          => (id, id)
+      case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32)
+      case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
+      case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
 
-      case (xt.BVType(_), _) | (_, xt.BVType(_)) =>
+      case (xt.BVType(_, _), _) | (_, xt.BVType(_, _)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
 
       case (_, _) => (id, id)
@@ -1323,9 +1323,9 @@ trait CodeExtraction extends ASTExtractors {
     val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.Int32Type().copiedFrom(e)).copiedFrom(e) }
 
     val ector = etpe match {
-      case xt.BVType(8 | 16) => widen32
-      case xt.BVType(32 | 64) => id
-      case xt.BVType(s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
+      case xt.BVType(true, 8 | 16) => widen32
+      case xt.BVType(true, 32 | 64) => id
+      case xt.BVType(true, s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
       case _ => id
     }
 

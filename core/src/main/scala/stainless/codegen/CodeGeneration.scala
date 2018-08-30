@@ -196,7 +196,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int16Type() => "S"
     case Int32Type() => "I"
     case Int64Type() => "J"
-    case BVType(_) => "L" + BitVectorClass + ";"
+    case BVType(true, _) => "L" + BitVectorClass + ";"
 
     case BooleanType() => "Z"
 
@@ -622,7 +622,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int64Literal(v) =>
       ch << Ldc(v)
 
-    case bi @ BVLiteral(_, size) =>
+    case bi @ BVLiteral(true, _, size) =>
       val value = bi.toBigInt.toString
       ch << Comment("new bv")
       ch << New(BitVectorClass) << DUP
@@ -929,7 +929,7 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
           ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
-        case BVType(_) =>
+        case BVType(true, _) =>
           val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
           ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
           ch << InvokeVirtual(BitVectorClass, op, opSign)
@@ -966,7 +966,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int64Type(), Int8Type() ) => ch << L2I << I2B
         case (Int64Type(), Int16Type()) => ch << L2I << I2S
         case (Int64Type(), Int32Type()) => ch << L2I
-        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (BVType(true,s), BVType(true,t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
 
@@ -980,7 +980,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int16Type(), Int32Type()) => ch << NOP // already an int
         case (Int16Type(), Int64Type()) => ch << I2L
         case (Int32Type(), Int64Type()) => ch << I2L
-        case (BVType(s), BVType(t)) if s == t => ch << NOP
+        case (BVType(true,s), BVType(true,t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
 
@@ -1518,11 +1518,11 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int16Type() => mkNewBV(ch, "S", 16)
       case Int32Type() => mkNewBV(ch, "I", 32)
       case Int64Type() => mkNewBV(ch, "J", 64)
-      case BVType(s) => ch << NOP
+      case BVType(true,s) => ch << NOP
     }
 
-    val BVType(oldSize) = from
-    val BVType(newSize) = to
+    val BVType(true,oldSize) = from
+    val BVType(true,newSize) = to
     ch << Comment(s"Applying BVCast on BitVector instance: $oldSize -> $newSize")
     ch << Ldc(newSize)
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
@@ -1532,7 +1532,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
       case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
       case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
-      case BVType(s) => ch << NOP
+      case BVType(true,s) => ch << NOP
     }
   }
 
@@ -1569,7 +1569,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << iop(thenn) << Goto(elze)
       case Int64Type() =>
         ch << LCMP << lop(thenn) << Goto(elze)
-      case BVType(_) =>
+      case BVType(true,_) =>
         ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
       case IntegerType() =>
@@ -1631,7 +1631,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
-      case BVType(_) =>
+      case BVType(true,_) =>
         val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
         ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
@@ -1685,7 +1685,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
-      case BVType(_) =>
+      case BVType(true,_) =>
         val opSign = s"()L$BitVectorClass;"
         ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
