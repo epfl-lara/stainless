@@ -31,11 +31,13 @@ object ListMonoidLaws {
     def empty = Nil[BigInt]()
     def append(left: List[BigInt], right: List[BigInt]): List[BigInt] = left ++ right
 
-    override def law_associativity(x: List[BigInt], y: List[BigInt], z: List[BigInt]): Boolean = {
-      super.law_associativity(x, y, z) because {
-        x match {
-          case Nil() => true
-          case Cons(x, xs) => check(law_associativity(xs, y, z))
+    override def law_associativity(xxs: List[BigInt], ys: List[BigInt], zs: List[BigInt]): Boolean = {
+      super.law_associativity(xxs, ys, zs) because {
+        xxs match {
+          case Nil() =>
+            true
+          case Cons(x, xs) =>
+            super.law_associativity(xs, ys, zs)
         }
       }
     }
