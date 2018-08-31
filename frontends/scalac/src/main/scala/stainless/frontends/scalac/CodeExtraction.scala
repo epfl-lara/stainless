@@ -1325,7 +1325,7 @@ trait CodeExtraction extends ASTExtractors {
     val ector = etpe match {
       case xt.BVType(true, 8 | 16) => widen32
       case xt.BVType(true, 32 | 64) => id
-      case xt.BVType(true, s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
+      case xt.BVType(_, s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
       case _ => id
     }
 
