@@ -34,7 +34,7 @@ object TerminationComponent extends Component {
 
             t.Assert(
               t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
-                case s.BVType(size) => t.BVLiteral(0, size)
+                case s.BVType(signed, size) => t.BVLiteral(signed, 0, size)
                 case s.IntegerType() => t.IntegerLiteral(0)
                 case _ => throw inox.FatalError("Unexpected measure type for " + e)
               }))),

@@ -129,7 +129,7 @@ trait CompilationUnit extends CodeGeneration {
     case Int16Literal(v) => java.lang.Short.valueOf(v)
     case Int32Literal(v) => java.lang.Integer.valueOf(v)
     case Int64Literal(v) => java.lang.Long.valueOf(v)
-    case bi @ BVLiteral(_, size) => println(s"NOT IMPLEMENTED!!!"); ???
+    case bi @ BVLiteral(_, _, size) => println(s"NOT IMPLEMENTED!!!"); ???
 
     case BooleanLiteral(v) =>
       java.lang.Boolean.valueOf(v)
@@ -294,7 +294,7 @@ trait CompilationUnit extends CodeGeneration {
     case (s: java.lang.Short,   Int16Type()) => Int16Literal(s.toShort)
     case (i: java.lang.Integer, Int32Type()) => Int32Literal(i.toInt)
     case (l: java.lang.Long,    Int64Type()) => Int64Literal(l.toLong)
-    case (bv: runtime.BitVector, BVType(size)) => BVLiteral(BigInt(bv.toString, 2), size)
+    case (bv: runtime.BitVector, BVType(signed, size)) => BVLiteral(signed, BigInt(bv.toString, 2), size)
 
     case (c: runtime.BigInt, IntegerType()) =>
       IntegerLiteral(c.toScala)

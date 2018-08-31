@@ -76,8 +76,8 @@ trait StructuralSize { self: SolverProvider =>
    */
   def bvAbs2Integer(tpe: BVType): FunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
     val funID = FreshIdentifier("bvAbs2Integer$" + tpe.size)
-    val zero = BVLiteral(0, tpe.size)
-    val one = BVLiteral(1, tpe.size)
+    val zero = BVLiteral(true, 0, tpe.size)
+    val one = BVLiteral(true, 1, tpe.size)
     val fd = mkFunDef(funID)()(_ => (
       Seq("x" :: tpe), IntegerType(), { case Seq(x) =>
         Ensuring(if_ (x === zero) {
@@ -144,7 +144,7 @@ trait StructuralSize { self: SolverProvider =>
     case IntegerType() =>
       FunctionInvocation(integerAbs.id, Seq(), Seq(expr))
 
-    case bv @ BVType(_) =>
+    case bv @ BVType(_, _) =>
       FunctionInvocation(bvAbs2Integer(bv).id, Seq(), Seq(expr))
 
     case _ => IntegerLiteral(0)
