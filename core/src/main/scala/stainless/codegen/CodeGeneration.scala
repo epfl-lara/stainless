@@ -196,7 +196,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int16Type() => "S"
     case Int32Type() => "I"
     case Int64Type() => "J"
-    case BVType(true, _) => "L" + BitVectorClass + ";"
+    case BVType(_, _) => "L" + BitVectorClass + ";"
 
     case BooleanType() => "Z"
 
@@ -622,7 +622,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int64Literal(v) =>
       ch << Ldc(v)
 
-    case bi @ BVLiteral(true, _, size) =>
+    case bi @ BVLiteral(_, _, size) =>
       val value = bi.toBigInt.toString
       ch << Comment("new bv")
       ch << New(BitVectorClass) << DUP
@@ -1631,7 +1631,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
-      case BVType(true,_) =>
+      case BVType(_, _) =>
         val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
         ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
