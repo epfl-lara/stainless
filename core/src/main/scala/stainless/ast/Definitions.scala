@@ -18,6 +18,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
+  case class IsAccessor(id: Option[Identifier]) extends Flag("accessor", id.toSeq)
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("ghost", Seq()) => Ghost

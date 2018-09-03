@@ -137,7 +137,8 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       val cd = symbols.getClass(cid)
       cd.methods(symbols).find { id =>
         val fd = symbols.getFunction(id)
-        fd.tparams.isEmpty && fd.params.isEmpty && fd.id.name == vd.id.name
+        val isAccessor = fd.flags exists { case IsAccessor(_) => true case _ => false }
+        !isAccessor && fd.tparams.isEmpty && fd.params.isEmpty && fd.id.name == vd.id.name
       }.map(_.symbol).orElse(cd.parents.reverse.view.flatMap(ct => firstSymbol(ct.id, vd)).headOption)
     }
 
@@ -316,7 +317,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      fd.flags filterNot (f => f == IsMethodOf(cid) || f == IsInvariant || f == IsAbstract) map transformer.transform
+      fd.flags map transformer.transform
     ).copiedFrom(fd)
   }
 }

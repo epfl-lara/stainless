@@ -3,15 +3,16 @@ import stainless.lang._
 import stainless.annotation._
 import scala.annotation.meta.field
 
-object IgnoredField {
+object IgnoredFieldNonExtern2 {
 
   case class Foo(
     @(ignore @field)
-    bar: Option[Boolean]
+    bar: scala.collection.mutable.ListBuffer[Boolean]
   )
 
-  def wrong2(foo: Foo) = {
-    foo.bar.isDefined
+  def wrong2(foo: Foo): Unit = {
+    foo.bar
+    ()
   }
 
 }

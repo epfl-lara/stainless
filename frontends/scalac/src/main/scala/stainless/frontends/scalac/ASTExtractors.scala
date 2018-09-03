@@ -504,43 +504,19 @@ trait ASTExtractors {
       }
     }
 
-    object ExLazyAccessorFunction {
-      def unapply(dd: DefDef): Option[(Symbol, Type, Tree)] = dd match {
-        case DefDef(_, name, tparams, vparamss, tpt, rhs) if(
-          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
-          !dd.symbol.isSynthetic && dd.symbol.isAccessor && dd.symbol.isLazy
-        ) =>
-          Some((dd.symbol, tpt.tpe, rhs))
-        case _ => None
-      }
-    }
-
-    object ExMutatorAccessorFunction {
-      def unapply(dd: DefDef): Option[(Symbol, Seq[Symbol], Seq[ValDef], Type, Tree)] = dd match {
-        case DefDef(_, name, tparams, vparamss, tpt, rhs) if(
-          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
-          !dd.symbol.isSynthetic && dd.symbol.isAccessor && name.endsWith("_$eq")
-        ) =>
-          Some((dd.symbol, tparams.map(_.symbol), vparamss.flatten, tpt.tpe, rhs))
-        case _ => None
-      }
-    }
-
     object ExMutableFieldDef {
 
       /** Matches a definition of a strict var field inside a class constructor */
-      def unapply(vd: SymTree) : Option[(Symbol, Type, Tree)] = {
+      def unapply(vd: ValDef) : Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           // Implemented fields
           case ValDef(mods, name, tpt, rhs) if (
             !sym.isCaseAccessor && !sym.isParamAccessor &&
-            !sym.isLazy && !sym.isSynthetic && !sym.isAccessor && sym.isVar
+            !sym.isLazy && !sym.isSynthetic && sym.isVar
           ) =>
-            println("matched a var accessor field: sym is: " + sym)
-            println("getterIn is: " + sym.getterIn(sym.owner))
             // Since scalac uses the accessor symbol all over the place, we pass that instead:
-            Some( (sym.getterIn(sym.owner),tpt.tpe,rhs) )
+            Some((sym, tpt.tpe, rhs))
           case _ => None
         }
       }
@@ -548,22 +524,15 @@ trait ASTExtractors {
 
     object ExFieldDef {
       /** Matches a definition of a strict field inside a class constructor */
-      def unapply(vd: SymTree) : Option[(Symbol, Type, Tree)] = {
+      def unapply(vd: ValDef) : Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           // Implemented fields
           case ValDef(mods, name, tpt, rhs) if (
             !sym.isCaseAccessor && !sym.isParamAccessor &&
-            !sym.isLazy && !sym.isSynthetic && !sym.isAccessor && !sym.isVar
+            !sym.isLazy && !sym.isSynthetic && !sym.isVar
           ) =>
-            // Since scalac uses the accessor symbol all over the place, we pass that instead:
-            Some( (sym.getterIn(sym.owner),tpt.tpe,rhs) )
-          // Unimplemented fields
-          case df @ DefDef(_, name, _, _, tpt, _) if (
-            sym.isStable && sym.isAccessor && sym.name != nme.CONSTRUCTOR &&
-            sym.accessed == NoSymbol // This is to exclude fields with implementation
-          ) =>
-            Some( (sym, tpt.tpe, EmptyTree))
+            Some((sym, tpt.tpe, rhs))
           case _ => None
         }
       }
@@ -582,7 +551,6 @@ trait ASTExtractors {
             sym.isLazy && !sym.isCaseAccessor && !sym.isParamAccessor &&
             !sym.isSynthetic && !sym.isAccessor
           ) =>
-            // Since scalac uses the accessor symbol all over the place, we pass that instead:
             true
           case _ => false
         }
@@ -590,46 +558,28 @@ trait ASTExtractors {
     }
 
     object ExFieldAccessorFunction{
-      /** Matches the accessor function of a field
-       *  WARNING: This is not meant to be used for any useful purpose,
-       *  other than to satisfy Definition acceptable by Leon
-       */
-      def unapply(dd: DefDef): Boolean = dd match {
+      /** Matches the accessor function of a field */
+      def unapply(dd: DefDef): Option[(Symbol, Type, Seq[ValDef], Tree)] = dd match {
         case DefDef(_, name, tparams, vparamss, tpt, rhs) if(
           vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
           dd.symbol.isAccessor && !dd.symbol.isLazy
         ) =>
-          true
-        case _ => false
+          Some((dd.symbol, tpt.tpe, vparamss.flatten, rhs))
+        case _ => None
       }
     }
 
-    object ExDefaultValueFunction{
-      /** Matches a function that defines the default value of a parameter */
-      def unapply(dd: DefDef): Option[(Symbol, Seq[Symbol], Seq[ValDef], Type, String, Int, Tree)] = {
-        val sym = dd.symbol
-        dd match {
-          case DefDef(_, name, tparams, vparamss, tpt, rhs)
-            if vparamss.size <= 1 && name != nme.CONSTRUCTOR && sym.isSynthetic =>
-
-            // Split the name into pieces, to find owner of the parameter + param.index
-            // Form has to be <owner name>$default$<param index>
-            val symPieces = sym.name.toString.reverse.split("\\$", 3).reverseMap(_.reverse)
-
-            try {
-              if (symPieces(1) != "default" || symPieces(0) == "copy") throw new IllegalArgumentException("")
-              val ownerString = symPieces(0)
-              val index = symPieces(2).toInt - 1
-              Some((sym, tparams.map(_.symbol), vparamss.headOption.getOrElse(Nil), tpt.tpe, ownerString, index, rhs))
-            } catch {
-              case _ : NumberFormatException | _ : IllegalArgumentException | _ : ArrayIndexOutOfBoundsException =>
-                None
-            }
-
-          case _ => None
-        }
+    object ExLazyFieldAccessorFunction {
+      def unapply(dd: DefDef): Option[(Symbol, Type, Tree)] = dd match {
+        case DefDef(_, name, tparams, vparamss, tpt, rhs) if(
+          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
+          !dd.symbol.isSynthetic && dd.symbol.isAccessor && dd.symbol.isLazy
+        ) =>
+          Some((dd.symbol, tpt.tpe, rhs))
+        case _ => None
       }
     }
+
   }
 
   object ExpressionExtractors {
@@ -794,6 +744,13 @@ trait ASTExtractors {
       def unapply(tree: Assign): Option[(Symbol,Tree)] = tree match {
         case Assign(id@Ident(_), rhs) => Some((id.symbol, rhs))
         //case Assign(sym@Select(This(_), v), rhs) => Some((sym.symbol, rhs))
+        case _ => None
+      }
+    }
+
+    object ExFieldAssign {
+      def unapply(tree: Assign): Option[(Symbol,Tree,Tree)] = tree match {
+        case Assign(sel@Select(This(_), v), rhs) => Some((sel.symbol, sel, rhs))
         case _ => None
       }
     }

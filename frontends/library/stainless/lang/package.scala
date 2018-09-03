@@ -71,7 +71,7 @@ package object lang {
   @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int, @ghost r4: Int, @ghost r5: Int): Unit = ()
 
   @ignore
-  implicit class WhileDecorations(u: Unit) {
+  implicit class WhileDecorations(val u: Unit) {
     def invariant(x: Boolean): Unit = {
       require(x)
       u

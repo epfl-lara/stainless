@@ -12,11 +12,15 @@ trait TreeSanitizer {
 
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
   def check(symbols: Symbols): Unit = {
+    // println(symbols.asString(new PrinterOptions(printUniqueIds = true, symbols = Some(symbols))))
     val preconditions = new CheckPreconditions()(symbols)
     symbols.functions.values foreach preconditions.traverse
 
     val ignored = new CheckIgnoredFields()(symbols)
     symbols.functions.values foreach ignored.traverse
+
+    val accessors = new CheckFieldAccessors()(symbols)
+    symbols.functions.values foreach accessors.check
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
@@ -73,19 +77,59 @@ trait TreeSanitizer {
 
   /* This detects accesses to @ignored fields */
   private class CheckIgnoredFields(implicit symbols: Symbols) extends TreeTraverser {
+    private def isFieldAccessor(fd: FunDef): Boolean =
+      fd.flags exists { case IsAccessor(_) => true case _ => false }
+
     override def traverse(e: Expr): Unit = e match {
-      case e @ ClassSelector(obj, selector) =>
+      case ClassSelector(obj, selector) =>
         val ct = obj.getType.asInstanceOf[ClassType]
         ct.getField(selector) match {
           case None =>
-            throw MissformedStainlessCode(e, s"Cannot find field `$selector` of class $ct.")
+            throw MissformedStainlessCode(e, s"Cannot find field `${selector.uniqueName}` of class $ct.")
           case Some(field) if field.flags contains Ignore =>
             throw MissformedStainlessCode(e, s"Cannot access ignored field `$selector` from non-extern context.")
           case _ =>
             super.traverse(e)
         }
 
-      case e @ ClassConstructor(ct, args) =>
+      case mi: MethodInvocation if isFieldAccessor(mi.tfd.fd) =>
+        val fieldId = mi.tfd.fd.flags collectFirst { case IsAccessor(Some(id)) => id }
+        fieldId match {
+          case Some(fieldId) =>
+            val ct = mi.receiver.getType.asInstanceOf[ClassType]
+            ct.getField(fieldId) match {
+              case Some(field) if field.flags contains Ignore =>
+                throw MissformedStainlessCode(e, s"Cannot access ignored field `${fieldId.uniqueName}` from non-extern context.")
+              case None if symbols.functions.contains(fieldId) =>
+                if (symbols.functions(fieldId).flags.contains(Ignore))
+                  throw MissformedStainlessCode(e, s"Cannot access ignored field `${fieldId.uniqueName}` from non-extern context.")
+                else super.traverse(e)
+              case None if fieldId.name != "<none>" => // Ignore abstract accessors, as they don't refer to a concrete field
+                throw MissformedStainlessCode(e, s"Cannot find field `${fieldId.uniqueName}` of class $ct.")
+              case _ =>
+                super.traverse(e)
+            }
+          case None =>
+            super.traverse(e)
+        }
+
+      case fi: FunctionInvocation if isFieldAccessor(fi.tfd.fd) =>
+        val fieldId = fi.tfd.fd.flags collectFirst { case IsAccessor(Some(id)) => id }
+        fieldId match {
+          case Some(fieldId) =>
+            symbols.functions.get(fieldId) match {
+              case Some(field) if field.flags contains Ignore =>
+                throw MissformedStainlessCode(e, s"Cannot access ignored field `$fieldId` from non-extern context.")
+              case None =>
+                throw MissformedStainlessCode(e, s"Cannot find global field `${fieldId.uniqueName}`.")
+              case _ =>
+                super.traverse(e)
+            }
+          case None =>
+            super.traverse(e)
+        }
+
+      case ClassConstructor(ct, args) =>
         ct.lookupClass match {
           case None =>
             throw MissformedStainlessCode(e, s"Cannot find class for type `$ct`.")
@@ -103,6 +147,23 @@ trait TreeSanitizer {
 
       case _ => super.traverse(e)
     }
+  }
+
+  /* This checks that field accessors are not recursive.
+   * We need to enforce that as those eventually get inlined in
+   * the `methods.FieldAccessors` phase.
+   */
+  private class CheckFieldAccessors(implicit symbols: Symbols) {
+
+    def isFieldAccessor(fd: FunDef): Boolean =
+      fd.flags exists { case IsAccessor(_) => true case _ => false }
+
+    def check(fd: FunDef): Unit = {
+      if (isFieldAccessor(fd) && symbols.isSelfRecursive(fd.id)) {
+        throw MissformedStainlessCode(fd, s"Field accessors cannot be self-recursive")
+      }
+    }
+
   }
 }
 

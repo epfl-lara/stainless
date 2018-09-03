@@ -67,6 +67,8 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
     import trees._
     import context._
 
+    // println(symbols.asString(trees.PrinterOptions.fromContext(context)))
+
     val p = inox.Program(trees)(symbols)
     val c = TerminationChecker(p, context)
 

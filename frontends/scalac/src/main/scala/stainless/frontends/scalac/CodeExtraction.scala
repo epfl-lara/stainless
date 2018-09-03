@@ -186,9 +186,7 @@ trait CodeExtraction extends ASTExtractors {
       case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
         // ignore (can't be @ignored because of the dotty compiler)
 
-      case ExConstructorDef()
-         | ExLazyFieldDef()
-         | ExFieldAccessorFunction() =>
+      case ExConstructorDef() | ExLazyFieldDef() =>
         // ignore
 
       case i @ Import(_, _) =>
@@ -229,7 +227,22 @@ trait CodeExtraction extends ASTExtractors {
         functions :+= fd.id
         allFunctions :+= fd
 
-      case t @ ExLazyAccessorFunction(fsym, _, rhs) =>
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
+        val fd = extractIgnoredFieldAccessor(fsym, vparams)
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
+        val fd = extractFunction(fsym, Seq.empty, vparams, rhs)(DefContext())
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
+        val fd = extractIgnoredFieldAccessor(fsym, Seq.empty)
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(DefContext())
         functions :+= fd.id
         allFunctions :+= fd
@@ -296,13 +309,13 @@ trait CodeExtraction extends ASTExtractors {
       case _ => false
     }.asInstanceOf[Option[DefDef]]
 
-    val vds = constructorOpt map { _.vparamss.flatten } getOrElse Seq()
-    val symbols = cd.impl.children.collect {
-      case df @ DefDef(_, name, _, _, _, _)
-      if df.symbol.isAccessor && df.symbol.isParamAccessor && !name.endsWith("_$eq") => df.symbol
+    val vds = cd.impl.children.collect {
+      case vd: ValDef if !sym.isImplicit && !vd.symbol.isAccessor && vd.symbol.isCaseAccessor && vd.symbol.isParamAccessor => vd
+      case vd: ValDef if sym.isImplicit && !vd.symbol.isAccessor && vd.symbol.isParamAccessor => vd
     }
 
-    val fields = (symbols zip vds) map { case (sym, vd) =>
+    val fields = vds map { vd =>
+      val sym = vd.symbol
       val id = getIdentifier(sym)
       val flags = annotationsOf(sym, ignoreOwner = true)
       val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
@@ -313,13 +326,13 @@ trait CodeExtraction extends ASTExtractors {
       val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
                 else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      if (sym.accessedOrSelf.isMutable || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(sym.pos)
+      if (sym.isVar || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(sym.pos)
       else xt.ValDef(id, tpe, flags).setPos(sym.pos)
     }
 
     val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
 
-    val defCtx = tpCtx.withNewVars((symbols zip fields.map(vd => () => vd.toVariable)).toMap)
+    val defCtx = tpCtx.withNewVars((vds.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
     var invariants: Seq[xt.Expr] = Seq.empty
     var methods: Seq[xt.FunDef] = Seq.empty
@@ -328,11 +341,16 @@ trait CodeExtraction extends ASTExtractors {
       case EmptyTree =>
         // ignore
 
-      case t if (
-        annotationsOf(t.symbol).contains(xt.Ignore) ||
-        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
-      ) =>
+      case t if annotationsOf(t.symbol).contains(xt.Ignore) && !t.symbol.isCaseAccessor =>
         // ignore
+
+      case t if t.symbol.isSynthetic && !canExtractSynthetic(t.symbol) =>
+        // ignore
+
+      case ExCaseClassSyntheticJunk()
+         | ExConstructorDef()
+         | ExLazyFieldDef() =>
+           // ignore
 
       case ExRequiredExpression(body, isStatic) =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
@@ -350,14 +368,20 @@ trait CodeExtraction extends ASTExtractors {
       case t @ ExFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case t @ ExLazyAccessorFunction(fsym, _, rhs) =>
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
+        methods :+= extractIgnoredFieldAccessor(fsym, vparams)
+
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
+        methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
+
+      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
+        methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
+
+      case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case ExCaseClassSyntheticJunk()
-         | ExConstructorDef()
-         | ExLazyFieldDef()
-         | ExFieldAccessorFunction() =>
-           // ignore
+      case t @ ExMutableFieldDef(_, _, rhs) if rhs != EmptyTree =>
+        outOfSubsetError(t, "Mutable fields in traits cannot have a default value")
 
       case ValDef(_, _, _, _) =>
         // ignore (corresponds to constructor fields)
@@ -390,6 +414,8 @@ trait CodeExtraction extends ASTExtractors {
       fields,
       flags
     ).setPos(sym.pos)
+
+    // if (sym.isImplicit) println(xcd -> fields)
 
     (xcd, allMethods)
   }
@@ -446,17 +472,19 @@ trait CodeExtraction extends ASTExtractors {
       val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
       val tpe = if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe).setPos(sym.pos) else ptpe
       val flags = annotationsOf(sym, ignoreOwner = true)
-      xt.ValDef(FreshIdentifier(sym.name.toString), tpe, flags).setPos(sym.pos)
+      xt.ValDef(getIdentifier(sym), tpe, flags).setPos(sym.pos)
     }
 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
 
     val id = getIdentifier(sym)
+    val isAbstract = rhs == EmptyTree
 
     var flags = annotationsOf(sym) ++
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
-      (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
       (if (sym.isPrivate) Set(xt.Private) else Set()) ++
+      (if (sym.isVal || sym.isLazy) Set(xt.IsField(sym.isLazy)) else Set()) ++
+      (if (!sym.isLazy && sym.isAccessor) Set(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract))) else Set()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {
@@ -473,6 +501,7 @@ trait CodeExtraction extends ASTExtractors {
       if (!(flags contains xt.IsField(true))) rhs
       else rhs match {
         case Block(List(Assign(_, realBody)), _) => realBody
+        case EmptyTree => EmptyTree
         case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
       }
 
@@ -485,7 +514,7 @@ trait CodeExtraction extends ASTExtractors {
       .copy(tparams = dctx.tparams ++ (tparams zip ntparams))
       .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
 
-    val finalBody = if (rhs == EmptyTree) {
+    val finalBody = if (isAbstract) {
       flags :+= xt.IsAbstract
       xt.NoTree(returnType).setPos(sym.pos)
     } else {
@@ -506,6 +535,20 @@ trait CodeExtraction extends ASTExtractors {
       fullBody,
       flags.distinct
     ).setPos(sym.pos)
+  }
+
+  private def extractIgnoredFieldAccessor(sym: Symbol, vparams: Seq[ValDef]): xt.FunDef = {
+    val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
+    val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
+
+    new xt.FunDef(
+      getIdentifier(sym),
+      Seq.empty,
+      args,
+      returnType.setPos(sym.pos),
+      xt.NoTree(returnType).setPos(sym.pos),
+      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
+    )
   }
 
   private def typeParamSymbols(tps: Seq[Type]): Seq[Symbol] = tps.flatMap {
@@ -872,6 +915,9 @@ trait CodeExtraction extends ASTExtractors {
       // we assume type-correct code, so `sym` must be defined and in scope
       xt.Assignment(dctx.mutableVars(sym)().setPos(a.pos), extractTree(rhs))
 
+    case a @ ExFieldAssign(sym, lhs@Select(thiss: This, _), rhs) =>
+      xt.FieldAssignment(extractTree(thiss), getIdentifier(sym), extractTree(rhs))
+
     case wh @ ExWhile(cond, body) =>
       xt.While(extractTree(cond), extractTree(body), None)
 
@@ -1096,9 +1142,8 @@ trait CodeExtraction extends ASTExtractors {
 
       case Some(lhs) => extractType(lhs) match {
         case ct: xt.ClassType =>
-          val isMethod = sym.isMethod &&
-            !sym.isCaseAccessor && !sym.accessedOrSelf.isCaseAccessor &&
-            !(sym.isAccessor && sym.owner.isImplicit)
+          val isField = sym.isParamAccessor || sym.isCaseAccessor
+          val isMethod = sym.isMethod || sym.isAccessor || !isField
 
           if (isMethod) xt.MethodInvocation(
             extractTree(lhs),
@@ -1106,12 +1151,10 @@ trait CodeExtraction extends ASTExtractors {
             tps.map(extractType),
             extractArgs(sym, args)
           ).setPos(c.pos) else args match {
-            case Seq() =>
+            case Seq() if sym.isParamAccessor =>
               xt.ClassSelector(extractTree(lhs), getIdentifier(sym)).setPos(c.pos)
-            case Seq(rhs) =>
-              val getter = sym.accessed.getterIn(sym.owner)
-              xt.FieldAssignment(extractTree(lhs), getIdentifier(getter), extractTree(rhs)).setPos(c.pos)
-            case _ => outOfSubsetError(tr, "Unexpected call")
+            case _ =>
+              outOfSubsetError(tr, s"Unexpected call: $tr")
           }
 
         case ft: xt.FunctionType =>
@@ -1147,7 +1190,7 @@ trait CodeExtraction extends ASTExtractors {
               Some("Map undefined at this index"),
               xt.ClassSelector(
                 xt.AsInstanceOf(xt.MapApply(l, r).setPos(tr.pos), someTpe).setPos(tr.pos),
-                getIdentifier(someSymbol.caseFieldAccessors.head)
+                getIdentifier(someSymbol.caseFieldAccessors.head.accessedOrSelf)
               ).setPos(tr.pos)
             )
 

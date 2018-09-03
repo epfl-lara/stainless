@@ -469,20 +469,13 @@ trait ASTExtractors {
     }
 
     object ExFieldDef {
-      def unapply(tree: tpd.ValOrDefDef): Option[(Symbol, Type, tpd.Tree)] = {
+      def unapply(tree: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
         val sym = tree.symbol
         tree match {
           case vd @ ValDef(_, tpt, _) if (
             !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Synthetic) && !(sym is Accessor) && !(sym is Mutable)
+            !(sym is Synthetic) && !(sym is Mutable)
           ) => Some((sym, tpt.tpe, vd.rhs))
-
-          /*
-          case dd @ DefDef(_, _, _, tpt, _) if (
-            (sym is Stable) && (sym is Accessor) &&
-            (sym.name != nme.CONSTRUCTOR) // TODO: && (sym.accessed == NoSymbol)
-          ) => Some((sym, tpt.tpe, tpd.EmptyTree))
-          */
 
           case _ => None
         }
@@ -495,11 +488,42 @@ trait ASTExtractors {
         tree match {
           case ValDef(_, tpt, _) if (
             !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Lazy) && !(sym is Synthetic) && !(sym is Accessor) && (sym is Mutable)
+            !(sym is Synthetic) && (sym is Mutable)
           ) => Some((sym, tpt.tpe, tree.rhs))
 
           case _ => None
         }
+      }
+    }
+
+    object ExFieldAccessorFunction {
+      /** Matches the accessor function of a field */
+      def unapply(dd: tpd.DefDef): Option[(Symbol, Type, Seq[tpd.ValDef], tpd.Tree)] = dd match {
+        case DefDef(name, tparams, vparamss, tpt, _) if(
+          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
+          (dd.symbol is Accessor) && !(dd.symbol is Lazy)
+        ) =>
+          Some((dd.symbol, tpt.tpe, vparamss.flatten, dd.rhs))
+        case _ => None
+      }
+    }
+
+    object ExLazyFieldAccessorFunction {
+      def unapply(dd: tpd.DefDef): Option[(Symbol, Type, tpd.Tree)] = dd match {
+        case DefDef(name, tparams, vparamss, tpt, _) if(
+          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
+          !(dd.symbol is Synthetic) && (dd.symbol is Accessor) && (dd.symbol is Lazy)
+        ) =>
+          Some((dd.symbol, tpt.tpe, dd.rhs))
+        case _ => None
+      }
+    }
+
+    object ExFieldAssign {
+      def unapply(tree: tpd.Assign): Option[(Symbol, tpd.Tree, tpd.Tree)] = tree match {
+        // case Assign(sel@Select(This(_), v), rhs) => Some((sel.symbol, sel, rhs))
+        case Assign(sel@Select(lhs, _), rhs) => Some((sel.symbol, lhs, rhs))
+        case _ => None
       }
     }
 

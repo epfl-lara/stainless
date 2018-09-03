@@ -328,8 +328,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        classes = Set("Bottom", "Nil", "MyNone", "Ensuring", "Top", "Cons", "Some", "MySome", "Option", "None", "List", "MyOption"),
+        functions = Set("x", "iun", "hun", "t", "v", "gun", "p", "fun", "bar", "prop", "h", "inv", "foobar", "foo")
       )
     ),
     Seq.empty
@@ -339,8 +339,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        classes = Set("Bottom", "Nil", "MyNone", "Ensuring", "Top", "Cons", "Some", "MySome", "Option", "None", "List", "MyOption"),
+        functions = Set("x", "iun", "hun", "t", "v", "gun", "p", "fun", "bar", "prop", "h", "inv", "foobar", "foo")
       )
     ),
     Seq(
@@ -352,8 +352,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        classes = Set("Bottom", "Nil", "MyNone", "Ensuring", "Top", "Cons", "Some", "MySome", "Option", "None", "List", "MyOption"),
+        functions = Set("x", "iun", "hun", "t", "v", "gun", "p", "fun", "bar", "prop", "h", "inv", "foobar", "foo")
       )
     ),
     Seq(
@@ -375,7 +375,7 @@ class RegistryTestSuite extends FunSuite {
         Map("BBB" -> sourceBv3),
         Expectation(
           classes = Set("Top", "Bottom"),
-          functions = Set("hun", "prop", "inv")
+          functions = Set("p", "prop", "inv", "hun")
         )
       )
     )

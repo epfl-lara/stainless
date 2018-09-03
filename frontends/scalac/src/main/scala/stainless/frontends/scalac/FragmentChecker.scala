@@ -296,7 +296,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           // recurse only inside `rhs`, as parameter/type parameters have been checked already in `checkType`
           atOwner(sym)(traverse(rhs))
 
-        case vd @ ValDef(mods, _, _, _) if sym.owner.isClass && mods.isMutable && !mods.isCaseAccessor =>
+        case vd @ ValDef(mods, _, _, _) if sym.owner.isClass && !sym.owner.isAbstractClass && mods.isMutable && !mods.isCaseAccessor =>
           reportError(tree.pos, "Vars are not allowed in class bodies in Stainless.")
 
         case t: TypeDef =>

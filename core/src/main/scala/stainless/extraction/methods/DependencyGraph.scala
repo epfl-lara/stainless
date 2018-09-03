@@ -108,13 +108,17 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
   }
 
   private def overrides(fd: FunDef): Set[Identifier] = {
+    if (!fd.id.isInstanceOf[SymbolIdentifier]) return Set.empty
+
+    val symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
+
     (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
       case None => Set.empty
       case Some(cid) =>
         symbols.classes(cid)
           .descendants(symbols)
           .flatMap(_.methods(symbols))
-          .filter(_.symbol == fd.id.asInstanceOf[SymbolIdentifier].symbol)
+          .filter(_.symbol == symbol)
           .toSet
     }
   }

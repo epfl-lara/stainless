@@ -7,8 +7,11 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("verification/valid")
   testExtractAll("verification/invalid")
   testExtractAll("verification/unchecked")
-  testExtractAll("imperative/valid")
-  testExtractAll("imperative/invalid")
+  testExtractAll("imperative/valid",
+    "imperative/valid/TraitVar1",
+    "imperative/valid/TraitVar2")
+  testExtractAll("imperative/invalid",
+    "imperative/invalid/ImperativeBox")
   testExtractAll("termination/valid")
   testExtractAll("termination/looping")
   testExtractAll("extraction/valid",
