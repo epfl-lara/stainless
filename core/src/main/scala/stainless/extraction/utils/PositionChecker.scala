@@ -4,12 +4,16 @@ package stainless
 package extraction
 package utils
 
+import scala.collection.mutable.{HashSet => MutableHashSet}
+
 import inox.utils.{Position, NoPosition}
 
 object DebugSectionPositions extends inox.DebugSection("positions")
 
 /** Inspect trees, detecting missing positions. */
 object PositionChecker {
+
+  private[this] val seen: MutableHashSet[ast.Trees#Expr] = MutableHashSet.empty
 
   def apply(phaseName: String)(tr: ast.Trees)(context: inox.Context): tr.TreeTraverser { val trees: tr.type } = new tr.TreeTraverser {
     val trees: tr.type = tr
@@ -30,11 +34,15 @@ object PositionChecker {
     }
 
     override def traverse(e: Expr): Unit = {
+      if (seen contains e) return ()
+
       if (!e.getPos.isDefined) {
-        context.reporter.debug(NoPosition, s"Missing position for expression '$e' (of type ${e.getClass}) after phase '$phaseName'. Last known position: $lastKnownPosition")
+        context.reporter.debug(NoPosition, s"After $phaseName: Missing position for expression '$e' (of type ${e.getClass}). Last known position: $lastKnownPosition")
       } else {
         lastKnownPosition = e.getPos
       }
+
+      synchronized { seen += e }
 
       super.traverse(e)
     }
