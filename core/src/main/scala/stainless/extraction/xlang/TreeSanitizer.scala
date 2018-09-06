@@ -10,14 +10,6 @@ trait TreeSanitizer {
   val trees: xlang.Trees
   import trees._
 
-  abstract class Visitor extends (FunDef => Unit) {
-    def visit(fd: FunDef): Unit = visit(fd.id, fd.fullBody)
-    def visit(lfd: LocalFunDef): Unit = visit(lfd.name.id, lfd.body.body)
-    def visit(id: Identifier, body: Expr)
-
-    final def apply(fd: FunDef): Unit = visit(fd)
-  }
-
   /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
   def check(symbols: Symbols): Unit = {
     val preconditions = new CheckPreconditions()(symbols)
