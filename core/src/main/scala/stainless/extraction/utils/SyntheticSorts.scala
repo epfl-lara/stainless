@@ -4,6 +4,8 @@ package stainless
 package extraction
 package utils
 
+import java.util.concurrent.ConcurrentHashMap
+
 trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
 
   protected object OptionSort {
@@ -70,6 +72,8 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
     def some(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.nonEmpty).get.id
     def none(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.isEmpty).get.id
 
+    def value(implicit symbols: s.Symbols): Identifier = optionSort.constructors.flatMap(_.fields).head.id
+
     def isEmpty(implicit symbols: s.Symbols): Identifier =
       symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").getOrElse(syntheticIsEmpty(symbols)).id
     def get(implicit symbols: s.Symbols): Identifier =
@@ -89,5 +93,16 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         case Some(_) => Seq()
         case None => Seq(syntheticGet(symbols))
       })
+
+    final class Cached[T] private[OptionSort](builder: => T) {
+      private[this] val cache = new ConcurrentHashMap[(Identifier, Identifier, Identifier), T]
+      def get(implicit symbols: s.Symbols): T = {
+        val key = (OptionSort.option, OptionSort.isEmpty, OptionSort.get)
+        val result = cache.get(key)
+        if (result != null) result else cache.putIfAbsent(key, builder)
+      }
+    }
+
+    def cached[T](builder: => T): Cached[T] = new Cached(builder)
   }
 }

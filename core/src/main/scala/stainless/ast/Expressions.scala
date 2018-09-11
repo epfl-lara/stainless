@@ -158,7 +158,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   }
 
   protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr = {
-    FunctionInvocation(up.id, up.tps, up.rec.toSeq :+ scrut)
+    FunctionInvocation(up.id, up.tps, up.recs :+ scrut)
   }
 
   protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr = {
@@ -172,7 +172,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   }
 
   /** A custom pattern defined through an object's `unapply` function */
-  sealed case class UnapplyPattern(binder: Option[ValDef], rec: Option[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
+  sealed case class UnapplyPattern(binder: Option[ValDef], recs: Seq[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
     def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
     private def getIsEmpty(implicit s: Symbols): Identifier =

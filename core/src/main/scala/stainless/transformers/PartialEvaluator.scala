@@ -53,13 +53,18 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         }
 
         val invocationPaths = collectWithPC(inlined) {
-          case (fi: FunctionInvocation, subPath) if fi.id == id || transitivelyCalls(fi.id, id) => subPath
+          case (fi: FunctionInvocation, subPath) if transitivelyCalls(fi.id, id) =>
+            transform(subPath.toClause, path)
         }
 
         dynBlocked.set(dynBlocked.get + id)
-        val res = invocationPaths.map(p => transform(p.toClause, path)).forall(isKnown)
+        val isProductive = if (tfd.fd.flags contains Synthetic) {
+          invocationPaths.exists(isKnown)
+        } else {
+          invocationPaths.forall(isKnown)
+        }
         dynBlocked.set(dynBlocked.get - id)
-        res
+        isProductive
       }
 
       def unfold(inlined: Expr): (Expr, Boolean) = {

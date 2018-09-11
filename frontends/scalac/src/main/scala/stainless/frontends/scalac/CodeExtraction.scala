@@ -611,7 +611,7 @@ trait CodeExtraction extends ASTExtractors {
         case _ => Seq.empty
       }
 
-      (xt.UnapplyPattern(binder, None, id, tps, sub).setPos(up.pos), ctx.foldLeft(dctx)(_ union _))
+      (xt.UnapplyPattern(binder, Seq(), id, tps, sub).setPos(up.pos), ctx.foldLeft(dctx)(_ union _))
 
     case _ =>
       outOfSubsetError(p, "Unsupported pattern: " + p)

@@ -45,18 +45,14 @@ trait TypeOps extends inox.ast.TypeOps {
       case _ => false
     }
 
-    case up @ UnapplyPattern(ob, rec, id, tps, subs) =>
+    case up @ UnapplyPattern(ob, recs, id, tps, subs) =>
       ob.forall(vd => isSubtypeOf(vd.tpe, in)) &&
       lookupFunction(id).exists(_.tparams.size == tps.size) && {
         val unapp = up.getFunction
-        (if (rec.isEmpty) {
-          unapp.params.size == 1 &&
-          ob.forall(vd => isSubtypeOf(unapp.params.head.tpe, vd.tpe))
-        } else {
-          unapp.params.size == 2 &&
-          isSubtypeOf(rec.get.getType, unapp.params.head.tpe) &&
-          ob.forall(vd => isSubtypeOf(unapp.params(1).tpe, vd.tpe))
-        }) && unapp.flags
+        unapp.params.size >= 1 &&
+        ob.forall(vd => isSubtypeOf(unapp.params.last.tpe, vd.tpe))
+        (recs zip unapp.params.init).forall { case (r, vd) => isSubtypeOf(r.getType, vd.tpe) } &&
+        unapp.flags
           .collectFirst { case IsUnapply(isEmpty, get) => (isEmpty, get) }
           .exists { case (isEmpty, get) =>
             unapplyAccessorResultType(isEmpty, unapp.returnType).exists(isSubtypeOf(_, BooleanType())) &&

@@ -50,13 +50,14 @@ trait AdtSpecialization
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val infoCache = new ExtractionCache[s.ClassDef, ClassInfo]
+  private[this] val infoCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
   private[this] val constructorCache = new ExtractionCache[s.ClassDef, Identifier]
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import t.dsl._
     import context.{s => _, t => _, _}
+
     val cd = context.symbols.getClass(id)
-    infoCache.cached(cd, context.symbols) {
+    infoCache.get.cached(cd, context.symbols) {
       assert(isCandidate(id))
 
       val classes = cd +: cd.descendants
@@ -162,7 +163,7 @@ trait AdtSpecialization
         } else if (root(id) == id) {
           t.WildcardPattern(ob map transform).copiedFrom(iop)
         } else {
-          t.UnapplyPattern(None, None,
+          t.UnapplyPattern(None, Seq(),
             classInfo(id).unapplyFunction.get,
             tps map transform,
             Seq(t.WildcardPattern(ob map transform).copiedFrom(iop))
@@ -204,7 +205,7 @@ trait AdtSpecialization
         val newSort = new t.ADTSort(
           cd.id,
           sortTparams,
-          constructors(cd.id)(context).toSeq.sortBy(_.name).map { cid =>
+          constructors(cd.id)(context).map { cid =>
             if (context.symbols.classes contains cid) {
               val consCd = context.symbols.getClass(cid)
               val tpMap = (consCd.tparams.map(tpd => context.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap

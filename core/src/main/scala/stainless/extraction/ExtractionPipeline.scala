@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.collection.concurrent.TrieMap
-
 trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
@@ -142,20 +140,17 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
 
   protected class ExtractionCache[Key <: s.Definition, T] {
-    private[this] final val cache: TrieMap[CacheKey, T] = TrieMap.empty
+    private[this] final val cache = new utils.ConcurrentCache[CacheKey, T]
 
-    def cached(key: Key, symbols: s.Symbols)(builder: => T): T = {
-      cache.getOrElseUpdate(CacheKey(key)(symbols), builder)
-    }
+    def cached(key: Key, symbols: s.Symbols)(builder: => T): T = cache.cached(CacheKey(key)(symbols))(builder)
 
     def contains(key: Key, symbols: s.Symbols): Boolean = cache contains CacheKey(key)(symbols)
     def update(key: Key, symbols: s.Symbols, value: T) = cache.update(CacheKey(key)(symbols), value)
     def get(key: Key, symbols: s.Symbols): Option[T] = cache.get(CacheKey(key)(symbols))
     def apply(key: Key, symbols: s.Symbols): T = cache(CacheKey(key)(symbols))
 
-    private[ExtractionCaches] def invalidate(id: Identifier): Unit = synchronized {
-      cache.retain { case (key, _) => key.id != id && !(key.dependencies contains id) }
-    }
+    private[ExtractionCaches] def invalidate(id: Identifier): Unit =
+      cache.retain(key => key.id != id && !(key.dependencies contains id))
 
     self.synchronized(caches += this)
   }

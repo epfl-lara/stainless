@@ -7,8 +7,8 @@ package methods
 trait Trees extends throwing.Trees { self =>
 
   override protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr =
-    if (s.lookupFunction(up.id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false }) && up.rec.isDefined) {
-      MethodInvocation(up.rec.get, up.id, up.tps, Seq(scrut))
+    if (s.lookupFunction(up.id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false }) && up.recs.size == 1) {
+      MethodInvocation(up.recs.head, up.id, up.tps, Seq(scrut))
     } else {
       super.unapplyScrut(scrut, up)
     }
