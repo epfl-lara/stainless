@@ -13,7 +13,6 @@ object Random {
   def newState: State = State(0)
 
   @library
-  @isabelle.noBody()
   def nextBoolean(implicit state: State): Boolean = {
     state.seed += 1
     nativeNextBoolean(state.seed)
@@ -28,7 +27,6 @@ object Random {
 
 
   @library
-  @isabelle.noBody()
   def nextInt(implicit state: State): Int = {
     state.seed += 1
     nativeNextInt(state.seed)
@@ -43,7 +41,6 @@ object Random {
 
 
   @library
-  @isabelle.noBody()
   def nextInt(max: Int)(implicit state: State): Int = {
     require(max > 0)
     state.seed += 1
@@ -59,7 +56,6 @@ object Random {
 
 
   @library
-  @isabelle.noBody()
   def nextBigInt(implicit state: State): BigInt = {
     state.seed += 1
     nativeNextBigInt(state.seed)
@@ -74,7 +70,6 @@ object Random {
 
 
   @library
-  @isabelle.noBody()
   def nextBigInt(max: BigInt)(implicit state: State): BigInt = {
     require(max > 0)
     state.seed += 1
