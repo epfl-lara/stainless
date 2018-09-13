@@ -1017,7 +1017,17 @@ trait TypeEncoding
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    super.extractSymbols(context, symbols).withFunctions(context.functions).withSorts(context.sorts)
+    val newSymbols = super.extractSymbols(context, symbols)
+      .withFunctions(context.functions)
+      .withSorts(context.sorts)
+
+    val dependencies: Set[Identifier] =
+      (symbols.functions.keySet ++ symbols.sorts.keySet)
+        .flatMap(id => newSymbols.dependencies(id) + id)
+
+    t.NoSymbols
+      .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
+      .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)

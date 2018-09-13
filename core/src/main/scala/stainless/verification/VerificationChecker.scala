@@ -175,7 +175,7 @@ trait VerificationChecker { self =>
     }
   }
 
-  private def  simplifyAssertions(expr: Expr): Expr = {
+  private def simplifyAssertions(expr: Expr): Expr = {
     def rec(expr: Expr): Expr = expr match {
       case Annotated(e, Seq(Unchecked)) =>
         exprOps.postMap {
