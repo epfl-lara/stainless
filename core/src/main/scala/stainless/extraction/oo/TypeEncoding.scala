@@ -44,8 +44,11 @@ trait TypeEncoding
   private[this] val (map,  mapValue)  = (FreshIdentifier("Map"),       FreshIdentifier("value"))
   private[this] val unit = FreshIdentifier("Unit")
 
-  private[this] val bv: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Bitvector" + i))
-  private[this] val bvValue: Int => Identifier = new CachedID[Int](_ => FreshIdentifier("value"))
+  private[this] val bv: ((Boolean, Int)) => Identifier = new CachedID[(Boolean, Int)]({
+    case (signed, i) => FreshIdentifier((if (signed) "Signed" else "Unsigned") + "Bitvector" + i)
+  })
+  private[this] val bvValue: ((Boolean, Int)) => Identifier =
+    new CachedID[(Boolean, Int)](_ => FreshIdentifier("value"))
 
   private[this] val tpl: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Tuple" + i))
   private[this] val tplValue: Int => Identifier = new CachedID[Int](i => FreshIdentifier("value"))
@@ -93,7 +96,7 @@ trait TypeEncoding
     case (_: s.SetType) => C(set)(convert(e, tpe, erased(tpe)))
     case (_: s.BagType) => C(bag)(convert(e, tpe, erased(tpe)))
     case (_: s.MapType) => C(map)(convert(e, tpe, erased(tpe)))
-    case s.BVType(size) => C(bv(size))(e)
+    case s.BVType(signed, size) => C(bv(signed -> size))(e)
     case s.IntegerType() => C(int)(e)
     case s.BooleanType() => C(bool)(e)
     case s.CharType() => C(char)(e)
@@ -114,7 +117,7 @@ trait TypeEncoding
     case (_: s.SetType) => convert(e.getField(setValue).copiedFrom(e), erased(tpe), tpe)
     case (_: s.BagType) => convert(e.getField(bagValue).copiedFrom(e), erased(tpe), tpe)
     case (_: s.MapType) => convert(e.getField(mapValue).copiedFrom(e), erased(tpe), tpe)
-    case s.BVType(size) => e.getField(bvValue(size))
+    case s.BVType(signed, size) => e.getField(bvValue(signed -> size))
     case s.IntegerType() => e.getField(intValue)
     case s.BooleanType() => e.getField(boolValue)
     case s.CharType() => e.getField(charValue)
@@ -414,7 +417,7 @@ trait TypeEncoding
         (e is map).copiedFrom(e) &&
         instanceOf(e.getField(mapValue).copiedFrom(e), erased(tpe), tpe)
 
-      case (_, s.BVType(size)) if isObject(in) => e is bv(size)
+      case (_, s.BVType(signed, size)) if isObject(in) => e is bv(signed -> size)
       case (_, s.IntegerType()) if isObject(in) => e is int
       case (_, s.BooleanType()) if isObject(in) => e is bool
       case (_, s.CharType()) if isObject(in) => e is char
@@ -928,7 +931,7 @@ trait TypeEncoding
     private val (tplSizes, funSizes, bvSizes) = {
       var tplSizes: Set[Int] = Set.empty
       var funSizes: Set[Int] = Set.empty
-      var bvSizes: Set[Int] = Set.empty
+      var bvSizes: Set[(Boolean, Int)] = Set.empty
 
       object traverser extends s.TreeTraverser {
         override def traverse(pat: s.Pattern): Unit = pat match {
@@ -941,14 +944,14 @@ trait TypeEncoding
           case s.SigmaType(params, _) => tplSizes += params.size + 1; super.traverse(tpe)
           case s.FunctionType(from, _) => funSizes += from.size; super.traverse(tpe)
           case s.PiType(params, _) => funSizes += params.size; super.traverse(tpe)
-          case s.BVType(size) => bvSizes += size; super.traverse(tpe)
+          case s.BVType(signed, size) => bvSizes += (signed -> size); super.traverse(tpe)
           case _ => super.traverse(tpe)
         }
 
         override def traverse(expr: s.Expr): Unit = expr match {
           case s.Tuple(es) => tplSizes += es.size; super.traverse(expr)
           case s.Lambda(params, _) => funSizes += params.size; super.traverse(expr)
-          case s.BVLiteral(_, size) => bvSizes += size; super.traverse(expr)
+          case s.BVLiteral(signed, _, size) => bvSizes += (signed -> size); super.traverse(expr)
           case _ => super.traverse(expr)
         }
       }
@@ -986,8 +989,8 @@ trait TypeEncoding
         new t.ADTConstructor(fun(i), refID, Seq(t.ValDef(funValue(i), t.FunctionType((1 to i).map(_ => ref), ref))))
       } ++ tplSizes.map { i =>
         new t.ADTConstructor(tpl(i), refID, Seq(t.ValDef(tplValue(i), t.TupleType((1 to i).map(_ => ref)))))
-      } ++ bvSizes.map { i =>
-        new t.ADTConstructor(bv(i), refID, Seq(t.ValDef(bvValue(i), t.BVType(i))))
+      } ++ bvSizes.map { case ss @ (signed, size) =>
+        new t.ADTConstructor(bv(ss), refID, Seq(t.ValDef(bvValue(ss), t.BVType(signed, size))))
       } ++ Seq(
         new t.ADTConstructor(int,  refID, Seq(t.ValDef(intValue,  t.IntegerType()))),
         new t.ADTConstructor(bool, refID, Seq(t.ValDef(boolValue, t.BooleanType()))),
