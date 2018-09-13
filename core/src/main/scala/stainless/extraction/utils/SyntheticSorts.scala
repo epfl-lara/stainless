@@ -4,8 +4,6 @@ package stainless
 package extraction
 package utils
 
-import java.util.concurrent.ConcurrentHashMap
-
 trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
 
   protected object OptionSort {
@@ -95,12 +93,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
       })
 
     final class Cached[T] private[OptionSort](builder: => T) {
-      private[this] val cache = new ConcurrentHashMap[(Identifier, Identifier, Identifier), T]
-      def get(implicit symbols: s.Symbols): T = {
-        val key = (OptionSort.option, OptionSort.isEmpty, OptionSort.get)
-        val result = cache.get(key)
-        if (result != null) result else cache.putIfAbsent(key, builder)
-      }
+      private[this] val cache = new ConcurrentCache[(Identifier, Identifier, Identifier), T]
+      def get(implicit symbols: s.Symbols): T =
+        cache.cached((OptionSort.option, OptionSort.isEmpty, OptionSort.get))(builder)
     }
 
     def cached[T](builder: => T): Cached[T] = new Cached(builder)

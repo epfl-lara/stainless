@@ -14,8 +14,10 @@ class ConcurrentCache[A,B](underlying: ConcurrentHashMap[A,B] = new ConcurrentHa
 
   def cached(key: A)(value: => B): B = {
     val result = underlying.get(key)
-    if (result != null) result
-    else underlying.putIfAbsent(key, value)
+    if (result != null) result else {
+      underlying.putIfAbsent(key, value)
+      underlying.get(key)
+    }
   }
 
   def retain(p: A => Boolean): Unit = synchronized {
