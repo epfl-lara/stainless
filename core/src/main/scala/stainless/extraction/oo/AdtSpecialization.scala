@@ -241,9 +241,10 @@ object AdtSpecialization {
   def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new AdtSpecialization {
+  } = new {
     override val s: ts.type = ts
     override val t: tt.type = tt
+  } with AdtSpecialization {
     override val context = ctx
   }
 }
