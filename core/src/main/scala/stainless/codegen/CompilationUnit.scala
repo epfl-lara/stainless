@@ -294,7 +294,7 @@ trait CompilationUnit extends CodeGeneration {
     case (s: java.lang.Short,   Int16Type()) => Int16Literal(s.toShort)
     case (i: java.lang.Integer, Int32Type()) => Int32Literal(i.toInt)
     case (l: java.lang.Long,    Int64Type()) => Int64Literal(l.toLong)
-    case (bv: runtime.BitVector, BVType(signed, size)) => BVLiteral(signed, BigInt(bv.toString, 2), size)
+    case (bv: runtime.BitVector, BVType(signed, size)) => BVLiteral(signed, BigInt(bv.toBigInteger), size)
 
     case (c: runtime.BigInt, IntegerType()) =>
       IntegerLiteral(c.toScala)

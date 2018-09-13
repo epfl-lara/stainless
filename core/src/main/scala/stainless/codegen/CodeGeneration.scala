@@ -622,13 +622,13 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int64Literal(v) =>
       ch << Ldc(v)
 
-    case bi @ BVLiteral(_, _, size) =>
+    case bi @ BVLiteral(signed, _, size) =>
       val value = bi.toBigInt.toString
       ch << Comment("new bv")
       ch << New(BitVectorClass) << DUP
-      ch << Comment("init bv from string + size: (Ljava/lang/String;I)V")
-      ch << Ldc(value) << Ldc(size)
-      ch << InvokeSpecial(BitVectorClass, constructorName, "(Ljava/lang/String;I)V")
+      ch << Comment(s"init bv from signed + string + size: (L$JavaStringClass;I)V")
+      ch << Ldc(if (signed) 1 else 0) << Ldc(value) << Ldc(size)
+      ch << InvokeSpecial(BitVectorClass, constructorName, s"(ZL$JavaStringClass;I)V")
 
     case CharLiteral(v) =>
       ch << Ldc(v)
@@ -646,13 +646,13 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Comment(s"New BigInt(LString;)V")
       ch << New(BigIntClass) << DUP
       ch << Ldc(v.toString)
-      ch << InvokeSpecial(BigIntClass, constructorName, "(Ljava/lang/String;)V")
+      ch << InvokeSpecial(BigIntClass, constructorName, s"(L$JavaStringClass;)V")
 
     case FractionLiteral(n, d) =>
       ch << New(RationalClass) << DUP
       ch << Ldc(n.toString)
       ch << Ldc(d.toString)
-      ch << InvokeSpecial(RationalClass, constructorName, "(Ljava/lang/String;Ljava/lang/String;)V")
+      ch << InvokeSpecial(RationalClass, constructorName, s"(L$JavaStringClass;L$JavaStringClass;)V")
 
     case adt @ ADT(id, tps, as) =>
       val tcons = adt.getConstructor
@@ -922,14 +922,14 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << SWAP
           // stack: (bvl, bvr)
           val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
-          ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+          ch << Comment(s"[binary, BVType(true, $size)] invoke $op on BitVector: $signOp")
           ch << InvokeVirtual(BitVectorClass, op, signOp)
           // stack: (bv)
           val signExtract = s"()$param"
-          ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+          ch << Comment(s"[binary, BVType(true, $size)] invoke $extract on BitVector: $signExtract")
           ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
-        case BVType(true, _) =>
+        case BVType(_, _) =>
           val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
           ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
           ch << InvokeVirtual(BitVectorClass, op, opSign)
@@ -966,7 +966,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int64Type(), Int8Type() ) => ch << L2I << I2B
         case (Int64Type(), Int16Type()) => ch << L2I << I2S
         case (Int64Type(), Int32Type()) => ch << L2I
-        case (BVType(true,s), BVType(true,t)) if s == t => ch << NOP
+        case (BVType(_, s), BVType(_, t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
 
@@ -980,7 +980,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case (Int16Type(), Int32Type()) => ch << NOP // already an int
         case (Int16Type(), Int64Type()) => ch << I2L
         case (Int32Type(), Int64Type()) => ch << I2L
-        case (BVType(true,s), BVType(true,t)) if s == t => ch << NOP
+        case (BVType(_, s), BVType(_, t)) if s == t => ch << NOP
         case (from, to) => mkBVCast(from, to, ch)
       }
 
@@ -1120,7 +1120,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Error(tpe, desc) =>
       ch << New(ErrorClass) << DUP
       ch << Ldc(desc)
-      ch << InvokeSpecial(ErrorClass, constructorName, "(Ljava/lang/String;)V")
+      ch << InvokeSpecial(ErrorClass, constructorName, s"(L$JavaStringClass;)V")
       ch << ATHROW
 
     case forall @ Forall(fargs, body) =>
@@ -1504,7 +1504,7 @@ trait CodeGeneration { self: CompilationUnit =>
    *  Generate ByteCode for BV widening and narrowing on arbitrary BV.
    *
    *  [[from]] and [[to]] are expected to be different, and at least one of
-   *  them need to be a BVType(n) where n not in { 8, 16, 32, 64 }.
+   *  them need to be a BVType(s,n) where n not in { 8, 16, 32, 64 }.
    *
    *  Stack before: (..., value)
    *  Stack after:  (..., newValue)
@@ -1518,11 +1518,11 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int16Type() => mkNewBV(ch, "S", 16)
       case Int32Type() => mkNewBV(ch, "I", 32)
       case Int64Type() => mkNewBV(ch, "J", 64)
-      case BVType(true,s) => ch << NOP
+      case BVType(_, s) => ch << NOP
     }
 
-    val BVType(true,oldSize) = from
-    val BVType(true,newSize) = to
+    val BVType(_, oldSize) = from
+    val BVType(_, newSize) = to
     ch << Comment(s"Applying BVCast on BitVector instance: $oldSize -> $newSize")
     ch << Ldc(newSize)
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
@@ -1532,7 +1532,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
       case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
       case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
-      case BVType(true,s) => ch << NOP
+      case BVType(_, s) => ch << NOP
     }
   }
 
@@ -1545,7 +1545,8 @@ trait CodeGeneration { self: CompilationUnit =>
 
     def pre(ch: CodeHandler): Unit = r.getType match {
       case Int64Type() => ch << L2I
-      case _ => // No need to convert the rhs argument, it is either already an int, or some unrelated BVType.
+      case _ => // No need to convert the rhs argument, it is
+                // either already an int, or some unrelated BVType.
     }
 
     def opGen(opcode: ByteCode): AbstractByteCodeGenerator = { ch =>
@@ -1569,7 +1570,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << iop(thenn) << Goto(elze)
       case Int64Type() =>
         ch << LCMP << lop(thenn) << Goto(elze)
-      case BVType(true,_) =>
+      case BVType(_, _) =>
         ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
       case IntegerType() =>
@@ -1618,11 +1619,11 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << SWAP
         // stack: (bvl, bvr)
         val signOp = s"(L$BitVectorClass;)L$BitVectorClass;"
-        ch << Comment(s"[binary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << Comment(s"[binary, BVType(true, $size)] invoke $op on BitVector: $signOp")
         ch << InvokeVirtual(BitVectorClass, op, signOp)
         // stack: (bv)
         val signExtract = s"()$param"
-        ch << Comment(s"[binary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << Comment(s"[binary, BVType(true, $size)] invoke $extract on BitVector: $signExtract")
         ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
       case Int32Type() =>
@@ -1673,10 +1674,10 @@ trait CodeGeneration { self: CompilationUnit =>
 
         mkNewBV(ch, param, size)
         val signOp = s"()L$BitVectorClass;"
-        ch << Comment(s"[unary, BVType($size)] invoke $op on BitVector: $signOp")
+        ch << Comment(s"[unary, BVType(true, $size)] invoke $op on BitVector: $signOp")
         ch << InvokeVirtual(BitVectorClass, op, signOp)
         val signExtract = s"()$param"
-        ch << Comment(s"[unary, BVType($size)] invoke $extract on BitVector: $signExtract")
+        ch << Comment(s"[unary, BVType(true, $size)] invoke $extract on BitVector: $signExtract")
         ch << InvokeVirtual(BitVectorClass, extract, signExtract)
 
       case Int32Type() =>
@@ -1685,7 +1686,7 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
-      case BVType(true,_) =>
+      case BVType(_, _) =>
         val opSign = s"()L$BitVectorClass;"
         ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
         ch << InvokeVirtual(BitVectorClass, op, opSign)
@@ -1881,7 +1882,7 @@ trait CodeGeneration { self: CompilationUnit =>
     }
 
     locally {
-      val pnm = cf.addMethod("Ljava/lang/String;", "productName")
+      val pnm = cf.addMethod(s"L$JavaStringClass;", "productName")
       pnm.setFlags((
         METHOD_ACC_PUBLIC |
         METHOD_ACC_FINAL
@@ -1985,8 +1986,8 @@ trait CodeGeneration { self: CompilationUnit =>
       hch << IfEq(wasNotCached)
       hch << IRETURN
       hch << Label(wasNotCached) << POP
-      hch << ALoad(0) << InvokeVirtual(cName, "productName", "()Ljava/lang/String;")
-      hch << InvokeVirtual("java/lang/String", "hashCode", "()I")
+      hch << ALoad(0) << InvokeVirtual(cName, "productName", s"()L$JavaStringClass;")
+      hch << InvokeVirtual(JavaStringClass, "hashCode", "()I")
       hch << ALoad(0) << InvokeVirtual(cName, "productElements", s"()[L$ObjectClass;")
       hch << InvokeStatic(HashingClass, "hashCode", s"([L$ObjectClass;)I") << IADD << DUP
       hch << ALoad(0) << SWAP << PutField(cName, hashFieldName, "I")
