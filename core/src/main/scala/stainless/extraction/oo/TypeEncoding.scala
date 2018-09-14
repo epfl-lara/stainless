@@ -1003,7 +1003,7 @@ trait TypeEncoding
         new t.ADTConstructor(map,  refID, Seq(t.ValDef(mapValue,  t.MapType(ref, ref)))),
         new t.ADTConstructor(unit, refID, Seq()),
         new t.ADTConstructor(open, refID, Seq(t.ValDef(openValue, t.IntegerType())))
-      ), Seq(t.Uncached))
+      ), Seq(t.Uncached, t.Synthetic))
 
     def transform(fd: s.FunDef): t.FunDef = emptyScope.transform(fd)
 
@@ -1028,9 +1028,40 @@ trait TypeEncoding
       (symbols.functions.keySet ++ symbols.sorts.keySet)
         .flatMap(id => newSymbols.dependencies(id) + id)
 
-    t.NoSymbols
+    val independentSymbols = t.NoSymbols
       .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
       .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
+
+    val constructors: Set[Identifier] = {
+      import independentSymbols._
+
+      var constructors: Set[Identifier] = Set.empty
+      val traverser = new t.TreeTraverser {
+        override def traverse(expr: t.Expr): Unit = expr match {
+          case t.IsTyped(t.ADT(id, tps, es), t.ADTType(`refID`, _)) => constructors += id; super.traverse(expr)
+          case t.IsConstructor(t.IsTyped(e, t.ADTType(`refID`, _)), id) => constructors += id; super.traverse(expr)
+          case t.ADTSelector(t.IsTyped(e, t.ADTType(`refID`, _)), id) => constructors += id; super.traverse(expr)
+          case _ => super.traverse(expr)
+        }
+
+        override def traverse(pat: t.Pattern): Unit = pat match {
+          case t.ADTPattern(_, id, _, _) if getConstructor(id).sort == refID => constructors += id; super.traverse(pat)
+          case _ => super.traverse(pat)
+        }
+      }
+
+      independentSymbols.functions.values.foreach(traverser.traverse)
+      independentSymbols.sorts.values.foreach(traverser.traverse)
+      constructors
+    }
+
+    t.NoSymbols
+      .withFunctions(independentSymbols.functions.values.toSeq)
+      .withSorts(independentSymbols.sorts.values.toSeq)
+      .withSorts(Seq(new t.ADTSort(refID, Seq(), // overrides refSort in `independentSymbols.sorts`
+        context.refSort.constructors.filter(cons => cons.id == open || constructors(cons.id)),
+        context.refSort.flags)
+      ))
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
