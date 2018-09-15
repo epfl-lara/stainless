@@ -529,7 +529,6 @@ trait TypeEncoding
   )
 
   private[this] val classCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
-  private[this] val constructorCache = new ExtractionCache[s.ClassDef, Identifier]
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import context.symbols
     val cd = symbols.getClass(id)
@@ -539,7 +538,7 @@ trait TypeEncoding
       val classes = cd +: cd.descendants
       val extraConstructors = classes
         .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-        .map(cd => constructorCache.cached(cd, symbols)(FreshIdentifier("Open")))
+        .map(_.id)
 
       val instanceFunction = mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
@@ -973,8 +972,8 @@ trait TypeEncoding
       symbols.classes.values.toSeq.flatMap { cd =>
         if ((cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed)) {
           val field = t.ValDef(FreshIdentifier("x"), t.IntegerType().copiedFrom(cd)).copiedFrom(cd)
-          Some(new t.ADTConstructor(constructorCache(cd, symbols), refID, Seq(field)).copiedFrom(cd))
-        } else if (cd.children.nonEmpty) {
+          Some(new t.ADTConstructor(cd.id, refID, Seq(field)).copiedFrom(cd))
+        } else if (cd.children.isEmpty) {
           val scope = emptyScope in cd.id
           Some(new t.ADTConstructor(cd.id, refID, cd.fields.map(scope.transform _)).copiedFrom(cd))
         } else {
