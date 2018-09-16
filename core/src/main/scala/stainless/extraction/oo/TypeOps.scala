@@ -9,42 +9,6 @@ trait TypeOps extends imperative.TypeOps {
   import trees._
   import symbols._
 
-  protected def unionType(tps: Seq[Type]): Type = tps match {
-    case Seq() => NothingType()
-    case Seq(tp) => tp
-    case tp1 +: tps =>
-      tps.map(tp => tp1 -> tp).view.flatMap {
-        case (tp1, tp2) => typeBound(tp1, tp2, true) match {
-          case _: UnionType => None
-          case ntpe => Some((tp1, tp2, ntpe))
-        }
-      }.headOption match {
-        case Some((tp1, tp2, ntpe)) => unionType(ntpe +: tps.filter(tp => tp != tp1 && tp != tp2))
-        case None => unionType(tps) match {
-          case UnionType(tps) => UnionType(tp1 +: tps)
-          case tp2 => UnionType(Seq(tp1, tp2))
-        }
-      }
-  }
-
-  protected def intersectionType(tps: Seq[Type]): Type = tps match {
-    case Seq() => AnyType()
-    case Seq(tp) => tp
-    case tp1 +: tps =>
-      tps.map(tp => tp1 -> tp).view.flatMap {
-        case (tp1, tp2) => typeBound(tp1, tp2, false) match {
-          case _: IntersectionType => None
-          case ntpe => Some((tp1, tp2, ntpe))
-        }
-      }.headOption match {
-        case Some((tp1, tp2, ntpe)) => intersectionType(ntpe +: tps.filter(tp => tp != tp1 && tp != tp2))
-        case None => intersectionType(tps) match {
-          case IntersectionType(tps) => IntersectionType(tp1 +: tps)
-          case tp2 => IntersectionType(Seq(tp1, tp2))
-        }
-      }
-  }
-
   // Simplified version of CNF optimized for subtyping between refinement types
   // Note that the sort function we use to ensure normal CNF forms is consistent
   // with the ADT constructor sort function in AdtSpecialization.
@@ -108,14 +72,6 @@ trait TypeOps extends imperative.TypeOps {
     case (NothingType(), tp) if tp.getType.isTyped => Some(if (upper) tp else NothingType())
     case (tp, NothingType()) if tp.getType.isTyped => Some(if (upper) tp else NothingType())
 
-    case (UnionType(tps), tp) if upper => Some(unionType(tp +: tps))
-    case (UnionType(tps), tp) if !upper => Some(unionType(tps.map(tpe => typeBound(tpe, tp, false))))
-    case (tp, ut: UnionType) => Some(typeBound(ut, tp, upper))
-
-    case (IntersectionType(tps), tp) if !upper => Some(intersectionType(tp +: tps))
-    case (IntersectionType(tps), tp) if upper => Some(intersectionType(tps.map(tpe => typeBound(tpe, tp, true))))
-    case (tp, it: IntersectionType) => Some(typeBound(it, tp, upper))
-
     case (FunctionType(from1, to1), FunctionType(from2, to2)) if from1.size == from2.size =>
       val in = (from1 zip from2).map { case (tp1, tp2) => typeBound(tp1, tp2, !upper) }
       val out = typeBound(to1, to2, upper)
@@ -128,7 +84,7 @@ trait TypeOps extends imperative.TypeOps {
     case (t1, t2) if t1 == t2 => Some(t1)
 
     case _ => None
-  }).getOrElse(if (upper) UnionType(Seq(tp1, tp2)) else IntersectionType(Seq(tp1, tp2))).getType
+  }).getOrElse(if (upper) AnyType() else NothingType()).getType
 
   /** Computes the tightest bound (upper or lower) of a sequence of types */
   private def typeBound(tps: Seq[Type], upper: Boolean): Type = {
@@ -174,20 +130,6 @@ trait TypeOps extends imperative.TypeOps {
         else None
       case _ => None
     }
-  }
-
-  def widen(tpe: Type): Type = tpe match {
-    case UnionType(Seq()) => NothingType()
-    case UnionType(tpes) => (tpes map widen).reduceLeft[Type] {
-      case (ct1: ClassType, ct2: ClassType) => leastUpperClassBound(ct1, ct2).getOrElse(AnyType())
-      case (TupleType(tps1), TupleType(tps2)) if tps1.size == tps2.size =>
-        TupleType((tps1 zip tps2).map(p => leastUpperBound(p._1, p._2)))
-      case (FunctionType(from1, to1), FunctionType(from2, to2)) if from1.size == from2.size =>
-        FunctionType((from1 zip from2).map(p => greatestLowerBound(p._1, p._2)), leastUpperBound(to1, to2))
-      case (tp1, tp2) => if (tp1 == tp2) tp1 else AnyType()
-    }
-    case RefinementType(vd, _) => widen(vd.tpe)
-    case _ => tpe
   }
 
   override def leastUpperBound(tp1: Type, tp2: Type): Type = typeBound(tp1, tp2, true)
@@ -333,50 +275,5 @@ trait TypeOps extends imperative.TypeOps {
 
     case _ => super.patternIsTyped(in, pat)
   }
-
-  def encodableType(tpe: Type): Type = {
-    def top(variance: Boolean) = if (variance) AnyType() else NothingType()
-    def unify(tp1: Type, tp2: Type, variance: Boolean): Type = (tp1, tp2) match {
-      case (ct1: ClassType, ct2: ClassType) => rec(
-        (if (variance) leastUpperClassBound(ct1, ct2) else greatestLowerClassBound(ct1, ct2))
-          .getOrElse(top(variance)),
-        variance
-      )
-
-      case (FunctionType(from1, to1), FunctionType(from2, to2)) =>
-        if (from1.size != from2.size) top(variance)
-        else FunctionType((from1 zip from2).map(p => unify(p._1, p._2, !variance)), unify(to1, to2, variance))
-
-      case (TupleType(tps1), TupleType(tps2)) =>
-        if (tps1.size != tps2.size) top(variance)
-        else TupleType((tps1 zip tps2).map(p => unify(p._1, p._2, variance)))
-
-      case (tp1, tp2) if tp1 == tp2 => tp1
-      case _ => top(variance)
-    }
-
-    def rec(tpe: Type, variance: Boolean): Type = {
-      if (!typeOps.exists {
-        case (_: UnionType | _: IntersectionType | _: TypeBounds) => true
-        case _ => false
-      } (tpe)) tpe else (tpe match {
-        case UnionType(Seq()) => top(!variance)
-        case UnionType(tps) => tps.map(rec(_, variance)).reduceLeft(unify(_, _, variance))
-        case IntersectionType(Seq()) => top(variance)
-        case IntersectionType(tps) => tps.map(rec(_, variance)).reduceLeft(unify(_, _, !variance))
-        case FunctionType(from, to) => FunctionType(from.map(rec(_, !variance)), rec(to, variance))
-        case TupleType(tps) => TupleType(tps.map(rec(_, variance)))
-        case ct @ ClassType(id, tps) =>
-          ClassType(id, (ct.tcd.cd.typeArgs zip tps).map { case (tp, tpe) =>
-            if (tp.isContravariant) rec(tpe, !variance)
-            else rec(tpe, variance)
-          })
-        case NAryType(tps, recons) => recons(tps.map(rec(_, variance)))
-      })
-    }
-
-    rec(tpe, true)
-  }
-
 }
 

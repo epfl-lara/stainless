@@ -14,17 +14,24 @@ trait TransformerWithType extends TreeTransformer {
     case _ => expectedType
   }
 
+  private def widen(tpe: s.Type): s.Type = tpe match {
+    case tp: s.TypeParameter =>
+      import s._
+      widen(tp.upperBound)
+    case _ => tpe
+  }
+
   def transform(pat: s.Pattern, tpe: s.Type): t.Pattern = pat match {
     case s.WildcardPattern(ob) => t.WildcardPattern(ob map transform).copiedFrom(pat)
 
     case s.InstanceOfPattern(ob, tpe) => t.InstanceOfPattern(ob map transform, transform(tpe)).copiedFrom(pat)
 
     case s.ClassPattern(ob, ct, subs) =>
-      val rsubs = (subs zip ct.tcd.fields).map(p => transform(p._1, p._2.tpe))
+      val rsubs = (subs zip ct.tcd.fields).map(p => transform(p._1, p._2.getType))
       t.ClassPattern(ob map transform, transform(ct).asInstanceOf[t.ClassType], rsubs).copiedFrom(pat)
 
     case s.ADTPattern(ob, id, tps, subs) =>
-      val rsubs = (subs zip getConstructor(id, tps).fields).map(p => transform(p._1, p._2.tpe))
+      val rsubs = (subs zip getConstructor(id, tps).fields).map(p => transform(p._1, p._2.getType))
       t.ADTPattern(ob map transform, id, tps map transform, rsubs).copiedFrom(pat)
 
     case s.TuplePattern(ob, subs) =>
@@ -47,7 +54,7 @@ trait TransformerWithType extends TreeTransformer {
     case s.Assume(pred, body) =>
       t.Assume(transform(pred, s.BooleanType()), transform(body, tpe)).copiedFrom(expr)
     case s.Let(vd, e, b) =>
-      t.Let(transform(vd), transform(e, vd.tpe), transform(b, tpe)).copiedFrom(expr)
+      t.Let(transform(vd), transform(e, vd.getType), transform(b, tpe)).copiedFrom(expr)
     case s.Application(caller, args) =>
       val s.FunctionType(from, to) = widen(caller.getType)
       t.Application(
@@ -64,12 +71,12 @@ trait TransformerWithType extends TreeTransformer {
       t.Choose(transform(res), transform(pred, s.BooleanType())).copiedFrom(expr)
     case fi @ s.FunctionInvocation(id, tps, args) =>
       t.FunctionInvocation(id, tps map transform,
-        (args zip fi.tfd.params.map(_.tpe)) map (p => transform(p._1, p._2))).copiedFrom(expr)
+        (args zip fi.tfd.params.map(_.getType)) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IfExpr(cond, thenn, elze) =>
       t.IfExpr(transform(cond, s.BooleanType()), transform(thenn, tpe), transform(elze, tpe)).copiedFrom(expr)
     case s.ADT(id, tps, args) =>
       t.ADT(id, tps map transform,
-        (args zip getConstructor(id, tps).fields.map(_.tpe)) map (p => transform(p._1, p._2))).copiedFrom(expr)
+        (args zip getConstructor(id, tps).fields.map(_.getType)) map (p => transform(p._1, p._2))).copiedFrom(expr)
     case s.IsConstructor(e, id) =>
       t.IsConstructor(transform(e), id).copiedFrom(expr)
     case s.ADTSelector(e, sel) =>
@@ -264,32 +271,32 @@ trait TransformerWithType extends TreeTransformer {
           t.LocalFunDef(
             transform(name),
             tparams map transform,
-            transform(body, name.tpe).asInstanceOf[t.Lambda]
+            transform(body, name.getType).asInstanceOf[t.Lambda]
           ).copiedFrom(lfd)
         },
         transform(body, tpe)
       ).copiedFrom(expr)
     case s.ApplyLetRec(fun, tparams, tps, args) =>
-      val s.FunctionType(from, _) = s.typeOps.instantiateType(fun.tpe, (tparams zip tps).toMap)
+      val s.FunctionType(from, _) = s.typeOps.instantiateType(fun.getType, (tparams zip tps).toMap)
       t.ApplyLetRec(
         transform(fun.toVal).toVariable,
         tparams map (tp => transform(tp).asInstanceOf[t.TypeParameter]),
         tps map transform,
-        (args zip from) map (p => transform(p._1, p._2))
+        (args zip from) map (p => transform(p._1, p._2.getType))
       ).copiedFrom(expr)
 
     // Imperative expressions
     case s.Block(es, last) =>
       t.Block(es map (e => transform(e)), transform(last, tpe)).copiedFrom(expr)
     case s.LetVar(vd, e, b) =>
-      t.LetVar(transform(vd), transform(e, vd.tpe), transform(b, tpe)).copiedFrom(expr)
+      t.LetVar(transform(vd), transform(e, vd.getType), transform(b, tpe)).copiedFrom(expr)
     case s.Assignment(v, value) =>
-      t.Assignment(transform(v).asInstanceOf[t.Variable], transform(value, v.tpe)).copiedFrom(expr)
+      t.Assignment(transform(v).asInstanceOf[t.Variable], transform(value, v.getType)).copiedFrom(expr)
     case fa @ s.FieldAssignment(obj, sel, value) =>
       t.FieldAssignment(
         transform(obj),
         sel,
-        transform(value, fa.getField.get.tpe)
+        transform(value, fa.getField.get.getType)
       ).copiedFrom(expr)
     case s.While(cond, body, pred) =>
       t.While(
@@ -317,7 +324,7 @@ trait TransformerWithType extends TreeTransformer {
     case s.ClassConstructor(ct, args) =>
       t.ClassConstructor(
         transform(ct).asInstanceOf[t.ClassType],
-        (args zip ct.tcd.fields.map(_.tpe)) map (p => transform(p._1, p._2))
+        (args zip ct.tcd.fields.map(_.getType)) map (p => transform(p._1, p._2))
       ).copiedFrom(expr)
     case s.ClassSelector(e, sel) =>
       t.ClassSelector(transform(e), sel).copiedFrom(expr)

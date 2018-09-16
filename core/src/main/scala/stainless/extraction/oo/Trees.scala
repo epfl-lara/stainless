@@ -101,26 +101,6 @@ trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
   /** Bottom of the typing lattice, corresponds to scala's `Nothing` type. */
   case class NothingType() extends Type
 
-  /** $encodingof `tp1 | ... | tpN` */
-  private[oo] case class UnionType(tps: Seq[Type]) extends Type {
-    override def equals(that: Any): Boolean = that match {
-      case ut: UnionType => tps.toSet == ut.tps.toSet
-      case _ => false
-    }
-
-    override def hashCode: Int = tps.toSet.hashCode()
-  }
-
-  /** $encodingof `tp1 & ... & tpN` */
-  private[oo] case class IntersectionType(tps: Seq[Type]) extends Type {
-    override def equals(that: Any): Boolean = that match {
-      case it: IntersectionType => tps.toSet == it.tps.toSet
-      case _ => false
-    }
-
-    override def hashCode: Int = tps.toSet.hashCode()
-  }
-
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type) extends Type
 
@@ -182,17 +162,6 @@ trait Printer extends imperative.Printer {
 
     case NothingType() =>
       p"Nothing"
-
-    case UnionType(tps) =>
-      var first = true
-      for (tp <- tps) {
-        if (!first) p"${" | "}" // weird construction because of stripMargin
-        first = false
-        p"$tp"
-      }
-
-    case IntersectionType(tps) =>
-      p"${nary(tps, " & ")}"
 
     case TypeBounds(lo, hi) =>
       p"_ >: $lo <: $hi"
@@ -278,8 +247,6 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
     case s.ClassType(id, tps) => (Seq(id), Seq(), Seq(), tps, Seq(), (ids, _, _, tps, _) => t.ClassType(ids.head, tps))
     case s.AnyType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.AnyType())
     case s.NothingType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.NothingType())
-    case s.UnionType(tps) => (Seq(), Seq(), Seq(), tps, Seq(), (_, _, _, tps, _) => t.UnionType(tps))
-    case s.IntersectionType(tps) => (Seq(), Seq(), Seq(), tps, Seq(), (_, _, _, tps, _) => t.IntersectionType(tps))
     case s.TypeBounds(lo, hi) => (Seq(), Seq(), Seq(), Seq(lo, hi), Seq(), (_, _, _, tps, _) => t.TypeBounds(tps(0), tps(1)))
     case _ => super.deconstruct(tpe)
   }

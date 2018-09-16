@@ -67,8 +67,8 @@ trait TypeEncoding
   private[this] def isObject(tpe: s.Type)(implicit scope: Scope): Boolean = tpe match {
     case _: s.ClassType => true
     case s.NothingType() | s.AnyType() => true
+    case s.TypeBounds(_, _) => true
     case tp: s.TypeParameter => scope.tparams contains tp
-    case (_: s.UnionType) | (_: s.IntersectionType) => true
     case _ => false
   }
 
@@ -290,7 +290,11 @@ trait TypeEncoding
 
       case (_, s.RefinementType(vd, pred)) =>
         instanceOf(e, in, vd.tpe) &&
-        t.Let(scope.transform(vd), convert(e, in, vd.tpe), scope.transform(pred)).copiedFrom(e)
+        t.Let(
+          scope.transform(vd),
+          convert(e, in, vd.tpe),
+          scope.transform(pred, s.BooleanType().copiedFrom(pred))
+        ).copiedFrom(e)
 
       case (_, s.ClassType(id, tps)) if isObject(in) =>
         t.FunctionInvocation(
@@ -778,11 +782,12 @@ trait TypeEncoding
 
       case app @ s.ApplyLetRec(v, tparams, tps, args) =>
         val outerScope = functions(v.id).outer.get
+        val s.FunctionType(from, _) = s.typeOps.instantiateType(v.getType, (tparams zip tps).toMap)
         convert(t.ApplyLetRec(
           outerScope.transform(v.toVal).toVariable,
           tparams map (outerScope.transform(_).asInstanceOf[t.TypeParameter]),
           tps map transform,
-          args map transform
+          (args zip from) map (p => transform(p._1, p._2.getType))
         ).copiedFrom(e), app.getType, inType)
 
       case s.LetRec(fds, body) =>
@@ -795,19 +800,9 @@ trait TypeEncoding
       case e if isObject(e.getType) != isObject(inType) =>
         convert(transform(e), e.getType, inType)
 
-      // @nv: the default `TransformerWithType` will have use a non-widened expected result
-      //      type in the lambda and this breaks the assumption of no intersection and union
-      //      types occuring as `inType`.
-      case s.Lambda(args, body) => symbols.widen(inType) match {
-        case ft: s.FunctionType => super.transform(e, ft.copy(to = symbols.widen(ft.to)).copiedFrom(ft))
-        case _ => super.transform(e, inType)
-      }
-
       case _ =>
         super.transform(e, inType)
     }
-
-    override def transform(e: s.Expr): t.Expr = transform(e, symbols.widen(e.getType))
 
     private def instanceOfPattern(inner: t.Pattern, in: s.Type, tpe: s.Type): t.Pattern =
       if (isSubtypeOf(in, tpe) && isObject(tpe) == isObject(in)) {
@@ -887,7 +882,7 @@ trait TypeEncoding
           fd.tparams map (scope.transform(_)),
           fd.params map (scope.transform(_)),
           scope.transform(fd.returnType),
-          scope.transform(fd.fullBody),
+          scope.transform(fd.fullBody, fd.returnType.getType),
           fd.flags map (scope.transform(_))
         )
       } else {
@@ -917,7 +912,7 @@ trait TypeEncoding
           Seq(),
           tparamParams ++ fd.params.map(scope.transform(_)),
           scope.transform(fd.returnType),
-          scope.transform(fd.fullBody, fd.returnType),
+          scope.transform(fd.fullBody, fd.returnType.getType),
           fd.flags map scope.transform
         )
       }
