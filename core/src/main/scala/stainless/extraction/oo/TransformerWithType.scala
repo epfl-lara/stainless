@@ -334,4 +334,10 @@ trait TransformerWithType extends TreeTransformer {
   }
 
   override def transform(e: s.Expr): t.Expr = transform(e, e.getType)
+
+  override def transform(tpe: s.Type): t.Type = tpe match {
+    case s.RefinementType(vd, pred) =>
+      t.RefinementType(transform(vd), transform(pred, s.BooleanType())).copiedFrom(tpe)
+    case _ => super.transform(tpe)
+  }
 }
