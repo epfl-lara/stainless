@@ -144,9 +144,12 @@ trait TypeEncoding
         t.Application(scope.converters(t1 -> t2), Seq(e)).copiedFrom(e)
 
       case (_, s.ADTType(id1, tps1), s.ADTType(id2, tps2)) if id1 == id2 =>
-        t.FunctionInvocation(convertID(id1), (tps1 ++ tps2).map(tp => scope.transform(tp)), tps1 zip tps2 map {
-          case (tp1, tp2) => \(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => convert(x, tp1, tp2)).copiedFrom(tp1)
-        }).copiedFrom(e)
+        t.FunctionInvocation(convertID(id1), (tps1 ++ tps2).map(tp => scope.transform(tp)),
+          e +: (tps1 zip tps2 flatMap { case (tp1, tp2) => Seq(
+            \(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => convert(x, tp1, tp2)).copiedFrom(tp1),
+            \(("x" :: scope.transform(tp2)).copiedFrom(tp2))(x => convert(x, tp2, tp1)).copiedFrom(tp2)
+          )}
+        )).copiedFrom(e)
 
       case (t.Lambda(params, body), s.FunctionType(from1, to1), s.FunctionType(from2, to2)) =>
         val newParams = (params zip from2) map { case (vd, tpe) => vd.copy(tpe = scope.transform(tpe)).copiedFrom(vd) }
@@ -254,7 +257,10 @@ trait TypeEncoding
           }.copiedFrom(e)
         }.copiedFrom(e)
 
-      case _ => e
+      case _ => t.Choose(
+        t.ValDef.fresh("res", scope.transform(expected)).copiedFrom(e),
+        t.BooleanLiteral(false).copiedFrom(e)
+      ).copiedFrom(e)
     }
 
 
@@ -473,10 +479,13 @@ trait TypeEncoding
         val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
         val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
-        val x = "x" :: T(adt(id))(tin: _*)
-        val fs = tin zip tout map { case (i, o) => i.id.name :: (i =>: o) }
+        val x = "x" :: T(id)(tin: _*)
+        val fs = tin zip tout flatMap { case (i, o) => Seq(i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
 
-        val newScope = scope converting (in zip out zip fs map { case (p, vd) => p -> vd.toVariable })
+        val newScope = scope converting (in zip out zip fs.grouped(2).toSeq flatMap {
+          case ((ti, to), Seq(vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
+        })
+
         val conversions = sort.typed(in).constructors zip sort.typed(out).constructors map { case (ci, co) =>
           (x.toVariable is ci.id, C(ci.id)(tout: _*)(ci.fields zip co.fields map { case (vi, vo) =>
             convert(x.toVariable.getField(vi.id), vi.tpe, vo.tpe)(newScope)
@@ -488,7 +497,7 @@ trait TypeEncoding
         }
 
         new t.FunDef(
-          convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(adt(id))(tout: _*), fullBody,
+          convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(id)(tout: _*), fullBody,
           Seq(t.Unchecked, t.Synthetic)
         ).setPos(sort)
       }
@@ -497,13 +506,13 @@ trait TypeEncoding
         val in = sort.typeArgs.map(_.freshen)
         val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
-        val x = "x" :: T(adt(id))(tin: _*)
+        val x = "x" :: T(id)(tin: _*)
         val fs = tin map { i => i.id.name :: (i =>: t.BooleanType()) }
 
         val newScope = scope testing (in zip fs map { case (ti, vd) => (ti, ti) -> vd.toVariable })
         val fullBody = t.orJoin(sort.typed(in).constructors map { cons =>
           (x.toVariable is cons.id) &&
-          t.andJoin(cons.fields.map(vd => instanceOf(x.toVariable, vd.tpe, vd.tpe)(newScope)))
+          t.andJoin(cons.fields.map(vd => instanceOf(x.toVariable.getField(vd.id), vd.tpe, vd.tpe)(newScope)))
         })
 
         new t.FunDef(
@@ -1023,6 +1032,8 @@ trait TypeEncoding
       .withFunctions(context.functions)
       .withSorts(context.sorts)
 
+    newSymbols.ensureWellFormed
+
     val dependencies: Set[Identifier] =
       (symbols.functions.keySet ++ symbols.sorts.keySet)
         .flatMap(id => newSymbols.dependencies(id) + id)
@@ -1030,6 +1041,8 @@ trait TypeEncoding
     val independentSymbols = t.NoSymbols
       .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
       .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
+
+    independentSymbols.ensureWellFormed
 
     val constructors: Set[Identifier] = {
       import independentSymbols._
@@ -1054,13 +1067,16 @@ trait TypeEncoding
       constructors
     }
 
-    t.NoSymbols
+    val result = t.NoSymbols
       .withFunctions(independentSymbols.functions.values.toSeq)
       .withSorts(independentSymbols.sorts.values.toSeq)
       .withSorts(Seq(new t.ADTSort(refID, Seq(), // overrides refSort in `independentSymbols.sorts`
         context.refSort.constructors.filter(cons => cons.id == open || constructors(cons.id)),
         context.refSort.flags)
       ))
+
+    result.ensureWellFormed
+    result
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
