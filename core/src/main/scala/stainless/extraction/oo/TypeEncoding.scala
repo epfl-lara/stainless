@@ -1024,8 +1024,9 @@ trait TypeEncoding
           val field = t.ValDef(FreshIdentifier("x"), t.IntegerType().copiedFrom(cd)).copiedFrom(cd)
           Some(new t.ADTConstructor(cd.id, refID, Seq(field)).copiedFrom(cd))
         } else if (cd.children.isEmpty) {
-          val scope = emptyScope in cd.id
-          Some(new t.ADTConstructor(cd.id, refID, cd.fields.map(scope.transform _)).copiedFrom(cd))
+          val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
+          val fields = cd.typed(anys).fields.map(emptyScope.transform _)
+          Some(new t.ADTConstructor(cd.id, refID, fields).copiedFrom(cd))
         } else {
           None
         }
