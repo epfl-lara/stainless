@@ -9,29 +9,6 @@ trait TypeOps extends imperative.TypeOps {
   import trees._
   import symbols._
 
-  // Simplified version of CNF optimized for subtyping between refinement types
-  // Note that the sort function we use to ensure normal CNF forms is consistent
-  // with the ADT constructor sort function in AdtSpecialization.
-  protected def cnf(pred: Expr): Expr = {
-    def rec(pred: Expr): Seq[Expr] = pred match {
-      case And(es) =>
-        es.flatMap(rec).sortBy(_.toString)
-      case Or(es) =>
-        es.map(rec).foldLeft(Seq[Expr](BooleanLiteral(false))) {
-          case (clauses, es) => es.flatMap(e => clauses.map(c => or(c, e) match {
-            case TopLevelOrs(es) => orJoin(es.sortBy(_.toString))
-          }))
-        }.sortBy(_.toString)
-      case e => Seq(e)
-    }
-
-    // We don't use simplifyByConstructors here because we don't want more
-    // simplifications than the CNF form, otherwise syntactic equalities upon
-    // which we rely for refinement type checking may be broken during the
-    // transformation pipeline.
-    andJoin(rec(pred))
-  }
-
   protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = ((tp1, tp2) match {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => Some(Untyped)
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => Some(Untyped)
@@ -46,14 +23,14 @@ trait TypeOps extends imperative.TypeOps {
     case (_, adt: ADTType) if adt.lookupSort.isEmpty => Some(Untyped)
     case (adt1: ADTType, adt2: ADTType) if adt1 == adt2 => Some(adt1)
 
-    case (RefinementType(vd1, p1), RefinementType(vd2, p2)) if vd1.tpe == vd2.tpe =>
-      // Here we preserve `vd2` as the typeBound used in subtyping checks will compare the
-      // typeBound result with the second type. This gets around the issue of identifier
-      // normalization in refinement types.
-      val np1 = exprOps.replaceFromSymbols(Map(vd1 -> vd2.toVariable), p1)
-      Some(RefinementType(vd2, if (upper) cnf(or(np1, p2)) else cnf(and(np1, p2))))
-    case (rt @ RefinementType(vd, p), tpe) if vd.tpe == tpe => Some(if (upper) tpe else rt)
-    case (tpe, rt @ RefinementType(vd, p)) if tpe == vd.tpe => Some(if (upper) tpe else rt)
+    case (rt: RefinementType, _) => Some(typeBound(rt.getType, tp2, upper))
+    case (_, rt: RefinementType) => Some(typeBound(tp1, rt.getType, upper))
+
+    case (pi: PiType, _) => Some(typeBound(pi.getType, tp2, upper))
+    case (_, pi: PiType) => Some(typeBound(tp1, pi.getType, upper))
+
+    case (sigma: SigmaType, _) => Some(typeBound(sigma.getType, tp2, upper))
+    case (_, sigma: SigmaType) => Some(typeBound(tp1, sigma.getType, upper))
 
     case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
     case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
@@ -154,26 +131,35 @@ trait TypeOps extends imperative.TypeOps {
   protected def unificationConstraints(t1: Type, t2: Type, free: Seq[TypeParameter]): List[(TypeParameter, Type)] = (t1, t2) match {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
+
     case (adt: ADTType, _) if adt.lookupSort.isEmpty => unsolvable
     case (_, adt: ADTType) if adt.lookupSort.isEmpty => unsolvable
+
     case _ if t1 == t2 => Nil
+
     case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
       (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+
     case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
       (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
-    case (RefinementType(vd1, p1), RefinementType(vd2, p2)) => unify(vd1.tpe, vd2.tpe, free) match {
-      case Some(tpMap) if exprOps.postMap {
-        case v: Variable if v.id == vd1.id => Some(v.copy(id = vd2.id))
-        case _ => None
-      } (typeOps.instantiateType(p1, tpMap.toMap)) == p2 => tpMap
-      case _ => unsolvable
-    }
+
+    case (rt: RefinementType, _) => unificationConstraints(rt.getType, t2, free)
+    case (_, rt: RefinementType) => unificationConstraints(t1, rt.getType, free)
+
+    case (pi: PiType, _) => unificationConstraints(pi.getType, t2, free)
+    case (_, pi: PiType) => unificationConstraints(t1, pi.getType, free)
+
+    case (sigma: SigmaType, _) => unificationConstraints(sigma.getType, t2, free)
+    case (_, sigma: SigmaType) => unificationConstraints(t1, sigma.getType, free)
+
     case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
     case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
+
     case (tp: TypeParameter, _) if !(typeOps.typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
     case (_, tp: TypeParameter) if !(typeOps.typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)
     case (_: TypeParameter, _) => unsolvable
     case (_, _: TypeParameter) => unsolvable
+
     case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) if ts1.size == ts2.size =>
       (ts1 zip ts2).toList flatMap (p => unificationConstraints(p._1, p._2, free))
     case _ => unsolvable
@@ -232,7 +218,7 @@ trait TypeOps extends imperative.TypeOps {
   }
 
   def patternInType(pat: Pattern): Type = pat match {
-    case WildcardPattern(ob) => ob.map(_.tpe).getOrElse(AnyType())
+    case WildcardPattern(ob) => ob.map(_.getType).getOrElse(AnyType())
     case LiteralPattern(_, lit) => lit.getType
     case ADTPattern(_, id, tps, _) =>
       lookupConstructor(id)
@@ -240,17 +226,17 @@ trait TypeOps extends imperative.TypeOps {
         .getOrElse(Untyped)
     case TuplePattern(_, subs) => TupleType(subs map patternInType)
     case ClassPattern(_, ct, subs) => ct
-    case UnapplyPattern(_, rec, id, tps, _) =>
-      val optFd = lookupFunction(id).filter(fd => fd.tparams.size == tps.size)
-      optFd.filter(_.params.size == 1 && rec.isEmpty).map(_.typed(tps).params.head.tpe)
-        .orElse(optFd.filter(_.params.size == 2 && rec.nonEmpty).map(_.typed(tps).params(1).tpe))
+    case UnapplyPattern(_, recs, id, tps, _) =>
+      lookupFunction(id).filter(fd => fd.tparams.size == tps.size)
+        .filter(_.params.size == recs.size - 1)
+        .map(_.typed(tps).params.last.getType)
         .getOrElse(Untyped)
-    case InstanceOfPattern(_, tpe) => tpe
+    case InstanceOfPattern(_, tpe) => tpe.getType
   }
 
   override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
     case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
-      pat.binder.forall(vd => isSubtypeOf(in, vd.tpe)) &&
+      pat.binder.forall(vd => isSubtypeOf(in, vd.getType)) &&
       patternIsTyped(patternInType(pat), pat)
 
     case (_, ClassPattern(ob, ct, subs)) => in match {
@@ -258,17 +244,17 @@ trait TypeOps extends imperative.TypeOps {
         lookupClass(ct.id).exists { cls =>
           cls.fields.size == subs.size &&
           cls.tparams.size == ct.tps.size &&
-          (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.tpe, sub) }
+          (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.getType, sub) }
         }
       case _ => patternIsTyped(patternInType(pat), pat)
     }
 
     case (_, InstanceOfPattern(ob, tpe)) =>
-      ob.forall(vd => isSubtypeOf(tpe, vd.tpe))
+      ob.forall(vd => isSubtypeOf(tpe.getType, vd.getType))
 
     case (AnyType(), _) =>
       if (patternInType(pat) == AnyType()) {
-        pat.binders.forall(vd => isSubtypeOf(AnyType(), vd.tpe))
+        pat.binders.forall(vd => isSubtypeOf(AnyType(), vd.getType))
       } else {
         patternIsTyped(patternInType(pat), pat)
       }
