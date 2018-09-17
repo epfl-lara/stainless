@@ -85,6 +85,7 @@ trait TypeEncoding
   }
 
   private[this] def wrap(e: t.Expr, tpe: s.Type)(implicit scope: Scope): t.Expr = (tpe match {
+    case s.AnyType() => e
     case s.ClassType(id, tps) => e
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => C(adt(id))(convert(e, tpe, erased(tpe)))
@@ -106,6 +107,7 @@ trait TypeEncoding
   }).copiedFrom(e)
 
   private[this] def unwrap(e: t.Expr, tpe: s.Type)(implicit scope: Scope): t.Expr = (tpe match {
+    case s.AnyType() => e
     case s.ClassType(id, tps) => e
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => convert(e.getField(adtValue(id)).copiedFrom(e), erased(tpe), tpe)
@@ -134,14 +136,17 @@ trait TypeEncoding
   private[this] val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
   private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr =
-    (e, tpe.getType(scope.symbols), expected.getType(scope.symbols)) match {
+    ((e, tpe.getType(scope.symbols), expected.getType(scope.symbols)) match {
       case (_, t1, t2) if t1 == t2 => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
       case (_, t1, t2) if isObject(t1) && isSimple(t2) => unwrap(e, t2)
       case (_, t1, t2) if isSimple(t1) && isObject(t2) => wrap(e, t1)
 
       case (_, t1, t2) if scope.converters contains (t1 -> t2) =>
-        t.Application(scope.converters(t1 -> t2), Seq(e)).copiedFrom(e)
+        t.Application(scope.converters(t1 -> t2), Seq(e))
+
+      case (_, t1, t2) if scope.converters contains t2 =>
+        t.Application(scope.converters(t2), Seq(wrap(e, t1)))
 
       case (_, s.ADTType(id1, tps1), s.ADTType(id2, tps2)) if id1 == id2 =>
         t.FunctionInvocation(convertID(id1), (tps1 ++ tps2).map(tp => scope.transform(tp)),
@@ -149,36 +154,36 @@ trait TypeEncoding
             \(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => convert(x, tp1, tp2)).copiedFrom(tp1),
             \(("x" :: scope.transform(tp2)).copiedFrom(tp2))(x => convert(x, tp2, tp1)).copiedFrom(tp2)
           )}
-        )).copiedFrom(e)
+        ))
 
       case (t.Lambda(params, body), s.FunctionType(from1, to1), s.FunctionType(from2, to2)) =>
         val newParams = (params zip from2) map { case (vd, tpe) => vd.copy(tpe = scope.transform(tpe)).copiedFrom(vd) }
         val unifiedParams = newParams zip (from1 zip from2) map { case (vd, (tp1, tp2)) => convert(vd.toVariable, tp2, tp1) }
         val newBody = convert(t.exprOps.replaceFromSymbols((params.map(_.toVariable) zip unifiedParams).toMap, body), to1, to2)
-        t.Lambda(newParams, newBody).copiedFrom(e)
+        t.Lambda(newParams, newBody)
 
       case (_, s.FunctionType(from1, to1), s.FunctionType(from2, to2)) =>
         val newParams = from2.map(tp => t.ValDef.fresh("x", scope.transform(tp), true).copiedFrom(tp))
         val unifiedParams = newParams zip (from1 zip from2) map { case (vd, (tp1, tp2)) => convert(vd.toVariable, tp2, tp1) }
-        t.Lambda(newParams, convert(t.Application(e, unifiedParams).copiedFrom(e), to1, to2)).copiedFrom(e)
+        t.Lambda(newParams, convert(t.Application(e, unifiedParams).copiedFrom(e), to1, to2))
 
       case (t.Tuple(es), s.TupleType(tps1), s.TupleType(tps2)) =>
-        t.Tuple(es zip (tps1 zip tps2) map { case (e, (tp1, tp2)) => convert(e, tp1, tp2) }).copiedFrom(e)
+        t.Tuple(es zip (tps1 zip tps2) map { case (e, (tp1, tp2)) => convert(e, tp1, tp2) })
 
       case (_, s.TupleType(tps1), s.TupleType(tps2)) =>
         t.Tuple((tps1 zip tps2).zipWithIndex map {
           case ((tp1, tp2), i) => convert(t.TupleSelect(e, i + 1).copiedFrom(e), tp1, tp2)
-        }).copiedFrom(e)
+        })
 
       case (t.FiniteArray(elems, _), s.ArrayType(b1), s.ArrayType(b2)) =>
-        t.FiniteArray(elems.map(e => convert(e, b1, b2)), scope.transform(b2)).copiedFrom(e)
+        t.FiniteArray(elems.map(e => convert(e, b1, b2)), scope.transform(b2))
 
       case (t.LargeArray(elems, dflt, size, base), s.ArrayType(b1), s.ArrayType(b2)) =>
         t.LargeArray(elems.map(p => p._1 -> convert(p._2, b1, b2)),
-          convert(dflt, b1, b2), size, scope.transform(b2)).copiedFrom(e)
+          convert(dflt, b1, b2), size, scope.transform(b2))
 
       case (t.ArrayUpdated(a, i, v), s.ArrayType(b1), s.ArrayType(b2)) =>
-        t.ArrayUpdated(convert(a, tpe, expected), i, convert(v, b1, b2)).copiedFrom(e)
+        t.ArrayUpdated(convert(a, tpe, expected), i, convert(v, b1, b2))
 
       case (_, s.ArrayType(b1), s.ArrayType(b2)) =>
         choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
@@ -188,22 +193,22 @@ trait TypeEncoding
               t.ArraySelect(res, i).copiedFrom(e)
             ).copiedFrom(e)
           }.copiedFrom(e)
-        }.copiedFrom(e)
+        }
 
       case (t.FiniteSet(elems, _), s.SetType(b1), s.SetType(b2)) =>
-        t.FiniteSet(elems.map(e => convert(e, b1, b2)), scope.transform(b2)).copiedFrom(e)
+        t.FiniteSet(elems.map(e => convert(e, b1, b2)), scope.transform(b2))
 
       case (t.SetAdd(set, elem), s.SetType(b1), s.SetType(b2)) =>
-        t.SetAdd(convert(set, tpe, expected), convert(elem, b1, b2)).copiedFrom(e)
+        t.SetAdd(convert(set, tpe, expected), convert(elem, b1, b2))
 
       case (t.SetIntersection(lhs, rhs), s.SetType(b1), s.SetType(b2)) =>
-        t.SetIntersection(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.SetIntersection(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (t.SetUnion(lhs, rhs), s.SetType(b1), s.SetType(b2)) =>
-        t.SetUnion(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.SetUnion(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (t.SetDifference(lhs, rhs), s.SetType(b1), s.SetType(b2)) =>
-        t.SetDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.SetDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (_, s.SetType(b1), s.SetType(b2)) =>
         choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
@@ -213,22 +218,22 @@ trait TypeEncoding
               t.ElementOfSet(convert(x, b1, b2), res).copiedFrom(e)
             ).copiedFrom(e)
           }.copiedFrom(e)
-        }.copiedFrom(e)
+        }
 
       case (t.FiniteBag(elems, _), s.BagType(b1), s.BagType(b2)) =>
-        t.FiniteBag(elems.map(p => p._1 -> convert(p._2, b1, b2)), scope.transform(b2)).copiedFrom(e)
+        t.FiniteBag(elems.map(p => p._1 -> convert(p._2, b1, b2)), scope.transform(b2))
 
       case (t.BagAdd(bag, elem), s.BagType(b1), s.BagType(b2)) =>
-        t.BagAdd(convert(bag, tpe, expected), convert(elem, b1, b2)).copiedFrom(e)
+        t.BagAdd(convert(bag, tpe, expected), convert(elem, b1, b2))
 
       case (t.BagIntersection(lhs, rhs), s.BagType(b1), s.BagType(b2)) =>
-        t.BagIntersection(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.BagIntersection(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (t.BagUnion(lhs, rhs), s.BagType(b1), s.BagType(b2)) =>
-        t.BagUnion(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.BagUnion(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (t.BagDifference(lhs, rhs), s.BagType(b1), s.BagType(b2)) =>
-        t.BagDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected)).copiedFrom(e)
+        t.BagDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (_, s.BagType(b1), s.BagType(b2)) =>
         choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
@@ -238,14 +243,14 @@ trait TypeEncoding
               t.MultiplicityInBag(convert(x, b1, b2), res).copiedFrom(e)
             ).copiedFrom(e)
           }.copiedFrom(e)
-        }.copiedFrom(e)
+        }
 
       case (t.FiniteMap(pairs, dflt, _, _), s.MapType(f1, t1), s.MapType(f2, t2)) =>
         t.FiniteMap(pairs.map(p => convert(p._1, f1, f2) -> convert(p._2, t1, t2)),
-          convert(dflt, t1, t2), scope.transform(f2), scope.transform(t2)).copiedFrom(e)
+          convert(dflt, t1, t2), scope.transform(f2), scope.transform(t2))
 
       case (t.MapUpdated(m, k, v), s.MapType(f1, t1), s.MapType(f2, t2)) =>
-        t.MapUpdated(convert(m, tpe, expected), convert(k, f1, f2), convert(v, t1, t2)).copiedFrom(e)
+        t.MapUpdated(convert(m, tpe, expected), convert(k, f1, f2), convert(v, t1, t2))
 
       case (_, s.MapType(f1, t1), s.MapType(f2, t2)) =>
         choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
@@ -255,13 +260,13 @@ trait TypeEncoding
               t.MapApply(res, convert(x, f1, f2)).copiedFrom(e)
             ).copiedFrom(e)
           }.copiedFrom(e)
-        }.copiedFrom(e)
+        }
 
       case _ => t.Choose(
         t.ValDef.fresh("res", scope.transform(expected)).copiedFrom(e),
         t.BooleanLiteral(false).copiedFrom(e)
-      ).copiedFrom(e)
-    }
+      )
+    }).copiedFrom(e)
 
 
   /* ====================================
@@ -275,14 +280,15 @@ trait TypeEncoding
       case (tp1, tp2) if (
         tp1 == tp2 &&
         // For the `instanceFunction` in `SortInfo` where each type parameter must be tested for instance
-        (scope.testers.keySet & (for {
-          t1 <- s.typeOps.typeParamsOf(tp1)
-          t2 <- s.typeOps.typeParamsOf(tp2)
-        } yield (t1, t2))).isEmpty
+        !(for (t1 <- s.typeOps.typeParamsOf(tp1); t2 <- s.typeOps.typeParamsOf(tp2)) yield (t1, t2))
+          .exists(scope.testers contains _)
       ) => t.BooleanLiteral(true)
 
       case (tp1, tp2) if scope.testers contains (tp1 -> tp2) =>
         t.Application(scope.testers(tp1 -> tp2), Seq(e))
+
+      case (tp1, tp2) if scope.testers contains tp2 =>
+        t.Application(scope.testers(tp2), Seq(wrap(e, tp1)))
 
       case (_, s.AnyType()) => t.BooleanLiteral(true)
       case (_, s.NothingType()) => t.BooleanLiteral(false)
@@ -597,12 +603,29 @@ trait TypeEncoding
 
   protected case class FunInfo(fun: s.FunAbstraction, outer: Option[Scope], rewrite: Boolean)
 
+  protected class ExprMapping private(underlying: Map[(s.Type, Option[s.Type]), t.Expr]) {
+    def contains(p: (s.Type, s.Type)): Boolean = underlying contains (p._1 -> Some(p._2))
+    def contains(tpe: s.Type): Boolean = underlying contains (tpe -> None)
+
+    def apply(p: (s.Type, s.Type)): t.Expr = underlying apply (p._1 -> Some(p._2))
+    def apply(tpe: s.Type): t.Expr = underlying apply (tpe -> None)
+
+    def ++(ps: Traversable[((s.Type, s.Type), t.Expr)]): ExprMapping =
+      new ExprMapping(underlying ++ ps.map { case ((t1, t2), e) => ((t1, Some(t2)), e) })
+    def ++(ps: Traversable[(s.Type, t.Expr)])(implicit dummyImplicit: DummyImplicit): ExprMapping =
+      new ExprMapping(underlying ++ ps.map { case (tpe, e) => ((tpe, None), e) })
+  }
+
+  protected object ExprMapping {
+    def empty: ExprMapping = new ExprMapping(Map.empty)
+  }
+
   protected class Scope protected(
     val functions: Map[Identifier, FunInfo],
     graph: DiGraph[s.FunAbstraction, SimpleEdge[s.FunAbstraction]],
     val tparams: Set[s.TypeParameter],
-    val testers: Map[(s.Type, s.Type), t.Expr],
-    val converters: Map[(s.Type, s.Type), t.Expr]
+    val testers: ExprMapping,
+    val converters: ExprMapping
   )(implicit val context: TransformerContext) extends TransformerWithType {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
@@ -617,6 +640,8 @@ trait TypeEncoding
 
     def testing(ps: Traversable[((s.Type, s.Type), t.Expr)]): Scope =
       new Scope(functions, graph, tparams, testers ++ ps, converters)
+    def testing(p: (s.Type, t.Expr)): Scope =
+      new Scope(functions, graph, tparams, testers ++ Seq(p), converters)
 
     def rewrite(id: Identifier): Boolean = functions(id).rewrite
 
@@ -818,24 +843,30 @@ trait TypeEncoding
 
     override def transform(pat: s.Pattern, tpe: s.Type): t.Pattern = pat match {
       case s.WildcardPattern(None) => t.WildcardPattern(None).copiedFrom(pat)
+      case s.WildcardPattern(Some(vd)) if isObject(vd.tpe) && isObject(tpe) =>
+        t.WildcardPattern(Some(transform(vd))).copiedFrom(pat)
       case s.WildcardPattern(Some(vd)) =>
-        instanceOfPattern(t.WildcardPattern(Some(transform(vd))).copiedFrom(pat), tpe, vd.tpe)
+        instanceOfPattern(t.WildcardPattern(Some(transform(vd))).copiedFrom(pat), tpe, vd.getType)
 
       case s.InstanceOfPattern(ob, tp) =>
         instanceOfPattern(t.WildcardPattern(ob map transform).copiedFrom(pat), tpe, tp)
 
-      case s.ClassPattern(ob, ct, subs) =>
-        val inner = t.UnapplyPattern(
-          ob map transform, Seq(), classInfo(ct.id).unapplyFunction, Seq(),
-          subs zip erased(ct).tcd.fields map { case (sub, vd) => transform(sub, vd.tpe) }
-        ).copiedFrom(pat)
+      case s.ClassPattern(ob, ct, subs) => tpe match {
+        case cti: s.ClassType if (
+          (cti +: cti.tcd.descendants.map(_.toType)).exists(isSubtypeOf(_, ct)) &&
+          (!(ct.tcd.cd.flags contains s.IsAbstract) && ct.tcd.children.isEmpty)
+        ) =>
+          t.ADTPattern(
+            ob map transform, ct.id, Seq(),
+            subs zip erased(ct).tcd.fields map { case (sub, vd) => transform(sub, vd.getType) }
+          ).copiedFrom(pat)
 
-        tpe match {
-          case cti: s.ClassType if (cti +: cti.tcd.descendants.map(_.toType)).exists(isSubtypeOf(_, ct)) =>
-            inner
-          case _ =>
-            instanceOfPattern(inner, tpe, ct)
-        }
+        case _ =>
+          instanceOfPattern(t.UnapplyPattern(
+            ob map transform, Seq(), classInfo(ct.id).unapplyFunction, Seq(),
+            subs zip erased(ct).tcd.fields map { case (sub, vd) => transform(sub, vd.getType) }
+          ).copiedFrom(pat), tpe, ct)
+      }
 
       case s.ADTPattern(ob, id, tps, subs) =>
         val sort = s.ADTType(getConstructor(id).sort, tps).copiedFrom(tpe)
@@ -904,7 +935,7 @@ trait TypeEncoding
             }
 
             val vd = t.ValDef(tp.id.freshen, tpe).copiedFrom(tp)
-            (scope.testing(Seq((tp, tp) -> vd.toVariable)), vds :+ vd)
+            (scope.testing(tp -> vd.toVariable), vds :+ vd)
         }
 
         fd.to(t)(
@@ -922,7 +953,7 @@ trait TypeEncoding
   private[this] object Scope {
     def empty(implicit context: TransformerContext): Scope = new Scope(
       Map.empty, new DiGraph[s.FunAbstraction, SimpleEdge[s.FunAbstraction]],
-      Set.empty, Map.empty, Map.empty
+      Set.empty, ExprMapping.empty, ExprMapping.empty
     ) withFunctions context.symbols.functions.values.map(s.Outer(_)).toSeq
   }
 
