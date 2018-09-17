@@ -42,9 +42,10 @@ trait TransformerWithType extends TreeTransformer {
       val rsubs = (subs zip tps).map(p => transform(p._1, p._2))
       t.TuplePattern(ob map transform, rsubs).copiedFrom(pat)
 
-    case up @ s.UnapplyPattern(ob, rec, id, tps, subs) =>
+    case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
       val rsubs = (subs zip up.subTypes(tpe)).map(p => transform(p._1, p._2))
-      t.UnapplyPattern(ob map transform, rec map transform, id, tps map transform, rsubs).copiedFrom(pat)
+      val rrecs = (recs zip getFunction(id, tps).params.init).map(p => transform(p._1, p._2.getType))
+      t.UnapplyPattern(ob map transform, rrecs, id, tps map transform, rsubs).copiedFrom(pat)
 
     case s.LiteralPattern(ob, lit) =>
       t.LiteralPattern(ob map transform, transform(lit).asInstanceOf[t.Literal[_]]).copiedFrom(pat)
