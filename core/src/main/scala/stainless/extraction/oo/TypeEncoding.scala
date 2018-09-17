@@ -75,11 +75,16 @@ trait TypeEncoding
   private[this] def isSimple(tpe: s.Type)(implicit scope: Scope): Boolean = !s.typeOps.exists(isObject)(tpe)
 
 
+  private[this] def simplify(lambda: t.Lambda): t.Expr = lambda match {
+    case t.Lambda(Seq(vd), t.Application(f: t.Variable, Seq(v: t.Variable))) if vd.toVariable == v => f
+    case _ => lambda
+  }
+
   /* ====================================
    *      WRAPPING AND UNWRAPPING
    * ==================================== */
 
-  private def erased[T <: s.Type](tpe: T): T = {
+  private[this] def erased[T <: s.Type](tpe: T): T = {
     val s.NAryType(tps, recons) = tpe
     recons(tps.map(tp => s.AnyType().copiedFrom(tp))).copiedFrom(tpe).asInstanceOf[T]
   }
@@ -151,8 +156,8 @@ trait TypeEncoding
       case (_, s.ADTType(id1, tps1), s.ADTType(id2, tps2)) if id1 == id2 =>
         t.FunctionInvocation(convertID(id1), (tps1 ++ tps2).map(tp => scope.transform(tp)),
           e +: (tps1 zip tps2 flatMap { case (tp1, tp2) => Seq(
-            \(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => convert(x, tp1, tp2)).copiedFrom(tp1),
-            \(("x" :: scope.transform(tp2)).copiedFrom(tp2))(x => convert(x, tp2, tp1)).copiedFrom(tp2)
+            simplify(\(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => convert(x, tp1, tp2)).copiedFrom(tp1)),
+            simplify(\(("x" :: scope.transform(tp2)).copiedFrom(tp2))(x => convert(x, tp2, tp1)).copiedFrom(tp2))
           )}
         ))
 
@@ -279,9 +284,12 @@ trait TypeEncoding
     ((in, tpe) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
-        // For the `instanceFunction` in `SortInfo` where each type parameter must be tested for instance
-        !(for (t1 <- s.typeOps.typeParamsOf(tp1); t2 <- s.typeOps.typeParamsOf(tp2)) yield (t1, t2))
-          .exists(scope.testers contains _)
+        !s.typeOps.typeParamsOf(tp2).exists { t2 =>
+          (scope.testers contains t2) ||
+          s.typeOps.typeParamsOf(tp1).exists { t1 =>
+            scope.testers contains (t1 -> t2)
+          }
+        }
       ) => t.BooleanLiteral(true)
 
       case (tp1, tp2) if scope.testers contains (tp1 -> tp2) =>
@@ -305,16 +313,18 @@ trait TypeEncoding
       case (_, s.ClassType(id, tps)) if isObject(in) =>
         t.FunctionInvocation(
           instanceID(id), Seq(),
-          e +: tps.map(tp => \(("x" :: ref).copiedFrom(tp)) { x =>
+          e +: tps.map(tp => simplify(\(("x" :: ref).copiedFrom(tp)) { x =>
             instanceOf(x, s.AnyType().copiedFrom(tp), tp)
-          }.copiedFrom(tp))
+          }.copiedFrom(tp)))
         )
 
       case (s.ADTType(id1, tps1), s.ADTType(id2, tps2)) if id1 == id2 =>
         t.FunctionInvocation(
           instanceID(id1), tps1 map (tp => scope.transform(tp)),
           e +: (tps1 zip tps2 map { case (tp1, tp2) =>
-            \(("x" :: scope.transform(tp1)).copiedFrom(tp1))(x => instanceOf(x, tp1, tp2)).copiedFrom(tp1)
+            simplify(\(("x" :: scope.transform(tp1)).copiedFrom(tp1)) { x =>
+              instanceOf(x, tp1, tp2).copiedFrom(tp1)
+            })
           })
         )
 
@@ -562,13 +572,14 @@ trait TypeEncoding
       val instanceFunction = mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
           case x +: tps =>
-            implicit val scope = context.emptyScope.testing(cd.typeArgs zip cd.typeArgs zip tps)
+            implicit val scope = context.emptyScope.testing(cd.typeArgs zip tps)
             if (cd.children.nonEmpty || extraConstructors.nonEmpty) {
               t.orJoin(
                 cd.typed.children.map(ccd => instanceOf(x, cd.typed.toType, ccd.toType)) ++
                 extraConstructors.map(t.IsConstructor(x, _))
               )
             } else {
+              (x is cd.id) &&
               t.andJoin(cd.fields.map(vd => instanceOf(t.ADTSelector(x, vd.id), vd.tpe, vd.tpe)))
             }
         })
@@ -614,6 +625,8 @@ trait TypeEncoding
       new ExprMapping(underlying ++ ps.map { case ((t1, t2), e) => ((t1, Some(t2)), e) })
     def ++(ps: Traversable[(s.Type, t.Expr)])(implicit dummyImplicit: DummyImplicit): ExprMapping =
       new ExprMapping(underlying ++ ps.map { case (tpe, e) => ((tpe, None), e) })
+
+    override def toString = underlying.toString
   }
 
   protected object ExprMapping {
@@ -639,6 +652,8 @@ trait TypeEncoding
       new Scope(functions, graph, tparams, testers, converters ++ ps)
 
     def testing(ps: Traversable[((s.Type, s.Type), t.Expr)]): Scope =
+      new Scope(functions, graph, tparams, testers ++ ps, converters)
+    def testing(ps: Traversable[(s.Type, t.Expr)])(implicit dummy: DummyImplicit): Scope =
       new Scope(functions, graph, tparams, testers ++ ps, converters)
     def testing(p: (s.Type, t.Expr)): Scope =
       new Scope(functions, graph, tparams, testers ++ Seq(p), converters)
@@ -781,9 +796,9 @@ trait TypeEncoding
       case fi @ s.FunctionInvocation(id, tps, args) if scope rewrite id =>
         val funScope = this in id
         convert(t.FunctionInvocation(id, Seq(),
-          (tps map (tp => \(("x" :: ref).copiedFrom(tp)) {
+          (tps map (tp => simplify(\(("x" :: ref).copiedFrom(tp)) {
             x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)
-          }.copiedFrom(tp))) ++
+          }.copiedFrom(tp)))) ++
           (getFunction(id).params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, vd.tpe)(funScope)
           }).copiedFrom(e), e.getType, inType)
