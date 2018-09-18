@@ -68,6 +68,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case l @ Lambda(args, body) =>
               if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
+              if (effects(body).exists(e => !args.exists(_ == e.receiver.toVal)))
+                throw ImperativeEliminationException(l, "Illegal effects in lambda body")
               super.traverse(l)
 
             case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
