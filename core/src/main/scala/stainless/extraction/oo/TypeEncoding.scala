@@ -664,18 +664,18 @@ trait TypeEncoding
       case s.AnyType() => ref.copiedFrom(tp)
       case s.NothingType() =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => t.BooleanLiteral(false).copiedFrom(tp)
+          x => t.Annotated(t.BooleanLiteral(false).copiedFrom(tp), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case ct: s.ClassType =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => instanceOf(x, s.AnyType().copiedFrom(tp), ct)
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), ct), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case s.TypeBounds(_, s.AnyType()) => ref.copiedFrom(tp)
       case s.TypeBounds(_, upperBound) =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => instanceOf(x, s.AnyType().copiedFrom(tp), upperBound)
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case tp: s.TypeParameter if tparams contains tp => ref.copiedFrom(tp)
