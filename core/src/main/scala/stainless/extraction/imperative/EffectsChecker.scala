@@ -31,12 +31,11 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     // which is where we will want to report the error from, and abort the pipeline.
     if (isMutableSynthetic(fd.id)) return CheckResult.Skip
 
-    def check(fd: FunAbstraction, vds: Set[ValDef]): Unit = {
+    def check(fd: FunAbstraction): Unit = {
       checkMutableField(fd)
       checkEffectsLocations(fd)
       checkPurity(fd)
 
-      val bindings = vds ++ fd.params
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
 
         // check return value
@@ -45,12 +44,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             "Cannot return a shared reference to a mutable object: " + bd)
         }
 
-        object traverser extends inox.transformers.Transformer {
-          val trees: self.s.type = self.s
-          type Env = Set[ValDef]
-          val initEnv = fd.params.toSet
-
-          def rec(e: Expr, bindings: Set[ValDef]): Expr = e match {
+        object traverser extends TreeTraverser {
+          override def traverse(e: Expr): Unit = e match {
             case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
               if (!isExpressionFresh(e)) try {
                 // Check if a precise effect can be computed
@@ -59,21 +54,21 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                 case _: MissformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
               }
-              Let(vd, rec(e, bindings), rec(b, bindings + vd)).copiedFrom(l)
+              super.traverse(l)
 
             case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
               if (!isExpressionFresh(e))
                 throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
-              LetVar(vd, rec(e, bindings), rec(b, bindings + vd)).copiedFrom(l)
+              super.traverse(l)
 
             case l @ LetRec(fds, body) =>
-              fds.foreach(fd => check(Inner(fd), bindings))
-              LetRec(fds, rec(body, bindings)).copiedFrom(l)
+              fds.foreach(fd => check(Inner(fd)))
+              traverse(body)
 
             case l @ Lambda(args, body) =>
               if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
-              Lambda(args, rec(body, bindings ++ args)).copiedFrom(l)
+              super.traverse(l)
 
             case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
               throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
@@ -84,13 +79,13 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                   throw ImperativeEliminationException(e,
                     "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
-              ADT(id, tps, args.map(rec(_, bindings)))
+              super.traverse(adt)
 
-            case Operator(es, recons) => recons(es.map(rec(_, bindings)))
+            case _ => super.traverse(e)
           }
         }
 
-        traverser.transform(bd)
+        traverser.traverse(bd)
       }
     }
 
@@ -206,7 +201,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }
 
     try {
-      check(Outer(fd), Set.empty)
+      check(Outer(fd))
       CheckResult.Ok
     } catch {
       case e: ImperativeEliminationException => CheckResult.Error(e)
