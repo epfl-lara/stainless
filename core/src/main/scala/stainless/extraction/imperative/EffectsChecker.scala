@@ -178,19 +178,20 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }
 
     def isGhostTarget(rec: Expr, path: Seq[Accessor]): Boolean = {
-      def go(expr: Expr, path: Seq[Accessor]): Boolean = path match {
+      def go(tpe: Type, path: Seq[Accessor]): Boolean = path match {
         case FieldAccessor(selector) +: rest =>
-          val tpe @ ADTType(_, _) = expr.getType(symbols)
-          val field = tpe.getField(selector).get
-          field.flags.contains(Ghost) && go(ADTSelector(expr, selector), rest)
+          val adtTpe @ ADTType(_, _) = tpe
+          val field = adtTpe.getField(selector).get
+          field.flags.contains(Ghost) && go(field.tpe, rest)
 
         case ArrayAccessor(index) +: rest =>
-          go(ArraySelect(expr, index), rest)
+          val ArrayType(elTpe) = tpe
+          go(elTpe, rest)
 
         case Seq() => true
       }
 
-      go(rec, path)
+      go(rec.getType(symbols), path)
     }
 
     /* A fresh expression is an expression that is newly created
