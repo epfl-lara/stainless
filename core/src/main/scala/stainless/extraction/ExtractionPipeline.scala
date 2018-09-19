@@ -7,10 +7,91 @@ trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
 
+  val phaseName: String
+  // This boolean is `true` for extraction pipelines that should be printed for debugging
+  // It is set to `true` for the basic building blocks of the pipeline, and set 
+  // to `false` when combining components using ̀`andThen`.
+  val debugTransformation: Boolean
+
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
   def extract(symbols: s.Symbols): t.Symbols
+
+  // make a String representation for a table of Symbols `s`, only keeping 
+  // functions and classes whose names appear in `objs`
+  def symbolsToString(tt: ast.Trees)(s: tt.Symbols, objs: Set[String]): String = {
+    val printerOpts = tt.PrinterOptions.fromContext(context)
+    val printerOpts2 = oo.trees.PrinterOptions.fromContext(context)
+    def objectsToString(m: Iterable[(Identifier,tt.Definition)]): String = 
+      m.collect { 
+        case (id,d) if objs.isEmpty || objs.contains(id.name) => 
+          d.asString(tt.PrinterOptions.fromContext(context))
+      }.mkString("\n\n")
+
+    val functions = objectsToString(s.functions)
+    val sorts = objectsToString(s.sorts)
+    val classes = 
+      if (tt == oo.trees) 
+        // we do the casts in both directions since the compiler doesn't 
+        // recognize that tt == oo.trees
+        objectsToString(s.asInstanceOf[oo.trees.Symbols]
+                         .classes
+                         .asInstanceOf[Iterable[(Identifier,tt.Definition)]])
+      else
+        ""
+
+    def wrapWith(header: String, s: String) = {
+      if (s.isEmpty) ""
+      else 
+        "-------------" + header + "-------------\n" +
+        s + "\n\n"
+    }
+
+    wrapWith("Functions", functions) ++
+    wrapWith("Sorts", sorts) ++
+    wrapWith("Classes", classes)
+  }
+
+  // `extractWithDebug` is a wrapper around `extract` which outputs trees for debugging
+  // and which outputs position checks
+  def extractWithDebug(symbols: s.Symbols): t.Symbols = {
+    implicit val debugSection = inox.ast.DebugSectionTrees
+    val phases = context.options.findOption(optDebugPhases)
+    val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+    val debug: Boolean = 
+      debugTransformation && 
+      (phases.isEmpty || (phases.isDefined && phases.get.exists(phaseName.contains _)))
+
+    context.reporter.synchronized {
+      val symbolsToPrint = symbolsToString(s)(symbols, objs)
+      if (debug && !symbolsToPrint.isEmpty) {
+        context.reporter.debug("\n\n\n\nSymbols before " + phaseName + "\n")
+        context.reporter.debug(symbolsToPrint)
+      }
+
+      // start the position checker before extracting the symbols, if the option if on
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.s)(self.context)(true)
+        symbols.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+
+      val res = extract(symbols)
+      val resToPrint = symbolsToString(t)(res, objs)
+
+      if (debug && (!symbolsToPrint.isEmpty || !resToPrint.isEmpty)) {
+        context.reporter.debug("\n\nSymbols after " + phaseName +  "\n")
+        context.reporter.debug(resToPrint)
+        context.reporter.debug("\n\n")
+      }
+
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.t)(self.context)(false)
+        res.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+      res
+    }
+  }
 
   def invalidate(id: Identifier): Unit
 
@@ -21,9 +102,11 @@ trait ExtractionPipeline { self =>
     override val s: self.s.type = self.s
     override val t: that.t.type = that.t
     override val context = self.context
+    override val phaseName = self.phaseName + ":" + that.phaseName
+    override val debugTransformation = false
 
     override def extract(symbols: s.Symbols): t.Symbols = {
-      that.extract(self.extract(symbols))
+      that.extractWithDebug(self.extractWithDebug(symbols))
     }
 
     override def invalidate(id: Identifier): Unit = {
@@ -42,6 +125,9 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
+    override val phaseName = transformer.toString
+
+    override val debugTransformation = true
 
     override def extract(symbols: s.Symbols): t.Symbols =
       symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
@@ -60,6 +146,9 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
+    override val phaseName = transformer.toString
+
+    override val debugTransformation = true
 
     override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
     override def invalidate(id: Identifier): Unit = ()
@@ -161,6 +250,8 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 }
 
 trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
+  override val debugTransformation = true
+
   protected type FunctionResult
   private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
 

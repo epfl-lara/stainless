@@ -8,6 +8,8 @@ trait ExceptionLifting extends oo.SimplePhase { self =>
   val s: Trees
   val t: oo.Trees
 
+  override val phaseName = "throwing.ExceptionLifting"
+
   override protected type TransformerContext = transformer.type
   override protected def getContext(symbols: s.Symbols) = transformer
   protected object transformer extends oo.TreeTransformer {

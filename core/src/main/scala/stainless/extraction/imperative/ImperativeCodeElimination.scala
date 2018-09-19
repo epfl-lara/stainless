@@ -9,6 +9,8 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
   val t: s.type
   import s._
 
+  override val phaseName = "imperative.ImperativeCodeElimination"
+
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
