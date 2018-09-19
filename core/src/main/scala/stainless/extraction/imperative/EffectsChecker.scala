@@ -46,14 +46,19 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
         object traverser extends TreeTraverser {
           override def traverse(e: Expr): Unit = e match {
-            case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
-              if (!isExpressionFresh(e)) try {
+            case l @ Let(vd, e, b) =>
+              if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
                 // Check if a precise effect can be computed
                 getEffect(e)
               } catch {
                 case _: MissformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
               }
+
+              if (vd.flags.contains(Ghost) && effects(e).nonEmpty) {
+                throw ImperativeEliminationException(e, "Right-hand side of ghost variable must be pure")
+              }
+
               super.traverse(l)
 
             case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
@@ -75,12 +80,34 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
               throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
 
+            case fi @ FunctionInvocation(id, tps, args) if fi.tfd.params.exists(_.flags contains Ghost) =>
+              fi.tfd.params.zip(args)
+                .filter { case (vd, _) => vd.flags contains Ghost }
+                .foreach { case (vd, arg) =>
+                  if (effects(arg).nonEmpty)
+                    throw ImperativeEliminationException(arg,
+                      s"Argument to ghost parameter `${vd.id}` of method `${fi.id}` must be pure")
+                }
+
+              super.traverse(fi)
+
             case adt @ ADT(id, tps, args) =>
-              (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
+              val cons = adt.getConstructor
+
+              (cons.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
                 if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
                   throw ImperativeEliminationException(e,
                     "Cannot instantiate a non-mutable type parameter with a mutable type")
               }
+
+              cons.fields.zip(args)
+                .filter { case (vd, _) => vd.flags contains Ghost }
+                .foreach { case (vd, arg) =>
+                  if (effects(arg).nonEmpty)
+                    throw ImperativeEliminationException(arg,
+                      s"Argument to ghost field `${vd.id}` of class `${id}` must be pure")
+                }
+
               super.traverse(adt)
 
             case _ => super.traverse(e)
