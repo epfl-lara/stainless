@@ -17,7 +17,7 @@ trait CachingPhase extends extraction.CachingPhase { self =>
     registerClasses(
       super.extractSymbols(context, symbols),
       symbols.classes.values.map { cd =>
-        classCache.cached(cd.id, symbols)(extractClass(context, cd))
+        classCache.cached(cd, symbols)(extractClass(context, cd))
       }.toSeq
     )
   }

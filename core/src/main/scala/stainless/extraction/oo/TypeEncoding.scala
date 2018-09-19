@@ -510,7 +510,7 @@ trait TypeEncoding
   private[this] def sortInfo(id: Identifier)(implicit context: TransformerContext): SortInfo = {
     import context.{symbols, emptyScope => scope}
     val sort = symbols.getSort(id)
-    sortCache.cached(sort.id, symbols) {
+    sortCache.cached(sort, symbols) {
       val convertFunction: t.FunDef = {
         val (in, out) = (sort.typeArgs.map(_.freshen), sort.typeArgs.map(_.freshen))
         val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
@@ -578,7 +578,7 @@ trait TypeEncoding
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import context.symbols
     val cd = symbols.getClass(id)
-    classCache.get(symbols).cached(cd.id, symbols) {
+    classCache.get(symbols).cached(cd, symbols) {
       import OptionSort._
 
       val classes = cd +: cd.descendants

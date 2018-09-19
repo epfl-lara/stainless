@@ -110,7 +110,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
     def apply(fd: FunDef)(implicit symbols: Symbols): EffectsAnalysis = {
       val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-      val lookups = fds.map((fd: FunDef) => effectsCache get (fd.id, symbols))
+      val lookups = fds.map((fd: FunDef) => effectsCache get (fd, symbols))
       val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
       val prevEffects = lookups.flatten.foldLeft(EffectsAnalysis.empty)(_ merge _)
 
@@ -135,7 +135,7 @@ trait EffectsAnalyzer extends CachingPhase {
         } (prevEffects merge baseEffects)
 
         for ((fd, inners) <- inners) {
-          effectsCache(fd.id, symbols) = new EffectsAnalysis(
+          effectsCache(fd, symbols) = new EffectsAnalysis(
             effects.effects.filter { case (fun, _) => fun == Outer(fd) || inners(fun) },
             effects.locals.filter { case (_, fun) => inners(fun) })
         }
@@ -382,7 +382,7 @@ trait EffectsAnalyzer extends CachingPhase {
         val mutableSort = sort.constructors.exists(_.fields.exists {
           vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + ADTType(id, sort.typeArgs))
         })
-        mutableCache(sort.id, symbols) = mutableSort
+        mutableCache(sort, symbols) = mutableSort
         mutableSort || adt.getSort.constructors.exists(_.fields.exists(vd => rec(vd.tpe, seen + adt)))
       case _: FunctionType => false
       case NAryType(tps, _) => tps.exists(rec(_, seen))
