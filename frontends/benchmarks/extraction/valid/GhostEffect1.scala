@@ -10,7 +10,10 @@ object GhostEffect1 {
       Random.nextBigInt(state)
     }
 
-    def foo = doStuff(Random.nextBigInt(state))
+    def foo = {
+      val rand = Random.nextBigInt(state)
+      doStuff(rand)
+    }
   }
 
 }
