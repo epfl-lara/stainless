@@ -89,7 +89,7 @@ trait EffectsAnalyzer extends CachingPhase {
     override def toString: String = asString
   }
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, EffectsAnalysis]
+  private[this] val effectsCache = ExtractionCache[FunDef, EffectsAnalysis]()
 
   protected object EffectsAnalysis {
     def empty: EffectsAnalysis = new EffectsAnalysis(Map.empty, Map.empty)
@@ -110,7 +110,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
     def apply(fd: FunDef)(implicit symbols: Symbols): EffectsAnalysis = {
       val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-      val lookups = fds.map(effectsCache get (_, symbols))
+      val lookups = fds.map((fd: FunDef) => effectsCache get (fd.id, symbols))
       val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
       val prevEffects = lookups.flatten.foldLeft(EffectsAnalysis.empty)(_ merge _)
 
@@ -135,7 +135,7 @@ trait EffectsAnalyzer extends CachingPhase {
         } (prevEffects merge baseEffects)
 
         for ((fd, inners) <- inners) {
-          effectsCache(fd, symbols) = new EffectsAnalysis(
+          effectsCache(fd.id, symbols) = new EffectsAnalysis(
             effects.effects.filter { case (fun, _) => fun == Outer(fd) || inners(fun) },
             effects.locals.filter { case (_, fun) => inners(fun) })
         }
@@ -362,7 +362,7 @@ trait EffectsAnalyzer extends CachingPhase {
       .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
   }
 
-  private[this] val mutableCache = new ExtractionCache[ADTSort, Boolean]
+  private[this] val mutableCache = ExtractionCache[ADTSort, Boolean]()
 
   /** Determine if the type is mutable
     *
@@ -382,7 +382,7 @@ trait EffectsAnalyzer extends CachingPhase {
         val mutableSort = sort.constructors.exists(_.fields.exists {
           vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + ADTType(id, sort.typeArgs))
         })
-        mutableCache(sort, symbols) = mutableSort
+        mutableCache(sort.id, symbols) = mutableSort
         mutableSort || adt.getSort.constructors.exists(_.fields.exists(vd => rec(vd.tpe, seen + adt)))
       case _: FunctionType => false
       case NAryType(tps, _) => tps.exists(rec(_, seen))
