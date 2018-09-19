@@ -504,11 +504,11 @@ trait TypeEncoding
 
   private class SortInfo(val functions: Seq[t.FunDef])
 
-  private[this] val sortCache = new ExtractionCache[s.ADTSort, SortInfo]
+  private[this] val sortCache = ExtractionCache[s.ADTSort, SortInfo]()
   private[this] def sortInfo(id: Identifier)(implicit context: TransformerContext): SortInfo = {
     import context.{symbols, emptyScope => scope}
     val sort = symbols.getSort(id)
-    sortCache.cached(sort, symbols) {
+    sortCache.cached(sort.id, symbols) {
       val convertFunction: t.FunDef = {
         val (in, out) = (sort.typeArgs.map(_.freshen), sort.typeArgs.map(_.freshen))
         val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
@@ -572,11 +572,11 @@ trait TypeEncoding
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val classCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
+  private[this] val classCache = OptionSort.cached(ExtractionCache[s.ClassDef, ClassInfo]())
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import context.symbols
     val cd = symbols.getClass(id)
-    classCache.get(symbols).cached(cd, symbols) {
+    classCache.get(symbols).cached(cd.id, symbols) {
       import OptionSort._
 
       val classes = cd +: cd.descendants

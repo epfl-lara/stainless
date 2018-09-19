@@ -29,9 +29,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         syntheticOption.id,
         syntheticOption.constructors.find(_.fields.isEmpty).get.id)
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = ExtractionCache[s.ADTSort, t.FunDef]()
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
-        case Some(sort) => cache.cached(sort, symbols) {
+        case Some(sort) => cache.cached(sort.id, symbols) {
           createFunction(sort.id, sort.constructors.find(_.fields.isEmpty).get.id)
         }
         case None => syntheticFunction
@@ -53,9 +53,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         createFunction(syntheticOption.id, some.id, some.fields.head.id)
       }
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = ExtractionCache[s.ADTSort, t.FunDef]()
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
-        case Some(sort) => cache.cached(sort, symbols) {
+        case Some(sort) => cache.cached(sort.id, symbols) {
           val some = sort.constructors.find(_.fields.nonEmpty).get
           createFunction(sort.id, some.id, some.fields.head.id)
         }

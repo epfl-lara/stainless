@@ -17,11 +17,11 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] val candidateCache = new ExtractionCache[s.ClassDef, Boolean]
+  private[this] val candidateCache = ExtractionCache[s.ClassDef, Boolean]()
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
-    candidateCache.cached(cd, symbols)(cd.parents match {
+    candidateCache.cached(cd.id, symbols)(cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
           val cs = cd.children
@@ -50,20 +50,20 @@ trait AdtSpecialization
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val infoCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
-  private[this] val constructorCache = new ExtractionCache[s.ClassDef, Identifier]
+  private[this] val infoCache = OptionSort.cached(ExtractionCache[s.ClassDef, ClassInfo]())
+  private[this] val constructorCache = ExtractionCache[s.ClassDef, Identifier]()
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import t.dsl._
     import context.{s => _, t => _, _}
 
     val cd = context.symbols.getClass(id)
-    infoCache.get.cached(cd, context.symbols) {
+    infoCache.get.cached(cd.id, context.symbols) {
       assert(isCandidate(id))
 
       val classes = cd +: cd.descendants
       val extraConstructors: Seq[Identifier] = classes
         .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-        .map(cd => constructorCache.cached(cd, symbols)(FreshIdentifier("Open")))
+        .map(cd => constructorCache.cached(cd.id, symbols)(FreshIdentifier("Open")))
 
       val constructors = classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
 
