@@ -144,8 +144,8 @@ trait TypeEncoding
     ((e, tpe.getType(scope.symbols), expected.getType(scope.symbols)) match {
       case (_, t1, t2) if t1 == t2 => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
-      case (_, t1, t2) if isObject(t1) && isSimple(t2) => unwrap(e, t2)
-      case (_, t1, t2) if isSimple(t1) && isObject(t2) => wrap(e, t1)
+      case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
+      case (_, t1, t2) if !isObject(t1) && isObject(t2) => wrap(e, t1)
 
       case (_, t1, t2) if scope.converters contains (t1 -> t2) =>
         t.Application(scope.converters(t1 -> t2), Seq(e))
@@ -334,7 +334,7 @@ trait TypeEncoding
 
       case (ft1 @ (_: s.FunctionType | _: s.PiType), ft2 @ (_: s.FunctionType | _: s.PiType)) =>
         def extract(tpe: s.Type): (Seq[s.ValDef], s.Type) = tpe match {
-          case s.FunctionType(from, to) => (from.map(tp => s.ValDef.fresh("x", tp).copiedFrom(tp)), to)
+          case s.FunctionType(from, to) => (from.map(tp => s.ValDef.fresh("x", tp, true).copiedFrom(tp)), to)
           case s.PiType(params, to) => (params, to)
         }
 
@@ -345,10 +345,14 @@ trait TypeEncoding
           instanceOf(scope.transform(vd2.toVariable), vd2.tpe, vd1.tpe)
         }).copiedFrom(e)
 
-        val toCond = (nparams1 zip nparams2).foldRight(
-          instanceOf(t.Application(e, nparams1 map (vd => scope.transform(vd.toVariable))).copiedFrom(e), to1, to2)
-        ) { case ((vd1, vd2), e) =>
-          t.Let(scope.transform(vd1), convert(scope.transform(vd2.toVariable), vd2.tpe, vd1.tpe), e).copiedFrom(e)
+        val app = t.Application(e, nparams1 map (vd => scope.transform(vd.toVariable))).copiedFrom(e)
+        val toCond = (nparams1 zip nparams2).foldRight(instanceOf(app, to1, to2)) { case ((vd1, vd2), e) =>
+          val nvd1 = scope.transform(vd1)
+          if (t.exprOps.variablesOf(e) contains nvd1.toVariable) {
+            t.Let(nvd1, convert(scope.transform(vd2.toVariable), vd2.tpe, vd1.tpe), e).copiedFrom(e)
+          } else {
+            e
+          }
         }
 
         t.Forall(nparams2.map(vd => scope.transform(vd)), t.Implies(paramsCond, toCond).copiedFrom(e))
@@ -363,7 +367,7 @@ trait TypeEncoding
 
       case (tt1 @ (_: s.TupleType | _: s.SigmaType), tt2 @ (_: s.TupleType | _: s.SigmaType)) =>
         def extract(tpe: s.Type): (Seq[s.ValDef], s.Type) = tpe match {
-          case s.TupleType(from :+ to) => (from.map(tp => s.ValDef.fresh("x", tp).copiedFrom(tp)), to)
+          case s.TupleType(from :+ to) => (from.map(tp => s.ValDef.fresh("x", tp, true).copiedFrom(tp)), to)
           case s.SigmaType(params, to) => (params, to)
         }
 
@@ -371,21 +375,27 @@ trait TypeEncoding
         val (nparams2, to2) = extract(tt2)
 
         val paramsCond = t.andJoin((nparams1 zip nparams2).zipWithIndex map { case ((vd1, vd2), i) =>
-          instanceOf(t.TupleSelect(e, i + 1).copiedFrom(e), vd2.tpe, vd1.tpe)
+          instanceOf(t.TupleSelect(e, i + 1).copiedFrom(e), vd1.tpe, vd2.tpe)
         }).copiedFrom(e)
 
-        val toCond = (nparams1 zip nparams2).zipWithIndex.foldRight(
-          nparams1.zipWithIndex.foldRight(
-            instanceOf(t.TupleSelect(e, nparams1.size + 1).copiedFrom(e), to1, to2)) {
-              case ((vd, i), body) =>
-                t.Let(scope.transform(vd), t.TupleSelect(e, i + 1).copiedFrom(e), body).copiedFrom(body)
-          }
-        ) { case (((vd1, vd2), i), body) =>
-          t.Let(
-            scope.transform(vd2),
-            convert(t.TupleSelect(e, i + 1).copiedFrom(e), vd1.tpe, vd2.tpe),
+        val innerCond = instanceOf(t.TupleSelect(e, nparams1.size + 1).copiedFrom(e), to1, to2)
+
+        val wrappedCond1 = nparams1.zipWithIndex.foldRight(innerCond) { case ((vd, i), body) =>
+          val nvd = scope.transform(vd)
+          if (t.exprOps.variablesOf(body) contains nvd.toVariable) {
+            t.Let(nvd, t.TupleSelect(e, i + 1).copiedFrom(e), body).copiedFrom(body)
+          } else {
             body
-          ).copiedFrom(body)
+          }
+        }
+
+        val toCond = (nparams1 zip nparams2).zipWithIndex.foldRight(wrappedCond1) { case (((vd1, vd2), i), body) =>
+          val nvd2 = scope.transform(vd2)
+          if (t.exprOps.variablesOf(body) contains nvd2.toVariable) {
+            t.Let(nvd2, convert(t.TupleSelect(e, i + 1).copiedFrom(e), vd1.tpe, vd2.tpe), body).copiedFrom(body)
+          } else {
+            body
+          }
         }
 
         t.and(paramsCond, toCond)
