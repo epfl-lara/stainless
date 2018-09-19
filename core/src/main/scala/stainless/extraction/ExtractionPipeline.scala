@@ -137,28 +137,29 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     def apply(d: s.Definition)(implicit symbols: s.Symbols): CacheKey = apply(d.id)
   }
 
-  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
+  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _, _]]
 
-  protected class ExtractionCache[Key, T](keyOf: (Identifier, s.Symbols) => Key) {
-    private[this] final val cache = new utils.ConcurrentCache[(Identifier, Key), T]
+  protected class ExtractionCache[Key, X <: s.Definition, Y](keyOf: (X, s.Symbols) => Key) {
+    private[this] final val cache = new utils.ConcurrentCache[(X, Key), Y]
 
-    def cached(id: Identifier, symbols: s.Symbols)(builder: => T): T = cache.cached(id -> keyOf(id, symbols))(builder)
+    def cached(id: X, symbols: s.Symbols)(builder: => Y): Y = cache.cached(id -> keyOf(id, symbols))(builder)
 
-    def contains(id: Identifier, symbols: s.Symbols): Boolean = cache contains (id -> keyOf(id, symbols))
-    def update(id: Identifier, symbols: s.Symbols, value: T) = cache.update(id -> keyOf(id, symbols), value)
-    def get(id: Identifier, symbols: s.Symbols): Option[T] = cache.get(id -> keyOf(id, symbols))
-    def apply(id: Identifier, symbols: s.Symbols): T = cache(id -> keyOf(id, symbols))
+    def contains(id: X, symbols: s.Symbols): Boolean = cache contains (id -> keyOf(id, symbols))
+    def update(id: X, symbols: s.Symbols, value: Y) = cache.update(id -> keyOf(id, symbols), value)
+    def get(id: X, symbols: s.Symbols): Option[Y] = cache.get(id -> keyOf(id, symbols))
+    def apply(id: X, symbols: s.Symbols): Y = cache(id -> keyOf(id, symbols))
 
     private[ExtractionCaches] def invalidate(id: Identifier): Unit =
-      cache.retain(key => key._1 != id)
-      // cache.retain(key => key._1 != id && !(key.dependencies contains id))
+      cache.retain(key => key._1.id != id)
+      // FIXME: key._1.dependencies is not accepted by the compiler
+      // cache.retain(key => key._1.id != id && !(key._1.dependencies contains id)) 
 
     self.synchronized(caches += this)
   }
 
   object ExtractionCache {
-    def apply[Key, T]() = {
-      new ExtractionCache[CacheKey, T]((id, sym) => CacheKey(id)(sym))
+    def apply[X <: s.Definition, Y]() = {
+      new ExtractionCache[CacheKey, X, Y]((x, sym) => CacheKey(x)(sym))
     }
   }
 
@@ -190,11 +191,11 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val functions = symbols.functions.values.map { fd =>
-      funCache.cached(fd.id, symbols)(extractFunction(context, fd))
+      funCache.cached(fd, symbols)(extractFunction(context, fd))
     }.toSeq
 
     val sorts = symbols.sorts.values.map { sort =>
-      sortCache.cached(sort.id, symbols)(extractSort(context, sort))
+      sortCache.cached(sort, symbols)(extractSort(context, sort))
     }.toSeq
 
     registerSorts(registerFunctions(t.NoSymbols, functions), sorts)

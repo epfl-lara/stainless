@@ -58,16 +58,16 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
       val funs = cd.methods(symbols)
         .map(symbols.functions)
         .map { fd =>
-          funCache.cached(fd.id, symbols)(transformMethod(fd)(symbols))
+          funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
         }
 
       functions ++= funs
 
       val inv = invariant map { inv =>
-        funCache.cached(inv.id, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
+        funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
       }
 
-      val (cls, fun) = classCache.cached(cd.id, symbols) {
+      val (cls, fun) = classCache.cached(cd, symbols) {
         val cls = identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id))))
         (cls, inv)
       }
@@ -79,7 +79,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     functions ++= symbols.functions.values
       .filterNot(_.flags exists { case IsMethodOf(_) => true case _ => false })
       .map { fd =>
-        funCache.cached(fd.id, symbols)(default.transform(fd))
+        funCache.cached(fd, symbols)(default.transform(fd))
       }
 
     t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)

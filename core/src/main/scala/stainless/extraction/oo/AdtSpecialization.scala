@@ -21,7 +21,7 @@ trait AdtSpecialization
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
-    candidateCache.cached(cd.id, symbols)(cd.parents match {
+    candidateCache.cached(cd, symbols)(cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
           val cs = cd.children
@@ -57,13 +57,13 @@ trait AdtSpecialization
     import context.{s => _, t => _, _}
 
     val cd = context.symbols.getClass(id)
-    infoCache.get.cached(cd.id, context.symbols) {
+    infoCache.get.cached(cd, context.symbols) {
       assert(isCandidate(id))
 
       val classes = cd +: cd.descendants
       val extraConstructors: Seq[Identifier] = classes
         .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-        .map(cd => constructorCache.cached(cd.id, symbols)(FreshIdentifier("Open")))
+        .map(cd => constructorCache.cached(cd, symbols)(FreshIdentifier("Open")))
 
       val constructors = classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
 
