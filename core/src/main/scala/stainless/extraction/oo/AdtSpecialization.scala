@@ -17,7 +17,7 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] val candidateCache = new ExtractionCache[s.ClassDef, Boolean]
+  private[this] val candidateCache = ExtractionCache[s.ClassDef, Boolean]()
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
@@ -50,8 +50,8 @@ trait AdtSpecialization
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val infoCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
-  private[this] val constructorCache = new ExtractionCache[s.ClassDef, Identifier]
+  private[this] val infoCache = OptionSort.cached(ExtractionCache[s.ClassDef, ClassInfo]())
+  private[this] val constructorCache = ExtractionCache[s.ClassDef, Identifier]()
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import t.dsl._
     import context.{s => _, t => _, _}

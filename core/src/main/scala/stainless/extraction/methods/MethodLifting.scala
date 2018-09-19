@@ -11,8 +11,8 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
   val t: oo.Trees
   import s._
 
-  private[this] final val funCache   = new ExtractionCache[s.FunDef, t.FunDef]
-  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]
+  private[this] final val funCache   = ExtractionCache[s.FunDef, t.FunDef]()
+  private[this] final val classCache = ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]()
 
   private sealed trait Override { val cid: Identifier }
   private case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[Override]) extends Override
