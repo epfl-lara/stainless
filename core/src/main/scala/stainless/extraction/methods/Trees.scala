@@ -22,25 +22,32 @@ trait Trees extends throwing.Trees { self =>
 
   /** $encodingof `this` */
   case class This(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct
+    def getType(implicit s: Symbols): Type = ct.getType
   }
 
   /** $encodingof `super` */
   case class Super(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct
+    def getType(implicit s: Symbols): Type = ct.getType
   }
 
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = receiver.getType match {
-      case ct: ClassType => (s.lookupFunction(id, tps), ct.lookupClass) match {
-        case (Some(tfd), Some(tcd)) =>
+      case ct: ClassType =>
+        val optTfd = s.lookupFunction(id)
+          .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)
+          .map(_.typed(tps))
+          .filter(tfd => checkParamTypes(args, tfd.params.map(_.getType), tfd.getType).isTyped)
+        val optTcd = s.lookupClass(ct.id)
+          .filter(cd => ct.tps.size == cd.tparams.size)
+          .map(_.typed(ct.tps))
+
+        (optTfd zip optTcd).headOption.flatMap { case (tfd, tcd) =>
           tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
             .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
-            .map(tcd => typeOps.instantiateType(tfd.returnType, tcd.typeMap))
-            .getOrElse(Untyped)
-        case _ => Untyped
-      }
+            .map(tcd => typeOps.instantiateType(tfd.fd.returnType, tcd.tpSubst ++ tfd.tpSubst))
+        }.getOrElse(Untyped)
+
       case _ => Untyped
     }
   }

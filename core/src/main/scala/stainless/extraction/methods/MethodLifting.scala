@@ -192,7 +192,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
 
         val (tpe, expr) = either match {
           case Left(nfd) =>
-            val ntpMap = descendant.typeMap ++ (nfd.typeArgs zip fd.typeArgs)
+            val ntpMap = descendant.tpSubst ++ (nfd.typeArgs zip fd.typeArgs)
             val args = (fd.params zip nfd.params).map { case (vd1, vd2) =>
               wrap(
                 transformer.transform(vd1.toVariable),
