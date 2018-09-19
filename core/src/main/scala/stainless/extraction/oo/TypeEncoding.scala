@@ -89,6 +89,11 @@ trait TypeEncoding
     recons(tps.map(tp => s.AnyType().copiedFrom(tp))).copiedFrom(tpe).asInstanceOf[T]
   }
 
+  private[this] def erasedBy(tpe: s.Type)(implicit scope: Scope): s.Type = s.typeOps.postMap {
+    case tp: s.TypeParameter if scope.tparams contains tp => Some(s.AnyType().copiedFrom(tp))
+    case _ => None
+  } (tpe)
+
   private[this] def wrap(e: t.Expr, tpe: s.Type)(implicit scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
@@ -142,7 +147,7 @@ trait TypeEncoding
 
   private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr =
     ((e, tpe.getType(scope.symbols), expected.getType(scope.symbols)) match {
-      case (_, t1, t2) if t1 == t2 => e
+      case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
       case (_, t1, t2) if !isObject(t1) && isObject(t2) => wrap(e, t1)
@@ -811,7 +816,7 @@ trait TypeEncoding
           }.copiedFrom(tp)))) ++
           (getFunction(id).params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, vd.tpe)(funScope)
-          }).copiedFrom(e), e.getType, inType)
+          }).copiedFrom(e), getFunction(id).getType, inType)(funScope)
 
       case app @ s.ApplyLetRec(v, tparams, tps, args) if scope rewrite v.id =>
         val funScope = this in v.id
@@ -828,7 +833,7 @@ trait TypeEncoding
           }.copiedFrom(tp))) ++
           (fun.params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, vd.tpe)(funScope)
-          }).copiedFrom(app), e.getType, inType)
+          }).copiedFrom(app), v.getType.asInstanceOf[s.FunctionType].to, inType)(funScope)
 
       case app @ s.ApplyLetRec(v, tparams, tps, args) =>
         val outerScope = functions(v.id).outer.get
