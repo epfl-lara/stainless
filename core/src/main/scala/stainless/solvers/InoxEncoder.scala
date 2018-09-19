@@ -10,20 +10,20 @@ trait InoxEncoder extends ProgramEncoder {
   val context: inox.Context
   val t: inox.trees.type = inox.trees
 
-  protected implicit val semantics: sourceProgram.Semantics
+  import sourceProgram.trees._
+  import sourceProgram.symbols._
+
+  protected implicit val semantics: Semantics
 
   import context._
 
+  private[this] def keepFlag(flag: Flag): Boolean = flag match {
+    case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Ghost => false
+    case Derived(_) | IsField(_) | IsUnapply(_, _) => false
+    case _ => true
+  }
+
   override protected def encodedProgram: inox.Program { val trees: t.type } = {
-    import sourceProgram.trees._
-    import sourceProgram.symbols._
-
-    def keepFlag(flag: Flag): Boolean = flag match {
-      case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Ghost => false
-      case Derived(_) | IsField(_) | IsUnapply(_, _) => false
-      case _ => true
-    }
-
     inox.InoxProgram(t.NoSymbols
       .withSorts(sourceProgram.symbols.sorts.values.toSeq
         .map(sort => sort.copy(flags = sort.flags.filter(keepFlag)))
@@ -169,9 +169,7 @@ trait InoxEncoder extends ProgramEncoder {
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(
-        flags = vd.flags.filterNot(f => f == s.Unchecked || f == s.Ghost)
-      ).copiedFrom(vd))
+      super.transform(vd.copy(flags = vd.flags.filter(keepFlag)).copiedFrom(vd))
     }
   }
 
