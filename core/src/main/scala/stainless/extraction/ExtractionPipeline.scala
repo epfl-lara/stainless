@@ -61,7 +61,7 @@ trait ExtractionPipeline { self =>
     val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
     val debug: Boolean = 
       debugTransformation && 
-      (phases.isEmpty || (phases.isDefined && phases.get.exists(phaseName.contains _))
+      (phases.isEmpty || (phases.isDefined && phases.get.exists(phaseName.contains _)))
 
     context.reporter.synchronized {
       val symbolsToPrint = symbolsToString(s)(symbols, objs)
