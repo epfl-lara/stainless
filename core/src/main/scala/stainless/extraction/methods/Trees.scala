@@ -32,12 +32,11 @@ trait Trees extends throwing.Trees { self =>
 
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = receiver.getType match {
+    protected def computeType(implicit s: Symbols): Type = widen(receiver.getType) match {
       case ct: ClassType =>
         val optTfd = s.lookupFunction(id)
           .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)
           .map(_.typed(tps))
-          .filter(tfd => checkParamTypes(args, tfd.params.map(_.getType), tfd.getType).isTyped)
         val optTcd = s.lookupClass(ct.id)
           .filter(cd => ct.tps.size == cd.tparams.size)
           .map(_.typed(ct.tps))
@@ -45,7 +44,14 @@ trait Trees extends throwing.Trees { self =>
         (optTfd zip optTcd).headOption.flatMap { case (tfd, tcd) =>
           tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
             .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
-            .map(tcd => typeOps.instantiateType(tfd.fd.returnType, tcd.tpSubst ++ tfd.tpSubst))
+            .map { tcd =>
+              val tpSubst = tcd.tpSubst ++ tfd.tpSubst
+              checkParamTypes(
+                args,
+                tfd.fd.params.map(vd => typeOps.instantiateType(vd.getType, tpSubst)),
+                typeOps.instantiateType(tfd.fd.getType, tpSubst)
+              )
+            }
         }.getOrElse(Untyped)
 
       case _ => Untyped
