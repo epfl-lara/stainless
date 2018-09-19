@@ -92,8 +92,13 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }
 
     def checkMutableField(fd: FunAbstraction): Unit = {
-      if (fd.flags.exists { case IsField(_) => true case _ => false } && isMutableType(fd.returnType))
+      if (!fd.flags.exists { case IsField(_) => true case _ => false }) return ()
+
+      if (isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
+
+      if (effects(fd.fullBody).nonEmpty)
+        throw ImperativeEliminationException(fd, "A global field must be pure")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
