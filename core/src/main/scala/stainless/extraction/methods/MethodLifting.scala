@@ -29,8 +29,10 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
-        val s.ClassType(_, ctps) = rec.getType(symbols)
-        t.FunctionInvocation(id, (ctps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
+        val ct @ s.ClassType(_, _) = rec.getType(symbols)
+        val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
+        val tcd = (ct.tcd(symbols) +: ct.tcd(symbols).ancestors).find(_.id == cid).get
+        t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
 
       case _ => super.transform(e)
     }
@@ -156,7 +158,9 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
   private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
     val cd = symbols.getClass(cid)
     val fd = symbols.getFunction(fid)
-    val tpSeq = symbols.freshenTypeParams(cd.typeArgs)
+    val tpSeq = symbols.freshenTypeParams(cd.typeArgs).map { tp =>
+      tp.copy(flags = tp.flags.filter { case Variance(_) => false case _ => true }).copiedFrom(tp)
+    }
     val tpMap = (cd.typeArgs zip tpSeq).toMap
 
     val tcd = s.ClassType(cid, tpSeq).tcd(symbols).copiedFrom(cd)
