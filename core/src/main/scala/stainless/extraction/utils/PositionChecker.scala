@@ -15,7 +15,7 @@ object PositionChecker {
 
   private[this] val seen: MutableHashSet[ast.Trees#Expr] = MutableHashSet.empty
 
-  def apply(phaseName: String)(tr: ast.Trees)(context: inox.Context): tr.TreeTraverser { val trees: tr.type } = new tr.TreeTraverser {
+  def apply(phaseName: String)(tr: ast.Trees)(context: inox.Context)(before: Boolean): tr.TreeTraverser { val trees: tr.type } = new tr.TreeTraverser {
     val trees: tr.type = tr
     import trees._
 
@@ -37,7 +37,8 @@ object PositionChecker {
       if (seen contains e) return ()
 
       if (!e.getPos.isDefined) {
-        context.reporter.debug(NoPosition, s"After $phaseName: Missing position for expression '$e' (of type ${e.getClass}). Last known position: $lastKnownPosition")
+        val word = if (before) "Before" else "After"
+        context.reporter.debug(NoPosition, s"$word $phaseName: Missing position for expression '$e' (of type ${e.getClass}). Last known position: $lastKnownPosition")
       } else {
         lastKnownPosition = e.getPos
       }

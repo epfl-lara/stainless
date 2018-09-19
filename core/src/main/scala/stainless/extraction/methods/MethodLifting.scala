@@ -12,6 +12,7 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
   import s._
 
   override val phaseName = "methods.MethodLifting"
+  override val debugTransformation = true
 
   private[this] final val funCache   = new ExtractionCache[s.FunDef, t.FunDef]
   private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]
@@ -285,6 +286,5 @@ object MethodLifting {
     override val s: ts.type = ts
     override val t: tt.type = tt
     override val context = ctx
-    override val debugTransformation = true
   }
 }

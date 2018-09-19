@@ -54,27 +54,43 @@ trait ExtractionPipeline { self =>
   }
 
   // `extractWithDebug` is a wrapper around `extract` which outputs trees for debugging
+  // and which outputs position checks
   def extractWithDebug(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = inox.ast.DebugSectionTrees
-    val res = extract(symbols)
     val phases = context.options.findOption(optDebugPhases)
-    if (debugTransformation && 
-        (phases.isEmpty || (phases.isDefined && phases.get.exists(this.toString.contains _)))) {
-      val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+    val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+    val debug: Boolean = 
+      debugTransformation && 
+      (phases.isEmpty || (phases.isDefined && phases.get.exists(phaseName.contains _))
+
+    context.reporter.synchronized {
       val symbolsToPrint = symbolsToString(s)(symbols, objs)
+      if (debug && !symbolsToPrint.isEmpty) {
+        context.reporter.debug("\n\n\n\nSymbols before " + phaseName + "\n")
+        context.reporter.debug(symbolsToPrint)
+      }
+
+      // start the position checker before extracting the symbols, if the option if on
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.s)(self.context)(true)
+        symbols.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+
+      val res = extract(symbols)
       val resToPrint = symbolsToString(t)(res, objs)
 
-      if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
-        context.reporter.synchronized {
-          context.reporter.debug("\n\n\n\nSymbols before " + this + "\n")
-          context.reporter.debug(symbolsToPrint)
-          context.reporter.debug("\n\nSymbols after " + this +  "\n")
-          context.reporter.debug(resToPrint)
-          context.reporter.debug("\n\n")
-        }
+      if (debug && (!symbolsToPrint.isEmpty || !resToPrint.isEmpty)) {
+        context.reporter.debug("\n\nSymbols after " + phaseName +  "\n")
+        context.reporter.debug(resToPrint)
+        context.reporter.debug("\n\n")
       }
+
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.t)(self.context)(false)
+        res.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+      res
     }
-    res
   }
 
   def invalidate(id: Identifier): Unit
@@ -109,7 +125,7 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
-    override val phaseName = "<unknown>"
+    override val phaseName = transformer.toString
 
     override val debugTransformation = true
 
@@ -130,7 +146,7 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
-    override val phaseName = "<unknown>"
+    override val phaseName = transformer.toString
 
     override val debugTransformation = true
 
@@ -253,14 +269,7 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   override final def extract(symbols: s.Symbols): t.Symbols = {
     val context = getContext(symbols)
-    val result = extractSymbols(context, symbols)
-
-    if (self.context.reporter.debugSections contains utils.DebugSectionPositions) {
-      val posChecker = utils.PositionChecker(self.phaseName)(self.t)(self.context)
-      result.functions.values.toSeq.foreach(posChecker.traverse)
-    }
-
-    result
+    extractSymbols(context, symbols)
   }
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
