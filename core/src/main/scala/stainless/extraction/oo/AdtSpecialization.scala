@@ -19,10 +19,13 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] val candidateCache = ExtractionCache[s.ClassDef, Boolean]()
+  private[this] val candidateCache = new ExtractionCache[Set[Identifier], s.ClassDef, Boolean](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  )
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
+    
     candidateCache.cached(cd, symbols)(cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
@@ -52,8 +55,12 @@ trait AdtSpecialization
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val infoCache = OptionSort.cached(ExtractionCache[s.ClassDef, ClassInfo]())
-  private[this] val constructorCache = ExtractionCache[s.ClassDef, Identifier]()
+  private[this] val infoCache = OptionSort.cached(new ExtractionCache[Set[Identifier], s.ClassDef, ClassInfo](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  ))
+  private[this] val constructorCache = new ExtractionCache[Set[Identifier], s.ClassDef, Identifier](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  )
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import t.dsl._
     import context.{s => _, t => _, _}

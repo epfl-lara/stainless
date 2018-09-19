@@ -264,7 +264,9 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
   private[this] final val funCache = ExtractionCache[s.FunDef, FunctionResult]()
 
   protected type SortResult
-  private[this] final val sortCache = ExtractionCache[s.ADTSort, SortResult]()
+  private[this] final val sortCache = new ExtractionCache[Set[Identifier], s.ADTSort, SortResult](
+    (sd, syms) => sd.constructors.map(_.id).toSet + sd.id
+  )
 
   protected type TransformerContext
   protected def getContext(symbols: s.Symbols): TransformerContext

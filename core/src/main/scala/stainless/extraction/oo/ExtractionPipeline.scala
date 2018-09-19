@@ -8,7 +8,9 @@ trait CachingPhase extends extraction.CachingPhase { self =>
   val s: Trees
 
   protected type ClassResult
-  private lazy val classCache = ExtractionCache[s.ClassDef, ClassResult]()
+  private lazy val classCache = new ExtractionCache[Set[Identifier], s.ClassDef, ClassResult](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  )
 
   protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult
   protected def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols
