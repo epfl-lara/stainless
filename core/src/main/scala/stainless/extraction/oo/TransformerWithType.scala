@@ -14,7 +14,7 @@ trait TransformerWithType extends TreeTransformer {
     case _ => expectedType
   }
 
-  private def widen(tpe: s.Type): s.Type = tpe match {
+  protected def widen(tpe: s.Type): s.Type = tpe match {
     case tp: s.TypeParameter =>
       import s._
       widen(tp.upperBound)
