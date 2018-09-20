@@ -65,7 +65,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
       t.Assert(
-        // If both operands are of the same sign, then the result should have the same sign.
+        // the result must be greater than the lhs
         t.GreaterEquals(t.Plus(lhs, rhs), lhs).copiedFrom(e),
         Some("Addition Overflow"),
         newE
@@ -91,7 +91,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
       t.Assert(
-        // If both operands are of the same sign, then the result should have the same sign.
+        // rhs must be smaller than lhs
         t.LessEquals(rhs, lhs).copiedFrom(e),
         Some("Subtraction Overflow"),
         newE
@@ -106,28 +106,14 @@ trait AssertionInjector extends ast.TreeTransformer {
         newE
       ).copiedFrom(e)
 
-    case BVTyped(true, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
       t.Assert(
         // when lhs is not null, rhs === (lhs * rhs) / lhs
         t.Or(
-          t.Equals(lhs, zero(size, e.getPos)).copiedFrom(e),
-          t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
-        ).copiedFrom(e),
-        Some("Multiplication Overflow"),
-        newE
-      ).copiedFrom(e)
-
-    // Unsigned multiplication
-    case BVTyped(false, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
-      val lhs = transform(lhs0)
-      val rhs = transform(rhs0)
-      val newE = super.transform(e0)
-      t.Assert(
-        t.Or(
-          t.Equals(lhs, zeroUnsigned(size, e.getPos)).copiedFrom(e),
+          t.Equals(lhs, zero(signed, size, e.getPos)).copiedFrom(e),
           t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e),
         Some("Multiplication Overflow"),
@@ -139,7 +125,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       val newE = super.transform(e)
       val rest = e.getType match {
         case s.BVType(true, size) if strictArithmetic =>
-          // Overflow happens when -MinValue / -1
+          // Overflow happens for signed bitvectors with -MinValue / -1
           t.Assert(
             t.Not(t.And(
               t.Equals(transform(n), minValue(size, n.getPos)).copiedFrom(n),
@@ -148,8 +134,6 @@ trait AssertionInjector extends ast.TreeTransformer {
             Some("Division Overflow"),
             newE
           ).copiedFrom(e)
-        case s.BVType(false, size) if strictArithmetic =>
-          throw new Exception("Division is not implemented for unsigned bitvectors in strict arithmetic mode.")
 
         case _ => newE
       }
@@ -190,7 +174,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         // Ensure the operation doesn't shift more bits than there are.
         t.And(
-          t.GreaterEquals(rhs, zero(size, rhs.getPos)).copiedFrom(rhs),
+          t.GreaterEquals(rhs, zero(signed, size, rhs.getPos)).copiedFrom(rhs),
           t.LessThan(rhs, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
         ).copiedFrom(rhs),
         Some("Shift Semantics"),
@@ -228,11 +212,8 @@ trait AssertionInjector extends ast.TreeTransformer {
   private def minValue(size: Int, pos: inox.utils.Position) =
     t.BVLiteral(true, -BigInt(2).pow(size - 1), size).setPos(pos)
 
-  private def zero(size: Int, pos: inox.utils.Position) =
-    t.BVLiteral(true, 0, size).setPos(pos)
-
-  private def zeroUnsigned(size: Int, pos: inox.utils.Position) =
-    t.BVLiteral(false, 0, size).setPos(pos)
+  private def zero(signed: Boolean, size: Int, pos: inox.utils.Position) =
+    t.BVLiteral(signed, 0, size).setPos(pos)
 }
 
 object AssertionInjector {
