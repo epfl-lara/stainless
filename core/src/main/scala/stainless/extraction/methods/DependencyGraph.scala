@@ -79,8 +79,17 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
       invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
     }
 
+    // Add an edge between a node `n` and an override `oid` of a function `fd` if
+    // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
     for (fd <- symbols.functions.values) {
-      overrides(fd) foreach { id => g += SimpleEdge(fd.id, id) }
+      for (oid <- overrides(fd)) {
+        symbols.functions(oid).flags.collectFirst {
+          case IsMethodOf(cid) =>
+            for (n <- g.transitivePred(fd.id) & g.transitivePred(cid)) {
+              g += SimpleEdge(n, oid)
+            }
+        }
+      }
     }
 
     g
