@@ -86,7 +86,7 @@ trait ComponentRun { self =>
   private[this] final val extractionFilter = createFilter
 
   /** Sends the symbols through the extraction pipeline. */
-  def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = extractionPipeline extract symbols
+  def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = extractionPipeline extractWithDebug symbols
 
   /** Sends the program's symbols through the extraction pipeline. */
   def extract(program: inox.Program { val trees: extraction.xlang.trees.type }): inox.Program {
@@ -96,6 +96,7 @@ trait ComponentRun { self =>
   /** Passes the provided symbols through the extraction pipeline and processes all
     * functions derived from the provided identifier. */
   def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
+
     val exSymbols = extract(symbols)
 
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
