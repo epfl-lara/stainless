@@ -59,6 +59,18 @@ trait AssertionInjector extends ast.TreeTransformer {
         newE
       ).copiedFrom(e)
 
+    // Unsigned addition
+    case BVTyped(false, size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
+      val lhs = transform(lhs0)
+      val rhs = transform(rhs0)
+      val newE = super.transform(e0)
+      t.Assert(
+        // If both operands are of the same sign, then the result should have the same sign.
+        t.GreaterEquals(t.Plus(lhs, rhs), lhs).copiedFrom(e),
+        Some("Addition Overflow"),
+        newE
+      ).copiedFrom(e)
+
     case BVTyped(true, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
@@ -69,6 +81,18 @@ trait AssertionInjector extends ast.TreeTransformer {
           t.Not(t.Equals(signBit(size, lhs), signBit(size, rhs)).copiedFrom(e)).copiedFrom(e),
           t.Equals(signBit(size, lhs), signBit(size, newE)).copiedFrom(e)
         ).copiedFrom(e),
+        Some("Subtraction Overflow"),
+        newE
+      ).copiedFrom(e)
+
+    // Unsigned subtraction
+    case BVTyped(false, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
+      val lhs = transform(lhs0)
+      val rhs = transform(rhs0)
+      val newE = super.transform(e0)
+      t.Assert(
+        // If both operands are of the same sign, then the result should have the same sign.
+        t.LessEquals(rhs, lhs).copiedFrom(e),
         Some("Subtraction Overflow"),
         newE
       ).copiedFrom(e)
@@ -90,6 +114,20 @@ trait AssertionInjector extends ast.TreeTransformer {
         // when lhs is not null, rhs === (lhs * rhs) / lhs
         t.Or(
           t.Equals(lhs, zero(size, e.getPos)).copiedFrom(e),
+          t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
+        ).copiedFrom(e),
+        Some("Multiplication Overflow"),
+        newE
+      ).copiedFrom(e)
+
+    // Unsigned multiplication
+    case BVTyped(false, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
+      val lhs = transform(lhs0)
+      val rhs = transform(rhs0)
+      val newE = super.transform(e0)
+      t.Assert(
+        t.Or(
+          t.Equals(lhs, zeroUnsigned(size, e.getPos)).copiedFrom(e),
           t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e),
         Some("Multiplication Overflow"),
@@ -192,6 +230,9 @@ trait AssertionInjector extends ast.TreeTransformer {
 
   private def zero(size: Int, pos: inox.utils.Position) =
     t.BVLiteral(true, 0, size).setPos(pos)
+
+  private def zeroUnsigned(size: Int, pos: inox.utils.Position) =
+    t.BVLiteral(false, 0, size).setPos(pos)
 }
 
 object AssertionInjector {
