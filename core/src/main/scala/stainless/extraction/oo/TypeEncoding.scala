@@ -886,9 +886,11 @@ trait TypeEncoding
           (cti +: cti.tcd.descendants.map(_.toType)).exists(isSubtypeOf(_, ct)) &&
           (!(ct.tcd.cd.flags contains s.IsAbstract) && ct.tcd.children.isEmpty)
         ) =>
+          val erasedTps = ct.tps.map(tp => if (isObject(tp)) tp else s.AnyType().copiedFrom(tp))
+          val semiErased = ct.copy(tps = erasedTps).copiedFrom(ct)
           t.ADTPattern(
             ob map transform, ct.id, Seq(),
-            subs zip erased(ct).tcd.fields map { case (sub, vd) => transform(sub, vd.getType) }
+            subs zip semiErased.tcd.fields map { case (sub, vd) => transform(sub, vd.getType) }
           ).copiedFrom(pat)
 
         case _ =>
