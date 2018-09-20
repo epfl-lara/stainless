@@ -84,9 +84,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               fi.tfd.params.zip(args)
                 .filter { case (vd, _) => vd.flags contains Ghost }
                 .foreach { case (vd, arg) =>
-                  if (effects(arg).nonEmpty)
+                  if (!effects(arg).forall(validGhostEffects))
                     throw ImperativeEliminationException(arg,
-                      s"Argument to ghost parameter `${vd.id}` of method `${fi.id}` must be pure")
+                      s"Argument to ghost parameter `${vd.id}` of method `${fi.id}` must only have effects on ghost fields")
                 }
 
               super.traverse(fi)
@@ -103,9 +103,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               cons.fields.zip(args)
                 .filter { case (vd, _) => vd.flags contains Ghost }
                 .foreach { case (vd, arg) =>
-                  if (effects(arg).nonEmpty)
+                  if (!effects(arg).forall(validGhostEffects))
                     throw ImperativeEliminationException(arg,
-                      s"Argument to ghost field `${vd.id}` of class `${id}` must be pure")
+                      s"Argument to ghost field `${vd.id}` of class `${id}` must only have effects on ghost fields")
                 }
 
               super.traverse(adt)
@@ -204,21 +204,26 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       case Effect(rec, target) => isGhostTarget(rec, target.path)
     }
 
+    def isGhostVariable(e: Expr) = e match {
+      case v: Variable => v.flags.contains(Ghost)
+      case _ => false
+    }
+
     def isGhostTarget(rec: Expr, path: Seq[Accessor]): Boolean = {
       def go(tpe: Type, path: Seq[Accessor]): Boolean = path match {
         case FieldAccessor(selector) +: rest =>
           val adtTpe @ ADTType(_, _) = tpe
           val field = adtTpe.getField(selector).get
-          field.flags.contains(Ghost) && go(field.tpe, rest)
+          field.flags.contains(Ghost) || go(field.tpe, rest)
 
         case ArrayAccessor(index) +: rest =>
           val ArrayType(elTpe) = tpe
           go(elTpe, rest)
 
-        case Seq() => true
+        case Seq() => false
       }
 
-      go(rec.getType(symbols), path)
+      isGhostVariable(rec)|| go(rec.getType(symbols), path)
     }
 
     /* A fresh expression is an expression that is newly created
