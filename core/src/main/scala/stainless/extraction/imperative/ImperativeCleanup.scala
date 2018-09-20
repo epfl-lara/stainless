@@ -15,6 +15,8 @@ trait ImperativeCleanup extends SimplePhase { self =>
   val s: Trees
   val t: extraction.Trees
 
+  override val phaseName = "imperative.ImperativeCleanup"
+
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
   protected class TransformerContext(val symbols: s.Symbols) extends CheckingTransformer {
     val s: self.s.type = self.s
@@ -48,7 +50,7 @@ trait ImperativeCleanup extends SimplePhase { self =>
             recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
 
       case s.Variable(id, tpe, flags) =>
-        t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform)
+        t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform).copiedFrom(expr)
 
       case _ => super.transform(expr)
     }

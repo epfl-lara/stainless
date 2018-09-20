@@ -33,6 +33,20 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
   val usageRhs = "f1,f2,..."
 }
 
+object optDebugObjects extends inox.OptionDef[Seq[String]] {
+  val name = "debug-objects"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "o1,o2,..."
+}
+
+object optDebugPhases extends inox.OptionDef[Seq[String]] {
+  val name = "debug-phases"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "p1,p2,..."
+}
+
 trait ComponentRun { self =>
   val component: Component
   val trees: ast.Trees
@@ -72,7 +86,7 @@ trait ComponentRun { self =>
   private[this] final val extractionFilter = createFilter
 
   /** Sends the symbols through the extraction pipeline. */
-  def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = extractionPipeline extract symbols
+  def extract(symbols: extraction.xlang.trees.Symbols): trees.Symbols = extractionPipeline extractWithDebug symbols
 
   /** Sends the program's symbols through the extraction pipeline. */
   def extract(program: inox.Program { val trees: extraction.xlang.trees.type }): inox.Program {
@@ -82,6 +96,7 @@ trait ComponentRun { self =>
   /** Passes the provided symbols through the extraction pipeline and processes all
     * functions derived from the provided identifier. */
   def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
+
     val exSymbols = extract(symbols)
 
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>

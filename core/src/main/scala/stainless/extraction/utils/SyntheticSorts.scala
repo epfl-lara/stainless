@@ -20,7 +20,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
     private[this] val syntheticIsEmpty: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, none: Identifier): t.FunDef = {
         val isEmpty = ast.SymbolIdentifier("stainless.lang.Option.isEmpty")
-        mkFunDef(isEmpty, t.Unchecked)("A") {
+        mkFunDef(isEmpty, t.Unchecked, t.Synthetic)("A") {
           case Seq(aT) => (Seq("x" :: T(option)(aT)), t.BooleanType(), { case Seq(v) => v is none })
         }
       }
@@ -29,7 +29,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         syntheticOption.id,
         syntheticOption.constructors.find(_.fields.isEmpty).get.id)
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = new ExtractionCache[Set[Identifier], s.ADTSort, t.FunDef](
+        (sd, syms) => sd.constructors.map(_.id).toSet + sd.id
+      )
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           createFunction(sort.id, sort.constructors.find(_.fields.isEmpty).get.id)
@@ -41,7 +43,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
     private[this] val syntheticGet: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, some: Identifier, value: Identifier): t.FunDef = {
         val get = ast.SymbolIdentifier("stainless.lang.Option.get")
-        mkFunDef(get, t.Unchecked)("A") {
+        mkFunDef(get, t.Unchecked, t.Synthetic)("A") {
           case Seq(aT) => (Seq("x" :: T(option)(aT)), aT, {
             case Seq(v) => t.Require(v is some, v.getField(value))
           })
@@ -53,7 +55,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         createFunction(syntheticOption.id, some.id, some.fields.head.id)
       }
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = new ExtractionCache[Set[Identifier], s.ADTSort, t.FunDef](
+        (sd, syms) => sd.constructors.map(_.id).toSet + sd.id
+      )
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           val some = sort.constructors.find(_.fields.nonEmpty).get

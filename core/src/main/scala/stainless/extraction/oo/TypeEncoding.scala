@@ -17,6 +17,8 @@ trait TypeEncoding
   val s: Trees
   val t: Trees
 
+  override val phaseName = "oo.TypeEncoding"
+
   import t._
   import t.dsl._
   import s.TypeParameterWrapper
@@ -504,7 +506,10 @@ trait TypeEncoding
 
   private class SortInfo(val functions: Seq[t.FunDef])
 
-  private[this] val sortCache = new ExtractionCache[s.ADTSort, SortInfo]
+  private[this] val sortCache = new ExtractionCache[Set[Identifier], s.ADTSort, SortInfo](
+    (sd, syms) => sd.constructors.map(_.id).toSet + sd.id
+  )
+
   private[this] def sortInfo(id: Identifier)(implicit context: TransformerContext): SortInfo = {
     import context.{symbols, emptyScope => scope}
     val sort = symbols.getSort(id)
@@ -572,7 +577,9 @@ trait TypeEncoding
     val sorts: Seq[t.ADTSort]
   )
 
-  private[this] val classCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
+  private[this] val classCache = OptionSort.cached(new ExtractionCache[Set[Identifier], s.ClassDef, ClassInfo](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  ))
   private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
     import context.symbols
     val cd = symbols.getClass(id)

@@ -41,6 +41,9 @@ trait Definitions extends imperative.Trees { self: Trees =>
     def descendants(implicit s: Symbols): Seq[ClassDef] =
       children.flatMap(cd => cd +: cd.descendants).distinct
 
+    def descendantsIdsWithSelf(implicit s: Symbols): Set[Identifier] =
+      descendants(s).map(_.id).toSet + id
+
     def typeArgs = tparams map (_.tp)
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)

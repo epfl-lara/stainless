@@ -7,10 +7,90 @@ trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
 
+  val phaseName: String
+  // This boolean is `true` for extraction pipelines that should be printed for debugging
+  // It is set to `true` for the basic building blocks of the pipeline, and set 
+  // to `false` when combining components using ̀`andThen`.
+  val debugTransformation: Boolean
+
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
   def extract(symbols: s.Symbols): t.Symbols
+
+  // make a String representation for a table of Symbols `s`, only keeping 
+  // functions and classes whose names appear in `objs`
+  def symbolsToString(tt: ast.Trees)(s: tt.Symbols, objs: Set[String]): String = {
+    val printerOpts = tt.PrinterOptions.fromContext(context)
+    def objectsToString(m: Iterable[(Identifier,tt.Definition)]): String = 
+      m.collect { 
+        case (id,d) if objs.isEmpty || objs.contains(id.name) => 
+          d.asString(printerOpts)
+      }.mkString("\n\n")
+
+    val functions = objectsToString(s.functions)
+    val sorts = objectsToString(s.sorts)
+    val classes = 
+      if (tt == oo.trees) 
+        // we do the casts in both directions since the compiler doesn't 
+        // recognize that tt == oo.trees
+        objectsToString(s.asInstanceOf[oo.trees.Symbols]
+                         .classes
+                         .asInstanceOf[Iterable[(Identifier,tt.Definition)]])
+      else
+        ""
+
+    def wrapWith(header: String, s: String) = {
+      if (s.isEmpty) ""
+      else 
+        "-------------" + header + "-------------\n" +
+        s + "\n\n"
+    }
+
+    wrapWith("Functions", functions) ++
+    wrapWith("Sorts", sorts) ++
+    wrapWith("Classes", classes)
+  }
+
+  // `extractWithDebug` is a wrapper around `extract` which outputs trees for debugging
+  // and which outputs position checks
+  def extractWithDebug(symbols: s.Symbols): t.Symbols = {
+    implicit val debugSection = inox.ast.DebugSectionTrees
+    val phases = context.options.findOption(optDebugPhases)
+    val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+    val debug: Boolean = 
+      debugTransformation && 
+      (phases.isEmpty || (phases.isDefined && phases.get.exists(phaseName.contains _)))
+
+    context.reporter.synchronized {
+      val symbolsToPrint = symbolsToString(s)(symbols, objs)
+      if (debug && !symbolsToPrint.isEmpty) {
+        context.reporter.debug("\n\n\n\nSymbols before " + phaseName + "\n")
+        context.reporter.debug(symbolsToPrint)
+      }
+
+      // start the position checker before extracting the symbols, if the option if on
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.s)(self.context)(true)
+        symbols.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+
+      val res = extract(symbols)
+      val resToPrint = symbolsToString(t)(res, objs)
+
+      if (debug && (!symbolsToPrint.isEmpty || !resToPrint.isEmpty)) {
+        context.reporter.debug("\n\nSymbols after " + phaseName +  "\n")
+        context.reporter.debug(resToPrint)
+        context.reporter.debug("\n\n")
+      }
+
+      if (debug && self.context.reporter.debugSections.contains(utils.DebugSectionPositions)) {
+        val posChecker = utils.PositionChecker(self.phaseName)(self.t)(self.context)(false)
+        res.functions.values.toSeq.foreach(posChecker.traverse)
+      }
+      res
+    }
+  }
 
   def invalidate(id: Identifier): Unit
 
@@ -21,9 +101,11 @@ trait ExtractionPipeline { self =>
     override val s: self.s.type = self.s
     override val t: that.t.type = that.t
     override val context = self.context
+    override val phaseName = self.phaseName + ":" + that.phaseName
+    override val debugTransformation = false
 
     override def extract(symbols: s.Symbols): t.Symbols = {
-      that.extract(self.extract(symbols))
+      that.extractWithDebug(self.extractWithDebug(symbols))
     }
 
     override def invalidate(id: Identifier): Unit = {
@@ -42,6 +124,9 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
+    override val phaseName = transformer.toString
+
+    override val debugTransformation = true
 
     override def extract(symbols: s.Symbols): t.Symbols =
       symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
@@ -60,6 +145,9 @@ object ExtractionPipeline {
     override val s: transformer.s.type = transformer.s
     override val t: transformer.t.type = transformer.t
     override val context = ctx
+    override val phaseName = transformer.toString
+
+    override val debugTransformation = true
 
     override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
     override def invalidate(id: Identifier): Unit = ()
@@ -99,7 +187,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   }
 
   protected object CacheKey {
-    private def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = {
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = {
       new CacheKey(id, symbols.dependencies(id).flatMap { did =>
         val optKey = symbols.lookupFunction(id).map { fd =>
           if (fd.flags contains s.Uncached) {
@@ -137,22 +225,30 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     def apply(d: s.Definition)(implicit symbols: s.Symbols): CacheKey = apply(d.id)
   }
 
-  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
+  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _, _]]
 
-  protected class ExtractionCache[Key <: s.Definition, T] {
-    private[this] final val cache = new utils.ConcurrentCache[CacheKey, T]
+  protected class ExtractionCache[Key, X <: s.Definition, Y](keyOf: (X, s.Symbols) => Key) {
+    private[this] final val cache = new utils.ConcurrentCache[(X, Key), Y]
 
-    def cached(key: Key, symbols: s.Symbols)(builder: => T): T = cache.cached(CacheKey(key)(symbols))(builder)
+    def cached(id: X, symbols: s.Symbols)(builder: => Y): Y = cache.cached(id -> keyOf(id, symbols))(builder)
 
-    def contains(key: Key, symbols: s.Symbols): Boolean = cache contains CacheKey(key)(symbols)
-    def update(key: Key, symbols: s.Symbols, value: T) = cache.update(CacheKey(key)(symbols), value)
-    def get(key: Key, symbols: s.Symbols): Option[T] = cache.get(CacheKey(key)(symbols))
-    def apply(key: Key, symbols: s.Symbols): T = cache(CacheKey(key)(symbols))
+    def contains(id: X, symbols: s.Symbols): Boolean = cache contains (id -> keyOf(id, symbols))
+    def update(id: X, symbols: s.Symbols, value: Y) = cache.update(id -> keyOf(id, symbols), value)
+    def get(id: X, symbols: s.Symbols): Option[Y] = cache.get(id -> keyOf(id, symbols))
+    def apply(id: X, symbols: s.Symbols): Y = cache(id -> keyOf(id, symbols))
 
     private[ExtractionCaches] def invalidate(id: Identifier): Unit =
-      cache.retain(key => key.id != id && !(key.dependencies contains id))
+      cache.retain(key => key._1.id != id)
+      // FIXME: key._1.dependencies is not accepted by the compiler
+      // cache.retain(key => key._1.id != id && !(key._1.dependencies contains id)) 
 
     self.synchronized(caches += this)
+  }
+
+  object ExtractionCache {
+    def apply[X <: s.Definition, Y]() = {
+      new ExtractionCache[CacheKey, X, Y]((x, sym) => CacheKey(x)(sym))
+    }
   }
 
   override def invalidate(id: Identifier): Unit = {
@@ -161,11 +257,18 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 }
 
 trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
+  override val debugTransformation = true
+
   protected type FunctionResult
-  private[this] final val funCache = new ExtractionCache[s.FunDef, FunctionResult]
+  // Some phases may need to extract the same FunDef differently based on 
+  // symbols (e.g. MethodLifting)
+  // FIXME: this cache can be reenabled if a proper `keyOf` function is provided
+  // private[this] final val funCache = ExtractionCache[s.FunDef, FunctionResult]()
 
   protected type SortResult
-  private[this] final val sortCache = new ExtractionCache[s.ADTSort, SortResult]
+  private[this] final val sortCache = new ExtractionCache[Set[Identifier], s.ADTSort, SortResult](
+    (sd, syms) => sd.constructors.map(_.id).toSet + sd.id
+  )
 
   protected type TransformerContext
   protected def getContext(symbols: s.Symbols): TransformerContext
@@ -183,7 +286,8 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val functions = symbols.functions.values.map { fd =>
-      funCache.cached(fd, symbols)(extractFunction(context, fd))
+      // funCache.cached(fd, symbols)(extractFunction(context, fd))
+      extractFunction(context, fd)
     }.toSeq
 
     val sorts = symbols.sorts.values.map { sort =>

@@ -67,9 +67,14 @@ trait DependencyGraph extends ast.DependencyGraph {
         .collectFirst { case HasADTInvariant(id) => id }
         .foreach { inv => g += SimpleEdge(cd.id, inv) }
 
-      cd.descendants(symbols) foreach { dd =>
-        g += SimpleEdge(cd.id, dd.id)
+      for (p <- cd.parents) {
+        g += SimpleEdge(cd.id, p.id)
       }
+
+      if (cd.flags.contains(IsSealed))
+        cd.children(symbols) foreach { dd =>
+          g += SimpleEdge(cd.id, dd.id)
+        }
     }
 
     g

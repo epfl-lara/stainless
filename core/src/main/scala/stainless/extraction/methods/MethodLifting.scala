@@ -11,8 +11,13 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
   val t: oo.Trees
   import s._
 
-  private[this] final val funCache   = new ExtractionCache[s.FunDef, t.FunDef]
-  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]
+  override val phaseName = "methods.MethodLifting"
+  override val debugTransformation = true
+
+  // private[this] final val funCache   = ExtractionCache[s.FunDef, t.FunDef]()
+  private[this] final val classCache = new ExtractionCache[Set[Identifier], s.ClassDef, (t.ClassDef, Option[t.FunDef])](
+    (cd, syms) => cd.descendantsIdsWithSelf(syms)
+  )
 
   private sealed trait Override { val cid: Identifier }
   private case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[Override]) extends Override
@@ -58,13 +63,15 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
       val funs = cd.methods(symbols)
         .map(symbols.functions)
         .map { fd =>
-          funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
+          // funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
+          transformMethod(fd)(symbols)
         }
 
       functions ++= funs
 
       val inv = invariant map { inv =>
-        funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
+        // funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
+        transformMethod(inv)(symbols.withFunctions(Seq(inv)))
       }
 
       val (cls, fun) = classCache.cached(cd, symbols) {
@@ -79,7 +86,8 @@ trait MethodLifting extends ExtractionPipeline with ExtractionCaches { self =>
     functions ++= symbols.functions.values
       .filterNot(_.flags exists { case IsMethodOf(_) => true case _ => false })
       .map { fd =>
-        funCache.cached(fd, symbols)(default.transform(fd))
+        // funCache.cached(fd, symbols)(default.transform(fd))
+        default.transform(fd)
       }
 
     t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
