@@ -22,11 +22,10 @@ trait ExtractionPipeline { self =>
   // functions and classes whose names appear in `objs`
   def symbolsToString(tt: ast.Trees)(s: tt.Symbols, objs: Set[String]): String = {
     val printerOpts = tt.PrinterOptions.fromContext(context)
-    val printerOpts2 = oo.trees.PrinterOptions.fromContext(context)
     def objectsToString(m: Iterable[(Identifier,tt.Definition)]): String = 
       m.collect { 
         case (id,d) if objs.isEmpty || objs.contains(id.name) => 
-          d.asString(tt.PrinterOptions.fromContext(context))
+          d.asString(printerOpts)
       }.mkString("\n\n")
 
     val functions = objectsToString(s.functions)
@@ -261,7 +260,10 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
   override val debugTransformation = true
 
   protected type FunctionResult
-  private[this] final val funCache = ExtractionCache[s.FunDef, FunctionResult]()
+  // Some phases may need to extract the same FunDef differently based on 
+  // symbols (e.g. MethodLifting)
+  // FIXME: this cache can be reenabled if a proper `keyOf` function is provided
+  // private[this] final val funCache = ExtractionCache[s.FunDef, FunctionResult]()
 
   protected type SortResult
   private[this] final val sortCache = new ExtractionCache[Set[Identifier], s.ADTSort, SortResult](
@@ -284,7 +286,8 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val functions = symbols.functions.values.map { fd =>
-      funCache.cached(fd, symbols)(extractFunction(context, fd))
+      // funCache.cached(fd, symbols)(extractFunction(context, fd))
+      extractFunction(context, fd)
     }.toSeq
 
     val sorts = symbols.sorts.values.map { sort =>
