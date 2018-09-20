@@ -1,5 +1,7 @@
 import sbt.ScriptedPlugin
 
+cancelable in Global := true
+
 enablePlugins(GitVersioning)
 git.baseVersion in ThisBuild := "0.1.0"
 git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
