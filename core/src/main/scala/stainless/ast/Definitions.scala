@@ -8,6 +8,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
+  case object Private extends Flag("private", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)

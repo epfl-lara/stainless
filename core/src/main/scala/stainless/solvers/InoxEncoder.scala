@@ -19,7 +19,7 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram.symbols._
 
     def keepFlag(flag: Flag): Boolean = flag match {
-      case Unchecked | Synthetic | PartialEval | Extern | Opaque => false
+      case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private => false
       case Derived(_) | IsField(_) | IsUnapply(_, _) => false
       case _ => true
     }

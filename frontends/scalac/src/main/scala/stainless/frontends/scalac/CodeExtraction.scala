@@ -455,6 +455,7 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym) ++
       (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym.isAccessor) Set(xt.IsField(sym.isLazy)) else Set()) ++
+      (if (sym.isPrivate) Set(xt.Private) else Set()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {

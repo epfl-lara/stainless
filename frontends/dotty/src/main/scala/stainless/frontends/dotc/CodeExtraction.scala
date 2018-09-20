@@ -398,6 +398,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if ((sym is Implicit) && (sym is Synthetic)) Set(xt.Inline, xt.Synthetic) else Set()) ++
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (!(sym is Method)) Set(xt.IsField(sym is Lazy)) else Set()) ++
+      (if (sym is Private) Set(xt.Private) else Set()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
 
     if (sym.name == nme.unapply) {
