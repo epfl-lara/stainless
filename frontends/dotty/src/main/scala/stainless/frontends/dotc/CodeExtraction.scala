@@ -1113,9 +1113,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExThisCall(tt, sym, tps, args) =>
       val thiss = xt.This(extractType(tt)(dctx, tr.pos).asInstanceOf[xt.ClassType]).setPos(tr.pos)
       if (sym is ParamAccessor) {
-        xt.ClassSelector(thiss, getIdentifier(sym))
+        xt.ClassSelector(thiss, getIdentifier(sym)).setPos(tr.pos)
       } else {
-        xt.MethodInvocation(thiss, getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+        xt.MethodInvocation(thiss, getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
       }
 
     case ExCastCall(expr, from, to) =>
@@ -1135,22 +1135,22 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           getIdentifier(sym),
           tps map extractType,
           args map extractTree
-        )
+        ).setPos(tr.pos)
 
       case None =>
         dctx.localFuns.get(sym) match {
           case None =>
-            xt.FunctionInvocation(getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+            xt.FunctionInvocation(getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
           case Some((name, tparams)) =>
-            xt.ApplyLetRec(name.toVariable, tparams.map(_.tp), tps map extractType, extractArgs(sym, args))
+            xt.ApplyLetRec(name.toVariable, tparams.map(_.tp), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
         }
 
       case Some(lhs) => extractType(lhs) match {
         case ct: xt.ClassType =>
           if (sym is ParamAccessor) {
-            xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
+            xt.ClassSelector(extractTree(lhs), getIdentifier(sym)).setPos(tr.pos)
           } else {
-            xt.MethodInvocation(extractTree(lhs), getIdentifier(sym), tps map extractType, extractArgs(sym, args))
+            xt.MethodInvocation(extractTree(lhs), getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
           }
 
         case ft: xt.FunctionType =>
