@@ -696,6 +696,11 @@ trait TypeEncoding
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
+      case tp: s.TypeParameter if testers contains tp =>
+        refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), tp), Seq(t.Unchecked)).copiedFrom(tp)
+        }.copiedFrom(tp)
+
       case tp: s.TypeParameter if tparams contains tp => ref.copiedFrom(tp)
 
       case tp: s.TypeParameter => super.transform(tp.copy(
