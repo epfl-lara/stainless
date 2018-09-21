@@ -916,7 +916,7 @@ trait CodeExtraction extends ASTExtractors {
           case Some((vd, tparams)) =>
             assert(tparams.isEmpty, "Unexpected application " + ex + " without type parameters")
             xt.ApplyLetRec(vd.toVariable, Seq.empty, Seq.empty, Seq.empty)
-          case None => xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty)
+          case None => xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty).setPos(ex.pos)
         }
       }
 
@@ -1077,14 +1077,14 @@ trait CodeExtraction extends ASTExtractors {
           getIdentifier(sym),
           tps map extractType,
           args map extractTree
-        )
+        ).setPos(c.pos)
 
       case None =>
         dctx.localFuns.get(sym) match {
           case None =>
-            xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), extractArgs(sym, args))
+            xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
           case Some((vd, tparams)) =>
-            xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), tps.map(extractType), extractArgs(sym, args))
+            xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
         }
 
       case Some(lhs) => extractType(lhs) match {
@@ -1098,12 +1098,12 @@ trait CodeExtraction extends ASTExtractors {
             getIdentifier(sym),
             tps.map(extractType),
             extractArgs(sym, args)
-          ) else args match {
+          ).setPos(c.pos) else args match {
             case Seq() =>
-              xt.ClassSelector(extractTree(lhs), getIdentifier(sym))
+              xt.ClassSelector(extractTree(lhs), getIdentifier(sym)).setPos(c.pos)
             case Seq(rhs) =>
               val getter = sym.accessed.getterIn(sym.owner)
-              xt.FieldAssignment(extractTree(lhs), getIdentifier(getter), extractTree(rhs))
+              xt.FieldAssignment(extractTree(lhs), getIdentifier(getter), extractTree(rhs)).setPos(c.pos)
             case _ => outOfSubsetError(tr, "Unexpected call")
           }
 
@@ -1188,7 +1188,7 @@ trait CodeExtraction extends ASTExtractors {
               getIdentifier(optionSymbol.tpe.member(TermName("getOrElse"))),
               Seq.empty,
               Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
-            )
+            ).setPos(c.pos)
 
           case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
           case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)
@@ -1347,7 +1347,7 @@ trait CodeExtraction extends ASTExtractors {
     case UnitTpe    => xt.UnitType()
     case AnyTpe     => xt.AnyType()
     case NothingTpe => xt.NothingType()
-
+    
     case ct: ConstantType => extractType(ct.value.tpe)
 
     case TypeRef(_, sym, _) if isBigIntSym(sym) => xt.IntegerType()
