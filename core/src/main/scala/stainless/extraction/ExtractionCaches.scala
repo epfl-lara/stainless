@@ -65,9 +65,9 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
 
-  protected abstract class DependencyKey protected(id: Identifier)(implicit symbols: s.Symbols) extends CacheKey {
-    override def dependencies = symbols.dependencies(id) + id
-
+  protected sealed abstract class DependencyKey protected[ExtractionCaches](
+    override val dependencies: Set[Identifier]
+  )(implicit symbols: s.Symbols) extends CacheKey {
     private val key = dependencies.map(id => getSimpleKey(id))
 
     override def hashCode: Int = key.hashCode
@@ -77,27 +77,30 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     }
   }
 
-  protected abstract class DependencyKeyable[T <: s.Definition] extends Keyable[T] {
+  protected abstract class DependencyKeyable[T] extends Keyable[T] {
     override def apply(key: T, symbols: s.Symbols): DependencyKey
   }
 
-  private final class FunctionDepKey private(fd: s.FunDef)(implicit symbols: s.Symbols)
-    extends DependencyKey(fd.id)(symbols)
+  protected abstract class DefinitionDependencyKey(d: s.Definition)(implicit symbols: s.Symbols)
+    extends DependencyKey(symbols.dependencies(d.id) + d.id)(symbols)
 
-  protected implicit object FunctionDepKey extends DependencyKeyable[s.FunDef] {
-    override def apply(fd: s.FunDef, symbols: s.Symbols): DependencyKey = new FunctionDepKey(fd)(symbols)
+  private final class FunctionDependencyKey private(fd: s.FunDef)(implicit symbols: s.Symbols)
+    extends DefinitionDependencyKey(fd)(symbols)
+
+  protected implicit object FunctionDependencyKey extends DependencyKeyable[s.FunDef] {
+    override def apply(fd: s.FunDef, symbols: s.Symbols): DependencyKey = new FunctionDependencyKey(fd)(symbols)
   }
 
-  private final class SortDepKey private(sort: s.ADTSort)(implicit symbols: s.Symbols)
-    extends DependencyKey(sort.id)(symbols)
+  private final class SortDependencyKey private(sort: s.ADTSort)(implicit symbols: s.Symbols)
+    extends DefinitionDependencyKey(sort)(symbols)
 
-  protected implicit object SortDepKey extends DependencyKeyable[s.ADTSort] {
-    override def apply(sort: s.ADTSort, symbols: s.Symbols): DependencyKey = new SortDepKey(sort)(symbols)
+  protected implicit object SortDependencyKey extends DependencyKeyable[s.ADTSort] {
+    override def apply(sort: s.ADTSort, symbols: s.Symbols): DependencyKey = new SortDependencyKey(sort)(symbols)
   }
 
   protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): DependencyKey =
-    symbols.lookupFunction(id).map(FunctionDepKey(_, symbols))
-      .orElse(symbols.lookupSort(id).map(SortDepKey(_, symbols)))
+    symbols.lookupFunction(id).map(FunctionDependencyKey(_, symbols))
+      .orElse(symbols.lookupSort(id).map(SortDependencyKey(_, symbols)))
       .getOrElse(throw new RuntimeException(
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
@@ -124,6 +127,12 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   protected final class SimpleCache[A: SimpleKeyable, B] extends ExtractionCache[A, B]
 
   protected final class DependencyCache[A <: s.Definition : DependencyKeyable, B] extends ExtractionCache[A, B]
+
+  protected final class CustomCache[A, B](dependencies: (A, s.Symbols) => Set[Identifier])
+    extends ExtractionCache[A, B]()(new DependencyKeyable[A] {
+      override def apply(key: A, symbols: s.Symbols): DependencyKey =
+        new DependencyKey(dependencies(key, symbols))(symbols) {}
+    })
 
   override def invalidate(id: Identifier): Unit = {
     for (cache <- caches) cache.invalidate(id)

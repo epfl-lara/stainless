@@ -32,13 +32,13 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: ExtractionPip
     symbols.lookupClass(id).map(new ClassKey(_)).getOrElse(super.getSimpleKey(id))
 
 
-  private class ClassDepKey private(cd: s.ClassDef)(implicit symbols: s.Symbols)
-    extends DependencyKey(cd.id)(symbols)
+  private class ClassDependencyKey private(cd: s.ClassDef)(implicit symbols: s.Symbols)
+    extends DefinitionDependencyKey(cd)(symbols)
 
-  protected implicit object ClassDepKey extends DependencyKeyable[s.ClassDef] {
-    override def apply(cd: s.ClassDef, symbols: s.Symbols): DependencyKey = new ClassDepKey(cd)(symbols)
+  protected implicit object ClassDependencyKey extends DependencyKeyable[s.ClassDef] {
+    override def apply(cd: s.ClassDef, symbols: s.Symbols): DependencyKey = new ClassDependencyKey(cd)(symbols)
   }
 
   override protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): DependencyKey =
-    symbols.lookupClass(id).map(ClassDepKey(_, symbols)).getOrElse(super.getDependencyKey(id))
+    symbols.lookupClass(id).map(ClassDependencyKey(_, symbols)).getOrElse(super.getDependencyKey(id))
 }
