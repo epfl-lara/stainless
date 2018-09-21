@@ -23,7 +23,7 @@ package object xlang {
     val lowering: ExtractionPipeline {
       val s: trees.type
       val t: methods.trees.type
-    } = new oo.SimplePhase { self =>
+    } = new oo.SimplePhase with SimplyCachedFunctions with SimplyCachedSorts with oo.SimplyCachedClasses { self =>
       override val s: trees.type = trees
       override val t: methods.trees.type = methods.trees
       override val context = ctx
