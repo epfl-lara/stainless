@@ -21,33 +21,22 @@ package object equations {
   def trivial: Boolean = true
 
   @library @inline
-  implicit def any2EqProof[A](x: => A): EqProof[A] = EqProof(() => x, () => x)
+  implicit def any2EqEvidence[A](x: => A): EqEvidence[A] = EqEvidence(() => x, () => x, () => true)
 
   @library
   case class EqEvidence[A](x: () => A, y: () => A, evidence: () => Boolean) {
     require(x() == y() && evidence())
 
     @inline
-    def |(that: EqProof[A]): EqProof[A] = {
-      require(evidence() ==> (y() == that.x()))
-      EqProof(x, that.y)
-    }
-
-    @inline
-    def |(that: EqEvidence[A]): EqEvidence[A] = {
-      require(evidence() ==> (y() == that.x()))
-      EqEvidence(x, that.y, that.evidence)
-    }
-  }
-
-  @library
-  case class EqProof[A](x: () => A, y: () => A) {
-    require(x() == y())
-
-    @inline
     def ==|(proof: => Boolean): EqEvidence[A] = {
       require(proof)
       EqEvidence(x, y, () => proof)
+    }
+
+    @inline
+    def |:(prev: EqEvidence[A]): EqEvidence[A] = {
+      require(prev.evidence() ==> (prev.y() == x()))
+      EqEvidence(prev.x, y, prev.evidence)
     }
 
     @inline
