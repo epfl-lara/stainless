@@ -55,7 +55,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
         (fd.flags exists { case IsMethodOf(cid) => ids(cid) case _ => false })
       }
 
-      new ValueKey((ClassKey(cd, symbols), hasInv))
+      ClassKey(cd, symbols) + new ValueKey(hasInv)
   })
 
   private sealed trait Override { val cid: Identifier }
