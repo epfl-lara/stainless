@@ -470,128 +470,44 @@ trait TypeEncoding
 
 
   /* ====================================
-   *         UNAPPLY FUNCTIONS
+   *           CLASS INSTANCE
    * ==================================== */
 
-  private[this] val unapplyAnyCache = OptionSort.cached(new AtomicReference[t.FunDef])
-  private[this] def unapplyAny(implicit symbols: s.Symbols): t.FunDef = {
-    val cell = unapplyAnyCache.get
-    val value = cell.get
-    if (value != null) value
-    else {
-      import OptionSort.{value => _, _}
-      val fd = mkFunDef(
-        FreshIdentifier("InstanceOf"), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get)
-      )("A", "B") { case Seq(a, b) =>
-        (Seq("p" :: (a =>: t.BooleanType()), "t" :: (a =>: b), "x" :: a), T(option)(b), { case Seq(p, t, x) =>
-          if_ (p(x)) {
-            C(some)(b)(t(x))
-          } else_ {
-            C(none)(b)()
-          }
-        })
-      }
-
-      if (cell.compareAndSet(value, fd)) fd
-      else cell.get
-    }
+  private[this] def extraConstructors(cd: s.ClassDef)(implicit symbols: s.Symbols): Seq[Identifier] = {
+    (cd +: cd.descendants)
+      .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
+      .map(_.id)
   }
 
-
-  /* ====================================
-   *     ADT INSTANCE & CONVERTERS
-   * ==================================== */
-
-  private class SortInfo(val functions: Seq[t.FunDef])
-
-  private[this] val sortCache = new ExtractionCache[s.ADTSort, SortInfo]
-  private[this] def sortInfo(id: Identifier)(implicit context: TransformerContext): SortInfo = {
-    import context.{symbols, emptyScope => scope}
-    val sort = symbols.getSort(id)
-    sortCache.cached(sort, symbols) {
-      val convertFunction: t.FunDef = {
-        val (in, out) = (sort.typeArgs.map(_.freshen), sort.typeArgs.map(_.freshen))
-        val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
-        val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
-
-        val x = "x" :: T(id)(tin: _*)
-        val fs = tin zip tout flatMap { case (i, o) => Seq(i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
-
-        val newScope = scope converting (in zip out zip fs.grouped(2).toSeq flatMap {
-          case ((ti, to), Seq(vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
-        })
-
-        val conversions = sort.typed(in).constructors zip sort.typed(out).constructors map { case (ci, co) =>
-          (x.toVariable is ci.id, C(ci.id)(tout: _*)(ci.fields zip co.fields map { case (vi, vo) =>
-            convert(x.toVariable.getField(vi.id), vi.tpe, vo.tpe)(newScope)
-          }: _*))
-        }
-
-        val fullBody = conversions.init.foldRight(conversions.last._2: Expr) {
-          case ((cond, thenn), elze) => t.IfExpr(cond, thenn, elze)
-        }
-
-        new t.FunDef(
-          convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(id)(tout: _*), fullBody,
-          Seq(t.Unchecked, t.Synthetic)
-        ).setPos(sort)
-      }
-
-      val instanceFunction: t.FunDef = {
-        val in = sort.typeArgs.map(_.freshen)
-        val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
-
-        val x = "x" :: T(id)(tin: _*)
-        val fs = tin map { i => i.id.name :: (i =>: t.BooleanType()) }
-
-        val newScope = scope testing (in zip fs map { case (ti, vd) => (ti, ti) -> vd.toVariable })
-        val fullBody = t.orJoin(sort.typed(in).constructors map { cons =>
-          (x.toVariable is cons.id) &&
-          t.andJoin(cons.fields.map(vd => instanceOf(x.toVariable.getField(vd.id), vd.tpe, vd.tpe)(newScope)))
-        })
-
-        new t.FunDef(
-          instanceID(id), tin.map(t.TypeParameterDef(_)), x +: fs, t.BooleanType(), fullBody,
-          Seq(t.Unchecked, t.Synthetic)
-        ).setPos(sort)
-      }
-
-      new SortInfo(Seq(convertFunction, instanceFunction))
-    }
+  private[this] def constructors(cd: s.ClassDef)(implicit symbols: s.Symbols): Seq[Identifier] = {
+    (cd +: cd.descendants).filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors(cd)
   }
 
+  private[this] def constructors(id: Identifier)(implicit symbols: s.Symbols): Seq[Identifier] = {
+    constructors(symbols.getClass(id))
+  }
 
-  /* ====================================
-   *    CLASS INSTANCE & CONVERTERS
-   * ==================================== */
+  // The class instance function depends on the current class as well as its children on
+  // which the `instanceOf` call well be recursively performed, so the cache key consists of
+  // - the class definition
+  // - the children class definitions
+  private[this] val classInstanceCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
+    new UnionKey(Set(ClassKey(cd, symbols)) ++ cd.children(symbols).map(ClassKey(_, symbols)))
+  })
 
-  private class ClassInfo(
-    val constructors: Seq[Identifier],
-    val unapplyFunction: Identifier,
-    val functions: Seq[t.FunDef],
-    val sorts: Seq[t.ADTSort]
-  )
-
-  private[this] val classCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
-  private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
+  private[this] def classInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.symbols
     val cd = symbols.getClass(id)
-    classCache.get(symbols).cached(cd, symbols) {
-      import OptionSort._
-
-      val classes = cd +: cd.descendants
-      val extraConstructors = classes
-        .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-        .map(_.id)
-
-      val instanceFunction = mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
+    classInstanceCache.cached(cd, symbols) {
+      mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
           case x +: tps =>
             implicit val scope = context.emptyScope.testing(cd.typeArgs zip tps)
-            if (cd.children.nonEmpty || extraConstructors.nonEmpty) {
+            val extra = extraConstructors(cd)
+            if (cd.children.nonEmpty || extra.nonEmpty) {
               t.orJoin(
                 cd.typed.children.map(ccd => instanceOf(x, cd.typed.toType, ccd.toType)) ++
-                extraConstructors.map(t.IsConstructor(x, _))
+                extra.map(t.IsConstructor(x, _))
               )
             } else {
               (x is cd.id) &&
@@ -599,13 +515,38 @@ trait TypeEncoding
             }
         })
       }
+    }
+  }
 
-      val constructors = classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
 
-      val unapplyFunction = mkFunDef(
-        cd.id.freshen, t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get)
-      )() { _ =>
-        def condition(e: t.Expr): t.Expr = t.orJoin(constructors.map(t.IsConstructor(e, _)))
+  /* ====================================
+   *           CLASS UNAPPLY
+   * ==================================== */
+
+  private[this] val unapplyID = new CachedID[Identifier](_.freshen)
+
+  // The class unapply function depends on the current class and all its descendants
+  // as it directly checks the dominated constructor set (no use of `instanceOf`).
+  // The dependencies are therefore
+  // - the class definition
+  // - the descendant class definitions
+  // - the synthetic OptionSort definitions
+  private[this] val classUnapplyCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
+    new UnionKey(
+      Set(ClassKey(cd, symbols)) ++
+      cd.descendants(symbols).map(ClassKey(_, symbols)) ++
+      OptionSort.keys(symbols)
+    )
+  })
+
+  private[this] def classUnapply(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
+    import context.symbols
+    val cd = symbols.getClass(id)
+    classUnapplyCache.cached(cd, symbols) {
+      import OptionSort._
+      mkFunDef(unapplyID(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))() { _ =>
+        val cons = constructors(cd)
+        def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
 
         val vd = t.ValDef.fresh("v", ref)
         val returnType = t.RefinementType(vd, condition(vd.toVariable))
@@ -617,11 +558,108 @@ trait TypeEncoding
           }
         })
       }
-
-      new ClassInfo(constructors, unapplyFunction.id,
-        unapplyFunction +: instanceFunction +: OptionSort.functions, OptionSort.sorts)
     }
   }
+
+
+  /* ====================================
+   *         UNAPPLY FUNCTION
+   * ==================================== */
+
+  // The unapply function only depends on the synthetic OptionSort
+  private[this] val unapplyAnyCache = new CustomCache[s.Symbols, t.FunDef](
+    (_, symbols) => new UnionKey(OptionSort.keys(symbols))
+  )
+
+  private[this] def unapplyAny(implicit symbols: s.Symbols): t.FunDef = unapplyAnyCache.cached(symbols, symbols) {
+    import OptionSort.{value => _, _}
+    mkFunDef(FreshIdentifier("InstanceOf"), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))("A", "B") {
+      case Seq(a, b) => (
+        Seq("p" :: (a =>: t.BooleanType()), "t" :: (a =>: b), "x" :: a),
+        T(option)(b), { case Seq(p, t, x) =>
+          if_ (p(x)) {
+            C(some)(b)(t(x))
+          } else_ {
+            C(none)(b)()
+          }
+        }
+      )
+    }
+  }
+
+
+  /* ====================================
+   *           SORT INSTANCE
+   * ==================================== */
+
+  // The sort instance function depends only on the sort definition, so
+  // we can use a simple cache here
+  private[this] val sortInstanceCache = new SimpleCache[s.ADTSort, t.FunDef]
+
+  private[this] def sortInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
+    import context.{symbols, emptyScope => scope}
+    val sort = symbols.getSort(id)
+    sortInstanceCache.cached(sort, symbols) {
+      val in = sort.typeArgs.map(_.freshen)
+      val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
+
+      val x = "x" :: T(id)(tin: _*)
+      val fs = tin map { i => i.id.name :: (i =>: t.BooleanType()) }
+
+      val newScope = scope testing (in zip fs map { case (ti, vd) => (ti, ti) -> vd.toVariable })
+      val fullBody = t.orJoin(sort.typed(in).constructors map { cons =>
+        (x.toVariable is cons.id) &&
+        t.andJoin(cons.fields.map(vd => instanceOf(x.toVariable.getField(vd.id), vd.tpe, vd.tpe)(newScope)))
+      })
+
+      new t.FunDef(
+        instanceID(id), tin.map(t.TypeParameterDef(_)), x +: fs, t.BooleanType(), fullBody,
+        Seq(t.Unchecked, t.Synthetic)
+      ).setPos(sort)
+    }
+  }
+
+
+  /* ====================================
+   *            SORT CONVERT
+   * ==================================== */
+
+  // The sort conversion function depends only on the sort definition, so
+  // we can again use a simple cache here
+  private[this] val sortConvertCache = new SimpleCache[s.ADTSort, t.FunDef]
+
+  private[this] def sortConvert(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
+    import context.{symbols, emptyScope => scope}
+    val sort = symbols.getSort(id)
+    sortConvertCache.cached(sort, symbols) {
+      val (in, out) = (sort.typeArgs.map(_.freshen), sort.typeArgs.map(_.freshen))
+      val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
+      val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
+
+      val x = "x" :: T(id)(tin: _*)
+      val fs = tin zip tout flatMap { case (i, o) => Seq(i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
+
+      val newScope = scope converting (in zip out zip fs.grouped(2).toSeq flatMap {
+        case ((ti, to), Seq(vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
+      })
+
+      val conversions = sort.typed(in).constructors zip sort.typed(out).constructors map { case (ci, co) =>
+        (x.toVariable is ci.id, C(ci.id)(tout: _*)(ci.fields zip co.fields map { case (vi, vo) =>
+          convert(x.toVariable.getField(vi.id), vi.tpe, vo.tpe)(newScope)
+        }: _*))
+      }
+
+      val fullBody = conversions.init.foldRight(conversions.last._2: Expr) {
+        case ((cond, thenn), elze) => t.IfExpr(cond, thenn, elze)
+      }
+
+      new t.FunDef(
+        convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(id)(tout: _*), fullBody,
+        Seq(t.Unchecked, t.Synthetic)
+      ).setPos(sort)
+    }
+  }
+
 
   /* ====================================
    *   TRANFORMATION/ENCODING CONTEXT
@@ -947,7 +985,7 @@ trait TypeEncoding
 
         case _ =>
           instanceOfPattern(t.UnapplyPattern(
-            ob map transform, Seq(), classInfo(ct.id).unapplyFunction, Seq(),
+            ob map transform, Seq(), unapplyID(ct.id), Seq(),
             subs zip erased(ct).tcd.fields map { case (sub, vd) => transform(sub, vd.getType) }
           ).copiedFrom(pat), tpe, ct)
       }
@@ -1125,12 +1163,11 @@ trait TypeEncoding
     def transform(sort: s.ADTSort): t.ADTSort = emptyScope.transform(sort)
 
     def functions: Seq[t.FunDef] =
-      symbols.classes.keys.toSeq.flatMap(id => classInfo(id)(this).functions) ++
-      symbols.sorts.keys.flatMap(id => sortInfo(id)(this).functions) ++
+      symbols.classes.keys.toSeq.flatMap(id => Seq(classInstance(id)(this), classUnapply(id)(this))) ++
+      symbols.sorts.keys.flatMap(id => Seq(sortInstance(id)(this), sortConvert(id)(this))) ++
       OptionSort.functions :+ unapplyAny
 
     def sorts: Seq[t.ADTSort] =
-      symbols.classes.keys.toSeq.flatMap(id => classInfo(id)(this).sorts) ++
       OptionSort.sorts :+ refSort
   }
 
@@ -1185,6 +1222,16 @@ trait TypeEncoding
     result.ensureWellFormed
     result
   }
+
+  // The computation of which type parameters must be rewritten considers all
+  // dependencies, so we use a dependency cache for function transformations
+  override protected val funCache = new DependencyCache[s.FunDef, FunctionResult]
+
+  // Sort transformations are straightforward and can be simply cached
+  override protected val sortCache = new SimpleCache[s.ADTSort, SortResult]
+
+  // Classes are simply dropped by this phase, so any cache is valid here
+  override protected val classCache = new SimpleCache[s.ClassDef, ClassResult]
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)

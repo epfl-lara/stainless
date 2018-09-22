@@ -17,11 +17,10 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] val candidateCache = new ExtractionCache[s.ClassDef, Boolean]
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
-    candidateCache.cached(cd, symbols)(cd.parents match {
+    cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
           val cs = cd.children
@@ -34,101 +33,36 @@ trait AdtSpecialization
         }
         rec(cd)
       case _ => isCandidate(root(cd.id))
-    })
+    }
+  }
+
+  private[this] val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  private[this] def constructorID(id: Identifier)(implicit symbols: s.Symbols): Identifier =
+    symbols.lookupClass(id).map { cd =>
+      if (cd.parents.isEmpty && !(cd.flags contains s.IsAbstract)) constructorCache(cd.id)
+      else cd.id
+    }.getOrElse(id) // This covers the injected open class identifiers
+
+  private[this] val openID = new utils.ConcurrentCached[Identifier, Identifier](_ => FreshIdentifier("Open"))
+  private[this] def constructors(id: Identifier)(implicit symbols: s.Symbols): Seq[Identifier] = {
+    val cd = symbols.getClass(id)
+    val classes = cd +: cd.descendants
+    val extraConstructors: Seq[Identifier] = classes
+      .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
+      .map(cd => openID(cd.id))
+
+    classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
   }
 
   private[this] def isCaseObject(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     isCandidate(id) && (symbols.getClass(id).flags contains s.IsCaseObject)
   }
 
-  private class ClassInfo(
-    val id: Identifier,
-    val constructors: Seq[Identifier],
-    val objectFunction: Option[Identifier],
-    val unapplyFunction: Option[Identifier],
-    val functions: Seq[t.FunDef],
-    val sorts: Seq[t.ADTSort]
-  )
+  private[this] val caseObject = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  private[this] val unapplyID = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
 
-  private[this] val infoCache = OptionSort.cached(new ExtractionCache[s.ClassDef, ClassInfo])
-  private[this] val constructorCache = new ExtractionCache[s.ClassDef, Identifier]
-  private[this] def classInfo(id: Identifier)(implicit context: TransformerContext): ClassInfo = {
-    import t.dsl._
-    import context.{s => _, t => _, _}
-
-    val cd = context.symbols.getClass(id)
-    infoCache.get.cached(cd, context.symbols) {
-      assert(isCandidate(id))
-
-      val classes = cd +: cd.descendants
-      val extraConstructors: Seq[Identifier] = classes
-        .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-        .map(cd => constructorCache.cached(cd, symbols)(FreshIdentifier("Open")))
-
-      val constructors = classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
-
-      val constructorId = if (cd.parents.isEmpty && !(cd.flags contains s.IsAbstract)) {
-        cd.id.freshen
-      } else {
-        cd.id
-      }
-
-      val objectFunction = if (isCaseObject(id)) {
-        val vd = t.ValDef.fresh("v", t.ADTType(root(id), cd.typeArgs map (tp => context.transform(tp))))
-        val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, id))
-        Some(mkFunDef(cd.id.freshen, t.Inline, t.Derived(cd.id))()(_ => (
-          Seq(),
-          returnType,
-          (_ => t.ADT(constructorId, Seq(), Seq()).setPos(cd))
-        )).setPos(cd))
-      } else {
-        None
-      }
-
-      import OptionSort._
-      val unapplyFunction = if (root(id) != id && constructors != Seq(id)) {
-        Some(mkFunDef(cd.id.freshen, t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))
-                     (cd.typeArgs.map(_.id.name) : _*) { case tparams =>
-          val base = T(root(id))(tparams : _*)
-          def condition(e: t.Expr): t.Expr = t.orJoin(constructors.map(t.IsConstructor(e, _)))
-
-          val vd = t.ValDef.fresh("v", base)
-          val returnType = t.RefinementType(vd, condition(vd.toVariable))
-          (Seq("x" :: base), T(option)(returnType), { case Seq(x) =>
-            if_ (condition(x)) {
-              C(some)(returnType)(x)
-            } else_ {
-              C(none)(returnType)()
-            }
-          })
-        })
-      } else {
-        None
-      }
-
-      new ClassInfo(constructorId, constructors, objectFunction.map(_.id), unapplyFunction.map(_.id),
-        objectFunction.toSeq ++ unapplyFunction ++ (if (unapplyFunction.nonEmpty) OptionSort.functions else Seq()),
-        if (unapplyFunction.nonEmpty) OptionSort.sorts else Seq())
-    }
-  }
-
-  private[this] def constructors(id: Identifier)(implicit context: TransformerContext): Seq[Identifier] = {
-    classInfo(id).constructors
-  }
-
-  private[this] def constructorId(id: Identifier)(implicit context: TransformerContext): Identifier = {
-    if (context.symbols.classes contains id) classInfo(id).id
-    else id // This covers the injected open class identifiers
-  }
-
-  private[this] def objectFunction(id: Identifier)(implicit context: TransformerContext): Identifier = {
-    assert(isCaseObject(id)(context.symbols))
-    classInfo(id).objectFunction.get
-  }
-
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
-
-  protected class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
+  override protected final def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
+  protected final class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
 
@@ -145,26 +79,26 @@ trait AdtSpecialization
       }
 
       case s.ClassConstructor(s.ClassType(id, Seq()), Seq()) if isCaseObject(id) =>
-        t.FunctionInvocation(objectFunction(id), Seq(), Seq()).copiedFrom(e)
+        t.FunctionInvocation(caseObject(id), Seq(), Seq()).copiedFrom(e)
 
       case s.ClassConstructor(s.ClassType(id, tps), args) if isCandidate(id) =>
-        t.ADT(constructorId(id), tps map transform, args map transform).copiedFrom(e)
+        t.ADT(constructorID(id), tps map transform, args map transform).copiedFrom(e)
 
       case _ => super.transform(e)
     }
 
     override def transform(pat: s.Pattern): t.Pattern = pat match {
       case s.ClassPattern(binder, s.ClassType(id, tps), subs) if isCandidate(id) =>
-        t.ADTPattern(binder map transform, constructorId(id), tps map transform, subs map transform).copiedFrom(pat)
+        t.ADTPattern(binder map transform, constructorID(id), tps map transform, subs map transform).copiedFrom(pat)
       case iop @ s.InstanceOfPattern(ob, tpe @ s.ClassType(id, tps)) if isCandidate(id) =>
         if (constructors(id) == Seq(id)) {
           val subs = tpe.tcd.fields.map(_ => t.WildcardPattern(None).copiedFrom(pat))
-          t.ADTPattern(ob map transform, constructorId(id), tps map transform, subs).copiedFrom(iop)
+          t.ADTPattern(ob map transform, constructorID(id), tps map transform, subs).copiedFrom(iop)
         } else if (root(id) == id) {
           t.WildcardPattern(ob map transform).copiedFrom(iop)
         } else {
           t.UnapplyPattern(None, Seq(),
-            classInfo(id).unapplyFunction.get,
+            unapplyID(id),
             tps map transform,
             Seq(t.WildcardPattern(ob map transform).copiedFrom(iop))
           ).copiedFrom(iop)
@@ -179,25 +113,59 @@ trait AdtSpecialization
         } else {
           val vd = t.ValDef(FreshIdentifier("v"), t.ADTType(root(id), tps map transform).copiedFrom(tpe)).copiedFrom(tpe)
           t.RefinementType(vd, t.orJoin(constructors(id).map { cid =>
-            t.IsConstructor(vd.toVariable, constructorId(cid)).copiedFrom(tpe)
+            t.IsConstructor(vd.toVariable, constructorID(cid)).copiedFrom(tpe)
           }).copiedFrom(tpe)).copiedFrom(tpe)
         }
       case _ => super.transform(tpe)
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey = new UnionKey(
+    (symbols.dependencies(id) + id)
+      .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
+        if (isCandidate(cd.id)) {
+          val rootCd = symbols.getClass(root(cd.id))
+          Set(rootCd.id) ++ rootCd.descendants.map(_.id)
+        } else {
+          Set.empty[Identifier]
+        }
+      }).map(getSimpleKey(_))
+  )
 
-  override protected type ClassResult = Either[t.ClassDef, (Seq[t.ADTSort], Seq[t.FunDef])]
-  override protected def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols = {
+  // The function cache must consider the descendants of all classes on which the
+  // function depends as they will determine which classes will be transformed into
+  // sorts and which ones will not.
+  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult](
+    (fd, symbols) => descendantKey(fd.id)(symbols)
+  )
+
+  // If there are any input sorts in this phase, their transformation is simple
+  override protected final val sortCache = new SimpleCache[s.ADTSort, SortResult]
+
+  // The class cache must also consider all descendants of dependent classes as they
+  // will again determine what will become a sort and what won't.
+  // We must further depend on the synthetic OptionSort for the generated unapply function.
+  override protected final val classCache = new CustomCache[s.ClassDef, ClassResult](
+    (cd, symbols) => new UnionKey(
+      Set(descendantKey(cd.id)(symbols)) ++
+      // Note that we could use a more precise key here that determines whether the
+      // option sort will be used by the class result, but this shouldn't be necessary
+      OptionSort.keys(symbols)
+    )
+  )
+
+  override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+
+  override protected final type ClassResult = Either[t.ClassDef, (Option[t.ADTSort], Seq[t.FunDef])]
+  override protected final def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols = {
     classes.foldLeft(symbols) {
       case (symbols, Left(cd)) => symbols.withClasses(Seq(cd))
-      case (symbols, Right((sorts, fds))) => symbols.withSorts(sorts).withFunctions(fds)
+      case (symbols, Right((sort, fds))) => symbols.withSorts(sort.toSeq).withFunctions(fds)
     }
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
+  override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
     import context.{t => _, s => _, _}
     if (isCandidate(cd.id)) {
       if (cd.parents.isEmpty) {
@@ -205,12 +173,12 @@ trait AdtSpecialization
         val newSort = new t.ADTSort(
           cd.id,
           sortTparams,
-          constructors(cd.id)(context).map { cid =>
+          constructors(cd.id).map { cid =>
             if (context.symbols.classes contains cid) {
               val consCd = context.symbols.getClass(cid)
               val tpMap = (consCd.tparams.map(tpd => context.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
               new t.ADTConstructor(
-                constructorId(cid)(context),
+                constructorID(cid),
                 cd.id,
                 consCd.fields map { vd =>
                   val tvd = context.transform(vd)
@@ -225,15 +193,70 @@ trait AdtSpecialization
           cd.flags filterNot (f => f == s.IsAbstract || f == s.IsSealed) map (f => context.transform(f))
         ).copiedFrom(cd)
 
-        val functions = cd.descendants.flatMap(cd => classInfo(cd.id)(context).functions).distinct
-        val sorts = cd.descendants.flatMap(cd => classInfo(cd.id)(context).sorts).distinct
-        Right((newSort +: sorts, functions))
+        val functions = (cd +: cd.descendants).flatMap { cd =>
+          import t.dsl._
+
+          val objectFunction = if (isCaseObject(cd.id)) {
+            val vd = t.ValDef.fresh("v", t.ADTType(root(cd.id), cd.typeArgs map (tp => context.transform(tp))))
+            val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, cd.id))
+            Some(mkFunDef(caseObject(cd.id), t.Inline, t.Derived(cd.id))()(_ => (
+              Seq(),
+              returnType,
+              (_ => t.ADT(constructorID(cd.id), Seq(), Seq()).setPos(cd))
+            )).setPos(cd))
+          } else {
+            None
+          }
+
+          import OptionSort._
+          val cons = constructors(cd.id)
+          val unapplyFunction = if (root(cd.id) != cd.id && cons != Seq(cd.id)) {
+            Some(mkFunDef(unapplyID(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))
+                         (cd.typeArgs.map(_.id.name) : _*) { case tparams =>
+              val base = T(root(cd.id))(tparams : _*)
+              def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
+
+              val vd = t.ValDef.fresh("v", base)
+              val returnType = t.RefinementType(vd, condition(vd.toVariable))
+              (Seq("x" :: base), T(option)(returnType), { case Seq(x) =>
+                if_ (condition(x)) {
+                  C(some)(returnType)(x)
+                } else_ {
+                  C(none)(returnType)()
+                }
+              })
+            })
+          } else {
+            None
+          }
+
+          objectFunction.toSeq ++ unapplyFunction
+        }
+
+        Right((Some(newSort), functions))
       } else {
-        Right((Seq(), Seq()))
+        Right((None, Seq()))
       }
     } else {
       Left(context.transform(cd))
     }
+  }
+
+  override protected final def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    val newSymbols = super.extractSymbols(context, symbols)
+      .withFunctions(OptionSort.functions(symbols))
+      .withSorts(OptionSort.sorts(symbols))
+
+    val dependencies: Set[Identifier] =
+      (symbols.functions.keySet ++ symbols.sorts.keySet ++ symbols.classes.keySet)
+        .flatMap(id => newSymbols.dependencies(id) + id)
+
+    val independentSymbols = t.NoSymbols
+      .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
+      .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
+      .withClasses(newSymbols.classes.values.toSeq.filter(cd => dependencies(cd.id)))
+
+    independentSymbols
   }
 }
 

@@ -6,7 +6,14 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleClasses { self =>
+trait RefinementLifting
+  extends CachingPhase
+     with SimpleFunctions
+     with SimpleClasses
+     with SimplyCachedFunctions
+     with SimplyCachedSorts
+     with SimplyCachedClasses { self =>
+
   val s: Trees
   val t: Trees
 
