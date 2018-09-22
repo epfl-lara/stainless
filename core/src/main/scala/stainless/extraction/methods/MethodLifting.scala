@@ -17,27 +17,32 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   // the cache hit rate that much.
   private[this] final val funCache = new CustomCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
     new DependencyKey(fd.id, fd.flags
-      .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }.toSeq
+      .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
       .flatMap { cd =>
         val descendants = cd.descendants(symbols)
         val descendantIds = descendants.map(_.id).toSet
 
+        val isInvariant = fd.flags contains s.IsInvariant
+
         def symbolOf(fd: s.FunDef): Symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
 
-        val funOverrides = symbols.functions.values.filter { ofd =>
-          ofd.flags.exists { case IsMethodOf(cid) => descendantIds(cid) case _ => false } &&
-          symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
-        }.map(_.id).toSet
+        val funOverrides = symbols.functions.values
+          .filter(_.flags exists { case s.IsMethodOf(id) => descendantIds(id) case _ => false })
+          .filter { ofd =>
+            if (isInvariant) ofd.flags contains s.IsInvariant
+            else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
+          }.map(FunctionKey(_, symbols))
 
         val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty) {
-          descendants.filter(cd => cd.fields.exists(_.id.name == fd.id.name)).map(_.id)
+          descendants
+            .filter(cd => cd.fields.exists(_.id.name == fd.id.name))
+            .map(ClassKey(_, symbols))
         } else {
-          Set.empty[Identifier]
+          Set.empty[CacheKey]
         }
 
         funOverrides ++ fieldOverrides
-      }.toSet
-    )(symbols)
+      }.toSet)
   })
 
   // The class cache relies on the ClassKey, as well as whether the class (or one
