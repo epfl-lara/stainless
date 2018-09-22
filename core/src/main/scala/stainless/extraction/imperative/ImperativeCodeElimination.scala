@@ -4,7 +4,12 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
+trait ImperativeCodeElimination
+  extends SimpleFunctions
+     with IdentitySorts
+     with SimplyCachedFunctions
+     with SimplyCachedSorts {
+
   val s: Trees
   val t: s.type
   import s._

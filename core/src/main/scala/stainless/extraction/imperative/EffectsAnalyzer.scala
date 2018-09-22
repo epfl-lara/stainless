@@ -89,7 +89,7 @@ trait EffectsAnalyzer extends CachingPhase {
     override def toString: String = asString
   }
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, EffectsAnalysis]
+  private[this] val effectsCache = new DependencyCache[FunDef, EffectsAnalysis]
 
   protected object EffectsAnalysis {
     def empty: EffectsAnalysis = new EffectsAnalysis(Map.empty, Map.empty)
@@ -362,7 +362,7 @@ trait EffectsAnalyzer extends CachingPhase {
       .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
   }
 
-  private[this] val mutableCache = new ExtractionCache[ADTSort, Boolean]
+  private[this] val mutableCache = new DependencyCache[ADTSort, Boolean]
 
   /** Determine if the type is mutable
     *

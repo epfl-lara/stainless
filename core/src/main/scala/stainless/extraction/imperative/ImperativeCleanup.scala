@@ -11,7 +11,11 @@ package imperative
   * common case is the generation of function returning tuple with
   * Unit in it, which can be safely eliminated.
   */
-trait ImperativeCleanup extends SimplePhase { self =>
+trait ImperativeCleanup
+  extends SimplePhase
+     with SimplyCachedFunctions
+     with SimplyCachedSorts { self =>
+
   val s: Trees
   val t: extraction.Trees
 
