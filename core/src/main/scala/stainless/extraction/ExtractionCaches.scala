@@ -65,17 +65,30 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
 
-  protected sealed abstract class DependencyKey protected[ExtractionCaches](
-    override val dependencies: Set[Identifier]
-  )(implicit symbols: s.Symbols) extends CacheKey {
-    private val key = dependencies.map(id => getSimpleKey(id))
+  protected sealed class UnionKey(private val keys: Set[CacheKey]) extends CacheKey {
+    override val dependencies = keys.flatMap(_.dependencies)
 
-    override def hashCode: Int = key.hashCode
+    override def hashCode: Int = keys.hashCode
     override def equals(that: Any): Boolean = that match {
-      case dk: DependencyKey => key == dk.key
+      case uk: UnionKey => keys == uk.keys
       case _ => false
     }
   }
+
+
+  protected sealed class ValueKey[T](private val value: T) extends CacheKey {
+    override def dependencies = Set()
+
+    override def hashCode: Int = value.hashCode
+    override def equals(that: Any): Boolean = that match {
+      case (vk: ValueKey[_]) => value == vk.value
+      case _ => false
+    }
+  }
+
+
+  protected sealed class DependencyKey(override val dependencies: Set[Identifier])(implicit symbols: s.Symbols)
+    extends UnionKey(dependencies.map(id => getSimpleKey(id)))
 
   protected abstract class DependencyKeyable[T] extends Keyable[T] {
     override def apply(key: T, symbols: s.Symbols): DependencyKey
@@ -128,10 +141,9 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 
   protected final class DependencyCache[A <: s.Definition : DependencyKeyable, B] extends ExtractionCache[A, B]
 
-  protected final class CustomCache[A, B](dependencies: (A, s.Symbols) => Set[Identifier])
-    extends ExtractionCache[A, B]()(new DependencyKeyable[A] {
-      override def apply(key: A, symbols: s.Symbols): DependencyKey =
-        new DependencyKey(dependencies(key, symbols))(symbols) {}
+  protected final class CustomCache[A, B](gen: (A, s.Symbols) => CacheKey)
+    extends ExtractionCache[A, B]()(new Keyable[A] {
+      override def apply(key: A, symbols: s.Symbols): CacheKey = gen(key, symbols)
     })
 
   override def invalidate(id: Identifier): Unit = {
