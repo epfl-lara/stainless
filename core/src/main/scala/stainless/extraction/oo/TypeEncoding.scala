@@ -819,7 +819,7 @@ trait TypeEncoding
           t.Variable(v.id, functionType, v.flags.map(funScope.transform)).copiedFrom(v),
           tparams.zipWithIndex.collect { case (tp, i) if !ctparams(i) => transform(tp).asInstanceOf[t.TypeParameter] },
           tps.zipWithIndex.collect { case (tp, i) if !ctparams(i) => transform(tp) },
-          tps.zipWithIndex.collect {  case (tp, i) if !ctparams(i) =>
+          tps.zipWithIndex.collect {  case (tp, i) if ctparams(i) =>
             simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
           } ++ (fun.params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, s.typeOps.instantiateType(vd.tpe, tpSubst))(funScope)
