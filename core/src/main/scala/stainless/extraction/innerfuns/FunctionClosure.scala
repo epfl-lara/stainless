@@ -4,7 +4,11 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
+trait FunctionClosure
+  extends CachingPhase
+     with SimplyCachedFunctions
+     with IdentitySorts { self =>
+
   val s: Trees
   val t: ast.Trees
 
