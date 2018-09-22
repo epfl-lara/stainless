@@ -148,7 +148,7 @@ trait AdtSpecialization
   override protected final val classCache = new CustomCache[s.ClassDef, ClassResult](
     // Note that we could use a more precise key here that determines whether the
     // option sort will be used by the class result, but this shouldn't be necessary
-    (cd, symbols) => new ValueKey((descendantKey(cd.id)(symbols), OptionSort.key(symbols)))
+    (cd, symbols) => descendantKey(cd.id)(symbols) + OptionSort.key(symbols)
   )
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)

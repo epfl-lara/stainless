@@ -532,10 +532,7 @@ trait TypeEncoding
   // - the descendant class definitions
   // - the synthetic OptionSort definitions
   private[this] val classUnapplyCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
-    new ValueKey((
-      new DependencyKey(cd.id, cd.descendants(symbols).map(_.id).toSet)(symbols),
-      OptionSort.key(symbols)
-    ))
+    new DependencyKey(cd.id, cd.descendants(symbols).map(_.id).toSet)(symbols) + OptionSort.key(symbols)
   })
 
   private[this] def classUnapply(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
