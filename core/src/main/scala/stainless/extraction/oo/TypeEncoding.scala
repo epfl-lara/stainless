@@ -670,7 +670,7 @@ trait TypeEncoding
    * @param outer - the scope in which the local function definition occurred
    * @param tparams - the type parameters that should be encoded to predicates
    */
-  protected case class FunInfo(fun: s.FunAbstraction, outer: Option[Scope], tparams: Set[Int])
+  protected case class FunInfo(fun: s.FunAbstraction, tparams: Set[Int])
 
   protected class ExprMapping private(underlying: Map[(s.Type, Option[s.Type]), t.Expr]) {
     def contains(p: (s.Type, s.Type)): Boolean = underlying contains (p._1 -> Some(p._2))
@@ -747,118 +747,9 @@ trait TypeEncoding
       case _ => super.transform(tp)
     }
 
-    def withFunctions(funs: Seq[s.FunAbstraction]): Scope = {
-
-      def computeInfo(fun: s.FunAbstraction)(infos: Map[Identifier, FunInfo]): FunInfo = {
-        val tparams: Seq[s.TypeParameter] = fun.tparams.map(_.tp)
-        var simple: Set[s.TypeParameter] = tparams.toSet
-
-        object traverser extends TransformerWithType {
-          override val s: self.s.type = self.s
-          override val t: self.s.type = self.s
-          override val symbols = context.symbols
-
-          override def transform(pat: s.Pattern, in: s.Type): t.Pattern = pat match {
-            case s.InstanceOfPattern(_, tpe) if leastUpperBound(tpe, in) == s.AnyType() =>
-              simple --= s.typeOps.typeParamsOf(in.getType)
-              simple --= s.typeOps.typeParamsOf(tpe.getType)
-              super.transform(pat, in)
-
-            case s.ClassPattern(_, ct, _) =>
-              if (leastUpperBound(ct, in) == s.AnyType()) {
-                simple --= s.typeOps.typeParamsOf(in.getType)
-              }
-              simple --= s.typeOps.typeParamsOf(ct.getType)
-              super.transform(pat, in)
-
-            case s.ADTPattern(ob, id, tps, subs) =>
-              if (leastUpperBound(in, s.ADTType(getConstructor(id).sort, tps)) == s.AnyType()) {
-                simple --= s.typeOps.typeParamsOf(in.getType)
-                tps.foreach(tp => simple --= s.typeOps.typeParamsOf(tp.getType))
-              }
-              super.transform(pat, in)
-
-            case s.TuplePattern(ob, subs) => widen(in.getType) match {
-              case s.TupleType(tps) if tps.size == subs.size =>
-                super.transform(pat, in)
-              case _ =>
-                simple --= s.typeOps.typeParamsOf(in.getType)
-                super.transform(pat, in)
-            }
-
-            case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
-              val tparams = infos.get(id).getOrElse(functions(id)).tparams
-              simple --= tps.zipWithIndex.flatMap { case (tp, i) =>
-                if (tparams(i)) s.typeOps.typeParamsOf(tp.getType)
-                else Set.empty[s.TypeParameter]
-              }
-              super.transform(pat, in)
-
-            case s.LiteralPattern(_, lit) if leastUpperBound(lit.getType, in) == s.AnyType() =>
-              simple --= s.typeOps.typeParamsOf(in.getType)
-              super.transform(pat, in)
-
-            case _ => super.transform(pat, in)
-          }
-
-          override def transform(e: s.Expr, tpe: s.Type): t.Expr = e match {
-            case s.IsInstanceOf(expr, tp) if leastUpperBound(expr.getType, tp) == s.AnyType() =>
-              simple --= s.typeOps.typeParamsOf(expr.getType)
-              simple --= s.typeOps.typeParamsOf(tp.getType)
-              super.transform(e, tpe)
-
-            case s.AsInstanceOf(expr, tp) if leastUpperBound(expr.getType, tp) == s.AnyType() =>
-              simple --= s.typeOps.typeParamsOf(expr.getType)
-              simple --= s.typeOps.typeParamsOf(tp.getType)
-              super.transform(e, tpe)
-
-            case s.FunInvocation(id, tps, args, _) =>
-              val tparams = infos.get(id).getOrElse(functions(id)).tparams
-              simple --= tps.zipWithIndex.flatMap { case (tp, i) =>
-                if (tparams(i)) s.typeOps.typeParamsOf(tp.getType)
-                else Set.empty[s.TypeParameter]
-              }
-              super.transform(e, tpe)
-
-            case _ => super.transform(e, tpe)
-          }
-
-          override def transform(tpe: s.Type): t.Type = tpe match {
-            case s.ClassType(id, tps) =>
-              simple --= tps.flatMap(tp => s.typeOps.typeParamsOf(tp))
-              super.transform(tpe)
-
-            case tp: s.TypeParameter if simple(tp) =>
-              if (tp.flags
-                .collect { case s.Bounds(lo, hi) => s.typeOps.typeParamsOf(lo) ++ s.typeOps.typeParamsOf(hi) }
-                .flatMap(boundParams => tparams.filter(boundParams))
-                .filterNot(simple)
-                .nonEmpty) simple -= tp
-              super.transform(tpe)
-
-            case _ => super.transform(tpe)
-          }
-        }
-
-        fun.tparams map (traverser.transform(_))
-        fun.params map (traverser.transform(_))
-        traverser.transform(fun.returnType)
-        traverser.transform(fun.fullBody, fun.returnType.getType)
-        fun.flags map (traverser.transform(_))
-
-        FunInfo(fun, Some(this), tparams.zipWithIndex.collect { case (tp, i) if !simple(tp) => i }.toSet)
-      }
-
-      val newFunctions = inox.utils.fixpoint { (infos: Map[Identifier, FunInfo]) =>
-        infos.map { case (id, info) => id -> computeInfo(info.fun)(infos) }
-      } (funs.map(fun => fun.id -> FunInfo(fun, Some(this), Set.empty)).toMap)
-
-      new Scope(functions ++ newFunctions, tparams, testers, converters)
-    }
-
     def in(id: Identifier): Scope = {
       assert((functions contains id) || (classes contains id))
-      val extraTParams = functions.get(id).map { case FunInfo(fun, _, tparams) =>
+      val extraTParams = functions.get(id).map { case FunInfo(fun, tparams) =>
         fun.tparams.map(_.tp).zipWithIndex.collect { case (tp, i) if tparams(i) => tp }
       }.getOrElse(classes(id).typeArgs)
       new Scope(functions, tparams ++ extraTParams, testers, converters)
@@ -887,7 +778,7 @@ trait TypeEncoding
 
       case fi @ s.FunctionInvocation(id, tps, args) =>
         val funScope = this in id
-        val FunInfo(fun, _, tparams) = functions(id)
+        val FunInfo(fun, tparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (tparams(i)) tp else tpe)
         }.toMap
@@ -902,7 +793,7 @@ trait TypeEncoding
 
       case app @ s.ApplyLetRec(v, tparams, tps, args) =>
         val funScope = this in v.id
-        val FunInfo(fun, _, ctparams) = functions(v.id)
+        val FunInfo(fun, ctparams) = functions(v.id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (ctparams(i)) tp else tpe)
         }.toMap
@@ -936,9 +827,8 @@ trait TypeEncoding
 
       case s.LetRec(fds, body) =>
         val funs = fds.map(fd => s.Inner(fd))
-        val newScope = scope withFunctions funs
-        val newFuns = funs.map(fun => newScope transform fun)
-        val newBody = newScope.transform(body, inType)
+        val newFuns = funs.map(fun => scope transform fun)
+        val newBody = scope.transform(body, inType)
         t.LetRec(newFuns.map(_.toLocal), newBody).copiedFrom(e)
 
       case e if isObject(e.getType) != isObject(inType) =>
@@ -1005,7 +895,7 @@ trait TypeEncoding
 
       case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
         val funScope = this in id
-        val FunInfo(fun, _, tparams) = functions(id)
+        val FunInfo(fun, tparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (tparams(i)) tp else tpe)
         }.toMap
@@ -1032,7 +922,7 @@ trait TypeEncoding
     override def transform(fd: s.FunDef): t.FunDef = transform(s.Outer(fd)).toFun
 
     def transform(fd: s.FunAbstraction): t.FunAbstraction = {
-      val FunInfo(_, _, tparams) = functions(fd.id)
+      val FunInfo(_, tparams) = functions(fd.id)
 
       val ntparams = fd.tparams.zipWithIndex.collect { case (tpd, i) if !tparams(i) => transform(tpd) }
 
@@ -1071,9 +961,125 @@ trait TypeEncoding
   }
 
   private[this] object Scope {
-    def empty(implicit context: TransformerContext): Scope = new Scope(
-      Map.empty, Set.empty, ExprMapping.empty, ExprMapping.empty
-    ) withFunctions context.symbols.functions.values.map(s.Outer(_)).toSeq
+    def empty(implicit context: TransformerContext): Scope = {
+      import context.symbols
+      import symbols._
+
+      def computeInfo(fun: s.FunAbstraction)(infos: Map[Identifier, FunInfo]): FunInfo = {
+        val tparams: Seq[s.TypeParameter] = fun.tparams.map(_.tp)
+        var simple: Set[s.TypeParameter] = tparams.toSet
+
+        object traverser extends TransformerWithType {
+          override val s: self.s.type = self.s
+          override val t: self.s.type = self.s
+          override val symbols = context.symbols
+
+          override def transform(pat: s.Pattern, in: s.Type): t.Pattern = pat match {
+            case s.InstanceOfPattern(_, tpe) if leastUpperBound(tpe, in) == s.AnyType() =>
+              simple --= s.typeOps.typeParamsOf(in.getType)
+              simple --= s.typeOps.typeParamsOf(tpe.getType)
+              super.transform(pat, in)
+
+            case s.ClassPattern(_, ct, _) =>
+              if (leastUpperBound(ct, in) == s.AnyType()) {
+                simple --= s.typeOps.typeParamsOf(in.getType)
+              }
+              simple --= s.typeOps.typeParamsOf(ct.getType)
+              super.transform(pat, in)
+
+            case s.ADTPattern(ob, id, tps, subs) =>
+              if (leastUpperBound(in, s.ADTType(getConstructor(id).sort, tps)) == s.AnyType()) {
+                simple --= s.typeOps.typeParamsOf(in.getType)
+                tps.foreach(tp => simple --= s.typeOps.typeParamsOf(tp.getType))
+              }
+              super.transform(pat, in)
+
+            case s.TuplePattern(ob, subs) => widen(in.getType) match {
+              case s.TupleType(tps) if tps.size == subs.size =>
+                super.transform(pat, in)
+              case _ =>
+                simple --= s.typeOps.typeParamsOf(in.getType)
+                super.transform(pat, in)
+            }
+
+            case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
+              val tparams = infos(id).tparams
+              simple --= tps.zipWithIndex.flatMap { case (tp, i) =>
+                if (tparams(i)) s.typeOps.typeParamsOf(tp.getType)
+                else Set.empty[s.TypeParameter]
+              }
+              super.transform(pat, in)
+
+            case s.LiteralPattern(_, lit) if leastUpperBound(lit.getType, in) == s.AnyType() =>
+              simple --= s.typeOps.typeParamsOf(in.getType)
+              super.transform(pat, in)
+
+            case _ => super.transform(pat, in)
+          }
+
+          override def transform(e: s.Expr, tpe: s.Type): t.Expr = e match {
+            case s.IsInstanceOf(expr, tp) if leastUpperBound(expr.getType, tp) == s.AnyType() =>
+              simple --= s.typeOps.typeParamsOf(expr.getType)
+              simple --= s.typeOps.typeParamsOf(tp.getType)
+              super.transform(e, tpe)
+
+            case s.AsInstanceOf(expr, tp) if leastUpperBound(expr.getType, tp) == s.AnyType() =>
+              simple --= s.typeOps.typeParamsOf(expr.getType)
+              simple --= s.typeOps.typeParamsOf(tp.getType)
+              super.transform(e, tpe)
+
+            case s.FunInvocation(id, tps, args, _) =>
+              val tparams = infos(id).tparams
+              simple --= tps.zipWithIndex.flatMap { case (tp, i) =>
+                if (tparams(i)) s.typeOps.typeParamsOf(tp.getType)
+                else Set.empty[s.TypeParameter]
+              }
+              super.transform(e, tpe)
+
+            case _ => super.transform(e, tpe)
+          }
+
+          override def transform(tpe: s.Type): t.Type = tpe match {
+            case s.ClassType(id, tps) =>
+              simple --= tps.flatMap(tp => s.typeOps.typeParamsOf(tp))
+              super.transform(tpe)
+
+            case tp: s.TypeParameter if simple(tp) =>
+              if (tp.flags
+                .collect { case s.Bounds(lo, hi) => s.typeOps.typeParamsOf(lo) ++ s.typeOps.typeParamsOf(hi) }
+                .flatMap(boundParams => tparams.filter(boundParams))
+                .filterNot(simple)
+                .nonEmpty) simple -= tp
+              super.transform(tpe)
+
+            case _ => super.transform(tpe)
+          }
+        }
+
+        fun.tparams map (traverser.transform(_))
+        fun.params map (traverser.transform(_))
+        traverser.transform(fun.returnType)
+        traverser.transform(fun.fullBody, fun.returnType.getType)
+        fun.flags map (traverser.transform(_))
+
+        FunInfo(fun, tparams.zipWithIndex.collect { case (tp, i) if !simple(tp) => i }.toSet)
+      }
+
+      val functions = context.symbols.functions.values.toSeq.flatMap { fd =>
+        val inners = s.exprOps.collect {
+          case s.LetRec(fds, _) => fds.toSet
+          case _ => Set.empty[s.LocalFunDef]
+        } (fd.fullBody)
+
+        Seq(s.Outer(fd)) ++ inners.map(s.Inner(_))
+      }
+
+      val infos = inox.utils.fixpoint { (infos: Map[Identifier, FunInfo]) =>
+        infos.map { case (id, info) => id -> computeInfo(info.fun)(infos) }
+      } (functions.map(fun => fun.id -> FunInfo(fun, Set.empty)).toMap)
+
+      new Scope(infos, Set.empty, ExprMapping.empty, ExprMapping.empty)
+    }
   }
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
@@ -1109,13 +1115,7 @@ trait TypeEncoding
         }
       }
 
-      emptyScope.functions.values.foreach { case FunInfo(fun, _, _) =>
-        fun.tparams.foreach(traverser.traverse)
-        fun.params.foreach(traverser.traverse)
-        traverser.traverse(fun.returnType)
-        traverser.traverse(fun.fullBody)
-        fun.flags.foreach(traverser.traverse)
-      }
+      symbols.functions.values.foreach(traverser.traverse)
 
       (tplSizes, funSizes, bvSizes)
     }
