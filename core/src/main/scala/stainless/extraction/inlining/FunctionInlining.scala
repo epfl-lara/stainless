@@ -9,6 +9,18 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val t: extraction.Trees
   import s._
 
+  // The function inlining transformation depends on all (transitive) callees
+  // that will require inlining.
+  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult]({
+    (fd, symbols) => new UnionKey(
+      Set(FunctionKey(fd, symbols)) ++
+      symbols.dependencies(fd.id)
+        .flatMap(id => symbols.lookupFunction(id))
+        .filter(_.flags exists { case Inline | InlineOnce => true case _ => false })
+        .map(FunctionKey(_, symbols))
+    )
+  })
+
   override protected type FunctionResult = Option[t.FunDef]
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
