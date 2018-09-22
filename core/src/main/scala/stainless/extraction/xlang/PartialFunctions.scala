@@ -6,7 +6,12 @@ package xlang
 
 import scala.language.existentials
 
-trait PartialFunctions extends oo.SimplePhase { self =>
+trait PartialFunctions
+  extends oo.SimplePhase
+     with SimplyCachedFunctions
+     with SimplyCachedSorts
+     with oo.SimplyCachedClasses { self =>
+
   val t: self.s.type
   import s._
 
