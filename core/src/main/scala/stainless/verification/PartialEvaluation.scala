@@ -10,7 +10,8 @@ object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
 trait PartialEvaluation
   extends extraction.CachingPhase
      with extraction.IdentitySorts
-     with extraction.SimpleFunctions { self =>
+     with extraction.SimpleFunctions
+     with extraction.DependentlyCachedFunctions { self =>
 
   val s: extraction.Trees
   val t: s.type
