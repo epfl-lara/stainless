@@ -37,7 +37,7 @@ trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
   protected class SortCollector extends super.SortCollector with TreeTraverser {
     override def traverse(pat: Pattern): Unit = pat match {
       case ADTPattern(_, id, _, _) =>
-        register(id)
+        register(symbols.getConstructor(id).sort)
         super.traverse(pat)
       case _ =>
         super.traverse(pat)
