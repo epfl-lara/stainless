@@ -120,8 +120,8 @@ trait AdtSpecialization
     }
   }
 
-  private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey = new UnionKey(
-    (symbols.dependencies(id) + id)
+  private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+    new DependencyKey(id, symbols.dependencies(id)
       .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
         if (isCandidate(cd.id)) {
           val rootCd = symbols.getClass(root(cd.id))
@@ -129,8 +129,8 @@ trait AdtSpecialization
         } else {
           Set.empty[Identifier]
         }
-      }).map(getSimpleKey(_))
-  )
+      })
+    )
 
   // The function cache must consider the descendants of all classes on which the
   // function depends as they will determine which classes will be transformed into
@@ -146,12 +146,9 @@ trait AdtSpecialization
   // will again determine what will become a sort and what won't.
   // We must further depend on the synthetic OptionSort for the generated unapply function.
   override protected final val classCache = new CustomCache[s.ClassDef, ClassResult](
-    (cd, symbols) => new UnionKey(
-      Set(descendantKey(cd.id)(symbols)) ++
-      // Note that we could use a more precise key here that determines whether the
-      // option sort will be used by the class result, but this shouldn't be necessary
-      OptionSort.keys(symbols)
-    )
+    // Note that we could use a more precise key here that determines whether the
+    // option sort will be used by the class result, but this shouldn't be necessary
+    (cd, symbols) => new ValueKey((descendantKey(cd.id)(symbols), OptionSort.key(symbols)))
   )
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)

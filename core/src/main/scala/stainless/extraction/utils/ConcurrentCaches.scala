@@ -15,8 +15,9 @@ class ConcurrentCache[A,B](underlying: ConcurrentHashMap[A,B] = new ConcurrentHa
   def cached(key: A)(value: => B): B = {
     val result = underlying.get(key)
     if (result != null) result else {
-      underlying.putIfAbsent(key, value)
-      underlying.get(key)
+      val newValue = value // force the value
+      val previous = underlying.putIfAbsent(key, newValue)
+      if (previous == null) newValue else previous
     }
   }
 

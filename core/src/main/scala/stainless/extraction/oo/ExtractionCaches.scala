@@ -22,6 +22,8 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: ExtractionPip
       case ck: ClassKey => (cd eq ck.cd) || (key == ck.key)
       case _ => false
     }
+
+    override def toString: String = s"ClassKey(${cd.id.asString})"
   }
 
   protected implicit object ClassKey extends SimpleKeyable[s.ClassDef] {
@@ -33,7 +35,7 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: ExtractionPip
 
 
   private class ClassDependencyKey private(cd: s.ClassDef)(implicit symbols: s.Symbols)
-    extends DefinitionDependencyKey(cd)(symbols)
+    extends DependencyKey(cd.id)(symbols)
 
   protected implicit object ClassDependencyKey extends DependencyKeyable[s.ClassDef] {
     override def apply(cd: s.ClassDef, symbols: s.Symbols): DependencyKey = new ClassDependencyKey(cd)(symbols)

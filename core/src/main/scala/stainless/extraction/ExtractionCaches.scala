@@ -5,7 +5,12 @@ package extraction
 
 trait ExtractionCaches { self: ExtractionPipeline =>
 
+  /** A super type for all cache keys.
+    * The set of dependencies is required in order to invalidate cache entries. */
   protected abstract class CacheKey { def dependencies: Set[Identifier] }
+
+  /** A super type for all cache key generators.
+    * This typeclass is used for instantiating extraction caches by key type. */
   protected sealed abstract class Keyable[T] { def apply(key: T, symbols: s.Symbols): CacheKey }
 
   protected abstract class SimpleKey extends CacheKey
@@ -30,6 +35,8 @@ trait ExtractionCaches { self: ExtractionPipeline =>
       case fk: FunctionKey => (fd eq fk.fd) || (key == fk.key)
       case _ => false
     }
+
+    override def toString: String = s"FunctionKey(${fd.id.asString})"
   }
 
   protected implicit object FunctionKey extends SimpleKeyable[s.FunDef] {
@@ -52,6 +59,8 @@ trait ExtractionCaches { self: ExtractionPipeline =>
       case sk: SortKey => (sort eq sk.sort) || (key == sk.key)
       case _ => false
     }
+
+    override def toString: String = s"SortKey(${sort.id.asString})"
   }
 
   protected implicit object SortKey extends SimpleKeyable[s.ADTSort] {
@@ -65,7 +74,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
 
-  protected sealed class UnionKey(private val keys: Set[CacheKey]) extends CacheKey {
+  protected sealed class UnionKey(private[ExtractionCaches] final val keys: Set[CacheKey]) extends CacheKey {
     override val dependencies = keys.flatMap(_.dependencies)
 
     override def hashCode: Int = keys.hashCode
@@ -73,10 +82,12 @@ trait ExtractionCaches { self: ExtractionPipeline =>
       case uk: UnionKey => keys == uk.keys
       case _ => false
     }
+
+    override def toString: String = s"UnionKey(${keys.mkString(", ")})"
   }
 
 
-  protected sealed class ValueKey[T](private val value: T) extends CacheKey {
+  protected sealed class ValueKey[T](private[ExtractionCaches] final val value: T) extends CacheKey {
     override def dependencies = Set()
 
     override def hashCode: Int = value.hashCode
@@ -84,28 +95,33 @@ trait ExtractionCaches { self: ExtractionPipeline =>
       case (vk: ValueKey[_]) => value == vk.value
       case _ => false
     }
+
+    override def toString: String = s"ValueKey($value)"
   }
 
 
-  protected sealed class DependencyKey(override val dependencies: Set[Identifier])(implicit symbols: s.Symbols)
-    extends UnionKey(dependencies.map(id => getSimpleKey(id)))
+  protected class DependencyKey(id: Identifier, dependencies: Set[Identifier])(implicit symbols: s.Symbols)
+    extends ValueKey(id -> new UnionKey((dependencies + id).map(getSimpleKey(_)))) {
+
+    def this(id: Identifier)(implicit symbols: s.Symbols) = this(id, symbols.dependencies(id))
+
+    override def toString: String = s"DependencyKey($id, ${value._2.keys.mkString(", ")})"
+  }
 
   protected abstract class DependencyKeyable[T] extends Keyable[T] {
     override def apply(key: T, symbols: s.Symbols): DependencyKey
   }
 
-  protected abstract class DefinitionDependencyKey(d: s.Definition)(implicit symbols: s.Symbols)
-    extends DependencyKey(symbols.dependencies(d.id) + d.id)(symbols)
 
   private final class FunctionDependencyKey private(fd: s.FunDef)(implicit symbols: s.Symbols)
-    extends DefinitionDependencyKey(fd)(symbols)
+    extends DependencyKey(fd.id)(symbols)
 
   protected implicit object FunctionDependencyKey extends DependencyKeyable[s.FunDef] {
     override def apply(fd: s.FunDef, symbols: s.Symbols): DependencyKey = new FunctionDependencyKey(fd)(symbols)
   }
 
   private final class SortDependencyKey private(sort: s.ADTSort)(implicit symbols: s.Symbols)
-    extends DefinitionDependencyKey(sort)(symbols)
+    extends DependencyKey(sort.id)(symbols)
 
   protected implicit object SortDependencyKey extends DependencyKeyable[s.ADTSort] {
     override def apply(sort: s.ADTSort, symbols: s.Symbols): DependencyKey = new SortDependencyKey(sort)(symbols)

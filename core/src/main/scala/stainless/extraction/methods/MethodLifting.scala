@@ -16,32 +16,28 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   // the set of direct overrides is significantly more expensive and shouldn't improve
   // the cache hit rate that much.
   private[this] final val funCache = new CustomCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
-    new UnionKey(
-      Set(FunctionKey(fd, symbols)) ++
-      fd.flags
-        .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }.toSeq
-        .flatMap { cd =>
-          val descendants = cd.descendants(symbols)
-          val descendantIds = descendants.map(_.id).toSet
+    new DependencyKey(fd.id, fd.flags
+      .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }.toSeq
+      .flatMap { cd =>
+        val descendants = cd.descendants(symbols)
+        val descendantIds = descendants.map(_.id).toSet
 
-          def symbolOf(fd: s.FunDef): Symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
+        def symbolOf(fd: s.FunDef): Symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
 
-          val funOverrides = symbols.functions.values.filter { ofd =>
-            ofd.flags.exists { case IsMethodOf(cid) => descendantIds(cid) case _ => false } &&
-            symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
-          }.map(FunctionKey(_, symbols))
+        val funOverrides = symbols.functions.values.filter { ofd =>
+          ofd.flags.exists { case IsMethodOf(cid) => descendantIds(cid) case _ => false } &&
+          symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
+        }.map(_.id).toSet
 
-          val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty) {
-            descendants
-              .filter(cd => cd.fields.exists(_.id.name == fd.id.name))
-              .map(ClassKey(_, symbols))
-          } else {
-            Set.empty[CacheKey]
-          }
-
-          funOverrides ++ fieldOverrides
+        val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty) {
+          descendants.filter(cd => cd.fields.exists(_.id.name == fd.id.name)).map(_.id)
+        } else {
+          Set.empty[Identifier]
         }
-    )
+
+        funOverrides ++ fieldOverrides
+      }.toSet
+    )(symbols)
   })
 
   // The class cache relies on the ClassKey, as well as whether the class (or one
@@ -54,7 +50,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
         (fd.flags exists { case IsMethodOf(cid) => ids(cid) case _ => false })
       }
 
-      new UnionKey(Set(ClassKey(cd, symbols), new ValueKey(hasInv)))
+      new ValueKey((ClassKey(cd, symbols), hasInv))
   })
 
   private sealed trait Override { val cid: Identifier }

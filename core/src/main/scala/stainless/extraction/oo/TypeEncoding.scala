@@ -492,7 +492,7 @@ trait TypeEncoding
   // - the class definition
   // - the children class definitions
   private[this] val classInstanceCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
-    new UnionKey(Set(ClassKey(cd, symbols)) ++ cd.children(symbols).map(ClassKey(_, symbols)))
+    new DependencyKey(cd.id, cd.children(symbols).map(_.id).toSet)(symbols)
   })
 
   private[this] def classInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
@@ -532,11 +532,10 @@ trait TypeEncoding
   // - the descendant class definitions
   // - the synthetic OptionSort definitions
   private[this] val classUnapplyCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
-    new UnionKey(
-      Set(ClassKey(cd, symbols)) ++
-      cd.descendants(symbols).map(ClassKey(_, symbols)) ++
-      OptionSort.keys(symbols)
-    )
+    new ValueKey((
+      new DependencyKey(cd.id, cd.descendants(symbols).map(_.id).toSet)(symbols),
+      OptionSort.key(symbols)
+    ))
   })
 
   private[this] def classUnapply(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
@@ -568,7 +567,7 @@ trait TypeEncoding
 
   // The unapply function only depends on the synthetic OptionSort
   private[this] val unapplyAnyCache = new CustomCache[s.Symbols, t.FunDef](
-    (_, symbols) => new UnionKey(OptionSort.keys(symbols))
+    (_, symbols) => OptionSort.key(symbols)
   )
 
   private[this] def unapplyAny(implicit symbols: s.Symbols): t.FunDef = unapplyAnyCache.cached(symbols, symbols) {
