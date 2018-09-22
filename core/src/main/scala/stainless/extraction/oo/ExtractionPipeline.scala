@@ -40,7 +40,7 @@ trait DependentlyCachedClasses extends CachingPhase {
   override protected final val classCache: ExtractionCache[s.ClassDef, ClassResult] = new DependencyCache[s.ClassDef, ClassResult]
 }
 
-trait IdentityClasses extends SimpleClasses { self =>
+trait IdentityClasses extends SimpleClasses with SimplyCachedClasses { self =>
   private[this] final object identity extends oo.TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
