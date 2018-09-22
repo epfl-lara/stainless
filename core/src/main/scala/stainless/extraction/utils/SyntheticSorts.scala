@@ -29,7 +29,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         syntheticOption.id,
         syntheticOption.constructors.find(_.fields.isEmpty).get.id)
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = new SimpleCache[s.ADTSort, t.FunDef]
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           createFunction(sort.id, sort.constructors.find(_.fields.isEmpty).get.id)
@@ -53,7 +53,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         createFunction(syntheticOption.id, some.id, some.fields.head.id)
       }
 
-      val cache = new ExtractionCache[s.ADTSort, t.FunDef]
+      val cache = new SimpleCache[s.ADTSort, t.FunDef]
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
         case Some(sort) => cache.cached(sort, symbols) {
           val some = sort.constructors.find(_.fields.nonEmpty).get
@@ -92,12 +92,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         case None => Seq(syntheticGet(symbols))
       })
 
-    final class Cached[T] private[OptionSort](builder: => T) {
-      private[this] val cache = new ConcurrentCache[(Identifier, Identifier, Identifier), T]
-      def get(implicit symbols: s.Symbols): T =
-        cache.cached((OptionSort.option, OptionSort.isEmpty, OptionSort.get))(builder)
-    }
-
-    def cached[T](builder: => T): Cached[T] = new Cached(builder)
+    def keys(implicit symbols: s.Symbols): Set[CacheKey] =
+      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").map(SortKey(_, symbols)).toSet ++
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").map(FunctionKey(_, symbols)) ++
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.get").map(FunctionKey(_, symbols))
   }
 }
