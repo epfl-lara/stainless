@@ -7,7 +7,12 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 
   /** A super type for all cache keys.
     * The set of dependencies is required in order to invalidate cache entries. */
-  protected abstract class CacheKey { def dependencies: Set[Identifier] }
+  protected abstract class CacheKey {
+    def dependencies: Set[Identifier]
+
+    /* Ordered key union, useful for multi-key dependencies. */
+    def +(that: CacheKey) = new SeqKey(Seq(this, that))
+  }
 
   /** A super type for all cache key generators.
     * This typeclass is used for instantiating extraction caches by key type. */
@@ -74,20 +79,20 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
 
-  protected sealed class UnionKey(private[ExtractionCaches] final val keys: Set[CacheKey]) extends CacheKey {
-    override val dependencies = keys.flatMap(_.dependencies)
+  protected sealed class SeqKey(private val keys: Seq[CacheKey]) extends CacheKey {
+    override val dependencies = keys.flatMap(_.dependencies).toSet
 
     override def hashCode: Int = keys.hashCode
     override def equals(that: Any): Boolean = that match {
-      case uk: UnionKey => keys == uk.keys
+      case uk: SeqKey => keys == uk.keys
       case _ => false
     }
 
-    override def toString: String = s"UnionKey(${keys.mkString(", ")})"
+    override def toString: String = s"SeqKey(${keys.mkString(", ")})"
   }
 
 
-  protected sealed class ValueKey[T](private[ExtractionCaches] final val value: T) extends CacheKey {
+  protected sealed class ValueKey[T](private val value: T) extends CacheKey {
     override def dependencies = Set()
 
     override def hashCode: Int = value.hashCode
@@ -100,12 +105,22 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   }
 
 
-  protected class DependencyKey(id: Identifier, dependencies: Set[Identifier])(implicit symbols: s.Symbols)
-    extends ValueKey(id -> new UnionKey((dependencies + id).map(getSimpleKey(_)))) {
+  protected class DependencyKey(private val id: Identifier, private val keys: Set[CacheKey]) extends CacheKey {
+    override val dependencies = keys.flatMap(_.dependencies) + id
 
-    def this(id: Identifier)(implicit symbols: s.Symbols) = this(id, symbols.dependencies(id))
+    def this(id: Identifier)(implicit symbols: s.Symbols) =
+      this(id, (symbols.dependencies(id) + id).map(getSimpleKey(_)): Set[CacheKey])
 
-    override def toString: String = s"DependencyKey($id, ${value._2.keys.mkString(", ")})"
+    def this(id: Identifier, dependencies: Set[Identifier])(implicit symbols: s.Symbols) =
+      this(id, (dependencies + id).map(getSimpleKey(_)): Set[CacheKey])
+
+    override def hashCode: Int = (id, keys).hashCode
+    override def equals(that: Any): Boolean = that match {
+      case dk: DependencyKey => id == dk.id && keys == dk.keys
+      case _ => false
+    }
+
+    override def toString: String = s"DependencyKey($id, ${keys.mkString(", ")})"
   }
 
   protected abstract class DependencyKeyable[T] extends Keyable[T] {
