@@ -92,8 +92,8 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
         case None => Seq(syntheticGet(symbols))
       })
 
-    def key(implicit symbols: s.Symbols): CacheKey = new UnionKey(
-      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").map(SortKey(_, symbols)).toSet ++
+    def key(implicit symbols: s.Symbols): CacheKey = new SeqKey(
+      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").map(SortKey(_, symbols)).toSeq ++
       symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").map(FunctionKey(_, symbols)) ++
       symbols.lookup.get[s.FunDef]("stainless.lang.Option.get").map(FunctionKey(_, symbols))
     )
