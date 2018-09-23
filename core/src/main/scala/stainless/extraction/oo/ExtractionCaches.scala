@@ -9,6 +9,9 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: ExtractionPip
   private class ClassKey(private val cd: s.ClassDef) extends SimpleKey {
     override def dependencies = Set(cd.id)
 
+    // As in the `FunctionKey` and `SortKey` cases, we have to use a
+    // special representation of the class definition for equality checking
+    // as we can't rely on identifier equality here.
     private val key = (
       cd.id,
       cd.typeArgs,

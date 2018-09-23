@@ -18,7 +18,11 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     * This typeclass is used for instantiating extraction caches by key type. */
   protected sealed abstract class Keyable[T] { def apply(key: T, symbols: s.Symbols): CacheKey }
 
+
+  /** A super type of cache keys that don't consider symbol dependencies. */
   protected abstract class SimpleKey extends CacheKey
+
+  /** A super type for all simple cache key generators. */
   protected abstract class SimpleKeyable[T] extends Keyable[T] {
     override def apply(key: T, symbols: s.Symbols): SimpleKey
   }
@@ -26,6 +30,9 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   private final class FunctionKey private(private val fd: s.FunDef) extends SimpleKey {
     override def dependencies = Set(fd.id)
 
+    // We can't use the `FunDef` as a key directly here as its equality is
+    // overriden to only consider the `id`, which is insufficient for our
+    // caching needs as we maintain identifiers regardless of transformations
     private val key = (
       fd.id,
       fd.typeArgs,
@@ -51,6 +58,8 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   private final class SortKey private(private val sort: s.ADTSort) extends SimpleKey {
     override def dependencies = Set(sort.id)
 
+    // We again can't use the `ADTSort` as a key for the same reasons as exposed
+    // in the `FunctionKey` case.
     private val key = (
       sort.id,
       sort.typeArgs,
@@ -72,6 +81,12 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def apply(sort: s.ADTSort, symbols: s.Symbols): SimpleKey = new SortKey(sort)
   }
 
+
+  /** Returns a [[SimpleKey]] given some identifier and the symbols from which
+    * it was taken.
+    *
+    * This is an override point for [[ExtractionCaches]] sub-classes where symbols
+    * may contain different definitions (such as class definitions). */
   protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): SimpleKey =
     symbols.lookupFunction(id).map(FunctionKey(_, symbols))
       .orElse(symbols.lookupSort(id).map(SortKey(_, symbols)))
@@ -79,6 +94,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
         "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
 
 
+  /** A [[CacheKey]] that simply composes a sequence of sub-keys. */
   protected sealed class SeqKey(private val keys: Seq[CacheKey]) extends CacheKey {
     override val dependencies = keys.flatMap(_.dependencies).toSet
 
@@ -92,6 +108,9 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   }
 
 
+  /** A [[CacheKey]] that relies on the equality of the underlying value.
+    * Note that the value should not contain any definitions as they will
+    * not register as dependencies of this key! */
   protected sealed class ValueKey[T](private val value: T) extends CacheKey {
     override def dependencies = Set()
 
@@ -105,6 +124,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
   }
 
 
+  /** A [[CacheKey]] that relies on a set of _dependent_ keys for equality. */
   protected class DependencyKey(private val id: Identifier, private val keys: Set[CacheKey]) extends CacheKey {
     override val dependencies = keys.flatMap(_.dependencies) + id
 
@@ -123,6 +143,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def toString: String = s"DependencyKey($id, ${keys.mkString(", ")})"
   }
 
+  /** A super type for all dependency cache key generators. */
   protected abstract class DependencyKeyable[T] extends Keyable[T] {
     override def apply(key: T, symbols: s.Symbols): DependencyKey
   }
@@ -142,6 +163,11 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def apply(sort: s.ADTSort, symbols: s.Symbols): DependencyKey = new SortDependencyKey(sort)(symbols)
   }
 
+  /** Returns a [[DependencyKey]] given some identifier and the symbols from which
+    * it was taken (uses `symbols.dependencies` to compute the set of dependencies).
+    *
+    * This is an override point for [[ExtractionCaches]] sub-classes where symbols
+    * may contain different definitions (such as class definitions). */
   protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): DependencyKey =
     symbols.lookupFunction(id).map(FunctionDependencyKey(_, symbols))
       .orElse(symbols.lookupSort(id).map(SortDependencyKey(_, symbols)))
@@ -168,10 +194,16 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     self.synchronized(caches += this)
   }
 
+  /** A cache that relies on a [[SimpleKey]] as cache key.
+    * The [[SimpleKeyable]] type class is used to generate the keys by type. */
   protected final class SimpleCache[A: SimpleKeyable, B] extends ExtractionCache[A, B]
 
+  /** A cache that relies on a [[DependencyKey]] as cache key.
+    * The [[DependencyKeyable]] type class is used to generate the keys by type. */
   protected final class DependencyCache[A <: s.Definition : DependencyKeyable, B] extends ExtractionCache[A, B]
 
+  /** A cache that uses a custom cache key that is computed given the provided key
+    * generation function. */
   protected final class CustomCache[A, B](gen: (A, s.Symbols) => CacheKey)
     extends ExtractionCache[A, B]()(new Keyable[A] {
       override def apply(key: A, symbols: s.Symbols): CacheKey = gen(key, symbols)
