@@ -13,6 +13,7 @@ import cafebabe.Flags._
 import inox.utils._
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
+import scala.collection.concurrent.{TrieMap => ConcurrentMap}
 
 case class CompilationException(msg: String) extends Exception(msg)
 
@@ -121,20 +122,20 @@ trait CodeGeneration { self: CompilationUnit =>
   private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
   private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
 
-  def getClass(sort: ADTSort): ClassFile = sortClassFiles.getOrElseUpdate(sort, {
+  def getClass(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElseUpdate(sort, {
     val cf = new ClassFile(defToJVMName(sort), None)
     classToSort += cf.className -> sort
     cf
-  })
+  }))
 
   private[this] val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
   private[this] val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
 
-  def getClass(cons: ADTConstructor): ClassFile = consClassFiles.getOrElseUpdate(cons, {
+  def getClass(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElseUpdate(cons, {
     val cf = new ClassFile(defToJVMName(cons), Some(defToJVMName(cons.getSort)))
     classToCons += cf.className -> cons
     cf
-  })
+  }))
 
   private[this] lazy val static = new ClassFile("<static>", None)
 
@@ -154,8 +155,8 @@ trait CodeGeneration { self: CompilationUnit =>
   protected def jvmClassNameToSort(className: String): Option[ADTSort] = classToSort.get(className)
   protected def jvmClassNameToCons(className: String): Option[ADTConstructor] = classToCons.get(className)
 
-  private[this] val sortInfos: MutableMap[ADTSort, (String, String)] = MutableMap.empty
-  private[this] val consInfos: MutableMap[ADTConstructor, (String, String)] = MutableMap.empty
+  private[this] val sortInfos: ConcurrentMap[ADTSort, (String, String)] = ConcurrentMap.empty
+  private[this] val consInfos: ConcurrentMap[ADTConstructor, (String, String)] = ConcurrentMap.empty
 
   protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElseUpdate(sort, {
     val tpeParam = if (sort.tparams.isEmpty) "" else "[I"
@@ -168,7 +169,7 @@ trait CodeGeneration { self: CompilationUnit =>
     (getClass(cons).className, sig)
   })
 
-  private[this] val funDefInfos: MutableMap[FunDef, (String, String, String)] = MutableMap.empty
+  private[this] val funDefInfos: ConcurrentMap[FunDef, (String, String, String)] = ConcurrentMap.empty
 
   protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElseUpdate(fd, {
     val sig = "(L"+MonitorClass+";" +
