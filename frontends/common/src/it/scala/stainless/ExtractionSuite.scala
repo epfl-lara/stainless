@@ -16,8 +16,9 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
     (ctx, fs)
   }
 
-  def testExtractAll(dir: String): Unit = {
-    implicit val (ctx, files) = testSetUp(dir)
+  def testExtractAll(dir: String, excludes: String*): Unit = {
+    implicit val (ctx, allFiles) = testSetUp(dir)
+    val files = allFiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
     describe(s"Program extraction in $dir") {
