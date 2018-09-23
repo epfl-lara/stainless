@@ -36,8 +36,6 @@ package object extraction {
       case _ => super.getDeconstructor(that)
     }
 
-    object Uncached extends Flag("uncached", Seq())
-
     override val exprOps: ExprOps { val trees: self.type } = new {
       protected val trees: self.type = self
     } with ExprOps
@@ -50,11 +48,6 @@ package object extraction {
   trait TreeDeconstructor extends ast.TreeDeconstructor with termination.TreeDeconstructor {
     protected val s: Trees
     protected val t: Trees
-
-    override def deconstruct(flag: s.Flag): DeconstructedFlag = flag match {
-      case s.Uncached => (Seq(), Seq(), Seq(), (_, _, _) => t.Uncached)
-      case _ => super.deconstruct(flag)
-    }
   }
 
   /** Unifies all stainless expression operations */
@@ -83,15 +76,10 @@ package object extraction {
   }
 
   private[this] def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
-    object checker extends CheckingTransformer {
+    symbols.transform(new CheckingTransformer {
       override val s: extraction.trees.type = extraction.trees
       override val t: to.type = to
-    }
-
-    import extraction.trees._
-    val newFunctions = symbols.functions.values.toSeq.map(fd => fd.copy(flags = fd.flags filterNot (_ == Uncached)))
-    val newSorts = symbols.sorts.values.toSeq.map(sort => sort.copy(flags = sort.flags filterNot (_ == Uncached)))
-    NoSymbols.withFunctions(newFunctions).withSorts(newSorts).transform(checker)
+    })
   }
 
   def completer(to: ast.Trees)(implicit ctx: inox.Context) = new ExtractionPipeline { self =>

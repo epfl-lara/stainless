@@ -1152,7 +1152,7 @@ trait TypeEncoding
         new t.ADTConstructor(map,  refID, Seq(t.ValDef(mapValue,  t.MapType(ref, ref)))),
         new t.ADTConstructor(unit, refID, Seq()),
         new t.ADTConstructor(open, refID, Seq(t.ValDef(openValue, t.IntegerType())))
-      ), Seq(t.Uncached, t.Synthetic))
+      ), Seq(t.Synthetic))
 
     def transform(fd: s.FunDef): t.FunDef = emptyScope.transform(fd)
 
