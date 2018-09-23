@@ -109,6 +109,12 @@ trait GhostChecker { self: EffectsAnalyzer =>
         isGhostExpression(e) ||
         (sel.constructor.fields.find(_.id == id).get.flags contains Ghost)
 
+      case Let(vd, e, b) => isGhostExpression(b)
+      case LetVar(vd, e, b) => isGhostExpression(b)
+      case Assignment(_, _) => false
+      case FieldAssignment(_, _, _) => false
+      case Block(_, e) => isGhostExpression(e)
+
       case Operator(es, _) => es.exists(isGhostExpression)
     }
 
