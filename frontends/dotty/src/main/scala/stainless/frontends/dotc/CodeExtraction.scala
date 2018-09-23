@@ -865,8 +865,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExTupleSelect(tuple, i) =>
       xt.TupleSelect(extractTree(tuple), i)
 
-    // FIXME case ExDefaultValueFunction
-
     /**
      * XLang Extractors
      */
