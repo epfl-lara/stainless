@@ -67,7 +67,7 @@ trait EffectsAnalyzer extends CachingPhase {
     def apply(fun: FunAbstraction): Set[Effect] = effects(fun)
     def apply(expr: Expr)(implicit symbols: Symbols): Set[Effect] = expressionEffects(expr, this)
 
-    private[EffectsAnalyzer] def local(id: Identifier): FunAbstraction = locals(id)
+    private[imperative] def local(id: Identifier): FunAbstraction = locals(id)
 
     private def merge(that: EffectsAnalysis): EffectsAnalysis = {
       new EffectsAnalysis(effects ++ that.effects, locals ++ that.locals)

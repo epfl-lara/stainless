@@ -55,16 +55,27 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
               }
 
-              if (vd.flags.contains(Ghost) && effects(e).nonEmpty) {
-                throw ImperativeEliminationException(e, "Right-hand side of ghost variable must be pure")
+              if ((vd.flags contains Ghost) && !effects(e).forall(isGhostEffect)) {
+                throw ImperativeEliminationException(e,
+                  "Right-hand side of ghost variable must only have effects on ghost fields")
               }
 
               super.traverse(l)
 
-            case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
-              if (!isExpressionFresh(e))
+            case l @ LetVar(vd, e, b) =>
+              if (!isExpressionFresh(e) && isMutableType(vd.tpe))
                 throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
+
+              if ((vd.flags contains Ghost) && !effects(e).forall(isGhostEffect)) {
+                throw ImperativeEliminationException(e,
+                  "Right-hand side of ghost variable must only have effects on ghost fields")
+              }
+
               super.traverse(l)
+
+            case Assignment(v, e) if (v.flags contains Ghost) && !effects(e).forall(isGhostEffect) =>
+              throw ImperativeEliminationException(e,
+                "Right-hand side of ghost variable assignment must only have effects on ghost fields")
 
             case l @ LetRec(fds, body) =>
               fds.foreach(fd => check(Inner(fd)))
@@ -81,15 +92,22 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
 
             case fi @ FunctionInvocation(id, tps, args) if fi.tfd.params.exists(_.flags contains Ghost) =>
-              fi.tfd.params.zip(args)
-                .filter { case (vd, _) => vd.flags contains Ghost }
+              (fi.tfd.params zip args)
+                .filter { case (vd, arg) => (vd.flags contains Ghost) && !effects(arg).forall(isGhostEffect) }
                 .foreach { case (vd, arg) =>
-                  if (!effects(arg).forall(validGhostEffects))
-                    throw ImperativeEliminationException(arg,
-                      s"Argument to ghost parameter `${vd.id}` of method `${fi.id}` must only have effects on ghost fields")
+                  throw ImperativeEliminationException(arg,
+                    s"Argument to ghost parameter `${vd.id}` of `${fi.id}` must only have effects on ghost fields")
                 }
 
               super.traverse(fi)
+
+            case ApplyLetRec(v, _, _, args) if effects.local(v.id).params.exists(_.flags contains Ghost) =>
+              (effects.local(v.id).params zip args)
+                .filter { case (vd, arg) => (vd.flags contains Ghost) && !effects(arg).forall(isGhostEffect) }
+                .foreach { case (vd, arg) =>
+                  throw ImperativeEliminationException(arg,
+                    s"Argument to ghost parameter `${vd.id}` of `${v.id}` must only have effects on ghost fields")
+                }
 
             case adt @ ADT(id, tps, args) =>
               val cons = adt.getConstructor
@@ -101,11 +119,10 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               }
 
               cons.fields.zip(args)
-                .filter { case (vd, _) => vd.flags contains Ghost }
+                .filter { case (vd, arg) => (vd.flags contains Ghost) && !effects(arg).forall(isGhostEffect) }
                 .foreach { case (vd, arg) =>
-                  if (!effects(arg).forall(validGhostEffects))
-                    throw ImperativeEliminationException(arg,
-                      s"Argument to ghost field `${vd.id}` of class `${id}` must only have effects on ghost fields")
+                  throw ImperativeEliminationException(arg,
+                    s"Argument to ghost field `${vd.id}` of class `${id}` must only have effects on ghost fields")
                 }
 
               super.traverse(adt)
@@ -193,37 +210,26 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       if (isPure(fd) && !effs.isEmpty)
         throw ImperativeEliminationException(fd, s"Function marked @pure cannot have side-effects")
 
-      if (isGhost(fd) && effs.exists(eff => !validGhostEffects(eff)))
+      if (isGhost(fd) && !effs.forall(isGhostEffect))
         throw ImperativeEliminationException(fd, s"Ghost function cannot have effect on non-ghost state")
     }
 
     def isPure(fd: FunAbstraction): Boolean = fd.flags.contains(IsPure)
     def isGhost(fd: FunAbstraction): Boolean = fd.flags.contains(Ghost)
 
-    def validGhostEffects(eff: Effect) = eff match {
-      case Effect(rec, target) => isGhostTarget(rec, target.path)
-    }
+    def isGhostEffect(effect: Effect): Boolean = {
+      def rec(tpe: Type, path: Seq[Accessor]): Boolean = (tpe, path) match {
+        case (adt: ADTType, FieldAccessor(selector) +: rest) =>
+          val field = adt.getField(selector).get
+          (field.flags contains Ghost) || rec(field.getType, rest)
 
-    def isGhostVariable(e: Expr) = e match {
-      case v: Variable => v.flags.contains(Ghost)
-      case _ => false
-    }
+        case (ArrayType(base), ArrayAccessor(index) +: rest) =>
+          rec(base, rest)
 
-    def isGhostTarget(rec: Expr, path: Seq[Accessor]): Boolean = {
-      def go(tpe: Type, path: Seq[Accessor]): Boolean = path match {
-        case FieldAccessor(selector) +: rest =>
-          val adtTpe @ ADTType(_, _) = tpe
-          val field = adtTpe.getField(selector).get
-          field.flags.contains(Ghost) || go(field.tpe, rest)
-
-        case ArrayAccessor(index) +: rest =>
-          val ArrayType(elTpe) = tpe
-          go(elTpe, rest)
-
-        case Seq() => false
+        case _ => false
       }
 
-      isGhostVariable(rec)|| go(rec.getType(symbols), path)
+      (effect.receiver.flags contains Ghost) || rec(effect.receiver.getType, effect.target.path)
     }
 
     /* A fresh expression is an expression that is newly created
