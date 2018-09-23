@@ -1347,7 +1347,7 @@ trait CodeExtraction extends ASTExtractors {
     case UnitTpe    => xt.UnitType()
     case AnyTpe     => xt.AnyType()
     case NothingTpe => xt.NothingType()
-    
+
     case ct: ConstantType => extractType(ct.value.tpe)
 
     case TypeRef(_, sym, _) if isBigIntSym(sym) => xt.IntegerType()
