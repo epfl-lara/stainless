@@ -10,7 +10,8 @@ trait AntiAliasing
   extends CachingPhase
      with SimpleSorts
      with EffectsAnalyzer
-     with EffectsChecker { self =>
+     with EffectsChecker
+     with GhostChecker { self =>
   import s._
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
@@ -80,7 +81,9 @@ trait AntiAliasing
     import analysis._
     import symbols._
 
-    checkFunction(fd)(symbols, effects) match {
+    checkGhost(fd)(symbols, effects)
+
+    checkEffects(fd)(symbols, effects) match {
       case CheckResult.Ok => ()
       case CheckResult.Skip => return None
       case CheckResult.Error(err) => throw err
