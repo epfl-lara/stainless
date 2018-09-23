@@ -242,13 +242,28 @@ trait EffectsAnalyzer extends CachingPhase {
     case _: MissformedStainlessCode => None
   }
 
-  private def localEffects(expr: Expr)(implicit symbols: Symbols): Set[Effect] = {
+  /** Return all effects of expr
+    *
+    * Effects of expr are any free variables in scope (either local vars
+    * already defined in the scope containing expr, or global var) that
+    * are re-assigned by an operation in the expression. An effect is
+    * also a mutation of an object refer by an id defined in the scope.
+    *
+    * This is a conservative analysis, not taking into account control-flow.
+    * The set of effects is not definitely effects, but any identifier
+    * not in the set will for sure have no effect.
+    *
+    * We are assuming no aliasing.
+    */
+  private def expressionEffects(expr: Expr, effects: EffectsAnalysis)(implicit symbols: Symbols): Set[Effect] = {
     import symbols._
+    val freeVars = variablesOf(expr)
+
+    def inEnv(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
+      env.get(effect.receiver).map(e => e.copy(target = Target(e.target.path ++ effect.target.path)))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Option[Effect] =
-      getEffect(expr).flatMap { case Effect(receiver, Target(path)) =>
-        env.get(receiver).map(e => e.copy(target = Target(e.target.path ++ path)))
-      }
+      getEffect(expr).flatMap(inEnv(_, env))
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
       case Let(vd, e, b) if isMutableType(vd.tpe) =>
@@ -280,83 +295,67 @@ trait EffectsAnalyzer extends CachingPhase {
 
       case Assignment(v, value) => rec(value, env) ++ env.get(v)
 
-      case Operator(es, _) => es.flatMap(rec(_, env)).toSet
-    }
+      case fi @ FunInvocation(id, tps, args, _) =>
+        val fun = fi match {
+          case FunctionInvocation(id, _, _) => Outer(getFunction(id))
+          case ApplyLetRec(v, _, _, _) => effects.local(v.id)
+        }
 
-    rec(expr, variablesOf(expr).map(v => v -> Effect(v, Target(Seq()))).toMap)
-  }
-
-  /** Return all effects of expr
-    *
-    * Effects of expr are any free variables in scope (either local vars
-    * already defined in the scope containing expr, or global var) that
-    * are re-assigned by an operation in the expression. An effect is
-    * also a mutation of an object refer by an id defined in the scope.
-    *
-    * This is a conservative analysis, not taking into account control-flow.
-    * The set of effects is not definitely effects, but any identifier
-    * not in the set will for sure have no effect.
-    *
-    * We are assuming no aliasing.
-    */
-  private def expressionEffects(expr: Expr, effects: EffectsAnalysis)(implicit symbols: Symbols): Set[Effect] = {
-    val freeVars = variablesOf(expr)
-
-    val firstLevelMutated: Set[Effect] = localEffects(expr)
-
-    val secondLevelMutated: Set[Effect] = {
-      val calls = collect[(FunAbstraction, Seq[Expr])] {
-        case fi @ FunctionInvocation(_, _, args) => Set(Outer(fi.tfd.fd) -> args)
-        case ApplyLetRec(v, _, _, args) => Set(effects.local(v.id) -> args)
-        case _ => Set.empty
-      } (expr)
-
-      calls.flatMap { case (fd, args) =>
-        val fdCurrentEffects: Set[Effect] = effects(fd)
-        val fdArgs = (fd.params.map(_.toVariable) zip args).toMap
-        val invocEffects = fdCurrentEffects.flatMap(e => fdArgs.get(e.receiver) match {
-          case Some(arg) => e on arg
+        val currentEffects: Set[Effect] = effects(fun)
+        val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
+        val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
+          case Some(arg) => (e on arg).flatMap(inEnv(_, env))
           case None => Seq(e) // This effect occurs on some variable captured from scope
         })
 
         val effectsOnFreeVars = invocEffects.filter(e => freeVars contains e.receiver)
-        val effectsOnLocalFreeVars = fdCurrentEffects.filterNot(e => fdArgs contains e.receiver)
-        effectsOnFreeVars ++ effectsOnLocalFreeVars
-      }
+        val effectsOnLocalFreeVars = currentEffects.filterNot(e => paramSubst contains e.receiver)
+        effectsOnFreeVars ++ effectsOnLocalFreeVars ++ args.flatMap(rec(_, env))
+
+      case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }
 
-    // We truncate the effects path if it depends on unavailable information,
-    // such as some ADT constructor guard or a concrete array index.
-    // Note that we could instead keep the full path and guard the effect
-    // with the relevant checks if more precision is needed at some point.
+    val mutated = rec(expr, freeVars.map(v => v -> Effect(v, Target(Seq()))).toMap)
+
+    // We truncate the effects path if it goes through an inductive ADT as
+    // such effects can lead to inexistence of the effects fixpoint.
+    // We also truncate array paths as they rely on some index that is not
+    // necessarily well-scoped (and could itself have effects).
     def truncate(effect: Effect): Effect = {
-      def rec(tpe: Type, path: Seq[Accessor]): Seq[Accessor] = (tpe, path) match {
-        case (adt: ADTType, _) if adt.getSort.constructors.size > 1 => Seq()
-        case (adt: ADTType, FieldAccessor(id) +: xs) =>
-          val vd = adt.getSort.constructors.head.fields.find(_.id == id)
-          FieldAccessor(id) +: rec(vd.map(_.tpe).getOrElse(Untyped), xs)
+      def isInductive(tpe: Type, seen: Set[Identifier]): Boolean = s.typeOps.exists {
+        case ADTType(id, _) =>
+          seen(id) ||
+          getSort(id).constructors.exists(_.fields.exists(vd => isInductive(vd.getType, seen + id)))
+        case _ => false
+      } (tpe)
+
+      def rec(tpe: Type, path: Seq[Accessor], seen: Set[Identifier]): Seq[Accessor] = (tpe, path) match {
+        case (adt: ADTType, (fa @ FieldAccessor(id)) +: xs) =>
+          val field = adt.getSort.constructors.flatMap(_.fields).find(_.id == id).get
+          if (isInductive(field.getType, seen)) Seq()
+          else fa +: rec(field.getType, xs, seen + adt.id)
         case (_, ArrayAccessor(_) +: xs) => Seq()
         case _ => Seq()
       }
 
-      Effect(effect.receiver, Target(rec(effect.receiver.tpe, effect.target.path)))
+      Effect(effect.receiver, Target(rec(effect.receiver.getType, effect.target.path, Set())))
     }
 
     // We merge paths that are prefixes of one another or point to the same array
     def merge(targets: Set[Target]): Set[Target] = {
       // This truncates the path `p2` depending on `p1`
-      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Seq[Accessor] = (p1, p2) match {
-        case _ if p1.isEmpty || p2.isEmpty => Seq()
-        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Seq()
-        case (x1 +: xs1, x2 +: xs2) if x1 == x2 => x1 +: rec(xs1, xs2)
-        case _ => p2
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Option[Seq[Accessor]] = (p1, p2) match {
+        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Some(Seq())
+        case (x1 +: xs1, x2 +: xs2) if x1 == x2 => rec(xs1, xs2).map(x1 +: _)
+        case (Nil, Nil) => Some(Seq())
+        case _ => None
       }
 
-      val merged = targets.flatMap(t1 => targets.map(t2 => Target(rec(t1.path, t2.path))))
+      val merged = targets.flatMap(t1 => targets.flatMap(t2 => rec(t1.path, t2.path).map(Target(_))) + t1)
       merged.filterNot(t1 => (merged - t1).exists(t2 => t2 prefixOf t1))
     }
 
-    (firstLevelMutated ++ secondLevelMutated)
+    mutated
       .map(truncate)
       .groupBy(_.receiver)
       .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
