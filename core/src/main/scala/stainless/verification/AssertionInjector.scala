@@ -171,15 +171,12 @@ trait AssertionInjector extends ast.TreeTransformer {
     case BVTyped(signed, size, BVShift(rhs0)) if strictArithmetic =>
       val rhs = transform(rhs0)
       val newE = super.transform(e)
-      t.Assert(
-        // Ensure the operation doesn't shift more bits than there are.
-        t.And(
-          t.GreaterEquals(rhs, zero(signed, size, rhs.getPos)).copiedFrom(rhs),
-          t.LessThan(rhs, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
-        ).copiedFrom(rhs),
-        Some("Shift Semantics"),
-        newE
-      ).copiedFrom(e)
+      val lt = t.LessThan(rhs, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
+      // positivity check is only relevant for signed bitvectors
+      val pos = t.GreaterEquals(rhs, zero(true, size, rhs.getPos)).copiedFrom(rhs)
+      val range = if (signed) t.And(pos, lt).copiedFrom(rhs) else lt
+      // Ensure the operation doesn't shift more bits than there are.
+      t.Assert(range, Some("Shift Semantics"), newE).copiedFrom(e)
 
     case e: s.Ensuring => super.transform(e.toAssert)
 
