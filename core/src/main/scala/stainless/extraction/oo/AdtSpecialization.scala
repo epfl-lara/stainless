@@ -249,7 +249,11 @@ trait AdtSpecialization
         .flatMap(id => newSymbols.dependencies(id) + id)
 
     val independentSymbols = t.NoSymbols
-      .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
+      .withFunctions(newSymbols.functions.values.toSeq.filter { fd =>
+        dependencies(fd.id) ||
+        // keep the introduced case object construction functions
+        fd.flags.exists { case t.Derived(id) => dependencies(id) case _ => false }
+      })
       .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
       .withClasses(newSymbols.classes.values.toSeq.filter(cd => dependencies(cd.id)))
 
