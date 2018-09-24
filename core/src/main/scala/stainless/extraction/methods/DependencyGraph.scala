@@ -64,6 +64,26 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     collector.classes
   }
 
+
+  // Add an edge between a node `n` and an override `oid` of a function `fd` if
+  // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
+  protected def addEdgesToOverrides(g: DiGraph[Identifier, SimpleEdge[Identifier]]) = {
+    var res = g
+    for (fd <- symbols.functions.values) {
+      for (oid <- overrides(fd)) {
+        symbols.functions(oid).flags.collectFirst {
+          case IsMethodOf(cid) =>
+            // we look at transitive edges in `res` rather than in `g` in 
+            // order to take into account newly added edges
+            for (n <- res.transitivePred(fd.id) & res.transitivePred(cid)) {
+              res += SimpleEdge(n, oid)
+            }
+        }
+      }
+    }
+    res
+  }
+
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
     var g = super.computeDependencyGraph
 
@@ -78,21 +98,8 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     for (cd <- symbols.classes.values) {
       invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
     }
-
-    // Add an edge between a node `n` and an override `oid` of a function `fd` if
-    // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
-    for (fd <- symbols.functions.values) {
-      for (oid <- overrides(fd)) {
-        symbols.functions(oid).flags.collectFirst {
-          case IsMethodOf(cid) =>
-            for (n <- g.transitivePred(fd.id) & g.transitivePred(cid)) {
-              g += SimpleEdge(n, oid)
-            }
-        }
-      }
-    }
-
-    g
+    
+    inox.utils.fixpoint(addEdgesToOverrides)(g)
   }
 
   private def invariant(cd: ClassDef): Option[Identifier] = {
