@@ -91,6 +91,7 @@ trait TypeEncoding
 
   private[this] def erasedBy(tpe: s.Type)(implicit scope: Scope): s.Type = s.typeOps.postMap {
     case tp: s.TypeParameter if scope.tparams contains tp => Some(s.AnyType().copiedFrom(tp))
+    case tb @ s.TypeBounds(s.NothingType(), s.AnyType()) => Some(s.AnyType().copiedFrom(tb))
     case _ => None
   } (tpe)
 
@@ -305,6 +306,8 @@ trait TypeEncoding
 
       case (_, s.AnyType()) => t.BooleanLiteral(true)
       case (_, s.NothingType()) => t.BooleanLiteral(false)
+      case (_, s.TypeBounds(_, hi)) => instanceOf(e, in, hi)
+
       case (s.RefinementType(vd, pred), _) => instanceOf(e, vd.tpe, tpe)
 
       case (_, s.RefinementType(vd, pred)) =>
