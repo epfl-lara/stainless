@@ -98,7 +98,7 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     for (cd <- symbols.classes.values) {
       invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
     }
-    
+
     inox.utils.fixpoint(addEdgesToOverrides)(g)
   }
 
