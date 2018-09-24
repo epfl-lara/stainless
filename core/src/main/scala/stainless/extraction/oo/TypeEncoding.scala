@@ -828,6 +828,10 @@ trait TypeEncoding
         val newBody = scope.transform(body, inType)
         t.LetRec(newFuns.map(_.toLocal), newBody).copiedFrom(e)
 
+      // push conversions down into branches/leaves
+      case (_: s.IfExpr | _: s.MatchExpr | _: s.Let) => super.transform(e, inType)
+      case (_: s.Block | _: s.LetVar) => super.transform(e, inType)
+
       case e if isObject(e.getType) != isObject(inType) =>
         convert(transform(e), e.getType, inType)
 
