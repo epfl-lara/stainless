@@ -17,6 +17,7 @@ val osArch = System.getProperty("sun.arch.data.model")
 
 val inoxVersion = "1.1.0-243-gd08df9b"
 val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
+val circeVersion = "0.10.0-M2"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -50,8 +51,6 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   scalaVersion := crossScalaVersions.value.head,
   crossScalaVersions := SupportedScalaVersions
 )
-
-val circeVersion = "0.10.0-M2"
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
