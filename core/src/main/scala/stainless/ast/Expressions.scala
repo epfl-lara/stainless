@@ -11,7 +11,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * respective type for value types.
     */
   sealed case class NoTree(tpe: Type) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe
+    override def getType(implicit s: Symbols): Type = tpe.getType
   }
 
 
@@ -26,7 +26,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param description The description of the error
     */
   sealed case class Error(tpe: Type, description: String) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe
+    override def getType(implicit s: Symbols): Type = tpe.getType
   }
 
 
@@ -166,7 +166,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
       .filter(_.params.size == 1)
       .getOrElse(throw extraction.MissformedStainlessCode(up, "Invalid unapply accessor"))
     val unapp = up.getFunction
-    val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
+    val tpMap = s.instantiation(fd.params.head.getType, unapp.getType)
       .getOrElse(throw extraction.MissformedStainlessCode(up, "Unapply pattern failed type instantiation"))
     fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
   }
@@ -193,7 +193,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
       getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
     def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
-      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
+      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.getType).get, subPatterns.size)
   }
 
 
