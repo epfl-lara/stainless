@@ -193,19 +193,24 @@ trait CompilationUnit extends CodeGeneration {
 
     case lambda: Lambda =>
       val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false))
-      val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
-      val depsMap = deps.map(p => p._1.id -> valueToJVM(p._2)).toMap
-      val args = closures.map { case (id, _) =>
-        if (id == monitorID) monitor
-        else if (id == tpsID) tparams.map(registerType).toArray
-        else depsMap(id)
-      }
+      if (deps.forall { case (_, e, conds) => isValue(e) && conds.isEmpty }) {
+        val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
+        val depsMap = deps.map { case (v, dep, _) => v.id -> valueToJVM(dep) }.toMap
 
-      val lc = loader.loadClass(afName)
-      val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
-      assert(conss.nonEmpty)
-      val lambdaConstructor = conss.last
-      lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
+        val args = closures.map { case (id, _) =>
+          if (id == monitorID) monitor
+          else if (id == tpsID) tparams.map(registerType).toArray
+          else depsMap(id)
+        }
+
+        val lc = loader.loadClass(afName)
+        val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
+        assert(conss.nonEmpty)
+        val lambdaConstructor = conss.last
+        lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
+      } else {
+        compileExpression(lambda, Seq.empty).evalToJVM(Seq.empty, monitor)
+      }
 
     case f @ IsTyped(FiniteArray(elems, base), ArrayType(underlying)) =>
       import scala.reflect.ClassTag
