@@ -165,7 +165,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   protected def getConsInfo(cons: ADTConstructor): (String, String) = consInfos.getOrElseUpdate(cons, {
     val tpeParam = if (cons.getSort.tparams.isEmpty) "" else "[I"
-    val sig = "(L"+MonitorClass+";" + tpeParam + cons.fields.map(f => typeToJVM(f.tpe)).mkString("") + ")V"
+    val sig = "(L"+MonitorClass+";" + tpeParam + cons.fields.map(f => typeToJVM(f.getType)).mkString("") + ")V"
     (getClass(cons).className, sig)
   })
 
@@ -174,7 +174,7 @@ trait CodeGeneration { self: CompilationUnit =>
   protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElseUpdate(fd, {
     val sig = "(L"+MonitorClass+";" +
       (if (fd.tparams.nonEmpty) "[I" else "") +
-      fd.params.map(a => typeToJVM(a.tpe)).mkString("") + ")" + typeToJVM(fd.returnType)
+      fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.getType)
 
     (static.className, idToSafeJVMName(fd.id), sig)
   })
@@ -192,7 +192,7 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   /** Return the respective JVM type from a Stainless type */
-  def typeToJVM(tpe: Type) : String = tpe match {
+  def typeToJVM(tpe: Type) : String = tpe.getType match {
     case Int8Type()  => "B"
     case Int16Type() => "S"
     case Int32Type() => "I"
@@ -266,7 +266,7 @@ trait CodeGeneration { self: CompilationUnit =>
     val realParams = ("L" + MonitorClass + ";") +: (tpeParam ++ funDef.params.map(a => typeToJVM(a.getType)))
 
     val m = cf.addMethod(
-      typeToJVM(funDef.returnType),
+      typeToJVM(funDef.getType),
       mn,
       realParams : _*
     )
@@ -290,7 +290,7 @@ trait CodeGeneration { self: CompilationUnit =>
       val monitor = monitorID -> getSlot(false)
       val tpsOpt = if (funDef.tparams.nonEmpty) Some(tpsID -> getSlot(false)) else None
       val params = funDef.params map { p =>
-        val isLong = p.tpe match {
+        val isLong = p.getType match {
           case Int64Type() => true
           case _ => false
         }
@@ -324,7 +324,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
     mkExpr(body, ch)(locals)
 
-    funDef.returnType match {
+    funDef.getType match {
       case JvmIType() =>
         ch << IRETURN
       case Int64Type() =>
@@ -377,7 +377,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val closedVars = variablesOf(lambda).toSeq.sortBy(_.id.uniqueName)
 
-    val closuresWithoutMonitor = closedVars.map(v => v -> typeToJVM(v.tpe))
+    val closuresWithoutMonitor = closedVars.map(v => v -> typeToJVM(v.getType))
     val closures = (monitorID -> s"L$MonitorClass;") +:
       ((if (tps.nonEmpty) Seq(tpsID -> "[I") else Seq.empty) ++
       closuresWithoutMonitor.map(p => p._1.id -> p._2))
@@ -476,11 +476,11 @@ trait CodeGeneration { self: CompilationUnit =>
 
             for ((v, jvmt) <- closuresWithoutMonitor) {
               ech << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
-              mkArrayBox(v.tpe, ech)
+              mkArrayBox(v.getType, ech)
 
               ech << ALoad(castSlot) << GetField(afName, v.id.uniqueName, jvmt)
 
-              v.tpe match {
+              v.getType match {
                 case JvmIType() =>
                   ech << If_ICmpNe(notEq)
 
@@ -519,7 +519,7 @@ trait CodeGeneration { self: CompilationUnit =>
           for (((v, jvmt),i) <- closuresWithoutMonitor.zipWithIndex) {
             hch << DUP << Ldc(i)
             hch << ALoad(0) << GetField(afName, v.id.uniqueName, jvmt)
-            mkBox(v.tpe, hch)
+            mkBox(v.getType, hch)
             hch << AASTORE
           }
 
@@ -557,7 +557,26 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(tps.size)
       ch << NewArray.primitive("T_INT")
       for ((tpe,idx) <- tps.zipWithIndex) {
-        ch << DUP << Ldc(idx) << Ldc(registerType(tpe)) << IASTORE
+        ch << DUP << Ldc(idx)
+
+        val vars = typeOps.variablesOf(tpe)
+        if (vars.nonEmpty) {
+          load(monitorID, ch)
+          ch << Ldc(registerType(tpe))
+
+          ch << Ldc(vars.size) << NewArray(s"$ObjectClass")
+          for ((v,idx) <- vars.toSeq.sortBy(_.id).zipWithIndex) {
+            ch << DUP << Ldc(idx)
+            mkBoxedExpr(v, ch)
+            ch << AASTORE
+          }
+
+          ch << InvokeVirtual(MonitorClass, "typeSubstitute", s"(I[L$ObjectClass;)I")
+        } else {
+          ch << Ldc(registerType(tpe))
+        }
+
+        ch << IASTORE
       }
 
       if (locals.tparams.nonEmpty) {
@@ -604,7 +623,7 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(d, ch)
       val slot = ch.getFreshVar(typeToJVM(d.getType))
       if (slot > 127) println("Error while converting one more slot which is too much " + e)
-      ch << (vd.tpe match {
+      ch << (vd.getType match {
         case JvmIType() => IStore(slot)
         case Int64Type() => LStore(slot)
         case _ => AStore(slot)
@@ -664,7 +683,7 @@ trait CodeGeneration { self: CompilationUnit =>
       loadTypes(tps, ch)
 
       for ((a, vd) <- as zip cons.fields) {
-        vd.tpe match {
+        vd.getType match {
           case _: TypeParameter =>
             mkBoxedExpr(a, ch)
           case _ =>
@@ -848,7 +867,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
       ch << InvokeStatic(cn, mn, ms)
 
-      (tfd.fd.returnType, tfd.returnType) match {
+      (tfd.fd.getType, tfd.getType) match {
         case (_: TypeParameter, tpe)  =>
           mkUnbox(tpe, ch)
         case _ =>
@@ -1143,7 +1162,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << DUP
         ch << Ldc(i)
         mkExpr(v, ch)
-        mkBox(v.tpe, ch)
+        mkBox(v.getType, ch)
         ch << AASTORE
       }
 
@@ -1167,7 +1186,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << DUP
         ch << Ldc(i)
         mkExpr(vd.toVariable, ch)
-        mkBox(vd.tpe, ch)
+        mkBox(vd.getType, ch)
         ch << AASTORE
       }
 
@@ -1212,7 +1231,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ))
 
     val (afName, closures, tparams, consSig) = compileLambda(l, locals.params)
-    val closureTypes = variablesOf(l).map(v => v.id -> v.tpe).toMap
+    val closureTypes = variablesOf(l).map(v => v.id -> v.getType).toMap
 
     val freshLocals = locals.substitute((vars zip freshVars).map(p => p._1.id -> p._2.id).toMap)
 
@@ -1700,7 +1719,7 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
 
-  private def load(v: Variable, ch: CodeHandler)(implicit locals: Locals): Unit = load(v.id, ch, Some(v.tpe))
+  private def load(v: Variable, ch: CodeHandler)(implicit locals: Locals): Unit = load(v.id, ch, Some(v.getType))
 
   private def load(id: Identifier, ch: CodeHandler, tpe: Option[Type] = None)(implicit locals: Locals): Unit = {
     locals.varToArg(id) match {
@@ -1777,7 +1796,7 @@ trait CodeGeneration { self: CompilationUnit =>
                           (implicit locals: Locals): Unit = {
     cons.definition.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
-        val expType = cons.fields(i).tpe
+        val expType = cons.fields(i).getType
 
         val cName = defToJVMName(cons.definition)
         if (doInstrument) {
@@ -1789,9 +1808,9 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << IOR
           ch << PutField(cName, instrumentedField, "I")
         }
-        ch << GetField(cName, f.id.name, typeToJVM(f.tpe))
+        ch << GetField(cName, f.id.name, typeToJVM(f.getType))
 
-        f.tpe match {
+        f.getType match {
           case _: TypeParameter =>
             mkUnbox(expType, ch)
           case _ =>
@@ -1815,7 +1834,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ).asInstanceOf[U2])
 
     // Case class parameters
-    val fieldsTypes = cons.fields.map(vd => (vd.id, typeToJVM(vd.tpe)))
+    val fieldsTypes = cons.fields.map(vd => (vd.id, typeToJVM(vd.getType)))
     val tpeParam = if (cons.getSort.tparams.isEmpty) Seq() else Seq(tpsID -> "[I")
     val constructorArgs = (monitorID -> s"L$MonitorClass;") +: (tpeParam ++ fieldsTypes)
 
@@ -1913,7 +1932,7 @@ trait CodeGeneration { self: CompilationUnit =>
         pech << Ldc(i)
         pech << ALoad(0)
         instrumentedGetField(pech, tcons, f.id)(newLocs)
-        mkBox(f.tpe, pech)
+        mkBox(f.getType, pech)
         pech << AASTORE
       }
 
@@ -1948,12 +1967,12 @@ trait CodeGeneration { self: CompilationUnit =>
         for (vd <- cons.fields) {
           ech << ALoad(0)
           instrumentedGetField(ech, tcons, vd.id)(newLocs)
-          mkArrayBox(vd.tpe, ech)
+          mkArrayBox(vd.getType, ech)
 
           ech << ALoad(castSlot)
           instrumentedGetField(ech, tcons, vd.id)(newLocs)
 
-          vd.tpe match {
+          vd.getType match {
             case JvmIType() =>
               ech << If_ICmpNe(notEq)
 

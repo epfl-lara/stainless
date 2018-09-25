@@ -55,6 +55,18 @@ trait CodeGenEvaluator
       static.map(tpe => registerType(typeOps.instantiateType(tpe, tpMap))).toArray
     }
 
+    def typeSubstitute(id: Int, closures: Array[AnyRef]): Int = {
+      val tpe = getType(id)
+
+      val vars = typeOps.variablesOf(tpe)
+      val subst = (vars.toSeq.sortBy(_.id) zip closures.toSeq).map {
+        case (v, ref) => v -> jvmToValue(ref, v.getType)
+      }.toMap
+
+      val newType = typeOps.replaceFromSymbols(subst, tpe)
+      registerType(newType)
+    }
+
     def onChooseInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): AnyRef = {
       val (params, tparams, choose) = getChoose(id)
 
@@ -68,7 +80,7 @@ trait CodeGenEvaluator
       }
 
       val inputsMap = (realParams zip inputs.toSeq).map {
-        case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.tpe)
+        case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.getType)
       }.toMap
 
       val res = model.chooses.get(choose.res.id -> newTypes) match {
@@ -109,7 +121,7 @@ trait CodeGenEvaluator
       val vars = exprOps.variablesOf(tpForall).toSeq.sortBy(_.id.uniqueName)
 
       val inputsMap = (vars zip inputs.toSeq).map {
-        case (v, ref) => v -> jvmToValue(ref, v.tpe)
+        case (v, ref) => v -> jvmToValue(ref, v.getType)
       }.toMap
 
       val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)

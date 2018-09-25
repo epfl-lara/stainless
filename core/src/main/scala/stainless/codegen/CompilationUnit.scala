@@ -319,7 +319,7 @@ trait CompilationUnit extends CodeGeneration {
       // identify case class type of ct
       jvmClassNameToCons(cons.getClass.getName) match {
         case Some(cons) =>
-          val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.tpe)).map {
+          val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.getType)).map {
             case (e, tpe) => jvmToValue(e, tpe)
           }
           ADT(cons.id, adt.tps, exFields)
@@ -380,7 +380,7 @@ trait CompilationUnit extends CodeGeneration {
       val closures = exprOps.variablesOf(tpLambda).toSeq.sortBy(_.id.uniqueName)
       val closureVals = closures.map { v =>
         val fieldVal = lambda.getClass.getField(v.id.uniqueName).get(lambda)
-        jvmToValue(fieldVal, v.tpe)
+        jvmToValue(fieldVal, v.getType)
       }
 
       exprOps.replaceFromSymbols((closures zip closureVals).toMap, tpLambda)
