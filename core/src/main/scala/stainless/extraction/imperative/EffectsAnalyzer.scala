@@ -322,12 +322,14 @@ trait EffectsAnalyzer extends CachingPhase {
     // We also truncate array paths as they rely on some index that is not
     // necessarily well-scoped (and could itself have effects).
     def truncate(effect: Effect): Effect = {
-      def isInductive(tpe: Type, seen: Set[Identifier]): Boolean = s.typeOps.exists {
-        case ADTType(id, _) =>
-          seen(id) ||
-          getSort(id).constructors.exists(_.fields.exists(vd => isInductive(vd.getType, seen + id)))
-        case _ => false
-      } (tpe)
+      def isInductive(tpe: Type, seen: Set[Identifier]): Boolean = {
+        val deps = s.typeOps.collect {
+          case ADTType(id, _) => dependencies(id)
+          case _ => Set.empty[Identifier]
+        } (tpe)
+
+        (seen & deps).nonEmpty
+      }
 
       def rec(tpe: Type, path: Seq[Accessor], seen: Set[Identifier]): Seq[Accessor] = (tpe, path) match {
         case (adt: ADTType, (fa @ FieldAccessor(id)) +: xs) =>
