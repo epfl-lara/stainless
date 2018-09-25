@@ -9,28 +9,7 @@ import inox.utils.{Position, NoPosition}
 object DebugSectionPositions extends inox.DebugSection("positions")
 
 /** Inspect trees, detecting missing positions. */
-trait PositionChecker extends ExtractionPipeline {
-
-  val name: String
-  val underlying: ExtractionPipeline
-
-  override val s: underlying.s.type = underlying.s
-  override val t: underlying.t.type = underlying.t
-  override val context = underlying.context
-
-  implicit val debugSection = DebugSectionPositions
-
-  val phases = context.options.findOption(optDebugPhases)
-
-  // We print debug output for this phase only if the user didn't specify
-  // any phase with --debug-phases, or gave the name of (or a string
-  // contained in) this phase
-  lazy val debug = phases.isEmpty || (phases.isDefined && phases.get.exists(name.contains _))
-
-  // Moreover, we only print when the corresponding debug sections are active
-  lazy val debugPos: Boolean = debug && context.reporter.debugSections.contains(debugSection)
-
-  override def invalidate(id: Identifier) = underlying.invalidate(id)
+trait PositionChecker { self: DebugPipeline =>
 
   final class PositionTraverser extends t.TreeTraverser { self =>
     import t._
@@ -42,6 +21,8 @@ trait PositionChecker extends ExtractionPipeline {
     }
 
     override def traverse(e: Expr): Unit = {
+      implicit val debugSection = DebugSectionPositions
+
       if (!e.getPos.isDefined) {
         context.reporter.debug(
           NoPosition,
@@ -56,26 +37,5 @@ trait PositionChecker extends ExtractionPipeline {
     }
   }
 
-  def extract(symbols: s.Symbols): t.Symbols = {
-    val result = underlying.extract(symbols)
-    if (debugPos) {
-      result.functions.values foreach { fd =>
-        (new PositionTraverser).traverse(fd)
-      }
-    }
-    result
-  }
-
-}
-
-object PositionChecker {
-  def apply(nme: String, pipeline: ExtractionPipeline): ExtractionPipeline {
-    val s: pipeline.s.type
-    val t: pipeline.t.type
-  } = new {
-    override val underlying: pipeline.type = pipeline
-  } with PositionChecker {
-    override val name: String = nme
-  }
 }
 

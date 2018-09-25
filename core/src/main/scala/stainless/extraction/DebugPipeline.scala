@@ -3,14 +3,13 @@
 package stainless
 package extraction
 
-trait DebugPipeline extends ExtractionPipeline { self =>
+trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self =>
   val name: String
   val underlying: ExtractionPipeline
   override val s: underlying.s.type = underlying.s
   override val t: underlying.t.type = underlying.t
   override val context = underlying.context
 
-  implicit val debugSection = inox.ast.DebugSectionTrees
   val phases = context.options.findOption(optDebugPhases)
   val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
 
@@ -21,6 +20,7 @@ trait DebugPipeline extends ExtractionPipeline { self =>
 
   // Moreover, we only print when the corresponding debug sections are active
   lazy val debugTrees: Boolean = debug && context.reporter.debugSections.contains(inox.ast.DebugSectionTrees)
+  lazy val debugPos: Boolean = debug && context.reporter.debugSections.contains(utils.DebugSectionPositions)
 
   val ooPrinterOpts = oo.trees.PrinterOptions.fromContext(context)
 
@@ -29,6 +29,8 @@ trait DebugPipeline extends ExtractionPipeline { self =>
   // `extract` is a wrapper around `super.extract` which outputs trees for
   // debugging and which outputs position checks
   override def extract(symbols: s.Symbols): t.Symbols = {
+    implicit val debugSection = inox.ast.DebugSectionTrees
+
     context.reporter.synchronized {
       val symbolsToPrint = if (debugTrees) symbols.symbolsToString(objs)(printerOpts) else ""
       if (!symbolsToPrint.isEmpty) {
@@ -44,6 +46,12 @@ trait DebugPipeline extends ExtractionPipeline { self =>
         context.reporter.debug("\n\nSymbols after " + name +  "\n")
         context.reporter.debug(resToPrint)
         context.reporter.debug("\n\n")
+      }
+
+      if (debugPos) {
+        res.functions.values foreach { fd =>
+          (new PositionTraverser).traverse(fd)
+        }
       }
 
       res
