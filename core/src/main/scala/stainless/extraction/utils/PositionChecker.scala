@@ -4,8 +4,6 @@ package stainless
 package extraction
 package utils
 
-import scala.collection.mutable.{HashSet => MutableHashSet}
-
 import inox.utils.{Position, NoPosition}
 
 object DebugSectionPositions extends inox.DebugSection("positions")
@@ -34,8 +32,10 @@ trait PositionChecker extends ExtractionPipeline {
 
   override def invalidate(id: Identifier) = underlying.invalidate(id)
 
-  object traverser extends t.TreeTraverser { self =>
+  final class PositionTraverser extends t.TreeTraverser { self =>
     import t._
+
+    private var lastKnownPosition: Position = NoPosition
 
     override def traverse(fd: FunDef): Unit = {
       if (!fd.flags.contains(Synthetic)) super.traverse(fd)
@@ -43,7 +43,13 @@ trait PositionChecker extends ExtractionPipeline {
 
     override def traverse(e: Expr): Unit = {
       if (!e.getPos.isDefined) {
-        context.reporter.debug(NoPosition, s"After $name: Missing position for expression '$e' (of type ${e.getClass}).")
+        context.reporter.debug(
+          NoPosition,
+          s"After $name: Missing position for expression '$e' (of type ${e.getClass})." +
+          s"Last known position: $lastKnownPosition"
+        )
+      } else {
+        lastKnownPosition = e.getPos
       }
 
       super.traverse(e)
@@ -52,7 +58,11 @@ trait PositionChecker extends ExtractionPipeline {
 
   def extract(symbols: s.Symbols): t.Symbols = {
     val result = underlying.extract(symbols)
-    if (debugPos) result.functions.values foreach traverser.traverse
+    if (debugPos) {
+      result.functions.values foreach { fd =>
+        (new PositionTraverser).traverse(fd)
+      }
+    }
     result
   }
 
@@ -68,3 +78,4 @@ object PositionChecker {
     override val name: String = nme
   }
 }
+
