@@ -24,9 +24,9 @@ trait TypeOps extends inox.ast.TypeOps {
       ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
       isSubtypeOf(lit.getType, in)
 
-    case ADTPattern(ob, id, tps, subs) => in match {
+    case ADTPattern(ob, id, tps, subs) => in.getType match {
       case ADTType(sort, tps2) =>
-        tps == tps2 &&
+        tps.map(_.getType) == tps2 &&
         ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         lookupConstructor(id).exists { cons =>
           cons.sort == sort &&
