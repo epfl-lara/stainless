@@ -21,7 +21,6 @@ trait DebugPipeline extends ExtractionPipeline { self =>
 
   // Moreover, we only print when the corresponding debug sections are active
   lazy val debugTrees: Boolean = debug && context.reporter.debugSections.contains(inox.ast.DebugSectionTrees)
-  lazy val debugPos: Boolean = debug && context.reporter.debugSections.contains(utils.DebugSectionPositions)
 
   val ooPrinterOpts = oo.trees.PrinterOptions.fromContext(context)
 
@@ -67,12 +66,6 @@ trait DebugPipeline extends ExtractionPipeline { self =>
         context.reporter.debug(symbolsToPrint)
       }
 
-      // start the position checker before extracting the symbols, if the option if on
-      if (debugPos) {
-        val posChecker = utils.PositionChecker(self.name)(self.s)(self.context)(true)
-        symbols.functions.values.toSeq.foreach(posChecker.traverse)
-      }
-
       // extraction happens here
       val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
       val resToPrint = if (debugTrees) symbolsToString(t)(res, objs, targetPrinterOpts) else ""
@@ -83,10 +76,6 @@ trait DebugPipeline extends ExtractionPipeline { self =>
         context.reporter.debug("\n\n")
       }
 
-      if (debugPos) {
-        val posChecker = utils.PositionChecker(self.name)(self.t)(self.context)(false)
-        res.functions.values.toSeq.foreach(posChecker.traverse)
-      }
       res
     }
   }
