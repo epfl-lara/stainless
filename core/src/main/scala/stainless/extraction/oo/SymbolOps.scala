@@ -46,4 +46,9 @@ trait SymbolOps extends imperative.SymbolOps { self: TypeOps =>
 
     case _ => IsInstanceOf(expr, tpe).copiedFrom(expr)
   }
+
+  override def symbolsToString(objs: Set[String])(implicit pOpts: PrinterOptions): String = {
+    super.symbolsToString(objs) ++ wrapWith("Classes", objectsToString(classes.values, objs))
+  }
+
 }

@@ -323,4 +323,26 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       case b => withShared(path, Seq(b), spec, expr.getPos)
     }
   }
+
+  def objectsToString(m: Iterable[Definition], objs: Set[String])(implicit pOpts: PrinterOptions): String = {
+    val objects = m.collect {
+      case d if objs.isEmpty || objs.contains(d.id.name) => d.asString(pOpts)
+    }
+    objects mkString "\n\n"
+  }
+
+  /** Make a String representation for a table of Symbols `s`, only keeping
+    * functions and classes whose names appear in `objs`.
+    *
+    * @see [[extraction.DebugPipeline]]
+    */
+  def symbolsToString(objs: Set[String])(implicit pOpts: PrinterOptions): String = {
+    wrapWith("Functions", objectsToString(functions.values, objs)) ++
+    wrapWith("Sorts", objectsToString(sorts.values, objs))
+  }
+
+  protected def wrapWith(header: String, s: String) = {
+    if (s.isEmpty) ""
+    else "-------------" + header + "-------------\n" + s + "\n\n"
+  }
 }
