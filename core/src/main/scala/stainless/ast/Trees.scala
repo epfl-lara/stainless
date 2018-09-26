@@ -8,7 +8,7 @@ trait Trees
      with Definitions
      with Expressions
      with Constructors
-     with Extractors
+     with Deconstructors
      with TreeOps { self =>
 
   type Symbol = ast.Symbol

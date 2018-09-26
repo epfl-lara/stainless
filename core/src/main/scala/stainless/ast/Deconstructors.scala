@@ -189,7 +189,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   }
 }
 
-trait Extractors extends inox.ast.Extractors { self: Trees =>
+trait Deconstructors extends inox.ast.Deconstructors { self: Trees =>
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees => new TreeDeconstructor {
