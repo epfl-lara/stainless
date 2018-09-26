@@ -385,14 +385,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
 
-    // if (Set("Foo", "Bar") contains id.name) {
-    //   implicit val ctx = new xt.PrinterOptions(printUniqueIds = true)
-    //   println(id)
-    //   println(fields.map(_.asString))
-    //   println(allMethods.map(_.asString).mkString("\n\n"))
-    //   println()
-    // }
-
     (new xt.ClassDef(
       id,
       extparams.map(xt.TypeParameterDef(_)),
