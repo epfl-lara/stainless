@@ -1,26 +1,26 @@
-// import stainless.lang._
+import stainless.lang._
 
-object TraitVar1 {
+object TraitVar2 {
 
   sealed trait Foo {
     var prop: BigInt
 
+    def doStuff(x: BigInt) = {
+      prop = x
+    }
   }
 
-  case class Bar(var prop: BigInt) extends Foo {
-
-
-    // def doStuff(x: BigInt) = {
-    //   prop = prop + x
-    // }
-
+  case class Bar(var stuff: BigInt) extends Foo {
+    def prop: BigInt = stuff + 1
+    def prop_=(y: BigInt): Unit = {
+      stuff = y * 2
+    }
   }
 
   def theorem(foo: Foo) = {
-    val prev = foo.prop
-    foo.prop = foo.prop + 1
-    // foo.doStuff(2)
-    foo.prop == prev + 2
-  } // .holds
+    require(foo.isInstanceOf[Bar])
+    foo.doStuff(2)
+    foo.prop == 5
+  }.holds
 
 }
