@@ -11,6 +11,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   val t: oo.Trees
   import s._
 
+  private[this] def isAccessor(fd: FunDef): Boolean =
+    fd.flags exists { case IsAccessor(_) => true case _ => false }
+
   // The function cache must consider all direct overrides of the current function.
   // Note that we actually use the set of transitive overrides here as computing
   // the set of direct overrides is significantly more expensive and shouldn't improve
@@ -33,7 +36,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
           }.map(FunctionKey(_, symbols))
 
-        val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty) {
+        val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty && !isAccessor(fd)) {
           descendants
             .filter(cd => cd.fields.exists(_.id.name == fd.id.name))
             .map(ClassKey(_, symbols))
@@ -137,8 +140,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       val cd = symbols.getClass(cid)
       cd.methods(symbols).find { id =>
         val fd = symbols.getFunction(id)
-        val isAccessor = fd.flags exists { case IsAccessor(_) => true case _ => false }
-        !isAccessor && fd.tparams.isEmpty && fd.params.isEmpty && fd.id.name == vd.id.name
+        fd.tparams.isEmpty && fd.params.isEmpty && fd.id.name == vd.id.name && !isAccessor(fd)
       }.map(_.symbol).orElse(cd.parents.reverse.view.flatMap(ct => firstSymbol(ct.id, vd)).headOption)
     }
 
