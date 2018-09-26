@@ -64,16 +64,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (xt.ValDef, Seq[xt.TypeParameterDef])] = Map(),
-    isExtern: Boolean = false,
-    isAccessor: Boolean = false
+    isExtern: Boolean = false
   ) {
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
            this.vars ++ that.vars,
            this.mutableVars ++ that.mutableVars,
            this.localFuns ++ that.localFuns,
-           this.isExtern || that.isExtern,
-           this.isAccessor || that.isAccessor)
+           this.isExtern || that.isExtern)
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -322,7 +320,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         (vd.symbol is Mutable) && !(vd.symbol is CaseAccessor) &&
         ((vd.symbol.owner is Abstract) || (vd.symbol.owner is Trait))
       ) =>
-        methods :+= extractFunction(vd.symbol, Seq.empty, Seq.empty, tpd.EmptyTree)(defCtx.copy(isAccessor = true))
+        methods :+= extractFunction(vd.symbol, Seq.empty, Seq.empty, tpd.EmptyTree)(defCtx)
 
       case dd @ DefDef(nme.CONSTRUCTOR, _, _, _, _) =>
         // ignore
@@ -352,16 +350,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         methods :+= extractIgnoredFieldAccessor(fsym, vparams)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
-        methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx.copy(isAccessor = true))
+        methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
-        methods :+= extractFieldAccessor(fsym, classType, vparams)(defCtx.copy(isAccessor = true))
+        methods :+= extractFieldAccessor(fsym, classType, vparams)(defCtx)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
-        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx.copy(isAccessor = true))
+        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
       case ValDef(_, _, _) =>
         // ignore (corresponds to constructor fields)
@@ -446,8 +444,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Inline) Set(xt.Inline) else Set()) ++
       (if (sym is Private) Set(xt.Private) else Set()) ++
       (if ((sym.isField) || (sym is Lazy)) Set(xt.IsField(sym is Lazy)) else Set()) ++
-      (if (!(sym is Lazy) && (sym is Accessor)) Set(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract))) else Set()) ++
-      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
+      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set()) ++
+      (if (!(sym is Lazy) && (sym is Accessor)) Set(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract))) else Set())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
@@ -519,7 +517,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       args,
       returnType,
       body,
-      Seq(xt.IsAccessor(Some(field)))
+      (annotationsOf(sym) ++ Seq(xt.IsAccessor(Some(field)))).distinct
     ).setPos(sym.pos)
   }
 
@@ -533,7 +531,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       args,
       returnType.setPos(sym.pos),
       xt.NoTree(returnType).setPos(sym.pos),
-      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
+      (annotationsOf(sym) ++ Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))).distinct
     ).setPos(sym.pos)
   }
 
