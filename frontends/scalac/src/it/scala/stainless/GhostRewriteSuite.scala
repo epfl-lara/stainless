@@ -51,6 +51,9 @@ class GhostRewriteSuite extends FunSpec {
     }
   }
 
+  def ignoreError(i: reporter.Info) = {
+    i.toString.contains("The Z3 native interface is not available")
+  }
 
   def compileFile(file: String) = {
     reporter.reset()
@@ -62,7 +65,8 @@ class GhostRewriteSuite extends FunSpec {
 
     (new compiler.GhostChecks).traverse(unitToCheck.body)
 
-    assert(reporter.infos.isEmpty, reporter.infos.mkString("\n\n"))
+    val errors = reporter.infos.filterNot(ignoreError)
+    assert(errors.isEmpty, errors.mkString("\n\n"))
   }
 
 
