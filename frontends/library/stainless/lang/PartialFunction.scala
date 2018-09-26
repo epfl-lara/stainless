@@ -24,7 +24,7 @@ case class ~>[A, B] private[stainless](pre: A => Boolean, private val f: A => B)
 case class ~>>[A, B](private val f: A ~> B, post: B => Boolean) {
   require(forall((x: A) => pre(x) ==> post(f(x))))
 
-  def pre = f.pre
+  val pre = f.pre
 
   def apply(a: A): B = {
     require(pre(a))
