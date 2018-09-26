@@ -1,4 +1,3 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -29,22 +28,12 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
 
         def symbolOf(fd: s.FunDef): Symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
 
-        val funOverrides = symbols.functions.values
+        symbols.functions.values
           .filter(_.flags exists { case s.IsMethodOf(id) => descendantIds(id) case _ => false })
           .filter { ofd =>
             if (isInvariant) ofd.flags contains s.IsInvariant
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
-          }.map(FunctionKey(_, symbols))
-
-        val fieldOverrides = if (fd.tparams.isEmpty && fd.params.isEmpty && !isAccessor(fd)) {
-          descendants
-            .filter(cd => cd.fields.exists(_.id.name == fd.id.name))
-            .map(ClassKey(_, symbols))
-        } else {
-          Set.empty[CacheKey]
-        }
-
-        funOverrides ++ fieldOverrides
+          }.map(FunctionKey(_, symbols): CacheKey).toSet
       }.toSet)
   })
 
@@ -63,9 +52,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       new DependencyKey(cd.id, invariants)
   })
 
-  private sealed trait Override { val cid: Identifier }
-  private case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[Override]) extends Override
-  private case class ValOverride(cid: Identifier, vd: s.ValDef) extends Override
+  private case class FunOverride(cid: Identifier, fid: Option[Identifier], children: Seq[FunOverride])
 
   private[this] object identity extends oo.TreeTransformer {
     val s: self.s.type = self.s
@@ -144,15 +131,11 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       }.map(_.symbol).orElse(cd.parents.reverse.view.flatMap(ct => firstSymbol(ct.id, vd)).headOption)
     }
 
-    val overrides: Map[Symbol, Override] = {
-      def rec(id: Identifier): Map[Symbol, Override] = {
+    val overrides: Map[Symbol, FunOverride] = {
+      def rec(id: Identifier): Map[Symbol, FunOverride] = {
         val cd = symbols.getClass(id)
         val children = cd.children(symbols)
-        val ctrees = if (children.isEmpty) {
-          Seq(cd.fields.flatMap(vd => firstSymbol(id, vd).map(_ -> ValOverride(id, vd))).toMap)
-        } else {
-          children.map(ccd => rec(ccd.id))
-        }
+        val ctrees = children.map(ccd => rec(ccd.id))
 
         val newOverrides = cd.methods(symbols).map { fid =>
           fid.symbol -> FunOverride(id, Some(fid), ctrees.flatMap(_.get(fid.symbol)))
@@ -169,9 +152,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
     }
 
     val funs: Map[Symbol, Map[Identifier, FunOverride]] = {
-      def rec(o: Override): Map[Identifier, FunOverride] = o match {
-        case fo @ FunOverride(_, fid, children) => children.flatMap(rec).toMap ++ fid.map(_ -> fo)
-        case _ => Map.empty[Identifier, FunOverride]
+      def rec(fo: FunOverride): Map[Identifier, FunOverride] = {
+        val FunOverride(_, fid, children) = fo
+        children.flatMap(rec).toMap ++ fid.map(_ -> fo)
       }
 
       overrides.map { case (sym, o) => sym -> rec(o) }
@@ -204,7 +187,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
     (invariant, mappings)
   }
 
-  private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
+  private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[FunOverride])(symbols: s.Symbols): t.FunDef = {
     val cd = symbols.getClass(cid)
     val fd = symbols.getFunction(fid)
     val tpSeq = symbols.freshenTypeParams(cd.typeArgs).map { tp =>
@@ -227,10 +210,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       }
     }
 
-    def firstOverrides(o: Override): Seq[(Identifier, Either[FunDef, ValDef])] = o match {
+    def firstOverrides(fo: FunOverride): Seq[(Identifier, Either[FunDef, ValDef])] = fo match {
       case FunOverride(cid, Some(id), _) => Seq(cid -> Left(symbols.getFunction(id)))
       case FunOverride(_, _, children) => children.toSeq.flatMap(firstOverrides)
-      case ValOverride(cid, vd) => Seq(cid -> Right(vd))
     }
 
     val subCalls = (for (co <- cos) yield {
@@ -275,10 +257,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
     val returnType = transformer.transform(fd.returnType)
 
     val notFullyOverriden: Boolean = !(cd.flags contains IsSealed) || {
-      def rec(o: Override): Boolean = o match {
+      def rec(fo: FunOverride): Boolean = fo match {
         case FunOverride(_, Some(_), _) => true
         case FunOverride(_, _, children) => children.forall(rec)
-        case ValOverride(_, _) => true
       }
 
       val coMap = cos.map(co => co.cid -> co).toMap
