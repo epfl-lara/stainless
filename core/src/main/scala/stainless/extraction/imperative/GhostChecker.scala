@@ -62,10 +62,10 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case FunInvocation(id, _, args, _) =>
           val fun = lookupFunction(id).map(Outer(_)).getOrElse(effects.local(id))
           (fun.params zip args)
-            .filter { case (vd, arg) => (vd.flags contains Ghost) && !effects(arg).forall(isGhostEffect) }
-            .foreach { case (vd, arg) =>
+            .filter { case (param, arg) => (param.flags contains Ghost) && !effects(arg).forall(isGhostEffect) }
+            .foreach { case (param, arg) =>
               throw ImperativeEliminationException(arg,
-                s"Argument to ghost parameter `${vd.id}` of `${id}` must only have effects on ghost fields")
+                s"Argument to ghost parameter `${param.id}` of `${id}` must only have effects on ghost fields")
             }
 
           super.traverse(expr)
@@ -86,8 +86,12 @@ trait GhostChecker { self: EffectsAnalyzer =>
 
 
     def checkNonGhostFunction(fun: FunAbstraction): Unit = {
-      if (!(fun.flags contains Ghost) && isGhostExpression(fun.fullBody))
+      // Synthetic functions (such as copy methods, or default parameters) are exempt of ghost checks
+      if (fun.flags contains Synthetic) return ()
+
+      if (!(fun.flags contains Ghost) && isGhostExpression(fun.fullBody)) {
         throw ImperativeEliminationException(fun, s"Non-ghost function cannot return a ghost result")
+      }
     }
 
     def isGhostExpression(e: Expr): Boolean = e match {
@@ -119,16 +123,18 @@ trait GhostChecker { self: EffectsAnalyzer =>
     }
 
     def checkExpressions(fd: FunDef): Unit = new TreeTraverser {
+      val isGhostFunction = fd.flags contains Ghost
+
       override def traverse(expr: Expr): Unit = expr match {
-        case Let(vd, e, _) if !(vd.flags contains Ghost) && isGhostExpression(e) =>
+        case Let(vd, e, _) if !isGhostFunction && !(vd.flags contains Ghost) && isGhostExpression(e) =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable cannot be ghost")
 
-        case LetVar(vd, e, _) if !(vd.flags contains Ghost) && isGhostExpression(e) =>
+        case LetVar(vd, e, _) if !isGhostFunction && !(vd.flags contains Ghost) && isGhostExpression(e) =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable cannot be ghost")
 
-        case Assignment(v, e) if !(v.flags contains Ghost) && isGhostExpression(e) =>
+        case Assignment(v, e) if !isGhostFunction && !(v.flags contains Ghost) && isGhostExpression(e) =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable assignment cannot be ghost")
 

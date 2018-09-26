@@ -11,9 +11,7 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("imperative/invalid")
   testExtractAll("termination/valid")
   testExtractAll("termination/looping")
-  testExtractAll("extraction/valid",
-    "extraction/valid/ghost-caseclass.scala",
-    "extraction/valid/GhostEffect3.scala")
+  testExtractAll("extraction/valid")
   testRejectAll("extraction/invalid",
     "extraction/invalid/TypeMember.scala",
     "extraction/invalid/Println.scala",
