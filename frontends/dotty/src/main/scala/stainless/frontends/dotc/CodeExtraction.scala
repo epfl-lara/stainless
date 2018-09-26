@@ -994,7 +994,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val d = sym.owner.info.decl(fieldName)
       def setter = d.suchThat(_.info.firstParamTypes.nonEmpty).symbol
 
-      xt.MethodInvocation(extractTree(lhs), getIdentifier(setter), Seq.empty, Seq(extractTree(rhs)))
+      xt.MethodInvocation(extractTree(lhs), getIdentifier(setter), Seq.empty, Seq(extractTree(rhs))).setPos(a.pos)
 
     case ExCall(
       Some(rec),
