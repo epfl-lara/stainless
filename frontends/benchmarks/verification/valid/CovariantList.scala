@@ -6,7 +6,24 @@ import stainless.annotation._
 import stainless.math._
 import stainless.proof._
 
-object CovariantList1 {
+object CovariantList {
+  sealed abstract class Option[+T] {
+    def get: T = {
+      require(!isEmpty)
+      (this : @unchecked) match {
+        case Some(x) => x
+      }
+    }
+
+    def isEmpty = this == None
+
+    def orElse[T1 >: T](alternative: => Option[T1]): Option[T1] =
+      if (!isEmpty) this else alternative
+  }
+
+  case class Some[+T](value: T) extends Option[T]
+  case object None extends Option[Nothing]
+
   sealed abstract class List[+T] {
 
     def ::[T1 >: T](h: T1): List[T1] = new ::(h, this)
@@ -113,7 +130,7 @@ object CovariantList1 {
       if (this.size <= that.size) this.size else that.size
     )}
 
-    def indexOf(elem: T): BigInt = { this match {
+    def indexOf[T1 >: T](elem: T1): BigInt = { this match {
       case Nil => BigInt(-1)
       case h :: t if h == elem => BigInt(0)
       case h :: t =>
@@ -149,22 +166,22 @@ object CovariantList1 {
       case h :: t =>
         t.lastOption.orElse(Some(h))
       case Nil =>
-        None[T]()
-    }} ensuring { _.isDefined != this.isEmpty }
+        None
+    }} ensuring { _.isEmpty == this.isEmpty }
 
     def headOption: Option[T] = { this match {
       case h :: t =>
         Some(h)
       case Nil =>
-        None[T]()
-    }} ensuring { _.isDefined != this.isEmpty }
+        None
+    }} ensuring { _.isEmpty == this.isEmpty }
 
     def tailOption: Option[List[T]] = { this match {
       case h :: t =>
         Some(t)
       case Nil =>
-        None[List[T]]()
-    }} ensuring { _.isDefined != this.isEmpty }
+        None
+    }} ensuring { _.isEmpty == this.isEmpty }
 
     def distinct: List[T] = this match {
       case Nil => Nil
@@ -187,7 +204,7 @@ object CovariantList1 {
       res._1 == take(index) && res._2 == drop(index)
     }
 
-    def updated(i: BigInt, y: T): List[T] = {
+    def updated[T1 >: T](i: BigInt, y: T1): List[T1] = {
       require(0 <= i && i < this.size)
       this match {
         case x :: tail if i == 0 =>
@@ -283,21 +300,12 @@ object CovariantList1 {
     def exists(p: T => Boolean) = !forall(!p(_))
 
     def find(p: T => Boolean): Option[T] = { this match {
-      case Nil => None[T]()
+      case Nil => None
       case h :: t => if (p(h)) Some(h) else t.find(p)
     }} ensuring { res => res match {
       case Some(r) => (content contains r) && p(r)
-      case None() => true
+      case None => true
     }}
-
-    def groupBy[R](f: T => R): Map[R, List[T]] = this match {
-      case Nil => Map.empty[R, List[T]]
-      case h :: t =>
-        val key: R = f(h)
-        val rest: Map[R, List[T]] = t.groupBy(f)
-        val prev: List[T] = if (rest isDefinedAt key) rest(key) else Nil
-        (rest ++ Map((key, h :: prev))) : Map[R, List[T]]
-    }
 
     def takeWhile(p: T => Boolean): List[T] = { this match {
       case h :: t if p(h) => h :: t.takeWhile(p)
@@ -338,13 +346,12 @@ object CovariantList1 {
 
 
     // Translation to other collections
-    def toSet: Set[T] = foldLeft(Set[T]()){ 
+    def toSet[T1 >: T]: Set[T1] = foldLeft(Set[T1]()){ 
       case (current, next) => current ++ Set(next)
     }
   }
 
   case class ::[+T](h: T, t: List[T]) extends List[T]
-
   case object Nil extends List[Nothing]
 }
 
