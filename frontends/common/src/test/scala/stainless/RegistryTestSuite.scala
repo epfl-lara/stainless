@@ -328,8 +328,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Bottom", "MyNone", "Top", "MySome", "MyOption"),
-        functions = Set("iun", "hun", "gun", "fun", "bar", "prop", "inv", "foobar", "foo")
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
     Seq.empty
@@ -339,8 +339,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Bottom", "MyNone", "Top", "MySome", "MyOption"),
-        functions = Set("iun", "hun", "gun", "fun", "bar", "prop", "inv", "foobar", "foo")
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
     Seq(
@@ -352,8 +352,8 @@ class RegistryTestSuite extends FunSuite {
     UpdateEvent(
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
-        classes = Set("Bottom", "MyNone", "Top", "MySome", "MyOption"),
-        functions = Set("iun", "hun", "gun", "fun", "bar", "prop", "inv", "foobar", "foo")
+        classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
+        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
       )
     ),
     Seq(
@@ -375,7 +375,7 @@ class RegistryTestSuite extends FunSuite {
         Map("BBB" -> sourceBv3),
         Expectation(
           classes = Set("Top", "Bottom"),
-          functions = Set("hun", "inv", "prop")
+          functions = Set("hun", "prop", "inv")
         )
       )
     )
