@@ -520,11 +520,12 @@ trait ASTExtractors {
     }
 
     object ExRequire {
-      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
-        case Apply(
-            ExSymbol("scala", "Predef$", "require") | ExSymbol("stainless", "lang", "StaticChecks$", "require"),
-            Seq(body)) =>
-          Some(body)
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, Boolean)] = tree match {
+        case Apply(ExSymbol("scala", "Predef$", "require"), Seq(body)) =>
+          Some((body, false))
+
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "require"), Seq(body)) =>
+          Some((body, true))
 
         case _ => None
       }
@@ -538,28 +539,35 @@ trait ASTExtractors {
     }
 
     object ExAssert {
-      def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String])] = tree match {
-        case Apply(
-            ExSymbol("scala", "Predef$", "assert") | ExSymbol("stainless", "lang", "StaticChecks$", "assert"),
-            Seq(body)) =>
-          Some((body, None))
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
+        case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
+          Some((body, None, false))
 
-        case Apply(
-            ExSymbol("scala", "Predef$", "assert") | ExSymbol("stainless", "lang", "StaticChecks$", "assert"),
-            Seq(body, Literal(cnst: Constant))) =>
-          Some((body, Some(cnst.stringValue)))
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "assert"), Seq(body)) =>
+          Some((body, None, true))
+
+        case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
+          Some((body, Some(cnst.stringValue), false))
+
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "assert"), Seq(body, Literal(cnst: Constant))) =>
+          Some((body, Some(cnst.stringValue), true))
 
         case _ => None
       }
     }
 
     object ExEnsuring {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, Boolean)] = tree match {
         case ExCall(Some(rec),
-          ExSymbol("scala", "Predef$", "Ensuring", "ensuring") |
+          ExSymbol("scala", "Predef$", "Ensuring", "ensuring"),
+          _, Seq(contract)
+        ) => Some((rec, contract, false))
+
+        case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring", "ensuring"),
           _, Seq(contract)
-        ) => Some((rec, contract))
+        ) => Some((rec, contract, true))
+
         case _ => None
       }
     }

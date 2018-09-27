@@ -334,8 +334,9 @@ trait CodeExtraction extends ASTExtractors {
       ) =>
         // ignore
 
-      case ExRequiredExpression(body) =>
-        invariants :+= extractTree(body)(defCtx)
+      case ExRequiredExpression(body, isStatic) =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+        invariants :+= wrap(extractTree(body)(defCtx))
 
       case t @ ExFunctionDef(fsym, _, _, _, _)
         if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
@@ -680,15 +681,17 @@ trait CodeExtraction extends ASTExtractors {
     def rec(es: List[Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
-      case (e @ ExAssertExpression(contract, oerr)) :: xs =>
+      case (e @ ExAssertExpression(contract, oerr, isStatic)) :: xs =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
         val const = extractTree(contract)(vctx)
         val b     = rec(xs)
-        xt.Assert(const, oerr, b).setPos(e.pos)
+        xt.Assert(wrap(const), oerr, b).setPos(e.pos)
 
-      case (e @ ExRequiredExpression(contract)) :: xs =>
+      case (e @ ExRequiredExpression(contract, isStatic)) :: xs =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
         val pre = extractTree(contract)(vctx)
         val b   = rec(xs)
-        xt.Require(pre, b).setPos(e.pos)
+        xt.Require(wrap(pre), b).setPos(e.pos)
 
       case (e @ ExDecreasesExpression(ranks)) :: xs =>
         val rs = ranks.map(extractTree(_)(vctx))
@@ -759,25 +762,29 @@ trait CodeExtraction extends ASTExtractors {
     case Throw(ex) =>
       xt.Throw(extractTree(ex))
 
-    case ExAssertExpression(e, oerr) =>
-      xt.Assert(extractTree(e), oerr, xt.UnitLiteral().setPos(tr.pos))
+    case ExAssertExpression(e, oerr, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+      xt.Assert(wrap(extractTree(e)), oerr, xt.UnitLiteral().setPos(tr.pos))
 
-    case ExRequiredExpression(body) =>
-      xt.Require(extractTree(body), xt.UnitLiteral().setPos(tr.pos))
+    case ExRequiredExpression(body, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+      xt.Require(wrap(extractTree(body)), xt.UnitLiteral().setPos(tr.pos))
 
-    case ExEnsuredExpression(body, contract) =>
+    case ExEnsuredExpression(body, contract, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
       xt.Ensuring(b, post match {
-        case l: xt.Lambda => l
+        case l: xt.Lambda => l.copy(body = wrap(l.body))
         case other =>
           val tpe = extractType(body)
           val vd = xt.ValDef.fresh("res", tpe).setPos(other)
-          xt.Lambda(Seq(vd), extractType(contract) match {
+          xt.Lambda(Seq(vd), wrap(extractType(contract) match {
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
-          }).setPos(post)
+          })).setPos(post)
       })
 
     case ExThrowingExpression(body, contract) =>

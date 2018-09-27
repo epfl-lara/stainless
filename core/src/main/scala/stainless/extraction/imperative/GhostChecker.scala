@@ -26,8 +26,20 @@ trait GhostChecker { self: EffectsAnalyzer =>
       (effect.receiver.flags contains Ghost) || rec(effect.receiver.getType, effect.target.path)
     }
 
+    object GhostAnn {
+      def unapply(e: Expr): Option[Expr] = e match {
+        case Annotated(body, flags) if flags contains Ghost => Some(body)
+        case _ => None
+      }
+    }
+
     def isGhostExpression(e: Expr): Boolean = e match {
       case v: Variable => v.flags contains Ghost
+
+      // These corresponds to invocation of the corresponding method in `stainless.lang.StaticChecks`
+      case Require(GhostAnn(_), body) => isGhostExpression(body)
+      case Assert(GhostAnn(_), _, body) => isGhostExpression(body)
+      case Ensuring(body, Lambda(_, GhostAnn(_))) => isGhostExpression(body)
 
       case FunInvocation(id, _, args, _) =>
         val fun = lookupFunction(id).map(Outer(_)).getOrElse(effects.local(id))

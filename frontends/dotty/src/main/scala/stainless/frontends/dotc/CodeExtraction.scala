@@ -311,8 +311,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       // Class invariants
-      case ExRequire(body) =>
-        invariants :+= extractTree(body)(defCtx)
+      case ExRequire(body, isStatic) =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+        invariants :+= wrap(extractTree(body)(defCtx))
 
       case t @ ExFunctionDef(fsym, _, _, _, _)
         if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
@@ -641,15 +642,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     def rec(es: List[tpd.Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
-      case (e @ ExAssert(contract, oerr)) :: xs =>
+      case (e @ ExAssert(contract, oerr, isStatic)) :: xs =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+
         val const = extractTree(contract)(vctx)
         val b     = rec(xs)
-        xt.Assert(const, oerr, b).setPos(e.pos)
+        xt.Assert(wrap(const), oerr, b).setPos(e.pos)
 
-      case (e @ ExRequire(contract)) :: xs =>
+      case (e @ ExRequire(contract, isStatic)) :: xs =>
+        def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+
         val pre = extractTree(contract)(vctx)
         val b   = rec(xs)
-        xt.Require(pre, b).setPos(e.pos)
+        xt.Require(wrap(pre), b).setPos(e.pos)
 
       case (e @ ExDecreases(ranks)) :: xs =>
         val measure = xt.tupleWrap(ranks.map(extractTree(_)(vctx)))
@@ -745,27 +750,31 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExIdentity(body) =>
       extractTree(body)
 
-    case ExAssert(contract, oerr) =>
-      xt.Assert(extractTree(contract), oerr, xt.UnitLiteral().setPos(tr.pos))
+    case ExAssert(contract, oerr, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+      xt.Assert(wrap(extractTree(contract)), oerr, xt.UnitLiteral().setPos(tr.pos))
 
-    case ExRequire(contract) =>
-      xt.Require(extractTree(contract), xt.UnitLiteral().setPos(tr.pos))
+    case ExRequire(contract, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+      xt.Require(wrap(extractTree(contract)), xt.UnitLiteral().setPos(tr.pos))
 
     case ExUnwrapped(tree) if tree ne tr => extractTree(tree)
 
-    case ExEnsuring(body, contract) =>
+    case ExEnsuring(body, contract, isStatic) =>
+      def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
+
       val post = extractTree(contract)
       val b = extractTreeOrNoTree(body)
 
       xt.Ensuring(b, post match {
-        case l: xt.Lambda => l
+        case l: xt.Lambda => l.copy(body = wrap(l.body))
         case other =>
           val tpe = extractType(tr)
           val vd = xt.ValDef.fresh("res", tpe).setPos(post)
-          xt.Lambda(Seq(vd), extractType(contract) match {
+          xt.Lambda(Seq(vd), wrap(extractType(contract) match {
             case xt.BooleanType() => post
             case _ => xt.Application(other, Seq(vd.toVariable)).setPos(post)
-          }).setPos(post)
+          })).setPos(post)
       })
 
     case ExThrowing(body, contract) =>

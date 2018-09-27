@@ -193,11 +193,16 @@ trait ASTExtractors {
 
     /** Extracts the 'ensuring' contract from an expression. */
     object ExEnsuredExpression {
-      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
+      def unapply(tree: Apply): Option[(Tree,Tree,Boolean)] = tree match {
         case Apply(Select(Apply(TypeApply(
-              ExSelected("scala", "Predef", "Ensuring") | ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"),
+              ExSelected("scala", "Predef", "Ensuring"),
               _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
-          => Some((body, contract))
+          => Some((body, contract, false))
+
+        case Apply(Select(Apply(TypeApply(
+              ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"),
+              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
+          => Some((body, contract, true))
 
         case _ => None
       }
@@ -307,11 +312,12 @@ trait ASTExtractors {
     /** Extracts the 'require' contract from an expression (only if it's the
      * first call in the block). */
     object ExRequiredExpression {
-      def unapply(tree: Apply): Option[Tree] = tree match {
-        case Apply(
-            ExSelected("scala", "Predef", "require") | ExSelected("stainless", "lang", "StaticChecks", "require"),
-            contractBody :: Nil) =>
-          Some(contractBody)
+      def unapply(tree: Apply): Option[(Tree, Boolean)] = tree match {
+        case Apply(ExSelected("scala", "Predef", "require"), contractBody :: Nil) =>
+          Some((contractBody, false))
+
+        case Apply(ExSelected("stainless", "lang", "StaticChecks", "require"), contractBody :: Nil) =>
+          Some((contractBody, true))
 
         case _ => None
       }
@@ -411,16 +417,19 @@ trait ASTExtractors {
     /** Extracts the 'assert' contract from an expression (only if it's the
       * first call in the block). */
     object ExAssertExpression {
-      def unapply(tree: Apply): Option[(Tree, Option[String])] = tree match {
-        case Apply(
-            ExSymbol("scala", "Predef", "assert") | ExSymbol("stainless", "lang", "StaticChecks", "assert"),
-            contractBody :: Nil) =>
-          Some((contractBody, None))
+      def unapply(tree: Apply): Option[(Tree, Option[String], Boolean)] = tree match {
+        case Apply(ExSymbol("scala", "Predef", "assert"), contractBody :: Nil) =>
+          Some((contractBody, None, false))
+
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks", "assert"), contractBody :: Nil) =>
+          Some((contractBody, None, true))
 
         case Apply(
-            ExSymbol("scala", "Predef", "assert") | ExSymbol("stainless", "lang", "StaticChecks", "assert"),
-            contractBody :: (error: Literal) :: Nil) =>
-          Some((contractBody, Some(error.value.stringValue)))
+            ExSymbol("scala", "Predef", "assert"), contractBody :: (error: Literal) :: Nil) =>
+          Some((contractBody, Some(error.value.stringValue), false))
+
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks", "assert"), contractBody :: (error: Literal) :: Nil) =>
+          Some((contractBody, Some(error.value.stringValue), true))
 
         case _ =>
           None
