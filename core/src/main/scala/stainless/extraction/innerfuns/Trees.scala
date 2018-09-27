@@ -67,10 +67,6 @@ trait Trees extends inlining.Trees { self =>
 
     def toFun: FunDef = asInstanceOf[Outer].fd
     def toLocal: LocalFunDef = asInstanceOf[Inner].fd
-
-    override def toString = asString(PrinterOptions.fromContext(inox.Context.printNames))
-
-    def asString(implicit popts: PrinterOptions): String
   }
 
   case class Outer(fd: FunDef) extends FunAbstraction(
