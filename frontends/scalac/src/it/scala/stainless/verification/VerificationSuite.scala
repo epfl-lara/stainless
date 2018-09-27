@@ -95,9 +95,13 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/Overrides" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
+
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
+
+    // This test is flaky on CVC4
+    case "verification/valid/CovariantList" => Ignore
 
     // These tests make CVC4 crash
     case "verification/valid/PartialCompiler" => Ignore
