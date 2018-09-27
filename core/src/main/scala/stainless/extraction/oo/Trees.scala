@@ -99,6 +99,32 @@ trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type) extends Type
 
+  private def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
+    case tp: TypeParameter => widenTypeParameter(tp.upperBound)
+    case tpe => tpe
+  }
+
+  override protected def getBVType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    super.getBVType(widenTypeParameter(tpe), tpes: _*)
+
+  override protected def getADTType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    super.getADTType(widenTypeParameter(tpe), tpes: _*)
+
+  override protected def getTupleType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    super.getTupleType(widenTypeParameter(tpe), tpes: _*)
+
+  override protected def getSetType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    super.getSetType(widenTypeParameter(tpe), tpes: _*)
+
+  override protected def getBagType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    super.getBagType(widenTypeParameter(tpe), tpes: _*)
+
+  override protected def getMapType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
+      case mt: MapType => mt
+      case _ => Untyped
+    }
+
 
   /* ========================================
    *              EXTRACTORS

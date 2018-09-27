@@ -60,6 +60,10 @@ trait TypeOps extends imperative.TypeOps {
 
     case (t1, t2) if t1 == t2 => Some(t1)
 
+    // maps are covariant in the OO type system
+    case (MapType(f1, t1), MapType(f2, t2)) if f1 == f2 =>
+      Some(MapType(f1, typeBound(t1, t2, upper)))
+
     case _ => None
   }).getOrElse(if (upper) AnyType() else NothingType()).getType
 
