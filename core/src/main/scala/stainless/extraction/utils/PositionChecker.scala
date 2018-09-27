@@ -17,7 +17,10 @@ trait PositionChecker { self: DebugPipeline =>
     private var lastKnownPosition: Position = NoPosition
 
     override def traverse(fd: FunDef): Unit = {
-      if (!fd.flags.contains(Synthetic)) super.traverse(fd)
+      if (!fd.flags.contains(Synthetic)) {
+        lastKnownPosition = NoPosition
+        super.traverse(fd)
+      }
     }
 
     override def traverse(e: Expr): Unit = {
@@ -36,6 +39,5 @@ trait PositionChecker { self: DebugPipeline =>
       super.traverse(e)
     }
   }
-
 }
 

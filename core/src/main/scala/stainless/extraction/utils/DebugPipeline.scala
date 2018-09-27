@@ -27,6 +27,8 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
 
   private[this] val tPrinterOpts = t.PrinterOptions.fromContext(context)
 
+  private[this] val positions = new PositionTraverser
+
   override def invalidate(id: Identifier) = underlying.invalidate(id)
 
   // `extract` is a wrapper around `super.extract` which outputs trees for
@@ -51,9 +53,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
     }
 
     if (debugPos) {
-      res.functions.values foreach { fd =>
-        (new PositionTraverser).traverse(fd)
-      }
+      res.functions.values foreach(positions.traverse)
     }
 
     res
