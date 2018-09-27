@@ -5,7 +5,6 @@ package stainless.lang
 import stainless.annotation._
 
 @library
-@isabelle.typ(name = "Option.option")
 sealed abstract class Option[T] {
 
   def get : T = {
@@ -35,13 +34,11 @@ sealed abstract class Option[T] {
 
 
   // Higher-order API
-  @isabelle.function(term = "%x f. Option.map_option f x")
   def map[R](f: T => R) = { this match {
     case None() => None[R]()
     case Some(x) => Some(f(x))
   }} ensuring { _.isDefined == this.isDefined }
 
-  @isabelle.function(term = "Option.bind")
   def flatMap[R](f: T => Option[R]) = this match {
     case None() => None[R]()
     case Some(x) => f(x)
@@ -75,8 +72,6 @@ sealed abstract class Option[T] {
   }
 }
 
-@isabelle.constructor(name = "Option.option.Some")
 case class Some[T](v: T) extends Option[T]
 
-@isabelle.constructor(name = "Option.option.None")
 case class None[T]() extends Option[T]
