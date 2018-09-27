@@ -25,7 +25,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(DebugSectionTrees)
   private[this] val debugPos: Boolean = debug && context.reporter.debugSections.contains(DebugSectionPositions)
 
-  val ooPrinterOpts = oo.trees.PrinterOptions.fromContext(context)
+  private[this] val tPrinterOpts = t.PrinterOptions.fromContext(context)
 
   override def invalidate(id: Identifier) = underlying.invalidate(id)
 
@@ -34,31 +34,29 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   override def extract(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = DebugSectionTrees
 
-    context.reporter.synchronized {
-      val symbolsToPrint = if (debugTrees) symbols.debugString(objs)(printerOpts) else ""
-      if (!symbolsToPrint.isEmpty) {
-        context.reporter.debug("\n\n\n\nSymbols before " + name + "\n")
-        context.reporter.debug(symbolsToPrint)
-      }
-
-      // extraction happens here
-      val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
-      val resToPrint = if (debugTrees) res.debugString(objs)(targetPrinterOpts) else ""
-
-      if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
-        context.reporter.debug("\n\nSymbols after " + name +  "\n")
-        context.reporter.debug(resToPrint)
-        context.reporter.debug("\n\n")
-      }
-
-      if (debugPos) {
-        res.functions.values foreach { fd =>
-          (new PositionTraverser).traverse(fd)
-        }
-      }
-
-      res
+    val symbolsToPrint = if (debugTrees) symbols.debugString(objs)(printerOpts) else ""
+    if (!symbolsToPrint.isEmpty) {
+      context.reporter.debug("\n\n\n\nSymbols before " + name + "\n")
+      context.reporter.debug(symbolsToPrint)
     }
+
+    // extraction happens here
+    val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
+
+    val resToPrint = if (debugTrees) res.debugString(objs)(tPrinterOpts) else ""
+    if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
+      context.reporter.debug("\n\nSymbols after " + name +  "\n")
+      context.reporter.debug(resToPrint)
+      context.reporter.debug("\n\n")
+    }
+
+    if (debugPos) {
+      res.functions.values foreach { fd =>
+        (new PositionTraverser).traverse(fd)
+      }
+    }
+
+    res
   }
 }
 
@@ -68,7 +66,6 @@ object DebugPipeline {
     val t: pipeline.t.type
   } = new {
     override val underlying: pipeline.type = pipeline
-  } with DebugPipeline {
     override val name: String = nme
-  }
+  } with DebugPipeline
 }

@@ -9,8 +9,6 @@ trait ExtractionPipeline { self =>
 
   implicit val context: inox.Context
   protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
-  // `targetPrinterOpts` isn't implicit to avoid ambiguous references
-  protected def targetPrinterOpts: t.PrinterOptions = t.PrinterOptions.fromContext(context)
 
   def extract(symbols: s.Symbols): t.Symbols
 
