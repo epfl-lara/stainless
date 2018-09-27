@@ -41,6 +41,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
       case Assert(GhostAnn(_), _, body) => isGhostExpression(body)
       case Ensuring(body, Lambda(_, GhostAnn(_))) => isGhostExpression(body)
 
+      // Measures are also considered ghost, as they are never executed
+      case Decreases(_, body) => isGhostExpression(body)
+
       case FunInvocation(id, _, args, _) =>
         val fun = lookupFunction(id).map(Outer(_)).getOrElse(effects.local(id))
         (fun.flags contains Ghost) ||

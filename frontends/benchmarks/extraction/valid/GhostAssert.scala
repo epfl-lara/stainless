@@ -1,7 +1,6 @@
 import stainless.lang._
-import stainless.annotation._
-import stainless.collection._
 import stainless.lang.StaticChecks._
+import stainless.annotation._
 
 object GhostAssert {
 
@@ -20,6 +19,11 @@ object GhostAssert {
     def h(x: BigInt) = {
       f(x)
     } ensuring { res => res + p > 0 }
+
+    def i(x: BigInt) = {
+      decreases(p + x)
+      x
+    }
   }
 
 }

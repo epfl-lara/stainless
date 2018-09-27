@@ -13,14 +13,12 @@ package object lang {
 
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
-    // @ghost
     def holds : Boolean = {
       underlying
     } ensuring {
       (res: Boolean) => res
     }
 
-    // @ghost
     def holds(becauseOfThat: Boolean) = {
       underlying
     } ensuring {
@@ -60,17 +58,17 @@ package object lang {
   @ignore def choose[A,B,C,D](predicate: (A,B,C,D) => Boolean): (A,B,C,D) = sys.error("Can't execute non-deterministic choose")
   @ignore def choose[A,B,C,D,E](predicate: (A,B,C,D,E) => Boolean): (A,B,C,D,E) = sys.error("Can't execute non-deterministic choose")
 
-  @ignore def decreases(r1: BigInt): Unit = ()
-  @ignore def decreases(r1: BigInt, r2: BigInt): Unit = ()
-  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt): Unit = ()
-  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt, r4: BigInt): Unit = ()
-  @ignore def decreases(r1: BigInt, r2: BigInt, r3: BigInt, r4: BigInt, r5: BigInt): Unit = ()
+  @ignore def decreases(@ghost r1: BigInt): Unit = ()
+  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt): Unit = ()
+  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt): Unit = ()
+  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt, @ghost r4: BigInt): Unit = ()
+  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt, @ghost r4: BigInt, @ghost r5: BigInt): Unit = ()
 
-  @ignore def decreases(r1: Int): Unit = ()
-  @ignore def decreases(r1: Int, r2: Int): Unit = ()
-  @ignore def decreases(r1: Int, r2: Int, r3: Int): Unit = ()
-  @ignore def decreases(r1: Int, r2: Int, r3: Int, r4: Int): Unit = ()
-  @ignore def decreases(r1: Int, r2: Int, r3: Int, r4: Int, r5: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Int, @ghost r2: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int, @ghost r4: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int, @ghost r4: Int, @ghost r5: Int): Unit = ()
 
   @ignore
   implicit class WhileDecorations(u: Unit) {
