@@ -14,12 +14,12 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   override val context = underlying.context
 
   private[this] val phases = context.options.findOption(optDebugPhases)
-  private[this] val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+  private[this] val objects = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
 
   // We print debug output for this phase only if the user didn't specify
   // any phase with --debug-phases, or gave the name of (or a string
   // contained in) this phase
-  private[this] val debug = phases.isEmpty || (phases.isDefined && phases.get.exists(name.contains _))
+  private[this] val debug = phases.isEmpty || phases.exists(_.exists(name.contains _))
 
   // Moreover, we only print when the corresponding debug sections are active
   private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(DebugSectionTrees)
@@ -34,7 +34,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   override def extract(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = DebugSectionTrees
 
-    val symbolsToPrint = if (debugTrees) symbols.debugString(objs)(printerOpts) else ""
+    val symbolsToPrint = if (debugTrees) symbols.debugString(objects)(printerOpts) else ""
     if (!symbolsToPrint.isEmpty) {
       context.reporter.debug("\n\n\n\nSymbols before " + name + "\n")
       context.reporter.debug(symbolsToPrint)
@@ -43,7 +43,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
     // extraction happens here
     val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
 
-    val resToPrint = if (debugTrees) res.debugString(objs)(tPrinterOpts) else ""
+    val resToPrint = if (debugTrees) res.debugString(objects)(tPrinterOpts) else ""
     if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
       context.reporter.debug("\n\nSymbols after " + name +  "\n")
       context.reporter.debug(resToPrint)
