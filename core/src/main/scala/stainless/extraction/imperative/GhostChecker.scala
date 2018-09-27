@@ -55,7 +55,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
     }
 
     def checkFunction(fun: FunAbstraction, inGhost: Boolean): Unit = {
-      if (fun.flags contains Ghost) {
+      if (fun.flags contains Synthetic) {
+        () // Synthetic functions should always be fine with respect to ghost flow
+      } else if (fun.flags contains Ghost) {
         if (!effects(fun).forall(isGhostEffect))
           throw ImperativeEliminationException(fun, s"Ghost function cannot have effect on non-ghost state")
         new Checker(true).traverse(fun)
