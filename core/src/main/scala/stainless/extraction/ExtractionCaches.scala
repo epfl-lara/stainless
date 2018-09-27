@@ -91,7 +91,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     symbols.lookupFunction(id).map(FunctionKey(_, symbols))
       .orElse(symbols.lookupSort(id).map(SortKey(_, symbols)))
       .getOrElse(throw new RuntimeException(
-        "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
+        "Couldn't find symbol " + id.asString + " in symbols\n\n" + symbols.asString))
 
 
   /** A [[CacheKey]] that simply composes a sequence of sub-keys. */
@@ -172,7 +172,7 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     symbols.lookupFunction(id).map(FunctionDependencyKey(_, symbols))
       .orElse(symbols.lookupSort(id).map(SortDependencyKey(_, symbols)))
       .getOrElse(throw new RuntimeException(
-        "Couldn't find symbol " + id.asString + " in symbols " + symbols.asString))
+        "Couldn't find symbol " + id.asString + " in symbols\n\n" + symbols.asString))
 
 
   private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
