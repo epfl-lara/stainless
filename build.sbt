@@ -1,7 +1,5 @@
 import sbt.ScriptedPlugin
 
-cancelable in Global := true
-
 enablePlugins(GitVersioning)
 git.baseVersion in ThisBuild := "0.1.0"
 git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
@@ -15,7 +13,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-261-gcb84299"
+val inoxVersion = "1.1.0-266-g7fc4518"
 val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
 val circeVersion = "0.10.0-M2"
 
