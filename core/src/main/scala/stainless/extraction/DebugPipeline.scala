@@ -10,17 +10,17 @@ trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self
   override val t: underlying.t.type = underlying.t
   override val context = underlying.context
 
-  val phases = context.options.findOption(optDebugPhases)
-  val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+  private[this] val phases = context.options.findOption(optDebugPhases)
+  private[this] val objs = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
 
   // We print debug output for this phase only if the user didn't specify
   // any phase with --debug-phases, or gave the name of (or a string
   // contained in) this phase
-  lazy val debug = phases.isEmpty || (phases.isDefined && phases.get.exists(name.contains _))
+  private[this] val debug = phases.isEmpty || (phases.isDefined && phases.get.exists(name.contains _))
 
   // Moreover, we only print when the corresponding debug sections are active
-  lazy val debugTrees: Boolean = debug && context.reporter.debugSections.contains(inox.ast.DebugSectionTrees)
-  lazy val debugPos: Boolean = debug && context.reporter.debugSections.contains(utils.DebugSectionPositions)
+  private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(inox.ast.DebugSectionTrees)
+  private[this] val debugPos: Boolean = debug && context.reporter.debugSections.contains(utils.DebugSectionPositions)
 
   val ooPrinterOpts = oo.trees.PrinterOptions.fromContext(context)
 
@@ -32,7 +32,7 @@ trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self
     implicit val debugSection = inox.ast.DebugSectionTrees
 
     context.reporter.synchronized {
-      val symbolsToPrint = if (debugTrees) symbols.symbolsToString(objs)(printerOpts) else ""
+      val symbolsToPrint = if (debugTrees) symbols.debugString(objs)(printerOpts) else ""
       if (!symbolsToPrint.isEmpty) {
         context.reporter.debug("\n\n\n\nSymbols before " + name + "\n")
         context.reporter.debug(symbolsToPrint)
@@ -40,7 +40,7 @@ trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self
 
       // extraction happens here
       val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
-      val resToPrint = if (debugTrees) res.symbolsToString(objs)(targetPrinterOpts) else ""
+      val resToPrint = if (debugTrees) res.debugString(objs)(targetPrinterOpts) else ""
 
       if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
         context.reporter.debug("\n\nSymbols after " + name +  "\n")
