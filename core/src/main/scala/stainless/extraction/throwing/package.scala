@@ -18,5 +18,5 @@ package object throwing {
   }
 
   def extractor(implicit ctx: inox.Context) = 
-    DebugPipeline("throwing.ExceptionLifting", ExceptionLifting(trees, oo.trees))
+    utils.DebugPipeline("throwing.ExceptionLifting", ExceptionLifting(trees, oo.trees))
 }

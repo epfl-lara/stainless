@@ -66,7 +66,7 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private lazy val reporter = self.ctx.reporter
-  implicit val debugSection = DebugSectionExtraction
+  implicit val debugSection = frontend.DebugSectionExtraction
 
   implicit def scalaPosToInoxPos(p: global.Position): inox.utils.Position = {
     if (p == NoPosition) {

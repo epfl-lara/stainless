@@ -24,7 +24,7 @@ package object imperative {
   }
 
   def extractor(implicit ctx: inox.Context) =
-    DebugPipeline("imperative.AntiAliasing", AntiAliasing(trees)) andThen
-    DebugPipeline("imperative.ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    DebugPipeline("imperative.ImperativeCleanup", ImperativeCleanup(trees, innerfuns.trees))
+    utils.DebugPipeline("imperative.AntiAliasing", AntiAliasing(trees)) andThen
+    utils.DebugPipeline("imperative.ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
+    utils.DebugPipeline("imperative.ImperativeCleanup", ImperativeCleanup(trees, innerfuns.trees))
 }

@@ -23,9 +23,9 @@ package object oo {
       override val t: imperative.trees.type = imperative.trees
     })
 
-    DebugPipeline("oo.AdtSpecialization", AdtSpecialization(trees, trees)) andThen
-    DebugPipeline("oo.RefinementLifting", RefinementLifting(trees, trees)) andThen
-    DebugPipeline("oo.TypeEncoding", TypeEncoding(trees, trees))      andThen
-    DebugPipeline("oo.lowering", lowering)
+    utils.DebugPipeline("oo.AdtSpecialization", AdtSpecialization(trees, trees)) andThen
+    utils.DebugPipeline("oo.RefinementLifting", RefinementLifting(trees, trees)) andThen
+    utils.DebugPipeline("oo.TypeEncoding", TypeEncoding(trees, trees))      andThen
+    utils.DebugPipeline("oo.lowering", lowering)
   }
 }

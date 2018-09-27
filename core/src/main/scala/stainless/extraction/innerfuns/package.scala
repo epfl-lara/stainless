@@ -17,5 +17,5 @@ package object innerfuns {
   }
 
   def extractor(implicit ctx: inox.Context) = 
-    DebugPipeline("innerfuns.FunctionClosure", FunctionClosure(trees, inlining.trees))
+    utils.DebugPipeline("innerfuns.FunctionClosure", FunctionClosure(trees, inlining.trees))
 }

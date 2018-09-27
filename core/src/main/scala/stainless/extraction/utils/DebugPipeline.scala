@@ -2,10 +2,11 @@
 
 package stainless
 package extraction
+package utils
 
 object DebugSectionTrees extends inox.DebugSection("trees")
 
-trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self =>
+trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   val name: String
   val underlying: ExtractionPipeline
   override val s: underlying.s.type = underlying.s
@@ -22,7 +23,7 @@ trait DebugPipeline extends ExtractionPipeline with utils.PositionChecker { self
 
   // Moreover, we only print when the corresponding debug sections are active
   private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(DebugSectionTrees)
-  private[this] val debugPos: Boolean = debug && context.reporter.debugSections.contains(utils.DebugSectionPositions)
+  private[this] val debugPos: Boolean = debug && context.reporter.debugSections.contains(DebugSectionPositions)
 
   val ooPrinterOpts = oo.trees.PrinterOptions.fromContext(context)
 

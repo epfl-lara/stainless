@@ -6,8 +6,6 @@ import java.util.concurrent.Executors
 
 package object stainless {
 
-  object DebugSectionExtraction extends inox.DebugSection("extraction")
-
   object optJson extends inox.OptionDef[String] {
     val name = "json"
     val default = "report.json"

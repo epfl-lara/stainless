@@ -49,7 +49,7 @@ package object xlang {
         transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 
-    DebugPipeline("xlang.PartialFunctions", PartialFunctions(trees)) andThen
-    DebugPipeline("xlang.lowering", lowering)
+    utils.DebugPipeline("xlang.PartialFunctions", PartialFunctions(trees)) andThen
+    utils.DebugPipeline("xlang.lowering", lowering)
   }
 }

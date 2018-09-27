@@ -8,6 +8,8 @@ package object frontend {
   sealed case class UnsupportedCodeException(val pos: inox.utils.Position, msg: String)
     extends Exception(msg)
 
+  object DebugSectionExtraction extends inox.DebugSection("extraction")
+
   object DebugSectionFrontend extends inox.DebugSection("frontend")
 
   /**

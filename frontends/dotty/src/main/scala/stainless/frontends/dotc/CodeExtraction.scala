@@ -27,7 +27,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   import StructuralExtractors._
 
   lazy val reporter = inoxCtx.reporter
-  implicit val debugSection = DebugSectionExtraction
+  implicit val debugSection = frontend.DebugSectionExtraction
 
   implicit def dottyPosToInoxPos(p: Position): inox.utils.Position = scala.util.Try({
     if (!p.exists) {
