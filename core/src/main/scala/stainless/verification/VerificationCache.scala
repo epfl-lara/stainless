@@ -27,14 +27,17 @@ object DebugSectionCacheMiss extends inox.DebugSection("cachemiss")
  *      all share the same [[inox.Context]] because the cache file is shared among all instances.
  */
 trait VerificationCache extends VerificationChecker { self =>
+  val program: StainlessProgram
 
   import context._
   import program._
   import program.symbols._
   import program.trees._
 
-  private lazy val serializer = utils.Serializer(program.trees)
+  import VerificationCache._
   import serializer._
+
+  private lazy val vccache = CacheLoader.get(context)
 
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
@@ -95,10 +98,11 @@ trait VerificationCache extends VerificationChecker { self =>
       case Success(VCResult(status, solver, _)) => VCResult(status, solver, Some(time))
     }
   }
+}
 
-  private val cacheFile: File = utils.Caches.getCacheFile(context, "vccache.bin")
-  private val vccache: Cache = CacheLoader.get(context, cacheFile)
-
+object VerificationCache {
+  private val serializer = utils.Serializer(stainless.trees)
+  import serializer._
 
   /** Cache with the ability to save itself to disk. */
   private class Cache(cacheFile: File) {
@@ -133,7 +137,7 @@ trait VerificationCache extends VerificationChecker { self =>
     /**
      * Opens an ObjectInputStream and catches corruption errors
      */
-    def openStream(ctx: inox.Context, file: File): InputStream = {
+    private def openStream(ctx: inox.Context, file: File): InputStream = {
       try new FileInputStream(file)
       catch {
         case e: java.io.FileNotFoundException =>
@@ -144,7 +148,7 @@ trait VerificationCache extends VerificationChecker { self =>
     /**
      * Closes an ObjectInputStream and catches potential IO errors
      */
-    def closeStream(ctx: inox.Context, in: InputStream, file: File) = {
+    private def closeStream(ctx: inox.Context, in: InputStream, file: File) = {
       try in.close()
       catch {
         case e: java.io.IOException =>
@@ -160,7 +164,9 @@ trait VerificationCache extends VerificationChecker { self =>
      * NOTE This function assumes the file is not written by another process
      *      while being loaded!
      */
-    def get(ctx: inox.Context, cacheFile: File): Cache = this.synchronized {
+    def get(ctx: inox.Context): Cache = this.synchronized {
+      val cacheFile: File = utils.Caches.getCacheFile(ctx, "vccache.bin")
+
       db.getOrElseUpdate(cacheFile, {
         val cache = new Cache(cacheFile)
 
