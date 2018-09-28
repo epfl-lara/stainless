@@ -767,7 +767,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val b = extractTreeOrNoTree(body)
 
       xt.Ensuring(b, post match {
-        case l: xt.Lambda => l.copy(body = wrap(l.body))
+        case l: xt.Lambda => l.copy(body = wrap(l.body)).copiedFrom(l)
         case other =>
           val tpe = extractType(tr)
           val vd = xt.ValDef.fresh("res", tpe).setPos(post)

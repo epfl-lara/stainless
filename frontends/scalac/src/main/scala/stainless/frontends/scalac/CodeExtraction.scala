@@ -777,7 +777,7 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractTreeOrNoTree(body)
 
       xt.Ensuring(b, post match {
-        case l: xt.Lambda => l.copy(body = wrap(l.body))
+        case l: xt.Lambda => l.copy(body = wrap(l.body)).copiedFrom(l)
         case other =>
           val tpe = extractType(body)
           val vd = xt.ValDef.fresh("res", tpe).setPos(other)
