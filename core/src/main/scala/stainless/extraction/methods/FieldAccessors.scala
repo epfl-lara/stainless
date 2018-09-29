@@ -21,26 +21,20 @@ trait FieldAccessors extends oo.CachingPhase
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
-    import symbols.simplifyExpr
-
     def isConcreteAccessor(id: Identifier): Boolean = {
       isConcreteAccessor(symbols.functions(id))
     }
 
     def isConcreteAccessor(fd: s.FunDef): Boolean = {
-      val isAccessor = fd.flags exists { case s.IsAccessor(_) => true case _ => false }
-      val isAbstract = fd.flags contains s.IsAbstract
-
-      isAccessor && !isAbstract
+      (fd.flags exists { case s.IsAccessor(_) => true case _ => false }) &&
+      !(fd.flags contains s.IsAbstract)
     }
 
-    private[this] implicit val popts = inox.solvers.PurityOptions(context)
-
     override def transform(e: s.Expr): t.Expr = e match {
-      case mi: MethodInvocation if isConcreteAccessor(mi.id) =>
-        transform(simplifyExpr(mi.inlined(symbols)))
-      case fi: FunctionInvocation if isConcreteAccessor(fi.id) =>
-        transform(simplifyExpr(fi.inlined(symbols)))
+      case FunctionInvocation(id, tps, args) if isConcreteAccessor(id) =>
+        val tfd = symbols.getFunction(id, tps)
+        transform(s.exprOps.freshenLocals(
+          s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody)))
       case other => super.transform(other)
     }
   }

@@ -56,18 +56,6 @@ trait Trees extends throwing.Trees { self =>
 
       case _ => Untyped
     }
-
-    def tfd(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
-
-    def inlined(implicit s: Symbols): Expr = {
-      val tfd = this.tfd
-      val subst = (tfd.params zip args).toMap
-      exprOps.freshenLocals(exprOps.postMap {
-        case v: Variable if subst contains v.toVal => Some(subst(v.toVal))
-        case This(_) => Some(receiver)
-        case _ => None
-      } (tfd.fullBody))
-    }
   }
 
 
