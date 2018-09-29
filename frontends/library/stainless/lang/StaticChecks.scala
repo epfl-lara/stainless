@@ -5,8 +5,8 @@ import scala.language.implicitConversions
 
 object StaticChecks {
 
+  @library
   case class Ensuring[A](x: A) {
-    @library
     def ensuring(@ghost cond: (A) => Boolean): A = x
   }
 

@@ -551,9 +551,11 @@ sealed abstract class List[T] {
   }
 }
 
+@library
 @isabelle.constructor(name = "List.list.Cons")
 case class Cons[T](h: T, t: List[T]) extends List[T]
 
+@library
 @isabelle.constructor(name = "List.list.Nil")
 case class Nil[T]() extends List[T]
 
