@@ -7,17 +7,19 @@ package methods
 import scala.language.existentials
 
 trait FieldAccessors extends oo.CachingPhase
+  with SimpleSorts
+  with oo.SimpleClasses
   with SimplyCachedFunctions
-  with IdentitySorts
-  with oo.IdentityClasses { self =>
+  with SimplyCachedSorts
+  with oo.SimplyCachedClasses { self =>
 
   val s: Trees
-  val t: Trees
+  val t: oo.Trees
   import s._
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  protected class TransformerContext(symbols: s.Symbols) extends ast.TreeTransformer {
+  protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
@@ -37,6 +39,13 @@ trait FieldAccessors extends oo.CachingPhase
           s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody)))
       case other => super.transform(other)
     }
+
+    override def transform(fd: s.FunDef): t.FunDef = {
+      super.transform(fd.copy(flags = fd.flags.filter {
+        case IsAccessor(_) | IsAbstract => false
+        case _ => true
+      }))
+    }
   }
 
   override protected type FunctionResult = Option[t.FunDef]
@@ -47,10 +56,12 @@ trait FieldAccessors extends oo.CachingPhase
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
     if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd))
 
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
 }
 
 object FieldAccessors {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new FieldAccessors {

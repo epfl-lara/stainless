@@ -68,6 +68,7 @@ trait Trees extends throwing.Trees { self =>
   }
 
 
+  case class IsAccessor(id: Option[Identifier]) extends Flag("accessor", id.toSeq)
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
@@ -144,6 +145,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
+    case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
     case _ => super.deconstruct(f)
   }
 }

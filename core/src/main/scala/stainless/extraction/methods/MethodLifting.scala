@@ -300,7 +300,10 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      fd.flags map transformer.transform
+      fd.flags filter {
+        case s.IsMethodOf(_) | s.IsInvariant => false
+        case _ => true
+      } map transformer.transform
     ).copiedFrom(fd)
   }
 }

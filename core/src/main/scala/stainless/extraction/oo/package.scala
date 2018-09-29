@@ -25,7 +25,7 @@ package object oo {
 
     utils.DebugPipeline("oo.AdtSpecialization", AdtSpecialization(trees, trees)) andThen
     utils.DebugPipeline("oo.RefinementLifting", RefinementLifting(trees, trees)) andThen
-    utils.DebugPipeline("oo.TypeEncoding", TypeEncoding(trees, trees))      andThen
+    utils.DebugPipeline("oo.TypeEncoding",      TypeEncoding(trees, trees))      andThen
     utils.DebugPipeline("oo.lowering", lowering)
   }
 }
