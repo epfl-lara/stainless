@@ -41,7 +41,7 @@ class RegistryTestSuite extends FunSuite {
     else stainless.TestContext.empty
 
   /** Expectation on classes and functions identifier name (ignoring ids). */
-  case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = false)
+  case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = true)
 
   /** Modification events: update the given set of files with their new content & the expected symbols. */
   case class UpdateEvent(contents: Map[FileName, Content], expected: Expectation)
@@ -329,7 +329,10 @@ class RegistryTestSuite extends FunSuite {
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
         classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        functions = Set(
+          "foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv", // functions
+          "x", "p" // accessors
+        )
       )
     ),
     Seq.empty
@@ -340,7 +343,10 @@ class RegistryTestSuite extends FunSuite {
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
         classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        functions = Set(
+          "foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv", // functions
+          "x", "p" // accessors
+        )
       )
     ),
     Seq(
@@ -353,7 +359,10 @@ class RegistryTestSuite extends FunSuite {
       Map("Options" -> sourceOptions, "AAA" -> sourceAv0, "BBB" -> sourceBv0),
       Expectation(
         classes = Set("Top", "Bottom", "MyOption", "MySome", "MyNone"),
-        functions = Set("foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv")
+        functions = Set(
+          "foo", "foobar", "bar", "fun", "gun", "hun", "iun", "prop", "inv", // functions
+          "x", "p" // accessors
+        )
       )
     ),
     Seq(
@@ -375,7 +384,7 @@ class RegistryTestSuite extends FunSuite {
         Map("BBB" -> sourceBv3),
         Expectation(
           classes = Set("Top", "Bottom"),
-          functions = Set("hun", "prop", "inv")
+          functions = Set("p", "hun", "prop", "inv")
         )
       )
     )
