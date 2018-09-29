@@ -13,31 +13,39 @@ import scala.collection.mutable.{ Map => MutableMap }
 class SymbolsContext {
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
-  def fetch(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
-    val overrides = sym.allOverriddenSymbols
-    val top = if (overrides.nonEmpty) overrides.toSeq.last else sym
-    val symbol = s2s.getOrElseUpdate(top, {
-      val name: String =
-        if (sym is TypeParam) {
-          sym.showName
-        } else {
-          sym.fullName.toString.trim.split("\\.")
-            .filter(_ != "package$")
-            .map(name => if (name.endsWith("$")) name.init else name)
-            .mkString(".")
-        }
+  def fetch(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
+    s2i.getOrElseUpdate(getPath(sym), {
+      val overrides = sym.allOverriddenSymbols
+      val top = if (overrides.nonEmpty) overrides.toSeq.last else sym
+      val symbol = s2s.getOrElseUpdate(top, {
+        val name: String =
+          if (sym is TypeParam) {
+            sym.showName
+          } else {
+            sym.fullName.toString.trim.split("\\.")
+              .filter(_ != "package$")
+              .map(name => if (name.endsWith("$")) name.init else name)
+              .mkString(".")
+          }
 
-      ast.Symbol(name)
+        ast.Symbol(name)
+      })
+
+      SymbolIdentifier(symbol)
     })
+  }
 
-    SymbolIdentifier(symbol)
-  })
+  def fetchParam(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
+    val id = fetch(sym)
+    params.getOrElseUpdate(id, SymbolIdentifier(id.symbol))
+  }
 
   /** Get the identifier for the class invariant of [[sym]]. */
-  def fetchInvIdForClass(sym: Symbol)(implicit ctx: Context): SymbolIdentifier =
+  def fetchInvIdForClass(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
     invs.getOrElseUpdate(fetch(sym), {
       SymbolIdentifier(invSymbol)
     })
+  }
 
   private def getPath(sym: Symbol)(implicit ctx: Context): String = sym.fullName + sym.id.toString
 
@@ -51,6 +59,8 @@ class SymbolsContext {
   private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
   private val invSymbol = stainless.ast.Symbol("inv")
 
+  /** Mapping for getter identifiers. */
+  private val params = MutableMap[SymbolIdentifier, SymbolIdentifier]()
 }
 
 
