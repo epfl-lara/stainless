@@ -295,9 +295,6 @@ trait EffectsAnalyzer extends CachingPhase {
 
       case Assignment(v, value) => rec(value, env) ++ env.get(v)
 
-      case fi: FunctionInvocation if fi.tfd.flags exists { case IsAccessor(_) => true case _ => false } =>
-        rec(fi.inlined, env)
-
       case fi @ FunInvocation(id, tps, args, _) =>
         val fun = fi match {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
