@@ -19,7 +19,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   // We print debug output for this phase only if the user didn't specify
   // any phase with --debug-phases, or gave the name of (or a string
   // contained in) this phase
-  private[this] val debug = phases.isEmpty || phases.exists(_.exists(name.contains _))
+  private[this] val debug = phases.isEmpty || phases.exists(_ contains name)
 
   // Moreover, we only print when the corresponding debug sections are active
   private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(DebugSectionTrees)

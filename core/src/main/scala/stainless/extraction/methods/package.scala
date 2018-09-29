@@ -18,6 +18,6 @@ package object methods {
   }
 
   def extractor(implicit ctx: inox.Context) =
-    utils.DebugPipeline("methods.MethodLifting", MethodLifting(trees, trees)) andThen
-    utils.DebugPipeline("methods.FieldAccessors", FieldAccessors(trees, throwing.trees))
+    utils.DebugPipeline("MethodLifting", MethodLifting(trees, trees)) andThen
+    utils.DebugPipeline("FieldAccessors", FieldAccessors(trees, throwing.trees))
 }

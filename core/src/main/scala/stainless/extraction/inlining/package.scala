@@ -17,5 +17,5 @@ package object inlining {
   }
 
   def extractor(implicit ctx: inox.Context) = 
-    utils.DebugPipeline("inlining.FunctionInlining", FunctionInlining(trees, extraction.trees))
+    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, extraction.trees))
 }
