@@ -227,18 +227,8 @@ trait CodeExtraction extends ASTExtractors {
         functions :+= fd.id
         allFunctions :+= fd
 
-      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        val fd = extractIgnoredFieldAccessor(fsym, vparams)
-        functions :+= fd.id
-        allFunctions :+= fd
-
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
         val fd = extractFunction(fsym, Seq.empty, vparams, rhs)(DefContext())
-        functions :+= fd.id
-        allFunctions :+= fd
-
-      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        val fd = extractIgnoredFieldAccessor(fsym, Seq.empty)
         functions :+= fd.id
         allFunctions :+= fd
 
@@ -481,11 +471,13 @@ trait CodeExtraction extends ASTExtractors {
     val isAbstract = rhs == EmptyTree
 
     var flags = annotationsOf(sym) ++
-      (if (sym.isImplicit && sym.isSynthetic) Set(xt.Inline, xt.Synthetic) else Set()) ++
-      (if (sym.isPrivate) Set(xt.Private) else Set()) ++
-      (if (sym.isVal || sym.isLazy) Set(xt.IsField(sym.isLazy)) else Set()) ++
-      (if (!sym.isLazy && sym.isAccessor) Set(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract))) else Set()) ++
-      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Set(xt.Synthetic, xt.Inline) else Set())
+      (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
+      (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
+      (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
+      (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
+      (if (!sym.isLazy && sym.isAccessor)
+        Seq(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract)))
+      else Seq())
 
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {
@@ -541,13 +533,17 @@ trait CodeExtraction extends ASTExtractors {
     val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
     val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
 
+    val flags = annotationsOf(sym) ++
+      (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
+      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
+
     new xt.FunDef(
       getIdentifier(sym),
       Seq.empty,
       args,
       returnType.setPos(sym.pos),
       xt.NoTree(returnType).setPos(sym.pos),
-      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
+      flags
     )
   }
 
