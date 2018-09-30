@@ -78,9 +78,6 @@ class CodeGenVerificationSuite extends VerificationSuite {
     case "verification/valid/MergeSort2" => Ignore
     case "verification/valid/IntSetInv" => Ignore
 
-    // FIXME: Wrong VC is being generated for some reason
-    case "verification/valid/Laws0" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 }
@@ -99,6 +96,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/Overrides" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
+
+    // CVC4 returns unknown on this benchmark for some reason
+    case "verification/valid/BigIntMonoidLaws.scala" => Ignore
 
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
