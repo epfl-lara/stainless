@@ -218,11 +218,13 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       firstOverrides(co).map { case (cid, either) =>
         val descendant = tcd.descendants.find(_.id == cid).get
         val descType = identity.transform(descendant.toType).asInstanceOf[t.ClassType]
-        val thiss = t.Annotated(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg), Seq(t.Unchecked))
+
+        def unchecked(expr: t.Expr): t.Expr = t.Annotated(expr, Seq(t.Unchecked)).copiedFrom(expr)
+        val thiss = unchecked(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg))
 
         def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr =
           if (symbols.isSubtypeOf(tpe, expected)) e
-          else t.AsInstanceOf(e, transformer.transform(expected)).copiedFrom(e)
+          else unchecked(t.AsInstanceOf(e, transformer.transform(expected.getType(symbols))).copiedFrom(e))
 
         val (tpe, expr) = either match {
           case Left(nfd) =>
