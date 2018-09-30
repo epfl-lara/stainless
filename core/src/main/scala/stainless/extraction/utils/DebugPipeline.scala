@@ -6,6 +6,20 @@ package utils
 
 object DebugSectionTrees extends inox.DebugSection("trees")
 
+object optDebugObjects extends inox.OptionDef[Seq[String]] {
+  val name = "debug-objects"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "o1,o2,..."
+}
+
+object optDebugPhases extends inox.OptionDef[Seq[String]] {
+  val name = "debug-phases"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "p1,p2,..."
+}
+
 trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   val name: String
   val underlying: ExtractionPipeline
