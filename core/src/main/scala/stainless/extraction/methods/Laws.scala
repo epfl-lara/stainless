@@ -4,124 +4,182 @@ package stainless
 package extraction
 package methods
 
-import scala.language.postfixOps
-
-import stainless.ast.SymbolIdentifier
+import stainless.ast.{Symbol, SymbolIdentifier}
 import stainless.ast.SymbolIdentifier.IdentifierOps
 
-trait Laws extends oo.CachingPhase
-  with SimpleFunctions
-  with DependentlyCachedFunctions
-  with oo.DependentlyCachedClasses
-  with IdentitySorts { self =>
+trait Laws
+  extends oo.CachingPhase
+     with IdentitySorts { self =>
 
-  val s: methods.Trees
-  val t: methods.Trees
+  val trees: Trees
+  import trees._
 
-  private[this] object transformer extends oo.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
+  override final val s: trees.type = trees
+  override final val t: trees.type = trees
+
+  private[this] val Law = Annotation("law", Seq())
+  private[this] def isLaw(fd: FunDef): Boolean = fd.flags contains Law
+
+  private[this] val lawSymbol = new utils.ConcurrentCached[Symbol, Symbol](
+    symbol => Symbol((symbol.path.init :+ s"${symbol.path.last}$$prop") mkString ".")
+  )
+
+  private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
+    id => SymbolIdentifier(lawSymbol(id.symbol))
+  )
+
+  private def firstSuper(id: SymbolIdentifier)(implicit symbols: Symbols): Option[SymbolIdentifier] = {
+    def rec(cd: ClassDef): Option[SymbolIdentifier] = {
+      cd.methods.find(_.symbol == id.symbol)
+        .orElse(cd.parents.headOption.flatMap(ct => rec(symbols.getClass(ct.id))))
+    }
+
+    symbols.getFunction(id).flags
+      .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }
+      .flatMap(cd => cd.parents.headOption.map(ct => symbols.getClass(ct.id)))
+      .flatMap(rec(_))
   }
 
-  override protected type ClassResult = (t.ClassDef, Seq[t.FunDef])
-  override protected def registerClasses(symbols: t.Symbols, classes: Seq[(t.ClassDef, Seq[t.FunDef])]): t.Symbols = {
+  override protected final type TransformerContext = Symbols
+  override protected final def getContext(symbols: s.Symbols) = symbols
+
+  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult]({ (fd, symbols) =>
+    FunctionKey(fd, symbols) + new ValueKey(
+      if ((fd.flags exists { case IsMethodOf(_) => true case _ => false }) && (fd.flags contains Law)) {
+        firstSuper(fd.id.unsafeToSymbolIdentifier)(symbols).toSet[Identifier]
+      } else {
+        Set.empty[Identifier]
+      }
+    )
+  })
+
+  override protected final type FunctionResult = (FunDef, Option[FunDef])
+  override protected final def registerFunctions(symbols: Symbols, functions: Seq[FunctionResult]): Symbols = {
+    symbols.withFunctions(functions.flatMap(p => p._1 +: p._2.toSeq))
+  }
+
+  override protected final def extractFunction(symbols: Symbols, fd: FunDef): FunctionResult = {
+    if (fd.flags contains Law) {
+      // Some sanity checks
+      if (!fd.flags.exists { case IsMethodOf(_) => true case _ => false })
+        throw MissformedStainlessCode(fd, "Unexpected non-method law")
+
+      val cid = fd.flags.collectFirst { case IsMethodOf(id) => id }.get
+      val cd = symbols.getClass(cid)
+      val ct = ClassType(cid, cd.typeArgs).setPos(fd)
+
+      if (!(cd.flags contains IsAbstract))
+        throw MissformedStainlessCode(fd, "Unexpected law in non-abstract class")
+      if (!symbols.isSubtypeOf(fd.returnType, BooleanType()))
+        throw MissformedStainlessCode(fd, "Unexpected non-boolean typed law")
+      if (!exprOps.withoutSpecs(fd.fullBody).isDefined)
+        throw MissformedStainlessCode(fd, "Unexpected law without a body")
+
+      val lid = lawID(fd.id.unsafeToSymbolIdentifier)
+
+      val newFd: FunDef = {
+        val vd = ValDef(FreshIdentifier("res"), BooleanType().setPos(fd.fullBody), Seq.empty).setPos(fd.fullBody)
+        val newBody = Ensuring(NoTree(BooleanType().setPos(fd.fullBody)).setPos(fd.fullBody),
+          Lambda(Seq(vd), And(
+            vd.toVariable,
+            MethodInvocation(
+              This(ct).setPos(fd.fullBody),
+              lid, fd.typeArgs, fd.params.map(_.toVariable)
+            ).setPos(fd.fullBody)
+          ).setPos(fd.fullBody)).setPos(fd.fullBody)
+        ).setPos(fd.fullBody)
+
+        fd.copy(fullBody = newBody, flags = (fd.flags ++ Seq(Law, IsAbstract)).distinct)
+      }
+
+      val propFd: FunDef = {
+        val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(symbols)
+        val newBody = exprOps.reconstructSpecs(specs, Some(andJoin(
+          firstSuper(fd.id.unsafeToSymbolIdentifier)(symbols).map { sid =>
+            MethodInvocation(
+              Super(ct).setPos(fd),
+              lawID(sid), fd.typeArgs, fd.params.map(_.toVariable)
+            ).setPos(fd)
+          }.toSeq :+ body.get
+        ).setPos(body.get)), fd.returnType)
+
+        val newFlags = fd.flags.filter(_ != Law) :+ InlineOnce
+
+        exprOps.freshenSignature(
+          new FunDef(lid, fd.tparams, fd.params, fd.returnType, newBody, newFlags).setPos(fd)
+        )
+      }
+
+      (newFd, Some(propFd))
+    } else {
+      (fd, None)
+    }
+  }
+
+  private def missingLaws(cd: ClassDef)(implicit symbols: Symbols): Seq[(TypedClassDef, FunDef)] = {
+    val lawSymbols = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
+      case (lawSymbols, cd) =>
+        val methods = cd.methods
+        val methodSymbols = methods.map(_.unsafeToSymbolIdentifier.symbol).toSet
+        val newSymbols = methods
+          .filter(id => symbols.getFunction(id).flags contains Law)
+          .map(_.unsafeToSymbolIdentifier.symbol).toSet
+
+        lawSymbols -- methodSymbols ++ newSymbols
+    }
+
+    lawSymbols.toSeq.sortBy(_.name).map { symbol =>
+      val acd = cd.ancestors.find(_.cd.methods.exists(_.symbol == symbol)).get
+      val lawFd = symbols.getFunction(acd.cd.methods.find(_.symbol == symbol).get)
+      (acd, lawFd)
+    }
+  }
+
+  override protected final val classCache = new CustomCache[s.ClassDef, ClassResult]({ (cd, symbols) =>
+    new DependencyKey(
+      cd.id,
+      if (cd.flags contains IsAbstract) Set.empty[CacheKey]
+      else missingLaws(cd)(symbols).map { case (acd, fd) =>
+        ClassKey(acd.cd, symbols) + FunctionKey(fd, symbols) + new ValueKey(acd.tpSubst)
+      }.toSet[CacheKey]
+    )
+  })
+
+  override protected final type ClassResult = (t.ClassDef, Seq[t.FunDef])
+  override protected final def registerClasses(symbols: Symbols, classes: Seq[ClassResult]): Symbols = {
     val (cls, funs) = classes.unzip
     symbols.withClasses(cls).withFunctions(funs.flatten)
   }
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
-
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
-    import s._
-    import symbols._
-
-    private[this] object IsLaw {
-      def apply(law: Expr) = Annotation("law", Seq(law))
-    }
-
-    def isLaw(fd: FunDef): Boolean = fd.flags exists (_.name == "law")
-
-    def getClass(fd: FunDef): Option[ClassDef] = {
-      fd.flags collectFirst { case IsMethodOf(cid) => symbols.classes(cid) }
-    }
-
-    def getLaws(cd: ClassDef): Seq[FunDef] = {
-      cd.methods(symbols).map(symbols.functions).filter(isLaw)
-    }
-
-    def getParentLaws(cd: ClassDef): Seq[FunDef] = for {
-      parent <- cd.ancestors(symbols).headOption.toSeq
-      method <- parent.cd.methods(symbols).map(symbols.functions) if isLaw(method)
-    } yield method
-
-    def bodyAsPost(body: Expr): Expr = {
-      val vd = ValDef(FreshIdentifier("res"), BooleanType(), Seq.empty).setPos(body)
-      val post = Lambda(Seq(vd), And(vd.toVariable, body).setPos(body)).setPos(body)
-      Ensuring(NoTree(BooleanType()).setPos(body), post).setPos(body)
-    }
-
-    def rewriteLaw(fd: FunDef): FunDef = {
-      val cd = getClass(fd).get
-      val parentClass = cd.ancestors(symbols).headOption
-      val parentFun = parentClass.flatMap(_.cd.methods(symbols).find(_.name == fd.id.name)).map(symbols.functions)
-      val parentExpr = parentFun.map(_.fullBody).flatMap(exprOps.withoutSpecs)
-      val fullExpr = parentExpr.map(And(_, fd.fullBody).setPos(fd)).getOrElse(fd.fullBody)
-      val newBody = bodyAsPost(fullExpr).setPos(fd)
-      val newFlags = (fd.flags.filterNot(_.name == "law") ++ Seq(IsLaw(fullExpr), IsAbstract)).distinct
-
-      fd.copy(fullBody = newBody, flags = newFlags).copiedFrom(fd)
-    }
-
-    def missingLawOverride(fd: FunDef, cd: ClassDef): FunDef = {
-      val parent = cd.ancestors(symbols).head
-      val args = fd.params map { vd =>
-        vd.freshen.copy(tpe = typeOps.instantiateType(vd.tpe, parent.tpSubst))
+  override protected final def extractClass(symbols: Symbols, cd: ClassDef): ClassResult = {
+    if (!(cd.flags contains IsAbstract)) {
+      val functions = missingLaws(cd)(symbols).map { case (acd, lawFd) =>
+        exprOps.freshenSignature(new FunDef(
+          SymbolIdentifier(lawFd.id.unsafeToSymbolIdentifier.symbol),
+          lawFd.typeArgs
+            .map(tp => typeOps.instantiateType(tp, acd.tpSubst))
+            .map(tp => TypeParameterDef(tp.asInstanceOf[TypeParameter])),
+          lawFd.params.map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, acd.tpSubst))),
+          typeOps.instantiateType(lawFd.returnType, acd.tpSubst),
+          BooleanLiteral(true).setPos(lawFd),
+          Seq(IsMethodOf(cd.id))
+        ).setPos(cd))
       }
 
-      val id = SymbolIdentifier(fd.id.unsafeToSymbolIdentifier.symbol)
-
-      val funOverride = new FunDef(
-        id,
-        fd.tparams.map(_.freshen),
-        args,
-        BooleanType(),
-        BooleanLiteral(true).setPos(fd),
-        Seq(IsMethodOf(cd.id)) ++ cd.flags.find(_ == IsAbstract).toSeq
-      ).copiedFrom(fd)
-
-      if (funOverride.flags.exists(_ == IsAbstract)) rewriteLaw(funOverride) else funOverride
-    }
-
-    def missingLawOverrides(cd: ClassDef): Seq[FunDef] = {
-      val methods = cd.methods(symbols).map(_.symbol).toSet
-      getParentLaws(cd)
-        .filterNot(methods contains _.id.unsafeToSymbolIdentifier.symbol)
-        .map(missingLawOverride(_, cd))
+      (cd, functions)
+    } else {
+      (cd, Seq.empty)
     }
   }
-
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, Seq[t.FunDef]) = {
-    val lawOverrides = context.missingLawOverrides(cd)
-    transformer.transform(cd) -> lawOverrides.map(transformer.transform)
-  }
-
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    if (context.isLaw(fd)) transformer.transform(context.rewriteLaw(fd))
-    else transformer.transform(fd)
-  }
-
 }
 
 object Laws {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: trees.type
-    val t: trees.type
-  } = new Laws {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
+  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: tr.type
+    val t: tr.type
+  } = new {
+    override val trees: tr.type = tr
+  } with Laws {
     override val context = ctx
   }
 }
