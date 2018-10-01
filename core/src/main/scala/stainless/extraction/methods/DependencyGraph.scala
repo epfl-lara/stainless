@@ -131,11 +131,14 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
       case None => Set.empty
       case Some(cid) =>
-        symbols.classes(cid)
-          .descendants(symbols)
-          .flatMap(_.methods(symbols))
-          .filter(_.symbol == symbol)
-          .toSet
+        def rec(cd: ClassDef): Set[Identifier] = cd.children(symbols).flatMap {
+          cd => cd.methods(symbols).find(_.symbol == symbol) match {
+            case Some(id) => Set(id: Identifier)
+            case None => rec(cd)
+          }
+        }.toSet
+
+        rec(symbols.getClass(cid))
     }
   }
 
