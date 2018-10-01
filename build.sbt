@@ -13,7 +13,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-269-gc64a439"
+val inoxVersion = "1.1.0-273-gbb72631"
 val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
 val circeVersion = "0.10.0-M2"
 
