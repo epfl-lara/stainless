@@ -106,6 +106,10 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
       }
     }
 
+    for (fd <- symbols.functions.values; id <- overrides(fd)) {
+      g += SimpleEdge(id, fd.id)
+    }
+
     inox.utils.fixpoint(addEdgesToOverrides)(g)
   }
 

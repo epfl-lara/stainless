@@ -301,10 +301,12 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      fd.flags filter {
+      (fd.flags filter {
         case s.IsMethodOf(_) | s.IsInvariant => false
         case _ => true
-      } map transformer.transform
+      } map transformer.transform) ++
+        // a lifted method is derived from the methods that override it
+        cos.flatMap((fo: FunOverride) => fo.fid.map(t.Derived(_)))
     ).copiedFrom(fd)
   }
 }
