@@ -290,6 +290,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
 
     val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
 
+    // a lifted method is derived from the methods that (first) override it
+    val derivedFrom = cos.flatMap(o => firstOverrides(o).map(p => t.Derived(p._2.id)))
+
     new t.FunDef(
       fd.id,
       (tpSeq.map(s.TypeParameterDef(_)) ++ fd.tparams) map transformer.transform,
@@ -299,9 +302,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       (fd.flags filter {
         case s.IsMethodOf(_) | s.IsInvariant => false
         case _ => true
-      } map transformer.transform) ++
-      // a lifted method is derived from the methods that override it
-      cos.flatMap(o => firstOverrides(o).map(p => t.Derived(p._1)))
+      } map transformer.transform) ++ derivedFrom
     ).copiedFrom(fd)
   }
 }
