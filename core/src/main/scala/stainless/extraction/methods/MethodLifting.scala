@@ -209,13 +209,13 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
       }
     }
 
-    def firstOverrides(fo: Override): Seq[(Identifier, Either[FunDef, ValDef])] = fo match {
-      case Override(cid, Some(id), _) => Seq(cid -> Left(symbols.getFunction(id)))
+    def firstOverrides(fo: Override): Seq[(Identifier, FunDef)] = fo match {
+      case Override(cid, Some(id), _) => Seq(cid -> symbols.getFunction(id))
       case Override(_, _, children) => children.toSeq.flatMap(firstOverrides)
     }
 
     val subCalls = (for (co <- cos) yield {
-      firstOverrides(co).map { case (cid, either) =>
+      firstOverrides(co).map { case (cid, nfd) =>
         val descendant = tcd.descendants.find(_.id == cid).get
         val descType = identity.transform(descendant.toType).asInstanceOf[t.ClassType]
 
@@ -226,27 +226,22 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
           if (symbols.isSubtypeOf(tpe, expected)) e
           else unchecked(t.AsInstanceOf(e, transformer.transform(expected.getType(symbols))).copiedFrom(e))
 
-        val (tpe, expr) = either match {
-          case Left(nfd) =>
-            val ntpMap = descendant.tpSubst ++ (nfd.typeArgs zip fd.typeArgs)
-            val args = (fd.params zip nfd.params).map { case (vd1, vd2) =>
-              wrap(
-                transformer.transform(vd1.toVariable),
-                s.typeOps.instantiateType(vd1.tpe, tpMap),
-                s.typeOps.instantiateType(vd2.tpe, ntpMap)
-              )
-            }
-            (
-              s.typeOps.instantiateType(nfd.returnType, ntpMap),
-              t.FunctionInvocation(
-                nfd.id,
-                descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
-                thiss +: args
-              ).copiedFrom(fd)
+        val (tpe, expr) = {
+          val ntpMap = descendant.tpSubst ++ (nfd.typeArgs zip fd.typeArgs)
+          val args = (fd.params zip nfd.params).map { case (vd1, vd2) =>
+            wrap(
+              transformer.transform(vd1.toVariable),
+              s.typeOps.instantiateType(vd1.tpe, tpMap),
+              s.typeOps.instantiateType(vd2.tpe, ntpMap)
             )
-          case Right(vd) => (
-            descendant.fields.find(_.id == vd.id).get.tpe,
-            t.ClassSelector(thiss, vd.id).copiedFrom(fd)
+          }
+          (
+            s.typeOps.instantiateType(nfd.returnType, ntpMap),
+            t.FunctionInvocation(
+              nfd.id,
+              descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),
+              thiss +: args
+            ).copiedFrom(fd)
           )
         }
 
@@ -305,8 +300,8 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
         case s.IsMethodOf(_) | s.IsInvariant => false
         case _ => true
       } map transformer.transform) ++
-        // a lifted method is derived from the methods that override it
-        cos.flatMap((fo: FunOverride) => fo.fid.map(t.Derived(_)))
+      // a lifted method is derived from the methods that override it
+      cos.flatMap(o => firstOverrides(o).map(p => t.Derived(p._1)))
     ).copiedFrom(fd)
   }
 }
