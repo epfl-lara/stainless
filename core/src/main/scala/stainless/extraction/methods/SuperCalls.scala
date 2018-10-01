@@ -75,23 +75,13 @@ trait SuperCalls
       SymbolIdentifier(newSymbol)
     }
 
-  private def firstSuper(id: SymbolIdentifier)(implicit symbols: s.Symbols): Option[SymbolIdentifier] = {
-    def rec(cd: s.ClassDef): Option[SymbolIdentifier] = {
-      import s._
-      cd.methods.find(_.symbol == id.symbol)
-        .orElse(cd.parents.headOption.flatMap(ct => rec(symbols.getClass(ct.id))))
-    }
-
-    rec(symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.get)
-  }
-
   private class SuperCollector(implicit symbols: s.Symbols) extends s.TreeTraverser {
     private[this] var supers: Set[Identifier] = Set.empty
     def getSupers: Set[Identifier] = supers
 
     override def traverse(e: s.Expr): Unit = e match {
       case s.MethodInvocation(s.Super(ct), id, _, _) =>
-        supers += firstSuper(id.unsafeToSymbolIdentifier).get
+        supers += id
         super.traverse(e)
       case _ => super.traverse(e)
     }
@@ -125,27 +115,19 @@ trait SuperCalls
     import symbols._
 
     val supers: Set[Identifier] = {
-      var supers: Set[Identifier] = Set.empty
-      val traverser = new s.TreeTraverser {
-        override def traverse(e: s.Expr): Unit = e match {
-          case s.MethodInvocation(s.Super(ct), id, _, _) =>
-            supers += firstSuper(id.unsafeToSymbolIdentifier).get
-            super.traverse(e)
-          case _ => super.traverse(e)
-        }
-      }
+      val collector = new SuperCollector
 
-      symbols.functions.values.foreach(traverser.traverse)
-      symbols.sorts.values.foreach(traverser.traverse)
-      symbols.classes.values.foreach(traverser.traverse)
-      supers
+      symbols.functions.values.foreach(collector.traverse)
+      symbols.sorts.values.foreach(collector.traverse)
+      symbols.classes.values.foreach(collector.traverse)
+      collector.getSupers
     }
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(sup @ s.Super(ct), id, tps, args) =>
         t.MethodInvocation(
           t.This(transform(ct).asInstanceOf[t.ClassType]).copiedFrom(sup),
-          superID(firstSuper(id.unsafeToSymbolIdentifier).get),
+          superID(id.unsafeToSymbolIdentifier),
           tps map transform,
           args map transform
         ).copiedFrom(e)
