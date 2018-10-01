@@ -165,23 +165,10 @@ trait SuperCalls
     import s._
 
     if (context.supers contains fd.id) {
-      val typeArgs = symbols.freshenTypeParams(fd.typeArgs)
-      val tpSubst = (fd.typeArgs zip typeArgs).toMap
-
-      val (paramSubst, params) = fd.params
-        .map(vd => vd.copy(tpe = s.typeOps.instantiateType(vd.tpe, tpSubst)))
-        .foldLeft((Map[s.ValDef, s.Expr](), Seq[s.ValDef]())) { case ((paramSubst, params), vd) =>
-          val ntpe = s.typeOps.replaceFromSymbols(paramSubst, vd.tpe)
-          val nvd = s.ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
-          (paramSubst + (vd -> nvd.toVariable), params :+ nvd)
-        }
-
       val sid = superID(fd.id.unsafeToSymbolIdentifier)
-      val superFd = new s.FunDef(sid, typeArgs.map(s.TypeParameterDef(_)), params,
-        s.typeOps.replaceFromSymbols(paramSubst, typeOps.instantiateType(fd.returnType, tpSubst)),
-        s.exprOps.replaceFromSymbols(paramSubst, typeOps.instantiateType(fd.fullBody, tpSubst)),
-        fd.flags
-      ).setPos(fd)
+      val superFd = exprOps.freshenSignature(
+        new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags).setPos(fd)
+      )
 
       val cd = symbols.getClass(fd.flags.collectFirst { case s.IsMethodOf(cid) => cid }.get)
       val newFd = fd.copy(fullBody = s.exprOps.withBody(

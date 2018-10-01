@@ -112,7 +112,7 @@ trait Printer extends oo.Printer {
   }
 }
 
-trait ExprOps extends imperative.ExprOps {
+trait ExprOps extends oo.ExprOps {
   protected val trees: Trees
   import trees._
 

@@ -201,26 +201,6 @@ trait TypeOps extends imperative.TypeOps {
     }
   }
 
-  def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {
-    class Freshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
-      val s: trees.type = trees
-      val t: trees.type = trees
-
-      override def transform(tpe: s.Type): t.Type = tpe match {
-        case tp: TypeParameter if mapping contains tp => mapping(tp)
-        case _ => super.transform(tpe)
-      }
-    }
-
-    val tpMap = tps.foldLeft(Map[TypeParameter, TypeParameter]()) { case (tpMap, tp) =>
-      val freshener = new Freshener(tpMap)
-      val freshTp = freshener.transform(tp.freshen).asInstanceOf[TypeParameter]
-      tpMap + (tp -> freshTp)
-    }
-
-    tps.map(tpMap)
-  }
-
   def patternInType(pat: Pattern): Type = pat match {
     case WildcardPattern(ob) => ob.map(_.getType).getOrElse(AnyType())
     case LiteralPattern(_, lit) => lit.getType

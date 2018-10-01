@@ -189,7 +189,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
     val cd = symbols.getClass(cid)
     val fd = symbols.getFunction(fid)
-    val tpSeq = symbols.freshenTypeParams(cd.typeArgs).map { tp =>
+    val tpSeq = exprOps.freshenTypeParams(cd.typeArgs).map { tp =>
       tp.copy(flags = tp.flags.filter { case Variance(_) => false case _ => true }).copiedFrom(tp)
     }
     val tpMap = (cd.typeArgs zip tpSeq).toMap

@@ -182,32 +182,25 @@ trait ExprOps extends inox.ast.ExprOps {
     specs.foldLeft(newBody)(withSpec)
   }
 
-  /** Freshen the type parameters of the given [[FunDef]].
-    * If `freshenParams` is set to `true`, then the parameters' identifiers
-    * will be freshened as well.
-    */
-  def freshenTypeParams(fd: FunDef, freshenIdentifiers: Boolean = false): FunDef = {
-    val freshTypeParams = fd.tparams map (_.freshen)
-    val freshTypeParamsMap = fd.tparams.map(_.tp).zip(freshTypeParams map (_.tp)).toMap
+  def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = tps.map(_.freshen)
 
-    def freshenParam(vd: ValDef): ValDef = {
-      val fresh = if (freshenIdentifiers) vd.freshen else vd
-      fresh.copy(tpe = typeOps.instantiateType(vd.tpe, freshTypeParamsMap))
-    }
+  /** Freshen the type parameters and parameters of the given [[FunDef]]. */
+  def freshenSignature(fd: FunDef): FunDef = {
+    val typeArgs = freshenTypeParams(fd.typeArgs)
+    val tpSubst = (fd.typeArgs zip typeArgs).toMap
 
-    val freshParams = fd.params map freshenParam
-    val freshParamsMap = (fd.params zip freshParams.map(_.toVariable)).toMap
+    val (paramSubst, params) = fd.params
+      .map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
+      .foldLeft((Map[ValDef, Expr](), Seq[ValDef]())) { case ((paramSubst, params), vd) =>
+        val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+        val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
+        (paramSubst + (vd -> nvd.toVariable), params :+ nvd)
+      }
 
-    fd.copy(
-      params = freshParams,
-      tparams = freshTypeParams,
-      returnType = typeOps.instantiateType(fd.returnType, freshTypeParamsMap),
-      fullBody = typeOps.instantiateType(
-        exprOps.replaceFromSymbols(freshParamsMap, fd.fullBody),
-        freshTypeParamsMap
-      )
-    )
+    new FunDef(fd.id, typeArgs.map(TypeParameterDef(_)), params,
+      typeOps.replaceFromSymbols(paramSubst, typeOps.instantiateType(fd.returnType, tpSubst)),
+      replaceFromSymbols(paramSubst, typeOps.instantiateType(fd.fullBody, tpSubst)),
+      fd.flags
+    ).copiedFrom(fd)
   }
-
-
 }

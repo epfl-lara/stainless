@@ -140,7 +140,6 @@ trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
   }
 }
 
-
 trait Printer extends imperative.Printer {
   protected val trees: Trees
   import trees._
@@ -231,6 +230,30 @@ trait Printer extends imperative.Printer {
   }
 }
 
+trait ExprOps extends imperative.ExprOps {
+  protected val trees: Trees
+  import trees._
+
+  override def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {
+    class Freshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
+      val s: trees.type = trees
+      val t: trees.type = trees
+
+      override def transform(tpe: s.Type): t.Type = tpe match {
+        case tp: TypeParameter if mapping contains tp => mapping(tp)
+        case _ => super.transform(tpe)
+      }
+    }
+
+    val tpMap = tps.foldLeft(Map[TypeParameter, TypeParameter]()) { case (tpMap, tp) =>
+      val freshener = new Freshener(tpMap)
+      val freshTp = freshener.transform(tp.freshen).asInstanceOf[TypeParameter]
+      tpMap + (tp -> freshTp)
+    }
+
+    tps.map(tpMap)
+  }
+}
 
 trait TreeDeconstructor extends imperative.TreeDeconstructor {
   protected val s: Trees
