@@ -11,12 +11,6 @@ trait DefaultTactic extends Tactic {
   import program.trees._
   import program.symbols._
 
-  // private def leadsToNoTree(e: Expr): Boolean = e match {
-  //   case NoTree(_) => true
-  //   case fi: FunctionInvocation => leadsToNoTree(symbols.functions(fi.id).fullBody)
-  //   case Operator(es, _) => es.exists(e => exprOps.exists(leadsToNoTree)(e))
-  // }
-
   protected def getPostconditions(e: Expr, lambda: Lambda): Seq[Expr] = {
     def rec(e: Expr, path: Path): Seq[Expr] = e match {
       case NoTree(_) => Seq()
