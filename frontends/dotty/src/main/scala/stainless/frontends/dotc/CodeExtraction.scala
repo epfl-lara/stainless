@@ -533,8 +533,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val flags = annotationsOf(sym) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
-      (if (sym is Synthetic) Seq(xt.Synthetic) else Seq()) ++
-      Seq(xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
+      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
 
     new xt.FunDef(
       if (sym.isSetter) getIdentifier(sym) else getParam(sym),
