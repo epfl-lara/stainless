@@ -127,6 +127,16 @@ trait Definitions extends imperative.Trees { self: Trees =>
       case _ => super.transform(t)
     }
 
+    override protected def ensureWellFormedSymbols: Unit = {
+      super.ensureWellFormedSymbols
+      for ((_, cd) <- classes) ensureWellFormedClass(cd)
+    }
+
+    protected def ensureWellFormedClass(cd: ClassDef): Unit = {
+      if (!cd.parents.forall(ct => ct.isTyped(this))) throw NotWellFormedException(cd)
+      if (cd.fields.groupBy(_.id).exists(_._2.size > 1)) throw NotWellFormedException(cd)
+    }
+
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
       case sym: AbstractSymbols => classes == sym.classes
       case _ => false
