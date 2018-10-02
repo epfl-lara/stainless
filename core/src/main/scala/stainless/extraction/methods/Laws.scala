@@ -105,7 +105,7 @@ trait Laws
           }.toSeq :+ body.get
         ).setPos(body.get)), fd.returnType)
 
-        val newFlags = fd.flags.filter(_ != Law) :+ InlineOnce
+        val newFlags = fd.flags.filter(_ != Law) :+ InlineOnce :+ Derived(fd.id)
 
         exprOps.freshenSignature(
           new FunDef(lid, fd.tparams, fd.params, fd.returnType, newBody, newFlags).setPos(fd)
