@@ -74,8 +74,14 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   }
 
   private def laws(cd: ClassDef): Set[Identifier] = {
-    def isLaw(fd: FunDef) = fd.flags.exists(_.name == "law") && fd.flags.contains(IsMethodOf(cd.id))
-    symbols.functions.values.filter(isLaw).map(_.id).toSet
+    (cd +: cd.ancestors(symbols).map(_.cd)).reverse.foldLeft(Map[Symbol, Identifier]()) {
+      case (laws, cd) =>
+        val methods = cd.methods(symbols)
+        val newLaws = methods
+          .filter(id => symbols.getFunction(id).flags.exists(_.name == "law"))
+          .map(id => id.symbol -> id)
+        laws -- methods.map(_.symbol) ++ newLaws
+    }.values.toSet
   }
 
   private def overrides(fd: FunDef): Set[Identifier] = {
@@ -103,11 +109,8 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     for (cd <- symbols.classes.values) {
       invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
 
-      val lawsIds = laws(cd)
-      lawsIds foreach { law => g += SimpleEdge(cd.id, law) }
-
-      if (lawsIds.nonEmpty) cd.children(symbols) foreach { dd =>
-        g += SimpleEdge(cd.id, dd.id)
+      if (!(cd.flags contains IsAbstract)) {
+        laws(cd) foreach { law => g += SimpleEdge(law, cd.id) }
       }
     }
 
