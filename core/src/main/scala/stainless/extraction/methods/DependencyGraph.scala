@@ -10,60 +10,44 @@ trait CallGraph extends ast.CallGraph {
   protected val trees: methods.Trees
   import trees._
 
-  private def collectCalls(e: Expr): Set[Identifier] = exprOps.collect[Identifier] {
-    case MethodInvocation(_, id, _, _) => Set(id)
-    case _ => Set()
-  } (e)
-
-  override protected def computeCallGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeCallGraph
-    for ((_, fd) <- symbols.functions; id <- collectCalls(fd.fullBody)) {
-      g += SimpleEdge(fd.id, id)
+  protected class FunctionCollector extends super.FunctionCollector with TreeTraverser {
+    override def traverse(e: Expr): Unit = e match {
+      case MethodInvocation(_, id, _, _) =>
+        register(id)
+        super.traverse(e)
+      case _ =>
+        super.traverse(e)
     }
-    g
   }
+
+  override protected def getFunctionCollector = new FunctionCollector
 }
 
-trait DependencyGraph extends ast.DependencyGraph with CallGraph {
+trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   import trees._
 
-  private class ClassCollector extends TreeTraverser {
-    var classes: Set[Identifier] = Set.empty
-
+  protected class ClassCollector extends super.ClassCollector with TreeTraverser {
     override def traverse(flag: Flag): Unit = flag match {
       case IsMethodOf(id) =>
-        classes += id
+        register(id)
         super.traverse(flag)
-
-      case _ => super.traverse(flag)
+      case _ =>
+        super.traverse(flag)
     }
 
     override def traverse(expr: Expr): Unit = expr match {
       case This(ct) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(expr)
-
       case Super(ct) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(expr)
-
       case _ =>
         super.traverse(expr)
     }
   }
 
-  private def collectClasses(fd: FunDef): Set[Identifier] = {
-    val collector = new ClassCollector
-    collector.traverse(fd)
-    collector.classes
-  }
-
-  private def collectClasses(cd: ClassDef): Set[Identifier] = {
-    val collector = new ClassCollector
-    collector.traverse(cd)
-    collector.classes
-  }
-
+  override protected def getClassCollector = new ClassCollector
 
   // Add an edge between a node `n` and an override `oid` of a function `fd` if
   // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
@@ -82,35 +66,6 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
       }
     }
     res
-  }
-
-  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeDependencyGraph
-
-    for (fd <- symbols.functions.values; id <- collectClasses(fd)) {
-      g += SimpleEdge(fd.id, id)
-    }
-
-    for (cd <- symbols.classes.values; id <- collectClasses(cd)) {
-      g += SimpleEdge(cd.id, id)
-    }
-
-    for (cd <- symbols.classes.values) {
-      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
-
-      val lawsIds = laws(cd)
-      lawsIds foreach { law => g += SimpleEdge(cd.id, law) }
-
-      if (lawsIds.nonEmpty) cd.children(symbols) foreach { dd =>
-        g += SimpleEdge(cd.id, dd.id)
-      }
-    }
-
-    for (fd <- symbols.functions.values; id <- overrides(fd)) {
-      g += SimpleEdge(id, fd.id)
-    }
-
-    inox.utils.fixpoint(addEdgesToOverrides)(g)
   }
 
   private def invariant(cd: ClassDef): Option[Identifier] = {
@@ -142,5 +97,24 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     }
   }
 
+  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
+    var g = super.computeDependencyGraph
 
+    for (cd <- symbols.classes.values) {
+      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
+
+      val lawsIds = laws(cd)
+      lawsIds foreach { law => g += SimpleEdge(cd.id, law) }
+
+      if (lawsIds.nonEmpty) cd.children(symbols) foreach { dd =>
+        g += SimpleEdge(cd.id, dd.id)
+      }
+    }
+
+    for (fd <- symbols.functions.values; id <- overrides(fd)) {
+      g += SimpleEdge(id, fd.id)
+    }
+
+    inox.utils.fixpoint(addEdgesToOverrides)(g)
+  }
 }

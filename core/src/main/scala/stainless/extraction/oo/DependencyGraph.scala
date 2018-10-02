@@ -10,12 +10,10 @@ trait DependencyGraph extends ast.DependencyGraph {
   protected val trees: oo.Trees
   import trees._
 
-  private class ClassCollector extends TreeTraverser {
-    var classes: Set[Identifier] = Set.empty
-
+  protected class ClassCollector extends Collector with TreeTraverser {
     override def traverse(tpe: Type): Unit = tpe match {
       case ClassType(id, _) =>
-        classes += id
+        register(id)
         super.traverse(tpe)
       case _ =>
         super.traverse(tpe)
@@ -23,32 +21,39 @@ trait DependencyGraph extends ast.DependencyGraph {
 
     override def traverse(pat: Pattern): Unit = pat match {
       case ClassPattern(_, ct, _) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(pat)
-
-      case _ => super.traverse(pat)
+      case _ =>
+        super.traverse(pat)
     }
 
     override def traverse(expr: Expr): Unit = expr match {
       case ClassConstructor(ct, _) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(expr)
-
       case _ =>
         super.traverse(expr)
     }
   }
 
+  protected def getClassCollector: ClassCollector = new ClassCollector
+
   private def collectClasses(fd: FunDef): Set[Identifier] = {
-    val collector = new ClassCollector
+    val collector = getClassCollector
     collector.traverse(fd)
-    collector.classes
+    collector.result
+  }
+
+  private def collectClasses(sort: ADTSort): Set[Identifier] = {
+    val collector = getClassCollector
+    collector.traverse(sort)
+    collector.result
   }
 
   private def collectClasses(cd: ClassDef): Set[Identifier] = {
-    val collector = new ClassCollector
+    val collector = getClassCollector
     collector.traverse(cd)
-    collector.classes
+    collector.result
   }
 
   override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
@@ -56,6 +61,10 @@ trait DependencyGraph extends ast.DependencyGraph {
 
     for (fd <- symbols.functions.values; id <- collectClasses(fd)) {
       g += SimpleEdge(fd.id, id)
+    }
+
+    for (sort <- symbols.sorts.values; id <- collectClasses(sort)) {
+      g += SimpleEdge(sort.id, id)
     }
 
     for (cd <- symbols.classes.values; id <- collectClasses(cd)) {
