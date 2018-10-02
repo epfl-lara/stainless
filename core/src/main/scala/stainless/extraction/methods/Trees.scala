@@ -69,6 +69,26 @@ trait Trees extends throwing.Trees { self =>
     override protected def ensureWellFormedClass(cd: ClassDef) = {
       super.ensureWellFormedClass(cd)
 
+      def isAbstract(fd: FunDef): Boolean =
+        (fd.flags contains IsAbstract) ||
+        (!(fd.flags contains Extern) && (exprOps.withoutSpecs(fd.fullBody).isEmpty))
+
+      // Check that abstract methods are overriden
+      if (!(cd.flags contains IsAbstract)) {
+        val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
+          case (abstractSymbols, cd) =>
+            abstractSymbols --
+            cd.methods.map(_.symbol) ++
+            cd.methods.filter(id => isAbstract(getFunction(id))).map(_.symbol)
+        }
+
+        if (remainingAbstract.nonEmpty) {
+          throw NotWellFormedException(cd,
+            Some("Abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
+        }
+      }
+
+      // Check that method overrides are well-typed
       val ancestors = cd.ancestors(this).map(cd => cd.id -> cd).toMap
       cd.methods.foreach { id =>
         firstSuper(id).foreach { sid =>
@@ -81,6 +101,9 @@ trait Trees extends throwing.Trees { self =>
 
           val fd = getFunction(id)
           val sfd = getFunction(sid)
+
+          if (isAbstract(fd) && !isAbstract(sfd))
+            throw NotWellFormedException(fd, Some("Cannot override concrete function with abstract function"))
 
           if (fd.tparams.size != sfd.tparams.size) throw NotWellFormedException(fd)
 
