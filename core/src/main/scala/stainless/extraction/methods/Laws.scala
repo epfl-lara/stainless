@@ -74,6 +74,8 @@ trait Laws
         throw MissformedStainlessCode(fd, "Unexpected non-boolean typed law")
       if (!exprOps.withoutSpecs(fd.fullBody).isDefined)
         throw MissformedStainlessCode(fd, "Unexpected law without a body")
+      if (symbols.isRecursive(fd.id))
+        throw MissformedStainlessCode(fd, "Unexpected recursive law")
 
       val lid = lawID(fd.id.unsafeToSymbolIdentifier)
 
