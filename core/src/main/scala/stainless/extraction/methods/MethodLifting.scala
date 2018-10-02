@@ -34,7 +34,7 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
             if (isInvariant) ofd.flags contains s.IsInvariant
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
           }.map(FunctionKey(_, symbols): CacheKey).toSet
-      }.toSet)
+      }.toSet + FunctionKey(fd, symbols))
   })
 
   // The class cache must consider all direct overrides of a potential invariant function
