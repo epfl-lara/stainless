@@ -122,10 +122,10 @@ trait Laws
     val lawSymbols = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
       case (lawSymbols, cd) =>
         val methods = cd.methods
-        val methodSymbols = methods.map(_.unsafeToSymbolIdentifier.symbol).toSet
+        val methodSymbols = methods.map(_.symbol).toSet
         val newSymbols = methods
           .filter(id => symbols.getFunction(id).flags contains Law)
-          .map(_.unsafeToSymbolIdentifier.symbol).toSet
+          .map(_.symbol).toSet
 
         lawSymbols -- methodSymbols ++ newSymbols
     }
