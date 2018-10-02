@@ -28,25 +28,13 @@ trait Laws
     id => SymbolIdentifier(lawSymbol(id.symbol))
   )
 
-  private def firstSuper(id: SymbolIdentifier)(implicit symbols: Symbols): Option[SymbolIdentifier] = {
-    def rec(cd: ClassDef): Option[SymbolIdentifier] = {
-      cd.methods.find(_.symbol == id.symbol)
-        .orElse(cd.parents.headOption.flatMap(ct => rec(symbols.getClass(ct.id))))
-    }
-
-    symbols.getFunction(id).flags
-      .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }
-      .flatMap(cd => cd.parents.headOption.map(ct => symbols.getClass(ct.id)))
-      .flatMap(rec(_))
-  }
-
   override protected final type TransformerContext = Symbols
   override protected final def getContext(symbols: s.Symbols) = symbols
 
   override protected final val funCache = new CustomCache[s.FunDef, FunctionResult]({ (fd, symbols) =>
     FunctionKey(fd, symbols) + new ValueKey(
       if ((fd.flags exists { case IsMethodOf(_) => true case _ => false }) && (fd.flags contains Law)) {
-        firstSuper(fd.id.unsafeToSymbolIdentifier)(symbols).toSet[Identifier]
+        symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).toSet[Identifier]
       } else {
         Set.empty[Identifier]
       }
@@ -97,7 +85,7 @@ trait Laws
       val propFd: FunDef = {
         val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(symbols)
         val newBody = exprOps.reconstructSpecs(specs, Some(andJoin(
-          firstSuper(fd.id.unsafeToSymbolIdentifier)(symbols).map { sid =>
+          symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).map { sid =>
             MethodInvocation(
               Super(ct).setPos(fd),
               lawID(sid), fd.typeArgs, fd.params.map(_.toVariable)
