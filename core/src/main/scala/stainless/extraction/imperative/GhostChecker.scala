@@ -76,9 +76,15 @@ trait GhostChecker { self: EffectsAnalyzer =>
 
     class Checker(inGhost: Boolean) extends TreeTraverser {
       override def traverse(expr: Expr): Unit = expr match {
-        case Let(vd, e, b) if (vd.flags contains Ghost) && !effects(e).forall(isGhostEffect) =>
-          throw ImperativeEliminationException(expr,
-            "Right-hand side of ghost variable must only have effects on ghost fields")
+        case Let(vd, e, b) if vd.flags contains Ghost =>
+          if (!effects(e).forall(isGhostEffect)) {
+            throw ImperativeEliminationException(expr,
+              "Right-hand side of ghost variable must only have effects on ghost fields")
+          } else {
+            traverse(vd)
+            new Checker(true).traverse(e)
+            traverse(b)
+          }
 
         case Let(vd, e, b) if !(vd.flags contains Ghost) && inGhost =>
           val newVd = vd.copy(flags = vd.flags :+ Ghost)
@@ -88,9 +94,15 @@ trait GhostChecker { self: EffectsAnalyzer =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable cannot be ghost")
 
-        case LetVar(vd, e, b) if (vd.flags contains Ghost) && !effects(e).forall(isGhostEffect) =>
-          throw ImperativeEliminationException(expr,
-            "Right-hand side of ghost variable must only have effects on ghost fields")
+        case LetVar(vd, e, b) if vd.flags contains Ghost =>
+          if (!effects(e).forall(isGhostEffect)) {
+            throw ImperativeEliminationException(expr,
+              "Right-hand side of ghost variable must only have effects on ghost fields")
+          } else {
+            traverse(vd)
+            new Checker(true).traverse(e)
+            traverse(b)
+          }
 
         case LetVar(vd, e, b) if !(vd.flags contains Ghost) && inGhost =>
           val newVd = vd.copy(flags = vd.flags :+ Ghost)
@@ -100,20 +112,28 @@ trait GhostChecker { self: EffectsAnalyzer =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable cannot be ghost")
 
-        case Assignment(v, e) if (v.flags contains Ghost) && !effects(e).forall(isGhostEffect) =>
-          throw ImperativeEliminationException(expr,
-            "Right-hand side of ghost variable assignment must only have effects on ghost fields")
+        case Assignment(v, e) if v.flags contains Ghost =>
+          if (!effects(e).forall(isGhostEffect)) {
+            throw ImperativeEliminationException(expr,
+              "Right-hand side of ghost variable assignment must only have effects on ghost fields")
+          } else {
+            traverse(v)
+            new Checker(true).traverse(e)
+          }
 
         case Assignment(v, e) if !(v.flags contains Ghost) && isGhostExpression(e) =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable assignment cannot be ghost")
 
-        case FieldAssignment(obj, id, e) if (
-          isGhostExpression(ADTSelector(obj, id)) &&
-          !effects(e).forall(isGhostEffect)
-        ) =>
-          throw ImperativeEliminationException(expr,
-            "Right-hand side of ghost field assignment must only have effects on ghost fields")
+        case FieldAssignment(obj, id, e) if isGhostExpression(ADTSelector(obj, id)) =>
+          if (!effects(e).forall(isGhostEffect)) {
+            throw ImperativeEliminationException(expr,
+              "Right-hand side of ghost field assignment must only have effects on ghost fields")
+          } else {
+            traverse(obj)
+            traverse(id)
+            new Checker(true).traverse(e)
+          }
 
         case FieldAssignment(obj, id, e) if (
           !isGhostExpression(ADTSelector(obj, id)) &&
@@ -128,6 +148,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case LetRec(fds, body) =>
           fds.foreach(fd => checkFunction(Inner(fd), inGhost))
           traverse(body)
+
+        case Annotated(e, flags) if flags contains Ghost =>
+          new Checker(true).traverse(e)
 
         case FunInvocation(id, tps, args, _) =>
           traverse(id)
