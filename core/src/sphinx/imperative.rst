@@ -222,3 +222,51 @@ properties:
     assert(x == 2)
   }
 
+Trait Variables
+---------------
+
+Traits are allowed to declare variables, with the restriction that these cannot be
+assigned a default value.
+
+.. code-block:: scala
+
+  trait MutableBox[A] {
+    var value: A
+  }
+
+Such abstract variables must be overriden at some point by either:
+
+a) a mutable field of a case class
+
+.. code-block:: scala
+
+  case class Box[A](var value: A) extends MutableBox[A]
+
+b) a pair of getter/setter
+
+.. code-block:: scala
+
+  case class WriteOnceBox[A](
+    var underlying: A,
+    var written: Boolean = false
+  ) extends MutableBox[A] {
+
+    def value: A = underlying
+
+    def value_=(newValue: A): Unit = {
+      if (!written) {
+        underlying = newValue
+        written = true
+      }
+    }
+  }
+
+Note: a setter is not required to actually perform any mutation, and the following
+is a perfectly valid sub-class of `MutableBox`:
+
+.. code-block:: scala
+
+  case class ImmutableBox[A](underlying: A) extends MutableBox[A] {
+    def value: A = underlying
+    def value_=(newValue: A): Unit = ()
+  }
