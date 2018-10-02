@@ -65,6 +65,53 @@ trait Trees extends throwing.Trees { self =>
     extends super.AbstractSymbols
        with DependencyGraph
        with TypeOps { self0: Symbols =>
+
+    override protected def ensureWellFormedClass(cd: ClassDef) = {
+      super.ensureWellFormedClass(cd)
+
+      val ancestors = cd.ancestors(this).map(cd => cd.id -> cd).toMap
+      cd.methods.foreach { id =>
+        firstSuper(id).foreach { sid =>
+          val cid = getFunction(sid).flags
+            .collectFirst { case IsMethodOf(cid) => cid }
+            .getOrElse(throw NotWellFormedException(getFunction(sid)))
+
+          if (!(ancestors contains cid)) throw NotWellFormedException(getFunction(sid))
+          val acd = ancestors(cid)
+
+          val fd = getFunction(id)
+          val sfd = getFunction(sid)
+
+          if (fd.tparams.size != sfd.tparams.size) throw NotWellFormedException(fd)
+
+          val tpSubst = (fd.typeArgs zip sfd.typeArgs).toMap
+          (fd.typeArgs zip sfd.typeArgs).foreach { case (tp, stp) =>
+            val TypeBounds(lo, hi) = tp.bounds
+            val TypeBounds(slo, shi) = stp.bounds
+
+            if (!isSubtypeOf(
+              typeOps.instantiateType(lo, tpSubst),
+              typeOps.instantiateType(slo, acd.tpSubst))) throw NotWellFormedException(fd)
+
+            if (!isSubtypeOf(
+              typeOps.instantiateType(shi, acd.tpSubst),
+              typeOps.instantiateType(hi, tpSubst))) throw NotWellFormedException(fd)
+          }
+
+          if (fd.params.size != sfd.params.size) throw NotWellFormedException(fd)
+
+          (fd.params zip sfd.params).foreach { case (vd, svd) =>
+            if (!isSubtypeOf(
+              typeOps.instantiateType(svd.getType, acd.tpSubst),
+              typeOps.instantiateType(vd.getType, tpSubst))) throw NotWellFormedException(fd)
+          }
+
+          if (!isSubtypeOf(
+            typeOps.instantiateType(fd.getType, tpSubst),
+            typeOps.instantiateType(sfd.getType, acd.tpSubst))) throw NotWellFormedException(fd)
+        }
+      }
+    }
   }
 
 
