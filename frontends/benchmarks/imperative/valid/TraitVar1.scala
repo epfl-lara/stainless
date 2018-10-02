@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object TraitVar2 {
+object TraitVar1 {
 
   sealed trait Foo {
     var prop: BigInt
