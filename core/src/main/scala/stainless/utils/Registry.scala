@@ -312,14 +312,6 @@ trait Registry {
     knownOpenClasses ++= openCDs map { cd => cd.id -> cd }
     deferredMethods ++= deferredFDs
 
-    classes foreach { cd =>
-      if (
-        (cd.flags contains xt.IsAbstract) &&
-        !(cd.flags contains xt.IsSealed) &&
-        !(cd.flags exists (_.name == "library"))
-      ) reporter.warning(cd.getPos, s"Consider sealing ${cd.id}.")
-    }
-
     process(readyCDs, readyFDs)
   }
 
