@@ -59,7 +59,7 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
           case IsMethodOf(cid) =>
             // we look at transitive edges in `res` rather than in `g` in 
             // order to take into account newly added edges
-            for (n <- res.transitivePred(fd.id) & res.transitivePred(cid)) {
+            for (n <- (res.transitivePred(fd.id) + fd.id) & (res.transitivePred(cid) + cid)) {
               res += SimpleEdge(n, oid)
             }
         }
