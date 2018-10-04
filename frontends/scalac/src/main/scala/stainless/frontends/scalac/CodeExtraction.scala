@@ -473,6 +473,7 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
+      (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
       (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
       (if (!sym.isLazy && sym.isAccessor)
@@ -535,6 +536,7 @@ trait CodeExtraction extends ASTExtractors {
 
     val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
+      (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
       Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
 
     new xt.FunDef(
@@ -952,6 +954,9 @@ trait CodeExtraction extends ASTExtractors {
     case ExStringLiteral(s) => xt.StringLiteral(s)
 
     case ExIdentity(body) => extractTree(body)
+
+    case ExTyped(ExtractorHelpers.ExSymbol("scala", "Predef", "$qmark$qmark$qmark"), tpe) =>
+      xt.NoTree(extractType(tpe))
 
     case ExTyped(e, _) => extractTree(e)
 

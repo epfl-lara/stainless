@@ -109,7 +109,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
 
       if (effects(fd.fullBody).nonEmpty)
-        throw ImperativeEliminationException(fd, "A global field must be pure")
+        throw ImperativeEliminationException(fd, s"A global field must be pure, but ${fd.id} has effects: ${effects(fd.fullBody)}")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {

@@ -129,7 +129,7 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
           }
       }
 
-      reporter.info(s"Result for ${fid} @${fd.getPos}:")
+      reporter.info(s"Result for ${fid.asString} @${fd.getPos}:")
 
       status match {
         case BodyFailed(error) => reporter.warning(" => CRASHED")

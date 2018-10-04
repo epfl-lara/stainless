@@ -278,7 +278,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     * This method is useful to reconstruct if-expressions or assumptions
     * where the condition can be added to the expression in a position
     * that implies further assertions.
-    * 
+    *
     * The last argument `pos` is used to give a proper position to the
     * synthetic boolean literal `true` that is used as a base case.
     * Without it, we would lose position information in the resulting tree.
@@ -289,8 +289,8 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     val (outers, rest) = path.elements span { !_.isInstanceOf[Condition] }
     val bindings = rest collect { case CloseBound(vd, e) => vd -> e }
     val cond = fold[Expr](
-      BooleanLiteral(true).setPos(pos), 
-      Let(_,_,_).setPos(pos), 
+      BooleanLiteral(true).setPos(pos),
+      Let(_,_,_).setPos(pos),
       And(_, _).setPos(pos)
     )(rest)
 

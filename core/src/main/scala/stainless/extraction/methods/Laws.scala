@@ -20,12 +20,8 @@ trait Laws
   private[this] val Law = Annotation("law", Seq())
   private[this] def isLaw(fd: FunDef): Boolean = fd.flags contains Law
 
-  private[this] val lawSymbol = new utils.ConcurrentCached[Symbol, Symbol](
-    symbol => Symbol((symbol.path.init :+ s"${symbol.path.last}$$prop") mkString ".")
-  )
-
   private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
-    id => SymbolIdentifier(lawSymbol(id.symbol))
+    id => SymbolIdentifier(id.name)
   )
 
   override protected final type TransformerContext = Symbols
@@ -93,7 +89,7 @@ trait Laws
           }.toSeq :+ body.get
         ).setPos(body.get)), fd.returnType)
 
-        val newFlags = fd.flags.filter(_ != Law) :+ InlineOnce :+ Derived(fd.id)
+        val newFlags = fd.flags.filter(_ != Law) :+ InlineOnce :+ Derived(fd.id) :+ Final
 
         exprOps.freshenSignature(
           new FunDef(lid, fd.tparams, fd.params, fd.returnType, newBody, newFlags).setPos(fd)

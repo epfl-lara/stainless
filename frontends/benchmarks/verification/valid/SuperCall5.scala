@@ -35,15 +35,15 @@ object SuperCall5 {
     def empty: Nat
     def append(x: Nat, y: Nat): Nat
 
-    def law_leftIdentity(x: Nat) = choose[Boolean](_ => true) ensuring { res =>
+    def law_leftIdentity(x: Nat) = (??? : Boolean) ensuring { res =>
       res && append(empty, x) == x
     }
 
-    def law_rightIdentity(x: Nat) = choose[Boolean](_ => true) ensuring { res =>
+    def law_rightIdentity(x: Nat) = (??? : Boolean) ensuring { res =>
       res && append(x, empty) == x
     }
 
-    def law_associativity(x: Nat, y: Nat, z: Nat) = choose[Boolean](_ => true) ensuring { res =>
+    def law_associativity(x: Nat, y: Nat, z: Nat) = (??? : Boolean) ensuring { res =>
       res && append(x, append(y, z)) == append(append(x, y), z)
     }
   }

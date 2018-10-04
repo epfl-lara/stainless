@@ -77,7 +77,7 @@ trait EffectsAnalyzer extends CachingPhase {
       exprOps.withoutSpecs(fd.fullBody) match {
         case Some(body) =>
           expressionEffects(body, current)
-        case None if fd.flags.exists(_.name == "extern") && !fd.flags.exists(_.name == "pure") =>
+        case None if !fd.flags.exists(_.name == "pure") =>
           fd.params
             .filter(vd => isMutableType(vd.getType))
             .map(_.toVariable)

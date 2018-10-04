@@ -135,8 +135,21 @@ trait Definitions extends imperative.Trees { self: Trees =>
     }
 
     protected def ensureWellFormedClass(cd: ClassDef): Unit = {
-      if (!cd.parents.forall(ct => ct.isTyped(this))) throw NotWellFormedException(cd)
-      if (cd.fields.groupBy(_.id).exists(_._2.size > 1)) throw NotWellFormedException(cd)
+      cd.parents.find(ct => !ct.isTyped(this)).foreach { pcd =>
+        throw NotWellFormedException(cd, Some(s"the parent ${pcd.id} of class ${cd.id} is not well typed."))
+      }
+
+      cd.parents.find(!_.tcd.cd.flags.contains(IsAbstract)).foreach { pcd =>
+        throw NotWellFormedException(cd, 
+          Some(s"a concrete class (${pcd.id}) cannot be extended (by ${cd.id}).")
+        )
+      }
+      
+      cd.fields.groupBy(_.id).find(_._2.size > 1).foreach { case (id, vds) =>
+        throw NotWellFormedException(cd, 
+          Some(s"there are at least two fields with the same id ($id) in ${cd.id} (${vds.mkString(",")}).")
+        )
+      }
     }
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {

@@ -41,17 +41,13 @@ trait AdtSpecialization
     symbols.lookupClass(id).map { cd =>
       if (cd.parents.isEmpty && !(cd.flags contains s.IsAbstract)) constructorCache(cd.id)
       else cd.id
-    }.getOrElse(id) // This covers the injected open class identifiers
-
-  private[this] val openID = new utils.ConcurrentCached[Identifier, Identifier](_ => FreshIdentifier("Open"))
+    }.get
+    
   private[this] def constructors(id: Identifier)(implicit symbols: s.Symbols): Seq[Identifier] = {
     val cd = symbols.getClass(id)
     val classes = cd +: cd.descendants
-    val extraConstructors: Seq[Identifier] = classes
-      .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-      .map(cd => openID(cd.id))
 
-    classes.filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors
+    classes.filterNot(_.flags contains s.IsAbstract).map(_.id)
   }
 
   private[this] def isCaseObject(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
@@ -170,21 +166,16 @@ trait AdtSpecialization
           cd.id,
           sortTparams,
           constructors(cd.id).map { cid =>
-            if (context.symbols.classes contains cid) {
-              val consCd = context.symbols.getClass(cid)
-              val tpMap = (consCd.tparams.map(tpd => context.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
-              new t.ADTConstructor(
-                constructorID(cid),
-                cd.id,
-                consCd.fields map { vd =>
-                  val tvd = context.transform(vd)
-                  tvd.copy(tpe = t.typeOps.instantiateType(tvd.tpe, tpMap))
-                }
-              ).copiedFrom(consCd)
-            } else { // injected open constructor
-              val field = t.ValDef(FreshIdentifier("x"), t.IntegerType().copiedFrom(cd)).copiedFrom(cd)
-              new t.ADTConstructor(cid, cd.id, Seq(field)).copiedFrom(cd)
-            }
+            val consCd = context.symbols.getClass(cid)
+            val tpMap = (consCd.tparams.map(tpd => context.transform(tpd).tp) zip sortTparams.map(_.tp)).toMap
+            new t.ADTConstructor(
+              constructorID(cid),
+              cd.id,
+              consCd.fields map { vd =>
+                val tvd = context.transform(vd)
+                tvd.copy(tpe = t.typeOps.instantiateType(tvd.tpe, tpMap))
+              }
+            ).copiedFrom(consCd)
           },
           cd.flags filterNot (f => f == s.IsAbstract || f == s.IsSealed) map (f => context.transform(f))
         ).copiedFrom(cd)

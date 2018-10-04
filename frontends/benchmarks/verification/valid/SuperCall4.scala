@@ -4,11 +4,11 @@ import stainless.annotation._
 
 object SuperCall4 {
 
-  abstract class Foo1 {
+  sealed abstract class Foo1 {
     def bar: BigInt = 41
   }
 
-  abstract class Foo2 extends Foo1 {
+  sealed abstract class Foo2 extends Foo1 {
     override def bar: BigInt = super.bar + 1
   }
 

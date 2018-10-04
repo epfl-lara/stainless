@@ -16,23 +16,13 @@ import scala.language.existentials
   * - classes that are already marked mutable
   */
 
-trait MutabilityAnalysis extends oo.ExtractionPipeline
-  with IdentityFunctions
-  with IdentitySorts
-  with oo.SimpleClasses
-  { self =>
-
-
-  /* ====================================
-   *       Context and caches setup
-   * ==================================== */
+trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
 
   val s: Trees
   val t: s.type
   import s._
-  import s.exprOps._
 
-  protected class TransformerContext(implicit symbols: Symbols) {
+  protected class MutabilityAnalysis(implicit val symbols: Symbols) {
 
     // This function is used in the fixpoint below to gather ClassType's that
     // contain a getter whose return type is mutable.
@@ -76,8 +66,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
       )(initialClasses)
     }
 
-
-    def isMutable(id: Identifier) = mutableClasses(id)
+    def isMutable(cd: ClassDef) = mutableClasses(cd.id)
     def isMutableType(tpe: Type): Boolean = isMutableType(tpe, mutableClasses)
 
     // Throw an exception if there is a class:
@@ -85,7 +74,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
     // - a class which extends a class without respecting non-mutability of the parent type parameters
     def checkMutability(): Unit = {
       for (
-        cd <- symbols.classes.values if isMutable(cd.id);
+        cd <- symbols.classes.values if isMutable(cd);
         act <- cd.parents; acd <- act.lookupClass;
         if !acd.cd.flags.contains(IsMutable) && !acd.cd.isSealed
       ) {
@@ -108,34 +97,5 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
     }
 
     checkMutability()
-  }
-
-  override protected def getContext(symbols: Symbols) = new TransformerContext()(symbols)
-
-  override protected final val classCache = new ExtractionCache[ClassDef, ClassResult](
-    (cd, context) => ClassKey(cd) + ValueKey(context.isMutable(cd.id))
-  )
-
-
-  /* ====================================
-   *         Extraction of classes
-   * ==================================== */
-
-  override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
-    if (context.isMutable(cd.id))
-      cd.copy(flags = (cd.flags :+ IsMutable).distinct).copiedFrom(cd)
-    else
-      cd
-  }
-}
-
-object MutabilityAnalysis {
-  def apply(tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: tt.type
-    val t: tt.type
-  } = new MutabilityAnalysis {
-    override val s: tt.type = tt
-    override val t: tt.type = tt
-    override val context = ctx
   }
 }

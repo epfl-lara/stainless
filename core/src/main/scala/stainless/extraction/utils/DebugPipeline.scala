@@ -66,8 +66,6 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
     // extraction happens here
     val res = context.timers.extraction.get(name).run(underlying.extract(symbols))
 
-    if (debugTrees) res.ensureWellFormed
-
     val resToPrint = if (debugTrees) res.debugString(filterObjects)(tPrinterOpts) else ""
     if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
       if (resToPrint != symbolsToPrint) {

@@ -195,7 +195,7 @@ trait VerificationChecker { self =>
     try {
       val cond = simplifyLets(simplifyAssertions(vc.condition))
       reporter.synchronized {
-        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
         reporter.debug(cond.asString)
         reporter.debug("Solving with: " + s.name)
       }
@@ -254,7 +254,7 @@ trait VerificationChecker { self =>
       }
 
       reporter.synchronized {
-        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
+        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:")
 
         vcres.status match {
           case VCStatus.Valid =>

@@ -18,7 +18,7 @@ trait InoxEncoder extends ProgramEncoder {
   import context._
 
   private[this] def keepFlag(flag: Flag): Boolean = flag match {
-    case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Ghost => false
+    case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Final | Ghost => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) => false
     case _ => true
   }

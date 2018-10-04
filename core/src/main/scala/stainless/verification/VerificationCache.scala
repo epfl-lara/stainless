@@ -57,7 +57,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
       if (vccache contains key) {
         reporter.synchronized {
-          reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
           reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
           reporter.debug(vc.condition)(DebugSectionCacheHit)
           reporter.debug("--------------")(DebugSectionCacheHit)
@@ -65,7 +65,7 @@ trait VerificationCache extends VerificationChecker { self =>
         VCResult(VCStatus.ValidFromCache, None, None)
       } else {
         reporter.synchronized {
-          reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
+          reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
           reporter.ifDebug { debug =>
             implicit val debugSection = DebugSectionCacheMiss
             debug("Cache miss for VC")

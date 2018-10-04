@@ -69,17 +69,13 @@ trait Trees extends throwing.Trees { self =>
     override protected def ensureWellFormedClass(cd: ClassDef) = {
       super.ensureWellFormedClass(cd)
 
-      def isAbstract(fd: FunDef): Boolean =
-        (fd.flags contains IsAbstract) ||
-        (!(fd.flags contains Extern) && (exprOps.withoutSpecs(fd.fullBody).isEmpty))
-
       // Check that abstract methods are overriden
       if (!(cd.flags contains IsAbstract)) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
-          case (abstractSymbols, cd) =>
+          case (abstractSymbols, acd) =>
             abstractSymbols --
-            cd.methods.map(_.symbol) ++
-            cd.methods.filter(id => isAbstract(getFunction(id))).map(_.symbol)
+            acd.methods.map(_.symbol) ++
+            acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol)
         }
 
         if (remainingAbstract.nonEmpty) {
@@ -102,8 +98,11 @@ trait Trees extends throwing.Trees { self =>
           val fd = getFunction(id)
           val sfd = getFunction(sid)
 
-          if (isAbstract(fd) && !isAbstract(sfd))
-            throw NotWellFormedException(fd, Some("Cannot override concrete function with abstract function"))
+          if (fd.isAbstract && !sfd.isAbstract)
+            throw NotWellFormedException(fd, Some(s"cannot override concrete function with abstract function."))
+
+          if (sfd.isFinal)
+            throw NotWellFormedException(fd, Some(s"cannot override final function:\n$sfd"))
 
           if (fd.tparams.size != sfd.tparams.size) throw NotWellFormedException(fd)
 
@@ -143,6 +142,7 @@ trait Trees extends throwing.Trees { self =>
 
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
+    def isAbstract: Boolean = cd.flags contains IsAbstract
 
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
@@ -156,7 +156,6 @@ trait Trees extends throwing.Trees { self =>
   implicit class FunDefWrapper(fd: FunDef) {
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
-
     def isField: Boolean =
       fd.flags exists { case IsField(_) => true case _ => false }
 
@@ -165,6 +164,7 @@ trait Trees extends throwing.Trees { self =>
 
     def isGetter: Boolean = (isAccessor || isField) && fd.params.size == 0
 
+    def isFinal: Boolean = fd.flags contains Final
     def isAbstract: Boolean = fd.flags contains IsAbstract
     def isInvariant: Boolean = fd.flags contains IsInvariant
   }

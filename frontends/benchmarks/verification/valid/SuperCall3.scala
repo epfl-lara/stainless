@@ -2,7 +2,7 @@ import stainless.lang._
 
 object SuperCall3 {
 
-  abstract class A {
+  sealed abstract class A {
     def hello: BigInt = 1
   }
 

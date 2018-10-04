@@ -444,6 +444,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if ((sym is Implicit) && (sym is Synthetic)) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym is Inline) Seq(xt.Inline) else Seq()) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
+      (if (sym is Final) Seq(xt.Final) else Seq()) ++
       (if ((sym.isField) || (sym is Lazy)) Seq(xt.IsField(sym is Lazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
       (if (!(sym is Lazy) && (sym is Accessor)) Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract))) else Seq())
@@ -514,6 +515,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
+      (if (sym is Final) Seq(xt.Final) else Seq()) ++
       (if (sym is Synthetic) Seq(xt.Synthetic) else Seq()) ++
       Seq(xt.IsAccessor(Some(field)))
 
@@ -533,6 +535,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
+      (if (sym is Final) Seq(xt.Final) else Seq()) ++
       Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
 
     new xt.FunDef(
@@ -1056,6 +1059,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     case Apply(TypeApply(ExSymbol("scala", "Predef$", "locally"), _), Seq(body)) =>
       extractTree(body)
+
+    case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark"), tpe) =>
+      xt.NoTree(extractType(tpe))
 
     case Typed(e, _) =>
       extractTree(e)

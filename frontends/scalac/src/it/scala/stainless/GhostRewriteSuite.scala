@@ -52,7 +52,9 @@ class GhostRewriteSuite extends FunSpec {
   }
 
   def ignoreError(i: reporter.Info) = {
-    i.toString.contains("The Z3 native interface is not available")
+    val s = i.toString
+    s.contains("The Z3 native interface is not available") ||
+    (s.contains("match may not be exhaustive") && i.severity == reporter.WARNING)
   }
 
   def compileFile(file: String) = {
