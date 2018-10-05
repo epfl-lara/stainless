@@ -17,6 +17,9 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
   // Note that we actually use the set of transitive overrides here as computing
   // the set of direct overrides is significantly more expensive and shouldn't improve
   // the cache hit rate that much.
+  // Also note that we can't use the identifier constructor of `DependencyKey` as this
+  // cache is also used for synthetic invariant functions which don't exist within the
+  // symbol table.
   private[this] final val funCache = new CustomCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
     new DependencyKey(fd.id, fd.flags
       .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
