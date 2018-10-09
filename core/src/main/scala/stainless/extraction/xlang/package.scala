@@ -28,9 +28,10 @@ package object xlang {
       override val t: methods.trees.type = methods.trees
       override val context = ctx
 
-      override protected type TransformerContext = identity.type
-      override protected def getContext(symbols: s.Symbols) = identity
-      protected final object identity extends oo.TreeTransformer {
+      override protected type TransformerContext = Identity
+      override protected def getContext(symbols: s.Symbols) = new Identity(symbols)
+
+      protected final class Identity(val symbols: s.Symbols) extends oo.TreeTransformer {
         override val s: self.s.type = self.s
         override val t: self.t.type = self.t
 

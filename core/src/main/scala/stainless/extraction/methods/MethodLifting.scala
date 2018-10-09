@@ -5,23 +5,23 @@ package methods
 
 import inox.utils.Position
 
-trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { self =>
+trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self =>
   val s: Trees
   val t: oo.Trees
   import s._
 
   private[this] def isAccessor(fd: FunDef): Boolean =
     fd.flags exists { case IsAccessor(_) => true case _ => false }
+    
+  override protected final type TransformerContext = Symbols
+  override protected final def getContext(symbols: s.Symbols) = symbols
 
   // The function cache must consider all direct overrides of the current function.
   // Note that we actually use the set of transitive overrides here as computing
   // the set of direct overrides is significantly more expensive and shouldn't improve
   // the cache hit rate that much.
-  // Also note that we can't use the identifier constructor of `DependencyKey` as this
-  // cache is also used for synthetic invariant functions which don't exist within the
-  // symbol table.
-  private[this] final val funCache = new CustomCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
-    new DependencyKey(fd.id, fd.flags
+  private[this] final val funCache = new ExtractionCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
+    SetKey(fd.flags
       .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
       .flatMap { cd =>
         val descendants = cd.descendants(symbols)
@@ -36,23 +36,23 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
           .filter { ofd =>
             if (isInvariant) ofd.flags contains s.IsInvariant
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
-          }.map(FunctionKey(_, symbols): CacheKey).toSet
-      }.toSet + FunctionKey(fd, symbols))
+          }.map(FunctionKey(_): CacheKey).toSet
+      }.toSet) + FunctionKey(fd)
   })
 
   // The class cache must consider all direct overrides of a potential invariant function
   // attached to the class.
   // Note that we could again use the set of transitive overrides here instead of all invariants.
-  private[this] final val classCache = new CustomCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]({
+  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]({
     (cd, symbols) =>
       val ids = cd.descendants(symbols).map(_.id).toSet + cd.id
 
       val invariants = symbols.functions.values.filter { fd =>
         (fd.flags contains s.IsInvariant) &&
         (fd.flags exists { case s.IsMethodOf(id) => ids(id) case _ => false })
-      }.map(FunctionKey(_, symbols) : CacheKey).toSet
+      }.map(FunctionKey(_)).toSet
 
-      new DependencyKey(cd.id, invariants)
+      SetKey(invariants) + ClassKey(cd)
   })
 
   private case class Override(cid: Identifier, fid: Option[Identifier], children: Seq[Override])

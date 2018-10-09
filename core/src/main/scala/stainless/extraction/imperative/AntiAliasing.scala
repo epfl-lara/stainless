@@ -16,11 +16,15 @@ trait AntiAliasing
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
-  override protected final val funCache = new DependencyCache[s.FunDef, FunctionResult]
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+    getDependencyKey(fd.id)(context.symbols)
+  )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val sortCache = new DependencyCache[s.ADTSort, SortResult]
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]((sort, context) => 
+    getDependencyKey(sort.id)(context.symbols)
+  )
 
   override protected type FunctionResult = Option[FunDef]
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =

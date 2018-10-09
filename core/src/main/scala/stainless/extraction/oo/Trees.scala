@@ -44,7 +44,7 @@ trait Trees extends imperative.Trees with Definitions { self =>
   /** $encodingof `expr.asInstanceOf[tpe]` */
   case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = {
-      if (s.typesCompatible(expr.getType, tpe)) tpe else Untyped
+      if (s.typesCompatible(expr.getType, tpe)) tpe.getType else Untyped
     }
   }
 

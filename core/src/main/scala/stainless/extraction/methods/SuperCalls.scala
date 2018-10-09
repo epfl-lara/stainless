@@ -87,22 +87,22 @@ trait SuperCalls
     }
   }
 
-  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult]({ (fd, symbols) =>
-    val collector = new SuperCollector()(symbols)
-    collector.traverse(fd)
-    FunctionKey(fd, symbols) + new ValueKey(collector.getSupers)
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, context) =>
+    FunctionKey(fd) + ValueKey(context.mustDuplicate(fd))
   })
 
-  override protected final val sortCache = new CustomCache[s.ADTSort, SortResult]({ (sort, symbols) =>
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]({ (sort, context) =>
+    val symbols = context.symbols
     val collector = new SuperCollector()(symbols)
     collector.traverse(sort)
-    SortKey(sort, symbols) + new ValueKey(collector.getSupers)
+    SortKey(sort) + SetKey(collector.getSupers)(symbols)
   })
 
-  override protected final val classCache = new CustomCache[s.ClassDef, ClassResult]({ (cd, symbols) =>
+  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
+    val symbols = context.symbols
     val collector = new SuperCollector()(symbols)
     collector.traverse(cd)
-    ClassKey(cd, symbols) + new ValueKey(collector.getSupers)
+    ClassKey(cd) + SetKey(collector.getSupers)(symbols)
   })
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
@@ -122,6 +122,8 @@ trait SuperCalls
       symbols.classes.values.foreach(collector.traverse)
       collector.getSupers
     }
+
+    def mustDuplicate(fd: FunDef): Boolean = supers.contains(fd.id)
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(sup @ s.Super(ct), id, tps, args) =>

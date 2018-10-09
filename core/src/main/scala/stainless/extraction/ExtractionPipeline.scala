@@ -68,15 +68,17 @@ object ExtractionPipeline {
   }
 }
 
-trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
+trait ExtractionContext extends ExtractionPipeline {
+  protected type TransformerContext
+  protected def getContext(symbols: s.Symbols): TransformerContext
+}
+
+trait CachingPhase extends ExtractionContext with ExtractionCaches { self =>
   protected type FunctionResult
   protected val funCache: ExtractionCache[s.FunDef, FunctionResult]
 
   protected type SortResult
   protected val sortCache: ExtractionCache[s.ADTSort, SortResult]
-
-  protected type TransformerContext
-  protected def getContext(symbols: s.Symbols): TransformerContext
 
   protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult
   protected def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols
@@ -91,11 +93,11 @@ trait CachingPhase extends ExtractionPipeline with ExtractionCaches { self =>
 
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val functions = symbols.functions.values.map { fd =>
-      funCache.cached(fd, symbols)(extractFunction(context, fd))
+      funCache.cached(fd, context)(extractFunction(context, fd))
     }.toSeq
 
     val sorts = symbols.sorts.values.map { sort =>
-      sortCache.cached(sort, symbols)(extractSort(context, sort))
+      sortCache.cached(sort, context)(extractSort(context, sort))
     }.toSeq
 
     registerSorts(registerFunctions(t.NoSymbols, functions), sorts)
@@ -109,10 +111,6 @@ trait SimpleSorts extends CachingPhase {
 
 trait SimplyCachedSorts extends CachingPhase {
   override protected final val sortCache: ExtractionCache[s.ADTSort, SortResult] = new SimpleCache[s.ADTSort, SortResult]
-}
-
-trait DependentlyCachedSorts extends CachingPhase {
-  override protected final val sortCache: ExtractionCache[s.ADTSort, SortResult] = new DependencyCache[s.ADTSort, SortResult]
 }
 
 trait IdentitySorts extends SimpleSorts with SimplyCachedSorts { self =>
@@ -131,10 +129,6 @@ trait SimpleFunctions extends CachingPhase {
 
 trait SimplyCachedFunctions extends CachingPhase {
   override protected final val funCache: ExtractionCache[s.FunDef, FunctionResult] = new SimpleCache[s.FunDef, FunctionResult]
-}
-
-trait DependentlyCachedFunctions extends CachingPhase {
-  override protected final val funCache: ExtractionCache[s.FunDef, FunctionResult] = new DependencyCache[s.FunDef, FunctionResult]
 }
 
 trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { self =>

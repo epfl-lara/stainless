@@ -52,7 +52,7 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
 
     val symbolsToPrint = if (debugTrees) symbols.debugString(objects)(printerOpts) else ""
     if (!symbolsToPrint.isEmpty) {
-      context.reporter.debug("\n\n\n\nSymbols before " + name + "\n")
+      context.reporter.debug(s"\n\n\n\nSymbols before $name\n")
       context.reporter.debug(symbolsToPrint)
     }
 
@@ -63,9 +63,16 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
 
     val resToPrint = if (debugTrees) res.debugString(objects)(tPrinterOpts) else ""
     if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
-      context.reporter.debug("\n\nSymbols after " + name +  "\n")
-      context.reporter.debug(resToPrint)
-      context.reporter.debug("\n\n")
+      if (resToPrint != symbolsToPrint) {
+        context.reporter.debug(s"\n\nSymbols after $name\n")
+        context.reporter.debug(resToPrint)
+        context.reporter.debug("\n\n")
+        // ensure well-formedness after each extraction step
+        context.reporter.debug(s"Ensuring well-formedness after phase $name")
+        res.ensureWellFormed
+      } else {
+        context.reporter.debug(s"Not printing symbols after $name as they did not change\n\n")
+      }
     }
 
     if (debugPos) {

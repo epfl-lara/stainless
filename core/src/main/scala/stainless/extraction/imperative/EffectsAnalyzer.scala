@@ -53,7 +53,9 @@ trait EffectsAnalyzer extends CachingPhase {
   import s._
   import exprOps._
 
-  private[this] val effectsCache = new DependencyCache[FunDef, Result]
+  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) => 
+    getDependencyKey(fd.id)(context.symbols)
+  )
 
   protected case class Result(
     effects: Map[FunAbstraction, Set[Effect]],
@@ -88,7 +90,7 @@ trait EffectsAnalyzer extends CachingPhase {
     private[this] val result: Result = symbols.functions.values.foldLeft(Result.empty) {
       case (results, fd) =>
         val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-        val lookups = fds.map(effectsCache get (_, symbols))
+        val lookups = fds.map(effectsCache get (_, this))
         val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
         val prevResult = lookups.flatten.foldLeft(Result.empty)(_ merge _)
 
@@ -111,7 +113,7 @@ trait EffectsAnalyzer extends CachingPhase {
           } (prevResult merge baseResult)
 
           for ((fd, inners) <- inners) {
-            effectsCache(fd, symbols) = Result(
+            effectsCache(fd, this) = Result(
               result.effects.filter { case (fun, _) => fun == Outer(fd) || inners(fun) },
               result.locals.filter { case (_, fun) => inners(fun) }
             )
@@ -359,8 +361,6 @@ trait EffectsAnalyzer extends CachingPhase {
       .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
   }
 
-  private[this] val mutableCache = new DependencyCache[ADTSort, Boolean]
-
   /** Determine if the type is mutable
     *
     * In Stainless, we classify types as either mutable or immutable. Immutable
@@ -379,7 +379,6 @@ trait EffectsAnalyzer extends CachingPhase {
         val mutableSort = sort.constructors.exists(_.fields.exists {
           vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + ADTType(id, sort.typeArgs))
         })
-        mutableCache(sort, symbols) = mutableSort
         mutableSort || adt.getSort.constructors.exists(_.fields.exists(vd => rec(vd.tpe, seen + adt)))
       case _: FunctionType => false
       case NAryType(tps, _) => tps.exists(rec(_, seen))

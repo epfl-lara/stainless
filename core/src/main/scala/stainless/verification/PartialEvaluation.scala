@@ -10,8 +10,7 @@ object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
 trait PartialEvaluation
   extends extraction.CachingPhase
      with extraction.IdentitySorts
-     with extraction.SimpleFunctions
-     with extraction.DependentlyCachedFunctions { self =>
+     with extraction.SimpleFunctions { self =>
 
   val s: extraction.Trees
   val t: s.type
@@ -22,6 +21,10 @@ trait PartialEvaluation
   implicit val debugSection = DebugSectionPartialEval
 
   protected val semantics: inox.SemanticsProvider { val trees: s.type }
+
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+    getDependencyKey(fd.id)(context.symbols)
+  )
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 

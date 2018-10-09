@@ -121,7 +121,8 @@ trait AdtSpecialization
   }
 
   private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
-    new DependencyKey(id, (symbols.dependencies(id) + id)
+    SetKey(
+      (symbols.dependencies(id) + id)
       .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
         val rootCd = symbols.getClass(root(cd.id))
         Set(rootCd.id) ++ rootCd.descendants.map(_.id)
@@ -131,8 +132,8 @@ trait AdtSpecialization
   // The function cache must consider the descendants of all classes on which the
   // function depends as they will determine which classes will be transformed into
   // sorts and which ones will not.
-  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult](
-    (fd, symbols) => descendantKey(fd.id)(symbols)
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
+    (fd, context) => FunctionKey(fd) + descendantKey(fd.id)(context.symbols)
   )
 
   // If there are any input sorts in this phase, their transformation is simple
@@ -141,10 +142,12 @@ trait AdtSpecialization
   // The class cache must also consider all descendants of dependent classes as they
   // will again determine what will become a sort and what won't.
   // We must further depend on the synthetic OptionSort for the generated unapply function.
-  override protected final val classCache = new CustomCache[s.ClassDef, ClassResult]({
+  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({
     // Note that we could use a more precise key here that determines whether the
     // option sort will be used by the class result, but this shouldn't be necessary
-    (cd, symbols) => descendantKey(cd.id)(symbols) + OptionSort.key(symbols)
+    (cd, context) => 
+      val symbols = context.symbols
+      ClassKey(cd) + descendantKey(cd.id)(symbols) + OptionSort.key(symbols)
   })
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)

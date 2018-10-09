@@ -3,7 +3,7 @@
 package stainless
 package extraction
 
-trait ExtractionCaches { self: ExtractionPipeline =>
+trait ExtractionCaches { self: ExtractionContext =>
 
   /** A super type for all cache keys.
     * The set of dependencies is required in order to invalidate cache entries. */
@@ -16,18 +16,12 @@ trait ExtractionCaches { self: ExtractionPipeline =>
 
   /** A super type for all cache key generators.
     * This typeclass is used for instantiating extraction caches by key type. */
-  protected sealed abstract class Keyable[T] { def apply(key: T, symbols: s.Symbols): CacheKey }
-
-
-  /** A super type of cache keys that don't consider symbol dependencies. */
-  protected abstract class SimpleKey extends CacheKey
-
-  /** A super type for all simple cache key generators. */
-  protected abstract class SimpleKeyable[T] extends Keyable[T] {
-    override def apply(key: T, symbols: s.Symbols): SimpleKey
+  protected abstract class Keyable[T] { 
+    def apply(key: T): CacheKey 
   }
 
-  private final class FunctionKey private(private val fd: s.FunDef) extends SimpleKey {
+
+  private final class FunctionKey private(private val fd: s.FunDef) extends CacheKey {
     override def dependencies = Set(fd.id)
 
     // We can't use the `FunDef` as a key directly here as its equality is
@@ -51,11 +45,15 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def toString: String = s"FunctionKey(${fd.id.asString})"
   }
 
-  protected implicit object FunctionKey extends SimpleKeyable[s.FunDef] {
-    override def apply(fd: s.FunDef, symbols: s.Symbols): SimpleKey = new FunctionKey(fd)
+  protected implicit object FunctionKey extends Keyable[s.FunDef] {
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.functions(id))
+    def apply(fd: s.FunDef): CacheKey = new FunctionKey(fd)
   }
 
-  private final class SortKey private(private val sort: s.ADTSort) extends SimpleKey {
+  final def funKeys(fds: Set[s.FunDef]): CacheKey =
+    SetKey(fds.map(FunctionKey(_)))
+
+  private final class SortKey private(private val sort: s.ADTSort) extends CacheKey {
     override def dependencies = Set(sort.id)
 
     // We again can't use the `ADTSort` as a key for the same reasons as exposed
@@ -77,21 +75,29 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def toString: String = s"SortKey(${sort.id.asString})"
   }
 
-  protected implicit object SortKey extends SimpleKeyable[s.ADTSort] {
-    override def apply(sort: s.ADTSort, symbols: s.Symbols): SimpleKey = new SortKey(sort)
+  protected implicit object SortKey extends Keyable[s.ADTSort] {
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.sorts(id))
+    def apply(sort: s.ADTSort): CacheKey = new SortKey(sort)
   }
 
+  final def sortKeys(sorts: Set[s.ADTSort]): CacheKey =
+    SetKey(sorts.map(SortKey(_)))
 
   /** Returns a [[SimpleKey]] given some identifier and the symbols from which
     * it was taken.
     *
     * This is an override point for [[ExtractionCaches]] sub-classes where symbols
     * may contain different definitions (such as class definitions). */
-  protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): SimpleKey =
-    symbols.lookupFunction(id).map(FunctionKey(_, symbols))
-      .orElse(symbols.lookupSort(id).map(SortKey(_, symbols)))
+  protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+    symbols.lookupFunction(id).map(FunctionKey(_))
+      .orElse(symbols.lookupSort(id).map(SortKey(_)))
       .getOrElse(throw new RuntimeException(
         "Couldn't find symbol " + id.asString + " in symbols\n\n" + symbols.asString))
+
+  /** Returns a [[CacheKey]] given some identifier and the symbols from which
+    * it was taken (uses `symbols.dependencies` to compute the set of dependencies). */
+  protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+    getSimpleKey(id) + SetKey(symbols.dependencies(id))
 
 
   /** A [[CacheKey]] that simply composes a sequence of sub-keys. */
@@ -105,6 +111,29 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     }
 
     override def toString: String = s"SeqKey(${keys.mkString(", ")})"
+  }
+
+  object SeqKey {
+    def apply(keys: Seq[CacheKey]) = new SeqKey(keys)
+  }
+
+  /** A [[CacheKey]] that simply composes a set of sub-keys. */
+  protected sealed class SetKey(private val keys: Set[CacheKey]) extends CacheKey {
+    override val dependencies = keys.flatMap(_.dependencies)
+
+    override def hashCode: Int = keys.hashCode
+    override def equals(that: Any): Boolean = that match {
+      case uk: SetKey => keys == uk.keys
+      case _ => false
+    }
+
+    override def toString: String = s"SetKey(${keys.mkString(", ")})"
+  }
+
+  object SetKey {
+    def apply(keys: Set[CacheKey]): SetKey = new SetKey(keys)
+    def apply(ids: Set[Identifier])(implicit syms: s.Symbols): SetKey = 
+      SetKey(ids.map(getSimpleKey))
   }
 
 
@@ -123,91 +152,42 @@ trait ExtractionCaches { self: ExtractionPipeline =>
     override def toString: String = s"ValueKey($value)"
   }
 
-
-  /** A [[CacheKey]] that relies on a set of _dependent_ keys for equality. */
-  protected class DependencyKey(private val id: Identifier, private val keys: Set[CacheKey]) extends CacheKey {
-    override val dependencies = keys.flatMap(_.dependencies) + id
-
-    def this(id: Identifier)(implicit symbols: s.Symbols) =
-      this(id, (symbols.dependencies(id) + id).map(getSimpleKey(_)): Set[CacheKey])
-
-    def this(id: Identifier, dependencies: Set[Identifier])(implicit symbols: s.Symbols) =
-      this(id, (dependencies + id).map(getSimpleKey(_)): Set[CacheKey])
-
-    override def hashCode: Int = (id, keys).hashCode
-    override def equals(that: Any): Boolean = that match {
-      case dk: DependencyKey => id == dk.id && keys == dk.keys
-      case _ => false
-    }
-
-    override def toString: String = s"DependencyKey($id, ${keys.mkString(", ")})"
+  object ValueKey {
+    def apply[T](value: T) = new ValueKey(value)
   }
 
-  /** A super type for all dependency cache key generators. */
-  protected abstract class DependencyKeyable[T] extends Keyable[T] {
-    override def apply(key: T, symbols: s.Symbols): DependencyKey
-  }
+  private[this] val caches =
+    new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
+
+  /** An extraction cache that gets added to the collection `caches`.
+    * Can be invalidated from specific identifiers */
+  protected sealed class ExtractionCache[A, B](gen: (A,TransformerContext) => CacheKey) {
+    val cache = new utils.ConcurrentCache[CacheKey, B]
+
+    def cached(key: A, c: TransformerContext)(builder: => B): B = cache.cached(gen(key, c))(builder)
+    def contains(key: A, c: TransformerContext): Boolean = cache contains gen(key, c)
+    def update(key: A, c: TransformerContext, value: B): Unit = cache.update(gen(key, c), value)
+    def get(key: A, c: TransformerContext): Option[B] = cache.get(gen(key, c))
+    def apply(key: A, c: TransformerContext): B = cache(gen(key, c))
 
 
-  private final class FunctionDependencyKey private(fd: s.FunDef)(implicit symbols: s.Symbols)
-    extends DependencyKey(fd.id)(symbols)
-
-  protected implicit object FunctionDependencyKey extends DependencyKeyable[s.FunDef] {
-    override def apply(fd: s.FunDef, symbols: s.Symbols): DependencyKey = new FunctionDependencyKey(fd)(symbols)
-  }
-
-  private final class SortDependencyKey private(sort: s.ADTSort)(implicit symbols: s.Symbols)
-    extends DependencyKey(sort.id)(symbols)
-
-  protected implicit object SortDependencyKey extends DependencyKeyable[s.ADTSort] {
-    override def apply(sort: s.ADTSort, symbols: s.Symbols): DependencyKey = new SortDependencyKey(sort)(symbols)
-  }
-
-  /** Returns a [[DependencyKey]] given some identifier and the symbols from which
-    * it was taken (uses `symbols.dependencies` to compute the set of dependencies).
-    *
-    * This is an override point for [[ExtractionCaches]] sub-classes where symbols
-    * may contain different definitions (such as class definitions). */
-  protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): DependencyKey =
-    symbols.lookupFunction(id).map(FunctionDependencyKey(_, symbols))
-      .orElse(symbols.lookupSort(id).map(SortDependencyKey(_, symbols)))
-      .getOrElse(throw new RuntimeException(
-        "Couldn't find symbol " + id.asString + " in symbols\n\n" + symbols.asString))
-
-
-  private[this] val caches = new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
-
-  protected sealed class ExtractionCache[A: Keyable, B] protected[ExtractionCaches]() {
-    private[this] final val keyable = implicitly[Keyable[A]]
-    private[this] final val cache = new utils.ConcurrentCache[CacheKey, B]
-
-    def cached(key: A, symbols: s.Symbols)(builder: => B): B = cache.cached(keyable(key, symbols))(builder)
-
-    def contains(key: A, symbols: s.Symbols): Boolean = cache contains keyable(key, symbols)
-    def update(key: A, symbols: s.Symbols, value: B): Unit = cache.update(keyable(key, symbols), value)
-    def get(key: A, symbols: s.Symbols): Option[B] = cache.get(keyable(key, symbols))
-    def apply(key: A, symbols: s.Symbols): B = cache(keyable(key, symbols))
-
-    private[ExtractionCaches] def invalidate(id: Identifier): Unit =
-      cache.retain(key => !(key.dependencies contains id))
+    def invalidate(id: Identifier): Unit =
+      this.cache.retain(key => !(key.dependencies contains id))
 
     self.synchronized(caches += this)
   }
 
-  /** A cache that relies on a [[SimpleKey]] as cache key.
-    * The [[SimpleKeyable]] type class is used to generate the keys by type. */
-  protected final class SimpleCache[A: SimpleKeyable, B] extends ExtractionCache[A, B]
-
-  /** A cache that relies on a [[DependencyKey]] as cache key.
-    * The [[DependencyKeyable]] type class is used to generate the keys by type. */
-  protected final class DependencyCache[A <: s.Definition : DependencyKeyable, B] extends ExtractionCache[A, B]
-
-  /** A cache that uses a custom cache key that is computed given the provided key
-    * generation function. */
-  protected final class CustomCache[A, B](gen: (A, s.Symbols) => CacheKey)
-    extends ExtractionCache[A, B]()(new Keyable[A] {
-      override def apply(key: A, symbols: s.Symbols): CacheKey = gen(key, symbols)
-    })
+  /** A simple extraction cache that ignores the `TransformerContext` */
+  protected final class SimpleCache[A: Keyable, B] extends ExtractionCache[A, B](
+    (a, _) => implicitly[Keyable[A]].apply(a)
+  ) {
+    val gen = implicitly[Keyable[A]]
+    def cached(key: A)(builder: => B): B = cache.cached(gen(key))(builder)
+    def contains(key: A): Boolean = cache contains gen(key)
+    def update(key: A, value: B): Unit = cache.update(gen(key), value)
+    def get(key: A): Option[B] = cache.get(gen(key))
+    def apply(key: A): B = cache(gen(key))
+  }
 
   override def invalidate(id: Identifier): Unit = {
     for (cache <- caches) cache.invalidate(id)

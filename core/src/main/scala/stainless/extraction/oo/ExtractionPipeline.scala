@@ -8,7 +8,9 @@ trait ExtractionPipeline extends extraction.ExtractionPipeline {
   val s: Trees
 }
 
-trait CachingPhase extends ExtractionPipeline with extraction.CachingPhase with ExtractionCaches { self =>
+trait ExtractionContext extends ExtractionPipeline with extraction.ExtractionContext
+
+trait CachingPhase extends ExtractionContext with extraction.CachingPhase with ExtractionCaches { self =>
   protected type ClassResult
   protected val classCache: ExtractionCache[s.ClassDef, ClassResult]
 
@@ -19,7 +21,7 @@ trait CachingPhase extends ExtractionPipeline with extraction.CachingPhase with 
     registerClasses(
       super.extractSymbols(context, symbols),
       symbols.classes.values.map { cd =>
-        classCache.cached(cd, symbols)(extractClass(context, cd))
+        classCache.cached(cd, context)(extractClass(context, cd))
       }.toSeq
     )
   }
@@ -34,10 +36,6 @@ trait SimpleClasses extends CachingPhase {
 
 trait SimplyCachedClasses extends CachingPhase {
   override protected final val classCache: ExtractionCache[s.ClassDef, ClassResult] = new SimpleCache[s.ClassDef, ClassResult]
-}
-
-trait DependentlyCachedClasses extends CachingPhase {
-  override protected final val classCache: ExtractionCache[s.ClassDef, ClassResult] = new DependencyCache[s.ClassDef, ClassResult]
 }
 
 trait IdentityClasses extends SimpleClasses with SimplyCachedClasses { self =>

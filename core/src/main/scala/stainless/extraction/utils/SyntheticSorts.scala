@@ -4,7 +4,7 @@ package stainless
 package extraction
 package utils
 
-trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
+trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
 
   protected object OptionSort {
     import t._
@@ -31,7 +31,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
 
       val cache = new SimpleCache[s.ADTSort, t.FunDef]
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
-        case Some(sort) => cache.cached(sort, symbols) {
+        case Some(sort) => cache.cached(sort) {
           createFunction(sort.id, sort.constructors.find(_.fields.isEmpty).get.id)
         }
         case None => syntheticFunction
@@ -55,7 +55,7 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
 
       val cache = new SimpleCache[s.ADTSort, t.FunDef]
       (symbols: s.Symbols) => symbols.lookup.get[s.ADTSort]("stainless.lang.Option") match {
-        case Some(sort) => cache.cached(sort, symbols) {
+        case Some(sort) => cache.cached(sort) {
           val some = sort.constructors.find(_.fields.nonEmpty).get
           createFunction(sort.id, some.id, some.fields.head.id)
         }
@@ -93,9 +93,9 @@ trait SyntheticSorts extends ExtractionCaches { self: ExtractionPipeline =>
       })
 
     def key(implicit symbols: s.Symbols): CacheKey = new SeqKey(
-      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").map(SortKey(_, symbols)).toSeq ++
-      symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").map(FunctionKey(_, symbols)) ++
-      symbols.lookup.get[s.FunDef]("stainless.lang.Option.get").map(FunctionKey(_, symbols))
+      symbols.lookup.get[s.ADTSort]("stainless.lang.Option").map(SortKey(_)).toSeq ++
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.isEmpty").map(FunctionKey(_)) ++
+      symbols.lookup.get[s.FunDef]("stainless.lang.Option.get").map(FunctionKey(_))
     )
   }
 }

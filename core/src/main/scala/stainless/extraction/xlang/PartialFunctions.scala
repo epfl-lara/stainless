@@ -16,6 +16,7 @@ trait PartialFunctions
   import s._
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+
   protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t

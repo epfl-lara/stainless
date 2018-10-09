@@ -494,14 +494,15 @@ trait TypeEncoding
   // which the `instanceOf` call well be recursively performed, so the cache key consists of
   // - the class definition
   // - the children class definitions
-  private[this] val classInstanceCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
-    new DependencyKey(cd.id, cd.children(symbols).map(_.id).toSet)(symbols)
-  })
+  private[this] val classInstanceCache = 
+    new ExtractionCache[s.ClassDef, t.FunDef]({ 
+      (cd, context) => ClassKey(cd) + classKeys(cd.children(context.symbols).toSet)
+    })
 
   private[this] def classInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.symbols
     val cd = symbols.getClass(id)
-    classInstanceCache.cached(cd, symbols) {
+    classInstanceCache.cached(cd, context) {
       mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
           case x +: tps =>
@@ -534,14 +535,16 @@ trait TypeEncoding
   // - the class definition
   // - the descendant class definitions
   // - the synthetic OptionSort definitions
-  private[this] val classUnapplyCache = new CustomCache[s.ClassDef, t.FunDef]({ (cd, symbols) =>
-    new DependencyKey(cd.id, cd.descendants(symbols).map(_.id).toSet)(symbols) + OptionSort.key(symbols)
-  })
+  private[this] val classUnapplyCache = 
+    new ExtractionCache[s.ClassDef, t.FunDef]({ (cd, context) =>
+      val symbols = context.symbols
+      ClassKey(cd) + classKeys(cd.descendants(symbols).toSet) + OptionSort.key(symbols)
+    })
 
   private[this] def classUnapply(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.symbols
     val cd = symbols.getClass(id)
-    classUnapplyCache.cached(cd, symbols) {
+    classUnapplyCache.cached(cd, context) {
       import OptionSort._
       mkFunDef(unapplyID(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))() { _ =>
         val cons = constructors(cd)
@@ -566,11 +569,12 @@ trait TypeEncoding
    * ==================================== */
 
   // The unapply function only depends on the synthetic OptionSort
-  private[this] val unapplyAnyCache = new CustomCache[s.Symbols, t.FunDef](
-    (_, symbols) => OptionSort.key(symbols)
+  private[this] val unapplyAnyCache = new ExtractionCache[s.Symbols, t.FunDef](
+    (_, context) => OptionSort.key(context.symbols)
   )
 
-  private[this] def unapplyAny(implicit symbols: s.Symbols): t.FunDef = unapplyAnyCache.cached(symbols, symbols) {
+  private[this] def unapplyAny(implicit context: TransformerContext): t.FunDef = unapplyAnyCache.cached(context.symbols, context) {
+    implicit val symbols = context.symbols
     import OptionSort.{value => _, _}
     mkFunDef(FreshIdentifier("InstanceOf"), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))("A", "B") {
       case Seq(a, b) => (
@@ -598,7 +602,7 @@ trait TypeEncoding
   private[this] def sortInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.{symbols, emptyScope => scope}
     val sort = symbols.getSort(id)
-    sortInstanceCache.cached(sort, symbols) {
+    sortInstanceCache.cached(sort, context) {
       val in = sort.typeArgs.map(_.freshen)
       val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
@@ -630,7 +634,7 @@ trait TypeEncoding
   private[this] def sortConvert(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.{symbols, emptyScope => scope}
     val sort = symbols.getSort(id)
-    sortConvertCache.cached(sort, symbols) {
+    sortConvertCache.cached(sort, context) {
       val (in, out) = (sort.typeArgs.map(_.freshen), sort.typeArgs.map(_.freshen))
       val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
       val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
@@ -1167,7 +1171,7 @@ trait TypeEncoding
     def functions: Seq[t.FunDef] =
       symbols.classes.keys.toSeq.flatMap(id => Seq(classInstance(id)(this), classUnapply(id)(this))) ++
       symbols.sorts.keys.flatMap(id => Seq(sortInstance(id)(this), sortConvert(id)(this))) ++
-      OptionSort.functions :+ unapplyAny
+      OptionSort.functions :+ unapplyAny(this)
 
     def sorts: Seq[t.ADTSort] =
       OptionSort.sorts :+ refSort
@@ -1229,7 +1233,9 @@ trait TypeEncoding
 
   // The computation of which type parameters must be rewritten considers all
   // dependencies, so we use a dependency cache for function transformations
-  override protected val funCache = new DependencyCache[s.FunDef, FunctionResult]
+  override protected val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+    getDependencyKey(fd.id)(context.symbols)
+  )
 
   // Sort transformations are straightforward and can be simply cached
   override protected val sortCache = new SimpleCache[s.ADTSort, SortResult]

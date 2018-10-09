@@ -31,8 +31,8 @@ trait Laws
   override protected final type TransformerContext = Symbols
   override protected final def getContext(symbols: s.Symbols) = symbols
 
-  override protected final val funCache = new CustomCache[s.FunDef, FunctionResult]({ (fd, symbols) =>
-    FunctionKey(fd, symbols) + new ValueKey(
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, symbols) =>
+    FunctionKey(fd) + new ValueKey(
       if ((fd.flags exists { case IsMethodOf(_) => true case _ => false }) && (fd.flags contains Law)) {
         symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).toSet[Identifier]
       } else {
@@ -125,12 +125,11 @@ trait Laws
     }
   }
 
-  override protected final val classCache = new CustomCache[s.ClassDef, ClassResult]({ (cd, symbols) =>
-    new DependencyKey(
-      cd.id,
+  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
+    ClassKey(cd) + SetKey(
       if (cd.flags contains IsAbstract) Set.empty[CacheKey]
-      else missingLaws(cd)(symbols).map { case (acd, fd) =>
-        ClassKey(acd.cd, symbols) + FunctionKey(fd, symbols) + new ValueKey(acd.tpSubst)
+      else missingLaws(cd)(context).map { case (acd, fd) =>
+        ClassKey(acd.cd) + FunctionKey(fd) + ValueKey(acd.tpSubst)
       }.toSet[CacheKey]
     )
   })
