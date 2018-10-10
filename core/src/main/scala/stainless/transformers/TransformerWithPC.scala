@@ -3,57 +3,52 @@
 package stainless
 package transformers
 
-trait TransformerWithPC extends inox.transformers.TransformerWithPC {
-  val trees: ast.Trees
-  import trees._
-  import symbols._
+trait TransformerWithPC extends inox.transformers.TransformerWithPC with Transformer {
+  val symbols: s.Symbols
+  implicit val pp: s.PathProvider[Env]
 
-  implicit def pp: PathProvider[Env]
-
-  override protected def rec(e: Expr, env: Env): Expr = e match {
-    case Ensuring(req @ Require(pre, body), l @ Lambda(Seq(vd), post)) =>
-      val spre = rec(pre, env)
-      val sbody = rec(body, env withCond spre)
-      val spost = rec(post, env withCond spre withBinding (vd -> sbody))
-      Ensuring(
-        Require(spre, sbody).copiedFrom(req),
-        Lambda(Seq(vd), spost).copiedFrom(l)
+  override def transform(e: s.Expr, env: Env): t.Expr = e match {
+    case s.Ensuring(req @ s.Require(pre, body), l @ s.Lambda(Seq(vd), post)) =>
+      t.Ensuring(
+        t.Require(transform(pre, env), transform(body, env withCond pre)).copiedFrom(req),
+        t.Lambda(Seq(transform(vd, env)), transform(post, env withCond pre withBinding (vd -> body))).copiedFrom(l)
       ).copiedFrom(e)
 
-    case Ensuring(body, l @ Lambda(Seq(vd), post)) =>
-      val sbody = rec(body, env)
-      val spost = rec(post, env withBinding (vd -> sbody))
-      Ensuring(sbody, Lambda(Seq(vd), spost).copiedFrom(l)).copiedFrom(e)
+    case s.Ensuring(body, l @ s.Lambda(Seq(vd), post)) =>
+      t.Ensuring(
+        transform(body, env),
+        t.Lambda(Seq(transform(vd, env)), transform(post, env withBinding (vd -> body))).copiedFrom(l)
+      ).copiedFrom(e)
 
-    case Require(pre, body) =>
-      val spre = rec(pre, env)
-      val sbody = rec(body, env withCond spre)
-      Require(spre, sbody).copiedFrom(e)
+    case s.Require(pre, body) =>
+      t.Require(transform(pre, env), transform(body, env withCond pre)).copiedFrom(e)
 
-    case Assert(pred, err, body) =>
-      val spred = rec(pred, env)
-      val sbody = rec(body, env withCond spred)
-      Assert(spred, err, sbody).copiedFrom(e)
+    case s.Assert(pred, err, body) =>
+      t.Assert(transform(pred, env), err, transform(body, env withCond pred)).copiedFrom(e)
 
-    case MatchExpr(scrut, cases) =>
-      val rs = rec(scrut, env)
+    case s.MatchExpr(scrut, cases) =>
+      val rs = transform(scrut, env)
 
       var soFar = env
 
-      MatchExpr(rs, cases.map { c =>
-        val patternPathPos = conditionForPattern[Env](rs, c.pattern, includeBinders = true)
-        val patternPathNeg = conditionForPattern[Env](rs, c.pattern, includeBinders = false)
+      t.MatchExpr(rs, cases.map { c =>
+        val spattern = transform(c.pattern, soFar)
+        val patternPathPos = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = true)
+        val patternPathNeg = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = false)
 
-        val sguard = c.optGuard.map(rec(_, soFar merge patternPathPos))
-        val guardOrTrue = sguard.getOrElse(BooleanLiteral(true))
-        val guardMapped = exprOps.replaceFromSymbols(mapForPattern(rs, c.pattern), guardOrTrue)
+        val sguard = c.optGuard.map(transform(_, soFar merge patternPathPos))
+        val guardOrTrue = c.optGuard.getOrElse(s.BooleanLiteral(true).copiedFrom(c))
+
+        import s._ // necessary for implicit VariableConverter in replaceFromSymbols
+        val guardMapped = s.exprOps.replaceFromSymbols(symbols.mapForPattern(scrut, c.pattern), guardOrTrue)
 
         val subPath = soFar merge (patternPathPos withCond guardOrTrue)
         soFar = soFar merge (patternPathNeg withCond guardMapped).negate
 
-        MatchCase(c.pattern, sguard, rec(c.rhs, subPath)).copiedFrom(c)
+        t.MatchCase(spattern, sguard, transform(c.rhs, subPath)).copiedFrom(c)
       }).copiedFrom(e)
 
-    case _ => super.rec(e, env)
+    case _ => super.transform(e, env)
   }
 }
+

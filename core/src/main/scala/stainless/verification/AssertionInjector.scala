@@ -8,7 +8,7 @@ package verification
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
  * that the program is exempt of integer overflow and unexpected behaviour.
  */
-trait AssertionInjector extends ast.TreeTransformer {
+trait AssertionInjector extends transformers.TreeTransformer {
   val s: ast.Trees
   val t: ast.Trees
 
@@ -214,10 +214,10 @@ trait AssertionInjector extends ast.TreeTransformer {
 }
 
 object AssertionInjector {
-  def apply(p: Program, ctx: inox.Context): inox.ast.SymbolTransformer {
+  def apply(p: Program, ctx: inox.Context): inox.transformers.SymbolTransformer {
     val s: p.trees.type
     val t: p.trees.type
-  } = new inox.ast.SymbolTransformer {
+  } = new inox.transformers.SymbolTransformer {
     val s: p.trees.type = p.trees
     val t: p.trees.type = p.trees
 

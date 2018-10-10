@@ -5,6 +5,7 @@ package solvers
 
 import inox.solvers._
 import inox.solvers.combinators._
+import inox.transformers._
 
 import evaluators._
 
@@ -12,7 +13,7 @@ object SolverFactory {
 
   def getFromName(name: String)
                  (p: Program, ctx: inox.Context)
-                 (enc: inox.ast.ProgramTransformer {
+                 (enc: ProgramTransformer {
                     val sourceProgram: p.type
                     val targetProgram: StainlessProgram
                   })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
@@ -33,7 +34,7 @@ object SolverFactory {
   // between all underlying solvers. We count on immutability to ensure sanity here.
   def getFromNames(names: Seq[String])
                   (p: Program, ctx: inox.Context)
-                  (enc: inox.ast.ProgramTransformer {
+                  (enc: ProgramTransformer {
                      val sourceProgram: p.type
                      val targetProgram: StainlessProgram
                    })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
@@ -47,7 +48,7 @@ object SolverFactory {
   }
 
   def getFromSettings(p: Program, ctx: inox.Context)
-                     (enc: inox.ast.ProgramTransformer {
+                     (enc: ProgramTransformer {
                         val sourceProgram: p.type
                         val targetProgram: StainlessProgram
                       })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
@@ -58,10 +59,10 @@ object SolverFactory {
   def apply(name: String, p: StainlessProgram, ctx: inox.Context): SolverFactory {
     val program: p.type
     type S <: TimeoutSolver { val program: p.type }
-  } = getFromName(name)(p, ctx)(inox.ast.ProgramEncoder.empty(p))(p.getSemantics)
+  } = getFromName(name)(p, ctx)(ProgramEncoder.empty(p))(p.getSemantics)
 
   def apply(p: StainlessProgram, ctx: inox.Context): SolverFactory {
     val program: p.type
     type S <: TimeoutSolver { val program: p.type }
-  } = getFromSettings(p, ctx)(inox.ast.ProgramEncoder.empty(p))(p.getSemantics)
+  } = getFromSettings(p, ctx)(ProgramEncoder.empty(p))(p.getSemantics)
 }

@@ -14,7 +14,7 @@ trait StructuralSize { self: SolverProvider =>
 
   private val functions: ListBuffer[FunDef] = new ListBuffer[FunDef]
 
-  registerTransformer(new inox.ast.SymbolTransformer {
+  registerTransformer(new inox.transformers.SymbolTransformer {
     val s: trees.type = trees
     val t: trees.type = trees
 

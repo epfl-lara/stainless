@@ -4,6 +4,8 @@ import scala.collection.parallel.ForkJoinTasks
 import scala.concurrent.{ ExecutionContext, Future }
 import java.util.concurrent.Executors
 
+import inox.transformers._
+
 package object stainless {
 
   object optJson extends inox.OptionDef[String] {
@@ -65,7 +67,7 @@ package object stainless {
     }
 
   def encodingSemantics(ts: ast.Trees)
-                       (transformer: inox.ast.TreeTransformer { val s: ts.type; val t: stainless.trees.type }):
+                       (transformer: TreeTransformer { val s: ts.type; val t: stainless.trees.type }):
                         inox.SemanticsProvider { val trees: ts.type } = {
     new inox.SemanticsProvider {
       val trees: ts.type = ts
@@ -79,9 +81,9 @@ package object stainless {
         private object encoder extends {
           val sourceProgram: self.program.type = self.program
           val t: stainless.trees.type = stainless.trees
-        } with inox.ast.ProgramEncoder {
+        } with ProgramEncoder {
           val encoder = transformer
-          object decoder extends ast.TreeTransformer {
+          object decoder extends transformers.TreeTransformer {
             val s: stainless.trees.type = stainless.trees
             val t: trees.type = trees
           }

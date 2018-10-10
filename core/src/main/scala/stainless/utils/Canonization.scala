@@ -3,8 +3,6 @@
 package stainless
 package utils
 
-import stainless.extraction.inlining.Trees
-
 import scala.collection._
 
 trait Canonization { self =>
@@ -17,7 +15,7 @@ trait Canonization { self =>
 
   type VC = verification.VC[trees.type]
 
-  protected class IdTransformer(val symbols: trees.Symbols) extends inox.ast.TreeTransformer {
+  protected class IdTransformer(val symbols: trees.Symbols) extends transformers.TreeTransformer {
     val s: self.trees.type = self.trees
     val t: self.trees.type = self.trees
 
@@ -84,7 +82,7 @@ trait Canonization { self =>
     NoSymbols.withFunctions(newFunctions).withSorts(newSorts)
   }
 
-  protected class RegisteringTransformer extends inox.ast.TreeTransformer {
+  protected class RegisteringTransformer extends transformers.TreeTransformer {
     val s: self.trees.type = self.trees
     val t: self.trees.type = self.trees
 

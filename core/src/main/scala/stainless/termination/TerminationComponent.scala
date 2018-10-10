@@ -15,12 +15,12 @@ object TerminationComponent extends Component {
   override type Report = TerminationReport
   override type Analysis = TerminationAnalysis
 
-  override object lowering extends inox.ast.SymbolTransformer {
+  override object lowering extends inox.transformers.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
 
     override def transform(syms: s.Symbols): t.Symbols = {
-      syms.transform(new ast.TreeTransformer {
+      syms.transform(new transformers.TreeTransformer {
         val s: extraction.trees.type = extraction.trees
         val t: extraction.trees.type = extraction.trees
 

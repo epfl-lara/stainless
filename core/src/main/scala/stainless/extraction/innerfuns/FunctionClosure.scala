@@ -146,7 +146,7 @@ trait FunctionClosure
         case (inner, pc) => inner.name.id -> closeFd(inner, fd, pc, transFree(inner.name.id).map(_.toVal))
       }
 
-      trait ClosingTransformer extends ast.TreeTransformer {
+      trait ClosingTransformer extends transformers.TreeTransformer {
         val s: self.s.type = self.s
         val subst: FunSubst
 

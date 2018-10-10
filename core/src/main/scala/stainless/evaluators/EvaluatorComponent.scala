@@ -30,7 +30,7 @@ object EvaluatorComponent extends Component { self =>
   override type Report = EvaluatorReport
   override type Analysis = EvaluatorAnalysis
 
-  override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  override val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
   })

@@ -3,6 +3,8 @@
 package stainless
 package extraction
 
+import transformers._
+
 trait ExtractionPipeline { self =>
   val s: extraction.Trees
   val t: ast.Trees
@@ -34,7 +36,7 @@ trait ExtractionPipeline { self =>
 }
 
 object ExtractionPipeline {
-  def apply(transformer: ast.TreeTransformer { val s: Trees; val t: ast.Trees })
+  def apply(transformer: DefinitionTransformer { val s: Trees; val t: ast.Trees })
            (implicit ctx: inox.Context): ExtractionPipeline {
     val s: transformer.s.type
     val t: transformer.t.type
@@ -44,7 +46,7 @@ object ExtractionPipeline {
     override val context = ctx
 
     override def extract(symbols: s.Symbols): t.Symbols =
-      symbols.transform(transformer.asInstanceOf[ast.TreeTransformer {
+      symbols.transform(transformer.asInstanceOf[DefinitionTransformer {
         val s: self.s.type
         val t: self.t.type
       }])
@@ -52,7 +54,7 @@ object ExtractionPipeline {
     override def invalidate(id: Identifier): Unit = ()
   }
 
-  def apply(transformer: inox.ast.SymbolTransformer { val s: Trees; val t: ast.Trees })
+  def apply(transformer: inox.transformers.SymbolTransformer { val s: Trees; val t: ast.Trees })
            (implicit ctx: inox.Context): ExtractionPipeline {
     val s: transformer.s.type
     val t: transformer.t.type
@@ -114,7 +116,7 @@ trait DependentlyCachedSorts extends CachingPhase {
 }
 
 trait IdentitySorts extends SimpleSorts with SimplyCachedSorts { self =>
-  private[this] final object identity extends ast.TreeTransformer {
+  private[this] final object identity extends TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
   }
@@ -136,7 +138,7 @@ trait DependentlyCachedFunctions extends CachingPhase {
 }
 
 trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { self =>
-  private[this] final object identity extends ast.TreeTransformer {
+  private[this] final object identity extends TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
   }
@@ -145,7 +147,7 @@ trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { sel
 }
 
 trait SimplePhase extends ExtractionPipeline with SimpleSorts with SimpleFunctions { self =>
-  override protected type TransformerContext <: ast.TreeTransformer {
+  override protected type TransformerContext <: TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }

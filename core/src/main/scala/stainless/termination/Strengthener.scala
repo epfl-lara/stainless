@@ -3,7 +3,6 @@
 package stainless
 package termination
 
-import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
 
 object optIgnorePosts extends inox.FlagOptionDef("ignore-posts", false)
@@ -122,11 +121,9 @@ trait Strengthener { self: OrderingRelation =>
 
     for (fd <- sortedFunDefs if fd.body.isDefined && !strengthenedApp(fd) && checker.terminates(fd).isGuaranteed) {
 
-      val appCollector = CollectorWithPC(program) {
+      val applications = collectWithPC(fd.fullBody) {
         case (Application(v: Variable, args), path) => (path, v, args)
-      }
-
-      val applications = appCollector.collect(fd).distinct
+      }.distinct
 
       val fdArgs = fd.params.map(_.toVariable)
 
@@ -152,7 +149,7 @@ trait Strengthener { self: OrderingRelation =>
 
       val fdHOArgs = fdArgs.filter(_.tpe.isInstanceOf[FunctionType]).toSet
 
-      val fiCollector = CollectorWithPC(program) {
+      val invocations = collectWithPC(fd.fullBody) {
         case (fi @ FunctionInvocation(_, _, args), path)
         if (fdHOArgs intersect args.collect { case v: Variable => v }.toSet).nonEmpty =>
           (path, args, (args zip fi.tfd.fd.params).collect {
@@ -160,7 +157,6 @@ trait Strengthener { self: OrderingRelation =>
           })
       }
 
-      val invocations = fiCollector.collect(fd)
       val var2invocations: Seq[(Variable, ((Identifier, Identifier), Path, Seq[Expr]))] =
         for ((path, args, mapping) <- invocations; (v, p) <- mapping) yield v -> (p, path, args)
       val invocationMap: Map[Variable, Seq[((Identifier, Identifier), Path, Seq[Expr])]] =

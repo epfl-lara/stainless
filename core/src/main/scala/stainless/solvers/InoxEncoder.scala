@@ -3,7 +3,7 @@
 package stainless
 package solvers
 
-import inox.ast._
+import inox.transformers._
 
 trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program

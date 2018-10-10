@@ -24,7 +24,7 @@ object VerificationComponent extends Component {
   override type Report = VerificationReport
   override type Analysis = VerificationAnalysis
 
-  override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  override val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
     val s: trees.type = trees
     val t: trees.type = trees
   })
@@ -60,11 +60,11 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
     // We do not need to encode empty trees as chooses when generating the VCs,
     // as we rely on having empty trees to filter out some VCs.
-    val assertionEncoder = inox.ast.ProgramEncoder(p)(assertions)
+    val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
     val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
 
     // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
-    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
+    val encoder = inox.transformers.ProgramEncoder(p)(assertions andThen chooses)
 
     val res = VerificationChecker.verify(encoder.targetProgram, context)(vcs).map(_.mapValues {
       case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>

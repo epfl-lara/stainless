@@ -108,16 +108,16 @@ package object extraction {
 
         private[this] val targetProgram = inox.Program(stainless.trees)(completeSymbols(symbols)(stainless.trees))
 
-        private object encoder extends inox.ast.ProgramTransformer {
+        private object encoder extends inox.transformers.ProgramTransformer {
           override val sourceProgram: self.program.type = self.program
           override val targetProgram = self.targetProgram
 
-          override object encoder extends ast.TreeTransformer {
+          override object encoder extends transformers.TreeTransformer {
             val s: trees.type = trees
             val t: stainless.trees.type = stainless.trees
           }
 
-          override object decoder extends ast.TreeTransformer {
+          override object decoder extends transformers.TreeTransformer {
             val s: stainless.trees.type = stainless.trees
             val t: trees.type = trees
           }

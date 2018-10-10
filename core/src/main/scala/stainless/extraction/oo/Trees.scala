@@ -318,20 +318,26 @@ trait TreeOps extends ast.TreeOps { self: Trees =>
   }
 }
 
-trait TreeTransformer extends ast.TreeTransformer {
+trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with transformers.Transformer {
   val s: Trees
   val t: Trees
 
-  def transform(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
-    cd.id,
-    cd.tparams.map(tdef => transform(tdef)),
-    cd.parents.map(ct => transform(ct).asInstanceOf[t.ClassType]),
-    cd.fields.map(vd => transform(vd)),
-    cd.flags.map(f => transform(f))
-  ).copiedFrom(cd)
+  def transform(cd: s.ClassDef): t.ClassDef = {
+    val env = initEnv
+
+    new t.ClassDef(
+      transform(cd.id, env),
+      cd.tparams.map(transform(_, env)),
+      cd.parents.map(ct => transform(ct, env).asInstanceOf[t.ClassType]),
+      cd.fields.map(transform(_, env)),
+      cd.flags.map(transform(_, env))
+    ).copiedFrom(cd)
+  }
 }
 
-trait SimpleSymbolTransformer extends inox.ast.SimpleSymbolTransformer {
+trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
+
+trait SimpleSymbolTransformer extends inox.transformers.SimpleSymbolTransformer {
   val s: Trees
   val t: Trees
 
@@ -342,7 +348,10 @@ trait SimpleSymbolTransformer extends inox.ast.SimpleSymbolTransformer {
 }
 
 object SymbolTransformer {
-  def apply(trans: inox.ast.TreeTransformer { val s: Trees; val t: Trees }): inox.ast.SymbolTransformer {
+  def apply(trans: inox.transformers.DefinitionTransformer {
+    val s: Trees
+    val t: Trees
+  }): inox.transformers.SymbolTransformer {
     val s: trans.s.type
     val t: trans.t.type
   } = new SimpleSymbolTransformer {
@@ -351,12 +360,16 @@ object SymbolTransformer {
 
     protected def transformFunction(fd: s.FunDef): t.FunDef = trans.transform(fd)
     protected def transformSort(sort: s.ADTSort): t.ADTSort = trans.transform(sort)
-    protected def transformClass(cd: s.ClassDef): t.ClassDef = new t.ClassDef(
-      cd.id,
-      cd.tparams.map(tdef => trans.transform(tdef)),
-      cd.parents.map(ct => trans.transform(ct).asInstanceOf[t.ClassType]),
-      cd.fields.map(vd => trans.transform(vd)),
-      cd.flags.map(f => trans.transform(f))
-    ).copiedFrom(cd)
+    protected def transformClass(cd: s.ClassDef): t.ClassDef = {
+      val env = trans.initEnv
+
+      new t.ClassDef(
+        trans.transform(cd.id, env),
+        cd.tparams.map(tdef => trans.transform(tdef, env)),
+        cd.parents.map(ct => trans.transform(ct, env).asInstanceOf[t.ClassType]),
+        cd.fields.map(vd => trans.transform(vd, env)),
+        cd.flags.map(f => trans.transform(f, env))
+      ).copiedFrom(cd)
+    }
   }
 }

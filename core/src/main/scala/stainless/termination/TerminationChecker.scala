@@ -74,7 +74,7 @@ object TerminationChecker {
     object encoder extends {
       val s: p.trees.type = p.trees
       val t: stainless.trees.type = stainless.trees
-    } with ast.TreeTransformer {
+    } with transformers.TreeTransformer {
       override def transform(e: s.Expr): t.Expr = e match {
         case s.Decreases(measure, body) => transform(body)
         case _ => super.transform(e)

@@ -4,17 +4,15 @@ package stainless
 package extraction
 package imperative
 
-trait TransformerWithPC extends stainless.transformers.TransformerWithPC {
-  override val trees: Trees
-  import trees._
+trait TransformerWithPC extends transformers.TransformerWithPC {
+  val s: Trees
+  val t: Trees
 
-  override protected def rec(e: Expr, env: Env): Expr = e match {
-    case LetVar(vd, v, b) =>
-      val sv = rec(v, env)
-      val sb = rec(b, env withBinding vd -> sv)
-      LetVar(vd, sv, sb).copiedFrom(e)
+  override def transform(e: s.Expr, env: Env): t.Expr = e match {
+    case s.LetVar(vd, v, b) =>
+      t.LetVar(transform(vd, env), transform(v, env), transform(b, env withBinding (vd -> v))).copiedFrom(e)
 
-    case _ => super.rec(e, env)
+    case _ => super.transform(e, env)
   }
 }
 

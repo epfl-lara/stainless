@@ -3,8 +3,7 @@
 package stainless
 package termination
 
-import transformers.CollectorWithPC
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 trait RelationBuilder { self: Strengthener =>
 
@@ -50,32 +49,38 @@ trait RelationBuilder { self: Strengthener =>
     case _ => {
       val analysis = cfa.analyze(funDef.id)
 
-      object collector extends CollectorWithPC {
-        type Result = Relation
-        val trees: self.checker.program.trees.type = self.checker.program.trees
+      object collector extends transformers.TransformerWithPC with transformers.DefinitionTransformer {
+        val s: self.checker.program.trees.type = self.checker.program.trees
+        val t: self.checker.program.trees.type = self.checker.program.trees
         val symbols: self.checker.program.symbols.type = self.checker.program.symbols
 
-        var inLambda: Boolean = false
+        type Env = Path
+        val initEnv = Path.empty
+        val pp = Path
 
-        override protected def rec(e: Expr, path: Path): Expr = e match {
+        var inLambda: Boolean = false
+        val relations: ListBuffer[Relation] = new ListBuffer
+
+        override def transform(e: Expr, path: Path): Expr = e match {
           case fi @ FunctionInvocation(_, _, args) =>
-            accumulate(e, path)
+            relations += Relation(funDef, path, fi, inLambda)
+
             fi.copy(args = (getFunction(fi.id).params.map(_.id) zip args).map {
               case (id, l @ Lambda(largs, body)) if analysis.isApplied(l) =>
                 val cnstr = self.applicationConstraint(fi.id, id, largs, args)
                 val old = inLambda
                 inLambda = true
-                val res = Lambda(largs, rec(body, path withBounds largs withCond cnstr))
+                val res = Lambda(largs, transform(body, path withBounds largs withCond cnstr))
                 inLambda = old
                 res
-              case (_, arg) => rec(arg, path)
+              case (_, arg) => transform(arg, path)
             })
 
           case l: Lambda =>
             if (analysis.isApplied(l)) {
               val old = inLambda
               inLambda = true
-              val res = super.rec(e, path)
+              val res = super.transform(e, path)
               inLambda = old
               res
             } else {
@@ -83,18 +88,12 @@ trait RelationBuilder { self: Strengthener =>
             }
 
           case _ =>
-            super.rec(e, path)
-        }
-
-        protected def step(e: Expr, path: Path): List[Result] = e match {
-          // XXX: filter out certain function calls ??
-          case fi: FunctionInvocation =>
-            List(Relation(funDef, path, fi, inLambda))
-          case _ => Nil
+            super.transform(e, path)
         }
       }
 
-      val relations = collector.collect(funDef).toSet
+      collector.transform(funDef)
+      val relations = collector.relations.toSet
       relationCache(funDef) = (relations, funDefRelationSignature(funDef))
       relations
     }

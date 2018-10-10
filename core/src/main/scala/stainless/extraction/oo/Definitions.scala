@@ -120,12 +120,14 @@ trait Definitions extends imperative.Trees { self: Trees =>
         super.asString
     }
 
-    override def transform(t: inox.ast.TreeTransformer { val s: self.type }): t.t.Symbols = t.t match {
-      case tree: Trees =>
-        val tt = t.asInstanceOf[inox.ast.TreeTransformer { val s: self.type; val t: tree.type }]
-        SymbolTransformer(tt).transform(this).asInstanceOf[t.t.Symbols]
-      case _ => super.transform(t)
-    }
+    override def transform(t: inox.transformers.DefinitionTransformer { val s: self.type }): t.t.Symbols =
+      t.t match {
+        case tree: Trees => SymbolTransformer(
+          t.asInstanceOf[inox.transformers.DefinitionTransformer { val s: self.type; val t: tree.type }]
+        ).transform(this).asInstanceOf[t.t.Symbols]
+
+        case _ => super.transform(t)
+      }
 
     override protected def ensureWellFormedSymbols: Unit = {
       super.ensureWellFormedSymbols

@@ -159,7 +159,7 @@ class RegistryTestSuite extends FunSuite {
     type Report = MockReport
     type Analysis = MockAnalysis
 
-    val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+    val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
       override val s: extraction.trees.type = extraction.trees
       override val t: extraction.trees.type = extraction.trees
     })

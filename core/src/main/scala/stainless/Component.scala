@@ -18,7 +18,7 @@ trait Component { self =>
   type Report <: AbstractReport[Report]
   type Analysis <: AbstractAnalysis { type Report = self.Report }
 
-  val lowering: inox.ast.SymbolTransformer {
+  val lowering: inox.transformers.SymbolTransformer {
     val s: extraction.trees.type
     val t: extraction.trees.type
   }
@@ -50,7 +50,7 @@ trait ComponentRun { self =>
   } = {
     val otherComponents = MainHelpers.components.filterNot(_ == component)
     if (otherComponents.isEmpty) {
-      extraction.ExtractionPipeline(new ast.TreeTransformer {
+      extraction.ExtractionPipeline(new transformers.TreeTransformer {
         override val s: extraction.trees.type = extraction.trees
         override val t: extraction.trees.type = extraction.trees
       })

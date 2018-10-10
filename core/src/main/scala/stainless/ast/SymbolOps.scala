@@ -4,6 +4,7 @@ package stainless
 package ast
 
 import inox.utils.Position
+import inox.transformers.{TransformerOp, TransformerWithExprOp}
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -15,14 +16,22 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   override protected def createSimplifier(popts: inox.solvers.PurityOptions): SimplifierWithPC = new {
     val opts: inox.solvers.PurityOptions = popts
   } with transformers.SimplifierWithPC with SimplifierWithPC with inox.transformers.SimplifierWithPath {
-    override def pp = implicitly[PathProvider[Env]]
+    override val pp = implicitly[PathProvider[Env]]
   }
 
-  override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr)
-                                                            (implicit ppP: PathProvider[P]): TransformerWithPC[P] =
-    new TransformerWithPC[P](path, f) with transformers.TransformerWithPC with TransformerWithFun {
-      val pp = ppP
-    }
+  protected class TransformerWithPC[P <: PathLike[P]](
+    initEnv: P,
+    exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr
+  )(implicit val pp: PathProvider[P]) extends super.TransformerWithPC[P](initEnv, exprOp) {
+    self0: TransformerWithExprOp =>
+      val symbols = self.symbols
+  }
+
+  override protected def createTransformer[P <: PathLike[P]](
+    path: P, exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr
+  )(implicit pp: PathProvider[P]): TransformerWithPC[P] = {
+    new TransformerWithPC[P](path, exprOp) with transformers.TransformerWithPC with TransformerWithExprOp
+  }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
     case (_: Require) | (_: Ensuring) | (_: Assert) => true

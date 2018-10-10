@@ -21,7 +21,7 @@ trait LoopProcessor extends OrderingProcessor {
   import checker.program.trees._
   import checker.program.symbols._
 
-  object withoutPosts extends inox.ast.SimpleSymbolTransformer {
+  object withoutPosts extends inox.transformers.SimpleSymbolTransformer {
     val s: program.trees.type = program.trees
     val t: program.trees.type = program.trees
 
