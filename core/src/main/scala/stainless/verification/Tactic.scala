@@ -21,7 +21,7 @@ trait Tactic {
     val results: ListBuffer[T] = new ListBuffer
     val lifted = pf.lift
 
-    transformWithPC(e)((e, path, op) => e match {
+    transformWithPC(e, true /* recurse into types */)((e, path, op) => e match {
       case Annotated(_, flags) if flags contains Unchecked => e
       case _ =>
         lifted(e, path).foreach(results += _)
