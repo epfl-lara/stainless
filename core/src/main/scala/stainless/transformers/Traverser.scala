@@ -3,6 +3,8 @@
 package stainless
 package transformers
 
+import inox.transformers.TraverserOp
+
 trait Traverser extends inox.transformers.Traverser {
   val trees: ast.Trees
   import trees._
@@ -29,9 +31,19 @@ trait Traverser extends inox.transformers.Traverser {
   }
 }
 
-trait TreeTraverser extends Traverser with inox.transformers.TreeTraverser {
+trait DefinitionTraverser extends Traverser with inox.transformers.DefinitionTraverser
+
+trait TreeTraverser extends DefinitionTraverser with inox.transformers.TreeTraverser {
   import trees._
 
   def traverse(pat: Pattern): Unit = super.traverse(pat, ())
   override final def traverse(pat: Pattern, env: Env): Unit = traverse(pat)
+}
+
+trait TraverserWithPatternOp extends Traverser {
+  private[this] val op = new TraverserOp[trees.Pattern, Env](traverse(_, _), super.traverse(_, _))
+
+  protected val patternOp: (trees.Pattern, Env, TraverserOp[trees.Pattern, Env]) => Unit
+
+  override def traverse(pat: trees.Pattern, env: Env): Unit = patternOp(pat, env, op)
 }

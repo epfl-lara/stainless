@@ -3,6 +3,8 @@
 package stainless
 package transformers
 
+import inox.transformers.TransformerOp
+
 trait Transformer extends inox.transformers.Transformer { self =>
   val s: ast.Trees
   val t: ast.Trees
@@ -87,4 +89,12 @@ trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with
 trait TreeTransformer extends DefinitionTransformer with inox.transformers.TreeTransformer {
   def transform(pat: s.Pattern): t.Pattern = super.transform(pat, ())
   override final def transform(pat: s.Pattern, env: Env): t.Pattern = transform(pat)
+}
+
+trait TransformerWithPatternOp extends Transformer {
+  private[this] val op = new TransformerOp[s.Pattern, Env, t.Pattern](transform(_, _), super.transform(_, _))
+
+  protected val patternOp: (s.Pattern, Env, TransformerOp[s.Pattern, Env, t.Pattern]) => t.Pattern
+
+  override def transform(pat: s.Pattern, env: Env): t.Pattern = patternOp(pat, env, op)
 }

@@ -21,7 +21,22 @@ trait Trees
     type Source = Pattern
     type Target = Pattern
 
-    lazy val Deconstructor = PatternExtractor
+    override def transform[E](pattern: Pattern, env: E)(
+      op: (Pattern, E, inox.transformers.TransformerOp[Pattern, E, Pattern]) => Pattern
+    ): Pattern = new transformers.TransformerWithPatternOp {
+      override val s: self.type = self
+      override val t: self.type = self
+      override val patternOp = op
+      override type Env = E
+    }.transform(pattern, env)
+
+    override def traverse[E](pattern: Pattern, env: E)(
+      op: (Pattern, E, inox.transformers.TraverserOp[Pattern, E]) => Unit
+    ): Unit = new transformers.TraverserWithPatternOp {
+      override val trees: self.type = self
+      override val patternOp = op
+      override type Env = E
+    }.traverse(pattern, env)
   }
 
   override val exprOps: ExprOps { val trees: Trees.this.type } = new {

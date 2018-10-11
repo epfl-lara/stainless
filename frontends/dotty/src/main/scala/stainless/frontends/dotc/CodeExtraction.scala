@@ -1557,7 +1557,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val idx = prefix.classSymbol.typeParams.indexWhere(_.name == name)
       (extractType(prefix), idx) match {
         case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) => to
-        case (tp @ xt.typeOps.Deconstructor(tps, _), _) => tps(idx)
+        case (tp @ xt.NAryType(tps, _), _) => tps(idx)
       }
 
     case tr: TypeRef if isScalaSetSym(tr.symbol) =>
@@ -1607,7 +1607,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (extractType(p), idx) match {
         case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
           xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
-        case (xt.typeOps.Deconstructor(tps, recons), _) =>
+        case (xt.NAryType(tps, recons), _) =>
           recons(tps.updated(idx, extractType(tpe)))
       }
 
