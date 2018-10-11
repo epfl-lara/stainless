@@ -204,7 +204,13 @@ trait Deconstructors extends inox.ast.Deconstructors { self: Trees =>
     getDeconstructor(self).asInstanceOf[TreeDeconstructor { val s: self.type; val t: self.type }]
   }
 
-  object PatternExtractor {
+  object PatternExtractor extends {
+    protected val s: self.type = self
+    protected val t: self.type = self
+  } with inox.ast.TreeExtractor {
+    type Source = Pattern
+    type Target = Pattern
+
     def unapply(pat: Pattern): Option[(Seq[Pattern], Seq[Pattern] => Pattern)] = {
       val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
       Some(pats, patss => builder(ids, vs, es, tps, patss))
