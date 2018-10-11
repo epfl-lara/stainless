@@ -20,7 +20,7 @@ trait TreeSanitizer {
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
-  private class CheckPreconditions(implicit symbols: Symbols, ctx: inox.Context) extends TreeTraverser {
+  private class CheckPreconditions(implicit symbols: Symbols, ctx: inox.Context) extends SelfTreeTraverser {
     override def traverse(fd: FunDef): Unit = {
       traverse(fd.id)
       fd.tparams.foreach(traverse)
@@ -72,7 +72,7 @@ trait TreeSanitizer {
   }
 
   /* This detects accesses to @ignored fields */
-  private class CheckIgnoredFields(implicit symbols: Symbols, ctx: inox.Context) extends TreeTraverser {
+  private class CheckIgnoredFields(implicit symbols: Symbols, ctx: inox.Context) extends SelfTreeTraverser {
     private implicit val printerOpts = PrinterOptions.fromSymbols(symbols, ctx)
 
     private def isFieldAccessor(id: Identifier): Boolean =

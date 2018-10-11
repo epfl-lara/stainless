@@ -6,7 +6,7 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
+trait Trees extends imperative.Trees with Definitions { self =>
 
   /* ========================================
    *              EXPRESSIONS
@@ -138,6 +138,15 @@ trait Trees extends imperative.Trees with Definitions with TreeOps { self =>
 
     case _ => super.getDeconstructor(that)
   }
+
+
+  /* ========================================
+   *            TREE TRANSFORMERS
+   * ======================================== */
+
+  trait SelfTreeTransformer extends TreeTransformer with super.SelfTreeTransformer
+
+  trait SelfTreeTraverser extends TreeTraverser with super.SelfTreeTraverser
 }
 
 trait Printer extends imperative.Printer {
@@ -306,18 +315,6 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
   }
 }
 
-trait TreeOps extends ast.TreeOps { self: Trees =>
-
-  trait TreeTraverser extends super.TreeTraverser {
-    def traverse(cd: ClassDef): Unit = {
-      cd.tparams.foreach(traverse)
-      cd.parents.foreach(traverse)
-      cd.fields.foreach(traverse)
-      cd.flags.foreach(traverse)
-    }
-  }
-}
-
 trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with transformers.Transformer {
   val s: Trees
   val t: Trees
@@ -336,6 +333,22 @@ trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with
 }
 
 trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
+
+trait DefinitionTraverser extends inox.transformers.DefinitionTraverser with transformers.Traverser {
+  val trees: Trees
+
+  def traverse(cd: trees.ClassDef): Unit = {
+    val env = initEnv
+
+    traverse(cd.id, env)
+    cd.tparams.foreach(traverse(_, env))
+    cd.parents.foreach(traverse(_, env))
+    cd.fields.foreach(traverse(_, env))
+    cd.flags.foreach(traverse(_, env))
+  }
+}
+
+trait TreeTraverser extends transformers.TreeTraverser with DefinitionTraverser
 
 trait SimpleSymbolTransformer extends inox.transformers.SimpleSymbolTransformer {
   val s: Trees

@@ -21,7 +21,7 @@ import scala.collection.mutable.{ Set => MutableSet }
  */
 class DependenciesFinder {
   private val deps: MutableSet[Identifier] = MutableSet.empty
-  private val finder = new xt.TreeTraverser {
+  private val finder = new xt.SelfTreeTraverser {
     override def traverse(e: xt.Expr): Unit = e match {
       case xt.FunctionInvocation(id, _, _) =>
         deps += id

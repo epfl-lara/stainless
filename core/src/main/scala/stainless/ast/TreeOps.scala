@@ -9,8 +9,8 @@ trait TreeOps extends inox.ast.TreeOps { self: Trees =>
 
   trait SelfTreeTransformer extends transformers.TreeTransformer with super.SelfTreeTransformer
 
-  trait Traverser extends transformers.Traverser with super.Traverser
+  trait SelfTraverser extends transformers.Traverser with super.SelfTraverser
 
-  trait TreeTraverser extends transformers.TreeTraverser with super.TreeTraverser
+  trait SelfTreeTraverser extends transformers.TreeTraverser with super.SelfTreeTraverser
 }
 

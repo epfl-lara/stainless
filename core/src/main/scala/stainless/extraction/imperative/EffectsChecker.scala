@@ -44,7 +44,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             "Cannot return a shared reference to a mutable object: " + bd)
         }
 
-        object traverser extends TreeTraverser {
+        object traverser extends SelfTreeTraverser {
           override def traverse(e: Expr): Unit = e match {
             case l @ Let(vd, e, b) =>
               if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {

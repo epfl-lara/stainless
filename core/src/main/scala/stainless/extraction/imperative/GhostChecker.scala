@@ -74,7 +74,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
       }
     }
 
-    class Checker(inGhost: Boolean) extends TreeTraverser {
+    class Checker(inGhost: Boolean) extends SelfTreeTraverser {
       override def traverse(expr: Expr): Unit = expr match {
         case Let(vd, e, b) if vd.flags contains Ghost =>
           if (!effects(e).forall(isGhostEffect)) {

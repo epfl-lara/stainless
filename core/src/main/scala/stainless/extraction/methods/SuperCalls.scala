@@ -75,7 +75,7 @@ trait SuperCalls
       SymbolIdentifier(newSymbol)
     }
 
-  private class SuperCollector(implicit symbols: s.Symbols) extends s.TreeTraverser {
+  private class SuperCollector(implicit symbols: s.Symbols) extends s.SelfTreeTraverser {
     private[this] var supers: Set[Identifier] = Set.empty
     def getSupers: Set[Identifier] = supers
 

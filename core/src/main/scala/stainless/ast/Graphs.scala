@@ -9,7 +9,7 @@ trait CallGraph extends inox.ast.CallGraph {
   protected val trees: Trees
   import trees._
 
-  protected trait FunctionCollector extends TreeTraverser with super.FunctionCollector {
+  protected trait FunctionCollector extends SelfTreeTraverser with super.FunctionCollector {
     override def traverse(pat: Pattern): Unit = pat match {
       case UnapplyPattern(_, _, id, _, _) =>
         register(id)
@@ -34,7 +34,7 @@ trait CallGraph extends inox.ast.CallGraph {
 trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
   import trees._
 
-  protected trait SortCollector extends TreeTraverser with super.SortCollector {
+  protected trait SortCollector extends SelfTreeTraverser with super.SortCollector {
     override def traverse(pat: Pattern): Unit = pat match {
       case ADTPattern(_, id, _, _) =>
         register(symbols.getConstructor(id).sort)

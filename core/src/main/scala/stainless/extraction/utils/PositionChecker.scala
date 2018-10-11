@@ -11,7 +11,7 @@ object DebugSectionPositions extends inox.DebugSection("positions")
 /** Inspect trees, detecting missing positions. */
 trait PositionChecker { self: DebugPipeline =>
 
-  final class PositionTraverser extends t.TreeTraverser { self =>
+  final class PositionTraverser extends t.SelfTreeTraverser { self =>
     import t._
 
     private var lastKnownPosition: Position = NoPosition

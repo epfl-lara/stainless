@@ -1096,7 +1096,7 @@ trait TypeEncoding
       var funSizes: Set[Int] = Set.empty
       var bvSizes: Set[(Boolean, Int)] = Set.empty
 
-      object traverser extends s.TreeTraverser {
+      object traverser extends s.SelfTreeTraverser {
         override def traverse(pat: s.Pattern): Unit = pat match {
           case s.TuplePattern(_, subs) => tplSizes += subs.size; super.traverse(pat)
           case _ => super.traverse(pat)
@@ -1195,7 +1195,7 @@ trait TypeEncoding
       import independentSymbols._
 
       var constructors: Set[Identifier] = Set.empty
-      val traverser = new t.TreeTraverser {
+      val traverser = new t.SelfTreeTraverser {
         override def traverse(expr: t.Expr): Unit = expr match {
           case t.IsTyped(t.ADT(id, tps, es), t.ADTType(`refID`, _)) => constructors += id; super.traverse(expr)
           case t.IsConstructor(t.IsTyped(e, t.ADTType(`refID`, _)), id) => constructors += id; super.traverse(expr)

@@ -10,7 +10,7 @@ trait CallGraph extends ast.CallGraph {
   protected val trees: methods.Trees
   import trees._
 
-  protected class FunctionCollector extends super.FunctionCollector with TreeTraverser {
+  protected class FunctionCollector extends super.FunctionCollector with SelfTreeTraverser {
     override def traverse(e: Expr): Unit = e match {
       case MethodInvocation(_, id, _, _) =>
         register(id)
@@ -26,7 +26,7 @@ trait CallGraph extends ast.CallGraph {
 trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   import trees._
 
-  protected class ClassCollector extends super.ClassCollector with TreeTraverser {
+  protected class ClassCollector extends super.ClassCollector with SelfTreeTraverser {
     override def traverse(flag: Flag): Unit = flag match {
       case IsMethodOf(id) =>
         register(id)

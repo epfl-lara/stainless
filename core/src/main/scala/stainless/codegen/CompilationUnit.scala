@@ -364,7 +364,7 @@ trait CompilationUnit extends CodeGeneration {
 
       val tparams: Seq[TypeParameter] = {
         var tpSeq: Seq[TypeParameter] = Seq.empty
-        object collector extends TreeTraverser {
+        object collector extends SelfTreeTraverser {
           override def traverse(tpe: Type): Unit = tpe match {
             case tp: TypeParameter => tpSeq :+= tp
             case _ => super.traverse(tpe)
