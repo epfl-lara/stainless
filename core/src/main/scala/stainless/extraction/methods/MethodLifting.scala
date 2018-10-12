@@ -21,7 +21,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
   // the set of direct overrides is significantly more expensive and shouldn't improve
   // the cache hit rate that much.
   private[this] final val funCache = new ExtractionCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
-    SetKey(fd.flags
+    FunctionKey(fd) + SetKey(fd.flags
       .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
       .flatMap { cd =>
         val descendants = cd.descendants(symbols)
@@ -37,7 +37,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
             if (isInvariant) ofd.flags contains s.IsInvariant
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
           }.map(FunctionKey(_): CacheKey).toSet
-      }.toSet) + FunctionKey(fd)
+      }.toSet)
   })
 
   // The class cache must consider all direct overrides of a potential invariant function
@@ -52,7 +52,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
         (fd.flags exists { case s.IsMethodOf(id) => ids(id) case _ => false })
       }.map(FunctionKey(_)).toSet
 
-      SetKey(invariants) + ClassKey(cd)
+      ClassKey(cd) + SetKey(invariants)
   })
 
   private case class Override(cid: Identifier, fid: Option[Identifier], children: Seq[Override])

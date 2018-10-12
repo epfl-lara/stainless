@@ -50,9 +50,6 @@ trait ExtractionCaches { self: ExtractionContext =>
     def apply(fd: s.FunDef): CacheKey = new FunctionKey(fd)
   }
 
-  final def funKeys(fds: Set[s.FunDef]): CacheKey =
-    SetKey(fds.map(FunctionKey(_)))
-
   private final class SortKey private(private val sort: s.ADTSort) extends CacheKey {
     override def dependencies = Set(sort.id)
 
@@ -79,9 +76,6 @@ trait ExtractionCaches { self: ExtractionContext =>
     def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.sorts(id))
     def apply(sort: s.ADTSort): CacheKey = new SortKey(sort)
   }
-
-  final def sortKeys(sorts: Set[s.ADTSort]): CacheKey =
-    SetKey(sorts.map(SortKey(_)))
 
   /** Returns a [[SimpleKey]] given some identifier and the symbols from which
     * it was taken.
@@ -132,8 +126,12 @@ trait ExtractionCaches { self: ExtractionContext =>
 
   object SetKey {
     def apply(keys: Set[CacheKey]): SetKey = new SetKey(keys)
-    def apply(ids: Set[Identifier])(implicit syms: s.Symbols): SetKey = 
+    def apply(ids: Set[Identifier])(implicit syms: s.Symbols): SetKey =
       SetKey(ids.map(getSimpleKey))
+    def apply[T: Keyable](elems: Set[T]): SetKey = {
+      val gen = implicitly[Keyable[T]]
+      SetKey(elems.map(gen.apply))
+    }
   }
 
 

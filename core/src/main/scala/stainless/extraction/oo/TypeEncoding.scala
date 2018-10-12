@@ -494,10 +494,9 @@ trait TypeEncoding
   // which the `instanceOf` call well be recursively performed, so the cache key consists of
   // - the class definition
   // - the children class definitions
-  private[this] val classInstanceCache = 
-    new ExtractionCache[s.ClassDef, t.FunDef]({ 
-      (cd, context) => ClassKey(cd) + classKeys(cd.children(context.symbols).toSet)
-    })
+  private[this] val classInstanceCache = new ExtractionCache[s.ClassDef, t.FunDef]({
+    (cd, context) => ClassKey(cd) + SetKey(cd.children(context.symbols).toSet)
+  })
 
   private[this] def classInstance(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.symbols
@@ -535,11 +534,9 @@ trait TypeEncoding
   // - the class definition
   // - the descendant class definitions
   // - the synthetic OptionSort definitions
-  private[this] val classUnapplyCache = 
-    new ExtractionCache[s.ClassDef, t.FunDef]({ (cd, context) =>
-      val symbols = context.symbols
-      ClassKey(cd) + classKeys(cd.descendants(symbols).toSet) + OptionSort.key(symbols)
-    })
+  private[this] val classUnapplyCache = new ExtractionCache[s.ClassDef, t.FunDef]({ (cd, context) =>
+    ClassKey(cd) + SetKey(cd.descendants(context.symbols).toSet) + OptionSort.key(context.symbols)
+  })
 
   private[this] def classUnapply(id: Identifier)(implicit context: TransformerContext): t.FunDef = {
     import context.symbols
@@ -1233,9 +1230,9 @@ trait TypeEncoding
 
   // The computation of which type parameters must be rewritten considers all
   // dependencies, so we use a dependency cache for function transformations
-  override protected val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
-    getDependencyKey(fd.id)(context.symbols)
-  )
+  override protected val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
+    (fd, context) => getDependencyKey(fd.id)(context.symbols)
+  })
 
   // Sort transformations are straightforward and can be simply cached
   override protected val sortCache = new SimpleCache[s.ADTSort, SortResult]

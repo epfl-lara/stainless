@@ -34,9 +34,6 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
     def apply(sort: s.ClassDef): CacheKey = new ClassKey(sort)
   }
 
-  final def classKeys(cds: Set[s.ClassDef]): CacheKey =
-    SetKey(cds.map(ClassKey(_)))
-
   override protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
     symbols.lookupClass(id).map(ClassKey(_)).getOrElse(super.getSimpleKey(id))
 }

@@ -123,10 +123,10 @@ trait AdtSpecialization
   private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
     SetKey(
       (symbols.dependencies(id) + id)
-      .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
-        val rootCd = symbols.getClass(root(cd.id))
-        Set(rootCd.id) ++ rootCd.descendants.map(_.id)
-      })
+        .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
+          val rootCd = symbols.getClass(root(cd.id))
+          Set(rootCd.id) ++ rootCd.descendants.map(_.id)
+        })
     )
 
   // The function cache must consider the descendants of all classes on which the
