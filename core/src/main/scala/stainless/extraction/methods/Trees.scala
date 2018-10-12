@@ -32,7 +32,7 @@ trait Trees extends throwing.Trees { self =>
 
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = widen(receiver.getType) match {
+    protected def computeType(implicit s: Symbols): Type = widenTypeParameter(receiver) match {
       case ct: ClassType =>
         val optTfd = s.lookupFunction(id)
           .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)

@@ -99,7 +99,7 @@ trait Trees extends imperative.Trees with Definitions { self =>
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type) extends Type
 
-  private def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
+  protected def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
     case tp: TypeParameter => widenTypeParameter(tp.upperBound)
     case tpe => tpe
   }
