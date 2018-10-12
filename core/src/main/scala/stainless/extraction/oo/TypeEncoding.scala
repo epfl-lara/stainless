@@ -768,13 +768,12 @@ trait TypeEncoding
         instanceOf(transform(expr), expr.getType, tpe).copiedFrom(e)
 
       case s.AsInstanceOf(expr, tpe) =>
-        val vd = s.ValDef.fresh("x", expr.getType).copiedFrom(e)
-        transform(
-          s.Let(vd, expr, s.Assert(
-            s.IsInstanceOf(vd.toVariable, tpe).copiedFrom(e),
-            Some("Cast error"),
-            vd.toVariable
-          ).copiedFrom(e)).copiedFrom(e), inType)
+        val vd = t.ValDef.fresh("x", transform(expr.getType)).copiedFrom(e)
+        t.Let(vd, transform(expr), t.Assert(
+          instanceOf(vd.toVariable, expr.getType, tpe).copiedFrom(e),
+          Some("Cast error"),
+          convert(vd.toVariable, expr.getType, tpe).copiedFrom(e)
+        ).copiedFrom(e)).copiedFrom(e)
 
       case fi @ s.FunctionInvocation(id, tps, args) =>
         val funScope = this in id
