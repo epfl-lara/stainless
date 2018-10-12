@@ -25,6 +25,25 @@ import scala.language.existentials
   */
 package object extraction {
 
+  val phases: Seq[(String, String)] = Seq(
+    "PartialFunctions"          -> "Lift partial function preconditions",
+    "Laws"                      -> "Rewrite laws as abstract functions with contracts",
+    "SuperCalls"                -> "Resolve super-function calls",
+    "MethodLifting"             -> "Lift methods into dispatching functions",
+    "FieldAccessors"            -> "Inline field accessors of concrete classes",
+    "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",
+    "RefinementLifting"         -> "Lift simple refinements to contracts",
+    "TypeEncoding"              -> "Encode non-ADT types",
+    "AntiAliasing"              -> "Rewrite field and array mutations",
+    "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
+    "ImperativeCleanup"         -> "Cleanup after imperative transformations",
+    "FunctionClosure"           -> "Lift inner functions",
+    "FunctionInlining"          -> "Transitively inline marked functions",
+    "PartialEvaluation"         -> "Partially evaluate marked function calls"
+  )
+
+  val phaseNames: Set[String] = phases.map(_._1).toSet
+
   /** Unifies all stainless tree definitions */
   trait Trees extends ast.Trees with termination.Trees { self =>
     override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {

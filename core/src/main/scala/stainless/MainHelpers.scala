@@ -25,7 +25,10 @@ trait MainHelpers extends inox.MainHelpers {
   override protected def getOptions = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
-    extraction.utils.optDebugPhases -> Description(General, "Only print debug output for phases whose name contain p1 or p2 or ..."),
+    extraction.utils.optDebugPhases -> Description(General, {
+      "Only print debug output for phases p1,p2,...\nAvailable: " +
+      extraction.phases.map { case (name, desc) => f"\n  $name%-26s : $desc" }.mkString("")
+    }),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),

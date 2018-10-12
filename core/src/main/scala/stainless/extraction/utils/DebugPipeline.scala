@@ -14,9 +14,14 @@ object optDebugObjects extends inox.OptionDef[Seq[String]] {
 }
 
 object optDebugPhases extends inox.OptionDef[Seq[String]] {
+  import inox.OptionParsers._
+
   val name = "debug-phases"
   val default = Seq[String]()
-  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val parser: OptionParser[Seq[String]] = { s =>
+    seqParser(stringParser)(s).filter(_.forall(phaseNames contains _))
+  }
+
   val usageRhs = "p1,p2,..."
 }
 
