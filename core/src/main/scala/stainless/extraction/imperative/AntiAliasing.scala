@@ -26,7 +26,7 @@ trait AntiAliasing
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  protected case class SymbolsAnalysis(symbols: Symbols, effects: EffectsAnalysis) {
+  protected case class SymbolsAnalysis(symbols: Symbols) extends EffectsAnalysis {
     import symbols._
 
     // Convert a function type with mutable parameters, into a function type
@@ -75,15 +75,15 @@ trait AntiAliasing
   }
 
   override protected type TransformerContext = SymbolsAnalysis
-  override protected def getContext(symbols: Symbols) = SymbolsAnalysis(symbols, EffectsAnalysis(symbols))
+  override protected def getContext(symbols: Symbols) = SymbolsAnalysis(symbols)
 
   override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): Option[FunDef] = {
     import analysis._
     import symbols._
 
-    checkGhost(fd)(symbols, effects)
+    checkGhost(fd)(analysis)
 
-    checkEffects(fd)(symbols, effects) match {
+    checkEffects(fd)(analysis) match {
       case CheckResult.Ok => ()
       case CheckResult.Skip => return None
       case CheckResult.Error(err) => throw err
@@ -112,9 +112,9 @@ trait AntiAliasing
      * they receive).
      */
     def updateFunction(fd: FunAbstraction, env: Environment): FunAbstraction = {
-      val aliasedParams = effects.getAliasedParams(fd)
+      val aliasedParams = analysis.getAliasedParams(fd)
 
-      val newFd = fd.copy(returnType = effects.getReturnType(fd))
+      val newFd = fd.copy(returnType = analysis.getReturnType(fd))
 
       if (aliasedParams.isEmpty) {
         newFd.copy(fullBody = makeSideEffectsExplicit(fd.fullBody, fd, env))
@@ -355,7 +355,7 @@ trait AntiAliasing
               id, tps, args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
             ).copiedFrom(fi)
 
-            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(effects.getReturnType(fd)), effects(fd), env)
+            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
 
           case alr @ ApplyLetRec(fun, tparams, tps, args) =>
             val fd = Inner(env.locals(fun.toVal))
@@ -364,10 +364,13 @@ trait AntiAliasing
             args.find { case v: Variable => vis.contains(v) case _ => false }
               .foreach(aliasedArg => throw FatalError("Illegal passing of aliased parameter: " + aliasedArg))
 
+            val ntpe = FunctionType(fd.params.map(_.tpe), analysis.getReturnType(fd)).copiedFrom(fun.tpe)
             val nfi = ApplyLetRec(
-              fun.copy(tpe = FunctionType(fd.params.map(_.tpe), effects.getReturnType(fd))), tparams, tps,
-              args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))).copiedFrom(alr)
-            val resultType = typeOps.instantiateType(effects.getReturnType(fd), (tparams zip tps).toMap)
+              fun.copy(tpe = ntpe).copiedFrom(fun), tparams, tps,
+              args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
+            ).copiedFrom(alr)
+
+            val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
             mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
 
           case app @ Application(callee, args) =>

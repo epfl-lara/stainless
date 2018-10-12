@@ -53,51 +53,28 @@ trait EffectsAnalyzer extends CachingPhase {
   import s._
   import exprOps._
 
-  protected class EffectsAnalysis private(
-    private val effects: Map[FunAbstraction, Set[Effect]],
-    private val locals: Map[Identifier, FunAbstraction]) {
+  private[this] val effectsCache = new DependencyCache[FunDef, Result]
 
-    override val hashCode: Int = (effects, locals).hashCode
-    override def equals(that: Any): Boolean = that match {
-      case ea: EffectsAnalysis => effects == ea.effects
-      case _ => false
-    }
+  protected case class Result(
+    effects: Map[FunAbstraction, Set[Effect]],
+    locals: Map[Identifier, FunAbstraction]) {
 
-    def apply(fd: FunDef): Set[Effect] = effects(Outer(fd))
-    def apply(fun: FunAbstraction): Set[Effect] = effects(fun)
-    def apply(expr: Expr)(implicit symbols: Symbols): Set[Effect] = expressionEffects(expr, this)
-
-    private[imperative] def local(id: Identifier): FunAbstraction = locals(id)
-
-    private def merge(that: EffectsAnalysis): EffectsAnalysis = {
-      new EffectsAnalysis(effects ++ that.effects, locals ++ that.locals)
-    }
-
-    private[imperative] def getAliasedParams(fd: FunAbstraction): Seq[ValDef] = {
-      val receivers = apply(fd).map(_.receiver)
-      fd.params.filter(vd => receivers(vd.toVariable))
-    }
-
-    private[imperative] def getReturnType(fd: FunAbstraction): Type = {
-      val aliasedParams = getAliasedParams(fd)
-      tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
-    }
-
-    def asString(implicit printerOpts: PrinterOptions): String =
-      s"EffectsAnalysis(effects: ${effects.map(e => e._1.id -> e._2)}, locals: $locals)"
-
-    override def toString: String = asString
+    def merge(that: Result): Result = Result(effects ++ that.effects, locals ++ that.locals)
   }
 
-  private[this] val effectsCache = new DependencyCache[FunDef, EffectsAnalysis]
+  protected object Result {
+    def empty: Result = Result(Map.empty, Map.empty)
+  }
 
-  protected object EffectsAnalysis {
-    def empty: EffectsAnalysis = new EffectsAnalysis(Map.empty, Map.empty)
+  protected type TransformerContext <: EffectsAnalysis
 
-    private def functionEffects(fd: FunAbstraction, effects: EffectsAnalysis)(implicit symbols: Symbols): Set[Effect] =
+  trait EffectsAnalysis { self: TransformerContext =>
+    implicit val symbols: s.Symbols
+
+    private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
       exprOps.withoutSpecs(fd.fullBody) match {
         case Some(body) =>
-          expressionEffects(body, effects)
+          expressionEffects(body, current)
         case None if fd.flags.exists(_.name == "extern") && !fd.flags.exists(_.name == "pure") =>
           fd.params
             .filter(vd => isMutableType(vd.getType))
@@ -108,45 +85,62 @@ trait EffectsAnalyzer extends CachingPhase {
           Set.empty
       }
 
-    def apply(fd: FunDef)(implicit symbols: Symbols): EffectsAnalysis = {
-      val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-      val lookups = fds.map(effectsCache get (_, symbols))
-      val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
-      val prevEffects = lookups.flatten.foldLeft(EffectsAnalysis.empty)(_ merge _)
+    private[this] val result: Result = symbols.functions.values.foldLeft(Result.empty) {
+      case (results, fd) =>
+        val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
+        val lookups = fds.map(effectsCache get (_, symbols))
+        val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
+        val prevResult = lookups.flatten.foldLeft(Result.empty)(_ merge _)
 
-      if (newFds.isEmpty) {
-        prevEffects
-      } else {
-        val inners = newFds.map { fd =>
-          fd -> collect[FunAbstraction] {
-            case LetRec(fds, _) => fds.map(Inner(_)).toSet
-            case _ => Set.empty
-          } (fd.fullBody)
-        }.toMap
+        if (newFds.isEmpty) {
+          prevResult
+        } else {
+          val inners = newFds.map { fd =>
+            fd -> collect[FunAbstraction] {
+              case LetRec(fds, _) => fds.map(Inner(_)).toSet
+              case _ => Set.empty
+            } (fd.fullBody)
+          }.toMap
 
-        val baseEffects = new EffectsAnalysis(
-          inners.flatMap { case (fd, inners) => inners + Outer(fd) }.map(_ -> Set.empty[Effect]).toMap,
-          inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) }.toMap)
+          val baseResult = Result(
+            inners.flatMap { case (fd, inners) => inners + Outer(fd) }.map(_ -> Set.empty[Effect]).toMap,
+            inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) }.toMap)
 
-        val effects = inox.utils.fixpoint { (effects: EffectsAnalysis) =>
-          new EffectsAnalysis(effects.effects.map { case (fd, _) =>
-            fd -> functionEffects(fd, effects)
-          }, effects.locals)
-        } (prevEffects merge baseEffects)
+          val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
+            Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)
+          } (prevResult merge baseResult)
 
-        for ((fd, inners) <- inners) {
-          effectsCache(fd, symbols) = new EffectsAnalysis(
-            effects.effects.filter { case (fun, _) => fun == Outer(fd) || inners(fun) },
-            effects.locals.filter { case (_, fun) => inners(fun) })
+          for ((fd, inners) <- inners) {
+            effectsCache(fd, symbols) = Result(
+              result.effects.filter { case (fun, _) => fun == Outer(fd) || inners(fun) },
+              result.locals.filter { case (_, fun) => inners(fun) }
+            )
+          }
+
+          results merge result
         }
-
-        effects
-      }
     }
 
-    def apply(symbols: Symbols): EffectsAnalysis = {
-      symbols.functions.values.map(apply(_)(symbols)).foldLeft(EffectsAnalysis.empty)(_ merge _)
+    def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
+    def effects(fun: FunAbstraction): Set[Effect] = result.effects(fun)
+    def effects(expr: Expr): Set[Effect] = expressionEffects(expr, result)
+
+    private[imperative] def local(id: Identifier): FunAbstraction = result.locals(id)
+
+    private[imperative] def getAliasedParams(fd: FunAbstraction): Seq[ValDef] = {
+      val receivers = effects(fd).map(_.receiver)
+      fd.params.filter(vd => receivers(vd.toVariable))
     }
+
+    private[imperative] def getReturnType(fd: FunAbstraction): Type = {
+      val aliasedParams = getAliasedParams(fd)
+      tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
+    }
+
+    def asString(implicit printerOpts: PrinterOptions): String =
+      s"EffectsAnalysis(effects: ${result.effects.map(e => e._1.id -> e._2)}, locals: ${result.locals})"
+
+    override def toString: String = asString
   }
 
   sealed abstract class Accessor
@@ -255,7 +249,7 @@ trait EffectsAnalyzer extends CachingPhase {
     *
     * We are assuming no aliasing.
     */
-  private def expressionEffects(expr: Expr, effects: EffectsAnalysis)(implicit symbols: Symbols): Set[Effect] = {
+  private def expressionEffects(expr: Expr, result: Result)(implicit symbols: Symbols): Set[Effect] = {
     import symbols._
     val freeVars = variablesOf(expr)
 
@@ -298,10 +292,10 @@ trait EffectsAnalyzer extends CachingPhase {
       case fi @ FunInvocation(id, tps, args, _) =>
         val fun = fi match {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
-          case ApplyLetRec(v, _, _, _) => effects.local(v.id)
+          case ApplyLetRec(v, _, _, _) => result.locals(v.id)
         }
 
-        val currentEffects: Set[Effect] = effects(fun)
+        val currentEffects: Set[Effect] = result.effects(fun)
         val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
         val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
           case Some(arg) => (e on arg).flatMap(inEnv(_, env))

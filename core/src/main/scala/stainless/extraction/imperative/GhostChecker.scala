@@ -7,9 +7,9 @@ package imperative
 trait GhostChecker { self: EffectsAnalyzer =>
   import s._
 
-  protected def checkGhost(fd: FunDef)(symbols: Symbols, effects: EffectsAnalysis): Unit = {
+  protected def checkGhost(fd: FunDef)(analysis: EffectsAnalysis): Unit = {
+    import analysis._
     import symbols._
-    import effects._
 
     def isGhostEffect(effect: Effect): Boolean = {
       def rec(tpe: Type, path: Seq[Accessor]): Boolean = (tpe, path) match {
@@ -36,7 +36,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
       case Decreases(_, body) => isGhostExpression(body)
 
       case FunInvocation(id, _, args, _) =>
-        val fun = lookupFunction(id).map(Outer(_)).getOrElse(effects.local(id))
+        val fun = lookupFunction(id).map(Outer(_)).getOrElse(analysis.local(id))
         (fun.flags contains Ghost) ||
         (fun.params zip args).exists { case (vd, arg) =>
           !(vd.flags contains Ghost) && isGhostExpression(arg)
@@ -156,7 +156,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
           traverse(id)
           tps.foreach(traverse)
 
-          (lookupFunction(id).map(Outer(_)).getOrElse(effects.local(id)).params zip args)
+          (lookupFunction(id).map(Outer(_)).getOrElse(analysis.local(id)).params zip args)
             .foreach { case (vd, arg) =>
               if (vd.flags contains Ghost) {
                 if (!effects(arg).forall(isGhostEffect))
