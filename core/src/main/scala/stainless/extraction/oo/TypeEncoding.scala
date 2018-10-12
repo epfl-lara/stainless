@@ -1198,7 +1198,9 @@ trait TypeEncoding
         override def traverse(expr: t.Expr): Unit = expr match {
           case t.IsTyped(t.ADT(id, tps, es), t.ADTType(`refID`, _)) => constructors += id; super.traverse(expr)
           case t.IsConstructor(t.IsTyped(e, t.ADTType(`refID`, _)), id) => constructors += id; super.traverse(expr)
-          case t.ADTSelector(t.IsTyped(e, t.ADTType(`refID`, _)), id) => constructors += id; super.traverse(expr)
+          case t.ADTSelector(t.IsTyped(e, t.ADTType(`refID`, _)), id) =>
+            constructors ++= context.refSort.constructors.find(_.fields.exists(_. id == id)).map(_.id)
+            super.traverse(expr)
           case _ => super.traverse(expr)
         }
 
