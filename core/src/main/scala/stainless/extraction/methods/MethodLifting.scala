@@ -226,8 +226,15 @@ trait MethodLifting extends oo.ExtractionPipeline with oo.ExtractionCaches { sel
         val thiss = unchecked(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg))
 
         def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr =
-          if (symbols.isSubtypeOf(tpe, expected)) e
-          else unchecked(t.AsInstanceOf(e, transformer.transform(expected.getType(symbols))).copiedFrom(e))
+          if (symbols.isSubtypeOf(tpe, expected)) e else (e match {
+            case v: t.Variable =>
+              unchecked(t.AsInstanceOf(e, transformer.transform(expected.getType(symbols))).copiedFrom(e))
+            case _ =>
+              val vd = t.ValDef.fresh("x", transformer.transform(tpe), true).copiedFrom(e)
+              t.Let(vd, e, unchecked(
+                t.AsInstanceOf(vd.toVariable, transformer.transform(expected.getType(symbols))).copiedFrom(e)
+              ))
+          })
 
         val (tpe, expr) = {
           val ntpMap = descendant.tpSubst ++ (nfd.typeArgs zip fd.typeArgs)
