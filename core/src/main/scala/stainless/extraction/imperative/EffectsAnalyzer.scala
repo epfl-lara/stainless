@@ -92,7 +92,7 @@ trait EffectsAnalyzer extends CachingPhase {
         val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
         val prevResult = lookups.flatten.foldLeft(Result.empty)(_ merge _)
 
-        if (newFds.isEmpty) {
+        val newResult = if (newFds.isEmpty) {
           prevResult
         } else {
           val inners = newFds.map { fd =>
@@ -117,8 +117,10 @@ trait EffectsAnalyzer extends CachingPhase {
             )
           }
 
-          results merge result
+          result
         }
+
+        results merge newResult
     }
 
     def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
