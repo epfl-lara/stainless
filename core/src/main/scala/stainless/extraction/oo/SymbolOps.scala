@@ -47,7 +47,7 @@ trait SymbolOps extends imperative.SymbolOps { self: TypeOps =>
     case _ => IsInstanceOf(expr, tpe).copiedFrom(expr)
   }
 
-  override def debugString(objs: Set[String])(implicit pOpts: PrinterOptions): String = {
+  override def debugString(objs: Option[Set[String]])(implicit pOpts: PrinterOptions): String = {
     super.debugString(objs) ++ wrapWith("Classes", objectsToString(classes.values, objs))
   }
 

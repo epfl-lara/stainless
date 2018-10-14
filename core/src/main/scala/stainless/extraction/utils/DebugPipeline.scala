@@ -32,13 +32,12 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
   override val t: underlying.t.type = underlying.t
   override val context = underlying.context
 
-  private[this] val phases = context.options.findOption(optDebugPhases)
-  private[this] val objects = context.options.findOption(optDebugObjects).getOrElse(Seq()).toSet
+  private[this] val phases = context.options.findOption(optDebugPhases).map(_.toSet)
+  private[this] val objects = context.options.findOption(optDebugObjects).map(_.toSet)
 
   // We print debug output for this phase only if the user didn't specify
-  // any phase with --debug-phases, or gave the name of (or a string
-  // contained in) this phase
-  private[this] val debug = phases.isEmpty || phases.exists(_ contains name)
+  // any phase with --debug-phases, or gave the name of this phase
+  private[this] val debug = phases.isEmpty || phases.exists(_.contains(name))
 
   // Moreover, we only print when the corresponding debug sections are active
   private[this] val debugTrees: Boolean = debug && context.reporter.debugSections.contains(DebugSectionTrees)
