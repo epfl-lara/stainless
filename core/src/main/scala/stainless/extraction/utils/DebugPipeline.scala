@@ -71,12 +71,15 @@ trait DebugPipeline extends ExtractionPipeline with PositionChecker { self =>
         context.reporter.debug(s"\n\nSymbols after $name\n")
         context.reporter.debug(resToPrint)
         context.reporter.debug("\n\n")
-        // ensure well-formedness after each extraction step
-        context.reporter.debug(s"Ensuring well-formedness after phase $name")
-        res.ensureWellFormed
       } else {
         context.reporter.debug(s"Not printing symbols after $name as they did not change\n\n")
       }
+    }
+
+    if (debugTrees) {
+      // ensure well-formedness after each extraction step
+      context.reporter.debug(s"Ensuring well-formedness after phase $name")
+      res.ensureWellFormed
     }
 
     if (debugPos) {
