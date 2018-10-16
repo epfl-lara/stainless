@@ -388,7 +388,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
       new xt.FunDef(invId, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),
-        (Seq(xt.IsInvariant) ++ annots).distinct
+        (Seq(xt.IsInvariant) ++ annots.filterNot(_ == xt.IsMutable)).distinct
       ).setPos(pos)
     }
 
@@ -440,7 +440,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
     val isAbstract = rhs == tpd.EmptyTree
 
-    var flags = annotationsOf(sym) ++
+    var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if ((sym is Implicit) && (sym is Synthetic)) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym is Inline) Seq(xt.Inline) else Seq()) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
@@ -512,7 +512,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       )
     }
 
-    val flags = annotationsOf(sym) ++
+    val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
       (if (sym is Synthetic) Seq(xt.Synthetic) else Seq()) ++
       Seq(xt.IsAccessor(Some(field)))
@@ -531,7 +531,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
     val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
 
-    val flags = annotationsOf(sym) ++
+    val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
       Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
 

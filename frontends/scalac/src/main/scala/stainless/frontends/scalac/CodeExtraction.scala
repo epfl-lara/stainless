@@ -391,7 +391,7 @@ trait CodeExtraction extends ASTExtractors {
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
       new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),
-        (Seq(xt.IsInvariant) ++ annots).distinct
+        (Seq(xt.IsInvariant) ++ annots.filterNot(_ == xt.IsMutable)).distinct
       ).setPos(pos)
     })
 
@@ -470,7 +470,7 @@ trait CodeExtraction extends ASTExtractors {
     val id = getIdentifier(sym)
     val isAbstract = rhs == EmptyTree
 
-    var flags = annotationsOf(sym) ++
+    var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
       (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
@@ -533,7 +533,7 @@ trait CodeExtraction extends ASTExtractors {
     val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
     val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
 
-    val flags = annotationsOf(sym) ++
+    val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
       Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
 
