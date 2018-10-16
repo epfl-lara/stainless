@@ -568,7 +568,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         case _ => None
       }
 
-      val flags = annotationsOf(sym)
+      val flags = annotationsOf(sym, true)
 
       val tp = xt.TypeParameter(getIdentifier(sym), flags ++ variance.toSeq ++ bounds).setPos(sym.pos)
       (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
