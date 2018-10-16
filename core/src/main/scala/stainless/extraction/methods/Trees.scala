@@ -142,6 +142,8 @@ trait Trees extends throwing.Trees { self =>
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
+    def isSealed: Boolean = cd.flags contains IsSealed
+
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
     }

@@ -44,7 +44,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
         case arr: ArrayType => true
         case ClassType(cid, _) if mutableClasses(cid) => true
         case ClassType(cid, _) if seen(cid) => false
-        // We don't need to check for mutable fields here, as at this point every 
+        // We don't need to check for mutable fields here, as at this point every
         // field still has a getter
         case ClassType(cid, tps) =>
           symbols.getClass(cid).methods.exists{ fid =>
@@ -68,7 +68,37 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
       mutableClasses
     )(markedClasses ++ classesWithSetters)
 
+
     def isMutable(cd: ClassDef) = mutableClasses(cd)
+
+    // Throw an exception if there is a class:
+    // - which extends a non-sealed class not annotated with @mutable, or
+    // - a class which extends a class without respecting non-mutability of the parent type parameters
+    def checkMutability(): Unit = {
+      for (
+        cd <- classes if isMutable(cd);
+        act <- cd.parents; acd <- act.lookupClass;
+        if !acd.cd.flags.contains(IsMutable) && !acd.cd.isSealed
+      ) {
+        throw MethodsException(cd,
+          s"A mutable class (${cd.id.asString}) cannot have a non-@mutable and non-sealed parent (${acd.cd.id.asString})."
+        )
+      }
+
+      for (
+        cd <- classes;
+        act <- cd.parents;
+        acd <- act.lookupClass;
+        (tpe, tp) <- act.tps zip acd.cd.tparams
+      ) {
+        if (isMutableType(tpe, mutableClasses.map(_.id)) && !tp.flags.contains(IsMutable))
+        throw MethodsException(cd,
+          s"Cannot extend non-mutable type parameter ${tp.asString} with mutable type ${tpe.asString}."
+        )
+      }
+    }
+
+    checkMutability()
   }
 
   override protected def getContext(symbols: Symbols) = new TransformerContext()(symbols)
