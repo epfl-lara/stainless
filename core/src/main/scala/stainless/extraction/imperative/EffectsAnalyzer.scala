@@ -369,17 +369,12 @@ trait EffectsAnalyzer extends CachingPhase {
     * def and use the same instance of EffectsAnalysis. It is fine to add
     * new ClassDef types on the fly, granted that they use fresh identifiers.
     */
-  def isMutableType(tpe: Type)(implicit symbols: Symbols): Boolean = {
-    def rec(tpe: Type, seen: Set[ADTType]): Boolean = tpe match {
-      case tp: TypeParameter => tp.flags contains IsMutable
-      case arr: ArrayType => true
-      case adt: ADTType if seen(adt) => false
-      case adt @ ADTType(id, tps) => symbols.getSort(id).flags.contains(IsMutable)
-      case _: FunctionType => false
-      case NAryType(tps, _) => tps.exists(rec(_, seen))
-    }
-
-    rec(tpe, Set())
+  def isMutableType(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
+    case tp: TypeParameter => tp.flags contains IsMutable
+    case arr: ArrayType => true
+    case ADTType(id, _) => symbols.getSort(id).flags.contains(IsMutable)
+    case _: FunctionType => false
+    case NAryType(tps, _) => tps.exists(isMutableType)
   }
 
   /** Effects at the level of types for a function

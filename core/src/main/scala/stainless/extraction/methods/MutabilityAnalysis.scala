@@ -39,15 +39,17 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
     // For a given call to `isMutableType`, the set `mutableClasses` is fixed,
     // but may grow while computing the fixpoint below.
     def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = {
-      def rec(tpe: Type, seen: Set[ClassType]): Boolean = tpe match {
+      def rec(tpe: Type, seen: Set[Identifier]): Boolean = tpe match {
         case tp: TypeParameter => tp.flags contains IsMutable
         case arr: ArrayType => true
-        case ct@ClassType(cid, tps) if mutableClasses(cid) => true
-        case ct@ClassType(cid, tps) if seen(ct) => false
-        case ct@ClassType(cid, tps) =>
+        case ClassType(cid, _) if mutableClasses(cid) => true
+        case ClassType(cid, _) if seen(cid) => false
+        // We don't need to check for mutable fields here, as at this point every 
+        // field still has a getter
+        case ClassType(cid, tps) =>
           symbols.getClass(cid).methods.exists{ fid =>
             val fd = symbols.functions(fid)
-            fd.isGetter && rec(fd.returnType, seen + ct)
+            fd.isGetter && rec(fd.returnType, seen + cid)
           }
         case _: FunctionType => false
         case NAryType(tps, _) => tps.exists(rec(_, seen))
