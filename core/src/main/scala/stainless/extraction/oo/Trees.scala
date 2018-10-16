@@ -175,6 +175,11 @@ trait Printer extends imperative.Printer {
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
 
     case cd: ClassDef =>
+      for (an <- cd.flags) {
+        p"""|@${an.asString(ctx.opts)}
+            |"""
+      }
+
       p"class ${cd.id}"
       p"${nary(cd.tparams, ", ", "[", "]")}"
       if (cd.fields.nonEmpty) p"(${cd.fields})"
