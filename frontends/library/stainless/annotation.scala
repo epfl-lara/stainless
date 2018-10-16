@@ -48,6 +48,13 @@ class partialEval extends Annotation
 @ignore
 class law          extends Annotation
 
+/** Used to mark non-sealed classes that must be considered mutable.
+  * Can also be used to mark a type parameter T to announce that it can be
+  * instantiated with mutable types
+  */
+@ignore
+class mutable          extends Annotation
+
 /**
  * Code annotated with @ghost is removed after stainless extraction.
  *
