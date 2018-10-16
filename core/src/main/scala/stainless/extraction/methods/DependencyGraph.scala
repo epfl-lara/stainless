@@ -112,6 +112,10 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
       if (!(cd.flags contains IsAbstract)) {
         laws(cd) foreach { law => g += SimpleEdge(law, cd.id) }
       }
+
+      for (fid <- cd.methods(symbols) if symbols.functions(fid).isAccessor) {
+        g += SimpleEdge(cd.id, fid)
+      }
     }
 
     for (fd <- symbols.functions.values; id <- overrides(fd)) {

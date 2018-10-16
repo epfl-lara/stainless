@@ -90,6 +90,10 @@ trait ImperativeCleanup
 
     super.extractFunction(context, fd.copy(flags = fd.flags filterNot context.isImperativeFlag))
   }
+
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = {
+    super.extractSort(context, sort.copy(flags = sort.flags filterNot context.isImperativeFlag))
+  }
 }
 
 object ImperativeCleanup {

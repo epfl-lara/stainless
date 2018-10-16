@@ -29,6 +29,7 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperCalls"                -> "Resolve super-function calls",
+    "MutabilityAnalysis"        -> "Add mutable flag to classes that are mutable",
     "MethodLifting"             -> "Lift methods into dispatching functions",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",

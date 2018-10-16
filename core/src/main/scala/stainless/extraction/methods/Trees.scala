@@ -151,6 +151,22 @@ trait Trees extends throwing.Trees { self =>
     }
   }
 
+  implicit class FunDefWrapper(fd: FunDef) {
+    def isAccessor: Boolean =
+      fd.flags exists { case IsAccessor(_) => true case _ => false }
+
+    def isField: Boolean =
+      fd.flags exists { case IsField(_) => true case _ => false }
+
+    def isSetter: Boolean =
+      (isAccessor || isField) && fd.id.name.endsWith("_=") && fd.params.size == 1
+
+    def isGetter: Boolean = (isAccessor || isField) && fd.params.size == 0
+
+    def isAbstract: Boolean = fd.flags contains IsAbstract
+    def isInvariant: Boolean = fd.flags contains IsInvariant
+  }
+
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: Trees => new TreeDeconstructor {
       protected val s: self.type = self

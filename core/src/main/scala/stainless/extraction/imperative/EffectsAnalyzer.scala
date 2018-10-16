@@ -374,12 +374,7 @@ trait EffectsAnalyzer extends CachingPhase {
       case tp: TypeParameter => tp.flags contains IsMutable
       case arr: ArrayType => true
       case adt: ADTType if seen(adt) => false
-      case adt @ ADTType(id, tps) =>
-        val sort = symbols.getSort(id)
-        val mutableSort = sort.constructors.exists(_.fields.exists {
-          vd => (vd.flags contains IsVar) || rec(vd.tpe, seen + ADTType(id, sort.typeArgs))
-        })
-        mutableSort || adt.getSort.constructors.exists(_.fields.exists(vd => rec(vd.tpe, seen + adt)))
+      case adt @ ADTType(id, tps) => symbols.getSort(id).flags.contains(IsMutable)
       case _: FunctionType => false
       case NAryType(tps, _) => tps.exists(rec(_, seen))
     }
