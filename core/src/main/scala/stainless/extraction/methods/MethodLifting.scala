@@ -12,7 +12,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
 
   private[this] def isAccessor(fd: FunDef): Boolean =
     fd.flags exists { case IsAccessor(_) => true case _ => false }
-    
+
   override protected final type TransformerContext = Symbols
   override protected final def getContext(symbols: s.Symbols) = symbols
 
@@ -228,12 +228,15 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
         def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr =
           if (symbols.isSubtypeOf(tpe, expected)) e else (e match {
             case v: t.Variable =>
-              unchecked(t.AsInstanceOf(e, transformer.transform(expected.getType(symbols))).copiedFrom(e))
+              val expectedType = transformer.transform(expected.getType(symbols))
+              t.Assume(t.IsInstanceOf(e, expectedType).copiedFrom(e),
+                unchecked(t.AsInstanceOf(e, expectedType).copiedFrom(e))).copiedFrom(e)
             case _ =>
               val vd = t.ValDef.fresh("x", transformer.transform(tpe), true).copiedFrom(e)
-              t.Let(vd, e, unchecked(
-                t.AsInstanceOf(vd.toVariable, transformer.transform(expected.getType(symbols))).copiedFrom(e)
-              ))
+              val expectedType = transformer.transform(expected.getType(symbols))
+              t.Let(vd, e,
+                t.Assume(t.IsInstanceOf(vd.toVariable, expectedType).copiedFrom(e),
+                  unchecked(t.AsInstanceOf(vd.toVariable, expectedType).copiedFrom(e))).copiedFrom(e))
           })
 
         val (tpe, expr) = {
