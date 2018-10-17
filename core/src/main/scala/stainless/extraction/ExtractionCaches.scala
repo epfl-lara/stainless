@@ -46,7 +46,7 @@ trait ExtractionCaches { self: ExtractionContext =>
   }
 
   protected implicit object FunctionKey extends Keyable[s.FunDef] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.functions(id))
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.getFunction(id))
     def apply(fd: s.FunDef): CacheKey = new FunctionKey(fd)
   }
 
@@ -73,7 +73,7 @@ trait ExtractionCaches { self: ExtractionContext =>
   }
 
   protected implicit object SortKey extends Keyable[s.ADTSort] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.sorts(id))
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.getSort(id))
     def apply(sort: s.ADTSort): CacheKey = new SortKey(sort)
   }
 

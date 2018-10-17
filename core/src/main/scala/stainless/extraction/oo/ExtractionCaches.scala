@@ -30,7 +30,7 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
   }
 
   protected implicit object ClassKey extends Keyable[s.ClassDef] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = ClassKey(symbols.classes(id))
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = ClassKey(symbols.getClass(id))
     def apply(sort: s.ClassDef): CacheKey = new ClassKey(sort)
   }
 

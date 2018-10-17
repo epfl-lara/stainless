@@ -24,7 +24,7 @@ trait FieldAccessors extends oo.CachingPhase
     override final val t: self.t.type = self.t
 
     def isConcreteAccessor(id: Identifier): Boolean = {
-      isConcreteAccessor(symbols.functions(id))
+      isConcreteAccessor(symbols.getFunction(id))
     }
 
     def isConcreteAccessor(fd: s.FunDef): Boolean = {

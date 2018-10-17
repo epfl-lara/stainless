@@ -18,7 +18,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     import analysis._
 
     def isMutableSynthetic(id: Identifier): Boolean = {
-      val fd = symbols.functions(id)
+      val fd = symbols.getFunction(id)
       fd.flags.contains(Synthetic) &&
       fd.params.exists(vd => isMutableType(vd.tpe)) &&
       !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
@@ -77,7 +77,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
 
             case fi @ FunctionInvocation(id, tps, args) =>
-              val fd = symbols.functions(id)
+              val fd = symbols.getFunction(id)
               for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
                 throw ImperativeEliminationException(e,
                   s"Cannot instantiate a non-mutable type parameter $tp in $fd with the mutable type $tpe")

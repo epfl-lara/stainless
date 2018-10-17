@@ -97,7 +97,7 @@ trait TreeSanitizer {
             ct.getField(id) match {
               case Some(field) if field.flags contains Ignore =>
                 throw MissformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
-              case None if symbols.functions.contains(id) && symbols.functions(id).flags.contains(Ignore) =>
+              case None if symbols.lookupFunction(id).exists(_.flags contains Ignore) =>
                 throw MissformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
               case _ =>
                 super.traverse(e)

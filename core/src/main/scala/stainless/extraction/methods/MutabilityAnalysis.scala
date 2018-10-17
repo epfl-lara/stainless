@@ -48,7 +48,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
         // field still has a getter
         case ClassType(cid, tps) =>
           symbols.getClass(cid).methods.exists{ fid =>
-            val fd = symbols.functions(fid)
+            val fd = symbols.getFunction(fid)
             fd.isGetter && rec(fd.returnType, seen + cid)
           }
         case _: FunctionType => false
@@ -60,7 +60,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
 
     val classes = symbols.classes.values.toSet
     val markedClasses = classes.filter(_.flags.contains(IsMutable))
-    val classesWithSetters = classes.filter(_.methods.exists(fid => symbols.functions(fid).isSetter))
+    val classesWithSetters = classes.filter(_.methods.exists(fid => symbols.getFunction(fid).isSetter))
 
     val mutableClasses = inox.utils.fixpoint[Set[ClassDef]](mutableClasses =>
       mutableClasses.flatMap(cd => cd.ancestors.map(_.cd) ++ cd.descendants) ++
