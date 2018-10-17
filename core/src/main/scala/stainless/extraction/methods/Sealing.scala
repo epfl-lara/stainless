@@ -55,22 +55,23 @@ trait Sealing extends oo.CachingPhase
     private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
 
     // Create a dummy subclass for a given (non-sealed) class
-    def buildDummySubclass(cd: ClassDef, accessedFields: Seq[ValDef]): ClassDef = {
+    def buildDummySubclass(cd: ClassDef, accessedFields: Seq[ValDef]): (ClassDef, Map[TypeParameter, TypeParameter]) = {
       val pos = cd.getPos
       val mutableFlag = cd.flags.filter(_ == IsMutable)
       val varFlag = if (mutableFlag.isEmpty) Seq() else Seq(IsVar)
       val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(pos), varFlag).setPos(pos)
       val typeArgs = freshenTypeParams(cd.typeArgs)
       val tparams = typeArgs.map(TypeParameterDef(_))
+      val tpSubst = (cd.typeArgs zip typeArgs).toMap
       val dummyClass =
-        new ClassDef(
+        Substituter(tpSubst).transform(new ClassDef(
           extID(cd.id),
           tparams, // same type parameters as `cd`
           Seq(ClassType(cd.id, typeArgs)), // parent is `cd`
           Seq(dummyField) ++ accessedFields, // we add fields for the accessors
           Synthetic +: mutableFlag
-        ).setPos(pos)
-      dummyClass
+        ).setPos(pos))
+      (dummyClass, tpSubst)
     }
 
     // These are the flags that we keep when overriding a method
@@ -208,10 +209,8 @@ trait Sealing extends oo.CachingPhase
       val allFields = varFields ++ valFields
 
       // We create the new dummy class with all the fields
-      val dummyClass = context.buildDummySubclass(cd, allFields.values.toSeq)
+      val (dummyClass, tpSubst) = context.buildDummySubclass(cd, allFields.values.toSeq)
       val ct = dummyClass.typed(syms).toType
-
-      val tpSubst = (cd.typeArgs zip dummyClass.typeArgs).toMap
 
       // We build the concrete accessors to operate on the new fields
       val newSetters = varFields.map { case (name, vd) => context.buildSetter(settersNames(name), ct, vd, tpSubst) }
