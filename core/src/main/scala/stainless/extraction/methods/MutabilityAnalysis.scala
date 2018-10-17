@@ -38,7 +38,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
     // contain a getter whose return type is mutable.
     // For a given call to `isMutableType`, the set `mutableClasses` is fixed,
     // but may grow while computing the fixpoint below.
-    def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = {
+    private def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = {
       def rec(tpe: Type, seen: Set[Identifier]): Boolean = tpe match {
         case tp: TypeParameter => tp.flags contains IsMutable
         case arr: ArrayType => true
@@ -49,6 +49,8 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
         case ClassType(cid, tps) =>
           symbols.getClass(cid).methods.exists{ fid =>
             val fd = symbols.getFunction(fid)
+            // note that setters and mutable flags are taken into account in the
+            // initial state of the `mutableClasses` fixpoint
             fd.isGetter && rec(fd.returnType, seen + cid)
           }
         case _: FunctionType => false
@@ -58,25 +60,32 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
       rec(tpe, Set())
     }
 
-    val classes = symbols.classes.values.toSet
-    val markedClasses = classes.filter(_.flags.contains(IsMutable))
-    val classesWithSetters = classes.filter(_.methods.exists(fid => symbols.getFunction(fid).isSetter))
+    private val mutableClasses: Set[Identifier] = {
+      val initialClasses = symbols.classes.values.filter { cd =>
+        (cd.flags contains IsMutable) || // class is marked as mutable
+        (cd.methods exists (fid => symbols.getFunction(fid).isSetter)) // class contains a setter
+      }.map(_.id).toSet
 
-    val mutableClasses = inox.utils.fixpoint[Set[ClassDef]](mutableClasses =>
-      mutableClasses.flatMap(cd => cd.ancestors.map(_.cd) ++ cd.descendants) ++
-      classes.filter(cd => isMutableType(cd.typed.toType, mutableClasses.map(_.id))) ++
-      mutableClasses
-    )(markedClasses ++ classesWithSetters)
+      inox.utils.fixpoint[Set[Identifier]](mutableClasses =>
+        mutableClasses ++
+        symbols.classes.collect { case (id, cd) if isMutableType(cd.typed.toType, mutableClasses) => id } ++
+        mutableClasses.flatMap { id =>
+          val cd = symbols.getClass(id)
+          cd.ancestors.map(_.id) ++ cd.descendants.map(_.id)
+        }
+      )(initialClasses)
+    }
 
 
-    def isMutable(cd: ClassDef) = mutableClasses(cd)
+    def isMutable(id: Identifier) = mutableClasses(id)
+    def isMutableType(tpe: Type): Boolean = isMutableType(tpe, mutableClasses)
 
     // Throw an exception if there is a class:
     // - which extends a non-sealed class not annotated with @mutable, or
     // - a class which extends a class without respecting non-mutability of the parent type parameters
     def checkMutability(): Unit = {
       for (
-        cd <- classes if isMutable(cd);
+        cd <- symbols.classes.values if isMutable(cd.id);
         act <- cd.parents; acd <- act.lookupClass;
         if !acd.cd.flags.contains(IsMutable) && !acd.cd.isSealed
       ) {
@@ -86,12 +95,12 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
       }
 
       for (
-        cd <- classes;
+        cd <- symbols.classes.values;
         act <- cd.parents;
         acd <- act.lookupClass;
         (tpe, tp) <- act.tps zip acd.cd.tparams
+        if isMutableType(tpe) && !tp.flags.contains(IsMutable)
       ) {
-        if (isMutableType(tpe, mutableClasses.map(_.id)) && !tp.flags.contains(IsMutable))
         throw MethodsException(cd,
           s"Cannot extend non-mutable type parameter ${tp.asString} with mutable type ${tpe.asString}."
         )
@@ -104,7 +113,7 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
   override protected def getContext(symbols: Symbols) = new TransformerContext()(symbols)
 
   override protected final val classCache = new ExtractionCache[ClassDef, ClassResult](
-    (cd, context) => ClassKey(cd) + ValueKey(context.isMutable(cd))
+    (cd, context) => ClassKey(cd) + ValueKey(context.isMutable(cd.id))
   )
 
 
@@ -113,8 +122,8 @@ trait MutabilityAnalysis extends oo.ExtractionPipeline
    * ==================================== */
 
   override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
-    if (context.isMutable(cd))
-      cd.copy(flags = cd.flags.filterNot(_ == IsMutable) :+ IsMutable).copiedFrom(cd)
+    if (context.isMutable(cd.id))
+      cd.copy(flags = (cd.flags :+ IsMutable).distinct).copiedFrom(cd)
     else
       cd
   }
