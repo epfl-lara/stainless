@@ -239,17 +239,10 @@ trait Sealing extends oo.CachingPhase
    *         Extraction of functions
    * ==================================== */
 
-  // These are the flags that we forget about when duplicating a method
-  private[this] def duplicateForgetFlag(flag: Flag) = flag match {
-    case IsAbstract => true // because the copy will never get overridden
-    case Final => true // because Final is not needed anymore after this phase
-    case _ => false
-  }
-
   private[this] def duplicate(fd: FunDef): FunDef = {
     exprOps.freshenSignature(fd.copy(
       id = ast.SymbolIdentifier(fd.id.name),
-      flags = fd.flags.filterNot(duplicateForgetFlag) :+ Derived(fd.id)
+      flags = fd.flags :+ Derived(fd.id)
     ).copiedFrom(fd))
   }
 
