@@ -78,10 +78,10 @@ Compilation will automatically generate the following two bash scripts:
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
-Usage within a sbt project
+Usage within an sbt project
 --------------------------
 
-Setting up a sbt build file to use Stainless it's a simple 4-steps procedure:
+Setting up an sbt build file to use Stainless is a simple 4-step procedure:
 
 1. Start by installing an external solver (see Section
    ":ref:`smt-solvers`").
