@@ -50,31 +50,29 @@ trait Sealing extends oo.CachingPhase
       }
     }
 
+    // We build dummy subclasses for abstract classes that are not sealed
+    def mustAddSubclass(cd: ClassDef) = !cd.isSealed && cd.isAbstract
 
+    private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
 
-  // We build dummy subclasses for abstract classes that are not sealed
-  def mustAddSubclass(cd: ClassDef) = !cd.isSealed && cd.isAbstract
-
-  private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
-
-  // Create a dummy subclass for a given (non-sealed) class
-  def buildDummySubclass(cd: ClassDef, accessedFields: Seq[ValDef]): ClassDef = {
-    val pos = cd.getPos
-    val mutableFlag = cd.flags.filter(_ == IsMutable)
-    val varFlag = if (mutableFlag.isEmpty) Seq() else Seq(IsVar)
-    val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(pos), varFlag).setPos(pos)
-    val typeArgs = freshenTypeParams(cd.typeArgs)
-    val tparams = typeArgs.map(TypeParameterDef(_))
-    val dummyClass =
-      new ClassDef(
-        extID(cd.id),
-        tparams, // same type parameters as `cd`
-        Seq(ClassType(cd.id, typeArgs)), // parent is `cd`
-        Seq(dummyField) ++ accessedFields, // we add fields for the accessors
-        Seq(Synthetic, IsSealed) ++ mutableFlag
-      ).setPos(pos)
-    dummyClass
-  }
+    // Create a dummy subclass for a given (non-sealed) class
+    def buildDummySubclass(cd: ClassDef, accessedFields: Seq[ValDef]): ClassDef = {
+      val pos = cd.getPos
+      val mutableFlag = cd.flags.filter(_ == IsMutable)
+      val varFlag = if (mutableFlag.isEmpty) Seq() else Seq(IsVar)
+      val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(pos), varFlag).setPos(pos)
+      val typeArgs = freshenTypeParams(cd.typeArgs)
+      val tparams = typeArgs.map(TypeParameterDef(_))
+      val dummyClass =
+        new ClassDef(
+          extID(cd.id),
+          tparams, // same type parameters as `cd`
+          Seq(ClassType(cd.id, typeArgs)), // parent is `cd`
+          Seq(dummyField) ++ accessedFields, // we add fields for the accessors
+          Seq(Synthetic, IsSealed) ++ mutableFlag
+        ).setPos(pos)
+      dummyClass
+    }
 
     // These are the flags that we keep when overriding a method
     private[this] def overrideKeepFlags(flag: Flag) = flag match {
