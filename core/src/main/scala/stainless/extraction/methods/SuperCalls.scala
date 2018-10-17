@@ -144,14 +144,6 @@ trait SuperCalls
     symbols.withFunctions(functions.flatMap { case (fd, ofd) => fd +: ofd.toSeq })
   }
 
-  // Flag that we discard when creating the `superFd` copy
-  // We discard the abstract flag, as the new FunDef won't get overridden
-  private def discardFlag(flag: s.Flag) = flag match {
-    case s.IsAbstract => true
-    case s.Final => true // isFinal is discarded to avoid duplication because it is readded
-    case _ => false
-  }
-
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
     import context.symbols
     import s._
@@ -159,7 +151,7 @@ trait SuperCalls
     if (context.mustDuplicate(fd)) {
       val sid = superID(fd.id.unsafeToSymbolIdentifier)
       val superFd = exprOps.freshenSignature(
-        new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags.filterNot(discardFlag) :+ Final).setPos(fd)
+        new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, (fd.flags :+ Final).distinct).setPos(fd)
       )
 
       val cd = symbols.getClass(fd.flags.collectFirst { case s.IsMethodOf(cid) => cid }.get)
