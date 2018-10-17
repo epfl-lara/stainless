@@ -40,7 +40,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // check return value
         if (isMutableType(bd.getType) && !isExpressionFresh(bd)) {
           throw ImperativeEliminationException(bd,
-            "Cannot return a shared reference to a mutable object: " + bd)
+            "Cannot return a shared reference to a mutable object: " + bd.asString)
         }
 
         object traverser extends SelfTreeTraverser {
@@ -51,14 +51,14 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                 getEffect(e)
               } catch {
                 case _: MissformedStainlessCode =>
-                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
+                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
               }
 
               super.traverse(l)
 
             case l @ LetVar(vd, e, b) =>
               if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e)
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
 
               super.traverse(l)
 
@@ -74,13 +74,13 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               super.traverse(l)
 
             case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
-              throw ImperativeEliminationException(fi, s"Cannot call '${fi.id}' on a class with mutable fields")
+              throw ImperativeEliminationException(fi, s"Cannot call '${fi.id.asString}' on a class with mutable fields")
 
             case fi @ FunctionInvocation(id, tps, args) =>
               val fd = symbols.getFunction(id)
               for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
                 throw ImperativeEliminationException(e,
-                  s"Cannot instantiate a non-mutable type parameter $tp in $fd with the mutable type $tpe")
+                  s"Cannot instantiate a non-mutable type parameter ${tp.asString} in $fd with the mutable type ${tpe.asString}")
               }
 
               super.traverse(fi)
@@ -89,7 +89,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
                 if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
                   throw ImperativeEliminationException(e,
-                    s"Cannot instantiate a non-mutable type parameter $tdef with a mutable type $instanceType")
+                    s"Cannot instantiate a non-mutable type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
               }
 
               super.traverse(adt)
@@ -109,53 +109,53 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
 
       if (effects(fd.fullBody).nonEmpty)
-        throw ImperativeEliminationException(fd, s"A global field must be pure, but ${fd.id} has effects: ${effects(fd.fullBody)}")
+        throw ImperativeEliminationException(fd, s"A global field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
       case Require(pre, _) =>
         val preEffects = effects(pre)
         if (preEffects.nonEmpty)
-          throw ImperativeEliminationException(pre, "Precondition has effects on: " + preEffects.head.receiver)
+          throw ImperativeEliminationException(pre, "Precondition has effects on: " + preEffects.head.receiver.asString)
 
       case Ensuring(_, post @ Lambda(_, body)) =>
         val bodyEffects = effects(body)
         if (bodyEffects.nonEmpty)
-          throw ImperativeEliminationException(post, "Postcondition has effects on: " + bodyEffects.head.receiver)
+          throw ImperativeEliminationException(post, "Postcondition has effects on: " + bodyEffects.head.receiver.asString)
 
         val oldEffects = effects(exprOps.postMap {
           case Old(e) => Some(e)
           case _ => None
         } (body))
         if (oldEffects.nonEmpty)
-          throw ImperativeEliminationException(post, s"Postcondition tries to mutate ${Old(oldEffects.head.receiver)}")
+          throw ImperativeEliminationException(post, s"Postcondition tries to mutate ${Old(oldEffects.head.receiver).asString}")
 
       case Decreases(meas, _) =>
         val measEffects = effects(meas)
         if (measEffects.nonEmpty)
-          throw ImperativeEliminationException(meas, "Decreases has effects on: " + measEffects.head.receiver)
+          throw ImperativeEliminationException(meas, "Decreases has effects on: " + measEffects.head.receiver.asString)
 
       case Assert(pred, _, _) =>
         val predEffects = effects(pred)
         if (predEffects.nonEmpty)
-          throw ImperativeEliminationException(pred, "Assertion has effects on: " + predEffects.head.receiver)
+          throw ImperativeEliminationException(pred, "Assertion has effects on: " + predEffects.head.receiver.asString)
 
       case Forall(_, pred) =>
         val predEffects = effects(pred)
         if (predEffects.nonEmpty)
-          throw ImperativeEliminationException(pred, "Quantifier has effects on: " + predEffects.head.receiver)
+          throw ImperativeEliminationException(pred, "Quantifier has effects on: " + predEffects.head.receiver.asString)
 
       case wh @ While(_, _, Some(invariant)) =>
         val invEffects = effects(invariant)
         if (invEffects.nonEmpty)
-          throw ImperativeEliminationException(invariant, "Loop invariant has effects on: " + invEffects.head.receiver)
+          throw ImperativeEliminationException(invariant, "Loop invariant has effects on: " + invEffects.head.receiver.asString)
 
       case m @ MatchExpr(_, cses) =>
         cses.foreach { cse =>
           cse.optGuard.foreach { guard =>
             val guardEffects = effects(guard)
             if (guardEffects.nonEmpty)
-              throw ImperativeEliminationException(guard, "Pattern guard has effects on: " + guardEffects.head.receiver)
+              throw ImperativeEliminationException(guard, "Pattern guard has effects on: " + guardEffects.head.receiver.asString)
           }
 
           patternOps.preTraversal {
@@ -232,7 +232,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     for (fd <- sort.invariant(analysis.symbols)) {
       val invEffects = analysis.effects(fd)
       if (invEffects.nonEmpty)
-        throw ImperativeEliminationException(fd, "Invariant has effects on: " + invEffects.head)
+        throw ImperativeEliminationException(fd, "Invariant has effects on: " + invEffects.head.asString)
     }
   }
 }
