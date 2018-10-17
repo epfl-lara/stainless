@@ -85,7 +85,7 @@ trait Sealing extends oo.CachingPhase
     def overrideMethod(fid: SymbolIdentifier, cid: Identifier, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
       val fd = symbols.functions(fid)
       val (specs, _) = deconstructSpecs(fd.fullBody)
-      Freshener(tpSubst).transform(exprOps.freshenSignature(new FunDef(
+      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
         fd.tparams,
         fd.params,
@@ -98,7 +98,7 @@ trait Sealing extends oo.CachingPhase
     // For each accessor, we create a concrete accessor that operates on a fresh field
     def buildSetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
       val fd = symbols.functions(fid)
-      Freshener(tpSubst).transform(exprOps.freshenSignature(new FunDef(
+      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
         fd.tparams,
         fd.params,
@@ -111,7 +111,7 @@ trait Sealing extends oo.CachingPhase
     // For each accessor, we create a concrete accessor that operates on a fresh field
     def buildGetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
       val fd = symbols.functions(fid)
-      Freshener(tpSubst).transform(exprOps.freshenSignature(new FunDef(
+      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
         fd.tparams,
         fd.params,
@@ -149,10 +149,10 @@ trait Sealing extends oo.CachingPhase
 
 
   /* ====================================
-   *    Freshener of type parameters
+   *    Substituter of type parameters
    * ==================================== */
 
-  case class Freshener(mapping: Map[TypeParameter, TypeParameter]) extends s.SelfTreeTransformer {
+  case class Substituter(mapping: Map[TypeParameter, TypeParameter]) extends s.SelfTreeTransformer {
     override def transform(tpe: Type): Type = tpe match {
       case tp: TypeParameter if mapping contains tp => mapping(tp)
       case _ => super.transform(tpe)
