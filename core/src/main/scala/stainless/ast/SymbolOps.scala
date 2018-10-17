@@ -344,16 +344,14 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     *
     * @see [[extraction.DebugPipeline]]
     */
-  def debugString(objs: Option[Set[String]])(implicit pOpts: PrinterOptions): String = {
-    wrapWith("Functions", objectsToString(functions.values, objs)) ++
-    wrapWith("Sorts", objectsToString(sorts.values, objs))
+  def debugString(filter: String => Boolean = (x: String) => true)(implicit pOpts: PrinterOptions): String = {
+    wrapWith("Functions", objectsToString(functions.values, filter)) ++
+    wrapWith("Sorts", objectsToString(sorts.values, filter))
   }
 
-  protected def objectsToString(m: Iterable[Definition], objs: Option[Set[String]])(implicit pOpts: PrinterOptions): String = {
-    m.collect {
-      case d if objs.isEmpty || objs.exists(_.exists { r => d.id.name matches r }) =>
-        d.asString(pOpts)
-    } mkString "\n\n"
+  protected final def objectsToString(m: Iterable[Definition], filter: String => Boolean)
+                                     (implicit pOpts: PrinterOptions): String = {
+    m.collect { case d if filter(d.id.name) => d.asString(pOpts) } mkString "\n\n"
   }
 
   protected def wrapWith(header: String, s: String) = {
