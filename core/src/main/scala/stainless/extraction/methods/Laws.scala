@@ -72,7 +72,7 @@ trait Laws
           ).setPos(fd.fullBody)).setPos(fd.fullBody)
         ).setPos(fd.fullBody)
 
-        fd.copy(fullBody = newBody, flags = (fd.flags ++ Seq(Law, IsAbstract)).distinct)
+        fd.copy(fullBody = newBody).copiedFrom(fd)
       }
 
       val propFd: FunDef = {
