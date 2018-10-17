@@ -211,7 +211,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
     val ignoreFlags = Set("library", "synthetic")
     def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
-      !syms.functions(id).flags.exists(f => ignoreFlags contains f.name) && this.synchronized {
+      !syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name) && this.synchronized {
         val res = toProcess(id)
         toProcess -= id
         res

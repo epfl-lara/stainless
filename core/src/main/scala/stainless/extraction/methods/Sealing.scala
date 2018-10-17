@@ -83,7 +83,7 @@ trait Sealing extends oo.CachingPhase
 
     // Create an abstract method for the dummy subclass to override a non-final method
     def overrideMethod(fid: SymbolIdentifier, cid: Identifier, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.functions(fid)
+      val fd = symbols.getFunction(fid)
       val (specs, _) = deconstructSpecs(fd.fullBody)
       Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
@@ -97,7 +97,7 @@ trait Sealing extends oo.CachingPhase
 
     // For each accessor, we create a concrete accessor that operates on a fresh field
     def buildSetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.functions(fid)
+      val fd = symbols.getFunction(fid)
       Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
         fd.tparams,
@@ -110,7 +110,7 @@ trait Sealing extends oo.CachingPhase
 
     // For each accessor, we create a concrete accessor that operates on a fresh field
     def buildGetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.functions(fid)
+      val fd = symbols.getFunction(fid)
       Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
         ast.SymbolIdentifier(fid.symbol),
         fd.tparams,
@@ -181,8 +181,8 @@ trait Sealing extends oo.CachingPhase
       // We lookup the latest non-final methods, and split them in three groups:
       // normal methods, setters, and getters
       val lnfm = context.lnfm(cd).toSeq
-      val (accessors, methods) = lnfm.partition(id => syms.functions(id).isAccessor || syms.functions(id).isField)
-      val (setters, getters) = accessors.partition(id => syms.functions(id).isSetter)
+      val (accessors, methods) = lnfm.partition(id => syms.getFunction(id).isAccessor || syms.getFunction(id).isField)
+      val (setters, getters) = accessors.partition(id => syms.getFunction(id).isSetter)
 
       // we drop the '_=' suffix to get the name of the field
       val settersNames: Map[String, SymbolIdentifier] = setters.map(fid => fid.name.dropRight(2) -> fid).toMap
@@ -191,7 +191,7 @@ trait Sealing extends oo.CachingPhase
       // For symbols that are referenced by setters, we create var fields
       val varFields: Map[String, ValDef] =
         settersNames.map { case (name,fid) =>
-          val setter = syms.functions(fid)
+          val setter = syms.getFunction(fid)
           val Seq(vd) = setter.params
           name -> VarDef(FreshIdentifier(name), vd.tpe, Seq())
         }.toMap
@@ -199,7 +199,7 @@ trait Sealing extends oo.CachingPhase
       // For symbols that are only referenced by getters, we create val fields
       val valFields: Map[String, ValDef] =
         (gettersNames -- settersNames.keySet).map { case (name,fid) =>
-          val getter = syms.functions(fid)
+          val getter = syms.getFunction(fid)
           val tpe = getter.returnType
           name -> ValDef(FreshIdentifier(name), tpe, Seq())
         }.toMap
