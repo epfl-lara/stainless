@@ -141,7 +141,7 @@ trait Sealing extends oo.CachingPhase
   // Each concrete method of non-sealed class is duplicated to make sure it does
   // not disappear after MethodLifting (if the original contained assertions, we
   // want to check them).
-  override protected type FunctionResult = Seq[FunDef]
+  override protected type FunctionResult = (FunDef, Option[FunDef])
 
   override protected final val funCache = new ExtractionCache[FunDef, FunctionResult]({ (fd, context) =>
     FunctionKey(fd) + ValueKey(context.mustDuplicate(fd))
@@ -256,8 +256,8 @@ trait Sealing extends oo.CachingPhase
   // We duplicate concrete non-final/accessor/field/invariant functions of non-sealed classes
   override protected def extractFunction(context: TransformerContext, fd: FunDef): FunctionResult = {
     val newFd = fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd)
-    if (context.mustDuplicate(fd)) Seq(newFd, duplicate(fd))
-    else Seq(newFd)
+    if (context.mustDuplicate(fd)) (newFd, Some(duplicate(fd)))
+    else (newFd, None)
   }
 
 
@@ -271,7 +271,7 @@ trait Sealing extends oo.CachingPhase
       .withFunctions(results.flatMap(_._3))
 
   override protected def registerFunctions(syms: Symbols, results: Seq[FunctionResult]): Symbols =
-    syms.withFunctions(results.flatten)
+    syms.withFunctions(results.flatMap(fr => fr._1 +: fr._2.toSeq))
 }
 
 object Sealing {
