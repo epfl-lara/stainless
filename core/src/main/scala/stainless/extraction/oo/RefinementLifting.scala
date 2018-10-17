@@ -99,7 +99,7 @@ trait RefinementLifting
 
         case s.RefinementType(vd, pred) =>
           transform(s.Assert(
-            s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred),
+            s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred)),
             Some("Cast error"),
             asInstOf(expr, vd.tpe).copiedFrom(e)
           ).copiedFrom(e))
