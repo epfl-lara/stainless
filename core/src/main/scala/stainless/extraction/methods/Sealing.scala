@@ -248,9 +248,9 @@ trait Sealing extends oo.CachingPhase
 
   // We duplicate concrete non-final/accessor/field/invariant functions of non-sealed classes
   override protected def extractFunction(context: TransformerContext, fd: FunDef): FunctionResult = {
-    val newFd = fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd)
-    if (context.mustDuplicate(fd)) (newFd, Some(duplicate(fd)))
-    else (newFd, None)
+    if (context.mustDuplicate(fd)) (fd, Some(duplicate(fd)))
+    else if (fd.isFinal) (fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd), None)
+    else (fd, None)
   }
 
 
