@@ -103,7 +103,7 @@ trait Sealing extends oo.CachingPhase
         fd.params,
         fd.returnType,
         FieldAssignment(This(ct), field.id, fd.params.head.toVariable),
-        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), IsAccessor(None))
+        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), IsAccessor(Some(field.id)))
       ).copiedFrom(fd)))
     }
 
@@ -116,7 +116,7 @@ trait Sealing extends oo.CachingPhase
         fd.params,
         fd.returnType,
         ClassSelector(This(ct), field.id),
-        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), Final, IsAccessor(None))
+        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), Final, IsAccessor(Some(field.id)))
       ).copiedFrom(fd)))
     }
   }
