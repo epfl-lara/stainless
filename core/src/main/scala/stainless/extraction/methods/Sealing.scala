@@ -69,7 +69,7 @@ trait Sealing extends oo.CachingPhase
           tparams, // same type parameters as `cd`
           Seq(ClassType(cd.id, typeArgs)), // parent is `cd`
           Seq(dummyField) ++ accessedFields, // we add fields for the accessors
-          Seq(Synthetic, IsSealed) ++ mutableFlag
+          Synthetic +: mutableFlag
         ).setPos(pos)
       dummyClass
     }
