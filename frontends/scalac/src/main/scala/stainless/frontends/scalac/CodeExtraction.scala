@@ -570,8 +570,7 @@ trait CodeExtraction extends ASTExtractors {
         case _ => None
       }
 
-      val flags = annotationsOf(sym, true)
-
+      val flags = annotationsOf(sym, ignoreOwner = true)
       val tp = xt.TypeParameter(getIdentifier(sym), flags ++ variance.toSeq ++ bounds).setPos(sym.pos)
       (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
     }._2
