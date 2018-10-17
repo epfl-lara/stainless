@@ -132,7 +132,7 @@ trait Sealing extends oo.CachingPhase
     val symbols = context.symbols
     ClassKey(cd) + ValueKey(context.mustAddSubclass(cd)) + ValueKey(context.isMutable(cd)) + SetKey(
       if (context.mustAddSubclass(cd))
-        context.lnfm(cd).map(id => id: Identifier)
+        context.lnfm(cd).toSet[Identifier]
       else
         Set[Identifier]()
     )(symbols)
