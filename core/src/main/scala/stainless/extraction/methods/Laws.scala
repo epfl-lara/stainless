@@ -17,9 +17,6 @@ trait Laws
   override final val s: trees.type = trees
   override final val t: trees.type = trees
 
-  private[this] val Law = Annotation("law", Seq())
-  private[this] def isLaw(fd: FunDef): Boolean = fd.flags contains Law
-
   private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
     id => SymbolIdentifier(id.name)
   )
