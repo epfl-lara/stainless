@@ -159,10 +159,8 @@ trait Trees extends throwing.Trees { self =>
     def isField: Boolean =
       fd.flags exists { case IsField(_) => true case _ => false }
 
-    def isSetter: Boolean =
-      (isAccessor || isField) && fd.id.name.endsWith("_=") && fd.params.size == 1
-
-    def isGetter: Boolean = (isAccessor || isField) && fd.params.size == 0
+    def isSetter: Boolean = isAccessor && fd.id.name.endsWith("_=") && fd.params.size == 1
+    def isGetter: Boolean = isAccessor && fd.params.size == 0
 
     def isFinal: Boolean = fd.flags contains Final
     def isAbstract: Boolean = fd.flags contains IsAbstract

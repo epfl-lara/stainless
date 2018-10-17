@@ -23,7 +23,6 @@ trait Sealing extends oo.CachingPhase
       !fd.isAbstract &&
       !fd.isFinal &&
       !fd.isAccessor &&
-      !fd.isField &&
       !fd.isInvariant &&
       fd.flags.exists {
         case IsMethodOf(cid) => !symbols.getClass(cid).isSealed
@@ -181,7 +180,7 @@ trait Sealing extends oo.CachingPhase
       // We lookup the latest non-final methods, and split them in three groups:
       // normal methods, setters, and getters
       val lnfm = context.lnfm(cd).toSeq
-      val (accessors, methods) = lnfm.partition(id => syms.getFunction(id).isAccessor || syms.getFunction(id).isField)
+      val (accessors, methods) = lnfm.partition(id => syms.getFunction(id).isAccessor)
       val (setters, getters) = accessors.partition(id => syms.getFunction(id).isSetter)
 
       // we drop the '_=' suffix to get the name of the field
