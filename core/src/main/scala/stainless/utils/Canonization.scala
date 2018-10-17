@@ -39,7 +39,7 @@ trait Canonization { self =>
       if ((symbols.functions contains id) && !visited) {
         transformedFunctions += transform(symbols.getFunction(id))
       } else if ((symbols.sorts contains id) && !visited) {
-        transformedSorts += transform(symbols.sorts(id))
+        transformedSorts += transform(symbols.getSort(id))
       }
 
       nid
