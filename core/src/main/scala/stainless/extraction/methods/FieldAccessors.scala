@@ -9,7 +9,6 @@ import scala.language.existentials
 trait FieldAccessors extends oo.CachingPhase
   with SimpleSorts
   with oo.SimpleClasses
-  with SimplyCachedFunctions
   with SimplyCachedSorts
   with oo.SimplyCachedClasses { self =>
 
@@ -17,9 +16,13 @@ trait FieldAccessors extends oo.CachingPhase
   val t: oo.Trees
   import s._
 
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+    getDependencyKey(fd.id)(context.symbols)
+  )
+
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
+  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
