@@ -59,13 +59,6 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
     val t: self.t.type = self.t
   }
 
-  private[this] object IsLaw {
-    def unapply(f: s.Flag): Option[s.Expr] = f match {
-      case s.Annotation("law", Seq(expr: s.Expr)) => Some(expr)
-      case _ => None
-    }
-  }
-
   private class BaseTransformer(symbols: s.Symbols) extends oo.TreeTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t
