@@ -476,14 +476,8 @@ trait TypeEncoding
    *           CLASS INSTANCE
    * ==================================== */
 
-  private[this] def extraConstructors(cd: s.ClassDef)(implicit symbols: s.Symbols): Seq[Identifier] = {
-    (cd +: cd.descendants)
-      .filter(cd => (cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed))
-      .map(_.id)
-  }
-
   private[this] def constructors(cd: s.ClassDef)(implicit symbols: s.Symbols): Seq[Identifier] = {
-    (cd +: cd.descendants).filterNot(_.flags contains s.IsAbstract).map(_.id) ++ extraConstructors(cd)
+    (cd +: cd.descendants).filterNot(_.flags contains s.IsAbstract).map(_.id)
   }
 
   private[this] def constructors(id: Identifier)(implicit symbols: s.Symbols): Seq[Identifier] = {
@@ -506,11 +500,9 @@ trait TypeEncoding
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
           case x +: tps =>
             implicit val scope = context.emptyScope.testing(cd.typeArgs zip tps)
-            val extra = extraConstructors(cd)
-            if (cd.children.nonEmpty || extra.nonEmpty) {
+            if (cd.children.nonEmpty) {
               t.orJoin(
-                cd.typed.children.map(ccd => instanceOf(x, cd.typed.toType, ccd.toType)) ++
-                extra.map(t.IsConstructor(x, _))
+                cd.typed.children.map(ccd => instanceOf(x, cd.typed.toType, ccd.toType))
               )
             } else {
               (x is cd.id) &&
@@ -1125,17 +1117,10 @@ trait TypeEncoding
     }
 
     val refSort = new t.ADTSort(refID, Seq(),
-      symbols.classes.values.toSeq.flatMap { cd =>
-        if ((cd.flags contains s.IsAbstract) && !(cd.flags contains s.IsSealed)) {
-          val field = t.ValDef(FreshIdentifier("x"), t.IntegerType().copiedFrom(cd)).copiedFrom(cd)
-          Some(new t.ADTConstructor(cd.id, refID, Seq(field)).copiedFrom(cd))
-        } else if (cd.children.isEmpty) {
-          val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
-          val fields = cd.typed(anys).fields.map(emptyScope.transform _)
-          Some(new t.ADTConstructor(cd.id, refID, fields).copiedFrom(cd))
-        } else {
-          None
-        }
+      symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
+        val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
+        val fields = cd.typed(anys).fields.map(emptyScope.transform _)
+        new t.ADTConstructor(cd.id, refID, fields).copiedFrom(cd)
       } ++ symbols.sorts.values.toSeq.map { sort =>
         new t.ADTConstructor(adt(sort.id), refID, Seq(t.ValDef(
           adtValue(sort.id),
