@@ -16,9 +16,10 @@ trait FieldAccessors extends oo.CachingPhase
   val t: oo.Trees
   import s._
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
-    getDependencyKey(fd.id)(context.symbols)
-  )
+  private def isConcreteAccessor(fd: FunDef): Boolean = {
+    (fd.flags exists { case IsAccessor(_) => true case _ => false }) &&
+    !(fd.flags contains IsAbstract)
+  }
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
@@ -26,17 +27,8 @@ trait FieldAccessors extends oo.CachingPhase
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
-    def isConcreteAccessor(id: Identifier): Boolean = {
-      isConcreteAccessor(symbols.getFunction(id))
-    }
-
-    def isConcreteAccessor(fd: s.FunDef): Boolean = {
-      (fd.flags exists { case s.IsAccessor(_) => true case _ => false }) &&
-      !(fd.flags contains s.IsAbstract)
-    }
-
     override def transform(e: s.Expr): t.Expr = e match {
-      case FunctionInvocation(id, tps, args) if isConcreteAccessor(id) =>
+      case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
         val tfd = symbols.getFunction(id, tps)
         transform(s.exprOps.freshenLocals(
           s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody)))
@@ -53,11 +45,20 @@ trait FieldAccessors extends oo.CachingPhase
 
   override protected type FunctionResult = Option[t.FunDef]
 
+  // The transformation depends on all (transitive) accessors that will be inlined
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
+    (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
+      .flatMap(id => ctx.symbols.lookupFunction(id))
+      .filter(isConcreteAccessor)
+      .map(_.id)
+    )(ctx.symbols)
+  })
+
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd))
+    if (isConcreteAccessor(fd)) None else Some(context.transform(fd))
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
