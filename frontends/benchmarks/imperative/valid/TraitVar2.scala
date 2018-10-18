@@ -20,13 +20,6 @@ object TraitVar2 {
 
   case class ConcreteWithAbstractVar(var prop2: BigInt) extends AbstractWithVar
 
-  case class ConcreteWithUserAccessor(var stuff: BigInt) extends AbstractWithVar {
-    def prop2: BigInt = stuff + 1
-    def prop2_=(abc: BigInt) = {
-      stuff = abc - 1
-    }
-  }
-
   case class NormalVar(var prop3: BigInt) {
     def doStuff3(x3: BigInt) = {
       prop3 = x3
@@ -65,12 +58,6 @@ object TraitVar2 {
   }
 
   def theorem2bis(t: ConcreteWithAbstractVar) = {
-    require(t.prop2 == 42)
-    t.doStuff2(100)
-    assert(t.prop2 == 100)
-  }
-
-  def theorem2bisbis(t: ConcreteWithUserAccessor) = {
     require(t.prop2 == 42)
     t.doStuff2(100)
     assert(t.prop2 == 100)

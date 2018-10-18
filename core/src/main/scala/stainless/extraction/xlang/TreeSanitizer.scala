@@ -17,6 +17,16 @@ trait TreeSanitizer {
 
     val ignored = new CheckIgnoredFields()(symbols, ctx)
     symbols.functions.values foreach ignored.traverse
+
+    // check that setters are only overriden by other setters
+    for {
+      cd <- symbols.classes.values
+      id <- cd.methods(symbols)
+      if !symbols.getFunction(id).isAccessor
+      sid <- symbols.firstSuper(id)
+      if symbols.getFunction(sid).isAccessor
+    } throw MissformedStainlessCode(symbols.getFunction(id),
+      "Cannot override an accessor with a non-accessor method.")
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */

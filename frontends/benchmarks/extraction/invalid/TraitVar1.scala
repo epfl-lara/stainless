@@ -5,23 +5,22 @@ object TraitVar1 {
   sealed trait Foo {
     var prop: BigInt
 
-    def getProp: BigInt
-    def setProp(x: BigInt): Unit
-
     def doStuff(x: BigInt) = {
-      setProp(x)
+      prop = x
     }
   }
 
-  case class Bar(var prop: BigInt) extends Foo {
-    def getProp: BigInt = prop + 1
-    def setProp(y: BigInt): Unit = prop = y * 2
+  case class Bar(var stuff: BigInt) extends Foo {
+    def prop: BigInt = stuff + 1
+    def prop_=(y: BigInt): Unit = {
+      stuff = y * 2
+    }
   }
 
   def theorem(foo: Foo) = {
     require(foo.isInstanceOf[Bar])
     foo.doStuff(2)
-    foo.getProp == 5
+    foo.prop == 5
   }.holds
 
 }
