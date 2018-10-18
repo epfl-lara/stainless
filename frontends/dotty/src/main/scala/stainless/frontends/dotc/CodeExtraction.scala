@@ -445,9 +445,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Inline) Seq(xt.Inline) else Seq()) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
       (if (sym is Final) Seq(xt.Final) else Seq()) ++
-      (if ((sym.isField) || (sym is Lazy)) Seq(xt.IsField(sym is Lazy)) else Seq()) ++
+      (if (!isAbstract && ((sym.isField) || (sym is Lazy))) Seq(xt.IsField(sym is Lazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
-      (if (!(sym is Lazy) && (sym is Accessor)) Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract))) else Seq())
+      (if ((isAbstract && sym.isField) || (!(sym is Lazy) && (sym is Accessor)))
+        Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract)))
+      else Seq())
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
