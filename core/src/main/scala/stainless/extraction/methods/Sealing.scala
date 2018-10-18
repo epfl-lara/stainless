@@ -25,7 +25,9 @@ trait Sealing extends oo.CachingPhase
       !fd.isAccessor &&
       !fd.isInvariant &&
       fd.flags.exists {
-        case IsMethodOf(cid) => !symbols.getClass(cid).isSealed
+        case IsMethodOf(cid) =>
+          val cd = symbols.getClass(cid)
+          cd.isAbstract && !cd.isSealed
         case _ => false
       }
     }
