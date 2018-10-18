@@ -101,7 +101,6 @@ trait InputUtils {
     // Check that extracted symbols are valid
     TreeSanitizer(xt) check syms
 
-
     (units.toSeq.sortBy(_.id.name), inox.Program(xt)(syms))
   }
 
