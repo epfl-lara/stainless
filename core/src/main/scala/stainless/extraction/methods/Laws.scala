@@ -253,7 +253,7 @@ trait Laws
               ).setPos(lawFd)
             ).setPos(lawFd)
           ).setPos(lawFd),
-          Seq(t.IsMethodOf(cd.id), t.Law)
+          Seq(t.IsMethodOf(cd.id), t.Derived(lawFd.id), t.Law)
         ).setPos(cd))
       }
 
