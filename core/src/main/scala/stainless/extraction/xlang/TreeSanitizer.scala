@@ -22,11 +22,11 @@ trait TreeSanitizer {
     for {
       cd <- symbols.classes.values
       id <- cd.methods(symbols)
-      if !symbols.getFunction(id).isAccessor
+      if !symbols.getFunction(id).isSetter
       sid <- symbols.firstSuper(id)
-      if symbols.getFunction(sid).isAccessor
+      if symbols.getFunction(sid).isSetter
     } throw MissformedStainlessCode(symbols.getFunction(id),
-      "Cannot override an accessor with a non-accessor method.")
+      "Cannot override a `var` accessor with a non-accessor method.")
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
