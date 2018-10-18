@@ -53,8 +53,7 @@ class GhostRewriteSuite extends FunSpec {
 
   def ignoreError(i: reporter.Info) = {
     val s = i.toString
-    s.contains("The Z3 native interface is not available") ||
-    (s.contains("match may not be exhaustive") && i.severity == reporter.WARNING)
+    s.contains("The Z3 native interface is not available")
   }
 
   def compileFile(file: String) = {
