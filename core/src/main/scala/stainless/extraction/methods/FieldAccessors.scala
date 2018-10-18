@@ -16,10 +16,7 @@ trait FieldAccessors extends oo.CachingPhase
   val t: oo.Trees
   import s._
 
-  private def isConcreteAccessor(fd: FunDef): Boolean = {
-    (fd.flags exists { case IsAccessor(_) => true case _ => false }) &&
-    !(fd.flags contains IsAbstract)
-  }
+  private def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
