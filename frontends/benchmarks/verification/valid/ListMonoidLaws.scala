@@ -37,7 +37,7 @@ object ListMonoidLaws {
           case Nil() =>
             true
           case Cons(x, xs) =>
-            super.law_associativity(xs, ys, zs)
+            law_associativity(xs, ys, zs)
         }
       }
     }
