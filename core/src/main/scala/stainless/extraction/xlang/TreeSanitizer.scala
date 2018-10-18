@@ -27,6 +27,12 @@ trait TreeSanitizer {
       if symbols.getFunction(sid).isSetter
     } throw MissformedStainlessCode(symbols.getFunction(id),
       "Cannot override a `var` accessor with a non-accessor method.")
+
+    // check that sealed traits have children
+    for {
+      cd <- symbols.classes.values
+      if cd.isAbstract && cd.isSealed && cd.children(symbols).isEmpty
+    } throw MissformedStainlessCode(cd, "Illegal sealed abstract class with no children.")
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
