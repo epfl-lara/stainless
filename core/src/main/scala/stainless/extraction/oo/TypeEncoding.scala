@@ -755,7 +755,13 @@ trait TypeEncoding
         }).copiedFrom(e)
 
       case s.ClassSelector(expr, id) =>
-        convert(t.ADTSelector(transform(expr), id).copiedFrom(e), e.getType, inType)
+        val field = erased(expr.getType).asInstanceOf[s.ClassType].tcd.fields.find(_.id == id).get
+        convert(t.ADTSelector(transform(expr), id).copiedFrom(e), field.getType, inType)
+
+      case s.FieldAssignment(s.IsTyped(obj, ct: s.ClassType), id, rhs) =>
+        val field = erased(ct).tcd.fields.find(_.id == id).get
+        val newAssignment = t.FieldAssignment(transform(obj), id, transform(rhs, field.getType)).copiedFrom(e)
+        convert(newAssignment, e.getType, inType)
 
       case s.IsInstanceOf(expr, tpe) =>
         instanceOf(transform(expr), expr.getType, tpe).copiedFrom(e)
