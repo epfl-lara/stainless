@@ -18,6 +18,8 @@ trait Sealing extends oo.CachingPhase
   import s._
   import s.exprOps._
 
+  private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
+
   protected class TransformerContext(implicit symbols: Symbols) extends MutabilityAnalysis()(symbols) {
     def mustDuplicate(fd: FunDef): Boolean = {
       !fd.isAbstract &&
@@ -31,6 +33,9 @@ trait Sealing extends oo.CachingPhase
         case _ => false
       }
     }
+
+    // We build dummy subclasses for abstract classes that are not sealed
+    def mustAddSubclass(cd: ClassDef) = !cd.isSealed && cd.isAbstract
 
     // Given a (non-sealed) class, we lookup in the ancestors all methods that are
     // not final and not invariants in order to override them in the dummy class
@@ -49,78 +54,6 @@ trait Sealing extends oo.CachingPhase
       symbols.classes.map { case (cid, cd) =>
         cd -> latestNonFinalMethods(cd)
       }
-    }
-
-    // We build dummy subclasses for abstract classes that are not sealed
-    def mustAddSubclass(cd: ClassDef) = !cd.isSealed && cd.isAbstract
-
-    private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
-
-    // Create a dummy subclass for a given (non-sealed) class
-    def buildDummySubclass(cd: ClassDef, accessedFields: Seq[ValDef]): (ClassDef, Map[TypeParameter, TypeParameter]) = {
-      val pos = cd.getPos
-      val mutableFlag = cd.flags.filter(_ == IsMutable)
-      val varFlag = if (mutableFlag.isEmpty) Seq() else Seq(IsVar)
-      val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(pos), varFlag).setPos(pos)
-      val typeArgs = freshenTypeParams(cd.typeArgs)
-      val tparams = typeArgs.map(TypeParameterDef(_))
-      val tpSubst = (cd.typeArgs zip typeArgs).toMap
-      val dummyClass =
-        Substituter(tpSubst).transform(new ClassDef(
-          extID(cd.id),
-          tparams, // same type parameters as `cd`
-          Seq(ClassType(cd.id, typeArgs)), // parent is `cd`
-          Seq(dummyField) ++ accessedFields, // we add fields for the accessors
-          Synthetic +: mutableFlag
-        ).setPos(pos))
-      (dummyClass, tpSubst)
-    }
-
-    // These are the flags that we keep when overriding a method
-    private[this] def overrideKeepFlags(flag: Flag) = flag match {
-      case IsPure => true
-      case Annotation("library", Seq()) => true
-      case _ => false
-    }
-
-    // Create an abstract method for the dummy subclass to override a non-final method
-    def overrideMethod(fid: SymbolIdentifier, cid: Identifier, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.getFunction(fid)
-      val (specs, _) = deconstructSpecs(fd.fullBody)
-      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
-        ast.SymbolIdentifier(fid.symbol),
-        fd.tparams,
-        fd.params,
-        fd.returnType,
-        reconstructSpecs(specs, None, fd.returnType),
-        fd.flags.filter(overrideKeepFlags) ++ Seq(Extern, Derived(fd.id), Synthetic, IsMethodOf(cid))
-      ).setPos(fd)))
-    }
-
-    // For each accessor, we create a concrete accessor that operates on a fresh field
-    def buildSetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.getFunction(fid)
-      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
-        ast.SymbolIdentifier(fid.symbol),
-        fd.tparams,
-        fd.params,
-        fd.returnType,
-        FieldAssignment(This(ct), field.id, fd.params.head.toVariable),
-        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), IsAccessor(Some(field.id)))
-      ).copiedFrom(fd)))
-    }
-
-    // For each accessor, we create a concrete accessor that operates on a fresh field
-    def buildGetter(fid: SymbolIdentifier, ct: ClassType, field: ValDef, tpSubst: Map[TypeParameter, TypeParameter]): FunDef = {
-      val fd = symbols.getFunction(fid)
-      Substituter(tpSubst).transform(exprOps.freshenSignature(new FunDef(
-        ast.SymbolIdentifier(fid.symbol),
-        fd.tparams,
-        fd.params,
-        fd.returnType,
-        ClassSelector(This(ct), field.id),
-        Seq(Synthetic, IsMethodOf(ct.id), Derived(fd.id), Final, IsAccessor(Some(field.id)))
-      ).copiedFrom(fd)))
     }
   }
 
@@ -151,18 +84,6 @@ trait Sealing extends oo.CachingPhase
 
 
   /* ====================================
-   *    Substituter of type parameters
-   * ==================================== */
-
-  case class Substituter(mapping: Map[TypeParameter, TypeParameter]) extends s.SelfTreeTransformer {
-    override def transform(tpe: Type): Type = tpe match {
-      case tp: TypeParameter if mapping contains tp => mapping(tp)
-      case _ => super.transform(tpe)
-    }
-  }
-
-
-  /* ====================================
    *         Extraction of classes
    * ==================================== */
 
@@ -171,7 +92,8 @@ trait Sealing extends oo.CachingPhase
   // For the getters and setters, we create fields and we create concrete
   // setters and getters that operate on those fields.
   override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
-    val syms = context.symbols
+    import context.symbols
+
     val flagsWithMutable = if (context.isMutable(cd))
       (cd.flags :+ IsMutable).distinct
     else
@@ -180,53 +102,104 @@ trait Sealing extends oo.CachingPhase
     if (context.mustAddSubclass(cd)) {
       val newCd = cd.copy(flags = (flagsWithMutable :+ IsSealed).distinct).copiedFrom(cd)
 
+      val typeArgs = freshenTypeParams(cd.typeArgs)
+      val classSubst = (cd.typeArgs zip typeArgs).toMap
+
       // We lookup the latest non-final methods, and split them in three groups:
       // normal methods, setters, and getters
       val lnfm = context.lnfm(cd).toSeq
-      val (accessors, methods) = lnfm.partition(id => syms.getFunction(id).isAccessor)
-      val (setters, getters) = accessors.partition(id => syms.getFunction(id).isSetter)
+      val (accessors, methods) = lnfm.partition(id => symbols.getFunction(id).isAccessor)
 
-      // we drop the '_=' suffix to get the name of the field
-      val settersNames: Map[String, SymbolIdentifier] = setters.map(fid => fid.name.dropRight(2) -> fid).toMap
-      val gettersNames: Map[String, SymbolIdentifier] = getters.map(fid => fid.name -> fid).toMap
+      // we drop the '_=' suffix from the setter name to get the name of the field
+      def fieldName(fd: FunDef): String = if (fd.isSetter) fd.id.name.dropRight(2) else fd.id.name
+      val setterNames = accessors.map(symbols.getFunction(_)).filter(_.isSetter).map(fieldName).toSet
 
-      // For symbols that are referenced by setters, we create var fields
-      val varFields: Map[String, ValDef] =
-        settersNames.map { case (name,fid) =>
-          val setter = syms.getFunction(fid)
-          val Seq(vd) = setter.params
-          name -> VarDef(FreshIdentifier(name), vd.tpe, Seq())
-        }.toMap
+      // For symbols that are referenced by setters, we will create var fields,
+      // and for symbols that are only referenced by getters, we create val fields
+      val fieldAccessors = accessors
+        .map(symbols.getFunction(_))
+        .filter(fd => fd.isSetter || (fd.isGetter && !setterNames(fd.id.name)))
 
-      // For symbols that are only referenced by getters, we create val fields
-      val valFields: Map[String, ValDef] =
-        (gettersNames -- settersNames.keySet).map { case (name,fid) =>
-          val getter = syms.getFunction(fid)
-          val tpe = getter.returnType
-          name -> ValDef(FreshIdentifier(name), tpe, Seq())
-        }.toMap
+      // Return a type instantiator that will substitute the type parameters in the given
+      // function's signature/body by the relevant types based on the new dummy class
+      def getInstantiator(fd: FunDef) = new typeOps.TypeInstantiator(fd.flags.collectFirst {
+        case IsMethodOf(cid) =>
+          val acd = (cd.typed +: cd.ancestors).find(_.id == cid).get
+          (acd.cd.typeArgs zip acd.tps).map { case (tp, tpe) =>
+            tp -> typeOps.instantiateType(tpe, classSubst)
+          }.toMap
+      }.get)
 
-      assert((valFields.keySet & varFields.keySet).isEmpty, "valFields and varFields must be disjoint")
-
-      val allFields = varFields ++ valFields
-
-      // We create the new dummy class with all the fields
-      val (dummyClass, tpSubst) = context.buildDummySubclass(cd, allFields.values.toSeq)
-      val ct = dummyClass.typed(syms).toType
-
-      // We build the concrete accessors to operate on the new fields
-      val newSetters = varFields.map { case (name, vd) => context.buildSetter(settersNames(name), ct, vd, tpSubst) }
-      // For `varFields`, we build a new getter only if there is a already a getter
-      val newGetters1 = varFields.collect {
-        case (name, vd) if gettersNames.contains(name) =>
-          context.buildGetter(gettersNames(name), ct, vd, tpSubst)
+      val fields = fieldAccessors.map { fd =>
+        val id = FreshIdentifier(fieldName(fd))
+        val instantiator = getInstantiator(fd)
+        if (fd.isSetter) {
+          VarDef(id, instantiator.transform(fd.params.head.tpe), Seq()).copiedFrom(fd)
+        } else {
+          ValDef(id, instantiator.transform(fd.returnType), Seq()).copiedFrom(fd)
+        }
       }
-      val newGetters2 = valFields.map { case (name, vd) => context.buildGetter(gettersNames(name), ct, vd, tpSubst) }
+
+      // Create a dummy subclass for the current class
+      val dummyClass: ClassDef = {
+        val varFlag = if (cd.flags contains IsMutable) Seq(IsVar) else Seq()
+        val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(cd), varFlag).setPos(cd)
+        new ClassDef(
+          extID(cd.id),
+          typeArgs.map(tp => TypeParameterDef(tp).copiedFrom(tp)),
+          Seq(ClassType(cd.id, typeArgs).setPos(cd)), // parent is `cd`
+          Seq(dummyField) ++ fields, // we add fields for the accessors
+          (cd.flags.filterNot(_ == IsAbstract) :+ Synthetic).distinct
+        ).setPos(cd)
+      }
+
+      val fieldsByName: Map[String, ValDef] = fields.map(vd => vd.id.name -> vd).toMap
+
+      // For each accessor, we create a concrete accessor that operates on the new synthetic field
+      val newAccessors = accessors.map { id =>
+        val fd = symbols.getFunction(id)
+        val vd = fieldsByName(fieldName(fd))
+        val instantiator = getInstantiator(fd)
+
+        val ct = ClassType(dummyClass.id, cd.typeArgs)
+        instantiator.transform(exprOps.freshenSignature(if (fd.isSetter) {
+          fd.copy(
+            id = ast.SymbolIdentifier(id.symbol),
+            fullBody = FieldAssignment(This(ct), vd.id, fd.params.head.toVariable),
+            flags = Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
+          )
+        } else {
+          fd.copy(
+            id = ast.SymbolIdentifier(id.symbol),
+            fullBody = ClassSelector(This(ct), vd.id),
+            flags = Seq(Synthetic, IsMethodOf(ct.id), Derived(id), Final, IsAccessor(Some(vd.id)))
+          )
+        }))
+      }
+
+      // These are the flags that we keep when overriding a method
+      def overrideKeepFlags(flag: Flag) = flag match {
+        case IsPure => true
+        case Annotation("library", Seq()) => true
+        case _ => false
+      }
 
       // For the normal methods, we create overrides with no body
-      val dummyOverrides = methods.map(fid => context.overrideMethod(fid, dummyClass.id, tpSubst))
+      val dummyOverrides = methods.map { id =>
+        val fd = symbols.getFunction(id)
+        val instantiator = getInstantiator(fd)
+        val (specs, _) = deconstructSpecs(fd.fullBody)
+        instantiator.transform(exprOps.freshenSignature(fd.copy(
+          id = ast.SymbolIdentifier(id.symbol),
+          fullBody = reconstructSpecs(specs, None, fd.returnType),
+          flags = (
+            fd.flags.filter(overrideKeepFlags) ++
+            Seq(Extern, Derived(id), Synthetic, IsMethodOf(dummyClass.id))
+          ).distinct
+        )))
+      }
 
-      (newCd, Some(dummyClass), dummyOverrides ++ newSetters ++ newGetters1 ++ newGetters2)
+      (newCd, Some(dummyClass), dummyOverrides ++ newAccessors)
     }
     else if (context.isMutable(cd))
       (cd.copy(flags = flagsWithMutable).copiedFrom(cd), None, Seq())
