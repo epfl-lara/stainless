@@ -65,7 +65,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
           var res = innerEs
           var rtps = innerTps
           val newPats = for ((ids, vs, es, tps, recons) <- prec) yield {
-            val (currIds, nextIds) = ids.splitAt(ids.size)
+            val (currIds, nextIds) = rids.splitAt(ids.size)
             rids = nextIds
 
             val (currVs, nextVs) = rvs.splitAt(vs.size)

@@ -5,112 +5,40 @@ package extraction
 package innerfuns
 import inox.utils.{NoPosition, Position}
 
-trait Trees extends inlining.Trees { self =>
-
-  case class LocalFunDef(name: ValDef, tparams: Seq[TypeParameterDef], body: Lambda) extends Definition {
-    val id = name.id
-    val flags = name.flags
-
-    override def getPos: Position = super.getPos match {
-      case NoPosition => Position.between(name.getPos, body.getPos)
-      case pos => pos
-    }
-  }
+trait Trees extends inlining.Trees with Definitions { self =>
 
   case class LetRec(fds: Seq[LocalFunDef], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = {
-      if (fds.forall { case LocalFunDef(vd, tparams, body) =>
-        vd.tpe != Untyped && s.isSubtypeOf(body.getType, vd.tpe)
+      if (fds.forall { case fd @ LocalFunDef(_, _, _, _, fullBody, _) =>
+        s.isSubtypeOf(fullBody.getType, fd.getType)
       }) body.getType else Untyped
     }
   }
 
-  case class ApplyLetRec(fun: Variable, tparams: Seq[TypeParameter], tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = fun.tpe match {
-      case FunctionType(from, to) =>
-        val tpMap = (tparams zip tps).toMap
-        val realFrom = from.map(typeOps.instantiateType(_, tpMap))
-        val realTo = typeOps.instantiateType(to, tpMap)
-        checkParamTypes(args.map(_.getType), realFrom, realTo)
-      case _ => Untyped
+  case class ApplyLetRec(
+    id: Identifier,
+    tparams: Seq[TypeParameter],
+    tpe: FunctionType,
+    tps: Seq[Type],
+    args: Seq[Expr]
+  ) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = {
+      val tpMap = (tparams zip tps).toMap
+      val realFrom = tpe.from.map(tpe => typeOps.instantiateType(tpe.getType, tpMap))
+      val realTo = typeOps.instantiateType(tpe.to.getType, tpMap)
+      checkParamTypes(args.map(_.getType), realFrom, realTo)
     }
   }
 
 
-  /** Abstraction over [[FunDef]] and [[LocalFunDef]] to provide a unified interface to both
-    * of them as these are generally not distinguished during program transformations. */
-  sealed abstract class FunAbstraction(
-    val id: Identifier,
-    val tparams: Seq[TypeParameterDef],
-    val params: Seq[ValDef],
-    val returnType: Type,
-    val fullBody: Expr,
-    val flags: Seq[Flag]
-  ) extends Tree {
-    def copy(
-      id: Identifier = id,
-      tparams: Seq[TypeParameterDef] = tparams,
-      params: Seq[ValDef] = params,
-      returnType: Type = returnType,
-      fullBody: Expr = fullBody,
-      flags: Seq[Flag] = flags
-    ): FunAbstraction = to(self)(id, tparams, params, returnType, fullBody, flags)
-
-    def to(t: Trees)(
-      id: Identifier,
-      tparams: Seq[t.TypeParameterDef],
-      params: Seq[t.ValDef],
-      returnType: t.Type,
-      fullBody: t.Expr,
-      flags: Seq[t.Flag]
-    ): t.FunAbstraction
-
-    def toFun: FunDef = asInstanceOf[Outer].fd
-    def toLocal: LocalFunDef = asInstanceOf[Inner].fd
-  }
-
-  case class Outer(fd: FunDef) extends FunAbstraction(
-    fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags) {
-    setPos(fd)
-
-    def to(t: Trees)(
-      id: Identifier,
-      tparams: Seq[t.TypeParameterDef],
-      params: Seq[t.ValDef],
-      returnType: t.Type,
-      fullBody: t.Expr,
-      flags: Seq[t.Flag]
-    ): t.Outer = t.Outer(new t.FunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(fd))
-
-    override def asString(implicit popts: PrinterOptions): String = fd.asString
-  }
-
-  case class Inner(fd: LocalFunDef) extends FunAbstraction(
-    fd.name.id, fd.tparams, fd.body.params, fd.name.tpe.asInstanceOf[FunctionType].to, fd.body.body, fd.name.flags) {
-    setPos(fd.name)
-
-    def to(t: Trees)(
-      id: Identifier,
-      tparams: Seq[t.TypeParameterDef],
-      params: Seq[t.ValDef],
-      returnType: t.Type,
-      fullBody: t.Expr,
-      flags: Seq[t.Flag]
-    ): t.Inner = t.Inner(t.LocalFunDef(
-      t.ValDef(id, t.FunctionType(params.map(_.tpe), returnType).copiedFrom(returnType), flags).copiedFrom(fd.name),
-      tparams,
-      t.Lambda(params, fullBody).copiedFrom(fullBody)
-    ))
-
-    override def asString(implicit popts: PrinterOptions): String = fd.asString
-  }
-
+  /** Abstract over [[FunctionInvocation]] and [[ApplyLetRec]] to provide a unified interface
+    * to both of them as they have strong commonalities. */
   object FunInvocation {
     def unapply(e: Expr): Option[(Identifier, Seq[Type], Seq[Expr], (Identifier, Seq[Type], Seq[Expr]) => Expr)] = e match {
       case FunctionInvocation(id, tps, es) =>
         Some((id, tps, es, FunctionInvocation))
-      case ApplyLetRec(fun, tparams, tps, args) =>
-        Some((fun.id, tps, args, (id, tps, args) => ApplyLetRec(fun.copy(id = id), tparams, tps, args)))
+      case ApplyLetRec(id, tparams, tpe, tps, args) =>
+        Some((id, tps, args, (id, tps, args) => ApplyLetRec(id, tparams, tpe, tps, args)))
       case _ => None
     }
   }
@@ -141,30 +69,23 @@ trait Printer extends inlining.Printer {
 
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
-      defs foreach { case (LocalFunDef(name, tparams, Lambda(args, body))) =>
-        for (f <- name.flags) p"""|@${f.asString(ctx.opts)}
-                                  |"""
-        p"def ${name.id}${nary(tparams, ", ", "[", "]")}"
-        if (args.nonEmpty) p"(${args})"
-
-        p": ${name.tpe.asInstanceOf[FunctionType].to} = $body"
-        p"""|
+      defs foreach { fd =>
+        p"""|$fd
             |"""
       }
 
       p"$body"
 
-    case ApplyLetRec(fun, tparams, tps, args) =>
-      p"${fun.id}${nary(tps, ",", "[", "]")}${nary(args, ", ", "(", ")")}"
+    case ApplyLetRec(id, tparams, tpe, tps, args) =>
+      p"$id${nary(tps, ",", "[", "]")}${nary(args, ", ", "(", ")")}"
 
-    case LocalFunDef(name, tparams, body) =>
-      for (f <- name.flags) p"""|@${f.asString(ctx.opts)}
-                                |"""
+    case LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
+      for (f <- flags) p"""|@${f.asString(ctx.opts)}
+                           |"""
+      p"def ${id}${nary(tparams, ", ", "[", "]")}"
+      if (params.nonEmpty) p"($params)"
 
-      p"def ${name.id}${nary(tparams, ", ", "[", "]")}"
-      if (body.params.nonEmpty) p"(${body.params})"
-      p": ${name.tpe.asInstanceOf[FunctionType].to} = "
-      p"${body.body}"
+      p": $returnType = $fullBody"
 
     case _ => super.ppBody(tree)
   }
@@ -196,27 +117,51 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
 
   override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
     case s.LetRec(defs, body) => (
-      Seq(),
-      defs map (_.name.toVariable),
-      defs.map(_.body) :+ body,
-      defs.flatMap(_.tparams).map(_.tp),
-      Seq(),
-      (_, vs, es, tps, _) => {
-        var restTps = tps
-        t.LetRec(
-          (vs zip es.init zip defs).map { case ((v, e), d) =>
-            val (tps, rest) = restTps splitAt d.tparams.size
-            restTps = rest
-            t.LocalFunDef(v.toVal, tps.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter])), e.asInstanceOf[t.Lambda])
-          },
-          es.last
-        )
+      defs map (_.id),
+      defs flatMap (_.params) map (_.toVariable),
+      (defs map (_.fullBody)) :+ body,
+      defs flatMap (d => (d.tparams map (_.tp)) :+ d.returnType),
+      defs flatMap (_.flags),
+      (ids, vs, es, tps, flags) => {
+        var rvs = vs
+        var rtps = tps
+        var rflags = flags
+
+        val newFds = for {
+          ((fd @ s.LocalFunDef(_, tparams, params, _, _, flags), id), e) <- defs zip ids zip es.init
+        } yield {
+          val (currVs, nextVs) = rvs.splitAt(params.size)
+          rvs = nextVs
+
+          val (currTps, nextTps) = rtps.splitAt(tparams.size + 1)
+          rtps = nextTps
+
+          val (currFlags, nextFlags) = rflags.splitAt(flags.size)
+          rflags = nextFlags
+
+          t.LocalFunDef(
+            id,
+            currTps.init.map(tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter]).copiedFrom(tp)),
+            currVs.map(_.toVal),
+            currTps.last,
+            e,
+            currFlags
+          ).copiedFrom(fd)
+        }
+
+        t.LetRec(newFds, es.last)
       })
 
-    case s.ApplyLetRec(fun, tparams, tps, args) =>
-      (Seq(), Seq(fun), args, tparams ++ tps, Seq(), (_, vs, es, tps, _) => {
+    case s.ApplyLetRec(id, tparams, tpe, tps, args) =>
+      (Seq(id), Seq(), args, (tparams :+ tpe) ++ tps, Seq(), (ids, _, es, tps, _) => {
         val (ntparams, ntps) = tps.splitAt(tparams.size)
-        t.ApplyLetRec(vs.head, ntparams.map(_.asInstanceOf[t.TypeParameter]), ntps, es)
+        t.ApplyLetRec(
+          ids.head,
+          ntparams.map(_.asInstanceOf[t.TypeParameter]),
+          ntps.head.asInstanceOf[t.FunctionType],
+          ntps.tail,
+          es
+        )
       })
 
     case other =>
@@ -237,8 +182,13 @@ trait ExprOps extends extraction.ExprOps {
 
   def innerFunctionCalls(e: Expr) = {
     collect[Identifier] {
-      case ApplyLetRec(fd, _, _, _) => Set(fd.id)
+      case ApplyLetRec(id, _, _, _, _) => Set(id)
       case _ => Set()
     }(e)
+  }
+
+  override def variablesOf(e: Expr): Set[Variable] = e match {
+    case LetRec(fds, body) => variablesOf(body) ++ fds.flatMap(_.freeVariables)
+    case _ => super.variablesOf(e)
   }
 }

@@ -27,11 +27,11 @@ trait ImperativeCodeElimination
     case class State(
       parent: FunDef,
       varsInScope: Set[Variable],
-      localsMapping: Map[Variable, (Seq[TypeParameter], Seq[Variable])]
+      localsMapping: Map[Identifier, (LocalFunDef, Seq[Variable])]
     ) {
       def withVar(vd: ValDef) = copy(varsInScope = varsInScope + vd.toVariable)
-      def withLocal(v: Variable, tparams: Seq[TypeParameter], vars: Seq[Variable]) =
-        copy(localsMapping = localsMapping + (v -> (tparams, vars)))
+      def withLocal(id: Identifier, fd: LocalFunDef, vars: Seq[Variable]) =
+        copy(localsMapping = localsMapping + (id -> (fd, vars)))
     }
 
     //return a "scope" consisting of purely functional code that defines potentially needed
@@ -127,7 +127,8 @@ trait ImperativeCodeElimination
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
 
         case wh @ While(cond, body, optInv) =>
-          val name = ValDef.fresh(parent.id.name + "While", FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
+          val id = FreshIdentifier(parent.id.name + "While")
+          val tpe = FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)
 
           val (specs, without) = deconstructSpecs(body)
           val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
@@ -137,7 +138,7 @@ trait ImperativeCodeElimination
             Seq(reconstructSpecs(otherSpecs, without, body.getType)),
             IfExpr(
               cond,
-              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
               UnitLiteral().copiedFrom(wh)
             ).copiedFrom(wh)
           ).copiedFrom(wh)
@@ -150,21 +151,19 @@ trait ImperativeCodeElimination
             ).copiedFrom(wh)
           ).copiedFrom(wh)
 
-          val fullBody = Lambda(Seq.empty,
-            withPostcondition(
-              withPrecondition(
-                withMeasure(newBody, measure).copiedFrom(wh),
-                Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
-              ).copiedFrom(wh),
-              Some(newPost)
-            ).copiedFrom(wh)
-          )
+          val fullBody = withPostcondition(
+            withPrecondition(
+              withMeasure(newBody, measure).copiedFrom(wh),
+              Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
+            ).copiedFrom(wh),
+            Some(newPost)
+          ).copiedFrom(wh)
 
           toFunction(LetRec(
-            Seq(LocalFunDef(name, Seq(), fullBody).copiedFrom(wh)),
+            Seq(LocalFunDef(id, Seq(), Seq(), UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
             IfExpr(
               cond,
-              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh),
+              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
               UnitLiteral().copiedFrom(wh)
             ).copiedFrom(wh)
           ).copiedFrom(wh))
@@ -206,7 +205,7 @@ trait ImperativeCodeElimination
           )
 
         //a function invocation can update variables in scope.
-        case alr @ ApplyLetRec(fun, tparams, tps, args) if localsMapping contains fun =>
+        case alr @ ApplyLetRec(id, tparams, tpe, tps, args) if localsMapping contains id =>
           val (recArgs, argScope, argFun) = args.foldRight((Seq[Expr](), (body: Expr) => body, Map[Variable, Variable]())) { (arg, acc) =>
             val (accArgs, accScope, accFun) = acc
             val (argVal, argScope, argFun) = toFunction(arg)
@@ -214,11 +213,11 @@ trait ImperativeCodeElimination
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
 
-          val (tparams, modifiedVars) = localsMapping(fun)
-          val newReturnType = TupleType(fun.tpe.asInstanceOf[FunctionType].to +: modifiedVars.map(_.tpe))
-          val newInvoc = ApplyLetRec(
-            fun.copy(tpe = FunctionType(recArgs.map(_.getType) ++ modifiedVars.map(_.tpe), newReturnType)),
-            tparams, tps, recArgs ++ modifiedVars
+          val (fd, modifiedVars) = localsMapping(id)
+          val newReturnType = TupleType(tpe.to +: modifiedVars.map(_.getType))
+          val newInvoc = ApplyLetRec(id, fd.tparams.map(_.tp),
+            FunctionType(tpe.from ++ modifiedVars.map(_.getType), newReturnType).copiedFrom(tpe),
+            tps, recArgs ++ modifiedVars
           ).setPos(alr)
 
           val freshVars = modifiedVars.map(_.freshen)
@@ -257,9 +256,11 @@ trait ImperativeCodeElimination
               val modifiedVars: Seq[Variable] = {
                 val freeVars = variablesOf(inner.fullBody)
                 val transitiveVars = collect[Variable] {
-                  case ApplyLetRec(fun, _, _, _) => state.localsMapping.get(fun).map(p => p._2.toSet).getOrElse(Set())
+                  case ApplyLetRec(id, _, _, _, _) =>
+                    state.localsMapping.get(id).map(_._2.toSet).getOrElse(Set())
                   case _ => Set()
                 } (inner.fullBody)
+
                 (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq
               }
 
@@ -288,9 +289,9 @@ trait ImperativeCodeElimination
                 }
 
                 val (fdRes, fdScope, fdFun) = toFunction(wrappedBody)(State(state.parent, Set(),
-                  state.localsMapping.map { case (v, (tparams, mvs)) =>
-                    (v, (tparams, mvs.map(v => rewritingMap.getOrElse(v, v))))
-                  } + (fd.name.toVariable -> ((fd.tparams.map(_.tp), freshVarDecls)))
+                  state.localsMapping.map { case (v, (fd, mvs)) =>
+                    (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
+                  } + (fd.id -> ((fd, freshVarDecls)))
                 ))
 
                 val newRes = Tuple(fdRes +: freshVarDecls.map(fdFun))
@@ -327,7 +328,7 @@ trait ImperativeCodeElimination
                   returnType = newReturnType
                 )
 
-                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withLocal(fd.name.toVariable, fd.tparams.map(_.tp), modifiedVars))
+                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withLocal(fd.id, fd, modifiedVars))
                 (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).copiedFrom(expr), bodyFun)
               }
 

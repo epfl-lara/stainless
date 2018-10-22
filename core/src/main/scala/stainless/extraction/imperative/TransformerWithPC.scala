@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-trait TransformerWithPC extends transformers.TransformerWithPC {
+trait TransformerWithPC extends innerfuns.TransformerWithPC {
   val s: Trees
   val t: Trees
 

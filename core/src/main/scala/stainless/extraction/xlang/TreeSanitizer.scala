@@ -65,13 +65,15 @@ trait TreeSanitizer {
 
       case e: LetRec =>
         // Traverse LocalFunDef independently
-        e.fds.foreach { case LocalFunDef(name, tparams, lambda) =>
-          traverse(name)
+        e.fds.foreach { case LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
+          traverse(id)
           tparams.foreach(traverse)
-          lambda.params.foreach(traverse)
-          val (specs, body) = exprOps.deconstructSpecs(lambda.body)
+          params.foreach(traverse)
+          traverse(returnType)
+          val (specs, body) = exprOps.deconstructSpecs(fullBody)
           specs.foreach(s => traverse(s.expr))
           body.foreach(traverse)
+          flags.foreach(traverse)
         }
 
         traverse(e.body)

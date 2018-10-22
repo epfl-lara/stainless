@@ -296,7 +296,7 @@ trait EffectsAnalyzer extends CachingPhase {
       case fi @ FunInvocation(id, tps, args, _) =>
         val fun = fi match {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
-          case ApplyLetRec(v, _, _, _) => result.locals(v.id)
+          case ApplyLetRec(id, _, _, _, _) => result.locals(id)
         }
 
         val currentEffects: Set[Effect] = result.effects(fun)

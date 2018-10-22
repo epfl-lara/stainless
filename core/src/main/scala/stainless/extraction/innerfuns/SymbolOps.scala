@@ -2,11 +2,11 @@
 
 package stainless
 package extraction
-package imperative
+package innerfuns
 
 import inox.transformers.{TransformerOp, TransformerWithExprOp, TransformerWithTypeOp}
 
-trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
+trait SymbolOps extends ast.SymbolOps { self: TypeOps =>
   import trees._
   import symbols._
 
@@ -16,9 +16,8 @@ trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
     typeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
   )(implicit pp: PathProvider[P]): TransformerWithPC[P] = {
     new TransformerWithPC[P](path, exprOp, typeOp)
-      with imperative.TransformerWithPC
+      with innerfuns.TransformerWithPC
       with TransformerWithExprOp
       with TransformerWithTypeOp
   }
 }
-

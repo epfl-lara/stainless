@@ -268,20 +268,24 @@ trait TransformerWithType extends TreeTransformer {
     // Inner function expressions
     case s.LetRec(fds, body) =>
       t.LetRec(
-        fds.map { case lfd @ s.LocalFunDef(name, tparams, body) =>
+        fds.map { case lfd @ s.LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
           t.LocalFunDef(
-            transform(name),
+            transform(id),
             tparams map transform,
-            transform(body, name.getType).asInstanceOf[t.Lambda]
+            params map transform,
+            transform(returnType),
+            transform(fullBody, returnType.getType),
+            flags map transform
           ).copiedFrom(lfd)
         },
         transform(body, tpe)
       ).copiedFrom(expr)
-    case s.ApplyLetRec(fun, tparams, tps, args) =>
-      val s.FunctionType(from, _) = s.typeOps.instantiateType(fun.getType, (tparams zip tps).toMap)
+    case s.ApplyLetRec(id, tparams, tpe, tps, args) =>
+      val s.FunctionType(from, _) = s.typeOps.instantiateType(tpe.getType, (tparams zip tps).toMap)
       t.ApplyLetRec(
-        transform(fun.toVal).toVariable,
+        transform(id),
         tparams map (tp => transform(tp).asInstanceOf[t.TypeParameter]),
+        transform(tpe).asInstanceOf[t.FunctionType],
         tps map transform,
         (args zip from) map (p => transform(p._1, p._2.getType))
       ).copiedFrom(expr)

@@ -113,7 +113,7 @@ trait CodeExtraction extends ASTExtractors {
     tparams: Map[Symbol, xt.TypeParameter] = Map(),
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
-    localFuns: Map[Symbol, (xt.ValDef, Seq[xt.TypeParameterDef])] = Map(),
+    localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     isExtern: Boolean = false
   ){
     def union(that: DefContext) = {
@@ -138,8 +138,8 @@ trait CodeExtraction extends ASTExtractors {
       copy(mutableVars = mutableVars + (s -> v))
     }
 
-    def withLocalFun(sym: Symbol, vd: xt.ValDef, tparams: Seq[xt.TypeParameterDef]) = {
-      copy(localFuns = this.localFuns + (sym -> ((vd, tparams))))
+    def withLocalFun(sym: Symbol, id: Identifier, tparams: Seq[xt.TypeParameterDef], tpe: xt.FunctionType) = {
+      copy(localFuns = this.localFuns + (sym -> ((id, tparams, tpe))))
     }
   }
 
@@ -694,18 +694,17 @@ trait CodeExtraction extends ASTExtractors {
       val tparams = extractTypeParams(extparams)(dctx)
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip tparams).toMap)
 
-      val paramTypes = sym.info.paramss.flatten.map { sym =>
-        val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
-        if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe) else ptpe
-      }
-      val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
-      val name = xt.ValDef(
-        getIdentifier(sym),
-        xt.FunctionType(paramTypes, returnType).setPos(sym.pos),
-        annotationsOf(sym)
+      val tparamDefs = tparams.map(tp => xt.TypeParameterDef(tp).copiedFrom(tp))
+
+      val tpe = xt.FunctionType(
+        sym.info.paramss.flatten.map { sym =>
+          val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
+          if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe).setPos(sym.pos) else ptpe
+        },
+        stainlessType(sym.info.finalResultType)(nctx, sym.pos)
       ).setPos(sym.pos)
 
-      dctx.withLocalFun(sym, name, tparams.map(tp => xt.TypeParameterDef(tp)))
+      dctx.withLocalFun(sym, getIdentifier(sym), tparamDefs, tpe)
     }
 
     val (vds, vctx) = es.collect {
@@ -741,9 +740,9 @@ trait CodeExtraction extends ASTExtractors {
         xt.Decreases(xt.tupleWrap(rs), b).setPos(e.pos)
 
       case (d @ ExFunctionDef(sym, tparams, vparams, tpt, rhs)) :: xs =>
-        val (vd, tdefs) = vctx.localFuns(sym)
+        val (id, tdefs, tpe) = vctx.localFuns(sym)
         val fd = extractFunction(sym, tparams, vparams, rhs, typeParams = Some(tdefs.map(_.tp)))(vctx)
-        val letRec = xt.LocalFunDef(vd, tdefs, xt.Lambda(fd.params, fd.fullBody).setPos(d.pos))
+        val letRec = xt.LocalFunDef(id, tdefs, fd.params, fd.returnType, fd.fullBody, fd.flags).setPos(d.pos)
 
         rec(xs) match {
           case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.pos)
@@ -968,9 +967,9 @@ trait CodeExtraction extends ASTExtractors {
       dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
         case Some(builder) => builder().setPos(ex.pos)
         case None => dctx.localFuns.get(sym) match {
-          case Some((vd, tparams)) =>
+          case Some((id, tparams, tpe)) =>
             assert(tparams.isEmpty, "Unexpected application " + ex + " without type parameters")
-            xt.ApplyLetRec(vd.toVariable, Seq.empty, Seq.empty, Seq.empty)
+            xt.ApplyLetRec(id, Seq.empty, tpe, Seq.empty, Seq.empty)
           case None => xt.FunctionInvocation(getIdentifier(sym), Seq.empty, Seq.empty).setPos(ex.pos)
         }
       }
@@ -1148,8 +1147,8 @@ trait CodeExtraction extends ASTExtractors {
         dctx.localFuns.get(sym) match {
           case None =>
             xt.FunctionInvocation(getIdentifier(sym), tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
-          case Some((vd, tparams)) =>
-            xt.ApplyLetRec(vd.toVariable, tparams.map(_.tp), tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
+          case Some((id, tparams, tpe)) =>
+            xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
         }
 
       case Some(lhs) => extractType(lhs) match {

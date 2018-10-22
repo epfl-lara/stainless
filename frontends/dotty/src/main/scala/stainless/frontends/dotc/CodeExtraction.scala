@@ -65,7 +65,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     tparams: Map[Symbol, xt.TypeParameter] = Map(),
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
-    localFuns: Map[Symbol, (xt.ValDef, Seq[xt.TypeParameterDef])] = Map(),
+    localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     isExtern: Boolean = false
   ) {
     def union(that: DefContext) = {
@@ -94,8 +94,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       copy(mutableVars = mutableVars ++ nvars)
     }
 
-    def withLocalFun(sym: Symbol, vd: xt.ValDef, tparams: Seq[xt.TypeParameterDef]) = {
-      copy(localFuns = this.localFuns + (sym -> ((vd, tparams))))
+    def withLocalFun(sym: Symbol, id: Identifier, tparams: Seq[xt.TypeParameterDef], tpe: xt.FunctionType) = {
+      copy(localFuns = this.localFuns + (sym -> ((id, tparams, tpe))))
     }
   }
 
@@ -726,21 +726,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val ntparams = extractTypeParams(extparams)(dctx)
       val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
-      val paramTypes = vparams.map { param =>
-        val ptpe = stainlessType(param.tpe)(nctx, param.pos)
-        param.tpt match {
-          case ByNameTypeTree(_) => xt.FunctionType(Seq(), ptpe)
-          case _ => ptpe
-        }
-      }
-      val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
-      val name = xt.ValDef(
-        getIdentifier(sym),
-        xt.FunctionType(paramTypes, returnType).setPos(sym.pos),
-        annotationsOf(sym)
+      val tparamDefs = ntparams.map(tp => xt.TypeParameterDef(tp).copiedFrom(tp))
+
+      val tpe = xt.FunctionType(
+        vparams.map { param =>
+          val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
+          param.tpt match {
+            case ByNameTypeTree(_) => xt.FunctionType(Seq(), tpe).setPos(param.tpt.pos)
+            case _ => tpe
+          }
+        },
+        stainlessType(sym.info.finalResultType)(nctx, sym.pos)
       ).setPos(sym.pos)
 
-      dctx.withLocalFun(sym, name, ntparams.map(tp => xt.TypeParameterDef(tp)))
+      dctx.withLocalFun(sym, getIdentifier(sym), tparamDefs, tpe)
     }
 
     val (vds, vctx) = es.collect {
@@ -778,9 +777,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         xt.Decreases(measure, b).setPos(e.pos)
 
       case (d @ ExFunctionDef(sym, tparams, params, ret, b)) :: xs =>
-        val (vd, tdefs) = vctx.localFuns(sym)
+        val (id, tdefs, _) = vctx.localFuns(sym)
         val fd = extractFunction(sym, tparams, params, b, typeParams = Some(tdefs.map(_.tp)))(vctx)
-        val letRec = xt.LocalFunDef(vd, tdefs, xt.Lambda(fd.params, fd.fullBody).setPos(d.pos))
+        val letRec = xt.LocalFunDef(id, tdefs, fd.params, fd.returnType, fd.fullBody, fd.flags).setPos(d.pos)
 
         rec(xs) match {
           case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.pos)
@@ -1279,8 +1278,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         dctx.localFuns.get(sym) match {
           case None =>
             xt.FunctionInvocation(getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
-          case Some((name, tparams)) =>
-            xt.ApplyLetRec(name.toVariable, tparams.map(_.tp), tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
+          case Some((id, tparams, tpe)) =>
+            xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
         }
 
       case Some(lhs) => extractType(lhs) match {

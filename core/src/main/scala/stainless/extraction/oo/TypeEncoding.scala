@@ -84,6 +84,9 @@ trait TypeEncoding
    *      WRAPPING AND UNWRAPPING
    * ==================================== */
 
+  private[this] def getField(expr: t.Expr, id: Identifier): t.Expr =
+    t.Annotated(expr.getField(id).copiedFrom(expr), Seq(Unchecked)).copiedFrom(expr)
+
   private[this] def erased[T <: s.Type](tpe: T): T = {
     val s.NAryType(tps, recons) = tpe
     recons(tps.map(tp => s.AnyType().copiedFrom(tp))).copiedFrom(tpe).asInstanceOf[T]
@@ -121,21 +124,21 @@ trait TypeEncoding
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
     case tp: s.TypeParameter => e
-    case s.ADTType(id, tps) => convert(e.getField(adtValue(id)).copiedFrom(e), erased(tpe), tpe)
+    case s.ADTType(id, tps) => convert(getField(e, adtValue(id)), erased(tpe), tpe)
     case s.RefinementType(vd, pred) => unwrap(e, vd.tpe)
     case (_: s.PiType | _: s.SigmaType) => unwrap(e, erased(tpe))
-    case s.FunctionType(from, _) => convert(e.getField(funValue(from.size)).copiedFrom(e), erased(tpe), tpe)
-    case s.TupleType(tps) => convert(e.getField(tplValue(tps.size)).copiedFrom(e), erased(tpe), tpe)
-    case (_: s.ArrayType) => convert(e.getField(arrValue).copiedFrom(e), erased(tpe), tpe)
-    case (_: s.SetType) => convert(e.getField(setValue).copiedFrom(e), erased(tpe), tpe)
-    case (_: s.BagType) => convert(e.getField(bagValue).copiedFrom(e), erased(tpe), tpe)
-    case (_: s.MapType) => convert(e.getField(mapValue).copiedFrom(e), erased(tpe), tpe)
-    case s.BVType(signed, size) => e.getField(bvValue(signed -> size))
-    case s.IntegerType() => e.getField(intValue)
-    case s.BooleanType() => e.getField(boolValue)
-    case s.CharType() => e.getField(charValue)
-    case s.RealType() => e.getField(realValue)
-    case s.StringType() => e.getField(strValue)
+    case s.FunctionType(from, _) => convert(getField(e, funValue(from.size)), erased(tpe), tpe)
+    case s.TupleType(tps) => convert(getField(e, tplValue(tps.size)), erased(tpe), tpe)
+    case (_: s.ArrayType) => convert(getField(e, arrValue), erased(tpe), tpe)
+    case (_: s.SetType) => convert(getField(e, setValue), erased(tpe), tpe)
+    case (_: s.BagType) => convert(getField(e, bagValue), erased(tpe), tpe)
+    case (_: s.MapType) => convert(getField(e, mapValue), erased(tpe), tpe)
+    case s.BVType(signed, size) => getField(e, bvValue(signed -> size))
+    case s.IntegerType() => getField(e, intValue)
+    case s.BooleanType() => getField(e, boolValue)
+    case s.CharType() => getField(e, charValue)
+    case s.RealType() => getField(e, realValue)
+    case s.StringType() => getField(e, strValue)
     case s.UnitType() => t.UnitLiteral()
   }).copiedFrom(e)
 
@@ -789,9 +792,9 @@ trait TypeEncoding
             convert(transform(arg), arg.getType, s.typeOps.instantiateType(vd.tpe, tpSubst))(funScope)
           }).copiedFrom(e), s.typeOps.instantiateType(fun.returnType.getType, tpSubst), inType)(funScope)
 
-      case app @ s.ApplyLetRec(v, tparams, tps, args) =>
-        val funScope = this in v.id
-        val FunInfo(fun, ctparams) = functions(v.id)
+      case app @ s.ApplyLetRec(id, tparams, tpe, tps, args) =>
+        val funScope = this in id
+        val FunInfo(fun, ctparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (ctparams(i)) tp else tpe)
         }.toMap
@@ -800,22 +803,10 @@ trait TypeEncoding
           (ref =>: t.BooleanType().copiedFrom(tp)).copiedFrom(tp)
         }
 
-        val functionType = v.tpe match {
-          case s.PiType(params, to) => t.PiType(
-            nparams.map(tp => t.ValDef.fresh("x", tp, true).copiedFrom(tp)) ++
-            params.map(funScope.transform),
-            funScope.transform(to)
-          ).copiedFrom(v.tpe)
-
-          case s.FunctionType(from, to) => t.FunctionType(
-            nparams ++ from.map(funScope.transform),
-            funScope.transform(to)
-          ).copiedFrom(v.tpe)
-        }
-
         convert(t.ApplyLetRec(
-          t.Variable(v.id, functionType, v.flags.map(funScope.transform)).copiedFrom(v),
+          id,
           tparams.zipWithIndex.collect { case (tp, i) if !ctparams(i) => transform(tp).asInstanceOf[t.TypeParameter] },
+          t.FunctionType(nparams ++ tpe.from.map(funScope.transform), funScope.transform(tpe.to)).copiedFrom(tpe),
           tps.zipWithIndex.collect { case (tp, i) if !ctparams(i) => transform(tp) },
           tps.zipWithIndex.collect {  case (tp, i) if ctparams(i) =>
             simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
@@ -825,8 +816,8 @@ trait TypeEncoding
 
       case s.LetRec(fds, body) =>
         val funs = fds.map(fd => s.Inner(fd))
-        val newFuns = funs.map(fun => scope transform fun)
-        val newBody = scope.transform(body, inType)
+        val newFuns = funs.map(transform(_))
+        val newBody = transform(body, inType)
         t.LetRec(newFuns.map(_.toLocal), newBody).copiedFrom(e)
 
       // push conversions down into branches/leaves

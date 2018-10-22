@@ -2,9 +2,8 @@
 
 package stainless
 package extraction
-package imperative
+package innerfuns
 
-trait TypeOps extends innerfuns.TypeOps {
+trait TypeOps extends ast.TypeOps {
   override protected val trees: Trees
 }
-

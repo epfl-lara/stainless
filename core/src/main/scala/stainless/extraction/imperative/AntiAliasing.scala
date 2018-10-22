@@ -37,33 +37,23 @@ trait AntiAliasing
     // that returns the mutable parameters. This makes explicit all possible
     // effects of the function. This should be used for higher order functions
     // declared as parameters.
-    def makeFunctionTypeExplicit(tpe: FunctionType): FunctionType = {
-      val newReturnTypes = tpe.from.filter(t => isMutableType(t))
-      if (newReturnTypes.isEmpty) tpe
-      else FunctionType(tpe.from, TupleType(tpe.to +: newReturnTypes))
+    def makeFunctionTypeExplicit(tpe: Type): Type = tpe match {
+      case ft @ FunctionType(from, to) =>
+        ft.copy(to = tupleTypeWrap(to +: from.filter(isMutableType)).copiedFrom(to)).copiedFrom(tpe)
+      case pt @ PiType(params, to) =>
+        pt.copy(to = tupleTypeWrap(to +: params.map(_.tpe).filter(isMutableType)).copiedFrom(to)).copiedFrom(tpe)
     }
 
     object transformer extends SelfTreeTransformer {
 
-      // XXX: since LetRec and ApplyLetRec use the fun variable to encode
-      //      the type of the corresponding function, we have to make sure to
-      //      NOT make that first-class function type explicit!!
+      // XXX: since ApplyLetRec stores the type of the corresponding function,
+      //      we have to make sure to NOT make that first-class function type explicit!!
       override def transform(e: Expr): Expr = e match {
-        case LetRec(fds, body) =>
-          LetRec(fds.map { case LocalFunDef(fun, tparams, body) =>
-            val FunctionType(from, to) = fun.tpe
-            LocalFunDef(
-              fun.copy(tpe = FunctionType(from map transform, transform(to))),
-              tparams map transform,
-              transform(body).asInstanceOf[Lambda]
-            )
-          }, transform(body)).copiedFrom(e)
-
-        case ApplyLetRec(fun, tparams, tps, args) =>
-          val FunctionType(from, to) = fun.tpe
+        case ApplyLetRec(id, tparams, tpe, tps, args) =>
           ApplyLetRec(
-            fun.copy(tpe = FunctionType(from map transform, transform(to))),
+            id,
             tparams map (tp => transform(tp).asInstanceOf[TypeParameter]),
+            FunctionType(tpe.from map transform, transform(tpe.to)).copiedFrom(tpe),
             tps map transform,
             args map transform
           ).copiedFrom(e)
@@ -72,7 +62,7 @@ trait AntiAliasing
       }
 
       override def transform(tpe: Type): Type = tpe match {
-        case ft: FunctionType => makeFunctionTypeExplicit(ft)
+        case ft @ (_: FunctionType | _: PiType) => makeFunctionTypeExplicit(ft)
         case _ => super.transform(tpe)
       }
     }
@@ -93,13 +83,13 @@ trait AntiAliasing
       case CheckResult.Error(err) => throw err
     }
 
-    type Environment = (Set[ValDef], Map[ValDef, Expr], Map[ValDef, LocalFunDef])
+    type Environment = (Set[ValDef], Map[ValDef, Expr], Map[Identifier, LocalFunDef])
     implicit class EnvWrapper(env: Environment) {
       val (bindings, rewritings, locals) = env
       def withBinding(vd: ValDef): Environment = (bindings + vd, rewritings, locals)
       def withBindings(vds: Iterable[ValDef]): Environment = (bindings ++ vds, rewritings, locals)
       def withRewritings(map: Map[ValDef, Expr]): Environment = (bindings, rewritings ++ map, locals)
-      def withLocals(fds: Seq[LocalFunDef]): Environment = (bindings, rewritings, locals ++ fds.map(fd => fd.name -> fd))
+      def withLocals(fds: Seq[LocalFunDef]): Environment = (bindings, rewritings, locals ++ fds.map(fd => fd.id -> fd))
     }
 
     object Environment {
@@ -361,16 +351,16 @@ trait AntiAliasing
 
             mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
 
-          case alr @ ApplyLetRec(fun, tparams, tps, args) =>
-            val fd = Inner(env.locals(fun.toVal))
+          case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
+            val fd = Inner(env.locals(id))
             val vis: Set[Variable] = varsInScope(fd)
 
             args.find { case v: Variable => vis.contains(v) case _ => false }
               .foreach(aliasedArg => throw FatalError("Illegal passing of aliased parameter: " + aliasedArg))
 
-            val ntpe = FunctionType(fd.params.map(_.tpe), analysis.getReturnType(fd)).copiedFrom(fun.tpe)
             val nfi = ApplyLetRec(
-              fun.copy(tpe = ntpe).copiedFrom(fun), tparams, tps,
+              id, tparams,
+              FunctionType(fd.params.map(_.getType), analysis.getReturnType(fd)).copiedFrom(tpe), tps,
               args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
             ).copiedFrom(alr)
 
@@ -388,7 +378,8 @@ trait AntiAliasing
 
               val params = from.map(tpe => ValDef.fresh("x", tpe))
               val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Target(Seq())) }
-              mapApplication(params, args, nfi, makeFunctionTypeExplicit(ft).to, appEffects.toSet, env)
+              val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
+              mapApplication(params, args, nfi, to, appEffects.toSet, env)
             } else {
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
