@@ -9,7 +9,7 @@ import scala.language.existentials
 trait PartialFunctions
   extends oo.SimplePhase
      with SimplyCachedFunctions
-     with SimplyCachedSorts
+     with IdentitySorts
      with oo.SimplyCachedClasses { self =>
 
   val t: self.s.type

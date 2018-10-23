@@ -77,6 +77,7 @@ that the corresponding argument is evaluated.
 
 3. termination checking, which takes into account that only one of the paths in an if expression is evaluated for a given truth value of the condition.
 
+.. _adts:
 
 Algebraic Data Types
 --------------------
@@ -296,6 +297,57 @@ Inner Functions
     bar(42)
   }
 
+
+Local and Anonymous Classes
+***************************
+
+Functions and methods can declare local classes, which can close over
+the fields of the enclosing class, as well as the parameters of the enclosing
+function or method.
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = {
+    case class Local() extends Foo {
+      def bar: Int = x
+    }
+    Local()
+  }
+
+.. note:: Functions and methods which return an instance of a local class
+          must have an explicit return type, which will typically be that of the parent class.
+          Otherwise, a structural type will be inferred by the Scala compiler, and those are
+          currently unsupported.
+
+Anonymous classes with an explicit parent are supported as well:
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = new Foo {
+    def bar: Int = x
+  }
+
+.. note:: Anonymous classes cannot declare more public members than their parent class,
+          ie. the following is not supported:
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = new Foo {
+    def bar: Int = x
+    def hi: String = "Hello, world"
+  }
 
 Predefined Types
 ****************

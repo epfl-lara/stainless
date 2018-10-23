@@ -48,8 +48,8 @@ trait Trees extends oo.Trees { self =>
     }
   }
 
-  override val exprOps: ExprOps { val trees: self.type } = new {
-    protected val trees: self.type = self
+  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
+    protected val trees: Trees.this.type = Trees.this
   } with ExprOps
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {

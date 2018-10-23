@@ -168,7 +168,6 @@ trait ExtractionCaches { self: ExtractionContext =>
     def get(key: A, c: TransformerContext): Option[B] = cache.get(gen(key, c))
     def apply(key: A, c: TransformerContext): B = cache(gen(key, c))
 
-
     def invalidate(id: Identifier): Unit =
       this.cache.retain(key => !(key.dependencies contains id))
 

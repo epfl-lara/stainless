@@ -32,6 +32,7 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/invalid/ClassBody.scala",
     "extraction/invalid/Require.scala",
     "extraction/invalid/GhostEffect3.scala",
+<<<<<<< HEAD
     "extraction/invalid/GhostPatmat.scala",
     "extraction/invalid/GhostDafny.scala",
     "extraction/invalid/SuperAbstract.scala",
@@ -39,6 +40,12 @@ class DottyExtractionSuite extends ExtractionSuite {
 
   testExtractAll("dotty-specific/valid")
   testRejectAll("dotty-specific/invalid")
+=======
+    "extraction/invalid/ghost-patmat.scala",
+    "extraction/invalid/ghost-dafny.scala",
+    "extraction/invalid/SuperAbstract.scala",
+    "extraction/invalid/AnonymousClassRefine.scala")
+>>>>>>> Add support for inner classes.
 
 }
 
