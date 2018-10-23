@@ -15,7 +15,7 @@
 import sys
 import os
 
-docauthorlist = u'M. Antognini, R. Blanc, S. Gruetter, L. Hupel, E. Kneuss, M. Koukoutos, V. Kuncak, R. Madhavan, S. Stucki, P. Suter'
+docauthorlist = u'M. Antognini, R. Blanc, S. Gruetter, L. Hupel, E. Kneuss, M. Koukoutos, V. Kuncak, R. Madhavan, R. Ruetschi, S. Stucki, P. Suter, N. Voirol'
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -51,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Stainless'
-copyright = u'2017 (alphabetically) by ' + docauthorlist
+copyright = u'2009-2018 EPFL, Lausanne'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
