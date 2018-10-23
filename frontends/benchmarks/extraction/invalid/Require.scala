@@ -1,5 +1,5 @@
 package test
 
-object Top {
+object Require {
   require(1 > 0) // not allowed inside objects
 }

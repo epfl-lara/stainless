@@ -5,7 +5,7 @@ package utils
 
 import extraction.xlang.{ trees => xt }
 
-import scala.collection.mutable.{ Set => MutableSet }
+import scala.collection.mutable.{ HashSet => MutableSet }
 
 /**
  * [[DependenciesFinder]] find the set of dependencies for a function/class,
@@ -20,12 +20,43 @@ import scala.collection.mutable.{ Set => MutableSet }
  * the class itself.
  */
 class DependenciesFinder {
-  private val deps: MutableSet[Identifier] = MutableSet.empty
-  private val finder = new xt.SelfTreeTraverser {
+
+  private val localClasses = MutableSet.empty[Identifier]
+
+  private def withinLocalClass[A](id: Identifier)(f: => A): A = {
+    localClasses += id
+    val res = f
+    localClasses -= id
+    res
+  }
+
+  private val deps: MutableSet[Identifier] = new MutableSet[Identifier] {
+    override def +=(id: Identifier) = {
+      if (!localClasses.contains(id)) super.+=(id)
+      this
+    }
+  }
+
+  private trait TreeTraverser extends xt.SelfTreeTraverser {
+    def traverse(cd: xt.ClassDef): Unit
+    def traverse(lcd: xt.LocalClassDef): Unit
+    def traverse(mld: xt.LocalMethodDef): Unit
+  }
+
+  private val finder = new TreeTraverser {
+
     override def traverse(e: xt.Expr): Unit = e match {
       case xt.FunctionInvocation(id, _, _) =>
         deps += id
         super.traverse(e)
+
+      case xt.LetClass(lcd, body) =>
+        withinLocalClass(lcd.id) {
+          traverse(lcd)
+          lcd.methods.foreach(traverse)
+          deps --= lcd.methods.map(_.id).toSet
+          traverse(body)
+        }
 
       case xt.MethodInvocation(_, id, _, _) =>
         deps += id
@@ -57,6 +88,22 @@ class DependenciesFinder {
 
       case _ => super.traverse(flag)
     }
+
+    override def traverse(cd: xt.ClassDef): Unit = {
+      cd.tparams foreach traverse
+      cd.parents foreach traverse
+      cd.fields foreach traverse
+      cd.flags foreach traverse
+    }
+
+    override def traverse(lcd: xt.LocalClassDef): Unit = {
+      lcd.tparams foreach traverse
+      lcd.parents foreach traverse
+      lcd.fields foreach traverse
+      lcd.flags foreach traverse
+    }
+
+    override def traverse(lmd: xt.LocalMethodDef): Unit = traverse(lmd.toFunDef)
   }
 
   def apply(fd: xt.FunDef): Set[Identifier] = {
@@ -67,14 +114,10 @@ class DependenciesFinder {
   }
 
   def apply(cd: xt.ClassDef): Set[Identifier] = {
-    cd.tparams foreach finder.traverse
-    cd.parents foreach finder.traverse
-    cd.fields foreach finder.traverse
-    cd.flags foreach finder.traverse
+    finder.traverse(cd)
     deps -= cd.id
 
     deps.toSet
   }
 }
-
 

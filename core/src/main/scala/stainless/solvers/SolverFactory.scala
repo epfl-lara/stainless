@@ -26,7 +26,7 @@ object SolverFactory {
         enc andThen InoxEncoder(enc.targetProgram, ctx)
       )
     } else {
-      sys.error("TODO!")
+      ctx.reporter.fatalError(s"Unknown solver '$name'")
     }
   }
 

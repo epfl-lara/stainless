@@ -38,6 +38,8 @@ trait ASTExtractors {
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
 
+  protected lazy val scalaProductClassSym = classFromName("scala.Product")
+
   protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
 
   protected lazy val setSym       = classFromName("stainless.lang.Set")

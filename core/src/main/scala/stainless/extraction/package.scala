@@ -27,6 +27,7 @@ package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
     "PartialFunctions"          -> "Lift partial function preconditions",
+    "InnerClasses"              -> "Lift inner classes",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperCalls"                -> "Resolve super-function calls",
     "Sealing"                   -> "Seal every class and add mutable flags",
@@ -86,12 +87,13 @@ package object extraction {
     extends Exception(msg)
 
   def pipeline(implicit ctx: inox.Context): StainlessPipeline = {
-    xlang.extractor      andThen
-    methods.extractor    andThen
-    throwing.extractor   andThen
-    oo.extractor         andThen
-    imperative.extractor andThen
-    innerfuns.extractor  andThen
+    xlang.extractor           andThen
+    innerclasses.extractor    andThen
+    methods.extractor         andThen
+    throwing.extractor        andThen
+    oo.extractor              andThen
+    imperative.extractor      andThen
+    innerfuns.extractor       andThen
     inlining.extractor
   }
 

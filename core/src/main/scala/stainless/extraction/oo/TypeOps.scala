@@ -81,6 +81,7 @@ trait TypeOps extends imperative.TypeOps {
     val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet + ct2.id
     val ans1 = (ct1.tcd +: ct1.tcd.ancestors).find(tcd => cd2Ans contains tcd.id)
     val ans2 = (ct2.tcd +: ct2.tcd.ancestors).find(tcd => cd1Ans contains tcd.id)
+    // println((ct1, ct2, ans1, ans2))
     (ans1, ans2) match {
       case (Some(tcd1), Some(tcd2)) =>
         val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {

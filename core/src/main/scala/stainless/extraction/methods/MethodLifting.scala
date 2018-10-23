@@ -45,7 +45,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
       val ids = cd.descendants(symbols).map(_.id).toSet + cd.id
 
       val invariants = symbols.functions.values.filter { fd =>
-        (fd.flags contains s.IsInvariant) &&
+        // (fd.flags contains s.IsInvariant) &&
         (fd.flags exists { case s.IsMethodOf(id) => ids(id) case _ => false })
       }.map(FunctionKey(_)).toSet
 
@@ -118,7 +118,10 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
         funCache.cached(fd, symbols)(default.transform(fd))
       }
 
-    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    val res = t.NoSymbols.withFunctions(functions).withClasses(classes)
+    // println(res.asString(new t.PrinterOptions(printUniqueIds = true, symbols = Some(res))))
+    // res.ensureWellFormed
+    res
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, Override])

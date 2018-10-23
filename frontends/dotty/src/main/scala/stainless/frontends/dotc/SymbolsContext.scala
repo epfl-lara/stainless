@@ -24,6 +24,7 @@ class SymbolsContext {
           } else {
             sym.fullName.toString.trim.split("\\.")
               .filter(_ != "package$")
+              .map(name => if (name.startsWith("~")) name.dropWhile(_ == '~') else name)
               .map(name => if (name.endsWith("$")) name.init else name)
               .mkString(".")
           }
@@ -47,7 +48,9 @@ class SymbolsContext {
     })
   }
 
-  private def getPath(sym: Symbol)(implicit ctx: Context): String = sym.fullName + sym.id.toString
+  private def getPath(sym: Symbol)(implicit ctx: Context): String = {
+    sym.fullName.toString.trim.split("\\.").mkString(".") + sym.id.toString
+  }
 
   /** Mapping from [[Symbol]] (or rather: its path) and the stainless identifier. */
   private val s2i = MutableMap[String, SymbolIdentifier]()
