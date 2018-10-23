@@ -70,6 +70,7 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 |                   | cannot be understood by Stainless, eg. because it comes from   |
 |                   | an external library, the JDK, or some other code which         |
 |                   | does not understand.                                           |
+|                   | See the corresponding :doc:`documentation page <wrap>`.        |
 +-------------------+----------------------------------------------------------------+
 | ``@inline``       | Inline this function. Stainless will refuse to inline          |
 |                   | (mutually) recursive functions.                                |
