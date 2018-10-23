@@ -66,7 +66,10 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 |                   | that are not in Stainless's language but will be               |
 |                   | hard-coded into specialized trees, or to include               |
 |                   | code written in full Scala which is not verifiable             |
-|                   | by Stainless.                                                  |
+|                   | by Stainless. Can also be used on class fields whose type      |
+|                   | cannot be understood by Stainless, eg. because it comes from   |
+|                   | an external library, the JDK, or some other code which         |
+|                   | does not understand.                                           |
 +-------------------+----------------------------------------------------------------+
 | ``@inline``       | Inline this function. Stainless will refuse to inline          |
 |                   | (mutually) recursive functions.                                |
