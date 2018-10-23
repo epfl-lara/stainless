@@ -730,7 +730,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       val tpe = xt.FunctionType(
         vparams.map { param =>
-          val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
+          val tpe = stainlessType(param.tpe)(nctx, param.tpt.pos)
           param.tpt match {
             case ByNameTypeTree(_) => xt.FunctionType(Seq(), tpe).setPos(param.tpt.pos)
             case _ => tpe
