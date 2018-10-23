@@ -267,7 +267,7 @@ Induction
 *********
 
 The vast majority of functional programs are written as functions over
-:ref:`adts` (ADTs), and consequently, Stainless comes with some special
+:ref:`ADTs <purescala>`, and consequently, Stainless comes with some special
 support for verifying properties of ADTs.  Among other things, Stainless
 provides an annotation ``@induct``, which can be used to automatically
 prove postconditions of recursive functions defined on ADTs by way of
