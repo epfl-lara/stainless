@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object Main {
+object OldInMeasure {
   def f(x: Int): Int = {
     decreases(old(x))
     x

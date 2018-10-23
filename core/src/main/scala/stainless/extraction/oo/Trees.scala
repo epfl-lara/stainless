@@ -248,24 +248,63 @@ trait ExprOps extends imperative.ExprOps {
   protected val trees: Trees
   import trees._
 
-  override def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {
-    class Freshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
-      val s: trees.type = trees
-      val t: trees.type = trees
+  protected class TypeFreshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
+    val s: trees.type = trees
+    val t: trees.type = trees
 
-      override def transform(tpe: s.Type): t.Type = tpe match {
-        case tp: TypeParameter if mapping contains tp => mapping(tp)
-        case _ => super.transform(tpe)
-      }
+    override def transform(tpe: s.Type): t.Type = tpe match {
+      case tp: TypeParameter if mapping contains tp => mapping(tp)
+      case _ => super.transform(tpe)
     }
+  }
 
+  override def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = {
     val tpMap = tps.foldLeft(Map[TypeParameter, TypeParameter]()) { case (tpMap, tp) =>
-      val freshener = new Freshener(tpMap)
+      val freshener = new TypeFreshener(tpMap)
       val freshTp = freshener.transform(tp.freshen).asInstanceOf[TypeParameter]
       tpMap + (tp -> freshTp)
     }
 
     tps.map(tpMap)
+  }
+
+  /** Freshen the type parameters, fields and methods of the given [[ClassDef]]. */
+  def freshenClass(cd: ClassDef, methods: Seq[FunDef]): (ClassDef, Seq[FunDef]) = {
+    val typeArgs = freshenTypeParams(cd.typeArgs)
+    val tpSubst = (cd.typeArgs zip typeArgs).toMap
+
+    val (fieldSubst, fields) = cd.fields
+      .map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
+      .foldLeft((Map[Identifier, ValDef](), Seq[ValDef]())) { case ((paramSubst, params), vd) =>
+        val nvd = ValDef(vd.id.freshen, vd.tpe, vd.flags).copiedFrom(vd)
+        (paramSubst + (vd.id -> nvd), params :+ nvd)
+      }
+
+    val freshener = new TypeFreshener(tpSubst) {
+      override def transform(e: Expr): Expr = e match {
+        case ClassSelector(rec, id) if fieldSubst contains id =>
+          ClassSelector(transform(rec), fieldSubst(id).id).copiedFrom(e)
+
+        case FieldAssignment(rec, id, value) if fieldSubst contains id =>
+          FieldAssignment(transform(rec), fieldSubst(id).id, transform(value)).copiedFrom(e)
+
+        case _ => super.transform(e)
+      }
+    }
+
+    val freshCd = new ClassDef(
+      cd.id,
+      typeArgs.map(TypeParameterDef(_)),
+      cd.parents.map(ct => typeOps.instantiateType(ct, tpSubst).asInstanceOf[ClassType]),
+      fields,
+      cd.flags
+    ).copiedFrom(cd)
+
+    val freshMethods = methods map { fd =>
+      freshenSignature(freshener.transform(fd))
+    }
+
+    (freshCd, freshMethods)
   }
 }
 

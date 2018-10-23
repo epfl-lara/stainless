@@ -44,7 +44,7 @@ trait Definitions extends imperative.Trees { self: Trees =>
     def typeArgs = tparams map (_.tp)
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
-    def typed(implicit s: Symbols): TypedClassDef = typed(tparams.map(_.tp))
+    def typed(implicit s: Symbols): TypedClassDef = typed(typeArgs)
 
     def copy(
       id: Identifier = this.id,

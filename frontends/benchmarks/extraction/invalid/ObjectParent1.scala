@@ -1,3 +1,5 @@
 
-abstract class Foo
-object bar extends Foo
+object ObjectParent1 {
+  abstract class Foo
+  object bar extends Foo
+}

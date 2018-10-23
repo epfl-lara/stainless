@@ -78,10 +78,10 @@ trait Trees extends throwing.Trees { self =>
             acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol)
         }
 
-        if (remainingAbstract.nonEmpty) {
-          throw NotWellFormedException(cd,
-            Some("Abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
-        }
+        // if (remainingAbstract.nonEmpty) {
+        //   throw NotWellFormedException(cd,
+        //     Some("Abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
+        // }
       }
 
       // Check that method overrides are well-typed
@@ -155,6 +155,12 @@ trait Trees extends throwing.Trees { self =>
   }
 
   implicit class FunDefWrapper(fd: FunDef) {
+    def isMethod: Boolean =
+      fd.flags exists { case IsMethodOf(_) => true case _ => false }
+
+    def getClassId: Option[Identifier] =
+      fd.flags collectFirst { case IsMethodOf(id) => id }
+
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
     def isField: Boolean =
@@ -165,6 +171,7 @@ trait Trees extends throwing.Trees { self =>
 
     def isFinal: Boolean = fd.flags contains Final
     def isAbstract: Boolean = fd.flags contains IsAbstract
+
     def isInvariant: Boolean = fd.flags contains IsInvariant
     def isLaw: Boolean = fd.flags contains Law
   }
@@ -177,6 +184,10 @@ trait Trees extends throwing.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
+}
+
+trait ExprOps extends throwing.ExprOps {
+  protected val trees: Trees
 }
 
 trait Printer extends throwing.Printer {

@@ -264,15 +264,19 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           super.traverse(od)
 
         case ClassDef(mods, name, tparams, impl) =>
-          if (!sym.isAbstractClass
-            && !sym.isCaseClass
-            && !sym.isModuleClass
-            && !sym.isImplicit
-            && !sym.isNonBottomSubClass(definitions.AnnotationClass))
-            reportError(tree.pos, "Only abstract classes, case classes and objects are allowed in Stainless.")
+          val isSupported = {
+            sym.isAbstractClass ||
+            sym.isCaseClass ||
+            sym.isModuleClass ||
+            sym.isAnonymousClass ||
+            sym.isImplicit ||
+            sym.isNonBottomSubClass(definitions.AnnotationClass)
+          }
+
+          if (!isSupported)
+            reportError(tree.pos, "Only abstract classes, case classes, anonymous classes, and objects are allowed in Stainless.")
 
           val parents = impl.parents.map(_.tpe).filterNot(ignoredClasses)
-
           if (parents.length > 1)
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
 

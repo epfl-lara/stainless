@@ -13,5 +13,4 @@ object IgnoredFieldNonExtern2 {
   def wrong2(foo: Foo): Boolean = {
     foo.bar == foo.bar
   }
-
 }
