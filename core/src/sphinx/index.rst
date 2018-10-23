@@ -18,6 +18,7 @@ Contents:
    purescala
    library
    imperative
+   laws
    verification
    neon
    limitations
