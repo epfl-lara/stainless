@@ -193,7 +193,7 @@ trait VerificationChecker { self =>
     val s = sf.getNewSolver
 
     try {
-      val cond = simplifyLets(simplifyAssertions(vc.condition))
+      val cond = simplifyExpr(vc.condition)
       reporter.synchronized {
         reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
         reporter.debug(cond.asString)
