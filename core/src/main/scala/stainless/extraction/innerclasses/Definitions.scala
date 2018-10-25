@@ -41,8 +41,10 @@ trait Definitions extends methods.Trees { self: Trees =>
   }
 
   object LocalClassDef {
+    // Note: Only to be used during extraction from Scala/Dotty trees
     def apply(cd: ClassDef, methods: Seq[FunDef]): LocalClassDef = {
-      LocalClassDef(cd.id, cd.tparams, cd.parents, cd.fields, methods.map(_.toLocalMethodDef), cd.flags).copiedFrom(cd)
+      LocalClassDef(cd.id, cd.tparams, cd.parents,
+        cd.fields, methods.map(LocalMethodDef(_)), cd.flags).copiedFrom(cd)
     }
   }
 
@@ -58,12 +60,8 @@ trait Definitions extends methods.Trees { self: Trees =>
   }
 
   object LocalMethodDef {
+    // Note: Only to be used during extraction from Scala/Dotty trees
     def apply(fd: FunDef): LocalMethodDef =
       LocalMethodDef(fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags).copiedFrom(fd)
   }
-
-  implicit class FunDefLocalOps(val fd: FunDef) {
-    def toLocalMethodDef: LocalMethodDef = LocalMethodDef(fd)
-  }
-
 }

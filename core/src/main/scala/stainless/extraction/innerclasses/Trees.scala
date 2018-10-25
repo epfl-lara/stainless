@@ -66,7 +66,7 @@ trait Printer extends methods.Printer {
   import trees._
 
   protected def localMethods(methods: Seq[LocalMethodDef]): PrintWrapper = {
-    implicit pctx: PrinterContext => withSymbols(methods.map(fd => Left(fd.toFunDef)), "def")
+    implicit pctx: PrinterContext => withSymbols(methods.map(fd => Left(fd)), "def")
   }
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
@@ -78,6 +78,20 @@ trait Printer extends methods.Printer {
       p"""| {
           |  ${localMethods(cd.methods)}
           |}"""
+
+    case fd: LocalMethodDef =>
+      for (an <- fd.flags) {
+        p"""|@${an.asString(ctx.opts)}
+            |"""
+      }
+
+      p"def ${fd.id}${nary(fd.tparams, ", ", "[", "]")}"
+      if (fd.params.nonEmpty) {
+        p"(${fd.params})"
+      }
+
+      p": ${fd.returnType} = "
+      p"${fd.fullBody}"
 
     case LetClass(lcd, body) =>
       p"""|$lcd
@@ -121,16 +135,75 @@ trait Printer extends methods.Printer {
   }
 }
 
-trait TreeTransformer extends oo.TreeTransformer {
+trait DefinitionTransformer extends oo.DefinitionTransformer {
   val s: Trees
-  val t: methods.Trees
+  val t: Trees
+
+  def transform(lcd: s.LocalClassDef): t.LocalClassDef = {
+    val env = initEnv
+
+    t.LocalClassDef(
+      transform(lcd.id, env),
+      lcd.tparams.map(transform(_, env)),
+      lcd.parents.map(transform(_, env)),
+      lcd.fields.map(transform(_, env)),
+      lcd.methods.map(transform(_, env)),
+      lcd.flags.map(transform(_, env))
+    ).copiedFrom(lcd)
+  }
+
+  def transform(lmd: s.LocalMethodDef): t.LocalMethodDef = {
+    transform(lmd, initEnv)
+  }
+
+  def transform(lmd: s.LocalMethodDef, env: Env): t.LocalMethodDef = {
+    t.LocalMethodDef(
+      transform(lmd.id, env),
+      lmd.tparams.map(transform(_, env)),
+      lmd.params.map(transform(_, env)),
+      transform(lmd.returnType, env),
+      transform(lmd.fullBody, env),
+      lmd.flags.map(transform(_, env))
+    ).copiedFrom(lmd)
+  }
 }
+
+trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
+
+trait DefinitionTraverser extends oo.DefinitionTraverser {
+  val trees: Trees
+  import trees._
+
+  def traverse(lcd: LocalClassDef): Unit = {
+    val env = initEnv
+
+    traverse(lcd.id, env)
+    lcd.tparams.foreach(traverse(_, env))
+    lcd.parents.foreach(traverse(_, env))
+    lcd.fields.foreach(traverse(_, env))
+    lcd.methods.foreach(traverse(_, env))
+    lcd.flags.foreach(traverse(_, env))
+  }
+
+  def traverse(lmd: LocalMethodDef): Unit = {
+    traverse(lmd, initEnv)
+  }
+
+  def traverse(lmd: LocalMethodDef, env: Env): Unit = {
+    traverse(lmd.id, env)
+    lmd.tparams.map(traverse(_, env))
+    lmd.params.map(traverse(_, env))
+    traverse(lmd.returnType, env)
+    traverse(lmd.fullBody, env)
+    lmd.flags.map(traverse(_, env))
+  }
+}
+
+trait TreeTraverser extends transformers.TreeTraverser with DefinitionTraverser
 
 trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   protected val s: Trees
   protected val t: Trees
-
-  import t.FunDefLocalOps
 
   object transformer extends TreeTransformer {
     val s: self.s.type = self.s
@@ -162,7 +235,7 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
             lcd.tparams.map(transformer.transform),
             parents,
             vars.map(_.toVal),
-            lcd.methods.map(fd => transformer.transform(fd.toFunDef).toLocalMethodDef),
+            lcd.methods.map(fd => transformer.transform(fd)),
             flags
           )
 
