@@ -187,8 +187,9 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
     }
     val tpMap = (cd.typeArgs zip tpSeq).toMap
 
-    val tcd = s.ClassType(cid, tpSeq).tcd(symbols).copiedFrom(cd)
-    val arg = t.ValDef(FreshIdentifier("thiss"), identity.transform(tcd.toType)).copiedFrom(tcd)
+    val ct = s.ClassType(cid, tpSeq).copiedFrom(cd)
+    val tcd = ct.tcd(symbols)
+    val arg = t.ValDef(FreshIdentifier("thiss"), identity.transform(ct)).copiedFrom(cd)
 
     object transformer extends BaseTransformer(symbols) {
       override def transform(e: s.Expr): t.Expr = e match {
@@ -210,7 +211,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
     val subCalls = (for (co <- cos) yield {
       firstOverrides(co).map { case (cid, nfd) =>
         val descendant = tcd.descendants.find(_.id == cid).get
-        val descType = identity.transform(descendant.toType).asInstanceOf[t.ClassType]
+        val descType = identity.transform(descendant.toType.copiedFrom(nfd)).asInstanceOf[t.ClassType]
 
         def unchecked(expr: t.Expr): t.Expr = t.Annotated(expr, Seq(t.Unchecked)).copiedFrom(expr)
         val thiss = unchecked(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg))

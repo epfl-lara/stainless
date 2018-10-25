@@ -184,8 +184,8 @@ trait AdtSpecialization
           import t.dsl._
 
           val objectFunction = if (isCaseObject(cd.id)) {
-            val vd = t.ValDef.fresh("v", t.ADTType(root(cd.id), cd.typeArgs map (tp => context.transform(tp))))
-            val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, cd.id))
+            val vd = t.ValDef.fresh("v", t.ADTType(root(cd.id), cd.typeArgs map (transform(_))).setPos(cd)).setPos(cd)
+            val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, cd.id).setPos(cd)).setPos(cd)
             Some(mkFunDef(caseObject(cd.id), t.Inline, t.Derived(cd.id))()(_ => (
               Seq(),
               returnType,
