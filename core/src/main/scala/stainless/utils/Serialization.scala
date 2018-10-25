@@ -148,6 +148,12 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[IsMethodOf]      (217),
       classSerializer[IsAccessor]      (231),
 
+      classSerializer[MutableMapType]         (232),
+      classSerializer[MutableMapWithDefault]  (233),
+      classSerializer[MutableMapApply]        (234),
+      classSerializer[MutableMapUpdate]       (235),
+      classSerializer[MutableMapUpdated]      (236),
+
       // XLang trees
       classSerializer[Ignore.type](218),
       classSerializer[Import]     (219),

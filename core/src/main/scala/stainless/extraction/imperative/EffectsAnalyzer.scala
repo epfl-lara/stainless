@@ -161,6 +161,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   case class ADTFieldAccessor(selector: Identifier) extends Accessor
   case class ClassFieldAccessor(selector: Identifier) extends Accessor
   case class ArrayAccessor(index: Expr) extends Accessor
+  case class MutableMapAccessor(index: Expr) extends Accessor
 
   case class Path(path: Seq[Accessor]) {
     def :+(elem: Accessor): Path = Path(path :+ elem)
@@ -181,6 +182,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case ArrayAccessor(idx) +: xs =>
           rec(ArraySelect(expr, idx), xs)
 
+        case MutableMapAccessor(idx) +: xs =>
+          rec(MutableMapApply(expr, idx), xs)
+
         case Seq() =>
           Some(expr)
       }
@@ -197,6 +201,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           rec(xs1, xs2)
         case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
+        case (MutableMapAccessor(_) +: xs1, MutableMapAccessor(_) +: xs2) =>
+          rec(xs1, xs2)
         case _ => false
       }
 
@@ -211,6 +217,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case ADTFieldAccessor(id) => s".${id.asString}"
         case ClassFieldAccessor(id) => s".${id.asString}"
         case ArrayAccessor(idx) => s"(${idx.asString})"
+        case MutableMapAccessor(idx) => s"(${idx.asString})"
       }.mkString("")
 
     override def toString: String = asString
@@ -270,7 +277,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ADTSelector(e, id) => rec(e, ADTFieldAccessor(id) +: path)
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
-
+      case MutableMapApply(a, idx) => rec(a, MutableMapAccessor(idx) +: path)
       case ADT(id, _, args) => path match {
         case ADTFieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
@@ -385,6 +392,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
         effect(o, env).map(_ + ArrayAccessor(idx))
+
+      case MutableMapUpdate(map, key, value) =>
+        rec(map, env) ++ rec(key, env) ++ rec(value, env) ++
+        effect(map, env).map(_ + MutableMapAccessor(key))
 
       case FieldAssignment(o, id, v) =>
         val accessor = o.getType match {
