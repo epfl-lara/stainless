@@ -28,7 +28,7 @@ trait FieldAccessors extends oo.CachingPhase
       case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
         val tfd = symbols.getFunction(id, tps)
         transform(s.exprOps.freshenLocals(
-          s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody).copiedFrom(tfd.fullBody)).copiedFrom(tfd.fullBody))
+          s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody)))
       case other => super.transform(other)
     }
 
@@ -36,7 +36,7 @@ trait FieldAccessors extends oo.CachingPhase
       super.transform(fd.copy(flags = fd.flags.filter {
         case IsAccessor(_) | IsAbstract => false
         case _ => true
-      }).copiedFrom(fd))
+      }))
     }
   }
 
