@@ -177,18 +177,19 @@ trait Sealing extends oo.CachingPhase
         val instantiator = getInstantiator(fd)
 
         val ct = ClassType(dummyClass.id, cd.typeArgs)
+        val tthis = This(ct).setPos(fd.fullBody)
         val newFlags = fd.flags.filterNot(overrideDiscardFlag) ++
           Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
         instantiator.transform(exprOps.freshenSignature(if (fd.isSetter) {
           fd.copy(
             id = ast.SymbolIdentifier(id.symbol),
-            fullBody = FieldAssignment(This(ct), vd.id, fd.params.head.toVariable),
+            fullBody = FieldAssignment(tthis, vd.id, fd.params.head.toVariable).setPos(fd.fullBody),
             flags = newFlags
           )
         } else {
           fd.copy(
             id = ast.SymbolIdentifier(id.symbol),
-            fullBody = ClassSelector(This(ct), vd.id),
+            fullBody = ClassSelector(tthis, vd.id).setPos(fd.fullBody),
             flags = newFlags
           )
         }))
