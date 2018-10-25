@@ -215,6 +215,15 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
   )
   .settings(artifactSettings, publishMavenSettings)
 
+lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainless-scalac-standalone")
+  .enablePlugins(JavaAppPackaging)
+  .settings(
+    name := "stainless-scalac-standalone",
+    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar")
+  )
+  .dependsOn(`stainless-scalac`)
+  .settings(artifactSettings)
+
 lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
   .disablePlugins(AssemblyPlugin)
   .settings(name := "stainless-dotty-frontend")
