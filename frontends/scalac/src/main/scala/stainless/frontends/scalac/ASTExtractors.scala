@@ -33,7 +33,7 @@ trait ASTExtractors {
    * practice, however, it seems to work.
    */
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[Tree])] = {
-    val actualSymbol = sym.accessedOrSelf
+    val actualSymbol = sym.accessedOrSelf.orElse(sym)
     val selfs = actualSymbol.annotations
     val owners = if (ignoreOwner) Set.empty else actualSymbol.owner.annotations
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
