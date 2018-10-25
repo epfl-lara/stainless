@@ -92,7 +92,7 @@ trait VerificationChecker { self =>
         val simplifiedVC: VC = (vc.copy(
           condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))
         ): VC).setPos(vc)
-        val sf = getFactoryForVC(simplifiedVC)
+        val sf = getFactoryForVC(vc)
         val res = checkVC(simplifiedVC, sf)
 
         val shouldStop = stopWhen(res)
@@ -104,7 +104,7 @@ trait VerificationChecker { self =>
         }
 
         if (interruptManager.isInterrupted) interruptManager.reset()
-        Some(simplifiedVC -> res)
+        Some(vc -> res)
       }
     }).map(_.flatten)
 
