@@ -140,7 +140,7 @@ trait InnerClasses
      *  and store the resulting substitutions in `result`
       */
     def liftLocalClasses(fd: FunDef, context: Context): List[ClassSubst] = {
-      class LocalClassCollector(context: Context) extends stainless.transformers.TransformerWithPC {
+      class LocalClassCollector(context: Context) extends imperative.TransformerWithPC {
         val s: self.s.type = self.s
         val t: self.s.type = self.s
 
