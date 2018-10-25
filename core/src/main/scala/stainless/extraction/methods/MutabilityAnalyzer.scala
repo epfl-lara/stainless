@@ -53,6 +53,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
     private val mutableClasses: Set[Identifier] = {
       val initialClasses = symbols.classes.values.filter { cd =>
         (cd.flags contains IsMutable) || // class is marked as mutable
+        (cd.flags contains Extern) && !(cd.flags contains IsPure) || // class is marked as extern but not pure
         (cd.methods exists (fid => symbols.getFunction(fid).isSetter)) // class contains a setter
       }.map(_.id).toSet
 
