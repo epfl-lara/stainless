@@ -38,6 +38,22 @@ trait PositionChecker { self: DebugPipeline =>
 
       super.traverse(e)
     }
+
+    override def traverse(tpe: Type): Unit = {
+      implicit val debugSection = DebugSectionPositions
+
+      if (!tpe.getPos.isDefined) {
+        context.reporter.debug(
+          NoPosition,
+          s"After $name: Missing position for type '$tpe' (of type ${tpe.getClass})." +
+          s"Last known position: $lastKnownPosition"
+        )
+      } else {
+        lastKnownPosition = tpe.getPos
+      }
+
+      super.traverse(tpe)
+    }
   }
 }
 
