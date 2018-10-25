@@ -42,8 +42,6 @@ trait VerificationCache extends VerificationChecker { self =>
   override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
 
-    val simplifiedCondition = simplifyExpr(vc.condition)
-
     // NOTE This algorithm is not 100% perfect: it is possible that two equivalent VCs in
     //      the same program are both computed concurrently (contains return false twice),
     //      and both added to the cache. Assuming the VC result is always the same, the
@@ -53,7 +51,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
     val (time, tryResult) = timers.verification.cache.runAndGetTime {
       val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
-        utils.Canonization(program)(program.symbols, simplifiedCondition)
+        utils.Canonization(program)(program.symbols, vc.condition)
 
       val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
@@ -61,7 +59,7 @@ trait VerificationCache extends VerificationChecker { self =>
         reporter.synchronized {
           reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
           reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
-          reporter.debug(simplifiedCondition)(DebugSectionCacheHit)
+          reporter.debug(vc.condition)(DebugSectionCacheHit)
           reporter.debug("--------------")(DebugSectionCacheHit)
         }
         VCResult(VCStatus.ValidFromCache, None, None)
@@ -71,7 +69,7 @@ trait VerificationCache extends VerificationChecker { self =>
           reporter.ifDebug { debug =>
             implicit val debugSection = DebugSectionCacheMiss
             debug("Cache miss for VC")
-            debug(simplifiedCondition)
+            debug(vc.condition)
 
             implicit val printerOpts = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))
             debug("Canonical symbols:")
