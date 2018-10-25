@@ -1,5 +1,5 @@
 import stainless.annotation._
 
-trait TT {
+trait AccessorFlags {
   @ghost var x: BigInt
 }

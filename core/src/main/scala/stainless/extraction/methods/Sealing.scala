@@ -114,11 +114,7 @@ trait Sealing extends oo.CachingPhase
       def fieldName(fd: FunDef): String = if (fd.isSetter) fd.id.name.dropRight(2) else fd.id.name
       val setterNames = accessors.map(symbols.getFunction(_)).filter(_.isSetter).map(fieldName).toSet
 
-      // For symbols that are referenced by setters, we will create var fields,
-      // and for symbols that are only referenced by getters, we create val fields
-      val fieldAccessors = accessors
-        .map(symbols.getFunction(_))
-        .filter(fd => fd.isSetter || (fd.isGetter && !setterNames(fd.id.name)))
+      val getters = accessors.map(symbols.getFunction(_)).filter(_.isGetter)
 
       // Return a type instantiator that will substitute the type parameters in the given
       // function's signature/body by the relevant types based on the new dummy class
@@ -144,14 +140,16 @@ trait Sealing extends oo.CachingPhase
         case _ => false
       }
 
-      val fields = fieldAccessors.map { fd =>
-        val id = FreshIdentifier(fieldName(fd))
-        val instantiator = getInstantiator(fd)
+      // For symbols that are referenced by setters, we will create var fields,
+      // and for symbols that are only referenced by getters, we create val fields
+      val fields = getters.map { fd =>
+        val id = fd.id.freshen
+        val tpe = getInstantiator(fd).transform(fd.returnType)
         val flags = fd.flags.filter(fieldKeepFlag)
-        if (fd.isSetter) {
-          VarDef(id, instantiator.transform(fd.params.head.tpe), flags).copiedFrom(fd)
+        if (setterNames(fd.id.name)) {
+          VarDef(id, tpe, flags).copiedFrom(fd)
         } else {
-          ValDef(id, instantiator.transform(fd.returnType), flags).copiedFrom(fd)
+          ValDef(id, tpe, flags).copiedFrom(fd)
         }
       }
 
