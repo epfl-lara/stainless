@@ -32,6 +32,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
       def rec(tpe: Type, seen: Set[Identifier]): Boolean = tpe match {
         case tp: TypeParameter => tp.flags contains IsMutable
         case arr: ArrayType => true
+        case map: MutableMapType => true
         case ClassType(cid, _) if mutableClasses(cid) => true
         case ClassType(cid, _) if seen(cid) => false
         // We don't need to check for mutable fields here, as at this point every

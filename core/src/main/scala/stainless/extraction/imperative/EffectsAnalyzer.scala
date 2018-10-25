@@ -150,6 +150,7 @@ trait EffectsAnalyzer extends CachingPhase {
   sealed abstract class Accessor
   case class FieldAccessor(selector: Identifier) extends Accessor
   case class ArrayAccessor(index: Expr) extends Accessor
+  case class MutableMapAccessor(index: Expr) extends Accessor
 
   case class Target(path: Seq[Accessor]) {
     def +(elem: Accessor) = Target(path :+ elem)
@@ -158,6 +159,7 @@ trait EffectsAnalyzer extends CachingPhase {
       def rec(expr: Expr, path: Seq[Accessor]): Expr = path match {
         case FieldAccessor(id) +: xs => rec(ADTSelector(expr, id), xs)
         case ArrayAccessor(idx) +: xs => rec(ArraySelect(expr, idx), xs)
+        case MutableMapAccessor(idx) +: xs => rec(MutableMapApply(expr, idx), xs)
         case Seq() => expr
       }
 
@@ -168,6 +170,7 @@ trait EffectsAnalyzer extends CachingPhase {
       def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
         case (Seq(), _) => true
         case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) => rec(xs1, xs2)
+        case (MutableMapAccessor(_) +: xs1, MutableMapAccessor(_) +: xs2) => rec(xs1, xs2)
         case (FieldAccessor(id1) +: xs1, FieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
         case _ => false
       }
@@ -178,6 +181,7 @@ trait EffectsAnalyzer extends CachingPhase {
     def asString(implicit printerOpts: PrinterOptions): String = path.map {
       case FieldAccessor(id) => s".${id.asString}"
       case ArrayAccessor(idx) => s"(${idx.asString})"
+      case MutableMapAccessor(idx) => s"(${idx.asString})"
     }.mkString("")
 
     override def toString: String = asString
@@ -203,6 +207,7 @@ trait EffectsAnalyzer extends CachingPhase {
       case _ if variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
       case ADTSelector(e, id) => rec(e, FieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
+      case MutableMapApply(a, idx) => rec(a, MutableMapAccessor(idx) +: path)
       case ADT(id, _, args) => path match {
         case FieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
@@ -225,6 +230,7 @@ trait EffectsAnalyzer extends CachingPhase {
       case _ =>
         throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
     }
+
 
     rec(expr, Seq())
   }
@@ -278,6 +284,10 @@ trait EffectsAnalyzer extends CachingPhase {
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
         effect(o, env).map(_ + ArrayAccessor(idx))
+
+      case MutableMapUpdate(map, key, value) =>
+        rec(map, env) ++ rec(key, env) ++ rec(value, env) ++
+        effect(map, env).map(_ + MutableMapAccessor(key))
 
       case FieldAssignment(o, id, v) =>
         rec(o, env) ++ rec(v, env) ++
@@ -372,6 +382,7 @@ trait EffectsAnalyzer extends CachingPhase {
   def isMutableType(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
     case tp: TypeParameter => tp.flags contains IsMutable
     case arr: ArrayType => true
+    case map: MutableMapType => true
     case ADTType(id, _) => symbols.getSort(id).flags.contains(IsMutable)
     case _: FunctionType => false
     case NAryType(tps, _) => tps.exists(isMutableType)

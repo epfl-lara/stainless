@@ -63,6 +63,42 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     }
   }
 
+
+  /* Mutable Map Operations */
+
+  sealed case class MutableMapType(from: Type, to: Type) extends Type
+
+  /** $encodingof `MutableMap.withDefaultValue[From,To](default)` */
+  sealed case class MutableMapWithDefault(from: Type, to: Type, default: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = {
+      checkParamType(default, FunctionType(Seq(), to), unveilUntyped(MutableMapType(from, to)))
+    }
+  }
+
+  /** $encodingof `map.apply(key)` (or `map(key)`) */
+  sealed case class MutableMapApply(map: Expr, key: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = map.getType match {
+      case MutableMapType(from, to) => checkParamType(key, from, to)
+      case _ => Untyped
+    }
+  }
+
+  /** $encodingof `map.updated(key, value)` (or `map + (key -> value)`) */
+  sealed case class MutableMapUpdated(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = map.getType match {
+      case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), MutableMapType(from, to))
+      case _ => Untyped
+    }
+  }
+
+  /** $encodingof `map.update(key, value)` (or `map(key) = value`) */
+  sealed case class MutableMapUpdate(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = map.getType match {
+      case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), UnitType())
+      case _ => Untyped
+    }
+  }
+
   /** $encodingof `old(e)` */
   case class Old(e: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = e.getType
@@ -167,6 +203,21 @@ trait Printer extends innerfuns.Printer {
     case ArrayUpdate(array, index, value) =>
       p"$array($index) = $value"
 
+    case MutableMapType(from,to) =>
+      p"MutableMap[$from,$to]"
+
+    case MutableMapWithDefault(from, to, default) =>
+      p"MutableMap.withDefaultValue[$from,$to]($default)"
+
+    case MutableMapApply(map, index) =>
+      p"$map($index)"
+
+    case MutableMapUpdate(map, key, value) =>
+      p"$map($key) = $value"
+
+    case MutableMapUpdated(map, key, value) =>
+      p"$map.updated($key, $value)"
+
     case Old(e) =>
       p"old($e)"
 
@@ -239,7 +290,24 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
     case s.Old(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Old(es.head))
 
+    case s.MutableMapWithDefault(from, to, default) =>
+      (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))
+
+    case s.MutableMapApply(map, index) =>
+      (Seq(), Seq(), Seq(map, index), Seq(), Seq(), (_, _, es, _, _) => t.MutableMapApply(es(0), es(1)))
+
+    case s.MutableMapUpdate(map, key, value) =>
+      (Seq(), Seq(), Seq(map, key, value), Seq(), Seq(), (_, _, es, _, _) => t.MutableMapUpdate(es(0), es(1), es(2)))
+
+    case s.MutableMapUpdated(map, key, value) =>
+      (Seq(), Seq(), Seq(map, key, value), Seq(), Seq(), (_, _, es, _, _) => t.MutableMapUpdated(es(0), es(1), es(2)))
+
     case _ => super.deconstruct(e)
+  }
+
+  override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
+    case s.MutableMapType(from, to) => (Seq(), Seq(), Seq(), Seq(from, to), Seq(), (_, _, _, tps, _) => t.MutableMapType(tps(0), tps(1)))
+    case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {

@@ -1139,6 +1139,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ), args) => xt.FiniteSet(extractSeq(args), extractType(tpt))
 
     case Apply(TypeApply(
+      ExSymbol("stainless", "lang", "MutableMap$", "withDefaultValue"),
+      Seq(tptFrom, tptTo)
+    ), Seq(default)) =>
+      xt.MutableMapWithDefault(extractType(tptFrom), extractType(tptTo), extractTree(default))
+
+    case Apply(TypeApply(
       ExSymbol("stainless", "lang", "Bag$", "apply"),
       Seq(tpt)
     ), args) => xt.FiniteBag(extractSeq(args).map {
@@ -1314,6 +1320,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (xt.ArrayType(_), "updated", Seq(index, value)) => xt.ArrayUpdated(extractTree(lhs), extractTree(index), extractTree(value))
           case (xt.ArrayType(_), "update",  Seq(index, value)) => xt.ArrayUpdate(extractTree(lhs), extractTree(index), extractTree(value))
           case (xt.ArrayType(_), "clone",   Seq())             => extractTree(lhs)
+
+          case (xt.MutableMapType(_, _), "apply", Seq(rhs)) =>
+            xt.MutableMapApply(extractTree(lhs), extractTree(rhs))
+
+          case (xt.MutableMapType(_, _), "update", Seq(key, value)) =>
+            xt.MutableMapUpdate(extractTree(lhs), extractTree(key), extractTree(value))
 
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
@@ -1589,6 +1601,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr: TypeRef if isMapSym(tr.symbol) =>
         val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
         xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
+
+      case tr: TypeRef if isMutableMapSym(tr.symbol) =>
+        val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
+        xt.MutableMapType(from, to)
 
       case tr: TypeRef if TupleSymbol.unapply(tr.classSymbol).isDefined =>
         xt.TupleType(extractTypeParams(tr.classSymbol.typeParams))

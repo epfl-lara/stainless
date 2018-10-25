@@ -31,6 +31,7 @@ trait ImperativeCleanup
     }
 
     override def transform(tpe: s.Type): t.Type = tpe match {
+      case s.MutableMapType(from, to) => t.MapType(transform(from), transform(to))
       case s.TypeParameter(id, flags) if flags exists isImperativeFlag =>
         t.TypeParameter(id, flags filterNot isImperativeFlag map transform).copiedFrom(tpe)
       case _ => super.transform(tpe)
@@ -53,6 +54,11 @@ trait ImperativeCleanup
 
       case s.Variable(id, tpe, flags) =>
         t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform).copiedFrom(expr)
+
+      case s.MutableMapWithDefault(from, to, default) =>
+        t.FiniteMap(Seq(), t.Application(transform(default), Seq()), transform(from), transform(to))
+      case s.MutableMapApply(map, index) => t.MapApply(transform(map), transform(index))
+      case s.MutableMapUpdated(map, key, value) => t.MapUpdated(transform(map), transform(key), transform(value))
 
       case _ => super.transform(expr)
     }

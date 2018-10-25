@@ -217,6 +217,9 @@ trait AntiAliasing
                   case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
                     select(base, ArraySelect(expr, idx).setPos(pos), xs)
 
+                  case (MutableMapType(from, to), MutableMapAccessor(idx) +: xs) =>
+                    select(to, MutableMapApply(expr, idx).setPos(pos), xs)
+
                   case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
                 }
 
@@ -293,6 +296,16 @@ trait AntiAliasing
               transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
             } else {
               throw MissformedStainlessCode(up, "Unsupported form of array update")
+            }
+
+          case up @ MutableMapUpdate(map, k, v) =>
+            val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
+            val effect = getExactEffect(rmap)
+            if (env.bindings contains effect.receiver.toVal) {
+              val applied = applyEffect(effect + MutableMapAccessor(k), v)
+              transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
+            } else {
+              throw MissformedStainlessCode(up, "Unsupported form of map update")
             }
 
           case as @ FieldAssignment(o, id, v) =>
@@ -399,7 +412,7 @@ trait AntiAliasing
       freeVars.filter(v => isMutableType(v.tpe))
     }
 
-    //given a receiver object (mutable class or array, usually as a reference id),
+    //given a receiver object (mutable class, array or map, usually as a reference id),
     //and a path of field/index access, build a copy of the original object, with
     //properly updated values
     def applyEffect(effect: Effect, newValue: Expr): Expr = {
@@ -417,6 +430,10 @@ trait AntiAliasing
         case ArrayAccessor(index) :: fs =>
           val r = rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
           ArrayUpdated(receiver, index, r).copiedFrom(newValue)
+
+        case MutableMapAccessor(index) :: fs =>
+          val r = rec(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          MutableMapUpdated(receiver, index, r).copiedFrom(newValue)
 
         case Nil => newValue
       }

@@ -1008,6 +1008,9 @@ trait CodeExtraction extends ASTExtractors {
         }
       }
 
+    case ExMutableMapWithDefault(tptFrom, tptTo, default) =>
+      xt.MutableMapWithDefault(extractType(tptFrom), extractType(tptTo), extractTree(default))
+
     case ExFiniteMap(tptFrom, tptTo, args) =>
       val to = extractType(tptTo)
       val pairs = args.map {
@@ -1189,6 +1192,12 @@ trait CodeExtraction extends ASTExtractors {
           case (xt.BagType(_), "&",   Seq(rhs)) => xt.BagIntersection(extractTree(lhs), extractTree(rhs))
           case (xt.BagType(_), "--",  Seq(rhs)) => xt.BagDifference(extractTree(lhs), extractTree(rhs))
           case (xt.BagType(_), "get", Seq(rhs)) => xt.MultiplicityInBag(extractTree(rhs), extractTree(lhs))
+
+          case (xt.MutableMapType(_, _), "apply", Seq(rhs)) =>
+            xt.MutableMapApply(extractTree(lhs), extractTree(rhs))
+
+          case (xt.MutableMapType(_, _), "update", Seq(key, value)) =>
+            xt.MutableMapUpdate(extractTree(lhs), extractTree(key), extractTree(value))
 
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
@@ -1423,6 +1432,9 @@ trait CodeExtraction extends ASTExtractors {
 
     case TypeRef(_, sym, List(ftt,ttt)) if isMapSym(sym) =>
       xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))).setPos(pos))
+
+    case TypeRef(_, sym, List(ftt,ttt)) if isMutableMapSym(sym) =>
+      xt.MutableMapType(extractType(ftt), extractType(ttt))
 
     case TypeRef(_, sym, tps) if isTuple(sym, tps.size) =>
       xt.TupleType(tps map extractType)
