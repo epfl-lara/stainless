@@ -439,6 +439,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
     val isAbstract = rhs == tpd.EmptyTree
+    val isAccessor = (isAbstract && sym.isField) || (!(sym is Lazy) && (sym is Accessor))
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if ((sym is Implicit) && (sym is Synthetic)) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
@@ -447,9 +448,15 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Final) Seq(xt.Final) else Seq()) ++
       (if (!isAbstract && ((sym.isField) || (sym is Lazy))) Seq(xt.IsField(sym is Lazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
-      (if ((isAbstract && sym.isField) || (!(sym is Lazy) && (sym is Accessor)))
-        Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract)))
+      (if (isAccessor) Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract)))
       else Seq())
+
+    // Remove @extern flag from synthetic accessors, which they will usually have
+    // inherited from the class being marked @extern. If we were to keep the flag,
+    // then we won't be able to reason about field accesses anymore.
+    if (isAccessor && flags.contains(xt.Extern)) {
+      flags = flags.filterNot(_ == xt.Extern)
+    }
 
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)

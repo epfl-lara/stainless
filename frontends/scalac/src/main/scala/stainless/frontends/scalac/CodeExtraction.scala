@@ -469,6 +469,7 @@ trait CodeExtraction extends ASTExtractors {
 
     val id = getIdentifier(sym)
     val isAbstract = rhs == EmptyTree
+    val isAccessor = !sym.isLazy && sym.isAccessor
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
@@ -476,9 +477,15 @@ trait CodeExtraction extends ASTExtractors {
       (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
       (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
-      (if (!sym.isLazy && sym.isAccessor)
-        Seq(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract)))
+      (if (isAccessor) Seq(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract)))
       else Seq())
+
+    // Remove @extern flag from synthetic accessors, which they will usually have
+    // inherited from the class being marked @extern. If we were to keep the flag,
+    // then we won't be able to reason about field accesses anymore.
+    if (isAccessor && flags.contains(xt.Extern)) {
+      flags = flags.filterNot(_ == xt.Extern)
+    }
 
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {
