@@ -130,17 +130,24 @@ trait Sealing extends oo.CachingPhase
           }.toMap
       }.get)
 
-      // These are the flags that we keep when overriding an accessor and creating a field
-      def overrideAccessorKeepFlags(flag: Flag) = flag match {
+      // These are the flags that we *discard* when overriding an accessor or a methodand creating a field
+      def overrideDiscardFlag(flag: Flag) = flag match {
+        case IsAbstract => true
+        case IsAccessor(_) => true
+        case IsMethodOf(_) => true
+        case _ => false
+      }
+
+      // These are the flags that we *keep* when creating a field for an accessor
+      def fieldKeepFlag(flag: Flag) = flag match {
         case Ghost => true
-        case Annotation("library", Seq()) => true
         case _ => false
       }
 
       val fields = fieldAccessors.map { fd =>
         val id = FreshIdentifier(fieldName(fd))
         val instantiator = getInstantiator(fd)
-        val flags = fd.flags.filter(overrideAccessorKeepFlags)
+        val flags = fd.flags.filter(fieldKeepFlag)
         if (fd.isSetter) {
           VarDef(id, instantiator.transform(fd.params.head.tpe), flags).copiedFrom(fd)
         } else {
@@ -170,7 +177,7 @@ trait Sealing extends oo.CachingPhase
         val instantiator = getInstantiator(fd)
 
         val ct = ClassType(dummyClass.id, cd.typeArgs)
-        val newFlags = fd.flags.filter(overrideAccessorKeepFlags) ++
+        val newFlags = fd.flags.filterNot(overrideDiscardFlag) ++
           Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
         instantiator.transform(exprOps.freshenSignature(if (fd.isSetter) {
           fd.copy(
@@ -187,14 +194,6 @@ trait Sealing extends oo.CachingPhase
         }))
       }
 
-      // These are the flags that we keep when overriding a method
-      def overrideKeepFlags(flag: Flag) = flag match {
-        case IsPure => true
-        case Ghost => true
-        case Annotation("library", Seq()) => true
-        case _ => false
-      }
-
       // For the normal methods, we create overrides with no body
       val dummyOverrides = methods.map { id =>
         val fd = symbols.getFunction(id)
@@ -204,8 +203,8 @@ trait Sealing extends oo.CachingPhase
           id = ast.SymbolIdentifier(id.symbol),
           fullBody = reconstructSpecs(specs, None, fd.returnType),
           flags = (
-            fd.flags.filter(overrideKeepFlags) ++
-            Seq(Extern, Derived(id), Synthetic, IsMethodOf(dummyClass.id))
+            fd.flags.filterNot(overrideDiscardFlag) ++
+              Seq(Extern, Derived(id), Synthetic, IsMethodOf(dummyClass.id))
           ).distinct
         )))
       }
