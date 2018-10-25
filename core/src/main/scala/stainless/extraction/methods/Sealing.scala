@@ -130,13 +130,21 @@ trait Sealing extends oo.CachingPhase
           }.toMap
       }.get)
 
+      // These are the flags that we keep when overriding an accessor and creating a field
+      def overrideAccessorKeepFlags(flag: Flag) = flag match {
+        case Ghost => true
+        case Annotation("library", Seq()) => true
+        case _ => false
+      }
+
       val fields = fieldAccessors.map { fd =>
         val id = FreshIdentifier(fieldName(fd))
         val instantiator = getInstantiator(fd)
+        val flags = fd.flags.filter(overrideAccessorKeepFlags)
         if (fd.isSetter) {
-          VarDef(id, instantiator.transform(fd.params.head.tpe), Seq()).copiedFrom(fd)
+          VarDef(id, instantiator.transform(fd.params.head.tpe), flags).copiedFrom(fd)
         } else {
-          ValDef(id, instantiator.transform(fd.returnType), Seq()).copiedFrom(fd)
+          ValDef(id, instantiator.transform(fd.returnType), flags).copiedFrom(fd)
         }
       }
 
@@ -162,17 +170,19 @@ trait Sealing extends oo.CachingPhase
         val instantiator = getInstantiator(fd)
 
         val ct = ClassType(dummyClass.id, cd.typeArgs)
+        val newFlags = fd.flags.filter(overrideAccessorKeepFlags) ++
+          Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
         instantiator.transform(exprOps.freshenSignature(if (fd.isSetter) {
           fd.copy(
             id = ast.SymbolIdentifier(id.symbol),
             fullBody = FieldAssignment(This(ct), vd.id, fd.params.head.toVariable),
-            flags = Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
+            flags = newFlags
           )
         } else {
           fd.copy(
             id = ast.SymbolIdentifier(id.symbol),
             fullBody = ClassSelector(This(ct), vd.id),
-            flags = Seq(Synthetic, IsMethodOf(ct.id), Derived(id), Final, IsAccessor(Some(vd.id)))
+            flags = newFlags
           )
         }))
       }
@@ -180,6 +190,7 @@ trait Sealing extends oo.CachingPhase
       // These are the flags that we keep when overriding a method
       def overrideKeepFlags(flag: Flag) = flag match {
         case IsPure => true
+        case Ghost => true
         case Annotation("library", Seq()) => true
         case _ => false
       }
