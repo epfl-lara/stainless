@@ -6,14 +6,6 @@ package xlang
 
 trait Trees extends methods.Trees { self =>
 
-  case object Ignore extends Flag("ignore", Seq.empty)
-
-  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
-    case ("ignore", Seq()) => Ignore
-    case ("extern", Seq()) => Extern
-    case _ => super.extractFlag(name, args)
-  }
-
   /** $encodingof `import some.package.Path` or `import some.package.path._` */
   case class Import(path: Seq[String], isWildcard: Boolean) extends Tree
 
@@ -98,14 +90,7 @@ trait Printer extends methods.Printer {
   }
 }
 
-
 trait TreeDeconstructor extends methods.TreeDeconstructor {
-
   protected val s: Trees
   protected val t: Trees
-
-  override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
-    case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
-    case _ => super.deconstruct(f)
-  }
 }

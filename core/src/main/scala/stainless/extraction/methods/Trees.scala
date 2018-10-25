@@ -6,6 +6,13 @@ package methods
 
 trait Trees extends throwing.Trees { self =>
 
+  case object Ignore extends Flag("ignore", Seq.empty)
+
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("ignore", Seq()) => Ignore
+    case _ => super.extractFlag(name, args)
+  }
+
   override protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr =
     if (s.lookupFunction(up.id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false }) && up.recs.size == 1) {
       MethodInvocation(up.recs.head, up.id, up.tps, Seq(scrut))
@@ -157,6 +164,7 @@ trait Trees extends throwing.Trees { self =>
   implicit class FunDefWrapper(fd: FunDef) {
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
+
     def isField: Boolean =
       fd.flags exists { case IsField(_) => true case _ => false }
 
@@ -165,6 +173,8 @@ trait Trees extends throwing.Trees { self =>
 
     def isFinal: Boolean = fd.flags contains Final
     def isAbstract: Boolean = fd.flags contains IsAbstract
+    def isIgnored: Boolean = fd.flags contains Ignore
+
     def isInvariant: Boolean = fd.flags contains IsInvariant
     def isLaw: Boolean = fd.flags contains Law
   }
@@ -232,6 +242,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
   }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
+    case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
     case _ => super.deconstruct(f)

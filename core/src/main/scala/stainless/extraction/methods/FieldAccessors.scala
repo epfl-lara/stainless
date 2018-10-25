@@ -17,6 +17,7 @@ trait FieldAccessors extends oo.CachingPhase
   import s._
 
   private def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
+  private def isIgnoredAccessor(fd: FunDef): Boolean = fd.isAccessor && fd.isIgnored
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
@@ -55,7 +56,7 @@ trait FieldAccessors extends oo.CachingPhase
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (isConcreteAccessor(fd)) None else Some(context.transform(fd))
+    if (isConcreteAccessor(fd) || isIgnoredAccessor(fd)) None else Some(context.transform(fd))
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
