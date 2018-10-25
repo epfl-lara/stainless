@@ -43,6 +43,19 @@ trait TransformerWithType extends oo.TransformerWithType {
         transform(value, base)
       ).copiedFrom(expr)
 
+    case s.MutableMapWithDefault(from, to, default) =>
+      t.MutableMapWithDefault(transform(from), transform(to),
+        transform(default, s.FunctionType(Seq(), to))
+      )
+
+    case s.MutableMapApply(map, index) =>
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      t.MutableMapApply(transform(map, mmt), transform(index, from)).copiedFrom(expr)
+
+    case s.MutableMapUpdate(map, key, value) =>
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      t.MutableMapUpdate(transform(map, mmt), transform(key, from), transform(value, to)).copiedFrom(expr)
+
     case s.Old(e) =>
       t.Old(transform(e, tpe)).copiedFrom(expr)
 

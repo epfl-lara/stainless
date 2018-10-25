@@ -48,10 +48,11 @@ trait ASTExtractors {
 
   protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
 
-  protected lazy val setSym       = classFromName("stainless.lang.Set")
-  protected lazy val mapSym       = classFromName("stainless.lang.Map")
-  protected lazy val bagSym       = classFromName("stainless.lang.Bag")
-  protected lazy val realSym      = classFromName("stainless.lang.Real")
+  protected lazy val setSym         = classFromName("stainless.lang.Set")
+  protected lazy val mapSym         = classFromName("stainless.lang.Map")
+  protected lazy val mutableMapSym  = classFromName("stainless.lang.MutableMap")
+  protected lazy val bagSym         = classFromName("stainless.lang.Bag")
+  protected lazy val realSym        = classFromName("stainless.lang.Real")
 
   protected lazy val optionSymbol = classFromName("stainless.lang.Option")
   protected lazy val someSymbol   = classFromName("stainless.lang.Some")
@@ -122,6 +123,10 @@ trait ASTExtractors {
 
   def isMapSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == mapSym
+  }
+
+  def isMutableMapSym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == mutableMapSym
   }
 
   def isBagSym(sym: Symbol) : Boolean = {
