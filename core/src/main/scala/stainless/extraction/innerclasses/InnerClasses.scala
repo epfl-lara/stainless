@@ -138,6 +138,16 @@ trait InnerClasses
         (fields ++ params).toMap
       }
 
+      /** Transform a local class type to a global one */
+      def toGlobalType(tp: Type): ClassType = tp match {
+        case lct: LocalClassType =>
+          substs(lct.id).classType
+        case ct: ClassType if substs.contains(ct.id) && ct.tps.size != substs(ct.id).cd.tparams.size =>
+          ClassType(ct.id, substs(ct.id).addNewTypeParams(ct.tps))
+        case ct: ClassType =>
+          ct
+      }
+
       def merge(that: Context): Context =
         Context(
           this.path merge that.path,
@@ -321,13 +331,10 @@ trait InnerClasses
       // New necessary fields and type parameters
       val newTypeParams  = freeTypeParams.map(TypeParameterDef(_))
       val freeVarFields  = freeVars.map(_.toVal)
-      val outerRefFields = freeOuterRefs.map(r => ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), r.ct))
+      val outerRefFields = freeOuterRefs.map(r => ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), context.toGlobalType(r.ct)))
 
       // Convert all parents to a ClassType
-      val parents = lcd.parents map {
-        case ct: ClassType       => ct
-        case lct: LocalClassType => lct.toClassType
-      }
+      val parents = lcd.parents map context.toGlobalType
 
       // Build the new class
       val cd = new ClassDef(

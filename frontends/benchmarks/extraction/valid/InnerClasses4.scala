@@ -2,21 +2,17 @@ import stainless.lang._
 
 object InnerClasses4 {
 
-  abstract class Test[A] {
-    def something(x: A): A
-  }
-
-  def foo[B](b: B, l: BigInt): Test[B] = {
+  def doSomething[B](b: B, l: BigInt): B = {
     require(l > 1)
 
     val double = l * 2
 
-    case class FooBarBaz[C](foo: Boolean, c: C) extends Test[B] {
+    case class FooBarBaz[C](foo: Boolean, c: C) {
       require(foo == true) // keep outer ref in Hello World
 
       def something(y: B): B = {
 
-        case class HelloWorld(bar: Boolean, baz: B, ced: C) extends Test[B] {
+        case class HelloWorld(bar: Boolean, baz: B, ced: C) {
           def something(world: B): B = {
             if (foo && bar) world else y
           }
@@ -27,8 +23,8 @@ object InnerClasses4 {
       }
     }
 
-    FooBarBaz(true, "hello world")
+    FooBarBaz(true, "hello world").something(b)
   }
 
-  def test = foo(false, 2)
+  def test = doSomething(false, 2)
 }
