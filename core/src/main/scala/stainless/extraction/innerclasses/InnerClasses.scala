@@ -213,9 +213,22 @@ trait InnerClasses
         ).copiedFrom(fd)
       }
 
+      private def flattenLets(e: Expr): (Seq[LocalClassDef], Seq[LocalFunDef], Expr) = {
+        def rec(e: Expr)(classes: Seq[LocalClassDef], funs: Seq[LocalFunDef]): (Seq[LocalClassDef], Seq[LocalFunDef], Expr) = {
+          e match {
+            case LetClass(lcds, body) => rec(body)(classes ++ lcds, funs)
+            case LetRec(lfds, body) => rec(body)(classes, funs ++ lfds)
+            case other => (classes, funs, other)
+          }
+        }
+
+        rec(e)(Seq.empty, Seq.empty)
+      }
+
       override def transform(e: Expr, ctx: Context): t.Expr = e match {
-        case LetClass(lcds, body) =>
-          val substs = lcds.map(lift(_, ctx))
+        case e: LetClass =>
+          val (localClasses, localFunDefs, body) = flattenLets(e)
+          val substs = localClasses.map(lift(_, ctx))
           val lifted = substs map { subst =>
             val methodCtx = ctx.withSubsts(substs).withCurrentClass(subst.cd)
             val lifted = subst.withMethods(subst.methods map (transform(_, methodCtx)))
@@ -223,7 +236,7 @@ trait InnerClasses
             lifted
           }
 
-          transform(body, ctx withSubsts lifted)
+          transform(LetRec(localFunDefs, body), ctx withSubsts lifted)
 
         case LocalClassConstructor(lct, args) =>
           val subst = ctx.substs(lct.id)
