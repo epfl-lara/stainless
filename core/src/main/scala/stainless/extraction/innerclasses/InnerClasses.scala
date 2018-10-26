@@ -59,11 +59,9 @@ trait InnerClasses
      with oo.SimpleClasses
      with oo.SimplyCachedClasses { self =>
 
-  val trees: Trees
-  import trees._
-
-  val s: trees.type = trees
-  val t: trees.type = trees
+  val s: Trees
+  val t: methods.Trees
+  import s._
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
@@ -71,6 +69,7 @@ trait InnerClasses
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
+    import s._
     import symbols._
 
     /** Represent a substitution for a lifted local class */
@@ -162,15 +161,18 @@ trait InnerClasses
     }
 
     def liftLocalClasses(fd: FunDef, ctx: Context): FunctionResult = {
-      val transformer = new Transformer
+      val transformer = new LiftingTransformer
       val result = transformer.transform(fd, ctx)
-      val newSymbols = transformer.result.values.toSeq map { subst => (subst.cd, subst.methods) }
-      (result, newSymbols)
+      val newSymbols = transformer.result.values.toSeq map { subst =>
+        (transform(subst.cd), subst.methods.map(transform))
+      }
+      (transform(result), newSymbols)
     }
 
-    class Transformer extends imperative.TransformerWithPC {
+    class LiftingTransformer extends imperative.TransformerWithPC {
       val s: self.s.type = self.s
       val t: self.s.type = self.s
+      import s._
 
       type Env = Context
       implicit val pp = Context
@@ -179,7 +181,7 @@ trait InnerClasses
 
       var result: Map[Identifier, ClassSubst] = Map.empty
 
-      def transform(cd: ClassDef, ctx: Context): ClassDef = {
+      def transform(cd: ClassDef, ctx: Context): t.ClassDef = {
         new ClassDef(
           transform(cd.id, ctx),
           cd.tparams.map(tdef => transform(tdef, ctx)),
@@ -189,7 +191,7 @@ trait InnerClasses
         ).copiedFrom(cd)
       }
 
-      def transform(fd: FunDef, ctx: Context): FunDef = {
+      def transform(fd: FunDef, ctx: Context): t.FunDef = {
         new FunDef(
           transform(fd.id, ctx),
           fd.tparams.map(tdef => transform(tdef, ctx)),
@@ -200,7 +202,7 @@ trait InnerClasses
         ).copiedFrom(fd)
       }
 
-      override def transform(e: Expr, ctx: Context): Expr = e match {
+      override def transform(e: Expr, ctx: Context): t.Expr = e match {
         case LetClass(lcd, body) =>
           val subst = lift(lcd, ctx)
           val methodCtx = ctx.withSubst(subst).withCurrentClass(subst.cd)
@@ -213,28 +215,28 @@ trait InnerClasses
         case LocalClassConstructor(lct, args) =>
           val subst = ctx.substs(lct.id)
           val ct = ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx))).copiedFrom(lct)
-          ClassConstructor(ct, subst.addNewParams(args, ctx) map (transform(_, ctx))).copiedFrom(e)
+          t.ClassConstructor(ct, subst.addNewParams(args, ctx) map (transform(_, ctx))).copiedFrom(e)
 
         case LocalMethodInvocation(obj, m, _, tps, args) =>
-          MethodInvocation(transform(obj, ctx), m.id, tps map (transform(_, ctx)), args map (transform(_, ctx))).copiedFrom(e)
+          t.MethodInvocation(transform(obj, ctx), m.id, tps map (transform(_, ctx)), args map (transform(_, ctx))).copiedFrom(e)
 
         case LocalClassSelector(obj, sel, _) =>
-          ClassSelector(transform(obj, ctx), sel).copiedFrom(e)
+          t.ClassSelector(transform(obj, ctx), sel).copiedFrom(e)
 
         case _ => super.transform(e, ctx)
       }
 
-      override def transform(tp: Type, ctx: Context): Type = tp match {
+      override def transform(tp: Type, ctx: Context): t.Type = tp match {
         case lct: LocalClassType =>
           val subst = ctx.substs(lct.id)
-          ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx)))
+          t.ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx)))
 
         // We sometimes encounter a ClassType for a local class, which lacks the closed over type parameters.
         // eg. when we compute the parents of the lifted class in [[lift]].
         case ClassType(id, tps) if ctx.substs contains id =>
           val subst = ctx.substs(id)
-          if (tps.size == subst.cd.tparams.size) ClassType(id, tps map (transform(_, ctx)))
-          else ClassType(id, subst.addNewTypeParams(tps) map (transform(_, ctx)))
+          if (tps.size == subst.cd.tparams.size) t.ClassType(id, tps map (transform(_, ctx)))
+          else t.ClassType(id, subst.addNewTypeParams(tps) map (transform(_, ctx)))
 
         case _ => super.transform(tp, ctx)
       }
@@ -410,17 +412,18 @@ trait InnerClasses
   }
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
-    (new context.Transformer).transform(cd, context.Context.empty)
+    import context._
+    context.transform((new LiftingTransformer).transform(cd, Context.empty))
   }
 }
 
 object InnerClasses {
-  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: tr.type
-    val t: tr.type
-  } = new {
-    override val trees: tr.type = tr
-  } with InnerClasses {
+  def apply(ts: Trees, tt: methods.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: ts.type
+    val t: tt.type
+  } = new InnerClasses {
+    override val s: ts.type = ts
+    override val t: tt.type = tt
     override val context = ctx
   }
 }
