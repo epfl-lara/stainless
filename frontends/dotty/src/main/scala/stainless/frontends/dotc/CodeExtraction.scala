@@ -485,7 +485,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(fctx))
       val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
-        case xt.LetClass(lcd, _) => Set(lcd)
+        case xt.LetClass(lcds, _) => lcds.toSet
         case _ => Set()
       } (fullBody)
 
@@ -828,10 +828,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case (cd @ ExClassDef()) :: xs =>
         val lcd = lcds(cd.symbol)
+
         // Drop synthetic modules Dotty inserts after local class declarations
         val rest = xs.dropWhile(x => x.symbol.is(Synthetic) && x.symbol.is(Module))
-        val body = rec(rest)
-        xt.LetClass(lcd, body).setPos(cd.pos)
+        rec(rest) match {
+          case xt.LetClass(defs, body) => xt.LetClass(lcd +: defs, body).setPos(cd.pos)
+          case other => xt.LetClass(Seq(lcd), other).setPos(cd.pos)
+        }
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
         if (v.symbol is Mutable) {

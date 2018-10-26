@@ -532,7 +532,7 @@ trait CodeExtraction extends ASTExtractors {
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(fctx))
       val localClasses = xt.exprOps.collect[xt.LocalClassDef] {
-        case xt.LetClass(lcd, _) => Set(lcd)
+        case xt.LetClass(lcds, _) => lcds.toSet
         case _ => Set()
       } (fullBody)
 
@@ -793,8 +793,15 @@ trait CodeExtraction extends ASTExtractors {
 
       case (cd: ClassDef) :: xs =>
         val lcd = lcds(cd.symbol)
-        val body = rec(xs)
-        xt.LetClass(lcd, body).setPos(cd.pos)
+
+        // Drop companion object and/or synthetic modules Scalac inserts after local class declarations
+        val rest = xs dropWhile (x => x.symbol.isSynthetic && x.symbol.isModule)
+        rec(rest) match {
+          case xt.LetClass(defs, body) => xt.LetClass(lcd +: defs, body).setPos(cd.pos)
+          case other =>
+            println(other.getClass -> other)
+            xt.LetClass(Seq(lcd), other).setPos(cd.pos)
+        }
 
       case (v @ ValDef(mods, name, tpt, _)) :: xs =>
         if (mods.isMutable) {
