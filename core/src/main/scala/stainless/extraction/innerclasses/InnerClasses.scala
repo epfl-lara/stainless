@@ -162,6 +162,7 @@ trait InnerClasses
       def withCond(e: Expr): Context = this.copy(path = path.withCond(e))
 
       def withSubst(subst: ClassSubst) = copy(substs = substs.updated(subst.cd.id, subst))
+      def withSubsts(substs: Seq[ClassSubst]) = substs.foldLeft(this)(_ withSubst _)
       def withCurrentClass(cd: ClassDef) = copy(currentClass = Some(cd))
       def withCurrentFunction(fd: FunDef) = copy(currentFunction = Some(fd))
     }
@@ -213,14 +214,16 @@ trait InnerClasses
       }
 
       override def transform(e: Expr, ctx: Context): t.Expr = e match {
-        case LetClass(lcd, body) =>
-          val subst = lift(lcd, ctx)
-          val methodCtx = ctx.withSubst(subst).withCurrentClass(subst.cd)
-          val lifted = subst.withMethods(subst.methods map (transform(_, methodCtx)))
+        case LetClass(lcds, body) =>
+          val substs = lcds.map(lift(_, ctx))
+          val lifted = substs map { subst =>
+            val methodCtx = ctx.withSubsts(substs).withCurrentClass(subst.cd)
+            val lifted = subst.withMethods(subst.methods map (transform(_, methodCtx)))
+            result = result.updated(lifted.cd.id, lifted)
+            lifted
+          }
 
-          result = result.updated(lifted.cd.id, lifted)
-
-          transform(body, ctx.withSubst(lifted))
+          transform(body, ctx withSubsts lifted)
 
         case LocalClassConstructor(lct, args) =>
           val subst = ctx.substs(lct.id)

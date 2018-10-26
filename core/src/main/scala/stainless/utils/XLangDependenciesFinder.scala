@@ -51,12 +51,14 @@ class XLangDependenciesFinder {
         deps += id
         super.traverse(e)
 
-      case xt.LetClass(lcd, body) =>
-        withinLocalClass(lcd.id) {
-          traverse(lcd)
-          lcd.methods.foreach(traverse)
-          deps --= lcd.methods.map(_.id).toSet
-          traverse(body)
+      case xt.LetClass(lcds, body) =>
+        lcds foreach { lcd =>
+          withinLocalClass(lcd.id) {
+            traverse(lcd)
+            lcd.methods.foreach(traverse)
+            deps --= lcd.methods.map(_.id).toSet
+            traverse(body)
+          }
         }
 
       case _ => super.traverse(e)
@@ -115,10 +117,7 @@ class XLangDependenciesFinder {
   }
 
   def apply(cd: xt.ClassDef): Set[Identifier] = {
-    cd.tparams foreach finder.traverse
-    cd.parents foreach finder.traverse
-    cd.fields foreach finder.traverse
-    cd.flags foreach finder.traverse
+    finder.traverse(cd)
     deps -= cd.id
 
     deps.toSet
