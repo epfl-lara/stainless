@@ -829,7 +829,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case (cd @ ExClassDef()) :: xs =>
         val lcd = lcds(cd.symbol)
 
-        // Drop synthetic modules Dotty inserts after local class declarations
+        // Drop companion object and/or synthetic modules Dotty inserts after local class declarations
         val rest = xs.dropWhile(x => x.symbol.is(Synthetic) && x.symbol.is(Module))
         rec(rest) match {
           case xt.LetClass(defs, body) => xt.LetClass(lcd +: defs, body).setPos(cd.pos)
