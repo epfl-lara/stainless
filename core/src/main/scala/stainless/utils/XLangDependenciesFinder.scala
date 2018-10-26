@@ -20,21 +20,8 @@ import scala.collection.mutable.{ HashSet => MutableSet }
  * the class itself.
  */
 class XLangDependenciesFinder {
-  private val localClasses = MutableSet.empty[Identifier]
 
-  private def withinLocalClass[A](id: Identifier)(f: => A): A = {
-    localClasses += id
-    val res = f
-    localClasses -= id
-    res
-  }
-
-  private val deps: MutableSet[Identifier] = new MutableSet[Identifier] {
-    override def +=(id: Identifier) = {
-      if (!localClasses.contains(id)) super.+=(id)
-      this
-    }
-  }
+  private val deps: MutableSet[Identifier] = MutableSet.empty
 
   private trait TreeTraverser extends xt.SelfTreeTraverser {
     def traverse(lcd: xt.LocalClassDef): Unit
@@ -53,12 +40,12 @@ class XLangDependenciesFinder {
 
       case xt.LetClass(lcds, body) =>
         lcds foreach { lcd =>
-          withinLocalClass(lcd.id) {
-            traverse(lcd)
-            lcd.methods.foreach(traverse)
-            deps --= lcd.methods.map(_.id).toSet
-            traverse(body)
-          }
+          traverse(lcd)
+          lcd.methods foreach traverse
+          traverse(body)
+
+          deps --= lcds.map(_.id).toSet
+          deps --= lcds.flatMap(_.methods).map(_.id).toSet
         }
 
       case _ => super.traverse(e)
