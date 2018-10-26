@@ -24,12 +24,6 @@ package object innerclasses {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new InvalidInnerClassException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) = {
-    val lowering = ExtractionPipeline(new CheckingTransformer {
-      override val s: trees.type = trees
-      override val t: methods.trees.type = methods.trees
-    })
-
-    utils.DebugPipeline("InnerClasses", InnerClasses(trees)) andThen lowering
-  }
+  def extractor(implicit ctx: inox.Context) =
+    utils.DebugPipeline("InnerClasses", InnerClasses(trees, methods.trees))
 }
