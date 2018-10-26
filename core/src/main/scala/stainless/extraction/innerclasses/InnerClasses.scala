@@ -413,7 +413,9 @@ trait InnerClasses
 
   override protected def registerFunctions(symbols: t.Symbols, results: Seq[FunctionResult]): t.Symbols = {
     val (functions, locals) = results.unzip
-    val (localClasses, localMethods) = locals.flatten.unzip
+    val (localClasses, localMethods) = locals.flatten.map {
+      case (cd, methods) => t.exprOps.freshenClass(cd, methods)
+    }.unzip
 
     symbols.withClasses(localClasses).withFunctions(functions ++ localMethods.flatten)
   }
