@@ -14,7 +14,7 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     with TypeOps { self0: Symbols =>
   }
 
-  case class LetClass(lcd: LocalClassDef, body: Expr) extends Expr with CachingTyped {
+  case class LetClass(classes: Seq[LocalClassDef], body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = body.getType
   }
 
@@ -93,10 +93,12 @@ trait Printer extends methods.Printer {
       p": ${fd.returnType} = "
       p"${fd.fullBody}"
 
-    case LetClass(lcd, body) =>
-      p"""|$lcd
-          |$body
-          |"""
+    case LetClass(lcds, body) =>
+      lcds foreach { lcd =>
+        p"""|$lcd
+            |"""
+      }
+      p"$body"
 
     case LocalClassConstructor(ct, args) =>
       p"$ct(${nary(args, ", ")})"
@@ -222,24 +224,43 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   }
 
   override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
-    case s.LetClass(lcd, body) =>
+    case s.LetClass(classes, body) =>
       (
-        Seq(lcd.id),
-        lcd.fields.map(_.toVariable),
+        classes map (_.id),
+        classes flatMap (_.fields)  map (_.toVariable),
         Seq(body),
-        lcd.parents,
-        lcd.flags,
-        (ids, vars, es, parents, flags) => {
-          val cd = t.LocalClassDef(
-            ids.head,
-            lcd.tparams.map(transformer.transform),
-            parents,
-            vars.map(_.toVal),
-            lcd.methods.map(fd => transformer.transform(fd)),
-            flags
-          )
+        (classes flatMap (c => c.tparams.map(_.tp))) ++ (classes flatMap (_.parents)),
+        classes flatMap (_.flags),
+        (ids, vs, es, tps, flags) => {
+          var rvs = vs
+          var rtps = tps
+          var rflags = flags
 
-          t.LetClass(cd, es(0))
+          val newClasses = for {
+            (lcd @ s.LocalClassDef(_, tparams, parents, fields, _, flags), id) <- classes zip ids
+          } yield {
+            val (currVs, nextVs) = rvs.splitAt(fields.size)
+            rvs = nextVs
+
+            val (currTps, nextTps) = rtps.splitAt(tparams.size + parents.size)
+            rtps = nextTps
+
+            val (currTparams, currParents) = currTps.splitAt(tparams.size)
+
+            val (currFlags, nextFlags) = rflags.splitAt(flags.size)
+            rflags = nextFlags
+
+            t.LocalClassDef(
+              id,
+              currTparams map (tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter]).copiedFrom(tp)),
+              currParents,
+              currVs.map(_.toVal),
+              lcd.methods.map(fd => transformer.transform(fd)), // FIXME
+              currFlags
+            ).copiedFrom(lcd)
+          }
+
+          t.LetClass(newClasses, es.head)
         }
       )
 

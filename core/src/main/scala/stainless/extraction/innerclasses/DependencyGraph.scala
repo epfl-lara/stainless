@@ -25,12 +25,12 @@ trait DependencyGraph extends methods.DependencyGraph {
         register(id)
         super.traverse(expr)
 
-      case LetClass(lcd, body) =>
-        localClasses = localClasses + lcd
+      case LetClass(lcds, body) =>
+        localClasses = localClasses ++ lcds.toSet
 
-        lcd.parents foreach traverse
-        lcd.methods foreach traverse
-        lcd.fields foreach traverse
+        lcds foreach (_.parents foreach traverse)
+        lcds foreach (_.methods foreach traverse)
+        lcds foreach (_.fields foreach traverse)
         traverse(body)
 
       case LocalClassConstructor(lct: LocalClassType, args) =>
