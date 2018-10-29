@@ -194,7 +194,7 @@ trait InoxEncoder extends ProgramEncoder {
         Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
       ) if size <= 10 =>
         val elemsMap = elems.toMap
-        t.FiniteArray((0 until size).toSeq.map {
+        t.FiniteArray((0 until size).map {
           i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
         }, transform(base)).copiedFrom(e)
 
