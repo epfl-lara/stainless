@@ -5,7 +5,7 @@ import scala.annotation.meta.field
 
 import scala.collection.concurrent.TrieMap
 
-object IgnoredField {
+object ExternField {
 
   case class TrieMapWrapper[K, V](
     @(extern @field)

@@ -5,7 +5,7 @@ package stainless
 import scala.language.existentials
 
 import extraction.xlang.{ trees => xt, TreeSanitizer }
-import frontend.CallBack
+import frontend.{ CallBack, Recovery, RecoveryResult }
 import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
@@ -65,6 +65,7 @@ trait InputUtils {
 
       override def endExtractions(): Unit = {
         done = true
+        syms = Recovery.recover(syms)
       }
     }
 

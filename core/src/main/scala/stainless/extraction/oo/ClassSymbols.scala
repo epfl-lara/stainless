@@ -29,5 +29,11 @@ trait ClassSymbols { self: Trees =>
       this.sorts,
       this.classes ++ classes.map(cd => cd.id -> cd)
     )
+
+    def ++(other: ClassSymbols) = Symbols(
+      this.functions ++ other.functions,
+      this.sorts ++ other.sorts,
+      this.classes ++ other.classes
+    )
   }
 }

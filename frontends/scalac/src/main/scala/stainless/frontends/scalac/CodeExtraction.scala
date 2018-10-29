@@ -230,6 +230,9 @@ trait CodeExtraction extends ASTExtractors {
         functions :+= fd.id
         allFunctions :+= fd
 
+      case t @ ExMutableFieldDef(fsym, _, _) if fsym.isMutable && annotationsOf(fsym).contains(xt.Extern) =>
+        // Ignore @extern variables in static context
+
       case t @ ExFieldDef(fsym, _, rhs) =>
         val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(DefContext())
         functions :+= fd.id
@@ -335,13 +338,9 @@ trait CodeExtraction extends ASTExtractors {
       val sym = vd.symbol
       val id = getIdentifier(sym)
       val flags = annotationsOf(sym, ignoreOwner = true)
+      val tpe = stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
       val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
-      val isMutable =sym.isVar || isExtern && !isPure
-
-      // Flags marked @extern are extracted as having type BigInt, in order
-      // for us to not have to extract their type while keeping a value
-      // around for equality/effect analysis.
-      val tpe = if (isExtern) xt.IntegerType().setPos(vd.pos) else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+      val isMutable = sym.isVar || isExtern && !isPure
 
       (if (isMutable) xt.VarDef(id, tpe, flags) else xt.ValDef(id, tpe, flags)).setPos(sym.pos)
     }
@@ -385,14 +384,11 @@ trait CodeExtraction extends ASTExtractors {
       case t @ ExLazyFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
-        methods :+= extractExternFieldAccessor(fsym, vparams)
-
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
 
-      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
-        methods :+= extractExternFieldAccessor(fsym, Seq.empty)
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
+        methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
@@ -565,25 +561,6 @@ trait CodeExtraction extends ASTExtractors {
       fullBody,
       flags.distinct
     ).setPos(sym.pos)
-  }
-
-  private def extractExternFieldAccessor(sym: Symbol, vparams: Seq[ValDef]): xt.FunDef = {
-    val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
-    val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
-
-    val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
-      (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
-      (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
-      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.accessedOrSelf))))
-
-    new xt.FunDef(
-      getIdentifier(sym),
-      Seq.empty,
-      args,
-      returnType.setPos(sym.pos),
-      xt.NoTree(returnType).setPos(sym.pos),
-      flags
-    )
   }
 
   private def typeParamSymbols(tps: Seq[Type]): Seq[Symbol] = tps.flatMap {

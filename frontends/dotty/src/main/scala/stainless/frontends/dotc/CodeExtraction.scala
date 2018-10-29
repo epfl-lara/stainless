@@ -213,6 +213,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         functions :+= fd.id
         allFunctions :+= fd
 
+      case t @ ExMutableFieldDef(fsym, _, _) if annotationsOf(fsym).contains(xt.Extern) =>
+        // Ignore @extern variables in static context
+
+      case t @ ExMutableFieldDef(fsym, _, _) =>
+        outOfSubsetError(t, "Non-@extern variables are only allowed within functions and constructor parameters")
+
       // Normal fields
       case t @ ExFieldDef(fsym, _, rhs) =>
         val fd = extractFunction(fsym, t, Seq(), Seq(), rhs)
@@ -314,15 +320,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val fields = vds map { case (vd, tpt) =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
-
+      val tpe = extractType(tpt, vd.tpe)(defCtx)
       val flags = annotationsOf(vdSym, ignoreOwner = true)
+
       val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
       val isMutable = (vdSym is Mutable) || isExtern && !isPure
-
-      val tpe = isExtern match {
-        case true  => xt.IntegerType()
-        case false => extractType(tpt, vd.tpe)(defCtx)
-      }
 
       isMutable match {
         case true  => xt.VarDef(id, tpe, flags).setPos(vd.pos)
@@ -376,11 +378,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
         invariants :+= wrap(extractTree(body)(defCtx))
 
+      // We cannot extract copy method if the class has extern fields as
+      // the type of copy and the getters mention what might be a type we
+      // cannot extract.
       case t @ ExFunctionDef(fsym, _, _, _, _)
         if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
-          // we cannot extract copy method if the class has ignored fields as
-          // the type of copy and the getters mention what might be a type we
-          // cannot extract.
+          () // ignore
 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
@@ -389,9 +392,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case t @ ExFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
-        methods :+= extractExternFieldAccessor(fsym, vparams)
-
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
         methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
 
@@ -399,14 +399,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val fieldTpe = fieldsMap(fsym.accessedFieldOrGetter)
         methods :+= extractFieldAccessor(fsym, fieldTpe, classType, vparams)(defCtx)
 
-      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
-        methods :+= extractExternFieldAccessor(fsym, Seq.empty)
-
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
-
-      case vd @ ValDef(_, _, _) if isField(vd) && annotationsOf(vd.symbol).contains(xt.Extern) =>
-        methods :+= extractExternFieldAccessor(vd.symbol, Seq.empty)
 
       case vd @ ValDef(_, _, _) if isField(vd) =>
         val fieldTpe = fieldsMap(vd.symbol)
@@ -578,25 +572,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       args,
       returnType,
       body,
-      flags.distinct
-    ).setPos(sym.pos)
-  }
-
-  private def extractExternFieldAccessor(sym: Symbol, vparams: Seq[tpd.ValDef]): xt.FunDef = {
-    val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
-    val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
-
-    val flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
-      (if (sym is Private) Seq(xt.Private) else Seq()) ++
-      (if (sym is Final) Seq(xt.Final) else Seq()) ++
-      Seq(xt.Extern, xt.IsAccessor(Some(getIdentifier(sym.underlyingSymbol))))
-
-    new xt.FunDef(
-      if (sym.isSetter) getIdentifier(sym) else getParam(sym),
-      Seq.empty,
-      args,
-      returnType.setPos(sym.pos),
-      xt.NoTree(returnType).setPos(sym.pos),
       flags.distinct
     ).setPos(sym.pos)
   }

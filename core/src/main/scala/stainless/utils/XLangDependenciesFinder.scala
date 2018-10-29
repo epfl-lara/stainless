@@ -96,6 +96,11 @@ class XLangDependenciesFinder {
     override def traverse(lmd: xt.LocalMethodDef): Unit = traverse(lmd.toFunDef)
   }
 
+  def apply(defn: xt.Definition): Set[Identifier] = defn match {
+    case fd: xt.FunDef => apply(fd)
+    case cd: xt.ClassDef => apply(cd)
+  }
+
   def apply(fd: xt.FunDef): Set[Identifier] = {
     finder.traverse(fd)
     deps -= fd.id
