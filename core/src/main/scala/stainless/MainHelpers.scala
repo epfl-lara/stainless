@@ -3,9 +3,6 @@
 package stainless
 
 import utils.JsonUtils
-
-import scala.util.{ Failure, Success }
-
 import java.io.File
 
 import io.circe.Json

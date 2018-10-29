@@ -150,11 +150,11 @@ trait CICFA {
     }
 
     private def passedLambdas(vals: Set[AbsValue], env: AbsEnv): Set[Lambda] = vals.flatMap {
-      case Closure(lam) => variablesOf(lam).flatMap { v => passedLambdas(env.store(v), env) }.toSet + lam
+      case Closure(lam) => variablesOf(lam).flatMap { v => passedLambdas(env.store(v), env) } + lam
       case _ => Set[Lambda]()
     }
 
-    private def freshVars(size: Int) = (1 to size).map(i => Variable.fresh("arg" + i, Untyped, true)).toSeq
+    private def freshVars(size: Int) = (1 to size).map(i => Variable.fresh("arg" + i, Untyped, true))
 
     // iteratively process functions from the worklist.
     // (a) at every direct function call, join the arguments passed in with the `in` fact in the summary

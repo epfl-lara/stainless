@@ -311,14 +311,13 @@ sealed abstract class List[T] {
 
   def splitAtIndex(index: BigInt) : (List[T], List[T]) = { this match {
     case Nil() => (Nil[T](), Nil[T]())
-    case Cons(h, rest) => {
+    case Cons(h, rest) =>
       if (index <= BigInt(0)) {
         (Nil[T](), this)
       } else {
         val (left,right) = rest.splitAtIndex(index - 1)
         (Cons[T](h,left), right)
       }
-    }
   }} ensuring { (res:(List[T],List[T])) =>
     res._1 ++ res._2 == this &&
     res._1 == take(index) && res._2 == drop(index)
@@ -542,7 +541,7 @@ sealed abstract class List[T] {
       val rec = t.indexWhere(p)
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
-  }} ensuring { 
+  }} ensuring {
     _ >= BigInt(0) == (this exists p)
   }
 
