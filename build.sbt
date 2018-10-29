@@ -244,7 +244,8 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
-    }
+    },
+    (unmanagedJars in Runtime) := (unmanagedJars in (`stainless-scalac`, Runtime)).value
   )
   .dependsOn(`stainless-scalac`)
   .settings(artifactSettings)
