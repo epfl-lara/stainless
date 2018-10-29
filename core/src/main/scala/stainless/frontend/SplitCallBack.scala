@@ -134,7 +134,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     val deps = syms.dependencies(id)
     val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
-    val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps)
+    val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps)
+    val funSyms = Recovery.recover(preSyms)
 
     val cf = serialize(Right(fun))(funSyms)
 
