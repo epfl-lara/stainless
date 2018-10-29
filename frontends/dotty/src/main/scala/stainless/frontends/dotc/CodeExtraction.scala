@@ -201,6 +201,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         functions :+= fd.id
         allFunctions :+= fd
 
+      case t @ ExMutableFieldDef(fsym, _, _) if annotationsOf(fsym).contains(xt.Extern) =>
+        // Ignore @extern variables in static context
+
+      case t @ ExMutableFieldDef(fsym, _, _) =>
+        outOfSubsetError(t, "Non-@extern variables are only allowed within functions and constructor parameters")
+
       // Normal fields
       case t @ ExFieldDef(fsym, _, rhs) =>
         val fd = extractFunction(fsym, Seq(), Seq(), rhs)(DefContext())

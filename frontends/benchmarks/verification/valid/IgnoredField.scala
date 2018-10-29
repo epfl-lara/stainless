@@ -9,7 +9,7 @@ object IgnoredField {
 
   case class TrieMapWrapper[K, V](
     @(extern @field)
-    @(extern @field)
+    @(pure @field)
     theMap: TrieMap[K, V]
   ) {
 
