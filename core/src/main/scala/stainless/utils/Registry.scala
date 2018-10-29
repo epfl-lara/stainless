@@ -130,8 +130,8 @@ trait Registry {
     try {
       val size = serializer.deserialize[Int](in)
       reporter.debug(s"Reading $size pairs from ${file.getAbsolutePath}")
-      val mapping: MutableMap[Identifier, (xt.Symbols, Boolean, Int)] = MutableMap.empty
-      for (i <- 0 until size) mapping += serializer.deserialize[(Identifier, (xt.Symbols, Boolean, Int))](in)
+      val mapping: MutableMap[Identifier, (SerializationResult, Boolean, Int)] = MutableMap.empty
+      for (i <- 0 until size) mapping += serializer.deserialize[(Identifier, (SerializationResult, Boolean, Int))](in)
       persistentCache = Some(mapping.toMap)
     } finally {
       in.close()
@@ -263,7 +263,7 @@ trait Registry {
   }
 
   // See note about persistent cache at the top.
-  private var persistentCache: Option[Map[Identifier, (xt.Symbols, Boolean, Int)]] = None
+  private var persistentCache: Option[Map[Identifier, (SerializationResult, Boolean, Int)]] = None
   private def hasPersistentCache = persistentCache.isDefined
   private val deferredClasses = ListBuffer[xt.ClassDef]()
   private val deferredFunctions = ListBuffer[xt.FunDef]()
