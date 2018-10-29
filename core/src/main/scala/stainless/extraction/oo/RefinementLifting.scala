@@ -215,7 +215,7 @@ trait RefinementLifting
         case None =>
           import s.dsl._
           mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
-            case tparams => (
+            tparams => (
               Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
               s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
                 s.typeOps.instantiateType(

@@ -101,7 +101,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
         var res = es
         var rtps = tps
         for ((hasGuard, ids, vs, es, tps, recons) <- recCases) yield {
-          var (currIds, nextIds) = rids.splitAt(ids.size)
+          val (currIds, nextIds) = rids.splitAt(ids.size)
           rids = nextIds
 
           val (currVs, nextVs) = rvs.splitAt(vs.size)

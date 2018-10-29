@@ -110,7 +110,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
       case (up @ UnapplyPattern(ob, rec, id, tps, subs), scrut) =>
         val eRec = rec map e
-        val unapp = e(FunctionInvocation(id, tps, eRec.toSeq :+ scrut))
+        val unapp = e(FunctionInvocation(id, tps, eRec :+ scrut))
         e(up.isEmptyUnapplied(unapp)) match {
           case BooleanLiteral(false) =>
             val extracted = e(up.getUnapplied(unapp))

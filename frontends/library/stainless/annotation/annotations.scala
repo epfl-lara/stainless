@@ -3,9 +3,8 @@
 package stainless
 package annotation
 
-import scala.annotation.Annotation
-import scala.annotation.StaticAnnotation
 import scala.annotation.meta._
+import scala.annotation.{Annotation, StaticAnnotation}
 
 /** The annotated symbols is not extracted at all. For internal usage only. */
 class ignore extends Annotation

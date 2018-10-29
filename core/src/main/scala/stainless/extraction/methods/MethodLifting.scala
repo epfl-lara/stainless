@@ -118,7 +118,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
         funCache.cached(fd, symbols)(default.transform(fd))
       }
 
-    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq)
+    t.NoSymbols.withFunctions(functions).withClasses(classes)
   }
 
   private[this] type Metadata = (Option[s.FunDef], Map[Identifier, Override])
@@ -205,7 +205,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
 
     def firstOverrides(fo: Override): Seq[(Identifier, FunDef)] = fo match {
       case Override(cid, Some(id), _) => Seq(cid -> symbols.getFunction(id))
-      case Override(_, _, children) => children.toSeq.flatMap(firstOverrides)
+      case Override(_, _, children) => children.flatMap(firstOverrides)
     }
 
     val subCalls = (for (co <- cos) yield {
