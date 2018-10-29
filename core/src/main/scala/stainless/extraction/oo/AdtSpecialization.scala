@@ -199,7 +199,7 @@ trait AdtSpecialization
           val cons = constructors(cd.id)
           val unapplyFunction = if (root(cd.id) != cd.id && cons != Seq(cd.id)) {
             Some(mkFunDef(unapplyID(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))
-                         (cd.typeArgs.map(_.id.name) : _*) { case tparams =>
+                         (cd.typeArgs.map(_.id.name) : _*) { tparams =>
               val base = T(root(cd.id))(tparams : _*)
               def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
 

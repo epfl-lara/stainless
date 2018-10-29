@@ -174,7 +174,7 @@ trait AntiAliasing
               }
 
             for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
-              val aliased = effects.toSeq.tails.flatMap {
+              val aliased = effects.tails.flatMap {
                 case e1 +: es => es.collect { case e2 if (e1 prefixOf e2) || (e2 prefixOf e1) => (e1, e2) }
                 case Nil => Nil
               }

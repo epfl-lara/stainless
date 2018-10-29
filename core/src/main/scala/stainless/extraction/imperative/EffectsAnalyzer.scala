@@ -106,7 +106,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
           val baseResult = Result(
             inners.flatMap { case (fd, inners) => inners + Outer(fd) }.map(_ -> Set.empty[Effect]).toMap,
-            inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) }.toMap)
+            inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) })
 
           val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
             Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)

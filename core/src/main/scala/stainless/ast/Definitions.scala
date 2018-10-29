@@ -71,11 +71,11 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
         case _ => false
       }).map(_._2)
 
-      def get[T <: Definition : ClassTag](name: String): Option[T] = ({
+      def get[T <: Definition : ClassTag](name: String): Option[T] = {
         if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, sorts)
         else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, functions)
         else None
-      }).asInstanceOf[Option[T]]
+      }.asInstanceOf[Option[T]]
 
       def apply[T <: Definition : ClassTag](name: String): T = get[T](name).getOrElse {
         if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {

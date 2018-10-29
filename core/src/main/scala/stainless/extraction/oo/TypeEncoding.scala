@@ -4,9 +4,6 @@ package stainless
 package extraction
 package oo
 
-import inox.utils.Graphs._
-import java.util.concurrent.atomic.AtomicReference
-
 trait TypeEncoding
   extends ExtractionPipeline
      with SimpleSorts

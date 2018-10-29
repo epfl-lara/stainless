@@ -502,9 +502,8 @@ trait ASTExtractors {
 
     object ExMainFunctionDef {
       def unapply(dd: DefDef): Boolean = dd match {
-        case DefDef(_, name, tparams, vparamss, tpt, rhs) if name.toString == "main" && tparams.isEmpty && vparamss.size == 1 && vparamss.head.size == 1 => {
+        case DefDef(_, name, tparams, vparamss, tpt, rhs) if name.toString == "main" && tparams.isEmpty && vparamss.size == 1 && vparamss.head.size == 1 =>
           true
-        }
         case _ => false
       }
     }
@@ -845,7 +844,6 @@ trait ASTExtractors {
                 None
             }
           } else None
-        }
         case _ => None
       }
     }
