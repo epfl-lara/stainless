@@ -283,19 +283,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val id = getIdentifier(vdSym)
 
       val flags = annotationsOf(vdSym, ignoreOwner = true)
-      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
+      val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
 
       // Flags marked @ignore are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value
       // around for equality/effect analysis.
-      val tpe = if (isIgnored) xt.IntegerType()
-                else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+      val tpe = if (isExtern) xt.IntegerType() else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      if ((vdSym.symbol is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      if ((vdSym.symbol is Mutable) || isExtern && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
       else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
-    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
+    val hasExternFields = fields.exists(_.flags.contains(xt.Extern))
 
     val defCtx = tpCtx // .withNewVars((vds.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
@@ -340,7 +339,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         invariants :+= wrap(extractTree(body)(defCtx))
 
       case t @ ExFunctionDef(fsym, _, _, _, _)
-        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+        if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           // we cannot extract copy method if the class has ignored fields as
           // the type of copy and the getters mention what might be a type we
           // cannot extract.
