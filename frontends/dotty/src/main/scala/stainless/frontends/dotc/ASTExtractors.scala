@@ -460,7 +460,7 @@ trait ASTExtractors {
           ) || (
             (dd.symbol is Synthetic) &&
             canExtractSynthetic(dd.symbol) &&
-            !(getAnnotations(tpt.symbol) contains "ignore")
+            !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
           )) {
             Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
           } else {
