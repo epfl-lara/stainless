@@ -10,6 +10,8 @@ set -e
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
 STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-2.11/stainless-scalac-standalone-0.1.0.jar"
+SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-2.11.jar"
+SCALAZ3_JAR_OSX_PATH="./unmanaged/scalaz3-mac-64-2.11.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-4.6.0"
 Z3_LINUX_NAME="z3-4.6.0-x64-ubuntu-16.04.zip"
@@ -69,27 +71,29 @@ function fetch_z3 {
 
 function generate_launcher {
   local TARGET="$1"
+  local SCALAZ3_JAR_BASENAME="$2"
   cat << END > $TARGET
 #!/usr/bin/env bash
 
 BASE_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 LIB_DIR="\$BASE_DIR/lib"
-STAINLESS_JAR="\$BASE_DIR/$STAINLESS_JAR_BASENAME"
+JARS="\$BASE_DIR/$STAINLESS_JAR_BASENAME:\$BASE_DIR/$SCALAZ3_JAR_BASENAME"
 
-export PATH="\$PATH:\$LIB_DIR"
-export LD_LIBRARY_PATH="\$LD_LIBRARY_PATH:\$LIB_DIR"
-
-exec java -cp \$STAINLESS_JAR \$JAVA_OPTS stainless.Main "\$@"
+exec env \\
+  PATH="\$LIB_DIR:\$PATH" \\
+  LD_LIBRARY_PATH="\$LIB_DIR:\$LD_LIBRARY_PATH" \\
+  java -cp \$JARS \$JAVA_OPTS stainless.Main "\$@"
 END
   chmod +x $TARGET
 }
 
 function package {
   local PLAT="$1"
+  local SCALAZ3_JAR_PATH="$2"
+  local SCALAZ3_JAR_BASENAME=`basename $SCALAZ3_JAR_PATH`
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT"
 
-  local JARF="$TMPD/$STAINLESS_JAR_BASENAME"
   local ZIPF="$(pwd)/${STAINLESS_JAR_BASENAME%.*}-$PLAT.zip"
 
   if [ -f $ZIPF ]; then
@@ -97,12 +101,13 @@ function package {
     info "    (Removed old archive.)"
   fi
 
-  generate_launcher "$TMPD/stainless" || fail
+  generate_launcher "$TMPD/stainless" $SCALAZ3_JAR_BASENAME || fail
 
-  cp $STAINLESS_JAR_PATH $JARF >> $LOG || fail
+  cp $STAINLESS_JAR_PATH "$TMPD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
+  cp $SCALAZ3_JAR_PATH "$TMPD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
 
   cd $TMPD && \
-    zip $ZIPF lib/** stainless $STAINLESS_JAR_BASENAME >> $LOG && \
+    zip $ZIPF lib/** stainless $STAINLESS_JAR_BASENAME $SCALAZ3_JAR_BASENAME >> $LOG && \
     cd - >/dev/null || fail
   info "    Created archive $ZIPF"
 
@@ -121,12 +126,12 @@ else
 fi
 
 info "${BLD}\n[] Downloading Z3 binaries..."
-fetch_z3 "linux" "$Z3_LINUX_NAME" "../LICENSE.txt com.microsoft.z3.jar libz3java.so libz3.so z3"
-fetch_z3 "osx" "$Z3_OSX_NAME" "../LICENSE.txt com.microsoft.z3.jar libz3java.dylib libz3.dylib z3"
+fetch_z3 "linux" $Z3_LINUX_NAME "../LICENSE.txt com.microsoft.z3.jar libz3java.so libz3.so z3"
+fetch_z3 "osx" $Z3_OSX_NAME "../LICENSE.txt com.microsoft.z3.jar libz3java.dylib libz3.dylib z3"
 
 info "${BLD}\n[] Packaging..."
-package "linux"
-package "osx"
+package "linux" $SCALAZ3_JAR_LINUX_PATH
+package "osx" $SCALAZ3_JAR_OSX_PATH
 
 info "\n${BLD}[] Cleaning up..."
 rm -r $TMP_DIR && okay
