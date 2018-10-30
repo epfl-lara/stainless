@@ -48,7 +48,6 @@ STAINLESS_JAR_BASENAME=`basename $STAINLESS_JAR_PATH`
 function fetch_z3 {
   local PLAT="$1"
   local NAME="$2"
-  local COPY_FILES="$3"
   local ZIPF="$TMP_DIR/$NAME"
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT"
@@ -61,9 +60,9 @@ function fetch_z3 {
   (rm -r $TMPD 2>/dev/null || true) && mkdir $TMPD || fail
   unzip -d $TMPD $ZIPF >> $LOG || fail
 
-  mkdir "$TMPD/lib" || fail
-  for COPY_FILE in $COPY_FILES; do
-    cp "$TMPD/${NAME%.*}/bin/$COPY_FILE" "$TMPD/lib" >> $LOG || fail
+  mkdir "$TMPD/z3" >> $LOG || fail
+  for COPY_FILE in LICENSE.txt bin/z3; do
+    cp "$TMPD/${NAME%.*}/$COPY_FILE" "$TMPD/z3" >> $LOG || fail
   done
   
   okay
@@ -76,13 +75,10 @@ function generate_launcher {
 #!/usr/bin/env bash
 
 BASE_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-LIB_DIR="\$BASE_DIR/lib"
-JARS="\$BASE_DIR/$STAINLESS_JAR_BASENAME:\$BASE_DIR/$SCALAZ3_JAR_BASENAME"
+Z3_DIR="\$BASE_DIR/z3"
+JARS="\$BASE_DIR/lib/$STAINLESS_JAR_BASENAME:\$BASE_DIR/lib/$SCALAZ3_JAR_BASENAME"
 
-exec env \\
-  PATH="\$LIB_DIR:\$PATH" \\
-  LD_LIBRARY_PATH="\$LIB_DIR:\$LD_LIBRARY_PATH" \\
-  java -cp \$JARS \$JAVA_OPTS stainless.Main "\$@"
+exec env PATH="\$Z3_DIR:\$PATH" java -cp \$JARS \$JAVA_OPTS stainless.Main "\$@"
 END
   chmod +x $TARGET
 }
@@ -103,11 +99,13 @@ function package {
   
   generate_launcher "$TMPD/stainless" $SCALAZ3_JAR_BASENAME || fail
 
-  cp $STAINLESS_JAR_PATH "$TMPD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
-  cp $SCALAZ3_JAR_PATH "$TMPD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
+  local TGTLIBD="$TMPD/lib"
+  mkdir $TGTLIBD >> $LOG || fail
+  cp $STAINLESS_JAR_PATH "$TGTLIBD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
+  cp $SCALAZ3_JAR_PATH "$TGTLIBD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
 
   cd $TMPD && \
-    zip $ZIPF lib/** stainless $STAINLESS_JAR_BASENAME $SCALAZ3_JAR_BASENAME >> $LOG && \
+    zip $ZIPF lib/** z3/** stainless >> $LOG && \
     cd - >/dev/null || fail
   info "    Created archive $ZIPF"
 
@@ -126,8 +124,8 @@ else
 fi
 
 info "${BLD}\n[] Downloading Z3 binaries..."
-fetch_z3 "linux" $Z3_LINUX_NAME "../LICENSE.txt com.microsoft.z3.jar libz3java.so libz3.so z3"
-fetch_z3 "osx" $Z3_OSX_NAME "../LICENSE.txt com.microsoft.z3.jar libz3java.dylib libz3.dylib z3"
+fetch_z3 "linux" $Z3_LINUX_NAME
+fetch_z3 "osx" $Z3_OSX_NAME
 
 info "${BLD}\n[] Packaging..."
 package "linux" $SCALAZ3_JAR_LINUX_PATH
