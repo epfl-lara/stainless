@@ -219,8 +219,7 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   .enablePlugins(JavaAppPackaging)
   .settings(
     name := "stainless-scalac-standalone",
-    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar"),
-    (unmanagedJars in Runtime) := (unmanagedJars in (`stainless-scalac`, Runtime)).value
+    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar")
   )
   .dependsOn(`stainless-scalac`)
   .settings(artifactSettings)
