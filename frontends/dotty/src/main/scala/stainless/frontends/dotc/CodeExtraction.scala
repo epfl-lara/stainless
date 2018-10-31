@@ -316,22 +316,25 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val id = getIdentifier(vdSym)
 
       val flags = annotationsOf(vdSym, ignoreOwner = true)
-      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
+      val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
+      val isMutable = (vdSym is Mutable) || isExtern && !isPure
 
-      val tpe = if (isIgnored) xt.IntegerType()
-                else extractType(tpt, vd.tpe)(defCtx)
+      val tpe = isExtern match {
+        case true  => xt.IntegerType()
+        case false => extractType(tpt, vd.tpe)(defCtx)
+      }
 
-      if ((vdSym is Mutable) || isIgnored && !isPure)
-        xt.VarDef(id, tpe, flags).setPos(vd.pos)
-      else
-        xt.ValDef(id, tpe, flags).setPos(vd.pos)
+      isMutable match {
+        case true  => xt.VarDef(id, tpe, flags).setPos(vd.pos)
+        case false => xt.ValDef(id, tpe, flags).setPos(vd.pos)
+      }
     }
 
     val fieldsMap = vds.zip(fields).map {
       case ((vd, _), field) => (vd.symbol, field.tpe)
     }.toMap
 
-    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
+    val hasExternFields = fields.exists(_.flags.contains(xt.Extern))
 
     var invariants: Seq[xt.Expr] = Seq.empty
     var methods: Seq[xt.FunDef] = Seq.empty
@@ -374,7 +377,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         invariants :+= wrap(extractTree(body)(defCtx))
 
       case t @ ExFunctionDef(fsym, _, _, _, _)
-        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+        if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           // we cannot extract copy method if the class has ignored fields as
           // the type of copy and the getters mention what might be a type we
           // cannot extract.
@@ -386,8 +389,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case t @ ExFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        methods :+= extractIgnoredFieldAccessor(fsym, vparams)
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
+        methods :+= extractExternFieldAccessor(fsym, vparams)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
         methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
@@ -396,14 +399,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val fieldTpe = fieldsMap(fsym.accessedFieldOrGetter)
         methods :+= extractFieldAccessor(fsym, fieldTpe, classType, vparams)(defCtx)
 
-      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
+      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
+        methods :+= extractExternFieldAccessor(fsym, Seq.empty)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case vd @ ValDef(_, _, _) if isField(vd) && annotationsOf(vd.symbol).contains(xt.Ignore) =>
-        methods :+= extractIgnoredFieldAccessor(vd.symbol, Seq.empty)
+      case vd @ ValDef(_, _, _) if isField(vd) && annotationsOf(vd.symbol).contains(xt.Extern) =>
+        methods :+= extractExternFieldAccessor(vd.symbol, Seq.empty)
 
       case vd @ ValDef(_, _, _) if isField(vd) =>
         val fieldTpe = fieldsMap(vd.symbol)
@@ -579,7 +582,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ).setPos(sym.pos)
   }
 
-  private def extractIgnoredFieldAccessor(sym: Symbol, vparams: Seq[tpd.ValDef]): xt.FunDef = {
+  private def extractExternFieldAccessor(sym: Symbol, vparams: Seq[tpd.ValDef]): xt.FunDef = {
     val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
     val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
 

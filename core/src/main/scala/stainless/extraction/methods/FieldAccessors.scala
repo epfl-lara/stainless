@@ -16,7 +16,9 @@ trait FieldAccessors extends oo.CachingPhase
   val t: oo.Trees
   import s._
 
+  private def dropAccessor(fd: FunDef): Boolean = isConcreteAccessor(fd) || isExternAccessor(fd)
   private def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
+  private def isExternAccessor(fd: FunDef): Boolean = fd.isAccessor && fd.isExtern
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
@@ -47,7 +49,7 @@ trait FieldAccessors extends oo.CachingPhase
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
     (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
       .flatMap(id => ctx.symbols.lookupFunction(id))
-      .filter(isConcreteAccessor)
+      .filter(dropAccessor)
       .map(_.id)
     )(ctx.symbols)
   })
@@ -56,7 +58,7 @@ trait FieldAccessors extends oo.CachingPhase
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (isConcreteAccessor(fd)) None else Some(context.transform(fd))
+    if (dropAccessor(fd)) None else Some(context.transform(fd))
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)

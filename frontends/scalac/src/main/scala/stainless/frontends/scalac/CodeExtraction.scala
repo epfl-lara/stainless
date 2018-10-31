@@ -335,19 +335,18 @@ trait CodeExtraction extends ASTExtractors {
       val sym = vd.symbol
       val id = getIdentifier(sym)
       val flags = annotationsOf(sym, ignoreOwner = true)
-      val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
+      val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
+      val isMutable =sym.isVar || isExtern && !isPure
 
-      // Flags marked @ignore are extracted as having type BigInt, in order
+      // Flags marked @extern are extracted as having type BigInt, in order
       // for us to not have to extract their type while keeping a value
       // around for equality/effect analysis.
-      val tpe = if (isIgnored) xt.IntegerType().setPos(vd.pos)
-                else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+      val tpe = if (isExtern) xt.IntegerType().setPos(vd.pos) else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      if (sym.isVar || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(sym.pos)
-      else xt.ValDef(id, tpe, flags).setPos(sym.pos)
+      (if (isMutable) xt.VarDef(id, tpe, flags) else xt.ValDef(id, tpe, flags)).setPos(sym.pos)
     }
 
-    val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
+    val hasExternFields = fields.exists(_.flags.contains(xt.Extern))
 
     val defCtx = tpCtx.withNewVars((vds.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
@@ -372,7 +371,7 @@ trait CodeExtraction extends ASTExtractors {
         invariants :+= wrap(extractTree(body)(defCtx))
 
       case t @ ExFunctionDef(fsym, _, _, _, _)
-        if hasIgnoredFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+        if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           // we cannot extract copy method if the class has ignored fields as
           // the type of copy and the getters mention what might be a type we
           // cannot extract.
@@ -386,14 +385,14 @@ trait CodeExtraction extends ASTExtractors {
       case t @ ExLazyFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
-      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        methods :+= extractIgnoredFieldAccessor(fsym, vparams)
+      case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
+        methods :+= extractExternFieldAccessor(fsym, vparams)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
 
-      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
-        methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
+      case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Extern) =>
+        methods :+= extractExternFieldAccessor(fsym, Seq.empty)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
@@ -568,7 +567,7 @@ trait CodeExtraction extends ASTExtractors {
     ).setPos(sym.pos)
   }
 
-  private def extractIgnoredFieldAccessor(sym: Symbol, vparams: Seq[ValDef]): xt.FunDef = {
+  private def extractExternFieldAccessor(sym: Symbol, vparams: Seq[ValDef]): xt.FunDef = {
     val args = vparams.map(vd => xt.ValDef(getIdentifier(vd.symbol), xt.IntegerType()).setPos(vd.pos))
     val returnType = if (args.isEmpty) xt.IntegerType() else xt.UnitType()
 
