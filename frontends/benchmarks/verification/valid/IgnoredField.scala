@@ -8,7 +8,7 @@ import scala.collection.concurrent.TrieMap
 object IgnoredField {
 
   case class TrieMapWrapper[K, V](
-    @(ignore @field)
+    @(extern @field)
     @(pure @field)
     theMap: TrieMap[K, V]
   ) {

@@ -173,6 +173,7 @@ trait Trees extends throwing.Trees { self =>
     def isAbstract: Boolean = fd.flags contains IsAbstract
 
     def isInvariant: Boolean = fd.flags contains IsInvariant
+    def isExtern: Boolean = fd.flags contains Extern
     def isLaw: Boolean = fd.flags contains Law
   }
 
