@@ -15,7 +15,7 @@ object ExternFallback {
 
   def prop = {
     setTrieMap(getTrieMap)
-    assert(true)
+    assert(getTrieMap == getTrieMap)
   }
 
   case class Wrapper[K, V](
@@ -32,6 +32,6 @@ object ExternFallback {
   def prop2 = {
     val wrapper = Wrapper(getTrieMap)
     wrapper.setMap(wrapper.getMap)
-    assert(true)
+    assert(wrapper.getMap == getTrieMap)
   }
 }
