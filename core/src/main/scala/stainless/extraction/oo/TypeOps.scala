@@ -13,6 +13,13 @@ trait TypeOps extends innerfuns.TypeOps {
     case (Untyped, _) => Some(Untyped)
     case (_, Untyped) => Some(Untyped)
 
+    // We need to disallow ? <: Any, otherwise it becomes possible to prove that A <: B for any A, B.
+    case (UnknownType(), AnyType()) if upper => Some(Untyped)
+    case (AnyType(), UnknownType()) if !upper => Some(Untyped)
+
+    case (tp, UnknownType()) if tp.getType.isTyped => Some(tp)
+    case (UnknownType(), tp) if tp.getType.isTyped => Some(tp)
+
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => Some(Untyped)
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => Some(Untyped)
     case (ct1: ClassType, ct2: ClassType) =>

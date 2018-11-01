@@ -3,20 +3,15 @@ import stainless.annotation._
 
 import scala.annotation.meta.field
 
-object ExternFallback {
+object ExternFallback1 {
 
   import scala.collection.concurrent.TrieMap
 
   @extern
-  def getTrieMap: TrieMap[BigInt, String] = TrieMap.empty
+  def getTrieMap(x: BigInt): TrieMap[BigInt, String] = TrieMap.empty
 
   @extern
   def setTrieMap(trie: TrieMap[BigInt, String]): Unit = ()
-
-  def prop = {
-    setTrieMap(getTrieMap)
-    assert(getTrieMap == getTrieMap)
-  }
 
   case class Wrapper[K, V](
     @(extern @field)
@@ -30,8 +25,8 @@ object ExternFallback {
   }
 
   def prop2 = {
-    val wrapper = Wrapper(getTrieMap)
+    val wrapper = Wrapper(getTrieMap(1))
     wrapper.setMap(wrapper.getMap)
-    assert(wrapper.getMap == getTrieMap)
+    assert(wrapper.getMap == getTrieMap(1))
   }
 }
