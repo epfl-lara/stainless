@@ -97,6 +97,9 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   /** Bottom of the typing lattice, corresponds to scala's `Nothing` type. */
   case class NothingType() extends Type
 
+  /** Stands for a type we cannot express. */
+  case class UnknownType() extends Type
+
   /** $encodingof `_ :> lo <: hi` */
   case class TypeBounds(lo: Type, hi: Type, flags: Seq[Flag]) extends Type
 
@@ -203,6 +206,9 @@ trait Printer extends innerfuns.Printer {
 
     case NothingType() =>
       p"Nothing"
+
+    case UnknownType() =>
+      p"?"
 
     case TypeBounds(lo, hi, _) =>
       p"_ >: $lo <: $hi"
@@ -348,6 +354,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
     case s.ClassType(id, tps) => (Seq(id), Seq(), Seq(), tps, Seq(), (ids, _, _, tps, _) => t.ClassType(ids.head, tps))
     case s.AnyType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.AnyType())
     case s.NothingType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.NothingType())
+    case s.UnknownType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.UnknownType())
     case s.TypeBounds(lo, hi, fs) => (Seq(), Seq(), Seq(), Seq(lo, hi), fs, (_, _, _, tps, fs) => t.TypeBounds(tps(0), tps(1), fs))
     case _ => super.deconstruct(tpe)
   }

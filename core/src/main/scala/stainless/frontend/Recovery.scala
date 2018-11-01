@@ -196,6 +196,6 @@ object RecoverExternTypes extends RecoveryStrategy {
   }
 
   private def replaceMissingType(tpe: xt.Type): xt.Type = {
-    xt.IntegerType().copiedFrom(tpe)
+    xt.UnknownType().copiedFrom(tpe)
   }
 }
