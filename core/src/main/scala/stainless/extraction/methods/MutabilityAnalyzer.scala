@@ -35,6 +35,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         case any: AnyType => true
         case arr: ArrayType => true
         case map: MutableMapType => true
+        case unknown: UnknownType => true
         case ClassType(cid, _) if mutableClasses(cid) => true
         case ClassType(cid, _) if seen(cid) => false
         // We don't need to check for mutable fields here, as at this point every
