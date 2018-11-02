@@ -244,8 +244,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def toTarget: Target = Target(receiver, None, path)
 
+    def targetString(implicit printerOpts: PrinterOptions): String =
+      s"${receiver.asString}${path.asString}"
+
     def asString(implicit printerOpts: PrinterOptions): String =
-      s"Effect(${receiver.asString}${path.asString})"
+      s"Effect($targetString)"
 
     override def toString: String = asString
   }
