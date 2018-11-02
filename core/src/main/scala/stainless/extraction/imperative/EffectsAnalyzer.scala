@@ -53,7 +53,7 @@ trait EffectsAnalyzer extends CachingPhase {
   import s._
   import exprOps._
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) => 
+  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
   )
 
@@ -62,6 +62,16 @@ trait EffectsAnalyzer extends CachingPhase {
     locals: Map[Identifier, FunAbstraction]) {
 
     def merge(that: Result): Result = Result(effects ++ that.effects, locals ++ that.locals)
+
+    def asString(implicit printerOpts: PrinterOptions): String = {
+      val effectsString = effects.map(e => "  " + e._1.id.asString -> e._2.map(_.asString)).mkString("\n")
+      val localsString = locals.map(p => "  " + p._1.asString + "," + p._2.asString).mkString("\n")
+      s"""|effects:
+          |$effectsString
+          |
+          |locals:
+          |$localsString""".stripMargin
+    }
   }
 
   protected object Result {
@@ -142,7 +152,7 @@ trait EffectsAnalyzer extends CachingPhase {
     }
 
     def asString(implicit printerOpts: PrinterOptions): String =
-      s"EffectsAnalysis(effects: ${result.effects.map(e => e._1.id -> e._2)}, locals: ${result.locals})"
+      s"EffectsAnalysis(\n${result.asString}\n)"
 
     override def toString: String = asString
   }
