@@ -191,8 +191,11 @@ trait EffectsAnalyzer extends CachingPhase {
     def prefixOf(that: Effect): Boolean =
       receiver == that.receiver && (target prefixOf that.target)
 
+    def targetString(implicit printerOpts: PrinterOptions): String =
+      s"${receiver.asString}${target.asString}"
+
     def asString(implicit printerOpts: PrinterOptions): String =
-      s"Effect(${receiver.asString}${target.asString})"
+      s"Effect($targetString)"
 
     override def toString: String = asString
   }
