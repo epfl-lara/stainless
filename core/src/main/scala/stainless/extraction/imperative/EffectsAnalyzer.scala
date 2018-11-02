@@ -64,8 +64,8 @@ trait EffectsAnalyzer extends CachingPhase {
     def merge(that: Result): Result = Result(effects ++ that.effects, locals ++ that.locals)
 
     def asString(implicit printerOpts: PrinterOptions): String = {
-      val effectsString = effects.map(e => "  " + e._1.id.asString -> e._2.map(_.asString)).mkString("\n")
-      val localsString = locals.map(p => "  " + p._1.asString + "," + p._2.asString).mkString("\n")
+      val effectsString = effects.map(e => "  " + e._1.id.asString + " -> " + e._2.map(_.asString)).toList.sorted.mkString("\n")
+      val localsString = locals.map(p => "  " + p._1.asString + "," + p._2.asString).toList.sorted.mkString("\n")
       s"""|effects:
           |$effectsString
           |
