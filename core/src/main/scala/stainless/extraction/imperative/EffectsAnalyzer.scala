@@ -87,9 +87,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       exprOps.withoutSpecs(fd.fullBody) match {
         case Some(body) =>
           expressionEffects(body, current)
-        case None if !fd.flags.exists(_.name == "pure") =>
+        case None if !fd.flags.contains(IsPure) =>
           fd.params
-            .filter(vd => !vd.flags.exists(_.name == "pure") && symbols.isMutableType(vd.getType))
+            .filter(vd => symbols.isMutableType(vd.getType) && !vd.flags.contains(IsPure))
             .map(_.toVariable)
             .map(Effect(_, Path(Seq.empty)))
             .toSet
