@@ -37,6 +37,27 @@ trait Sealing extends oo.CachingPhase
     // We build dummy subclasses for abstract classes that are not sealed
     def mustAddSubclass(cd: ClassDef) = !cd.isSealed && cd.isAbstract
 
+    // Annotate parameters of non-mutable type with `@pure`
+    def addPurityAnnotations(fd: FunDef): FunDef = {
+      val pureParams = fd.params
+        .filter(vd => !isMutableType(vd.getType(symbols)))
+        .map(vd => vd.id -> vd.copy(flags = (vd.flags :+ IsPure).distinct).copiedFrom(vd))
+        .toMap
+
+      val (paramSubst, params) = fd.params
+        .foldLeft((Map.empty[ValDef, Expr], Seq.empty[ValDef])) { case ((paramSubst, params), vd) =>
+          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+          val nvd = pureParams.getOrElse(vd.id, vd).copy(tpe = ntpe).copiedFrom(vd)
+          (paramSubst + (vd -> nvd.toVariable), params :+ nvd)
+        }
+
+      fd.copy(
+        params = params,
+        returnType = typeOps.replaceFromSymbols(paramSubst, fd.returnType),
+        fullBody = exprOps.replaceFromSymbols(paramSubst, fd.fullBody)
+      ).copiedFrom(fd)
+    }
+
     // Given a (non-sealed) class, we lookup in the ancestors all methods that are
     // not final and not invariants in order to override them in the dummy class
     private[this] def latestNonFinalMethods(cd: ClassDef): Set[SymbolIdentifier] =
@@ -173,7 +194,8 @@ trait Sealing extends oo.CachingPhase
         val thiss = This(ct).setPos(fd)
         val newFlags = fd.flags.filterNot(overrideDiscardFlag) ++
           Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
-        instantiator.transform(exprOps.freshenSignature(if (fd.isSetter) {
+
+        val accessor = exprOps.freshenSignature(if (fd.isSetter) {
           fd.copy(
             id = ast.SymbolIdentifier(id.symbol),
             fullBody = FieldAssignment(thiss, vd.id, fd.params.head.toVariable).setPos(fd),
@@ -185,7 +207,9 @@ trait Sealing extends oo.CachingPhase
             fullBody = ClassSelector(thiss, vd.id).setPos(fd),
             flags = newFlags
           )
-        }))
+        })
+
+        context.addPurityAnnotations(instantiator.transform(accessor))
       }
 
       // For the normal methods, we create overrides with no body
@@ -193,14 +217,17 @@ trait Sealing extends oo.CachingPhase
         val fd = symbols.getFunction(id)
         val instantiator = getInstantiator(fd)
         val (specs, _) = deconstructSpecs(fd.fullBody)
-        instantiator.transform(exprOps.freshenSignature(fd.copy(
+
+        val dummy = exprOps.freshenSignature(fd.copy(
           id = ast.SymbolIdentifier(id.symbol),
           fullBody = reconstructSpecs(specs, None, fd.returnType),
           flags = (
             fd.flags.filterNot(overrideDiscardFlag) ++
               Seq(Extern, Derived(id), Synthetic, IsMethodOf(dummyClass.id))
           ).distinct
-        )))
+        ))
+
+        context.addPurityAnnotations(instantiator.transform(dummy))
       }
 
       (newCd, Some(dummyClass), dummyOverrides ++ newAccessors)
@@ -221,7 +248,8 @@ trait Sealing extends oo.CachingPhase
   }
 
   // We duplicate concrete non-final/accessor/field/invariant functions of non-sealed classes
-  override protected def extractFunction(context: TransformerContext, fd: FunDef): FunctionResult = {
+  override protected def extractFunction(context: TransformerContext, orig: FunDef): FunctionResult = {
+    val fd = context.addPurityAnnotations(orig)
     if (context.mustDuplicate(fd)) (fd, Some(duplicate(fd)))
     else if (fd.isFinal) (fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd), None)
     else (fd, None)
