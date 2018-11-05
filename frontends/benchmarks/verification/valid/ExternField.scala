@@ -13,17 +13,17 @@ object ExternField {
     theMap: TrieMap[K, V]
   ) {
 
-    @extern
+    @extern @pure
     def contains(k: K): Boolean = {
       theMap contains k
     }
 
-    @extern
+    @extern @pure
     def insert(k: K, v: V): TrieMapWrapper[K, V] = {
       TrieMapWrapper(theMap += (k -> v))
     } ensuring { _.contains(k) }
 
-    @extern
+    @extern @pure
     def apply(k: K): V = {
       require(contains(k))
       theMap(k)
@@ -31,7 +31,7 @@ object ExternField {
   }
 
   object TrieMapWrapper {
-    @extern
+    @extern @pure
     def empty[K, V]: TrieMapWrapper[K, V] = {
       TrieMapWrapper(TrieMap.empty[K, V])
     } ensuring { res =>
