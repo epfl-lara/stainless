@@ -6,7 +6,7 @@ package imperative
 
 import inox.utils.Position
 
-trait Trees extends innerfuns.Trees with Definitions { self =>
+trait Trees extends oo.Trees with Definitions { self =>
 
   /* XLang imperative trees to desugar */
 
@@ -28,9 +28,9 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   }
 
   // Override point for alternative field assignment targets
-  protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
+  override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
     case adt: ADTType => adt.getField(selector)
-    case _ => None
+    case _ => super.getField(tpe, selector)
   }
 
   /** $encodingof `obj.selector = value` */
@@ -139,7 +139,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   }
 }
 
-trait Printer extends innerfuns.Printer {
+trait Printer extends oo.Printer {
   protected val trees: Trees
   import trees._
 
@@ -202,7 +202,7 @@ trait Printer extends innerfuns.Printer {
   }
 }
 
-trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
+trait TreeDeconstructor extends oo.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
@@ -250,7 +250,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   }
 }
 
-trait ExprOps extends innerfuns.ExprOps {
+trait ExprOps extends oo.ExprOps {
   protected val trees: Trees
   import trees._
 

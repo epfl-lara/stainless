@@ -91,8 +91,8 @@ package object extraction {
     innerclasses.extractor    andThen
     methods.extractor         andThen
     throwing.extractor        andThen
-    oo.extractor              andThen
     imperative.extractor      andThen
+    oo.extractor              andThen
     innerfuns.extractor       andThen
     inlining.extractor
   }

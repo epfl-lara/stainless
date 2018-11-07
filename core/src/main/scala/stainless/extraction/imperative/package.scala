@@ -7,11 +7,12 @@ import scala.language.existentials
 
 package object imperative {
 
-  object trees extends imperative.Trees with inox.ast.SimpleSymbols {
+  object trees extends imperative.Trees with oo.ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
-      sorts: Map[Identifier, ADTSort]
-    ) extends SimpleSymbols with AbstractSymbols
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef]
+    ) extends ClassSymbols with AbstractSymbols
 
     object printer extends Printer { val trees: imperative.trees.type = imperative.trees }
   }
@@ -26,5 +27,5 @@ package object imperative {
   def extractor(implicit ctx: inox.Context) =
     utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
     utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, innerfuns.trees))
+    utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
 }

@@ -20,7 +20,7 @@ package object oo {
   def extractor(implicit ctx: inox.Context) = {
     val lowering = ExtractionPipeline(new CheckingTransformer {
       override val s: trees.type = trees
-      override val t: imperative.trees.type = imperative.trees
+      override val t: innerfuns.trees.type = innerfuns.trees
     })
 
     utils.DebugPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen

@@ -12,11 +12,11 @@ package object throwing {
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef]
-    ) extends ClassSymbols
+    ) extends ClassSymbols with AbstractSymbols
 
     object printer extends Printer { val trees: throwing.trees.type = throwing.trees }
   }
 
   def extractor(implicit ctx: inox.Context) = 
-    utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, oo.trees))
+    utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
 }

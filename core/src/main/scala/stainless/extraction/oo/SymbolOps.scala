@@ -4,9 +4,34 @@ package stainless
 package extraction
 package oo
 
-trait SymbolOps extends imperative.SymbolOps { self: TypeOps =>
+trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
   import trees._
   import symbols._
+
+  /** Converts the pattern applied to an input to a map between identifiers and expressions */
+  override def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef, Expr] = {
+    def bindIn(vd: Option[ValDef], tpe: Type): Map[ValDef,Expr] = vd match {
+      case None => Map()
+      case Some(vd) => Map(vd -> AsInstanceOf(in, tpe).copiedFrom(in))
+    }
+
+    pattern match {
+      case ClassPattern(b, ct, subps) =>
+        assert(ct.tcd.fields.size == subps.size)
+
+        val pairs = ct.tcd.fields zip subps
+        val subMaps = pairs.map { p =>
+          mapForPattern(ClassSelector(AsInstanceOf(in, ct), p._1.id), p._2)
+        }
+        val together = subMaps.flatten.toMap
+        bindIn(b, ct) ++ together
+
+      case InstanceOfPattern(b, ct) =>
+        bindIn(b, ct)
+
+      case _ => super.mapForPattern(in, pattern)
+    }
+  }
 
   protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P])
     extends super.PatternConditions[P](includeBinders) {
