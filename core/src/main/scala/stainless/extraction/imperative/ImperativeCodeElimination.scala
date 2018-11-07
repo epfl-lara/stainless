@@ -5,10 +5,13 @@ package extraction
 package imperative
 
 trait ImperativeCodeElimination
-  extends SimpleFunctions
+  extends oo.CachingPhase
+     with SimpleFunctions
      with IdentitySorts
+     with oo.IdentityClasses
      with SimplyCachedFunctions
-     with SimplyCachedSorts {
+     with SimplyCachedSorts
+     with oo.SimplyCachedClasses {
 
   val s: Trees
   val t: s.type
@@ -16,7 +19,7 @@ trait ImperativeCodeElimination
 
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
-  
+
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._
