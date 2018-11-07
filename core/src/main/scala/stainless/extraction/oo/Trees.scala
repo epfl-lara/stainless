@@ -215,7 +215,7 @@ trait Printer extends innerfuns.Printer {
       for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(ctx.opts)}"
 
     case ClassConstructor(ct, args) =>
-      p"new $ct($args)"
+      p"$ct($args)"
 
     case ClassSelector(cls, selector) =>
       p"$cls.$selector"
