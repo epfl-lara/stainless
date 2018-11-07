@@ -94,13 +94,8 @@ trait Sealing extends oo.CachingPhase
   override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
     import context.symbols
 
-    val flagsWithMutable = if (context.isMutable(cd))
-      (cd.flags :+ IsMutable).distinct
-    else
-      cd.flags
-
     if (context.mustAddSubclass(cd)) {
-      val newCd = cd.copy(flags = (flagsWithMutable :+ IsSealed).distinct).copiedFrom(cd)
+      val newCd = cd.copy(flags = (cd.flags :+ IsSealed).distinct).copiedFrom(cd)
 
       val typeArgs = freshenTypeParams(cd.typeArgs)
       val classSubst = (cd.typeArgs zip typeArgs).toMap
@@ -155,7 +150,7 @@ trait Sealing extends oo.CachingPhase
 
       // Create a dummy subclass for the current class
       val dummyClass: ClassDef = {
-        val varFlag = if (cd.flags contains IsMutable) Seq(IsVar) else Seq()
+        val varFlag = if (context.isMutable(cd)) Seq(IsVar) else Seq()
         val dummyField = ValDef(FreshIdentifier("__x"), IntegerType().setPos(cd), varFlag).setPos(cd)
         new ClassDef(
           extID(cd.id),
@@ -210,10 +205,7 @@ trait Sealing extends oo.CachingPhase
 
       (newCd, Some(dummyClass), dummyOverrides ++ newAccessors)
     }
-    else if (context.isMutable(cd))
-      (cd.copy(flags = flagsWithMutable).copiedFrom(cd), None, Seq())
-    else
-      (cd, None, Seq())
+    else (cd, None, Seq())
   }
 
 
