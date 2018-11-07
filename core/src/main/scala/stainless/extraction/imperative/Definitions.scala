@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-trait Definitions extends innerfuns.Trees { self: Trees =>
+trait Definitions extends oo.Trees { self: Trees =>
   override type Symbols >: Null <: AbstractSymbols
 
   trait AbstractSymbols

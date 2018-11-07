@@ -4,7 +4,7 @@ package stainless
 package extraction
 package oo
 
-trait TypeOps extends imperative.TypeOps {
+trait TypeOps extends innerfuns.TypeOps {
   protected val trees: Trees
   import trees._
   import symbols._

@@ -234,6 +234,8 @@ trait AdtSpecialization
       .withFunctions(OptionSort.functions(symbols))
       .withSorts(OptionSort.sorts(symbols))
 
+      // println(newSymbols.asString(PrinterOptions.fromContext(self.context))
+
     val dependencies: Set[Identifier] =
       (symbols.functions.keySet ++ symbols.sorts.keySet ++ symbols.classes.keySet)
         .flatMap(id => newSymbols.dependencies(id) + id)

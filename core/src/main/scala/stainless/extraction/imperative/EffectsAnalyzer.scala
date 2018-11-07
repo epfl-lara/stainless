@@ -47,7 +47,7 @@ package imperative
   * TODO: we might integrate the limited alias analysis for pattern matching with substitution inside here
   *       Or better, we should introduce a simple AliasAnalysis class that provide functionalities.
   */
-trait EffectsAnalyzer extends CachingPhase {
+trait EffectsAnalyzer extends oo.CachingPhase {
   val s: Trees
   val t: s.type
   import s._
@@ -148,27 +148,40 @@ trait EffectsAnalyzer extends CachingPhase {
   }
 
   sealed abstract class Accessor
-  case class FieldAccessor(selector: Identifier) extends Accessor
+  case class ADTFieldAccessor(selector: Identifier) extends Accessor
+  case class ClassFieldAccessor(selector: Identifier) extends Accessor
   case class ArrayAccessor(index: Expr) extends Accessor
 
   case class Target(path: Seq[Accessor]) {
     def +(elem: Accessor) = Target(path :+ elem)
 
     def on(that: Expr)(implicit symbols: Symbols): Option[Effect] = {
-      def rec(expr: Expr, path: Seq[Accessor]): Expr = path match {
-        case FieldAccessor(id) +: xs => rec(ADTSelector(expr, id), xs)
-        case ArrayAccessor(idx) +: xs => rec(ArraySelect(expr, idx), xs)
-        case Seq() => expr
+      def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
+        case ADTFieldAccessor(id) +: xs =>
+          rec(ADTSelector(expr, id), xs)
+
+        case ClassFieldAccessor(id) +: xs =>
+          symbols.classForField(expr.getType.asInstanceOf[ClassType], id) match {
+            case Some(tcd) => rec(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
+            case None => None
+          }
+
+        case ArrayAccessor(idx) +: xs =>
+          rec(ArraySelect(expr, idx), xs)
+
+        case Seq() =>
+          Some(expr)
       }
 
-      getEffect(rec(that, path))
+      rec(that, path).flatMap(getEffect)
     }
 
     def prefixOf(that: Target): Boolean = {
       def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
         case (Seq(), _) => true
         case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) => rec(xs1, xs2)
-        case (FieldAccessor(id1) +: xs1, FieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
+        case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
         case _ => false
       }
 
@@ -176,7 +189,8 @@ trait EffectsAnalyzer extends CachingPhase {
     }
 
     def asString(implicit printerOpts: PrinterOptions): String = path.map {
-      case FieldAccessor(id) => s".${id.asString}"
+      case ADTFieldAccessor(id) => s".${id.asString}"
+      case ClassFieldAccessor(id) => s".${id.asString}"
       case ArrayAccessor(idx) => s"(${idx.asString})"
     }.mkString("")
 
@@ -201,18 +215,27 @@ trait EffectsAnalyzer extends CachingPhase {
     def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
       case v: Variable => Some(Effect(v, Target(path)))
       case _ if variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
-      case ADTSelector(e, id) => rec(e, FieldAccessor(id) +: path)
+      case ADTSelector(e, id) => rec(e, ADTFieldAccessor(id) +: path)
+      case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
       case ADT(id, _, args) => path match {
-        case FieldAccessor(fid) +: rest =>
+        case ADTFieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
         case _ =>
-          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+          throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+      }
+      case ClassConstructor(ct, args) => path match {
+        case ClassFieldAccessor(fid) +: rest =>
+          rec(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
+        case _ =>
+          throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
       }
       case Assert(_, _, e) => rec(e, path)
       case Annotated(e, _) => rec(e, path)
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
       case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
+      case _: IsInstanceOf => None
+      case AsInstanceOf(e, _) => rec(e, path)
       case Old(_) => None
       case Let(vd, e, b) if !isMutableType(vd.tpe) => rec(b, path)
       case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
@@ -220,10 +243,10 @@ trait EffectsAnalyzer extends CachingPhase {
           Some(Effect(ee.receiver, Target(ee.target.path ++ be.target.path)))
         case (_, Some(be)) => Some(be)
         case _ =>
-          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+          throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
       }
       case _ =>
-        throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+        throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
     }
 
     rec(expr, Seq())
@@ -231,7 +254,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
   def getExactEffect(expr: Expr)(implicit symbols: Symbols): Effect = getEffect(expr) match {
     case Some(effect) => effect
-    case _ => throw MissformedStainlessCode(expr, "Couldn't compute exact effect targets")
+    case _ => throw MissformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
   }
 
   def getKnownEffect(expr: Expr)(implicit symbols: Symbols): Option[Effect] = try {
@@ -280,8 +303,12 @@ trait EffectsAnalyzer extends CachingPhase {
         effect(o, env).map(_ + ArrayAccessor(idx))
 
       case FieldAssignment(o, id, v) =>
-        rec(o, env) ++ rec(v, env) ++
-        effect(o, env).map(_ + FieldAccessor(id))
+        val accessor = o.getType match {
+          case _: ADTType => ADTFieldAccessor(id)
+          case _: ClassType => ClassFieldAccessor(id)
+        }
+
+        rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_ + accessor)
 
       case Application(callee, args) =>
         val ft @ FunctionType(_, _) = callee.getType
@@ -323,6 +350,7 @@ trait EffectsAnalyzer extends CachingPhase {
       def isInductive(tpe: Type, seen: Set[Identifier]): Boolean = {
         val deps = s.typeOps.collect {
           case ADTType(id, _) => dependencies(id)
+          case ClassType(id, _) => dependencies(id)
           case _ => Set.empty[Identifier]
         } (tpe)
 
@@ -330,10 +358,14 @@ trait EffectsAnalyzer extends CachingPhase {
       }
 
       def rec(tpe: Type, path: Seq[Accessor], seen: Set[Identifier]): Seq[Accessor] = (tpe, path) match {
-        case (adt: ADTType, (fa @ FieldAccessor(id)) +: xs) =>
+        case (adt: ADTType, (fa @ ADTFieldAccessor(id)) +: xs) =>
           val field = adt.getSort.constructors.flatMap(_.fields).find(_.id == id).get
           if (isInductive(field.getType, seen)) Seq()
           else fa +: rec(field.getType, xs, seen + adt.id)
+        case (ct: ClassType, (fa @ ClassFieldAccessor(id)) +: xs) =>
+          val field = getClassField(ct, id).get
+          if (isInductive(field.getType, seen)) Seq()
+          else fa +: rec(field.getType, xs, seen + ct.id)
         case (_, ArrayAccessor(_) +: xs) => Seq()
         case _ => Seq()
       }
@@ -372,9 +404,16 @@ trait EffectsAnalyzer extends CachingPhase {
   def isMutableType(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
     case tp: TypeParameter => tp.flags contains IsMutable
     case arr: ArrayType => true
+    case ft: FunctionType => false
+    case ct: ClassType => isMutableClassType(ct)
     case ADTType(id, _) => symbols.getSort(id).flags.contains(IsMutable)
-    case _: FunctionType => false
     case NAryType(tps, _) => tps.exists(isMutableType)
+  }
+
+  private[this] def isMutableClassType(ct: ClassType)(implicit symbols: Symbols): Boolean = {
+    (ct.tcd +: ct.tcd.descendants) exists { tcd =>
+      tcd.cd.flags.contains(IsMutable) || tcd.fields.exists(_.flags contains IsVar)
+    }
   }
 
   /** Effects at the level of types for a function

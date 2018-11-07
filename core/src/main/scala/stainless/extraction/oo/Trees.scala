@@ -6,7 +6,7 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait Trees extends imperative.Trees with Definitions { self =>
+trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /* ========================================
    *              EXPRESSIONS
@@ -22,6 +22,8 @@ trait Trees extends imperative.Trees with Definitions { self =>
 
   /** $encodingof `expr.selector` */
   case class ClassSelector(expr: Expr, selector: Identifier) extends Expr with CachingTyped {
+    def field(implicit s: Symbols): Option[ValDef] = getField(expr.getType, selector)
+
     protected def computeType(implicit s: Symbols): Type = expr.getType match {
       case ct: ClassType =>
         ct.getField(selector).map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
@@ -72,9 +74,9 @@ trait Trees extends imperative.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
-  override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
+  protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
     case ct: ClassType => ct.getField(selector)
-    case _ => super.getField(tpe, selector)
+    case _ => None
   }
 
   /** Type associated to instances of [[ClassConstructor]] */
@@ -149,7 +151,7 @@ trait Trees extends imperative.Trees with Definitions { self =>
   trait SelfTreeTraverser extends TreeTraverser with super.SelfTreeTraverser
 }
 
-trait Printer extends imperative.Printer {
+trait Printer extends innerfuns.Printer {
   protected val trees: Trees
   import trees._
 
@@ -172,7 +174,7 @@ trait Printer extends imperative.Printer {
       }), "def")
   }
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
 
     case cd: ClassDef =>
       for (an <- cd.flags) {
@@ -213,7 +215,7 @@ trait Printer extends imperative.Printer {
       for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(ctx.opts)}"
 
     case ClassConstructor(ct, args) =>
-      p"$ct($args)"
+      p"new $ct($args)"
 
     case ClassSelector(cls, selector) =>
       p"$cls.$selector"
@@ -244,7 +246,7 @@ trait Printer extends imperative.Printer {
   }
 }
 
-trait ExprOps extends imperative.ExprOps {
+trait ExprOps extends innerfuns.ExprOps {
   protected val trees: Trees
   import trees._
 
@@ -269,7 +271,7 @@ trait ExprOps extends imperative.ExprOps {
   }
 }
 
-trait TreeDeconstructor extends imperative.TreeDeconstructor {
+trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 

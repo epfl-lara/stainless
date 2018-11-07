@@ -7,8 +7,9 @@ package imperative
 import inox._
 
 trait AntiAliasing
-  extends CachingPhase
+  extends oo.CachingPhase
      with SimpleSorts
+     with oo.SimpleClasses
      with EffectsAnalyzer
      with EffectsChecker
      with GhostChecker { self =>
@@ -16,14 +17,20 @@ trait AntiAliasing
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]((sort, context) => 
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]((sort, context) =>
     getDependencyKey(sort.id)(context.symbols)
+  )
+
+  // Function types are rewritten by the transformer depending on the result of the
+  // effects analysis, so we again use a dependency cache here.
+  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]((cd, context) =>
+    getDependencyKey(cd.id)(context.symbols)
   )
 
   override protected type FunctionResult = Option[FunDef]
@@ -200,7 +207,7 @@ trait AntiAliasing
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
 
                 def select(tpe: Type, expr: Expr, path: Seq[Accessor]): (Expr, Expr) = (tpe, path) match {
-                  case (adt: ADTType, FieldAccessor(id) +: xs) =>
+                  case (adt: ADTType, ADTFieldAccessor(id) +: xs) =>
                     val constructors = adt.getSort.constructors
                     val constructor = constructors.find(_.fields.exists(_.id == id)).get
                     val field = constructor.fields.find(_.id == id).get
@@ -212,6 +219,14 @@ trait AntiAliasing
                     }
 
                     val (recCond, recSelect) = select(field.tpe, ADTSelector(expr, id).setPos(pos), xs)
+                    (and(condition, recCond), recSelect)
+
+                  case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
+                    val field = getClassField(ct, id).get
+                    val fieldClassType = classForField(ct, id).get.toType
+                    val condition = IsInstanceOf(expr, fieldClassType).setPos(pos)
+
+                    val (recCond, recSelect) = select(field.tpe, ClassSelector(AsInstanceOf(expr, fieldClassType).setPos(expr), id).setPos(pos), xs)
                     (and(condition, recCond), recSelect)
 
                   case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
@@ -298,8 +313,13 @@ trait AntiAliasing
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
             val effect = getExactEffect(so)
+            val accessor = o.getType match {
+              case _: ADTType => ADTFieldAccessor(id)
+              case _: ClassType => ClassFieldAccessor(id)
+            }
+
             if (env.bindings contains effect.receiver.toVal) {
-              val applied = applyEffect(effect + FieldAccessor(id), v)
+              val applied = applyEffect(effect + accessor, v)
               transform(Assignment(effect.receiver, applied).copiedFrom(as), env)
             } else {
               throw MissformedStainlessCode(as, "Unsupported form of field assignment")
@@ -404,7 +424,7 @@ trait AntiAliasing
     //properly updated values
     def applyEffect(effect: Effect, newValue: Expr): Expr = {
       def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
-        case FieldAccessor(id) :: fs =>
+        case ADTFieldAccessor(id) :: fs =>
           val adt @ ADTType(_, tps) = receiver.getType
           val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
           val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
@@ -412,6 +432,16 @@ trait AntiAliasing
           ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
             if (vd.id == id) r
             else Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
+          }).copiedFrom(newValue)
+
+        case ClassFieldAccessor(id) :: fs =>
+          val ct = classForField(receiver.getType.asInstanceOf[ClassType], id).get.toType
+          val casted = AsInstanceOf(receiver, ct).copiedFrom(receiver)
+          val r = rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+
+          ClassConstructor(ct, ct.tcd.fields.map { vd =>
+            if (vd.id == id) r
+            else Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case ArrayAccessor(index) :: fs =>
@@ -429,6 +459,9 @@ trait AntiAliasing
 
   override protected def extractSort(analysis: SymbolsAnalysis, sort: ADTSort): ADTSort =
     analysis.transformer.transform(sort)
+
+  override protected def extractClass(analysis: SymbolsAnalysis, cd: ClassDef): ClassDef =
+    analysis.transformer.transform(cd)
 }
 
 object AntiAliasing {

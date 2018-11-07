@@ -12,15 +12,16 @@ package imperative
   * Unit in it, which can be safely eliminated.
   */
 trait ImperativeCleanup
-  extends SimplePhase
+  extends oo.SimplePhase
      with SimplyCachedFunctions
-     with SimplyCachedSorts { self =>
+     with SimplyCachedSorts
+     with oo.SimplyCachedClasses { self =>
 
   val s: Trees
-  val t: extraction.Trees
+  val t: oo.Trees
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
-  protected class TransformerContext(val symbols: s.Symbols) extends CheckingTransformer {
+  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer { // CheckingTransformer {
     val s: self.s.type = self.s
     val t: self.t.type = self.t
     import symbols._
@@ -73,6 +74,9 @@ trait ImperativeCleanup
     case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
       throw MissformedStainlessCode(o,
         s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
+    case o @ s.Old(s.ClassSelector(v: s.Variable, id)) =>
+      throw MissformedStainlessCode(o,
+        s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
     case o @ s.Old(e) =>
       throw MissformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
     case _ => ()
@@ -94,10 +98,14 @@ trait ImperativeCleanup
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = {
     super.extractSort(context, sort.copy(flags = sort.flags filterNot context.isImperativeFlag))
   }
+
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
+    super.extractClass(context, cd.copy(flags = cd.flags filterNot context.isImperativeFlag))
+  }
 }
 
 object ImperativeCleanup {
-  def apply(ts: Trees, tt: extraction.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new ImperativeCleanup {
