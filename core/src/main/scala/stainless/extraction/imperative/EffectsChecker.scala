@@ -16,6 +16,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
   protected def checkEffects(fd: FunDef)(analysis: EffectsAnalysis): CheckResult = {
     import analysis._
+  import symbols.isMutableType
 
     def isMutableSynthetic(id: Identifier): Boolean = {
       val fd = symbols.getFunction(id)
