@@ -79,7 +79,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           expressionEffects(body, current)
         case None if !fd.flags.exists(_.name == "pure") =>
           fd.params
-            .filter(vd => isMutableType(vd.getType))
+            .filter(vd => symbols.isMutableType(vd.getType))
             .map(_.toVariable)
             .map(Effect(_, Target(Seq.empty)))
             .toSet
@@ -214,7 +214,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   def getEffect(expr: Expr)(implicit symbols: Symbols): Option[Effect] = {
     def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
       case v: Variable => Some(Effect(v, Target(path)))
-      case _ if variablesOf(expr).forall(v => !isMutableType(v.tpe)) => None
+      case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => None
       case ADTSelector(e, id) => rec(e, ADTFieldAccessor(id) +: path)
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
@@ -237,7 +237,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case _: IsInstanceOf => None
       case AsInstanceOf(e, _) => rec(e, path)
       case Old(_) => None
-      case Let(vd, e, b) if !isMutableType(vd.tpe) => rec(b, path)
+      case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) => rec(b, path)
       case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
         case (Some(ee), Some(be)) if be.receiver == vd.toVariable =>
           Some(Effect(ee.receiver, Target(ee.target.path ++ be.target.path)))
@@ -287,10 +287,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       getEffect(expr).flatMap(inEnv(_, env))
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
-      case Let(vd, e, b) if isMutableType(vd.tpe) =>
+      case Let(vd, e, b) if symbols.isMutableType(vd.tpe) =>
         rec(e, env) ++ rec(b, env ++ effect(e, env).map(vd.toVariable -> _))
 
-      case MatchExpr(scrut, cses) if isMutableType(scrut.getType) =>
+      case MatchExpr(scrut, cses) if symbols.isMutableType(scrut.getType) =>
         rec(scrut, env) ++ cses.flatMap { case MatchCase(pattern, guard, rhs) =>
           val newEnv = env ++ mapForPattern(scrut, pattern).flatMap {
             case (v, e) => effect(e, env).map(v.toVariable -> _)
@@ -393,29 +393,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
   }
 
-  /** Determine if the type is mutable
-    *
-    * In Stainless, we classify types as either mutable or immutable. Immutable
-    * type can be referenced freely, while mutable types must be treated with
-    * care. This function uses a cache, so make sure to not update your class
-    * def and use the same instance of EffectsAnalysis. It is fine to add
-    * new ClassDef types on the fly, granted that they use fresh identifiers.
-    */
-  def isMutableType(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
-    case tp: TypeParameter => tp.flags contains IsMutable
-    case arr: ArrayType => true
-    case ft: FunctionType => false
-    case ct: ClassType => isMutableClassType(ct)
-    case ADTType(id, _) => symbols.getSort(id).flags.contains(IsMutable)
-    case NAryType(tps, _) => tps.exists(isMutableType)
-  }
-
-  private[this] def isMutableClassType(ct: ClassType)(implicit symbols: Symbols): Boolean = {
-    (ct.tcd +: ct.tcd.descendants) exists { tcd =>
-      tcd.cd.flags.contains(IsMutable) || tcd.fields.exists(_.flags contains IsVar)
-    }
-  }
-
   /** Effects at the level of types for a function
     *
     * This disregards the actual implementation of a function, and considers only
@@ -425,7 +402,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     */
   def functionTypeEffects(ft: FunctionType)(implicit symbols: Symbols): Set[Int] = {
     ft.from.zipWithIndex.flatMap { case (tpe, i) =>
-      if (isMutableType(tpe)) Some(i) else None
+      if (symbols.isMutableType(tpe)) Some(i) else None
     }.toSet
   }
 }
