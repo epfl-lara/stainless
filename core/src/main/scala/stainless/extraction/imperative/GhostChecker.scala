@@ -27,7 +27,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case _ => false
       }
 
-      (effect.receiver.flags contains Ghost) || rec(effect.receiver.getType, effect.target.path)
+      (effect.receiver.flags contains Ghost) || rec(effect.receiver.getType, effect.path.toSeq)
     }
 
     def isGhostExpression(e: Expr): Boolean = e match {

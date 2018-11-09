@@ -309,7 +309,7 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
       (fd.flags filter {
         case s.IsMethodOf(_) | s.IsInvariant => false
         case _ => true
-      } map transformer.transform) ++ derivedFrom
+      } map transformer.transform) ++ derivedFlags ++ accessorFlag.toSeq
     ).copiedFrom(fd)
   }
 }

@@ -216,7 +216,7 @@ trait Sealing extends oo.CachingPhase
   private[this] def duplicate(fd: FunDef): FunDef = {
     exprOps.freshenSignature(fd.copy(
       id = ast.SymbolIdentifier(fd.id.name),
-      flags = fd.flags :+ Derived(fd.id)
+      flags = (fd.flags :+ Derived(fd.id)).distinct
     ).copiedFrom(fd))
   }
 

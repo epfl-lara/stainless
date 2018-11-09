@@ -53,7 +53,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   import s._
   import exprOps._
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) => 
+  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
   )
 
@@ -81,7 +81,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           fd.params
             .filter(vd => symbols.isMutableType(vd.getType))
             .map(_.toVariable)
-            .map(Effect(_, Target(Seq.empty)))
+            .map(Effect(_, Path(Seq.empty)))
             .toSet
         case _ =>
           Set.empty
@@ -152,10 +152,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   case class ClassFieldAccessor(selector: Identifier) extends Accessor
   case class ArrayAccessor(index: Expr) extends Accessor
 
-  case class Target(path: Seq[Accessor]) {
-    def +(elem: Accessor) = Target(path :+ elem)
+  case class Path(path: Seq[Accessor]) {
+    def :+(elem: Accessor): Path = Path(path :+ elem)
+    def +:(elem: Accessor): Path = Path(elem +: path)
+    def ++(that: Path): Path = Path(this.path ++ that.path)
 
-    def on(that: Expr)(implicit symbols: Symbols): Option[Effect] = {
+    def on(that: Expr)(implicit symbols: Symbols): Option[Target] = {
       def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
         case ADTFieldAccessor(id) +: xs =>
           rec(ADTSelector(expr, id), xs)
@@ -176,17 +178,22 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       rec(that, path).flatMap(getEffect)
     }
 
-    def prefixOf(that: Target): Boolean = {
+    def prefixOf(that: Path): Boolean = {
       def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
         case (Seq(), _) => true
-        case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) => rec(xs1, xs2)
-        case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
-        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 => rec(xs1, xs2)
+        case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) =>
+          rec(xs1, xs2)
+        case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
         case _ => false
       }
 
       rec(path, that.path)
     }
+
+    def toSeq: Seq[Accessor] = path
 
     def asString(implicit printerOpts: PrinterOptions): String = path.map {
       case ADTFieldAccessor(id) => s".${id.asString}"
@@ -197,67 +204,144 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  case class Effect(receiver: Variable, target: Target) {
-    def +(elem: Accessor) = Effect(receiver, target + elem)
+  object Path {
+    def empty: Path = Path(Seq.empty)
+  }
 
-    def on(that: Expr)(implicit symbols: Symbols): Option[Effect] = target on that
+  sealed abstract class Target {
+    val receiver: Variable
+
+    def +(elem: Accessor): Target = this match {
+      case SimpleTarget(receiver, path) =>
+        SimpleTarget(receiver, path :+ elem)
+      case ConditionalTarget(cond, thn, els) =>
+        ConditionalTarget(cond, thn + elem, els + elem)
+    }
+
+    def append(that: Target): Target = (this, that) match {
+      case (SimpleTarget(receiver, a), SimpleTarget(_, b)) =>
+        SimpleTarget(receiver, a ++ b)
+
+      case (SimpleTarget(receiver, path), ConditionalTarget(cond, thn, els)) =>
+        ConditionalTarget(cond, thn prependPath path, els prependPath path)
+
+      case (ConditionalTarget(cond, thn, els), that) =>
+        ConditionalTarget(cond, thn append that, els append that)
+    }
+
+    def prependPath(path: Path): Target = this match {
+      case SimpleTarget(receiver, p) =>
+        SimpleTarget(receiver, path ++ p)
+
+      case ConditionalTarget(cond, thn, els) =>
+        ConditionalTarget(cond, thn prependPath path, els prependPath path)
+    }
+
+    def toEffect: Set[Effect] = this match {
+      case SimpleTarget(receiver, path) => Set(Effect(receiver, path))
+      case ConditionalTarget(_, thn, els) => thn.toEffect ++ els.toEffect
+    }
+  }
+
+  case class SimpleTarget(
+    receiver: Variable,
+    path: Path
+  ) extends Target
+
+  case class ConditionalTarget(
+    condition: Expr,
+    whenTrue: Target,
+    whenFalse: Target
+  ) extends Target {
+    require(whenTrue.receiver == whenFalse.receiver)
+    val receiver = whenTrue.receiver
+  }
+
+  case class Effect(receiver: Variable, path: Path) {
+    def +(elem: Accessor) = Effect(receiver, path :+ elem)
+
+    def on(that: Expr)(implicit symbols: Symbols): Option[Effect] = for {
+      SimpleTarget(receiver, path) <- this.path on that
+    } yield Effect(receiver, path)
 
     def prefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (target prefixOf that.target)
+      receiver == that.receiver && (path prefixOf that.path)
+
+    def toTarget: Target = SimpleTarget(receiver, path)
 
     def asString(implicit printerOpts: PrinterOptions): String =
-      s"Effect(${receiver.asString}${target.asString})"
+      s"Effect(${receiver.asString}${path.asString})"
 
     override def toString: String = asString
   }
 
-  def getEffect(expr: Expr)(implicit symbols: Symbols): Option[Effect] = {
-    def rec(expr: Expr, path: Seq[Accessor]): Option[Effect] = expr match {
-      case v: Variable => Some(Effect(v, Target(path)))
+  def getEffect(expr: Expr)(implicit symbols: Symbols): Option[Target] = {
+    def rec(expr: Expr, path: Seq[Accessor]): Option[Target] = expr match {
+      case v: Variable => Some(SimpleTarget(v, Path(path)))
       case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => None
       case ADTSelector(e, id) => rec(e, ADTFieldAccessor(id) +: path)
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
+
       case ADT(id, _, args) => path match {
         case ADTFieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
         case _ =>
           throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
       }
+
       case ClassConstructor(ct, args) => path match {
         case ClassFieldAccessor(fid) +: rest =>
           rec(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
         case _ =>
           throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
       }
+
       case Assert(_, _, e) => rec(e, path)
       case Annotated(e, _) => rec(e, path)
-      case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
+
+      case IfExpr(cnd, thn, els) =>
+        for {
+          // c <- getEffect(cnd)
+          t <- rec(thn, path)
+          e <- rec(els, path)
+          if t.receiver == e.receiver
+        } yield ConditionalTarget(cnd, t, e)
+
+      case fi: FunctionInvocation if fi.tfd.flags.exists(_.name == "accessor") =>
+        rec(symbols.simplifyLets(fi.inlined), path)
+
+      case fi: FunctionInvocation => None
+      case (_: ApplyLetRec | _: Application) => None
       case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
-      case _: IsInstanceOf => None
+      case IsInstanceOf(e, _) => rec(e, path)
       case AsInstanceOf(e, _) => rec(e, path)
       case Old(_) => None
-      case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) => rec(b, path)
+
+      case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
+        rec(b, path)
+
       case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
         case (Some(ee), Some(be)) if be.receiver == vd.toVariable =>
-          Some(Effect(ee.receiver, Target(ee.target.path ++ be.target.path)))
+          Some(ee append be)
         case (_, Some(be)) => Some(be)
         case _ =>
           throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
       }
+
       case _ =>
         throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
     }
 
-    rec(expr, Seq())
+    rec(expr, Seq.empty)
   }
 
-  def getExactEffect(expr: Expr)(implicit symbols: Symbols): Effect = getEffect(expr) match {
+  def getExactEffect(expr: Expr)(implicit symbols: Symbols): Target = getEffect(expr) match {
     case Some(effect) => effect
     case _ => throw MissformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
   }
 
-  def getKnownEffect(expr: Expr)(implicit symbols: Symbols): Option[Effect] = try {
+  def getKnownEffect(expr: Expr)(implicit symbols: Symbols): Option[Target] = try {
     getEffect(expr)
   } catch {
     case _: MissformedStainlessCode => None
@@ -281,10 +365,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     val freeVars = variablesOf(expr)
 
     def inEnv(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
-      env.get(effect.receiver).map(e => e.copy(target = Target(e.target.path ++ effect.target.path)))
+      env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
 
-    def effect(expr: Expr, env: Map[Variable, Effect]): Option[Effect] =
-      getEffect(expr).flatMap(inEnv(_, env))
+    def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
+      getEffect(expr).toSet flatMap { (target: Target) =>
+        target.toEffect.flatMap(eff => inEnv(eff, env).toSet)
+      }
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
       case Let(vd, e, b) if symbols.isMutableType(vd.tpe) =>
@@ -320,6 +406,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case Assignment(v, value) => rec(value, env) ++ env.get(v)
 
+      case IfExpr(cnd, thn, els) =>
+        rec(cnd, env) ++ rec(thn, env) ++ rec(els, env)
+
       case fi @ FunInvocation(id, tps, args, _) =>
         val fun = fi match {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
@@ -340,7 +429,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }
 
-    val mutated = rec(expr, freeVars.map(v => v -> Effect(v, Target(Seq()))).toMap)
+    val mutated = rec(expr, freeVars.map(v => v -> Effect(v, Path.empty)).toMap)
 
     // We truncate the effects path if it goes through an inductive ADT as
     // such effects can lead to inexistence of the effects fixpoint.
@@ -370,27 +459,32 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case _ => Seq()
       }
 
-      Effect(effect.receiver, Target(rec(effect.receiver.getType, effect.target.path, Set())))
+      Effect(effect.receiver, Path(rec(effect.receiver.getType, effect.path.toSeq, Set())))
     }
 
     // We merge paths that are prefixes of one another or point to the same array
-    def merge(targets: Set[Target]): Set[Target] = {
+    def merge(paths: Set[Path]): Set[Path] = {
       // This truncates the path `p2` depending on `p1`
-      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Option[Seq[Accessor]] = (p1, p2) match {
-        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Some(Seq())
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Option[Path] = (p1, p2) match {
+        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Some(Path.empty)
         case (x1 +: xs1, x2 +: xs2) if x1 == x2 => rec(xs1, xs2).map(x1 +: _)
-        case (Nil, Nil) => Some(Seq())
+        case (Nil, Nil) => Some(Path.empty)
         case _ => None
       }
 
-      val merged = targets.flatMap(t1 => targets.flatMap(t2 => rec(t1.path, t2.path).map(Target(_))) + t1)
+      val merged = paths.flatMap { t1 =>
+        paths.flatMap { t2 =>
+          rec(t1.toSeq, t2.toSeq)
+        } + t1
+      }
+
       merged.filterNot(t1 => (merged - t1).exists(t2 => t2 prefixOf t1))
     }
 
     mutated
       .map(truncate)
       .groupBy(_.receiver)
-      .flatMap { case (v, effects) => merge(effects.map(_.target)).map(Effect(v, _)) }.toSet
+      .flatMap { case (v, effects) => merge(effects.map(_.path)).map(Effect(v, _)) }.toSet
   }
 
   /** Effects at the level of types for a function
