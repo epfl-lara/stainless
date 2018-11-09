@@ -33,9 +33,10 @@ trait FieldAccessors extends oo.CachingPhase
     }
 
     override def transform(fd: s.FunDef): t.FunDef = {
-      super.transform(fd.copy(flags = fd.flags.filter {
-        case IsAccessor(_) | IsAbstract => false
-        case _ => true
+      super.transform(fd.copy(flags = fd.flags.flatMap {
+        case IsAccessor(_) => Some(Annotation("accessor", Seq.empty))
+        case IsAbstract => None
+        case other => Some(other)
       }))
     }
   }

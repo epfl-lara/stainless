@@ -295,7 +295,10 @@ trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self
     val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
 
     // a lifted method is derived from the methods that (first) override it
-    val derivedFrom = cos.flatMap(o => firstOverrides(o).map(p => t.Derived(p._2.id)))
+    val derivedFrom = cos.flatMap(o => firstOverrides(o).map(_._2))
+    val derivedFlags = derivedFrom.map(fd => t.Derived(fd.id))
+    val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.flags.exists(_.name == "accessor"))
+    val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
 
     new t.FunDef(
       fd.id,
