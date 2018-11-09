@@ -16,13 +16,18 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
   protected def checkEffects(fd: FunDef)(analysis: EffectsAnalysis): CheckResult = {
     import analysis._
-  import symbols.isMutableType
+    import symbols.isMutableType
 
     def isMutableSynthetic(id: Identifier): Boolean = {
       val fd = symbols.getFunction(id)
       fd.flags.contains(Synthetic) &&
+      !isAccessor(Outer(fd)) &&
       fd.params.exists(vd => isMutableType(vd.tpe)) &&
       !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
+    }
+
+    def isAccessor(fd: FunAbstraction): Boolean = {
+      fd.flags.exists(_.name == "accessor")
     }
 
     // We can safely get rid of the function as we are assured
@@ -39,7 +44,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
 
         // check return value
-        if (isMutableType(bd.getType) && !isExpressionFresh(bd)) {
+        if (!isAccessor(fd) && isMutableType(bd.getType) && !isExpressionFresh(bd)) {
           throw ImperativeEliminationException(bd,
             "Cannot return a shared reference to a mutable object: " + bd.asString)
         }
