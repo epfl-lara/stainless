@@ -23,9 +23,8 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
 
   // TODO: Add cache
   def classForField(ct: ClassType, id: Identifier): Option[TypedClassDef] = {
-    (ct.tcd +: ct.tcd.descendants).collectFirst {
-      case tcd if tcd.fields.exists(_.id == id) => tcd
-    }
+    val related = (ct.tcd +: ct.tcd.ancestors).flatMap(tcd => tcd +: tcd.descendants).toSet
+    related.collectFirst { case tcd if tcd.fields.exists(_.id == id) => tcd }
   }
 
   def getClassField(ct: ClassType, id: Identifier): Option[ValDef] = {

@@ -235,9 +235,10 @@ trait AntiAliasing
                   case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
                 }
 
-                val (cond, result) = select(resSelect.getType, resSelect, outerEffect.target.path)
-                val newValue = applyEffect(effect, Annotated(result, Seq(Unchecked)).setPos(pos))
-                val assignment = Assignment(effect.receiver, newValue).setPos(args(index))
+                val (cond, result) = select(resSelect.getType, resSelect, outerEffect.path.toSeq)
+                val newValue = applyEffect(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
+                val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
+                val assignment = Assignment(effect.receiver, castedValue).setPos(args(index))
 
                 if (cond == BooleanLiteral(true)) assignment
                 else IfExpr(cond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
@@ -397,7 +398,7 @@ trait AntiAliasing
               ).copiedFrom(app)
 
               val params = from.map(tpe => ValDef.fresh("x", tpe))
-              val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Target(Seq())) }
+              val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Path.empty) }
               val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
               mapApplication(params, args, nfi, to, appEffects.toSet, env)
             } else {
@@ -422,7 +423,7 @@ trait AntiAliasing
     //given a receiver object (mutable class or array, usually as a reference id),
     //and a path of field/index access, build a copy of the original object, with
     //properly updated values
-    def applyEffect(effect: Effect, newValue: Expr): Expr = {
+    def applyEffect(effect: Target, newValue: Expr): Expr = {
       def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
         case ADTFieldAccessor(id) :: fs =>
           val adt @ ADTType(_, tps) = receiver.getType
@@ -451,7 +452,23 @@ trait AntiAliasing
         case Nil => newValue
       }
 
-      rec(effect.receiver, effect.target.path)
+      effect match {
+        case SimpleTarget(receiver, path) =>
+          rec(receiver, path.toSeq)
+
+        case ct @ ConditionalTarget(cond, thn, els) =>
+          Annotated(
+            AsInstanceOf(
+              IfExpr(
+                cond,
+                applyEffect(thn, newValue),
+                applyEffect(els, newValue)
+              ).copiedFrom(newValue),
+              ct.receiver.getType
+            ).copiedFrom(newValue),
+          Seq(Unchecked)
+        ).copiedFrom(newValue)
+      }
     }
 
     Some(transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun))
