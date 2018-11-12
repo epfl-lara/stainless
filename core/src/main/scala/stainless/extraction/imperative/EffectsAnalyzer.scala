@@ -79,7 +79,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           expressionEffects(body, current)
         case None if !fd.flags.exists(_.name == "pure") =>
           fd.params
-            .filter(vd => symbols.isMutableType(vd.getType))
+            .filter(vd => !vd.flags.exists(_.name == "pure") && symbols.isMutableType(vd.getType))
             .map(_.toVariable)
             .map(Effect(_, Path(Seq.empty)))
             .toSet
