@@ -390,7 +390,7 @@ trait AntiAliasing
 
           case app @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType
-            val ftEffects = functionTypeEffects(ft)
+            val ftEffects = functionTypeEffects(ft) // FIXME: use arguments type instead instead
             if (ftEffects.nonEmpty) {
               val nfi = Application(
                 transform(callee, env),

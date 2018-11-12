@@ -1,16 +1,16 @@
-import stainless.lang._
+// import stainless.lang._
 
-object any {
+// object any {
 
-  def add(x: Any, s: Set[Any]): Set[Any] = {
-    s + x
-  }
+//   def add(x: Any, s: Set[Any]): Set[Any] = {
+//     s + x
+//   }
 
-  def e: Set[Any] = Set.empty[Any]
+//   def e: Set[Any] = Set.empty[Any]
 
-  def test(x: Any): Set[Any] = {
-    add(x, e)
-  } ensuring { _ contains x }
+//   def test(x: Any): Set[Any] = {
+//     add(x, e)
+//   } ensuring { _ contains x }
 
-}
+// }
 
