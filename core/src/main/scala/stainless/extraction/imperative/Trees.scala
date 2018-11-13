@@ -27,15 +27,15 @@ trait Trees extends oo.Trees with Definitions { self =>
       checkParamType(value, v.tpe, UnitType())
   }
 
-  // Override point for alternative field assignment targets
-  override protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
-    case adt: ADTType => adt.getField(selector)
-    case _ => super.getField(tpe, selector)
-  }
-
   /** $encodingof `obj.selector = value` */
   case class FieldAssignment(obj: Expr, selector: Identifier, value: Expr) extends Expr with CachingTyped {
-    def getField(implicit s: Symbols): Option[ValDef] = self.getField(obj.getType, selector)
+    def getField(implicit s: Symbols): Option[ValDef] = getClassType(obj) match {
+      case ct: ClassType => ct.getField(selector)
+      case _ => getADTType(obj) match {
+        case adt: ADTType => adt.getField(selector)
+        case _ => None
+      }
+    }
 
     protected def computeType(implicit s: Symbols): Type = {
       getField
