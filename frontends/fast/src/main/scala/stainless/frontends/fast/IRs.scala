@@ -1,6 +1,8 @@
 package stainless.frontends.fast
 
-trait IRs extends inox.parser.IRs
-  with extraction.DottyToInoxIR {
+import stainless.frontends.dotc.SymbolsContext
 
+trait IRs extends extraction.DottyToInoxIR with inox.parser.IRs {
+  def getInoxContext: inox.Context
+  def getSymbolCache: SymbolsContext
 }

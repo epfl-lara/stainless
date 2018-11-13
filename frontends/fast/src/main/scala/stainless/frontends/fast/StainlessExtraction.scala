@@ -7,8 +7,8 @@ import inox.ast.FreshIdentifier
 import stainless.Main
 import stainless.frontend.CallBack
 import stainless.frontends.dotc.{CodeExtraction, SymbolsContext}
-
 import stainless.extraction.xlang.{trees => xt}
+import stainless.frontends.fast.extraction.DottyToInoxIR
 
 
 class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Phase {
@@ -16,6 +16,14 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
   def phaseName: String = "stainless extraction"
 
   def run(implicit ctx: Context): Unit = {
+    // probably the stupidest
+    val dottyToInoxIR = new IRs {
+      override def getInoxContext: inox.Context = inoxCtx
+      override def getSymbolCache: SymbolsContext = cache
+    }.asInstanceOf[DottyToInoxIR].withDottyContext(ctx)
+
+
+
     val extraction = new CodeExtraction(inoxCtx, cache)
     import extraction.{ ctx => _, _ }
 
