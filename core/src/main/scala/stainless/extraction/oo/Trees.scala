@@ -22,7 +22,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `expr.selector` */
   case class ClassSelector(expr: Expr, selector: Identifier) extends Expr with CachingTyped {
-    def field(implicit s: Symbols): Option[ValDef] = getField(expr.getType, selector)
+    // TODO: Rename
+    def field(implicit s: Symbols): Option[ValDef] = getClassType(expr) match {
+      case ct: ClassType => ct.getField(selector)
+      case _ => None
+    }
 
     protected def computeType(implicit s: Symbols): Type = expr.getType match {
       case ct: ClassType =>
@@ -74,11 +78,6 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
-  protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] = tpe match {
-    case ct: ClassType => ct.getField(selector)
-    case _ => None
-  }
-
   /** Type associated to instances of [[ClassConstructor]] */
    case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
     def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
@@ -105,6 +104,12 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     case tp: TypeParameter => widenTypeParameter(tp.upperBound)
     case tpe => tpe
   }
+
+  protected def getClassType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+    widenTypeParameter(tpe.getType) match {
+      case ct: ClassType => checkAllTypes(tpes, ct, ct)
+      case _ => Untyped
+    }
 
   override protected def getBVType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
     super.getBVType(widenTypeParameter(tpe), tpes: _*)
