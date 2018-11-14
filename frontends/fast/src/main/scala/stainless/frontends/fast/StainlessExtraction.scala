@@ -4,7 +4,6 @@ import dotty.tools.dotc.ast.Trees._
 import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
 import inox.ast.FreshIdentifier
-import stainless.Main
 import stainless.frontend.CallBack
 import stainless.frontends.dotc.{CodeExtraction, SymbolsContext}
 import stainless.extraction.xlang.{trees => xt}
@@ -17,36 +16,31 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
 
   def run(implicit ctx: Context): Unit = {
     // probably the stupidest
-    val dottyToInoxIR = new IRs {
-      override def getInoxContext: inox.Context = inoxCtx
-      override def getSymbolCache: SymbolsContext = cache
-    }.asInstanceOf[DottyToInoxIR].withDottyContext(ctx)
+    val dottyToInoxIR = new IRs {}.asInstanceOf[DottyToInoxIR]
 
-
-
-    val extraction = new CodeExtraction(inoxCtx, cache)
-    import extraction.{ ctx => _, _ }
+    import dottyToInoxIR.{extractRef, extractStatic, outOfSubsetError}
 
     val unit = ctx.compilationUnit
-    val tree = unit.tpdTree
+    val tree = unit.untpdTree
     val (id, stats) = tree match {
       case pd @ PackageDef(refTree, lst) =>
         val id = lst.collectFirst { case PackageDef(ref, stats) => ref } match {
-          case Some(ref) => extractRef(ref)
+          case Some(ref) => extractRef(ref)(inoxCtx, cache, ctx)
           case None => FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", ""))
         }
         (id, pd.stats)
       case _ => outOfSubsetError(tree, "Unexpected unit body")
     }
 
-    val (imports, unitClasses, unitFunctions, subs, classes, functions) = extraction.extractStatic(stats)
-    assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
 
-    val file = unit.source.file.absolute.path
-    val isLibrary = Main.libraryFiles contains file
-    val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
 
-    callback(file, xtUnit, classes, functions)
+    val extracted = extractStatic(stats)(inoxCtx, cache, ctx)
+
+//    val file = unit.source.file.absolute.path
+//    val isLibrary = Main.libraryFiles contains file
+//    val xtUnit = xt.UnitDef(id, Seq(), Seq(), Seq(), !isLibrary)
+//
+//    callback(file, xtUnit, Seq(), functions)
   }
 
 }

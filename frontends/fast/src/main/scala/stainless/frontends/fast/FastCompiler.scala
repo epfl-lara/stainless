@@ -12,7 +12,7 @@ import stainless.frontends.dotc.{SymbolsContext}
 class FastCompiler(ctx: inox.Context, callback: CallBack, cache: SymbolsContext) extends Compiler {
   override def phases: List[List[Phase]] = List(
     List(new FastParserPhase),
-    List(new PostTyper)
+    List(new StainlessExtraction(ctx, callback, cache))
   )
 }
 
