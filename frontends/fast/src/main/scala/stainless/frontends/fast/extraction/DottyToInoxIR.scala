@@ -16,6 +16,7 @@ trait DottyToInoxIR
   extends ExtractMods {
   self: IRs =>
 
+
   private val Int8Type = Types.Primitives.BVType(8)
   private val Int16Type = Types.Primitives.BVType(16)
   private val Int32Type = Types.Primitives.BVType(32)
@@ -90,7 +91,7 @@ trait DottyToInoxIR
   }
 
   def extractExpression(rhs: untpd.Tree): Exprs.Expr = rhs match {
-    case Ident(name) => Exprs.Variable(Identifiers.IdentifierName(name.toString))
+    case Ident(name) => Exprs.Variable(Identifiers.IdentifierName(name.toString.trim))
   }
 
   def makeContext(expr: untpd.Tree)(implicit ctx: Context): Exprs.Expr => Exprs.Expr = expr match {
@@ -140,8 +141,9 @@ trait DottyToInoxIR
               && !mods.flags.is(Flags.Synthetic) && !mods.flags.is(Flags.Case) =>
               result ++= extractObject(module)
             case f@ExFunctionDef(name, typeParams, valDefs, returnType, body) =>
-              Functions.Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),
-                extractBindings(valDefs), extractType(returnType), extractBody(body))
+              result = result :+
+                Right(Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),
+                  extractBindings(valDefs), extractType(returnType), extractBody(body)))
           }
     }
 
