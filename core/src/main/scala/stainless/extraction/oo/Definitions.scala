@@ -194,8 +194,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
 
   implicit class TypeParameterWrapper(tp: TypeParameter) {
     def bounds: TypeBounds = {
-      tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi) }
-        .getOrElse(TypeBounds(NothingType(), AnyType()))
+      val flags = tp.flags.filter { case Bounds(_, _) => false case _ => true }
+      tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi, flags) }
+        .getOrElse(TypeBounds(NothingType(), AnyType(), flags))
     }
 
     def lowerBound: Type = bounds.lo

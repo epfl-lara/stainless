@@ -35,8 +35,8 @@ trait TypeOps extends innerfuns.TypeOps {
     case (sigma: SigmaType, _) => Some(typeBound(sigma.getType, tp2, upper))
     case (_, sigma: SigmaType) => Some(typeBound(tp1, sigma.getType, upper))
 
-    case (TypeBounds(lo, hi), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
-    case (tpe, TypeBounds(lo, hi)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
+    case (TypeBounds(lo, hi, _), tpe) => Some(typeBound(if (upper) hi else lo, tpe, upper))
+    case (tpe, TypeBounds(lo, hi, _)) => Some(typeBound(tpe, if (upper) hi else lo, upper))
 
     case (tp1: TypeParameter, tp2: TypeParameter) if tp1 == tp2 => Some(tp1)
     case (tp: TypeParameter, tpe) if upper && isSubtypeOf(tpe, tp.lowerBound) => Some(tp)
@@ -159,8 +159,8 @@ trait TypeOps extends innerfuns.TypeOps {
     case (sigma: SigmaType, _) => unificationConstraints(sigma.getType, t2, free)
     case (_, sigma: SigmaType) => unificationConstraints(t1, sigma.getType, free)
 
-    case (TypeBounds(lo, hi), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
-    case (tpe, TypeBounds(lo, hi)) if lo == hi => unificationConstraints(hi, tpe, free)
+    case (TypeBounds(lo, hi, _), tpe) if lo == hi => unificationConstraints(hi, tpe, free)
+    case (tpe, TypeBounds(lo, hi, _)) if lo == hi => unificationConstraints(hi, tpe, free)
 
     case (tp: TypeParameter, _) if !(typeOps.typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
     case (_, tp: TypeParameter) if !(typeOps.typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)

@@ -108,8 +108,8 @@ trait Trees extends throwing.Trees { self =>
 
           val tpSubst = (fd.typeArgs zip sfd.typeArgs).toMap
           (fd.typeArgs zip sfd.typeArgs).foreach { case (tp, stp) =>
-            val TypeBounds(lo, hi) = tp.bounds
-            val TypeBounds(slo, shi) = stp.bounds
+            val TypeBounds(lo, hi, _) = tp.bounds
+            val TypeBounds(slo, shi, _) = stp.bounds
 
             if (!isSubtypeOf(
               typeOps.instantiateType(lo, tpSubst),

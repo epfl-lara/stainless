@@ -67,7 +67,7 @@ trait TypeEncoding
   private[this] def isObject(tpe: s.Type)(implicit scope: Scope): Boolean = tpe match {
     case _: s.ClassType => true
     case s.NothingType() | s.AnyType() => true
-    case s.TypeBounds(_, _) => true
+    case s.TypeBounds(_, _, _) => true
     case tp: s.TypeParameter => scope.tparams contains tp
     case _ => false
   }
@@ -98,7 +98,7 @@ trait TypeEncoding
 
   private[this] def erasedBy(tpe: s.Type)(implicit scope: Scope): s.Type = s.typeOps.postMap {
     case tp: s.TypeParameter if scope.tparams contains tp => Some(s.AnyType().copiedFrom(tp))
-    case tb @ s.TypeBounds(s.NothingType(), s.AnyType()) => Some(s.AnyType().copiedFrom(tb))
+    case tb @ s.TypeBounds(s.NothingType(), s.AnyType(), _) => Some(s.AnyType().copiedFrom(tb))
     case _ => None
   } (tpe)
 
@@ -313,7 +313,7 @@ trait TypeEncoding
 
       case (_, s.AnyType()) => t.BooleanLiteral(true)
       case (_, s.NothingType()) => t.BooleanLiteral(false)
-      case (_, s.TypeBounds(_, hi)) => instanceOf(e, in, hi)
+      case (_, s.TypeBounds(_, hi, _)) => instanceOf(e, in, hi)
 
       case (s.RefinementType(vd, pred), _) => instanceOf(e, vd.tpe, tpe)
 
@@ -727,8 +727,8 @@ trait TypeEncoding
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), ct), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
-      case s.TypeBounds(_, s.AnyType()) => ref.copiedFrom(tp)
-      case s.TypeBounds(_, upperBound) =>
+      case s.TypeBounds(_, s.AnyType(), _) => ref.copiedFrom(tp)
+      case s.TypeBounds(_, upperBound, _) =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
@@ -921,7 +921,7 @@ trait TypeEncoding
         .collect { case (tp, i) if tparams(i) => tp }
         .foldLeft((this in fd.id, Seq[t.ValDef]())) {
           case ((scope, vds), tp) =>
-            val s.TypeBounds(lowerBound, upperBound) = tp.bounds
+            val s.TypeBounds(lowerBound, upperBound, _) = tp.bounds
 
             val tpe = if (lowerBound == s.NothingType() && upperBound == s.AnyType()) {
               (ref.copiedFrom(tp) =>: t.BooleanType().copiedFrom(tp)).copiedFrom(tp)

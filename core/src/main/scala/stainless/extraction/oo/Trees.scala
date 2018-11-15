@@ -99,7 +99,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   case class NothingType() extends Type
 
   /** $encodingof `_ :> lo <: hi` */
-  case class TypeBounds(lo: Type, hi: Type) extends Type
+  case class TypeBounds(lo: Type, hi: Type, flags: Seq[Flag]) extends Type
 
   protected def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
     case tp: TypeParameter => widenTypeParameter(tp.upperBound)
@@ -199,7 +199,7 @@ trait Printer extends innerfuns.Printer {
     case NothingType() =>
       p"Nothing"
 
-    case TypeBounds(lo, hi) =>
+    case TypeBounds(lo, hi, _) =>
       p"_ >: $lo <: $hi"
 
     case tpd: TypeParameterDef =>
@@ -307,7 +307,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
     case s.ClassType(id, tps) => (Seq(id), Seq(), Seq(), tps, Seq(), (ids, _, _, tps, _) => t.ClassType(ids.head, tps))
     case s.AnyType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.AnyType())
     case s.NothingType() => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.NothingType())
-    case s.TypeBounds(lo, hi) => (Seq(), Seq(), Seq(), Seq(lo, hi), Seq(), (_, _, _, tps, _) => t.TypeBounds(tps(0), tps(1)))
+    case s.TypeBounds(lo, hi, fs) => (Seq(), Seq(), Seq(), Seq(lo, hi), fs, (_, _, _, tps, fs) => t.TypeBounds(tps(0), tps(1), fs))
     case _ => super.deconstruct(tpe)
   }
 
