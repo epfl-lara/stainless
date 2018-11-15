@@ -236,9 +236,11 @@ trait AntiAliasing
                 }
 
                 val (cond, result) = select(resSelect.getType, resSelect, outerEffect.path.toSeq)
-                val newValue = applyEffect(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
-                val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
-                val assignment = Assignment(effect.receiver, castedValue).setPos(args(index))
+                val assignment = if (isMutableType(effect.receiver.getType)) {
+                  val newValue = applyEffect(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
+                  val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
+                  Assignment(effect.receiver, castedValue).setPos(args(index))
+                } else UnitLiteral().setPos(pos)
 
                 if (cond == BooleanLiteral(true)) assignment
                 else IfExpr(cond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
@@ -390,7 +392,7 @@ trait AntiAliasing
 
           case app @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType
-            val ftEffects = functionTypeEffects(ft) // FIXME: use arguments type instead instead
+            val ftEffects = functionTypeEffects(ft)
             if (ftEffects.nonEmpty) {
               val nfi = Application(
                 transform(callee, env),
