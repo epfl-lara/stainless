@@ -2,9 +2,10 @@ package stainless.frontends.fast.extraction
 
 import dotty.tools.dotc.ast.Trees._
 import dotty.tools.dotc.ast.untpd
+import dotty.tools.dotc.ast.untpd.InfixOp
 import dotty.tools.dotc.core.Contexts.Context
 import dotty.tools.dotc.core.StdNames.nme
-import dotty.tools.dotc.core.{Contexts, Flags, Names}
+import dotty.tools.dotc.core.{Constants, Contexts, Flags, Names}
 import dotty.tools.dotc.util.Positions.Position
 import stainless.frontends.dotc.SymbolsContext
 import stainless.{FreshIdentifier, Identifier, frontend}
@@ -90,8 +91,31 @@ trait DottyToInoxIR
     case _ => throw new Exception(tpe.toString)
   }
 
+  def makeInfixOp(op: untpd.Ident, left: untpd.Tree, right: untpd.Tree): Exprs.Expr = op.name.toString match {
+    case "+" => Exprs.BinaryOperation(Exprs.Binary.Plus, extractExpression(left), extractExpression(right))
+    case "-" => Exprs.BinaryOperation(Exprs.Binary.Minus, extractExpression(left), extractExpression(right))
+    case "/" => Exprs.BinaryOperation(Exprs.Binary.Division, extractExpression(left), extractExpression(right))
+    case "*" => Exprs.BinaryOperation(Exprs.Binary.Times, extractExpression(left), extractExpression(right))
+    case "%" => Exprs.BinaryOperation(Exprs.Binary.Modulo, extractExpression(left), extractExpression(right))
+  }
+
+  def makePrefixOp(op: untpd.Ident, body: untpd.Tree): Exprs.UnaryOperation = op.name.toString match {
+    case "-" => Exprs.UnaryOperation(Exprs.Unary.Minus, extractExpression(body))
+    case "!" => Exprs.UnaryOperation(Exprs.Unary.Not, extractExpression(body))
+  }
+
   def extractExpression(rhs: untpd.Tree): Exprs.Expr = rhs match {
     case Ident(name) => Exprs.Variable(Identifiers.IdentifierName(name.toString.trim))
+    //    case Ident(name) => Exprs.Invocation(Identifiers.IdentifierName(name.toString.trim), None, HSeq.fromSeq(Seq.empty[Exprs.Expr]))
+    case Literal(const) =>
+      const.tag match {
+        case Constants.IntTag =>
+          Exprs.IntegerLiteral(const.intValue)
+      }
+    case InfixOp(left, op, right) =>
+      makeInfixOp(op, left, right);
+    case untpd.PrefixOp(op, body) =>
+      makePrefixOp(op, body)
   }
 
   def makeContext(expr: untpd.Tree)(implicit ctx: Context): Exprs.Expr => Exprs.Expr = expr match {
@@ -110,7 +134,7 @@ trait DottyToInoxIR
 
   def extractBody(body: untpd.Tree)(implicit ctx: Context): Exprs.Expr = body match {
     case block: untpd.Block => processBody(block.stats, extractExpression(block.expr))
-    case _ => throw new Exception(body.toString)
+    case _ => extractExpression(body)
   }
 
   /**
@@ -137,9 +161,16 @@ trait DottyToInoxIR
           t match {
             case vd@ValDef(_, _, _) if mods.flags.is(Flags.Module) =>
             //ignore
+            case vd: untpd.ValDef if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
+              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
+              result = result :+
+                Right(Function(Identifiers.IdentifierName(vd.name.toString), HSeq.fromSeq(Seq.empty[Identifiers.Identifier]),
+                  HSeq.fromSeq(Seq.empty[Bindings.Binding]), extractType(vd.tpt), extractBody(vd.rhs)))
+
             case module: untpd.ModuleDef if (mods.flags.is(Flags.ModuleClass) || mods.flags.is(Flags.Package))
               && !mods.flags.is(Flags.Synthetic) && !mods.flags.is(Flags.Case) =>
               result ++= extractObject(module)
+
             case f@ExFunctionDef(name, typeParams, valDefs, returnType, body) =>
               result = result :+
                 Right(Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),

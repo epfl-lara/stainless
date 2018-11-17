@@ -28,7 +28,8 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
 
       def fullElaboration(program: Programs.Program): Seq[trees.Definition] = {
         ProgramE.elaborate(program)(createStore(trees.NoSymbols, Seq())).get match {
-          case Left(err) => throw InterpolatorException(err)
+          case Left(err) =>
+            throw InterpolatorException(err)
           case Right((evs, cs)) => solve(cs) match {
             case Left(err) => throw InterpolatorException(err)
             case Right(u) => evs.map(_.get(u))
