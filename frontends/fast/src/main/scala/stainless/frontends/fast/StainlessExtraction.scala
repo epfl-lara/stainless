@@ -44,7 +44,7 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
         }
     }
 
-    import dottyToInoxIR.{extractRef, extractStatic, outOfSubsetError}
+    import dottyToInoxIR.{extractRef, extractStatic}
 
     val unit = ctx.compilationUnit
     val tree = unit.untpdTree
@@ -55,7 +55,6 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
           case None => FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", ""))
         }
         (id, pd.stats)
-      case _ => outOfSubsetError(tree, "Unexpected unit body")
     }
 
 
