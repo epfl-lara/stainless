@@ -1,4 +1,6 @@
 object BooleanTest {
+  val single: Boolean = true
+
   def and(x: Boolean, y: Boolean): Boolean = {
     x && y
   }

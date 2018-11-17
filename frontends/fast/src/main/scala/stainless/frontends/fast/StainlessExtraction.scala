@@ -1,15 +1,13 @@
 package stainless.frontends.fast
 
 import dotty.tools.dotc.ast.Trees._
-import dotty.tools.dotc.core.Phases._
 import dotty.tools.dotc.core.Contexts._
+import dotty.tools.dotc.core.Phases._
 import inox.ast.{FreshIdentifier, Trees}
 import inox.parser.InterpolatorException
-import stainless.extraction.xlang
-import stainless.frontend.CallBack
-import stainless.frontends.dotc.{CodeExtraction, SymbolsContext}
 import stainless.extraction.xlang.{trees => xt}
-import stainless.frontends.fast.extraction.DottyToInoxIR
+import stainless.frontend.CallBack
+import stainless.frontends.dotc.SymbolsContext
 
 import scala.language.reflectiveCalls
 

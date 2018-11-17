@@ -139,6 +139,17 @@ trait DottyToInoxIR
                   (implicit ctx: Context, dctx: DefContext): Exprs.UnaryOperation = op.name.toString match {
     case "-" => Exprs.UnaryOperation(Exprs.Unary.Minus, extractExpression(body))
     case "!" => Exprs.UnaryOperation(Exprs.Unary.Not, extractExpression(body))
+    case "~" => Exprs.UnaryOperation(Exprs.Unary.BVNot, extractExpression(body))
+  }
+
+  def extractBigIntValue(tree: untpd.Tree): BigInt = tree match {
+    case Literal(const) =>
+      const.tag match {
+        case Constants.IntTag => const.intValue
+        case Constants.ShortTag => const.intValue
+        case Constants.ByteTag => const.intValue
+        case Constants.LongTag => const.longValue
+      }
   }
 
   def extractExpression(rhs: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = (rhs match {
@@ -148,11 +159,18 @@ trait DottyToInoxIR
         Exprs.Variable(identifier).setPos(rhs.pos)
       else
         Exprs.Invocation(identifier, None, HSeq.fromSeq(Seq.empty[Exprs.Expr])).setPos(rhs.pos)
+    case Apply(Ident(name), args) if name.toString == "Real" && args.length <= 2 && args.nonEmpty=>
+      args.length match {
+        case 1 => Exprs.FractionLiteral(extractBigIntValue(args.head), 1)
+        case 2 => Exprs.FractionLiteral(extractBigIntValue(args.head), extractBigIntValue(args(1)))
+      }
 
     case Literal(const) =>
       const.tag match {
-        case Constants.IntTag =>
+        case Constants.IntTag | Constants.ByteTag | Constants.ShortTag | Constants.LongTag =>
           Exprs.IntegerLiteral(const.intValue)
+        case Constants.BooleanTag =>
+          Exprs.BooleanLiteral(const.booleanValue)
       }
     case InfixOp(left, op, right) =>
       makeInfixOp(op, left, right).setPos(dottyPosToParserCombinatorPos(rhs.pos))
