@@ -17,6 +17,24 @@ trait DottyToInoxIR
   extends ExtractMods {
   self: IRs =>
 
+  private case class DefContext(
+                                 localVars: Set[Identifiers.Identifier] = Set.empty,
+                                 isExtern: Boolean = false
+                               ) {
+    def union(that: DefContext) = {
+      copy(this.localVars ++ that.localVars,
+        this.isExtern || that.isExtern)
+    }
+
+    def isVariable(ident: Identifiers.Identifier): Boolean = localVars contains ident
+
+    def withNewLocalVar(localVar: Identifiers.Identifier): DefContext =
+      copy(this.localVars + localVar, isExtern)
+
+    def withNewLocalVars(vars: Traversable[Identifiers.Identifier]): DefContext =
+      copy(this.localVars ++ vars, isExtern)
+  }
+
 
   private val Int8Type = Types.Primitives.BVType(8)
   private val Int16Type = Types.Primitives.BVType(16)
@@ -91,7 +109,8 @@ trait DottyToInoxIR
     case _ => throw new Exception(tpe.toString)
   }
 
-  def makeInfixOp(op: untpd.Ident, left: untpd.Tree, right: untpd.Tree): Exprs.Expr = op.name.toString match {
+  def makeInfixOp(op: untpd.Ident, left: untpd.Tree, right: untpd.Tree)
+                 (implicit ctx: Context, dctx: DefContext): Exprs.Expr = op.name.toString match {
     case "+" => Exprs.BinaryOperation(Exprs.Binary.Plus, extractExpression(left), extractExpression(right))
     case "-" => Exprs.BinaryOperation(Exprs.Binary.Minus, extractExpression(left), extractExpression(right))
     case "/" => Exprs.BinaryOperation(Exprs.Binary.Division, extractExpression(left), extractExpression(right))
@@ -99,14 +118,19 @@ trait DottyToInoxIR
     case "%" => Exprs.BinaryOperation(Exprs.Binary.Modulo, extractExpression(left), extractExpression(right))
   }
 
-  def makePrefixOp(op: untpd.Ident, body: untpd.Tree): Exprs.UnaryOperation = op.name.toString match {
+  def makePrefixOp(op: untpd.Ident, body: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.UnaryOperation = op.name.toString match {
     case "-" => Exprs.UnaryOperation(Exprs.Unary.Minus, extractExpression(body))
     case "!" => Exprs.UnaryOperation(Exprs.Unary.Not, extractExpression(body))
   }
 
-  def extractExpression(rhs: untpd.Tree): Exprs.Expr = rhs match {
-    case Ident(name) => Exprs.Variable(Identifiers.IdentifierName(name.toString.trim))
-    //    case Ident(name) => Exprs.Invocation(Identifiers.IdentifierName(name.toString.trim), None, HSeq.fromSeq(Seq.empty[Exprs.Expr]))
+  def extractExpression(rhs: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = rhs match {
+    case Ident(name) =>
+      val identifier = Identifiers.IdentifierName(name.toString.trim)
+      if (dctx.isVariable(identifier))
+        Exprs.Variable(identifier)
+      else
+        Exprs.Invocation(identifier, None, HSeq.fromSeq(Seq.empty[Exprs.Expr]))
+
     case Literal(const) =>
       const.tag match {
         case Constants.IntTag =>
@@ -118,22 +142,21 @@ trait DottyToInoxIR
       makePrefixOp(op, body)
   }
 
-  def makeContext(expr: untpd.Tree)(implicit ctx: Context): Exprs.Expr => Exprs.Expr = expr match {
-    case valDef: untpd.ValDef => body => Exprs.Let(extractBinding(valDef), extractExpression(valDef.rhs), body)
-    case _ => throw new Exception("Processing body of the function, got something different than val def")
-  }
-
-  def processBody(stats: List[Tree[Untyped]], expr: Exprs.Expr)(implicit ctx: Context): Exprs.Expr = {
-    def rec(stats: List[untpd.Tree], context: Exprs.Expr => Exprs.Expr): Exprs.Expr = stats match {
-      case head::Nil => makeContext(head)(ctx)(expr)
-      case head::tail => context(rec(tail, makeContext(head)))
-      case Nil => expr
+  def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
+    def rec(stats: List[untpd.Tree]): Exprs.Expr = stats match {
+      case (head:untpd.ValDef) :: Nil =>
+        Exprs.Let(extractBinding(head), extractExpression(head.rhs),
+          extractExpression(expr))
+      case (head:untpd.ValDef) :: tail =>
+        Exprs.Let(extractBinding(head), extractExpression(head.rhs),
+          rec(tail))
+      case Nil => extractExpression(expr)
     }
-    rec(stats, t => t)
+    rec(stats)
   }
 
-  def extractBody(body: untpd.Tree)(implicit ctx: Context): Exprs.Expr = body match {
-    case block: untpd.Block => processBody(block.stats, extractExpression(block.expr))
+  def extractBody(body: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = body match {
+    case block: untpd.Block => processBody(block.stats, block.expr)
     case _ => extractExpression(body)
   }
 
@@ -165,16 +188,22 @@ trait DottyToInoxIR
               !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
               result = result :+
                 Right(Function(Identifiers.IdentifierName(vd.name.toString), HSeq.fromSeq(Seq.empty[Identifiers.Identifier]),
-                  HSeq.fromSeq(Seq.empty[Bindings.Binding]), extractType(vd.tpt), extractBody(vd.rhs)))
+                  HSeq.fromSeq(Seq.empty[Bindings.Binding]), extractType(vd.tpt), extractBody(vd.rhs)(ctx, DefContext())))
 
             case module: untpd.ModuleDef if (mods.flags.is(Flags.ModuleClass) || mods.flags.is(Flags.Package))
               && !mods.flags.is(Flags.Synthetic) && !mods.flags.is(Flags.Case) =>
               result ++= extractObject(module)
 
             case f@ExFunctionDef(name, typeParams, valDefs, returnType, body) =>
+              val bindings = extractBindings(valDefs)
+              val parameterIdentifiers = bindings.elems.map {
+                case Right(binding: Bindings.InferredValDef) => binding.identifier
+                case Right(binding: Bindings.ExplicitValDef) => binding.identifier
+              }.toSet
               result = result :+
                 Right(Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),
-                  extractBindings(valDefs), extractType(returnType), extractBody(body)))
+                  extractBindings(valDefs), extractType(returnType),
+                  extractBody(body)(ctx, DefContext(parameterIdentifiers))))
           }
     }
 
