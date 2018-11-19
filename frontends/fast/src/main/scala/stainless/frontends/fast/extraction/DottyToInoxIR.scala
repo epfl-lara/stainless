@@ -4,6 +4,7 @@ import dotty.tools.dotc.ast.Trees._
 import dotty.tools.dotc.ast.untpd
 import dotty.tools.dotc.ast.untpd.InfixOp
 import dotty.tools.dotc.core.Contexts.Context
+import dotty.tools.dotc.core.Names.Name
 import dotty.tools.dotc.core.StdNames.nme
 import dotty.tools.dotc.core.{Constants, Flags, Names}
 import dotty.tools.dotc.util.Positions.Position
@@ -177,6 +178,8 @@ trait DottyToInoxIR
         case Constants.BooleanTag =>
           Exprs.BooleanLiteral(const.booleanValue)
       }
+    case InfixOp(left, op, right) if op.name.toString == "->"=>
+      Exprs.Tuple(HSeq.fromSeq(extractExpression(left) :: extractExpression(right) :: Nil))
     case InfixOp(left, op, right) =>
       makeInfixOp(op, left, right).setPos(dottyPosToParserCombinatorPos(rhs.pos))
     case untpd.PrefixOp(op, body) =>
@@ -188,6 +191,10 @@ trait DottyToInoxIR
       Exprs.If(extractExpression(cond), extractExpression(thenBranch), extractExpression(elseBranch))
     case untpd.Parens(expr) =>
       extractExpression(expr)
+    case untpd.Tuple(trees) =>
+      Exprs.Tuple(HSeq.fromSeq(trees.map(extractExpression(_))))
+    case ExTupleSelect(tree, int) =>
+      Exprs.TupleSelection(extractExpression(tree), int)
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
@@ -278,4 +285,17 @@ trait DottyToInoxIR
     }
   }
 
+  object ExTupleSelect {
+    private val Pattern = """_(\d{1,2})""".r
+
+    def unapply(tree: untpd.Tree): Option[(untpd.Tree, Int)] = tree match {
+      case Select(tuple, ExNamed(Pattern(n))) =>
+        Some((tuple, n.toInt))
+      case _ => None
+    }
+  }
+
+  object ExNamed {
+    def unapply(name: Name): Option[String] = Some(name.toString)
+  }
 }
