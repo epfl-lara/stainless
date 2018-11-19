@@ -412,6 +412,18 @@ trait AntiAliasing
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
 
+          case cs @ ClassSelector(obj, sel) =>
+            ClassSelector(
+              transform(exprOps.replaceFromSymbols(env.rewritings, obj), env),
+              sel
+            ).copiedFrom(cs)
+
+          case as @ ADTSelector(adt, sel) =>
+            ADTSelector(
+              transform(exprOps.replaceFromSymbols(env.rewritings, adt), env),
+              sel
+            ).copiedFrom(as)
+
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
       }
