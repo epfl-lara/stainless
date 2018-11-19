@@ -1,17 +1,15 @@
-object ExploratoryTest {
-  val y = (1, 2)
-  val b = 1 -> 2
-//
-//  def test(fun: Int => Int): Int =  fun(3)
-//
-//  def div(x: Short, y: Short): Short = {
-////    def testFunction(z: Int): Int = z / y
-//    (x / y).toShort
-//  }
+//import stainless.lang.Bag
 
-  def checkIf(x: Long, y: Long): Long = {
+object ExploratoryTest {
+
+//  val f2 = (x: Int) => x / 2
+//
+
+  def checkIf(x: Int, y: Int): Int = {
+    val b = 1 -> 2
+    val f2 = (x: Int) => x / y
     if (x <= y)
-      x
+      f2(x)
     else
       b._1 / b._2
   }

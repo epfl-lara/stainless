@@ -110,6 +110,17 @@ trait DottyToInoxIR
     case _ => throw new Exception(tpe.toString)
   }
 
+  def extractTypeArgs(targs: List[untpd.Tree])(implicit ctx: Context): Option[Types.TypeSeq] = {
+    def rec(list: List[untpd.Tree]): List[Types.Type] = list match {
+      case head :: tail => extractType(head).get :: rec(tail)
+      case Nil => Nil
+    }
+    rec(targs) match {
+      case a => Some(HSeq.fromSeq(a))
+      case Nil => None
+    }
+  }
+
   def makeInfixOp(op: untpd.Ident, left: untpd.Tree, right: untpd.Tree)
                  (implicit ctx: Context, dctx: DefContext): Exprs.Expr = op.name.toString match {
     case "+" => Exprs.BinaryOperation(Exprs.Binary.Plus,
@@ -139,6 +150,16 @@ trait DottyToInoxIR
     case "==>" => Exprs.NaryOperation(Exprs.NAry.Or,
       HSeq.fromSeq(Seq(
         Exprs.UnaryOperation(Exprs.Unary.Not, extractExpression(left)), extractExpression(right))))
+    case "++" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetUnion, None,
+      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
+    case "&" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetIntersection, None,
+      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
+    case "contains" => Exprs.PrimitiveInvocation(Exprs.Primitive.ElementOfSet, None,
+      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
+    case "--" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetDifference, None,
+      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
+    case "subsetOf" => Exprs.PrimitiveInvocation(Exprs.Primitive.Subset, None,
+      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
   }
 
   def makePrefixOp(op: untpd.Ident, body: untpd.Tree)
@@ -158,18 +179,36 @@ trait DottyToInoxIR
       }
   }
 
+  def extractPairs(value: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Pair = value match {
+    case untpd.Tuple(trees) if trees.length == 2 => Exprs.Pair(extractExpression(trees.head), extractExpression(trees(1)))
+    case InfixOp(left, op, right) if op.name.toString == "->"=>
+      Exprs.Pair(extractExpression(left), extractExpression(right))
+    case _ => throw new Exception("Pair creation")
+  }
+
   def extractExpression(rhs: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = (rhs match {
     case Ident(name) =>
       val identifier = Identifiers.IdentifierName(name.toString.trim).setPos(rhs.pos)
-      if (dctx.isVariable(identifier))
-        Exprs.Variable(identifier).setPos(rhs.pos)
-      else
-        Exprs.Invocation(identifier, None, HSeq.fromSeq(Seq.empty[Exprs.Expr])).setPos(rhs.pos)
+      Exprs.Variable(identifier).setPos(rhs.pos)
+//      if (dctx.isVariable(identifier))
+//        Exprs.Variable(identifier).setPos(rhs.pos)
+//      else
+//        Exprs.Invocation(identifier, None, HSeq.fromSeq(Seq.empty[Exprs.Expr])).setPos(rhs.pos)
     case Apply(Ident(name), args) if name.toString == "Real" && args.length <= 2 && args.nonEmpty=>
       args.length match {
         case 1 => Exprs.FractionLiteral(extractBigIntValue(args.head), 1)
         case 2 => Exprs.FractionLiteral(extractBigIntValue(args.head), extractBigIntValue(args(1)))
       }
+    case Apply(Ident(name), args) if name.toString == "Set" =>
+      Exprs.SetConstruction(None, HSeq.fromSeq(args.map(extractExpression(_))))
+    case Apply(Ident(name), args) if name.toString == "Bag" =>
+      Exprs.BagConstruction(None, HSeq.fromSeq(args.map(extractPairs(_))))
+    case Apply(TypeApply(Ident(name), targs), args) if name.toString == "Set" =>
+      Exprs.SetConstruction(extractTypeArgs(targs),
+        HSeq.fromSeq(args.map(extractExpression(_))))
+    case Apply(TypeApply(Ident(name), targs), args) if name.toString == "Bag" =>
+      Exprs.BagConstruction(extractTypeArgs(targs),
+        HSeq.fromSeq(args.map(extractPairs(_))))
 
     case Literal(const) =>
       const.tag match {
@@ -178,6 +217,9 @@ trait DottyToInoxIR
         case Constants.BooleanTag =>
           Exprs.BooleanLiteral(const.booleanValue)
       }
+
+    case untpd.Function(args, body) =>
+      Exprs.Abstraction(Exprs.Lambda, extractBindings(args.asInstanceOf[Seq[untpd.ValDef]]), extractBody(body))
     case InfixOp(left, op, right) if op.name.toString == "->"=>
       Exprs.Tuple(HSeq.fromSeq(extractExpression(left) :: extractExpression(right) :: Nil))
     case InfixOp(left, op, right) =>
@@ -237,14 +279,22 @@ trait DottyToInoxIR
           Unit
         else
           t match {
-            case vd@ValDef(_, _, _) if mods.flags.is(Flags.Module) =>
-            //ignore
-            case vd: untpd.ValDef if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
-              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
-              result = result :+
-                Right(Function(Identifiers.IdentifierName(vd.name.toString),
-                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), HSeq.fromSeq(Seq.empty[Bindings.Binding]),
-                  extractType(vd.tpt), extractBody(vd.rhs)(ctx, DefContext())).setPos(stat.pos))
+            case _: untpd.ValDef =>
+              // ignore
+//            case vd@ValDef(_, _, _) if mods.flags.is(Flags.Module) =>
+//            //ignore
+//            case vd @ValDef(name, tpt, body: untpd.Function) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
+//              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
+//              result = result :+
+//                Right(Function(Identifiers.IdentifierName(vd.name.toString),
+//                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), extractBindings(body.args.asInstanceOf[Seq[untpd.ValDef]]),
+//                  extractType(vd.tpt), extractBody(body.body)(ctx, DefContext())).setPos(stat.pos))
+//            case vd @ValDef(name, tpt, body) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
+//              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
+//              result = result :+
+//                Right(Function(Identifiers.IdentifierName(vd.name.toString),
+//                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), HSeq.fromSeq(Seq.empty[Bindings.Binding]),
+//                  extractType(vd.tpt), extractBody(vd.rhs)(ctx, DefContext())).setPos(stat.pos))
 
             case module: untpd.ModuleDef if (mods.flags.is(Flags.ModuleClass) || mods.flags.is(Flags.Package))
               && !mods.flags.is(Flags.Synthetic) && !mods.flags.is(Flags.Case) =>
