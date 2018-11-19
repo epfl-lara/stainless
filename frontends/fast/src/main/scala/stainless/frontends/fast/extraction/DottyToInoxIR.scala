@@ -96,11 +96,16 @@ trait DottyToInoxIR
     case "Byte" => Types.Primitive(Int8Type)
     case "Long" => Types.Primitive(Types.Primitives.IntegerType)
     case "Real" => Types.Primitive(Types.Primitives.RealType)
+    case "String" => Types.Primitive(Types.Primitives.StringType)
+    case "Unit" => Types.Primitive(Types.Primitives.UnitType)
     case _ => throw new Exception("Type could not be mapped:" + name.toString)
   }
 
   def extractType(tpe: untpd.Tree)(implicit ctx: Context): Option[Types.Type] = tpe match {
     case Ident(name) => Some(mapNameToType(name).setPos(tpe.pos))
+    case untpd.Function(args, body) =>
+      Some(Types.FunctionType(HSeq.fromSeq(args.map(extractType(_).get)), extractType(body).get))
+    case _: untpd.TypeTree => None
     case _ => throw new Exception(tpe.toString)
   }
 
@@ -179,6 +184,10 @@ trait DottyToInoxIR
     case Apply(fun: untpd.Ident, args) =>
       Exprs.Invocation(Identifiers.IdentifierName(fun.name.toString), None, HSeq.fromSeq(args.map(extractExpression(_))))
 
+    case If(cond, thenBranch, elseBranch) =>
+      Exprs.If(extractExpression(cond), extractExpression(thenBranch), extractExpression(elseBranch))
+    case untpd.Parens(expr) =>
+      extractExpression(expr)
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
