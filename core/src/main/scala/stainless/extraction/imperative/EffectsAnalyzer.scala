@@ -195,11 +195,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def toSeq: Seq[Accessor] = path
 
-    def asString(implicit printerOpts: PrinterOptions): String = path.map {
-      case ADTFieldAccessor(id) => s".${id.asString}"
-      case ClassFieldAccessor(id) => s".${id.asString}"
-      case ArrayAccessor(idx) => s"(${idx.asString})"
-    }.mkString("")
+    def asString(implicit printerOpts: PrinterOptions): String =
+      if (path.isEmpty) "<empty>"
+      else path.map {
+        case ADTFieldAccessor(id) => s".${id.asString}"
+        case ClassFieldAccessor(id) => s".${id.asString}"
+        case ArrayAccessor(idx) => s"(${idx.asString})"
+      }.mkString("")
 
     override def toString: String = asString
   }
@@ -223,6 +225,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def prependPath(path: Path): Target = Target(receiver, condition, path ++ this.path)
 
     def toEffect: Effect = Effect(receiver, path)
+
+    def asString(implicit printerOpts: PrinterOptions): String =
+      s"Target(${receiver.asString}, ${condition.map(_.asString)}, ${path.asString})"
+
+    override def toString: String = asString
   }
 
   case class Effect(receiver: Variable, path: Path) {
