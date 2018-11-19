@@ -157,7 +157,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
-    def on(that: Expr)(implicit symbols: Symbols): Option[Target] = {
+    def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
       def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
         case ADTFieldAccessor(id) +: xs =>
           rec(ADTSelector(expr, id), xs)
@@ -175,7 +175,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           Some(expr)
       }
 
-      rec(that, path).flatMap(getEffect)
+      rec(that, path).toSet.flatMap(getEffects)
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -208,66 +208,34 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def empty: Path = Path(Seq.empty)
   }
 
-  sealed abstract class Target {
-    val receiver: Variable
+  case class Target(receiver: Variable, condition: Option[Expr], path: Path) {
+    def +(elem: Accessor): Target = Target(receiver, condition, path :+ elem)
 
-    def +(elem: Accessor): Target = this match {
-      case SimpleTarget(receiver, path) =>
-        SimpleTarget(receiver, path :+ elem)
-      case ConditionalTarget(cond, thn, els) =>
-        ConditionalTarget(cond, thn + elem, els + elem)
+    def append(that: Target): Target = (condition, that.condition) match {
+      case (condition, None) =>
+        Target(receiver, condition, path ++ that.path)
+      case (None, _) =>
+        Target(receiver, that.condition, path ++ that.path)
+      case (Some(condition), Some(thatCondition)) =>
+        Target(receiver, Some(And(condition, thatCondition)), path ++ that.path)
     }
 
-    def append(that: Target): Target = (this, that) match {
-      case (SimpleTarget(receiver, a), SimpleTarget(_, b)) =>
-        SimpleTarget(receiver, a ++ b)
+    def prependPath(path: Path): Target = Target(receiver, condition, path ++ this.path)
 
-      case (SimpleTarget(receiver, path), ConditionalTarget(cond, thn, els)) =>
-        ConditionalTarget(cond, thn prependPath path, els prependPath path)
-
-      case (ConditionalTarget(cond, thn, els), that) =>
-        ConditionalTarget(cond, thn append that, els append that)
-    }
-
-    def prependPath(path: Path): Target = this match {
-      case SimpleTarget(receiver, p) =>
-        SimpleTarget(receiver, path ++ p)
-
-      case ConditionalTarget(cond, thn, els) =>
-        ConditionalTarget(cond, thn prependPath path, els prependPath path)
-    }
-
-    def toEffect: Set[Effect] = this match {
-      case SimpleTarget(receiver, path) => Set(Effect(receiver, path))
-      case ConditionalTarget(_, thn, els) => thn.toEffect ++ els.toEffect
-    }
-  }
-
-  case class SimpleTarget(
-    receiver: Variable,
-    path: Path
-  ) extends Target
-
-  case class ConditionalTarget(
-    condition: Expr,
-    whenTrue: Target,
-    whenFalse: Target
-  ) extends Target {
-    require(whenTrue.receiver == whenFalse.receiver)
-    val receiver = whenTrue.receiver
+    def toEffect: Effect = Effect(receiver, path)
   }
 
   case class Effect(receiver: Variable, path: Path) {
     def +(elem: Accessor) = Effect(receiver, path :+ elem)
 
-    def on(that: Expr)(implicit symbols: Symbols): Option[Effect] = for {
-      SimpleTarget(receiver, path) <- this.path on that
+    def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = for {
+      Target(receiver, _, path) <- this.path on that
     } yield Effect(receiver, path)
 
     def prefixOf(that: Effect): Boolean =
       receiver == that.receiver && (path prefixOf that.path)
 
-    def toTarget: Target = SimpleTarget(receiver, path)
+    def toTarget: Target = Target(receiver, None, path)
 
     def asString(implicit printerOpts: PrinterOptions): String =
       s"Effect(${receiver.asString}${path.asString})"
@@ -275,10 +243,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  def getEffect(expr: Expr)(implicit symbols: Symbols): Option[Target] = {
-    def rec(expr: Expr, path: Seq[Accessor]): Option[Target] = expr match {
-      case v: Variable => Some(SimpleTarget(v, Path(path)))
-      case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => None
+  def getEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = {
+    def rec(expr: Expr, path: Seq[Accessor]): Set[Target] = expr match {
+      case v: Variable => Set(Target(v, None, Path(path)))
+      case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
       case ADTSelector(e, id) => rec(e, ADTFieldAccessor(id) +: path)
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
@@ -305,32 +273,39 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case IfExpr(cnd, thn, els) =>
         for {
-          // c <- getEffect(cnd)
+          // c <- getEffects(cnd)
           t <- rec(thn, path)
           e <- rec(els, path)
-          if t.receiver == e.receiver
-        } yield ConditionalTarget(cnd, t, e)
+          elsCond = e.condition.map(And(Not(cnd).setPos(cnd), _)).getOrElse(Not(cnd).setPos(cnd))
+          target <- Set(
+            Target(t.receiver, Some(cnd), t.path),
+            Target(e.receiver, Some(elsCond), e.path)
+          )
+        } yield target
 
       case fi: FunctionInvocation if fi.tfd.flags.exists(_.name == "accessor") =>
         rec(symbols.simplifyLets(fi.inlined), path)
 
-      case fi: FunctionInvocation => None
-      case (_: ApplyLetRec | _: Application) => None
-      case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
+      case fi: FunctionInvocation => Set.empty
+      case (_: ApplyLetRec | _: Application) => Set.empty
+      case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => Set.empty
       case IsInstanceOf(e, _) => rec(e, path)
       case AsInstanceOf(e, _) => rec(e, path)
-      case Old(_) => None
+      case Old(_) => Set.empty
 
       case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
         rec(b, path)
 
-      case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
-        case (Some(ee), Some(be)) if be.receiver == vd.toVariable =>
-          Some(ee append be)
-        case (_, Some(be)) => Some(be)
-        case _ =>
+      case Let(vd, e, b) =>
+        val bEffects = rec(b, path)
+        val res = for (ee <- getEffects(e); be <- bEffects) yield {
+          if (be.receiver == vd.toVariable) ee.append(be) else be
+        }
+
+        if (res.isEmpty)
           throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
-      }
+
+        res
 
       case _ =>
         throw MissformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
@@ -339,15 +314,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     rec(expr, Seq.empty)
   }
 
-  def getExactEffect(expr: Expr)(implicit symbols: Symbols): Target = getEffect(expr) match {
-    case Some(effect) => effect
+  def getExactEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = getEffects(expr) match {
+    case effects if effects.nonEmpty => effects
     case _ => throw MissformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
   }
 
-  def getKnownEffect(expr: Expr)(implicit symbols: Symbols): Option[Target] = try {
-    getEffect(expr)
+  def getKnownEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = try {
+    getEffects(expr)
   } catch {
-    case _: MissformedStainlessCode => None
+    case _: MissformedStainlessCode => Set.empty
   }
 
   /** Return all effects of expr
@@ -371,8 +346,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getEffect(expr).toSet flatMap { (target: Target) =>
-        target.toEffect.flatMap(eff => inEnv(eff, env).toSet)
+      getEffects(expr) flatMap { (target: Target) =>
+        inEnv(target.toEffect, env).toSet
       }
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {

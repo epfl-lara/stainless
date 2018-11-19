@@ -260,14 +260,12 @@ trait AntiAliasing
         override def transform(e: Expr, env: Env): Expr = (e match {
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            getKnownEffect(newExpr) match {
-              case Some(_) =>
-                val newBody = transform(b, env withRewritings Map(vd -> newExpr))
-                Let(vd, newExpr, newBody).copiedFrom(l)
-
-              case None =>
-                val newBody = transform(b, env withBinding vd)
-                LetVar(vd, newExpr, newBody).copiedFrom(l)
+            if (getKnownEffects(newExpr).nonEmpty) {
+              val newBody = transform(b, env withRewritings Map(vd -> newExpr))
+              Let(vd, newExpr, newBody).copiedFrom(l)
+            } else {
+              val newBody = transform(b, env withBinding vd)
+              LetVar(vd, newExpr, newBody).copiedFrom(l)
             }
 
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
@@ -305,30 +303,34 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val effect = getExactEffect(ra)
-            if (env.bindings contains effect.receiver.toVal) {
+            val effects = getExactEffects(ra)
+
+            if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
+              throw MissformedStainlessCode(up, "Unsupported form of array update")
+
+            Block(effects.toSeq map { effect =>
               val applied = applyEffect(effect + ArrayAccessor(i), v)
               transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
-            } else {
-              throw MissformedStainlessCode(up, "Unsupported form of array update")
-            }
+            }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val effect = getExactEffect(so)
+            val effects = getExactEffects(so)
+
+            if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
+              throw MissformedStainlessCode(as, "Unsupported form of array update")
+
             val accessor = o.getType match {
               case _: ADTType => ADTFieldAccessor(id)
               case _: ClassType => ClassFieldAccessor(id)
             }
 
-            if (env.bindings contains effect.receiver.toVal) {
+            Block(effects.toSeq map { effect =>
               val applied = applyEffect(effect + accessor, v)
               transform(Assignment(effect.receiver, applied).copiedFrom(as), env)
-            } else {
-              throw MissformedStainlessCode(as, "Unsupported form of field assignment")
-            }
+            }, UnitLiteral().copiedFrom(as)).copiedFrom(as)
 
-          //we need to replace local fundef by the new updated fun defs.
+          // we need to replace local fundef by the new updated fun defs.
           case l @ LetRec(fds, body) =>
             val nfds = fds.map(fd => updateFunction(Inner(fd), env withLocals fds).toLocal)
             LetRec(nfds, transform(body, env withLocals fds)).copiedFrom(l)
@@ -455,18 +457,18 @@ trait AntiAliasing
       }
 
       effect match {
-        case SimpleTarget(receiver, path) =>
+        case Target(receiver, None, path) =>
           rec(receiver, path.toSeq)
 
-        case ct @ ConditionalTarget(cond, thn, els) =>
+        case Target(receiver, Some(condition), path) =>
           Annotated(
             AsInstanceOf(
               IfExpr(
-                cond,
-                applyEffect(thn, newValue),
-                applyEffect(els, newValue)
+                condition.setPos(newValue),
+                rec(receiver, path.toSeq),
+                receiver
               ).copiedFrom(newValue),
-              ct.receiver.getType
+              receiver.getType
             ).copiedFrom(newValue),
           Seq(Unchecked)
         ).copiedFrom(newValue)
