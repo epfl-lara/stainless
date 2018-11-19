@@ -4,20 +4,11 @@ package stainless
 package transformers
 
 import scala.language.existentials
-import scala.concurrent.duration._
-import scala.collection.mutable.{Map => MutableMap}
-
-import inox.{Context, Semantics}
-import inox.utils._
-import inox.solvers._
-import inox.solvers.SolverResponses._
-import inox.evaluators.EvaluationResults
 
 trait PartialEvaluator extends SimplifierWithPC { self =>
   import trees._
-  import symbols.{simplifier => _, _}
+  import symbols._
   import exprOps._
-  import dsl._
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case fi @ FunctionInvocation(id, tps, args) =>

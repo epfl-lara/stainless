@@ -7,6 +7,7 @@ trait Trees
   extends inox.ast.Trees
      with Definitions
      with Expressions
+     with Types
      with Constructors
      with Deconstructors
      with TreeOps { self =>
