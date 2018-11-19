@@ -39,7 +39,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     isMutableClassType(ct, mutableClasses)
   }
 
-  private[this] val mutableClasses = {
+  private[this] val mutableClasses: Set[Identifier] = {
     val initialClasses = symbols.classes.values.filter { cd =>
       cd.fields.exists(_.flags contains IsVar)
     }.map(_.id).toSet
@@ -57,9 +57,14 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
   }
 
   private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier]): Boolean = {
-    ct.tcd.fields.exists { vd =>
-      vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses)
+    mutableClasses.contains(ct.id) || ct.tcd.fields.exists { vd =>
+      vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses)
     }
+  }
+
+  private[this] def isRealMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = tpe match {
+    case tp: TypeParameter => false
+    case _ => isMutableType(tpe, mutableClasses)
   }
 
   private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = tpe match {
@@ -68,7 +73,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     case any: AnyType => true
     case arr: ArrayType => true
     case ft: FunctionType => false
-    case ct: ClassType if mutableClasses contains ct.id => true
+    case ct: ClassType => isMutableClassType(ct, mutableClasses)
     case adt: ADTType => isMutableADTType(adt, mutableClasses)
     case NAryType(tps, _) => tps.exists(isMutableType(_, mutableClasses))
   }
@@ -76,7 +81,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
   private[this] def isMutableADTType(adt: ADTType, mutableClasses: Set[Identifier]): Boolean = {
     adt.getSort.constructors.exists { cons =>
       cons.fields.exists { vd =>
-        vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses)
+        vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses)
       }
     }
   }
