@@ -236,6 +236,9 @@ trait AntiAliasing
                 }
 
                 val (cond, result) = select(resSelect.getType, resSelect, outerEffect.path.toSeq)
+
+                // We only overwrite the receiver when it is an actual mutable type.
+                // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
                 val assignment = if (isMutableType(effect.receiver.getType)) {
                   val newValue = applyEffect(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
                   val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
