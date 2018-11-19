@@ -7,17 +7,12 @@ import inox.utils.UniqueCounter
 import runtime.Monitor
 
 import cafebabe._
-import cafebabe.AbstractByteCodes._
 import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
-import scala.collection.JavaConverters._
-
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
-
-import evaluators._
 
 import scala.collection.mutable.{Map => MutableMap}
 

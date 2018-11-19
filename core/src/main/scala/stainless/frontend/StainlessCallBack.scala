@@ -8,7 +8,7 @@ import scala.language.existentials
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
-import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
+import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
 
 import io.circe._
 import io.circe.syntax._
@@ -23,7 +23,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
   protected final override val trees = extraction.xlang.trees
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
 
-  import context.{ options, reporter }
+  import context.reporter
 
   private[this] val runs = components.map(_.run(pipeline))
 

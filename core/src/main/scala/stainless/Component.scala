@@ -2,7 +2,6 @@
 
 package stainless
 
-import extraction.xlang.{trees => xt}
 import utils.CheckFilter
 
 import io.circe._
