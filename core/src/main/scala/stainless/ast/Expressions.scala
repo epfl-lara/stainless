@@ -3,7 +3,7 @@
 package stainless
 package ast
 
-trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees =>
+trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** Stands for an undefined Expr, similar to `???` or `null`
     *
@@ -198,8 +198,6 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
 
 
   /* Array Operations */
-
-  sealed case class ArrayType(base: Type) extends Type
 
   /** $encodingof `Array(elems...)` */
   sealed case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {

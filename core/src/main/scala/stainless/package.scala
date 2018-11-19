@@ -1,7 +1,7 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 import scala.collection.parallel.ForkJoinTasks
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.ExecutionContext
 import java.util.concurrent.Executors
 
 import inox.transformers._
