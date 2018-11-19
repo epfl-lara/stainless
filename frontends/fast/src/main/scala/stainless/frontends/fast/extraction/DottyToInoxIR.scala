@@ -128,7 +128,7 @@ trait DottyToInoxIR
     case ">" => Exprs.BinaryOperation(Exprs.Binary.GreaterThan,
       extractExpression(left), extractExpression(right))
     case ">=" => Exprs.BinaryOperation(Exprs.Binary.GreaterEquals,
-      extractExpression(left), extractExpression(left))
+      extractExpression(left), extractExpression(right))
     case "==" => Exprs.BinaryOperation(Exprs.Binary.Equals,
       extractExpression(left), extractExpression(right))
     case "||" => Exprs.NaryOperation(Exprs.NAry.Or,

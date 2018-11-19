@@ -1,5 +1,5 @@
 object ExploratoryTest {
-//  val real: Real = Real(3)
+  val y: Long = 0
 //
 //  def test(fun: Int => Int): Int =  fun(3)
 //
@@ -8,8 +8,8 @@ object ExploratoryTest {
 //    (x / y).toShort
 //  }
 
-  def checkIf(x: Int, y: Int) = {
-    if (x < y)
+  def checkIf(x: Long): Long = {
+    if (x <= y)
       x
     else
       x / y
