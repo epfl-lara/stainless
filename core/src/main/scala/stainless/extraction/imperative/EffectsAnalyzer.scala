@@ -256,6 +256,28 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       s"Target(${receiver.asString}, ${condition.map(_.asString)}, ${path.asString})"
 
     override def toString: String = asString
+
+    def isValid(implicit syms: Symbols): Boolean = {
+      def rec(tpe: Type, path: Seq[Accessor]): Boolean = (tpe, path) match {
+        case (adt: ADTType, ADTFieldAccessor(id) +: xs) =>
+          val constructors = adt.getSort.constructors
+          val constructor = constructors.find(_.fields.exists(_.id == id))
+          val field = constructor.flatMap(_.fields.find(_.id == id))
+          field.isDefined && rec(field.get.getType, xs)
+
+        case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
+          val field = syms.classForField(ct, id).flatMap(_.fields.find(_.id == id))
+          field.isDefined && rec(field.get.getType, xs)
+
+        case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
+          rec(base, xs)
+
+        case (_, Nil) =>
+          true
+      }
+
+      rec(receiver.getType, path.toSeq)
+    }
   }
 
   case class Effect(receiver: Variable, path: Path) {
@@ -310,19 +332,23 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         rec(symbols.matchToIfThenElse(m), path)
 
       case IfExpr(cnd, thn, els) =>
+        def notConj(cnd: Expr, e: Option[Expr])(): Expr = e map { e =>
+          And(Not(cnd).setPos(cnd), e.setPos(cnd)).setPos(cnd)
+        } getOrElse(Not(cnd).setPos(cnd))
+
         for {
-          // c <- getEffects(cnd)
           t <- rec(thn, path)
           e <- rec(els, path)
-          elsCond = e.condition.map(And(Not(cnd).setPos(cnd), _)).getOrElse(Not(cnd).setPos(cnd))
           target <- Set(
             Target(t.receiver, Some(cnd), t.path),
-            Target(e.receiver, Some(elsCond), e.path)
-          )
+            Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
+          ) if target.isValid
         } yield target
 
-      case fi: FunctionInvocation if fi.tfd.flags.exists(_.name == "accessor") =>
-        rec(symbols.simplifyLets(fi.inlined), path)
+      case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
+        exprOps.withoutSpecs(symbols.simplifyLets(fi.inlined))
+          .map(rec(_, path))
+          .getOrElse(Set.empty)
 
       case fi: FunctionInvocation => Set.empty
       case (_: ApplyLetRec | _: Application) => Set.empty
