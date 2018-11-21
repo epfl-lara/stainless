@@ -6,6 +6,8 @@ package ast
 import inox.utils.Position
 import inox.transformers.{TransformerOp, TransformerWithExprOp, TransformerWithTypeOp}
 
+import stainless.utils.SyntaxHighlighting.highlight
+
 import scala.collection.mutable.{Map => MutableMap}
 
 trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
@@ -351,7 +353,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
   protected final def objectsToString(m: Iterable[Definition], filter: String => Boolean)
                                      (implicit pOpts: PrinterOptions): String = {
-    m.collect { case d if filter(d.id.name) => d.asString(pOpts) } mkString "\n\n"
+    m.collect { case d if filter(d.id.name) => highlight(d.asString(pOpts)) } mkString "\n\n"
   }
 
   protected def wrapWith(header: String, s: String) = {

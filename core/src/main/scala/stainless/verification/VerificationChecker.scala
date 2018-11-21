@@ -6,6 +6,8 @@ package verification
 import inox.Options
 import inox.solvers._
 
+import stainless.utils.SyntaxHighlighting.highlight
+
 import scala.util.{ Success, Failure }
 import scala.concurrent.Future
 import scala.collection.mutable
@@ -148,7 +150,7 @@ trait VerificationChecker { self =>
     evaluator.eval(path.toClause, model) match {
       case Successful(BooleanLiteral(true)) => // path condition was true, we must evaluate invariant
       case Successful(BooleanLiteral(false)) => return success
-      case Successful(e) => return failure(s"- ADT inv. path condition unexpectedly evaluates to: ${e.asString}")
+      case Successful(e) => return failure(s"- ADT inv. path condition unexpectedly evaluates to: ${highlight(e.asString)}")
       case RuntimeError(msg) => return failure(s"- ADT inv. path condition leads to runtime error: $msg")
       case EvaluatorError(msg) => return failure(s"- ADT inv. path condition leads to evaluator error: $msg")
     }
@@ -199,7 +201,7 @@ trait VerificationChecker { self =>
       val cond = vc.condition
       reporter.synchronized {
         reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
-        reporter.debug(cond.asString)
+        reporter.debug(highlight(cond.asString))
         reporter.debug("Solving with: " + s.name)
       }
 
@@ -268,7 +270,7 @@ trait VerificationChecker { self =>
             reason match {
               case VCStatus.CounterExample(cex) =>
                 reporter.warning("Found counter-example:")
-                reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                reporter.warning("  " + highlight(cex.asString.replaceAll("\n", "\n  ")))
 
               case VCStatus.Unsatisfiable =>
                 reporter.warning("Property wasn't satisfiable")
