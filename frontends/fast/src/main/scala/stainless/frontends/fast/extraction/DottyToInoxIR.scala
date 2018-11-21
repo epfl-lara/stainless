@@ -36,6 +36,9 @@ trait DottyToInoxIR
       copy(this.localVars ++ vars, isExtern)
   }
 
+  private var constructorMaps = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, List[ADTs.ConstructorValue]]
+  private var adtMap = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, Identifiers.IdentifierSeq]
+
 
   private val Int8Type = Types.Primitives.BVType(8)
   private val Int16Type = Types.Primitives.BVType(16)
@@ -99,7 +102,7 @@ trait DottyToInoxIR
     case "Real" => Types.Primitive(Types.Primitives.RealType)
     case "String" => Types.Primitive(Types.Primitives.StringType)
     case "Unit" => Types.Primitive(Types.Primitives.UnitType)
-    case _ => throw new Exception("Type could not be mapped:" + name.toString)
+    case typeVariable => Types.Variable(Identifiers.IdentifierName(typeVariable))
   }
 
   def extractType(tpe: untpd.Tree)(implicit ctx: Context): Option[Types.Type] = tpe match {
@@ -257,6 +260,8 @@ trait DottyToInoxIR
     case _ => extractExpression(body)
   }
 
+  def extractBindings(constuctor: untpd.DefDef)(implicit ctx: Context): Bindings.BindingSeq = extractBindings(constuctor.vparamss.flatten)
+
   /**
     * Extracts static currently no classes, no modules, no classes and no imports
     * How to model modules in the current implementation
@@ -269,6 +274,8 @@ trait DottyToInoxIR
   Seq[Either[ADTs.Sort, Function]] = {
     var result: Seq[Either[ADTs.Sort, Function]] = Seq()
 
+    var adts = Seq()
+
     for (stat <- stats) stat match {
       case untpd.EmptyTree =>
       // ignore untyped trees
@@ -280,26 +287,49 @@ trait DottyToInoxIR
         else
           t match {
             case _: untpd.ValDef =>
-              // ignore
-//            case vd@ValDef(_, _, _) if mods.flags.is(Flags.Module) =>
-//            //ignore
-//            case vd @ValDef(name, tpt, body: untpd.Function) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
-//              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
-//              result = result :+
-//                Right(Function(Identifiers.IdentifierName(vd.name.toString),
-//                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), extractBindings(body.args.asInstanceOf[Seq[untpd.ValDef]]),
-//                  extractType(vd.tpt), extractBody(body.body)(ctx, DefContext())).setPos(stat.pos))
-//            case vd @ValDef(name, tpt, body) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
-//              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
-//              result = result :+
-//                Right(Function(Identifiers.IdentifierName(vd.name.toString),
-//                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), HSeq.fromSeq(Seq.empty[Bindings.Binding]),
-//                  extractType(vd.tpt), extractBody(vd.rhs)(ctx, DefContext())).setPos(stat.pos))
+            // ignore
+            //            case vd@ValDef(_, _, _) if mods.flags.is(Flags.Module) =>
+            //            //ignore
+            //            case vd @ValDef(name, tpt, body: untpd.Function) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
+            //              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
+            //              result = result :+
+            //                Right(Function(Identifiers.IdentifierName(vd.name.toString),
+            //                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), extractBindings(body.args.asInstanceOf[Seq[untpd.ValDef]]),
+            //                  extractType(vd.tpt), extractBody(body.body)(ctx, DefContext())).setPos(stat.pos))
+            //            case vd @ValDef(name, tpt, body) if !mods.is(Flags.CaseAccessor) && !mods.is(Flags.ParamAccessor) &&
+            //              !mods.is(Flags.Synthetic) && !mods.is(Flags.Mutable) =>
+            //              result = result :+
+            //                Right(Function(Identifiers.IdentifierName(vd.name.toString),
+            //                  HSeq.fromSeq(Seq.empty[Identifiers.Identifier]), HSeq.fromSeq(Seq.empty[Bindings.Binding]),
+            //                  extractType(vd.tpt), extractBody(vd.rhs)(ctx, DefContext())).setPos(stat.pos))
 
             case module: untpd.ModuleDef if (mods.flags.is(Flags.ModuleClass) || mods.flags.is(Flags.Package))
               && !mods.flags.is(Flags.Synthetic) && !mods.flags.is(Flags.Case) =>
               result ++= extractObject(module)
-
+            // case object for ADTS
+            case untpd.ModuleDef(name, impl) if mods.is(Flags.Case) && !mods.is(Flags.Synthetic) &&
+              impl.parents.size == 1 =>
+              val sortIdent = Identifiers.IdentifierName(impl.parents.head.asInstanceOf[untpd.Ident].name.toString)
+              val constructors = constructorMaps.getOrElseUpdate(
+                sortIdent,
+                List.empty)
+              constructorMaps(sortIdent) = ADTs.ConstructorValue(Identifiers.IdentifierName(name.toString),
+                extractBindings(impl.constr.vparamss.flatten)) :: constructors
+            // abstract class as a root for ADT construction
+            case TypeDef(name, tree: untpd.Template) if mods.is(Flags.Abstract) && !mods.is(Flags.Synthetic) =>
+              val adtIdentifier = Identifiers.IdentifierName(name.toString())
+              if (adtMap contains adtIdentifier)
+                throw new Exception(s"ADT of the name $adtIdentifier is allready defined")
+              val params = extractTypeParams(tree.constr.tparams)
+              adtMap(adtIdentifier) = params
+            // case class as an ADT constructor
+            case TypeDef(name, template: untpd.Template) if mods.is(Flags.CaseClass) && !mods.is(Flags.Synthetic)=>
+              val sortIdent = Identifiers.IdentifierName(template.parents.head.asInstanceOf[untpd.Ident].name.toString)
+              val constructors = constructorMaps.getOrElseUpdate(
+                sortIdent,
+                List.empty)
+              constructorMaps(sortIdent) = ADTs.ConstructorValue(Identifiers.IdentifierName(name.toString),
+                extractBindings(template.constr.vparamss.flatten)) :: constructors
             case f@ExFunctionDef(name, typeParams, valDefs, returnType, body) =>
               val bindings = extractBindings(valDefs)
               val parameterIdentifiers = bindings.elems.map {
@@ -311,6 +341,19 @@ trait DottyToInoxIR
                   extractBindings(valDefs), extractType(returnType),
                   extractBody(body)(ctx, DefContext(parameterIdentifiers))).setPos(stat.pos))
           }
+    }
+
+    val definedSorts = adtMap.toMap.keySet
+    val usedSorts = constructorMaps.toMap.keySet
+
+    if ((definedSorts diff usedSorts union (usedSorts diff definedSorts)).nonEmpty)
+      throw new Exception("Some sorts are not well formed")
+
+    for (adt <- adtMap) {
+      val constructors: Seq[ADTs.Constructor] = constructorMaps.getOrElse(adt._1, Nil)
+      if (constructors == Nil)
+        throw new Exception(s"ADT ${adt._1.name} does not have any constructors")
+      result = result :+Left(ADTs.Sort(adt._1, adt._2, HSeq.fromSeq(constructors)))
     }
 
     result
