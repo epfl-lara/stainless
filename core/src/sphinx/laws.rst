@@ -133,7 +133,7 @@ data type, as in the following code:
   }
 
 To help Stainless out, one needs to prove that ``Zero`` indeed the right identity of ``+``,
-as well as the associativity of the latter. This can easily be achieved, thanks to the ``@induct`` annotation:
+as well as the associativity of the latter.
 
 .. code-block:: scala
 
@@ -147,8 +147,7 @@ as well as the associativity of the latter. This can easily be achieved, thanks 
     x + (y + z) == (x + y) + z
   }.holds
 
-One can then provides use these lemmas to help the verification go through. To this end, one needs
-to override the law of interest, and instanciate the lemma over the relevant parameters:
+One can then override the law of interest, and instanciate the lemma over the relevant parameters:
 
 .. code-block:: scala
 

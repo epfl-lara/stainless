@@ -1,6 +1,5 @@
 import stainless.lang._
 import stainless.annotation._
-import scala.annotation.meta.field
 
 object ExternFallbackMut {
 
@@ -8,7 +7,7 @@ object ExternFallbackMut {
   case class ANewHope(var x: BigInt)
 
   case class Wrapper(
-    @(extern @field)
+    @extern
     stuff: ANewHope
   ) {
 

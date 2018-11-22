@@ -20,7 +20,7 @@ class library      extends Annotation
 class induct       extends Annotation
 
 /** Only extract the contracts and replace the annotated function's body with a choose. */
-@ignore
+@ignore @field @getter @setter @param
 class extern       extends Annotation
 
 /** Don't unfold the function's body during verification. */
@@ -28,7 +28,7 @@ class extern       extends Annotation
 class opaque       extends Annotation
 
 /** Specify that the annotated function is pure, which will be checked. */
-@ignore
+@ignore @field @getter @setter @param
 class pure         extends Annotation
 
 /** Inline this function, but only once.

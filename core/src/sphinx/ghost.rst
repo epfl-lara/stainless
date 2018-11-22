@@ -1,0 +1,4 @@
+.. _ghost:
+
+Ghost State
+===========

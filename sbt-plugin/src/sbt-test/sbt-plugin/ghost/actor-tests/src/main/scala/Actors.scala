@@ -3,13 +3,7 @@ import stainless.lang._
 import stainless.collection._
 import stainless.annotation._
 
-import stainless.annotation._
-
-import scala.annotation.meta.field
-
 object actors {
-
-  //class ignore extends scala.annotation.Annotation
 
   abstract class Msg
 
@@ -19,7 +13,7 @@ object actors {
 
   case class ActorRef(
     name: String,
-    @(ignore @field)
+    @extern
     underlying: akka.actor.ActorRef
   ) {
 
