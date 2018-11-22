@@ -7,7 +7,7 @@ object ExternFallback1 {
 
   import scala.collection.concurrent.TrieMap
 
-  @extern
+  @extern @pure
   def getTrieMap(x: BigInt): TrieMap[BigInt, String] = TrieMap.empty
 
   @extern
@@ -17,7 +17,7 @@ object ExternFallback1 {
     @(extern @field)
     theMap: TrieMap[K, V]
   ) {
-    @extern
+    @extern @pure
     def getMap: TrieMap[K, V] = theMap
 
     @extern
@@ -27,6 +27,6 @@ object ExternFallback1 {
   def prop2 = {
     val wrapper = Wrapper(getTrieMap(1))
     wrapper.setMap(wrapper.getMap)
-    assert(wrapper.getMap == getTrieMap(1))
+    assert(wrapper.getMap == getTrieMap(1)) // invalid
   }
 }
