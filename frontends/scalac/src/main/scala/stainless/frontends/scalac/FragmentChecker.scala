@@ -226,11 +226,6 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         reportError(pos, s"Scala API ($tp) no longer extracted, please use ${replacement}")
     }
 
-    def checkVariance(tdef: TypeDef): Unit = {
-      // if (tdef.symbol.asType.isCovariant || tdef.symbol.asType.isContravariant)
-      //   reportError(tdef.pos, "Stainless supports only invariant type parameters")
-    }
-
     private var classBody = false
     def inClassBody[T](f: => T): T = {
       val old = classBody
@@ -280,7 +275,6 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (parents.length > 1)
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
 
-          tparams.foreach(checkVariance)
           atOwner(sym)(traverse(impl))
 
         case DefDef(_, _, _, _, _, rhs) if sym.isConstructor =>

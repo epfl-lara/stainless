@@ -1,8 +1,6 @@
 import stainless.lang._
 import stainless.annotation._
 
-import scala.annotation.meta.field
-
 object ExternFallback1 {
 
   import scala.collection.concurrent.TrieMap
@@ -14,7 +12,7 @@ object ExternFallback1 {
   def setTrieMap(trie: TrieMap[BigInt, String]): Unit = ()
 
   case class Wrapper[K, V](
-    @(extern @field)
+    @extern
     theMap: TrieMap[K, V]
   ) {
     @extern @pure

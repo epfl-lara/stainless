@@ -20,6 +20,8 @@ Contents:
    imperative
    laws
    verification
+   ghost
+   wrap
    neon
    limitations
    options

@@ -8,8 +8,7 @@ import scala.collection.concurrent.TrieMap
 object ExternField {
 
   case class TrieMapWrapper[K, V](
-    @(extern @field)
-    @(pure @field)
+    @extern
     theMap: TrieMap[K, V]
   ) {
 
@@ -18,10 +17,13 @@ object ExternField {
       theMap contains k
     }
 
-    @extern @pure
-    def insert(k: K, v: V): TrieMapWrapper[K, V] = {
-      TrieMapWrapper(theMap += (k -> v))
-    } ensuring { _.contains(k) }
+    @extern
+    def insert(k: K, v: V): Unit = {
+      theMap.update(k, v)
+    } ensuring {
+      this.contains(k) &&
+      this.apply(k) == v
+    }
 
     @extern @pure
     def apply(k: K): V = {
@@ -40,9 +42,11 @@ object ExternField {
   }
 
   def test = {
-    val wrapper = TrieMapWrapper.empty[BigInt, BigInt]
-    assert(!wrapper.contains(1))
-    assert(wrapper.insert(1, 2).contains(1))
+    val wrapper = TrieMapWrapper.empty[BigInt, String]
+    assert(!wrapper.contains(42))
+    wrapper.insert(42, "Hello")
+    assert(wrapper.contains(42))
+    assert(wrapper(42) == "Hello")
   }
 
 }

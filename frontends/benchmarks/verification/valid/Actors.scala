@@ -5,8 +5,6 @@ import stainless.annotation._
 
 import stainless.annotation._
 
-import scala.annotation.meta.field
-
 case class CMap[A, B](f: A => B) {
   def apply(k: A): B = {
     f(k)
@@ -36,7 +34,7 @@ object actors {
 
 //   case class ActorRef(
 //     name: String,
-//     @(extern @field) @(pure @field)
+//     @extern @pure
 //     underlying: akka.actor.ActorRef
 //   ) {
 
