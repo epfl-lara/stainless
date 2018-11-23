@@ -41,7 +41,7 @@ class RegistryTestSuite extends FunSuite {
     else stainless.TestContext.empty
 
   /** Expectation on classes and functions identifier name (ignoring ids). */
-  case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = true)
+  case class Expectation(classes: Set[ClassName], functions: Set[FunctionName], strict: Boolean = false)
 
   /** Modification events: update the given set of files with their new content & the expected symbols. */
   case class UpdateEvent(contents: Map[FileName, Content], expected: Expectation)
