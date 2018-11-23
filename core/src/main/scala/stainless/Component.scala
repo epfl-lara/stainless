@@ -79,10 +79,23 @@ trait ComponentRun { self =>
     val trees: self.trees.type
   } = inox.Program(trees)(extract(program.symbols))
 
+  /** Passes the provided symbols through the extraction pipeline and processes all functions. */
+  def apply(symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
+    val exSymbols = extract(symbols)
+    val toProcess = exSymbols.functions.values
+      .filter(extractionFilter.shouldBeChecked)
+      .map(_.id)
+      .toSeq
+
+    apply(toProcess, exSymbols)
+  } catch {
+    case extraction.MissformedStainlessCode(tree, msg) =>
+      reporter.fatalError(tree.getPos, msg)
+  }
+
   /** Passes the provided symbols through the extraction pipeline and processes all
     * functions derived from the provided identifier. */
   def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
-
     val exSymbols = extract(symbols)
 
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>

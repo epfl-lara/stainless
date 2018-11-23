@@ -17,6 +17,8 @@ import java.io.File
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
+object optConsolidateSymbols extends inox.FlagOptionDef("consolidate-symbols", false)
+
 class StainlessCallBack(components: Seq[Component])(override implicit val context: inox.Context)
   extends CallBack with CheckFilter { self =>
 
@@ -31,6 +33,8 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
   /** Name of the sub-directory of [[optPersistentCache]] in which the registry cache files are saved. */
   protected val cacheSubDirectory: String = "stainless"
+
+  private val consolidateSymbols = context.options.findOptionOrDefault(optConsolidateSymbols)
 
   /******************* Public Interface: Override CallBack ***************************************/
 
@@ -207,8 +211,43 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     JsonUtils.writeFile(caches.report, json)
   }
 
-
   private def processSymbols(symss: Iterable[xt.Symbols]): Unit = {
+    if (consolidateSymbols) processMergedSymbols(symss) else processSplitSymbols(symss)
+  }
+
+  private def processMergedSymbols(symss: Iterable[xt.Symbols]): Unit = {
+    if (symss.size == 0) return
+
+    val funSyms = symss.foldLeft(xt.NoSymbols) { case (acc, s) =>
+      acc.withFunctions(s.functions.values.toSeq).withClasses(s.classes.values.toSeq)
+    }
+
+    try {
+      TreeSanitizer(xt).check(funSyms)
+    } catch {
+      case e: extraction.MissformedStainlessCode =>
+        reportError(e.tree.getPos, e.getMessage, funSyms)
+    }
+
+    try {
+      funSyms.ensureWellFormed
+    } catch {
+      case e: funSyms.TypeErrorException =>
+        reportError(e.pos, e.getMessage, funSyms)
+    }
+
+    reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
+
+    // Dispatch a task to the executor service instead of blocking this thread.
+    val componentReports: Seq[Future[RunReport]] =
+      runs.map(run => run(funSyms).map(a => RunReport(run)(a.toReport)))
+
+    val futureReport = Future.sequence(componentReports).map(Report)
+
+    this.synchronized { tasks += futureReport }
+  }
+
+  private def processSplitSymbols(symss: Iterable[xt.Symbols]): Unit = {
     val ignoreFlags = Set("library", "synthetic")
     def shouldProcess(id: Identifier, syms: xt.Symbols): Boolean = {
       !syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name) && this.synchronized {
@@ -245,7 +284,9 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
         runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
+
       val futureReport = Future.sequence(componentReports).map(Report)
+
       this.synchronized { tasks += futureReport }
     }
   }
