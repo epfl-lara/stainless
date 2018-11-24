@@ -30,7 +30,9 @@ trait Elaborators extends inox.parser.Elaborators with IRs {
   def patchExpr(expr: trees.Expr): trees.Expr = expr match {
     // patched expressions
     case trees.Variable(ident, tpe, flags) => new trees.Variable(ident, patchType(tpe), flags)
-    case trees.ADT(ident, tps, args) => trees.ClassConstructor(trees.ClassType(ident, tps), args)
+    case trees.ADT(ident, tps, args) =>
+//      expr
+      trees.ClassConstructor(trees.ClassType(ident, tps), args.map(patchExpr))
     case trees.ADTSelector(adt, selector) =>
       trees.ClassSelector(patchExpr(adt), selector)
     // mapped expression
@@ -187,7 +189,7 @@ trait Elaborators extends inox.parser.Elaborators with IRs {
       classDefs = classDefs ++: adt.constructors.map(constructor =>
         new xt.ClassDef(constructor.id.asInstanceOf[stainless.ast.SymbolIdentifier],
           adt.tparams.asInstanceOf[Seq[xt.TypeParameterDef]],
-          Seq(baseType), constructor.fields.asInstanceOf[Seq[xt.ValDef]], Seq.empty
+          Seq(baseType), constructor.fields.map(patchDef(_).asInstanceOf[trees.ValDef])/*.asInstanceOf[Seq[xt.ValDef]]*/, Seq.empty
         ))
     }
     )
