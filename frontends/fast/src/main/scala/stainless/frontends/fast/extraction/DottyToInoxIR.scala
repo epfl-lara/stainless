@@ -36,9 +36,6 @@ trait DottyToInoxIR
       copy(this.localVars ++ vars, isExtern)
   }
 
-  private var constructorMaps = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, List[ADTs.ConstructorValue]]
-  private var adtMap = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, Identifiers.IdentifierSeq]
-
 
   private val Int8Type = Types.Primitives.BVType(8)
   private val Int16Type = Types.Primitives.BVType(16)
@@ -119,8 +116,8 @@ trait DottyToInoxIR
       case Nil => Nil
     }
     rec(targs) match {
-      case a => Some(HSeq.fromSeq(a))
       case Nil => None
+      case a => Some(HSeq.fromSeq(a))
     }
   }
 
@@ -273,6 +270,9 @@ trait DottyToInoxIR
                    (implicit inoxCtx: inox.Context, cache: SymbolsContext, ctx: Context):
   Seq[Either[ADTs.Sort, Function]] = {
     var result: Seq[Either[ADTs.Sort, Function]] = Seq()
+
+    var constructorMaps = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, List[ADTs.ConstructorValue]]
+    var adtMap = scala.collection.mutable.Map.empty[Identifiers.IdentifierName, Identifiers.IdentifierSeq]
 
     var adts = Seq()
 

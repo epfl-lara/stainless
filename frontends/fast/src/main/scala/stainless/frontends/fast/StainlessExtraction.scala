@@ -19,8 +19,6 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
   def run(implicit ctx: Context): Unit = {
     // probably the stupidest
     val dottyToInoxIR = new Elaborators {
-      // currently using inox just to see what happens
-      override val trees: Trees = xt
 
       def makeProgram(extracted: Seq[Either[ADTs.Sort, Functions.Function]]): Programs.Program = Programs.Program(extracted)
 
@@ -36,7 +34,7 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
       }
 
       def extractFunctions(definitions: Seq[trees.Definition]): Seq[trees.FunDef] =
-        definitions.flatMap{
+        definitions.flatMap {
           case a: trees.FunDef => Some(a)
           case _ => None
         }
@@ -64,14 +62,15 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
     val result = dottyToInoxIR.fullElaboration(program)
 
 
-    val functions = dottyToInoxIR.extractFunctions(result)
+
+    val (functions, classes) = dottyToInoxIR.patchAST(result)
     val file = unit.source.file.absolute.path
     val isLibrary = Main.libraryFiles contains file
     val xtUnit = xt.UnitDef(id, Seq(), Seq(), Seq(), !isLibrary)
 
-    val funs = functions.asInstanceOf[Seq[xt.FunDef]]
+//    val funs = functions.asInstanceOf[Seq[xt.FunDef]]
 
-    callback(file, xtUnit, Seq(), funs)
+    callback(file, xtUnit, classes, functions)
   }
 
 }
