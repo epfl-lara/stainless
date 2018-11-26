@@ -195,6 +195,15 @@ trait VerificationChecker { self =>
     rec(expr)
   }
 
+  private def prettify(expr: Expr): Expr = {
+    def rec(expr: Expr): Expr = expr match {
+      case Annotated(e, Seq(Unchecked)) => rec(e)
+      case Operator(es, recons) => recons(es map rec)
+    }
+
+    rec(expr)
+  }
+
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
@@ -203,7 +212,7 @@ trait VerificationChecker { self =>
       val cond = vc.condition
       reporter.synchronized {
         reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
-        reporter.debug(cond.asString)
+        reporter.debug(prettify(cond).asString)
         reporter.debug("Solving with: " + s.name)
       }
 
