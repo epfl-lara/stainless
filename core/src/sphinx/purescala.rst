@@ -160,7 +160,7 @@ You can define methods in classes.
   def test(a: List[Int]) = a.contains(42)
 
 It is possible to define abstract methods in abstract classes and implement them in case classes.
-It is also possible to override methods.
+Multiple layers of inheritance are allowed, as is the ability to override concrete methods.
 
 .. code-block:: scala
 
@@ -185,7 +185,19 @@ It is also possible to override methods.
 
   case class D() extends B
 
-It is not possible, however, to call methods of a superclass with the ``super`` keyword.
+It is also possible to call methods of a superclass with the ``super`` keyword.
+
+.. code-block:: scala
+
+  sealed abstract class Base {
+    def double(x: BigInt): BigInt = x * 2
+  }
+
+  case class Override() extends Base {
+    override def double(x: BigInt): BigInt = {
+      super.double(x + 1) + 42
+    }
+  }
 
 Specifications
 --------------
