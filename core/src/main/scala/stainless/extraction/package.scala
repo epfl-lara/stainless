@@ -82,7 +82,7 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
-  case class MissformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
+  case class MalformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
   def pipeline(implicit ctx: inox.Context): StainlessPipeline = {

@@ -56,7 +56,7 @@ trait Laws
             args map (transform(_, env))
           ).copiedFrom(e)
         } else {
-          throw MissformedStainlessCode(e, "Cannot refer to super-type law outside of proof body")
+          throw MalformedStainlessCode(e, "Cannot refer to super-type law outside of proof body")
         }
 
       case _ => super.transform(e, env)
@@ -97,23 +97,23 @@ trait Laws
     if (fd.flags contains s.Law) {
       // Some sanity checks
       if (!fd.flags.exists { case s.IsMethodOf(_) => true case _ => false })
-        throw MissformedStainlessCode(fd, "Unexpected non-method law")
+        throw MalformedStainlessCode(fd, "Unexpected non-method law")
 
       val cid = fd.flags.collectFirst { case s.IsMethodOf(id) => id }.get
       val cd = symbols.getClass(cid)
 
       if (!(cd.flags contains s.IsAbstract))
-        throw MissformedStainlessCode(fd, "Unexpected law in non-abstract class")
+        throw MalformedStainlessCode(fd, "Unexpected law in non-abstract class")
       if (!symbols.isSubtypeOf(fd.returnType, s.BooleanType()))
-        throw MissformedStainlessCode(fd, "Unexpected non-boolean typed law")
+        throw MalformedStainlessCode(fd, "Unexpected non-boolean typed law")
       if (!s.exprOps.withoutSpecs(fd.fullBody).isDefined)
-        throw MissformedStainlessCode(fd, "Unexpected law without a body")
+        throw MalformedStainlessCode(fd, "Unexpected law without a body")
       if (symbols.isRecursive(fd.id))
-        throw MissformedStainlessCode(fd, "Unexpected recursive law")
+        throw MalformedStainlessCode(fd, "Unexpected recursive law")
       if (symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).exists { sid =>
         val sfd = symbols.getFunction(sid)
         !sfd.isAbstract && !sfd.isLaw
-      }) throw MissformedStainlessCode(fd, "Unexpected law overriding concrete function")
+      }) throw MalformedStainlessCode(fd, "Unexpected law overriding concrete function")
 
       val env = Some(fd.id.unsafeToSymbolIdentifier.symbol)
       val ct = t.ClassType(cid, cd.typeArgs.map(transform(_, env))).setPos(fd)

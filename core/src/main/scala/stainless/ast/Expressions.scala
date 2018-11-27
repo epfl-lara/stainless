@@ -164,10 +164,10 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
   protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr = {
     val fd = s.lookupFunction(id)
       .filter(_.params.size == 1)
-      .getOrElse(throw extraction.MissformedStainlessCode(up, "Invalid unapply accessor"))
+      .getOrElse(throw extraction.MalformedStainlessCode(up, "Invalid unapply accessor"))
     val unapp = up.getFunction
     val tpMap = s.instantiation(fd.params.head.getType, unapp.getType)
-      .getOrElse(throw extraction.MissformedStainlessCode(up, "Unapply pattern failed type instantiation"))
+      .getOrElse(throw extraction.MalformedStainlessCode(up, "Unapply pattern failed type instantiation"))
     fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
   }
 
@@ -177,11 +177,11 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
     private def getIsEmpty(implicit s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
+        .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
 
     private def getGet(implicit s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
+        .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
 
     def isEmptyUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getIsEmpty, this).copiedFrom(this)
     def getUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getGet, this).copiedFrom(this)
