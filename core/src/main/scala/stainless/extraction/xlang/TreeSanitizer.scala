@@ -10,7 +10,7 @@ trait TreeSanitizer {
   val trees: xlang.Trees
   import trees._
 
-  /** Throw a [[MissformedStainlessCode]] exception when detecting an illegal pattern. */
+  /** Throw a [[MalformedStainlessCode]] exception when detecting an illegal pattern. */
   def check(symbols: Symbols)(implicit ctx: inox.Context): Unit = {
     val preconditions = new CheckPreconditions()(symbols, ctx)
     symbols.functions.values foreach preconditions.traverse
@@ -25,14 +25,14 @@ trait TreeSanitizer {
       if !symbols.getFunction(id).isSetter
       sid <- symbols.firstSuper(id)
       if symbols.getFunction(sid).isSetter
-    } throw MissformedStainlessCode(symbols.getFunction(id),
+    } throw MalformedStainlessCode(symbols.getFunction(id),
       "Cannot override a `var` accessor with a non-accessor method.")
 
     // check that sealed traits have children
     for {
       cd <- symbols.classes.values
       if cd.isAbstract && cd.isSealed && cd.children(symbols).isEmpty
-    } throw MissformedStainlessCode(cd, "Illegal sealed abstract class with no children.")
+    } throw MalformedStainlessCode(cd, "Illegal sealed abstract class with no children.")
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
@@ -58,10 +58,10 @@ trait TreeSanitizer {
         optInv.foreach(traverse)
 
       case e: Require =>
-        throw MissformedStainlessCode(e, s"Unexpected `require`.")
+        throw MalformedStainlessCode(e, s"Unexpected `require`.")
 
       case e: Decreases =>
-        throw MissformedStainlessCode(e, s"Unexpected `decreases`.")
+        throw MalformedStainlessCode(e, s"Unexpected `decreases`.")
 
       case e: LetRec =>
         // Traverse LocalFunDef independently
@@ -101,9 +101,9 @@ trait TreeSanitizer {
         val ct = obj.getType.asInstanceOf[ClassType]
         ct.getField(selector) match {
           case None =>
-            throw MissformedStainlessCode(e, s"Cannot find field `${selector.asString}` of class ${ct.asString}.")
+            throw MalformedStainlessCode(e, s"Cannot find field `${selector.asString}` of class ${ct.asString}.")
           case Some(field) if field.flags contains Ignore =>
-            throw MissformedStainlessCode(e, s"Cannot access ignored field `${selector.asString}` from non-extern context.")
+            throw MalformedStainlessCode(e, s"Cannot access ignored field `${selector.asString}` from non-extern context.")
           case _ =>
             super.traverse(e)
         }
@@ -114,9 +114,9 @@ trait TreeSanitizer {
             val ct = rec.getType.asInstanceOf[ClassType]
             ct.getField(id) match {
               case Some(field) if field.flags contains Ignore =>
-                throw MissformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
+                throw MalformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
               case None if symbols.lookupFunction(id).exists(_.flags contains Ignore) =>
-                throw MissformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
+                throw MalformedStainlessCode(e, s"Cannot access ignored field `${id.asString}` from non-extern context.")
               case _ =>
                 super.traverse(e)
             }
@@ -127,11 +127,11 @@ trait TreeSanitizer {
       case ClassConstructor(ct, args) =>
         ct.lookupClass match {
           case None =>
-            throw MissformedStainlessCode(e, s"Cannot find class for type `${ct.asString}`.")
+            throw MalformedStainlessCode(e, s"Cannot find class for type `${ct.asString}`.")
 
           case Some(tcd) if tcd.fields.exists(_.flags contains Ignore) =>
             val ignoredFields = tcd.fields.filter(_.flags contains Ignore).map(_.id.asString).mkString(", ")
-            throw MissformedStainlessCode(e,
+            throw MalformedStainlessCode(e,
               s"Cannot build an instance of a class with ignored fields in non-extern context " +
               s"(${ct.asString} has ignored fields: $ignoredFields)."
             )

@@ -17,7 +17,7 @@ package object imperative {
   }
 
   class ImperativeEliminationException(tree: inox.ast.Trees#Tree, msg: String)
-    extends MissformedStainlessCode(tree, msg)
+    extends MalformedStainlessCode(tree, msg)
 
   object ImperativeEliminationException {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)

@@ -18,7 +18,7 @@ package object methods {
   }
 
   class MethodsException(tree: inox.ast.Trees#Tree, msg: String)
-    extends MissformedStainlessCode(tree, msg)
+    extends MalformedStainlessCode(tree, msg)
 
   object MethodsException {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new MethodsException(tree, msg)

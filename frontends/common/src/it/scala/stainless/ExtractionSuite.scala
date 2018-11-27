@@ -85,7 +85,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
         tryPrograms foreach { case (f, tp) => tp match {
           // we expect a specific kind of exception:
           case Failure(e: stainless.frontend.UnsupportedCodeException) => assert(true)
-          case Failure(e: stainless.extraction.MissformedStainlessCode) => assert(true)
+          case Failure(e: stainless.extraction.MalformedStainlessCode) => assert(true)
           case Failure(e) => assert(false, s"$f was rejected with $e:\nStack trace:\n${e.getStackTrace().map(_.toString).mkString("\n")}")
           case Success(n) => assert(n > 0, s"$f was successfully extracted")
         }}
