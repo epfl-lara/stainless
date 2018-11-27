@@ -50,7 +50,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                 // Check if a precise effect can be computed
                 getEffect(e)
               } catch {
-                case _: MissformedStainlessCode =>
+                case _: MalformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
               }
 

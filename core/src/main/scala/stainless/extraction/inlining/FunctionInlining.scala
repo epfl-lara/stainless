@@ -107,15 +107,15 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
       val hasInlineOnceFlag = fd.flags contains InlineOnce
 
       if (hasInlineFlag && hasInlineOnceFlag) {
-        throw MissformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
+        throw MalformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
       }
 
       if (hasInlineFlag && context.transitivelyCalls(fd, fd)) {
-        throw MissformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
+        throw MalformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
       }
 
       if (hasInlineFlag && exprOps.withoutSpecs(fd.fullBody).isEmpty) {
-        throw MissformedStainlessCode(fd, "Inlining function with empty body: not supported, use @inlineOnce instead")
+        throw MalformedStainlessCode(fd, "Inlining function with empty body: not supported, use @inlineOnce instead")
       }
     }
 

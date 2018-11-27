@@ -179,7 +179,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     try {
       TreeSanitizer(xt).check(syms)
     } catch {
-      case e: extraction.MissformedStainlessCode =>
+      case e: extraction.MalformedStainlessCode =>
         reportError(e.tree.getPos, e.getMessage, syms)
     }
 
