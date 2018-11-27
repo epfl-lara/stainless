@@ -104,7 +104,7 @@ trait ComponentRun { self =>
 
     (toProcess, exSymbols)
   } catch {
-    case extraction.MissformedStainlessCode(tree, msg) =>
+    case extraction.MalformedStainlessCode(tree, msg) =>
       reporter.fatalError(tree.getPos, msg)
   }
 
