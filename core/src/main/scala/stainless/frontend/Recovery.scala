@@ -1,6 +1,7 @@
 package stainless
 package frontend
 
+import utils.StringUtils
 import extraction.xlang.{trees => xt}
 
 object DebugSectionRecovery extends inox.DebugSection("recovery")
@@ -48,8 +49,11 @@ class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
 
           case Right(result) =>
             reporter.debug(" => SUCCESS")
-            reporter.debug(s"Original:\n${d.asString}")
-            reporter.debug(s"Recovered:\n${result.asString}")
+            reporter.debug(" > Original:")
+            reporter.debug(StringUtils.indent(d.asString, 4))
+            reporter.debug("")
+            reporter.debug(" > Recovered:")
+            reporter.debug(StringUtils.indent(result.asString, 4))
             reporter.debug("")
             Right(result)
         }
