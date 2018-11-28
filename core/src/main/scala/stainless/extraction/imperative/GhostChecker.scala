@@ -18,8 +18,13 @@ trait GhostChecker { self: EffectsAnalyzer =>
           (field.flags contains Ghost) || rec(field.getType, rest)
 
         case (ct: ClassType, ClassFieldAccessor(selector) +: rest) =>
-          val field = ct.getField(selector).get
-          (field.flags contains Ghost) || rec(field.getType, rest)
+          getClassField(ct, selector) match {
+            case Some(field) =>
+              (field.flags contains Ghost) || rec(field.getType, rest)
+            case None =>
+              throw ImperativeEliminationException(fd,
+                s"Could not find field $selector of class/trait ${ct.id}")
+          }
 
         case (ArrayType(base), ArrayAccessor(index) +: rest) =>
           rec(base, rest)
