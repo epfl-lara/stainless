@@ -1,0 +1,15 @@
+/* Copyright 2009-2018 EPFL, Lausanne */
+
+import stainless.lang._
+
+object ChooseLIA {
+
+  // TYPEFIX: choose
+  // def test(x: BigInt): BigInt = {
+  //   choose[BigInt]((y: BigInt) => {
+  //     val z = x + 2
+  //     z == y
+  //   })
+  // } ensuring(_ == x + 2)
+
+}

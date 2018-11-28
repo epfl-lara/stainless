@@ -6,7 +6,7 @@ package termination
 object DebugSectionTermination extends inox.DebugSection("termination")
 
 trait TerminationChecker {
-  val program: Program { val trees: Trees }
+  val program: Program { val trees: ast.Trees }
   val context: inox.Context
   import program.trees._
   import program.symbols._

@@ -29,4 +29,3 @@ trait VerificationAnalysis extends AbstractAnalysis {
   override def toReport = new VerificationReport(records, sources)
 
 }
-

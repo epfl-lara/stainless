@@ -19,24 +19,42 @@ object VCKind {
     override def underlying = k.underlying
   }
 
-  case object Precondition    extends VCKind("precondition", "precond.")
-  case object Postcondition   extends VCKind("postcondition", "postcond.")
-  case object Assert          extends VCKind("body assertion", "assert.")
-  case object ExhaustiveMatch extends VCKind("match exhaustiveness", "match.")
-  case object ArrayUsage      extends VCKind("array usage", "arr. use")
-  case object MapUsage        extends VCKind("map usage", "map use")
-  case object Overflow        extends VCKind("integer overflow", "overflow")
-  case object Shift           extends VCKind("strict arithmetic on shift", "shift")
-  case object DivisionByZero  extends VCKind("division by zero", "div 0")
-  case object ModuloByZero    extends VCKind("modulo by zero", "mod 0")
-  case object RemainderByZero extends VCKind("remainder by zero", "rem 0")
-  case object CastError       extends VCKind("cast correctness", "cast")
-  case object PostTactic      extends VCKind("postcondition tactic", "tact.")
-  case object Choose          extends VCKind("choose satisfiability", "choose")
-  case object Law             extends VCKind("law", "law")
-  case object InvariantSat    extends VCKind("invariant satisfiability", "inv. sat")
-  case class  AssertErr(err: String) extends VCKind("body assertion: " + err, "assert.")
+  case object Precondition                  extends VCKind("precondition", "precond.")
+  case object Postcondition                 extends VCKind("postcondition", "postcond.")
+  case object Assert                        extends VCKind("body assertion", "assert.")
+  case object ExhaustiveMatch               extends VCKind("match exhaustiveness", "match.")
+  case object ArrayUsage                    extends VCKind("array usage", "arr. use")
+  case object MapUsage                      extends VCKind("map usage", "map use")
+  case object Overflow                      extends VCKind("integer overflow", "overflow")
+  case object Shift                         extends VCKind("strict arithmetic on shift", "shift")
+  case object DivisionByZero                extends VCKind("division by zero", "div 0")
+  case object ModuloByZero                  extends VCKind("modulo by zero", "mod 0")
+  case object MeasureDecreases              extends VCKind("measure decreases", "measure")
+  case object MeasurePositive               extends VCKind("non-negative measure", "measure")
+  case object UnfoldType                    extends VCKind("strictly positive index for ADT selection", "unfold")
+  case object RemainderByZero               extends VCKind("remainder by zero", "rem 0")
+  case object CastError                     extends VCKind("cast correctness", "cast")
+  case object PostTactic                    extends VCKind("postcondition tactic", "tact.")
+  case object Choose                        extends VCKind("choose satisfiability", "choose")
+  case object Law                           extends VCKind("law", "law")
+  case object InvariantSat                  extends VCKind("invariant satisfiability", "inv. sat")
+  case class  AssertErr(err: String)        extends VCKind("body assertion: " + err, "assert.")
+  case class  Error(err: String)            extends VCKind(err, "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
+
+  def fromErr(optErr: Option[String]) = {
+    optErr.map { err =>
+      if (err.startsWith("Array ")) VCKind.ArrayUsage
+      else if (err.startsWith("Map ")) VCKind.MapUsage
+      else if (err.endsWith("Overflow")) VCKind.Overflow
+      else if (err.startsWith("Shift")) VCKind.Shift
+      else if (err.startsWith("Division ")) VCKind.DivisionByZero
+      else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
+      else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
+      else if (err.startsWith("Cast ")) VCKind.CastError
+      else VCKind.AssertErr(err)
+    }.getOrElse(VCKind.Assert)
+  }
 }
 
 sealed abstract class VCStatus[+Model](val name: String) {

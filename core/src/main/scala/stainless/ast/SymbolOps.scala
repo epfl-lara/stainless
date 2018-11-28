@@ -159,7 +159,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           val (cases :+ ((_, rhs, _))) = condsAndRhs
           (cases, rhs)
         } else {
-          (condsAndRhs, Error(m.getType, "Match is non-exhaustive").copiedFrom(m))
+          (condsAndRhs, Error(m.getType, "match exhaustiveness").copiedFrom(m))
         }
 
         val bigIte = branches.foldRight(elze)((p1, ex) => {

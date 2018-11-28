@@ -42,8 +42,23 @@ trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
       case _ =>
         super.traverse(pat)
     }
+
+    override def traverse(tpe: Type): Unit = tpe match {
+      case RecursiveType(id, _, _) =>
+        register(id)
+        super.traverse(tpe)
+      case _ =>
+        super.traverse(tpe)
+    }
+
+    override def traverse(expr: Expr): Unit = expr match {
+      case SizedADT(id, _, _, _) =>
+        register(symbols.getConstructor(id).sort)
+        super.traverse(expr)
+      case _ =>
+        super.traverse(expr)
+    }
   }
 
-  override protected def getSortCollector = new SortCollector {}
+  override def getSortCollector = new SortCollector {}
 }
-
