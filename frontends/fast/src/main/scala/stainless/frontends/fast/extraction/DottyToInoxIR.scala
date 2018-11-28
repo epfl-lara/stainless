@@ -37,9 +37,9 @@ trait DottyToInoxIR
   }
 
 
-  private val Int8Type = Types.Primitives.BVType(8)
-  private val Int16Type = Types.Primitives.BVType(16)
-  private val Int32Type = Types.Primitives.BVType(32)
+  private val Int8Type = Types.Primitives.BVType(signed = true, 8)
+  private val Int16Type = Types.Primitives.BVType(signed = true, 16)
+  private val Int32Type = Types.Primitives.BVType(signed = true, 32)
 
 
   implicit def dottyPosToParserCombinatorPos(p: Position)(implicit ctx: Context): scala.util.parsing.input.Position =
@@ -341,6 +341,7 @@ trait DottyToInoxIR
               val parameterIdentifiers = bindings.elems.map {
                 case Right(binding: Bindings.InferredValDef) => binding.identifier
                 case Right(binding: Bindings.ExplicitValDef) => binding.identifier
+                case Right(_) => throw new Exception("Not expected to be something else")
               }.toSet
               result = result :+
                 Right(Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),
