@@ -40,6 +40,11 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
        with CallGraph
        with DependencyGraph { self0: Symbols =>
 
+    private[this] val measureCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
+    @inline def getMeasure(fd: FunDef): Option[Expr] = getMeasure(fd.typed)
+    def getMeasure(tfd: TypedFunDef): Option[Expr] =
+      measureCache.getOrElseUpdate(tfd, exprOps.measureOf(tfd.fullBody))
+
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
     def getBody(tfd: TypedFunDef): Option[Expr] =
@@ -97,6 +102,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(fd)
 
     @inline def postcondition(implicit s: Symbols): Option[Lambda] = s.getPostcondition(fd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
@@ -125,6 +131,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue: Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body: Option[Expr] = tfd.symbols.getBody(tfd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
 
     @inline def postcondition: Option[Lambda] = tfd.symbols.getPostcondition(tfd)
     @inline def hasPostcondition: Boolean = postcondition.isDefined

@@ -13,7 +13,7 @@ import inox._
   */
 trait CICFA {
 
-  val program: Program { val trees: Trees }
+  val program: Program { val trees: stainless.trees.type }
   val context: inox.Context
 
   import context._

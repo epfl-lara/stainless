@@ -104,17 +104,7 @@ trait DefaultTactic extends Tactic {
 
       case (a @ Assert(cond, optErr, _), path) =>
         val condition = path implies cond
-        val kind = optErr.map { err =>
-          if (err.startsWith("Array ")) VCKind.ArrayUsage
-          else if (err.startsWith("Map ")) VCKind.MapUsage
-          else if (err.endsWith("Overflow")) VCKind.Overflow
-          else if (err.startsWith("Shift")) VCKind.Shift
-          else if (err.startsWith("Division ")) VCKind.DivisionByZero
-          else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
-          else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
-          else if (err.startsWith("Cast ")) VCKind.CastError
-          else VCKind.AssertErr(err)
-        }.getOrElse(VCKind.Assert)
+        val kind = VCKind.fromErr(optErr)
         VC(condition, id, kind, false).setPos(a)
 
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>

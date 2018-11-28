@@ -4,7 +4,7 @@ package stainless
 package extraction
 package inlining
 
-trait Trees extends extraction.Trees { self =>
+trait Trees extends termination.Trees { self =>
 
   case object Inline extends Flag("inline", Seq())
   case object InlineOnce extends Flag("inlineOnce", Seq())
