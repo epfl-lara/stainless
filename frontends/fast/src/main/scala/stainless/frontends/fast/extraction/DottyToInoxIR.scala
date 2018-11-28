@@ -237,6 +237,12 @@ trait DottyToInoxIR
       Exprs.Tuple(HSeq.fromSeq(trees.map(extractExpression(_))))
     case ExTupleSelect(tree, int) =>
       Exprs.TupleSelection(extractExpression(tree), int)
+    case Select(qualifier, name) =>
+      Exprs.Selection(extractExpression(qualifier), Identifiers.IdentifierName(name.toString))
+    case TypeApply(Select(qualifier, name), List(ident: untpd.Ident)) if name.toString == "isInstanceOf" =>
+      Exprs.IsConstructor(extractExpression(qualifier), Identifiers.IdentifierName(ident.name.toString))
+    case block: untpd.Block =>
+      processBody(block.stats, block.expr)
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {

@@ -63,7 +63,7 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
 
 
 
-    val (functions, classes) = dottyToInoxIR.patchAST(result)
+    val (functions, classes) = Patching.patchAST(result)
     val file = unit.source.file.absolute.path
     val isLibrary = Main.libraryFiles contains file
     val xtUnit = xt.UnitDef(id, Seq(), Seq(), Seq(), !isLibrary)
