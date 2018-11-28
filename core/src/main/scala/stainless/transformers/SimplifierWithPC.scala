@@ -32,7 +32,7 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (rp, _) =>
         val (rb, _) = simplify(body, path)
-        (Ensuring(rb, Lambda(Seq(res), rp).copiedFrom(l)).copiedFrom(e), opts.assumeChecked)
+        (Ensuring(rb, Lambda(Seq(res), rp).copiedFrom(l)).copiedFrom(e), false)
     }
 
     case MatchExpr(scrut, cases) =>
