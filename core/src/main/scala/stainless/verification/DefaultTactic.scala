@@ -50,10 +50,17 @@ trait DefaultTactic extends Tactic {
 
   def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
-    (fd.postcondition, fd.body) match {
+    val isLaw = fd.flags.exists(_.name == "law")
+    val derivedFromLaw = fd.flags.exists {
+      case Derived(id) => symbols.getFunction(id).flags.exists(_.name == "law")
+      case _ => false
+    }
+
+    if (derivedFromLaw) Seq.empty
+    else (fd.postcondition, fd.body) match {
       case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.exists(_ == Unchecked) =>
         getPostconditions(body, post).map { vc =>
-          val vcKind = if (fd.flags.exists(_.name == "law")) VCKind.Law else VCKind.Postcondition
+          val vcKind = if (isLaw) VCKind.Law else VCKind.Postcondition
           VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(fd)
         }
       case _ => Nil
