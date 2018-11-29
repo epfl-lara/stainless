@@ -4,6 +4,7 @@ package stainless
 package frontends.scalac
 
 import scala.tools.nsc._
+import scala.collection.mutable.{Map => MutableMap}
 
 /** Contains extractors to pull-out interesting parts of the Scala ASTs. */
 trait ASTExtractors {
@@ -144,6 +145,28 @@ trait ASTExtractors {
   def isCopyMethod(sym: Symbol) = sym.name == nme.copy
 
   def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
+
+  object TupleSymbol {
+    // It is particularly time expensive so we cache this.
+    private val cache = MutableMap[Symbol, Option[Int]]()
+    private val cardinality = """Tuple(\d{1,2})""".r
+    def unapply(sym: Symbol): Option[Int] = cache.getOrElseUpdate(sym, {
+      // First, extract a gess about the cardinality of the Tuple.
+      // Then, confirm that this is indeed a regular Tuple.
+      val name = sym.unexpandedName.toString
+      name match {
+        case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
+        case _ => None
+      }
+    })
+
+    def unapply(tpe: Type): Option[Int] = tpe.typeSymbol match {
+      case TupleSymbol(i) => Some(i)
+      case _ => None
+    }
+
+    def unapply(tree: Tree): Option[Int] = unapply(tree.tpe)
+  }
 
   /** A set of helpers for extracting trees.*/
   object ExtractorHelpers {
@@ -804,13 +827,13 @@ trait ASTExtractors {
 
     object ExTupleExtract {
       def unapply(tree: Select) : Option[(Tree,Int)] = tree match {
-        case Select(lhs, n) => {
+        case Select(lhs @ TupleSymbol(i), n) => {
           val methodName = n.toString
           if(methodName.head == '_') {
             val indexString = methodName.tail
             try {
               val index = indexString.toInt
-              if(index > 0) {
+              if(index > 0 && index <= i) {
                 Some((lhs, index))
               } else None
             } catch {
