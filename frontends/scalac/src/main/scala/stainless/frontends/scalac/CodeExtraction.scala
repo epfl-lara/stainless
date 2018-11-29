@@ -48,7 +48,8 @@ trait CodeExtraction extends ASTExtractors {
       case pd @ PackageDef(refTree, lst) =>
         (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
 
-      case _ => outOfSubsetError(u.body, "Unexpected unit body")
+      case _ =>
+        (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
@@ -723,6 +724,8 @@ trait CodeExtraction extends ASTExtractors {
     def rec(es: List[Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
+      case (i: Import) :: xs => rec(xs)
+
       case (e @ ExAssertExpression(contract, oerr, isStatic)) :: xs =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
         val const = extractTree(contract)(vctx)
@@ -792,6 +795,10 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private def extractTree(tr: Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
+    case ExObjectDef(_, _) => xt.UnitLiteral()
+    case ExCaseClassSyntheticJunk() => xt.UnitLiteral()
+    case md: ModuleDef if md.symbol.isSynthetic => xt.UnitLiteral()
+
     case Block(es, e) =>
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
