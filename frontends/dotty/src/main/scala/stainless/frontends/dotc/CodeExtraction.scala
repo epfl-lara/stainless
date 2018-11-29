@@ -757,6 +757,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     def rec(es: List[tpd.Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
+      case (i: tpd.Import) :: xs => rec(xs)
+
       case (e @ ExAssert(contract, oerr, isStatic)) :: xs =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
 
