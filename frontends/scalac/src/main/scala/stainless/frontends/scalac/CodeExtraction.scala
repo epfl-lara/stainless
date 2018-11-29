@@ -49,7 +49,8 @@ trait CodeExtraction extends ASTExtractors {
       case pd @ PackageDef(refTree, lst) =>
         (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
 
-      case _ => outOfSubsetError(u.body, "Unexpected unit body")
+      case _ =>
+        (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
@@ -846,6 +847,7 @@ trait CodeExtraction extends ASTExtractors {
     case ExObjectDef(_, _) => xt.UnitLiteral()
     case ExCaseClassSyntheticJunk() => xt.UnitLiteral()
     case md: ModuleDef if md.symbol.isSynthetic => xt.UnitLiteral()
+    case i: Import => xt.UnitLiteral()
 
     case Block(es, e) =>
       val b = extractBlock(es :+ e)

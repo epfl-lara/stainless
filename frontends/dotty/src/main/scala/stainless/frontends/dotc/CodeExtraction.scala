@@ -886,6 +886,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
+    case Import(_, _) => xt.UnitLiteral()
+
     case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), ExUnwrapped(Closure(Nil, call, targetTpt))) if call.symbol == dd.symbol =>
       val vds = vparams map (vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),

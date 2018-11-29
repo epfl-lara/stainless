@@ -27,7 +27,8 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
           case None => FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", ""))
         }
         (id, pd.stats)
-      case _ => outOfSubsetError(tree, "Unexpected unit body")
+      case _ =>
+        (FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val (imports, unitClasses, unitFunctions, subs, classes, functions) = extraction.extractStatic(stats)
