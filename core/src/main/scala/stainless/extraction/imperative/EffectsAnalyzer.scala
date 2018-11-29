@@ -278,6 +278,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
       case MutableMapApply(a, idx) => rec(a, MutableMapAccessor(idx) +: path)
+
       case ADT(id, _, args) => path match {
         case ADTFieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
@@ -396,6 +397,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case MutableMapUpdate(map, key, value) =>
         rec(map, env) ++ rec(key, env) ++ rec(value, env) ++
         effect(map, env).map(_ + MutableMapAccessor(key))
+
+      case MutableMapUpdated(map, key, value) =>
+        rec(map, env) ++ rec(key, env) ++ rec(value, env)
+
+      case MutableMapDuplicate(map) =>
+        rec(map, env)
 
       case FieldAssignment(o, id, v) =>
         val accessor = o.getType match {
