@@ -68,6 +68,24 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
               super.traverse(l)
 
+            case au @ ArrayUpdate(a, i, e) =>
+              if (!isExpressionFresh(e) && isMutableType(e.getType))
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+              super.traverse(au)
+
+            case mu @ MapUpdated(m, k, e) =>
+              if (!isExpressionFresh(e) && isMutableType(e.getType))
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+              super.traverse(mu)
+
+            case fa @ FieldAssignment(o, sel, e) =>
+              if (!isExpressionFresh(e) && isMutableType(fa.getField.get.getType))
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+              super.traverse(fa)
+
             case l @ LetRec(fds, body) =>
               fds.foreach(fd => check(Inner(fd)))
               traverse(body)
