@@ -1445,6 +1445,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (xt.MutableMapType(_, _), "update", Seq(key, value)) =>
             xt.MutableMapUpdate(extractTree(lhs), extractTree(key), extractTree(value))
 
+          case (xt.MutableMapType(_, _), "updated", Seq(key, value)) =>
+            xt.MutableMapUpdated(extractTree(lhs), extractTree(key), extractTree(value))
+
+          case (xt.MutableMapType(_, _), "duplicate", Seq()) =>
+            xt.MutableMapDuplicate(extractTree(lhs))
+
           case (xt.MapType(_, _), "get", Seq(rhs)) =>
             xt.MapApply(extractTree(lhs), extractTree(rhs))
 
