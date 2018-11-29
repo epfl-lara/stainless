@@ -59,6 +59,7 @@ trait ImperativeCleanup
         t.FiniteMap(Seq(), t.Application(transform(default), Seq()), transform(from), transform(to))
       case s.MutableMapApply(map, index) => t.MapApply(transform(map), transform(index))
       case s.MutableMapUpdated(map, key, value) => t.MapUpdated(transform(map), transform(key), transform(value))
+      case s.MutableMapDuplicate(map) => transform(map)
 
       case _ => super.transform(expr)
     }

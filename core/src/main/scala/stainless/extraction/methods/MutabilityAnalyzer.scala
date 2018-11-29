@@ -80,7 +80,8 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         if !acd.cd.flags.contains(IsMutable) && !acd.cd.isSealed
       ) {
         throw MethodsException(cd,
-          s"A mutable class (${cd.id.asString}) cannot have a non-@mutable and non-sealed parent (${acd.cd.id.asString})."
+          s"""|A mutable class (${cd.id.asString}) cannot have a non-@mutable and non-sealed parent (${acd.cd.id.asString}).
+              |Please annotate ${acd.cd.id.asString} with @mutable."""
         )
       }
 

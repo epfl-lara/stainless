@@ -278,6 +278,14 @@ trait TransformerWithType extends TreeTransformer {
       val mmt @ s.MutableMapType(from, to) = widen(map.getType)
       t.MutableMapUpdate(transform(map, mmt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
+    case s.MutableMapUpdated(map, key, value) =>
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      t.MutableMapUpdated(transform(map, mmt), transform(key, from), transform(value, to)).copiedFrom(expr)
+
+    case s.MutableMapDuplicate(map) =>
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      t.MutableMapDuplicate(transform(map, mmt)).copiedFrom(expr)
+
     // Inner function expressions
     case s.LetRec(fds, body) =>
       t.LetRec(

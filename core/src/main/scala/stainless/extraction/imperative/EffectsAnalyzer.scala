@@ -218,6 +218,7 @@ trait EffectsAnalyzer extends CachingPhase {
       case Annotated(e, _) => rec(e, path)
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => None
       case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => None
+      case (_: MutableMapUpdated | _: MutableMapDuplicate) => None
       case Old(_) => None
       case Let(vd, e, b) if !isMutableType(vd.tpe) => rec(b, path)
       case Let(vd, e, b) => (getEffect(e), rec(b, path)) match {
@@ -288,6 +289,12 @@ trait EffectsAnalyzer extends CachingPhase {
       case MutableMapUpdate(map, key, value) =>
         rec(map, env) ++ rec(key, env) ++ rec(value, env) ++
         effect(map, env).map(_ + MutableMapAccessor(key))
+
+      case MutableMapUpdated(map, key, value) =>
+        rec(map, env) ++ rec(key, env) ++ rec(value, env)
+
+      case MutableMapDuplicate(map) =>
+        rec(map, env)
 
       case FieldAssignment(o, id, v) =>
         rec(o, env) ++ rec(v, env) ++

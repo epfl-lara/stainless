@@ -91,6 +91,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     }
   }
 
+  /** $encodingof `map.duplicate()` */
+  sealed case class MutableMapDuplicate(map: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = map.getType
+  }
+
   /** $encodingof `map.update(key, value)` (or `map(key) = value`) */
   sealed case class MutableMapUpdate(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
     override protected def computeType(implicit s: Symbols): Type = map.getType match {
@@ -218,6 +223,9 @@ trait Printer extends innerfuns.Printer {
     case MutableMapUpdated(map, key, value) =>
       p"$map.updated($key, $value)"
 
+    case MutableMapDuplicate(map) =>
+      p"$map.duplicate()"
+
     case Old(e) =>
       p"old($e)"
 
@@ -301,6 +309,9 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
 
     case s.MutableMapUpdated(map, key, value) =>
       (Seq(), Seq(), Seq(map, key, value), Seq(), Seq(), (_, _, es, _, _) => t.MutableMapUpdated(es(0), es(1), es(2)))
+
+    case s.MutableMapDuplicate(map) =>
+      (Seq(), Seq(), Seq(map), Seq(), Seq(), (_, _, es, _, _) => t.MutableMapDuplicate(es(0)))
 
     case _ => super.deconstruct(e)
   }
