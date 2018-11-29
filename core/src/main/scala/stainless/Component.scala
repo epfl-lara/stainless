@@ -86,8 +86,13 @@ trait ComponentRun { self =>
     val exSymbols = extract(symbols)
 
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
+      def derivedOrLaw(fd: trees.FunDef): Boolean = fd.flags exists {
+        case trees.Derived(id) => ids(id)
+        case flag => flag.name == "law"
+      }
+
       ids ++ exSymbols.functions.values.toSeq
-        .filter(_.flags.exists { case trees.Derived(id) => ids(id) case _ => false })
+        .filter(derivedOrLaw)
         .filter(extractionFilter.shouldBeChecked)
         .map(_.id)
     } (exSymbols.lookupFunction(id).filter(extractionFilter.shouldBeChecked).map(_.id).toSet)
@@ -96,7 +101,7 @@ trait ComponentRun { self =>
 
     for (id <- toProcess) {
       val fd = exSymbols.getFunction(id)
-      if (fd.flags exists (_.name == "library")) {
+      if ((fd.flags exists (_.name == "library")) && !(fd.flags exists (_.name == "law"))) {
         val fullName = fd.id.fullName
         reporter.warning(s"Component [${component.name}]: Forcing processing of $fullName which was assumed verified")
       }
