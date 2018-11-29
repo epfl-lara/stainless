@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object MutateMapElement {
+object MutateNestedMapElement {
 
   case class A(var x: BigInt)
 
