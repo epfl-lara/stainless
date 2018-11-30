@@ -10,12 +10,13 @@ import dotty.tools.dotc.core.{Constants, Flags, Names}
 import dotty.tools.dotc.util.Positions.Position
 import stainless.frontends.dotc.SymbolsContext
 import stainless.frontends.fast.IRs
+import stainless.frontends.fast.irs.PatternMatching
 import stainless.{FreshIdentifier, Identifier}
 
 import scala.language.implicitConversions
 
 trait DottyToInoxIR
-  extends ExtractMods {
+  extends ExtractMods with PatternMatching {
   self: IRs =>
 
   private case class DefContext(
@@ -186,6 +187,39 @@ trait DottyToInoxIR
     case _ => throw new Exception("Pair creation")
   }
 
+  def extractPattern(pat: Tree[Untyped])(implicit ctx: Context, dctx: DefContext): PatternMatchings.Pattern = pat match {
+    case Literal(_) => PatternMatchings.LiteralPattern(None, extractExpression(pat).asInstanceOf[Exprs.Literal])
+    case Bind(name, v: untpd.Literal) =>
+      PatternMatchings.LiteralPattern(
+        Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))),
+        extractExpression(v).asInstanceOf[Exprs.Literal])
+    case Bind(name, Apply(Ident(fun), args)) =>
+      val opt = if (name.toString == "_") Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))) else None
+      PatternMatchings.CompoundTypePattern(opt, Identifiers.IdentifierName(fun.toString), Seq.empty, args.map(extractPattern(_)))
+    case Bind(name, untpd.Tuple(list)) =>
+      PatternMatchings.TuplePattern(Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))),
+        list.map(extractPattern(_)))
+//    case Typed(Ident(name))
+    case Typed(Ident(name), tpt) =>
+      PatternMatchings.InstanceOf(
+        Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))), extractType(tpt).get)
+    case Ident(name) if name.toString == "_" => PatternMatchings.WildcardPattern(None)
+    case Ident(name) =>
+      PatternMatchings.WildcardPattern(Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))))
+    case untpd.Tuple(trees) =>
+      PatternMatchings.TuplePattern(None, trees.map(extractPattern(_)))
+    case _ => throw new Exception("Unsupported pattern matching " + pat.toString)
+  }
+
+
+  def extractGuard(guard: Tree[Untyped])(implicit ctx: Context, dctx: DefContext): Option[Exprs.Expr] = guard match {
+    case untpd.EmptyTree => None
+    case a => Some(extractExpression(guard))
+  }
+
+  def extractCase(value: CaseDef[Untyped])(implicit ctx: Context, dctx: DefContext): PatternMatchings.MatchCase =
+    PatternMatchings.MatchCase(extractPattern(value.pat), extractGuard(value.guard), extractBody(value.body))
+
   def extractExpression(rhs: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = (rhs match {
     case Ident(name) =>
       val identifier = Identifiers.IdentifierName(name.toString.trim).setPos(rhs.pos)
@@ -216,6 +250,8 @@ trait DottyToInoxIR
           Exprs.IntegerLiteral(const.intValue)
         case Constants.BooleanTag =>
           Exprs.BooleanLiteral(const.booleanValue)
+        case Constants.StringTag =>
+          Exprs.StringLiteral(const.stringValue)
       }
 
     case untpd.Function(args, body) =>
@@ -243,6 +279,8 @@ trait DottyToInoxIR
       Exprs.IsConstructor(extractExpression(qualifier), Identifiers.IdentifierName(ident.name.toString))
     case block: untpd.Block =>
       processBody(block.stats, block.expr)
+    case Match(selector, cases) =>
+      PatternMatchings.MatchExpression(extractExpression(selector), cases.map(extractCase(_)))
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {

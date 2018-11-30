@@ -2,24 +2,12 @@
 
 object ExploratoryTest {
 
-//  val f2 = (x: Int) => x / 2
-//
 
-//  def make(elem: Int): MyList = MyCons(1, MyEmpty())
-//
-//  def prepend(elem: Int, list: MyList): MyList = MyCons(elem, list)
-
-  def append(elem: Int, list: MyList): Int = {
-    if (list.isInstanceOf[MyCons]) {
-      list.elem
-    } else {
-//      val cons: MyCons = list
-//      MyCons(cons.elem, append(elem, cons.rest))
-      2
-    }
+  def foo(baz: Int) = baz match {
+    case a @ 1 => "Romain"
+    case b @ List(c: Int, d) => "Nicolas"
+    case a @ (Int, String) => "Test"
+    case (a, b) => "foooo"
+    case _ => "Bla bla"
   }
-
-  abstract class MyList
-  case object MyEmpty extends MyList
-  case class MyCons(elem: Int, rest: MyList) extends MyList
 }
