@@ -40,7 +40,7 @@ trait PatternMatching { self: IRs =>
                           tps: Seq[Types.Type], subPatterns: Seq[Pattern]) extends Pattern
     case class TuplePattern(binder: Option[Bindings.Binding], subPatterns: Seq[Pattern]) extends Pattern
     case class LiteralPattern(binder: Option[Bindings.Binding],
-                                  lit: Exprs.Literal) extends Pattern
+                                  lit: Exprs.Expr with Exprs.Literal) extends Pattern
     case class InstanceOf(binder: Option[Bindings.Binding], tpe: Types.Type) extends Pattern
   }
 }
