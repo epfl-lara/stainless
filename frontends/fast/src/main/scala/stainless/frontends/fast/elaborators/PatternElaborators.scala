@@ -27,9 +27,9 @@ trait PatternElaborators {
   class MatchCaseSeqE extends HSeqE[MatchCase, trees.MatchCase, (SimpleTypes.Type, Eventual[trees.MatchCase])]("MatchCase") {
     override val elaborator = MatchCaseE
     override def wrap(expr: trees.MatchCase, where: IR)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.MatchCase])] =
-      Constrained.attempt(SimpleTypes.fromInox(expr.getType(store.getSymbols)).map { st =>
+      Constrained.attempt(SimpleTypes.fromInox(expr.rhs.getType(store.getSymbols)).map { st =>
         (st.setPos(where.pos), Eventual.pure(expr))
-      }, where, invalidInoxExpr(expr))
+      }, where, invalidInoxExpr(expr.rhs))
   }
   val ExprSeqE = new ExprSeqE
 
@@ -44,13 +44,13 @@ trait PatternElaborators {
           bind <- BindingE.elaborate(binder)
           _ <- Constrained(Constraint.equal(tpe, bind.tpe))
         } yield Eventual.withUnifier { implicit unifier =>
-          trees.LiteralPattern(Some(bind.evValDef.get), value.get.asInstanceOf[trees.Literal])
+          trees.LiteralPattern(Some(bind.evValDef.get), value.get.asInstanceOf[trees.Literal[Any]])
         }
       case PatternMatchings.LiteralPattern(None, lit) =>
         for {
           (tpe, value) <- ExprE.elaborate(lit)
         } yield Eventual.withUnifier { implicit unifier =>
-          trees.LiteralPattern(None, value.get.asInstanceOf[trees.Literal])
+          trees.LiteralPattern(None, value.get.asInstanceOf[trees.Literal[Any]])
         }
     }
   }
