@@ -10,13 +10,13 @@ import dotty.tools.dotc.core.{Constants, Flags, Names}
 import dotty.tools.dotc.util.Positions.Position
 import stainless.frontends.dotc.SymbolsContext
 import stainless.frontends.fast.IRs
-import stainless.frontends.fast.irs.PatternMatching
+import stainless.frontends.fast.irs.{PatternMatching, StainlessExprs}
 import stainless.{FreshIdentifier, Identifier}
 
 import scala.language.implicitConversions
 
 trait DottyToInoxIR
-  extends ExtractMods with PatternMatching {
+  extends ExtractMods with PatternMatching with StainlessExprs {
   self: IRs =>
 
   private case class DefContext(
@@ -247,8 +247,14 @@ trait DottyToInoxIR
 
     case Literal(const) =>
       const.tag match {
-        case Constants.IntTag | Constants.ByteTag | Constants.ShortTag | Constants.LongTag =>
-          Exprs.IntegerLiteral(const.intValue)
+        case Constants.LongTag =>
+          Exprs.IntegerLiteral(const.longValue)
+        case Constants.IntTag =>
+          StainlessExprs.Int32Literal(const.intValue)
+        case Constants.ShortTag =>
+          StainlessExprs.Int16Literal(const.shortValue)
+        case Constants.ByteTag =>
+          StainlessExprs.Int8Literal(const.byteValue)
         case Constants.BooleanTag =>
           Exprs.BooleanLiteral(const.booleanValue)
         case Constants.StringTag =>

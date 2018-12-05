@@ -3,7 +3,7 @@
 object ExploratoryTest {
 
 
-  def foo(baz: BigInt) = baz match {
+  def foo(baz: Int) = baz match {
     case a @ 1 => "Romain"
     case b @ 2 => "Stevan"
   }

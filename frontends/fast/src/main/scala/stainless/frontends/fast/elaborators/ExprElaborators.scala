@@ -14,6 +14,36 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         } yield (tpe, Eventual.withUnifier {implicit unifier =>
           trees.MatchExpr(eventualLhs.get, cases.get)
         })
+      case StainlessExprs.Int32Literal(value) =>
+        val u = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val v = Eventual.withUnifier { unifier =>
+          unifier.get(u) match {
+            case SimpleTypes.BitVectorType(true, 32) =>
+              trees.Int32Literal(value)
+            case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+          }
+        }
+        Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 32)))
+
+      case StainlessExprs.Int16Literal(value) =>
+        val u = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val v = Eventual.withUnifier { unifier =>
+          unifier.get(u) match {
+            case SimpleTypes.BitVectorType(true, 16) => trees.Int16Literal(value)
+            case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+          }
+        }
+        Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 16)))
+      case StainlessExprs.Int8Literal(value) =>
+        val u = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val v = Eventual.withUnifier { unifier =>
+          unifier.get(u) match {
+            case SimpleTypes.BitVectorType(true, 8) =>
+              trees.Int8Literal(value)
+            case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+          }
+        }
+        Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 8)))
       case _ => super.elaborate(template)
     }
   }
