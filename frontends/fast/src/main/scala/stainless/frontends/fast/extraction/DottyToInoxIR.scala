@@ -100,6 +100,7 @@ trait DottyToInoxIR
     case "Real" => Types.Primitive(Types.Primitives.RealType)
     case "String" => Types.Primitive(Types.Primitives.StringType)
     case "Unit" => Types.Primitive(Types.Primitives.UnitType)
+    case "BigInt" => Types.Primitive(Types.Primitives.IntegerType)
     case typeVariable => Types.Variable(Identifiers.IdentifierName(typeVariable))
   }
 
@@ -280,7 +281,7 @@ trait DottyToInoxIR
     case block: untpd.Block =>
       processBody(block.stats, block.expr)
     case Match(selector, cases) =>
-      PatternMatchings.MatchExpression(extractExpression(selector), cases.map(extractCase(_)))
+      PatternMatchings.MatchExpression(extractExpression(selector), HSeq.fromSeq(cases.map(extractCase(_))))
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {

@@ -24,14 +24,23 @@ trait PatternElaborators {
 
   val MatchCaseE = new MatchCaseE
 
-  class MatchCaseSeqE extends HSeqE[MatchCase, trees.MatchCase, (SimpleTypes.Type, Eventual[trees.MatchCase])]("MatchCase") {
-    override val elaborator = MatchCaseE
-    override def wrap(expr: trees.MatchCase, where: IR)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.MatchCase])] =
-      Constrained.attempt(SimpleTypes.fromInox(expr.rhs.getType(store.getSymbols)).map { st =>
-        (st.setPos(where.pos), Eventual.pure(expr))
-      }, where, invalidInoxExpr(expr.rhs))
+  class MatchCaseSeqE extends Elaborator [HSeq[MatchCase], (SimpleTypes.Type, Eventual[Seq[trees.MatchCase]])] {
+    override def elaborate(template: HSeq[PatternMatchings.MatchCase])(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[Seq[trees.MatchCase]])] = {
+
+      val constraints = template.elems.map(a => MatchCaseE.elaborate(a.right.get))
+      val types = constraints.map(_.get.right.get)
+      val constraint = for {
+        type1 <- types
+        type2 <- types
+      } yield Constrained(Constraint.equal(type1._1._1, type2._1._1))
+      val cons = Constrained.sequence(constraint ++ constraints)
+      for {
+        constraint <- cons
+      } yield (types.head._1._1, Eventual.withUnifier { implicit unifier =>
+        types.map(_._1._2.get)
+      })
+    }
   }
-  val ExprSeqE = new ExprSeqE
 
   val MatchCaseSeqE = new MatchCaseSeqE
 

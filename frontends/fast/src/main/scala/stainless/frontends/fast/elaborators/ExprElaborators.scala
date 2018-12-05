@@ -7,7 +7,13 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
   class StainlessExprE extends super.ExprE {
 
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
-      case PatternMatchings.MatchExpression(lhs, cases) => ???
+      case PatternMatchings.MatchExpression(lhs, cases) =>
+        for {
+          (_, eventualLhs) <- ExprE.elaborate(lhs)
+          (tpe, cases) <- MatchCaseSeqE.elaborate(cases)
+        } yield (tpe, Eventual.withUnifier {implicit unifier =>
+          trees.MatchExpr(eventualLhs.get, cases.get)
+        })
       case _ => super.elaborate(template)
     }
   }

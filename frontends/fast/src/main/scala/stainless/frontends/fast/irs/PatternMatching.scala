@@ -4,8 +4,8 @@ import stainless.frontends.fast.IRs
 
 trait PatternMatching { self: IRs =>
   object PatternMatchings {
-    case class MatchExpression(lhs: Exprs.Expr, cases: Seq[MatchCase]) extends Exprs.Expr {
-      override def getHoles: Seq[Hole] = lhs.getHoles ++ cases.flatMap(_.getHoles)
+    case class MatchExpression(lhs: Exprs.Expr, cases: HSeq[MatchCase]) extends Exprs.Expr {
+      override def getHoles: Seq[Hole] = lhs.getHoles ++ cases.getHoles
     }
 
     case class MatchCase(pattern: Pattern, optGuard: Option[Exprs.Expr], rhs: Exprs.Expr) extends IR {
@@ -42,5 +42,9 @@ trait PatternMatching { self: IRs =>
     case class LiteralPattern(binder: Option[Bindings.Binding],
                                   lit: Exprs.Expr with Exprs.Literal) extends Pattern
     case class InstanceOf(binder: Option[Bindings.Binding], tpe: Types.Type) extends Pattern
+  }
+
+  implicit object holeTypableMatchCase extends HoleTypable[PatternMatchings.MatchCase] {
+    override val holeType = StainlessHoleTypes.MatchCase
   }
 }

@@ -2,12 +2,31 @@ package stainless.frontends.fast
 
 import scala.collection.mutable
 import stainless.extraction.xlang.{trees => xt}
+import stainless.frontends.fast.Patching.trees
 
 object Patching extends IRs{
 
   val trees = xt
 
   val idToClassMap: scala.collection.mutable.Map[inox.Identifier, trees.ClassType] = new mutable.HashMap()
+
+  def patchGuard(optGuard: Option[xt.Expr]): Option[xt.Expr] = optGuard match {
+    case Some(expr) => Some(patchExpr(expr))
+    case None => None
+  }
+
+  def patchOptionalBinder(binder: Option[xt.ValDef]): Option[trees.ValDef] = binder match {
+    case Some(bind) => Some(patchDef(bind).asInstanceOf[trees.ValDef])
+    case None => None
+  }
+
+  def patchPattern(pattern: xt.Pattern): xt.Pattern = pattern match {
+    case trees.LiteralPattern(binder, lit) =>
+      trees.LiteralPattern(patchOptionalBinder(binder), patchExpr(lit).asInstanceOf[trees.Literal[Any]])
+  }
+
+  def patchMatchCase(matchCase: xt.MatchCase): xt.MatchCase =
+    xt.MatchCase(patchPattern(matchCase.pattern), patchGuard(matchCase.optGuard), patchExpr(matchCase.rhs))
 
   def patchExpr(expr: trees.Expr): trees.Expr = expr match {
     // patched expressions
@@ -122,6 +141,8 @@ object Patching extends IRs{
       trees.MapUpdated(patchExpr(map), patchExpr(key), patchExpr(value))
     case trees.And(exprs) => trees.And(exprs.map(patchExpr))
     case a: trees.Literal[Any] => a
+
+    case trees.MatchExpr(scrutinee, cases) => trees.MatchExpr(patchExpr(scrutinee), cases.map(patchMatchCase(_)))
   }
 
   def patchDef(definition: trees.Definition): trees.Definition = definition match {
