@@ -9,9 +9,10 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
       case PatternMatchings.MatchExpression(lhs, cases) =>
         for {
-          (_, eventualLhs) <- ExprE.elaborate(lhs)
-          (tpe, cases) <- MatchCaseSeqE.elaborate(cases)
-        } yield (tpe, Eventual.withUnifier {implicit unifier =>
+          (tpe, eventualLhs) <- ExprE.elaborate(lhs)
+          (rhsType, patternType , cases) <- MatchCaseSeqE.elaborate(cases)
+          _ <- Constrained(Constraint.equal(tpe, patternType))
+        } yield (rhsType, Eventual.withUnifier {implicit unifier =>
           trees.MatchExpr(eventualLhs.get, cases.get)
         })
       case StainlessExprs.Int32Literal(value) =>

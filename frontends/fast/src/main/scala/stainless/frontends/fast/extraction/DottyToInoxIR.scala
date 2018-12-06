@@ -108,6 +108,7 @@ trait DottyToInoxIR
     case Ident(name) => Some(mapNameToType(name).setPos(tpe.pos))
     case untpd.Function(args, body) =>
       Some(Types.FunctionType(HSeq.fromSeq(args.map(extractType(_).get)), extractType(body).get))
+    case untpd.Tuple(list) => Some(Types.TupleType(extractTypeArgs(list).get))
     case _: untpd.TypeTree => None
     case _ => throw new Exception(tpe.toString)
   }
