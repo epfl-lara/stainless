@@ -4,7 +4,7 @@ package algebra
 import stainless.lang._
 import stainless.annotation._
 
-// @library
+@library
 trait PartialOrder[A] extends Eq[A] {
 
   def partialCompare(x: A, y: A): Comparison

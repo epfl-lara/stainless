@@ -4,7 +4,7 @@ package algebra
 import stainless.lang._
 import stainless.annotation._
 
-// @library
+@library
 trait Eq[A] {
 
   def eqv(x: A, y: A): Boolean

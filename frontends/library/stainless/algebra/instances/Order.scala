@@ -7,65 +7,65 @@ import stainless.annotation._
 
 object Order {
 
-  // @library
-  // implicit val bigIntOrder: Order[BigInt] = new Order[BigInt] {
-  //   override def eqv(x: BigInt, y: BigInt): Boolean = {
-  //     x == y
-  //   }
+  @library
+  implicit val bigIntOrder: Order[BigInt] = new Order[BigInt] {
+    override def eqv(x: BigInt, y: BigInt): Boolean = {
+      x == y
+    }
 
-  //   override def lteqv(x: BigInt, y: BigInt): Boolean = {
-  //     x <= y
-  //   }
+    override def lteqv(x: BigInt, y: BigInt): Boolean = {
+      x <= y
+    }
 
-  //   override def compare(x: BigInt, y: BigInt): Int = {
-  //     if (x < y) -1 else if (x == y) 0 else 1
-  //   }
+    override def compare(x: BigInt, y: BigInt): Int = {
+      if (x < y) -1 else if (x == y) 0 else 1
+    }
 
-  //   override def partialCompare(x: BigInt, y: BigInt): Comparison = {
-  //     import Comparison._
-  //     if (x < y) Less else if (x == y) Equals else Greater
-  //   }
-  // }
+    override def partialCompare(x: BigInt, y: BigInt): Comparison = {
+      import Comparison._
+      if (x < y) Less else if (x == y) Equals else Greater
+    }
+  }
 
-  // @library
-  // implicit val intOrder: Order[Int] = new Order[Int] {
-  //   override def eqv(x: Int, y: Int): Boolean = {
-  //     x == y
-  //   }
+  @library
+  implicit val intOrder: Order[Int] = new Order[Int] {
+    override def eqv(x: Int, y: Int): Boolean = {
+      x == y
+    }
 
-  //   override def lteqv(x: Int, y: Int): Boolean = {
-  //     x <= y
-  //   }
+    override def lteqv(x: Int, y: Int): Boolean = {
+      x <= y
+    }
 
-  //   override def compare(x: Int, y: Int): Int = {
-  //     if (x < y) -1 else if (x == y) 0 else 1
-  //   }
+    override def compare(x: Int, y: Int): Int = {
+      if (x < y) -1 else if (x == y) 0 else 1
+    }
 
-  //   override def partialCompare(x: Int, y: Int): Comparison = {
-  //     import Comparison._
-  //     if (x < y) Less else if (x == y) Equals else Greater
-  //   }
-  // }
+    override def partialCompare(x: Int, y: Int): Comparison = {
+      import Comparison._
+      if (x < y) Less else if (x == y) Equals else Greater
+    }
+  }
 
-  // @library
-  // implicit val booleanOrder: Order[Boolean] = new Order[Boolean] {
-  //   override def eqv(x: Boolean, y: Boolean): Boolean = {
-  //     x == y
-  //   }
+  @library
+  implicit val booleanOrder: Order[Boolean] = new Order[Boolean] {
+    override def eqv(x: Boolean, y: Boolean): Boolean = {
+      x == y
+    }
 
-  //   override def lteqv(x: Boolean, y: Boolean): Boolean = {
-  //     if (!x && y) true else if (x == y) true else false
-  //   }
+    override def lteqv(x: Boolean, y: Boolean): Boolean = {
+      if (!x && y) true else if (x == y) true else false
+    }
 
-  //   override def compare(x: Boolean, y: Boolean): Int = {
-  //     if (!x && y) -1 else if (x == y) 0 else 1
-  //   }
+    override def compare(x: Boolean, y: Boolean): Int = {
+      if (!x && y) -1 else if (x == y) 0 else 1
+    }
 
-  //   override def partialCompare(x: Boolean, y: Boolean): Comparison = {
-  //     import Comparison._
-  //     if (!x && y) Less else if (x == y) Equals else Greater
-  //   }
-  // }
+    override def partialCompare(x: Boolean, y: Boolean): Comparison = {
+      import Comparison._
+      if (!x && y) Less else if (x == y) Equals else Greater
+    }
+  }
 
   // implicit def optionOrder[A](implicit ev: Order[A]): Order[Option[A]] = {
   //   new Order[Option[A]] {
