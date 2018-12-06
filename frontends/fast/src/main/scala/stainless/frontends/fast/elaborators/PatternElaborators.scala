@@ -8,7 +8,7 @@ trait PatternElaborators {
   class MatchCaseE extends Elaborator[MatchCase, (SimpleTypes.Type, SimpleTypes.Type, Eventual[trees.MatchCase])] {
     override def elaborate(template: PatternMatchings.MatchCase)(implicit store: Store): Constrained[(SimpleTypes.Type, SimpleTypes.Type, Eventual[trees.MatchCase])] =
       for {
-        (patternType, pattern) <- PatternE.elaborate(template.pattern)
+        (patternType, bindings, pattern) <- PatternE.elaborate(template.pattern)
         (optTpe, guard) <- OptExprE.elaborate {
           template.optGuard match {
             case None => Left(template.pos)
@@ -16,7 +16,7 @@ trait PatternElaborators {
           }
         }
         _ <- Constrained(Constraint.equal(SimpleTypes.BooleanType(), optTpe))
-        (tpe, ev) <- ExprE.elaborate(template.rhs)
+        (tpe, ev) <- ExprE.elaborate(template.rhs)(store.addBindings(bindings))
       } yield (tpe, patternType, Eventual.withUnifier { implicit unifier =>
         trees.MatchCase(pattern.get, Some(guard.get), ev.get)
       })
@@ -32,7 +32,7 @@ trait PatternElaborators {
 
       for {
         (rhsTypes, patternTypes, eventuals) <- constraintSequence
-          .checkImmediate(_.size == 1, template, xs => wrongNumberOfTypeArguments("Pattern matching", 1, xs.size))
+          .checkImmediate(_.nonEmpty, template, xs => wrongNumberOfTypeArguments("Pattern matching", 1, xs.size))
           .map(_.unzip3)
         _ <- Constrained.sequence(patternTypes.map(a => Constrained(Constraint.equal(a, u))))
         _ <- Constrained.sequence(rhsTypes.sliding(2, 1).map(a => Constrained(Constraint.equal(a.head, a(1)))).toSeq)
@@ -45,41 +45,40 @@ trait PatternElaborators {
   val MatchCaseSeqE = new MatchCaseSeqE
 
 
-  class PatternE extends Elaborator[Pattern, (SimpleTypes.Type, Eventual[trees.Pattern])] {
-    override def elaborate(template: PatternMatchings.Pattern)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Pattern])] = template match {
+  class PatternE extends Elaborator[Pattern, (SimpleTypes.Type, Seq[SimpleBindings.Binding], Eventual[trees.Pattern])] {
+    override def elaborate(template: PatternMatchings.Pattern)(implicit store: Store): Constrained[(SimpleTypes.Type, Seq[SimpleBindings.Binding], Eventual[trees.Pattern])] = template match {
       case PatternMatchings.LiteralPattern(Some(binder), lit) =>
         for {
           (tpe, value) <- ExprE.elaborate(lit)
           bind <- BindingE.elaborate(binder)
           _ <- Constrained(Constraint.equal(tpe, bind.tpe))
         } yield {
-          (tpe, Eventual.withUnifier { implicit unifier =>
+          (tpe, Seq(bind), Eventual.withUnifier { implicit unifier =>
             trees.LiteralPattern(Some(bind.evValDef.get), value.get.asInstanceOf[trees.Literal[Any]])
           })
         }
       case PatternMatchings.LiteralPattern(None, lit) =>
         for {
           (tpe, value) <- ExprE.elaborate(lit)
-        } yield (tpe, Eventual.withUnifier { implicit unifier =>
+        } yield (tpe, Seq(), Eventual.withUnifier { implicit unifier =>
           trees.LiteralPattern(None, value.get.asInstanceOf[trees.Literal[Any]])
         })
       case PatternMatchings.TuplePattern(Some(binder), subPatterns) =>
         val constraints = subPatterns.map(PatternE.elaborate(_))
         val constraintSequence = Constrained.sequence(constraints)
 
-
         for {
-          (types: Seq[SimpleTypes.Type], eventuals) <- constraintSequence.map(_.unzip)
+          (types, bindings, eventuals) <- constraintSequence.map(_.unzip3)
           binding <- BindingE.elaborate(binder)
           _ <- Constrained(Constraint.equal(SimpleTypes.TupleType(types), binding.tpe))
-        } yield (SimpleTypes.TupleType(types), Eventual.withUnifier { implicit unifier =>
+        } yield (SimpleTypes.TupleType(types), bindings.flatten :+ binding, Eventual.withUnifier { implicit unifier =>
           trees.TuplePattern(Some(binding.evValDef.get), eventuals.map(_.get))
         })
       case PatternMatchings.TuplePattern(None, subPatterns) =>
         val constraints = subPatterns.map(PatternE.elaborate(_))
         for {
-          (types, eventuals) <- Constrained.sequence(constraints).map(_.unzip)
-        } yield (SimpleTypes.TupleType(types), Eventual.withUnifier{implicit unifier =>
+          (types, bindings, eventuals) <- Constrained.sequence(constraints).map(_.unzip3)
+        } yield (SimpleTypes.TupleType(types), bindings.flatten, Eventual.withUnifier{implicit unifier =>
           trees.TuplePattern(None, eventuals.map(_.get))
         })
     }

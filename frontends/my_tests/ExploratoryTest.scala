@@ -3,8 +3,8 @@
 object ExploratoryTest {
 
 
-  def foo(baz: (Int, (Int, Boolean))): String = baz match {
-    case b @ (2, (1, true)) => "Stevan"
-    case a @ (1, (2, false)) => "Romain"
+  def foo(baz: (Int, Int)): Int = baz match {
+    case a @ (1, 2) => a._2
+    case (b @ 2, c @ 3) => c
   }
 }
