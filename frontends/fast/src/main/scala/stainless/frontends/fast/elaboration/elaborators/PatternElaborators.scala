@@ -1,4 +1,4 @@
-package stainless.frontends.fast.elaborators
+package stainless.frontends.fast.elaboration.elaborators
 
 trait PatternElaborators {
   self: stainless.frontends.fast.Elaborators =>

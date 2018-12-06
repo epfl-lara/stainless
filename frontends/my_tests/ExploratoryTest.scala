@@ -1,12 +1,8 @@
 object ExploratoryTest {
 
-  abstract class MyList
-  case class MyCons(first: Int, rest: MyList) extends MyList
-  case object MyNil extends MyList
 
-  def bar(n : Int): Int = {
-    require(n > 2)
-    n
+  def bar(n : Set[Int]): Set[Int] = {
+    n + 1
   }
 
 //  def foo(baz: Int): Int = baz match {

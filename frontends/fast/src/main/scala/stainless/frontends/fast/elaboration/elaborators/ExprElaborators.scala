@@ -1,4 +1,4 @@
-package stainless.frontends.fast.elaborators
+package stainless.frontends.fast.elaboration.elaborators
 
 import scala.util.parsing.input.Position
 
@@ -45,6 +45,40 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
           }
         }
         Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 8)))
+
+      // testing overloading addition
+      case Exprs.BinaryOperation(Exprs.Binary.Plus, lhs, rhs) =>
+        val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val lhsUnknownType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val rhsUnknownType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+//        val tupleFirstType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+//        val tupleSecondType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        ExprE.elaborate(lhs).flatMap{ case (lhsTpe, lhsEventual) =>
+            ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
+              Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
+                (unifier.get(lhsUnknownType), unifier.get(rhsUnknownType)) match {
+                  case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
+                    trees.Plus(lhsEventual.get, rhsEventual.get)
+                  case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
+                    if signed1 == signed2 && size1 == size2 =>
+                    trees.Plus(lhsEventual.get, rhsEventual.get)
+                  case (SimpleTypes.RealType(), SimpleTypes.RealType()) =>
+                    trees.Plus(lhsEventual.get, rhsEventual.get)
+                  case (SimpleTypes.StringType(), SimpleTypes.StringType()) =>
+                    trees.StringConcat(lhsEventual.get, rhsEventual.get)
+                  case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
+                    trees.SetAdd(lhsEventual.get, rhsEventual.get)
+                  case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+                }
+              }))
+                .addConstraint(Constraint.equal(lhsUnknownType, lhsTpe))
+                .addConstraint(Constraint.equal(rhsUnknownType, rhsTpe))
+                .addConstraint(StainlessConstraint.
+                  oneOf(Seq(rhsUnknownType, SimpleTypes.SetType(rhsUnknownType)), lhsUnknownType))
+                .addConstraint(StainlessConstraint.oneOf(Seq(rhsUnknownType), rhsTpe))
+                .addConstraint(Constraint.equal(lhsUnknownType, resultType))
+            }
+        }
       case _ => super.elaborate(template)
     }
   }
