@@ -31,27 +31,14 @@ trait PatternElaborators {
       val constraintSequence = Constrained.sequence(constraints)
 
       for {
-        (rhsTypes: Seq[SimpleTypes.Type], patternTypes: Seq[SimpleTypes.Type], eventuals: Seq[Eventual[trees.MatchCase]]) <- constraintSequence.map(a => a.unzip3)
+        (rhsTypes, patternTypes, eventuals) <- constraintSequence
+          .checkImmediate(_.size == 1, template, xs => wrongNumberOfTypeArguments("Pattern matching", 1, xs.size))
+          .map(_.unzip3)
         _ <- Constrained.sequence(patternTypes.map(a => Constrained(Constraint.equal(a, u))))
         _ <- Constrained.sequence(rhsTypes.sliding(2, 1).map(a => Constrained(Constraint.equal(a.head, a(1)))).toSeq)
       } yield (rhsTypes.head, u, Eventual.withUnifier { implicit unifier =>
         eventuals.map(_.get)
       })
-
-//      val types = constraints.map(_.get.right.get)
-//      val patternTypingConstraints = types.map(a => Constrained(Constraint.equal(a._1._2, u)))
-//
-//      val constraint = (for {
-//        Seq(first, second) <- types.sliding(2, 1)
-//      } yield Constrained(Constraint.equal(first._1._1, second._1._1))).toSeq
-//
-//      val cons = Constrained.sequence(constraint ++ constraints ++ patternTypingConstraints)
-//
-//      for {
-//        constraint <- cons
-//      } yield (types.head._1._1, u, Eventual.withUnifier { implicit unifier =>
-//        types.map(_._1._3.get)
-//      })
     }
   }
 
@@ -78,21 +65,20 @@ trait PatternElaborators {
         })
       case PatternMatchings.TuplePattern(Some(binder), subPatterns) =>
         val constraints = subPatterns.map(PatternE.elaborate(_))
-        val types: Seq[SimpleTypes.Type] = constraints.map(_.get.right.get._1._1)
-        val eventuals:Seq[Eventual[trees.Pattern]] = constraints.map(_.get.right.get._1._2)
+        val constraintSequence = Constrained.sequence(constraints)
+
+
         for {
-          bind <- BindingE.elaborate(binder)
-          _ <- Constrained.sequence(constraints)
-          _ <- Constrained(Constraint.equal(SimpleTypes.TupleType(types), bind.tpe))
-        } yield (SimpleTypes.TupleType(types), Eventual.withUnifier{implicit unifier =>
-          trees.TuplePattern(Some(bind.evValDef.get), eventuals.map(_.get))
+          (types: Seq[SimpleTypes.Type], eventuals) <- constraintSequence.map(_.unzip)
+          binding <- BindingE.elaborate(binder)
+          _ <- Constrained(Constraint.equal(SimpleTypes.TupleType(types), binding.tpe))
+        } yield (SimpleTypes.TupleType(types), Eventual.withUnifier { implicit unifier =>
+          trees.TuplePattern(Some(binding.evValDef.get), eventuals.map(_.get))
         })
       case PatternMatchings.TuplePattern(None, subPatterns) =>
         val constraints = subPatterns.map(PatternE.elaborate(_))
-        val types: Seq[SimpleTypes.Type] = constraints.map(_.get.right.get._1._1)
-        val eventuals: Seq[Eventual[trees.Pattern]] = constraints.map(_.get.right.get._1._2)
         for {
-          _ <- Constrained.sequence(constraints)
+          (types, eventuals) <- Constrained.sequence(constraints).map(_.unzip)
         } yield (SimpleTypes.TupleType(types), Eventual.withUnifier{implicit unifier =>
           trees.TuplePattern(None, eventuals.map(_.get))
         })
@@ -100,5 +86,4 @@ trait PatternElaborators {
   }
 
   val PatternE = new PatternE
-
 }
