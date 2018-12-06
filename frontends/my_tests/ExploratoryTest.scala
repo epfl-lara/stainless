@@ -1,10 +1,17 @@
-//import stainless.lang.Bag
-
 object ExploratoryTest {
 
+  abstract class MyList
+  case class MyCons(first: Int, rest: MyList) extends MyList
+  case object MyNil extends MyList
 
-  def foo(baz: (Int, Int)): Int = baz match {
-    case a @ (1, 2) => a._2
-    case (b @ 2, c @ 3) => c
+  def bar(a: MyList): Int = a match {
+    case b: MyCons => b.first
+    case _ => 0
   }
+
+//  def foo(baz: Int): Int = baz match {
+//    case a @ 1  => 1 + 2
+//    case 42 => baz
+//    case (a, b) => a
+//  }
 }

@@ -35,7 +35,10 @@ trait PatternElaborators {
           .checkImmediate(_.nonEmpty, template, xs => wrongNumberOfTypeArguments("Pattern matching", 1, xs.size))
           .map(_.unzip3)
         _ <- Constrained.sequence(patternTypes.map(a => Constrained(Constraint.equal(a, u))))
-        _ <- Constrained.sequence(rhsTypes.sliding(2, 1).map(a => Constrained(Constraint.equal(a.head, a(1)))).toSeq)
+        _ <- Constrained.sequence(rhsTypes.sliding(2, 1).map({
+          case Seq(a, b) => Constrained(Constraint.equal(a, b))
+          case Seq(a) => Constrained(Constraint.equal(a, a))
+        }).toSeq)
       } yield (rhsTypes.head, u, Eventual.withUnifier { implicit unifier =>
         eventuals.map(_.get)
       })
@@ -80,6 +83,34 @@ trait PatternElaborators {
           (types, bindings, eventuals) <- Constrained.sequence(constraints).map(_.unzip3)
         } yield (SimpleTypes.TupleType(types), bindings.flatten, Eventual.withUnifier{implicit unifier =>
           trees.TuplePattern(None, eventuals.map(_.get))
+        })
+      case PatternMatchings.WildcardPattern(Some(binder)) =>
+        for {
+          binding <- BindingE.elaborate(binder)
+        } yield (binding.tpe, Seq(binding), Eventual.withUnifier { implicit unifier =>
+          trees.WildcardPattern(Some(binding.evValDef.get))
+        })
+
+      case PatternMatchings.WildcardPattern(None) =>
+        val u = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        for {
+          _ <- Constrained(Constraint.exist(u))
+        } yield (u, Seq(), Eventual.withUnifier { implicit unifier =>
+          trees.WildcardPattern(None)
+        })
+
+      case PatternMatchings.InstanceOf(Some(binder), tpe) =>
+        for {
+          binder <- BindingE.elaborate(binder)
+          (tpe, eventualTpe) <- TypeE.elaborate(tpe)
+        } yield (binder.tpe, Seq(binder), Eventual.withUnifier { implicit unifier =>
+          trees.InstanceOfPattern(Some(binder.evValDef.get), eventualTpe.get)
+        })
+      case PatternMatchings.InstanceOf(None, tpe) =>
+        for {
+          (tpe, eventualTpe) <- TypeE.elaborate(tpe)
+        } yield (tpe, Seq(), Eventual.withUnifier { implicit unifier =>
+          trees.InstanceOfPattern(None, eventualTpe.get)
         })
     }
   }

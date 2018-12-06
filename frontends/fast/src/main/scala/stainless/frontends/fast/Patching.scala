@@ -25,6 +25,10 @@ object Patching extends IRs{
       trees.LiteralPattern(patchOptionalBinder(binder), patchExpr(lit).asInstanceOf[trees.Literal[Any]])
     case trees.TuplePattern(binder, subPatterns) =>
       trees.TuplePattern(patchOptionalBinder(binder), subPatterns.map(patchPattern))
+    case trees.WildcardPattern(binder) =>
+      trees.WildcardPattern(patchOptionalBinder(binder))
+    case trees.InstanceOfPattern(binder, tpe) =>
+      trees.InstanceOfPattern(patchOptionalBinder(binder), patchType(tpe))
   }
 
   def patchMatchCase(matchCase: xt.MatchCase): xt.MatchCase =
