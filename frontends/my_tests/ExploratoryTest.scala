@@ -4,9 +4,9 @@ object ExploratoryTest {
   case class MyCons(first: Int, rest: MyList) extends MyList
   case object MyNil extends MyList
 
-  def bar(a: MyList): Int = a match {
-    case b: MyCons => b.first
-    case _ => 0
+  def bar(n : Int): Int = {
+    require(n > 2)
+    n
   }
 
 //  def foo(baz: Int): Int = baz match {
