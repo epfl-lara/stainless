@@ -91,74 +91,11 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
           case Some(cs) => remaining ++= cs
         }
       }
-      case OneOf(options, tpe) =>
-        def unifySimple(tpe: Type): Type = (tpe match {
-          case a: Unknown => unifier.get(a)
-          case a: SetType => SetType(unifySimple(a.elem))
-          case a: BagType => BagType(unifySimple(a.elem))
-          case a: MapType => MapType(unifySimple(a.from), unifySimple(a.to))
-          case _ => tpe
-        }).setPos(tpe.pos)
-        def unifyAll(types: Seq[Type]): Seq[Type] = types.map(unifySimple)
-
-        def hasUnknown(tpe: Type): Boolean = tpe match {
-          case u: Unknown => true
-          case a: SetType => hasUnknown(a.elem)
-          case a: BagType => hasUnknown(a.elem)
-          case a: MapType => hasUnknown(a.from) || hasUnknown(a.to)
-          case _ => false
-        }
-//
-//        def containsUnknown(types: Seq[Type]): Boolean = types match {
-//          case Seq(x) => hasUnknown(x)
-//          case Seq(x, xs@_*) => hasUnknown(x) || containsUnknown(xs)
-//          case Nil => false
-//        }
-
-        def compatible(leftTpe: SimpleTypes.Type, rightTpe: SimpleTypes.Type): Boolean = (leftTpe, rightTpe) match {
-          case (u1: Unknown, u2: Unknown) => true
-          case (u1: Unknown, _) => true
-          case (_, u2: Unknown) => true
-          case (UnitType(), UnitType()) => true
-          case (IntegerType(), IntegerType()) => true
-          case (BitVectorType(signed1, size1), BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 => true
-          case (BooleanType(), BooleanType()) => true
-          case (StringType(), StringType()) => true
-          case (CharType(), CharType()) => true
-          case (RealType(), RealType()) => true
-          case (FunctionType(fs1, t1), FunctionType(fs2, t2)) if fs1.size == fs2.size =>
-            fs1.zip(fs2).forall(pair => compatible(pair._1, pair._2)) && compatible(t1, t2)
-
-          case (TupleType(es1), TupleType(es2)) if es1.size == es2.size =>
-            es1.zip(es2).forall { case (e1, e2) => compatible(e1, e2) }
-
-          case (MapType(f1, t1), MapType(f2, t2)) => compatible(f1, f2) && compatible(t1, t2)
-          case (SetType(e1), SetType(e2)) => compatible(e1, e2)
-          case (BagType(e1), BagType(e2)) => compatible(e1, e2)
-          case (ADTType(i1, as1), ADTType(i2, as2)) if i1 == i2 && as1.size == as2.size =>
-            as1.zip(as2).forall { case (a1, a2) => compatible(a1, a2) }
-          case (TypeParameter(i1), TypeParameter(i2)) if i1 == i2 => true
-          case _ => false
-        }
-
-//        val unifiedOptions = unifyAll(options)
-//        val unifiedTpe = unifySimple(tpe)
-        val unifiedOptions = options
-        val unifiedTpe = tpe
-
-        val compatibleOptions = unifiedOptions.filter(tpe => compatible(tpe, unifiedTpe))
-
-        if (compatibleOptions.isEmpty)
-          throw UnificationError(withPositions("One of unification not possible between options and required"), Seq(tpe.pos))
-        else if (compatibleOptions.size == 1)
-          remaining :+= Equals(unifiedTpe, compatibleOptions.head)
+      case OneOf(tpe, constraintGenerator) =>
+        if (tpe.isInstanceOf[Unknown])
+          remaining :+= constraint
         else
-          remaining :+= OneOf(compatibleOptions, unifiedTpe)
-
-//        if (containsUnknown(unfiedOptions) || hasUnknown(unfiedTpe))
-//          remaining :+= OneOf(unfiedOptions, unfiedTpe)
-//        else if (!unfiedOptions.contains(unfiedTpe))
-//          throw UnificationError(withPositions("One of unification not possible between options and required"), Seq(tpe.pos))
+          remaining ++= constraintGenerator(tpe)
     }
 
 

@@ -10,11 +10,12 @@ trait Constraints extends inox.parser.elaboration.Constraints { self: IRs with S
   import StainlessConstraints._
 
   object StainlessConstraints {
-    case class OneOf(options: Seq[Type], tpe: Type) extends Constraint
+    case class OneOf(tpe: Type, constraintGenerator: Type => Seq[Constraint]) extends Constraint
   }
 
   object StainlessConstraint {
-    def oneOf(options: Seq[Type], tpe: Type): Constraint = OneOf(options, tpe)
+    def oneOf(tpe: Type, constraintGenerator: Type => Seq[Constraint]): Constraint =
+      OneOf(tpe, constraintGenerator)
   }
 
   override implicit lazy val constraintUnifiable: Unifiable[Constraint] = Unifiable {
@@ -29,11 +30,10 @@ trait Constraints extends inox.parser.elaboration.Constraints { self: IRs with S
       e <- Eventual.unify(elem)
       t <- Eventual.unify(typeClass)
     } yield Constraints.HasClass(e, t)
-    case OneOf(options, tpe) =>
+    case OneOf(tpe, constraintGenerator) =>
       for {
-      seq <- Eventual.sequence(options.map(Eventual.unify(_)))
       t <- Eventual.unify(tpe)
-    } yield StainlessConstraints.OneOf(seq, t)
+    } yield StainlessConstraints.OneOf(t, constraintGenerator)
   }
 
 }
