@@ -1,8 +1,8 @@
 object ExploratoryTest {
 
 
-  def bar(n : Set[Int]): Set[Int] = {
-    n + 1
+  def bar(n : Set[(Int, Int)]): Set[(Int, Int)] = {
+    n + (1, 1)
   }
 
 //  def foo(baz: Int): Int = baz match {

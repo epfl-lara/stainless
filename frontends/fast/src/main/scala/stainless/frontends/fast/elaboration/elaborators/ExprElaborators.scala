@@ -51,8 +51,8 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknownType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknownType = SimpleTypes.Unknown.fresh.setPos(template.pos)
-//        val tupleFirstType = SimpleTypes.Unknown.fresh.setPos(template.pos)
-//        val tupleSecondType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val tupleFirstType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val tupleSecondType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap{ case (lhsTpe, lhsEventual) =>
             ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
               Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
@@ -72,11 +72,14 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                 }
               }))
                 .addConstraint(Constraint.equal(lhsUnknownType, lhsTpe))
-                .addConstraint(Constraint.equal(rhsUnknownType, rhsTpe))
                 .addConstraint(StainlessConstraint.
-                  oneOf(Seq(rhsUnknownType, SimpleTypes.SetType(rhsUnknownType)), lhsUnknownType))
-                .addConstraint(StainlessConstraint.oneOf(Seq(rhsUnknownType), rhsTpe))
+                  oneOf(Seq(rhsTpe, SimpleTypes.SetType(rhsTpe),
+                    SimpleTypes.MapType(tupleFirstType, tupleSecondType)), lhsUnknownType))
+                .addConstraint(StainlessConstraint.oneOf(Seq(rhsTpe, SimpleTypes.TupleType(Seq(tupleFirstType,tupleSecondType))), rhsTpe))
                 .addConstraint(Constraint.equal(lhsUnknownType, resultType))
+                .addConstraint(Constraint.exist(lhsUnknownType))
+                .addConstraint(Constraint.exist(rhsUnknownType))
+                .addConstraint(Constraint.exist(resultType))
             }
         }
       case _ => super.elaborate(template)
@@ -84,6 +87,11 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
   }
 
   override val ExprE = new StainlessExprE
+
+  class StainlessExprSeqE extends ExprSeqE {
+    override val elaborator = ExprE
+  }
+  override val ExprSeqE = new StainlessExprSeqE
 
   class OptExprE extends Elaborator[Either[Position, Exprs.Expr], (SimpleTypes.Type, Eventual[trees.Expr])] {
     override def elaborate(optExpr: Either[Position, Exprs.Expr])(implicit store: Store):
