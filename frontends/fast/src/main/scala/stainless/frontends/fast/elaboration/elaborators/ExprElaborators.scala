@@ -51,37 +51,6 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
-
-        //        (for {
-        //          (lhsTpe, lhsEventual) <- ExprE.elaborate(lhs)
-        //          (rhsTpe, rhsEventual) <- ExprE.elaborate(rhs).addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
-        //          _ <- Constrained(Constraint.equal(lhsTpe, lhsUnknown))
-        //            .addConstraints(Seq(Constraint.equal(rhsTpe, rhsUnknown), Constraint.equal(lhsUnknown, resultType)))
-        //        } yield (resultType, Eventual.withUnifier { implicit unifier =>
-        //            (unifier.get(lhsUnknown), unifier.get(rhsUnknown)) match {
-        //              case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
-        //                trees.Plus(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
-        //                if signed1 == signed2 && size1 == size2 =>
-        //                trees.Plus(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.RealType(), SimpleTypes.RealType()) =>
-        //                trees.Plus(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.StringType(), SimpleTypes.StringType()) =>
-        //                trees.StringConcat(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
-        //                trees.SetAdd(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.BagType(tpe), elemType) if tpe == elemType =>
-        //                trees.BagAdd(lhsEventual.get, rhsEventual.get)
-        //              case (SimpleTypes.MapType(from, to), SimpleTypes.TupleType(types)) if types.size == 2 && types.head == from && types(1) == to =>
-        //                val tupleTree = rhsEventual.get
-        //                trees.MapUpdated(lhsEventual.get, trees.TupleSelect(tupleTree, 1), trees.TupleSelect(tupleTree, 2))
-        //              case _ => throw new IllegalStateException("Unifier returned unexpected value.")
-        //            }
-        //          })).addConstraint(StainlessConstraint.oneOf(lhsUnknown, Map(
-        //          (SimpleTypes.SetType(rhsUnknown), Seq())
-        //        )))
-
-
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
@@ -97,6 +66,11 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                   trees.StringConcat(lhsEventual.get, rhsEventual.get)
                 case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
                   trees.SetAdd(lhsEventual.get, rhsEventual.get)
+                case (SimpleTypes.BagType(tpe), elemType) if tpe == elemType =>
+                  trees.BagAdd(lhsEventual.get, rhsEventual.get)
+                case (SimpleTypes.MapType(from, to), SimpleTypes.TupleType(types)) if types.size == 2 && types.head == from && types(1) == to =>
+                  val tupleTree = rhsEventual.get
+                  trees.MapUpdated(lhsEventual.get, trees.TupleSelect(tupleTree, 1), trees.TupleSelect(tupleTree, 2))
                 case _ => throw new IllegalStateException("Unifier returned unexpected value.")
               }
             }))

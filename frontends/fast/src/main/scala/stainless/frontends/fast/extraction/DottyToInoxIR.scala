@@ -111,6 +111,10 @@ trait DottyToInoxIR
     case untpd.Tuple(list) => Some(Types.TupleType(extractTypeArgs(list).get))
     case AppliedTypeTree(Ident(name), list) if name.toString == "Set" =>
       Some(Types.Operation(Types.Operators.Set, extractTypeArgs(list).get))
+    case AppliedTypeTree(Ident(name), list) if name.toString == "Bag" =>
+      Some(Types.Operation(Types.Operators.Bag, extractTypeArgs(list).get))
+    case AppliedTypeTree(Ident(name), list) if name.toString == "Map" =>
+      Some(Types.Operation(Types.Operators.Map, extractTypeArgs(list).get))
     case _: untpd.TypeTree => None
     case _ => throw new Exception(tpe.toString)
   }
