@@ -95,7 +95,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
         if (tpe.isInstanceOf[Unknown])
           remaining :+= constraint
         else
-          remaining ++= constraintGenerator(tpe)
+          remaining ++= unifier(constraintGenerator(tpe))
     }
 
 
