@@ -107,6 +107,28 @@ trait RefinementLifting
         case _ => super.transform(e)
       }
 
+      case s.ApplyLetRec(id, tparams, tpe, tps, args) => liftRefinements(tpe) match {
+        case s.RefinementType(vd, s.BooleanLiteral(true)) =>
+          val ftTpe = vd.tpe.asInstanceOf[s.FunctionType]
+          transform(s.ApplyLetRec(id, tparams, ftTpe, tps, args))
+
+        case s.RefinementType(vd, pred) =>
+          val params = args.zipWithIndex.map { case (arg, i) => s.ValDef.fresh(s"i$i", arg.getType) }
+          val subst = Map(
+            vd -> s.Lambda(
+              params,
+              s.ApplyLetRec(id, tparams, vd.tpe.asInstanceOf[s.FunctionType], tps, params.map(_.toVariable))
+            )
+          )
+          transform(s.Assert(
+            s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
+            Some("Inner refinement lifting"),
+            s.ApplyLetRec(id, tparams, vd.tpe.asInstanceOf[s.FunctionType], tps, args)
+          ).copiedFrom(e))
+
+        case _ => super.transform(e)
+      }
+
       case s.Choose(res, pred) =>
         val (Seq(nres), cond) = parameterConds(Seq(res))
         t.Choose(transform(nres), t.and(transform(cond), transform(pred)).copiedFrom(e)).copiedFrom(e)
@@ -142,7 +164,8 @@ trait RefinementLifting
           t.MatchCase(transform(newPat), optGuard map transform, transform(rhs)).copiedFrom(cse)
         }).copiedFrom(e)
 
-      case _ => super.transform(e)
+      case _ =>
+        super.transform(e)
     }
 
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
