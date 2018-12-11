@@ -3,6 +3,7 @@ package stainless.frontends.fast.elaboration
 import inox.parser.ElaborationErrors
 import inox.parser.elaboration.SimpleTypes
 import stainless.frontends.fast.IRs
+import sun.text.normalizer.UCharacter.NumericType
 
 import scala.util.parsing.input.Position
 
@@ -13,7 +14,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
   import Constraints.{HasClass, Exists, Equals}
   import StainlessConstraints._
 
-  def isCompatible(tpe: SimpleTypes.Type, value: SimpleTypes.Type): Boolean = (tpe, value) match {
+  private def isCompatible(tpe: SimpleTypes.Type, value: SimpleTypes.Type): Boolean = (tpe, value) match {
     case (_: Unknown, _) => true
     case (_, _: Unknown) => true
     case (UnitType(), UnitType()) => true
@@ -37,6 +38,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
     case _ => false
   }
 
+
   override def solve(constraints: Seq[Constraint]): Either[ErrorMessage, Unifier] = {
 
     case class UnificationError(message: Seq[Position] => ErrorMessage, positions: Seq[Position]) extends Exception(message(positions))
@@ -45,7 +47,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
     var remaining: Seq[Constraint] = constraints
     var typeClasses: Map[Unknown, TypeClass] = Map()
     var unifier: Unifier = Unifier.empty
-    var typeOptionsMap: Map[Unknown, (Type, Set[TypeOption])] = Map()
+    var typeOptionsMap: Map[Unknown, Seq[SimpleTypes.Type]] = Map()
 
     def unify(unknown: Unknown, value: Type) {
 
@@ -53,6 +55,11 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
         remaining :+= HasClass(value, tc)
       }
       typeClasses -= unknown
+
+      typeOptionsMap.get(unknown).foreach { options =>
+        typeOptionsMap -= unknown
+        expandOneOf(value, options)
+      }
 
       val singleton = Unifier(unknown -> value)
 
@@ -62,6 +69,64 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
       unknowns -= unknown
 
       unifier += (unknown -> value)
+    }
+
+    /**
+      * Collects possible optional mappings only on types deemed compatible before.
+      * @param tpe
+      * @param typeOptions
+      * @return
+      */
+    def expandOneOf(tpe: SimpleTypes.Type, typeOptions: Seq[SimpleTypes.Type]) = {
+      var mappings: Map[Unknown, Seq[SimpleTypes.Type]] = Map()
+
+      def collectOptions(tpe: Type, typeOption: Type): Unit = (tpe, typeOption) match {
+        case (u1: Unknown, u2: Unknown) =>
+          mappings += (u1 -> (mappings.getOrElse(u1, Seq.empty) :+ u2))
+          mappings += (u2 -> (mappings.getOrElse(u2, Seq.empty) :+ u1))
+        case (u: Unknown, _) => mappings += (u -> (mappings.getOrElse(u, Seq.empty) :+ typeOption))
+        case (_, u: Unknown) => mappings += (u -> (mappings.getOrElse(u, Seq.empty) :+ tpe))
+        case (UnitType(), UnitType()) => ()
+        case (IntegerType(), IntegerType()) => ()
+        case (StringType(), StringType()) => ()
+        case (RealType(), RealType()) => ()
+        case (BooleanType(), BooleanType()) => ()
+        case (BitVectorType(signed1, size1), BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 => ()
+        case (CharType(), CharType()) => ()
+        case (FunctionType(fs1, t1), FunctionType(fs2, t2)) if fs1.size == fs2.size =>
+          fs1.zip(fs2).foreach(pair => collectOptions(pair._1, pair._2))
+          collectOptions(t1, t2)
+        case (TupleType(es1), TupleType(es2)) =>
+          es1.zip(es2).foreach(pair => collectOptions(pair._1, pair._2))
+        case (MapType(f1, t1), MapType(f2, t2)) =>
+          collectOptions(f1, f2)
+          collectOptions(t1, t2)
+        case (SetType(t1), SetType(t2)) =>
+          collectOptions(t1, t2)
+        case (BagType(t1), BagType(t2)) =>
+          collectOptions(t1, t2)
+        case (ADTType(i1, as1), ADTType(i2, as2)) if i1 == i2 && as1.size == as2.size =>
+          as1.zip(as2).foreach { pair => collectOptions(pair._1, pair._2) }
+        case (TypeParameter(i1), TypeParameter(i2)) if i1 == i2 => ()
+        case _ => throw new Exception("Should never reach this pattern")
+      }
+
+      val possibleOptions = typeOptions.filter(isCompatible(tpe, _))
+      if (possibleOptions.isEmpty)
+        throw new Exception("One of has no possible type options")
+      else if (possibleOptions.size == 1)
+        remaining :+= Constraint.equal(tpe, possibleOptions.head)
+      else {
+        possibleOptions.foreach(collectOptions(tpe, _))
+        val merged = mappings.toSeq ++ typeOptionsMap
+        val grouped: Map[Unknown, Seq[(Unknown, Seq[Type])]] = merged.groupBy(_._1)
+        val cleaned = grouped.mapValues(_.map(_._2).flatten.toSet.toList)
+        val (options, equalities) = cleaned.partition(a => a._2.size > 1)
+        typeOptionsMap = options
+        equalities.foreach(pair => remaining :+= Equals(pair._1, pair._2.head))
+        typeOptionsMap = cleaned
+      }
+
     }
 
     def handle(constraint: Constraint): Unit = constraint match {
@@ -136,14 +201,12 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
         case _ => ()
       }
 
-      case OneOf(tpe, typeOptions) if !tpe.isInstanceOf[Unknown] =>
-        val compatible = typeOptions.filter(isCompatible(tpe, _))
-        if (compatible.isEmpty)
-          throw UnificationError(_ => "Expression is without possible type options", Seq(tpe.pos))
-        if (compatible.size == 1)
-          Equals(tpe, compatible.head)
-        else
-          remaining :+= OneOf(tpe, typeOptions)
+      case OneOf(tpe, typeOptions) if !tpe.isInstanceOf[Unknown] => tpe match {
+        case u: Unknown =>
+          typeOptionsMap += (u -> typeOptions)
+        case _ =>
+          expandOneOf(tpe, typeOptions)
+      }
     }
 
 

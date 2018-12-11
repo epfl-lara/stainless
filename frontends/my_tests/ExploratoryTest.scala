@@ -1,7 +1,7 @@
 object ExploratoryTest {
 
 
-  def bar(n: Set[Set[Int]]): Set[Set[Int]] = {
+  def bar(n: Set[Int]): Set[Set[Int]] = {
     val x: Set[Int] = Set(1)
     n + x
   }
