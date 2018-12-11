@@ -13,6 +13,30 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
   import Constraints.{HasClass, Exists, Equals}
   import StainlessConstraints._
 
+  def isCompatible(tpe: SimpleTypes.Type, value: SimpleTypes.Type): Boolean = (tpe, value) match {
+    case (_: Unknown, _) => true
+    case (_, _: Unknown) => true
+    case (UnitType(), UnitType()) => true
+    case (IntegerType(), IntegerType()) => true
+    case (BitVectorType(signed1, size1), BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 => true
+    case (BooleanType(), BooleanType()) => true
+    case (StringType(), StringType()) => true
+    case (CharType(), CharType()) => true
+    case (RealType(), RealType()) => true
+    case (FunctionType(fs1, t1), FunctionType(fs2, t2)) if fs1.size == fs2.size =>
+      fs1.zip(fs2).forall(a => isCompatible(a._1, a._2)) && isCompatible(t1, t2)
+
+    case (TupleType(es1), TupleType(es2)) if es1.size == es2.size =>
+      es1.zip(es2).forall(a =>isCompatible(a._1, a._2))
+    case (MapType(f1, t1), MapType(f2, t2)) => isCompatible(f1, f2) && isCompatible(t1, t2)
+    case (SetType(e1), SetType(e2)) => isCompatible(e1, e2)
+    case (BagType(e1), BagType(e2)) => isCompatible(e1, e2)
+    case (ADTType(i1, as1), ADTType(i2, as2)) if i1 == i2 && as1.size == as2.size =>
+      as1.zip(as2).forall(a => isCompatible(a._1, a._2))
+    case (TypeParameter(i1), TypeParameter(i2)) if i1 == i2 => true
+    case _ => false
+  }
+
   override def solve(constraints: Seq[Constraint]): Either[ErrorMessage, Unifier] = {
 
     case class UnificationError(message: Seq[Position] => ErrorMessage, positions: Seq[Position]) extends Exception(message(positions))
@@ -21,6 +45,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
     var remaining: Seq[Constraint] = constraints
     var typeClasses: Map[Unknown, TypeClass] = Map()
     var unifier: Unifier = Unifier.empty
+    var typeOptionsMap: Map[Unknown, (Type, Set[TypeOption])] = Map()
 
     def unify(unknown: Unknown, value: Type) {
 
@@ -91,11 +116,34 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
           case Some(cs) => remaining ++= cs
         }
       }
-      case OneOf(tpe, constraintGenerator) =>
-        if (tpe.isInstanceOf[Unknown])
-          remaining :+= constraint
+      case TypeOption(tpe, option) if !tpe.isInstanceOf[Unknown] => (tpe, option) match {
+        case (TupleType(first), TupleType(second)) if first.size == second.size =>
+          first.zip(second).foreach(elem => remaining :+= TypeOption(elem._1, elem._2))
+        case (t: BitVectorType, u: Unknown) => unify(u, t)
+        case (t: StringType, u: Unknown) => unify(u, t)
+        case (t: IntegerType, u: Unknown) => unify(u, t)
+        case (t: RealType, u: Unknown) => unify(u, t)
+        case (t: MapType, u: Unknown) => unify(u, t)
+        case (t: SetType, u: Unknown) => unify(u, t)
+        case (t: BagType, u: Unknown) => unify(u, t)
+        case (t: UnitType, u: Unknown) => unify(u, t)
+        case (t: CharType, u: Unknown) => unify(u, t)
+        case (MapType(f1, t1), MapType(f2, t2)) =>
+          remaining :+= TypeOption(f1, f2)
+          remaining :+= TypeOption(t1, t2)
+        case (BagType(t1), BagType(t2)) => remaining :+= TypeOption(t1, t2)
+        case (SetType(t1), SetType(t2)) => remaining :+= TypeOption(t1, t2)
+        case _ => ()
+      }
+
+      case OneOf(tpe, typeOptions) if !tpe.isInstanceOf[Unknown] =>
+        val compatible = typeOptions.filter(isCompatible(tpe, _))
+        if (compatible.isEmpty)
+          throw UnificationError(_ => "Expression is without possible type options", Seq(tpe.pos))
+        if (compatible.size == 1)
+          Equals(tpe, compatible.head)
         else
-          remaining ++= unifier(constraintGenerator(tpe))
+          remaining :+= OneOf(tpe, typeOptions)
     }
 
 

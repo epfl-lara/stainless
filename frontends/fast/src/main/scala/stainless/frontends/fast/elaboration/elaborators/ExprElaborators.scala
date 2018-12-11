@@ -1,10 +1,25 @@
 package stainless.frontends.fast.elaboration.elaborators
 
+import inox.parser.elaboration
+import inox.parser.elaboration.SimpleTypes
+
 import scala.util.parsing.input.Position
 
 trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborators { self: stainless.frontends.fast.Elaborators =>
 
   class StainlessExprE extends super.ExprE {
+
+
+    val plusSequence = (rhsType: SimpleTypes.Type, tupleType: SimpleTypes.TupleType) => Seq(
+      SimpleTypes.FunctionType(Seq(SimpleTypes.IntegerType(), SimpleTypes.IntegerType()), SimpleTypes.IntegerType()),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.RealType(), SimpleTypes.RealType()), SimpleTypes.RealType()),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.BitVectorType(true, 32), SimpleTypes.BitVectorType(true, 32)), SimpleTypes.BitVectorType(true, 32)),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsType), rhsType), SimpleTypes.SetType(rhsType)),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsType), rhsType), SimpleTypes.BagType(rhsType)),
+      SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleType.elems.head, tupleType.elems(1)), rhsType),
+        SimpleTypes.MapType(tupleType.elems.head, tupleType.elems(1)))
+    )
 
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
       case PatternMatchings.MatchExpression(lhs, cases) =>
@@ -51,6 +66,12 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val operatorType = SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType)
+        val tupleFirst = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val tupleSecond = SimpleTypes.Unknown.fresh.setPos(template.pos)
+
+
+
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
@@ -75,19 +96,8 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(StainlessConstraint.
-                oneOf(lhsTpe, {
-                  case a@SimpleTypes.SetType(elem) =>
-                    Seq(Constraints.Equals(elem, rhsTpe))
-                  case a@SimpleTypes.BagType(elem) =>
-                    Seq(Constraints.Equals(elem, rhsTpe))
-                  case a@SimpleTypes.MapType(from, to) =>
-                    Seq(Constraints.Equals(SimpleTypes.TupleType(Seq(from, to)), rhsTpe))
-                  case SimpleTypes.StringType() =>
-                    Seq(Constraints.Equals(rhsTpe, SimpleTypes.StringType()))
-                  case a =>
-                    Seq(Constraints.Equals(rhsTpe, a), Constraint.isNumeric(a))
-                }
-                ))
+                oneOf(operatorType, plusSequence(rhsUnknown, SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)))))
+              .addConstraint(StainlessConstraint.option(rhsTpe, SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond))))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(rhsUnknown, rhsTpe))

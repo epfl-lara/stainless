@@ -1,9 +1,9 @@
 object ExploratoryTest {
 
 
-  def bar(n : Map[Int, Int]): Map[Int, Int] = {
-    val n = n + (1, 1)
-    n + (2, 1)
+  def bar(n: Set[Set[Int]]): Set[Set[Int]] = {
+    val x: Set[Int] = Set(1)
+    n + x
   }
 
 //  def foo(baz: Int): Int = baz match {
