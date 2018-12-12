@@ -183,25 +183,6 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
           case Some(cs) => remaining ++= cs
         }
       }
-      case TypeOption(tpe, option) if !tpe.isInstanceOf[Unknown] => (tpe, option) match {
-        case (TupleType(first), TupleType(second)) if first.size == second.size =>
-          first.zip(second).foreach(elem => remaining :+= TypeOption(elem._1, elem._2))
-        case (t: BitVectorType, u: Unknown) => unify(u, t)
-        case (t: StringType, u: Unknown) => unify(u, t)
-        case (t: IntegerType, u: Unknown) => unify(u, t)
-        case (t: RealType, u: Unknown) => unify(u, t)
-        case (t: MapType, u: Unknown) => unify(u, t)
-        case (t: SetType, u: Unknown) => unify(u, t)
-        case (t: BagType, u: Unknown) => unify(u, t)
-        case (t: UnitType, u: Unknown) => unify(u, t)
-        case (t: CharType, u: Unknown) => unify(u, t)
-        case (MapType(f1, t1), MapType(f2, t2)) =>
-          remaining :+= TypeOption(f1, f2)
-          remaining :+= TypeOption(t1, t2)
-        case (BagType(t1), BagType(t2)) => remaining :+= TypeOption(t1, t2)
-        case (SetType(t1), SetType(t2)) => remaining :+= TypeOption(t1, t2)
-        case _ => ()
-      }
 
       case OneOf(tpe, typeOptions) => tpe match {
         case u: Unknown =>
