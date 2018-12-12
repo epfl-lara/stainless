@@ -11,14 +11,11 @@ trait Constraints extends inox.parser.elaboration.Constraints { self: IRs with S
 
   object StainlessConstraints {
     case class OneOf(tpe: Type, typeOptions: Seq[Type]) extends Constraint
-    case class TypeOption(tpe: Type, option: Type) extends Constraint
   }
 
   object StainlessConstraint {
     def oneOf(tpe: Type, typeOptions: Seq[Type]): Constraint =
       OneOf(tpe, typeOptions)
-    def option(tpe: Type, option: Type): Constraint =
-      TypeOption(tpe, option)
   }
 
   override implicit lazy val constraintUnifiable: Unifiable[Constraint] = Unifiable {
@@ -38,10 +35,12 @@ trait Constraints extends inox.parser.elaboration.Constraints { self: IRs with S
       t <- Eventual.unify(tpe)
       goal <- Eventual.sequence(typeOptions.map(Eventual.unify(_)))
     } yield StainlessConstraints.OneOf(t, goal)
-    case TypeOption(first, second) =>
+  }
+
+  implicit lazy val typeOptionsUnifiable: Unifiable[Seq[SimpleTypes.Type]] = Unifiable {
+    a: Seq[SimpleTypes.Type] =>
       for {
-        f <- Eventual.unify(first)
-        s <- Eventual.unify(second)
-      } yield StainlessConstraints.TypeOption(f, s)
+        seq <- Eventual.sequence(a.map(Eventual.unify(_)))
+      } yield seq
   }
 }

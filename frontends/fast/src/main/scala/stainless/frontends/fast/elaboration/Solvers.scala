@@ -61,10 +61,12 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
         expandOneOf(value, options)
       }
 
+
       val singleton = Unifier(unknown -> value)
 
       typeClasses = singleton(typeClasses)
       remaining = singleton(remaining)
+      typeOptionsMap = singleton(typeOptionsMap)
 
       unknowns -= unknown
 
@@ -201,7 +203,7 @@ trait Solvers extends inox.parser.elaboration.Solvers { self: Constraints with S
         case _ => ()
       }
 
-      case OneOf(tpe, typeOptions) if !tpe.isInstanceOf[Unknown] => tpe match {
+      case OneOf(tpe, typeOptions) => tpe match {
         case u: Unknown =>
           typeOptionsMap += (u -> typeOptions)
         case _ =>

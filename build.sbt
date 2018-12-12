@@ -202,7 +202,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
     skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
   )
   .dependsOn(`stainless-core`)
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, scriptSettings)
 
@@ -241,7 +241,7 @@ lazy val `stainless-fast` = (project in file("frontends") / "fast")
   // Should truly depend on dotty, overriding the "provided" modifier above:
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
   .aggregate(`stainless-dotty-frontend`)
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
 
@@ -255,7 +255,7 @@ lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   // Should truly depend on dotty, overriding the "provided" modifier above:
   .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
   .aggregate(`stainless-dotty-frontend`)
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
 

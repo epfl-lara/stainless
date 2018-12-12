@@ -9,18 +9,6 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
 
   class StainlessExprE extends super.ExprE {
 
-
-    val plusSequence = (rhsType: SimpleTypes.Type, tupleType: SimpleTypes.TupleType) => Seq(
-      SimpleTypes.FunctionType(Seq(SimpleTypes.IntegerType(), SimpleTypes.IntegerType()), SimpleTypes.IntegerType()),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.RealType(), SimpleTypes.RealType()), SimpleTypes.RealType()),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.BitVectorType(true, 32), SimpleTypes.BitVectorType(true, 32)), SimpleTypes.BitVectorType(true, 32)),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsType), rhsType), SimpleTypes.SetType(rhsType)),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsType), rhsType), SimpleTypes.BagType(rhsType)),
-      SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleType.elems.head, tupleType.elems(1)), rhsType),
-        SimpleTypes.MapType(tupleType.elems.head, tupleType.elems(1)))
-    )
-
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
       case PatternMatchings.MatchExpression(lhs, cases) =>
         for {
@@ -64,18 +52,20 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
       // testing overloading addition
       case Exprs.BinaryOperation(Exprs.Binary.Plus, lhs, rhs) => {
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val operatorType = SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType)
+
         val tupleFirst = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val tupleSecond = SimpleTypes.Unknown.fresh.setPos(template.pos)
 
+        val numericType = SimpleTypes.Unknown.fresh.setPos(template.pos)
 
 
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
-              (unifier.get(lhsUnknown), unifier.get(rhsUnknown)) match {
+              (lhsTpe, rhsTpe) match {
                 case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
                   trees.Plus(lhsEventual.get, rhsEventual.get)
                 case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
@@ -96,13 +86,22 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(StainlessConstraint.
-                oneOf(operatorType, plusSequence(rhsUnknown, SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)))))
-              .addConstraint(StainlessConstraint.option(rhsTpe, SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond))))
-              .addConstraint(Constraint.equal(lhsTpe, resultType))
+                oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                  Seq(
+                    SimpleTypes.FunctionType(Seq(numericType, numericType), numericType),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), rhsUnknown), SimpleTypes.SetType(rhsUnknown)),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown)),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
+                  )))
+              .addConstraint(StainlessConstraint.oneOf(rhsTpe,
+                Seq(
+                  rhsUnknown,
+                  SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
+                  ))))
+              .addConstraint(Constraint.isNumeric(numericType))
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
-              .addConstraint(Constraint.equal(rhsUnknown, rhsTpe))
-              .addConstraint(Constraint.exist(lhsUnknown))
-              .addConstraint(Constraint.exist(rhsUnknown))
+              .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
           }
         }
