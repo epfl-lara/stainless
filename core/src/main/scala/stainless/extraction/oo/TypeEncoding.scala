@@ -1184,16 +1184,15 @@ trait TypeEncoding
       val elimParams = encoded.params
         .drop(reifiedTypeArgsCount)
         .map(vd => vd.copy(tpe = dropRefinements(vd.tpe)))
-        .map(_.freshen)
 
-      val eliminated = new t.FunDef(
+      val eliminated = t.exprOps.freshenSignature(new t.FunDef(
         original.id.freshen,
-        encoded.tparams.map(_.freshen),
+        encoded.tparams,
         elimParams,
         dropRefinements(encoded.returnType),
         t.NoTree(dropRefinements(encoded.returnType)),
         Seq(t.Derived(original.id))
-      )
+      ))
 
       val (vd, post) = t.exprOps.postconditionOf(encoded.fullBody) match {
         case Some(Lambda(Seq(vd), post)) => (vd, post)
