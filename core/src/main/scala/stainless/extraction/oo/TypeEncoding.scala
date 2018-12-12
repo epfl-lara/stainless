@@ -1190,7 +1190,7 @@ trait TypeEncoding
         dropRefinements(encoded.returnType),
         t.NoTree(dropRefinements(encoded.returnType)),
         Seq(t.Derived(original.id))
-      ))
+      ).copiedFrom(encoded))
 
       val (vd, post) = t.exprOps.postconditionOf(encoded.fullBody) match {
         case Some(Lambda(Seq(vd), post)) => (vd, post)
