@@ -10,6 +10,34 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
   class StainlessExprE extends super.ExprE {
 
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
+//      case Exprs.Variable(id) => {
+//
+//        ExprUseIdE.elaborate(id).flatMap { i =>
+//          Constrained.attempt(
+//            store.getFunction(i).map(x => Left(x))
+//              .orElse(store.getVariable(i).map(x => Right(x))),
+//            template,
+//            identifierNotCallable(i.name)
+//          ).flatMap {
+//
+//            case Left((n, f)) =>
+//
+//
+//            case Right((st, et)) => {
+//              val retTpe = SimpleTypes.Unknown.fresh.setPos(template.pos)
+//              for {
+//                (stas, evas) <- ExprSeqE.elaborate(args)
+//                  .checkImmediate(optTypeArgs.isEmpty, template, functionValuesCanNotHaveTypeParameters(i.name))
+//                  .map(_.unzip)
+//                _ <- Constrained(Constraint.equal(st, SimpleTypes.FunctionType(stas, retTpe)))
+//              } yield (retTpe, Eventual.withUnifier { implicit unifier =>
+//                trees.Application(trees.Variable(i, et.get, Seq()), evas.map(_.get))
+//              })
+//            }
+//          }
+//        }
+//      }
+
       case PatternMatchings.MatchExpression(lhs, cases) =>
         for {
           (tpe, eventualLhs) <- ExprE.elaborate(lhs)

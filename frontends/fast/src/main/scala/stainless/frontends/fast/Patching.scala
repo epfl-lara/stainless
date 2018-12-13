@@ -51,7 +51,7 @@ object Patching extends IRs{
     case trees.Application(callee, args) =>
       trees.Application(patchExpr(callee), args.map(patchExpr))
     case trees.Lambda(params, body) =>
-      trees.Lambda(patchParams(params), patchExpr(expr))
+      trees.Lambda(patchParams(params), patchExpr(body))
     case trees.Forall(params, body) =>
       trees.Forall(patchParams(params), patchExpr(body))
     case trees.Choose(valDef, pred) =>
@@ -147,8 +147,9 @@ object Patching extends IRs{
       trees.MapUpdated(patchExpr(map), patchExpr(key), patchExpr(value))
     case trees.And(exprs) => trees.And(exprs.map(patchExpr))
     case a: trees.Literal[Any] => a
-
     case trees.MatchExpr(scrutinee, cases) => trees.MatchExpr(patchExpr(scrutinee), cases.map(patchMatchCase(_)))
+    case _ =>
+      throw new Exception("Should not reach this branch in expression patching")
   }
 
   def patchDef(definition: trees.Definition): trees.Definition = definition match {

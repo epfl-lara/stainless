@@ -267,7 +267,6 @@ trait DottyToInoxIR
         case Constants.StringTag =>
           Exprs.StringLiteral(const.stringValue)
       }
-
     case untpd.Function(args, body) =>
       Exprs.Abstraction(Exprs.Lambda, extractBindings(args.asInstanceOf[Seq[untpd.ValDef]]), extractBody(body))
     case InfixOp(left, op, right) if op.name.toString == "->"=>
@@ -278,11 +277,12 @@ trait DottyToInoxIR
       makePrefixOp(op, body)
     case Apply(fun: untpd.Ident, args) =>
       Exprs.Invocation(Identifiers.IdentifierName(fun.name.toString), None, HSeq.fromSeq(args.map(extractExpression(_))))
-
     case If(cond, thenBranch, elseBranch) =>
       Exprs.If(extractExpression(cond), extractExpression(thenBranch), extractExpression(elseBranch))
     case untpd.Parens(expr) =>
       extractExpression(expr)
+    case untpd.Tuple(trees) if trees.isEmpty=>
+      Exprs.UnitLiteral()
     case untpd.Tuple(trees) =>
       Exprs.Tuple(HSeq.fromSeq(trees.map(extractExpression(_))))
     case ExTupleSelect(tree, int) =>
@@ -295,6 +295,8 @@ trait DottyToInoxIR
       processBody(block.stats, block.expr)
     case Match(selector, cases) =>
       PatternMatchings.MatchExpression(extractExpression(selector), HSeq.fromSeq(cases.map(extractCase(_))))
+    case untpd.EmptyTree =>
+      Exprs.UnitLiteral()
   }).setPos(rhs.pos)
 
   def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
@@ -305,6 +307,10 @@ trait DottyToInoxIR
       case (head:untpd.ValDef) :: tail =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
           rec(tail)).setPos(head.pos)
+      case (a @ Apply(fun, args)) :: tail =>
+        Exprs.Let(Bindings.InferredValDef(Identifiers.IdentifierName(FreshIdentifier.apply("binder").name)), extractExpression(a),
+          rec(tail)
+        )
       case Nil => extractExpression(expr)
     }
     rec(stats)
