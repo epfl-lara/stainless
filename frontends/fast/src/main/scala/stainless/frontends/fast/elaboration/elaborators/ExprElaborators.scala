@@ -108,7 +108,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                 case _ => throw new IllegalStateException("Unifier returned unexpected value.")
               }
             }))
-              .addConstraint(StainlessConstraint.
+              .addConstraint(Constraint.
                 oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(numericType, numericType), numericType),
@@ -117,7 +117,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                     SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown)),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
                   )))
-              .addConstraint(StainlessConstraint.oneOf(rhsTpe,
+              .addConstraint(Constraint.oneOf(rhsTpe,
                 Seq(
                   rhsUnknown,
                   SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
@@ -148,7 +148,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                 case _ => throw new IllegalStateException("Unifier returned unexpected value.")
               }
             }))
-              .addConstraint(StainlessConstraint.
+              .addConstraint(Constraint.
                 oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(bitsType, bitsType), bitsType),

@@ -196,11 +196,11 @@ trait DottyToInoxIR
   }
 
   def extractPattern(pat: Tree[Untyped])(implicit ctx: Context, dctx: DefContext): PatternMatchings.Pattern = pat match {
-    case Literal(_) => PatternMatchings.LiteralPattern(None, extractExpression(pat).asInstanceOf[Exprs.Literal])
+    case Literal(_) => PatternMatchings.LiteralPattern(None, extractExpression(pat).asInstanceOf[Exprs.Expr with Exprs.Literal])
     case Bind(name, v: untpd.Literal) =>
       PatternMatchings.LiteralPattern(
         Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))),
-        extractExpression(v).asInstanceOf[Exprs.Literal])
+        extractExpression(v).asInstanceOf[Exprs.Expr with Exprs.Literal])
     case Bind(name, Apply(Ident(fun), args)) =>
       val opt = if (name.toString == "_") Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))) else None
       PatternMatchings.CompoundTypePattern(opt, Identifiers.IdentifierName(fun.toString), Seq.empty, args.map(extractPattern(_)))
