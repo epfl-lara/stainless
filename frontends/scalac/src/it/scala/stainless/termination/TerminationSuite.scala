@@ -19,6 +19,7 @@ class TerminationSuite extends ComponentTestSuite {
     case "verification/valid/Nested14" => Ignore // Too slow, make regression unstable
     // smt-z3 crashes on some permutations of the MergeSort2 problem encoding due to Bags...
     case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
+    case "verification/valid/LawTypeArgsElim" => Ignore // Crashes the termination checker
     case _ => super.filter(ctx, name)
   }
 

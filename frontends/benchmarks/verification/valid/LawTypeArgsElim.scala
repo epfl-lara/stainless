@@ -24,7 +24,7 @@ object LawTypeArgsElim {
     }
   }
 
-  def ok[A](s: Structure[A], a: A, b: A) = {
+  def ok1[A](s: Structure[A], a: A, b: A) = {
     assert(s.someLaw(a, b))                            // valid
     assert(s.doSomething(a, b) == s.doSomething(b, a)) // valid
   }
@@ -49,5 +49,10 @@ object LawTypeArgsElim {
         }
       }
     }
+  }
+
+  def ok2[A](s: Structure[Option[A]], a: Option[A], b: Option[A]) = {
+    assert(s.someLaw(a, b))                            // valid
+    assert(s.doSomething(a, b) == s.doSomething(b, a)) // valid
   }
 }
