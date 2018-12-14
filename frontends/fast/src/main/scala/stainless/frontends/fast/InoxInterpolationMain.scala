@@ -11,14 +11,13 @@ object InoxInterpolationMain {
   def main(args: Array[String]): Unit = {
     val Seq(listSort, sizeFunDef) = p"""
 
-      def size(xs: List): Int =
-        if (xs is Cons)
-          0
-        else
-          xs.head
+      def size[A, B](a: A, b: B): (A, B) = (a, b)
 
-      type List = Cons(head: Int, tail: List) | Nil()
+      def main(): (Int, Int) = {
+        size(1, 2)
+      }
     """
-    listSort
+    print(listSort)
+    print(sizeFunDef)
   }
 }

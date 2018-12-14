@@ -10,34 +10,6 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
   class StainlessExprE extends super.ExprE {
 
     override def elaborate(template: Exprs.Expr)(implicit store: Store): Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = template match {
-//      case Exprs.Variable(id) => {
-//
-//        ExprUseIdE.elaborate(id).flatMap { i =>
-//          Constrained.attempt(
-//            store.getFunction(i).map(x => Left(x))
-//              .orElse(store.getVariable(i).map(x => Right(x))),
-//            template,
-//            identifierNotCallable(i.name)
-//          ).flatMap {
-//
-//            case Left((n, f)) =>
-//
-//
-//            case Right((st, et)) => {
-//              val retTpe = SimpleTypes.Unknown.fresh.setPos(template.pos)
-//              for {
-//                (stas, evas) <- ExprSeqE.elaborate(args)
-//                  .checkImmediate(optTypeArgs.isEmpty, template, functionValuesCanNotHaveTypeParameters(i.name))
-//                  .map(_.unzip)
-//                _ <- Constrained(Constraint.equal(st, SimpleTypes.FunctionType(stas, retTpe)))
-//              } yield (retTpe, Eventual.withUnifier { implicit unifier =>
-//                trees.Application(trees.Variable(i, et.get, Seq()), evas.map(_.get))
-//              })
-//            }
-//          }
-//        }
-//      }
-
       case PatternMatchings.MatchExpression(lhs, cases) =>
         for {
           (tpe, eventualLhs) <- ExprE.elaborate(lhs)
@@ -56,6 +28,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
           }
         }
         Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 32)))
+
 
       case StainlessExprs.Int16Literal(value) =>
         val u = SimpleTypes.Unknown.fresh.setPos(template.pos)
@@ -139,7 +112,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
               (lhsTpe, rhsTpe) match {
-                case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2=>
+                case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 =>
                   trees.BVAnd(lhsEventual.get, rhsEventual.get)
                 case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
                   trees.SetIntersection(lhsEventual.get, rhsEventual.get)
@@ -161,7 +134,6 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.exist(resultType))
           }
         }
-
       case _ => super.elaborate(template)
     }
   }

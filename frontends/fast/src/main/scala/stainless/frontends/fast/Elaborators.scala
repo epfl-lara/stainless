@@ -4,12 +4,10 @@ import stainless.ast.SymbolIdentifier
 import stainless.extraction.xlang.{trees => xt}
 import stainless.frontends.fast.elaboration.elaborators.{ExprElaborators, PatternElaborators}
 
-import scala.collection.mutable
-
 trait Elaborators extends inox.parser.Elaborators
   with IRs
   with ExprElaborators
-  with PatternElaborators{
+  with PatternElaborators {
 
   // currently using inox just to see what happens
   override val trees: xt.type = xt

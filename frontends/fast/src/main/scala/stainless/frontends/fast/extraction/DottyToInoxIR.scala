@@ -101,6 +101,7 @@ trait DottyToInoxIR
     case "String" => Types.Primitive(Types.Primitives.StringType)
     case "Unit" => Types.Primitive(Types.Primitives.UnitType)
     case "BigInt" => Types.Primitive(Types.Primitives.IntegerType)
+    case "Char" => Types.Primitive(Types.Primitives.CharType)
     case typeVariable => Types.Variable(Identifiers.IdentifierName(typeVariable))
   }
 
@@ -266,6 +267,8 @@ trait DottyToInoxIR
           Exprs.BooleanLiteral(const.booleanValue)
         case Constants.StringTag =>
           Exprs.StringLiteral(const.stringValue)
+        case Constants.CharTag =>
+          Exprs.CharLiteral(const.charValue)
       }
     case untpd.Function(args, body) =>
       Exprs.Abstraction(Exprs.Lambda, extractBindings(args.asInstanceOf[Seq[untpd.ValDef]]), extractBody(body))

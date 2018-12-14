@@ -62,6 +62,7 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
     val result = dottyToInoxIR.fullElaboration(program)
 
 
+    println(result)
 
     val (functions, classes) = Patching.patchAST(result)
     val file = unit.source.file.absolute.path
