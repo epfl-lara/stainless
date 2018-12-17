@@ -8,8 +8,8 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("verification/invalid")
   testExtractAll("verification/unchecked")
 
-  testExtractAll("imperative/valid"/*,
-    "imperative/valid/Blocks1.scala",*/
+  testExtractAll("imperative/valid",
+    "imperative/valid/Snapshot2.scala" // excluded due to https://github.com/epfl-lara/stainless/issues/419
   )
   testExtractAll("imperative/invalid")
 
