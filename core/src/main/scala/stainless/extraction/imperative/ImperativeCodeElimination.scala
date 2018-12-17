@@ -59,6 +59,8 @@ trait ImperativeCodeElimination
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, body).copiedFrom(expr))
           (UnitLiteral(), scope, rhsFun + (v -> newVd.toVariable))
 
+        case Snapshot(e) => toFunction(e)
+
         case ite @ IfExpr(cond, tExpr, eExpr) =>
           val (cRes, cScope, cFun) = toFunction(cond)
           val (tRes, tScope, tFun) = toFunction(tExpr)
@@ -404,6 +406,7 @@ trait ImperativeCodeElimination
       case (e: While) => true
       case (e: LetVar) => true
       case (e: Old) => true
+      case (e: Snapshot) => true
       case _ => false
     }
 

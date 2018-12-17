@@ -299,6 +299,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case IsInstanceOf(e, _) => rec(e, path)
       case AsInstanceOf(e, _) => rec(e, path)
       case Old(_) => Set.empty
+      case Snapshot(_) => Set.empty
 
       case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
         rec(b, path)

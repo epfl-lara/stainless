@@ -44,6 +44,8 @@ trait GhostChecker { self: EffectsAnalyzer =>
       // Measures are also considered ghost, as they are never executed
       case Decreases(_, body) => isGhostExpression(body)
 
+      case Snapshot(e) => true
+
       case FunInvocation(id, _, args, _) =>
         val fun = lookupFunction(id).map(Outer(_)).getOrElse(analysis.local(id))
         (fun.flags contains Ghost) ||
@@ -152,6 +154,10 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case Assignment(v, e) if !(v.flags contains Ghost) && isGhostExpression(e) =>
           throw ImperativeEliminationException(expr,
             "Right-hand side of non-ghost variable assignment cannot be ghost")
+
+        case Snapshot(e) if !inGhost =>
+          throw ImperativeEliminationException(expr,
+            "Snapshots can only be used in ghost contexts")
 
         case FieldAssignment(obj, id, e) if isADT(obj) && isGhostExpression(ADTSelector(obj, id)) =>
           if (!effects(e).forall(isGhostEffect)) {

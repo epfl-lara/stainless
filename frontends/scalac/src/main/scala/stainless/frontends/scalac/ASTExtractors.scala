@@ -603,6 +603,15 @@ trait ASTExtractors {
       }
     }
 
+    object ExSnapshotExpression {
+      def unapply(tree: Apply) : Option[Tree] = tree match {
+        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "snapshot"), List(tpe)), List(arg)) =>
+          Some(arg)
+        case _ =>
+          None
+      }
+    }
+
     object ExChooseExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
         case a @ Apply(

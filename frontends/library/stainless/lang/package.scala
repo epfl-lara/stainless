@@ -84,6 +84,9 @@ package object lang {
   @ignore
   def old[T](value: T): T = value
 
+  @ignore @ghost
+  def snapshot[T](value: T): T = value
+
   @library
   @partialEval
   def partialEval[A](x: A): A = x
