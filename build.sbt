@@ -88,7 +88,9 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   testOptions in Test := Seq(Tests.Argument("-oDF")),
 
-  testOptions in IntegrationTest := Seq(Tests.Argument("-oDF"))
+  testOptions in IntegrationTest := Seq(Tests.Argument("-oDF")),
+
+  mappings in (Compile, packageDoc) := Seq()
 )
 
 lazy val libraryFiles: Seq[(String, File)] = {
