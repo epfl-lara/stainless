@@ -1,8 +1,8 @@
 import stainless.lang._
-import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.annotation._
 
-trait Test {
+trait Snapshot {
   var x: BigInt
 
   def f() = {
