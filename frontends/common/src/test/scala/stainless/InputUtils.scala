@@ -6,7 +6,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ trees => xt, TreeSanitizer }
 import frontend.CallBack
-import utils.{ CheckFilter, DependenciesFinder, Registry }
+import utils.{ CheckFilter, DependenciesFinder }
 
 import scala.collection.mutable.ListBuffer
 
@@ -42,9 +42,8 @@ trait InputUtils {
     var syms = xt.NoSymbols
     var done = false
 
-    def updateSyms(extra: xt.Symbols) = {
-      syms = syms.withClasses(extra.classes.values.toSeq)
-                 .withFunctions(extra.functions.values.toSeq)
+    def updateSyms(cls: Seq[xt.ClassDef], funs: Seq[xt.FunDef]) = {
+      syms = syms.withClasses(cls).withFunctions(funs)
     }
 
     val callback = new CallBack {
@@ -52,23 +51,6 @@ trait InputUtils {
       override def stop(): Unit = ()
       override def failed(): Unit = ()
       override def getReport = None
-
-      private val registry = new Registry {
-        override val context = ctx
-
-        override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] =
-          new DependenciesFinder()(fd)
-        override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] =
-          new DependenciesFinder()(cd)
-
-        override def shouldBeChecked(fd: xt.FunDef): Boolean =
-          filterOpt map { _.shouldBeChecked(fd) } getOrElse true
-
-        // When using no custom filter, require the class to be part
-        // of the generated symbols.
-        override def shouldBeChecked(cd: xt.ClassDef): Boolean =
-          filterOpt.isEmpty
-      }
 
       override def beginExtractions(): Unit = ()
 
@@ -78,13 +60,10 @@ trait InputUtils {
         cls ++= classes
         funs ++= functions
 
-        val extraOpt = registry.update(classes, functions)
-        extraOpt foreach updateSyms
+        updateSyms(classes, functions)
       }
 
       override def endExtractions(): Unit = {
-        val extraOpt = registry.checkpoint()
-        extraOpt foreach updateSyms
         done = true
       }
     }
