@@ -67,60 +67,67 @@ object Order {
     }
   }
 
-  // implicit def optionOrder[A](implicit ev: Order[A]): Order[Option[A]] = {
-  //   new Order[Option[A]] {
-  //     override def law_reflexivity(x: Option[A]) = {
-  //       x match {
-  //         case Some(a) => ev.law_reflexivity(a)
-  //         case None() => true
-  //       }
-  //     }
+  @library
+  implicit def optionOrder[A](implicit ev: Order[A]): Order[Option[A]] = {
+    new Order[Option[A]] {
+      override def eqv(x: Option[A], y: Option[A]): Boolean = {
+        (x, y) match {
+          case (None(), None())   => true
+          case (Some(x), Some(y)) => ev.eqv(x, y)
+          case _                  => false
+        }
+      }
 
-  //     override def law_antiSymmetry(x: Option[A], y: Option[A]) = {
-  //       (x, y) match {
-  //         case (Some(a), Some(b)) => ev.law_antiSymmetry(a, b)
-  //         case _ => true
-  //       }
-  //     }
+      override def lteqv(x: Option[A], y: Option[A]): Boolean = {
+        (x, y) match {
+          case (None(), _)        => true
+          case (Some(x), Some(y)) => ev.lteqv(x, y)
+          case _                  => false
+        }
+      }
 
-  //     override def law_transitivity(x: Option[A], y: Option[A], z: Option[A]) = {
-  //       (x, y, z) match {
-  //         case (Some(a), Some(b), Some(c)) => ev.law_transitivity(a, b, c)
-  //         case _ => true
-  //       }
-  //     }
+      override def compare(x: Option[A], y: Option[A]): Int = {
+        (x, y) match {
+          case (None(), _)        => -1
+          case (Some(x), Some(y)) => ev.compare(x, y)
+          case _                  => 1
+        }
+      }
 
-  //     override def eqv(x: Option[A], y: Option[A]): Boolean = {
-  //       (x, y) match {
-  //         case (None(), None())   => true
-  //         case (Some(x), Some(y)) => ev.eqv(x, y)
-  //         case _                  => false
-  //       }
-  //     }
+      override def partialCompare(x: Option[A], y: Option[A]): Comparison = {
+        import Comparison._
+        if (compare(x, y) < 0) Less
+        else if (compare(x, y) == 0) Equals
+        else Greater
+      }
 
-  //     override def lteqv(x: Option[A], y: Option[A]): Boolean = {
-  //       (x, y) match {
-  //         case (None(), _)        => true
-  //         case (Some(x), Some(y)) => ev.lteqv(x, y)
-  //         case _                  => false
-  //       }
-  //     }
+      override def law_reflexivity(x: Option[A]) = {
+        x match {
+          case Some(a) => ev.law_reflexivity(a)
+          case None() => true
+        }
+      }
 
-  //     override def compare(x: Option[A], y: Option[A]): Int = {
-  //       (x, y) match {
-  //         case (None(), _)        => -1
-  //         case (Some(x), Some(y)) => ev.compare(x, y)
-  //         case _                  => 1
-  //       }
-  //     }
+      override def law_antiSymmetry(x: Option[A], y: Option[A]) = {
+        (x, y) match {
+          case (Some(a), Some(b)) => ev.law_antiSymmetry(a, b)
+          case _ => true
+        }
+      }
 
-  //     override def partialCompare(x: Option[A], y: Option[A]): Comparison = {
-  //       import Comparison._
-  //       if (compare(x, y) < 0) Less
-  //       else if (compare(x, y) == 0) Equals
-  //       else Greater
-  //     }
-  //   }
-  // }
+      override def law_transitivity(x: Option[A], y: Option[A], z: Option[A]) = {
+        (x, y, z) match {
+          case (Some(a), Some(b), Some(c)) => ev.law_transitivity(a, b, c)
+          case _ => true
+        }
+      }
 
+      override def law_totality(x: Option[A], y: Option[A]): Boolean = {
+        (x, y) match {
+          case (Some(a), Some(b)) => ev.law_totality(a, b)
+          case _ => true
+        }
+      }
+    }
+  }
 }
