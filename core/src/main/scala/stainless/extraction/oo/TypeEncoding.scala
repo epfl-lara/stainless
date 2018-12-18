@@ -1170,7 +1170,7 @@ trait TypeEncoding
      *  equivalent calls to the same method via both the top-level dispatcher,
      *  and a concrete implementation can carry different reified type parameters.
      */
-    def duplicateWithNoTypeArgs(encoded: t.FunDef, original: s.FunDef): Seq[t.FunDef] = {
+    def createTypeArgsElimWitness(encoded: t.FunDef, original: s.FunDef): Seq[t.FunDef] = {
       def dropRefinements(tpe: t.Type): t.Type = {
         t.typeOps.preMap {
           case t.RefinementType(base, _) => Some(base.tpe)
@@ -1298,7 +1298,7 @@ trait TypeEncoding
     // as a witness that type arguments do not influence the result
     // of the computation of its invocation.
     if (encoded.params.size > fd.params.size) {
-      context.duplicateWithNoTypeArgs(encoded, fd)
+      context.createTypeArgsElimWitness(encoded, fd)
     } else {
       Seq(encoded)
     }
