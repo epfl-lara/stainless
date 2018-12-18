@@ -5,12 +5,10 @@ package extraction
 package oo
 
 import inox.utils.Graphs._
-import java.util.concurrent.atomic.AtomicReference
 
 trait TypeEncoding
   extends ExtractionPipeline
      with SimpleSorts
-     with SimpleFunctions
      with oo.CachingPhase
      with utils.SyntheticSorts { self =>
 
@@ -21,6 +19,9 @@ trait TypeEncoding
   import t.dsl._
   import s.TypeParameterWrapper
 
+  override type FunctionResult = Seq[t.FunDef]
+  protected def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
 
   /* ====================================
    *             IDENTIFIERS
@@ -1158,6 +1159,69 @@ trait TypeEncoding
 
     def sorts: Seq[t.ADTSort] =
       OptionSort.sorts :+ refSort
+
+    /** Duplicate function [[encoded]] that was derived from [[original]] into
+     *  another function without the reified type parameters and an empty body.
+     *  The post of [[encoded]] is then modified to assert that its result
+     *  is equals to the result of this new function, when applied
+     *  to (non-type args) parameters. This allows the solver to deduce that the
+     *  reified type parameters themselves do not influence the result of a call
+     *  to [[encoded]], something that is needed eg., in the presence of GADTs where
+     *  equivalent calls to the same method via both the top-level dispatcher,
+     *  and a concrete implementation can carry different reified type parameters.
+     */
+    def createTypeArgsElimWitness(encoded: t.FunDef, original: s.FunDef): Seq[t.FunDef] = {
+      def dropRefinements(tpe: t.Type): t.Type = {
+        t.typeOps.preMap {
+          case t.RefinementType(base, _) => Some(base.tpe)
+          case _ => None
+        } (tpe)
+      }
+
+      val reifiedTypeArgsCount = encoded.params.size - original.params.size
+      assert(reifiedTypeArgsCount > 0)
+
+      val elimParams = encoded.params
+        .drop(reifiedTypeArgsCount)
+        .map(vd => vd.copy(tpe = dropRefinements(vd.tpe)))
+
+      val eliminated = t.exprOps.freshenSignature(new t.FunDef(
+        original.id.freshen,
+        encoded.tparams,
+        elimParams,
+        dropRefinements(encoded.returnType),
+        t.NoTree(dropRefinements(encoded.returnType)),
+        Seq(t.Derived(original.id))
+      ).copiedFrom(encoded))
+
+      val (vd, post) = t.exprOps.postconditionOf(encoded.fullBody) match {
+        case Some(Lambda(Seq(vd), post)) => (vd, post)
+        case None => (
+          t.ValDef.fresh("res", encoded.returnType),
+          t.BooleanLiteral(true).copiedFrom(encoded.fullBody)
+        )
+      }
+
+      val newPost = t.Lambda(Seq(vd),
+        t.and(
+          post,
+          t.Annotated(
+            t.Equals(
+              vd.toVariable.copiedFrom(post),
+              t.FunctionInvocation(
+                eliminated.id,
+                encoded.tparams.map(_.tp),
+                encoded.params.drop(reifiedTypeArgsCount).map(_.toVariable.copiedFrom(post))
+              ).copiedFrom(post)
+            ).copiedFrom(post),
+            Seq(t.Unchecked)
+          ).copiedFrom(post)
+        )
+      )
+
+      val newBody = t.exprOps.withPostcondition(encoded.fullBody, Some(newPost))
+      Seq(encoded.copy(fullBody = newBody), eliminated)
+    }
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
@@ -1226,7 +1290,20 @@ trait TypeEncoding
   // Classes are simply dropped by this phase, so any cache is valid here
   override protected val classCache = new SimpleCache[s.ClassDef, ClassResult]
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Seq[t.FunDef] = {
+    val encoded = context.transform(fd)
+
+    // If function has gained new parameters for reifed types,
+    // we create a dummy version of it without any type arguments
+    // as a witness that type arguments do not influence the result
+    // of the computation of its invocation.
+    if (encoded.params.size > fd.params.size) {
+      context.createTypeArgsElimWitness(encoded, fd)
+    } else {
+      Seq(encoded)
+    }
+  }
+
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
 
   // Classes are simply dropped by this extraction phase
