@@ -20,7 +20,7 @@ object Patching extends IRs{
     case None => None
   }
 
-  def patchPattern(pattern: xt.Pattern): xt.Pattern = pattern match {
+  def patchPattern(pattern: xt.Pattern): xt.Pattern = (pattern match {
     case trees.LiteralPattern(binder, lit) =>
       trees.LiteralPattern(patchOptionalBinder(binder), patchExpr(lit).asInstanceOf[trees.Literal[Any]])
     case trees.TuplePattern(binder, subPatterns) =>
@@ -29,12 +29,12 @@ object Patching extends IRs{
       trees.WildcardPattern(patchOptionalBinder(binder))
     case trees.InstanceOfPattern(binder, tpe) =>
       trees.InstanceOfPattern(patchOptionalBinder(binder), patchType(tpe))
-  }
+  }).setPos(pattern.getPos)
 
   def patchMatchCase(matchCase: xt.MatchCase): xt.MatchCase =
-    xt.MatchCase(patchPattern(matchCase.pattern), patchGuard(matchCase.optGuard), patchExpr(matchCase.rhs))
+    xt.MatchCase(patchPattern(matchCase.pattern), patchGuard(matchCase.optGuard), patchExpr(matchCase.rhs)).setPos(matchCase.getPos)
 
-  def patchExpr(expr: trees.Expr): trees.Expr = expr match {
+  def patchExpr(expr: trees.Expr): trees.Expr = (expr match {
     // patched expressions
     case trees.Variable(ident, tpe, flags) => new trees.Variable(ident, patchType(tpe), flags)
     case trees.ADT(ident, tps, args) =>
@@ -147,26 +147,26 @@ object Patching extends IRs{
       trees.MapUpdated(patchExpr(map), patchExpr(key), patchExpr(value))
     case trees.And(exprs) => trees.And(exprs.map(patchExpr))
     case a: trees.Literal[Any] => a
-    case trees.MatchExpr(scrutinee, cases) => trees.MatchExpr(patchExpr(scrutinee), cases.map(patchMatchCase(_)))
+    case trees.MatchExpr(scrutinee, cases) => trees.MatchExpr(patchExpr(scrutinee), cases.map(patchMatchCase))
     case _ =>
       throw new Exception("Should not reach this branch in expression patching")
-  }
+  }).setPos(expr.getPos)
 
-  def patchDef(definition: trees.Definition): trees.Definition = definition match {
+  def patchDef(definition: trees.Definition): trees.Definition = (definition match {
     case valDef: trees.ValDef => new trees.ValDef(patchExpr(valDef.toVariable).asInstanceOf[trees.Variable])
-  }
+  }).setPos(definition.getPos)
 
   def patchParams(params: Seq[trees.ValDef]): Seq[xt.ValDef] =
-    params.map(a => new xt.ValDef(patchExpr(a.toVariable).asInstanceOf[trees.Variable]))
+    params.map(a => new xt.ValDef(patchExpr(a.toVariable).asInstanceOf[trees.Variable]).setPos(a.getPos))
 
   def patchType(tpe: trees.Type): xt.Type = tpe match {
-    case trees.ADTType(typeId, tps) => trees.ClassType(typeId, tps.map(patchType))
+    case trees.ADTType(typeId, tps) => trees.ClassType(typeId, tps.map(patchType)).setPos(tpe.getPos)
     case _ => tpe
   }
 
   def patchFunction(function: trees.FunDef): trees.FunDef =
     new trees.FunDef(function.id, function.tparams, patchParams(function.params), patchType(function.returnType),
-      patchExpr(function.fullBody), function.flags)
+      patchExpr(function.fullBody), function.flags).setPos(function.getPos)
 
   /**
     * Does patching after the elaboration is finished

@@ -11,7 +11,7 @@ import dotty.tools.dotc.util.Positions.Position
 import stainless.frontends.dotc.SymbolsContext
 import stainless.frontends.fast.IRs
 import stainless.frontends.fast.irs.{PatternMatching, StainlessExprs}
-import stainless.{FreshIdentifier, Identifier}
+import stainless.{FreshIdentifier, Identifier, frontend}
 
 import scala.language.implicitConversions
 
@@ -53,10 +53,26 @@ trait DottyToInoxIR
     }).toOption.getOrElse(scala.util.parsing.input.NoPosition)
 
 
-//  def outOfSubsetError(pos: Position, msg: String)(implicit ctx: Context): Nothing =
-//    throw new frontend.UnsupportedCodeException(dottyPosToParserCombinatorPos(pos), msg)
-//
-//  def outOfSubsetError(t: untpd.Tree, msg: String)(implicit ctx: Context): Nothing = outOfSubsetError(t.pos, msg)
+  implicit def dottyPosToInoxPos(p: Position)(implicit ctx: Context): inox.utils.Position = scala.util.Try({
+    if (!p.exists) {
+      inox.utils.NoPosition
+    } else if (p.start != p.end) {
+      val start = ctx.source.atPos(p.startPos)
+      val end   = ctx.source.atPos(p.endPos)
+      inox.utils.RangePosition(start.line + 1, start.column + 1, start.point,
+        end.line + 1, end.column + 1, end.point,
+        ctx.source.file.file)
+    } else {
+      val sp = ctx.source.atPos(p)
+      inox.utils.OffsetPosition(sp.line + 1, sp.column + 1, sp.point,
+        ctx.source.file.file)
+    }
+  }).toOption.getOrElse(inox.utils.NoPosition)
+
+  def outOfSubsetError(pos: Position, msg: String)(implicit ctx: Context): Nothing =
+    throw new frontend.UnsupportedCodeException(dottyPosToInoxPos(pos), msg)
+
+  def outOfSubsetError(t: untpd.Tree, msg: String)(implicit ctx: Context): Nothing = outOfSubsetError(t.pos, msg)
 
 
   def extractRef(t: untpd.RefTree)(implicit inoxCtx: inox.Context, cache: SymbolsContext, ctx: Context): Identifier = {
@@ -80,13 +96,13 @@ trait DottyToInoxIR
     extractStatic(template.body)
   }
 
-  def extractTypeParams(typeParams: Seq[untpd.TypeDef]): Identifiers.IdentifierSeq =
-    HSeq.fromSeq(typeParams.map(tree => Identifiers.IdentifierName(tree.name.toString())))
+  def extractTypeParams(typeParams: Seq[untpd.TypeDef])(implicit ctx: Context): Identifiers.IdentifierSeq =
+    HSeq.fromSeq(typeParams.map(tree => Identifiers.IdentifierName(tree.name.toString()).setPos(tree.pos)))
 
-  def extractBinding(valDef: untpd.ValDef)(implicit ctx: Context): Bindings.Binding = extractType(valDef.tpt) match {
-    case Some(tpe) => Bindings.ExplicitValDef(Identifiers.IdentifierName(valDef.name.toString), tpe).setPos(valDef.pos)
-    case _ => Bindings.InferredValDef(Identifiers.IdentifierName(valDef.name.toString)).setPos(valDef.pos)
-  }
+  def extractBinding(valDef: untpd.ValDef)(implicit ctx: Context): Bindings.Binding = (extractType(valDef.tpt) match {
+    case Some(tpe) => Bindings.ExplicitValDef(Identifiers.IdentifierName(valDef.name.toString), tpe)
+    case _ => Bindings.InferredValDef(Identifiers.IdentifierName(valDef.name.toString))
+  }).setPos(valDef.pos)
 
   def extractBindings(valDefs: Seq[untpd.ValDef])(implicit ctx: Context): Bindings.BindingSeq =
     HSeq.fromSeq(valDefs.map(valDef => extractBinding(valDef)))
@@ -108,14 +124,14 @@ trait DottyToInoxIR
   def extractType(tpe: untpd.Tree)(implicit ctx: Context): Option[Types.Type] = tpe match {
     case Ident(name) => Some(mapNameToType(name).setPos(tpe.pos))
     case untpd.Function(args, body) =>
-      Some(Types.FunctionType(HSeq.fromSeq(args.map(extractType(_).get)), extractType(body).get))
-    case untpd.Tuple(list) => Some(Types.TupleType(extractTypeArgs(list).get))
+      Some(Types.FunctionType(HSeq.fromSeq(args.map(extractType(_).get.setPos(tpe.pos))), extractType(body).get.setPos(body.pos)))
+    case untpd.Tuple(list) => Some(Types.TupleType(extractTypeArgs(list).get).setPos(tpe.pos))
     case AppliedTypeTree(Ident(name), list) if name.toString == "Set" =>
-      Some(Types.Operation(Types.Operators.Set, extractTypeArgs(list).get))
+      Some(Types.Operation(Types.Operators.Set, extractTypeArgs(list).get).setPos(tpe.pos))
     case AppliedTypeTree(Ident(name), list) if name.toString == "Bag" =>
-      Some(Types.Operation(Types.Operators.Bag, extractTypeArgs(list).get))
+      Some(Types.Operation(Types.Operators.Bag, extractTypeArgs(list).get).setPos(tpe.pos))
     case AppliedTypeTree(Ident(name), list) if name.toString == "Map" =>
-      Some(Types.Operation(Types.Operators.Map, extractTypeArgs(list).get))
+      Some(Types.Operation(Types.Operators.Map, extractTypeArgs(list).get).setPos(tpe.pos))
     case _: untpd.TypeTree => None
     case _ => throw new Exception(tpe.toString)
   }
@@ -193,7 +209,7 @@ trait DottyToInoxIR
     case untpd.Tuple(trees) if trees.length == 2 => Exprs.Pair(extractExpression(trees.head), extractExpression(trees(1)))
     case InfixOp(left, op, right) if op.name.toString == "->"=>
       Exprs.Pair(extractExpression(left), extractExpression(right))
-    case _ => throw new Exception("Pair creation")
+    case _ => outOfSubsetError(value, "Trying to extract a pair")
   }
 
   def extractPattern(pat: Tree[Untyped])(implicit ctx: Context, dctx: DefContext): PatternMatchings.Pattern = pat match {
@@ -208,7 +224,6 @@ trait DottyToInoxIR
     case Bind(name, untpd.Tuple(list)) =>
       PatternMatchings.TuplePattern(Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))),
         list.map(extractPattern(_)))
-//    case Typed(Ident(name))
     case Typed(Ident(name), tpt) =>
       PatternMatchings.InstanceOf(
         Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))), extractType(tpt).get)
@@ -217,7 +232,7 @@ trait DottyToInoxIR
       PatternMatchings.WildcardPattern(Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))))
     case untpd.Tuple(trees) =>
       PatternMatchings.TuplePattern(None, trees.map(extractPattern(_)))
-    case _ => throw new Exception("Unsupported pattern matching " + pat.toString)
+    case _ => outOfSubsetError(pat, "This pattern is curently not supported")
   }
 
 
@@ -229,10 +244,10 @@ trait DottyToInoxIR
   def extractCase(value: CaseDef[Untyped])(implicit ctx: Context, dctx: DefContext): PatternMatchings.MatchCase =
     PatternMatchings.MatchCase(extractPattern(value.pat), extractGuard(value.guard), extractBody(value.body))
 
-  def extractExpression(rhs: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = (rhs match {
+  def extractExpression(expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = (expr match {
     case Ident(name) =>
-      val identifier = Identifiers.IdentifierName(name.toString.trim).setPos(rhs.pos)
-      Exprs.Variable(identifier).setPos(rhs.pos)
+      val identifier = Identifiers.IdentifierName(name.toString.trim).setPos(expr.pos)
+      Exprs.Variable(identifier)
 //      if (dctx.isVariable(identifier))
 //        Exprs.Variable(identifier).setPos(rhs.pos)
 //      else
@@ -275,7 +290,7 @@ trait DottyToInoxIR
     case InfixOp(left, op, right) if op.name.toString == "->"=>
       Exprs.Tuple(HSeq.fromSeq(extractExpression(left) :: extractExpression(right) :: Nil))
     case InfixOp(left, op, right) =>
-      makeInfixOp(op, left, right).setPos(dottyPosToParserCombinatorPos(rhs.pos))
+      makeInfixOp(op, left, right)
     case untpd.PrefixOp(op, body) =>
       makePrefixOp(op, body)
     case Apply(fun: untpd.Ident, args) =>
@@ -300,9 +315,11 @@ trait DottyToInoxIR
       PatternMatchings.MatchExpression(extractExpression(selector), HSeq.fromSeq(cases.map(extractCase(_))))
     case untpd.EmptyTree =>
       Exprs.UnitLiteral()
-  }).setPos(rhs.pos)
+    case _ =>
+      outOfSubsetError(expr, "This tree is not supported at expression position")
+  }).setPos(expr.pos)
 
-  def processBody(stats: List[Tree[Untyped]], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
+  def processBody(stats: List[untpd.Tree], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
     def rec(stats: List[untpd.Tree]): Exprs.Expr = stats match {
       case (head:untpd.ValDef) :: Nil =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
@@ -310,10 +327,11 @@ trait DottyToInoxIR
       case (head:untpd.ValDef) :: tail =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
           rec(tail)).setPos(head.pos)
-      case (a @ Apply(fun, args)) :: tail =>
+      case (a @ Apply(_, _)) :: tail =>
         Exprs.Let(Bindings.InferredValDef(Identifiers.IdentifierName(FreshIdentifier.apply("binder").name)), extractExpression(a),
           rec(tail)
-        )
+        ).setPos(stats.head.pos)
+      case head :: tail => outOfSubsetError(head, "Currently not supported in body")
       case Nil => extractExpression(expr)
     }
     rec(stats)
@@ -330,8 +348,8 @@ trait DottyToInoxIR
     * Extracts static currently no classes, no modules, no classes and no imports
     * How to model modules in the current implementation
     *
-    * @param stats
-    * @return
+    * @param stats list of trees
+    * @return sequence of extracted sorts and functions
     */
   def extractStatic(stats: List[untpd.Tree])
                    (implicit inoxCtx: inox.Context, cache: SymbolsContext, ctx: Context):
@@ -386,7 +404,7 @@ trait DottyToInoxIR
             case TypeDef(name, tree: untpd.Template) if mods.is(Flags.Abstract) && !mods.is(Flags.Synthetic) =>
               val adtIdentifier = Identifiers.IdentifierName(name.toString())
               if (adtMap contains adtIdentifier)
-                throw new Exception(s"ADT of the name $adtIdentifier is allready defined")
+                throw new Exception(s"ADT of the name $adtIdentifier is all ready defined")
               val params = extractTypeParams(tree.constr.tparams)
               adtMap(adtIdentifier) = params
             // case class as an ADT constructor
@@ -402,12 +420,13 @@ trait DottyToInoxIR
               val parameterIdentifiers = bindings.elems.map {
                 case Right(binding: Bindings.InferredValDef) => binding.identifier
                 case Right(binding: Bindings.ExplicitValDef) => binding.identifier
-                case Right(_) => throw new Exception("Not expected to be something else")
+                case _ => throw new Exception("Function extraction should not return anything other than a Right")
               }.toSet
               result = result :+
                 Right(Function(Identifiers.IdentifierName(name.toString), extractTypeParams(typeParams),
                   extractBindings(valDefs), extractType(returnType),
                   extractBody(body)(ctx, DefContext(parameterIdentifiers))).setPos(stat.pos))
+            case _ => outOfSubsetError(t, "Trying to extract a pair")
           }
     }
 
