@@ -41,6 +41,7 @@ trait DottyToInoxIR
   private val Int8Type = Types.Primitives.BVType(signed = true, 8)
   private val Int16Type = Types.Primitives.BVType(signed = true, 16)
   private val Int32Type = Types.Primitives.BVType(signed = true, 32)
+  private val Int64Type = Types.Primitives.BVType(signed = true, 64)
 
 
   implicit def dottyPosToParserCombinatorPos(p: Position)(implicit ctx: Context): scala.util.parsing.input.Position =
@@ -112,7 +113,7 @@ trait DottyToInoxIR
     case "Boolean" => Types.Primitive(Types.Primitives.BooleanType)
     case "Short" => Types.Primitive(Int16Type)
     case "Byte" => Types.Primitive(Int8Type)
-    case "Long" => Types.Primitive(Types.Primitives.IntegerType)
+    case "Long" => Types.Primitive(Int64Type)
     case "Real" => Types.Primitive(Types.Primitives.RealType)
     case "String" => Types.Primitive(Types.Primitives.StringType)
     case "Unit" => Types.Primitive(Types.Primitives.UnitType)
@@ -169,6 +170,8 @@ trait DottyToInoxIR
       extractExpression(left), extractExpression(right))
     case "==" => Exprs.BinaryOperation(Exprs.Binary.Equals,
       extractExpression(left), extractExpression(right))
+    case "!=" => Exprs.UnaryOperation(Exprs.Unary.Not, Exprs.BinaryOperation(Exprs.Binary.Equals,
+      extractExpression(left), extractExpression(right)))
     case "||" => Exprs.NaryOperation(Exprs.NAry.Or,
       HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
     case "&&" => Exprs.NaryOperation(Exprs.NAry.And,
@@ -272,7 +275,7 @@ trait DottyToInoxIR
     case Literal(const) =>
       const.tag match {
         case Constants.LongTag =>
-          Exprs.IntegerLiteral(const.longValue)
+          StainlessExprs.Int64Literal(const.longValue)
         case Constants.IntTag =>
           StainlessExprs.Int32Literal(const.intValue)
         case Constants.ShortTag =>
@@ -322,19 +325,24 @@ trait DottyToInoxIR
 
   def processBody(stats: List[untpd.Tree], expr: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = {
     def rec(stats: List[untpd.Tree]): Exprs.Expr = stats match {
-      case (head:untpd.ValDef) :: Nil =>
+      case (head: untpd.ValDef) :: Nil =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
           extractExpression(expr)).setPos(head.pos)
-      case (head:untpd.ValDef) :: tail =>
+      case (head: untpd.ValDef) :: tail =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
           rec(tail)).setPos(head.pos)
-      case (a @ Apply(_, _)) :: tail =>
+      case (a@Apply(Ident(name), body)) :: tail if name.toString == "require" && body.length == 1 =>
+        StainlessExprs.Require(extractExpression(body.head),
+          rec(tail)
+        ).setPos(stats.head.pos)
+      case (a@Apply(_, _)) :: tail =>
         Exprs.Let(Bindings.InferredValDef(Identifiers.IdentifierName(FreshIdentifier.apply("binder").name)), extractExpression(a),
           rec(tail)
         ).setPos(stats.head.pos)
       case head :: tail => outOfSubsetError(head, "Currently not supported in body")
       case Nil => extractExpression(expr)
     }
+
     rec(stats)
   }
 

@@ -1,5 +1,24 @@
 object ExploratoryTest {
 
+//  def fib1(n: Int): Int = n match {
+//    case 0 => n
+//    case 1 => n
+//    case _ => fib1(n - 1) + fib1(n - 2)
+//  }
+//
+//  def factorial(n: Int): Int = {
+//    if (n == 0)
+//      1
+//    else
+//      n * factorial(n-1)
+//  }
+
+  def test(x: Short, y: Short): Short = x * y
+
+//  def test(a: Int, b: Int): Int = {
+//    require(b > 0)
+//    a / b
+//  }
 
   //  def bar[T](n: Map[T, T], elem: (T, T)): Map[T, T] = {
   //    n + elem
@@ -53,5 +72,5 @@ object ExploratoryTest {
   //    print(call())
   //}
 
-  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
+  //  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
 }
