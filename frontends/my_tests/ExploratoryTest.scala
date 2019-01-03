@@ -53,5 +53,5 @@ object ExploratoryTest {
   //    print(call())
   //}
 
-  def union(a: Set[Int], b: Bag[Int]): Bag[Int] = a ++ b
+  def union(a: Set[Int], b: Set[Int]): Set[Int] = a -- b
 }
