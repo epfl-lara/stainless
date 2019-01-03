@@ -176,14 +176,13 @@ trait DottyToInoxIR
     case "==>" => Exprs.NaryOperation(Exprs.NAry.Or,
       HSeq.fromSeq(Seq(
         Exprs.UnaryOperation(Exprs.Unary.Not, extractExpression(left)), extractExpression(right))))
-    case "++" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetUnion, None,
-      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
-    case "&" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetIntersection, None,
-      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
-    case "contains" => Exprs.PrimitiveInvocation(Exprs.Primitive.ElementOfSet, None,
-      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
-    case "--" => Exprs.PrimitiveInvocation(Exprs.Primitive.SetDifference, None,
-      HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
+    case "++" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Union,
+      extractExpression(left), extractExpression(right))
+    case "&" => Exprs.BinaryOperation(Exprs.Binary.BVAnd, extractExpression(left), extractExpression(right))
+    case "contains" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Contains,
+      extractExpression(left), extractExpression(right))
+    case "--" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Difference,
+      extractExpression(left), extractExpression(right))
     case "subsetOf" => Exprs.PrimitiveInvocation(Exprs.Primitive.Subset, None,
       HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
   }

@@ -24,33 +24,34 @@ object ExploratoryTest {
   //    case (a, b) => a
   //  }
 
-//  def test3[A, B]: Unit = ()
-//
-//
-//  def test[A, B](first: A, second: B): (A, B) = (first, second)
+  //  def test3[A, B]: Unit = ()
+  //
+  //
+  //  def test[A, B](first: A, second: B): (A, B) = (first, second)
 
-  def second[T, B](a: T, b: B): (B, T) = (b, a)
+  //  def second[T, B](a: T, b: B): (B, T) = (b, a)
+  //
+  //  def call2(): (Char, Int) = {
+  //    second(2, 'a')
+  //  }
+  //
+  //  def second(a: Int, b: Int): (Int, Int) = (a, b)
+  //
+  //  def second(a: Int, b: Char): (Char, Int) = (b, a)
+  //
+  //  def call(): (Int, Int) = {
+  //    second(2, 2)
+  //  }
+  //
+  //  def call1(): (Char, Int) = {
+  //    second(2, 'a')
+  //  }
+  //
+  //  def main(): Unit = {
+  //    call()
+  //    ()
+  //    print(call())
+  //}
 
-  def call2(): (Char, Int) = {
-    second(2, 'a')
-  }
-
-  def second(a: Int, b: Int): (Int, Int) = (a, b)
-
-  def second(a: Int, b: Char): (Char, Int) = (b, a)
-
-  def call(): (Int, Int) = {
-    second(2, 2)
-  }
-
-  def call1(): (Char, Int) = {
-    second(2, 'a')
-  }
-
-  def main(): Unit = {
-    call()
-    ()
-//    print(call())
-  }
-
+  def union(a: Set[Int], b: Bag[Int]): Bag[Int] = a ++ b
 }

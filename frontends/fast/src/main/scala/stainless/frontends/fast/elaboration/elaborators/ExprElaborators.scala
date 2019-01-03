@@ -134,6 +134,33 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.exist(resultType))
           }
         }
+      case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Union, lhs, rhs) =>
+        val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
+          ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
+            Constrained.pure((dataType, Eventual.withUnifier { implicit unifier =>
+              (lhsTpe, rhsTpe) match {
+                case (a: SimpleTypes.SetType, b: SimpleTypes.SetType) if a == b =>
+                  trees.SetUnion(lhsEventual.get, rhsEventual.get)
+                case (a: SimpleTypes.BagType, b: SimpleTypes.BagType) if a == b =>
+                  trees.BagUnion(lhsEventual.get, rhsEventual.get)
+                case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+              }
+            }))
+              .addConstraint(Constraint.
+                oneOf(SimpleTypes.FunctionType(Seq(dataType, dataType), dataType), Seq(
+                  SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), SimpleTypes.SetType(elemType)), SimpleTypes.SetType(elemType)),
+                  SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), SimpleTypes.BagType(elemType)), SimpleTypes.BagType(elemType))
+                )
+                ))
+              .addConstraint(Constraint.equal(lhsTpe, dataType))
+              .addConstraint(Constraint.equal(rhsTpe, dataType))
+              .addConstraint(Constraint.exist(dataType))
+              .addConstraint(Constraint.exist(elemType))
+          }
+        }
+
       case _ => super.elaborate(template)
     }
   }

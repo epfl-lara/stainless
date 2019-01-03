@@ -16,5 +16,12 @@ trait StainlessExprs extends inox.parser.irs.Exprs {self: IRs =>
     case class Int32Literal(value: Int) extends StainelessExpr with Exprs.Literal
     case class Int16Literal(value: Short) extends StainelessExpr with Exprs.Literal
     case class Int8Literal(value: Byte) extends StainelessExpr with Exprs.Literal
+
+    object AdditionalOperators {
+      case object Union extends Exprs.Binary.Operator
+      case object Difference extends Exprs.Binary.Operator
+      case object Contains extends Exprs.Binary.Operator
+      case object IsDefinedAt extends Exprs.Binary.Operator
+    }
   }
 }
