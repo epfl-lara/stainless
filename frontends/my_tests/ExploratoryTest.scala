@@ -53,5 +53,5 @@ object ExploratoryTest {
   //    print(call())
   //}
 
-  def union(a: Set[Int], b: Set[Int]): Set[Int] = a -- b
+  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
 }

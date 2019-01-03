@@ -183,6 +183,8 @@ trait DottyToInoxIR
       extractExpression(left), extractExpression(right))
     case "--" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Difference,
       extractExpression(left), extractExpression(right))
+    case "updated" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Updated,
+      extractExpression(left), extractExpression(right))
     case "subsetOf" => Exprs.PrimitiveInvocation(Exprs.Primitive.Subset, None,
       HSeq.fromSeq(Seq(extractExpression(left), extractExpression(right))))
   }

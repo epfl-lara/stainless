@@ -61,7 +61,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, rhsTpe) match {
+              (lhsTpe, unifier(rhsTpe)) match {
                 case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
                   trees.Plus(lhsEventual.get, rhsEventual.get)
                 case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
@@ -185,6 +185,63 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                   .addConstraint(Constraint.exist(dataType))
                   .addConstraint(Constraint.exist(elemType))
             }
+        }
+      case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Contains, lhs, rhs) =>
+        val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
+          ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
+            Constrained.pure((SimpleTypes.BooleanType(), Eventual.withUnifier { implicit unifier =>
+              (lhsTpe, rhsTpe) match {
+                case (SimpleTypes.SetType(a), b) if a == b =>
+                  trees.ElementOfSet(rhsEventual.get, lhsEventual.get)
+                case (SimpleTypes.BagType(a), b) if a == b =>
+                  trees.MultiplicityInBag(rhsEventual.get, lhsEventual.get)
+                case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+              }
+            }))
+              .addConstraint(Constraint.
+                oneOf(SimpleTypes.FunctionType(Seq(dataType, elemType), SimpleTypes.BooleanType()), Seq(
+                  SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), elemType), SimpleTypes.BooleanType()),
+                  SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), elemType), SimpleTypes.BooleanType())
+                )))
+              .addConstraint(Constraint.equal(lhsTpe, dataType))
+              .addConstraint(Constraint.equal(rhsTpe, elemType))
+              .addConstraint(Constraint.exist(dataType))
+              .addConstraint(Constraint.exist(elemType))
+          }
+        }
+
+      case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Updated, lhs, rhs) =>
+        val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val tupleFirst = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val tupleSecond = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
+          ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
+            Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
+              (lhsTpe, unifier(rhsTpe)) match {
+                case (SimpleTypes.MapType(from, to), SimpleTypes.TupleType(types)) if types.size == 2 && types.head == from && types(1) == to =>
+                  val tupleTree = rhsEventual.get
+                  trees.MapUpdated(lhsEventual.get, trees.TupleSelect(tupleTree, 1), trees.TupleSelect(tupleTree, 2))
+                case _ => throw new IllegalStateException("Unifier returned unexpected value.")
+              }
+            }))
+              .addConstraint(Constraint.
+                oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                  Seq(
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
+                  )))
+              .addConstraint(Constraint.oneOf(rhsTpe,
+                Seq(
+                  rhsUnknown,
+                  SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
+                  ))))
+              .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
+              .addConstraint(Constraint.equal(lhsTpe, resultType))
+              .addConstraint(Constraint.exist(resultType))
+          }
         }
       case _ => super.elaborate(template)
     }

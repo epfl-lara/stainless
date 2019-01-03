@@ -21,7 +21,7 @@ trait StainlessExprs extends inox.parser.irs.Exprs {self: IRs =>
       case object Union extends Exprs.Binary.Operator
       case object Difference extends Exprs.Binary.Operator
       case object Contains extends Exprs.Binary.Operator
-      case object IsDefinedAt extends Exprs.Binary.Operator
+      case object Updated extends Exprs.Binary.Operator
     }
   }
 }
