@@ -365,6 +365,11 @@ trait ImperativeCodeElimination
           val ifExpr = args.reduceRight((el, acc) => IfExpr(el, BooleanLiteral(true), acc))
           toFunction(ifExpr)
 
+        // @romac: Implies needs to be transform into if-else statements, much like Or and And,
+        //         as otherwise assertions get lifted outside of the implication. See #425.
+        case i @ Implies(lhs, rhs) =>
+          toFunction(Or(Not(lhs).copiedFrom(lhs), rhs).copiedFrom(i))
+
         //TODO: this should be handled properly by the Operator case, but there seems to be a subtle bug in the way Let's are lifted
         //      which leads to Assert refering to the wrong value of a var in some cases.
         case a @ Assert(cond, msg, body) =>
