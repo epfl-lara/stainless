@@ -1,5 +1,35 @@
 object ExploratoryTest {
 
+
+  def tesint(): String = {
+    val first = "Stevan"
+    val second = " Ognjanovic"
+    first + second
+  }
+
+//  def check(): Unit = {
+//    val f1 = (x: Int) => x + 1             // simple anonymous function
+//    val y  = 2
+//    val f2 = (x: Int) => f1(x) + y             // closes over `f1` and `y`
+//    val f3 = (x: Int) => if (x < 0) f1 else f2
+//  }
+
+//  def max(x: Int, y: Int): Int = {
+//    require(0 <= x && 0 <= y)
+//    val d = x - y
+//    if (d > 0) x
+//    else y
+//  }
+//
+//  def calling(): Int = {
+//    max(1, 2)
+//  }
+//  def foo1(x: Int): Int = {
+//    x match {
+//      case 1 => 2
+//    }
+//  }
+
 //  def fib1(n: Int): Int = n match {
 //    case 0 => n
 //    case 1 => n
@@ -13,7 +43,7 @@ object ExploratoryTest {
 //      n * factorial(n-1)
 //  }
 
-  def test(x: Short, y: Short): Short = x * y
+//  def test(x: Short, y: Short): Short = x * y
 
 //  def test(a: Int, b: Int): Int = {
 //    require(b > 0)

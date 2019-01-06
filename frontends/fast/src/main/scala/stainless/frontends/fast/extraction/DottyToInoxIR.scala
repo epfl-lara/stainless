@@ -236,7 +236,7 @@ trait DottyToInoxIR
       PatternMatchings.WildcardPattern(Some(Bindings.InferredValDef(Identifiers.IdentifierName(name.toString))))
     case untpd.Tuple(trees) =>
       PatternMatchings.TuplePattern(None, trees.map(extractPattern(_)))
-    case _ => outOfSubsetError(pat, "This pattern is curently not supported")
+    case _ => outOfSubsetError(pat, "This pattern is currently not supported")
   }
 
 

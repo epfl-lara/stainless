@@ -125,9 +125,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val tupleFirst = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val tupleSecond = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val numericTypeLeft = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val numericTypeRight = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val numericTypeResult = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val numericType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
@@ -141,23 +139,20 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                 case (SimpleTypes.MapType(from, to), SimpleTypes.TupleType(types)) if types.size == 2 && types.head == from && types(1) == to =>
                   val tupleTree = rhsEventual.get
                   trees.MapUpdated(lhsEventual.get, trees.TupleSelect(tupleTree, 1), trees.TupleSelect(tupleTree, 2))
-                // for all different type of additions
-                case (SimpleTypes.IntegerType() | SimpleTypes.RealType() | SimpleTypes.BitVectorType(_, _), rtpe) =>
-                  injectCasts(trees.Plus)(lhsEventual.get, unifier(lhsTpe), rhsEventual.get, rtpe)
-                //                case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
-                //                  trees.Plus(lhsEventual.get, rhsEventual.get)
-                //                case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
-                //                  if signed1 == signed2 && size1 == size2 =>
-                //                  trees.Plus(lhsEventual.get, rhsEventual.get)
-                //                case (SimpleTypes.RealType(), SimpleTypes.RealType()) =>
-                //                  trees.Plus(lhsEventual.get, rhsEventual.get)
+                case (SimpleTypes.IntegerType(), SimpleTypes.IntegerType()) =>
+                  trees.Plus(lhsEventual.get, rhsEventual.get)
+                case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2))
+                  if signed1 == signed2 && size1 == size2 =>
+                  trees.Plus(lhsEventual.get, rhsEventual.get)
+                case (SimpleTypes.RealType(), SimpleTypes.RealType()) =>
+                  trees.Plus(lhsEventual.get, rhsEventual.get)
                 case _ => throw new IllegalStateException("Unifier returned unexpected value.")
               }
             }))
               .addConstraint(Constraint.
                 oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
-                    SimpleTypes.FunctionType(Seq(numericTypeLeft, numericTypeRight), numericTypeResult),
+                    SimpleTypes.FunctionType(Seq(numericType, numericType), numericType),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), rhsUnknown), SimpleTypes.SetType(rhsUnknown)),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown)),
@@ -168,11 +163,9 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                   rhsUnknown,
                   SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
                   ))))
-              .addConstraint(Constraint.isNumeric(numericTypeLeft))
-              .addConstraint(Constraint.isNumeric(numericTypeRight))
-              .addConstraint(Constraint.isNumeric(numericTypeResult))
+              .addConstraint(Constraint.isNumeric(numericType))
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
-              //              .addConstraint(Constraint.equal(lhsTpe, resultType))
+              .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
           }
         }
