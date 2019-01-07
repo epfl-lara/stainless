@@ -1,17 +1,46 @@
 object ExploratoryTest {
 
+//  def matching(a: Int): String = a match {
+//    case 1 => "First"
+//    case 2 => "Second"
+//    case _ if a < 5 => "Third"
+//    case _ => "Rest"
+//  }
 
-  def tesint(): String = {
-    val first = "Stevan"
-    val second = " Ognjanovic"
-    first + second
-  }
 
-//  def check(): Unit = {
+//  def first(a: Int, b: Int): Int = a + b
+//
+//  def first(a: String, b: String): Int = 1
+//
+//  def test() = {
+//    val a = 1
+//    val b = 2
+//    first(a, b)
+//  }
+//
+//  def tesint(): String = {
+//    val first = "Stevan"
+//    val second = " Ognjanovic"
+//    first + second
+//  }
+//
+//  def check() = {
 //    val f1 = (x: Int) => x + 1             // simple anonymous function
 //    val y  = 2
 //    val f2 = (x: Int) => f1(x) + y             // closes over `f1` and `y`
 //    val f3 = (x: Int) => if (x < 0) f1 else f2
+//  }
+//
+//  def first(a: Set[Int], b: Int) = {
+//    a + b
+//  }
+//
+//  def second(a: Int, b: Int) = {
+//    a + b
+//  }
+//
+//  def third(a: Map[Int, String], b: Int, c: String) = {
+//    a + (b -> c)
 //  }
 
 //  def max(x: Int, y: Int): Int = {
@@ -78,29 +107,26 @@ object ExploratoryTest {
   //
   //  def test[A, B](first: A, second: B): (A, B) = (first, second)
 
-  //  def second[T, B](a: T, b: B): (B, T) = (b, a)
-  //
-  //  def call2(): (Char, Int) = {
-  //    second(2, 'a')
-  //  }
-  //
-  //  def second(a: Int, b: Int): (Int, Int) = (a, b)
-  //
-  //  def second(a: Int, b: Char): (Char, Int) = (b, a)
-  //
-  //  def call(): (Int, Int) = {
-  //    second(2, 2)
-  //  }
-  //
-  //  def call1(): (Char, Int) = {
-  //    second(2, 'a')
-  //  }
+//  // first
+//  def fun[B](a: String, b: B): (B, String) = (b, a)
+//  // second
+//  def fun(a: Int, b: Int): (Int, Int) = (a, b)
+//  // third
+//  def fun(a: Int, b: Char): (Char, Int) = (b, a)
+//
+//  def calls()= {
+//    fun(1, 2)         // elaborated to second
+//    fun(1, 'b')       // elaborated to third
+//    fun("Foo", "Bar") // elaborated to first
+//  }
   //
   //  def main(): Unit = {
   //    call()
   //    ()
   //    print(call())
   //}
+
+  def setCreation(): Map[Int, String] = Map[Int, String]((1, "Marko")).withDefault("Stevan")
 
   //  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
 }

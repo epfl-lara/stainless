@@ -265,12 +265,23 @@ trait DottyToInoxIR
       Exprs.SetConstruction(None, HSeq.fromSeq(args.map(extractExpression(_))))
     case Apply(Ident(name), args) if name.toString == "Bag" =>
       Exprs.BagConstruction(None, HSeq.fromSeq(args.map(extractPairs(_))))
+    case Apply(Ident(name), args) if name.toString == "Map" =>
+      outOfSubsetError(expr, "Please use the Map[K, V](args).withDefault(default) as implicit default is not supported")
     case Apply(TypeApply(Ident(name), targs), args) if name.toString == "Set" =>
       Exprs.SetConstruction(extractTypeArgs(targs),
         HSeq.fromSeq(args.map(extractExpression(_))))
     case Apply(TypeApply(Ident(name), targs), args) if name.toString == "Bag" =>
       Exprs.BagConstruction(extractTypeArgs(targs),
         HSeq.fromSeq(args.map(extractPairs(_))))
+    case Apply(TypeApply(Ident(name), targs), args) if name.toString == "Map" =>
+      outOfSubsetError(expr, "Please use the Map[K, V](args).withDefault(default) as implicit default is not supported")
+    case Apply(Select(Apply(TypeApply(Ident(name), targs), mappings), methodName), defaultList)
+      if name.toString == "Map" && methodName.toString == "withDefault"=>
+      if (defaultList.length != 1)
+        outOfSubsetError(expr, "Map withDefault requires one argument")
+      Exprs.MapConstruction(extractTypeArgs(targs),
+        HSeq.fromSeq(mappings.map(extractPairs(_))),
+        extractExpression(defaultList.head))
 
     case Literal(const) =>
       const.tag match {
