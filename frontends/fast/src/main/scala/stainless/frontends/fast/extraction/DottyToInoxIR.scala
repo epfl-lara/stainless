@@ -319,8 +319,6 @@ trait DottyToInoxIR
       Exprs.Tuple(HSeq.fromSeq(trees.map(extractExpression(_))))
     case ExTupleSelect(tree, int) =>
       Exprs.TupleSelection(extractExpression(tree), int)
-    case Select(qualifier, name) =>
-      Exprs.Selection(extractExpression(qualifier), Identifiers.IdentifierName(name.toString))
     case TypeApply(Select(qualifier, name), List(ident: untpd.Ident)) if name.toString == "isInstanceOf" =>
       Exprs.IsConstructor(extractExpression(qualifier), Identifiers.IdentifierName(ident.name.toString))
     case block: untpd.Block =>
@@ -333,6 +331,8 @@ trait DottyToInoxIR
       Exprs.PrimitiveInvocation(Exprs.Primitive.MapApply, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
     case Apply(Select(ex, name), args) if name.toString == "updated" =>
       Exprs.PrimitiveInvocation(Exprs.Primitive.MapUpdated, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
+    case Select(qualifier, name) =>
+      Exprs.Selection(extractExpression(qualifier), Identifiers.IdentifierName(name.toString))
     case _ =>
       outOfSubsetError(expr, "This tree is not supported at expression position")
   }).setPos(expr.pos)
@@ -362,6 +362,10 @@ trait DottyToInoxIR
 
   def extractBody(body: untpd.Tree)(implicit ctx: Context, dctx: DefContext): Exprs.Expr = body match {
     case block: untpd.Block => processBody(block.stats, block.expr)
+    case Select(qualifier, name) if name.toString == "holds" =>
+      StainlessExprs.Holds(extractExpression(qualifier))
+    case InfixOp(body, Ident(name), post) if name.toString == "ensuring" =>
+      StainlessExprs.Ensuring(extractBody(body), extractExpression(post))
     case _ => extractExpression(body)
   }
 

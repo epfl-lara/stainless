@@ -126,11 +126,18 @@ object ExploratoryTest {
   //    print(call())
   //}
 
-  def setCreation() = {
-    val set = Set(1, 2, 3)
-    val set2 = Set(1, 2)
-    set ++ set2
-  }
+//  def setCreation() = {
+//    val map = Map[Int, String]((1, "Marko")).withDefault("Stevan")
+//    map.updated(2, "Stevan")
+//  }
 
+  def test(a: Int): Boolean = {
+    a > 3
+  } ensuring { b => b == true }
+
+//  def test(a: Int): Boolean = {
+//    require(a > 4)
+//    a > 3
+//  }.holds
   //  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
 }

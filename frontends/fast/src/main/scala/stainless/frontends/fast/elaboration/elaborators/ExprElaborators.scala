@@ -335,6 +335,34 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               })).addConstraint(Constraint.equal(contractTpe, SimpleTypes.BooleanType()))
             }
         }
+
+      case StainlessExprs.Holds(expr) =>
+        ExprE.elaborate(expr).flatMap {
+          case (tpe, exp) =>
+            Constrained.pure((tpe, Eventual.withUnifier { implicit unifier =>
+              val vd = trees.ValDef.fresh("holds", trees.BooleanType())
+              val post = trees.Lambda(Seq(vd), vd.toVariable)
+              trees.Ensuring(exp.get, post)
+            })).addConstraint(Constraint.equal(tpe, SimpleTypes.BooleanType()))
+        }
+      case StainlessExprs.Ensuring(body, proof) =>
+        ExprE.elaborate(body).flatMap {
+          case (tpe, exp) =>
+            ExprE.elaborate(proof).flatMap {
+              case (postTpe, post) =>
+                Constrained.pure(tpe, Eventual.withUnifier { implicit unifier =>
+                  trees.Ensuring(exp.get, post.get match {
+                  case l: trees.Lambda => l.copy(body = l.body).copiedFrom(l)
+                  case other =>
+                    val vd = trees.ValDef.fresh("res", SimpleTypes.toInox(unifier(tpe)))
+                    trees.Lambda(Seq(vd), unifier(tpe) match {
+                      case SimpleTypes.BooleanType() => post.get
+                      case _ => trees.Application(other, Seq(vd.toVariable))
+                    })
+                })
+              }).addConstraint(Constraint.equal(tpe, SimpleTypes.BooleanType()))
+            }
+        }
       case _ => super.elaborate(template)
     }
   }
