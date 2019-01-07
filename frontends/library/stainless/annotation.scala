@@ -18,7 +18,9 @@ class library      extends Annotation
 
 /** Apply the "induct" tactic during verification of the annotated function. */
 @ignore
-class induct       extends Annotation
+class induct(param: String) extends Annotation {
+  def this() = this("")
+}
 
 /** Only extract the contracts and replace the annotated function's body with a choose. */
 @ignore

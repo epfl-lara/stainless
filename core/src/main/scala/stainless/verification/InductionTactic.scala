@@ -23,9 +23,25 @@ trait InductionTactic extends DefaultTactic {
     for (field <- childrenOfSameType) yield adtSelector(expr, field.id)
   }
 
+  private def inductOn(fd: FunDef): Option[(TypedADTSort, ValDef)] = {
+    val flag = fd.flags collectFirst { case i: Induct => i }
+    flag match {
+      case Some(Induct(Some(on))) =>
+        val param = fd.params find (_.id.name == on)
+        param match {
+          case Some(vd) =>
+            firstSort(Seq(vd))
+          case None =>
+            reporter.error(fd.getPos, s"Could not find parameter named '$on' to induct on")
+            None
+        }
+      case _ => firstSort(fd.params)
+    }
+  }
+
   override def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
-    (fd.body, firstSort(fd.params), fd.postcondition) match {
+    (fd.body, inductOn(fd), fd.postcondition) match {
       case (Some(body), Some((tsort, arg)), Some(post)) =>
         (for (tcons <- tsort.constructors) yield {
           val selectors = selectorsOfParentType(tsort, tcons, arg.toVariable)
