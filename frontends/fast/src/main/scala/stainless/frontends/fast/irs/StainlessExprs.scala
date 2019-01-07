@@ -26,7 +26,5 @@ trait StainlessExprs extends inox.parser.irs.Exprs {self: IRs =>
     }
 
     case class Require(contract: Exprs.Expr, body: Exprs.Expr) extends StainlessExpr
-
-
   }
 }

@@ -126,7 +126,11 @@ object ExploratoryTest {
   //    print(call())
   //}
 
-  def setCreation(): Map[Int, String] = Map[Int, String]((1, "Marko")).withDefault("Stevan")
+  def setCreation() = {
+    val set = Set(1, 2, 3)
+    val set2 = Set(1, 2)
+    set ++ set2
+  }
 
   //  def union(a: Map[Int, Int]): Map[Int, Int] = a updated (1, 2)
 }

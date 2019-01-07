@@ -282,7 +282,6 @@ trait DottyToInoxIR
       Exprs.MapConstruction(extractTypeArgs(targs),
         HSeq.fromSeq(mappings.map(extractPairs(_))),
         extractExpression(defaultList.head))
-
     case Literal(const) =>
       const.tag match {
         case Constants.LongTag =>
@@ -330,6 +329,10 @@ trait DottyToInoxIR
       PatternMatchings.MatchExpression(extractExpression(selector), HSeq.fromSeq(cases.map(extractCase(_))))
     case untpd.EmptyTree =>
       Exprs.UnitLiteral()
+    case Apply(Select(ex, name), args) if name.toString == "get" =>
+      Exprs.PrimitiveInvocation(Exprs.Primitive.MapApply, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
+    case Apply(Select(ex, name), args) if name.toString == "updated" =>
+      Exprs.PrimitiveInvocation(Exprs.Primitive.MapUpdated, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
     case _ =>
       outOfSubsetError(expr, "This tree is not supported at expression position")
   }).setPos(expr.pos)

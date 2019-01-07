@@ -1,5 +1,7 @@
 package stainless.frontends.fast.elaboration.elaborators
 
+import inox.parser.elaboration.SimpleTypes
+
 import scala.util.parsing.input.Position
 
 trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborators {
@@ -311,6 +313,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.exist(resultType))
           }
         }
+
       case StainlessExprs.Require(contract, body) =>
         ExprE.elaborate(contract).flatMap {
           case (contractTpe, contractBody) =>
