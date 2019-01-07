@@ -122,6 +122,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         Constrained.pure((u, v)).addConstraint(Constraint.equal(u, SimpleTypes.BitVectorType(signed = true, 8)))
       // testing overloading addition
       case Exprs.BinaryOperation(Exprs.Binary.Plus, lhs, rhs) => {
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
@@ -152,7 +153,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(numericType, numericType), numericType),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
@@ -160,7 +161,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                     SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown)),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
                   )))
-              .addConstraint(Constraint.oneOf(rhsTpe,
+              .addConstraint(Constraint.oneOf(rhsUnknown, rhsTpe,
                 Seq(
                   rhsUnknown,
                   SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
@@ -169,11 +170,13 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
+              .addConstraint(Constraint.exist(rhsUnknown))
           }
         }
       }
 
       case Exprs.BinaryOperation(Exprs.Binary.BVAnd, lhs, rhs) =>
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
@@ -181,7 +184,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, rhsTpe) match {
+              (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 =>
                   trees.BVAnd(lhsEventual.get, rhsEventual.get)
                 case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
@@ -192,7 +195,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(bitsType, bitsType), bitsType),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), rhsUnknown), SimpleTypes.SetType(rhsUnknown)),
@@ -202,15 +205,17 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
+              .addConstraint(Constraint.exist(oneOfUnknown))
           }
         }
       case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Union, lhs, rhs) =>
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((dataType, Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, rhsTpe) match {
+              (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (a: SimpleTypes.SetType, b: SimpleTypes.SetType) if a == b =>
                   trees.SetUnion(lhsEventual.get, rhsEventual.get)
                 case (a: SimpleTypes.BagType, b: SimpleTypes.BagType) if a == b =>
@@ -219,7 +224,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(dataType, dataType), dataType), Seq(
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(dataType, dataType), dataType), Seq(
                   SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), SimpleTypes.SetType(elemType)), SimpleTypes.SetType(elemType)),
                   SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), SimpleTypes.BagType(elemType)), SimpleTypes.BagType(elemType))
                 )
@@ -231,12 +236,13 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
           }
         }
       case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Difference, lhs, rhs) =>
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((dataType, Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, rhsTpe) match {
+              (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (a: SimpleTypes.SetType, b: SimpleTypes.SetType) if a == b =>
                   trees.SetDifference(lhsEventual.get, rhsEventual.get)
                 case (a: SimpleTypes.BagType, b: SimpleTypes.BagType) if a == b =>
@@ -245,7 +251,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(dataType, dataType), dataType), Seq(
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(dataType, dataType), dataType), Seq(
                   SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), SimpleTypes.SetType(elemType)), SimpleTypes.SetType(elemType)),
                   SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), SimpleTypes.BagType(elemType)), SimpleTypes.BagType(elemType))
                 )
@@ -254,15 +260,17 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.equal(rhsTpe, dataType))
               .addConstraint(Constraint.exist(dataType))
               .addConstraint(Constraint.exist(elemType))
+              .addConstraint(Constraint.exist(oneOfUnknown))
           }
         }
       case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Contains, lhs, rhs) =>
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((SimpleTypes.BooleanType(), Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, rhsTpe) match {
+              (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (SimpleTypes.SetType(a), b) if a == b =>
                   trees.ElementOfSet(rhsEventual.get, lhsEventual.get)
                 case (SimpleTypes.BagType(a), b) if a == b =>
@@ -271,7 +279,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(dataType, elemType), SimpleTypes.BooleanType()), Seq(
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(dataType, elemType), SimpleTypes.BooleanType()), Seq(
                   SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), elemType), SimpleTypes.BooleanType()),
                   SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), elemType), SimpleTypes.BooleanType())
                 )))
@@ -279,10 +287,12 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.equal(rhsTpe, elemType))
               .addConstraint(Constraint.exist(dataType))
               .addConstraint(Constraint.exist(elemType))
+              .addConstraint(Constraint.exist(oneOfUnknown))
           }
         }
 
       case Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Updated, lhs, rhs) =>
+        val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
@@ -291,7 +301,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
-              (lhsTpe, unifier(rhsTpe)) match {
+              (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (SimpleTypes.MapType(from, to), SimpleTypes.TupleType(types)) if types.size == 2 && types.head == from && types(1) == to =>
                   val tupleTree = rhsEventual.get
                   trees.MapUpdated(lhsEventual.get, trees.TupleSelect(tupleTree, 1), trees.TupleSelect(tupleTree, 2))
@@ -299,11 +309,11 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
                   )))
-              .addConstraint(Constraint.oneOf(rhsTpe,
+              .addConstraint(Constraint.oneOf(oneOfUnknown, rhsTpe,
                 Seq(
                   rhsUnknown,
                   SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
@@ -311,6 +321,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
+              .addConstraint(Constraint.exist(oneOfUnknown))
           }
         }
 
