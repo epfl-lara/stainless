@@ -59,7 +59,9 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 |                   | command line option.                                           |
 +-------------------+----------------------------------------------------------------+
 | ``@induct``       | Use the inductive tactic when generating                       |
-|                   | verification conditions.                                       |
+|                   | verification conditions. Note: One can specify which parameter |
+|                   | to perform the induction over by passing a ``String`` to       |
+|                   | ``@induct``'s constructor: ``@induct("paramName")``.           |
 +-------------------+----------------------------------------------------------------+
 | ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
 |                   | This annotation is useful to define functions                  |
