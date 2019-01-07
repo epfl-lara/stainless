@@ -6,6 +6,7 @@ package frontend
 import scala.language.existentials
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.utils.ConcurrentCache
 import utils.{ CheckFilter, DependenciesFinder, JsonUtils }
 
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
@@ -134,13 +135,20 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
   /** Current set of symbols */
   private var symbols = xt.NoSymbols
 
+  private val serializer = utils.Serializer(xt)
+  import serializer._
+
+  private val canonization = utils.XlangCanonization(xt)
+
+  private val cache = new ConcurrentCache[Identifier, (SerializationResult, Int)]
 
   /******************* Internal Helpers ***********************************************************/
 
   private def processSymbols(syms: xt.Symbols): Unit = {
     val ignoreFlags = Set("library", "synthetic")
     def shouldProcess(id: Identifier): Boolean = {
-      !syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name) && this.synchronized {
+      !syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name) &&
+      this.synchronized {
         val res = toProcess(id)
         toProcess -= id
         res
@@ -148,38 +156,76 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     }
 
     for (id <- syms.functions.keys if shouldProcess(id)) {
-      val deps = syms.dependencies(id) + id
-      val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
-      val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
-
-      val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
-
-      try {
-        TreeSanitizer(xt).check(funSyms)
-      } catch {
-        case e: extraction.MissformedStainlessCode =>
-          reportError(e.tree.getPos, e.getMessage, funSyms)
-      }
-
-      try {
-        funSyms.ensureWellFormed
-      } catch {
-        case e: funSyms.TypeErrorException =>
-          reportError(e.pos, e.getMessage, funSyms)
-      }
-
-      reporter.debug(s"Solving program with ${funSyms.functions.size} functions & ${funSyms.classes.size} classes")
-
-      // Dispatch a task to the executor service instead of blocking this thread.
-      val componentReports: Seq[Future[RunReport]] =
-        runs.map(run => run(id, funSyms).map { a =>
-          val report = a.toReport
-          RunReport(run)(report)
-        })
-
-      val futureReport = Future.sequence(componentReports).map(Report)
-      this.synchronized { tasks += futureReport }
+      processFunction(id, syms)
     }
+  }
+
+  private def processFunction(id: Identifier, syms: xt.Symbols): Unit = {
+    val fun = syms.functions(id)
+    val deps = syms.dependencies(id)
+    val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
+    val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
+    val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps)
+
+    val (cf, hash) = serialize(Right(fun))(funSyms)
+
+    if (!isInCache(id, cf, hash)) {
+      processFunctionSymbols(id, funSyms)
+      cache.update(id, (cf, hash))
+    }
+  }
+
+  private def processFunctionSymbols(id: Identifier, syms: xt.Symbols): Unit = {
+    try {
+      TreeSanitizer(xt).check(syms)
+    } catch {
+      case e: extraction.MissformedStainlessCode =>
+        reportError(e.tree.getPos, e.getMessage, syms)
+    }
+
+    try {
+      syms.ensureWellFormed
+    } catch {
+      case e: syms.TypeErrorException =>
+        reportError(e.pos, e.getMessage, syms)
+    }
+
+    reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
+
+    // Dispatch a task to the executor service instead of blocking this thread.
+    val componentReports: Seq[Future[RunReport]] =
+      runs.map { run =>
+        val (toProcess, exSymbols) = run.prepare(id, syms)
+        run(toProcess, exSymbols).map(a => RunReport(run)(a.toReport))
+      }
+
+    val futureReport = Future.sequence(componentReports).map(Report)
+    this.synchronized { tasks += futureReport }
+  }
+
+  private def isInCache(id: Identifier, cf: SerializationResult, hash: Int): Boolean = {
+    cache.contains(id) && cache(id) == (cf, hash)
+  }
+
+  private def serialize(node: Either[xt.ClassDef, xt.FunDef])(implicit syms: xt.Symbols): (SerializationResult, Int) = {
+    def getId(node: Either[xt.ClassDef, xt.FunDef]) = node match {
+      case Left(cd) => cd.id
+      case Right(fd) => fd.id
+    }
+
+    val id = getId(node)
+    val clsDeps = syms.classes.values.filterNot(_.id == id).toSeq
+    val funDeps = syms.functions.values.filterNot(_.id == id).toSeq
+    val hashes = clsDeps.map(cd => getCF(Left(cd)).hashCode) ++ funDeps.map(fd => getCF(Right(fd)).hashCode)
+
+    val cf = getCF(node)
+    val hash = hashes.sorted.hashCode
+    (cf, hash)
+  }
+
+  private def getCF(node: Either[xt.ClassDef, xt.FunDef]): SerializationResult = node match {
+    case Left(cd) => serializer.serialize(canonization(cd))
+    case Right(fd) => serializer.serialize(canonization(fd))
   }
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
