@@ -131,9 +131,11 @@ object ExploratoryTest {
 //    map.updated(2, "Stevan")
 //  }
 
-  def test(a: Int): Boolean = {
-    a > 3
-  } ensuring { b => b == true }
+  def test(a: Int): Unit = {
+    require(a > 10)
+    val b = a > 3
+    assert(b == true, "true")
+  }
 
 //  def test(a: Int): Boolean = {
 //    require(a > 4)

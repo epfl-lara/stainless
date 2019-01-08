@@ -9,7 +9,7 @@ trait PatternElaborators {
     override def elaborate(template: PatternMatchings.MatchCase)(implicit store: Store): Constrained[(SimpleTypes.Type, SimpleTypes.Type, Eventual[trees.MatchCase])] =
       for {
         (patternType, bindings, pattern) <- PatternE.elaborate(template.pattern)
-        (optTpe, guard) <- OptExprE.elaborate {
+        (optTpe, guard) <- OptGuardExprE.elaborate {
           template.optGuard match {
             case None => Left(template.pos)
             case Some(expr) => Right(expr)

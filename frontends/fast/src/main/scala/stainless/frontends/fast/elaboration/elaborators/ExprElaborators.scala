@@ -352,15 +352,27 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               case (postTpe, post) =>
                 Constrained.pure(tpe, Eventual.withUnifier { implicit unifier =>
                   trees.Ensuring(exp.get, post.get match {
-                  case l: trees.Lambda => l.copy(body = l.body).copiedFrom(l)
-                  case other =>
-                    val vd = trees.ValDef.fresh("res", SimpleTypes.toInox(unifier(tpe)))
-                    trees.Lambda(Seq(vd), unifier(tpe) match {
-                      case SimpleTypes.BooleanType() => post.get
-                      case _ => trees.Application(other, Seq(vd.toVariable))
-                    })
-                })
-              }).addConstraint(Constraint.equal(tpe, SimpleTypes.BooleanType()))
+                    case l: trees.Lambda => l.copy(body = l.body).copiedFrom(l)
+                    case other =>
+                      val vd = trees.ValDef.fresh("res", SimpleTypes.toInox(unifier(tpe)))
+                      trees.Lambda(Seq(vd), unifier(tpe) match {
+                        case SimpleTypes.BooleanType() => post.get
+                        case _ => trees.Application(other, Seq(vd.toVariable))
+                      })
+                  })
+                }).addConstraint(Constraint.equal(tpe, SimpleTypes.BooleanType()))
+                  .addConstraint(Constraint.equal(SimpleTypes.FunctionType(Seq(tpe), SimpleTypes.BooleanType()), postTpe))
+            }
+        }
+
+      case StainlessExprs.Assert(contract, message, body) =>
+        ExprE.elaborate(contract).flatMap {
+          case (ctpe, c) =>
+            ExprE.elaborate(body).flatMap {
+              case (btpe, b) =>
+                Constrained.pure(btpe, Eventual.withUnifier { implicit unifier =>
+                  trees.Assert(c.get, message, b.get)
+                }).addConstraint(Constraint.equal(ctpe, SimpleTypes.BooleanType()))
             }
         }
       case _ => super.elaborate(template)
@@ -375,7 +387,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
 
   override val ExprSeqE = new StainlessExprSeqE
 
-  class OptExprE extends Elaborator[Either[Position, Exprs.Expr], (SimpleTypes.Type, Eventual[trees.Expr])] {
+  class OptGuardExprE extends Elaborator[Either[Position, Exprs.Expr], (SimpleTypes.Type, Eventual[trees.Expr])] {
     override def elaborate(optExpr: Either[Position, Exprs.Expr])(implicit store: Store):
     Constrained[(SimpleTypes.Type, Eventual[trees.Expr])] = optExpr match {
       case Right(expr) =>
@@ -386,5 +398,18 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
     }
   }
 
-  val OptExprE = new OptExprE
+  val OptGuardExprE = new OptGuardExprE
+
+  class OptMessageE extends Elaborator[Either[Position, Exprs.StringLiteral], (SimpleTypes.Type, Eventual[trees.StringLiteral])] {
+    override def elaborate(optExpr: Either[Position, Exprs.StringLiteral])(implicit store: Store):
+    Constrained[(SimpleTypes.Type, Eventual[trees.StringLiteral])] = optExpr match {
+      case Right(a@Exprs.StringLiteral(string)) =>
+        Constrained.pure((SimpleTypes.StringType().setPos(a.pos), Eventual.pure(trees.StringLiteral(string))))
+      case Left(pos) => {
+        Constrained.pure((SimpleTypes.StringType().setPos(pos), Eventual.pure(trees.StringLiteral(""))))
+      }
+    }
+  }
+
+  val OptMessageE = new OptMessageE
 }

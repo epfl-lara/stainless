@@ -261,6 +261,11 @@ trait DottyToInoxIR
         case 1 => Exprs.FractionLiteral(extractBigIntValue(args.head), 1)
         case 2 => Exprs.FractionLiteral(extractBigIntValue(args.head), extractBigIntValue(args(1)))
       }
+    case Apply(Ident(name), args) if name.toString == "assert" && args.nonEmpty && args.size <= 2=>
+      StainlessExprs.Assert(extractExpression(args.head),
+        if (args.size == 2) Some(extractExpression(args(1)).asInstanceOf[Exprs.StringLiteral].value) else None,
+        Exprs.UnitLiteral()
+      )
     case Apply(Ident(name), args) if name.toString == "Set" =>
       Exprs.SetConstruction(None, HSeq.fromSeq(args.map(extractExpression(_))))
     case Apply(Ident(name), args) if name.toString == "Bag" =>
@@ -345,6 +350,11 @@ trait DottyToInoxIR
       case (head: untpd.ValDef) :: tail =>
         Exprs.Let(extractBinding(head), extractExpression(head.rhs),
           rec(tail)).setPos(head.pos)
+      case Apply(Ident(name), args) :: tail if name.toString == "assert" && args.nonEmpty && args.size <= 2=>
+        StainlessExprs.Assert(extractExpression(args.head),
+          if (args.size == 2) Some(extractExpression(args(1)).asInstanceOf[Exprs.StringLiteral].value) else None,
+          rec(tail)
+        )
       case (a@Apply(Ident(name), body)) :: tail if name.toString == "require" && body.length == 1 =>
         StainlessExprs.Require(extractExpression(body.head),
           rec(tail)

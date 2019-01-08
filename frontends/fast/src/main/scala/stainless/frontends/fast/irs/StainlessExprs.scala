@@ -1,6 +1,7 @@
 package stainless.frontends.fast.irs
 
-import dotty.tools.dotc.ast.untpd
+import dotty.tools.dotc.ast.Trees.Untyped
+import dotty.tools.dotc.ast.{Trees, untpd}
 import stainless.frontends.fast.IRs
 
 trait StainlessExprs extends inox.parser.irs.Exprs {self: IRs =>
@@ -31,6 +32,8 @@ trait StainlessExprs extends inox.parser.irs.Exprs {self: IRs =>
     case class Holds(expr: Exprs.Expr) extends StainlessExpr
 
     case class Ensuring(expr: Exprs.Expr, post: Exprs.Expr) extends StainlessExpr
+
+    case class Assert(contract: Exprs.Expr, message: Option[String], expr: Exprs.Expr) extends StainlessExpr
 
   }
 }

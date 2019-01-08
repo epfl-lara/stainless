@@ -150,6 +150,7 @@ object Patching extends IRs{
     case trees.MatchExpr(scrutinee, cases) => trees.MatchExpr(patchExpr(scrutinee), cases.map(patchMatchCase))
     case trees.Require(contract, body) => trees.Require(patchExpr(contract), patchExpr(body))
     case trees.Ensuring(body, pred) => trees.Ensuring(patchExpr(body), patchExpr(pred).asInstanceOf[trees.Lambda])
+    case trees.Assert(contract, message, body) => trees.Assert(patchExpr(contract), message, patchExpr(body))
     case _ =>
       throw new Exception("Should not reach this branch in expression patching")
   }).setPos(expr.getPos)
