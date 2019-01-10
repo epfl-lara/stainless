@@ -43,16 +43,16 @@ final case class Nat(toBigInt: BigInt) { n =>
 
 @library
 object Nat {
-  @inline val `0` : Nat = Nat(0)
-  @inline val `1` : Nat = Nat(1)
-  @inline val `2` : Nat = Nat(2)
-  @inline val `3` : Nat = Nat(3)
-  @inline val `4` : Nat = Nat(4)
-  @inline val `5` : Nat = Nat(5)
-  @inline val `6` : Nat = Nat(6)
-  @inline val `7` : Nat = Nat(7)
-  @inline val `8` : Nat = Nat(8)
-  @inline val `9` : Nat = Nat(9)
-  @inline val `10`: Nat = Nat(10)
+  val `0` : Nat = Nat(0)
+  val `1` : Nat = Nat(1)
+  val `2` : Nat = Nat(2)
+  val `3` : Nat = Nat(3)
+  val `4` : Nat = Nat(4)
+  val `5` : Nat = Nat(5)
+  val `6` : Nat = Nat(6)
+  val `7` : Nat = Nat(7)
+  val `8` : Nat = Nat(8)
+  val `9` : Nat = Nat(9)
+  val `10`: Nat = Nat(10)
 }
 
