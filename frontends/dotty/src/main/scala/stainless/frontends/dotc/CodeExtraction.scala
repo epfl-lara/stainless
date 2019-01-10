@@ -1061,7 +1061,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case Apply(TypeApply(ExSymbol("scala", "Predef$", "locally"), _), Seq(body)) =>
       extractTree(body)
 
-    case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark"), tpe) =>
+    case ExTypedHole(tpe) =>
       xt.NoTree(extractType(tpe))
 
     case Typed(e, _) =>
@@ -1245,7 +1245,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.pos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.pos)
 
-    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
+    case ExHole() =>
+      extractType(tr) match {
+        case xt.NothingType() =>
+          outOfSubsetError(tr, "Cannot extract hole with inferred type `Nothing`, please ascribe another type with '(???): A'")
+        case tpe => xt.NoTree(tpe)
+      }
 
     case ExThisCall(tt, sym, tps, args) =>
       val thiss = xt.This(extractType(tt)(dctx, tr.pos).asInstanceOf[xt.ClassType]).setPos(tr.pos)

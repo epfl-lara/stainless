@@ -218,6 +218,20 @@ trait ASTExtractors {
       }
     }
 
+    object ExHole {
+      def unapply(tree: tpd.Tree): Boolean = tree match {
+        case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark") => true
+        case _ => false
+      }
+    }
+
+    object ExTypedHole {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case ExTyped(ExHole(), tpe) => Some(tpe)
+        case _ => None
+      }
+    }
+
     object ExLiteral {
       def unapply(tree: tpd.Literal): Boolean = true
     }

@@ -913,6 +913,20 @@ trait ASTExtractors {
       }
     }
 
+    object ExHole {
+      def unapply(tree: Tree): Boolean = tree match {
+        case ExSymbol("scala", "Predef", "$qmark$qmark$qmark") => true
+        case _ => false
+      }
+    }
+
+    object ExTypedHole {
+      def unapply(tree: Tree): Option[Tree] = tree match {
+        case ExTyped(ExHole(), tpe) => Some(tpe)
+        case _ => None
+      }
+    }
+
     object ExIntIdentifier {
       def unapply(tree: Ident): Option[String] = tree match {
         case i: Ident if i.symbol.tpe == IntClass.tpe => Some(i.symbol.name.toString)

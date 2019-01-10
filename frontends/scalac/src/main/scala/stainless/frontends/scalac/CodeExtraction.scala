@@ -954,8 +954,7 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExIdentity(body) => extractTree(body)
 
-    case ExTyped(ExtractorHelpers.ExSymbol("scala", "Predef", "$qmark$qmark$qmark"), tpe) =>
-      xt.NoTree(extractType(tpe))
+    case ExTypedHole(tpe) => xt.NoTree(extractType(tpe))
 
     case ExTyped(e, _) => extractTree(e)
 
@@ -974,7 +973,12 @@ trait CodeExtraction extends ASTExtractors {
         }
       }
 
-    case ExtractorHelpers.ExSymbol("scala", "Predef", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
+    case ExHole() =>
+      extractType(tr) match {
+        case xt.NothingType() =>
+          outOfSubsetError(tr, "Cannot extract hole with inferred type `Nothing`, please ascribe another type with '(???): A'")
+        case tpe => xt.NoTree(tpe)
+      }
 
     case chs @ ExChooseExpression(body) =>
       extractTree(body) match {
