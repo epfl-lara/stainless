@@ -225,6 +225,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case td: tpd.TypeDef =>
         // ignore
 
+      case t @ ExMutableFieldDef(_, _, _) =>
+        outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
+
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }

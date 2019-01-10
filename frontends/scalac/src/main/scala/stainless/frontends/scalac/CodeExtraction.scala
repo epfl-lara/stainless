@@ -254,8 +254,10 @@ trait CodeExtraction extends ASTExtractors {
         // ignore
 
       case t if t.symbol.isAliasType =>
-        // Ignore type alias definitions as units (we don't need it in the
-        // stainless AST).
+        // Ignore type alias definitions as units (we don't need it in the stainless AST).
+
+      case t @ ExMutableFieldDef(_, _, _) =>
+        outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
 
       case other =>
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
