@@ -185,13 +185,23 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   )
   .settings(commonSettings, publishMavenSettings)
 
+lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
+  name,
+  version,
+  scalaVersion,
+  sbtVersion
+)
+
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
     extraClasspath := "", // no need for the classpath extension with scalac
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    buildInfoKeys := stainlessBuildInfoKeys ++ Seq[BuildInfoKey]("useJavaClassPath" -> false),
+    buildInfoPackage := "stainless",
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
     assemblyExcludedJars in assembly := {
       val cp = (fullClasspath in assembly).value
@@ -216,10 +226,22 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
   .settings(artifactSettings, publishMavenSettings)
 
 lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainless-scalac-standalone")
+  .enablePlugins(BuildInfoPlugin)
   .enablePlugins(JavaAppPackaging)
   .settings(
     name := "stainless-scalac-standalone",
-    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar")
+    buildInfoKeys := stainlessBuildInfoKeys ++ Seq[BuildInfoKey]("useJavaClassPath" -> true),
+    buildInfoPackage := "stainless",
+    (mainClass in assembly) := Some("stainless.Main"),
+    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar"),
+    (assemblyMergeStrategy in assembly) := {
+      // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
+      // hence the following merge strategy picks the standalone BuildInfo over the usual one.
+      case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        oldStrategy(x)
+    }
   )
   .dependsOn(`stainless-scalac`)
   .settings(artifactSettings)
@@ -233,6 +255,7 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
 
 lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   .enablePlugins(JavaAppPackaging)
+  .enablePlugins(BuildInfoPlugin)
   .disablePlugins(AssemblyPlugin)
   .settings(
     name := "stainless-dotty",
@@ -244,6 +267,10 @@ lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
   //.dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
+  .settings(
+    buildInfoKeys := stainlessBuildInfoKeys,
+    buildInfoPackage := "stainless"
+  )
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
