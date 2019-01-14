@@ -37,7 +37,7 @@ Use pre-packaged JAR file on Linux & macOS
 
 .. code-block:: bash
 
-  $ java -cp /path/to/stainless/jar/file.jar stainless.Main test.scala
+  $ java -jar /path/to/stainless/jar/file.jar test.scala
 
 5. The output should read:
 
