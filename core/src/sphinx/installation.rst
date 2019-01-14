@@ -17,11 +17,9 @@ Use pre-packaged JAR file on Linux & macOS
 
 **Instructions:**
 
-1. (Optional) Install an external SMT solver (see Section ":ref:`smt-solvers`"). This step is optional, if no extern SMT solvers are found, Stainless will instead use the bundled Scala-based `_Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_.
+1. Download the latest Stainless JAR from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_
 
-2. Download the latest Stainless JAR from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_
-
-3. Paste the following code in a file named ``test.scala``:
+2. Paste the following code in a file named ``test.scala``:
 
 .. code-block:: scala
 
@@ -33,17 +31,17 @@ Use pre-packaged JAR file on Linux & macOS
     }
   }
 
-4. In a terminal, type the following command, substituting the proper path to the Stainless JAR previously downloaded:
+3. In a terminal, type the following command, substituting the proper path to the Stainless JAR previously downloaded:
 
 .. code-block:: bash
 
   $ java -jar /path/to/stainless/jar/file.jar test.scala
 
-5. The output should read:
+4. The output should read:
 
 .. code-block:: text
 
-  [Warning ] The Z3 native interface is not available. Falling back onto smt-z3.
+  [Warning ] The Z3 native interface is not available. Falling back onto princess.
   [  Info  ]  - Checking cache: 'body assertion' VC for ok @5:5...
   [  Info  ] Cache miss: 'body assertion' VC for ok @5:5...
   [  Info  ]  - Now solving 'body assertion' VC for ok @5:5...
@@ -52,11 +50,18 @@ Use pre-packaged JAR file on Linux & macOS
   [  Info  ]   ┌───────────────────┐
   [  Info  ] ╔═╡ stainless summary ╞══════════════════════════════════════════════════════════════════════╗
   [  Info  ] ║ └───────────────────┘                                                                      ║
-  [  Info  ] ║ ok   body assertion           valid     U:smt-z3        test.scala:5:5           0.931     ║
+  [  Info  ] ║ ok   body assertion           valid     U:princess      test.scala:5:5           0.931     ║
   [  Info  ] ╟┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╢
   [  Info  ] ║ total: 1    valid: 1    (0 from cache) invalid: 0    unknown: 0    time:   0.931           ║
   [  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════╝
   [  Info  ] Shutting down executor service.
+
+Improve performance using external solvers
+------------------------------------------
+
+If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will instead use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_, which can sometime be quite slow.
+
+To improve performance, one can install an external SMT solver, as described in section ":ref:`smt-solvers`".
 
 Build from source on Linux & macOS
 ----------------------------------
