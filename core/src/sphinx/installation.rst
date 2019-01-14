@@ -17,7 +17,7 @@ Use pre-packaged JAR file on Linux & macOS
 
 **Instructions:**
 
-1. Install an external SMT solver (see Section ":ref:`smt-solvers`")
+1. (Optional) Install an external SMT solver (see Section ":ref:`smt-solvers`"). This step is optional, if no extern SMT solvers are found, Stainless will instead use the bundled Scala-based `_Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_.
 
 2. Download the latest Stainless JAR from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_
 
@@ -37,7 +37,7 @@ Use pre-packaged JAR file on Linux & macOS
 
 .. code-block:: bash
 
-  $ java -jar /path/to/stainless/jar/file.jar test.scala
+  $ java -cp /path/to/stainless/jar/file.jar stainless.Main test.scala
 
 5. The output should read:
 
