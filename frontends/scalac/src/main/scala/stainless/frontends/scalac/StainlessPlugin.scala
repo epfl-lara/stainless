@@ -1,11 +1,13 @@
 package stainless.frontends.scalac
 
-import scala.reflect.internal.util.NoPosition
+import scala.reflect.io.AbstractFile
+import scala.reflect.internal.util.{NoPosition, Position, BatchSourceFile}
 import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
 import inox.DebugSection
+import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
 class StainlessPlugin(override val global: Global) extends Plugin {
@@ -27,7 +29,9 @@ class StainlessPluginComponent(
     val adapter = new ReporterAdapter(global.reporter, Set())
     stainlessContext.copy(reporter = adapter)
   }
+
   override protected val callback: CallBack = stainless.frontend.getCallBack(ctx)
+
   override protected val cache: SymbolMapping = new SymbolMapping
 
   // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?
@@ -41,16 +45,37 @@ class GhostPluginComponent(val global: Global) extends PluginComponent with Ghos
 }
 
 class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.DefaultReporter(debugSections) {
-  // FIXME: Mapping of stainless -> scalac positions
-  override def emit(msg: Message): Unit = {
-    // FIXME: Reporting the message through the inox reporter shouldn't be needed. But without it the compilation error is
-    //        not reported. Maybe this is because stainless stops after the first error?
-    super.emit(msg)
-    msg.severity match {
-      case INFO => underlying.echo(NoPosition, msg.msg.toString)
-      case WARNING => underlying.warning(NoPosition, msg.msg.toString)
-      case ERROR | FATAL | INTERNAL => underlying.error(NoPosition, msg.msg.toString)
-      case _ => underlying.echo(NoPosition, msg.msg.toString) // DEBUG messages are at reported at INFO level
+  private def toSourceFile(file: java.io.File): BatchSourceFile = {
+    new BatchSourceFile(AbstractFile.getFile(file))
+  }
+
+  private def toScalaPos(pos: InoxPosition.Position): Position = pos match {
+    case InoxPosition.NoPosition =>
+      NoPosition
+
+    case InoxPosition.OffsetPosition(_, _, point, file) =>
+      Position.offset(toSourceFile(file), point)
+
+    case InoxPosition.RangePosition(_, _, pointFrom, _, _, pointTo, file) =>
+      Position.range(toSourceFile(file), pointFrom, pointFrom, pointTo)
+  }
+
+  override def emit(message: Message): Unit = {
+    val pos = toScalaPos(message.position)
+
+    message.msg match {
+      case vc: stainless.verification.VCResultMessage[_, _] =>
+        vc.emit(this)
+
+      case msg: String =>
+        message.severity match {
+          case INFO                     => underlying.echo(pos, msg)
+          case WARNING                  => underlying.warning(pos, msg)
+          case ERROR | FATAL | INTERNAL => underlying.error(pos, msg)
+          case _                        => underlying.echo(pos, msg) // DEBUG messages are at reported at INFO level
+        }
+
+      case _ => ()
     }
   }
 }
