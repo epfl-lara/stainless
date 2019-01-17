@@ -264,6 +264,9 @@ trait VerificationChecker { self =>
         case Failure(e) => reporter.internalError(e)
       }
 
+      val vcResultMsg = VCResultMessage(vc, vcres)
+      reporter.info(vcResultMsg)
+
       reporter.synchronized {
         reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:")
 
