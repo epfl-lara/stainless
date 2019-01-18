@@ -64,13 +64,13 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
-        def addPreconditionAssertion(e: Expr) = pre match {
+        def addPreconditionAssertion(e: Expr): Expr = pre match {
           case None => e
           case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
         }
 
         val post = exprOps.postconditionOf(tfd.fullBody)
-        def addPostconditionAssumption(e: Expr) = post match {
+        def addPostconditionAssumption(e: Expr): Expr = post match {
           // We can't assume the post on @synthetic methods as it won't be checked anywhere.
           // It is thus inlined into an assertion here.
           case Some(Lambda(Seq(vd), post)) if isSynthetic =>
@@ -82,14 +82,15 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
         val newBody = addPreconditionAssertion(addPostconditionAssumption(body))
-        val result = exprOps.freshenLocals {
-          (tfd.params zip args).foldRight(newBody: Expr) {
-            case ((vd, e), body) => let(vd, e, body)
-          }
+
+        val result = (tfd.params zip args).foldRight(newBody) {
+          case ((vd, e), body) => let(vd, e, body)
         }
 
+        val freshened = exprOps.freshenLocals(result)
+
         val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
-        inliner.transform(result)
+        inliner.transform(freshened)
       }
     }
 
