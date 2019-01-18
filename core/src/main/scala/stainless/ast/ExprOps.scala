@@ -184,26 +184,23 @@ trait ExprOps extends inox.ast.ExprOps {
     specs.foldLeft(newBody)(withSpec)
   }
 
-  // TODO: Remove once https://github.com/epfl-lara/inox/pull/88 has been merged
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    val subst: MutableMap[Identifier, Identifier] = MutableMap.empty
-    variablesOf(expr).foreach(v => subst(v.id) = v.id)
+    val subst: MutableMap[Variable, Variable] = MutableMap.empty
+    variablesOf(expr).foreach(v => subst(v) = v)
 
     new SelfTreeTransformer {
-      override def transform(vd: ValDef): ValDef = {
-        val id = subst.getOrElseUpdate(vd.id, vd.id.freshen)
-        super.transform(vd).copy(id = id)
-      }
+      override def transform(vd: ValDef): ValDef = subst.getOrElse(vd.toVariable, {
+        val res = super.transform(vd).freshen.toVariable
+        subst(vd.toVariable) = res
+        res
+      }).toVal
 
       override def transform(expr: Expr): Expr = expr match {
-        case v: Variable =>
-          transform(v.toVal).toVariable
-
+        case v: Variable => transform(v.toVal).toVariable
         case Choose(res, pred) if !freshenChooses =>
           val newVd = super.transform(res)
-          subst(res.id) = newVd.id
+          subst(res.toVariable) = newVd.toVariable
           Choose(newVd, transform(pred)).copiedFrom(expr)
-
         case _ => super.transform(expr)
       }
     }.transform(expr)
