@@ -149,7 +149,11 @@ trait IncrementalComputationalGraph[Id, Input, Result] {
     nodes += n.id -> n
     if (n.compute) toCompute += n
     n.deps foreach { depId =>
-      reverse.getOrElseUpdate(depId, MutableSet()) += n
+      reverse.getOrElse(depId, {
+        val res = MutableSet.empty[Node]
+        reverse(depId) = res
+        res
+      }) += n
     }
 
     mark(n)

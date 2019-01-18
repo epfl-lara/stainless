@@ -167,7 +167,7 @@ object VerificationCache {
     def get(ctx: inox.Context): Cache = this.synchronized {
       val cacheFile: File = utils.Caches.getCacheFile(ctx, "vccache.bin")
 
-      db.getOrElseUpdate(cacheFile, {
+      db.getOrElse(cacheFile, {
         val cache = new Cache(cacheFile)
 
         if (cacheFile.exists) {
@@ -185,6 +185,7 @@ object VerificationCache {
           }
         }
 
+        db(cacheFile) = cache
         cache
       })
     }

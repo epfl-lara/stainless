@@ -14,10 +14,11 @@ class SymbolsContext {
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
-    s2i.getOrElseUpdate(getPath(sym), {
+    val path = getPath(sym)
+    s2i.getOrElse(path, {
       val overrides = sym.allOverriddenSymbols
       val top = if (overrides.nonEmpty) overrides.toSeq.last else sym
-      val symbol = s2s.getOrElseUpdate(top, {
+      val symbol = s2s.getOrElse(top, {
         val name: String =
           if (sym is TypeParam) {
             sym.showName
@@ -28,22 +29,33 @@ class SymbolsContext {
               .mkString(".")
           }
 
-        ast.Symbol(name)
+        val res = ast.Symbol(name)
+        s2s(top) = res
+        res
       })
 
-      SymbolIdentifier(symbol)
+      val res = SymbolIdentifier(symbol)
+      s2i(path) = res
+      res
     })
   }
 
   def fetchParam(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
     val id = fetch(sym)
-    params.getOrElseUpdate(id, SymbolIdentifier(id.symbol))
+    params.getOrElse(id, {
+      val res = SymbolIdentifier(id.symbol)
+      params(id) = res
+      res
+    })
   }
 
   /** Get the identifier for the class invariant of [[sym]]. */
   def fetchInvIdForClass(sym: Symbol)(implicit ctx: Context): SymbolIdentifier = synchronized {
-    invs.getOrElseUpdate(fetch(sym), {
-      SymbolIdentifier(invSymbol)
+    val id = fetch(sym)
+    invs.getOrElse(id, {
+      val res = SymbolIdentifier(invSymbol)
+      invs(id) = res
+      res
     })
   }
 
