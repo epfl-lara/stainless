@@ -153,7 +153,14 @@ trait Registry {
     }
 
     val localCFCache = MutableMap[Identifier, SerializationResult]() // cache serializations and their hash.
-    def getCF(node: NodeValue): SerializationResult = localCFCache.getOrElseUpdate(getId(node), buildCF(node))
+    def getCF(node: NodeValue): SerializationResult = {
+      val id = getId(node)
+      localCFCache.getOrElse(id, {
+        val res = buildCF(node)
+        localCFCache(id) = res
+        res
+      })
+    }
 
     var failure = false
     try {
@@ -235,7 +242,12 @@ trait Registry {
 
     override def equivalent(id: Identifier, deps: Set[Identifier],
                             oldInput: NodeValue, newInput: NodeValue): Boolean = {
-      val cf1 = cfCache.getOrElseUpdate(id, buildCF(oldInput))
+      val cf1 = cfCache.getOrElse(id, {
+        val res = buildCF(oldInput)
+        cfCache(id) = res
+        res
+      })
+
       val cf2 = buildCF(newInput)
 
       cfCache += id -> cf2
@@ -418,8 +430,18 @@ trait Registry {
 
     classes foreach { cd =>
       val tops = forceGetTopLevels(classes, cd)
-      tops foreach { top => toplevels.getOrElseUpdate(top, MutableSet.empty) += cd.id }
-      reverse.getOrElseUpdate(cd, MutableSet.empty) ++= tops map { _.id }
+      tops foreach { top =>
+        toplevels.getOrElse(top, {
+          val res = MutableSet.empty[Identifier]
+          toplevels(top) = res
+          res
+        }) += cd.id
+      }
+      reverse.getOrElse(cd, {
+        val res = MutableSet.empty[Identifier]
+        reverse(cd) = res
+        res
+      }) ++= tops map { _.id }
     }
 
     // Combine the two mappings.

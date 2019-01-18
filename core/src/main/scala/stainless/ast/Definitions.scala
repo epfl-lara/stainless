@@ -41,17 +41,29 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
     def getBody(tfd: TypedFunDef): Option[Expr] =
-      bodyCache.getOrElseUpdate(tfd, exprOps.withoutSpecs(tfd.fullBody))
+      bodyCache.getOrElse(tfd, {
+        val res = exprOps.withoutSpecs(tfd.fullBody)
+        bodyCache(tfd) = res
+        res
+      })
 
     private[this] val preCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getPrecondition(fd: FunDef): Option[Expr] = getPrecondition(fd.typed)
     def getPrecondition(tfd: TypedFunDef): Option[Expr] =
-      preCache.getOrElseUpdate(tfd, exprOps.preconditionOf(tfd.fullBody))
+      preCache.getOrElse(tfd, {
+        val res = exprOps.preconditionOf(tfd.fullBody)
+        preCache(tfd) = res
+        res
+      })
 
     private[this] val postCache: MutableMap[TypedFunDef, Option[Lambda]] = MutableMap.empty
     @inline def getPostcondition(fd: FunDef): Option[Lambda] = getPostcondition(fd.typed)
     def getPostcondition(tfd: TypedFunDef): Option[Lambda] =
-      postCache.getOrElseUpdate(tfd, exprOps.postconditionOf(tfd.fullBody))
+      postCache.getOrElse(tfd, {
+        val res = exprOps.postconditionOf(tfd.fullBody)
+        postCache(tfd) = res
+        res
+      })
 
     protected class Lookup {
       protected def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
