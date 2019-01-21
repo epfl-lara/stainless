@@ -181,28 +181,30 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val bitsType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val bitVectorTypes = for {
+          sign <- List(true, false)
+          length <- List(8, 16, 32, 64)
+          tpe = SimpleTypes.BitVectorType(sign, length)
+        } yield SimpleTypes.FunctionType(Seq(tpe, tpe), tpe)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
             Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
               (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (SimpleTypes.BitVectorType(signed1, size1), SimpleTypes.BitVectorType(signed2, size2)) if signed1 == signed2 && size1 == size2 =>
                   trees.BVAnd(lhsEventual.get, rhsEventual.get)
-                case (SimpleTypes.SetType(tpe), elemType) if tpe == elemType =>
+                case (SimpleTypes.SetType(tpe), SimpleTypes.SetType(elemType)) if tpe == elemType =>
                   trees.SetIntersection(lhsEventual.get, rhsEventual.get)
-                case (SimpleTypes.BagType(tpe), elemType) if tpe == elemType =>
+                case (SimpleTypes.BagType(tpe), SimpleTypes.BagType(elemType)) if tpe == elemType =>
                   trees.BagIntersection(lhsEventual.get, rhsEventual.get)
                 case _ => throw new IllegalStateException("Unifier returned unexpected value.")
               }
             }))
               .addConstraint(Constraint.
-                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
-                  Seq(
-                    SimpleTypes.FunctionType(Seq(bitsType, bitsType), bitsType),
-                    SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), rhsUnknown), SimpleTypes.SetType(rhsUnknown)),
-                    SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown))
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, lhsUnknown), resultType),
+                  bitVectorTypes ++ Seq(
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), SimpleTypes.SetType(rhsUnknown)), SimpleTypes.SetType(rhsUnknown)),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), SimpleTypes.BagType(rhsUnknown)), SimpleTypes.BagType(rhsUnknown))
                   )))
-              .addConstraint(Constraint.isBits(bitsType))
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
@@ -268,9 +270,10 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
         val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val dataType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val elemType = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
         ExprE.elaborate(lhs).flatMap { case (lhsTpe, lhsEventual) =>
           ExprE.elaborate(rhs).flatMap { case (rhsTpe, rhsEventual) =>
-            Constrained.pure((SimpleTypes.BooleanType(), Eventual.withUnifier { implicit unifier =>
+            Constrained.pure((resultType, Eventual.withUnifier { implicit unifier =>
               (unifier(lhsTpe), unifier(rhsTpe)) match {
                 case (SimpleTypes.SetType(a), b) if a == b =>
                   trees.ElementOfSet(rhsEventual.get, lhsEventual.get)
@@ -280,9 +283,9 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(dataType, elemType), SimpleTypes.BooleanType()), Seq(
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(dataType, elemType), resultType), Seq(
                   SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemType), elemType), SimpleTypes.BooleanType()),
-                  SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), elemType), SimpleTypes.BooleanType())
+                  SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemType), elemType), SimpleTypes.IntegerType())
                 )))
               .addConstraint(Constraint.equal(lhsTpe, dataType))
               .addConstraint(Constraint.equal(rhsTpe, elemType))

@@ -206,6 +206,7 @@ trait DottyToInoxIR
         case Constants.ShortTag => const.intValue
         case Constants.ByteTag => const.intValue
         case Constants.LongTag => const.longValue
+        case Constants.StringTag => BigInt(const.stringValue)
       }
   }
 
@@ -256,6 +257,8 @@ trait DottyToInoxIR
 //        Exprs.Variable(identifier).setPos(rhs.pos)
 //      else
 //        Exprs.Invocation(identifier, None, HSeq.fromSeq(Seq.empty[Exprs.Expr])).setPos(rhs.pos)
+    case Apply(Ident(name), args) if name.toString == "BigInt" && args.length == 1 =>
+      Exprs.IntegerLiteral(extractBigIntValue(args.head))
     case Apply(Ident(name), args) if name.toString == "Real" && args.length <= 2 && args.nonEmpty=>
       args.length match {
         case 1 => Exprs.FractionLiteral(extractBigIntValue(args.head), 1)
@@ -334,8 +337,14 @@ trait DottyToInoxIR
       Exprs.UnitLiteral()
     case Apply(Select(ex, name), args) if name.toString == "get" =>
       Exprs.PrimitiveInvocation(Exprs.Primitive.MapApply, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
+    case Apply(Select(ex, name), args) if name.toString == "substring" && args.length == 2=>
+      Exprs.PrimitiveInvocation(Exprs.Primitive.SubString, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
+    case Apply(Select(ex, name), args) if name.toString == "length" && args.length == 1=>
+      Exprs.PrimitiveInvocation(Exprs.Primitive.StringLength, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
     case Apply(Select(ex, name), args) if name.toString == "updated" =>
       Exprs.PrimitiveInvocation(Exprs.Primitive.MapUpdated, None, HSeq.fromSeq(args.map(extractExpression(_)).+:(extractExpression(ex))))
+    case Select(qualifier, name) if name.toString == "length" =>
+      Exprs.PrimitiveInvocation(Exprs.Primitive.StringLength, None, HSeq.fromSeq(Seq(extractExpression(qualifier))))
     case Select(qualifier, name) =>
       Exprs.Selection(extractExpression(qualifier), Identifiers.IdentifierName(name.toString))
     case _ =>
