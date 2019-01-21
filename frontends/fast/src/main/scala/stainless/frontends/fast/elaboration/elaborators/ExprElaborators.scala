@@ -163,7 +163,8 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                   )))
               .addConstraint(Constraint.oneOf(rhsUnknown, rhsTpe,
                 Seq(
-                  rhsUnknown,
+                  numericType,
+                  SimpleTypes.StringType(),
                   SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
                   ))))
               .addConstraint(Constraint.isNumeric(numericType))
