@@ -1,6 +1,4 @@
 object Int2Arithmetic {
-  val a: Int = 1
-  val c: Int = a + b
 
   def add(x: Int, y: Int): Int = {
     x + y
@@ -25,6 +23,4 @@ object Int2Arithmetic {
   def neg(x: Int): Int = {
     -x
   }
-
-  val b: Int = 3 + 4
 }
