@@ -30,7 +30,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.11.12")
+val SupportedScalaVersions = Seq("2.12.8")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -246,56 +246,56 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   .dependsOn(`stainless-scalac`)
   .settings(artifactSettings)
 
-lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
-  .disablePlugins(AssemblyPlugin)
-  .settings(name := "stainless-dotty-frontend")
-  .dependsOn(`stainless-core`)
-  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
-  .settings(commonSettings, publishMavenSettings)
+//lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
+//  .disablePlugins(AssemblyPlugin)
+//  .settings(name := "stainless-dotty-frontend")
+//  .dependsOn(`stainless-core`)
+//  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
+//  .settings(commonSettings, publishMavenSettings)
+//
+//lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
+//  .enablePlugins(JavaAppPackaging)
+//  .enablePlugins(BuildInfoPlugin)
+//  .disablePlugins(AssemblyPlugin)
+//  .settings(
+//    name := "stainless-dotty",
+//    frontendClass := "dotc.DottyCompiler")
+//  .dependsOn(`stainless-dotty-frontend`)
+//  // Should truly depend on dotty, overriding the "provided" modifier above:
+//  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
+//  .aggregate(`stainless-dotty-frontend`)
+//  //.dependsOn(inox % "test->test;it->test,it")
+//  .configs(IntegrationTest)
+//  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
+//  .settings(
+//    buildInfoKeys := stainlessBuildInfoKeys,
+//    buildInfoPackage := "stainless"
+//  )
 
-lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
-  .enablePlugins(JavaAppPackaging)
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(AssemblyPlugin)
-  .settings(
-    name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler")
-  .dependsOn(`stainless-dotty-frontend`)
-  // Should truly depend on dotty, overriding the "provided" modifier above:
-  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
-  .aggregate(`stainless-dotty-frontend`)
-  //.dependsOn(inox % "test->test;it->test,it")
-  .configs(IntegrationTest)
-  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
-  .settings(
-    buildInfoKeys := stainlessBuildInfoKeys,
-    buildInfoPackage := "stainless"
-  )
-
-lazy val `sbt-stainless` = (project in file("sbt-plugin"))
-  .enablePlugins(BuildInfoPlugin)
-  .settings(baseSettings)
-  .settings(publishSbtSettings)
-  .settings(
-    description := "Plugin integrating Stainless in sbt.",
-    sbtPlugin := true,
-    // Could also add support for sbt "1.1.0" but a compatibility layer needs to be added to compile against both sbt 0.13 and 1
-    crossSbtVersions := Vector("0.13.13"),
-    buildInfoUsePackageAsPath := true,
-    buildInfoPackage := "ch.epfl.lara.sbt.stainless",
-    buildInfoKeys := Seq[BuildInfoKey](
-      BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
-      "supportedScalaVersions" -> SupportedScalaVersions
-    )
-  )
-  .settings(scriptedSettings)
-  .settings(
-    scriptedDependencies := {
-      publishLocal.value
-      (publishLocal in `stainless-library`).value
-      (publishLocal in `stainless-scalac-plugin`).value
-    }
-  )
+//lazy val `sbt-stainless` = (project in file("sbt-plugin"))
+//  .enablePlugins(BuildInfoPlugin)
+//  .settings(baseSettings)
+//  .settings(publishSbtSettings)
+//  .settings(
+//    description := "Plugin integrating Stainless in sbt.",
+//    sbtPlugin := true,
+//    // Could also add support for sbt "1.1.0" but a compatibility layer needs to be added to compile against both sbt 0.13 and 1
+//    crossSbtVersions := Vector("0.13.13"),
+//    buildInfoUsePackageAsPath := true,
+//    buildInfoPackage := "ch.epfl.lara.sbt.stainless",
+//    buildInfoKeys := Seq[BuildInfoKey](
+//      BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
+//      "supportedScalaVersions" -> SupportedScalaVersions
+//    )
+//  )
+//  .settings(scriptedSettings)
+//  .settings(
+//    scriptedDependencies := {
+//      publishLocal.value
+//      (publishLocal in `stainless-library`).value
+//      (publishLocal in `stainless-scalac-plugin`).value
+//    }
+//  )
 
 def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
   Seq(
@@ -318,8 +318,10 @@ lazy val root = (project in file("."))
     publishArtifact := false,
     publish := ()
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`)
+  //.dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
+  //.aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
