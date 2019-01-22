@@ -3,6 +3,8 @@
 package stainless
 package frontends.dotc
 
+import scala.language.implicitConversions
+
 import dotty.tools.dotc.core.Flags._
 import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Contexts._
@@ -25,7 +27,12 @@ class SymbolsContext {
           } else {
             sym.fullName.toString.trim.split("\\.")
               .filter(_ != "package$")
-              .map(name => if (name.endsWith("$")) name.init else name)
+              .map { name =>
+                if (name.endsWith("$")) name.init else name
+              }
+              .map { name =>
+                if (name.startsWith("_$")) name.drop(2) else name
+              }
               .mkString(".")
           }
 

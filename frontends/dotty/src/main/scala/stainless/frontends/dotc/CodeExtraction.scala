@@ -28,7 +28,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   import StructuralExtractors._
 
   lazy val reporter = inoxCtx.reporter
-  implicit val debugSection = frontend.DebugSectionExtraction
+
+  implicit val debugSection: inox.DebugSection = frontend.DebugSectionExtraction
 
   implicit def dottyPosToInoxPos(p: Position): inox.utils.Position = scala.util.Try({
     if (!p.exists) {
@@ -100,7 +101,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   // This one never fails, on error, it returns Untyped
-  def stainlessType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = {
+  private def stainlessType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = {
     try {
       extractType(tpt)
     } catch {
@@ -243,6 +244,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case tpe if tpe.typeSymbol == defn.ObjectClass => false
     case tpe if tpe.typeSymbol == defn.ThrowableClass && inLibrary => false
     case tpe if defn.isProductClass(tpe.classSymbol) => false
+    case tpe if defn.isProductSubType(tpe) => false
     case tpe => true
   }
 
@@ -264,7 +266,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val classType = xt.ClassType(id, extparams)
 
     val inLibrary = flags exists (_.name == "library")
-    val parents = template.parents.filter(isValidParent(_, inLibrary)).map(p => extractType(p.tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
+
+    val parents = template.parents
+      .filter(isValidParent(_, inLibrary))
+      .map(p => extractType(p.tpe)(tpCtx, p.pos).asInstanceOf[xt.ClassType])
 
     if (parents.length > 1) {
       outOfSubsetError(td.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
@@ -291,7 +296,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val tpe = if (isIgnored) xt.IntegerType()
                 else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
 
-      if ((vdSym.symbol is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      if ((vdSym is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
       else xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
@@ -671,7 +676,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         (xt.TuplePattern(binder, subPatterns), nctx)
       } else if (sym.owner.exists && sym.owner.is(Synthetic) &&
           sym.owner.companionClass.exists && sym.owner.companionClass.is(Case)) {
-        val id = getIdentifier(sym.owner.symbol.companionClass)
+        val id = getIdentifier(sym.owner.companionClass)
         val tps = f match { case TypeApply(un, tps) => tps map extractType case _ => Seq.empty }
         (xt.ClassPattern(binder, xt.ClassType(id, tps).setPos(p.pos), subPatterns).setPos(p.pos), nctx)
       } else {
@@ -1262,7 +1267,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else                xt.BVWideningCast(extractTree(expr), newType)
 
     case ExCall(rec, sym, tps, args) => rec match {
-      case Some(Select(rec @ Super(_, _), m)) if (sym is Abstract) && m != CONSTRUCTOR =>
+      case Some(Select(rec @ Super(_, _), m)) if (sym is Abstract) && m != nme.CONSTRUCTOR =>
         outOfSubsetError(tr.pos, "Cannot issue a super call to an abstract method.")
 
       // Case object fields and methods are treated differently by dotty (same as scalac) for some
@@ -1528,6 +1533,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private val etCache = MutableMap[Type, xt.Type]()
   private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElse(tpt, {
     val res = (tpt match {
+      case NoType => xt.Untyped
+
       case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
       case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
       case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
@@ -1550,11 +1557,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams(tr.symbol)
 
-      // dotty < 0.4-RC01
-      case hk @ HKApply(tycon, args) =>
-        extractType(hk.dealias.appliedTo(args))
-
-      // dotty >= 0.4-RC01
       case hk: LambdaType =>
         extractType(hk.resultType)
 
@@ -1580,20 +1582,36 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr: TypeRef if isScalaMapSym(tr.symbol) =>
         outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 
+      case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
+        xt.SetType(extractType(tp))
+
       case tr: TypeRef if isSetSym(tr.symbol) =>
         val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
         xt.SetType(tp)
+
+      case AppliedType(tr: TypeRef, Seq(tp)) if isBagSym(tr.symbol) =>
+        xt.BagType(extractType(tp))
 
       case tr: TypeRef if isBagSym(tr.symbol) =>
         val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
         xt.BagType(tp)
 
+      case AppliedType(tr: TypeRef, tps) if isMapSym(tr.symbol) =>
+        val Seq(from, to) = tps map extractType
+        xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
+
       case tr: TypeRef if isMapSym(tr.symbol) =>
         val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
         xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
 
+      case AppliedType(tr: TypeRef, tps) if TupleSymbol.unapply(tr.classSymbol).isDefined =>
+        xt.TupleType(tps map extractType)
+
       case tr: TypeRef if TupleSymbol.unapply(tr.classSymbol).isDefined =>
         xt.TupleType(extractTypeParams(tr.classSymbol.typeParams))
+
+      case AppliedType(tr: TypeRef, Seq(tp)) if isArrayClassSym(tr.symbol) =>
+        xt.ArrayType(extractType(tp))
 
       case tr: TypeRef if isArrayClassSym(tr.symbol) =>
         val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
@@ -1604,7 +1622,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
         xt.FunctionType(Seq(), xt.UnitType())
 
-      case defn.FunctionOf(from, to, _) =>
+      case defn.FunctionOf(from, to, _, _) =>
         xt.FunctionType(from map extractType, extractType(to))
 
       case tt @ ThisType(tr) =>
@@ -1621,6 +1639,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (xt.NAryType(tps, recons), _) =>
             recons(tps.updated(idx, extractType(tpe)))
         }
+
+      case at: AppliedType if at != at.resultType =>
+        extractType(at.resultType)
+
+      case at @ AppliedType(tycon: TypeRef, args) =>
+        val sym = at.classSymbol
+        xt.ClassType(getIdentifier(sym), args.map(extractType))
 
       case tt @ TypeRef(_, _) if tt.classSymbol.exists =>
         val sym = tt.classSymbol

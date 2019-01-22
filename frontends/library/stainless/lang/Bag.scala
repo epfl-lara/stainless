@@ -1,6 +1,9 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless.lang
+
+import scala.language.implicitConversions
+
 import stainless.annotation._
 
 object Bag {

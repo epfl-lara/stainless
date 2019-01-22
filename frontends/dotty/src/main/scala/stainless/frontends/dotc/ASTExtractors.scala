@@ -1,6 +1,8 @@
 package stainless
 package frontends.dotc
 
+import scala.language.implicitConversions
+
 import dotty.tools.dotc._
 import ast.tpd
 import ast.Trees._
@@ -16,7 +18,7 @@ import scala.collection.mutable.{ Map => MutableMap }
 
 trait ASTExtractors {
 
-  protected implicit val ctx: Context
+  protected implicit val ctx: dotty.tools.dotc.core.Contexts.Context
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
@@ -201,21 +203,21 @@ trait ASTExtractors {
   object ExpressionExtractors {
 
     object ExIdentifier {
-      def unapply(tree: tpd.Ident): Option[(Symbol, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(Symbol, tpd.Ident)] = tree match {
         case i: tpd.Ident => Some((i.symbol, i))
         case _ => None
       }
     }
 
     object ExThis {
-      def unapply(tree: tpd.This): Option[(Symbol, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(Symbol, tpd.This)] = tree match {
         case thiz: tpd.This => Some((thiz.symbol, thiz))
         case _ => None
       }
     }
 
     object ExTyped {
-      def unapply(tree: tpd.Typed): Option[(tpd.Tree, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Typed(e,t) => Some((e, t))
         case _ => None
       }
@@ -373,10 +375,10 @@ trait ASTExtractors {
 
     object ExConstructor {
       def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] = tree match {
-        case Apply(Select(New(tpt), CONSTRUCTOR), args) =>
+        case Apply(Select(New(tpt), nme.CONSTRUCTOR), args) =>
           Some((tpt.tpe, args))
 
-        case Apply(TypeApply(Select(New(tpt), CONSTRUCTOR), _), args) =>
+        case Apply(TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
           Some((tree.tpe, args))
 
         case Apply(e, args) if (
@@ -450,8 +452,8 @@ trait ASTExtractors {
     }
 
     object ExFunctionDef {
-      def unapply(dd: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, rhs) =>
+      def unapply(tree: tpd.Tree): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = tree match {
+        case dd @ DefDef(name, tparams, vparamss, tpt, rhs) =>
           if ((
             name != nme.CONSTRUCTOR &&
             !dd.symbol.is(Accessor) &&
@@ -567,11 +569,17 @@ trait ASTExtractors {
 
     object ExAssert {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
+        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body)) =>
+          Some((body, None, false))
+
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
           Some((body, None, false))
 
         case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "assert"), Seq(body)) =>
           Some((body, None, true))
+
+        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
+          Some((body, Some(cnst.stringValue), false))
 
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
           Some((body, Some(cnst.stringValue), false))

@@ -14,7 +14,10 @@ val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
 val inoxVersion = "1.1.0-315-gec5dd7d"
-val dottyVersion = "0.1.1-bin-20170429-10a2ce6-NIGHTLY"
+/* val dottyLibrary = "dotty-compiler_0.12" */
+/* val dottyVersion = "0.12.0-RC1" */
+val dottyLibrary = "dotty-compiler_2.12"
+val dottyVersion = "0.12.0-RC1-bin-SNAPSHOT-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
 
 lazy val nParallel = {
@@ -169,10 +172,10 @@ lazy val IntegrationTest = config("it") extend(Test)
 
 lazy val `stainless-core` = (project in file("core"))
   .disablePlugins(AssemblyPlugin)
+  /* .enablePlugins(SphinxPlugin) */
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
-  .settings(site.settings)
-  .settings(site.sphinxSupport())
+  /* .settings(site.settings) *1/ */
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
@@ -209,7 +212,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
       // Don't include scalaz3 dependency because it is OS dependent
       cp filter {_.data.getName.startsWith("scalaz3")}
     },
-    publish := (),
+    publish := (()),
     skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
   )
   .dependsOn(`stainless-core`)
@@ -247,31 +250,36 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   .dependsOn(`stainless-scalac`)
   .settings(artifactSettings)
 
-//lazy val `stainless-dotty-frontend` = (project in file("frontends") / "dotty")
-//  .disablePlugins(AssemblyPlugin)
-//  .settings(name := "stainless-dotty-frontend")
-//  .dependsOn(`stainless-core`)
-//  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion % "provided")
-//  .settings(commonSettings, publishMavenSettings)
-//
-//lazy val `stainless-dotty` = (project in file("frontends") / "stainless-dotty")
-//  .enablePlugins(JavaAppPackaging)
-//  .enablePlugins(BuildInfoPlugin)
-//  .disablePlugins(AssemblyPlugin)
-//  .settings(
-//    name := "stainless-dotty",
-//    frontendClass := "dotc.DottyCompiler")
-//  .dependsOn(`stainless-dotty-frontend`)
-//  // Should truly depend on dotty, overriding the "provided" modifier above:
-//  .settings(libraryDependencies += "ch.epfl.lamp" % "dotty_2.11" % dottyVersion)
-//  .aggregate(`stainless-dotty-frontend`)
-//  //.dependsOn(inox % "test->test;it->test,it")
-//  .configs(IntegrationTest)
-//  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings, publishMavenSettings)
-//  .settings(
-//    buildInfoKeys := stainlessBuildInfoKeys,
-//    buildInfoPackage := "stainless"
-//  )
+lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
+  .settings(name := "stainless-dotty-frontend")
+  .dependsOn(`stainless-core`)
+  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
+  .settings(commonSettings)
+  // Make sure the inox project dependency resolves to the scala 2.X project.
+  .settings(projectDependencies := projectDependencies.value map (_.withDottyCompat(scalaVersion.value)))
+  // Make sure all library dependencies resolve to the scala 2.X projects.
+  .settings(libraryDependencies := libraryDependencies.value map (_.withDottyCompat(scalaVersion.value)))
+  /* .settings(scalaVersion := dottyVersion) */
+
+lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+  .settings(
+    name := "stainless-dotty",
+    frontendClass := "dotc.DottyCompiler")
+  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(`stainless-dotty-frontend`)
+  .aggregate(`stainless-dotty-frontend`)
+  // Should truly depend on dotty, overriding the "provided" modifier above:
+  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
+  .configs(IntegrationTest)
+  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
+  // As above, we resolve the library dependencies to scala 2.X projects.
+  .settings(libraryDependencies := libraryDependencies.value map (_.withDottyCompat(scalaVersion.value)))
+  // Here we don't want to use the compat mode for stainless-dotty-frontend since it
+  // actually is a dotty project (doesn't have a scala 2.X version).
+  .settings(projectDependencies := projectDependencies.value map { dep =>
+    if (dep.name == "stainless-dotty-frontend") dep else dep.withDottyCompat(scalaVersion.value)
+  })
+  /* .settings(scalaVersion := dottyVersion) */
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -298,17 +306,17 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     }
   )
 
-def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
-  Seq(
-    scripted := scripted.tag(Tags.Test).evaluated,
-    scriptedLaunchOpts ++= Seq(
-      "-Xmx768m",
-      "-XX:MaxMetaspaceSize=384m",
-      "-Dplugin.version=" + version.value,
-      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
-    ),
-    scriptedBufferLog := false
-  )
+//def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
+//  Seq(
+//    scripted := scripted.tag(Tags.Test).evaluated,
+//    scriptedLaunchOpts ++= Seq(
+//      "-Xmx768m",
+//      "-XX:MaxMetaspaceSize=384m",
+//      "-Dplugin.version=" + version.value,
+//      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
+//    ),
+//    scriptedBufferLog := false
+//  )
 
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
@@ -317,7 +325,7 @@ lazy val root = (project in file("."))
     sourcesInBase in Compile := false,
     // Don't publish root project
     publishArtifact := false,
-    publish := ()
+    publish := (())
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `sbt-stainless`)
   .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `sbt-stainless`, `stainless-scalac-plugin`)

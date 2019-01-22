@@ -6,6 +6,8 @@ import scala.language.implicitConversions
 
 import stainless.annotation._
 
+import scala.language.implicitConversions
+
 package object math {
 
   @library

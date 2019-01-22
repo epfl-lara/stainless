@@ -10,7 +10,7 @@ object Arrays {
 
   def update[T](a: Array[T], i: Int, t: T) = {
     require(i >= 0 && i < a.length)
-    val array = Array(0, 1)
+    val array: Array[Int] = Array(0, 1)
     array(0) = 1
     // Shadowed implicit conversion not supported.
     // (array: scala.collection.mutable.ArrayOps[Int]).update(1, 2)
