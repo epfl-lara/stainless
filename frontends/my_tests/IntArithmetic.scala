@@ -23,4 +23,16 @@ object Int2Arithmetic {
   def neg(x: Int): Int = {
     -x
   }
+
+  def shiftLeft(x: Int): Int = {
+    x << 2
+  }
+
+  def arithmeticShiftLeft(x: Int): Int = {
+    x >> 5
+  }
+
+  def logicalShiftRight(x: Int): Int = {
+    x >>> 4
+  }
 }

@@ -182,6 +182,9 @@ trait DottyToInoxIR
     case "++" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Union,
       extractExpression(left), extractExpression(right))
     case "&" => Exprs.BinaryOperation(Exprs.Binary.BVAnd, extractExpression(left), extractExpression(right))
+    case "<<" => Exprs.BinaryOperation(Exprs.Binary.BVShiftLeft, extractExpression(left), extractExpression(right))
+    case ">>" => Exprs.BinaryOperation(Exprs.Binary.BVAShiftRight, extractExpression(left), extractExpression(right))
+    case ">>>" => Exprs.BinaryOperation(Exprs.Binary.BVLShiftRight, extractExpression(left), extractExpression(right))
     case "contains" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Contains,
       extractExpression(left), extractExpression(right))
     case "--" => Exprs.BinaryOperation(StainlessExprs.AdditionalOperators.Difference,

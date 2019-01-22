@@ -358,8 +358,7 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
                         case _ => trees.Application(other, Seq(vd.toVariable))
                       })
                   })
-                }).addConstraint(Constraint.equal(tpe, SimpleTypes.BooleanType()))
-                  .addConstraint(Constraint.equal(SimpleTypes.FunctionType(Seq(tpe), SimpleTypes.BooleanType()), postTpe))
+                }).addConstraint(Constraint.equal(SimpleTypes.FunctionType(Seq(tpe), SimpleTypes.BooleanType()), postTpe))
             }
         }
 

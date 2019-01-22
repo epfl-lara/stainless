@@ -8,7 +8,8 @@ object ExploratoryTest {
   def second(a: Int, b: Int) = { // inferred result is Int
     a + b // elaborated to primitive addition
   }
-//
+
+  //
   def third(a: Map[Int, String], b: Int, c: String) = { // inferred type is Map[Int, String]
     a + (b -> c) // elaborated to MapUpdated
   }
@@ -42,36 +43,59 @@ object ExploratoryTest {
     val f3 = (x: Int) => if (x < 0) f1 else f2
   }
 
-
   //   no verification executed
-  def test(a: Int): Boolean = {
+  def test1(a: Int): Boolean = {
     val b = a > 3
     b
   }
 
   // counter example on input value 3
-  def test(a: Int): Boolean = {
+  def test2(a: Int): Boolean = {
     val b = a > 3
     assert(b == true)
     b
   }
 
   // counter example on input value 4
-  def test(a: Int): Boolean = {
+  def test3(a: Int): Boolean = {
     val b = a == 4
     b
   }.holds
 
   //   counter example on input value 5
-  def test(a: Int): Boolean = {
+  def test4(a: Int): Boolean = {
     val b = a != 5
     b
   } ensuring { res => res == true }
 
   //passes verification because of require
-  def test(a: Int): Boolean = {
+  def test5(a: Int): Boolean = {
     require(a > 3)
     val b = a > 3
     b
   } ensuring { res => res == true }
+
+
+  def factorial(n: Int): Int = {
+    if (n == 0)
+      1
+    else
+      n * factorial(n - 1)
+  } ensuring { res => res > 0 }
+
+  def factorial1(n: Int): Int = {
+    require(n < 17)
+    if (n == 0)
+      1
+    else
+      n * factorial1(n - 1)
+  } ensuring { res => res > 0 }
+
+  def factorial2(n: Int): Int = {
+    require(n >= 0 && n < 17)
+    if (n == 0)
+      1
+    else
+      n * factorial2(n - 1)
+  } ensuring { res => res > 0 }
 }
