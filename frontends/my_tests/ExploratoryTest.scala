@@ -31,7 +31,7 @@ object ExploratoryTest {
   def matching(a: Int): String = a match {
     case 1 => "First"
     case 2 => "Second"
-    case _ if a < 5 => "Third"
+    case b if b < 5 => "Third"
     case _ => "Rest"
   }
 

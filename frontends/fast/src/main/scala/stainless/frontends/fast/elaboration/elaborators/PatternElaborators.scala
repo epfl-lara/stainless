@@ -14,7 +14,7 @@ trait PatternElaborators {
             case None => Left(template.pos)
             case Some(expr) => Right(expr)
           }
-        }
+        }(store.addBindings(bindings))
         _ <- Constrained(Constraint.equal(SimpleTypes.BooleanType(), optTpe))
         (tpe, ev) <- ExprE.elaborate(template.rhs)(store.addBindings(bindings))
       } yield (tpe, patternType, Eventual.withUnifier { implicit unifier =>

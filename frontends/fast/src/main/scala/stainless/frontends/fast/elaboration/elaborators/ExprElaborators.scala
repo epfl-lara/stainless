@@ -153,25 +153,19 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, rhsUnknown), resultType),
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsTpe, rhsTpe), resultType),
                   Seq(
                     SimpleTypes.FunctionType(Seq(numericType, numericType), numericType),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.StringType(), SimpleTypes.StringType()), SimpleTypes.StringType()),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), rhsUnknown), SimpleTypes.SetType(rhsUnknown)),
                     SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), rhsUnknown), SimpleTypes.BagType(rhsUnknown)),
-                    SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), rhsUnknown), SimpleTypes.MapType(tupleFirst, tupleSecond))
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.MapType(tupleFirst, tupleSecond), SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond))),
+                      SimpleTypes.MapType(tupleFirst, tupleSecond))
                   )))
-              .addConstraint(Constraint.oneOf(rhsUnknown, rhsTpe,
-                Seq(
-                  numericType,
-                  SimpleTypes.StringType(),
-                  SimpleTypes.TupleType(Seq(tupleFirst, tupleSecond)
-                  ))))
               .addConstraint(Constraint.isNumeric(numericType))
               .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
               .addConstraint(Constraint.exist(resultType))
-              .addConstraint(Constraint.exist(rhsUnknown))
           }
         }
       }
