@@ -49,7 +49,7 @@ trait DottyToInoxIR
       if (!p.exists) {
         scala.util.parsing.input.NoPosition
       } else {
-        scala.util.parsing.input.OffsetPosition(ctx.source.toString(), p.start)
+        scala.util.parsing.input.OffsetPosition(ctx.source.content, p.start)
       }
     }).toOption.getOrElse(scala.util.parsing.input.NoPosition)
 
