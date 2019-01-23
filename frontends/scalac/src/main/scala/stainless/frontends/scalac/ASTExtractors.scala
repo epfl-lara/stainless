@@ -830,7 +830,7 @@ trait ASTExtractors {
 
     object ExTupleExtract {
       def unapply(tree: Select) : Option[(Tree,Int)] = tree match {
-        case Select(lhs @ TupleSymbol(i), n) => {
+        case Select(lhs @ TupleSymbol(i), n) =>
           val methodName = n.toString
           if(methodName.head == '_') {
             val indexString = methodName.tail
