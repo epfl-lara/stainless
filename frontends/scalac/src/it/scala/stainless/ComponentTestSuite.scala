@@ -60,7 +60,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val funs = defs.filter(exProgram.symbols.functions contains _).toSeq
 
-        val report = Await.result(run.apply(funs, exProgram.symbols), Duration.Inf)
+        val report = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
         block(report, ctx.reporter)
       }
     } else {
@@ -101,7 +101,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         // We have to cast the extracted symbols type as we are using two different
         // run instances. However, the trees types are the same so this should be safe (tm).
         val report = Await.result(
-          run.apply(funs, exSymbols.asInstanceOf[run.trees.Symbols]),
+          run.execute(funs, exSymbols.asInstanceOf[run.trees.Symbols]),
           Duration.Inf
         )
 

@@ -204,7 +204,7 @@ class RegistryTestSuite extends FunSuite {
       super.extract(symbols)
     }
 
-    override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+    override def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
       val report = MockReport(Set.empty, Set.empty)
       val analysis = MockAnalysis(report)
       Future.successful(analysis)

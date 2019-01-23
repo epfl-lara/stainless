@@ -6,7 +6,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ trees => xt, TreeSanitizer }
 import frontend.CallBack
-import utils.{ CheckFilter, DependenciesFinder, Registry }
+import utils.{ CheckFilter, XLangDependenciesFinder, Registry }
 
 import scala.collection.mutable.ListBuffer
 
@@ -57,9 +57,9 @@ trait InputUtils {
         override val context = ctx
 
         override def computeDirectDependencies(fd: xt.FunDef): Set[Identifier] =
-          new DependenciesFinder()(fd)
+          new XLangDependenciesFinder()(fd)
         override def computeDirectDependencies(cd: xt.ClassDef): Set[Identifier] =
-          new DependenciesFinder()(cd)
+          new XLangDependenciesFinder()(cd)
 
         override def shouldBeChecked(fd: xt.FunDef): Boolean =
           filterOpt map { _.shouldBeChecked(fd) } getOrElse true

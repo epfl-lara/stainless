@@ -49,7 +49,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
   implicit val debugSection = DebugSectionVerification
 
-  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
+  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
     import context._
 
     val p = inox.Program(trees)(symbols)
