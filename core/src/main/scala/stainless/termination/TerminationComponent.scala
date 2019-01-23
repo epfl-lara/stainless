@@ -63,7 +63,7 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
 
   override def parse(json: Json): Report = TerminationReport.parse(json)
 
-  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
     import trees._
     import context._
 
