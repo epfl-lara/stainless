@@ -196,7 +196,9 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     val componentReports: Seq[Future[RunReport]] =
       runs.map { run =>
         val (toProcess, exSymbols) = run.prepare(id, syms)
-        run(toProcess, exSymbols).map(a => RunReport(run)(a.toReport))
+        run(toProcess, exSymbols) map { a =>
+          RunReport(run)(a.toReport.asInstanceOf[run.component.Report])
+        }
       }
 
     val futureReport = Future.sequence(componentReports).map(Report)
