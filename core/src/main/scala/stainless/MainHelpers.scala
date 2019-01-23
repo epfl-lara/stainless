@@ -41,6 +41,7 @@ trait MainHelpers extends inox.MainHelpers {
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
+    frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)

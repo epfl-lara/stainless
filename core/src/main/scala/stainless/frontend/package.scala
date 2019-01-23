@@ -17,6 +17,11 @@ package object frontend {
    */
   object optPersistentCache extends inox.FlagOptionDef("cache", false)
 
+  /** Do not use registry to create minimal partial programs,
+    * do a dependency analysis after collecting the whole program
+    */
+  object optBatchedProgram extends inox.FlagOptionDef("batched", false)
+
   /**
    * Given a context (with its reporter) and a frontend factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components
@@ -27,7 +32,7 @@ package object frontend {
    * is required to [[stop]] or [[join]] the returned compiler to free resources.
    */
   def build(ctx: inox.Context, compilerArgs: Seq[String], factory: FrontendFactory): Frontend = {
-    factory(ctx, compilerArgs, getStainlessCallBack(ctx))
+    factory(ctx, compilerArgs, getCallBack(ctx))
   }
 
   /**
@@ -60,9 +65,12 @@ package object frontend {
   }
 
   /** Get one callback for all active components. */
-  def getStainlessCallBack(implicit ctx: inox.Context): CallBack = {
+  def getCallBack(implicit ctx: inox.Context): CallBack = {
     val activeComponents = getActiveComponents(ctx)
-    new StainlessCallBack(activeComponents)
+    if(ctx.options.findOptionOrDefault(optBatchedProgram))
+      new BatchedCallBack(activeComponents)
+    else
+      new StainlessCallBack(activeComponents)
   }
 }
 
