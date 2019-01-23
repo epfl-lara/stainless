@@ -490,7 +490,7 @@ trait ASTExtractors {
             dd.symbol.isSynthetic &&
             dd.symbol.isImplicit &&
             dd.symbol.isMethod &&
-            !(getAnnotations(tpt.symbol) contains "ignore")
+            !(getAnnotations(tpt.symbol) exists (_._2 == "ignore"))
           ) ||
             !dd.symbol.isSynthetic ||
             canExtractSynthetic(dd.symbol)
