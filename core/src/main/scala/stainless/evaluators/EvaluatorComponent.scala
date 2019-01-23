@@ -69,7 +69,7 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
 
   override def createFilter = EvaluatorCheckFilter(trees, context)
 
-  override def apply(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
+  private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
     import context._
 
     val p = inox.Program(trees)(symbols)

@@ -27,7 +27,7 @@ class StainlessPluginComponent(
     val adapter = new ReporterAdapter(global.reporter, Set())
     stainlessContext.copy(reporter = adapter)
   }
-  override protected val callback: CallBack = stainless.frontend.getStainlessCallBack(ctx)
+  override protected val callback: CallBack = stainless.frontend.getCallBack(ctx)
   override protected val cache: SymbolMapping = new SymbolMapping
 
   // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?

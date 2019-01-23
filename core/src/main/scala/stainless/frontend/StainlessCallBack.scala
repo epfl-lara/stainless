@@ -7,7 +7,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import extraction.utils.ConcurrentCache
-import utils.{ CheckFilter, DependenciesFinder, JsonUtils }
+import utils.{ CheckFilter, JsonUtils }
 
 import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
 
@@ -19,7 +19,7 @@ import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
 class StainlessCallBack(components: Seq[Component])(override implicit val context: inox.Context)
-  extends CallBack with CheckFilter { self =>
+  extends CallBack with CheckFilter with StainlessReports { self =>
 
   protected final override val trees = extraction.xlang.trees
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
@@ -82,38 +82,6 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       case e: inox.FatalError => Some(e)
       case e if e.getCause != null => SomeFatalError.unapply(e.getCause)
       case _ => None
-    }
-  }
-
-  protected trait RunReport { val run: ComponentRun; val report: run.component.Report }
-  protected def RunReport(r: ComponentRun)(re: r.component.Report): RunReport { val run: r.type; val report: re.type } =
-    new RunReport { val run: r.type = r; val report: re.type = re }
-
-  protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
-    val name = "stainless"
-
-    override def ~(other: Report): Report = Report(
-      (reports ++ other.reports).groupBy(_.run).map {
-        case (run, reports) => RunReport(run)(reports.map(_.report.asInstanceOf[run.component.Report]) reduce (_ ~ _))
-      }.toSeq
-    )
-
-    override lazy val annotatedRows = reports.flatMap(_.report.annotatedRows: Seq[RecordRow])
-
-    override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
-
-    override def filter(ids: Set[Identifier]): Report =
-      Report(reports.map(rr => RunReport(rr.run)(rr.report filter ids)))
-
-    override lazy val stats: stainless.ReportStats = {
-      val reportStats = reports.map(_.report.stats)
-      ReportStats(
-        reportStats.map(_.total         ).sum,
-        reportStats.map(_.time          ).sum,
-        reportStats.map(_.valid         ).sum,
-        reportStats.map(_.validFromCache).sum,
-        reportStats.map(_.invalid       ).sum,
-        reportStats.map(_.unknown       ).sum)
     }
   }
 
@@ -195,8 +163,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     // Dispatch a task to the executor service instead of blocking this thread.
     val componentReports: Seq[Future[RunReport]] =
       runs.map { run =>
-        val (toProcess, exSymbols) = run.prepare(id, syms)
-        run(toProcess, exSymbols) map { a =>
+        run(id, syms) map { a =>
           RunReport(run)(a.toReport.asInstanceOf[run.component.Report])
         }
       }

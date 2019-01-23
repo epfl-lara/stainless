@@ -6,7 +6,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ trees => xt, TreeSanitizer }
 import frontend.CallBack
-import utils.{ CheckFilter, DependenciesFinder }
+import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
 
@@ -74,7 +74,7 @@ trait InputUtils {
     // Wait for compilation to finish to produce the whole program
     compiler.join()
 
-    // Ensure the registry yields all classes and functions (unless using a custom filter)
+    // Ensure the callback yields all classes and functions (unless using a custom filter)
     assert(done)
 
     // Check that extracted symbols are valid
