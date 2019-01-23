@@ -173,8 +173,8 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
       case Exprs.BinaryOperation(Exprs.Binary.BVAnd, lhs, rhs) =>
         val oneOfUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val resultType = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val rhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
-        val lhsUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val elemUnknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
+        val unknown = SimpleTypes.Unknown.fresh.setPos(template.pos)
         val bitVectorTypes = for {
           sign <- List(true, false)
           length <- List(8, 16, 32, 64)
@@ -194,13 +194,14 @@ trait ExprElaborators extends inox.parser.elaboration.elaborators.ExprElaborator
               }
             }))
               .addConstraint(Constraint.
-                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(lhsUnknown, lhsUnknown), resultType),
+                oneOf(oneOfUnknown, SimpleTypes.FunctionType(Seq(unknown, unknown), resultType),
                   bitVectorTypes ++ Seq(
-                    SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(rhsUnknown), SimpleTypes.SetType(rhsUnknown)), SimpleTypes.SetType(rhsUnknown)),
-                    SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(rhsUnknown), SimpleTypes.BagType(rhsUnknown)), SimpleTypes.BagType(rhsUnknown))
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.SetType(elemUnknown), SimpleTypes.SetType(elemUnknown)), SimpleTypes.SetType(elemUnknown)),
+                    SimpleTypes.FunctionType(Seq(SimpleTypes.BagType(elemUnknown), SimpleTypes.BagType(elemUnknown)), SimpleTypes.BagType(elemUnknown))
                   )))
-              .addConstraint(Constraint.equal(lhsTpe, lhsUnknown))
+              .addConstraint(Constraint.equal(lhsTpe, unknown))
               .addConstraint(Constraint.equal(lhsTpe, resultType))
+              .addConstraint(Constraint.equal(rhsTpe, unknown))
               .addConstraint(Constraint.exist(resultType))
               .addConstraint(Constraint.exist(oneOfUnknown))
           }
