@@ -85,7 +85,7 @@ class WasmDependenciesFinder extends DependenciesFinder {
       .withFunctions(Seq(
         "toString", "digitToStringL", "digitToStringI",
         "i32ToString", "i64ToString", "f64ToString",
-        "booleanToString", "funToString"
+        "booleanToString", "funToString", "unitToString"
       ).map(lib.fun(_)(s)))
   }
 }
