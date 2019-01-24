@@ -13,59 +13,59 @@ class WasmDefIdFinder(val s: Symbols) extends DefinitionIdFinder { outer =>
   }
   private def fun(name: String) = lib.fun(name)(s).id
   private def sort(name: String) = lib.sort(name)(s).id
-  private lazy val setIds = Set(sort("_Set_"), fun("__SNil_$0ToString_"), fun("__SCons_$0ToString_"))
-  private lazy val bagIds = Set(sort("_Bag_"), fun("__BNil_$0ToString_"), fun("__BCons_$0ToString_"))
-  private lazy val mapIds = Set(sort("_Map_"), fun("__MNil_$0ToString_"), fun("__MCons_$0ToString_"))
+  private lazy val setIds = Set(sort("Set"), fun("SNil$0ToString"), fun("SCons$0ToString"))
+  private lazy val bagIds = Set(sort("Bag"), fun("BNil$0ToString"), fun("BCons$0ToString"))
+  private lazy val mapIds = Set(sort("Map"), fun("MNil$0ToString"), fun("MCons$0ToString"))
 
   override def traverse(expr: Expr, env: Env): Unit = {
     expr match {
       // Tuples
       case Tuple(elems) =>
-        ids += sort(s"_Tuple${elems.size}_")
+        ids += sort(s"Tuple${elems.size}")
       case TupleSelect(tuple, _) =>
         val TupleType(ts) = tuple.getType(s)
-        ids += sort(s"_Tuple${ts.size}_")
+        ids += sort(s"Tuple${ts.size}")
       // Sets
       case FiniteSet(_, _) | SetAdd(_, _) =>
-        ids += fun("_setAdd_")
+        ids += fun("setAdd")
         ids ++= setIds
       case ElementOfSet(_, _) =>
-        ids += fun("_elementOfSet_")
+        ids += fun("elementOfSet")
         ids ++= setIds
       case SubsetOf(_, _) =>
-        ids += fun("_subsetOf_")
+        ids += fun("subsetOf")
         ids ++= setIds
       case SetIntersection(_, _) =>
-        ids += fun("_setIntersection_")
+        ids += fun("setIntersection")
         ids ++= setIds
       case SetUnion(_, _) =>
-        ids += fun("_setUnion_")
+        ids += fun("setUnion")
         ids ++= setIds
       case SetDifference(_, _) =>
-        ids += fun("_setDifference_")
+        ids += fun("setDifference")
         ids ++= setIds
       // Bags
       case FiniteBag(_, _) | BagAdd(_, _) =>
-        ids += fun("_bagAdd_")
+        ids += fun("bagAdd")
         ids ++= bagIds
       case MultiplicityInBag(_, _) =>
-        ids += fun("_bagMultiplicity_")
+        ids += fun("bagMultiplicity")
         ids ++= bagIds
       case BagIntersection(_, _) =>
-        ids += fun("_bagIntersection_")
+        ids += fun("bagIntersection")
         ids ++= bagIds
       case BagUnion(_, _) =>
-        ids += fun("_bagUnion_")
+        ids += fun("bagUnion")
         ids ++= bagIds
       case BagDifference(_, _) =>
-        ids += fun("_bagDifference_")
+        ids += fun("bagDifference")
         ids ++= bagIds
       // Maps
       case FiniteMap(_, _, _, _) | MapUpdated(_, _, _) =>
-        ids += fun("_mapUpdated_")
+        ids += fun("mapUpdated")
         ids ++= mapIds
       case MapApply(_, _) =>
-        ids += fun("_mapApply_")
+        ids += fun("mapApply")
         ids ++= mapIds
       case _ =>
     }
@@ -83,9 +83,9 @@ class WasmDependenciesFinder extends DependenciesFinder {
   override def findDependencies(roots: Set[Identifier], s: Symbols): Symbols = {
     super.findDependencies(roots, s)
       .withFunctions(Seq(
-        "_toString_", "_digitToStringL_", "_digitToStringI_",
-        "_i32ToString_", "_i64ToString_", "_f64ToString_",
-        "_booleanToString_", "_funToString_"
+        "toString", "digitToStringL", "digitToStringI",
+        "i32ToString", "i64ToString", "f64ToString",
+        "booleanToString", "funToString"
       ).map(lib.fun(_)(s)))
   }
 }

@@ -9,17 +9,17 @@ import stainless.annotation.library
 @library
 object Runtime {
 
-  sealed case class _Tuple2_[T1, T2](e1: T1, e2: T2)
-  sealed case class _Tuple3_[T1, T2, T3](e1: T1, e2: T2, e3: T3)
-  sealed case class _Tuple4_[T1, T2, T3, T4](e1: T1, e2: T2, e3: T3, e4: T4)
+  sealed case class Tuple2[T1, T2](e1: T1, e2: T2)
+  sealed case class Tuple3[T1, T2, T3](e1: T1, e2: T2, e3: T3)
+  sealed case class Tuple4[T1, T2, T3, T4](e1: T1, e2: T2, e3: T3, e4: T4)
 
   /* Transforms any type to a string.  Will be filled in by the code generator */
   @library
-  def _toString_[A](a: A): String = ""
+  def toString[A](a: A): String = ""
 
   /* String transformers for basic types */
 	@library
-  def _digitToStringL_(b: Long): String = {
+  def digitToStringL(b: Long): String = {
     b match {
       case _ if b == 0 => "0"
       case _ if b == 1 => "1"
@@ -35,7 +35,7 @@ object Runtime {
   }
 
   @library
-  def _digitToStringI_(b: Int): String = {
+  def digitToStringI(b: Int): String = {
     b match {
       case _ if b == 0 => "0"
       case _ if b == 1 => "1"
@@ -51,125 +51,125 @@ object Runtime {
   }
 
 	@library
-  def _i64ToString_(b: Long): String = {
-    if (b < 0) "-" + _i64ToString_(-b)
-    else if (b <= 9) _digitToStringL_(b)
-    else _i64ToString_(b / 10) + _digitToStringL_(b % 10)
+  def i64ToString(b: Long): String = {
+    if (b < 0) "-" + i64ToString(-b)
+    else if (b <= 9) digitToStringL(b)
+    else i64ToString(b / 10) + digitToStringL(b % 10)
   }
 
 	@library
-  def _i32ToString_(b: Int): String = {
-    if (b < 0) "-" + _i32ToString_(-b)
-    else if (b <= 9) _digitToStringI_(b)
-    else _i32ToString_(b / 10) + _digitToStringI_(b % 10)
+  def i32ToString(b: Int): String = {
+    if (b < 0) "-" + i32ToString(-b)
+    else if (b <= 9) digitToStringI(b)
+    else i32ToString(b / 10) + digitToStringI(b % 10)
   }
 
 
 	@library
-	def _booleanToString_(i: Int) = if (i == 0) "false" else "true"
+	def booleanToString(i: Int) = if (i == 0) "false" else "true"
 	@library // TODO
-	def _f64ToString_(b: Real): String = "<real>"
+	def f64ToString(b: Real): String = "<real>"
 	@library
-	def _funToString_(): String = "<function>"
+	def funToString(): String = "<function>"
 
   /* compares two elements of any type. Will be filled in by the code generator */
   @library
-  def _compare_[A](a1: A, a2: A): Int = 0
+  def compare[A](a1: A, a2: A): Int = 0
 
   // We define our own lists to not have to load the entire scala lib
   @library
-  sealed abstract class _Set_[A] {
-    @inline def ::(elem: A): _Set_[A] = _SCons_(elem, this)
+  sealed abstract class Set[A] {
+    @inline def ::(elem: A): Set[A] = SCons(elem, this)
   }
   @library
-  case class _SCons_[A](h: A, t: _Set_[A]) extends _Set_[A]
+  case class SCons[A](h: A, t: Set[A]) extends Set[A]
   @library
-  case class _SNil_[A]() extends _Set_[A]
+  case class SNil[A]() extends Set[A]
 
   @library
-  def __SNil_$0ToString_[A](s: _Set_[A]) = "Set()"
+  def SNil$0ToString[A](s: Set[A]) = "Set()"
   @library
-  def __SCons_$0ToString_[A](s: _Set_[A]) = {
-    def rec(s: _Set_[A]): String = s match {
-      case _SCons_(e1, s1@ _SCons_(_, _)) => _toString_[A](e1) + ", " + rec(s1)
-      case _SCons_(e1, _SNil_()) => _toString_[A](e1)
+  def SCons$0ToString[A](s: Set[A]) = {
+    def rec(s: Set[A]): String = s match {
+      case SCons(e1, s1@ SCons(_, _)) => toString[A](e1) + ", " + rec(s1)
+      case SCons(e1, SNil()) => toString[A](e1)
     }
     "Set(" + rec(s) + ")"
   }
 
   @library
-  def _setAdd_[A](set: _Set_[A], elem: A): _Set_[A] = set match {
-    case _SNil_() => elem :: _SNil_()
-    case _SCons_(h, t) =>
-      val c = _compare_(elem, h)
+  def setAdd[A](set: Set[A], elem: A): Set[A] = set match {
+    case SNil() => elem :: SNil()
+    case SCons(h, t) =>
+      val c = compare(elem, h)
       if (c < 0) elem :: h :: t
-      else if (c > 0) h :: _setAdd_(t, elem)
+      else if (c > 0) h :: setAdd(t, elem)
       else h :: t
   }
   @library
-  def _elementOfSet_[A](set: _Set_[A], elem: A): Boolean = set match {
-    case _SNil_() => false
-    case _SCons_(h, t) =>
-      val c = _compare_(elem, h)
+  def elementOfSet[A](set: Set[A], elem: A): Boolean = set match {
+    case SNil() => false
+    case SCons(h, t) =>
+      val c = compare(elem, h)
       if (c < 0) false
-      else if (c > 0) _elementOfSet_(t, elem)
+      else if (c > 0) elementOfSet(t, elem)
       else true
   }
   @library
-  def _subsetOf_[A](subset: _Set_[A], superset: _Set_[A]): Boolean = (subset, superset) match {
-    case (_SNil_(), _) => true
-    case (_, _SNil_()) => false
-    case (_SCons_(h1, t1), _SCons_(h2, t2)) =>
-      val c = _compare_(h1, h2)
+  def subsetOf[A](subset: Set[A], superset: Set[A]): Boolean = (subset, superset) match {
+    case (SNil(), _) => true
+    case (_, SNil()) => false
+    case (SCons(h1, t1), SCons(h2, t2)) =>
+      val c = compare(h1, h2)
       if (c < 0) false
-      else if (c > 0) _subsetOf_(subset, t2)
-      else _subsetOf_(t1, t2)
+      else if (c > 0) subsetOf(subset, t2)
+      else subsetOf(t1, t2)
   }
   @library
-  def _setIntersection_[A](s1: _Set_[A], s2: _Set_[A]): _Set_[A] = (s1, s2) match {
-    case (_SNil_(), _) => s2
-    case (_, _SNil_()) => s1
-    case (_SCons_(h1, t1), _SCons_(h2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) _setIntersection_(t1, s2)
-      else if (c > 0) _setIntersection_(s1, t2)
-      else h1 :: _setIntersection_(t1, t2)
+  def setIntersection[A](s1: Set[A], s2: Set[A]): Set[A] = (s1, s2) match {
+    case (SNil(), _) => s2
+    case (_, SNil()) => s1
+    case (SCons(h1, t1), SCons(h2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) setIntersection(t1, s2)
+      else if (c > 0) setIntersection(s1, t2)
+      else h1 :: setIntersection(t1, t2)
   }
   @library
-  def _setUnion_[A](s1: _Set_[A], s2: _Set_[A]): _Set_[A] = (s1, s2) match {
-    case (_SNil_(), _) => s2
-    case (_, _SNil_()) => s1
-    case (_SCons_(h1, t1), _SCons_(h2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) h1 :: _setUnion_(t1, s2)
-      else if (c > 0) h2 :: _setUnion_(s1, t2)
-      else h1 :: _setUnion_(t1, t2)
+  def setUnion[A](s1: Set[A], s2: Set[A]): Set[A] = (s1, s2) match {
+    case (SNil(), _) => s2
+    case (_, SNil()) => s1
+    case (SCons(h1, t1), SCons(h2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) h1 :: setUnion(t1, s2)
+      else if (c > 0) h2 :: setUnion(s1, t2)
+      else h1 :: setUnion(t1, t2)
   }
   @library
-  def _setDifference_[A](s1: _Set_[A], s2: _Set_[A]): _Set_[A] = (s1, s2) match {
-    case (_SNil_(), _) => _SNil_()
-    case (_, _SNil_()) => s1
-    case (_SCons_(h1, t1), _SCons_(h2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) h1 :: _setDifference_(t1, s2)
-      else if (c > 0) _setDifference_(s1, t2)
-      else _setDifference_(t1, t2)
+  def setDifference[A](s1: Set[A], s2: Set[A]): Set[A] = (s1, s2) match {
+    case (SNil(), _) => SNil()
+    case (_, SNil()) => s1
+    case (SCons(h1, t1), SCons(h2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) h1 :: setDifference(t1, s2)
+      else if (c > 0) setDifference(s1, t2)
+      else setDifference(t1, t2)
   }
 
   // We define our own lists to not have to load the entire scala lib
   @library
-  sealed abstract class _Bag_[A]
+  sealed abstract class Bag[A]
   @library
-  case class _BCons_[A](elem: A, mult: BigInt, t: _Bag_[A]) extends _Bag_[A]
+  case class BCons[A](elem: A, mult: BigInt, t: Bag[A]) extends Bag[A]
   @library
-  case class _BNil_[A]() extends _Bag_[A]
+  case class BNil[A]() extends Bag[A]
 
   @library
-  def __BNil_$0ToString_[A](s: _Bag_[A]) = "Bag()"
-  def __BCons_$0ToString_[A](s: _Bag_[A]) = {
-    def rec(s: _Bag_[A]): String = s match {
-      case _BCons_(e1, m1, b1@ _BCons_(_, _, _)) => _toString_(e1) + " -> " + _toString_(m1) + ", " + rec(b1)
-      case _BCons_(e1, m1, _BNil_()) => _toString_(e1) + " -> " + _toString_(m1)
+  def BNil$0ToString[A](s: Bag[A]) = "Bag()"
+  def BCons$0ToString[A](s: Bag[A]) = {
+    def rec(s: Bag[A]): String = s match {
+      case BCons(e1, m1, b1@ BCons(_, _, _)) => toString(e1) + " -> " + toString(m1) + ", " + rec(b1)
+      case BCons(e1, m1, BNil()) => toString(e1) + " -> " + toString(m1)
     }
     "Bag(" + rec(s) + ")"
   }
@@ -178,97 +178,96 @@ object Runtime {
   @library @inline def max(b1: BigInt, b2: BigInt): BigInt = if (b1 >= b2) b1 else b2
 
   @library
-  def _bagAdd_[A](bag: _Bag_[A], elem: A, mult: BigInt): _Bag_[A] = bag match {
-    case _BNil_() => _BCons_ (elem, mult, _BNil_())
-    case _BCons_(h, m, t) =>
-      val c = _compare_(elem, h)
-      if (c < 0) _BCons_(elem, mult, bag)
-      else if (c > 0) _BCons_(h, m, _bagAdd_(t, elem, mult))
-      else _BCons_(h, m + mult, t)
+  def bagAdd[A](bag: Bag[A], elem: A, mult: BigInt): Bag[A] = bag match {
+    case BNil() => BCons (elem, mult, BNil())
+    case BCons(h, m, t) =>
+      val c = compare(elem, h)
+      if (c < 0) BCons(elem, mult, bag)
+      else if (c > 0) BCons(h, m, bagAdd(t, elem, mult))
+      else BCons(h, m + mult, t)
   }
   @library
-  def _bagMultiplicity_[A](bag: _Bag_[A], elem: A): BigInt = bag match {
-    case _BNil_() => 0
-    case _BCons_(h, m, t) =>
-      val c = _compare_(elem, h)
+  def bagMultiplicity[A](bag: Bag[A], elem: A): BigInt = bag match {
+    case BNil() => 0
+    case BCons(h, m, t) =>
+      val c = compare(elem, h)
       if (c < 0) 0
-      else if (c > 0) _bagMultiplicity_(t, elem)
+      else if (c > 0) bagMultiplicity(t, elem)
       else m
   }
   @library
-  def _bagIntersection_[A](b1: _Bag_[A], b2: _Bag_[A]): _Bag_[A] = (b1, b2) match {
-    case (_BNil_(), _) => b2
-    case (_, _BNil_()) => b1
-    case (_BCons_(h1, m1, t1), _BCons_(h2, m2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) _bagIntersection_(t1, b2)
-      else if (c > 0) _bagIntersection_(b1, t2)
-      else _BCons_(h1, min(m1, m2), _bagIntersection_(t1, t2))
+  def bagIntersection[A](b1: Bag[A], b2: Bag[A]): Bag[A] = (b1, b2) match {
+    case (BNil(), _) => b2
+    case (_, BNil()) => b1
+    case (BCons(h1, m1, t1), BCons(h2, m2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) bagIntersection(t1, b2)
+      else if (c > 0) bagIntersection(b1, t2)
+      else BCons(h1, min(m1, m2), bagIntersection(t1, t2))
   }
   @library
-  def _bagUnion_[A](b1: _Bag_[A], b2: _Bag_[A]): _Bag_[A] = (b1, b2) match {
-    case (_BNil_(), _) => b2
-    case (_, _BNil_()) => b1
-    case (_BCons_(h1, m1, t1), _BCons_(h2, m2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) _BCons_(h1, m1, _bagUnion_(t1, b2))
-      else if (c > 0) _BCons_(h2, m2, _bagUnion_(b1, t2))
-      else _BCons_(h1, m1 + m2, _bagUnion_(t1, t2))
+  def bagUnion[A](b1: Bag[A], b2: Bag[A]): Bag[A] = (b1, b2) match {
+    case (BNil(), _) => b2
+    case (_, BNil()) => b1
+    case (BCons(h1, m1, t1), BCons(h2, m2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) BCons(h1, m1, bagUnion(t1, b2))
+      else if (c > 0) BCons(h2, m2, bagUnion(b1, t2))
+      else BCons(h1, m1 + m2, bagUnion(t1, t2))
   }
   @library
-  def _bagDifference_[A](b1: _Bag_[A], b2: _Bag_[A]): _Bag_[A] = (b1, b2) match {
-    case (_BNil_(), _) => _BNil_()
-    case (_, _BNil_()) => b1
-    case (_BCons_(h1, m1, t1), _BCons_(h2, m2, t2)) =>
-      val c = _compare_(h1, h2)
-      if (c < 0) _BCons_(h1, m1, _bagDifference_(t1, b2))
-      else if (c > 0) _bagDifference_(b1, t2)
-      else _BCons_(h1, max(0, m1 - m2), _bagDifference_(t1, t2))
+  def bagDifference[A](b1: Bag[A], b2: Bag[A]): Bag[A] = (b1, b2) match {
+    case (BNil(), _) => BNil()
+    case (_, BNil()) => b1
+    case (BCons(h1, m1, t1), BCons(h2, m2, t2)) =>
+      val c = compare(h1, h2)
+      if (c < 0) BCons(h1, m1, bagDifference(t1, b2))
+      else if (c > 0) bagDifference(b1, t2)
+      else BCons(h1, max(0, m1 - m2), bagDifference(t1, t2))
   }
 
   @library
-  sealed abstract class _Map_[K, V] {
-    @inline def ::(key: K, value: V): _Map_[K, V] = _MCons_(key, value, this)
+  sealed abstract class Map[K, V] {
+    @inline def ::(key: K, value: V): Map[K, V] = MCons(key, value, this)
   }
   @library
-  case class _MCons_[K, V](key: K, value: V, t: _Map_[K, V]) extends _Map_[K, V]
+  case class MCons[K, V](key: K, value: V, t: Map[K, V]) extends Map[K, V]
   @library
-  case class _MNil_[K, V](default: V) extends _Map_[K, V]
+  case class MNil[K, V](default: V) extends Map[K, V]
 
   @library
-  def __MNil_$0ToString_[K, V](s: _Map_[K, V]) = {
-    val _MNil_(default) = s
+  def MNil$0ToString[K, V](s: Map[K, V]) = {
     "Map()"
   }
   @library
-  def __MCons_$0ToString_[K, V](s: _Map_[K, V]) = {
+  def MCons$0ToString[K, V](s: Map[K, V]) = {
     def vToString(v: V) = {
-      val s = _toString_(v)
+      val s = toString(v)
       s.bigSubstring(BigInt(5), s.bigLength - 1)
     }
-    def rec(s: _Map_[K, V]): String = s match {
-      case _MCons_(k1, v1, m1@ _MCons_(_, _, _)) =>
-        _toString_(k1) + " -> " + vToString(v1) + ", " + rec(m1)
-      case _MCons_(k1, v1, _MNil_(default)) =>
-        _toString_(k1) + " -> " + vToString(v1)
+    def rec(s: Map[K, V]): String = s match {
+      case MCons(k1, v1, m1@ MCons(_, _, _)) =>
+        toString(k1) + " -> " + vToString(v1) + ", " + rec(m1)
+      case MCons(k1, v1, MNil(default)) =>
+        toString(k1) + " -> " + vToString(v1)
     }
     "Map(" + rec(s) + ")"
   }
 
   @library
-  def _mapApply_[K, V](map: _Map_[K, V], key: K): V = map match {
-    case _MNil_(default) => default
-    case _MCons_(k, v, t) =>
+  def mapApply[K, V](map: Map[K, V], key: K): V = map match {
+    case MNil(default) => default
+    case MCons(k, v, t) =>
       if (k == key) v
-      else _mapApply_(t, key)
+      else mapApply(t, key)
   }
   @library
-  def _mapUpdated_[K, V](map: _Map_[K, V], key: K, value: V): _Map_[K, V] = {
+  def mapUpdated[K, V](map: Map[K, V], key: K, value: V): Map[K, V] = {
     map match {
-      case _MNil_(default) => _MCons_(key, value, map)
-      case _MCons_(k, v, t) =>
-        if (k == key) _MCons_(key, value, t)
-        else _MCons_(k, v, _mapUpdated_(t, key, value))
+      case MNil(default) => MCons(key, value, map)
+      case MCons(k, v, t) =>
+        if (k == key) MCons(key, value, t)
+        else MCons(k, v, mapUpdated(t, key, value))
     }
   }
 

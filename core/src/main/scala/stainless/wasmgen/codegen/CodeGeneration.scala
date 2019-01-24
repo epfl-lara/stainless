@@ -68,7 +68,7 @@ trait CodeGeneration {
   final protected def floatToSignName(tpe: Type) = s"_${tpe}_sign_"
   protected val builtinToStrings: Set[String]
   final protected def toStringName(name: String)(implicit funEnv: FunEnv): String = {
-    val fullName = s"_${name}ToString_"
+    val fullName = s"${name}ToString"
     if (builtinToStrings contains name) fullName
     else lib.fun(fullName)(funEnv.s).id.uniqueName
   }
@@ -96,7 +96,7 @@ trait CodeGeneration {
         toExecute map { fid =>
           t.Output(t.StringConcat(
             t.StringLiteral(s"${fid.name} = "),
-            t.FunctionInvocation(lib.fun("_toString_")(funEnv.s).id, Seq(),
+            t.FunctionInvocation(lib.fun("toString")(funEnv.s).id, Seq(),
               Seq(t.FunctionInvocation(fid, Seq(), Seq())))
           ))
         }
@@ -221,6 +221,8 @@ trait CodeGeneration {
   final def transform(expr: t.Expr)(implicit env: Env): Expr = {
     implicit val lh = env.lh
     implicit val s  = env.s
+    val compareId = lib.fun("compare").id
+    val toStringId = lib.fun("toString").id
     expr match {
       case t.NoTree(tpe) =>
         Unreachable
@@ -234,9 +236,9 @@ trait CodeGeneration {
         ))
       case t.Output(msg) =>
         Call("_printString_", void, Seq(transform(msg)))
-      case t.FunctionInvocation(id, _, Seq(lhs, rhs)) if id.name == "_compare_" =>
+      case t.FunctionInvocation(id, _, Seq(lhs, rhs)) if id == compareId =>
         surfaceIneq(transform(lhs), transform(rhs), lhs.getType)
-      case t.FunctionInvocation(id, _, Seq(arg)) if id.name == "_toString_" =>
+      case t.FunctionInvocation(id, _, Seq(arg)) if id == toStringId =>
         surfaceToString(transform(arg), arg.getType)(env.fEnv)
       case fi@t.FunctionInvocation(id, tps, args) =>
         Call(id.uniqueName, transform(fi.getType), args map transform)

@@ -30,13 +30,13 @@ trait Lowerer extends stainless.transformers.Transformer {
         ))
 
       case s.TupleType(bases) =>
-        RecordType(lib.sort(s"_Tuple${bases.size}_").id)
+        RecordType(lib.sort(s"Tuple${bases.size}").id)
       case s.SetType(_) =>
-        RecordType(lib.sort("_Set_").id)
+        RecordType(lib.sort("Set").id)
       case s.BagType(_) =>
-        RecordType(lib.sort("_Bag_").id)
+        RecordType(lib.sort("Bag").id)
       case s.MapType(_, _)  =>
-        RecordType(lib.sort("_Map_").id)
+        RecordType(lib.sort("Map").id)
 
       case s.PiType(params, to) =>
         transform(s.FunctionType(params.map(_.getType), to.getType), env)
@@ -434,13 +434,13 @@ private [wasmgen] class ExprLowerer(
       // Tuples
       case s.Tuple(exprs) =>
         transform(s.ADT(
-          lib.sort(s"_Tuple${exprs.size}_").constructors.head.id,
+          lib.sort(s"Tuple${exprs.size}").constructors.head.id,
           exprs map (_.getType),
           exprs
         ), env)
       case s.TupleSelect(tuple, index) =>
         val size = tuple.getType.asInstanceOf[s.TupleType].bases.size
-        val constr = lib.sort(s"_Tuple${size}_").constructors.head
+        val constr = lib.sort(s"Tuple${size}").constructors.head
         val selector = constr.fields(index - 1).id
         maybeUnbox(
           RecordSelector(CastDown(transform(tuple, env), RecordType(constr.id)), selector),
@@ -452,7 +452,7 @@ private [wasmgen] class ExprLowerer(
       // Sets
       case s.FiniteSet(Seq(), base) =>
         val empty = s.ADT(
-          lib.sort("_Set_").constructors.find(_.id.name == "_SNil_").get.id,
+          lib.sort("Set").constructors.find(_.id.name == "SNil").get.id,
           Seq(base),
           Seq()
         )
@@ -465,52 +465,52 @@ private [wasmgen] class ExprLowerer(
           env )
       case s.SetAdd(set, elem) =>
         FunctionInvocation(
-          lib.fun("_setAdd_").id, Seq(),
+          lib.fun("setAdd").id, Seq(),
           Seq(transform(set, env), maybeBox(elem, AnyRefType, env))
         )
       case s.ElementOfSet(element, set) =>
         FunctionInvocation(
-          lib.fun("_elementOfSet_").id, Seq(),
+          lib.fun("elementOfSet").id, Seq(),
           Seq(transform(set, env), maybeBox(element, AnyRefType, env))
         )
       case s.SubsetOf(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_subsetOf_").id, Seq(),
+          lib.fun("subsetOf").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
       case s.SetIntersection(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_setIntersection_").id, Seq(),
+          lib.fun("setIntersection").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
       case s.SetUnion(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_setUnion_").id, Seq(),
+          lib.fun("setUnion").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
       case s.SetDifference(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_setDifference_").id, Seq(),
+          lib.fun("setDifference").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
 
       // Bags
       case s.FiniteBag(elements, base) =>
         val empty = s.ADT(
-          lib.sort("_Bag_").constructors.find(_.id.name == "_BNil_").get.id,
+          lib.sort("Bag").constructors.find(_.id.name == "BNil").get.id,
           Seq(base),
           Seq()
         )
         elements.foldLeft[Expr](transform(empty, env)) {
           case (rest, (elem, mult)) =>
             FunctionInvocation(
-              lib.fun("_bagAdd_").id, Seq(),
+              lib.fun("bagAdd").id, Seq(),
               Seq(rest, maybeBox(elem, AnyRefType, env), transform(mult, env))
             )
         }
       case s.BagAdd(bag, elem) =>
         FunctionInvocation(
-          lib.fun("_bagAdd_").id, Seq(),
+          lib.fun("bagAdd").id, Seq(),
           Seq(
             transform(bag, env),
             maybeBox(elem, AnyRefType, env),
@@ -519,29 +519,29 @@ private [wasmgen] class ExprLowerer(
         )
       case s.MultiplicityInBag(element, bag) =>
         FunctionInvocation(
-          lib.fun("_bagMultiplicity_").id, Seq(),
+          lib.fun("bagMultiplicity").id, Seq(),
           Seq(transform(bag, env), maybeBox(element, AnyRefType, env))
         )
       case s.BagIntersection(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_bagIntersection_").id, Seq(),
+          lib.fun("bagIntersection").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
       case s.BagUnion(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_bagUnion_").id, Seq(),
+          lib.fun("bagUnion").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
       case s.BagDifference(lhs, rhs) =>
         FunctionInvocation(
-          lib.fun("_bagDifference_").id, Seq(),
+          lib.fun("bagDifference").id, Seq(),
           Seq(transform(lhs, env), transform(rhs, env))
         )
 
       // Maps FIXME maps are wrong
       case s.FiniteMap(Seq(), default, keyType, valueType) =>
         val empty = s.ADT(
-          lib.sort("_Map_").constructors.find(_.id.name == "_MNil_").get.id,
+          lib.sort("Map").constructors.find(_.id.name == "MNil").get.id,
           Seq(keyType, valueType),
           Seq(default)
         )
@@ -556,12 +556,12 @@ private [wasmgen] class ExprLowerer(
         )
       case s.MapApply(map, key) =>
         FunctionInvocation(
-          lib.fun("_mapApply_").id, Seq(),
+          lib.fun("mapApply").id, Seq(),
           Seq(transform(map, env), maybeBox(key, AnyRefType, env))
         )
       case s.MapUpdated(map, key, value) =>
         FunctionInvocation(
-          lib.fun("_mapUpdated_").id, Seq(),
+          lib.fun("mapUpdated").id, Seq(),
           Seq(transform(map, env), maybeBox(key, AnyRefType, env), maybeBox(value, AnyRefType, env))
         )
 
@@ -649,18 +649,18 @@ class Lowering(context: Context) extends inox.transformers.SymbolTransformer wit
     import s._
     val dsl = new inox.ast.DSL { val trees = s }
     val sort = sym.sorts(constr.sort)
-    val funName = SymbolIdentifier(LibProvider.libPath + "_" + constr.id.uniqueName + "ToString_")
+    val funName = SymbolIdentifier(LibProvider.libPath + constr.id.uniqueName + "ToString")
     dsl.mkFunDef(funName)(sort.tparams.map(_.id.name): _*){ tps =>
       (Seq(ValDef(FreshIdentifier("v"), ADTType(sort.id, tps))), StringType(), {
         case Seq(arg) =>
           val fields = constr.typed(tps).fields
-          val name = if (sort.id.name matches "_Tuple\\d{1,2}_") "" else constr.id.name
+          val name = if (sort.id.name matches "Tuple\\d{1,2}") "" else constr.id.name
           if (fields.isEmpty) StringLiteral(name + "()")
           else (
             StringLiteral(name + "(") +:
             fields.zipWithIndex.flatMap { case (f, ind) =>
               val fieldStr = FunctionInvocation(
-                lib.fun("_toString_").id,
+                lib.fun("toString").id,
                 Seq(f.getType),
                 Seq(Annotated(ADTSelector(arg, f.id), Seq(Unchecked))))
               if (ind == fields.size - 1) Seq(fieldStr)
@@ -676,7 +676,7 @@ class Lowering(context: Context) extends inox.transformers.SymbolTransformer wit
 
     // (0) Make toString's
     val toStrings = {
-      val hasBuiltinToString = Set("_SCons_", "_SNil_", "_MCons_", "_MNil_", "_BCons_", "_BNil_")
+      val hasBuiltinToString = Set("SCons", "SNil", "MCons", "MNil", "BCons", "BNil")
       syms0.sorts.toSeq.flatMap(_._2.constructors).filterNot( constr =>
         hasBuiltinToString contains constr.id.name
       ).map(mkToString(_)(syms0))
