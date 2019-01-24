@@ -25,7 +25,7 @@ object Printer {
   }
 
   private def doc(g: Global): Document = {
-    val tpe = if(g.isMutable) s"(mut ${g.tpe})" else g.tpe.toString
+    val tpe = if (g.isMutable) s"(mut ${g.tpe})" else g.tpe.toString
     s"(global $$${g.name} $tpe " <:> doc(g.init) <:> ")"
   }
 
@@ -125,7 +125,7 @@ object Printer {
         )
       case BrTable(labels, default, index, body) =>
         Stacked(
-          s"(br_table ${(labels:+default) map ("$" + _ ) mkString " "}",
+          s"(br_table ${(labels :+ default) map ("$" + _ ) mkString " "}",
           Indented(doc(index)),
           Indented(body map doc getOrElse Raw("")),
           ")"
@@ -139,7 +139,7 @@ object Printer {
       case CallIndirect(_, fun, args) =>
         Stacked(
           s"(call_indirect (param ${args.map(_.getType).mkString(" ")}) (result ${expr.getType})",
-          Indented(Stacked( (args :+ fun) map doc: _*)), // It think function goes last
+          Indented(Stacked( (args :+ fun) map doc: _*)),
           ")"
         )
       case Load(tpe, truncate, expr) =>
@@ -182,7 +182,7 @@ object Printer {
           ")"
         )
       case Nop => "nop"
-      case GetLocal(label)  => s"(get_local $$$label)"
+      case GetLocal(label) => s"(get_local $$$label)"
       case SetLocal(label, value) =>
         Stacked(
           s"(set_local $$$label",
