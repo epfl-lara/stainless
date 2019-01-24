@@ -95,15 +95,16 @@ trait Definitions extends stainless.ast.Definitions { self: Trees =>
       Seq(ValDef(boxedValueId, tpe)))
 
   def typeToTag(tpe: Type): Int = tpe match {
-    case BooleanType() => 0
-    case CharType() => 1
-    case BVType(_, 32) => 2
-    case BVType(_, 64) => 3
-    case IntegerType() => 4
-    case RealType() => 5
-    case ArrayType(AnyRefType) => 6
-    case StringType() => 7
-    case FunctionType(_, _) => 8
+    case UnitType() => 0
+    case BooleanType() => 1
+    case CharType() => 2
+    case BVType(_, 32) => 3
+    case BVType(_, 64) => 4
+    case IntegerType() => 5
+    case RealType() => 6
+    case ArrayType(AnyRefType) => 7
+    case StringType() => 8
+    case FunctionType(_, _) => 9
   }
 
   val lastReservedTag: Int = typeToTag(FunctionType(Seq(), Untyped))

@@ -86,19 +86,22 @@ import inox.ast.Identifier
   * Polymorphism is implemented with type erasure and boxing.
   * There are boxed versions of the elementary types
   * (which are regular record types).
+  * Boxed types are records containing one additional field named "value"
+  * of the corresponding type.
   *
   * The typetag field
   * (which is defined in anyref, therefore is present in every record)
   * defines the type of a record value at runtime as follows:
-  * 0 for boxed Boolean,
-  * 1 for boxed Char,
-  * 2 for boxed Int,
-  * 3 for boxed Long,
-  * 4 for boxed Float,
-  * 5 for boxed Double,
-  * 6 for boxed Array,
-  * 7 for boxed String,
-  * 8 for closure,
+  * 0 for boxed Unit,
+  * 1 for boxed Boolean,
+  * 2 for boxed Char,
+  * 3 for boxed Int,
+  * 4 for boxed Long,
+  * 5 for boxed Float,
+  * 6 for boxed Double,
+  * 7 for boxed Array,
+  * 8 for boxed String,
+  * 9 for closure,
   * and then as many tags as are needed for record sorts
   * that are instantiated in the program.
   * We differentiate between records which correspond to abstract types
@@ -106,8 +109,10 @@ import inox.ast.Identifier
   * and records which correspond to constructors
   * (can be instantiated, possess a tag).
   *
-  * Two reference values are equal if their type tags are equal
+  * Two record values are equal if their type tags are equal
   * and all fields defined by their tagged type are equal.
+  * Arrays, functions and strings are compared by reference.
+  * All other types are compared by value.
   */
 package object intermediate {
   object trees extends Trees { self =>

@@ -9,8 +9,11 @@ import stainless.annotation.library
 @library
 object Runtime {
 
+  @library
   sealed case class Tuple2[T1, T2](e1: T1, e2: T2)
+  @library
   sealed case class Tuple3[T1, T2, T3](e1: T1, e2: T2, e3: T3)
+  @library
   sealed case class Tuple4[T1, T2, T3, T4](e1: T1, e2: T2, e3: T3, e4: T4)
 
   /* Transforms any type to a string.  Will be filled in by the code generator */
@@ -71,6 +74,8 @@ object Runtime {
 	def f64ToString(b: Real): String = "<real>"
 	@library
 	def funToString(): String = "<function>"
+	@library
+	def unitToString(): String = "()"
 
   /* compares two elements of any type. Will be filled in by the code generator */
   @library
@@ -166,6 +171,7 @@ object Runtime {
 
   @library
   def BNil$0ToString[A](s: Bag[A]) = "Bag()"
+  @library
   def BCons$0ToString[A](s: Bag[A]) = {
     def rec(s: Bag[A]): String = s match {
       case BCons(e1, m1, b1@ BCons(_, _, _)) => toString(e1) + " -> " + toString(m1) + ", " + rec(b1)

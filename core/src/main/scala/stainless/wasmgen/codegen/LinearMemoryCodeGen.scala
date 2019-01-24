@@ -103,6 +103,7 @@ object LinearMemoryCodeGen extends CodeGeneration {
 
     def allEqs(lhs: Expr, rhs: Expr): Seq[(Expr, String)] = {
       Seq(
+        (I32Const(1), "unit"),
         boxedEq(i32, lhs, rhs)("boolean"),
         boxedEq(i32, lhs, rhs)("char"),
         boxedEq(i32, lhs, rhs)(),
@@ -162,6 +163,7 @@ object LinearMemoryCodeGen extends CodeGeneration {
 
     def allIneqs(lhs: Expr, rhs: Expr, temp: String)(implicit lh: LocalsHandler): Seq[(Expr, String)] = {
       Seq(
+        (I32Const(0), "unit"),
         boxedIneq(i32, lhs, rhs)("boolean"),
         boxedIneq(i32, lhs, rhs)("char"),
         boxedIneq(i32, lhs, rhs)(),
@@ -212,6 +214,7 @@ object LinearMemoryCodeGen extends CodeGeneration {
 
     def allToStrings(arg: Expr): Seq[(Expr, String)] = {
       Seq(
+        (Call(toStringName("unit"), i32, Seq()), "unit"),
         boxedToString(i32, arg)("boolean"),
         boxedToString(i32, arg)("char"),
         boxedToString(i32, arg)(),
@@ -417,7 +420,7 @@ object LinearMemoryCodeGen extends CodeGeneration {
     val mem = lh.getFreshLocal(freshLabel("mem"), i32)
     Sequence(
       SetLocal(mem, malloc(I32Const(offsets.last))) +:
-      fields.zip(offsets).map { case (e, off) =>
+      fields.zip(offsets).filter(_._1.getType != void).map { case (e, off) =>
         Store(None, add(GetLocal(mem), I32Const(off)), e)
       } :+
       GetLocal(mem)
@@ -428,11 +431,14 @@ object LinearMemoryCodeGen extends CodeGeneration {
     implicit val s = env.s
     val fields = rt.getRecord.allFields
     val tpe = transform(fields.find(_.id == id).get.getType)
-    val offset = fields
-      .takeWhile(_.id != id)
-      .map(fd => transform(fd.getType).size)
-      .sum
-    Load(tpe, None, add(expr, I32Const(offset)))
+    if (tpe == void) Nop
+    else {
+      val offset = fields
+        .takeWhile(_.id != id)
+        .map(fd => transform(fd.getType).size)
+        .sum
+      Load(tpe, None, add(expr, I32Const(offset)))
+    }
   }
 
   protected def mkCastDown(expr: Expr, subType: t.RecordType)(implicit env: Env): Expr = {

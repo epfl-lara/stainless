@@ -6,7 +6,7 @@ package codegen
 
 import intermediate.{trees => t}
 import wasm._
-import Expressions.{eq => EQ, _} // Conflict with AnyRef.eq
+import Expressions.{eq => EQ, _}
 import Types._
 import Definitions._
 
@@ -131,7 +131,7 @@ trait CodeGeneration {
     implicit val s = env.s
     FunDef(
       fd.id.uniqueName,
-      fd.params.map(arg => ValDef(arg.id.uniqueName, transform(arg.tpe))),
+      fd.params.map(arg => ValDef(arg.id.uniqueName, transform(arg.tpe))).filterNot(_.tpe == void),
       transform(fd.returnType)
     ) { lh =>
       transform(fd.fullBody)(env.env(lh))
@@ -163,6 +163,8 @@ trait CodeGeneration {
     tpe match {
       case t.RecordType(_) =>
         Call(refEqualityName, i32, Seq(lhs, rhs))
+      case t.UnitType() =>
+        I32Const(1)
       case _ =>
         EQ(lhs, rhs)
     }
@@ -171,6 +173,8 @@ trait CodeGeneration {
     tpe match {
       case t.RecordType(_) =>
         Call(refInequalityName, i32, Seq(lhs, rhs))
+      case t.UnitType() =>
+        I32Const(0)
       case _ =>
         baseTypeIneq(lhs, rhs)
     }
@@ -190,6 +194,8 @@ trait CodeGeneration {
     tpe match {
       case t.RecordType(_) =>
         Call(refToStringName, i32, Seq(arg))
+      case t.UnitType() =>
+        Call(toStringName("unit"), i32, Seq())
       case t.BooleanType() =>
         Call(toStringName("boolean"), i32, Seq(arg))
       case t.CharType() =>
@@ -227,21 +233,40 @@ trait CodeGeneration {
       case t.NoTree(tpe) =>
         Unreachable
       case t.Variable(id, tpe, flags) =>
-        GetLocal(id.uniqueName)
+        if (tpe == t.UnitType()) Nop
+        else GetLocal(id.uniqueName)
       case t.Let(vd, value, body) =>
-        val local = lh.getFreshLocal(vd.id.uniqueName, transform(vd.getType))
-        Sequence(Seq(
-          SetLocal(local, transform(value)),
-          transform(body)
-        ))
+        if (vd.getType == t.UnitType()) {
+          Sequence(Seq(transform(value), transform(body)))
+        } else {
+          val local = lh.getFreshLocal(vd.id.uniqueName, transform(vd.getType))
+          Sequence(Seq(
+            SetLocal(local, transform(value)),
+            transform(body)
+          ))
+        }
       case t.Output(msg) =>
         Call("_printString_", void, Seq(transform(msg)))
       case t.FunctionInvocation(id, _, Seq(lhs, rhs)) if id == compareId =>
         surfaceIneq(transform(lhs), transform(rhs), lhs.getType)
       case t.FunctionInvocation(id, _, Seq(arg)) if id == toStringId =>
         surfaceToString(transform(arg), arg.getType)(env.fEnv)
-      case fi@t.FunctionInvocation(id, tps, args) =>
-        Call(id.uniqueName, transform(fi.getType), args map transform)
+      case fi@t.FunctionInvocation(id, _, args) =>
+        if (args.exists(_.getType == t.UnitType())) {
+          val (argComps, argNames) = args.map(arg =>
+            if (arg.getType == t.UnitType()) (transform(arg), None)
+            else {
+              val tmp = lh.getFreshLocal(freshLabel("arg"), transform(arg.getType))
+              (SetLocal(tmp, transform(arg)), Some(GetLocal(tmp)))
+            }
+          ).unzip
+          Sequence(
+            argComps :+
+            Call(id.uniqueName, transform(fi.getType), argNames.flatten)
+          )
+        } else {
+          Call(id.uniqueName, transform(fi.getType), args map transform)
+        }
       case t.Sequence(es) =>
         Sequence ( es map transform )
 
