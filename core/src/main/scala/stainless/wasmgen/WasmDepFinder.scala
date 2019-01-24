@@ -1,14 +1,18 @@
+/* Copyright 2009-2019 EPFL, Lausanne */
+
 package stainless.wasmgen
 
 import stainless.Identifier
 import stainless.trees._
 import stainless.utils.{DefinitionIdFinder, DependenciesFinder}
 
-class WasmDefIdFinder(val s: Symbols) extends DefinitionIdFinder {
+class WasmDefIdFinder(val s: Symbols) extends DefinitionIdFinder { outer =>
   val trees = stainless.trees
-  private def fun(name: String) = s.lookup[FunDef](name).id
-  private def sort(name: String) = s.lookup[ADTSort](name).id
-
+  private val lib: LibProvider { val trees: outer.trees.type } = new LibProvider {
+    protected val trees = outer.trees
+  }
+  private def fun(name: String) = lib.fun(name)(s).id
+  private def sort(name: String) = lib.sort(name)(s).id
   private lazy val setIds = Set(sort("_Set_"), fun("__SNil_$0ToString_"), fun("__SCons_$0ToString_"))
   private lazy val bagIds = Set(sort("_Bag_"), fun("__BNil_$0ToString_"), fun("__BCons_$0ToString_"))
   private lazy val mapIds = Set(sort("_Map_"), fun("__MNil_$0ToString_"), fun("__MCons_$0ToString_"))
@@ -73,14 +77,16 @@ class WasmDefIdFinder(val s: Symbols) extends DefinitionIdFinder {
 class WasmDependenciesFinder extends DependenciesFinder {
   val t: stainless.trees.type = stainless.trees
   def traverser(s: Symbols): DefinitionIdFinder { val trees: t.type } = new WasmDefIdFinder(s)
-
+  private val lib: LibProvider { val trees: t.type } = new LibProvider {
+    protected val trees = t
+  }
   override def findDependencies(roots: Set[Identifier], s: Symbols): Symbols = {
-    def fun(name: String) = s.lookup[FunDef](name)
     super.findDependencies(roots, s)
       .withFunctions(Seq(
         "_toString_", "_digitToStringL_", "_digitToStringI_",
         "_i32ToString_", "_i64ToString_", "_f64ToString_",
         "_booleanToString_", "_funToString_"
-      ).map(fun))
+      ).map(lib.fun(_)(s)))
   }
 }
+

@@ -34,6 +34,10 @@ trait CodeGeneration {
   // Make fresh labels using stainless identifiers
   final protected def freshLabel(s: String): String = FreshIdentifier(s).uniqueName
 
+  final protected val lib: LibProvider { val trees: t.type } = new LibProvider {
+    protected val trees = t
+  }
+
   /* Generate parts of the module */
   protected def mkImports(symbols: t.Symbols): Seq[Import] = {
     Seq(Import("system", "printString", FunSig("_printString_", Seq(i32), void)))
@@ -62,13 +66,11 @@ trait CodeGeneration {
   final protected val refToStringName = "_ref_toString_"
   final protected def arrayCopyName(tpe: Type) = s"_array_copy_${tpe}_"
   final protected def floatToSignName(tpe: Type) = s"_${tpe}_sign_"
+  protected val builtinToStrings: Set[String]
   final protected def toStringName(name: String)(implicit funEnv: FunEnv): String = {
     val fullName = s"_${name}ToString_"
-    try {
-      funEnv.s.lookup[t.FunDef](fullName).id.uniqueName
-    } catch {
-      case _: t.FunctionLookupException => fullName
-    }
+    if (builtinToStrings contains name) fullName
+    else lib.fun(fullName)(funEnv.s).id.uniqueName
   }
   private def mkFloatToSign(tpe: Type) = {
     require(tpe == f32 || tpe == f64)
@@ -94,7 +96,7 @@ trait CodeGeneration {
         toExecute map { fid =>
           t.Output(t.StringConcat(
             t.StringLiteral(s"${fid.name} = "),
-            t.FunctionInvocation(s.lookup[t.FunDef]("_toString_").id, Seq(),
+            t.FunctionInvocation(lib.fun("_toString_")(funEnv.s).id, Seq(),
               Seq(t.FunctionInvocation(fid, Seq(), Seq())))
           ))
         }

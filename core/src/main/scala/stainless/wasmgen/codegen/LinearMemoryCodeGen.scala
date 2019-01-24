@@ -237,6 +237,8 @@ object LinearMemoryCodeGen extends CodeGeneration {
     }
   }
 
+  protected val builtinToStrings = Set("char", "array", "BigInt")
+
   protected def mkCharToString(implicit funEnv: FunEnv): FunDef = {
     implicit val gh = funEnv.gh
     FunDef(toStringName("char"), Seq(ValDef("arg", i32)), i32){ implicit lh =>
