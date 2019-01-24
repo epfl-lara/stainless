@@ -59,7 +59,8 @@ class WasmComponentRun(override val pipeline: StainlessPipeline)
 
   private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[WasmAnalysis] = {
     Future {
-      val module = codegen.LinearMemoryCodeGen.transform(new intermediate.Lowering(context).transform(symbols), functions)
+      val intermSyms: intermediate.trees.Symbols = new intermediate.Lowering(context).transform(symbols)
+      val module = codegen.LinearMemoryCodeGen.transform(intermSyms, functions)
       new wasm.FileWriter(module, context).writeFiles()
       new WasmAnalysis
     }
