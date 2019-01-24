@@ -7,7 +7,10 @@ import scala.sys.process._
 import inox.Context
 
 class FileWriter(module: Module, context: Context) {
-  object Env {
+  private val outDirName = "wasmout"
+  private def withExt(ext: String) = s"$outDirName/${module.name}.$ext"
+
+  private object Env {
     trait OS
     object Linux extends OS
     object Windows extends OS
@@ -25,14 +28,41 @@ class FileWriter(module: Module, context: Context) {
     }
   }
 
-  def writeWasmText(fileName: String): Unit = {
+  private def writeWasmText(fileName: String): Unit = {
     val fw = new JFW(new File(fileName))
     fw.write(Printer(module))
     fw.flush()
     fw.close()
+    context.reporter.info(s"WebAssembly text file $fileName was generated.")
   }
 
-  def writeNodejsWrapper(fileName: String, moduleFile: String): Unit = {
+  private def writeWasmBinary(fileName: String, textFile: String): Unit = {
+    val w2wOptions = s"$textFile -o $fileName"
+    val wat2wasm = {
+      import Env._
+      os match {
+        case Windows => "wat2wasm.exe"
+        case _ => "wat2wasm"
+      }
+    }
+    try {
+      s"$wat2wasm $w2wOptions".!!
+      context.reporter.info(s"WebAssembly binary file $fileName was generated.")
+    } catch {
+      case _: IOException =>
+        context.reporter.error(
+          "wat2wasm utility was not found in system path, " +
+          "or did not have permission to execute. " +
+          "Skipping creation of wasm binary..."
+        )
+      case e: RuntimeException =>
+        context.reporter.internalError(
+          s"wat2wasm failed to translate WebAssembly text file ${withExt("wat")} to binary"
+        )
+    }
+  }
+
+  private def writeNodejsWrapper(fileName: String, moduleFile: String): Unit = {
     val wrapperString =
       s"""|// `Wasm` does **not** understand node buffers, but thankfully a node buffer
           |// is easy to convert to a native Uint8Array.
@@ -91,53 +121,17 @@ class FileWriter(module: Module, context: Context) {
     fw.write(wrapperString)
     fw.flush()
     fw.close()
+    context.reporter.info(s"Javascript wrapper file $fileName was generated.")
   }
 
-  def writeFiles(): (String, String) = {
-    val outDirName = "wasmout"
-
-    def withExt(ext: String) = s"$outDirName/${module.name}.$ext"
-
-    val (local, inPath) = {
-      import Env._
-      os match {
-        case Linux   => ("./unmanaged/wasm/wat2wasm",     "wat2wasm")
-        case Windows => ("./unmanaged/wasm/wat2wasm.exe", "wat2wasm.exe")
-        case Mac     => ("./unmanaged/wasm/mac/wat2wasm", "wat2wasm")
-      }
-    }
-
-    val w2wOptions = s"${withExt("wat")} -o ${withExt("wasm")}"
-
+  def writeFiles(): Unit = {
     val outDir = new File(outDirName)
     if (!outDir.exists()) {
       outDir.mkdir()
     }
-
     writeWasmText(withExt("wat"))
-
-    try {
-      try {
-        s"$local $w2wOptions".!!
-      } catch {
-        case _: IOException =>
-          s"$inPath $w2wOptions".!!
-      }
-    } catch {
-      case _: IOException =>
-        context.reporter.fatalError(
-          "wat2wasm utility was not found under expected directory or in system path, " +
-          "or did not have permission to execute"
-        )
-      case e: RuntimeException =>
-        context.reporter.fatalError(
-          s"wat2wasm failed to translate WebAssembly text file ${withExt("wat")} to binary"
-        )
-    }
-
+    writeWasmBinary(withExt("wasm"), withExt("wat"))
     writeNodejsWrapper(withExt("js"), withExt("wasm"))
-
-    (withExt("wasm"), withExt("js"))
   }
 
 }
