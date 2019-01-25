@@ -22,6 +22,21 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack, cache: SymbolsContext
 private class DottyDriver(args: Seq[String], compiler: DottyCompiler) extends Driver {
   override def newCompiler(implicit ctx: Context) = compiler
 
+  override protected def doCompile(compiler: Compiler, fileNames: List[String])(implicit ctx: Context) =
+    if (fileNames.nonEmpty)
+      try {
+        val run = compiler.newRun
+        run.compile(fileNames)
+        run.printSummary()
+      }
+      catch {
+        case ex: dotty.tools.FatalError  =>
+          ctx.error(ex.getMessage) // signals that we should fail compilation.
+          ctx.reporter
+        case ex: Throwable => throw ex
+      }
+    else ctx.reporter
+
   lazy val files = {
     val (files, _) = setup(args.toArray, initCtx)
     files

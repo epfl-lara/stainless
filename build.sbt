@@ -13,9 +13,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-315-gec5dd7d"
-/* val dottyLibrary = "dotty-compiler_0.12" */
-/* val dottyVersion = "0.12.0-RC1" */
+val inoxVersion = "1.1.0-315-gec5dd7d-SNAPSHOT"
 val dottyLibrary = "dotty-compiler_2.12"
 val dottyVersion = "0.12.0-RC1-bin-SNAPSHOT-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
@@ -259,7 +257,6 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .settings(projectDependencies := projectDependencies.value map (_.withDottyCompat(scalaVersion.value)))
   // Make sure all library dependencies resolve to the scala 2.X projects.
   .settings(libraryDependencies := libraryDependencies.value map (_.withDottyCompat(scalaVersion.value)))
-  /* .settings(scalaVersion := dottyVersion) */
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(
@@ -279,7 +276,6 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(projectDependencies := projectDependencies.value map { dep =>
     if (dep.name == "stainless-dotty-frontend") dep else dep.withDottyCompat(scalaVersion.value)
   })
-  /* .settings(scalaVersion := dottyVersion) */
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)

@@ -47,6 +47,10 @@ class DependenciesFinder {
         deps += id
         super.traverse(tpe)
 
+      case xt.RefinementType(vd, pred) =>
+        traverse(pred)
+        deps -= vd.id
+
       case _ => super.traverse(tpe)
     }
 

@@ -148,14 +148,19 @@ trait RefinementLifting
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
   }
 
+  private def unchecked(expr: s.Expr): s.Expr = {
+    // s.Annotated(expr, Seq(s.Unchecked)).setPos(expr)
+    expr
+  }
+
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     import s._
 
     val (newParams, cond) = context.parameterConds(fd.params)
     val optPre = cond match {
       case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd), pre).copiedFrom(pre))
-        case None => Some(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd))
+        case Some(pre) => Some(s.and(unchecked(cond).copiedFrom(fd), pre).copiedFrom(pre))
+        case None => Some(cond.copiedFrom(fd))
       }
       case _ => s.exprOps.preconditionOf(fd.fullBody)
     }
@@ -163,12 +168,11 @@ trait RefinementLifting
     val optPost = context.liftRefinements(fd.returnType) match {
       case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
         case Some(post @ s.Lambda(Seq(res), body)) =>
-          Some(s.Lambda(Seq(res), s.and(s.Annotated(
-            exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
-            Seq(s.Unchecked)
-          ).copiedFrom(fd), body).copiedFrom(body)).copiedFrom(post))
+          Some(s.Lambda(Seq(res), s.and(
+              exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
+              body).copiedFrom(body)).copiedFrom(post))
         case None =>
-          Some(s.Lambda(Seq(vd2), s.Annotated(pred, Seq(s.Unchecked)).copiedFrom(fd)).copiedFrom(fd))
+          Some(s.Lambda(Seq(vd2), unchecked(pred).copiedFrom(fd)).copiedFrom(fd))
       }
       case _ => s.exprOps.postconditionOf(fd.fullBody)
     }

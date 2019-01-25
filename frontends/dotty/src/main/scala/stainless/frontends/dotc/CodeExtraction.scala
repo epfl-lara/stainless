@@ -198,13 +198,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       // Normal function
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
-        val fd = extractFunction(fsym, tparams, vparams, rhs)(DefContext())
+        val fd = extractFunction(fsym, dd, tparams, vparams, rhs)(DefContext())
         functions :+= fd.id
         allFunctions :+= fd
 
       // Normal fields
       case t @ ExFieldDef(fsym, _, rhs) =>
-        val fd = extractFunction(fsym, Seq(), Seq(), rhs)(DefContext())
+        val fd = extractFunction(fsym, t, Seq(), Seq(), rhs)(DefContext())
         functions :+= fd.id
         allFunctions :+= fd
 
@@ -290,19 +290,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val flags = annotationsOf(vdSym, ignoreOwner = true)
       val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
 
-      // Flags marked @ignore are extracted as having type BigInt, in order
-      // for us to not have to extract their type while keeping a value
-      // around for equality/effect analysis.
       val tpe = if (isIgnored) xt.IntegerType()
-                else stainlessType(vd.tpt.tpe)(tpCtx, vd.pos)
+                else extractTypeTree(vd.tpt)(tpCtx)
 
-      if ((vdSym is Mutable) || isIgnored && !isPure) xt.VarDef(id, tpe, flags).setPos(vd.pos)
-      else xt.ValDef(id, tpe, flags).setPos(vd.pos)
+      if ((vdSym is Mutable) || isIgnored && !isPure)
+        xt.VarDef(id, tpe, flags).setPos(vd.pos)
+      else
+        xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
     val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
 
-    val defCtx = tpCtx // .withNewVars((vds.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
+    val defCtx = tpCtx
 
     var invariants: Seq[xt.Expr] = Seq.empty
     var methods: Seq[xt.FunDef] = Seq.empty
@@ -331,7 +330,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         (vd.symbol is Mutable) && !(vd.symbol is CaseAccessor) &&
         ((vd.symbol.owner is Abstract) || (vd.symbol.owner is Trait))
       ) =>
-        methods :+= extractFunction(vd.symbol, Seq.empty, Seq.empty, tpd.EmptyTree)(defCtx)
+        methods :+= extractFunction(vd.symbol, vd, Seq.empty, Seq.empty, tpd.EmptyTree)(defCtx)
 
       case dd @ DefDef(nme.CONSTRUCTOR, _, _, _, _) =>
         // ignore
@@ -352,31 +351,31 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
-        methods :+= extractFunction(fsym, tparams, vparams, rhs)(defCtx)
+        methods :+= extractFunction(fsym, dd, tparams, vparams, rhs)(defCtx)
 
       case t @ ExFieldDef(fsym, _, rhs) =>
-        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
+        methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(fsym, vparams)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
-        methods :+= extractFunction(fsym, Seq.empty, vparams, rhs)(defCtx)
+        methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
-        methods :+= extractFieldAccessor(fsym, classType, vparams)(defCtx)
+        methods :+= extractFieldAccessor(fsym, t, classType, vparams)(defCtx)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, rhs) =>
-        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
+        methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
 
       case vd @ ValDef(_, _, _) if isField(vd) && annotationsOf(vd.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(vd.symbol, Seq.empty)
 
       case vd @ ValDef(_, _, _) if isField(vd) =>
-        methods :+= extractFieldAccessor(vd.symbol, classType, Seq.empty)(defCtx)
+        methods :+= extractFieldAccessor(vd.symbol, vd, classType, Seq.empty)(defCtx)
 
       case d if d.symbol is Synthetic =>
         // ignore
@@ -411,8 +410,26 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   //trim because sometimes Scala names end with a trailing space, looks nicer without the space
   private def freshId(sym: Symbol): Identifier = FreshIdentifier(sym.name.toString.trim)
 
+  private def extractTypeTree(tpt: Tree[Type])(implicit dctx: DefContext) = {
+    lazy val tpe = stainlessType(tpt.tpe)(dctx, tpt.pos)
+
+    tpt match {
+      case ByNameTypeTree(_) =>
+        xt.FunctionType(Seq(), tpe).setPos(tpt.pos)
+
+      case PredicateTypeTree(vd, pred) =>
+        val subject = xt.ValDef(getIdentifier(vd.symbol), stainlessType(vd.tpe)(dctx, vd.pos)).setPos(vd.pos)
+        val nctx = dctx.withNewVar(vd.symbol -> (() => subject.toVariable))
+        val predExpr = extractTree(pred)(nctx)
+        xt.RefinementType(subject, predExpr).setPos(tpt.pos)
+
+      case _ => tpe
+    }
+  }
+
   private def extractFunction(
     sym: Symbol,
+    tree: tpd.Tree,
     tdefs: Seq[tpd.TypeDef],
     vdefs: Seq[tpd.ValDef],
     rhs: tpd.Tree,
@@ -427,10 +444,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
       val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
-      val ptpe = param.tpt match {
-        case ByNameTypeTree(_) => xt.FunctionType(Seq(), tpe).setPos(param.tpt.pos)
-        case _ => tpe
-      }
+      val ptpe = extractTypeTree(param.tpt)(dctx)
 
       val flags = annotationsOf(param.symbol, ignoreOwner = true)
       val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
@@ -442,7 +456,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (params :+ vd, dctx.withNewVar(param.symbol -> expr))
     }
 
-    val returnType = stainlessType(sym.info.finalResultType)(nctx, sym.pos)
+    val returnType = extractTypeTree(tree.asInstanceOf[tpd.ValOrDefDef].tpt)(nctx)
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -491,12 +505,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
   private def extractFieldAccessor(
     sym: Symbol,
+    tree: tpd.Tree,
     classType: xt.ClassType,
     vdefs: Seq[tpd.ValDef]
   )(implicit dctx: DefContext): xt.FunDef = {
     val args = vdefs map { vd =>
       val id = getIdentifier(vd.symbol)
-      val tpe = stainlessType(vd.tpe)(dctx, vd.tpt.pos)
+      val tpe = extractTypeTree(vd.tpt)
       val flags = annotationsOf(vd.symbol, ignoreOwner = true)
       xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
@@ -504,7 +519,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val field = getIdentifier(sym.accessedFieldOrGetter)
     val thiss = xt.This(classType).setPos(sym.pos)
 
-    val (id: Identifier, returnType: xt.Type, body: xt.Expr) = if (sym.isSetter) {
+    val (id, returnType, body) = if (sym.isSetter) {
       assert(args.length == 1)
       (
         getIdentifier(sym),
@@ -515,7 +530,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       assert(args.isEmpty)
       (
         getParam(sym),
-        stainlessType(sym.info.finalResultType)(dctx, sym.pos),
+        extractTypeTree(tree.asInstanceOf[tpd.ValOrDefDef].tpt),
         xt.ClassSelector(thiss, field).setPos(sym.pos)
       )
     }
@@ -785,7 +800,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case (d @ ExFunctionDef(sym, tparams, params, ret, b)) :: xs =>
         val (id, tdefs, _) = vctx.localFuns(sym)
-        val fd = extractFunction(sym, tparams, params, b, typeParams = Some(tdefs.map(_.tp)))(vctx)
+        val fd = extractFunction(sym, d, tparams, params, b, typeParams = Some(tdefs.map(_.tp)))(vctx)
         val letRec = xt.LocalFunDef(id, tdefs, fd.params, fd.returnType, fd.fullBody, fd.flags).setPos(d.pos)
 
         rec(xs) match {
@@ -850,6 +865,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
+    case SingletonTypeTree(tree) => extractTree(tree)
+
     case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), ExUnwrapped(Closure(Nil, call, targetTpt))) if call.symbol == dd.symbol =>
       val vds = vparams map (vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),
@@ -1553,6 +1570,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
 
       case ct: ConstantType => extractType(ct.value.tpe)
+      case cet: CachedExprType => extractType(cet.resultType)
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams(tr.symbol)
