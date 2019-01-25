@@ -418,11 +418,15 @@ object LinearMemoryCodeGen extends CodeGeneration {
     // offsets for fields, with last element being the new memory boundary
     val offsets = fields.scanLeft(0)(_ + _.getType.size)
     val mem = lh.getFreshLocal(freshLabel("mem"), i32)
+
+    val mkFields = fields.zip(offsets).map { case (e, off) =>
+      if (e.getType == void) e
+      else Store(None, add(GetLocal(mem), I32Const(off)), e)
+    }
+
     Sequence(
       SetLocal(mem, malloc(I32Const(offsets.last))) +:
-      fields.zip(offsets).filter(_._1.getType != void).map { case (e, off) =>
-        Store(None, add(GetLocal(mem), I32Const(off)), e)
-      } :+
+      mkFields :+
       GetLocal(mem)
     )
   }
