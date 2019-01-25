@@ -174,14 +174,14 @@ object Printer {
           Indented(doc(value)),
           ")"
         )
-      case Unreachable => "unreachable"
+      case Unreachable => "(unreachable)"
       case Drop(expr) =>
         Stacked(
           s"(drop",
           Indented(doc(expr)),
           ")"
         )
-      case Nop => "nop"
+      case Nop => "(nop)"
       case GetLocal(label) => s"(get_local $$$label)"
       case SetLocal(label, value) =>
         Stacked(
