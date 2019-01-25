@@ -50,14 +50,10 @@ trait Lowerer extends stainless.transformers.Transformer {
 
       case s.ArrayType(base) =>
         ArrayType(AnyRefType)
-      // These remain the same
-      // case s.Untyped =>
-      // case s.RealType() => TODO: Represent Reals properly
-      // case s.BVType(signed, size) =>
-      //case s.CharType() =>
-      //case s.IntegerType() => // TODO: Implement big integers properly
 
-      case _ => super.transform(tp, env)
+      case _ =>
+        // Base types, functions and strings
+        super.transform(tp, env)
     }
   }
 }
@@ -320,7 +316,7 @@ private [wasmgen] class ExprLowerer(
           Int32Literal(initSorts(id).asInstanceOf[ConstructorSort].typeTag)
         )
       case as@s.ADTSelector(adt, selector) =>
-        val s.ADTType(parent, tps) = adt.getType
+        val s.ADTType(parent, _) = adt.getType
         val (childId, formalType) = (for {
           ch <- initSorts.values
           if ch.parent.contains(parent)
@@ -440,7 +436,7 @@ private [wasmgen] class ExprLowerer(
         ), env)
       case s.TupleSelect(tuple, index) =>
         val size = tuple.getType.asInstanceOf[s.TupleType].bases.size
-        val constr = lib.sort(s"Tuple${size}").constructors.head
+        val constr = lib.sort(s"Tuple$size").constructors.head
         val selector = constr.fields(index - 1).id
         maybeUnbox(
           RecordSelector(CastDown(transform(tuple, env), RecordType(constr.id)), selector),
@@ -575,34 +571,12 @@ private [wasmgen] class ExprLowerer(
           " to WebAssembly."
         )
 
-      // These should all be the same:
-      // ** All other literals **
-      // ** String operations **
-      // case s.Variable(id, tpe, flags) =>
-      // case s.Let(vd, value, body) =>
-      // case s.NoTree(tpe) =>
-      // ** Arithmetic operators:
-      // case s.Plus(lhs, rhs) =>
-      // case s.Minus(lhs, rhs) =>
-      // case s.UMinus(expr) =>
-      // case s.Times(lhs, rhs) =>
-      // case s.Division(lhs, rhs) =>
-      // case s.Remainder(lhs, rhs) =>
-      // case s.Modulo(lhs, rhs) =>
-      // case s.LessThan(lhs, rhs) =>
-      // case s.GreaterThan(lhs, rhs) =>
-      // case s.LessEquals(lhs, rhs) =>
-      // case s.GreaterEquals(lhs, rhs) =>
-      // case s.BVNot(e) =>
-      // case s.BVAnd(lhs, rhs) =>
-      // case s.BVOr(lhs, rhs) =>
-      // case s.BVXor(lhs, rhs) =>
-      // case s.BVShiftLeft(lhs, rhs) =>
-      // case s.BVAShiftRight(lhs, rhs) =>
-      // case s.BVLShiftRight(lhs, rhs) =>
-      // case s.BVNarrowingCast(expr, newType) =>
-      // case s.BVWideningCast(expr, newType) =>
-      case _ => super.transform(e, env)
+      case _ =>
+        // Let, Variable, IfExpr, NoTree
+        // other literals
+        // string, boolean, arithmetic operations
+        // ArrayLength
+        super.transform(e, env)
     }
   }
 }
@@ -649,6 +623,7 @@ class Lowering(context: Context) extends inox.transformers.SymbolTransformer wit
     import s._
     val dsl = new inox.ast.DSL { val trees = s }
     val sort = sym.sorts(constr.sort)
+    // Make toString functions searchable in the wasm runtime library
     val funName = SymbolIdentifier(LibProvider.libPath + constr.id.uniqueName + "ToString")
     dsl.mkFunDef(funName)(sort.tparams.map(_.id.name): _*){ tps =>
       (Seq(ValDef(FreshIdentifier("v"), ADTType(sort.id, tps))), StringType(), {
