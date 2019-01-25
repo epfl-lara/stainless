@@ -247,9 +247,9 @@ trait CodeGeneration {
         }
       case t.Output(msg) =>
         Call("_printString_", void, Seq(transform(msg)))
-      case t.FunctionInvocation(id, _, Seq(lhs, rhs)) if id == compareId =>
+      case t.FunctionInvocation(`compareId`, _, Seq(lhs, rhs)) =>
         surfaceIneq(transform(lhs), transform(rhs), lhs.getType)
-      case t.FunctionInvocation(id, _, Seq(arg)) if id == toStringId =>
+      case t.FunctionInvocation(`toStringId`, _, Seq(arg)) =>
         surfaceToString(transform(arg), arg.getType)(env.fEnv)
       case fi@t.FunctionInvocation(id, _, args) =>
         if (args.exists(_.getType == t.UnitType())) {
@@ -282,7 +282,7 @@ trait CodeGeneration {
 
       case t.UnitLiteral() =>
         Nop
-      case bvl@t.BVLiteral(signed, value, size) =>
+      case bvl@t.BVLiteral(_, _, size) =>
         if (size <= 32) I32Const(bvl.toBigInt.toInt)
         else I64Const(bvl.toBigInt.toLong)
       case t.BooleanLiteral(value) =>
