@@ -800,9 +800,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           xt.Let(vds(v.symbol), extractTree(v.rhs)(vctx), rec(xs)).setPos(v.pos)
         }
 
-      case ExWhile(cond, body, rest) =>
-        val wh = xt.While(extractTree(cond), extractBlock(body), None).setPos(es.head.pos)
-        rec(rest) match {
+      case ExWhileWithInvariant(cond, body, pred) :: xs =>
+        val wh = xt.While(extractTree(cond)(vctx), extractTree(body)(vctx), Some(extractTree(pred)(vctx))).setPos(es.head.pos)
+        rec(xs) match {
+          case xt.Block(elems, last) => xt.Block(wh +: elems, last).setPos(es.head.pos)
+          case e => xt.Block(Seq(wh), e).setPos(es.head.pos)
+        }
+
+      case ExWhile(cond, body) :: xs =>
+        val wh = xt.While(extractTree(cond)(vctx), extractTree(body)(vctx), None).setPos(es.head.pos)
+        rec(xs) match {
           case xt.Block(elems, last) => xt.Block(wh +: elems, last).setPos(es.head.pos)
           case e => xt.Block(Seq(wh), e).setPos(es.head.pos)
         }
@@ -872,6 +879,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ExIdentity(body) =>
       extractTree(body)
 
+    case w @ ExWhileWithInvariant(cond, body, pred) =>
+      xt.While(extractTree(cond), extractTree(body), Some(extractTree(pred))).setPos(w.pos)
+
+    case w @ ExWhile(cond, body) =>
+      xt.While(extractTree(cond), extractTree(body), None).setPos(w.pos)
+
     case ExAssert(contract, oerr, isStatic) =>
       def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
       xt.Assert(wrap(extractTree(contract)), oerr, xt.UnitLiteral().setPos(tr.pos))
@@ -911,8 +924,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
       })
 
-    // an optional "because" is allowed
-    case t @ ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
+    case t @ ExHoldsBecause(body, proof) =>
       val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.pos)).setPos(tr.pos)
       val post = xt.Lambda(Seq(vd),
         xt.And(Seq(extractTreeOrNoTree(proof), vd.toVariable)).setPos(tr.pos)
@@ -1026,18 +1038,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       xt.MethodInvocation(extractTree(lhs), getIdentifier(setter), Seq.empty, Seq(extractTree(rhs))).setPos(a.pos)
 
-    case ExCall(
-      Some(rec),
-      ExSymbol("stainless", "lang", "package$", "WhileDecorations", "invariant"),
-      Seq(),
-      Seq(pred)
-    ) => extractTree(rec) match {
-      case b @ xt.Block(Seq(w @ xt.While(cond, body, None)), e) =>
-        xt.Block(Seq(xt.While(cond, body, Some(extractTree(pred))).copiedFrom(w)), e).copiedFrom(b)
-      case e =>
-        outOfSubsetError(tr, "Unexpected while loop invariant.")
-    }
-
     case ExBigIntLiteral(Literal(cnst)) =>
       xt.IntegerLiteral(BigInt(cnst.stringValue))
 
@@ -1068,7 +1068,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case Apply(TypeApply(ExSymbol("scala", "Predef$", "locally"), _), Seq(body)) =>
       extractTree(body)
 
-    case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark"), tpe) =>
+    case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???"), tpe) =>
       xt.NoTree(extractType(tpe))
 
     case Typed(e, _) =>
@@ -1252,7 +1252,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.pos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.pos)
 
-    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
+    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
 
     case ExThisCall(tt, sym, tps, args) =>
       val thiss = xt.This(extractType(tt)(dctx, tr.pos).asInstanceOf[xt.ClassType]).setPos(tr.pos)
@@ -1573,12 +1573,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (tp @ xt.NAryType(tps, _), _) => tps(idx)
         }
 
+      case AppliedType(tr: TypeRef, _) if isScalaSetSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
       case tr: TypeRef if isScalaSetSym(tr.symbol) =>
         outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
 
+      case AppliedType(tr: TypeRef, _) if isScalaListSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
       case tr: TypeRef if isScalaListSym(tr.symbol) =>
         outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
 
+      case AppliedType(tr: TypeRef, _) if isScalaMapSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
       case tr: TypeRef if isScalaMapSym(tr.symbol) =>
         outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 

@@ -7,10 +7,15 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("verification/valid")
   testExtractAll("verification/invalid")
   testExtractAll("verification/unchecked")
-  testExtractAll("imperative/valid")
+
+  testExtractAll("imperative/valid",
+    "imperative/valid/Blocks1.scala",
+  )
   testExtractAll("imperative/invalid")
+
   testExtractAll("termination/valid")
   testExtractAll("termination/looping")
+
   testExtractAll("extraction/valid",
     "extraction/valid/AccessorFlags.scala",
     "extraction/valid/GhostCaseClass.scala",
@@ -19,6 +24,7 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/valid/GhostFlow1.scala",
     "extraction/valid/GhostFlow2.scala",
     "extraction/valid/GhostFlow3.scala",
+    "extraction/valid/Typedef.scala", // FIXME
   )
   testRejectAll("extraction/invalid",
     "extraction/invalid/TypeMember.scala",
@@ -30,6 +36,8 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/invalid/GhostPatmat.scala",
     "extraction/invalid/GhostDafny.scala",
     "extraction/invalid/SuperAbstract.scala",
+
+    "extraction/invalid/TraitVar1.scala", // FIXME
   )
 
 }

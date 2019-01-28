@@ -227,7 +227,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
       val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps)
 
       try {
-        () // TreeSanitizer(xt).check(funSyms)
+        TreeSanitizer(xt).check(funSyms)
       } catch {
         case e: extraction.MissformedStainlessCode =>
           reportError(e.tree.getPos, e.getMessage, funSyms)

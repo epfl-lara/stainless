@@ -46,7 +46,9 @@ object DottyCompiler {
         val cache = new SymbolsContext
 
         val compiler = new DottyCompiler(ctx, callback, cache)
-        val args = allCompilerArguments(compilerArgs) ++ Seq("-language:Scala2")
+
+        val flags = Seq("-language:Scala2,implicitConversions")
+        val args = allCompilerArguments(compilerArgs) ++ flags
 
         val driver = new DottyDriver(args, compiler)
 

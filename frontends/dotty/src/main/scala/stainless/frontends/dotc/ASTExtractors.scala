@@ -36,6 +36,7 @@ trait ASTExtractors {
 
   // Well-known symbols that we match on
 
+  protected lazy val scalaAnySym  = classFromName("scala.Any")
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
@@ -104,6 +105,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isAnySym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == scalaAnySym
   }
 
   def isSetSym(sym: Symbol) : Boolean = {
@@ -533,17 +538,24 @@ trait ASTExtractors {
     }
 
     object ExWhile {
-      def unapply(trees: List[tpd.Tree]): Option[(tpd.Tree, List[tpd.Tree], List[tpd.Tree])] = trees match {
-        case (dd @ DefDef(nme.WHILE_PREFIX, Seq(), Seq(Seq()), unit, _)) :: app :: rest => dd.rhs match {
-          case If(cond, Block(body, Apply(c, Nil)), ExUnitLiteral()) if dd.symbol == c.symbol => app match {
-            case Apply(c, Nil) if dd.symbol == c.symbol => Some((cond, body, rest))
-            case Apply(
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case WhileDo(cond, body) => Some((cond, body))
+        case _ => None
+      }
+    }
+
+    object ExWhileWithInvariant {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(
+          Select(
+            Apply(
               ExSymbol("stainless", "lang", "package$", "WhileDecorations"),
-              Seq(Apply(c, Nil))) if dd.symbol == c.symbol => Some((cond, body, rest))
-            case _ => None
-          }
-          case _ => None
-        }
+              List(ExWhile(cond, body)),
+            ),
+            ExNamed("invariant"),
+          ),
+          List(pred)
+        ) => Some((cond, body, pred))
         case _ => None
       }
     }
@@ -622,6 +634,27 @@ trait ASTExtractors {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "BooleanDecorations", "holds"),
           Seq(), args) => Some(rec +: args)
+        case _ => None
+      }
+    }
+
+    object ExHoldsBecause {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
+          Some((body, proof))
+
+        case Apply(
+          Select(
+            Apply(
+              ExSymbol("stainless", "lang" | "proof", "package$", "boolean2ProofOps"),
+              List(ExHolds(body)),
+            ),
+            ExNamed("because"),
+          ),
+          List(proof)
+        ) =>
+          Some((body, proof))
+
         case _ => None
       }
     }
