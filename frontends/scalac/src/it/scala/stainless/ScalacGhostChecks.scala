@@ -28,12 +28,12 @@ class ScalacGhostChecks extends ExtractionSuite {
   val baseDir = "frontends/benchmarks/extraction"
 
   describe(s"Ghost checks should succeed:") {
-    testFilePos(s"$baseDir/valid/ghost-methods.scala")
+    testFilePos(s"$baseDir/valid/GhostMethods.scala")
   }
 
   describe(s"Ghost checks should fail:") {
-    testFileNeg(s"$baseDir/invalid/ghost-dafny.scala", 9)
-    testFileNeg(s"$baseDir/invalid/ghost-patmat.scala", 2)
+    testFileNeg(s"$baseDir/invalid/GhostDafny.scala", 9)
+    testFileNeg(s"$baseDir/invalid/GhostPatmat.scala", 2)
   }
 
 }
