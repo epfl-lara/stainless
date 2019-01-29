@@ -108,9 +108,9 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
     *   sbt project. You can temporarily disable the following four lines when importing the project.
     */
   unmanagedResourceDirectories in IntegrationTest += (root.base / "frontends" / "benchmarks"),
-  unmanagedSourceDirectories in Compile += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
-  unmanagedSourceDirectories in Test += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
-  unmanagedSourceDirectories in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
+  unmanagedSourceDirectories   in Compile         += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
+  unmanagedSourceDirectories   in Test            += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
+  unmanagedSourceDirectories   in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
   // We have to use managed resources here to keep sbt's source watcher happy
   resourceGenerators in Compile += Def.task {
@@ -120,6 +120,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
       resourceFile
     }
   }.taskValue,
+
   test in assembly := {}, // Skip the test during assembly
 
   sourceGenerators in Compile += Def.task {
