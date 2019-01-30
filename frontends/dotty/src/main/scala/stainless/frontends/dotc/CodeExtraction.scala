@@ -412,11 +412,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
 
-    if (id.name == "WithRel") {
-      println(vds.zip(vdTpts).mkString("\n"))
-      println(cd -> allMethods)
-    }
-
     (cd, allMethods)
   }
 
