@@ -11,7 +11,7 @@ val assertLogMessage = taskKey[Unit]("checks a log message emitted")
 
 assertLogMessage := check(
   "[unsupported] Project uses unsupported Scala version 2.11.7. " +
-  "To use stainless use one of the following Scala versions: 2.11.12."
+  "To use stainless use one of the following Scala versions: 2.12.8."
 ).value
 
 lazy val success = (project in file("success"))
