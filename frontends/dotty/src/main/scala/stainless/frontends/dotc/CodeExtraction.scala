@@ -415,12 +415,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     (cd, allMethods)
   }
 
-  //trim because sometimes Scala names end with a trailing space, looks nicer without the space
-  private def freshId(sym: Symbol): Identifier = FreshIdentifier(sym.name.toString.trim)
-
   private def extractFunction(
     sym: Symbol,
-    tree: tpd.Tree,
+    tree: tpd.ValOrDefDef,
     tdefs: Seq[tpd.TypeDef],
     vdefs: Seq[tpd.ValDef],
     rhs: tpd.Tree,
@@ -447,8 +444,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (params :+ vd, dctx.withNewVar(param.symbol -> expr))
     }
 
-    val vdef = tree.asInstanceOf[tpd.ValOrDefDef]
-    val returnType = extractTypeTree(vdef.tpt, vdef.tpe)(nctx)
+    val returnType = extractTypeTree(tree.tpt, tree.tpe)(nctx)
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -497,7 +493,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
   private def extractFieldAccessor(
     sym: Symbol,
-    tree: tpd.Tree,
+    tree: tpd.ValOrDefDef,
     classType: xt.ClassType,
     vdefs: Seq[tpd.ValDef]
   )(implicit dctx: DefContext): xt.FunDef = {
@@ -520,10 +516,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       )
     } else { // getter
       assert(args.isEmpty)
-      val vdef = tree.asInstanceOf[tpd.ValOrDefDef]
       (
         getParam(sym),
-        extractTypeTree(vdef.tpt, vdef.tpe),
+        extractTypeTree(tree.tpt, tree.tpe),
         xt.ClassSelector(thiss, field).setPos(sym.pos)
       )
     }

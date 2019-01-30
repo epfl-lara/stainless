@@ -457,7 +457,7 @@ trait ASTExtractors {
     }
 
     object ExFunctionDef {
-      def unapply(tree: tpd.Tree): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = tree match {
         case dd @ DefDef(name, tparams, vparamss, tpt, rhs) =>
           if ((
             name != nme.CONSTRUCTOR &&
