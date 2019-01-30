@@ -63,6 +63,7 @@ object DottyCompiler {
         val compiler = new DottyCompiler(ctx, callback, cache)
 
         val flags = Seq("-language:Scala2,implicitConversions")
+        // val flags = Seq("-language:implicitConversions")
         val args = allCompilerArguments(compilerArgs) ++ flags
 
         val driver = new DottyDriver(args, compiler)
