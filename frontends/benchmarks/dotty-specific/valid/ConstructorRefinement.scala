@@ -1,17 +1,16 @@
-
 import stainless.lang._
 
 object ExtensionMethods1 {
 
   case class Rectangle(
-    x: { x: BigInt => x >= 0),
-    y: { y: BigInt => y >= 0 }
-  ) {
-    def perimiter: BigInt = x * 2 + y * 2
-  }
+    x: { x: BigInt => x >= BigInt(0) },
+    y: { y: BigInt => y >= BigInt(0) }
+  )
 
-  def test(r: Rectangle) = {
-    assert(rectangle.perimiter >= 0)
+  def (r: Rectangle) perimeter: BigInt = r.x * 2 + r.y * 2
+
+  def test(rectangle: Rectangle) = {
+    assert(rectangle.perimeter >= 0)
   }
 
 }

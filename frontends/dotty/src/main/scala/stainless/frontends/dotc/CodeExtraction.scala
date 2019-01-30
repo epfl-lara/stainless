@@ -280,11 +280,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       !vd.symbol.is(Accessor) && vd.symbol.is(ParamAccessor)
     }
 
-    val vds = template.body.collect {
-      case vd: tpd.ValDef if isField(vd) => vd
-    }
+    val vdTpts = template.constr.vparamss.flatten.map(_.tpt).toVector
 
-    val fields = vds map { vd =>
+    val vds = template.body
+      .collect {
+        case vd: tpd.ValDef if isField(vd) => vd
+      }
+      .zipWithIndex
+      .map { case (vd, i) => (vd, vdTpts(i)) }
+
+    val fields = vds map { case (vd, tpt) =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
 
@@ -292,7 +297,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val (isIgnored, isPure) = (flags contains xt.Ignore, flags contains xt.IsPure)
 
       val tpe = if (isIgnored) xt.IntegerType()
-                else extractTypeTree(vd.tpt)(tpCtx)
+                else extractTypeTree(tpt, vd.tpe)(tpCtx)
 
       if ((vdSym is Mutable) || isIgnored && !isPure)
         xt.VarDef(id, tpe, flags).setPos(vd.pos)
@@ -397,36 +402,26 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       ).setPos(pos)
     }
 
-    val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
-
-    (new xt.ClassDef(
+    val cd = new xt.ClassDef(
       id,
       extparams.map(xt.TypeParameterDef(_)),
       parents,
       fields,
       flags
-    ).setPos(sym.pos), allMethods)
+    ).setPos(sym.pos)
+
+    val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
+
+    if (id.name == "WithRel") {
+      println(vds.zip(vdTpts).mkString("\n"))
+      println(cd -> allMethods)
+    }
+
+    (cd, allMethods)
   }
 
   //trim because sometimes Scala names end with a trailing space, looks nicer without the space
   private def freshId(sym: Symbol): Identifier = FreshIdentifier(sym.name.toString.trim)
-
-  private def extractTypeTree(tpt: Tree[Type])(implicit dctx: DefContext) = {
-    lazy val tpe = stainlessType(tpt.tpe)(dctx, tpt.pos)
-
-    tpt match {
-      case ByNameTypeTree(_) =>
-        xt.FunctionType(Seq(), tpe).setPos(tpt.pos)
-
-      case PredicateTypeTree(vd, pred) =>
-        val subject = xt.ValDef(getIdentifier(vd.symbol), stainlessType(vd.tpe)(dctx, vd.pos)).setPos(vd.pos)
-        val nctx = dctx.withNewVar(vd.symbol -> (() => subject.toVariable))
-        val predExpr = extractTree(pred)(nctx)
-        xt.RefinementType(subject, predExpr).setPos(tpt.pos)
-
-      case _ => tpe
-    }
-  }
 
   private def extractFunction(
     sym: Symbol,
@@ -445,7 +440,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
       val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
-      val ptpe = extractTypeTree(param.tpt)(dctx)
+      val ptpe = extractTypeTree(param.tpt, param.tpe)(dctx)
 
       val flags = annotationsOf(param.symbol, ignoreOwner = true)
       val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
@@ -457,7 +452,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (params :+ vd, dctx.withNewVar(param.symbol -> expr))
     }
 
-    val returnType = extractTypeTree(tree.asInstanceOf[tpd.ValOrDefDef].tpt)(nctx)
+    val vdef = tree.asInstanceOf[tpd.ValOrDefDef]
+    val returnType = extractTypeTree(vdef.tpt, vdef.tpe)(nctx)
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -512,7 +508,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   )(implicit dctx: DefContext): xt.FunDef = {
     val args = vdefs map { vd =>
       val id = getIdentifier(vd.symbol)
-      val tpe = extractTypeTree(vd.tpt)
+      val tpe = extractTypeTree(vd.tpt, vd.tpe)
       val flags = annotationsOf(vd.symbol, ignoreOwner = true)
       xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
@@ -529,9 +525,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       )
     } else { // getter
       assert(args.isEmpty)
+      val vdef = tree.asInstanceOf[tpd.ValOrDefDef]
       (
         getParam(sym),
-        extractTypeTree(tree.asInstanceOf[tpd.ValOrDefDef].tpt),
+        extractTypeTree(vdef.tpt, vdef.tpe),
         xt.ClassSelector(thiss, field).setPos(sym.pos)
       )
     }
@@ -1542,6 +1539,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }
 
     ctor(ector(e))
+  }
+
+  // We need the type stored alongside the type tree, as the type underneath the type tree,
+  // seem to live in different context with regards to type parameters.
+  private def extractTypeTree(tpt: Tree[Type], tpe: Type)(implicit dctx: DefContext) = {
+    tpt match {
+      case ByNameTypeTree(_) =>
+        xt.FunctionType(Seq(), stainlessType(tpe)(dctx, tpt.pos)).setPos(tpt.pos)
+
+      case PredicateTypeTree(vd, pred) =>
+        val subject = xt.ValDef(getIdentifier(vd.symbol), stainlessType(vd.tpe)(dctx, vd.pos)).setPos(vd.pos)
+        val nctx = dctx.withNewVar(vd.symbol -> (() => subject.toVariable))
+        val predExpr = extractTree(pred)(nctx)
+        xt.RefinementType(subject, predExpr).setPos(tpt.pos)
+
+      case _ => stainlessType(tpe)(dctx, tpt.pos)
+    }
   }
 
   private def extractType(t: tpd.Tree)(implicit dctx: DefContext): xt.Type = {
