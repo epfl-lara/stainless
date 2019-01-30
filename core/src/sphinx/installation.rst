@@ -69,7 +69,7 @@ Build from source on Linux & macOS
 **Requirements:**
 
 * `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
-* sbt 0.13.x (Available from http://www.scala-sbt.org/)
+* sbt 1.2.x (Available from http://www.scala-sbt.org/)
 * An external SMT solver (see Section ":ref:`smt-solvers`")
 * `Sphinx restructured text tool <http://sphinx-doc.org/>`_ (for building local documentation)
 

@@ -60,7 +60,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value+"/src/main/scala/root-doc.txt"),
+  scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value + "/src/main/scala/root-doc.txt"),
 
   unmanagedJars in Runtime += {
     root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
@@ -172,10 +172,10 @@ lazy val IntegrationTest = config("it") extend(Test)
 
 lazy val `stainless-core` = (project in file("core"))
   .disablePlugins(AssemblyPlugin)
-  /* .enablePlugins(SphinxPlugin) */
+  //.enablePlugins(SphinxPlugin)
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
-  /* .settings(site.settings) *1/ */
+  //.settings(site.settings)
   //.dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
@@ -283,13 +283,12 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(SbtPlugin)
   .settings(baseSettings)
   .settings(publishSbtSettings)
   .settings(
-    description := "Plugin integrating Stainless in sbt.",
+    description := "Plugin integrating Stainless in sbt",
     sbtPlugin := true,
-    // Could also add support for sbt "1.1.0" but a compatibility layer needs to be added to compile against both sbt 0.13 and 1
-    crossSbtVersions := Vector("0.13.13"),
     buildInfoUsePackageAsPath := true,
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys := Seq[BuildInfoKey](
@@ -297,26 +296,21 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "supportedScalaVersions" -> SupportedScalaVersions
     )
   )
-  .settings(scriptedSettings)
   .settings(
+    scripted := scripted.tag(Tags.Test).evaluated,
+    scriptedLaunchOpts ++= Seq(
+      "-Xmx768m",
+      "-XX:MaxMetaspaceSize=384m",
+      "-Dplugin.version=" + version.value,
+      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
+    ),
+    scriptedBufferLog := false,
     scriptedDependencies := {
       publishLocal.value
       (publishLocal in `stainless-library`).value
       (publishLocal in `stainless-scalac-plugin`).value
     }
   )
-
-//def scriptedSettings: Seq[Setting[_]] = ScriptedPlugin.scriptedSettings ++
-//  Seq(
-//    scripted := scripted.tag(Tags.Test).evaluated,
-//    scriptedLaunchOpts ++= Seq(
-//      "-Xmx768m",
-//      "-XX:MaxMetaspaceSize=384m",
-//      "-Dplugin.version=" + version.value,
-//      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
-//    ),
-//    scriptedBufferLog := false
-//  )
 
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
@@ -327,10 +321,8 @@ lazy val root = (project in file("."))
     publishArtifact := false,
     publish := (())
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `sbt-stainless`, `stainless-scalac-plugin`)
-  // .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  // .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
