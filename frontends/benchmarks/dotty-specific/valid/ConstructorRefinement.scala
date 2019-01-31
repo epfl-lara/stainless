@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object ExtensionMethods1 {
+object ConstructorRefinement {
 
   case class Rectangle(
     x: { x: BigInt => x >= BigInt(0) },
