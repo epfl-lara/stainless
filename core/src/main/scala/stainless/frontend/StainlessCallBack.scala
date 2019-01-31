@@ -140,7 +140,7 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
   private val canonization = utils.XlangCanonization(xt)
 
-  private val cache = new ConcurrentCache[Identifier, (SerializationResult, Int)]
+  private val cache = new ConcurrentCache[Identifier, SerializationResult]
 
   /******************* Internal Helpers ***********************************************************/
 
@@ -167,11 +167,11 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
     val funSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps)
 
-    val (cf, hash) = serialize(Right(fun))(funSyms)
+    val cf = serialize(Right(fun))(funSyms)
 
-    if (!isInCache(id, cf, hash)) {
+    if (!isInCache(id, cf)) {
       processFunctionSymbols(id, funSyms)
-      cache.update(id, (cf, hash))
+      cache.update(id, cf)
     }
   }
 
@@ -203,29 +203,19 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     this.synchronized { tasks += futureReport }
   }
 
-  private def isInCache(id: Identifier, cf: SerializationResult, hash: Int): Boolean = {
-    cache.contains(id) && cache(id) == (cf, hash)
+  private def isInCache(id: Identifier, cf: SerializationResult): Boolean = {
+    cache.contains(id) && cache(id) == cf
   }
 
-  private def serialize(node: Either[xt.ClassDef, xt.FunDef])(implicit syms: xt.Symbols): (SerializationResult, Int) = {
+  private def serialize(node: Either[xt.ClassDef, xt.FunDef])(implicit syms: xt.Symbols): SerializationResult = {
     def getId(node: Either[xt.ClassDef, xt.FunDef]) = node match {
       case Left(cd) => cd.id
       case Right(fd) => fd.id
     }
 
     val id = getId(node)
-    val clsDeps = syms.classes.values.filterNot(_.id == id).toSeq
-    val funDeps = syms.functions.values.filterNot(_.id == id).toSeq
-    val hashes = clsDeps.map(cd => getCF(Left(cd)).hashCode) ++ funDeps.map(fd => getCF(Right(fd)).hashCode)
 
-    val cf = getCF(node)
-    val hash = hashes.sorted.hashCode
-    (cf, hash)
-  }
-
-  private def getCF(node: Either[xt.ClassDef, xt.FunDef]): SerializationResult = node match {
-    case Left(cd) => serializer.serialize(canonization(cd))
-    case Right(fd) => serializer.serialize(canonization(fd))
+    serializer.serialize(canonization(syms, id))
   }
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
