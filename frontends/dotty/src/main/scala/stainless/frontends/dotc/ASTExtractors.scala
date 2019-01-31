@@ -23,7 +23,9 @@ trait ASTExtractors {
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
-    (for {
+    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
+
+    erased ++ (for {
       a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."

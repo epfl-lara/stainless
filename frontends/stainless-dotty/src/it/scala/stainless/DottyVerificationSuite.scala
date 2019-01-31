@@ -30,11 +30,6 @@ trait DottyVerificationSuite extends ComponentTestSuite {
     }
     reporter.terminateIfError()
   }
-
-  testAll("dotty-specific/invalid") { (analysis, _) =>
-    val report = analysis.toReport
-    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
-  }
 }
 
 class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {

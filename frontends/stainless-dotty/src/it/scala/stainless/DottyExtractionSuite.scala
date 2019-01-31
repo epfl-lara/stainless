@@ -40,5 +40,8 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/invalid/TraitVar1.scala", // FIXME
   )
 
+  testExtractAll("dotty-specific/valid")
+  testRejectAll("dotty-specific/invalid")
+
 }
 
