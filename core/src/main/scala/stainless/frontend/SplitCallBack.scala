@@ -18,7 +18,7 @@ import java.io.File
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
-class StainlessCallBack(components: Seq[Component])(override implicit val context: inox.Context)
+class SplitCallBack(components: Seq[Component])(override implicit val context: inox.Context)
   extends CallBack with CheckFilter with StainlessReports { self =>
 
   protected final override val trees = extraction.xlang.trees
@@ -193,6 +193,6 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-    reporter.fatalError(s"Aborting from StainlessCallBack")
+    reporter.fatalError(s"Aborting from SplitCallBack")
   }
 }
