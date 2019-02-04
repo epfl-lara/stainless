@@ -70,7 +70,7 @@ package object frontend {
     if(ctx.options.findOptionOrDefault(optBatchedProgram))
       new BatchedCallBack(activeComponents)
     else
-      new StainlessCallBack(activeComponents)
+      new SplitCallBack(activeComponents)
   }
 }
 
