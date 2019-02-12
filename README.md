@@ -11,6 +11,8 @@ To get started, see the documentation chapters, such as
   * [Installation](core/src/sphinx/installation.rst)
   * [Getting Started](core/src/sphinx/gettingstarted.rst)
   * [Introduction to Stainless](core/src/sphinx/intro.rst)
+  * [Stainless EPFL Page](https://stainless.epfl.ch)
+  * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
 ### Relation to [Inox](https://github.com/epfl-lara/inox)
 
