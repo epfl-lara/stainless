@@ -305,6 +305,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         xt.ValDef(id, tpe, flags).setPos(vd.pos)
     }
 
+    val fieldsMap = vds.zip(fields).map {
+      case ((vd, _), field) => (vd.symbol, field.tpe)
+    }.toMap
+
     val hasIgnoredFields = fields.exists(_.flags.contains(xt.Ignore))
 
     val defCtx = tpCtx
@@ -369,7 +373,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
-        methods :+= extractFieldAccessor(fsym, t, classType, vparams)(defCtx)
+        val fieldTpe = fieldsMap(fsym.accessedFieldOrGetter)
+        methods :+= extractFieldAccessor(fsym, fieldTpe, classType, vparams)(defCtx)
 
       case t @ ExLazyFieldAccessorFunction(fsym, _, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(fsym, Seq.empty)
@@ -381,7 +386,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         methods :+= extractIgnoredFieldAccessor(vd.symbol, Seq.empty)
 
       case vd @ ValDef(_, _, _) if isField(vd) =>
-        methods :+= extractFieldAccessor(vd.symbol, vd, classType, Seq.empty)(defCtx)
+        val fieldTpe = fieldsMap(vd.symbol)
+        methods :+= extractFieldAccessor(vd.symbol, fieldTpe, classType, Seq.empty)(defCtx)
 
       case d if d.symbol is Synthetic =>
         // ignore
@@ -493,22 +499,22 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
   private def extractFieldAccessor(
     sym: Symbol,
-    tree: tpd.ValOrDefDef,
+    fieldTpe: xt.Type,
     classType: xt.ClassType,
     vdefs: Seq[tpd.ValDef]
   )(implicit dctx: DefContext): xt.FunDef = {
-    val args = vdefs map { vd =>
-      val id = getIdentifier(vd.symbol)
-      val tpe = extractTypeTree(vd.tpt, vd.tpe)
-      val flags = annotationsOf(vd.symbol, ignoreOwner = true)
-      xt.ValDef(id, tpe, flags).setPos(vd.pos)
-    }
-
     val field = getIdentifier(sym.accessedFieldOrGetter)
     val thiss = xt.This(classType).setPos(sym.pos)
 
+    val args = vdefs map { vd =>
+      val id = getIdentifier(vd.symbol)
+      val flags = annotationsOf(vd.symbol, ignoreOwner = true)
+      xt.ValDef(id, fieldTpe, flags).setPos(vd.pos)
+    }
+
     val (id, returnType, body) = if (sym.isSetter) {
       assert(args.length == 1)
+
       (
         getIdentifier(sym),
         xt.UnitType().setPos(sym.pos),
@@ -516,9 +522,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       )
     } else { // getter
       assert(args.isEmpty)
+
       (
         getParam(sym),
-        extractTypeTree(tree.tpt, tree.tpe),
+        fieldTpe,
         xt.ClassSelector(thiss, field).setPos(sym.pos)
       )
     }
