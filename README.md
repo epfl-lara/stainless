@@ -3,14 +3,14 @@ Stainless 0.1 [![Build Status](http://laraquad4.epfl.ch:9000/epfl-lara/stainless
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language.
 Supports contract-driven verification as well as termination checking of higher-order
-functional programs with local imperative features (see [Pure Scala](core/src/sphinx/purescala.rst)
-and [Imperative](core/src/sphinx/imperative.rst)
+functional programs with local imperative features (see [Pure Scala](https://epfl-lara.github.io/stainless/purescala.html)
+and [Imperative](https://epfl-lara.github.io/stainless/imperative.html)
 for more details about the supported fragment).
 
 To get started, see the documentation chapters, such as
-  * [Installation](core/src/sphinx/installation.rst)
-  * [Getting Started](core/src/sphinx/gettingstarted.rst)
-  * [Introduction to Stainless](core/src/sphinx/intro.rst)
+  * [Installation](https://epfl-lara.github.io/stainless/installation.html)
+  * [Getting Started](https://epfl-lara.github.io/stainless/gettingstarted.html)
+  * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
