@@ -1435,7 +1435,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+")")
-  }).setPos(tr.pos)
+  }).ensurePos(tr.pos)
 
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */

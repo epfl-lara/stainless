@@ -1312,7 +1312,7 @@ trait CodeExtraction extends ASTExtractors {
 
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, "Could not extract " + tr + " (Scala tree of type "+tr.getClass+")")
-  }).setPos(tr.pos)
+  }).ensurePos(tr.pos)
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
