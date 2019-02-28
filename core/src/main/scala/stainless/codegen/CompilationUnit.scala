@@ -102,13 +102,15 @@ trait CompilationUnit extends CodeGeneration {
   private[this] val adtConstructors: MutableMap[ADTConstructor, Constructor[_]] = MutableMap.empty
 
   private[this] def adtConstructor(cons: ADTConstructor): Constructor[_] =
-    adtConstructors.getOrElseUpdate(cons, {
+    adtConstructors.getOrElse(cons, {
       val cf = getClass(cons)
       val klass = loader.loadClass(cf.className)
       // This is a hack: we pick the constructor with the most arguments.
       val conss = klass.getConstructors.sortBy(_.getParameterTypes.length)
       assert(conss.nonEmpty)
-      conss.last
+      val res = conss.last
+      adtConstructors(cons) = res
+      res
     })
 
   private[this] lazy val tupleConstructor: Constructor[_] = {

@@ -1440,7 +1440,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+")")
-  }).setPos(tr.pos)
+  }).ensurePos(tr.pos)
 
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
@@ -1529,133 +1529,139 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private val etCache = MutableMap[Type, xt.Type]()
-  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElseUpdate(tpt, (tpt match {
-    case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
-    case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
-    case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
-    case tpe if tpe.typeSymbol == defn.IntClass     => xt.Int32Type()
-    case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type()
-    case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType()
-    case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
-    case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
+  private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = etCache.getOrElse(tpt, {
+    val res = (tpt match {
+      case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
+      case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
+      case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
+      case tpe if tpe.typeSymbol == defn.IntClass     => xt.Int32Type()
+      case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type()
+      case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType()
+      case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
+      case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
 
-    // `isRef` seems to be needed here instead of `==`, as the latter
-    // seems to be too lax, and makes the whole test suite fail. - @romac
-    case tpe if tpe.isRef(defn.AnyClass) => xt.AnyType()
+      // `isRef` seems to be needed here instead of `==`, as the latter
+      // seems to be too lax, and makes the whole test suite fail. - @romac
+      case tpe if tpe.isRef(defn.AnyClass) => xt.AnyType()
 
-    case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
-    case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
-    case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
+      case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
+      case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
+      case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
 
-    case ct: ConstantType => extractType(ct.value.tpe)
+      case ct: ConstantType => extractType(ct.value.tpe)
 
-    case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
-      dctx.tparams(tr.symbol)
+      case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
+        dctx.tparams(tr.symbol)
 
-    // dotty < 0.4-RC01
-    case hk @ HKApply(tycon, args) =>
-      extractType(hk.dealias.appliedTo(args))
+      // dotty < 0.4-RC01
+      case hk @ HKApply(tycon, args) =>
+        extractType(hk.dealias.appliedTo(args))
 
-    // dotty >= 0.4-RC01
-    case hk: LambdaType =>
-      extractType(hk.resultType)
+      // dotty >= 0.4-RC01
+      case hk: LambdaType =>
+        extractType(hk.resultType)
 
-    case tt @ TypeRef(_, _) if tt != tt.dealias =>
-      extractType(tt.dealias)
+      case tt @ TypeRef(_, _) if tt != tt.dealias =>
+        extractType(tt.dealias)
 
-    case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
-      extractType(TypeRef(prefix.widenTermRefExpr, name))
+      case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
+        extractType(TypeRef(prefix.widenTermRefExpr, name))
 
-    case tt @ TypeRef(prefix, name) if prefix.classSymbol.typeParams.exists(_.name == name) =>
-      val idx = prefix.classSymbol.typeParams.indexWhere(_.name == name)
-      (extractType(prefix), idx) match {
-        case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) => to
-        case (tp @ xt.NAryType(tps, _), _) => tps(idx)
-      }
+      case tt @ TypeRef(prefix, name) if prefix.classSymbol.typeParams.exists(_.name == name) =>
+        val idx = prefix.classSymbol.typeParams.indexWhere(_.name == name)
+        (extractType(prefix), idx) match {
+          case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) => to
+          case (tp @ xt.NAryType(tps, _), _) => tps(idx)
+        }
 
-    case tr: TypeRef if isScalaSetSym(tr.symbol) =>
-      outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
+      case tr: TypeRef if isScalaSetSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
 
-    case tr: TypeRef if isScalaListSym(tr.symbol) =>
-      outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
+      case tr: TypeRef if isScalaListSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
 
-    case tr: TypeRef if isScalaMapSym(tr.symbol) =>
-      outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
+      case tr: TypeRef if isScalaMapSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
 
-    case tr: TypeRef if isSetSym(tr.symbol) =>
-      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
-      xt.SetType(tp)
+      case tr: TypeRef if isSetSym(tr.symbol) =>
+        val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
+        xt.SetType(tp)
 
-    case tr: TypeRef if isBagSym(tr.symbol) =>
-      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
-      xt.BagType(tp)
+      case tr: TypeRef if isBagSym(tr.symbol) =>
+        val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
+        xt.BagType(tp)
 
-    case tr: TypeRef if isMapSym(tr.symbol) =>
-      val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
-      xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
+      case tr: TypeRef if isMapSym(tr.symbol) =>
+        val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
+        xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
 
-    case tr: TypeRef if TupleSymbol.unapply(tr.classSymbol).isDefined =>
-      xt.TupleType(extractTypeParams(tr.classSymbol.typeParams))
+      case tr: TypeRef if TupleSymbol.unapply(tr.classSymbol).isDefined =>
+        xt.TupleType(extractTypeParams(tr.classSymbol.typeParams))
 
-    case tr: TypeRef if isArrayClassSym(tr.symbol) =>
-      val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
-      xt.ArrayType(tp)
+      case tr: TypeRef if isArrayClassSym(tr.symbol) =>
+        val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
+        xt.ArrayType(tp)
 
-    case ta @ TypeAlias(tp) => extractType(tp)
+      case ta @ TypeAlias(tp) => extractType(tp)
 
-    case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
-      xt.FunctionType(Seq(), xt.UnitType())
+      case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
+        xt.FunctionType(Seq(), xt.UnitType())
 
-    case defn.FunctionOf(from, to, _) =>
-      xt.FunctionType(from map extractType, extractType(to))
+      case defn.FunctionOf(from, to, _) =>
+        xt.FunctionType(from map extractType, extractType(to))
 
-    case tt @ ThisType(tr) =>
-      extractType(tr)
+      case tt @ ThisType(tr) =>
+        extractType(tr)
 
-    case st @ SuperType(thisTpe, superTpe) =>
-      extractType(superTpe)
+      case st @ SuperType(thisTpe, superTpe) =>
+        extractType(superTpe)
 
-    case RefinedType(p, name, tpe) =>
-      val idx = p.classSymbol.typeParams.indexWhere(_.name == name)
-      (extractType(p), idx) match {
-        case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
-          xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
-        case (xt.NAryType(tps, recons), _) =>
-          recons(tps.updated(idx, extractType(tpe)))
-      }
+      case RefinedType(p, name, tpe) =>
+        val idx = p.classSymbol.typeParams.indexWhere(_.name == name)
+        (extractType(p), idx) match {
+          case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
+            xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
+          case (xt.NAryType(tps, recons), _) =>
+            recons(tps.updated(idx, extractType(tpe)))
+        }
 
-    case tt @ TypeRef(_, _) if tt.classSymbol.exists =>
-      val sym = tt.classSymbol
-      xt.ClassType(getIdentifier(sym), sym.typeParams.map {
-        sym => xt.TypeParameter(getIdentifier(sym), Seq())
-      })
+      case tt @ TypeRef(_, _) if tt.classSymbol.exists =>
+        val sym = tt.classSymbol
+        xt.ClassType(getIdentifier(sym), sym.typeParams.map {
+          sym => xt.TypeParameter(getIdentifier(sym), Seq())
+        })
 
-    case tt @ TermRef(_, _) =>
-      extractType(tt.widenTermRefExpr)
+      case tt @ TermRef(_, _) =>
+        extractType(tt.widenTermRefExpr)
 
-    case tb @ TypeBounds(lo, hi) => extractType(hi)
+      case tb @ TypeBounds(lo, hi) => extractType(hi)
 
-    case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => extractType(tp)
-    case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => extractType(tp)
-    case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
-    case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+      case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => extractType(tp)
+      case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => extractType(tp)
+      case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
+      case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
 
-    case ot: OrType => extractType(ot.join)
+      case ot: OrType => extractType(ot.join)
 
-    case pp @ TypeParamRef(binder, num) =>
-      dctx.tparams.collectFirst { case (k, v) if k.name == pp.paramName => v }.getOrElse {
-        outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
-      }
+      case pp @ TypeParamRef(binder, num) =>
+        dctx.tparams.collectFirst { case (k, v) if k.name == pp.paramName => v }.getOrElse {
+          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
+        }
 
-    case tp: TypeVar => extractType(tp.stripTypeVar)
+      case tp: TypeVar => extractType(tp.stripTypeVar)
 
-    case AnnotatedType(tpe, _) => extractType(tpe)
+      case AnnotatedType(tpe, _) => extractType(tpe)
 
-    case _ =>
-      if (tpt ne null) {
-        outOfSubsetError(tpt.typeSymbol.pos, "Could not extract type: "+tpt+" ("+tpt.getClass+")")
-      } else {
-        outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
-      }
-  }).setPos(pos))
+      case _ =>
+        if (tpt ne null) {
+          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract type: "+tpt+" ("+tpt.getClass+")")
+        } else {
+          outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
+        }
+    }).setPos(pos)
+
+    etCache(tpt) = res
+    res
+  })
+
 }

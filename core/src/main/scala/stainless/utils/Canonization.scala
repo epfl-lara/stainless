@@ -34,7 +34,11 @@ trait Canonization { self =>
 
     override def transform(id: Identifier): Identifier = {
       val visited = ids contains id
-      val nid = ids.getOrElseUpdate(id, freshId())
+      val nid = ids.getOrElse(id, {
+        val res = freshId()
+        ids(id) = res
+        res
+      })
 
       if ((symbols.functions contains id) && !visited) {
         transformedFunctions += transform(symbols.getFunction(id))
@@ -90,9 +94,11 @@ trait Canonization { self =>
     // Maps an original identifier to a normalized identifier
     protected final val ids: mutable.Map[Identifier, Identifier] = mutable.Map.empty
 
-    final def registerId(id: Identifier): Identifier = ids.getOrElseUpdate(id, {
+    final def registerId(id: Identifier): Identifier = ids.getOrElse(id, {
       localCounter = localCounter + 1
-      new Identifier("x",localCounter,localCounter)
+      val res = new Identifier("x",localCounter,localCounter)
+      ids(id) = res
+      res
     })
 
     override def transform(id: Identifier): Identifier = ids.getOrElse(id, id)

@@ -7,12 +7,52 @@ trait Printer extends inox.ast.Printer {
   protected val trees: Trees
   import trees._
 
+  protected object Operator {
+    private val isOp = new java.util.function.IntPredicate {
+      override def test(n: Int): Boolean = {
+        n >= 33 && n <= 47 ||
+        n >= 58 && n <= 63 ||
+        n == 94 || n == 124 || n == 126
+      }
+    }
+
+    def unapply(id: Identifier): Option[String] = {
+      if (id.name.chars.allMatch(isOp)) Some(id.name) else None
+    }
+  }
+
+  protected object FunctionOperator {
+    def unapply(expr: Expr): Option[(String, Expr, Expr)] = expr match {
+      case FunctionInvocation(id, Nil, Seq(a, b)) => Some((id.name, a, b))
+      case _ => None
+    }
+  }
+
+  override protected def precedence(ex: Expr): Int = ex match {
+    case (FunctionOperator("|", _, _))                                 => 1
+    case (FunctionOperator("^", _, _))                                 => 2
+    case (FunctionOperator("&", _, _))                                 => 3
+    case (FunctionOperator("<", _, _) | FunctionOperator(">", _, _))   => 4
+    case (FunctionOperator("<<", _, _) | FunctionOperator(">>", _, _)) => 4
+    case (FunctionOperator("<=", _, _) | FunctionOperator(">=", _, _)) => 4
+    case (FunctionOperator("==> ", _, _))                              => 5
+    case (FunctionOperator("+", _, _) | FunctionOperator("-", _, _))   => 7
+    case (FunctionOperator("*", _, _) | FunctionOperator("/", _, _))   => 8
+    case (FunctionOperator("%", _, _))                                 => 8
+    case _ => super.precedence(ex)
+  }
+
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case NoTree(tpe) =>
       p"<empty tree>[$tpe]"
 
     case Error(tpe, desc) =>
       p"""error[$tpe]("$desc")"""
+
+    case FunctionOperator(id, a, b) =>
+      optP {
+        p"$a $id $b"
+      }
 
     case Require(pred, body) =>
       p"""|require($pred)
@@ -115,6 +155,7 @@ trait Printer extends inox.ast.Printer {
   override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
     case (_, Some(_: Ensuring | _: Require | _: Assert | _: MatchExpr | _: MatchCase)) => false
     case (_: Pattern, _) => false
+    case (e1: Expr, Some(e2 @ FunctionOperator(_, _, _))) if precedence(e2) > precedence(e1) => true
     case _ => super.requiresParentheses(ex, within)
   }
 
