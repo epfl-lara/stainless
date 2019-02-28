@@ -122,18 +122,20 @@ trait CodeGeneration { self: CompilationUnit =>
   private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
   private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
 
-  def getClass(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElseUpdate(sort, {
+  def getClass(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElse(sort, {
     val cf = new ClassFile(defToJVMName(sort), None)
     classToSort += cf.className -> sort
+    sortClassFiles(sort) = cf
     cf
   }))
 
   private[this] val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
   private[this] val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
 
-  def getClass(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElseUpdate(cons, {
+  def getClass(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElse(cons, {
     val cf = new ClassFile(defToJVMName(cons), Some(defToJVMName(cons.getSort)))
     classToCons += cf.className -> cons
+    consClassFiles(cons) = cf
     cf
   }))
 
@@ -158,25 +160,31 @@ trait CodeGeneration { self: CompilationUnit =>
   private[this] val sortInfos: ConcurrentMap[ADTSort, (String, String)] = ConcurrentMap.empty
   private[this] val consInfos: ConcurrentMap[ADTConstructor, (String, String)] = ConcurrentMap.empty
 
-  protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElseUpdate(sort, {
+  protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElse(sort, {
     val tpeParam = if (sort.tparams.isEmpty) "" else "[I"
-    (getClass(sort).className, "(L"+MonitorClass+";" + tpeParam + ")V")
+    val res = (getClass(sort).className, "(L"+MonitorClass+";" + tpeParam + ")V")
+    sortInfos(sort) = res
+    res
   })
 
-  protected def getConsInfo(cons: ADTConstructor): (String, String) = consInfos.getOrElseUpdate(cons, {
+  protected def getConsInfo(cons: ADTConstructor): (String, String) = consInfos.getOrElse(cons, {
     val tpeParam = if (cons.getSort.tparams.isEmpty) "" else "[I"
     val sig = "(L"+MonitorClass+";" + tpeParam + cons.fields.map(f => typeToJVM(f.getType)).mkString("") + ")V"
-    (getClass(cons).className, sig)
+    val res = (getClass(cons).className, sig)
+    consInfos(cons) = res
+    res
   })
 
   private[this] val funDefInfos: ConcurrentMap[FunDef, (String, String, String)] = ConcurrentMap.empty
 
-  protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElseUpdate(fd, {
+  protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElse(fd, {
     val sig = "(L"+MonitorClass+";" +
       (if (fd.tparams.nonEmpty) "[I" else "") +
       fd.params.map(a => typeToJVM(a.getType)).mkString("") + ")" + typeToJVM(fd.getType)
 
-    (static.className, idToSafeJVMName(fd.id), sig)
+    val res = (static.className, idToSafeJVMName(fd.id), sig)
+    funDefInfos(fd) = res
+    res
   })
 
   /**

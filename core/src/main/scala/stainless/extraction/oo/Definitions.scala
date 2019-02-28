@@ -111,7 +111,11 @@ trait Definitions extends imperative.Trees { self: Trees =>
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
     def lookupClass(id: Identifier): Option[ClassDef] = classes.get(id)
     def lookupClass(id: Identifier, tps: Seq[Type]): Option[TypedClassDef] =
-      typedClassCache.getOrElseUpdate(id -> tps, lookupClass(id).map(_.typed(tps)))
+      typedClassCache.getOrElse(id -> tps, {
+        val res = lookupClass(id).map(_.typed(tps))
+        typedClassCache(id -> tps) = res
+        res
+      })
 
     def getClass(id: Identifier): ClassDef = lookupClass(id).getOrElse(throw ClassLookupException(id))
     def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef = lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
