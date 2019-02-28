@@ -71,14 +71,17 @@ trait ASTExtractors {
     // It is particularly time expensive so we cache this.
     private val cache = MutableMap[Symbol, Option[Int]]()
     private val cardinality = """Tuple(\d{1,2})""".r
-    def unapply(sym: Symbol): Option[Int] = cache.getOrElseUpdate(sym, {
+    def unapply(sym: Symbol): Option[Int] = cache.getOrElse(sym, {
       // First, extract a guess about the cardinality of the Tuple.
       // Then, confirm that this is indeed a regular Tuple.
       val name = sym.originalName.toString
-      name match {
+      val res = name match {
         case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
         case _ => None
       }
+
+      cache(sym) = res
+      res
     })
 
     def unapply(tpe: Type): Option[Int] = tpe.classSymbols.collectFirst { case TupleSymbol(i) => i }

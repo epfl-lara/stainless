@@ -51,9 +51,13 @@ trait VerificationChecker { self =>
 
   protected val factoryCache: mutable.Map[Options, TimeoutSolverFactory] = mutable.Map()
   protected def getFactory(opts: inox.Options = options): TimeoutSolverFactory = {
-    factoryCache.getOrElseUpdate(opts, opts.findOption(inox.optTimeout) match {
-      case Some(to) => createFactory(opts).withTimeout(to)
-      case None => createFactory(opts)
+    factoryCache.getOrElse(opts, {
+      val res = opts.findOption(inox.optTimeout) match {
+        case Some(to) => createFactory(opts).withTimeout(to)
+        case None => createFactory(opts)
+      }
+      factoryCache(opts) = res
+      res
     })
   }
 

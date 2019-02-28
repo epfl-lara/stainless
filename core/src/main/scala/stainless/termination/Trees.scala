@@ -48,7 +48,11 @@ trait Trees extends ast.Trees { self =>
     private[this] val measureCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getMeasure(fd: FunDef): Option[Expr] = getMeasure(fd.typed)
     def getMeasure(tfd: TypedFunDef): Option[Expr] =
-      measureCache.getOrElseUpdate(tfd, exprOps.measureOf(tfd.fullBody))
+      measureCache.getOrElse(tfd, {
+        val res = exprOps.measureOf(tfd.fullBody)
+        measureCache(tfd) = res
+        res
+      })
   }
 
   implicit class TerminationFunDef(fd: FunDef) {

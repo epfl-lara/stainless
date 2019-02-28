@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import scala.collection.mutable.{Map => MutableMap}
+
 import inox.utils.{NoPosition, Position}
 
 trait ExprOps extends inox.ast.ExprOps {
@@ -180,6 +182,28 @@ trait ExprOps extends inox.ast.ExprOps {
         NoTree(resultType).setPos(pos)
     }
     specs.foldLeft(newBody)(withSpec)
+  }
+
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    val subst: MutableMap[Variable, Variable] = MutableMap.empty
+    variablesOf(expr).foreach(v => subst(v) = v)
+
+    new SelfTreeTransformer {
+      override def transform(vd: ValDef): ValDef = subst.getOrElse(vd.toVariable, {
+        val res = super.transform(vd).freshen.toVariable
+        subst(vd.toVariable) = res
+        res
+      }).toVal
+
+      override def transform(expr: Expr): Expr = expr match {
+        case v: Variable => transform(v.toVal).toVariable
+        case Choose(res, pred) if !freshenChooses =>
+          val newVd = super.transform(res)
+          subst(res.toVariable) = newVd.toVariable
+          Choose(newVd, transform(pred)).copiedFrom(expr)
+        case _ => super.transform(expr)
+      }
+    }.transform(expr)
   }
 
   def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = tps.map(_.freshen)

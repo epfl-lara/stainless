@@ -167,7 +167,11 @@ class RegistryTestSuite extends FunSuite {
     private[this] val runCache = scala.collection.mutable.Map.empty[inox.Context, MockComponentRun]
 
     override def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context) =
-      runCache.getOrElseUpdate(context, new MockComponentRun(pipeline))
+      runCache.getOrElse(context, {
+        val res = new MockComponentRun(pipeline)
+        runCache(context) = res
+        res
+      })
   }
 
   /** Mock component run associated to [[MockComponent]]. */
