@@ -989,14 +989,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
     case SingletonTypeTree(tree) => extractTree(tree)
 
-    case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), ExUnwrapped(Closure(Nil, call, targetTpt))) if call.symbol == dd.symbol =>
+    case ExLambda(vparams, rhs) =>
       val vds = vparams map (vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),
         extractType(vd.tpt),
         annotationsOf(vd.symbol)
       ).setPos(vd.pos))
 
-      xt.Lambda(vds, extractTree(dd.rhs)(dctx.withNewVars((vparams zip vds).map {
+      xt.Lambda(vds, extractTree(rhs)(dctx.withNewVars((vparams zip vds).map {
         case (v, vd) => v.symbol -> (() => vd.toVariable)
       })))
 
@@ -1097,6 +1097,13 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         xt.Equals(vd.toVariable, extractTreeOrNoTree(expected)).setPos(tr.pos)
       ).setPos(tr.pos)
       xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
+
+    case ExPasses(in, out, cases) =>
+      val ine = extractTree(in)
+      val oute = extractTree(out)
+      val rc = cases.map(extractMatchCase)
+
+      xt.Passes(ine, oute, rc)
 
     case ExOld(e) => xt.Old(extractTree(e))
 

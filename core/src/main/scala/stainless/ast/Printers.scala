@@ -105,6 +105,13 @@ trait Printer extends inox.ast.Printer {
       printNameWithPath(id)
       p"(${nary(subs)})"
 
+    case Passes(in, out, cases) =>
+      optP {
+        p"""|($in, $out) passes {
+            |  ${nary(cases, "\n")}
+            |}"""
+      }
+
     case ArrayType(base) =>
       p"Array[$base]"
 

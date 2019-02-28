@@ -196,6 +196,30 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.getType).get, subPatterns.size)
   }
 
+  /** Symbolic I/O examples as a match/case.
+    * $encodingof `out == (in match { cases; case _ => out })`
+    *
+    * [[cases]] should be nonempty. If you are not sure about this, you should use [[ast.Constructors#passes]] instead.
+    *
+    * @param in The input expression
+    * @param out The output expression
+    * @param cases The cases to compare against
+    */
+  case class Passes(in: Expr, out: Expr, cases: Seq[MatchCase]) extends Expr with CachingTyped {
+    require(cases.nonEmpty)
+
+    override protected def computeType(implicit s: Symbols) = {
+      if (in.getType == Untyped || out.getType == Untyped) Untyped
+      else if (s.leastUpperBound(cases.map(_.rhs.getType)) == Untyped) Untyped
+      else BooleanType()
+    }
+
+    /** Transforms the set of I/O examples to a constraint equality. */
+    def asConstraint: Expr = {
+      val defaultCase = MatchCase(WildcardPattern(None), None, out).copiedFrom(this)
+      Equals(out, MatchExpr(in, cases :+ defaultCase).copiedFrom(this)).copiedFrom(this)
+    }
+  }
 
   /* Array Operations */
 

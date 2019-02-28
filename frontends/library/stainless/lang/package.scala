@@ -98,6 +98,18 @@ package object lang {
     }
   }
 
+  @ignore
+  implicit class Passes[A, B](io: (A, B)) {
+    val (in, out) = io
+
+    @ignore
+    def passes(tests: A => B): Boolean = try {
+      tests(in) == out
+    } catch {
+      case _ : MatchError => true
+    }
+  }
+
   @library
   implicit class StringDecorations(val underlying: String) {
     @ignore @inline

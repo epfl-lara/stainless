@@ -74,6 +74,9 @@ trait InoxEncoder extends ProgramEncoder {
       case m: s.MatchExpr =>
         transform(matchToIfThenElse(m))
 
+      case p: s.Passes =>
+        transform(matchToIfThenElse(p.asConstraint))
+
       case s.NoTree(tpe) =>
         t.Choose(
           t.ValDef(FreshIdentifier("empty", true), transform(tpe)).copiedFrom(e),

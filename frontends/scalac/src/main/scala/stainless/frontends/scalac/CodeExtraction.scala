@@ -984,6 +984,13 @@ trait CodeExtraction extends ASTExtractors {
       val post = xt.Lambda(Seq(vd), xt.Equals(vd.toVariable, expectedExpr)).setPos(tr.pos)
       xt.Ensuring(b, post).setPos(post)
 
+    case ExPasses(in, out, cases) =>
+      val ine = extractTree(in)
+      val oute = extractTree(out)
+      val rc = cases.map(extractMatchCase)
+
+      xt.Passes(ine, oute, rc)
+
     case t @ ExBigLengthExpression(input) =>
       xt.StringLength(extractTree(input))
 

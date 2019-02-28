@@ -26,29 +26,34 @@ trait TransformerWithPC extends inox.transformers.TransformerWithPC with Transfo
     case s.Assert(pred, err, body) =>
       t.Assert(transform(pred, env), err, transform(body, env withCond pred)).copiedFrom(e)
 
+    case s.Passes(in, out, cases) =>
+      t.Passes(transform(in, env), transform(out, env), transformCases(cases, in, env)).copiedFrom(e)
+
     case s.MatchExpr(scrut, cases) =>
-      val rs = transform(scrut, env)
-
-      var soFar = env
-
-      t.MatchExpr(rs, cases.map { c =>
-        val spattern = transform(c.pattern, soFar)
-        val patternPathPos = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = true)
-        val patternPathNeg = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = false)
-
-        val sguard = c.optGuard.map(transform(_, soFar merge patternPathPos))
-        val guardOrTrue = c.optGuard.getOrElse(s.BooleanLiteral(true).copiedFrom(c))
-
-        import s._ // necessary for implicit VariableConverter in replaceFromSymbols
-        val guardMapped = s.exprOps.replaceFromSymbols(symbols.mapForPattern(scrut, c.pattern), guardOrTrue)
-
-        val subPath = soFar merge (patternPathPos withCond guardOrTrue)
-        soFar = soFar merge (patternPathNeg withCond guardMapped).negate
-
-        t.MatchCase(spattern, sguard, transform(c.rhs, subPath)).copiedFrom(c)
-      }).copiedFrom(e)
+      t.MatchExpr(transform(scrut, env), transformCases(cases, scrut, env)).copiedFrom(e)
 
     case _ => super.transform(e, env)
+  }
+
+  private def transformCases(cases: Seq[s.MatchCase], scrut: s.Expr, env: Env) = {
+    var soFar = env
+
+    cases map { c =>
+      val spattern = transform(c.pattern, soFar)
+      val patternPathPos = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = true)
+      val patternPathNeg = symbols.conditionForPattern[Env](scrut, c.pattern, includeBinders = false)
+
+      val sguard = c.optGuard.map(transform(_, soFar merge patternPathPos))
+      val guardOrTrue = c.optGuard.getOrElse(s.BooleanLiteral(true).copiedFrom(c))
+
+      import s._ // necessary for implicit VariableConverter in replaceFromSymbols
+      val guardMapped = s.exprOps.replaceFromSymbols(symbols.mapForPattern(scrut, c.pattern), guardOrTrue)
+
+      val subPath = soFar merge (patternPathPos withCond guardOrTrue)
+      soFar = soFar merge (patternPathNeg withCond guardMapped).negate
+
+      t.MatchCase(spattern, sguard, transform(c.rhs, subPath)).copiedFrom(c)
+    }
   }
 }
 
