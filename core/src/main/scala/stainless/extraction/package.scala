@@ -40,7 +40,8 @@ package object extraction {
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
-    "PartialEvaluation"         -> "Partially evaluate marked function calls"
+    "PartialEvaluation"         -> "Partially evaluate marked function calls",
+    "TermRewriting"             -> "Rewrite the program using user-supplied rewrite rules"
   )
 
   val phaseNames: Set[String] = phases.map(_._1).toSet

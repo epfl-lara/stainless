@@ -58,6 +58,7 @@ trait MainHelpers extends inox.MainHelpers {
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
     verification.DebugSectionPartialEval,
+    verification.DebugSectionTermRewrite,
     termination.DebugSectionTermination,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,

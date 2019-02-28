@@ -5,6 +5,8 @@ package verification
 
 import scala.concurrent.duration._
 
+import stainless.utils.StringUtils.indent
+
 object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
 
 trait PartialEvaluation
@@ -73,15 +75,15 @@ trait PartialEvaluation
 
       def eval(e: Expr): Expr = symbols.transformWithPC(e)((e, path, op) => e match {
         case fi: FunctionInvocation if fi.id != fd.id && toEval(fi.id) =>
-          reporter.debug(s" - Partially evaluating call to '${toEval.mkString(", ")}' in '${fd.id}' at ${fd.getPos}...")
-          reporter.debug(s"   Path condition: $path")
-          reporter.debug(s"   Before: $fi")
+          reporter.debug(s" - Partially evaluating call to '${toEval.map(_.asString).mkString(", ")}' in '${fd.id.asString}' at ${fd.getPos}...")
+          reporter.debug(s"   Path condition: ${path.asString}")
+          reporter.debug(s" - Before: ${indent(fi.asString, 11, firstLine = false)}")
 
           val (elapsed, res) = timers.partialeval.runAndGetTime {
             partialEval(fi, path, simple = isSynthetic(fi.id))
           }
 
-          reporter.debug(s"   After: ${res.get}")
+          reporter.debug(s" - After:  ${indent(res.get.asString, 11, firstLine = false)}")
           reporter.debug(s"   Time elapsed: " + "%.4f".format(elapsed.millis.toUnit(SECONDS)) + " seconds\n")
           res.get
 

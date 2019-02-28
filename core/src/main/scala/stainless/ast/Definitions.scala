@@ -16,6 +16,8 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Unchecked extends Flag("unchecked", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
+  case object Rewrite extends Flag("rewrite", Seq())
+  case object RewriteRule extends Flag("rewriteRule", Seq())
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
@@ -26,6 +28,8 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
     case ("partialEval", Seq()) => PartialEval
+    case ("rewrite", Seq()) => Rewrite
+    case ("rewriteRule", Seq()) => RewriteRule
     case _ => Annotation(name, args)
   }
 

@@ -65,3 +65,11 @@ class mutable          extends Annotation
 @ignore @field @getter @setter @param
 class ghost extends StaticAnnotation
 
+/** Mark this function as a conditional rewrite rule */
+@ignore
+class rewriteRule extends StaticAnnotation
+
+/** Attempt to rewrite this function using the rewrite rules in scope */
+@ignore
+class rewrite extends StaticAnnotation
+

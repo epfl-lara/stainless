@@ -45,7 +45,8 @@ class VerificationRun(override val pipeline: StainlessPipeline)
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
   override protected def createPipeline = pipeline andThen lowering andThen
-    extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+    extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees)) andThen
+    extraction.utils.DebugPipeline("TermRewriting", TermRewriting(extraction.trees))
 
   implicit val debugSection = DebugSectionVerification
 
