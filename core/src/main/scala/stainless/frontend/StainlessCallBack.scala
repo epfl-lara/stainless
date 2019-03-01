@@ -244,7 +244,11 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
-        runs.map(run => run(id, funSyms).map(a => RunReport(run)(a.toReport)))
+        runs.map(run => run(id, funSyms).map { a =>
+          val report = a.toReport
+          RunReport(run)(report)
+        })
+
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }
     }

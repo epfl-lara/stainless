@@ -129,7 +129,7 @@ trait MainHelpers extends inox.MainHelpers {
       val files: Set[File] = compiler.sources.toSet map {
         file: String => new File(file).getAbsoluteFile
       }
-      val watcher = new utils.FileWatcher(ctx, files, action = watchRunCycle)
+      val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
 
       watchRunCycle() // first run
       watcher.run()   // subsequent runs on changes

@@ -50,12 +50,14 @@ trait ComponentRun { self =>
   } = {
     val otherComponents = MainHelpers.components.filterNot(_ == component)
     if (otherComponents.isEmpty) {
-      extraction.ExtractionPipeline(new transformers.TreeTransformer {
+      val transformer = new transformers.TreeTransformer {
         override val s: extraction.trees.type = extraction.trees
         override val t: extraction.trees.type = extraction.trees
-      })
+      }
+      extraction.ExtractionPipeline(transformer)
     } else {
-      extraction.ExtractionPipeline(otherComponents.map(_.lowering).reduceLeft(_ andThen _))
+      val transformer = otherComponents.map(_.lowering).reduceLeft(_ andThen _)
+      extraction.ExtractionPipeline(transformer)
     }
   }
 

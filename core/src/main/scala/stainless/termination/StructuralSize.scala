@@ -44,7 +44,7 @@ trait StructuralSize { self: SolverProvider =>
    *
    * def bvAbs(x: BV): BV = if (x >= 0) -x else x
    */
-  def bvAbs(tpe: BVType): FunDef = bvCache.getOrElseUpdate(tpe, {
+  def bvAbs(tpe: BVType): FunDef = bvCache.getOrElse(tpe, {
     val fd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ => (
       Seq("x" :: tpe), tpe, { case Seq(x) =>
         if_ (x >= E(0)) {
@@ -55,6 +55,7 @@ trait StructuralSize { self: SolverProvider =>
       }))
     functions += fd
     clearSolvers()
+    bvCache(tpe) = fd
     fd
   })
 
@@ -74,7 +75,7 @@ trait StructuralSize { self: SolverProvider =>
    *   1 + bvAbs2Integer(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
    * }) ensuring (_ >= 0)
    */
-  def bvAbs2Integer(tpe: BVType): FunDef = bv2IntegerCache.getOrElseUpdate(tpe, {
+  def bvAbs2Integer(tpe: BVType): FunDef = bv2IntegerCache.getOrElse(tpe, {
     val funID = FreshIdentifier("bvAbs2Integer$" + tpe.size)
     val zero = BVLiteral(true, 0, tpe.size)
     val one = BVLiteral(true, 1, tpe.size)
@@ -92,6 +93,7 @@ trait StructuralSize { self: SolverProvider =>
       }))
     functions += fd
     clearSolvers()
+    bv2IntegerCache(tpe) = fd
     fd
   })
 

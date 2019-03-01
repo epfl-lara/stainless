@@ -14,9 +14,9 @@ import collection._
 object Viterbi {
 
   @extern
-  var xstring = Array[BigInt]()
+  def xstring = Array[BigInt]()
   @extern
-  var ystring = Array[BigInt]()
+  def ystring = Array[BigInt]()
   /**
    * Observation space, O
    */

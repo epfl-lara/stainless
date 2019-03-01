@@ -546,8 +546,8 @@ trait ASTExtractors {
     }
 
     object ExFieldDef {
-      /** Matches a definition of a strict field inside a class constructor */
-      def unapply(vd: ValDef) : Option[(Symbol, Type, Tree)] = {
+      /** Matches a definition of a strict field */
+      def unapply(vd: ValDef): Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           // Implemented fields
@@ -562,25 +562,21 @@ trait ASTExtractors {
     }
 
     object ExLazyFieldDef {
-      /** Matches lazy field definitions.
-       *  WARNING: Do NOT use this as extractor for lazy fields,
-       *  as it does not contain the body of the lazy definition.
-       *  It is here just to signify a Definition acceptable by Leon
-       */
-      def unapply(vd: ValDef) : Boolean = {
+      /** Matches a definition of a lazy field */
+      def unapply(vd: ValDef): Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           case ValDef(mods, name, tpt, rhs) if (
             sym.isLazy && !sym.isCaseAccessor && !sym.isParamAccessor &&
-            !sym.isSynthetic && !sym.isAccessor
+            !sym.isSynthetic
           ) =>
-            true
-          case _ => false
+            Some((sym, tpt.tpe, rhs))
+          case _ => None
         }
       }
     }
 
-    object ExFieldAccessorFunction{
+    object ExFieldAccessorFunction {
       /** Matches the accessor function of a field */
       def unapply(dd: DefDef): Option[(Symbol, Type, Seq[ValDef], Tree)] = dd match {
         case DefDef(_, name, tparams, vparamss, tpt, rhs) if(

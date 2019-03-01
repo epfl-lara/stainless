@@ -11,10 +11,24 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   import symbols._
 
   implicit val context: inox.Context
-  protected val semantics: inox.SemanticsProvider { val trees: self.trees.type }
 
-  protected val program = inox.Program(trees)(symbols)
-  protected val solver = semantics.getSemantics(program).getSolver(context).withTimeout(150.millis).toAPI
+  protected val semantics: inox.SemanticsProvider {
+    val trees: self.trees.type
+  }
+
+  protected val program: inox.Program {
+    val trees: self.trees.type
+    val symbols: self.symbols.type
+  } = inox.Program(trees)(symbols)
+
+  protected val solver =
+    semantics.getSemantics(program)
+      .getSolver(context)
+      .withTimeout(150.millis)
+      .toAPI
+      .asInstanceOf[inox.solvers.SimpleSolverAPI {
+        val program: self.program.type
+      }]
 
   class Env private (val path: Path) extends PathLike[Env] with SolvingPath {
     override def implies(cond: Expr): Boolean = {
