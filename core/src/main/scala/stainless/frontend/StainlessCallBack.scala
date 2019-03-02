@@ -8,6 +8,7 @@ import scala.language.existentials
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import utils.{ CheckFilter, DependenciesFinder, JsonUtils, Registry }
 
+import scala.util.{Try, Success, Failure}
 import scala.collection.mutable.{ ListBuffer, Map => MutableMap, Set => MutableSet }
 
 import io.circe._
@@ -244,10 +245,13 @@ class StainlessCallBack(components: Seq[Component])(override implicit val contex
 
       // Dispatch a task to the executor service instead of blocking this thread.
       val componentReports: Seq[Future[RunReport]] =
-        runs.map(run => run(id, funSyms).map { a =>
-          val report = a.toReport
-          RunReport(run)(report)
-        })
+        runs
+          .map { run => (run, run(id, funSyms)) }
+          .collect { case (run, Success(future)) => (run, future) }
+          .map { case (run, future) =>
+            // We need to help scalac remember that `a` is of type `run.component.Analysis`.
+            future.map(a => RunReport(run)(a.toReport.asInstanceOf[run.component.Report]))
+          }
 
       val futureReport = Future.sequence(componentReports).map(Report)
       this.synchronized { tasks += futureReport }

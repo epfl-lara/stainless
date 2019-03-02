@@ -7,6 +7,7 @@ import utils.CheckFilter
 
 import io.circe._
 
+import scala.util.{Try, Success, Failure}
 import scala.concurrent.Future
 
 import scala.language.existentials
@@ -83,8 +84,7 @@ trait ComponentRun { self =>
 
   /** Passes the provided symbols through the extraction pipeline and processes all
     * functions derived from the provided identifier. */
-  def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Future[Analysis] = try {
-
+  def apply(id: Identifier, symbols: extraction.xlang.trees.Symbols): Try[Future[Analysis]] = try {
     val exSymbols = extract(symbols)
 
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
@@ -104,10 +104,11 @@ trait ComponentRun { self =>
       }
     }
 
-    apply(toProcess, exSymbols)
+    Try(apply(toProcess, exSymbols))
   } catch {
-    case extraction.MissformedStainlessCode(tree, msg) =>
-      reporter.fatalError(tree.getPos, msg)
+    case ex @ extraction.MissformedStainlessCode(tree, msg) =>
+      reporter.error(tree.getPos, msg)
+      Failure(ex)
   }
 
   private[stainless] def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis]
