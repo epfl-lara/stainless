@@ -8,22 +8,17 @@ trait Printer extends inox.ast.Printer {
   import trees._
 
   protected object Operator {
-    private val isOp = new java.util.function.IntPredicate {
-      override def test(n: Int): Boolean = {
-        n >= 33 && n <= 47 ||
-        n >= 58 && n <= 63 ||
-        n == 94 || n == 124 || n == 126
-      }
-    }
-
     def unapply(id: Identifier): Option[String] = {
-      if (id.name.chars.allMatch(isOp)) Some(id.name) else None
+      if (!id.name.forall(_.isLetterOrDigit))
+        Some(id.name)
+      else
+        None
     }
   }
 
   protected object FunctionOperator {
     def unapply(expr: Expr): Option[(String, Expr, Expr)] = expr match {
-      case FunctionInvocation(id, Nil, Seq(a, b)) => Some((id.name, a, b))
+      case FunctionInvocation(Operator(name), Nil, Seq(a, b)) => Some((name, a, b))
       case _ => None
     }
   }
