@@ -200,8 +200,19 @@ trait RefinementLifting
       case _ => s.exprOps.postconditionOf(fd.fullBody)
     }
 
+    val newBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost)
+
+    // Make sure the types of the parameters and the variables align.
+    val paramsMap = fd.params.map(_.id).zip(fd.params.map(_.toVariable)).toMap
+    val transformer = new SelfTreeTransformer {
+      override def transform(expr: Expr): Expr = expr match {
+        case v: Variable if paramsMap contains v.id => super.transform(paramsMap(v.id))
+        case _ => super.transform(expr)
+      }
+    }
+
     context.transform(fd.copy(
-      fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
+      fullBody = transformer.transform(newBody),
       returnType = context.dropRefinements(fd.returnType)
     ).copiedFrom(fd))
   }

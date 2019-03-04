@@ -132,9 +132,10 @@ trait TreeSanitizer { self =>
       case wh @ While(cond, body, optInv) =>
         traverse(cond)
         val (specs, without) = exprOps.deconstructSpecs(body)
-        val (measures, otherSpecs) = specs.partition { case exprOps.Measure(_) => true case _ => false }
-        measures.foreach(s => traverse(s.expr))
-        traverse(exprOps.reconstructSpecs(otherSpecs, without, body.getType))
+        // val (measures, otherSpecs) = specs.partition { case exprOps.Measure(_) => true case _ => false }
+        // measures.foreach(s => traverse(s.expr))
+        // traverse(exprOps.reconstructSpecs(otherSpecs, without, body.getType))
+        traverse(exprOps.reconstructSpecs(specs, without, body.getType))
         optInv.foreach(traverse)
 
       case e: Require =>

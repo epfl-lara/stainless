@@ -55,6 +55,8 @@ package object xlang {
         transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
     }
 
-    utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen lowering
+    utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen
+    utils.DebugPipeline("ContractLifting", ContractLifting(trees))   andThen
+    lowering
   }
 }

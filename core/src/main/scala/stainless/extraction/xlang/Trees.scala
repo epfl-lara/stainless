@@ -61,6 +61,10 @@ trait Trees extends innerclasses.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
+
+  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
+    protected val trees: Trees.this.type = Trees.this
+  } with ExprOps
 }
 
 
