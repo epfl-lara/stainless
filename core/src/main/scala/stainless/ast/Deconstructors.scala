@@ -136,6 +136,12 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), Seq(), Seq(body, pred), Seq(), Seq(), (_, _, es, _, _) => t.Ensuring(es(0), es(1).asInstanceOf[t.Lambda]))
     case s.Assert(pred, error, body) =>
       (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.Assert(es(0), error, es(1)))
+    case s.StaticRequire(pred, body) =>
+      (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.StaticRequire(es(0), es(1)))
+    case s.StaticEnsuring(body, pred) =>
+      (Seq(), Seq(), Seq(body, pred), Seq(), Seq(), (_, _, es, _, _) => t.StaticEnsuring(es(0), es(1).asInstanceOf[t.Lambda]))
+    case s.StaticAssert(pred, error, body) =>
+      (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.StaticAssert(es(0), error, es(1)))
     case s.Annotated(body, flags) =>
       (Seq(), Seq(), Seq(body), Seq(), flags, (_, _, es, _, flags) => {
         t.Annotated(es(0), flags)

@@ -38,8 +38,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
     def isGhostExpression(e: Expr): Boolean = e match {
       case v: Variable => v.flags contains Ghost
 
-      // This will typically be the case for contracts from `stainless.lang.StaticChecks`
-      case Annotated(e, flags) if flags contains Ghost => false
+      case Annotated(e, flags) if flags contains Ghost => true
+
+      case _: StaticAssert | _: StaticEnsuring | _: StaticRequire => true
 
       // Measures are also considered ghost, as they are never executed
       case Decreases(_, body) => isGhostExpression(body)
@@ -90,7 +91,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
         }
         new Checker(true).traverse(fun)
       } else {
-        if (!inGhost && isGhostExpression(fun.fullBody))
+        if (!inGhost && exprOps.withoutSpecs(fun.fullBody).map(isGhostExpression).getOrElse(false))
           throw ImperativeEliminationException(fun, s"Non-ghost function cannot return a ghost result")
         new Checker(inGhost).traverse(fun)
       }
@@ -199,6 +200,18 @@ trait GhostChecker { self: EffectsAnalyzer =>
 
         case LetRec(fds, body) =>
           fds.foreach(fd => checkFunction(Inner(fd), inGhost))
+          traverse(body)
+
+        case StaticAssert(pred, err, body) =>
+          new Checker(true).traverse(pred)
+          traverse(body)
+
+        case StaticRequire(pred, body) =>
+          new Checker(true).traverse(pred)
+          traverse(body)
+
+        case StaticEnsuring(body, pred) =>
+          new Checker(true).traverse(pred)
           traverse(body)
 
         case Annotated(e, flags) if flags contains Ghost =>

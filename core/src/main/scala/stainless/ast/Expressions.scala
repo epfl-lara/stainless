@@ -42,6 +42,19 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /** Static precondition of an [[Expressions.Expr]].
+    * Corresponds to the Stainless keyword *stainless.lang.StaticChecks.require*
+    *
+    * @param pred The precondition formula inside ``require(...)``
+    * @param body The body following the ``require(...)``
+    */
+  sealed case class StaticRequire(pred: Expr, body: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = {
+      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
+      else Untyped
+    }
+  }
+
   /** Unchecked conditions *
     *
     * @param body
@@ -74,6 +87,31 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /** Static postcondition of an [[Expressions.Expr]].
+    * Corresponds to the Stainless keyword *stainless.lang.StaticChecks.ensuring*
+    *
+    * @param body The body of the expression. It can contain at most one [[Expressions.Require]] sub-expression.
+    * @param pred The predicate to satisfy. It should be a function whose argument's type can handle the type of the body
+    */
+  sealed case class StaticEnsuring(body: Expr, pred: Lambda) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = pred.getType match {
+      case FunctionType(Seq(bodyType), BooleanType()) if s.isSubtypeOf(body.getType, bodyType) =>
+        body.getType
+      case _ =>
+        Untyped
+    }
+
+    /** Converts this ensuring clause to the body followed by an assert statement */
+    def toAssert(implicit s: Symbols): Expr = {
+      val res = ValDef(FreshIdentifier("res", true), getType)
+      Let(res, body, StaticAssert(
+        s.application(pred, Seq(res.toVariable)),
+        Some("Postcondition failed @" + this.getPos),
+        res.toVariable
+      ))
+    }
+  }
+
   /** Local assertions with customizable error message
     *
     * @param pred The predicate, first argument of `assert(..., ...)`
@@ -87,6 +125,18 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /** Local static assertions with customizable error message
+    *
+    * @param pred The predicate, first argument of `assert(..., ...)`
+    * @param error An optional error string to display if the assert fails. Second argument of `assert(..., ...)`
+    * @param body The expression following `assert(..., ...)`
+    */
+  sealed case class StaticAssert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = {
+      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
+      else Untyped
+    }
+  }
 
   /* Pattern-match expression */
 
