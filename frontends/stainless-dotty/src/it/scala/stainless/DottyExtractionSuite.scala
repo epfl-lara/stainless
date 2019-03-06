@@ -24,7 +24,6 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/valid/GhostFlow1.scala",
     "extraction/valid/GhostFlow2.scala",
     "extraction/valid/GhostFlow3.scala",
-    "extraction/valid/Typedef.scala", // FIXME
   )
   testRejectAll("extraction/invalid",
     "extraction/invalid/TypeMember.scala",
