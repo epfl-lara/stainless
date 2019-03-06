@@ -5,6 +5,7 @@ package frontend
 
 import stainless.extraction.xlang.{trees => xt}
 
+import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -30,12 +31,20 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   def endExtractions(): Unit = {
     val symbols = xt.NoSymbols.withClasses(currentClasses).withFunctions(currentFunctions)
-    val reports = runs.map { run =>
-      val result = run(symbols.functions.keys.toSeq, symbols, filterSymbols = true)
-      val report = Await.result(result, Duration.Inf).toReport
-      RunReport(run)(report)
+    val reports = runs map { run =>
+      val ids = symbols.functions.keys.toSeq
+      val analysis = Try(run(ids, symbols, filterSymbols = true))
+      analysis match {
+        case Success(analysis) =>
+          val report = Await.result(analysis, Duration.Inf).toReport
+          Some(RunReport(run)(report))
+
+        case Failure(err) =>
+          context.reporter.error(s"Run has failed with error: $err")
+          None
+      }
     }
-    report = Report(reports)
+    report = Report(reports collect { case Some(r) => r })
   }
 
   def stop(): Unit = {
