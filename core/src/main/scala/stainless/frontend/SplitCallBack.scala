@@ -15,6 +15,7 @@ import io.circe._
 import io.circe.syntax._
 
 import java.io.File
+import scala.util.{Try, Success, Failure}
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
@@ -161,12 +162,21 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
     // Dispatch a task to the executor service instead of blocking this thread.
-    val componentReports: Seq[Future[RunReport]] =
-      runs.map { run =>
-        run(id, syms) map { a =>
-          RunReport(run)(a.toReport.asInstanceOf[run.component.Report])
+    val componentReports: Seq[Future[RunReport]] = {
+      runs map { run =>
+        Try(run(id, symbols)) match {
+          case Success(future) =>
+            val runReport = future map { a =>
+              RunReport(run)(a.toReport): RunReport
+            }
+            Some(runReport)
+
+          case Failure(err) =>
+            context.reporter.error(s"Run has failed with error: $err")
+            None
         }
       }
+    }.flatten
 
     val futureReport = Future.sequence(componentReports).map(Report)
     this.synchronized { tasks += futureReport }
