@@ -1592,7 +1592,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams(tr.symbol)
 
-      case tr: TypeRef if tr.symbol.info.isTypeAlias =>
+      case tr: TypeRef if tr.info.isTypeAlias =>
         extractType(tr.widenDealias)
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
@@ -1654,9 +1654,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr: TypeRef if isArrayClassSym(tr.symbol) =>
         val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
         xt.ArrayType(tp)
-
-      case tr: TypeRef if tr.info.isTypeAlias =>
-        extractType(tr.widenDealias)
 
       case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
         xt.FunctionType(Seq(), xt.UnitType())
