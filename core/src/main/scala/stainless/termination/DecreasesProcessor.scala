@@ -66,7 +66,7 @@ trait DecreasesProcessor extends Processor { self =>
             case tpe => reporter.fatalError("Unexpected measure type: " + tpe)
           }
 
-          api.solveVALID(Implies(fd.precondition.getOrElse(BooleanLiteral(true)), nonNeg(measure))) match {
+          api.solveVALID(Implies(fd.precondition.map(_.expr).getOrElse(BooleanLiteral(true)), nonNeg(measure))) match {
             case Some(true) => true
             case Some(false) =>
               reporter.warning(s" ==> INVALID: measure is not well-founded in ${fd.id}")

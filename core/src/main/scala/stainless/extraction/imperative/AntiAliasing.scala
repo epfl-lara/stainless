@@ -139,7 +139,7 @@ trait AntiAliasing
         }
 
         val newSpecs = specs.map {
-          case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
+          case exprOps.Postcondition(post @ Lambda(Seq(res), postBody), isStatic) =>
             val newRes = ValDef(res.id.freshen, newFd.returnType).copiedFrom(res)
             val newBody = exprOps.replaceSingle(
               aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
@@ -149,7 +149,7 @@ trait AntiAliasing
               makeSideEffectsExplicit(postBody, fd, env)
             )
 
-            exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
+            exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post), isStatic)
 
           case spec => spec
         }

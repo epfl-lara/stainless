@@ -309,7 +309,7 @@ trait ImperativeCodeElimination
                 val newReturnType = TupleType(inner.returnType +: modifiedVars.map(_.tpe))
 
                 val newSpecs = specs.map {
-                  case Postcondition(post @ Lambda(Seq(res), postBody)) =>
+                  case Postcondition(post @ Lambda(Seq(res), postBody), isStatic) =>
                     val newRes = ValDef(res.id.freshen, newReturnType)
 
                     val newBody = replaceSingle(
@@ -321,7 +321,7 @@ trait ImperativeCodeElimination
                     )
 
                     val (r, scope, _) = toFunction(newBody)
-                    Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
+                    Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post), isStatic)
 
                   case spec => spec.map { cond =>
                     val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
@@ -423,7 +423,7 @@ trait ImperativeCodeElimination
       val (specs, body) = deconstructSpecs(fd.fullBody)
 
       val newSpecs = specs.map {
-        case Postcondition(ld @ Lambda(params, body)) =>
+        case Postcondition(ld @ Lambda(params, body), isStatic) =>
           // Remove `Old` trees for function parameters on which no effect occurred
           val newBody = replaceSingle(
             fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
@@ -431,7 +431,7 @@ trait ImperativeCodeElimination
           )
 
           val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
-          Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
+          Postcondition(Lambda(params, scope(res)).copiedFrom(ld), isStatic)
 
         case spec => spec.map { e =>
           val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))

@@ -83,9 +83,9 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
       val nakedBody = nakedBodyOpt.get
       val postOpt = exprOps postconditionOf fd.fullBody
 
-      val body = exprOps.withPrecondition(nakedBody, preOpt)
+      val body = exprOps.withPrecondition(nakedBody, preOpt.map(_.expr))
 
-      (body, postOpt)
+      (body, postOpt.map(_.expr))
     }
 
     // Build an evaluator once and only if there is something to evaluate

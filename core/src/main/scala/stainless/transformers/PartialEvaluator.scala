@@ -19,8 +19,8 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         val (specs, body) = deconstructSpecs(tfd.fullBody)
 
         body.map { body =>
-          val pre = specs.collectFirst { case Precondition(e) => e }.get
-          val l @ Lambda(Seq(res), post) = specs.collectFirst { case Postcondition(e) => e }.get
+          val pre = specs.collectFirst { case Precondition(e, _) => e }.get
+          val l @ Lambda(Seq(res), post) = specs.collectFirst { case Postcondition(e, _) => e }.get
 
           val newBody: Expr = Assert(pre, Some("Inlined precondition of " + tfd.id.name), Let(res, body,
             Assert(post, Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(l)

@@ -117,6 +117,8 @@ trait ExprOps extends imperative.ExprOps {
   import trees._
 
   case class Exceptions(expr: Lambda) extends Specification {
+    val isStatic = false
+
     def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
       case t: throwing.Trees =>
         t.exprOps.Exceptions(f(expr).asInstanceOf[t.Lambda]).asInstanceOf[trees.exprOps.Specification]
@@ -151,8 +153,9 @@ trait ExprOps extends imperative.ExprOps {
     case _                 => None
   }
 
-  override def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Throwing(Ensuring(_, post), _) => Some(post)
+  override def postconditionOf(expr: Expr): Option[Postcondition] = expr match {
+    case Throwing(Ensuring(_, post), _) => Some(Postcondition(post, false))
+    case Throwing(StaticEnsuring(_, post), _) => Some(Postcondition(post, true))
     case _ => super.postconditionOf(expr)
   }
 
@@ -168,9 +171,11 @@ trait ExprOps extends imperative.ExprOps {
 
   override def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr =
     (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
-      case (Some(npost), Throwing(en @ Ensuring(b, _), pred)) => Throwing(Ensuring(b, npost).copiedFrom(en), pred).copiedFrom(expr)
-      case (None, Throwing(Ensuring(b, _), pred))             => Throwing(b, pred).copiedFrom(expr)
-      case _                                                  => super.withPostcondition(expr, oie)
+      case (Some(npost), Throwing(en @ Ensuring(b, _), pred))       => Throwing(Ensuring(b, npost).copiedFrom(en), pred).copiedFrom(expr)
+      case (None, Throwing(Ensuring(b, _), pred))                   => Throwing(b, pred).copiedFrom(expr)
+      case (Some(npost), Throwing(en @ StaticEnsuring(b, _), pred)) => Throwing(StaticEnsuring(b, npost).copiedFrom(en), pred).copiedFrom(expr)
+      case (None, Throwing(StaticEnsuring(b, _), pred))             => Throwing(b, pred).copiedFrom(expr)
+      case _                                                        => super.withPostcondition(expr, oie)
     }
 
   override def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {

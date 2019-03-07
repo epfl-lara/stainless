@@ -23,6 +23,8 @@ trait ContractLifting
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
+    import exprOps.{Precondition, Postcondition}
+
     private def hasContracts(fd: FunDef): Boolean =
       exprOps.preconditionOf(fd.fullBody).isDefined ||
       exprOps.postconditionOf(fd.fullBody).isDefined
@@ -49,10 +51,16 @@ trait ContractLifting
         case mi: MethodInvocation if hasPrecondition(mi.id) =>
           super.transform(mi.copy(args = mi.args :+ UnitLiteral().copiedFrom(mi)))
 
-        case a @ Assert(pred, err, body) => // TODO: What to do with error message?
+        case a @ StaticAssert(pred, err, body) => // TODO: What to do with error message?
           val tpe = RefinementType(ValDef.fresh("_", UnitType()), super.transform(pred))
           val vd = ValDef.fresh("assert", tpe)
           Let(vd, UnitLiteral().copiedFrom(a), super.transform(body)).copiedFrom(a)
+
+        case a @ Assert(pred, err, body) =>
+          IfExpr(pred,
+            body,
+            Error(body.getType(symbols), err.getOrElse("assertion failed")).copiedFrom(body)
+          ).copiedFrom(a)
 
         case _ => super.transform(expr)
       }
@@ -65,7 +73,7 @@ trait ContractLifting
       val returnType = addPostcondition(fd.returnType, post)
 
       val proofParam = pre map { pre =>
-        val proofType = RefinementType(ValDef.fresh("_", UnitType()), pre).copiedFrom(pre)
+        val proofType = RefinementType(ValDef.fresh("_", UnitType()), pre.expr).copiedFrom(pre.expr)
         ValDef.fresh("pre", proofType)
       }
 
@@ -78,14 +86,14 @@ trait ContractLifting
       transformer.transform(lifted)
     }
 
-    private def addPostcondition(returnType: Type, post: Option[Lambda]): Type = returnType match {
+    private def addPostcondition(returnType: Type, post: Option[Postcondition]): Type = returnType match {
       case RefinementType(vd, pred) =>
-        val newPred = post.map { post =>
+        val newPred = post.map { case Postcondition(post, isStatic) =>
           And(pred, post.withParamSubst(Seq(vd.toVariable), post.body))
         }.getOrElse(pred)
         RefinementType(vd, newPred)
 
-      case tpe => post.map { post =>
+      case tpe => post.map { case Postcondition(post, isStatic) =>
         val vd = ValDef.fresh("res", tpe)
         RefinementType(vd, post.withParamSubst(Seq(vd.toVariable), post.body))
       }.getOrElse(tpe)

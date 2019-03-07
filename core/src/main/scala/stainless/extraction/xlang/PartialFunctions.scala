@@ -55,14 +55,14 @@ trait PartialFunctions
             val (preOpt, bareBody) = body0 match {
               // Call to another function: Lift the function's definition
               case fi2: FunctionInvocation =>
-                (exprOps.preconditionOf(fi2.inlined(symbols)), fi2)
+                (exprOps.preconditionOf(fi2.inlined(symbols)).map(_.expr), fi2)
 
               // scala.PartialFunction: Infer pattern match condition
               case m: MatchExpr =>
                 (inferPrecondition(m), m)
 
               case _ =>
-                (exprOps.preconditionOf(body0), exprOps.withPrecondition(body0, None))
+                (exprOps.preconditionOf(body0).map(_.expr), exprOps.withPrecondition(body0, None))
             }
 
             val modifiedBody = preOpt match {

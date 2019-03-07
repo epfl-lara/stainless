@@ -51,7 +51,7 @@ trait Strengthener { self: OrderingRelation =>
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
         val postcondition = {
           val res = ValDef.fresh("res", fd.returnType)
-          val post = fd.postcondition match {
+          val post = fd.postcondition.map(_.expr) match {
             case Some(post) if !ignorePosts => application(post, Seq(res.toVariable))
             case _ => BooleanLiteral(true)
           }
@@ -59,7 +59,7 @@ trait Strengthener { self: OrderingRelation =>
           Lambda(Seq(res), and(post, sizePost))
         }
 
-        val formula = implies(fd.precOrTrue, application(postcondition, Seq(fd.body.get)))
+        val formula = implies(fd.precOrTrue.expr, application(postcondition, Seq(fd.body.get)))
 
         val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {

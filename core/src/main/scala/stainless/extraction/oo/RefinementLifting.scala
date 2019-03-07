@@ -196,22 +196,24 @@ trait RefinementLifting
     val (newParams, cond) = context.parameterConds(fd.params)
     val optPre = cond match {
       case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
-        case None => Some(cond.copiedFrom(fd))
+        case Some(exprOps.Precondition(pre, _)) =>
+          Some(s.and(cond.copiedFrom(fd), pre).copiedFrom(pre))
+        case None =>
+          Some(cond.copiedFrom(fd))
       }
-      case _ => s.exprOps.preconditionOf(fd.fullBody)
+      case _ => s.exprOps.preconditionOf(fd.fullBody).map(_.expr)
     }
 
     val optPost = context.liftRefinements(fd.returnType) match {
       case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
-        case Some(post @ s.Lambda(Seq(res), body)) =>
+        case Some(exprOps.Postcondition(post @ s.Lambda(Seq(res), body), _)) =>
           Some(s.Lambda(Seq(res), s.and(
               exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
               body).copiedFrom(body)).copiedFrom(post))
         case None =>
           Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }
-      case _ => s.exprOps.postconditionOf(fd.fullBody)
+      case _ => s.exprOps.postconditionOf(fd.fullBody).map(_.expr)
     }
 
     val newBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost)

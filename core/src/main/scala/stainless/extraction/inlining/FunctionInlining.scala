@@ -33,6 +33,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
     import symbols._
+    import exprOps.{Precondition, Postcondition}
 
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
@@ -65,19 +66,25 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
         def addPreconditionAssertion(e: Expr): Expr = pre match {
-          case None => e
-          case Some(pre) => Assert(pre.setPos(fi), Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
+          case Some(Precondition(pre, false)) =>
+            Assert(pre, Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
+          case Some(Precondition(pre, true)) =>
+            StaticAssert(pre, Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
+          case _ => e
         }
 
         val post = exprOps.postconditionOf(tfd.fullBody)
         def addPostconditionAssumption(e: Expr): Expr = post match {
           // We can't assume the post on @synthetic methods as it won't be checked anywhere.
           // It is thus inlined into an assertion here.
-          case Some(Lambda(Seq(vd), post)) if isSynthetic =>
+          case Some(Postcondition(Lambda(Seq(vd), post), false)) if isSynthetic =>
             val err = Some("Inlined postcondition of " + tfd.id.name)
             Let(vd, e, Assert(post.setPos(fi), err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
-          case Some(Lambda(Seq(vd), post)) =>
-            Let(vd, e, Assume(post.setPos(fi), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+          case Some(Postcondition(Lambda(Seq(vd), post), true)) if isSynthetic =>
+            val err = Some("Inlined postcondition of " + tfd.id.name)
+            Let(vd, e, StaticAssert(post, err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+          case Some(Postcondition(Lambda(Seq(vd), post), isStatic)) =>
+            Let(vd, e, Assume(post, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case _ => e
         }
 

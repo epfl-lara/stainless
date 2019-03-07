@@ -8,13 +8,14 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
   val s: trees.type = trees
   val t: trees.type = trees
   import trees._
+  import exprOps.{Precondition, Postcondition}
 
   override def transform(symbols: Symbols): Symbols = {
     t.NoSymbols
       .withSorts(symbols.sorts.values.toSeq)
       .withFunctions(symbols.functions.values.toSeq.map { fd =>
         lazy val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(symbols)
-        lazy val post = exprOps.postconditionOf(fd.fullBody)
+        lazy val post = exprOps.postconditionOf(fd.fullBody).map(_.expr)
 
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
@@ -40,10 +41,11 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         }
 
         val newBody = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
-          val Lambda(Seq(vd), post) = fd.postOrTrue(symbols)
+          val Lambda(Seq(vd), post) = fd.postOrTrue(symbols).expr
 
           fd.precondition(symbols) match {
-            case Some(pre) => Require(pre, Choose(vd, post))
+            case Some(Precondition(pre, false)) => Require(pre, Choose(vd, post))
+            case Some(Precondition(pre, true)) => StaticRequire(pre, Choose(vd, post))
             case None => Choose(vd, post)
           }
         } else {

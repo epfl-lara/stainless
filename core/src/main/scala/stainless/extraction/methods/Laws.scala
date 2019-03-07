@@ -188,7 +188,7 @@ trait Laws
 
           val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(symbols)
           val newSpecs = specs.map {
-            case s.exprOps.Postcondition(l @ s.Lambda(Seq(vd), pred)) =>
+            case s.exprOps.Postcondition(l @ s.Lambda(Seq(vd), pred), isStatic) =>
               val nvd = transform(vd, env)
               t.exprOps.Postcondition(t.Lambda(Seq(nvd),
                 t.and(transform(pred, env), nvd.toVariable, t.MethodInvocation(
@@ -197,7 +197,7 @@ trait Laws
                   tparams map (_.tp),
                   params map (_.toVariable)
                 ).copiedFrom(fd)).copiedFrom(fd)
-              ).copiedFrom(fd))
+              ).copiedFrom(fd), isStatic)
 
             case spec => spec.map(t)(transform(_, env))
           }

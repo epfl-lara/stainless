@@ -18,6 +18,8 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Abstraction over contracts and specifications. */
   abstract class Specification {
     val expr: Expr
+    val isStatic: Boolean
+
     def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Specification
 
     final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
@@ -26,18 +28,20 @@ trait ExprOps extends inox.ast.ExprOps {
   }
 
   /** Precondition contract that corresponds to [[Expressions.Require]]. */
-  case class Precondition(expr: Expr) extends Specification {
+  case class Precondition(expr: Expr, isStatic: Boolean) extends Specification {
     def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Precondition =
-      trees.exprOps.Precondition(f(expr))
+      trees.exprOps.Precondition(f(expr), isStatic)
   }
 
   /** Postcondition contract that corresponds to [[Expressions.Ensuring]]. */
-  case class Postcondition(expr: Lambda) extends Specification {
+  case class Postcondition(expr: Lambda, isStatic: Boolean) extends Specification {
     def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Postcondition =
-      trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda])
+      trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda], isStatic)
   }
 
   case class Measure(expr: Expr) extends Specification {
+    override val isStatic = true
+
     def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
       case t: ast.Trees =>
         t.exprOps.Measure(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
@@ -48,8 +52,8 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Returns an expression annotated with the provided spec. */
   def withSpec(expr: Expr, spec: Specification): Expr = spec match {
-    case Precondition(pred) => withPrecondition(expr, Some(pred))
-    case Postcondition(post) => withPostcondition(expr, Some(post))
+    case Precondition(pred, isStatic) => withPrecondition(expr, Some(pred))
+    case Postcondition(post, isStatic) => withPostcondition(expr, Some(post))
     case Measure(meas) => withMeasure(expr, Some(meas))
   }
 
@@ -86,15 +90,23 @@ trait ExprOps extends inox.ast.ExprOps {
     */
   def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
     (pred.filterNot(_ == BooleanLiteral(true)), expr) match {
-      case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
-      case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
-      case (Some(newPre), Ensuring(b, p))                     => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
-      case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-      case (Some(newPre), b)                                  => Require(newPre, b).copiedFrom(expr)
-      case (None, Require(pre, b))                            => b
-      case (None, Ensuring(Require(pre, b), p))               => Ensuring(b, p).copiedFrom(expr)
-      case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-      case (None, b)                                          => b
+      case (Some(newPre), Require(pre, b))                                => Require(newPre, b).copiedFrom(expr)
+      case (Some(newPre), StaticRequire(pre, b))                          => StaticRequire(newPre, b).copiedFrom(expr)
+      case (Some(newPre), Ensuring(req @ Require(pre, b), p))             => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
+      case (Some(newPre), Ensuring(req @ StaticRequire(pre, b), p))       => Ensuring(StaticRequire(newPre, b).copiedFrom(req), p).copiedFrom(expr)
+      case (Some(newPre), StaticEnsuring(req @ Require(pre, b), p))       => StaticEnsuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
+      case (Some(newPre), StaticEnsuring(req @ StaticRequire(pre, b), p)) => StaticEnsuring(StaticRequire(newPre, b).copiedFrom(req), p).copiedFrom(expr)
+      case (Some(newPre), Ensuring(b, p))                                 => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
+      case (Some(newPre), StaticEnsuring(b, p))                           => StaticEnsuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
+      case (Some(newPre), Let(i, e, b)) if hasSpec(b)                     => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+      case (Some(newPre), b)                                              => Require(newPre, b).copiedFrom(expr)
+      case (None, Require(pre, b))                                        => b
+      case (None, StaticRequire(pre, b))                                  => b
+      case (None, Ensuring(Require(pre, b), p))                           => Ensuring(b, p).copiedFrom(expr)
+      case (None, StaticEnsuring(Require(pre, b), p))                     => StaticEnsuring(b, p).copiedFrom(expr)
+      case (None, StaticEnsuring(StaticRequire(pre, b), p))               => StaticEnsuring(b, p).copiedFrom(expr)
+      case (None, Let(i, e, b)) if hasSpec(b)                             => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
+      case (None, b)                                                      => b
     }
 
   /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
@@ -110,9 +122,11 @@ trait ExprOps extends inox.ast.ExprOps {
   def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr =
     (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
       case (Some(npost), Ensuring(b, post))          => Ensuring(b, npost).copiedFrom(expr)
+      case (Some(npost), StaticEnsuring(b, post))    => StaticEnsuring(b, npost).copiedFrom(expr)
       case (Some(npost), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
-      case (Some(npost), b)                          => Ensuring(b, npost).copiedFrom(expr)
+      case (Some(npost), b)                          => StaticEnsuring(b, npost).copiedFrom(expr)
       case (None, Ensuring(b, p))                    => b
+      case (None, StaticEnsuring(b, p))              => b
       case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
       case (None, b)                                 => b
     }
@@ -127,20 +141,33 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Require]]
     */
   def withBody(e: Expr, body: Expr): Expr = e match {
-    case Let(i, e, b) if hasSpec(b)            => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
+    case Let(i, e, b) if hasSpec(b) => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
+
     case Require(pre, d @ Decreases(meas, _)) =>
       Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(e)
-    case Require(pre, _)                       => Require(pre, body).copiedFrom(e)
-    case Decreases(meas, _) =>
-      Decreases(meas, body).copiedFrom(e)
+
+    case Require(pre, _)            => Require(pre, body).copiedFrom(e)
+    case StaticRequire(pre, _)      => StaticRequire(pre, body).copiedFrom(e)
+
+    case StaticEnsuring(r @ StaticRequire(pre, d @ Decreases(meas, _)), post) =>
+      StaticEnsuring(StaticRequire(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(r), post).copiedFrom(e)
+    case StaticEnsuring(d @ Decreases(meas, _), post) =>
+      StaticEnsuring(Decreases(meas, body).copiedFrom(d), post).copiedFrom(e)
     case Ensuring(r @ Require(pre, d @ Decreases(meas, _)), post) =>
       Ensuring(Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(r), post).copiedFrom(e)
     case Ensuring(d @ Decreases(meas, _), post) =>
       Ensuring(Decreases(meas, body).copiedFrom(d), post).copiedFrom(e)
-    case Ensuring(req @ Require(pre, _), post) =>
+
+    case StaticEnsuring(req @ Require(pre, _), post) =>
       Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
-    case Ensuring(_, post)                      => Ensuring(body, post).copiedFrom(e)
-    case _                                      => body
+    case Ensuring(req @ StaticRequire(pre, _), post) =>
+      Ensuring(StaticRequire(pre, body).copiedFrom(req), post).copiedFrom(e)
+    case StaticEnsuring(req @ StaticRequire(pre, _), post) =>
+      StaticEnsuring(StaticRequire(pre, body).copiedFrom(req), post).copiedFrom(e)
+
+    case Ensuring(_, post)       => Ensuring(body, post).copiedFrom(e)
+    case StaticEnsuring(_, post) => StaticEnsuring(body, post).copiedFrom(e)
+    case _                       => body
   }
 
   /** Extracts the body without its specification
@@ -153,30 +180,53 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Require]]
     */
   def withoutSpecs(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                             => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
+    case Let(i, e, b)                                => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
     case Decreases(_, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Require(_, Decreases(_, b))              => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Require(pre, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Require(pre, b)                             => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case StaticRequire(pre, b)                       => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(Require(_, Decreases(_, b)), _) => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Require(pre, b), post)          => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(Require(pre, b), post)             => Option(b).filterNot(_.isInstanceOf[NoTree])
     case Ensuring(Decreases(_, b), _)             => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(b, post)                        => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case b                                        => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case StaticEnsuring(Require(pre, b), post)       => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(StaticRequire(pre, b), post)       => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case StaticEnsuring(StaticRequire(pre, b), post) => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(b, post)                           => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case StaticEnsuring(b, post)                     => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case b                                           => Option(b).filterNot(_.isInstanceOf[NoTree])
   }
 
   /** Returns the precondition of an expression wrapped in Option */
-  def preconditionOf(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                 => preconditionOf(b).map(Let(i, e, _).copiedFrom(expr))
-    case Require(pre, _)              => Some(pre)
-    case Ensuring(Require(pre, _), _) => Some(pre)
-    case b                            => None
+  def preconditionOf(expr: Expr): Option[Precondition] = expr match {
+    case Let(i, e, b) =>
+      preconditionOf(b).map { case p =>
+        val newExpr = Let(i, e, p.expr).copiedFrom(expr)
+        p.copy(expr = newExpr)
+      }
+
+    case Require(pre, _)                          => Some(Precondition(pre, false))
+    case StaticRequire(pre, _)                    => Some(Precondition(pre, true))
+    case Ensuring(Require(pre, _), _)             => Some(Precondition(pre, false))
+    case StaticEnsuring(Require(pre, _), _)       => Some(Precondition(pre, false))
+    case Ensuring(StaticRequire(pre, _), _)       => Some(Precondition(pre, true))
+    case StaticEnsuring(StaticRequire(pre, _), _) => Some(Precondition(pre, true))
+    case b                                        => None
   }
 
   /** Returns the postcondition of an expression wrapped in Option */
-  def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(expr)).copiedFrom(l))
-    case Ensuring(_, post) => Some(post)
-    case _                 => None
+  def postconditionOf(expr: Expr): Option[Postcondition] = expr match {
+    case Let(i, e, b) =>
+      postconditionOf(b).map { p =>
+        val newExpr = p.expr.copy(
+          body = Let(i, e, p.expr.body).copiedFrom(expr)
+        ).copiedFrom(p.expr)
+
+        p.copy(expr = newExpr)
+      }
+
+    case Ensuring(_, post)       => Some(Postcondition(post, false))
+    case StaticEnsuring(_, post) => Some(Postcondition(post, true))
+    case _                       => None
   }
 
   def measureOf(expr: Expr): Option[Expr] = expr match {
@@ -225,11 +275,15 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Deconstructs an expression into its [[Specification]] and body parts. */
   def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val measure = measureOf(e).map(Measure)
-    val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
-    val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
-      Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
-      BooleanLiteral(true).copiedFrom(e)
-    ).copiedFrom(e)))
+
+    val pre = preconditionOf(e)
+      .getOrElse(Precondition(BooleanLiteral(true).copiedFrom(e), true))
+
+    val post = postconditionOf(e)
+      .getOrElse(Postcondition(Lambda(
+        Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
+        BooleanLiteral(true).copiedFrom(e)
+      ).copiedFrom(e), true))
 
     val body = withoutSpecs(e)
     (Seq(pre, post) ++ measure, body)

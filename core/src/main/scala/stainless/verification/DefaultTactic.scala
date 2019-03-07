@@ -58,11 +58,11 @@ trait DefaultTactic extends Tactic {
 
   def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
-    (fd.postcondition, fd.body) match {
-      case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.contains(Unchecked) =>
+    (fd.postcondition.map(_.expr), fd.body) match {
+      case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.exists(_ == Unchecked) =>
         getPostconditions(body, post).map { vc =>
           val vcKind = if (fd.flags.exists(_.name == "law")) VCKind.Law else VCKind.Postcondition
-          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(fd)
+          VC(exprOps.freshenLocals(implies(fd.precOrTrue.expr, vc)), id, vcKind, false).setPos(fd)
         }
       case _ => Nil
     }
@@ -90,7 +90,7 @@ trait DefaultTactic extends Tactic {
     }(fd.fullBody)
 
     calls.flatMap { case (fi @ FunctionInvocation(_, _, args), path) =>
-      getPrecondition(fi.tfd.precondition.get).map { pred =>
+      getPrecondition(fi.tfd.precondition.get.expr).map { pred =>
         val pre = fi.tfd.withParamSubst(args, pred)
         val vc = path implies exprOps.freshenLocals(pre)
         val fiS = sizeLimit(fi.asString, 40)
