@@ -88,6 +88,20 @@ trait RefinementLifting
       super.transform(vd.copy(tpe = dropRefinements(vd.tpe)).copiedFrom(vd))
 
     override def transform(e: s.Expr): t.Expr = e match {
+      case s.Let(vd0, v, b) => liftRefinements(vd0.tpe) match {
+        case s.RefinementType(vd, s.BooleanLiteral(true)) =>
+          transform(s.Let(vd0.copy(tpe = vd.tpe), v, b))
+
+        case s.RefinementType(vd, pred) =>
+          transform(s.Let(vd0.copy(tpe = vd.tpe), v,
+            s.Assert(
+              s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(Map(vd -> v), pred)),
+              Some("assertion failed"),
+              b
+            ).copiedFrom(e)
+          ).copiedFrom(e))
+      }
+
       case s.IsInstanceOf(expr, tpe) => liftRefinements(tpe) match {
         case s.RefinementType(vd, pred) =>
           transform(s.and(
