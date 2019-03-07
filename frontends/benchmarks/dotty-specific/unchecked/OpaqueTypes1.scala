@@ -12,21 +12,22 @@ object OpaqueTypes1 {
       require(b >= 0)
       b
     }
-
-    def safe(b: BigInt): Option[Positive] = {
-      if (b >= 0) Some(b) else None()
-    }
-
-    object ops {
-      @library
-      def (p: Positive) toBigInt: BigInt = p ensuring { _ >= 0 }
-    }
   }
 
-  import Positive.ops._
+  //   def safe(b: BigInt): Option[Positive] = {
+  //     if (b >= 0) Some(b) else None()
+  //   }
 
-  def test(p: Positive) = {
-    assert(p.toBigInt >= 0)
-  }
+  //   object ops {
+  //     @library
+  //     def (p: Positive) toBigInt: BigInt = p ensuring { _ >= 0 }
+  //   }
+  // }
+
+  // import Positive.ops._
+
+  // def test(p: Positive) = {
+  //   assert(p.toBigInt >= 0)
+  // }
 
 }
