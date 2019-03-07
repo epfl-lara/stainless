@@ -1703,8 +1703,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
         }
 
-      case tr: TypeRef if tr.info.isTypeAlias =>
+      case tr: TypeRef if tr.symbol.info.isTypeAlias =>
         extractType(tr.widenDealias)
+
+      case tr: TypeRef if tr.symbol.isOpaqueHelper =>
+        extractType(tr.translucentSuperType)
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
         extractType(TypeRef(prefix.widenTermRefExpr, name))
