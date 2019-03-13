@@ -553,10 +553,11 @@ trait TypeChecker {
         }
 
       case _: MatchExpr => inferType(tc, matchToIfThenElse(e, false))
+
       case IfExpr(b, e1, e2) =>
-        val (tpe1, tr1) = inferType(tc.withTruth(b), e1)
-        val (tpe2, tr2) = inferType(tc.withTruth(Not(b)), e2)
-        (ite(b, tpe1, tpe2), checkType(tc, b, BooleanType()) ++ tr1 ++ tr2)
+        val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
+        val (tpe2, tr2) = inferType(tc.withTruth(Not(b)).setPos(e2), e2)
+        (ite(b, tpe1, tpe2), checkType(tc.setPos(b), b, BooleanType()) ++ tr1 ++ tr2)
 
       case Error(tpe, descr) =>
         val tr = isType(tc, tpe)
@@ -611,10 +612,10 @@ trait TypeChecker {
 
       case Let(vd, value, body) =>
         val trType = isType(tc, vd.tpe)
-        val trValue = checkType(tc, value, vd.tpe)
+        val trValue = checkType(tc.setPos(value), value, vd.tpe)
         val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
-        val (tpe, trBody) = inferType(tc2, freshBody)
+        val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trType ++ trValue ++ trBody)
 
       case Assume(cond, body) => inferType(tc.withTruth(cond), body)
@@ -836,13 +837,14 @@ trait TypeChecker {
         val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
         isType(tc, vd.tpe) ++
-        checkType(tc, value, vd.tpe) ++
-        checkType(tc2, freshBody, tpe)
+        checkType(tc.setPos(value), value, vd.tpe) ++
+        checkType(tc2.setPos(body), freshBody, tpe)
 
       case (_: MatchExpr, _) => checkType(tc, matchToIfThenElse(e, false), tpe)
+
       case (IfExpr(b, e1, e2), _) =>
-        checkType(tc.withTruth(b), e1, tpe) ++
-        checkType(tc.withTruth(Not(b)), e2, tpe)
+        checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
+        checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
       // // FIXME: This split creates too many VCs
       // case (And(exprs), TrueBoolean()) =>
