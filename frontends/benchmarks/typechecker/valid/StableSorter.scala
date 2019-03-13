@@ -28,15 +28,15 @@ object StableSorter {
   } ensuring { res => res.content == l.content && res.length == l.length }
 
   // To define stability, we first annotate the input list with the initial indices...
-  // def annotateList[T](l: List[T], n: BigInt): List[(T, BigInt)] = {
-  //   l match {
-  //     case Nil() => Nil[(T, BigInt)]()
-  //     case Cons(hd, tl) => {
-  //       val tlAnn = annotateList(tl, n + 1)
-  //       hint((hd, n) :: tlAnn, trivProp2(annotateList(tl, n + 1), n))
-  //     }
-  //   }
-  // } ensuring { res => l2AtLeast(res, n) }
+  def annotateList[T](l: List[T], n: BigInt): List[(T, BigInt)] = {
+    l match {
+      case Nil() => Nil[(T, BigInt)]()
+      case Cons(hd, tl) => {
+        val tlAnn = annotateList(tl, n + 1)
+        hint((hd, n) :: tlAnn, trivProp2(annotateList(tl, n + 1), n))
+      }
+    }
+  } ensuring { res => l2AtLeast(res, n) }
 
   // ... where:
   def l2AtLeast[T](l: List[(T, BigInt)], n: BigInt): Boolean = {
@@ -47,14 +47,11 @@ object StableSorter {
     }
   }
 
-  // TYPEFIX: @induct
-
   // ... and the following trivial property holds:
-  // @induct
-  // def trivProp2[T](l: List[(T, BigInt)], n: BigInt): Boolean = {
-  //   require(l2AtLeast(l, n + 1))
-  //   l2AtLeast(l, n)
-  // }.holds
+  def trivProp2[T](@induct l: List[(T, BigInt)], n: BigInt): Boolean = {
+    require(l2AtLeast(l, n + 1))
+    l2AtLeast(l, n)
+  }.holds
 
   // Next, we identify an appropriate value which is increasing in a stably sorted list:
   def isStableSorted[T](l: List[(T, BigInt)], key: T => BigInt): Boolean = l match {
@@ -79,47 +76,44 @@ object StableSorter {
   }
 
   // The insertion sort we initially defined is stable:
-  // def sortStableProp[T](l: List[T], key: T => BigInt): Boolean = {
-  //   require(sortStablePropInt(l, 0, key))
-  //   val lAnn = annotateList(l, 0)
-  //   val keyAnn = (tn: (T, BigInt)) => key(tn._1)
-  //   val lAnnSorted = sort(lAnn, keyAnn)
-  //   isStableSorted(lAnnSorted, key)
-  // }.holds
-
-  // TYPEFIX: @induct
+  def sortStableProp[T](l: List[T], key: T => BigInt): Boolean = {
+    require(sortStablePropInt(l, 0, key))
+    val lAnn = annotateList(l, 0)
+    val keyAnn = (tn: (T, BigInt)) => key(tn._1)
+    val lAnnSorted = sort(lAnn, keyAnn)
+    isStableSorted(lAnnSorted, key)
+  }.holds
 
   // To prove that insertion sort is stable, we first show that insertion is stable:
-  // @induct
-  // def insertStableProp[T](t: T, n: BigInt, l: List[(T, BigInt)], key: T => BigInt): Boolean = {
-  //   require(isStableSorted(l, key) && l2AtLeast(l, n))
-  //   val keyAnn = (tn: (T, BigInt)) => key(tn._1)
-  //   val res = insert((t, n), l, keyAnn)
-  //   isStableSorted(res, key) && l2AtLeast(res, n)
-  // }.holds
+  def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt): Boolean = {
+    require(isStableSorted(l, key) && l2AtLeast(l, n))
+    val keyAnn = (tn: (T, BigInt)) => key(tn._1)
+    val res = insert((t, n), l, keyAnn)
+    isStableSorted(res, key) && l2AtLeast(res, n)
+  }.holds
 
   // ... and complete the proof of stability.
-  // def sortStablePropInt[T](l: List[T], n: BigInt, key: T => BigInt): Boolean = {
-  //   val lAnn = annotateList(l, n)
-  //   val keyAnn = (tn: (T, BigInt)) => key(tn._1)
-  //   val lAnnSorted = sort(lAnn, keyAnn)
-  //   lAnn match {
-  //     case Nil() => isStableSorted(lAnnSorted, key)
-  //     case Cons((hd, hdIndex), tlAnn) => {
-  //       val Cons(_, xs) = l
-  //       val tlAnnSorted = sort(tlAnn, keyAnn)
-  //       sortStablePropInt(xs, n + 1, key) &&
-  //       n == hdIndex &&
-  //       l2AtLeast(tlAnn, n) &&
-  //       l2AtLeast(tlAnnSorted, n + 1) &&
-  //       trivProp2(tlAnnSorted, n) &&
-  //       l2AtLeast(tlAnnSorted, n) &&
-  //       insertStableProp(hd, hdIndex, tlAnnSorted, key) &&
-  //       isStableSorted(lAnnSorted, key) &&
-  //       l2AtLeast(lAnnSorted, n)
-  //     }
-  //   }
-  // }.holds
+  def sortStablePropInt[T](l: List[T], n: BigInt, key: T => BigInt): Boolean = {
+    val lAnn = annotateList(l, n)
+    val keyAnn = (tn: (T, BigInt)) => key(tn._1)
+    val lAnnSorted = sort(lAnn, keyAnn)
+    lAnn match {
+      case Nil() => isStableSorted(lAnnSorted, key)
+      case Cons((hd, hdIndex), tlAnn) => {
+        val Cons(_, xs) = l
+        val tlAnnSorted = sort(tlAnn, keyAnn)
+        sortStablePropInt(xs, n + 1, key) &&
+        n == hdIndex &&
+        l2AtLeast(tlAnn, n) &&
+        l2AtLeast(tlAnnSorted, n + 1) &&
+        trivProp2(tlAnnSorted, n) &&
+        l2AtLeast(tlAnnSorted, n) &&
+        insertStableProp(hd, hdIndex, tlAnnSorted, key) &&
+        isStableSorted(lAnnSorted, key) &&
+        l2AtLeast(lAnnSorted, n)
+      }
+    }
+  }.holds
 
   def hint[T](t: T, lemma: Boolean): T = {
     require(lemma)

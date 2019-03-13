@@ -75,17 +75,13 @@ object PropositionalLogic {
 
   def fv(f : Formula) = { vars(nnf(f)) }
 
-  // TYPEFIX: @induct
+  def nnfIsStable(@induct f: Formula) : Boolean = {
+    require(isNNF(f))
+    nnf(f) == f
+  }.holds
 
-  // @induct
-  // def nnfIsStable(f: Formula) : Boolean = {
-  //   require(isNNF(f))
-  //   nnf(f) == f
-  // }.holds
-
-  // @induct
-  // def simplifyIsStable(f: Formula) : Boolean = {
-  //   require(isSimplified(f))
-  //   simplify(f) == f
-  // }.holds
+  def simplifyIsStable(@induct f: Formula) : Boolean = {
+    require(isSimplified(f))
+    simplify(f) == f
+  }.holds
 }

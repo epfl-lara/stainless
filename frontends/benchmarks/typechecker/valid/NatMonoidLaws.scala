@@ -28,17 +28,13 @@ object NatMonoidLaws {
 
   final val One = Succ(Zero)
 
-  // TYPEFIX: @induct
+  def lemma_rightIdentity_plus(@induct x: Nat): Boolean = {
+    x + Zero == x
+  }.holds
 
-  // @induct
-  // def lemma_rightIdentity_plus(x: Nat): Boolean = {
-  //   x + Zero == x
-  // }.holds
-
-  // @induct
-  // def lemma_associativity_plus(x: Nat, y: Nat, z: Nat): Boolean = {
-  //   x + (y + z) == (x + y) + z
-  // }.holds
+  def lemma_associativity_plus(@induct x: Nat, y: Nat, z: Nat): Boolean = {
+    x + (y + z) == (x + y) + z
+  }.holds
 
   abstract class NatMonoid {
     def empty: Nat
@@ -65,13 +61,13 @@ object NatMonoidLaws {
 
     def append(x: Nat, y: Nat) = x + y
 
-    // override def law_rightIdentity(x: Nat) = {
-    //   super.law_rightIdentity(x) because lemma_rightIdentity_plus(x)
-    // }
+    override def law_rightIdentity(x: Nat) = {
+      super.law_rightIdentity(x) because lemma_rightIdentity_plus(x)
+    }
 
-    // override def law_associativity(x: Nat, y: Nat, z: Nat) = {
-    //   super.law_associativity(x, y, z) because lemma_associativity_plus(x, y, z)
-    // }
+    override def law_associativity(x: Nat, y: Nat, z: Nat) = {
+      super.law_associativity(x, y, z) because lemma_associativity_plus(x, y, z)
+    }
   }
 
 }

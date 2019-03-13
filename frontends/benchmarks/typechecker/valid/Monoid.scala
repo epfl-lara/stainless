@@ -30,10 +30,7 @@ object Monoid {
     }
   }
 
-  // TYPEFIX: @induct
-
-  // @induct
-  // def test(xs: List[BigInt]) = {
-  //   sum(xs) == foldMap(xs)(x => x)(BigIntAdditiveMonoid)
-  // }.holds
+  def test(@induct xs: List[BigInt]) = {
+    sum(xs) == foldMap(xs)(x => x)(BigIntAdditiveMonoid)
+  }.holds
 }

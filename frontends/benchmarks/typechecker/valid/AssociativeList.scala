@@ -3,7 +3,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-object AssociativeList { 
+object AssociativeList {
   sealed abstract class KeyValuePairAbs
   case class KeyValuePair(key: Int, value: Int) extends KeyValuePairAbs
 
@@ -59,10 +59,7 @@ object AssociativeList {
     case KeyValuePair(k, v) => domain(res) == domain(l) ++ Set[Int](k)
   })
 
-  // TYPEFIX: @induct
-
-  // @induct
-  // def readOverWrite(l: List, k1: Int, k2: Int, e: Int) : Boolean = {
-  //   find(updateElem(l, KeyValuePair(k2,e)), k1) == (if (k1 == k2) Some(e) else find(l, k1))
-  // }.holds
+  def readOverWrite(@induct l: List, k1: Int, k2: Int, e: Int) : Boolean = {
+    find(updateElem(l, KeyValuePair(k2,e)), k1) == (if (k1 == k2) Some(e) else find(l, k1))
+  }.holds
 }
