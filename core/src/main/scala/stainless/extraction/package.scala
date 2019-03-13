@@ -41,7 +41,8 @@ package object extraction {
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
-    "PartialEvaluation"         -> "Partially evaluate marked function calls"
+    "InductElimination"         -> "Replace @induct annotation by explicit recursion",
+    "PartialEvaluation"         -> "Partially evaluate marked function calls",
   )
 
   val phaseNames: Set[String] = phases.map(_._1).toSet
@@ -94,7 +95,8 @@ package object extraction {
     imperative.extractor      andThen
     oo.extractor              andThen
     innerfuns.extractor       andThen
-    inlining.extractor
+    inlining.extractor        andThen
+    induction.extractor
   }
 
   private[this] def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
