@@ -144,7 +144,11 @@ trait ASTExtractors {
 
   def isCopyMethod(sym: Symbol) = sym.isSynthetic && sym.name == nme.copy
 
-  def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
+  def canExtractSynthetic(sym: Symbol) = {
+    sym.isImplicit ||
+    isDefaultGetter(sym) ||
+    isCopyMethod(sym)
+  }
 
   object TupleSymbol {
     // It is particularly time expensive so we cache this.

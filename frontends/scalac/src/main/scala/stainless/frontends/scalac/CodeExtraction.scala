@@ -180,7 +180,7 @@ trait CodeExtraction extends ASTExtractors {
 
       case t if (
         (annotationsOf(t.symbol) contains xt.Ignore) ||
-        (t.symbol.isSynthetic && !t.symbol.isImplicit)
+        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
       ) =>
         // ignore
 
