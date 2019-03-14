@@ -23,8 +23,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
-  def testAll(dir: String)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
-    val fs = resourceFiles(dir, _.endsWith(".scala")).toList
+  def testAll(dir: String, recursive: Boolean = false)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
+    val fs = resourceFiles(dir, _.endsWith(".scala"), recursive).toList
 
     // Toggle this variable if you need to debug one specific test.
     // You might also want to run `it:testOnly *<some test suite>* -- -z "<some test filter>"`.
