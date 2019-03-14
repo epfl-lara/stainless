@@ -9,7 +9,7 @@ object PatternMatchingAliasingMutation5 {
   def rec(l: List, i: BigInt): Unit = {
     require(allZero(l) && i >= 0)
     l match {
-      case Cons(a, as) => 
+      case Cons(a, as) =>
         if(i % 2 == 0)
           a.x = 1
         rec(as, i + 1)
@@ -27,5 +27,5 @@ object PatternMatchingAliasingMutation5 {
     case Cons(a, tail) => a.x == 0 && allZero(tail)
     case Nil() => true
   }
-      
+
 }
