@@ -77,11 +77,13 @@ object PropositionalLogic {
 
   def nnfIsStable(@induct f: Formula) : Boolean = {
     require(isNNF(f))
+    decreases(f)
     nnf(f) == f
   }.holds
 
   def simplifyIsStable(@induct f: Formula) : Boolean = {
     require(isSimplified(f))
+    decreases(f)
     simplify(f) == f
   }.holds
 }

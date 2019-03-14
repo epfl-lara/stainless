@@ -34,27 +34,33 @@ object IntSetProp {
       !(Empty() contains x)
     }.holds
 
-    // TYPEFIX: recursion in post-condition?
+    def P2(s: IntSet, x: Int): Boolean = {
+      decreases(s)
 
-    // def P2(s: IntSet, x: Int): Boolean = {
-    //   (s incl x) contains x
-    // } holds because (s match {
-    //   case Empty() => true
-    //   case Node(left, elem, right) =>
-    //     if (x < elem) P2(left, x)
-    //     else if (x > elem) P2(right, x)
-    //     else true
-    // })
+      s match {
+        case Empty() => true
+        case Node(left, elem, right) =>
+          if (x < elem) P2(left, x)
+          else if (x > elem) P2(right, x)
+          else true
+      }
 
-    // def P3(s: IntSet, x: Int,  y: Int): Boolean = {
-    //   require(x != y)
-    //   ((s incl x) contains y) == (s contains y)
-    // } holds because (s match {
-    //   case Empty() => true
-    //   case Node(left, elem, right) =>
-    //     if (x < elem) P3(left, x, y)
-    //     else if (x > elem) P3(right, x, y)
-    //     else true
-    // })
+      (s incl x) contains x
+    } holds
+
+    def P3(s: IntSet, x: Int,  y: Int): Boolean = {
+      require(x != y)
+      decreases(s)
+
+      s match {
+        case Empty() => true
+        case Node(left, elem, right) =>
+          if (x < elem) P3(left, x, y)
+          else if (x > elem) P3(right, x, y)
+          else true
+      }
+
+      ((s incl x) contains y) == (s contains y)
+    } holds
   }
 }
