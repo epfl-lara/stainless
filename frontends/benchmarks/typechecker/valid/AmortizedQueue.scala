@@ -2,6 +2,7 @@
 
 import stainless.lang._
 import stainless.annotation._
+import stainless.proof._
 
 object AmortizedQueue {
   sealed abstract class List
@@ -10,6 +11,20 @@ object AmortizedQueue {
 
   sealed abstract class AbsQueue
   case class Queue(front : List, rear : List) extends AbsQueue
+
+  def head(list: List): Int = {
+    require(list != Nil())
+
+    val Cons(res, _) = list
+    res
+  }
+
+  def tail(list: List): List = {
+    require(list != Nil())
+
+    val Cons(_, res) = list
+    res
+  }
 
   def size(list : List) : BigInt = {
     decreases(list)
@@ -26,7 +41,7 @@ object AmortizedQueue {
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
   }
-  
+
   def asList(queue : AbsQueue) : List = queue match {
     case Queue(front, rear) => concat(front, reverse(rear))
   }
@@ -38,6 +53,16 @@ object AmortizedQueue {
       case Cons(x,xs) => Cons(x, concat(xs, l2))
     }
   } ensuring (res => size(res) == size(l1) + size(l2) && content(res) == content(l1) ++ content(l2))
+
+  def concatNil(@induct l: List) = {
+    decreases(l)
+    concat(l, Nil()) == l
+  }.holds
+
+  def concatAssoc(@induct l1: List, l2: List, l3: List) = {
+    decreases(l1)
+    concat(l1, concat(l2, l3)) == concat(concat(l1, l2), l3)
+  }.holds
 
   def isAmortized(queue : AbsQueue) : Boolean = queue match {
     case Queue(front, rear) => size(front) >= size(rear)
@@ -81,37 +106,30 @@ object AmortizedQueue {
     }
   }
 
-  // @induct
-  // def propEnqueue(rear : List, front : List, list : List, elem : Int) : Boolean = {
-  //   require(isAmortized(Queue(front, rear)))
-  //   val queue = Queue(front, rear)
-  //   if (asList(queue) == list) {
-  //     asList(enqueue(queue, elem)) == concat(list, Cons(elem, Nil()))
-  //   } else
-  //     true
-  // }.holds
+  def propEnqueue(queue: Queue, elem : Int) : Boolean = {
+    val Queue(front, rear) = queue
+    check(concatAssoc(front, reverse(rear), Cons(elem, Nil())))
+    check(concatNil(concat(front, concat(reverse(rear), Cons(elem, Nil())))))
 
-  @induct
-  def propFront(queue : AbsQueue, list : List, elem : Int) : Boolean = {
-    require(!isEmpty(queue) && isAmortized(queue))
-    if (asList(queue) == list) {
-      list match {
-        case Cons(x, _) => front(queue) == x
-      }
-    } else
-      true
+    asList(enqueue(queue, elem)) == concat(asList(queue), Cons(elem, Nil()))
   }.holds
 
-  @induct
-  def propTail(rear : List, front : List, list : List, elem : Int) : Boolean = {
-    require(!isEmpty(Queue(front, rear)) && isAmortized(Queue(front, rear)))
-    if (asList(Queue(front, rear)) == list) {
-      list match {
-        case Cons(_, xs) => asList(tail(Queue(front, rear))) == xs
-      }
-    } else
-      true
-  } //.holds
+  def propFront(queue : AbsQueue, elem : Int) : Boolean = {
+    require(!isEmpty(queue) && isAmortized(queue))
+    decreases(queue)
+
+    head(asList(queue)) == front(queue)
+  }.holds
+
+  def propTail(queue: Queue, elem : Int) : Boolean = {
+    require(!isEmpty(queue) && isAmortized(queue))
+
+    val Queue(front, rear) = queue
+
+    check(concatNil(concat(tail(front), reverse(rear))))
+
+    tail(asList(queue)) == asList(tail(queue))
+  }.holds
 
   def enqueueAndFront(queue : AbsQueue, elem : Int) : Boolean = {
     if (isEmpty(queue))
