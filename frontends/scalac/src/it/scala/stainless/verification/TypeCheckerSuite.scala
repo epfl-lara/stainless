@@ -24,7 +24,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case _ => super.filter(ctx, name)
   }
 
-  testAll("typechecker/valid") { (analysis, reporter) =>
+  testAll("typechecker/valid", true) { (analysis, reporter) =>
     assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
