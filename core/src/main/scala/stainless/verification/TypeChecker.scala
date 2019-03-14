@@ -448,7 +448,9 @@ trait TypeChecker {
         }
 
       case FiniteSet(elements, tpe) =>
-        (SetType(tpe), isType(tc, tpe) ++ checkTypes(tc, elements, elements.map(_ => tpe)))
+        (SetType(tpe),
+          if (elements.isEmpty) isType(tc, tpe)
+          else checkTypes(tc, elements, elements.map(_ => tpe)))
       case SetUnion(s1, s2) => inferOperationType("union (++)", e, tc, _.isInstanceOf[SetType], None, s1, s2)
       case SetIntersection(s1, s2) => inferOperationType("intersection (&)", e, tc, _.isInstanceOf[SetType], None, s1, s2)
       case SetDifference(s1, s2) => inferOperationType("difference (\\\\)", e, tc, _.isInstanceOf[SetType], None, s1, s2)
@@ -468,9 +470,10 @@ trait TypeChecker {
 
       case FiniteBag(elements, tpe) =>
         (BagType(tpe),
-          isType(tc, tpe) ++
-          checkTypes(tc, elements.map(_._1), elements.map(_ => tpe)) ++
-          checkTypes(tc, elements.map(_._2), elements.map(_ => IntegerType()))
+          if (elements.isEmpty) isType(tc, tpe)
+          else
+            checkTypes(tc, elements.map(_._1), elements.map(_ => tpe)) ++
+            checkTypes(tc, elements.map(_._2), elements.map(_ => IntegerType()))
         )
       case BagUnion(s1, s2) => inferOperationType("bag union", e, tc, _.isInstanceOf[BagType], None, s1, s2)
       case BagIntersection(s1, s2) => inferOperationType("bag intersection", e, tc, _.isInstanceOf[BagType], None, s1, s2)
@@ -490,11 +493,11 @@ trait TypeChecker {
 
       case FiniteMap(pairs, default, from, to) =>
         (MapType(from, to),
-          isType(tc, from) ++
-          isType(tc, to) ++
-          checkType(tc, default, to) ++
-          checkTypes(tc, pairs.map(_._1), List.fill(pairs.size)(from)) ++
-          checkTypes(tc, pairs.map(_._2), List.fill(pairs.size)(to))
+          if (pairs.isEmpty) isType(tc, from) ++ isType(tc, to)
+          else
+            checkType(tc, default, to) ++
+            checkTypes(tc, pairs.map(_._1), List.fill(pairs.size)(from)) ++
+            checkTypes(tc, pairs.map(_._2), List.fill(pairs.size)(to))
         )
       case MapUpdated(m, k, v) =>
         val (tpe, vcs) = inferType(tc, m)
@@ -510,10 +513,11 @@ trait TypeChecker {
         }
 
       case FiniteArray(elements, tpe) =>
-        (ArrayType(tpe), isType(tc, tpe) ++ checkTypes(tc, elements, tpe))
+        (ArrayType(tpe),
+          if (elements.isEmpty) isType(tc, tpe)
+          else checkTypes(tc, elements, tpe))
       case LargeArray(elements, default, size, tpe) =>
         (ArrayType(tpe),
-          isType(tc, tpe) ++
           checkTypes(tc, elements.values.toSeq, tpe) ++
           checkType(tc, default, tpe) ++
           checkType(tc, size, Int32Type()))
@@ -611,12 +615,11 @@ trait TypeChecker {
         }
 
       case Let(vd, value, body) =>
-        val trType = isType(tc, vd.tpe)
         val trValue = checkType(tc.setPos(value), value, vd.tpe)
         val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
-        (insertFreshLets(Seq(vd), Seq(value), tpe), trType ++ trValue ++ trBody)
+        (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
       case Assume(cond, body) => inferType(tc.withTruth(cond), body)
 
@@ -836,7 +839,6 @@ trait TypeChecker {
       case (Let(vd, value, body), _) =>
         val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
-        isType(tc, vd.tpe) ++
         checkType(tc.setPos(value), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
@@ -1018,9 +1020,6 @@ trait TypeChecker {
         (None, TyperResult.valid)
       }
 
-    // We check that the return type is a well-formed type
-    val trRet = isType(tcWithPre, freshenedReturnType)
-
     val bodyOpt = exprOps.withoutSpecs(fd.fullBody).map(e => freshener.transform(e))
 
     // The TypingContext for the body contains all dependencies, and the measure
@@ -1042,7 +1041,7 @@ trait TypeChecker {
         TyperResult.valid
       }
 
-    (trArgs ++ trRet ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
+    (trArgs ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
   }
 
   def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
