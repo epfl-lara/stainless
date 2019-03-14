@@ -29,11 +29,12 @@ object StableSorter {
 
   // To define stability, we first annotate the input list with the initial indices...
   def annotateList[T](l: List[T], n: BigInt): List[(T, BigInt)] = {
+    decreases(l)
     l match {
       case Nil() => Nil[(T, BigInt)]()
       case Cons(hd, tl) => {
         val tlAnn = annotateList(tl, n + 1)
-        hint((hd, n) :: tlAnn, trivProp2(annotateList(tl, n + 1), n))
+        hint((hd, n) :: tlAnn, trivProp2(tlAnn, n))
       }
     }
   } ensuring { res => l2AtLeast(res, n) }
@@ -50,6 +51,8 @@ object StableSorter {
   // ... and the following trivial property holds:
   def trivProp2[T](@induct l: List[(T, BigInt)], n: BigInt): Boolean = {
     require(l2AtLeast(l, n + 1))
+    decreases(l)
+
     l2AtLeast(l, n)
   }.holds
 
@@ -87,6 +90,8 @@ object StableSorter {
   // To prove that insertion sort is stable, we first show that insertion is stable:
   def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt): Boolean = {
     require(isStableSorted(l, key) && l2AtLeast(l, n))
+    decreases(l)
+
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val res = insert((t, n), l, keyAnn)
     isStableSorted(res, key) && l2AtLeast(res, n)
@@ -94,6 +99,7 @@ object StableSorter {
 
   // ... and complete the proof of stability.
   def sortStablePropInt[T](l: List[T], n: BigInt, key: T => BigInt): Boolean = {
+    decreases(l)
     val lAnn = annotateList(l, n)
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val lAnnSorted = sort(lAnn, keyAnn)

@@ -60,6 +60,7 @@ object AssociativeList {
   })
 
   def readOverWrite(@induct l: List, k1: Int, k2: Int, e: Int) : Boolean = {
+    decreases(l)
     find(updateElem(l, KeyValuePair(k2,e)), k1) == (if (k1 == k2) Some(e) else find(l, k1))
   }.holds
 }

@@ -29,10 +29,12 @@ object NatMonoidLaws {
   final val One = Succ(Zero)
 
   def lemma_rightIdentity_plus(@induct x: Nat): Boolean = {
+    decreases(x)
     x + Zero == x
   }.holds
 
   def lemma_associativity_plus(@induct x: Nat, y: Nat, z: Nat): Boolean = {
+    decreases(x)
     x + (y + z) == (x + y) + z
   }.holds
 

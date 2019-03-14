@@ -31,6 +31,7 @@ object Monoid {
   }
 
   def test(@induct xs: List[BigInt]) = {
+    decreases(xs)
     sum(xs) == foldMap(xs)(x => x)(BigIntAdditiveMonoid)
   }.holds
 }

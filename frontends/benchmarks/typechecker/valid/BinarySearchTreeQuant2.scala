@@ -14,7 +14,6 @@ object BSTSimpler2 {
   }
 
   // TYPEFIX: forall
-  // TYPEFIX: ADT invariant
 
   case class Node(left: Tree, value: BigInt, right: Tree) extends Tree {
     // require(forall((x:BigInt) => (left.content.contains(x) ==> x < value)) &&
