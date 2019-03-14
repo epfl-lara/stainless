@@ -1,8 +1,7 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
-
 import stainless._
 import stainless.lang._
 import stainless.proof._
+import stainless.annotation._
 
 object FoldAssociative {
 
@@ -26,7 +25,7 @@ object FoldAssociative {
 
   def take(list: List, count: Int): List = {
     require(count >= 0)
-    decreases(list)
+    decreases(count)
     list match {
       case Cons(head, tail) if count > 0 => Cons(head, take(tail, count - 1))
       case _ => Nil()
@@ -35,7 +34,7 @@ object FoldAssociative {
 
   def drop(list: List, count: Int): List = {
     require(count >= 0)
-    decreases(list)
+    decreases(count)
     list match {
       case Cons(head, tail) if count > 0 => drop(tail, count - 1)
       case _ => list
@@ -93,21 +92,11 @@ object FoldAssociative {
     })
   }.holds
 
+  @induct
   def lemma_reassociative_presplit(l1: List, l2: List): Boolean = {
-    val f = (x: Int, s: Int) => x + s
-    val list = append(l1, l2)
-    foldRight(list, 0, f) == foldRight(l1, 0, f) + foldRight(l2, 0, f)
-  }
-
-  def lemma_reassociative_presplit_induct(l1: List, l2: List): Boolean = {
     decreases(l1)
     val f = (x: Int, s: Int) => x + s
     val list = append(l1, l2)
-    lemma_reassociative_presplit(l1, l2) because (l1 match {
-      case Cons(head, tail) =>
-        lemma_reassociative_presplit_induct(tail, l2)
-      case Nil() => true
-    })
+    foldRight(list, 0, f) == foldRight(l1, 0, f) + foldRight(l2, 0, f)
   }.holds
-
 }
