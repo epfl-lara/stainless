@@ -21,7 +21,7 @@ trait ExtractionCaches { self: ExtractionContext =>
   }
 
 
-  private final class FunctionKey private(private val fd: s.FunDef) extends CacheKey {
+  private sealed class FunctionKey private(private val fd: s.FunDef) extends CacheKey {
     override def dependencies = Set(fd.id)
 
     // We can't use the `FunDef` as a key directly here as its equality is
@@ -50,7 +50,7 @@ trait ExtractionCaches { self: ExtractionContext =>
     def apply(fd: s.FunDef): CacheKey = new FunctionKey(fd)
   }
 
-  private final class SortKey private(private val sort: s.ADTSort) extends CacheKey {
+  private sealed class SortKey private(private val sort: s.ADTSort) extends CacheKey {
     override def dependencies = Set(sort.id)
 
     // We again can't use the `ADTSort` as a key for the same reasons as exposed
