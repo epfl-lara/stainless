@@ -705,10 +705,10 @@ trait TypeChecker {
             throw new TypeCheckingException(e, s"Type of ${expr.asString} is ${tpe.asString}, but an ADT was expected")
         }
 
-      // FIXME: Also check ADT invariant
       case SizedADT(id, tps, args, size) =>
         val cons = lookupConstructor(id).get
         val sortId = cons.sort
+        val sort = getSort(sortId)
         val lookedUpConstructor =
           lookupSort(sortId)
             .filter(_.tparams.size == tps.size)
@@ -717,6 +717,14 @@ trait TypeChecker {
                 .find(_.id == id)
                 .filter(_.fields.size == args.size)
             }
+        val trInv =
+          if (sort.hasInvariant) {
+            val inv = sort.invariant.get
+            val invKind = VCKind.AdtInvariant(id)
+            val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+            buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
+          } else
+            TyperResult.valid
         val trZero = lookedUpConstructor.map { tcons =>
             checkDependentTypes(tc.withTruth(Equals(size, IntegerLiteral(0))),
             args,
@@ -733,12 +741,20 @@ trait TypeChecker {
         )
         val kind = VCKind.fromErr(Some("Non-Negative Size for Sized ADT"))
         (RecursiveType(sortId, tps, size),
-          trZero ++ trSucc ++ checkType(tc.withVCKind(kind), GreaterEquals(size, IntegerLiteral(0)), TrueBoolean()))
+          trInv ++ trZero ++ trSucc ++ checkType(tc.withVCKind(kind), GreaterEquals(size, IntegerLiteral(0)), TrueBoolean()))
 
-      // FIXME: Also check ADT invariant
       case ADT(id, tps, args) =>
-        val cons = lookupConstructor(id).get
+        val cons = getConstructor(id)
         val sortId = cons.sort
+        val sort = getSort(sortId)
+        val trInv =
+          if (sort.hasInvariant) {
+            val inv = sort.invariant.get
+            val invKind = VCKind.AdtInvariant(id)
+            val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+            buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
+          } else
+            TyperResult.valid
         val tr =
           lookupSort(sortId)
             .filter(_.tparams.size == tps.size)
@@ -750,7 +766,7 @@ trait TypeChecker {
             }.getOrElse (
               throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
             )
-        (ADTType(sortId, tps), tr)
+        (ADTType(sortId, tps), trInv ++ tr)
 
       case IsConstructor(expr, id) =>
         val (tpe, tr) = inferType(tc, expr)
