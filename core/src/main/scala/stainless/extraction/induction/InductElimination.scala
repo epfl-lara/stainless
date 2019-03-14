@@ -24,13 +24,29 @@ trait InductElimination extends CachingPhase
   override protected def getContext(syms: Symbols) = new TransformerContext()(syms)
 
   override protected def extractFunction(tcontext: TransformerContext, fd: FunDef): FunDef = {
-    if (fd.flags exists (_.name == "induct")) {
-      context.reporter.fatalError(fd.getPos,
-        "Annotation @induct is not supported on functions anymore, please annotate the arguments on which you want to induct on instead")
+    implicit val syms = tcontext.symbols
+
+    def canInductOn(tpe: Type): Boolean = tpe match {
+      case ADTType(_, _) => true
+      case IntegerType() => true
+      case BVType(_, _) => true
+      case _ => false
     }
 
-    implicit val syms = tcontext.symbols
-    val inductionParams = fd.params.filter(vd => vd.flags.exists(_.name == "induct"))
+    // @induct on the function refers to induction on the first parameter for
+    // which `canInductOn` returns true
+    val firstInductionParam =
+      if (fd.flags.exists(_.name == "induct")) {
+        fd.params.find(vd => canInductOn(vd.getType)) match {
+          case Some(vd) => Seq(vd)
+          case None => context.reporter.fatalError(fd.getPos, s"In ${fd.id.asString}, could not find an argument on which to do induction")
+        }
+      } else {
+        Seq()
+      }
+    val inductionParams =
+      firstInductionParam ++
+      fd.params.filter(vd => !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct"))
 
     val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
 
