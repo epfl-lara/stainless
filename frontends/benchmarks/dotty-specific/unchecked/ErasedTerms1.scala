@@ -1,5 +1,5 @@
 
-object ErasedTerms {
+object ErasedTerms1 {
 
   def takeErased(x: BigInt)(erased y: BigInt): BigInt = {
     x + 1

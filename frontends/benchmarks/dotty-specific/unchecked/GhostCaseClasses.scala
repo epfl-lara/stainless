@@ -1,10 +1,12 @@
-// FIXME: Propagate erased (seems to be invalid Dotty code though)
-import stainless.lang._
+// FIXME: Propagate ghost annotation
 
-object ErasedTerms3 {
+import stainless.lang._
+import stainless.annotation._
+
+object GhostCaseClasses {
 
   sealed trait GhostList
-  case class GhostCons(erased val head: BigInt, val tail: GhostList) extends GhostList
+  case class GhostCons(@ghost val head: BigInt, @ghost tail: GhostList) extends GhostList
   case class GhostNil() extends GhostList
 
   def patmatch(): Unit = {
