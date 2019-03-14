@@ -13,9 +13,9 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-315-gec5dd7d-SNAPSHOT"
+val inoxVersion = "1.1.0-322-g6cdfa72"
 val dottyLibrary = "dotty-compiler_2.12"
-val dottyVersion = "0.12.0-RC1-bin-SNAPSHOT-nonbootstrapped"
+val dottyVersion = "0.12.0-RC1-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
 
 lazy val nParallel = {
@@ -58,17 +58,15 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  scalacOptions in (Compile, doc) ++= Seq("-doc-root-content", baseDirectory.value + "/src/main/scala/root-doc.txt"),
-
   unmanagedJars in Runtime += {
     root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
   },
 
   resolvers ++= Seq(
-    "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
-    "Sonatype OSS Releases" at "https://oss.sonatype.org/content/repositories/releases",
-    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven",
-    Resolver.typesafeIvyRepo("releases")
+    Resolver.sonatypeRepo("releases"),
+    Resolver.typesafeIvyRepo("releases"),
+    Resolver.bintrayRepo("epfl-lara", "maven"),
+    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
   ),
 
   libraryDependencies ++= Seq(
@@ -80,6 +78,9 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "io.circe" %% "circe-generic" % circeVersion,
     "io.circe" %% "circe-parser" % circeVersion
   ),
+
+  // disable documentation packaging in universal:stage to speedup development
+  mappings in (Compile, packageDoc) := Seq(),
 
   concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel),
 
@@ -253,12 +254,9 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
   .settings(commonSettings)
-  // Make sure the inox project dependency resolves to the scala 2.X project.
-  .settings(projectDependencies := projectDependencies.value map (_.withDottyCompat(scalaVersion.value)))
-  // Make sure all library dependencies resolve to the scala 2.X projects.
-  .settings(libraryDependencies := libraryDependencies.value map (_.withDottyCompat(scalaVersion.value)))
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+  .enablePlugins(JavaAppPackaging)
   .settings(
     name := "stainless-dotty",
     frontendClass := "dotc.DottyCompiler")
@@ -269,13 +267,6 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
   .configs(IntegrationTest)
   .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
-  // As above, we resolve the library dependencies to scala 2.X projects.
-  .settings(libraryDependencies := libraryDependencies.value map (_.withDottyCompat(scalaVersion.value)))
-  // Here we don't want to use the compat mode for stainless-dotty-frontend since it
-  // actually is a dotty project (doesn't have a scala 2.X version).
-  .settings(projectDependencies := projectDependencies.value map { dep =>
-    if (dep.name == "stainless-dotty-frontend") dep else dep.withDottyCompat(scalaVersion.value)
-  })
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -313,8 +304,7 @@ lazy val root = (project in file("."))
   .settings(artifactSettings)
   .settings(
     sourcesInBase in Compile := false,
-    // Don't publish root project
-    publishArtifact := false,
+    publishArtifact := false, // Don't publish root project
     publish := (())
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
