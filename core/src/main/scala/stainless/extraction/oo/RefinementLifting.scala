@@ -148,18 +148,13 @@ trait RefinementLifting
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
   }
 
-  private def unchecked(expr: s.Expr): s.Expr = {
-    // s.Annotated(expr, Seq(s.Unchecked)).setPos(expr)
-    expr
-  }
-
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     import s._
 
     val (newParams, cond) = context.parameterConds(fd.params)
     val optPre = cond match {
       case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(unchecked(cond).copiedFrom(fd), pre).copiedFrom(pre))
+        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
         case None => Some(cond.copiedFrom(fd))
       }
       case _ => s.exprOps.preconditionOf(fd.fullBody)
@@ -172,7 +167,7 @@ trait RefinementLifting
               exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
               body).copiedFrom(body)).copiedFrom(post))
         case None =>
-          Some(s.Lambda(Seq(vd2), unchecked(pred).copiedFrom(fd)).copiedFrom(fd))
+          Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }
       case _ => s.exprOps.postconditionOf(fd.fullBody)
     }
@@ -205,12 +200,11 @@ trait RefinementLifting
     val optInv = if (cond == s.BooleanLiteral(true)) {
       None
     } else {
-      val uncheckedCond = s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(sort)
       Some(sort.invariant match {
         case Some(fd) =>
           fd.copy(fullBody = s.and(
             s.typeOps.instantiateType(
-              s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), uncheckedCond),
+              s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), cond),
               (sort.typeArgs zip fd.typeArgs).toMap
             ),
             fd.fullBody
@@ -223,7 +217,7 @@ trait RefinementLifting
               Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
               s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
                 s.typeOps.instantiateType(
-                  s.exprOps.replaceFromSymbols(Map(v -> thiss), uncheckedCond),
+                  s.exprOps.replaceFromSymbols(Map(v -> thiss), cond),
                   (sort.typeArgs zip tparams).toMap
                 )
               })
