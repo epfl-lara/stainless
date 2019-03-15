@@ -91,5 +91,5 @@ object Lists {
       check(recmaxGreater(xs.tail.tail, xs.tail.head, xs.head))
 
     max(xs) >= max(xs.tail)
-  }
+  } holds
 }
