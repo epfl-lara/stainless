@@ -24,8 +24,9 @@ trait ASTExtractors {
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
+    val inline = if (sym.annotations exists (_.symbol.fullName.toString == "scala.inline")) Seq(("inline", Seq.empty)) else Seq()
 
-    erased ++ (for {
+    erased ++ inline ++ (for {
       a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
@@ -163,11 +164,11 @@ trait ASTExtractors {
 //  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
 
   def isDefaultGetter(sym: Symbol) = {
-    sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
+    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
   }
 
   def isCopyMethod(sym: Symbol) = {
-    sym.name.isTermName && sym.name.toTermName.toString == "copy"
+    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString == "copy"
   }
 
   def canExtractSynthetic(sym: Symbol) = {

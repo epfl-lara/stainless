@@ -140,9 +140,9 @@ trait ASTExtractors {
 
   def hasBooleanType(t: Tree) = t.tpe.widen =:= BooleanClass.tpe
 
-  def isDefaultGetter(sym: Symbol) = sym.name containsName nme.DEFAULT_GETTER_STRING
+  def isDefaultGetter(sym: Symbol) = sym.isSynthetic && (sym.name containsName nme.DEFAULT_GETTER_STRING)
 
-  def isCopyMethod(sym: Symbol) = sym.name == nme.copy
+  def isCopyMethod(sym: Symbol) = sym.isSynthetic && sym.name == nme.copy
 
   def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
 

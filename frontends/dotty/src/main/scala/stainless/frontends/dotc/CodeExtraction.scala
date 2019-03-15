@@ -18,6 +18,7 @@ import stainless.ast.SymbolIdentifier
 import extraction.xlang.{trees => xt}
 
 import scala.collection.mutable.{ Map => MutableMap }
+import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
 class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val ctx: Context)
@@ -63,7 +64,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   def outOfSubsetError(t: tpd.Tree, msg: String): Nothing = outOfSubsetError(t.pos, msg)
 
   private case class DefContext(
-    tparams: Map[Symbol, xt.TypeParameter] = Map(),
+    tparams: ListMap[Symbol, xt.TypeParameter] = ListMap(),
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
@@ -270,7 +271,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = extractTypeParams(sym.asClass.typeParams)(DefContext())
-    val defCtx = DefContext((sym.asClass.typeParams zip extparams).toMap)
+    val defCtx = DefContext(ListMap(sym.asClass.typeParams zip extparams : _*))
 
     val classType = xt.ClassType(id, extparams)
 
@@ -441,7 +442,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val extparams = typeParamSymbols(tdefs)
     val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
-    val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
+    val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams))
 
     val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
       val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
@@ -457,7 +458,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (params :+ vd, dctx.withNewVar(param.symbol -> expr))
     }
 
-    val returnType = extractTypeTree(tree.tpt, sym.info.finalResultType)(nctx)
+    val returnType = extractTypeTree(tree.tpt, sym.info.finalResultType)(fctx0)
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -744,7 +745,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }.foldLeft(dctx) { case (dctx, (sym, tparams, vparams)) =>
       val extparams = typeParamSymbols(tparams)
       val ntparams = extractTypeParams(extparams)(dctx)
-      val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
+      val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams))
 
       val tparamDefs = ntparams.map(tp => xt.TypeParameterDef(tp).copiedFrom(tp))
 
@@ -1590,7 +1591,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case cet: CachedExprType => extractType(cet.resultType)
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
-        dctx.tparams(tr.symbol)
+        dctx.tparams.get(tr.symbol).getOrElse {
+          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
+        }
 
       case tr: TypeRef if tr.info.isTypeAlias =>
         extractType(tr.widenDealias)
@@ -1702,7 +1705,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case ot: OrType => extractType(ot.join)
 
       case pp @ TypeParamRef(binder, num) =>
-        dctx.tparams.collectFirst { case (k, v) if k.name == pp.paramName => v }.getOrElse {
+        dctx.tparams.collect { case (k, v) if k.name == pp.paramName => v }.lastOption.getOrElse {
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
         }
 
