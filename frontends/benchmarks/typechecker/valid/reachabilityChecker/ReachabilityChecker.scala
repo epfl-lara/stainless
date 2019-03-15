@@ -228,7 +228,7 @@ object ReachabilityChecker {
 
     check(l1.isEmpty || subsetExtend(l1.tail, l2, x))
 
-    subset(l1, x :: l2)
+    subset(l1, Cons(x, l2))
   } holds
 
   def addStateToTrace(t: List[State], s: System, st: State): Boolean = {
@@ -255,9 +255,9 @@ object ReachabilityChecker {
   def isTrace(s: System, t: List[State]): Boolean = {
     decreases(t)
     t match {
-      case s1 :: s2 :: ts =>
+      case Cons(s1, Cons(s2, ts)) =>
         s.transitions.contains((s1, s2)) &&
-          isTrace(s, s2 :: ts)
+          isTrace(s, Cons(s2, ts))
       case _ => true
     }
   }
@@ -469,10 +469,10 @@ object ReachabilityChecker {
       case Cons(x, xs) =>
         if (!xs.contains(x)) {
           simpleNoAdd(s, xs, x) && simplePrepend(x, simpleTrace(s, xs))
-          x :: simpleTrace(s, xs)
+          Cons(x, simpleTrace(s, xs))
         } else {
           removeCycleLast(s, xs, x)
-          simpleTrace(s, x :: removeCycle(s, xs, x))
+          simpleTrace(s, Cons(x, removeCycle(s, xs, x)))
         }
     }
   } ensuring (res =>
@@ -499,7 +499,7 @@ object ReachabilityChecker {
 
   def simplePrepend[X](x: X, l: List[X]): Boolean = {
     require(simple(l) && !l.contains(x))
-    simple(x :: l)
+    simple(Cons(x, l))
   } holds
 
   def simpleNoAdd(s: System, l: List[State], st: State): Boolean = {
@@ -515,7 +515,7 @@ object ReachabilityChecker {
         } else {
           removeCycleNoAdd(s, xs, x, st) && simpleNoAdd(
             s,
-            x :: removeCycle(s, xs, x),
+            Cons(x, removeCycle(s, xs, x)),
             st)
         }
     })
@@ -547,11 +547,10 @@ object ReachabilityChecker {
 
     check(l.isEmpty || l.head == duplicateState || removeCycleLast(s, l.tail, duplicateState))
 
-    l.last == (duplicateState :: removeCycle(s, l, duplicateState)).last
+    l.last == (Cons(duplicateState, removeCycle(s, l, duplicateState))).last
   } holds
 
-  // @induct
-  def simpleAppend[X](t: List[X], x: X): Boolean = {
+  def simpleAppend[X](@induct t: List[X], x: X): Boolean = {
     require(simple(t) && !t.contains(x))
     decreases(t)
 
