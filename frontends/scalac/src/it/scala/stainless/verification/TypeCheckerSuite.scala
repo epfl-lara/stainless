@@ -60,9 +60,14 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
     case "typechecker/valid/BigIntMonoidLaws" => Ignore
     case "typechecker/valid/ConcRope" => Ignore
     case "typechecker/valid/CovariantList" => Ignore
+    case "typechecker/valid/Huffman" => Ignore
+    case "typechecker/valid/List" => Ignore
+    case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
+    case "typechecker/valid/MoreExtendedEuclidReachability" => Ignore
     case "typechecker/valid/Overrides" => Ignore
     case "typechecker/valid/PartialCompiler" => Ignore
     case "typechecker/valid/PartialKVTrace" => Ignore
+    case "typechecker/valid/ReachabilityChecker" => Ignore
     case "typechecker/valid/TestPartialFunction" => Ignore
     case "typechecker/valid/TestPartialFunction3" => Ignore
     case _ => super.filter(ctx, name)
