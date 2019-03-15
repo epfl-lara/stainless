@@ -82,7 +82,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   // disable documentation packaging in universal:stage to speedup development
   mappings in (Compile, packageDoc) := Seq(),
 
-  concurrentRestrictions in Global += Tags.limit(Tags.Test, nParallel),
+  concurrentRestrictions in Global += Tags.limitAll(nParallel),
 
   sourcesInBase in Compile := false,
 
