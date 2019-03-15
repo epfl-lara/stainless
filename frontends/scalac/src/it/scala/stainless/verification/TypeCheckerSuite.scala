@@ -8,6 +8,7 @@ import org.scalatest._
 trait TypeCheckerSuite extends ComponentTestSuite {
 
   val component = VerificationComponent
+  val cacheAllowed: Boolean
 
   override def configurations = super.configurations.map {
     seq => optTypeChecker(true) +: optFailInvalid(true) +: seq
@@ -25,7 +26,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
   }
 
   testAll("typechecker/valid", true) { (analysis, reporter) =>
-    assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
+    assert(cacheAllowed || analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
@@ -35,6 +36,8 @@ trait TypeCheckerSuite extends ComponentTestSuite {
 }
 
 class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
+  override val cacheAllowed = false
+
   override def configurations = super.configurations.map {
     seq => Seq(
       inox.optSelectedSolvers(Set("smt-z3")),
@@ -47,7 +50,21 @@ class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
   }
 }
 
+class SMTZ3TypeCheckerCacheSuite extends TypeCheckerSuite {
+  override val cacheAllowed = true
+
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.solvers.optCheckModels(true),
+      verification.optVCCache(true)
+    ) ++ seq
+  }
+}
+
 class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
+  override val cacheAllowed = false
+
   override def configurations = super.configurations.map {
     seq => Seq(
       inox.optSelectedSolvers(Set("smt-cvc4")),
