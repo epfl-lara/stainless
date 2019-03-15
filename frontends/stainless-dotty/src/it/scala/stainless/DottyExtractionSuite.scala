@@ -8,8 +8,8 @@ class DottyExtractionSuite extends ExtractionSuite {
   testExtractAll("verification/invalid")
   testExtractAll("verification/unchecked")
 
-  testExtractAll("imperative/valid",
-    "imperative/valid/Blocks1.scala",
+  testExtractAll("imperative/valid"/*,
+    "imperative/valid/Blocks1.scala",*/
   )
   testExtractAll("imperative/invalid")
 
@@ -35,8 +35,6 @@ class DottyExtractionSuite extends ExtractionSuite {
     "extraction/invalid/GhostPatmat.scala",
     "extraction/invalid/GhostDafny.scala",
     "extraction/invalid/SuperAbstract.scala",
-
-    "extraction/invalid/TraitVar1.scala", // FIXME
   )
 
   testExtractAll("dotty-specific/valid")
