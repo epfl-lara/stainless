@@ -13,13 +13,13 @@ object MainHelpers {
   val components: Seq[Component] = frontend.allComponents
 }
 
-trait MainHelpers extends inox.MainHelpers {
+trait MainHelpers extends inox.MainHelpers { self =>
 
   case object Pipelines extends Category
   case object Verification extends Category
   case object Termination extends Category
 
-  override protected def getOptions = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+  override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
@@ -86,8 +86,25 @@ trait MainHelpers extends inox.MainHelpers {
 
   // TODO add (optional) customisation points for CallBacks to access intermediate reports(?)
 
-  override protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
+  override
+  protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
+
+  override
+  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
+                              (implicit initReporter: inox.Reporter): inox.Context = {
+
+    val configOptions = Configuration.parseDefault(self.options.keys.toSeq)(initReporter)
+
+    // Override config options with command-line options
+    val options = (cmdOptions ++ configOptions)
+      .groupBy(_.optionDef.name)
+      .mapValues(_.head)
+      .values
+      .toSeq
+
+    super.processOptions(files, options)
+  }
 
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)

@@ -76,7 +76,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "org.scalatest" %% "scalatest" % "3.0.1" % "test",
     "io.circe" %% "circe-core" % circeVersion,
     "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion
+    "io.circe" %% "circe-parser" % circeVersion,
+    "com.typesafe" % "config" % "1.3.2"
   ),
 
   // disable documentation packaging in universal:stage to speedup development
