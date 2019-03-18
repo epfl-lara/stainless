@@ -68,8 +68,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     vars: Map[Symbol, () => xt.Expr] = Map(),
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
-    typedefs: Map[Identifier, xt.TypeDef] = Map(),
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
+    typedefs: Map[Identifier, xt.TypeDef] = Map(),
     isExtern: Boolean = false
   ) {
     def union(that: DefContext) = {
@@ -77,8 +77,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
            this.vars ++ that.vars,
            this.mutableVars ++ that.mutableVars,
            this.localFuns ++ that.localFuns,
-           this.typedefs ++ that.typedefs,
            this.localClasses ++ that.localClasses,
+           this.typedefs ++ that.typedefs,
            this.isExtern || that.isExtern)
     }
 
@@ -98,10 +98,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def withNewMutableVars(nvars: Traversable[(Symbol, () => xt.Variable)]) = {
       copy(mutableVars = mutableVars ++ nvars)
-    }
-
-    def withTypeDef(td: xt.TypeDef) = {
-      copy(typedefs = this.typedefs.updated(td.name, td))
     }
 
     def withLocalFun(sym: Symbol, id: Identifier, tparams: Seq[xt.TypeParameterDef], tpe: xt.FunctionType) = {
