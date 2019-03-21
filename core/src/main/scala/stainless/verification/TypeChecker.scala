@@ -644,7 +644,7 @@ trait TypeChecker {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
             val pre = calleeTfd.precondition.get
             val (tc2, freshener) = tc.freshBindWithValues(calleeTfd.params, args)
-            checkType(tc2.withVCKind(kind).setPos(e), freshener.transform(pre), TrueBoolean())
+            buildVC(tc2.withVCKind(kind).setPos(e), freshener.transform(pre))
           } else
             TyperResult.valid
 
@@ -661,16 +661,18 @@ trait TypeChecker {
             val calleeMeasure = calleeMeasureOpt.get
             val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
             checkType(tc, calleeMeasureValue, tc.measureType.get) ++
-            checkType(
+            buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
-              lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure),
-              TrueBoolean()
+              lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
             )
           } else
             TyperResult.valid
 
+        val argsKind = VCKind.Error(s"argument types (call $fiS)")
         (insertFreshLets(calleeTfd.params, args, calleeTfd.returnType),
-          checkDependentTypes(tc, args, calleeTfd.params) ++ trPre ++ trSize)
+          checkDependentTypes(tc.withVCKind(argsKind), args, calleeTfd.params) ++
+          trPre ++
+          trSize)
 
       case ADTSelector(expr, selector) =>
         val (tpe, tr) = inferType(tc, expr)
@@ -699,7 +701,7 @@ trait TypeChecker {
               // In that case we do not need a strictly positive VC check for the index:
               (selectorType, tr)
             } else {
-              (index(id, selectorType, Minus(e,IntegerLiteral(1))), tr ++ checkType(tc.withVCKind(VCKind.UnfoldType), GreaterThan(e, IntegerLiteral(0)), TrueBoolean()))
+              (index(id, selectorType, Minus(e,IntegerLiteral(1))), tr ++ buildVC(tc.withVCKind(VCKind.UnfoldType), GreaterThan(e, IntegerLiteral(0))))
             }
           case _ =>
             throw new TypeCheckingException(e, s"Type of ${expr.asString} is ${tpe.asString}, but an ADT was expected")
@@ -741,7 +743,7 @@ trait TypeChecker {
         )
         val kind = VCKind.fromErr(Some("Non-Negative Size for Sized ADT"))
         (RecursiveType(sortId, tps, size),
-          trInv ++ trZero ++ trSucc ++ checkType(tc.withVCKind(kind), GreaterEquals(size, IntegerLiteral(0)), TrueBoolean()))
+          trInv ++ trZero ++ trSucc ++ buildVC(tc.withVCKind(kind), GreaterEquals(size, IntegerLiteral(0))))
 
       case ADT(id, tps, args) =>
         val cons = getConstructor(id)
@@ -924,7 +926,7 @@ trait TypeChecker {
             val kind = VCKind.fromErr(Some("Equivalent recursive type indices"))
             tr ++ TyperResult(tps1.zip(tps2).map {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
-            }) ++ checkType(tc.withVCKind(kind), Equals(size1, size2), TrueBoolean())
+            }) ++ buildVC(tc.withVCKind(kind), Equals(size1, size2))
           case ADTType(id1, tps1) if (id1 == id2) =>
             tr ++ TyperResult(tps1.zip(tps2).map {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
@@ -1032,9 +1034,9 @@ trait TypeChecker {
         val measure = measureOpt.get
         val (measureType, trMeasureType) = inferType(tcWithPre, measure)
         val trMeasurePos =
-          checkType(
+          buildVC(
             tcWithPre.withVCKind(VCKind.MeasurePositive).setPos(measure),
-            positive(measureType, measure), TrueBoolean())
+            positive(measureType, measure))
         (Some(measureType), trMeasureType ++ trMeasurePos)
       } else {
         (None, TyperResult.valid)
