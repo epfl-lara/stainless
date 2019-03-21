@@ -12,6 +12,19 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
 
   import stainless.trees._
 
+  val maxId = ast.SymbolIdentifier("max")
+  val maxX = ValDef.fresh("x", IntegerType())
+  val maxY = ValDef.fresh("y", IntegerType())
+  val maxFd = new FunDef(
+    maxId,
+    Seq(),
+    Seq(maxX, maxY),
+    IntegerType(),
+    IfExpr(GreaterEquals(maxX.toVariable, maxY.toVariable), maxX.toVariable, maxY.toVariable),
+    Seq()
+  )
+  def max(x: Expr, y: Expr) = FunctionInvocation(maxId, Seq(), Seq(x,y))
+
   val streamId = ast.SymbolIdentifier("Stream")
   val constantId = ast.SymbolIdentifier("constant")
   val streamConsId = ast.SymbolIdentifier("SCons")
@@ -22,20 +35,29 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   val streamCons = new ADTConstructor(streamConsId, streamId, Seq(vdHead, vdTail))
   val streamSort = new ADTSort(streamId, Seq(tpDef), Seq(streamCons), Seq())
 
+  def scons(tpe: Type, head: Expr, tail: Expr, index: Expr): Expr =
+    SizedADT(streamCons.id, Seq(tpe), Seq(head, Lambda(Seq(), tail)), index)
+
+  def scons(tpe: Type, head: Expr, tail: Expr): Expr =
+    ADT(streamCons.id, Seq(tpe), Seq(head, Lambda(Seq(), tail)))
+
+  def head(s: Expr): Expr = ADTSelector(s, vdHead.id)
+  def head(vd: ValDef): Expr = head(vd.toVariable)
+
+  def tail(s: Expr): Expr = Application(ADTSelector(s, vdTail.id), Seq())
+  def tail(vd: ValDef): Expr = tail(vd.toVariable)
+
   val constantTp = TypeParameter.fresh("T")
   val constantN = ValDef(FreshIdentifier("n"), IntegerType())
   val constantArg = ValDef(FreshIdentifier("t"), constantTp)
   val constantCode =
-    SizedADT(streamCons.id, Seq(constantTp),
-      Seq(
-        constantArg.toVariable,
-        Lambda(Seq(),
-          FunctionInvocation(constantId, Seq(constantTp), Seq(
-            Minus(constantN.toVariable, IntegerLiteral(1)),
-            constantArg.toVariable
-          ))
-        )
-      ),
+    scons(
+      constantTp,
+      constantArg.toVariable,
+      FunctionInvocation(constantId, Seq(constantTp), Seq(
+        Minus(constantN.toVariable, IntegerLiteral(1)),
+        constantArg.toVariable
+      )),
       constantN.toVariable
     )
   val constantBody =
@@ -69,21 +91,15 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   val zipS2 = ValDef(FreshIdentifier("s2"), RecursiveType(streamId, Seq(tpY), zipN.toVariable))
 
   val zipCode =
-    SizedADT(streamCons.id, Seq(tpZ),
-      Seq(
-        Application(zipFun.toVariable, Seq(
-          ADTSelector(zipS1.toVariable, vdHead.id),
-          ADTSelector(zipS2.toVariable, vdHead.id)
-        )),
-        Lambda(Seq(),
-          FunctionInvocation(zipWithId, Seq(tpX, tpY, tpZ), Seq(
-            Minus(zipN.toVariable, IntegerLiteral(1)),
-            zipFun.toVariable,
-            Application(ADTSelector(zipS1.toVariable, vdTail.id), Seq()),
-            Application(ADTSelector(zipS2.toVariable, vdTail.id), Seq())
-          ))
-        )
-      ),
+    scons(
+      tpZ,
+      Application(zipFun.toVariable, Seq(head(zipS1), head(zipS2))),
+      FunctionInvocation(zipWithId, Seq(tpX, tpY, tpZ), Seq(
+        Minus(zipN.toVariable, IntegerLiteral(1)),
+        zipFun.toVariable,
+        tail(zipS1),
+        tail(zipS2)
+      )),
       zipN.toVariable
     )
   val zipBody =
@@ -112,25 +128,22 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   val fibId = ast.SymbolIdentifier("fib")
   val fibN = ValDef.fresh("n", IntegerType())
   val fibCode =
-    SizedADT(streamCons.id, Seq(IntegerType()),
-      Seq(IntegerLiteral(0), Lambda(Seq(),
-        SizedADT(streamCons.id, Seq(IntegerType()),
-          Seq(IntegerLiteral(1), Lambda(Seq(),
-            FunctionInvocation(zipWithId, Seq(IntegerType(),IntegerType(),IntegerType()), Seq(
-              Minus(fibN.toVariable, IntegerLiteral(2)),
-              adder,
-              FunctionInvocation(fibId, Seq(), Seq(Minus(fibN.toVariable, IntegerLiteral(2)))),
-              Application(ADTSelector(
-                FunctionInvocation(fibId, Seq(), Seq(Minus(fibN.toVariable, IntegerLiteral(1)))),
-                vdTail.id
-              ), Seq())
-            ))
-          )),
-          Minus(fibN.toVariable, IntegerLiteral(1))
-        ))
+    scons(
+      IntegerType(),
+      IntegerLiteral(0),
+      scons(
+        IntegerType(),
+        IntegerLiteral(1),
+        FunctionInvocation(zipWithId, Seq(IntegerType(),IntegerType(),IntegerType()), Seq(
+          Minus(fibN.toVariable, IntegerLiteral(2)),
+          adder,
+          FunctionInvocation(fibId, Seq(), Seq(Minus(fibN.toVariable, IntegerLiteral(2)))),
+          tail(FunctionInvocation(fibId, Seq(), Seq(Minus(fibN.toVariable, IntegerLiteral(1))))),
+        )),
+        Minus(fibN.toVariable, IntegerLiteral(1))
       ),
       fibN.toVariable
-  )
+    )
   val fibBody =
     Require(
       GreaterEquals(fibN.toVariable, IntegerLiteral(0)),
@@ -149,7 +162,75 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     Seq()
   )
 
-  val funs = Seq(constantFd, zipWithFd, fibFd)
+  // Example is inspired from "A Unifying Approach to Recursive and Co-recursive Definitions"
+  // Replace contiguous sequences of ones by digits between 1 and 9
+  val compressId = ast.SymbolIdentifier("compress")
+  val compressN = ValDef.fresh("n", IntegerType())
+  val compressS = ValDef.fresh("s", ADTType(streamId, Seq(IntegerType())))
+
+  val compressSHead1 = ValDef.fresh("h1", IntegerType())
+  val compressSHead2 = ValDef.fresh("h2", IntegerType())
+  val compressCode =
+    Let(
+      compressSHead1,
+      head(compressS),
+      Let(
+        compressSHead2,
+        head(tail(compressS)),
+        IfExpr(
+          and(
+            GreaterEquals(compressSHead1.toVariable, IntegerLiteral(1)),
+            LessThan(compressSHead1.toVariable, IntegerLiteral(9)),
+            Equals(compressSHead2.toVariable, IntegerLiteral(1))
+          ),
+          FunctionInvocation(
+            compressId,
+            Seq(),
+            Seq(
+              compressN.toVariable,
+              scons(
+                IntegerType(),
+                Plus(compressSHead1.toVariable, IntegerLiteral(1)),
+                tail(tail(compressS))
+              )
+            )
+          ),
+          scons(
+            IntegerType(),
+            compressSHead1.toVariable,
+            FunctionInvocation(
+              compressId,
+              Seq(),
+              Seq(
+                Minus(compressN.toVariable, IntegerLiteral(1)),
+                tail(compressS)
+              )
+            ),
+            compressN.toVariable
+          )
+        )
+      )
+    )
+  val compressBody =
+    Require(
+      GreaterEquals(compressN.toVariable, IntegerLiteral(0)),
+      Decreases(
+        Tuple(Seq(compressN.toVariable, max(Minus(IntegerLiteral(9), head(compressS)), IntegerLiteral(0)))),
+        compressCode
+      )
+    )
+
+  val compressFd = new FunDef(
+    compressId,
+    Seq(),
+    Seq(compressN, compressS),
+    RecursiveType(streamId, Seq(IntegerType()), compressN.toVariable),
+    compressBody,
+    Seq()
+  )
+
+
+  val funs = Seq(constantFd, zipWithFd, fibFd, compressFd, maxFd)
   val syms =
     NoSymbols.withFunctions(funs)
              .withSorts(Seq(streamSort))
@@ -159,9 +240,13 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     val symbols = syms
   }
 
-  // println(program)
-
-  implicit val ctx = inox.TestContext.empty
+  val reporter = new inox.DefaultReporter(Set())
+  implicit val ctx =
+    inox.Context(
+      reporter,
+      new inox.utils.InterruptManager(reporter),
+      inox.Options(Seq(verification.optVCCache(false)))
+    )
   import org.scalatest._
 
   test("Stream examples") {
@@ -169,7 +254,17 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     val future = VerificationChecker.verify(program, ctx)(vcs)
     implicit val ec = ExecutionContext.global
     future.onComplete { res =>
-      for ((vc, vcResult) <- res.get) {
+      val r = res.get
+      val analysis =
+        new VerificationAnalysis {
+          override val program: self.program.type = self.program
+          override val context = ctx
+          override val sources = funs.map(_.id).toSet
+          override val results = r
+        }
+      analysis.toReport.emit(ctx)
+      reporter.info(program.asString)
+      for ((vc, vcResult) <- r) {
         assert(vcResult.isValid)
       }
     }
