@@ -25,6 +25,32 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   )
   def max(x: Expr, y: Expr) = FunctionInvocation(maxId, Seq(), Seq(x,y))
 
+  val checkId = ast.SymbolIdentifier("check")
+  val checkCond = ValDef.fresh("cond", BooleanType())
+  val checkFd = new FunDef(
+    checkId,
+    Seq(),
+    Seq(checkCond),
+    UnitType(),
+    Ensuring(
+      Require(
+        checkCond.toVariable,
+        UnitLiteral()
+      ),
+      Lambda(
+        Seq(ValDef.fresh("u", UnitType())),
+        checkCond.toVariable
+      )
+    ),
+    Seq()
+  )
+  def check(cond: Expr, rest: Expr) =
+    Let(
+      ValDef.fresh("u", RefinementType(ValDef.fresh("u", UnitType()), cond)),
+      FunctionInvocation(checkId, Seq(), Seq(cond)),
+      rest
+    )
+
   val streamId = ast.SymbolIdentifier("Stream")
   val constantId = ast.SymbolIdentifier("constant")
   val streamConsId = ast.SymbolIdentifier("SCons")
@@ -229,8 +255,248 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     Seq()
   )
 
+  val takeId = ast.SymbolIdentifier("take")
+  val takeN = ValDef.fresh("n", IntegerType())
+  val takeTp = TypeParameter.fresh("T")
+  val takeTpDef = TypeParameterDef(takeTp)
+  val takeS = ValDef.fresh("s", RecursiveType(streamId, Seq(takeTp), takeN.toVariable))
 
-  val funs = Seq(constantFd, zipWithFd, fibFd, compressFd, maxFd)
+  val takeCode =
+    IfExpr(
+      LessEquals(takeN.toVariable, IntegerLiteral(0)),
+      head(takeS),
+      FunctionInvocation(
+        takeId, Seq(takeTp), Seq(
+          Minus(takeN.toVariable, IntegerLiteral(1)),
+          tail(takeS)
+        )
+      )
+    )
+  val takeBody =
+    Require(
+      GreaterEquals(takeN.toVariable, IntegerLiteral(0)),
+      Decreases(
+        takeN.toVariable,
+        takeCode
+      )
+    )
+
+  val takeFd = new FunDef(
+    takeId,
+    Seq(takeTpDef),
+    Seq(takeN, takeS),
+    takeTp,
+    takeBody,
+    Seq()
+  )
+
+  def greaterThanType(lowerBound: BigInt) = {
+    val vd = ValDef.fresh("i", IntegerType())
+    RefinementType(vd, GreaterThan(vd.toVariable, IntegerLiteral(lowerBound)))
+  }
+
+  val compressOnesId = ast.SymbolIdentifier("compressOnes")
+  val compressOnesN = ValDef.fresh("n", IntegerType())
+  val compressOnesS = ValDef.fresh("s", ADTType(streamId, Seq(IntegerType())))
+  val compressOnesPiArg =
+    ValDef.fresh("i", greaterThanType(0))
+  val compressOnesP = ValDef.fresh("p",
+    PiType(
+      Seq(compressOnesPiArg),
+      RefinementType(
+        ValDef.fresh("u", UnitType()),
+        Equals(
+          FunctionInvocation(
+            takeId,
+            Seq(IntegerType()),
+            Seq(compressOnesPiArg.toVariable, compressOnesS.toVariable)
+          ),
+          IntegerLiteral(1)
+        )
+      )
+    ))
+
+
+  val compressOnesSHead1 = ValDef.fresh("h1", IntegerType())
+  val compressOnesSHead2 = ValDef.fresh("h2", IntegerType())
+  val compressOnesCode =
+    Let(
+      compressOnesSHead1,
+      head(compressOnesS),
+      Let(
+        compressOnesSHead2,
+        head(tail(compressOnesS)),
+        IfExpr(
+          and(
+            GreaterEquals(compressOnesSHead1.toVariable, IntegerLiteral(1)),
+            LessThan(compressOnesSHead1.toVariable, IntegerLiteral(9)),
+            Equals(compressOnesSHead2.toVariable, IntegerLiteral(1))
+          ),
+          FunctionInvocation(
+            compressOnesId,
+            Seq(),
+            Seq(
+              compressOnesN.toVariable,
+              scons(IntegerType(), Plus(compressOnesSHead1.toVariable, IntegerLiteral(1)), tail(tail(compressOnesS))), {
+                val vd = ValDef.fresh("i", greaterThanType(0))
+                Lambda(
+                  Seq(vd),
+                  Let(
+                    ValDef.fresh("p1",
+                      RefinementType(
+                        ValDef.fresh("u", UnitType()),
+                        Equals(
+                          FunctionInvocation(
+                            takeId,
+                            Seq(IntegerType()),
+                            Seq(Plus(vd.toVariable, IntegerLiteral(1)), compressOnesS.toVariable)
+                          ),
+                          IntegerLiteral(1)
+                        )
+                      )
+                    ),
+                    Application(compressOnesP.toVariable, Seq(Plus(vd.toVariable, IntegerLiteral(1)))),
+                    check(
+                      Equals(
+                        FunctionInvocation(
+                          takeId,
+                          Seq(IntegerType()),
+                          Seq(Plus(vd.toVariable, IntegerLiteral(1)), compressOnesS.toVariable)
+                        ),
+                        IntegerLiteral(1)
+                      ),
+                      check(
+                        Equals(
+                          FunctionInvocation(
+                            takeId,
+                            Seq(IntegerType()),
+                            Seq(vd.toVariable, tail(compressOnesS))
+                          ),
+                          IntegerLiteral(1)
+                        ),
+                        UnitLiteral()
+                      )
+                    )
+                  )
+                )
+              }
+            )
+          ),
+          Let(
+            ValDef.fresh("p1",
+              RefinementType(
+                ValDef.fresh("u", UnitType()),
+                Equals(
+                  FunctionInvocation(
+                    takeId,
+                    Seq(IntegerType()),
+                    Seq(IntegerLiteral(1), compressOnesS.toVariable)
+                  ),
+                  IntegerLiteral(1)
+                )
+              )
+            ),
+            Application(compressOnesP.toVariable, Seq(IntegerLiteral(1))),
+            IfExpr(
+              Equals(compressOnesN.toVariable, IntegerLiteral(0)),
+              UnitLiteral(),
+              FunctionInvocation(
+                compressOnesId,
+                Seq(),
+                Seq(
+                  Minus(compressOnesN.toVariable, IntegerLiteral(1)),
+                  tail(compressOnesS), {
+                    val vd = ValDef.fresh("i", greaterThanType(0))
+                    Lambda(
+                      Seq(vd),
+                      Let(
+                        ValDef.fresh("p1",
+                          RefinementType(
+                            ValDef.fresh("u", UnitType()),
+                            Equals(
+                              FunctionInvocation(
+                                takeId,
+                                Seq(IntegerType()),
+                                Seq(Plus(vd.toVariable, IntegerLiteral(1)), compressOnesS.toVariable)
+                              ),
+                              IntegerLiteral(1)
+                            )
+                          )
+                        ),
+                        Application(compressOnesP.toVariable, Seq(Plus(vd.toVariable, IntegerLiteral(1)))),
+                        check(
+                          Equals(
+                            FunctionInvocation(
+                              takeId,
+                              Seq(IntegerType()),
+                              Seq(Plus(vd.toVariable, IntegerLiteral(1)), compressOnesS.toVariable)
+                            ),
+                            IntegerLiteral(1)
+                          ),
+                          check(
+                            Equals(
+                              FunctionInvocation(
+                                takeId,
+                                Seq(IntegerType()),
+                                Seq(vd.toVariable, tail(compressOnesS))
+                              ),
+                              IntegerLiteral(1)
+                            ),
+                            UnitLiteral()
+                          )
+                        )
+                      )
+                    )
+                  }
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  val compressOnesBody =
+    Ensuring(
+      Require(
+        and(
+          GreaterEquals(head(compressOnesS), IntegerLiteral(1)),
+          LessEquals(head(compressOnesS), IntegerLiteral(9)),
+          GreaterEquals(compressOnesN.toVariable, IntegerLiteral(0))
+        ),
+        Decreases(
+          Tuple(Seq(compressOnesN.toVariable, max(Minus(IntegerLiteral(9), head(compressOnesS)), IntegerLiteral(0)))),
+          compressOnesCode
+        )
+      ),
+      Lambda(
+        Seq(ValDef.fresh("u", UnitType())),
+        Equals(
+          FunctionInvocation(
+            takeId,
+            Seq(IntegerType()),
+            Seq(
+              compressOnesN.toVariable,
+              FunctionInvocation(
+                compressId,
+                Seq(),
+                Seq(compressOnesN.toVariable, compressOnesS.toVariable)
+              )
+            )
+          ),
+          IntegerLiteral(9)
+        )
+      )
+    )
+  val compressOnesFd = new FunDef(
+    compressOnesId,
+    Seq(),
+    Seq(compressOnesN, compressOnesS, compressOnesP),
+    UnitType(),
+    compressOnesBody,
+    Seq()
+  )
+
+  val funs = Seq(constantFd, zipWithFd, fibFd, compressFd, maxFd, takeFd, compressOnesFd, checkFd)
   val syms =
     NoSymbols.withFunctions(funs)
              .withSorts(Seq(streamSort))
@@ -245,9 +511,16 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     inox.Context(
       reporter,
       new inox.utils.InterruptManager(reporter),
-      inox.Options(Seq(verification.optVCCache(false)))
+      inox.Options(
+        Seq(
+          verification.optVCCache(false),
+          inox.optTimeout(3)
+        )
+      ),
     )
   import org.scalatest._
+
+  // reporter.info(program.asString)
 
   test("Stream examples") {
     val vcs = TypeChecker.checkType(program, ctx)(funs.map(_.id))
