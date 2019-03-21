@@ -696,7 +696,7 @@ trait TypeChecker {
                   throw new TypeCheckingException(e, s"Unexpected type ${tpe.asString} for selector ${selector.asString}")
                 )
             if (selectorType == baseType(id, selectorType)) {
-              // In that case we do not need a strictly positive VC check forthe index:
+              // In that case we do not need a strictly positive VC check for the index:
               (selectorType, tr)
             } else {
               (index(id, selectorType, Minus(e,IntegerLiteral(1))), tr ++ checkType(tc.withVCKind(VCKind.UnfoldType), GreaterThan(e, IntegerLiteral(0)), TrueBoolean()))
@@ -925,6 +925,10 @@ trait TypeChecker {
             tr ++ TyperResult(tps1.zip(tps2).map {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
             }) ++ checkType(tc.withVCKind(kind), Equals(size1, size2), TrueBoolean())
+          case ADTType(id1, tps1) if (id1 == id2) =>
+            tr ++ TyperResult(tps1.zip(tps2).map {
+              case (t1,t2) => areEqualTypes(tc, t1, t2)
+            })
           case _ =>
             throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${id2.asString}`")
         }
