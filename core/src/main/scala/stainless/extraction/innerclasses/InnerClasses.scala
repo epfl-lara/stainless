@@ -4,7 +4,8 @@ package stainless
 package extraction
 package innerclasses
 
-/** Lift local classes (ie. class defined within a method body, such as eg. anonymous classes) to the top-level.
+/** Lift local classes (ie. class defined within a method body,
+  * such as eg. anonymous classes) to the top-level.
   *
   * Turns the following program
   *
@@ -172,11 +173,19 @@ trait InnerClasses
     }
 
     def liftLocalClasses(fd: FunDef, ctx: Context): FunctionResult = {
-      val transformer = new LiftingTransformer
-      val result = transformer.transform(fd, ctx)
-      val newSymbols = transformer.result.values.toSeq map { subst =>
-        (transform(subst.cd), subst.methods.map(transform))
+      val lift = new LiftingTransformer
+      val result = lift.transform(fd, ctx)
+      val derived = Derived(fd.id)
+
+      val newSymbols = lift.result.values.toSeq map { subst =>
+        val cd = transform(subst.cd.copy(flags = subst.cd.flags :+ derived))
+        val methods = subst.methods
+          .map(fd => fd.copy(flags = fd.flags :+ derived))
+          .map(transform)
+
+        (cd, methods)
       }
+
       (transform(result), newSymbols)
     }
 
