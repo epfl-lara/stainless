@@ -79,13 +79,13 @@ Case study
   import stainless.collection._
   import stainless.annotation._
 
-  import java.util.concurrent.ConcurrentLinkedDeque
+  import java.util.ArrayDeque
 
   object MessageQueue {
 
     case class MsgQueue[A](
       @extern @pure
-      queue: ConcurrentLinkedDeque[A],
+      queue: ArrayDeque[A],
       @ghost
       var msgs: List[A]
     ) {
@@ -126,7 +126,7 @@ Case study
     object MsgQueue {
       @extern @pure
       def empty[A]: MsgQueue[A] = {
-        MsgQueue(new ConcurrentLinkedDeque(), Nil())
+        MsgQueue(new ArrayDeque(), Nil())
       } ensuring { res =>
         res.isEmpty && res.msgs.isEmpty
       }
