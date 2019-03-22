@@ -181,6 +181,22 @@ A loop invariant must hold:
 Stainless will prove the points (1) and (2) above. Together, and by induction, they imply
 that point (3) holds as well.
 
+Decrease annotation in loops
+****************************
+
+One can also specify that the value of a given expression of numerical type decreases
+at each loop iteration by adding a ``decreases`` measure within the loop body:
+
+.. code-block:: scala
+
+   while(cond) {
+     decreases(expr)
+     body
+   }
+
+Stainless will then emit a verification condition that checks whether the expression
+is strictly positive and decreases at each iteration.
+
 Array access safety
 *******************
 
