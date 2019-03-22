@@ -34,8 +34,8 @@ Pure Scala supports two kinds of top-level declarations:
      case class Identifier(id: BigInt)
   }
 
-Boolean
-#######
+Booleans
+--------
 
 Booleans are used to express truth conditions in Stainless.
 Unlike some proof assistants, there is no separation
@@ -398,10 +398,10 @@ Anonymous classes with an explicit parent are supported as well:
   }
 
 Predefined Types
-****************
+----------------
 
 TupleX
-######
+******
 
 .. code-block:: scala
 
@@ -411,7 +411,7 @@ TupleX
 
 
 Int
-###
+***
 
 .. code-block:: scala
 
@@ -431,7 +431,7 @@ Int
  Integers are treated as 32bits integers and are subject to overflows.
 
 BigInt
-######
+******
 
 .. code-block:: scala
 
@@ -454,7 +454,7 @@ BigInt
   BigInt are mathematical integers (arbitrary size, no overflows).
 
 Real
-####
+****
 
 ``Real`` represents the mathematical real numbers (different from floating points). It is an
 extension to Scala which is meant to write programs closer to their true semantics.
@@ -489,7 +489,7 @@ extension to Scala which is meant to write programs closer to their true semanti
 
 
 Set
-###
+***
 
 .. code-block:: scala
 
@@ -506,7 +506,7 @@ Set
 
 
 Functional Array
-################
+****************
 
 .. code-block:: scala
 
@@ -518,7 +518,7 @@ Functional Array
 
 
 Map
-###
+***
 
 .. code-block:: scala
 
@@ -537,7 +537,7 @@ Map
 
 
 Function
-########
+********
 
 .. code-block:: scala
 
