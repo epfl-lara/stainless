@@ -116,6 +116,28 @@ It is also possible to defined case objects, without fields:
   case object BaseCase extends MyType
 
 
+Copy Method
+***********
+
+The ``copy`` method of classes with immutable fields is extracted as well,
+and ensures that the class invariant (if any) is maintained by requiring it
+to be satisfied as a precondition.
+
+.. code-block:: scala
+
+  case class Foo(x: BigInt) {
+    require(x > 0)
+  }
+
+  def prop(foo: Foo, y: BigInt) = {
+    require(y > 1)
+    foo.copy(x = y)
+  }
+
+.. note::
+  The example above would not verify without the precondition in function ``prop``,
+  as ``Foo`` require its field ``x`` to be positive.
+
 Generics
 --------
 
