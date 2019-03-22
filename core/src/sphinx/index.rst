@@ -18,12 +18,13 @@ Contents:
    purescala
    library
    imperative
-   laws
    verification
-   ghost
-   wrap
    neon
+   laws
+   wrap
+   ghost
    limitations
+   casestudies
    options
    faq
    references
