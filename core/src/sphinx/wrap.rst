@@ -78,6 +78,11 @@ not attempt to extract the method's body, and we can thus freely refer to any of
     }
   }
 
+.. note::
+  Methods marked ``@extern`` are allowed to mention types which Stainless is not able to extract.
+  Such types will be replaced by the *unknown type* ``?`` during the recovery phase.
+  One can inspect which types are replaced during recovery, by supplying the ``--debug=recovery`` flag.
+
 Contracts
 ---------
 
