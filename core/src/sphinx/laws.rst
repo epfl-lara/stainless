@@ -35,7 +35,7 @@ known as *ad-hoc* polymorphism.
 A typeclass is identified by its name, and is associated with a set of
 (usually polymorphic) functions signatures, its *methods*.
 
-It can then be *instanciated* at various types, given that the user is able
+It can then be *instantiated* at various types, given that the user is able
 to provide a concrete implementation for each method. A user can then apply
 these methods to any type for which there is a corresponding instance, which
 essentially corresponds to *overloading*.
@@ -147,7 +147,7 @@ as well as the associativity of the latter.
     x + (y + z) == (x + y) + z
   }.holds
 
-One can then override the law of interest, and instanciate the lemma over the relevant parameters:
+One can then override the law of interest, and instantiate the lemma over the relevant parameters:
 
 .. code-block:: scala
 
@@ -294,5 +294,134 @@ It then becomes possible to unambiguously pick which instance to use depending o
 
   val sum: BigInt     = foldMap(list)(Sum(_)).value     // 5
   val product: BigInt = foldMap(list)(Product(_)).value // 6
+
+Under the hood
+--------------
+
+In this section we describe how laws are encoded. Let's take as an example the
+following typeclass:
+
+.. code-block:: scala
+
+  abstract class Structure[A] {
+    def doSomething(x: A, y: A): A
+
+    @law
+    def someLaw(x: A, y: A): Boolean = {
+      doSomething(x, y) == doSomething(y, x)
+    }
+  }
+
+
+
+And a valid instance for ``BigInt``:
+
+.. code-block:: scala
+
+  val bigIntInstance: Structure[BigInt] = new Structure[BigInt] {
+    override def doSomething(x: BigInt, y: BigInt): BigInt = {
+      x + y
+    }
+
+    override def someLaw(x: BigInt, y: BigInt): Boolean = {
+      super.someLaw(x, y) because {
+        x + y == y + y
+      }
+    }
+  }
+
+
+
+.. code-block:: scala
+
+  abstract class Structure[A] {
+    @abstract
+    def doSomething(x: A, y: A): Boolean = {
+      <empty tree>[A]
+    }
+
+    @abstract
+    def someLaw(x: A, y: A): Boolean = {
+      <empty tree>[Boolean]
+    } ensuring { res => res && this.someLawProp(x, y) }
+
+    def someLawProp(x: A, y: A): Boolean = {
+      this.doSomething(x, y) == this.doSomething(y, x)
+    }
+  }
+
+  val bigIntInstance: Structure[BigInt] = new Structure[BigInt] {
+    def doSomething(x: BigInt, y: BigInt): BigInt = {
+      x + y
+    }
+
+    def someLaw(x: BigInt, y: BigInt): Boolean = {
+      super.someLaw(x, y) because {
+        x + y == y + x
+      }
+    }
+  }
+
+.. code-block:: scala
+
+  abstract class A {
+    def x: BigInt
+
+    @law def constraint = x != 0
+  }
+
+  abstract class B extends A
+
+  abstract class C extends B {
+    override def constraint = x > 0
+  }
+
+  case class D() extends C {
+    def x = 42
+  }
+
+.. code-block:: scala
+
+  abstract class A {
+    def x: BigInt
+
+    @law def constraint$1 = {
+      <empty tree>[Boolean]
+    } ensuring { res => res && this.constraintProp$1 }
+
+    def constraintProp$1 = x != 0
+  }
+
+  abstract class B extends A {
+    @law def constraint$2 = {
+      super.constraint$1 && this.constraintProp$2
+    }
+
+    def constraintProp$2 = true
+  }
+
+  abstract class C extends B {
+    @law def constraint$3 = {
+      super.constraint$2 && this.constraintProp$3
+    }
+
+    def constraintProp$3 = x > 0
+  }
+
+  case class D() extends C {
+    def x = 42
+
+    @law def constraint$3 = {
+      super.constraint$3 && this.constraintProp$4
+    }
+
+    def constraintProp$4 = true
+  }
+
+.. note::
+
+  As can be seen above, calling the super method when refining or proving a law is superfluous,
+  since it is done anyway during the encoding, but can help readability, as doing so makes the
+  code more closely match the semantics of Stainless.
 
 .. [WB89] P. Wadler and S. Blott. 1989. How to make ad-hoc polymorphism less ad hoc.
