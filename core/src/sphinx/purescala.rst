@@ -116,28 +116,6 @@ It is also possible to defined case objects, without fields:
   case object BaseCase extends MyType
 
 
-Copy Method
-***********
-
-The ``copy`` method of classes with immutable fields is extracted as well,
-and ensures that the class invariant (if any) is maintained by requiring it
-to be satisfied as a precondition.
-
-.. code-block:: scala
-
-  case class Foo(x: BigInt) {
-    require(x > 0)
-  }
-
-  def prop(foo: Foo, y: BigInt) = {
-    require(y > 1)
-    foo.copy(x = y)
-  }
-
-.. note::
-  The example above would not verify without the precondition in function ``prop``,
-  as ``Foo`` require its field ``x`` to be positive.
-
 Generics
 --------
 
@@ -176,6 +154,7 @@ You can define methods in classes.
   abstract class List[T] {
     def contains(e: T) = { .. }
   }
+
   case class Cons[T](hd: T, tl: List[T]) extends List[T]
   case object Nil extends List[Nothing]
 
@@ -220,6 +199,41 @@ It is also possible to call methods of a superclass with the ``super`` keyword.
       super.double(x + 1) + 42
     }
   }
+
+Copy Method
+***********
+
+The ``copy`` method of classes with immutable fields is extracted as well,
+and ensures that the class invariant (if any) is maintained by requiring it
+to be satisfied as a precondition.
+
+.. code-block:: scala
+
+  case class Foo(x: BigInt) {
+    require(x > 0)
+  }
+
+  def prop(foo: Foo, y: BigInt) = {
+    require(y > 1)
+    foo.copy(x = y)
+  }
+
+.. note::
+  The example above would not verify without the precondition in function ``prop``,
+  as ``Foo`` require its field ``x`` to be positive.
+
+
+Default Parameters
+******************
+
+Functions and methods can have default values for their parameters.
+
+.. code-block:: scala
+
+  def test(x: Int = 21): Int = x * 2
+
+  assert(test() == 42) // valid
+
 
 Specifications
 --------------
