@@ -61,8 +61,9 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@induct``       | Use the inductive tactic when generating                       |
 |                   | verification conditions.                                       |
 +-------------------+----------------------------------------------------------------+
-| ``@ghost``        | Use the inductive tactic when generating                       |
-|                   | verification conditions.                                       |
+| ``@ghost``        | Drop the annotated field or method during compilation.         |
+|                   | See the :doc:`corresponding section <ghost>` for more          |
+|                   | information.                                                   |
 +-------------------+----------------------------------------------------------------+
 | ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
 |                   | This annotation is useful to define functions                  |
