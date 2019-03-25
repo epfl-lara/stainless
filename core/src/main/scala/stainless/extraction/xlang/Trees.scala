@@ -14,8 +14,6 @@ trait Trees extends innerclasses.Trees { self =>
     case _ => super.extractFlag(name, args)
   }
 
-  case class TypeDef(name: Identifier, rhs: Type) extends Tree
-
   /** $encodingof `import some.package.Path` or `import some.package.path._` */
   case class Import(path: Seq[String], isWildcard: Boolean) extends Tree
 

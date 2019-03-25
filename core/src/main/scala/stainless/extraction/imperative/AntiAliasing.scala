@@ -9,6 +9,7 @@ import inox._
 trait AntiAliasing
   extends oo.CachingPhase
      with SimpleSorts
+     with oo.IdentityTypeDefs
      with oo.SimpleClasses
      with EffectsAnalyzer
      with EffectsChecker

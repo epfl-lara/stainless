@@ -57,6 +57,7 @@ package innerclasses
 trait InnerClasses
   extends oo.CachingPhase
      with IdentitySorts
+     with oo.IdentityTypeDefs
      with oo.SimpleClasses
      with oo.SimplyCachedClasses { self =>
 

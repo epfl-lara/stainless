@@ -5,7 +5,10 @@ package methods
 
 import inox.utils.Position
 
-trait MethodLifting extends oo.ExtractionContext with oo.ExtractionCaches { self =>
+trait MethodLifting
+  extends oo.ExtractionContext
+    with oo.ExtractionCaches { self =>
+
   val s: Trees
   val t: oo.Trees
   import s._

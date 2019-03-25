@@ -8,6 +8,7 @@ trait AdtSpecialization
   extends CachingPhase
      with SimpleFunctions
      with SimpleSorts
+     with IdentityTypeDefs
      with utils.SyntheticSorts { self =>
 
   val s: Trees

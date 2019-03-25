@@ -9,6 +9,7 @@ trait ImperativeCodeElimination
      with SimpleFunctions
      with IdentitySorts
      with oo.IdentityClasses
+     with oo.IdentityTypeDefs
      with SimplyCachedFunctions
      with SimplyCachedSorts
      with oo.SimplyCachedClasses {
