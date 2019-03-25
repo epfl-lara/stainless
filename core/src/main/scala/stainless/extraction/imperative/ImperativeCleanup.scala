@@ -15,6 +15,7 @@ trait ImperativeCleanup
   extends oo.SimplePhase
      with SimplyCachedFunctions
      with SimplyCachedSorts
+     with oo.IdentityTypeDefs
      with oo.SimplyCachedClasses { self =>
 
   val s: Trees

@@ -10,6 +10,7 @@ trait FieldAccessors extends oo.CachingPhase
   with SimpleSorts
   with oo.SimpleClasses
   with SimplyCachedSorts
+  with oo.IdentityTypeDefs
   with oo.SimplyCachedClasses { self =>
 
   val s: Trees

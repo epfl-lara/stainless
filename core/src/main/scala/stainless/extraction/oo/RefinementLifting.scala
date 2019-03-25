@@ -9,6 +9,7 @@ import scala.collection.mutable.{Map => MutableMap}
 trait RefinementLifting
   extends CachingPhase
      with SimpleFunctions
+     with IdentityTypeDefs
      with SimpleClasses
      with SimplyCachedFunctions
      with SimplyCachedSorts

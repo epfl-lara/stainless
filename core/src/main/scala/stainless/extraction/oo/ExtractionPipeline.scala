@@ -14,14 +14,27 @@ trait CachingPhase extends ExtractionContext with extraction.CachingPhase with E
   protected type ClassResult
   protected val classCache: ExtractionCache[s.ClassDef, ClassResult]
 
+  protected type TypeDefResult
+  protected val typeDefCache: ExtractionCache[s.TypeDef, TypeDefResult]
+
   protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult
   protected def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols
 
+  protected def extractTypeDef(context: TransformerContext, cd: s.TypeDef): TypeDefResult
+  protected def registerTypeDefs(symbols: t.Symbols, typeDefs: Seq[TypeDefResult]): t.Symbols
+
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    registerClasses(
+    val withClasses = registerClasses(
       super.extractSymbols(context, symbols),
       symbols.classes.values.map { cd =>
         classCache.cached(cd, context)(extractClass(context, cd))
+      }.toSeq
+    )
+
+    registerTypeDefs(
+      withClasses,
+      symbols.typeDefs.values.map { td =>
+        typeDefCache.cached(td, context)(extractTypeDef(context, td))
       }.toSeq
     )
   }
@@ -47,11 +60,32 @@ trait IdentityClasses extends SimpleClasses with SimplyCachedClasses { self =>
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = identity.transform(cd)
 }
 
-trait SimplePhase extends CachingPhase with extraction.SimplePhase with SimpleClasses { self =>
+trait SimpleTypeDefs extends CachingPhase {
+  val t: Trees
+
+  override protected type TypeDefResult = t.TypeDef
+  override protected def registerTypeDefs(symbols: t.Symbols, classes: Seq[t.TypeDef]): t.Symbols = symbols.withTypeDefs(classes)
+}
+
+trait SimplyCachedTypeDefs extends CachingPhase {
+  override protected final val typeDefCache: ExtractionCache[s.TypeDef, TypeDefResult] = new SimpleCache[s.TypeDef, TypeDefResult]
+}
+
+trait IdentityTypeDefs extends SimpleTypeDefs with SimplyCachedTypeDefs { self =>
+  private[this] final object identity extends oo.TreeTransformer {
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
+  }
+
+  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = identity.transform(td)
+}
+
+trait SimplePhase extends CachingPhase with extraction.SimplePhase with SimpleClasses with SimpleTypeDefs { self =>
   protected type TransformerContext <: oo.TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = context.transform(cd)
+  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = context.transform(td)
 }

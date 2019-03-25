@@ -1287,6 +1287,9 @@ trait TypeEncoding
   // Classes are simply dropped by this phase, so any cache is valid here
   override protected val classCache = new SimpleCache[s.ClassDef, ClassResult]
 
+  // Type definitions are simply dropped by this phase, so any cache is valid here
+  override protected val typeDefCache = new SimpleCache[s.TypeDef, TypeDefResult]
+
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Seq[t.FunDef] = {
     val encoded = context.transform(fd)
 
@@ -1307,6 +1310,11 @@ trait TypeEncoding
   override protected type ClassResult = Unit
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = ()
   override protected def registerClasses(symbols: t.Symbols, classes: Seq[Unit]): t.Symbols = symbols
+
+  // Type definitions are simply dropped by this extraction phase
+  override protected type TypeDefResult = Unit
+  override protected def extractTypeDef(context: TransformerContext, cd: s.TypeDef): TypeDefResult = ()
+  override protected def registerTypeDefs(symbols: t.Symbols, typeDefs: Seq[Unit]): t.Symbols = symbols
 }
 
 object TypeEncoding {

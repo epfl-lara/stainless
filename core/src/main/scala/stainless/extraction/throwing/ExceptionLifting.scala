@@ -8,6 +8,7 @@ trait ExceptionLifting
   extends oo.ExtractionPipeline
      with IdentityFunctions
      with IdentitySorts
+     with oo.IdentityTypeDefs
      with oo.IdentityClasses { self =>
 
   val s: Trees

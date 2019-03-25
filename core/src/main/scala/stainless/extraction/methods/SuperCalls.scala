@@ -60,8 +60,9 @@ import stainless.ast.SymbolIdentifier.IdentifierOps
  */
 trait SuperCalls
   extends oo.CachingPhase
-     with SimpleSorts
-     with oo.SimpleClasses { self =>
+    with SimpleSorts
+    with oo.IdentityTypeDefs
+    with oo.SimpleClasses { self =>
 
   val s: Trees
   val t: Trees

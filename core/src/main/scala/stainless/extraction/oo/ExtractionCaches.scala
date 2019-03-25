@@ -35,5 +35,33 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
   }
 
   override protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
-    symbols.lookupClass(id).map(ClassKey(_)).getOrElse(super.getSimpleKey(id))
+    symbols.lookupClass(id).map(ClassKey(_))
+      .orElse(symbols.lookupTypeDef(id).map(TypeDefKey(_)))
+      .getOrElse(super.getSimpleKey(id))
+
+  private class TypeDefKey(private val td: s.TypeDef) extends CacheKey {
+    override def dependencies = Set(td.id)
+
+    // As in the `FunctionKey` and `SortKey` cases, we have to use a
+    // special representation of the class definition for equality checking
+    // as we can't rely on identifier equality here.
+    private val key = (
+      td.id,
+      td.typeArgs,
+      // td.flags
+    )
+
+    override def hashCode: Int = key.hashCode
+    override def equals(that: Any): Boolean = that match {
+      case tk: TypeDefKey => (td eq tk.td) || (key == tk.key)
+      case _ => false
+    }
+
+    override def toString: String = s"TypeDefKey(${td.id.asString})"
+  }
+
+  protected implicit object TypeDefKey extends Keyable[s.TypeDef] {
+    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = TypeDefKey(symbols.getTypeDef(id))
+    def apply(td: s.TypeDef): CacheKey = new TypeDefKey(td)
+  }
 }

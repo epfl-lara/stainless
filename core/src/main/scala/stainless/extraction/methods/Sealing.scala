@@ -8,6 +8,7 @@ import scala.language.existentials
 
 trait Sealing extends oo.CachingPhase
   with IdentitySorts
+  with oo.IdentityTypeDefs
   with MutabilityAnalyzer { self =>
 
 

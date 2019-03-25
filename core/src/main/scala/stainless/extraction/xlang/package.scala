@@ -11,7 +11,8 @@ package object xlang {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort],
-      classes: Map[Identifier, ClassDef]
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
     ) extends ClassSymbols with AbstractSymbols
 
     object printer extends Printer { val trees: xlang.trees.type = xlang.trees }
@@ -23,7 +24,12 @@ package object xlang {
     val lowering: ExtractionPipeline {
       val s: trees.type
       val t: innerclasses.trees.type
-    } = new oo.SimplePhase with SimplyCachedFunctions with SimplyCachedSorts with oo.SimplyCachedClasses { self =>
+    } = new oo.SimplePhase
+          with SimplyCachedFunctions
+          with SimplyCachedSorts
+          with oo.IdentityTypeDefs
+          with oo.SimplyCachedClasses { self =>
+
       override val s: trees.type = trees
       override val t: innerclasses.trees.type = innerclasses.trees
       override val context = ctx

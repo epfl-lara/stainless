@@ -386,6 +386,17 @@ trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with
       cd.flags.map(transform(_, env))
     ).copiedFrom(cd)
   }
+
+  def transform(td: s.TypeDef): t.TypeDef = {
+    val env = initEnv
+
+    new t.TypeDef(
+      transform(td.id, env),
+      td.tparams.map(transform(_, env)),
+      transform(td.rhs, env),
+      // td.flags.map(transform(_, env))
+    ).copiedFrom(td)
+  }
 }
 
 trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
@@ -402,6 +413,14 @@ trait DefinitionTraverser extends inox.transformers.DefinitionTraverser with tra
     cd.fields.foreach(traverse(_, env))
     cd.flags.foreach(traverse(_, env))
   }
+
+  def traverse(td: trees.TypeDef): Unit = {
+    val env = initEnv
+
+    traverse(td.id, env)
+    td.tparams.foreach(traverse(_, env))
+    traverse(td.rhs, env)
+  }
 }
 
 trait TreeTraverser extends transformers.TreeTraverser with DefinitionTraverser
@@ -411,9 +430,11 @@ trait SimpleSymbolTransformer extends inox.transformers.SimpleSymbolTransformer 
   val t: Trees
 
   protected def transformClass(cd: s.ClassDef): t.ClassDef
+  protected def transformTypeDef(td: s.TypeDef): t.TypeDef
 
   override def transform(syms: s.Symbols): t.Symbols = super.transform(syms)
     .withClasses(syms.classes.values.toSeq.map(transformClass))
+    .withTypeDefs(syms.typeDefs.values.toSeq.map(transformTypeDef))
 }
 
 object SymbolTransformer {
@@ -439,6 +460,17 @@ object SymbolTransformer {
         cd.fields.map(vd => trans.transform(vd, env)),
         cd.flags.map(f => trans.transform(f, env))
       ).copiedFrom(cd)
+    }
+
+    protected def transformTypeDef(td: s.TypeDef): t.TypeDef = {
+      val env = trans.initEnv
+
+      new t.TypeDef(
+        trans.transform(td.id, env),
+        td.tparams.map(tdef => trans.transform(tdef, env)),
+        trans.transform(td.rhs, env),
+        // td.flags.map(f => trans.transform(f, env))
+      ).copiedFrom(td)
     }
   }
 }

@@ -95,7 +95,25 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     @inline def toType = ClassType(id, tps).copiedFrom(this)
   }
 
+  class TypeDef(
+    val id: Identifier,
+    val tparams: Seq[TypeParameterDef],
+    val rhs: Type,
+    // val flags: Seq[Flag],
+  ) extends Tree {
+    def typeArgs = tparams map (_.tp)
+
+    def typed(tps: Seq[Type])(implicit s: Symbols): TypedTypeDef = TypedTypeDef(this, tps)
+    def typed(implicit s: Symbols): TypedTypeDef = typed(tparams.map(_.tp))
+  }
+
+  case class TypedTypeDef(td: TypeDef, tps: Seq[Type]) extends Tree {
+    copiedFrom(td)
+  }
+
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")
+
+  case class TypeDefLookupException(id: Identifier) extends LookupException(id, "type def")
 
 
   type Symbols >: Null <: AbstractSymbols
@@ -107,6 +125,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
        with SymbolOps { self0: Symbols =>
 
     val classes: Map[Identifier, ClassDef]
+    val typeDefs: Map[Identifier, TypeDef]
 
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
     def lookupClass(id: Identifier): Option[ClassDef] = classes.get(id)
@@ -117,10 +136,27 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
         res
       })
 
-    def getClass(id: Identifier): ClassDef = lookupClass(id).getOrElse(throw ClassLookupException(id))
-    def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef = lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
+    private val typedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[TypedTypeDef]] = MutableMap.empty
+    def getClass(id: Identifier): ClassDef =
+      lookupClass(id).getOrElse(throw ClassLookupException(id))
+    def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef =
+      lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
+
+    def lookupTypeDef(id: Identifier): Option[TypeDef] = typeDefs.get(id)
+    def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[TypedTypeDef] =
+      typedTypeDefCache.getOrElse(id -> tps, {
+        val res = lookupTypeDef(id).map(_.typed(tps))
+        typedTypeDefCache(id -> tps) = res
+        res
+      })
+
+    def getTypeDef(id: Identifier): TypeDef =
+      lookupTypeDef(id).getOrElse(throw TypeDefLookupException(id))
+    def getTypeDef(id: Identifier, tps: Seq[Type]): TypedTypeDef =
+      lookupTypeDef(id, tps).getOrElse(throw TypeDefLookupException(id))
 
     override def asString(implicit opts: PrinterOptions): String = {
+      typeDefs.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
       classes.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
         "\n\n-----------\n\n" +
         super.asString
@@ -138,6 +174,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     override protected def ensureWellFormedSymbols: Unit = {
       super.ensureWellFormedSymbols
       for ((_, cd) <- classes) ensureWellFormedClass(cd)
+      for ((_, td) <- typeDefs) ensureWellFormedTypeDef(td)
     }
 
     protected def ensureWellFormedClass(cd: ClassDef): Unit = {
@@ -146,36 +183,49 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       }
 
       cd.parents.find(!_.tcd.cd.flags.contains(IsAbstract)).foreach { pcd =>
-        throw NotWellFormedException(cd, 
+        throw NotWellFormedException(cd,
           Some(s"a concrete class (${pcd.id}) cannot be extended (by ${cd.id}).")
         )
       }
-      
+
       cd.fields.groupBy(_.id).find(_._2.size > 1).foreach { case (id, vds) =>
-        throw NotWellFormedException(cd, 
+        throw NotWellFormedException(cd,
           Some(s"there are at least two fields with the same id ($id) in ${cd.id} (${vds.mkString(",")}).")
         )
       }
     }
 
+    protected def ensureWellFormedTypeDef(td: TypeDef): Unit = {
+      // TODO: @romac
+    }
+
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
-      case sym: AbstractSymbols => classes == sym.classes
+      case sym: AbstractSymbols => classes == sym.classes && typeDefs == sym.typeDefs
       case _ => false
     })
 
-    override def hashCode: Int = super.hashCode + 31 * classes.hashCode
+    override def hashCode: Int = {
+      var result = super.hashCode
+      result = 31 * result + classes.hashCode
+      result = 31 * result + typeDefs.hashCode
+      result
+    }
 
     def withClasses(classes: Seq[ClassDef]): Symbols
+    def withTypeDefs(typeDefs: Seq[TypeDef]): Symbols
 
     protected class Lookup extends super.Lookup {
       override def get[T <: Definition : ClassTag](name: String): Option[T] = ({
         if (classTag[ClassDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, classes)
+        else if (classTag[TypeDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, typeDefs)
         else super.get[T](name)
       }).asInstanceOf[Option[T]]
 
       override def apply[T <: Definition : ClassTag](name: String): T = {
         if (classTag[ClassDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
           find(name, classes).getOrElse(throw ClassLookupException(FreshIdentifier(name))).asInstanceOf[T]
+        } else if (classTag[TypeDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
+          find(name, typeDefs).getOrElse(throw TypeDefLookupException(FreshIdentifier(name))).asInstanceOf[T]
         } else {
           super.apply[T](name)
         }

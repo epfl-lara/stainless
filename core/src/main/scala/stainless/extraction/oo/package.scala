@@ -11,7 +11,8 @@ package object oo {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort],
-      classes: Map[Identifier, ClassDef]
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
     ) extends ClassSymbols
 
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
