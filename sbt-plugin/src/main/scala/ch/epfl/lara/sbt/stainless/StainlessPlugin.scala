@@ -90,7 +90,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
     val config = StainlessLibSources
     val sourceJars = fetchJars(
-      update.value,
+      updateClassifiers.value,
       config,
       artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
     )
