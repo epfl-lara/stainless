@@ -179,6 +179,7 @@ lazy val `stainless-core` = (project in file("core"))
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
+  .settings(commonSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
     // don't publish binaries - stainless-library is only consumed as a sources component
@@ -186,7 +187,6 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
     crossVersion := CrossVersion.full,
     scalaSource in Compile := baseDirectory.value
   )
-  .settings(commonSettings, publishMavenSettings)
 
 lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
   name,
@@ -294,6 +294,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     scriptedBufferLog := false,
     scriptedDependencies := {
       publishLocal.value
+      (update in `stainless-library`).value
       (publishLocal in `stainless-library`).value
       (publishLocal in `stainless-scalac-plugin`).value
     }
