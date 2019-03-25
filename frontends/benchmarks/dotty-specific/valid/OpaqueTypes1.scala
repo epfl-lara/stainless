@@ -18,18 +18,13 @@ object OpaqueTypes1 {
     }
 
     object ops {
-      @library
-      def (p: Positive) toBigInt: BigInt = p ensuring { _ >= 0 }
+      def (p: Positive) toBigInt: BigInt = p
     }
   }
 
   import Positive.ops._
 
-  def test(p: Positive) = {
-    assert(p.toBigInt >= 0)
-  }
-
-  def test2 = {
+  def test = {
     val p = Positive(42)
     assert(p.toBigInt == 42)
   }
