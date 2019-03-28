@@ -8,6 +8,9 @@ import scala.concurrent._
 import org.scalatest._
 import org.scalatest.concurrent._
 
+import scala.concurrent.{ Await, Future }
+import scala.concurrent.duration._
+
 class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { self =>
 
   import stainless.trees._
@@ -514,7 +517,7 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
       inox.Options(
         Seq(
           verification.optVCCache(false),
-          inox.optTimeout(3)
+          inox.optTimeout(10)
         )
       ),
     )
@@ -526,20 +529,18 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     val vcs = TypeChecker.checkType(program, ctx)(funs.map(_.id))
     val future = VerificationChecker.verify(program, ctx)(vcs)
     implicit val ec = ExecutionContext.global
-    future.onComplete { res =>
-      val r = res.get
-      val analysis =
-        new VerificationAnalysis {
-          override val program: self.program.type = self.program
-          override val context = ctx
-          override val sources = funs.map(_.id).toSet
-          override val results = r
-        }
-      analysis.toReport.emit(ctx)
-      reporter.info(program.asString)
-      for ((vc, vcResult) <- r) {
-        assert(vcResult.isValid)
+    val r = Await.result(future, Duration.Inf)
+    val analysis =
+      new VerificationAnalysis {
+        override val program: self.program.type = self.program
+        override val context = ctx
+        override val sources = funs.map(_.id).toSet
+        override val results = r
       }
+    analysis.toReport.emit(ctx)
+    reporter.info(program.asString)
+    for ((vc, vcResult) <- r) {
+      assert(vcResult.isValid)
     }
   }
 
