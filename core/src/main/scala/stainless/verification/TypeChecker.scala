@@ -364,13 +364,18 @@ trait TypeChecker {
     vd.copy(tpe = index(sort, vd.tpe, size)).setPos(vd)
   }
 
-  // Needs to be refined
   def baseType(sort: Identifier, tpe: Type): Type = {
-    val collector = symbols.getSortCollector
-    collector.traverse(tpe)
     tpe match {
-      case _ if (collector.result.forall(id => !symbols.dependencies(id).contains(sort))) => tpe
-      case _ => ValueType(tpe)
+      case TupleType(tps) => TupleType(tps.map(baseType(sort, _)))
+      case _ =>
+        val collector = symbols.getSortCollector
+        collector.traverse(tpe)
+
+        // If every sort `sort2` that appears in `tpe` does not depend on `sort`
+        // we can return the same type
+        if (collector.result.forall(sort2 => !symbols.dependencies(sort2).contains(sort))) tpe
+        // Otherwise we return `ValueType` (which represents a form of Top type) to approximate
+        else ValueType(tpe)
     }
   }
 
