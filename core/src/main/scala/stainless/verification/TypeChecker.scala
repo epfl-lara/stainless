@@ -1150,7 +1150,6 @@ object TypeChecker {
       val program: p.type = p
       val context = ctx
     } with TypeChecker
-    // typeChecker.checkFunctionsAndADTs(funs ++ p.symbols.functions.map(_._1).filter(id => Set("fib", "constant", "zipWith").contains(id.name)))
     typeChecker.checkFunctionsAndADTs(funs)
   }
 
