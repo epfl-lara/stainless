@@ -153,8 +153,11 @@ trait TypeEncoding
 
   private[this] val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
-  private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr =
-    ((e, tpe.getType(scope.symbols), expected.getType(scope.symbols)) match {
+  private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr = {
+    val t1 = scope.symbols.resolve(tpe.getType(scope.symbols))
+    val t2 = scope.symbols.resolve(expected.getType(scope.symbols))
+
+    ((e, t1, t2) match {
       case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
@@ -285,6 +288,7 @@ trait TypeEncoding
         t.BooleanLiteral(false).copiedFrom(e)
       )
     }).copiedFrom(e)
+  }
 
 
   /* ====================================
