@@ -134,7 +134,6 @@ object ListWithSize {
     } holds
 
     // proved with unrolling=4
-    @induct
     def concat(l1: List, l2: List) : List = {
       concat0(l1, l2, Nil()) ensuring(content(_) == content(l1) ++ content(l2))
     }
