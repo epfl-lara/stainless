@@ -1602,7 +1602,7 @@ trait CodeExtraction extends ASTExtractors {
       }
 
     case tr @ TypeRef(_, sym, tps) if sym.isAliasType =>
-      xt.TypeApply(xt.TypeSelector(None, getIdentifier(sym)), tps map extractType)
+      xt.TypeApply(xt.TypeSelect(None, getIdentifier(sym)), tps map extractType)
 
     case tt: ThisType =>
       val id = getIdentifier(tt.sym)

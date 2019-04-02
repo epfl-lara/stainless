@@ -22,7 +22,7 @@ trait DependencyGraph extends ast.DependencyGraph {
       case ClassType(id, _) =>
         register(id)
         super.traverse(tpe)
-      case TypeSelector(_, id) =>
+      case TypeSelect(_, id) =>
         register(id)
         super.traverse(tpe)
       case _ =>
