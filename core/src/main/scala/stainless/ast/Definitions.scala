@@ -9,6 +9,8 @@ import scala.collection.mutable.{Map => MutableMap}
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   case object Law extends Flag("law", Seq.empty)
+  // TODO: Move to Inox?
+  case object Erasable extends Flag("erasable", Seq.empty)
   case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
@@ -23,6 +25,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law
+    case ("erasable", Seq()) => Erasable
     case ("ghost", Seq()) => Ghost
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
