@@ -11,7 +11,7 @@ object typedefs {
 
   type IntStuff = Stuff[BigInt]
 
-  type SomeStuff[Box] = Stuff[(Box, Box)]
+  type SomeStuff[A, B] = Stuff[(A, B)]
 
   def hello(x: BigInt): Hello[BigInt] = {
     assert(x == BigInt(0))
@@ -33,5 +33,10 @@ object typedefs {
     a.x
   }
 
+  def someStuff(a: SomeStuff[BigInt, Hello[BigInt]]): BigInt = {
+    val res = a.x._1 + a.x._2
+    assert(res == BigInt(0))
+    res
+  }
 
 }
