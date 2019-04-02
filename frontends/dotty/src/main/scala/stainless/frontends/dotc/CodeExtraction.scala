@@ -70,7 +70,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
     typedefs: Map[Identifier, xt.TypeDef] = Map(),
-    isExtern: Boolean = false
+    isExtern: Boolean = false,
+    resolveTypes: Boolean = true
   ) {
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
@@ -79,7 +80,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
            this.localFuns ++ that.localFuns,
            this.localClasses ++ that.localClasses,
            this.typedefs ++ that.typedefs,
-           this.isExtern || that.isExtern)
+           this.isExtern || that.isExtern,
+           this.resolveTypes || that.resolveTypes)
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -114,6 +116,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def withLocalClass(lcd: xt.LocalClassDef) = {
       copy(localClasses = this.localClasses + (lcd.id -> lcd))
+    }
+
+    def setResolveTypes(resolveTypes: Boolean) = {
+      copy(resolveTypes = resolveTypes)
     }
   }
 
@@ -1416,8 +1422,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
         }
 
-      case Some(lhs) =>
-        extractType(lhs) match {
+      case Some(lhs) => extractType(lhs)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           val id = if (sym is ParamAccessor) getParam(sym) else getIdentifier(sym)
           xt.MethodInvocation(extractTree(lhs), id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
@@ -1438,10 +1443,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
         case ft: xt.FunctionType =>
           xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
-
-        case ta: xt.TypeApply =>
-          val id = if (sym is ParamAccessor) getParam(sym) else getIdentifier(sym)
-          xt.MethodInvocation(extractTree(lhs), id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
 
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
@@ -1638,9 +1639,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val lhs = extractTree(lhs0)
     val rhs = extractTree(rhs0)
 
-    val ltpe = extractType(lhs0)
+    val ltpe = extractType(lhs0)(dctx.setResolveTypes(true))
     checkBits(lhs0, ltpe)
-    val rtpe = extractType(rhs0)
+    val rtpe = extractType(rhs0)(dctx.setResolveTypes(true))
     checkBits(rhs0, rtpe)
 
     val id = { (e: xt.Expr) => e }
@@ -1656,9 +1657,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32)
       case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
       case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
-
-      // FIXME: Typedefs
-      case (xt.BVType(_,_), _: xt.TypeApply) | (_: xt.TypeApply, xt.BVType(_,_)) => (id, id)
 
       case (xt.BVType(_,_), _) | (_, xt.BVType(_,_)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
@@ -1756,11 +1754,17 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
         }
 
+      case tr: TypeRef if tr.symbol.info.isTypeAlias && dctx.resolveTypes =>
+        extractType(tr.widenDealias)
+
       case tr: TypeRef if tr.symbol.info.isTypeAlias =>
         xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), Seq.empty)
 
-      case tr: TypeRef if tr.symbol.isOpaqueHelper =>
+      case tr: TypeRef if tr.symbol.isOpaqueHelper && dctx.resolveTypes =>
         extractType(tr.translucentSuperType)
+
+      case tr: TypeRef if tr.symbol.isOpaqueHelper =>
+        xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), Seq.empty) // FIXME: Args?
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
         extractType(TypeRef(prefix.widenTermRefExpr, name))
