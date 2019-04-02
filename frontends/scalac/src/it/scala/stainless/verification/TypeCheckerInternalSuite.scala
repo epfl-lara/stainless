@@ -77,7 +77,7 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   def tail(vd: ValDef): Expr = tail(vd.toVariable)
 
   val constantTp = TypeParameter.fresh("T")
-  val constantN = ValDef(FreshIdentifier("n"), IntegerType())
+  val constantN = ValDef(FreshIdentifier("n"), IntegerType(), Seq(Erasable))
   val constantArg = ValDef(FreshIdentifier("t"), constantTp)
   val constantCode =
     scons(
@@ -114,7 +114,7 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   val tpZ = TypeParameter.fresh("Z")
   val tpZDef = TypeParameterDef(tpZ)
 
-  val zipN = ValDef(FreshIdentifier("n"), IntegerType())
+  val zipN = ValDef(FreshIdentifier("n"), IntegerType(), Seq(Erasable))
   val zipFun = ValDef(FreshIdentifier("f"), FunctionType(Seq(tpX, tpY), tpZ))
   val zipS1 = ValDef(FreshIdentifier("s1"), RecursiveType(streamId, Seq(tpX), zipN.toVariable))
   val zipS2 = ValDef(FreshIdentifier("s2"), RecursiveType(streamId, Seq(tpY), zipN.toVariable))
@@ -155,7 +155,7 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     Plus(adderParam1.toVariable, adderParam2.toVariable))
 
   val fibId = ast.SymbolIdentifier("fib")
-  val fibN = ValDef.fresh("n", IntegerType())
+  val fibN = ValDef(FreshIdentifier("n"), IntegerType(), Seq(Erasable))
   val fibCode =
     scons(
       IntegerType(),
@@ -194,7 +194,7 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
   // Example is inspired from "A Unifying Approach to Recursive and Co-recursive Definitions"
   // Replace contiguous sequences of ones by digits between 1 and 9
   val compressId = ast.SymbolIdentifier("compress")
-  val compressN = ValDef.fresh("n", IntegerType())
+  val compressN = ValDef(FreshIdentifier("n"), IntegerType(), Seq(Erasable))
   val compressS = ValDef.fresh("s", ADTType(streamId, Seq(IntegerType())))
 
   val compressSHead1 = ValDef.fresh("h1", IntegerType())

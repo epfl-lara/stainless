@@ -978,6 +978,7 @@ trait TypeChecker {
   }
 
   def checkType(id: Identifier): TyperResult = {
+    // TODO: check that arguments marked by `@erasable` can be erased
     val fd = getFunction(id)
     val deps = dependencies(id)
     val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
