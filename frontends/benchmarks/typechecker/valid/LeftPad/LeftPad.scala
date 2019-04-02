@@ -11,7 +11,6 @@ object Leftpad {
   }
 
   def appendCons[T](@induct l1: List[T], l2: List[T], x: T) = {
-    decreases(l1)
     l1 ++ (x :: l2) == (l1 :+ x) ++ l2
   } holds
 

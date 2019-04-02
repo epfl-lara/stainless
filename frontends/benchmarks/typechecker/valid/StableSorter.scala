@@ -51,7 +51,6 @@ object StableSorter {
   // ... and the following trivial property holds:
   def trivProp2[T](@induct l: List[(T, BigInt)], n: BigInt): Boolean = {
     require(l2AtLeast(l, n + 1))
-    decreases(l)
 
     l2AtLeast(l, n)
   }.holds
@@ -90,7 +89,6 @@ object StableSorter {
   // To prove that insertion sort is stable, we first show that insertion is stable:
   def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt): Boolean = {
     require(isStableSorted(l, key) && l2AtLeast(l, n))
-    decreases(l)
 
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val res = insert((t, n), l, keyAnn)

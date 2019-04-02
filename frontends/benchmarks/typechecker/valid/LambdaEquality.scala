@@ -9,7 +9,6 @@ object LambdaEquality {
   def app[A, B](x: A)(f: A => B): B = f(x)
 
   def mapId[A](@induct xs: List[A]): Boolean = {
-    decreases(xs)
     xs.map[A](id) == xs
   }.holds
 

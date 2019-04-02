@@ -106,7 +106,6 @@ object ListWithSize {
 
     @induct
     def nilAppend(l : List) : Boolean = {
-      decreases(l)
       append(l, Nil()) == l
     }.holds
 
@@ -117,7 +116,6 @@ object ListWithSize {
 
     @induct
     def appendAssoc(xs : List, ys : List, zs : List) : Boolean = {
-      decreases(xs)
       (append(append(xs, ys), zs) == append(xs, append(ys, zs)))
     } holds
 
@@ -127,24 +125,20 @@ object ListWithSize {
 
     @induct
     def reverse0exposed(l1 : List, l2 : List) : Boolean = {
-      decreases(l1)
       (reverse0(l1, l2) == append(reverse(l1), l2))
     } // holds
 
     @induct
     def sizeAppend(l1 : List, l2 : List) : Boolean = {
-      decreases(l1)
       (size(append(l1, l2)) == size(l1) + size(l2))
     } holds
 
     // proved with unrolling=4
     @induct
     def concat(l1: List, l2: List) : List = {
-      decreases(l1)
       concat0(l1, l2, Nil()) ensuring(content(_) == content(l1) ++ content(l2))
     }
 
-    @induct
     def concat0(l1: List, l2: List, l3: List) : List = {
       decreases(l1, l2)
       l1 match {

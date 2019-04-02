@@ -38,7 +38,6 @@ object PartitionExample {
   }
 
   def partitionMultiplicity(@induct l: IList, p: BigInt => Boolean, x: BigInt): Boolean = {
-    decreases(l)
     val (l1, l2) = partition(l, p)
     count(l, x) == count(l1, x) + count(l2, x)
   } holds

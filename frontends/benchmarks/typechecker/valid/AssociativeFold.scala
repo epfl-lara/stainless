@@ -94,7 +94,6 @@ object FoldAssociative {
 
   @induct
   def lemma_reassociative_presplit(l1: List, l2: List): Boolean = {
-    decreases(l1)
     val f = (x: Int, s: Int) => x + s
     val list = append(l1, l2)
     foldRight(list, 0, f) == foldRight(l1, 0, f) + foldRight(l2, 0, f)

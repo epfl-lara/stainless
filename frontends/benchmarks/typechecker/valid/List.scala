@@ -539,14 +539,12 @@ sealed abstract class LList[T] {
 
   @induct
   def partitionMultiplicity(p: T => Boolean, x: T): Boolean = {
-    decreases(this)
     val (l1, l2) = partition(p)
     count(_ == x) == l1.count(_ == x) + l2.count(_ == x)
   } holds
 
   @induct
   def partitionMultiplicity2(p: T => Boolean, p2: T => Boolean): Boolean = {
-    decreases(this)
     val (l1, l2) = partition(p)
     count(p2) == l1.count(p2) + l2.count(p2)
   } holds
@@ -810,13 +808,11 @@ object LListSpecs {
 
   @induct
   def appendAssoc[T](l1: LList[T], l2: LList[T], l3: LList[T]): Boolean = {
-    decreases(l1)
     (l1 ++ l2) ++ l3 == l1 ++ (l2 ++ l3)
   }.holds
 
   @induct
   def rightUnitAppend[T](l1: LList[T]): Boolean = {
-    decreases(l1)
     l1 ++ LNil() == l1
   }.holds
 
@@ -927,7 +923,6 @@ object LListSpecs {
 
   @induct
   def scanVsFoldRight[A,B](l: LList[A], z: B, f: (A,B) => B): Boolean = {
-    decreases(l)
     l.scanRight(z)(f).head == l.foldRight(z)(f)
   }.holds
 

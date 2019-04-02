@@ -28,7 +28,6 @@ object Induction {
 
   @induct
   def plus_n_O_auto(n: Nat): Boolean = {
-    decreases(n)
     n + O == n
   } holds
 
@@ -38,13 +37,11 @@ object Induction {
 
   @induct
   def mult_0_r(n: Nat) = {
-    decreases(n)
     n * O == O
   } holds
 
   @induct
   def plus_n_Sm(n: Nat, m: Nat) = {
-    decreases(n)
     S (n + m) == n + (S(m))
   } holds
 
@@ -63,7 +60,6 @@ object Induction {
 
   @induct
   def plus_assoc(n: Nat, m: Nat, p: Nat) = {
-    decreases(n)
     n + (m + p) == (n + m) + p
   } holds
 
@@ -98,7 +94,6 @@ object Induction {
 
   @induct
   def evenb_S(n: Nat): Boolean = {
-    decreases(n)
     evenb (S(n)) == !evenb(n)
   } holds
 
@@ -167,7 +162,6 @@ object Induction {
 
   @induct
   def leb_refl(n: Nat) = {
-    decreases(n)
     leb(n,n)
   } holds
 
@@ -182,7 +176,6 @@ object Induction {
   @induct
   def plus_ble_compat_l(p: Nat, n: Nat, m: Nat) = {
     require(leb(n,m))
-    decreases(p)
 
     leb(p+n,p+m)
   } holds
@@ -248,7 +241,6 @@ object Induction {
 
   @induct
   def beq_nat_refl(n: Nat) = {
-    decreases(n)
     beq_nat(n,n)
   } holds
 

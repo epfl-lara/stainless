@@ -55,12 +55,10 @@ object AmortizedQueue {
   } ensuring (res => size(res) == size(l1) + size(l2) && content(res) == content(l1) ++ content(l2))
 
   def concatNil(@induct l: List) = {
-    decreases(l)
     concat(l, Nil()) == l
   }.holds
 
   def concatAssoc(@induct l1: List, l2: List, l3: List) = {
-    decreases(l1)
     concat(l1, concat(l2, l3)) == concat(concat(l1, l2), l3)
   }.holds
 

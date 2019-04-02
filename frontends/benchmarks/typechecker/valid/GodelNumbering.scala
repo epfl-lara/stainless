@@ -78,20 +78,17 @@ object GodelNumbering {
 
   @induct
   def plus_zero(n: Nat): Boolean = {
-    decreases(n)
     n + Zero == n
   }.holds
   def zero_plus(n: Nat): Boolean = { Zero + n == n }.holds
 
   @induct
   def minus_identity(n: Nat): Boolean = {
-    decreases(n)
     n - n == Zero
   }.holds
 
   @induct
   def associative_plus(n1: Nat, n2: Nat, n3: Nat): Boolean = {
-    decreases(n1)
     (n1 + n2) + n3 == n1 + (n2 + n3)
   }.holds
 
@@ -300,14 +297,12 @@ object GodelNumbering {
 
   @induct
   def increasing_plus(n1: Nat, n2: Nat): Boolean = {
-    decreases(n1)
     n1 <= n1 + n2
   }.holds
 
   @induct
   def increasing_plus_strict(n1: Nat, n2: Nat): Boolean = {
     require(n2 > Zero)
-    decreases(n1)
     n1 < n1 + n2
   }.holds
 

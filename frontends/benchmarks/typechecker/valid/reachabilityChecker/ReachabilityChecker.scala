@@ -552,7 +552,6 @@ object ReachabilityChecker {
 
   def simpleAppend[X](@induct t: List[X], x: X): Boolean = {
     require(simple(t) && !t.contains(x))
-    decreases(t)
 
     check(t.isEmpty || simpleAppend(t.tail, x))
 

@@ -24,12 +24,10 @@ object QuickSortFilter {
 
   def append_sorted(@induct l1: List[BigInt], l2: List[BigInt]): Boolean = {
     require(isSorted(l1) && isSorted(l2) && (l1.isEmpty || l2.isEmpty || l1.last <= l2.head))
-    decreases(l1)
     isSorted(l1 ++ l2)
   }.holds
 
   def filter_equal_sorted(@induct ls: List[BigInt], x: BigInt): Boolean = {
-    decreases(ls)
     isSorted(ls filter (_ == x))
   }.holds
 
@@ -39,31 +37,26 @@ object QuickSortFilter {
   }.holds
 
   def forall_last(@induct ls: List[BigInt], p: BigInt => Boolean): Boolean = {
-    decreases(ls)
     ls.forall(p) ==> (ls.isEmpty || p(ls.last))
   }.holds
 
   def append_preserves_forall(@induct l1: List[BigInt], l2: List[BigInt], p: BigInt => Boolean): Boolean = {
     require(l1.forall(p) && l2.forall(p))
-    decreases(l1)
     (l1 ++ l2).forall(p)
   }.holds
 
   def filter_preserves_forall(@induct ls: List[BigInt], p1: BigInt => Boolean, p2: BigInt => Boolean): Boolean = {
     require(ls.forall(p2))
-    decreases(ls)
     ls.filter(p1).forall(p2)
   }.holds
 
   def forall_lt_implies_le(@induct ls: List[BigInt], x: BigInt): Boolean = {
     require(ls.forall(_ < x))
-    decreases(ls)
     ls.forall(_ <= x)
   }.holds
 
   def forall_eq_implies_le(@induct ls: List[BigInt], x: BigInt): Boolean = {
     require(ls.forall(_ == x))
-    decreases(ls)
     ls.forall(_ <= x)
   }.holds
 

@@ -197,7 +197,6 @@ object BalancedParenthesesSpecs {
 
   @induct
   def folds_equivalence(xs: List[Parenthesis]): Boolean = {
-    decreases(xs)
     xs.foldRight(Balance(0, 0))(fromParenthesis(_) ++ _) == xs.foldRight(Balance(0, 0))(_ +: _)
   } holds
 
@@ -254,7 +253,6 @@ object BalancedParenthesesSpecs {
 
   @induct
   def map_append(xs: List[Parenthesis], ys: List[Parenthesis], f: Parenthesis => Balance): Boolean = {
-    decreases(xs)
     xs.map(f).append(ys.map(f)) == xs.append(ys).map(f)
   } holds
 
@@ -274,13 +272,11 @@ object BalancedParenthesesSpecs {
 
   @induct
   def foldRight_accumulator_equivalence[A](xs: List[A], z: A, f: (A, A) => A): Boolean = {
-    decreases(xs)
     xs.foldRight(z)(f) == xs.append(Cons(z, Nil())).foldRight1(f)
   } holds
 
   @induct
   def foldRight_map_commutivity(xs: List[Parenthesis]): Boolean = {
-    decreases(xs)
     xs.foldRight(Balance(0, 0))(fromParenthesis(_) ++ _) == xs.map(fromParenthesis).foldRight(Balance(0, 0))(_ ++ _)
   } holds
 
