@@ -171,6 +171,7 @@ trait XlangCanonization extends Canonization {
       with extraction.oo.TreeTransformer {
 
     protected var transformedClasses = new mutable.ListBuffer[ClassDef]()
+    protected var transformedTypeDefs = new mutable.ListBuffer[TypeDef]()
 
     override def transform(id: Identifier): Identifier = {
       val visited = ids contains id
@@ -182,12 +183,15 @@ trait XlangCanonization extends Canonization {
         transformedSorts += transform(symbols.getSort(id))
       } else if ((symbols.classes contains id) && !visited) {
         transformedClasses += transform(symbols.getClass(id))
+      } else if ((symbols.typeDefs contains id) && !visited) {
+        transformedTypeDefs += transform(symbols.getTypeDef(id))
       }
 
       nid
     }
 
     final def classes: Seq[ClassDef] = transformedClasses.toSeq
+    final def typeDefs: Seq[TypeDef] = transformedTypeDefs.toSeq
   }
 
   def apply(cd: ClassDef): ClassDef = {
@@ -196,10 +200,17 @@ trait XlangCanonization extends Canonization {
     transformer.transform(cd)
   }
 
+  def apply(td: TypeDef): TypeDef = {
+    val transformer = new RegisteringTransformer
+    transformer.registerId(td.id)
+    transformer.transform(td)
+  }
+
   override def apply(syms: Symbols): Symbols = {
     val transformer = new XlangIdTransformer(syms)
     val newClasses = syms.classes.values.toSeq.sortBy(_.id.name).map(transformer.transform)
-    super.apply(syms).withClasses(newClasses)
+    val newTypeDefs = syms.typeDefs.values.toSeq.sortBy(_.id.name).map(transformer.transform)
+    super.apply(syms).withClasses(newClasses).withTypeDefs(newTypeDefs)
   }
 
   override def apply(syms: Symbols, id: Identifier): (Symbols, Identifier) = {
@@ -209,6 +220,7 @@ trait XlangCanonization extends Canonization {
       .withFunctions(transformer.functions)
       .withSorts(transformer.sorts)
       .withClasses(transformer.classes)
+      .withTypeDefs(transformer.typeDefs)
 
     (newSyms, newIdentifier)
   }
