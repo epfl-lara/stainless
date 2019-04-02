@@ -82,7 +82,6 @@ object NNFSimple {
 
   @induct
   def simplifySemantics(f: Formula) : Boolean = {
-    decreases(f)
     eval(f) == eval(simplify(f))
   } holds
 
@@ -101,7 +100,6 @@ object NNFSimple {
   @induct
   def simplifyIsStable(f: Formula) : Boolean = {
     require(isSimplified(f))
-    decreases(f)
     simplify(f) == f
   } holds
 }

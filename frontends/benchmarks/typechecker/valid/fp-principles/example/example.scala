@@ -36,7 +36,6 @@ object Lists {
   }
 
   def sumInit(@induct xs: List[Int]) = {
-    decreases(xs)
     (xs.isEmpty && sum(xs) == 0) ||
     (sum(xs) == xs.last + sum(xs.init))
   } holds

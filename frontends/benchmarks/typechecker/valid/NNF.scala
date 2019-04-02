@@ -88,7 +88,6 @@ object NNF {
 
   @induct
   def simplifySemantics(f: Formula) : Boolean = {
-    decreases(f)
     eval(f) == eval(simplify(f))
   } holds
 
@@ -108,28 +107,24 @@ object NNF {
 
   @induct
   def wrongCommutative(f: Formula) : Boolean = {
-    decreases(f)
     nnf(simplify(f)) == simplify(nnf(f))
   } // holds
 
   @induct
   def simplifyPreservesNNF(f: Formula) : Boolean = {
     require(isNNF(f))
-    decreases(f)
     isNNF(simplify(f))
   } holds
 
   @induct
   def nnfIsStable(f: Formula) : Boolean = {
     require(isNNF(f))
-    decreases(f)
     nnf(f) == f
   } holds
 
   @induct
   def simplifyIsStable(f: Formula) : Boolean = {
     require(isSimplified(f))
-    decreases(f)
     simplify(f) == f
   } holds
 }

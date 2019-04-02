@@ -97,22 +97,18 @@ object ListOperations {
     } ensuring(content(_) == content(l1) ++ content(l2))
 
     def nilAppend(@induct l : List) : Boolean = {
-      decreases(l)
       append(l, Nil()) == l
     }.holds
 
     def appendAssoc(@induct xs : List, ys : List, zs : List) : Boolean = {
-      decreases(xs)
       append(append(xs, ys), zs) == append(xs, append(ys, zs))
     }.holds
 
     def sizeAppend(@induct l1 : List, l2 : List) : Boolean = {
-      decreases(l1)
       size(append(l1, l2)) == size(l1) + size(l2)
     }.holds
 
     def concat(@induct l1: List, l2: List) : List = {
-      decreases(l1)
       concat0(l1, l2, Nil())
     } ensuring(content(_) == content(l1) ++ content(l2))
 
