@@ -108,7 +108,7 @@ object ListOperations {
       size(append(l1, l2)) == size(l1) + size(l2)
     }.holds
 
-    def concat(@induct l1: List, l2: List) : List = {
+    def concat(l1: List, l2: List) : List = {
       concat0(l1, l2, Nil())
     } ensuring(content(_) == content(l1) ++ content(l2))
 
