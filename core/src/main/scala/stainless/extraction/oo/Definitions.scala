@@ -155,8 +155,19 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def getTypeDef(id: Identifier, tps: Seq[Type]): AppliedTypeDef =
       lookupTypeDef(id, tps).getOrElse(throw TypeDefLookupException(id))
 
+    def withoutLibrary: Symbols = {
+      def isLibrary(defn: Definition): Boolean =
+        defn.flags exists (_.name == "library")
+
+      NoSymbols
+        .withClasses(classes.values.filterNot(isLibrary).toSeq)
+        .withFunctions(functions.values.filterNot(isLibrary).toSeq)
+        .withTypeDefs(typeDefs.values.filterNot(isLibrary).toSeq)
+    }
+
     override def asString(implicit opts: PrinterOptions): String = {
       typeDefs.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
+        "\n\n-----------\n\n" +
       classes.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
         "\n\n-----------\n\n" +
         super.asString
