@@ -118,7 +118,8 @@ trait CodeExtraction extends ASTExtractors {
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
-    isExtern: Boolean = false
+    isExtern: Boolean = false,
+    resolveTypes: Boolean = false,
   ){
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
@@ -126,7 +127,8 @@ trait CodeExtraction extends ASTExtractors {
            this.mutableVars ++ that.mutableVars,
            this.localFuns ++ that.localFuns,
            this.localClasses ++ that.localClasses,
-           this.isExtern || that.isExtern)
+           this.isExtern || that.isExtern,
+           this.resolveTypes || that.resolveTypes)
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -157,6 +159,10 @@ trait CodeExtraction extends ASTExtractors {
 
     def withLocalClass(lcd: xt.LocalClassDef) = {
       copy(localClasses = this.localClasses + (lcd.id -> lcd))
+    }
+
+    def setResolveTypes(resolveTypes: Boolean) = {
+      copy(resolveTypes = resolveTypes)
     }
   }
 
@@ -1237,7 +1243,7 @@ trait CodeExtraction extends ASTExtractors {
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
         }
 
-      case Some(lhs) => extractType(lhs) match {
+      case Some(lhs) => extractType(lhs)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           val isField = sym.isParamAccessor || sym.isCaseAccessor
           val isMethod = sym.isMethod || sym.isAccessor || !isField
@@ -1281,14 +1287,6 @@ trait CodeExtraction extends ASTExtractors {
 
         case ft: xt.FunctionType =>
           xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
-
-        case ta: xt.TypeApply =>
-          xt.MethodInvocation(
-            extractTree(lhs),
-            getIdentifier(sym),
-            tps.map(extractType),
-            extractArgs(sym, args)
-          ).setPos(tr.pos)
 
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
@@ -1479,9 +1477,9 @@ trait CodeExtraction extends ASTExtractors {
     val lhs = extractTree(lhs0)
     val rhs = extractTree(rhs0)
 
-    val ltpe = extractType(lhs0)
+    val ltpe = extractType(lhs0)(dctx.setResolveTypes(true))
     checkBits(lhs0, ltpe)
-    val rtpe = extractType(rhs0)
+    val rtpe = extractType(rhs0)(dctx.setResolveTypes(true))
     checkBits(rhs0, rtpe)
 
     val id = { e: xt.Expr => e }
@@ -1497,9 +1495,6 @@ trait CodeExtraction extends ASTExtractors {
       case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32)
       case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
       case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
-
-      // FIXME: Typedefs
-      case (xt.BVType(_,_), _: xt.TypeApply) | (_: xt.TypeApply, xt.BVType(_,_)) => (id, id)
 
       case (xt.BVType(_, _), _) | (_, xt.BVType(_, _)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
@@ -1600,6 +1595,9 @@ trait CodeExtraction extends ASTExtractors {
         case Some(lcd) => extractLocalClassType(sym, lcd.id, tps map extractType)
         case None => xt.ClassType(id, tps map extractType)
       }
+
+    case tr @ TypeRef(_, sym, tps) if sym.isAliasType && dctx.resolveTypes =>
+      extractType(tr.dealias)
 
     case tr @ TypeRef(_, sym, tps) if sym.isAliasType =>
       xt.TypeApply(xt.TypeSelect(None, getIdentifier(sym)), tps map extractType)
