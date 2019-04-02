@@ -212,6 +212,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.error(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
     reporter.fatalError(s"Aborting from SplitCallBack")
   }
 }

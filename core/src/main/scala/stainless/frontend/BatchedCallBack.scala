@@ -23,7 +23,13 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   def beginExtractions(): Unit = {}
 
-  override def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef]): Unit = {
+  override def apply(
+    file: String,
+    unit: xt.UnitDef,
+    classes: Seq[xt.ClassDef],
+    functions: Seq[xt.FunDef],
+    typeDefs: Seq[xt.TypeDef]
+  ): Unit = {
     synchronized {
       currentFunctions ++= functions
       currentClasses ++= classes
@@ -94,10 +100,11 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
     reporter.error(pos, msg)
-    reporter.error(s"The extracted sub-program in not well formed.")
+    reporter.error(s"The extracted program in not well formed.")
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-    reporter.fatalError(s"Aborting from SplitCallBack")
+    reporter.error(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
+    reporter.fatalError(s"Aborting from BatchedCallBack")
   }
 }
