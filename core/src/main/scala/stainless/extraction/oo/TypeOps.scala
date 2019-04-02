@@ -37,6 +37,23 @@ trait TypeOps extends innerfuns.TypeOps {
         greatestLowerClassBound(ct1, ct2)
       }
 
+    case (ta: TypeApply, _) if ta.lookupTypeDef.isEmpty => Some(Untyped)
+    case (_, ta: TypeApply) if ta.lookupTypeDef.isEmpty => Some(Untyped)
+
+    case (ta1: TypeApply, tp2) =>
+      typeBound(ta1.resolve, tp2, upper) match {
+        case Untyped => Some(Untyped)
+        case _ if upper => Some(tp2)
+        case _ => Some(ta1)
+      }
+
+    case (tp1, ta2: TypeApply) =>
+      typeBound(tp1, ta2.resolve, upper) match {
+        case Untyped => Some(Untyped)
+        case _ if upper => Some(ta2)
+        case _ => Some(tp1)
+      }
+
     case (adt: ADTType, _) if adt.lookupSort.isEmpty => Some(Untyped)
     case (_, adt: ADTType) if adt.lookupSort.isEmpty => Some(Untyped)
     case (adt1: ADTType, adt2: ADTType) if adt1 == adt2 => Some(adt1)
@@ -142,8 +159,27 @@ trait TypeOps extends innerfuns.TypeOps {
     (!t1.isTyped && !t2.isTyped) || (t1.isTyped && t2.isTyped && leastUpperBound(t1, t2) == t2.getType)
   }
 
+  // override def isSubtypeOf(t1: Type, t2: Type): Boolean = (t1, t2) match {
+  //   case (t1: TypeApply, t2) =>
+  //     println((t1, t2, leastUpperBound(t1, t2), t2.getType, _isSubtypeOf(t1, t2)))
+  //     _isSubtypeOf(t1, t2)
+
+  //   case (t1, t2: TypeApply) =>
+  //     println((t1, t2, leastUpperBound(t1, t2), t2.getType, _isSubtypeOf(t1, t2)))
+  //     _isSubtypeOf(t1, t2)
+
+  //   case (t1, t2) =>
+  //     _isSubtypeOf(t1, t2)
+  // }
+
   def typesCompatible(t1: Type, t2s: Type*) = {
     leastUpperBound(t1 +: t2s) != Untyped
+  }
+
+  def resolve(tp: Type): Type = tp match {
+    case ts: TypeSelector => ts
+    case ta: TypeApply => ta.resolve
+    case tp => tp
   }
 
   private class Unsolvable extends Exception
@@ -155,6 +191,9 @@ trait TypeOps extends innerfuns.TypeOps {
     case (ct: ClassType, _) if ct.lookupClass.isEmpty => unsolvable
     case (_, ct: ClassType) if ct.lookupClass.isEmpty => unsolvable
 
+    case (ta: TypeApply, _) if ta.lookupTypeDef.isEmpty => unsolvable
+    case (_, ta: TypeApply) if ta.lookupTypeDef.isEmpty => unsolvable
+
     case (adt: ADTType, _) if adt.lookupSort.isEmpty => unsolvable
     case (_, adt: ADTType) if adt.lookupSort.isEmpty => unsolvable
 
@@ -162,6 +201,12 @@ trait TypeOps extends innerfuns.TypeOps {
 
     case (ct1: ClassType, ct2: ClassType) if ct1.tcd.cd == ct2.tcd.cd =>
       (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+
+    case (ta1: TypeApply, tp2) =>
+      unificationConstraints(ta1.resolve, tp2, free)
+
+    case (tp1, ta2: TypeApply) =>
+      unificationConstraints(tp1, ta2.resolve, free)
 
     case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
       (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))

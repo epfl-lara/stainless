@@ -9,8 +9,9 @@ import stainless.ast.SymbolIdentifier.IdentifierOps
 
 trait Laws
   extends oo.CachingPhase
-    with oo.IdentityTypeDefs
-    with IdentitySorts { self =>
+     with oo.IdentityTypeDefs
+     with IdentitySorts { self =>
+
   val s: Trees
   val t: Trees
 

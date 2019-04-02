@@ -84,6 +84,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
+    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+      copy(tparams = tparams ++ ntparams)
+    }
+
+    def withNewTypeParam(tparam: (Symbol, xt.TypeParameter)) = {
+      copy(tparams = tparams + tparam)
+    }
+
     def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
@@ -156,19 +164,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     Seq[xt.Import],
     Seq[Identifier],
     Seq[Identifier],
+    Seq[Identifier],
     Seq[xt.ModuleDef],
     Seq[xt.ClassDef],
-    Seq[xt.FunDef]
+    Seq[xt.FunDef],
+    Seq[xt.TypeDef],
   ) = {
     implicit val dctx = DefContext()
 
     var imports   : Seq[xt.Import]    = Seq.empty
     var classes   : Seq[Identifier]   = Seq.empty
     var functions : Seq[Identifier]   = Seq.empty
+    var typeDefs  : Seq[Identifier]   = Seq.empty
     var subs      : Seq[xt.ModuleDef] = Seq.empty
 
     var allClasses   : Seq[xt.ClassDef] = Seq.empty
     var allFunctions : Seq[xt.FunDef]   = Seq.empty
+    var allTypeDefs  : Seq[xt.TypeDef]  = Seq.empty
 
     for (d <- stats) d match {
       case tpd.EmptyTree =>
@@ -190,16 +202,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         imports ++= extractImports(i)
 
       case pd @ PackageDef(ref, stats) =>
-        val (imports, classes, functions, modules, newClasses, newFunctions) = extractStatic(stats)
-        subs :+= xt.ModuleDef(extractRef(ref), imports, classes, functions, modules)
+        val (imports, classes, functions, typeDefs, modules, newClasses, newFunctions, newTypeDefs) = extractStatic(stats)
+        subs :+= xt.ModuleDef(extractRef(ref), imports, classes, functions, typeDefs, modules)
         allClasses ++= newClasses
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case td @ ExObjectDef() =>
-        val (obj, newClasses, newFunctions) = extractObject(td)
+        val (obj, newClasses, newFunctions, newTypeDefs) = extractObject(td)
         subs :+= obj
         allClasses ++= newClasses
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case cd @ ExClassDef() =>
         val (xcd, newFunctions) = extractClass(cd)(DefContext())
@@ -225,6 +239,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         functions :+= fd.id
         allFunctions :+= fd
 
+      case t @ ExTypeDef() =>
+        val td = extractTypeDef(t)
+        typeDefs :+= td.id
+        allTypeDefs :+= td
+
       case t if t.symbol is Synthetic =>
         // ignore
 
@@ -238,26 +257,52 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
 
-    (imports, classes, functions, subs, allClasses, allFunctions)
+    (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
   }
 
-  private def extractObject(td: tpd.TypeDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+  private def extractTypeDef(td: tpd.TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
+    val sym = td.symbol
+    val id = getIdentifier(sym)
+    val flags = annotationsOf(sym)
+
+    val (tparams, body) = td.rhs match {
+      case LambdaTypeTree(tparams, body) =>
+        val typeParamsSymbols = typeParamSymbols(tparams)
+        val typeParams = extractTypeParams(typeParamsSymbols)
+        val tpCtx = dctx.withNewTypeParams(typeParamsSymbols zip typeParams)
+        val typeBody = extractType(body)(tpCtx)
+        (typeParams, typeBody)
+
+      case tpt =>
+        (Seq.empty, extractType(tpt, tpt.tpe))
+    }
+
+    new xt.TypeDef(
+      id,
+      tparams.map(xt.TypeParameterDef(_)),
+      body,
+      flags
+    )
+  }
+
+  private def extractObject(td: tpd.TypeDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val template = td.rhs.asInstanceOf[tpd.Template]
     if (template.parents.exists(isValidParent(_))) {
       outOfSubsetError(td, "Objects cannot extend classes or implement traits, use a case object instead")
     }
 
-    val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
+    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
       getIdentifier(td.symbol),
       imports,
       classes,
       functions,
+      typeDefs,
       subs
     ).setPos(td.pos)
 
-    (module, allClasses, allFunctions)
+    (module, allClasses, allFunctions, allTypeDefs)
   }
 
   private def isValidParentType(parent: Type, inLibrary: Boolean = false): Boolean = parent match {
@@ -1394,6 +1439,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         case ft: xt.FunctionType =>
           xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
 
+        case ta: xt.TypeApply =>
+          val id = if (sym is ParamAccessor) getParam(sym) else getIdentifier(sym)
+          xt.MethodInvocation(extractTree(lhs), id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
+
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
           case (xt.IntegerType() | xt.BVType(_,_) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
@@ -1608,6 +1657,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
       case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
 
+      // FIXME: Typedefs
+      case (xt.BVType(_,_), _: xt.TypeApply) | (_: xt.TypeApply, xt.BVType(_,_)) => (id, id)
+
       case (xt.BVType(_,_), _) | (_, xt.BVType(_,_)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
 
@@ -1635,6 +1687,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ctor(ector(e))
   }
 
+  // TODO: Recursively traverse type tree
   private def extractTypeTree(tpt: tpd.Tree)(implicit dctx: DefContext): Option[xt.Type] = {
     tpt match {
       case ByNameTypeTree(tpe) =>
@@ -1704,7 +1757,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         }
 
       case tr: TypeRef if tr.symbol.info.isTypeAlias =>
-        extractType(tr.widenDealias)
+        xt.TypeApply(xt.TypeSelector(None, getIdentifier(tr.symbol)), Seq.empty)
 
       case tr: TypeRef if tr.symbol.isOpaqueHelper =>
         extractType(tr.translucentSuperType)
@@ -1799,7 +1852,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         }
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias =>
-        extractType(at.widenDealias)
+        xt.TypeApply(xt.TypeSelector(None, getIdentifier(tr.symbol)), args map extractType)
 
       case at @ AppliedType(tycon: TypeRef, args) =>
         val sym = at.classSymbol

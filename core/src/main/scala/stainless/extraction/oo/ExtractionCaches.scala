@@ -48,7 +48,7 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
     private val key = (
       td.id,
       td.typeArgs,
-      // td.flags
+      td.flags
     )
 
     override def hashCode: Int = key.hashCode

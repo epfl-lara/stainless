@@ -110,7 +110,7 @@ trait TreeSanitizer {
 
       case MethodInvocation(rec, id, tps, args) if isFieldAccessor(id) =>
         symbols.getFunction(id).flags collectFirst { case IsAccessor(Some(id)) => id } match {
-          case Some(id) =>
+          case Some(id) if rec.getType.isInstanceOf[ClassType] =>
             val ct = rec.getType.asInstanceOf[ClassType]
             ct.getField(id) match {
               case Some(field) if field.flags contains Ignore =>
@@ -120,7 +120,7 @@ trait TreeSanitizer {
               case _ =>
                 super.traverse(e)
             }
-          case None =>
+          case _ =>
             super.traverse(e)
         }
 

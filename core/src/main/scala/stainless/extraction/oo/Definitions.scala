@@ -99,15 +99,15 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     val id: Identifier,
     val tparams: Seq[TypeParameterDef],
     val rhs: Type,
-    // val flags: Seq[Flag],
-  ) extends Tree {
+    val flags: Seq[Flag],
+  ) extends Definition {
     def typeArgs = tparams map (_.tp)
 
-    def typed(tps: Seq[Type])(implicit s: Symbols): TypedTypeDef = TypedTypeDef(this, tps)
-    def typed(implicit s: Symbols): TypedTypeDef = typed(tparams.map(_.tp))
+    def typed(tps: Seq[Type])(implicit s: Symbols): AppliedTypeDef = AppliedTypeDef(this, tps)
+    def typed(implicit s: Symbols): AppliedTypeDef = typed(tparams.map(_.tp))
   }
 
-  case class TypedTypeDef(td: TypeDef, tps: Seq[Type]) extends Tree {
+  case class AppliedTypeDef(td: TypeDef, tps: Seq[Type]) extends Tree {
     copiedFrom(td)
   }
 
@@ -136,23 +136,23 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
         res
       })
 
-    private val typedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[TypedTypeDef]] = MutableMap.empty
+    private val appliedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[AppliedTypeDef]] = MutableMap.empty
     def getClass(id: Identifier): ClassDef =
       lookupClass(id).getOrElse(throw ClassLookupException(id))
     def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef =
       lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
 
     def lookupTypeDef(id: Identifier): Option[TypeDef] = typeDefs.get(id)
-    def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[TypedTypeDef] =
-      typedTypeDefCache.getOrElse(id -> tps, {
+    def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[AppliedTypeDef] =
+      appliedTypeDefCache.getOrElse(id -> tps, {
         val res = lookupTypeDef(id).map(_.typed(tps))
-        typedTypeDefCache(id -> tps) = res
+        appliedTypeDefCache(id -> tps) = res
         res
       })
 
     def getTypeDef(id: Identifier): TypeDef =
       lookupTypeDef(id).getOrElse(throw TypeDefLookupException(id))
-    def getTypeDef(id: Identifier, tps: Seq[Type]): TypedTypeDef =
+    def getTypeDef(id: Identifier, tps: Seq[Type]): AppliedTypeDef =
       lookupTypeDef(id, tps).getOrElse(throw TypeDefLookupException(id))
 
     override def asString(implicit opts: PrinterOptions): String = {
@@ -196,7 +196,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     }
 
     protected def ensureWellFormedTypeDef(td: TypeDef): Unit = {
-      // TODO: @romac
+      // TODO: Typedefs
     }
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {

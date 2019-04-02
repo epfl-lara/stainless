@@ -37,17 +37,23 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     assert(tasks.isEmpty)
   }
 
-  final override def apply(file: String, unit: xt.UnitDef,
-                           classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+  final override def apply(
+    file: String,
+    unit: xt.UnitDef,
+    classes: Seq[xt.ClassDef],
+    functions: Seq[xt.FunDef],
+    typeDefs: Seq[xt.TypeDef]
+  ): Unit = {
     reporter.debug(s"Got a unit for $file: ${unit.id} with:")
     reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
     reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
+    reporter.debug(s"\ttype defs -> [${typeDefs.map { _.id }.sorted mkString ", "}]")
 
     this.synchronized {
-      recentIdentifiers ++= (classes map (_.id)) ++ (functions map (_.id))
+      recentIdentifiers ++= (classes map (_.id)) ++ (functions map (_.id)) ++ (typeDefs map (_.id))
       toProcess ++= functions map (_.id)
 
-      symbols = symbols.withClasses(classes).withFunctions(functions)
+      symbols = symbols.withClasses(classes).withFunctions(functions).withTypeDefs(typeDefs)
     }
   }
 
@@ -134,7 +140,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     val deps = syms.dependencies(id)
     val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
-    val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps)
+    val typeDeps = syms.typeDefs.values.filter(td => deps(td.id)).toSeq
+    val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps).withTypeDefs(typeDeps)
     val funSyms = Recovery.recover(preSyms)
 
     val cf = serialize(Right(fun))(funSyms)
@@ -174,6 +181,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
           case Failure(err) =>
             context.reporter.error(s"Run has failed with error: $err")
+            context.reporter.error(err.getStackTrace.map(_.toString).mkString("\n"))
             None
         }
       }

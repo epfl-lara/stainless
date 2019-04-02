@@ -48,7 +48,8 @@ trait ClassSymbols { self: Trees =>
     def ++(other: ClassSymbols) = Symbols(
       this.functions ++ other.functions,
       this.sorts ++ other.sorts,
-      this.classes ++ other.classes
+      this.classes ++ other.classes,
+      this.typeDefs ++ other.typeDefs,
     )
   }
 }

@@ -68,6 +68,11 @@ class XLangDependenciesFinder {
         traverse(pred)
         deps -= vd.id
 
+      case xt.TypeSelector(expr, id) =>
+        expr foreach traverse
+        deps += id
+        super.traverse(tpe)
+
       case _ => super.traverse(tpe)
     }
 
@@ -111,6 +116,15 @@ class XLangDependenciesFinder {
   def apply(cd: xt.ClassDef): Set[Identifier] = {
     finder.traverse(cd)
     deps -= cd.id
+
+    deps.toSet
+  }
+
+  def apply(td: xt.TypeDef): Set[Identifier] = {
+    td.tparams foreach finder.traverse
+    finder.traverse(td.rhs)
+    td.flags foreach finder.traverse
+    deps -= td.id
 
     deps.toSet
   }

@@ -66,9 +66,9 @@ class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
       Failure(errors collect { case Left(err) => err })
     } else {
       val classes = defs collect { case Right(cd: xt.ClassDef) => cd }
-      val funs = defs collect { case Right(fd: xt.FunDef) => fd }
+      val functions = defs collect { case Right(fd: xt.FunDef) => fd }
 
-      Success(xt.NoSymbols.withClasses(classes).withFunctions(funs))
+      Success(xt.NoSymbols.withClasses(classes).withFunctions(functions))
     }
   }
 }
