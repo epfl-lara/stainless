@@ -1670,7 +1670,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   /** Inject implicit widening cast according to the Java semantics (5.6.1. Unary Numeric Promotion) */
   private def injectCast(ctor: xt.Expr => xt.Expr)(e0: tpd.Tree)(implicit dctx: DefContext): xt.Expr = {
     val e = extractTree(e0)
-    val etpe = extractType(e0)
+    val etpe = extractType(e0)(dctx.setResolveTypes(true))
 
     val id = { e: xt.Expr => e }
     val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.Int32Type().copiedFrom(e)).copiedFrom(e) }
@@ -1854,6 +1854,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (xt.NAryType(tps, recons), _) =>
             recons(tps.updated(idx, extractType(tpe)))
         }
+
+      case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias && dctx.resolveTypes =>
+        extractType(at.widenDealias)
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias =>
         xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), args map extractType)
