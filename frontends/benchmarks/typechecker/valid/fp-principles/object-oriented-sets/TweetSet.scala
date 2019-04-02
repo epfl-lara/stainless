@@ -389,14 +389,17 @@ object TweetSetLemmas {
     decreases(s)
 
     s match {
-      case Empty() => ()
+      case Empty() =>
+        check((s incl elem).isSearchTree)
       case NonEmpty(e, left, right) =>
         if (elem.text < e.text) {
           check(inclIsSearchTree(left, elem))
           check(inclForall(left, elem, smallerThan(e)))
+          check((s incl elem).isSearchTree)
         } else if (elem.text > e.text) {
           check(inclIsSearchTree(right, elem))
           check(inclForall(right, elem, greaterThan(e)))
+          check((s incl elem).isSearchTree)
         }
     }
 
