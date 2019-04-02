@@ -48,10 +48,21 @@ trait InductElimination extends CachingPhase
       firstInductionParam ++
       fd.params.filter(vd => !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct"))
 
+    // TODO: decide what we want to do with multiple inductions and implement it
+    if (inductionParams.size > 1)
+      context.reporter.fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
+
     val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
 
+    if (!inductionParams.isEmpty)
+      specs.foreach {
+        case Measure(_) =>
+          context.reporter.warning(fd.getPos, s"Ignoring decreases clause of ${fd.id.asString}. The @induct annotation automatically inserts a decreases clause corresponding to the argument")
+        case _ => ()
+      }
+
     val inductionBody = oldBodyOpt.map(oldBody =>
-      inductionParams.foldLeft(oldBody) { case (currentBody, vd) =>
+      inductionParams.foldRight(oldBody) { case (vd, currentBody) =>
         vd.getType match {
           case ADTType(id, tps) =>
             val sort = syms.getSort(id)
@@ -124,7 +135,14 @@ trait InductElimination extends CachingPhase
       }
     )
 
-    val newBody = reconstructSpecs(specs, inductionBody, fd.returnType)
+    val newMeasure: Option[Specification] =
+      if (inductionParams.isEmpty) None
+      else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))
+      else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
+    val newSpecs =
+      if (inductionParams.isEmpty) specs
+      else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
+    val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
 
     new FunDef(
       fd.id,
