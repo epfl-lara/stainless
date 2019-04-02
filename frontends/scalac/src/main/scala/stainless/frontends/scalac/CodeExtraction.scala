@@ -40,7 +40,7 @@ trait CodeExtraction extends ASTExtractors {
   )
 
   /** Extract the classes and functions from the given compilation unit. */
-  def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+  def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val (id, stats) = u.body match {
       // package object
       case PackageDef(refTree, List(pd @ PackageDef(inner, body))) =>
@@ -53,8 +53,9 @@ trait CodeExtraction extends ASTExtractors {
         (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
-    val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
+    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs) = extractStatic(stats)
     assert(functions.isEmpty, "Packages shouldn't contain functions")
+    assert(typeDefs.isEmpty, "Packages shouldn't contain type defintions")
 
     val unit = xt.UnitDef(
       id,
@@ -64,7 +65,7 @@ trait CodeExtraction extends ASTExtractors {
       !(Main.libraryFiles contains u.source.file.absolute.path)
     ).setPos(u.body.pos)
 
-    (unit, allClasses, allFunctions)
+    (unit, allClasses, allFunctions, allTypeDefs)
   }
 
   private lazy val reporter = self.ctx.reporter
@@ -130,6 +131,14 @@ trait CodeExtraction extends ASTExtractors {
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
+    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+      copy(tparams = tparams ++ ntparams)
+    }
+
+    def withNewTypeParam(tparam: (Symbol, xt.TypeParameter)) = {
+      copy(tparams = tparams + tparam)
+    }
+
     def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
@@ -166,17 +175,21 @@ trait CodeExtraction extends ASTExtractors {
     Seq[xt.Import],
     Seq[Identifier], // classes
     Seq[Identifier], // functions
+    Seq[Identifier], // typedefs
     Seq[xt.ModuleDef],
     Seq[xt.ClassDef],
-    Seq[xt.FunDef]
+    Seq[xt.FunDef],
+    Seq[xt.TypeDef]
   ) = {
     var imports   : Seq[xt.Import]    = Seq.empty
     var classes   : Seq[Identifier]   = Seq.empty
     var functions : Seq[Identifier]   = Seq.empty
+    var typeDefs  : Seq[Identifier]   = Seq.empty
     var subs      : Seq[xt.ModuleDef] = Seq.empty
 
     var allClasses   : Seq[xt.ClassDef] = Seq.empty
     var allFunctions : Seq[xt.FunDef]   = Seq.empty
+    var allTypeDefs  : Seq[xt.TypeDef]  = Seq.empty
 
     for (d <- stats) d match {
       case EmptyTree =>
@@ -201,17 +214,19 @@ trait CodeExtraction extends ASTExtractors {
         imports ++= extractImports(i)
 
       case pd @ PackageDef(ref, stats) =>
-        val (imports, classes, functions, modules, newClasses, newFunctions) = extractStatic(stats)
+        val (imports, classes, functions, typeDefs, modules, newClasses, newFunctions, newTypeDefs) = extractStatic(stats)
         val pid = FreshIdentifier(extractRef(ref).mkString("$"))
-        subs :+= xt.ModuleDef(pid, imports, classes, functions, modules)
+        subs :+= xt.ModuleDef(pid, imports, classes, functions, typeDefs, modules)
         allClasses ++= newClasses
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case td @ ExObjectDef(_, _) =>
-        val (obj, newClasses, newFunctions) = extractObject(td)
+        val (obj, newClasses, newFunctions, newTypeDefs) = extractObject(td)
         subs :+= obj
         allClasses ++= newClasses
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case md: ModuleDef if !md.symbol.isSynthetic && md.symbol.isCase =>
         val (xcd, newFunctions) = extractClass(md)(DefContext())
@@ -256,8 +271,10 @@ trait CodeExtraction extends ASTExtractors {
       case t if t.symbol.isSynthetic =>
         // ignore
 
-      case t if t.symbol.isAliasType =>
-        // Ignore type alias definitions as units (we don't need it in the stainless AST).
+      case t: TypeDef if t.symbol.isAliasType =>
+        val td = extractTypeDef(t)(DefContext())
+        typeDefs :+= td.id
+        allTypeDefs :+= td
 
       case t @ ExMutableFieldDef(_, _, _) =>
         outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
@@ -266,30 +283,47 @@ trait CodeExtraction extends ASTExtractors {
         reporter.warning(other.pos, "Could not extract tree in static container: " + other)
     }
 
-    (
-      imports,
-      classes,
-      functions,
-      subs,
-      allClasses,
-      allFunctions
+    (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
+  }
+
+  private def extractTypeDef(td: TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
+    val sym = td.symbol
+    val id = getIdentifier(sym)
+    val flags = annotationsOf(sym)
+
+    val tparamsSyms = sym.tpe match {
+      case TypeRef(_, _, tps) => typeParamSymbols(tps)
+      case _ => Nil
+    }
+
+    val tparams = extractTypeParams(tparamsSyms)
+
+    val tpCtx = dctx.withNewTypeParams(tparamsSyms zip tparams)
+    val body = extractType(td.rhs)(tpCtx)
+
+    new xt.TypeDef(
+      id,
+      tparams.map(xt.TypeParameterDef(_)),
+      body,
+      flags
     )
   }
 
-  private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+  private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val ExObjectDef(_, template) = obj
 
-    val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(template.body)
+    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
       getIdentifier(obj.symbol),
       imports,
       classes,
       functions,
+      typeDefs,
       subs
     ).setPos(obj.pos)
 
-    (module, allClasses, allFunctions)
+    (module, allClasses, allFunctions, allTypeDefs)
   }
 
 
@@ -1248,6 +1282,14 @@ trait CodeExtraction extends ASTExtractors {
         case ft: xt.FunctionType =>
           xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
 
+        case ta: xt.TypeApply =>
+          xt.MethodInvocation(
+            extractTree(lhs),
+            getIdentifier(sym),
+            tps.map(extractType),
+            extractArgs(sym, args)
+          ).setPos(tr.pos)
+
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
           case (xt.IntegerType() | xt.BVType(_, _) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
@@ -1456,6 +1498,9 @@ trait CodeExtraction extends ASTExtractors {
       case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
       case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
 
+      // FIXME: Typedefs
+      case (xt.BVType(_,_), _: xt.TypeApply) | (_: xt.TypeApply, xt.BVType(_,_)) => (id, id)
+
       case (xt.BVType(_, _), _) | (_, xt.BVType(_, _)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
 
@@ -1557,7 +1602,7 @@ trait CodeExtraction extends ASTExtractors {
       }
 
     case tr @ TypeRef(_, sym, tps) if sym.isAliasType =>
-      extractType(tr.dealias)
+      xt.TypeApply(xt.TypeSelector(None, getIdentifier(sym)), tps map extractType)
 
     case tt: ThisType =>
       val id = getIdentifier(tt.sym)

@@ -39,11 +39,12 @@ trait InputUtils {
     val units = ListBuffer[xt.UnitDef]()
     val cls = ListBuffer[xt.ClassDef]()
     val funs = ListBuffer[xt.FunDef]()
+    val tpds = ListBuffer[xt.TypeDef]()
     var syms = xt.NoSymbols
     var done = false
 
-    def updateSyms(cls: Seq[xt.ClassDef], funs: Seq[xt.FunDef]) = {
-      syms = syms.withClasses(cls).withFunctions(funs)
+    def updateSyms(cls: Seq[xt.ClassDef], funs: Seq[xt.FunDef], tpds: Seq[xt.TypeDef]) = {
+      syms = syms.withClasses(cls).withFunctions(funs).withTypeDefs(tpds)
     }
 
     val callback = new CallBack {
@@ -54,13 +55,19 @@ trait InputUtils {
 
       override def beginExtractions(): Unit = ()
 
-      override def apply(file: String, unit: xt.UnitDef,
-                         classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+      override def apply(
+        file: String,
+        unit: xt.UnitDef,
+        classes: Seq[xt.ClassDef],
+        functions: Seq[xt.FunDef],
+        typeDefs: Seq[xt.TypeDef]
+      ): Unit = {
         units += unit
         cls ++= classes
         funs ++= functions
+        tpds ++= typeDefs
 
-        updateSyms(classes, functions)
+        updateSyms(classes, functions, typeDefs)
       }
 
       override def endExtractions(): Unit = {

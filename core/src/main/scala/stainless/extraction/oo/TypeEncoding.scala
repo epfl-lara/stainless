@@ -737,6 +737,11 @@ trait TypeEncoding
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
+      case ta: s.TypeApply if ta.isPathDependent =>
+        self.context.reporter.fatalError(s"Unsupported path dependent type: $ta")
+
+      case ta: s.TypeApply => transform(ta.resolve)
+
       case tp: s.TypeParameter if testers contains tp =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), tp), Seq(t.Unchecked)).copiedFrom(tp)

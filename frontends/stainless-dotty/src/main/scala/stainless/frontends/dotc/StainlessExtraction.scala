@@ -31,14 +31,14 @@ class StainlessExtraction(inoxCtx: inox.Context, callback: CallBack, cache: Symb
         (FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
-    val (imports, unitClasses, unitFunctions, subs, classes, functions) = extraction.extractStatic(stats)
+    val (imports, unitClasses, unitFunctions, unitTypeDefs, subs, classes, functions, typeDefs) = extraction.extractStatic(stats)
     assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
 
     val file = unit.source.file.absolute.path
     val isLibrary = Main.libraryFiles contains file
     val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
 
-    callback(file, xtUnit, classes, functions)
+    callback(file, xtUnit, classes, functions, typeDefs)
   }
 
 }

@@ -35,7 +35,7 @@ object optKeep extends inox.OptionDef[Seq[String]] {
  */
 trait CallBack {
   def beginExtractions(): Unit
-  def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
+  def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef]): Unit
   def failed(): Unit
   def endExtractions(): Unit
 

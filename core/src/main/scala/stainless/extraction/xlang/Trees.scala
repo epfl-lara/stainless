@@ -18,22 +18,39 @@ trait Trees extends innerclasses.Trees { self =>
   case class Import(path: Seq[String], isWildcard: Boolean) extends Tree
 
   /** $encodingof `package name; ...` */
-  case class UnitDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], modules: Seq[ModuleDef], isMain: Boolean) extends Tree {
-    def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes 
+  case class UnitDef(
+    id: Identifier,
+    imports: Seq[Import],
+    classes: Seq[Identifier],
+    modules: Seq[ModuleDef],
+    isMain: Boolean
+  ) extends Tree {
+    def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes
 
     def allFunctions(implicit s: Symbols): Seq[Identifier] =
       classes.flatMap(s.getClass(_).methods) ++
       modules.flatMap(_.allFunctions)
+
+    def allTypeDefs: Seq[Identifier] = modules.flatMap(_.allTypeDefs)
   }
 
   /** $encodingof `object name { ... }` */
-  case class ModuleDef(id: Identifier, imports: Seq[Import], classes: Seq[Identifier], functions: Seq[Identifier], modules: Seq[ModuleDef]) extends Tree {
+  case class ModuleDef(
+    id: Identifier,
+    imports: Seq[Import],
+    classes: Seq[Identifier],
+    functions: Seq[Identifier],
+    typeDefs: Seq[Identifier],
+    modules: Seq[ModuleDef]
+  ) extends Tree {
     def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes
 
     def allFunctions(implicit s: Symbols): Seq[Identifier] =
       classes.flatMap(s.getClass(_).methods) ++
       modules.flatMap(_.allFunctions) ++
       functions
+
+    def allTypeDefs: Seq[Identifier] = modules.flatMap(_.allTypeDefs) ++ typeDefs
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
@@ -77,11 +94,14 @@ trait Printer extends innerclasses.Printer {
                                 |${nary(subs, "\n\n")}
                                 |"""
 
-    case ModuleDef(id, imports, cls, funs, subs) =>
+    case ModuleDef(id, imports, cls, funs, tps, subs) =>
       p"""|object $id {
           |"""
       if (imports.nonEmpty) p"""|
                                 |  ${nary(imports, "\n")}
+                                |"""
+      if (tps.nonEmpty)     p"""|
+                                |  ${typeDefs(tps)}
                                 |"""
       if (cls.nonEmpty)     p"""|
                                 |  ${classes(cls)}

@@ -3,7 +3,8 @@ package utils
 
 trait DefinitionIdFinder extends transformers.DefinitionTraverser {
   val s: trees.Symbols
-  private val idsMap = {
+
+  private lazy val idsMap = {
     s.functions.keys.map(id => id -> id) ++
     s.sorts.values.flatMap { s =>
       s.constructors.map(c => c.id -> s.id) ++ Seq(s.id -> s.id)

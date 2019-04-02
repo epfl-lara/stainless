@@ -14,6 +14,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
+  private var currentTypeDefs = Seq[xt.TypeDef]()
 
   private var report: AbstractReport[Report] = _
 
@@ -22,23 +23,28 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   def beginExtractions(): Unit = {}
 
-  def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit = {
+  override def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef]): Unit = {
     synchronized {
       currentFunctions ++= functions
       currentClasses ++= classes
+      currentTypeDefs ++= typeDefs
     }
   }
 
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
-    val allSymbols = xt.NoSymbols.withClasses(currentClasses).withFunctions(currentFunctions)
+    val allSymbols = xt.NoSymbols
+      .withClasses(currentClasses)
+      .withFunctions(currentFunctions)
+      .withTypeDefs(currentTypeDefs)
 
     def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
 
     val userIds =
       currentClasses.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      currentFunctions.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id)
+      currentFunctions.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
+      currentTypeDefs.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id)
 
     val userDependencies = userIds.flatMap(id => allSymbols.dependencies(id) ) ++ userIds
     val keepGroups = context.options.findOptionOrDefault(optKeep)
@@ -49,6 +55,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     val preSymbols =
       xt.NoSymbols.withClasses(currentClasses.filter(cd => hasKeepFlag(cd.flags) || userDependencies.contains(cd.id)))
                   .withFunctions(currentFunctions.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)))
+                  .withTypeDefs(currentTypeDefs.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)))
 
     val symbols = Recovery.recover(preSymbols)
 
@@ -78,6 +85,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def stop(): Unit = {
     currentClasses = Seq()
     currentFunctions = Seq()
+    currentTypeDefs = Seq()
   }
 
   def join(): Unit = {}

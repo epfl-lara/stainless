@@ -73,7 +73,9 @@ trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
   }
 
   override def debugString(filter: String => Boolean)(implicit pOpts: PrinterOptions): String = {
-    super.debugString(filter) ++ wrapWith("Classes", objectsToString(classes.values, filter))
+    super.debugString(filter) ++
+    wrapWith("Classes", objectsToString(classes.values, filter)) ++
+    wrapWith("Type definitions", objectsToString(typeDefs.values, filter))
   }
 
 }
