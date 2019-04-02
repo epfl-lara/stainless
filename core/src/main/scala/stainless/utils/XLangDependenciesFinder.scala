@@ -68,7 +68,7 @@ class XLangDependenciesFinder {
         traverse(pred)
         deps -= vd.id
 
-      case xt.TypeSelector(expr, id) =>
+      case xt.TypeSelect(expr, id) =>
         expr foreach traverse
         deps += id
         super.traverse(tpe)

@@ -119,7 +119,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   case class TypeBounds(lo: Type, hi: Type, flags: Seq[Flag]) extends Type
 
   /** $encodingof `expr.Type` */
-  case class TypeSelector(expr: Option[Expr], selector: Identifier) extends Type {
+  case class TypeSelect(expr: Option[Expr], selector: Identifier) extends Type {
     val isPathDependent = expr.isDefined
 
     def lookupTypeDef(implicit s: Symbols): Option[TypeDef] = expr match {
@@ -132,7 +132,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   }
 
   /** $encodingof `expr.Type[A, B, ...]` */
-  case class TypeApply(selector: TypeSelector, tps: Seq[Type]) extends Type {
+  case class TypeApply(selector: TypeSelect, tps: Seq[Type]) extends Type {
     override protected def computeType(implicit s: Symbols): Type = {
       if (getTypeDef.tparams.length != tps.length) Untyped
       else this
@@ -284,10 +284,10 @@ trait Printer extends innerfuns.Printer {
     case TypeBounds(lo, hi, _) =>
       p"_ >: $lo <: $hi"
 
-    case TypeSelector(None, id) =>
+    case TypeSelect(None, id) =>
       p"$id"
 
-    case TypeSelector(Some(expr), id) =>
+    case TypeSelect(Some(expr), id) =>
       p"$expr.$id"
 
     case TypeApply(selector, tps) =>
@@ -441,11 +441,11 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
     case s.UnknownType(pure) => (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.UnknownType(pure))
     case s.TypeBounds(lo, hi, fs) => (Seq(), Seq(), Seq(), Seq(lo, hi), fs, (_, _, _, tps, fs) => t.TypeBounds(tps(0), tps(1), fs))
 
-    case s.TypeSelector(expr, id) => (Seq(id), Seq(), expr.toSeq, Seq(), Seq(), (ids, _, exprs, _, _) =>
-        t.TypeSelector(exprs.headOption, ids(0)))
+    case s.TypeSelect(expr, id) => (Seq(id), Seq(), expr.toSeq, Seq(), Seq(), (ids, _, exprs, _, _) =>
+      t.TypeSelect(exprs.headOption, ids(0)))
 
     case s.TypeApply(sel, tps) => (Seq(), Seq(), Seq(), sel +: tps, Seq(), (_, _, _, tps, _) =>
-      t.TypeApply(tps.head.asInstanceOf[t.TypeSelector], tps.tail))
+      t.TypeApply(tps.head.asInstanceOf[t.TypeSelect], tps.tail))
 
     case _ => super.deconstruct(tpe)
   }

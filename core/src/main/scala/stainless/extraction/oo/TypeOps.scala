@@ -177,7 +177,7 @@ trait TypeOps extends innerfuns.TypeOps {
   }
 
   def resolve(tp: Type): Type = tp match {
-    case ts: TypeSelector => ts
+    case ts: TypeSelect => ts
     case ta: TypeApply => ta.resolve
     case tp => tp
   }

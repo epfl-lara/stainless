@@ -129,7 +129,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[Variance]         (227),
       classSerializer[IsCaseObject.type](229),
       classSerializer[Variance]         (227),
-      classSerializer[TypeSelector]     (237),
+      classSerializer[TypeSelect]       (237),
       classSerializer[TypeApply]        (238),
       classSerializer[TypeDef]          (239),
 

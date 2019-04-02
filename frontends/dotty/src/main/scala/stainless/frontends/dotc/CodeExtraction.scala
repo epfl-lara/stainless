@@ -1757,7 +1757,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         }
 
       case tr: TypeRef if tr.symbol.info.isTypeAlias =>
-        xt.TypeApply(xt.TypeSelector(None, getIdentifier(tr.symbol)), Seq.empty)
+        xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), Seq.empty)
 
       case tr: TypeRef if tr.symbol.isOpaqueHelper =>
         extractType(tr.translucentSuperType)
@@ -1852,7 +1852,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         }
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias =>
-        xt.TypeApply(xt.TypeSelector(None, getIdentifier(tr.symbol)), args map extractType)
+        xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), args map extractType)
 
       case at @ AppliedType(tycon: TypeRef, args) =>
         val sym = at.classSymbol
