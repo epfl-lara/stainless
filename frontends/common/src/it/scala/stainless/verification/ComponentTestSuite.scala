@@ -83,6 +83,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         val symbols = extraction.xlang.trees.NoSymbols
           .withClasses(program.symbols.classes.values.filter(cd => deps(cd.id)).toSeq)
           .withFunctions(program.symbols.functions.values.filter(fd => deps(fd.id)).toSeq)
+          .withTypeDefs(program.symbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
         val exSymbols = extractor extract symbols
         exSymbols.ensureWellFormed
