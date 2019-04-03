@@ -139,7 +139,6 @@ trait Trees extends throwing.Trees { self =>
 
   case class IsAccessor(id: Option[Identifier]) extends Flag("accessor", id.toSeq)
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
-  val Law = Annotation("law", Seq.empty)
 
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
