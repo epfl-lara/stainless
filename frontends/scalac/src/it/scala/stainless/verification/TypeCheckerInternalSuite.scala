@@ -298,6 +298,11 @@ class TypeCheckerInternalSuite extends FunSuite with Matchers with TimeLimits { 
     RefinementType(vd, GreaterThan(vd.toVariable, IntegerLiteral(lowerBound)))
   }
 
+  def greaterEqualsType(lowerBound: BigInt) = {
+    val vd = ValDef.fresh("i", IntegerType())
+    RefinementType(vd, GreaterEquals(vd.toVariable, IntegerLiteral(lowerBound)))
+  }
+
   val compressOnesId = ast.SymbolIdentifier("compressOnes")
   val compressOnesN = ValDef.fresh("n", IntegerType())
   val compressOnesS = ValDef.fresh("s", ADTType(streamId, Seq(IntegerType())))

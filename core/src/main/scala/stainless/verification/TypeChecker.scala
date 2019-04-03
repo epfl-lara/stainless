@@ -300,7 +300,9 @@ trait TypeChecker {
       case MapType(from, to) => isType(tc, from) ++ isType(tc, to)
 
       case RefinementType(vd, prop) =>
-        isType(tc, vd.tpe) ++ checkType(tc.bind(vd), prop, BooleanType())
+        val (tc2, id1, id2) = tc.freshBind(vd)
+        val freshProp: Expr = Freshener(immutable.Map(id1 -> id2)).transform(prop)
+        isType(tc, vd.tpe) ++ checkType(tc2, freshProp, BooleanType())
 
       case FunctionType(ts, returnType) =>
         TyperResult(ts.map(isType(tc, _))) ++ isType(tc, returnType)
@@ -882,8 +884,8 @@ trait TypeChecker {
         checkType(tc, e, BooleanType()) ++ buildVC(tc, e)
 
       case (e, RefinementType(vd, prop)) =>
-        val tc2 = tc.bindWithValue(vd, e)
-        checkType(tc, e, vd.tpe) ++ checkType(tc2, prop, TrueBoolean())
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
 
       case (_, TupleType(ts)) =>
         val projections = (1 to ts.length).toSeq.map(i => TupleSelect(e, i))

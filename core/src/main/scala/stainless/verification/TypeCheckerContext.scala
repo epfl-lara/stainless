@@ -94,7 +94,7 @@ object TypeCheckerContext {
     def freshBind(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier, Identifier) = {
       val freshVd = vd.freshen
       (
-        copy(termVariables = termVariables :+ vd.toVariable).setPos(this),
+        copy(termVariables = termVariables :+ freshVd.toVariable).setPos(this),
         vd.id,
         freshVd.id
       )
