@@ -3,9 +3,9 @@ import stainless.annotation._
 import stainless.lang._
 
 object Equations3 {
-  @library
-  def makeEqual(x: BigInt, y: BigInt) = {
-    true
+  @extern
+  def makeEqual(x: BigInt, y: BigInt): Unit = {
+    (??? : Unit)
   } ensuring(_ => x == y)
 
   def f(x: BigInt, y: BigInt, z: BigInt) = {
