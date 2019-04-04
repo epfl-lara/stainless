@@ -69,7 +69,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
-    typedefs: Map[Identifier, xt.TypeDef] = Map(),
     isExtern: Boolean = false,
     resolveTypes: Boolean = false
   ) {
@@ -79,7 +78,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
            this.mutableVars ++ that.mutableVars,
            this.localFuns ++ that.localFuns,
            this.localClasses ++ that.localClasses,
-           this.typedefs ++ that.typedefs,
            this.isExtern || that.isExtern,
            this.resolveTypes || that.resolveTypes)
     }
@@ -222,10 +220,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         allTypeDefs ++= newTypeDefs
 
       case cd @ ExClassDef() =>
-        val (xcd, newFunctions) = extractClass(cd)(DefContext())
+        val (xcd, newFunctions, newTypeDefs) = extractClass(cd)
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       // Normal function
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
@@ -269,7 +268,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractTypeDef(td: tpd.TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
     val sym = td.symbol
     val id = getIdentifier(sym)
-    val flags = annotationsOf(sym)
+    val flags = annotationsOf(sym) ++
+      (if (sym is Abstract) Some(xt.IsAbstract) else None)
 
     val (tparams, body) = td.rhs match {
       case LambdaTypeTree(tparams, body) =>
@@ -278,6 +278,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val tpCtx = dctx.withNewTypeParams(typeParamsSymbols zip typeParams)
         val typeBody = extractType(body)(tpCtx)
         (typeParams, typeBody)
+
+      case TypeBoundsTree(lo, hi) =>
+        val (loType, hiType) = (extractType(lo)(dctx), extractType(hi)(dctx))
+        (Seq.empty, xt.TypeBounds(loType, hiType, Seq.empty))
 
       case tpt =>
         (Seq.empty, extractType(tpt, tpt.tpe))
@@ -325,7 +329,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def isValidParent(parent: tpd.Tree, inLibrary: Boolean = false): Boolean =
     isValidParentType(parent.tpe, inLibrary)
 
-  private def extractClass(td: tpd.TypeDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef]) = {
+  private def extractClass(td: tpd.TypeDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val sym = td.symbol
     val id = getIdentifier(sym)
 
@@ -391,6 +395,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     var invariants: Seq[xt.Expr] = Seq.empty
     var methods: Seq[xt.FunDef] = Seq.empty
+    var typeMembers: Seq[xt.TypeDef] = Seq.empty
 
     // We collect the methods and fields
     for (d <- template.body) d match {
@@ -457,6 +462,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val fieldTpe = fieldsMap(vd.symbol)
         methods :+= extractFieldAccessor(vd.symbol, fieldTpe, classType, Seq.empty)(defCtx)
 
+      case td @ TypeDef(_, _) if !td.isClassDef =>
+        typeMembers :+= extractTypeDef(td)(defCtx)
+
       case d if d.symbol is Synthetic =>
         // ignore
 
@@ -485,8 +493,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     ).setPos(sym.pos)
 
     val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
+    val allTypeMembers = typeMembers.map(td => td.copy(flags = td.flags :+ xt.IsTypeMemberOf(id)))
 
-    (cd, allMethods)
+    (cd, allMethods, allTypeMembers)
   }
 
   private def extractFunction(
@@ -556,7 +565,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       else {
         // If the function contains local classes, we need to add those to the context in order to type its body.
         val tctx = localClasses.toSeq.foldLeft(fctx)(_ withLocalClass _)
-        val returnType = stainlessType(sym.info.finalResultType)(tctx, sym.pos)
+        val returnType = extractType(tree.tpt, sym.info.finalResultType)(tctx)
         val bctx = fctx.copy(localClasses = fctx.localClasses ++ tctx.localClasses)
         (xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(bctx)), returnType)
       }
@@ -834,7 +843,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val (lcds, cctx) = es.collect {
       case cd @ ExClassDef() => cd
     }.foldLeft((Map.empty[Symbol, xt.LocalClassDef], vctx)) { case ((lcds, dctx), cd) =>
-      val (xcd, methods) = extractClass(cd)(dctx)
+      val (xcd, methods, typeDefs) = extractClass(cd)(dctx) // TODO: Handle typedefs
       val lcd = xt.LocalClassDef(xcd, methods)
       (lcds + (cd.symbol -> lcd), dctx.withLocalClass(lcd))
     }
@@ -1692,14 +1701,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractTypeTree(tpt: tpd.Tree)(implicit dctx: DefContext): Option[xt.Type] = {
     tpt match {
       case ByNameTypeTree(tpe) =>
-        val result = xt.FunctionType(Seq(), extractType(tpe)(dctx)).setPos(tpt.pos)
+        val result = xt.FunctionType(Seq(), extractType(tpe, tpe.tpe)).setPos(tpt.pos)
         Some(result)
 
       case PredicateTypeTree(vd, pred) =>
-        val subject = xt.ValDef(getIdentifier(vd.symbol), extractType(vd.tpt)).setPos(vd.pos)
+        val subject = xt.ValDef(getIdentifier(vd.symbol), extractType(vd.tpt, vd.tpe)).setPos(vd.pos)
         val nctx = dctx.withNewVar(vd.symbol -> (() => subject.toVariable))
         val predExpr = extractTree(pred)(nctx)
         val result = xt.RefinementType(subject, predExpr).setPos(tpt.pos)
+        Some(result)
+
+      case Select(prefix, name) if !(prefix.symbol is ModuleClass) =>
+        val path = extractTreeOrNoTree(prefix)
+        val id = getIdentifier(tpt.symbol)
+        val result = xt.TypeApply(xt.TypeSelect(Some(path).filterNot(_ == xt.NoTree), id), Seq())
         Some(result)
 
       case _ => None
@@ -1757,17 +1772,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
         }
 
-      case tr: TypeRef if tr.symbol.info.isTypeAlias && dctx.resolveTypes =>
+      case tr: TypeRef if tr.symbol.isAbstractOrAliasType && dctx.resolveTypes =>
         extractType(tr.widenDealias)
-
-      case tr: TypeRef if tr.symbol.info.isTypeAlias =>
-        xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), Seq.empty)
 
       case tr: TypeRef if tr.symbol.isOpaqueHelper && dctx.resolveTypes =>
         extractType(tr.translucentSuperType)
 
-      case tr: TypeRef if tr.symbol.isOpaqueHelper =>
-        xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), Seq.empty) // FIXME: Args?
+      case tr @ TypeRef(thisRef: ThisType, _) if tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueHelper =>
+        val thiss = if (thisRef.tref.symbol is ModuleClass) None else {
+          Some(xt.This(extractType(thisRef).asInstanceOf[xt.ClassType]))
+        }
+
+        val selector = getIdentifier(tr.symbol)
+        xt.TypeApply(xt.TypeSelect(thiss, selector), Seq.empty)
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
         extractType(TypeRef(prefix.widenTermRefExpr, name))

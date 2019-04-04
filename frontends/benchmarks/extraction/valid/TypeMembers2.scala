@@ -1,4 +1,5 @@
-object TypeMember {
+
+object TypeMembers2 {
   abstract class M {
     type T
     def c(t: T): Unit
@@ -8,8 +9,15 @@ object TypeMember {
 
   case class F() extends M {
     type T = A
+
     def c(t: T) = {
       t.x += 2
     }
+  }
+
+  def test(x: F) = {
+    val a = A(40)
+    x.c(a)
+    assert(a.x == 42)
   }
 }

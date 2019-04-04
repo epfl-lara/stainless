@@ -347,8 +347,8 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     wrapWith("Sorts", objectsToString(sorts.values, filter))
   }
 
-  protected final def objectsToString(m: Iterable[Definition], filter: String => Boolean)
-                                     (implicit pOpts: PrinterOptions): String = {
+  protected def objectsToString(m: Iterable[Definition], filter: String => Boolean)
+                               (implicit pOpts: PrinterOptions): String = {
     m.collect { case d if filter(d.id.name) => d.asString(pOpts) } mkString "\n\n"
   }
 

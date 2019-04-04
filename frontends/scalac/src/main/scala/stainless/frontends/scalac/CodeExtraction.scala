@@ -235,16 +235,18 @@ trait CodeExtraction extends ASTExtractors {
         allTypeDefs ++= newTypeDefs
 
       case md: ModuleDef if !md.symbol.isSynthetic && md.symbol.isCase =>
-        val (xcd, newFunctions) = extractClass(md)(DefContext())
+        val (xcd, newFunctions, newTypeDefs) = extractClass(md)(DefContext())
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case cd: ClassDef =>
-        val (xcd, newFunctions) = extractClass(cd)(DefContext())
+        val (xcd, newFunctions, newTypeDefs) = extractClass(cd)(DefContext())
         classes :+= xcd.id
         allClasses :+= xcd
         allFunctions ++= newFunctions
+        allTypeDefs ++= newTypeDefs
 
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
         val fd = extractFunction(fsym, tparams, vparams, rhs)(DefContext())
@@ -295,7 +297,8 @@ trait CodeExtraction extends ASTExtractors {
   private def extractTypeDef(td: TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
     val sym = td.symbol
     val id = getIdentifier(sym)
-    val flags = annotationsOf(sym)
+    val flags = annotationsOf(sym) ++
+      (if (sym.isAbstractType) Some(xt.IsAbstract) else None)
 
     val tparamsSyms = sym.tpe match {
       case TypeRef(_, _, tps) => typeParamSymbols(tps)
@@ -332,8 +335,7 @@ trait CodeExtraction extends ASTExtractors {
     (module, allClasses, allFunctions, allTypeDefs)
   }
 
-
-  private def extractClass(cd: ImplDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef]) = {
+  private def extractClass(cd: ImplDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
@@ -389,8 +391,9 @@ trait CodeExtraction extends ASTExtractors {
 
     val defCtx = tpCtx.withNewVars((vds.map(_.symbol) zip fields.map(vd => () => vd.toVariable)).toMap)
 
-    var invariants: Seq[xt.Expr] = Seq.empty
-    var methods: Seq[xt.FunDef] = Seq.empty
+    var invariants: Seq[xt.Expr]     = Seq.empty
+    var methods: Seq[xt.FunDef]      = Seq.empty
+    var typeMembers: Seq[xt.TypeDef] = Seq.empty
 
     for (d <- cd.impl.body) d match {
       case EmptyTree =>
@@ -439,6 +442,10 @@ trait CodeExtraction extends ASTExtractors {
       case vd @ ExMutableFieldDef(sym, _, _) if vd.symbol.owner.isAbstract || vd.symbol.owner.isTrait =>
         methods :+= extractFunction(sym, Seq.empty, Seq.empty, EmptyTree)(defCtx)
 
+      case t: TypeDef =>
+        val td = extractTypeDef(t)(defCtx)
+        typeMembers :+= td
+
       case ValDef(_, _, _, _) =>
         // ignore (corresponds to constructor fields)
 
@@ -462,6 +469,7 @@ trait CodeExtraction extends ASTExtractors {
     })
 
     val allMethods = (methods ++ optInv).map(fd => fd.copy(flags = fd.flags :+ xt.IsMethodOf(id)))
+    val allTypeMembers = typeMembers.map(td => td.copy(flags = td.flags :+ xt.IsTypeMemberOf(id)))
 
     val xcd = new xt.ClassDef(
       id,
@@ -471,7 +479,7 @@ trait CodeExtraction extends ASTExtractors {
       flags
     ).setPos(sym.pos)
 
-    (xcd, allMethods)
+    (xcd, allMethods, allTypeMembers)
   }
 
   private def getSelectChain(e: Tree): List[String] = {
@@ -520,13 +528,20 @@ trait CodeExtraction extends ASTExtractors {
     val extparams = typeParamSymbols(sym.typeParams.map(_.tpe))
     val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
-    val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
+    val tctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
-    val newParams = sym.info.paramss.flatten.map { sym =>
-      val ptpe = stainlessType(sym.tpe)(nctx, sym.pos)
-      val tpe = if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe).setPos(sym.pos) else ptpe
-      val flags = annotationsOf(sym, ignoreOwner = true)
-      xt.ValDef(getIdentifier(sym), tpe, flags).setPos(sym.pos)
+    val (newParams, nctx) = sym.info.paramss.flatten.foldLeft((Seq.empty[xt.ValDef], tctx)) {
+      case ((vds, vctx), sym) =>
+        val ptpe = stainlessType(sym.tpe)(vctx, sym.pos)
+        val tpe = if (sym.isByNameParam) xt.FunctionType(Seq(), ptpe).setPos(sym.pos) else ptpe
+        val flags = annotationsOf(sym, ignoreOwner = true)
+        val vd = xt.ValDef(getIdentifier(sym), tpe, flags).setPos(sym.pos)
+        val expr = if (sym.isByNameParam) {
+          () => xt.Application(vd.toVariable, Seq()).setPos(vd)
+        } else {
+          () => vd.toVariable
+        }
+        (vds :+ vd, vctx.withNewVar(sym, () => vd.toVariable))
     }
 
     val id = getIdentifier(sym)
@@ -776,7 +791,7 @@ trait CodeExtraction extends ASTExtractors {
     val (lcds, cctx) = es.collect {
       case cd: ClassDef => cd
     }.foldLeft((Map.empty[Symbol, xt.LocalClassDef], vctx)) { case ((lcds, dctx), cd) =>
-      val (xcd, methods) = extractClass(cd)(dctx)
+      val (xcd, methods, typeDefs) = extractClass(cd)(dctx) // TODO: Handle typedefs
       val lcd = xt.LocalClassDef(xcd, methods).setPos(xcd)
       (lcds + (cd.symbol -> lcd), dctx.withLocalClass(lcd))
     }
@@ -1550,7 +1565,11 @@ trait CodeExtraction extends ASTExtractors {
     case AnyTpe     => xt.AnyType()
     case NothingTpe => xt.NothingType()
 
-    case ct: ConstantType => extractType(ct.value.tpe)
+    case ct: ConstantType =>
+      extractType(ct.value.tpe)
+
+    case TypeBounds(lo, hi) =>
+      xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
 
     case TypeRef(_, sym, _) if isBigIntSym(sym) => xt.IntegerType()
     case TypeRef(_, sym, _) if isRealSym(sym)   => xt.RealType()
@@ -1582,12 +1601,8 @@ trait CodeExtraction extends ASTExtractors {
     case TypeRef(_, sym, tps) if isByNameSym(sym) =>
       extractType(tps.head)
 
-    case TypeRef(_, sym, _) if sym.isAbstractType =>
-      if (dctx.tparams contains sym) {
-        dctx.tparams(sym)
-      } else {
-        outOfSubsetError(pos, "Unknown type parameter "+sym)
-      }
+    case TypeRef(_, sym, _) if sym.isAbstractType && (dctx.tparams contains sym) =>
+      dctx.tparams(sym)
 
     case tr @ TypeRef(_, sym, tps) if sym.isClass =>
       val id = getIdentifier(sym)
@@ -1596,11 +1611,24 @@ trait CodeExtraction extends ASTExtractors {
         case None => xt.ClassType(id, tps map extractType)
       }
 
-    case tr @ TypeRef(_, sym, tps) if sym.isAliasType && dctx.resolveTypes =>
+    case tr @ TypeRef(_, sym, tps) if dctx.resolveTypes && (sym.isAliasType || sym.isAbstractType) =>
       extractType(tr.dealias)
 
-    case tr @ TypeRef(_, sym, tps) if sym.isAliasType =>
-      xt.TypeApply(xt.TypeSelect(None, getIdentifier(sym)), tps map extractType)
+    case tr @ TypeRef(prefix, sym, tps) if sym.isAbstractType || sym.isAliasType =>
+      val selector = prefix match {
+        case _ if prefix.typeSymbol.isModuleClass =>
+          None
+        case thiss: ThisType =>
+          Some(xt.This(extractType(thiss).asInstanceOf[xt.ClassType]))
+        case SingleType(_, sym) if dctx.vars contains sym =>
+          Some(dctx.vars(sym)())
+        case SingleType(_, sym) =>
+          ctx.reporter.internalError(s"extractType: could not find variable $sym in context")
+        case _ =>
+          None
+      }
+
+      xt.TypeApply(xt.TypeSelect(selector, getIdentifier(sym)), tps map extractType)
 
     case tt: ThisType =>
       val id = getIdentifier(tt.sym)
@@ -1642,6 +1670,7 @@ trait CodeExtraction extends ASTExtractors {
     case _ =>
       if (tpt ne null) {
         outOfSubsetError(tpt.typeSymbol.pos, "Could not extract type: "+tpt+" ("+tpt.getClass+")")
+        throw new Exception()
       } else {
         outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
       }

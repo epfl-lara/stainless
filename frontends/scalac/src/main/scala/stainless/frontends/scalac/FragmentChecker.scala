@@ -291,11 +291,6 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         case vd @ ValDef(mods, _, _, _) if sym.owner.isClass && !sym.owner.isAbstractClass && mods.isMutable && !mods.isCaseAccessor =>
           reportError(tree.pos, "Variables are only allowed within functions and as constructor parameters in Stainless.")
 
-        case t: TypeDef =>
-          if (!t.symbol.isAliasType)
-            reportError(t.pos, "Stainless doesn't support abstract type members")
-          atOwner(sym)(traverse(t.rhs))
-
         case Apply(fun, List(arg)) if sym == StainlessOld =>
           arg match {
             case This(_) => ()

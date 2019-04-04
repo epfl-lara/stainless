@@ -13,6 +13,8 @@ object typedefs {
 
   type SomeStuff[A, B] = Stuff[(A, B)]
 
+  // type PositiveInt = { x: Int => x >= 0 }
+
   def hello(x: BigInt): Hello[BigInt] = {
     assert(x == BigInt(0))
     x
@@ -38,5 +40,9 @@ object typedefs {
     assert(res == BigInt(0))
     res
   }
+
+  // def takePos(x: PositiveInt): Int = {
+  //   x
+  // } ensuring { _ >= 0 }
 
 }
