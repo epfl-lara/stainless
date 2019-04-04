@@ -61,7 +61,7 @@ trait RefinementLifting
         }
 
       case _ => None
-    } (tpe)
+    } (resolve(tpe))
 
     def dropRefinements(tpe: s.Type): s.Type = liftRefinements(tpe) match {
       case s.RefinementType(vd, _) => dropRefinements(vd.tpe)
