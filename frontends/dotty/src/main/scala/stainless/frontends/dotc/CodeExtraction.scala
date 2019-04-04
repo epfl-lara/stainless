@@ -71,7 +71,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
     typedefs: Map[Identifier, xt.TypeDef] = Map(),
     isExtern: Boolean = false,
-    resolveTypes: Boolean = true
+    resolveTypes: Boolean = false
   ) {
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
@@ -345,7 +345,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val inLibrary = flags exists (_.name == "library")
     val parents = template.parents
       .filter(isValidParent(_, inLibrary))
-      .map(p => extractType(p.tpe)(defCtx, p.pos))
+      .map(p => extractType(p.tpe)(defCtx.setResolveTypes(true), p.pos))
       .map {
         case ct: xt.ClassType => ct
         case lct: xt.LocalClassType => lct.toClassType
@@ -668,7 +668,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       extractPattern(pat, Some(vd))(pctx)
 
     case t @ Typed(Ident(nme.WILDCARD), tpt) =>
-      extractType(tpt) match {
+      extractType(tpt)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           (xt.InstanceOfPattern(binder, ct).setPos(p.pos), dctx)
 
@@ -679,9 +679,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case Ident(nme.WILDCARD) =>
       (xt.WildcardPattern(binder).setPos(p.pos), dctx)
 
-    case s @ Select(_, b) if s.tpe.typeSymbol is (Case | Module) =>
+    case s @ Select(_, b) if s.tpe.widenDealias.typeSymbol is (Case | Module) =>
       // case Obj =>
-      extractType(s) match {
+      extractType(s)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
@@ -689,7 +689,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       }
 
     case id @ Ident(_) if id.symbol is (Case | Module) =>
-      extractType(id) match {
+      extractType(id)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
@@ -697,7 +697,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       }
 
     case a @ Apply(fn, args) =>
-      extractType(a) match {
+      extractType(a)(dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
           val nctx = subDctx.foldLeft(dctx)(_ union _)
@@ -1593,8 +1593,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           }
 
           case (tpe, name, args) =>
-            outOfSubsetError(tr, "Unknown call to " + name +
-              s" on $lhs (${extractType(lhs)}) with arguments $args of type ${args.map(a => extractType(a))}")
+            outOfSubsetError(tr,
+              s"Unknown call to $name on $lhs of type $tpe (${lhs.tpe}) with " +
+              s"arguments ${args mkString ", "} of type " +
+              s"${args.map(a => extractType(a)(dctx.setResolveTypes(true))).mkString(", ")}"
+            )
         }
       }
     }
@@ -1882,6 +1885,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case Some(lcd) => extractLocalClassType(tt, lcd.id, tparams)
           case None => xt.ClassType(id, tparams)
         }
+
+      case tt @ TermRef(_, _) if dctx.resolveTypes =>
+        extractType(tt.widenDealias)
 
       case tt @ TermRef(_, _) =>
         extractType(tt.widenTermRefExpr)
