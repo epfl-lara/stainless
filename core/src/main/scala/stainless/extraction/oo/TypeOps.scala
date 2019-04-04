@@ -159,28 +159,14 @@ trait TypeOps extends innerfuns.TypeOps {
     (!t1.isTyped && !t2.isTyped) || (t1.isTyped && t2.isTyped && leastUpperBound(t1, t2) == t2.getType)
   }
 
-  // override def isSubtypeOf(t1: Type, t2: Type): Boolean = (t1, t2) match {
-  //   case (t1: TypeApply, t2) =>
-  //     println((t1, t2, leastUpperBound(t1, t2), t2.getType, _isSubtypeOf(t1, t2)))
-  //     _isSubtypeOf(t1, t2)
-
-  //   case (t1, t2: TypeApply) =>
-  //     println((t1, t2, leastUpperBound(t1, t2), t2.getType, _isSubtypeOf(t1, t2)))
-  //     _isSubtypeOf(t1, t2)
-
-  //   case (t1, t2) =>
-  //     _isSubtypeOf(t1, t2)
-  // }
-
   def typesCompatible(t1: Type, t2s: Type*) = {
     leastUpperBound(t1 +: t2s) != Untyped
   }
 
-  def resolve(tp: Type): Type = tp match {
-    case ts: TypeSelect => ts
-    case ta: TypeApply => ta.resolve
-    case tp => tp
-  }
+  def resolve(tp: Type): Type = typeOps.preMap {
+    case ta: TypeApply => Some(ta.resolve)
+    case tp => None
+  } (tp)
 
   private class Unsolvable extends Exception
   protected def unsolvable = throw new Unsolvable
