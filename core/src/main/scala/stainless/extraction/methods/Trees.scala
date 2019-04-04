@@ -198,8 +198,10 @@ trait Printer extends throwing.Printer {
     case cd: ClassDef =>
       super.ppBody(cd)
       ctx.opts.symbols.foreach { implicit s =>
-        if (cd.methods.nonEmpty) {
+        if (cd.methods.nonEmpty || cd.typeMembers.nonEmpty) {
           p""" {
+            |  ${typeDefs(cd.typeMembers.map(_.id))}
+            |
             |  ${functions(cd.methods)}
           |}"""
         }

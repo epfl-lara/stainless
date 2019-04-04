@@ -72,7 +72,7 @@ trait MethodLifting
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
-        val ct = symbols.resolve(rec.getType(symbols)).asInstanceOf[s.ClassType]
+        val ct = dealias(rec.getType(symbols))(symbols).asInstanceOf[s.ClassType]
         val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
         val tcd = (ct.tcd(symbols) +: ct.tcd(symbols).ancestors).find(_.id == cid).get
         t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)

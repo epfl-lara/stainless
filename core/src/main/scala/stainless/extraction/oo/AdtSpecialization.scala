@@ -21,7 +21,8 @@ trait AdtSpecialization
   private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
-    cd.parents match {
+
+    cd.typeMembers.isEmpty && (cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
           val cs = cd.children
@@ -34,7 +35,7 @@ trait AdtSpecialization
         }
         rec(cd)
       case _ => isCandidate(root(cd.id))
-    }
+    })
   }
 
   private[this] val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
@@ -66,7 +67,7 @@ trait AdtSpecialization
     protected implicit val implicitContext: TransformerContext = this
 
     override def transform(e: s.Expr): t.Expr = e match {
-      case s.ClassSelector(expr, selector) => symbols.resolve(expr.getType) match {
+      case s.ClassSelector(expr, selector) => s.dealias(expr.getType) match {
         case s.ClassType(id, tps) if isCandidate(id) =>
           val vd = t.ValDef.fresh("e", t.ADTType(root(id), tps map transform).copiedFrom(e)).copiedFrom(e)
           t.Let(vd, transform(expr),

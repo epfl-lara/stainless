@@ -15,6 +15,7 @@ trait FrontendFactory {
   private lazy val cl = getClass.getClassLoader
 
   /** Paths to the library files used by this frontend. */
+  // final lazy val libraryFiles: Seq[String] = libraryPaths map cl.getResource map { url =>
   final lazy val libraryFiles: Seq[String] = libraryPaths map cl.getResource map { url =>
     // There are two run modes: either the library is not packaged in a jar, and therefore
     // directly available as is from the disk, or it is embedded in stainless' jar file, in

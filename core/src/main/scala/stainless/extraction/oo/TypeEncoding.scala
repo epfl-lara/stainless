@@ -154,8 +154,8 @@ trait TypeEncoding
   private[this] val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
   private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr = {
-    val t1 = scope.symbols.resolve(tpe.getType(scope.symbols))
-    val t2 = scope.symbols.resolve(expected.getType(scope.symbols))
+    val t1 = s.dealias(tpe.getType(scope.symbols))(scope.symbols)
+    val t2 = s.dealias(expected.getType(scope.symbols))(scope.symbols)
 
     ((e, t1, t2) match {
       case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
@@ -168,6 +168,9 @@ trait TypeEncoding
 
       case (_, t1, t2) if scope.converters contains t2 =>
         t.Application(scope.converters(t2), Seq(wrap(e, t1)))
+
+      case (_, s.RefinementType(vd, pred), t2) =>
+        convert(e, vd.tpe, t2)
 
       case (_, s.ADTType(id1, tps1), s.ADTType(id2, tps2)) if id1 == id2 =>
         t.FunctionInvocation(convertID(id1), (tps1 ++ tps2).map(tp => scope.transform(tp)),
@@ -297,8 +300,8 @@ trait TypeEncoding
 
   private[this] val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
 
-  private[this] def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(implicit scope: Scope): t.Expr =
-    ((in, tpe) match {
+  private[this] def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(implicit scope: Scope): t.Expr = {
+    ((s.dealias(in)(scope.symbols), s.dealias(tpe)(scope.symbols)) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
         !s.typeOps.typeParamsOf(tp2).exists { t2 =>
@@ -319,6 +322,8 @@ trait TypeEncoding
       case (_, s.NothingType()) => t.BooleanLiteral(false)
 
       case (_, s.UnknownType(_)) => t.BooleanLiteral(true)
+
+      case (s.TypeBounds(_, hi, _), _) => instanceOf(e, hi, tpe)
       case (_, s.TypeBounds(_, hi, _)) => instanceOf(e, in, hi)
 
       case (s.RefinementType(vd, pred), _) => instanceOf(e, vd.tpe, tpe)
@@ -483,6 +488,7 @@ trait TypeEncoding
       case (_, s.UnitType()) if isObject(in) => e is unit
       case _ => t.BooleanLiteral(false)
     }).copiedFrom(e)
+  }
 
 
   /* ====================================
@@ -741,10 +747,8 @@ trait TypeEncoding
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
-      case ta: s.TypeApply if ta.isPathDependent =>
-        self.context.reporter.fatalError(s"Unsupported path dependent type: $ta")
-
-      case ta: s.TypeApply => transform(ta.resolve)
+      case ta: s.TypeApply =>
+        transform(ta.dealias)
 
       case tp: s.TypeParameter if testers contains tp =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {

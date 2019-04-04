@@ -41,6 +41,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def descendants(implicit s: Symbols): Seq[ClassDef] =
       children.flatMap(cd => cd +: cd.descendants).distinct
 
+    def typeMembers(implicit s: Symbols): Seq[TypeDef] =
+      s.typeDefs.values.filter(_.flags contains IsTypeMemberOf(id)).toSeq
+
     def typeArgs = tparams map (_.tp)
 
     def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
@@ -92,6 +95,12 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       else cd.fields.map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
     })
 
+    @inline def typeMembers: Seq[TypeDef] = _typeMembers.get
+    private[this] val _typeMembers = inox.utils.Lazy({
+      if (tpSubst.isEmpty) cd.typeMembers
+      else cd.typeMembers.map(td => td.copy(rhs = typeOps.instantiateType(td.rhs, tpSubst)))
+    })
+
     @inline def toType = ClassType(id, tps).copiedFrom(this)
   }
 
@@ -101,14 +110,33 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     val rhs: Type,
     val flags: Seq[Flag],
   ) extends Definition {
-    def typeArgs = tparams map (_.tp)
+    val typeArgs = tparams map (_.tp)
+
+    val isAbstract: Boolean = flags contains IsAbstract
+
+    def bounds: Option[TypeBounds] = rhs match {
+      case tb: TypeBounds => Some(tb)
+      case _ => None
+    }
 
     def typed(tps: Seq[Type])(implicit s: Symbols): AppliedTypeDef = AppliedTypeDef(this, tps)
     def typed(implicit s: Symbols): AppliedTypeDef = typed(tparams.map(_.tp))
+
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      rhs: Type = rhs,
+      flags: Seq[Flag] = flags,
+    ): TypeDef = new TypeDef(id, tparams, rhs, flags)
   }
 
   case class AppliedTypeDef(td: TypeDef, tps: Seq[Type]) extends Tree {
     copiedFrom(td)
+
+    def bounds: Option[TypeBounds] = td.bounds map { bounds =>
+      val tpSubst = td.tparams.map(_.tp) zip tps
+      typeOps.instantiateType(bounds, tpSubst.toMap).asInstanceOf[TypeBounds]
+    }
   }
 
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")
@@ -252,6 +280,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case object IsCaseObject extends Flag("caseObject", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
+  case class IsTypeMemberOf(id: Identifier) extends Flag("typeMember", Seq(id))
 
   implicit class TypeParameterWrapper(tp: TypeParameter) {
     def bounds: TypeBounds = {

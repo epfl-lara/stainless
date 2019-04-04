@@ -41,17 +41,17 @@ trait TypeOps extends innerfuns.TypeOps {
     case (_, ta: TypeApply) if ta.lookupTypeDef.isEmpty => Some(Untyped)
 
     case (ta1: TypeApply, tp2) =>
-      typeBound(ta1.resolve, tp2, upper) match {
-        case Untyped => Some(Untyped)
+      typeBound(ta1.dealias, tp2, upper) match {
+        case Untyped    => Some(Untyped)
         case _ if upper => Some(tp2)
-        case _ => Some(ta1)
+        case _          => Some(ta1)
       }
 
     case (tp1, ta2: TypeApply) =>
-      typeBound(tp1, ta2.resolve, upper) match {
-        case Untyped => Some(Untyped)
+      typeBound(tp1, ta2.dealias, upper) match {
+        case Untyped    => Some(Untyped)
         case _ if upper => Some(ta2)
-        case _ => Some(tp1)
+        case _          => Some(tp1)
       }
 
     case (adt: ADTType, _) if adt.lookupSort.isEmpty => Some(Untyped)
@@ -163,11 +163,6 @@ trait TypeOps extends innerfuns.TypeOps {
     leastUpperBound(t1 +: t2s) != Untyped
   }
 
-  def resolve(tp: Type): Type = typeOps.preMap {
-    case ta: TypeApply => Some(ta.resolve)
-    case tp => None
-  } (tp)
-
   private class Unsolvable extends Exception
   protected def unsolvable = throw new Unsolvable
 
@@ -189,10 +184,10 @@ trait TypeOps extends innerfuns.TypeOps {
       (ct1.tps zip ct2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
 
     case (ta1: TypeApply, tp2) =>
-      unificationConstraints(ta1.resolve, tp2, free)
+      unificationConstraints(ta1.dealias, tp2, free)
 
     case (tp1, ta2: TypeApply) =>
-      unificationConstraints(tp1, ta2.resolve, free)
+      unificationConstraints(tp1, ta2.dealias, free)
 
     case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
       (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
