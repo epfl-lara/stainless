@@ -82,10 +82,10 @@ trait ComponentRun { self =>
   /** Override this if you need another kind of filtering */
   protected lazy val dependenciesFinder = new DependenciesFinder {
     val t: self.trees.type = self.trees
-    protected def traverser(symbols: t.Symbols) = new DefinitionIdFinder {
+    protected def traverser(symbols: t.Symbols) = new {
       val trees: t.type = t
       val s: t.Symbols = symbols
-    }
+    } with DefinitionIdFinder
   }
 
   private def filter(ids: Seq[Identifier], symbols: trees.Symbols): trees.Symbols = {
