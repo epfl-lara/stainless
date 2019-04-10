@@ -1,5 +1,5 @@
 
-object typedefs {
+object Typedefs2 {
 
   case class Stuff[A](x: A)
 

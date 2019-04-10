@@ -1,4 +1,4 @@
-object Typedefs1 {
+object Typedef {
   // Simple type alias
   type MyInt = Int
 
