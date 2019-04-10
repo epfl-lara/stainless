@@ -164,7 +164,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     // Dispatch a task to the executor service instead of blocking this thread.
     val componentReports: Seq[Future[RunReport]] = {
       runs map { run =>
-        Try(run(id, symbols)) match {
+        Try(run(id, syms)) match {
           case Success(future) =>
             val runReport = future map { a =>
               RunReport(run)(a.toReport): RunReport

@@ -3,13 +3,15 @@
 package stainless
 package frontend
 
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports {
+  import context.reporter
+
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
 
@@ -31,6 +33,14 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   def endExtractions(): Unit = {
     val symbols = xt.NoSymbols.withClasses(currentClasses).withFunctions(currentFunctions)
+
+    try {
+      TreeSanitizer(xt).check(symbols)
+    } catch {
+      case e: extraction.MalformedStainlessCode =>
+        reportError(e.tree.getPos, e.getMessage, symbols)
+    }
+
     val reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
       val analysis = Try(run(ids, symbols, filterSymbols = true))
@@ -40,7 +50,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
           Some(RunReport(run)(report))
 
         case Failure(err) =>
-          context.reporter.error(s"Run has failed with error: $err")
+          reporter.error(s"Run has failed with error: $err")
           None
       }
     }
@@ -55,4 +65,13 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def join(): Unit = {}
 
   def getReport = Option(report)
+
+  private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
+    reporter.error(pos, msg)
+    reporter.error(s"The extracted sub-program in not well formed.")
+    reporter.error(s"Symbols are:")
+    reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.fatalError(s"Aborting from SplitCallBack")
+  }
 }
