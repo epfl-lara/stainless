@@ -125,7 +125,14 @@ trait Sealing extends oo.CachingPhase
       // We lookup the latest non-final methods, and split them in three groups:
       // normal methods, setters, and getters
       val lnfm = context.lnfm(cd).toSeq
-      val (accessors, methods) = lnfm.partition(id => symbols.getFunction(id).isAccessor)
+      val (accessors, methods) = lnfm.partition { id =>
+        val fd = symbols.getFunction(id)
+        fd.isAccessor && !typeOps.exists {
+          case TypeSelect(Some(This(ct)), _) => ct.id == cd.id
+          case _ => false
+        } (fd.returnType) // We don't want to add fields for vals which are path-dependent on `this`,
+                          // because this is invalid in Scala (ie. fields cannot refer to `this`).
+      }
 
       // we drop the '_=' suffix from the setter name to get the name of the field
       def fieldName(fd: FunDef): String = if (fd.isSetter) fd.id.name.dropRight(2) else fd.id.name

@@ -82,6 +82,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
         case Failure(err) =>
           reporter.error(s"Run has failed with error: $err")
+          reporter.error(err.getStackTrace.map(_.toString).mkString("\n"))
           None
       }
     }
