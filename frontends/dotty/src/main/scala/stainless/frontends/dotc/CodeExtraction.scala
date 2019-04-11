@@ -69,17 +69,21 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     mutableVars: Map[Symbol, () => xt.Variable] = Map(),
     localFuns: Map[Symbol, (Identifier, Seq[xt.TypeParameterDef], xt.FunctionType)] = Map(),
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
+    depParams: Map[TermName, xt.ValDef] = Map(),
     isExtern: Boolean = false,
     resolveTypes: Boolean = false
   ) {
     def union(that: DefContext) = {
-      copy(this.tparams ++ that.tparams,
-           this.vars ++ that.vars,
-           this.mutableVars ++ that.mutableVars,
-           this.localFuns ++ that.localFuns,
-           this.localClasses ++ that.localClasses,
-           this.isExtern || that.isExtern,
-           this.resolveTypes || that.resolveTypes)
+      copy(
+        this.tparams ++ that.tparams,
+        this.vars ++ that.vars,
+        this.mutableVars ++ that.mutableVars,
+        this.localFuns ++ that.localFuns,
+        this.localClasses ++ that.localClasses,
+        this.depParams ++ that.depParams,
+        this.isExtern || that.isExtern,
+        this.resolveTypes || that.resolveTypes
+      )
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -114,6 +118,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def withLocalClass(lcd: xt.LocalClassDef) = {
       copy(localClasses = this.localClasses + (lcd.id -> lcd))
+    }
+
+    def withDepParams(dps: Traversable[(TermName, xt.ValDef)]) = {
+      copy(depParams = depParams ++ dps)
     }
 
     def setResolveTypes(resolveTypes: Boolean) = {
@@ -1453,6 +1461,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         case ft: xt.FunctionType =>
           xt.Application(extractTree(lhs), args.map(extractTree)).setPos(ft)
 
+        case pi: xt.PiType =>
+          xt.Application(extractTree(lhs), args.map(extractTree)).setPos(pi)
+
         case tpe => (tpe, sym.name.decode.toString, args) match {
           case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
           case (xt.IntegerType() | xt.BVType(_,_) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus)(lhs, rhs)
@@ -1767,13 +1778,23 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case ct: ConstantType => extractType(ct.value.tpe)
       case cet: CachedExprType => extractType(cet.resultType)
 
+      case tr @ TypeRef(ref: TermParamRef, _) if dctx.depParams contains ref.paramName =>
+        val vd = dctx.depParams(ref.paramName)
+        val selector = getIdentifier(tr.symbol)
+        xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
+
+      case tr @ TypeRef(ref: TermRef, name) if !dctx.resolveTypes =>
+        val vd = xt.ValDef(SymbolIdentifier(ref.name.mangledString), extractType(ref.underlying), Seq.empty)
+        val selector = getIdentifier(tr.symbol)
+        xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
+
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams.get(tr.symbol).getOrElse {
           outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
         }
 
       case tr: TypeRef if tr.symbol.isAbstractOrAliasType && dctx.resolveTypes =>
-        extractType(tr.widenDealias)
+        extractType(tr.widenDealias)(dctx.setResolveTypes(tr != tr.widenDealias), pos)
 
       case tr: TypeRef if tr.symbol.isOpaqueHelper && dctx.resolveTypes =>
         extractType(tr.translucentSuperType)
@@ -1854,10 +1875,22 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val Seq(tp) = extractTypeParams(tr.classSymbol.typeParams)
         xt.ArrayType(tp)
 
-      case _ if defn.isFunctionClass(tpt.typeSymbol) && tpt.dealias.argInfos.isEmpty =>
+      case tp: RefinedType if defn.isFunctionType(tp) =>
+        val mt = tp.refinedInfo.asInstanceOf[MethodType]
+
+        val vds = (mt.paramNames zip mt.paramInfos) map { case (name, tpe) =>
+          xt.ValDef(SymbolIdentifier(name.mangledString), extractType(tpe), Seq.empty)
+        }
+
+        val rctx = dctx.withDepParams(mt.paramNames zip vds)
+        val resultType = extractType(mt.resultType)(rctx, pos)
+
+        xt.PiType(vds, resultType)
+
+      case tp if defn.isFunctionClass(tp.typeSymbol) && tp.dealias.argInfos.isEmpty =>
         xt.FunctionType(Seq(), xt.UnitType())
 
-      case defn.FunctionOf(from, to, _, _) =>
+      case fo @ defn.FunctionOf(from, to, _, _) =>
         xt.FunctionType(from map extractType, extractType(to))
 
       case tt @ ThisType(tr) =>
