@@ -32,7 +32,19 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
-    val symbols = xt.NoSymbols.withClasses(currentClasses).withFunctions(currentFunctions)
+    val allSymbols = xt.NoSymbols.withClasses(currentClasses).withFunctions(currentFunctions)
+    def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
+    val userIds =
+      currentClasses.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
+      currentFunctions.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id)
+    val userDependencies = userIds.flatMap(id => allSymbols.dependencies(id) ) ++ userIds
+    val keepGroups = context.options.findOptionOrDefault(optKeep)
+    def hasKeepFlag(flags: Seq[xt.Flag]) =
+      keepGroups.exists(g => flags.contains(xt.Annotation("keep",Seq(g))))
+
+    val symbols =
+      xt.NoSymbols.withClasses(currentClasses.filter(cd => hasKeepFlag(cd.flags) || userDependencies.contains(cd.id)))
+                  .withFunctions(currentFunctions.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)))
 
     try {
       TreeSanitizer(xt).check(symbols)
