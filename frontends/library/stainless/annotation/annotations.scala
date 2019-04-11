@@ -54,6 +54,13 @@ class law          extends Annotation
 @ignore
 class mutable          extends Annotation
 
+/** Can be used to mark a library function/class/object so that it is not
+  * filtered out by the keep objects. Use the command-line option `--keep=g` to
+  * keep all objects marked by `@keep(g)`
+  */
+@ignore
+class keep(g: String)      extends Annotation
+
 /**
  * Code annotated with @ghost is removed after stainless extraction.
  *

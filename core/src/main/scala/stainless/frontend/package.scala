@@ -75,6 +75,7 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
+    !ctx.options.findOptionOrDefault(optKeep).isEmpty ||
     activeComponents.contains(termination.TerminationComponent)
   }
 }
