@@ -1612,7 +1612,8 @@ trait CodeExtraction extends ASTExtractors {
       }
 
     case tr @ TypeRef(_, sym, tps) if dctx.resolveTypes && (sym.isAliasType || sym.isAbstractType) =>
-      extractType(tr.dealias)
+      if (tr != tr.dealias) extractType(tr.dealias)
+      else extractType(tr)(dctx.setResolveTypes(false), pos)
 
     case tr @ TypeRef(prefix, sym, tps) if sym.isAbstractType || sym.isAliasType =>
       val selector = prefix match {
