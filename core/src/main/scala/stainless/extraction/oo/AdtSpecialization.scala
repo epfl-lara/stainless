@@ -123,10 +123,10 @@ trait AdtSpecialization
       (symbols.dependencies(id) + id)
         .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
           val rootCd = symbols.getClass(root(cd.id))
-          Set(rootCd.id) ++ rootCd.descendants.map(_.id)
+          val classes = Set(rootCd.id) ++ rootCd.descendants.map(_.id)
+          classes ++ classes.flatMap(id => symbols.getClass(id).typeMembers.map(_.id))
         })
     )
-
   // The function cache must consider the descendants of all classes on which the
   // function depends as they will determine which classes will be transformed into
   // sorts and which ones will not.
