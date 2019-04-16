@@ -8,7 +8,7 @@ object InnerClasses1 {
 
    def foo(x: BigInt, l: BigInt): Test[Boolean] = {
      require(l > 1)
-     case class FooBarBaz[+B](a: BigInt, b: B) extends Test[B] {
+     case class FooBarBaz[B](a: BigInt, b: B) extends Test[B] {
        def something: BigInt = a + l
      }
      FooBarBaz(x, true)
