@@ -19,7 +19,7 @@ trait InoxEncoder extends ProgramEncoder {
 
   private[this] def keepFlag(flag: Flag): Boolean = flag match {
     case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Final | Law | Ghost | Erasable => false
-    case Derived(_) | IsField(_) | IsUnapply(_, _) => false
+    case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) => false
     case _ => true
   }
 
@@ -174,6 +174,8 @@ trait InoxEncoder extends ProgramEncoder {
       case s.RecursiveType(sort, tps, size) => transform(s.ADTType(sort, tps))
 
       case s.ValueType(tpe) => transform(tpe)
+
+      case s.AnnotatedType(tpe, _) => transform(tpe)
 
       case _ => super.transform(tpe)
     }

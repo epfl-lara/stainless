@@ -6,7 +6,7 @@ package inlining
 
 trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val s: Trees
-  val t: induction.Trees
+  val t: termination.Trees
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
@@ -137,7 +137,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 }
 
 object FunctionInlining {
-  def apply(ts: Trees, tt: induction.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: termination.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new FunctionInlining {

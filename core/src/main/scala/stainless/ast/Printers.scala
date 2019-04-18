@@ -114,6 +114,10 @@ trait Printer extends inox.ast.Printer {
     case ValueType(tpe) =>
       p"Top"
 
+    case AnnotatedType(tpe, flags) =>
+      p"$tpe"
+      for (f <- flags) p" @${f.asString(ctx.opts)}"
+
     case SizedADT(id, tps, args, size) =>
       p"$id${nary(tps, ", ", "[", "]")}($size)($args)"
 

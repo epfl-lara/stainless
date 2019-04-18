@@ -2,7 +2,7 @@
 
 package stainless
 package extraction
-package induction
+package termination
 
 trait InductElimination extends CachingPhase
   with SimpleFunctions

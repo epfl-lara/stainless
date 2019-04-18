@@ -299,6 +299,7 @@ trait TypeChecker {
       case ArrayType(tpe) => isType(tc, tpe)
       case MapType(from, to) => isType(tc, from) ++ isType(tc, to)
 
+      case AnnotatedType(tpe, _) => isType(tc, tpe)
       case RefinementType(vd, prop) =>
         val (tc2, id1, id2) = tc.freshBind(vd)
         val freshProp: Expr = Freshener(immutable.Map(id1 -> id2)).transform(prop)
@@ -335,7 +336,7 @@ trait TypeChecker {
   def inferOperationType(name: String, fullExpr: Expr, tc: TypingContext, allowedType: Type => Boolean, returnType: Option[Type], exprs: Expr*): (Type, TyperResult) = {
     require(exprs.size > 0)
     val (tpe, tr) = inferType(tc, exprs.head)
-    if (allowedType(stripRefinements(tpe))) {
+    if (allowedType(stripRefinementsAndAnnotations(tpe))) {
       val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => tpe))
       (returnType.getOrElse(tpe), tr ++ tr2)
     } else {
@@ -442,14 +443,14 @@ trait TypeChecker {
 
       case c@BVWideningCast(e2, newType) =>
         val (tpe, vcs) = inferType(tc, e2)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from < newType.size => (newType, vcs)
           case _ => throw new TypeCheckingException(e, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
         }
 
       case c@BVNarrowingCast(e2, newType) =>
         val (tpe, vcs) = inferType(tc, e2)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from > newType.size => (newType, vcs)
           case _ => throw new TypeCheckingException(e, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
         }
@@ -464,13 +465,13 @@ trait TypeChecker {
       case SubsetOf(s1, s2) => inferOperationType("subsetOf", e, tc, _.isInstanceOf[SetType], Some(BooleanType()), s1, s2)
       case ElementOfSet(element, set) =>
         val (tpe, vcs) = inferType(tc, set)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case SetType(base) => (BooleanType(), checkType(tc, element, base))
           case _ => throw new TypeCheckingException(set, s"Expected set type, but got ${tpe.asString}")
         }
       case SetAdd(bag, element) =>
         val (tpe, vcs) = inferType(tc, bag)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case t@SetType(base) => (t, checkType(tc, element, base))
           case _ => throw new TypeCheckingException(bag, s"Expected set type, but got ${tpe.asString}")
         }
@@ -487,13 +488,13 @@ trait TypeChecker {
       case BagDifference(s1, s2) => inferOperationType("bag difference", e, tc, _.isInstanceOf[BagType], None, s1, s2)
       case MultiplicityInBag(element, bag) =>
         val (tpe, vcs) = inferType(tc, bag)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case BagType(base) => (IntegerType(), checkType(tc, element, base))
           case _ => throw new TypeCheckingException(bag, s"Expected bag type, but got ${tpe.asString}")
         }
       case BagAdd(bag, element) =>
         val (tpe, vcs) = inferType(tc, bag)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case t@BagType(base) => (t, checkType(tc, element, base))
           case _ => throw new TypeCheckingException(bag, s"Expected bag type, but got ${tpe.asString}")
         }
@@ -508,13 +509,13 @@ trait TypeChecker {
         )
       case MapUpdated(m, k, v) =>
         val (tpe, vcs) = inferType(tc, m)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case t@MapType(from, to) => (t, vcs ++ checkType(tc, k, from) ++ checkType(tc, v, to))
           case _ => throw new TypeCheckingException(m, s"Expected map type, but got ${tpe.asString}")
         }
       case MapApply(m, k) =>
         val (tpe, vcs) = inferType(tc, m)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case MapType(from, to) => (to, vcs ++ checkType(tc, k, from))
           case _ => throw new TypeCheckingException(m, s"Expected map type, but got ${tpe.asString}")
         }
@@ -530,19 +531,19 @@ trait TypeChecker {
           checkType(tc, size, Int32Type()))
       case ArrayLength(a) =>
         val (tpe, vcs) = inferType(tc, a)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case ArrayType(_) => (Int32Type(), vcs)
           case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
         }
       case ArraySelect(a, i) =>
         val (tpe, vcs) = inferType(tc, a)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case ArrayType(base) => (base, vcs ++ checkType(tc, i, Int32Type()))
           case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
         }
       case ArrayUpdated(a, i, v) =>
         val (tpe, vcs) = inferType(tc, a)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case t@ArrayType(base) => (t, vcs ++ checkType(tc, i, Int32Type()) ++ checkType(tc, v, base))
           case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
         }
@@ -553,7 +554,7 @@ trait TypeChecker {
 
       case TupleSelect(p, i) =>
         val (tpe, vcs) = inferType(tc, p)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case TupleType(ts) if (i <= ts.length) => (ts(i-1), vcs)
           case SigmaType(from, to) =>
             val binders = from.take(i-1)
@@ -597,8 +598,11 @@ trait TypeChecker {
 
       case v@Variable(id, tpe, _) =>
         // TODO: Replace by constant time lookup?
-        if (tc.termVariables.contains(v)) (tpe, TyperResult.valid)
-        else throw new TypeCheckingException(v, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+        tc.termVariables.find(tv => tv.id == id) match {
+          case Some(tv) => (tv.tpe, TyperResult.valid)
+          case None =>
+            throw new TypeCheckingException(v, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+        }
 
       case Equals(e1, e2) =>
         val (tpe1, tr1) = inferType(tc, e1)
@@ -616,7 +620,7 @@ trait TypeChecker {
 
       case Application(e, es) =>
         val (tpe, tr) = inferType(tc, e)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case FunctionType(from, to) => (to, tr ++ checkTypes(tc, es, from))
           case PiType(from, to) => (insertFreshLets(from, es, to), tr ++ checkDependentTypes(tc, es, from))
         }
@@ -683,7 +687,7 @@ trait TypeChecker {
 
       case ADTSelector(expr, selector) =>
         val (tpe, tr) = inferType(tc, expr)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           // TODO: Check that this ADT is strictly positive
           case ADTType(id, tps) if tc.visibleADTs(id) =>
             val selectorType =
@@ -779,7 +783,7 @@ trait TypeChecker {
 
       case IsConstructor(expr, id) =>
         val (tpe, tr) = inferType(tc, expr)
-        stripRefinements(tpe) match {
+        stripRefinementsAndAnnotations(tpe) match {
           case ADTType(sort, _) if (tc.visibleADTs(sort)) =>
             (lookupSort(sort), lookupConstructor(id)) match {
               case (Some(sort), Some(cons)) if sort.id == cons.sort =>
@@ -841,11 +845,12 @@ trait TypeChecker {
     val res: TyperResult = (e, tpe) match {
       case (Annotated(e, flags), _) if flags.contains(Unchecked) => TyperResult.valid
       case (Annotated(e, _), _) => checkType(tc, e, tpe)
+      case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
       // High-priority rules for `Top`.
       // Unapply for `Top` matches any `ValueType(_)`
       case (v@Variable(id, _, _), Top()) =>
-        if (tc.termVariables.contains(v)) TyperResult.valid
+        if (tc.termVariables.exists(tv => tv.id == v.id)) TyperResult.valid
         else throw new TypeCheckingException(v, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
       case (UnitLiteral(), Top()) => TyperResult.valid
       case (BooleanLiteral(_), Top()) => TyperResult.valid
@@ -915,7 +920,7 @@ trait TypeChecker {
       // we force invariance for now
       case (_, SetType(base2)) =>
         val (inferredType, tr) = inferType(tc, e)
-        stripRefinements(inferredType) match {
+        stripRefinementsAndAnnotations(inferredType) match {
           case SetType(base1) => tr ++ areEqualTypes(tc, base1, base2)
           case _ =>
             throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected a `SetType`")
@@ -924,20 +929,20 @@ trait TypeChecker {
       // we force invariance for now
       case (_, ADTType(id2, tps2)) =>
         val (inferredType, tr) = inferType(tc, e)
-        stripRefinements(inferredType) match {
+        stripRefinementsAndAnnotations(inferredType) match {
           case ADTType(id1, tps1) if (id1 == id2) =>
             tr ++ TyperResult(tps1.zip(tps2).map {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
             })
           case _ =>
-            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${id2.asString}`")
+            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
         }
 
       // we force invariance for now
       // TODO: for positive recursive types, the equality check can be relaxed to >=
       case (_, RecursiveType(id2, tps2, size2)) =>
         val (inferredType, tr) = inferType(tc, e)
-        stripRefinements(inferredType) match {
+        stripRefinementsAndAnnotations(inferredType) match {
           case RecursiveType(id1, tps1, size1) if (id1 == id2) =>
             val kind = VCKind.fromErr(Some("Equivalent recursive type indices"))
             tr ++ TyperResult(tps1.zip(tps2).map {
@@ -948,12 +953,12 @@ trait TypeChecker {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
             })
           case _ =>
-            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${id2.asString}`")
+            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
         }
 
       case _ =>
         val (inferredType, vcs) = inferType(tc, e)
-        if (tpe == stripRefinements(inferredType))
+        if (tpe == stripRefinementsAndAnnotations(inferredType))
           vcs
         else
           throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, which does not match ${tpe.asString}")

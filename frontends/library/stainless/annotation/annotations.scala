@@ -61,6 +61,12 @@ class mutable          extends Annotation
 @ignore
 class keep(g: String)      extends Annotation
 
+@ignore
+class erasable extends Annotation
+
+@ignore
+class indexedAt(n: BigInt) extends Annotation
+
 /**
  * Code annotated with @ghost is removed after stainless extraction.
  *

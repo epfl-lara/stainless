@@ -278,4 +278,9 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     override protected def computeType(implicit s: Symbols): Type = tpe.getType
   }
 
+  /* Annotation on types */
+  sealed case class AnnotatedType(tpe: Type, flags: Seq[Flag]) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+  }
+
 }

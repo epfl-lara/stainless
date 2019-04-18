@@ -11,6 +11,9 @@ package object lang {
   @library
   def ghost[A](@ghost value: A): Unit = ()
 
+  @library
+  def indexedAt[T](n: BigInt, t: T): T = (??? : T)
+
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {

@@ -22,6 +22,8 @@ package object termination {
       override val t: extraction.trees.type = extraction.trees
     })
 
+    utils.DebugPipeline("SizedADTExtraction", SizedADTExtraction(trees)) andThen
+    utils.DebugPipeline("InductElimination", InductElimination(trees)) andThen
     utils.DebugPipeline("SizeInjection", SizeInjection(trees)) andThen
     lowering
   }

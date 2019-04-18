@@ -144,8 +144,9 @@ object TypeCheckerUtils {
     }(expr)
   }
 
-  def stripRefinements(t: Type): Type = t match {
-    case RefinementType(vd, _) => stripRefinements(vd.tpe)
+  def stripRefinementsAndAnnotations(t: Type): Type = t match {
+    case RefinementType(vd, _) => stripRefinementsAndAnnotations(vd.tpe)
+    case AnnotatedType(tpe, _) => stripRefinementsAndAnnotations(tpe)
     case _ => t
   }
 

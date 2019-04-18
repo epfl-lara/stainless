@@ -41,6 +41,7 @@ package object extraction {
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
+    "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "SizeInjection"             -> "Injects a size function for each ADT",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
@@ -97,7 +98,6 @@ package object extraction {
     oo.extractor           andThen
     innerfuns.extractor    andThen
     inlining.extractor     andThen
-    induction.extractor    andThen
     termination.extractor
   }
 
