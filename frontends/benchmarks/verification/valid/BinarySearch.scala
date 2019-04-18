@@ -2,7 +2,7 @@ import stainless.lang._
 
 object BinarySearch {
 
-  def search[T](arr: Array[Int], x: Int, lo: Int, hi: Int): Boolean = {
+  def search(arr: Array[Int], x: Int, lo: Int, hi: Int): Boolean = {
     require(0 <= lo && lo <= hi+1 && hi < arr.length)
     decreases(hi - lo + 1)
     if (lo <= hi) {
