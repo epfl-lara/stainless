@@ -43,7 +43,7 @@ function fail {
 # TMP_DIR=`mktemp -d 2>/dev/null || mktemp -d -t 'stainless-package-standalone'`
 TMP_DIR="./package-tmp"; mkdir $TMP_DIR 2>/dev/null || true
 
-STAINLESS_JAR_BASENAME=`basename $STAINLESS_JAR_PATH`
+STAINLESS_JAR_BASENAME=$(basename $STAINLESS_JAR_PATH)
 
 function fetch_z3 {
   local PLAT="$1"
@@ -52,13 +52,13 @@ function fetch_z3 {
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT"
 
-  if [ -f $ZIPF ]; then
+  if [ -f "$ZIPF" ]; then
     info "    (ZIP already exists, skipping download step.)"
   else
-    wget -O $ZIPF "$Z3_GITHUB_URL/$NAME" 2>> $LOG || fail
+    wget -O "$ZIPF" "$Z3_GITHUB_URL/$NAME" 2>> $LOG || fail
   fi
-  (rm -r $TMPD 2>/dev/null || true) && mkdir $TMPD || fail
-  unzip -d $TMPD $ZIPF >> $LOG || fail
+  (rm -r "$TMPD" 2>/dev/null || true) && mkdir "$TMPD" || fail
+  unzip -d "$TMPD" "$ZIPF" >> $LOG || fail
 
   mkdir "$TMPD/z3" >> $LOG || fail
   for COPY_FILE in LICENSE.txt bin/z3; do
@@ -71,7 +71,7 @@ function fetch_z3 {
 function generate_launcher {
   local TARGET="$1"
   local SCALAZ3_JAR_BASENAME="$2"
-  cat << END > $TARGET
+  cat << END > "$TARGET"
 #!/usr/bin/env bash
 
 BASE_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
@@ -80,32 +80,32 @@ JARS="\$BASE_DIR/lib/$STAINLESS_JAR_BASENAME:\$BASE_DIR/lib/$SCALAZ3_JAR_BASENAM
 
 exec env PATH="\$Z3_DIR:\$PATH" java -cp \$JARS \$JAVA_OPTS stainless.Main "\$@"
 END
-  chmod +x $TARGET
+  chmod +x "$TARGET"
 }
 
 function package {
   local PLAT="$1"
   local SCALAZ3_JAR_PATH="$2"
-  local SCALAZ3_JAR_BASENAME=`basename $SCALAZ3_JAR_PATH`
+  local SCALAZ3_JAR_BASENAME=$(basename "$SCALAZ3_JAR_PATH")
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT"
 
   local ZIPF="$(pwd)/${STAINLESS_JAR_BASENAME%.*}-$PLAT.zip"
 
-  if [ -f $ZIPF ]; then
-    rm $ZIPF || fail
+  if [ -f "$ZIPF" ]; then
+    rm "$ZIPF" || fail
     info "    (Removed old archive.)"
   fi
 
-  generate_launcher "$TMPD/stainless" $SCALAZ3_JAR_BASENAME || fail
+  generate_launcher "$TMPD/stainless" "$SCALAZ3_JAR_BASENAME" || fail
 
   local TGTLIBD="$TMPD/lib"
-  mkdir $TGTLIBD >> $LOG || fail
-  cp $STAINLESS_JAR_PATH "$TGTLIBD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
-  cp $SCALAZ3_JAR_PATH "$TGTLIBD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
+  mkdir "$TGTLIBD" >> $LOG || fail
+  cp "$STAINLESS_JAR_PATH" "$TGTLIBD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
+  cp "$SCALAZ3_JAR_PATH" "$TGTLIBD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
 
-  cd $TMPD && \
-    zip $ZIPF lib/** z3/** stainless >> $LOG && \
+  cd "$TMPD" && \
+    zip "$ZIPF" lib/** z3/** stainless >> $LOG && \
     cd - >/dev/null || fail
   info "    Created archive $ZIPF"
 
