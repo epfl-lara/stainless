@@ -63,15 +63,16 @@ trait RefinementLifting
     } (tpe)
 
     def dropRefinements(tpe: s.Type): s.Type = liftRefinements(tpe) match {
-      case s.RefinementType(vd, _) => vd.tpe
+      case s.RefinementType(vd, _) => dropRefinements(vd.tpe)
       case _ => tpe
     }
 
     def parameterConds(vds: Seq[s.ValDef]): (Seq[s.ValDef], s.Expr) = {
       val (newParams, conds) = vds.map(vd => liftRefinements(vd.tpe) match {
         case s.RefinementType(vd2, pred) =>
-          val nvd = vd.copy(tpe = vd2.tpe).copiedFrom(vd)
-          (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), pred))
+          val (Seq(nvd), pred2) = parameterConds(Seq(vd.copy(tpe = vd2.tpe).copiedFrom(vd)))
+
+          (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), s.and(pred, pred2)))
         case _ =>
           (vd, s.BooleanLiteral(true).copiedFrom(vd))
       }).unzip
