@@ -48,7 +48,8 @@ trait CodeExtraction extends ASTExtractors {
       case pd @ PackageDef(refTree, lst) =>
         (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), pd.stats)
 
-      case _ => outOfSubsetError(u.body, "Unexpected unit body")
+      case _ =>
+        (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val (imports, classes, functions, subs, allClasses, allFunctions) = extractStatic(stats)
@@ -179,14 +180,14 @@ trait CodeExtraction extends ASTExtractors {
 
       case t if (
         (annotationsOf(t.symbol) contains xt.Ignore) ||
-        (t.symbol.isSynthetic && !t.symbol.isImplicit)
+        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
       ) =>
         // ignore
 
       case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
         // ignore (can't be @ignored because of the dotty compiler)
 
-      case ExConstructorDef() | ExLazyFieldDef() =>
+      case ExConstructorDef() =>
         // ignore
 
       case i @ Import(_, _) =>
@@ -223,6 +224,11 @@ trait CodeExtraction extends ASTExtractors {
         allFunctions :+= fd
 
       case t @ ExFieldDef(fsym, _, rhs) =>
+        val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(DefContext())
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t @ ExLazyFieldDef(fsym, _, rhs) =>
         val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(DefContext())
         functions :+= fd.id
         allFunctions :+= fd
@@ -337,10 +343,8 @@ trait CodeExtraction extends ASTExtractors {
       case t if t.symbol.isSynthetic && !canExtractSynthetic(t.symbol) =>
         // ignore
 
-      case ExCaseClassSyntheticJunk()
-         | ExConstructorDef()
-         | ExLazyFieldDef() =>
-           // ignore
+      case ExCaseClassSyntheticJunk() | ExConstructorDef() =>
+       // ignore
 
       case ExRequiredExpression(body, isStatic) =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
@@ -358,6 +362,9 @@ trait CodeExtraction extends ASTExtractors {
       case t @ ExFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
+      case t @ ExLazyFieldDef(fsym, _, rhs) =>
+        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
+
       case t @ ExFieldAccessorFunction(fsym, _, vparams, _) if annotationsOf(t.symbol).contains(xt.Ignore) =>
         methods :+= extractIgnoredFieldAccessor(fsym, vparams)
 
@@ -372,6 +379,9 @@ trait CodeExtraction extends ASTExtractors {
 
       case t @ ExMutableFieldDef(_, _, rhs) if rhs != EmptyTree =>
         outOfSubsetError(t, "Mutable fields in traits cannot have a default value")
+
+      case vd @ ExMutableFieldDef(sym, _, _) if vd.symbol.owner.isAbstract || vd.symbol.owner.isTrait =>
+        methods :+= extractFunction(sym, Seq.empty, Seq.empty, EmptyTree)(defCtx)
 
       case ValDef(_, _, _, _) =>
         // ignore (corresponds to constructor fields)
@@ -404,8 +414,6 @@ trait CodeExtraction extends ASTExtractors {
       fields,
       flags
     ).setPos(sym.pos)
-
-    // if (sym.isImplicit) println(xcd -> fields)
 
     (xcd, allMethods)
   }
@@ -490,13 +498,7 @@ trait CodeExtraction extends ASTExtractors {
       flags :+= xt.IsUnapply(getIdentifier(isEmptySym), getIdentifier(getSym))
     }
 
-    val body =
-      if (!(flags contains xt.IsField(true))) rhs
-      else rhs match {
-        case Block(List(Assign(_, realBody)), _) => realBody
-        case EmptyTree => EmptyTree
-        case _ => outOfSubsetError(rhs, "Wrong form of lazy accessor")
-      }
+    val body = rhs
 
     val paramsMap = (vparams.map(_.symbol) zip newParams).map { case (s, vd) =>
       s -> (if (s.isByNameParam) () => xt.Application(vd.toVariable, Seq()).setPos(vd.toVariable) else () => vd.toVariable)
@@ -722,6 +724,8 @@ trait CodeExtraction extends ASTExtractors {
     def rec(es: List[Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
+      case (i: Import) :: xs => rec(xs)
+
       case (e @ ExAssertExpression(contract, oerr, isStatic)) :: xs =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
         val const = extractTree(contract)(vctx)
@@ -791,6 +795,10 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private def extractTree(tr: Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
+    case ExObjectDef(_, _) => xt.UnitLiteral()
+    case ExCaseClassSyntheticJunk() => xt.UnitLiteral()
+    case md: ModuleDef if md.symbol.isSynthetic => xt.UnitLiteral()
+
     case Block(es, e) =>
       val b = extractBlock(es :+ e)
       xt.exprOps.flattenBlocks(b)
@@ -1311,7 +1319,7 @@ trait CodeExtraction extends ASTExtractors {
 
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, "Could not extract " + tr + " (Scala tree of type "+tr.getClass+")")
-  }).setPos(tr.pos)
+  }).ensurePos(tr.pos)
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)

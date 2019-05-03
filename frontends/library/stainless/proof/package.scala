@@ -4,6 +4,7 @@ package stainless
 
 import stainless.annotation._
 import stainless.lang._
+
 import scala.language.implicitConversions
 
 import stainless.proof.Internal._

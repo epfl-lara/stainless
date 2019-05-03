@@ -90,7 +90,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
     val config = StainlessLibSources
     val sourceJars = fetchJars(
-      update.value,
+      updateClassifiers.value,
       config,
       artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
     )
@@ -98,8 +98,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     if (sourceJars.length > 1)
       log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
 
+    val destDir = stainlessLibraryLocation.value
+
     val additionalSourceDirectories = sourceJars map { jar =>
-      val destDir = stainlessLibraryLocation.value
       // Don't unjar every time
       if (!destDir.exists()) {
         // unjar the stainless-library-sources.jar into the `destDirectory`
@@ -134,8 +135,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     * Allows to fetch dependencies scoped to the passed configuration.
     */
   private def fetchJars(report: UpdateReport, config: Configuration, filter: Artifact => Boolean): Seq[File] = {
-    val toolReport = report.configuration(config.name) getOrElse
+    val toolReport = report.configuration(config.toConfigRef) getOrElse {
       sys.error(s"No ${config.name} configuration found. $reportBugText")
+    }
 
     for {
       m <- toolReport.modules
@@ -175,9 +177,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
         )
 
         // FIXME: Properly merge possibly duplicate scalac options
-        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-        currentCompileInputs.copy(config = updatedConfig)
+        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.options.scalacOptions
+        val newOptions = currentCompileInputs.options.withScalacOptions(allScalacOptions.toArray)
+        currentCompileInputs.withOptions(newOptions)
       }
     )
   }

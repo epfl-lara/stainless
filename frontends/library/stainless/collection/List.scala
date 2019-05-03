@@ -2,6 +2,8 @@
 
 package stainless.collection
 
+import scala.language.implicitConversions
+
 import stainless._
 import stainless.lang._
 import stainless.annotation._

@@ -3,11 +3,11 @@ package ghost.caseclass
 import stainless.lang._
 import stainless.annotation.ghost
 
-sealed trait GhostList
-case class GhostCons(@ghost var head: BigInt, val tail: GhostList) extends GhostList
-case class GhostNil() extends GhostList
+object GhostCaseClass {
 
-object GhostMethods {
+  sealed trait GhostList
+  case class GhostCons(@ghost var head: BigInt, val tail: GhostList) extends GhostList
+  case class GhostNil() extends GhostList
 
   def patmatch(): Unit = {
     val x = GhostCons(BigInt(10), GhostCons(BigInt(2), GhostNil()))

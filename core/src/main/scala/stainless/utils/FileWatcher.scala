@@ -6,7 +6,7 @@ import java.io.{ File, PrintWriter }
 import java.nio.file.{ FileSystems, Path, StandardWatchEventKinds }
 import java.util.concurrent.TimeUnit
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => MutableMap }
 
 /**
@@ -42,7 +42,7 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
       if (key != null) {
         val events = key.pollEvents()
         val relativeDir = key.watchable.asInstanceOf[Path]
-        val notifications = events map { _.context } collect {
+        val notifications = events.asScala map { _.context } collect {
           case p: Path => relativeDir.resolve(p).toFile
         }
         val modified = notifications filter files

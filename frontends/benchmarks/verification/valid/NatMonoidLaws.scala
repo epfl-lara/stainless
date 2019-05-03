@@ -17,8 +17,8 @@ object NatMonoidLaws {
     }
   }
 
-  final case object Zero extends Nat
-  final case class Succ(prev: Nat) extends Nat
+  case object Zero extends Nat
+  case class Succ(prev: Nat) extends Nat
 
   final val One = Succ(Zero)
 

@@ -40,20 +40,32 @@ class SymbolMapping {
   import SymbolMapping.getPath
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
-  def fetch(sym: Global#Symbol): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
-    val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-    val symbol = s2s.getOrElseUpdate(top, {
-      val name = sym.fullName.toString.trim
-      ast.Symbol(if (name endsWith "$") name.init else name)
-    })
+  def fetch(sym: Global#Symbol): SymbolIdentifier = {
+    val path = getPath(sym)
+    s2i.getOrElse(path, {
+      val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+      val symbol = s2s.getOrElse(top, {
+        val name = sym.fullNameAsName('.').decode.trim
+        val res = ast.Symbol(if (name endsWith "$") name.init else name)
+        s2s(top) = res
+        res
+      })
 
-    SymbolIdentifier(symbol)
-  })
+      val res = SymbolIdentifier(symbol)
+      s2i(path) = res
+      res
+    })
+  }
 
   /** Get the identifier for the class invariant of [[sym]]. */
-  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = invs.getOrElseUpdate(fetch(sym), {
-    SymbolIdentifier(invSymbol)
-  })
+  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = {
+    val id = fetch(sym)
+    invs.getOrElse(id, {
+      val res = SymbolIdentifier(invSymbol)
+      invs(id) = res
+      res
+    })
+  }
 
   /** Mapping from [[Global#Symbol]] (or rather: its path) and the stainless identifier. */
   private val s2i = MutableMap[String, SymbolIdentifier]()
@@ -159,7 +171,7 @@ object ScalaCompiler {
     } getOrElse { ctx.reporter.fatalError("No Scala library found.") }
 
     settings.classpath.value = scalaLib
-    settings.usejavacp.value = false
+    settings.usejavacp.value = stainless.BuildInfo.useJavaClassPath
     settings.deprecation.value = true
     settings.Yrangepos.value = true
 

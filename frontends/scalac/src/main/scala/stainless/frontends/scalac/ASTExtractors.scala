@@ -4,6 +4,7 @@ package stainless
 package frontends.scalac
 
 import scala.tools.nsc._
+import scala.collection.mutable.{Map => MutableMap}
 
 /** Contains extractors to pull-out interesting parts of the Scala ASTs. */
 trait ASTExtractors {
@@ -139,11 +140,37 @@ trait ASTExtractors {
 
   def hasBooleanType(t: Tree) = t.tpe.widen =:= BooleanClass.tpe
 
-  def isDefaultGetter(sym: Symbol) = sym.name containsName nme.DEFAULT_GETTER_STRING
+  def isDefaultGetter(sym: Symbol) = sym.isSynthetic && (sym.name containsName nme.DEFAULT_GETTER_STRING)
 
-  def isCopyMethod(sym: Symbol) = sym.name == nme.copy
+  def isCopyMethod(sym: Symbol) = sym.isSynthetic && sym.name == nme.copy
 
-  def canExtractSynthetic(sym: Symbol) = isDefaultGetter(sym) || isCopyMethod(sym)
+  def canExtractSynthetic(sym: Symbol) = {
+    sym.isImplicit ||
+    isDefaultGetter(sym) ||
+    isCopyMethod(sym)
+  }
+
+  object TupleSymbol {
+    // It is particularly time expensive so we cache this.
+    private val cache = MutableMap[Symbol, Option[Int]]()
+    private val cardinality = """Tuple(\d{1,2})""".r
+    def unapply(sym: Symbol): Option[Int] = cache.getOrElseUpdate(sym, {
+      // First, extract a gess about the cardinality of the Tuple.
+      // Then, confirm that this is indeed a regular Tuple.
+      val name = sym.unexpandedName.toString
+      name match {
+        case cardinality(i) if isTuple(sym, i.toInt) => Some(i.toInt)
+        case _ => None
+      }
+    })
+
+    def unapply(tpe: Type): Option[Int] = tpe.typeSymbol match {
+      case TupleSymbol(i) => Some(i)
+      case _ => None
+    }
+
+    def unapply(tree: Tree): Option[Int] = unapply(tree.tpe)
+  }
 
   /** A set of helpers for extracting trees.*/
   object ExtractorHelpers {
@@ -491,7 +518,7 @@ trait ASTExtractors {
             dd.symbol.isSynthetic &&
             dd.symbol.isImplicit &&
             dd.symbol.isMethod &&
-            !(getAnnotations(tpt.symbol) contains "ignore")
+            !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
           ) ||
             !dd.symbol.isSynthetic ||
             canExtractSynthetic(dd.symbol)
@@ -523,8 +550,8 @@ trait ASTExtractors {
     }
 
     object ExFieldDef {
-      /** Matches a definition of a strict field inside a class constructor */
-      def unapply(vd: ValDef) : Option[(Symbol, Type, Tree)] = {
+      /** Matches a definition of a strict field */
+      def unapply(vd: ValDef): Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           // Implemented fields
@@ -539,25 +566,21 @@ trait ASTExtractors {
     }
 
     object ExLazyFieldDef {
-      /** Matches lazy field definitions.
-       *  WARNING: Do NOT use this as extractor for lazy fields,
-       *  as it does not contain the body of the lazy definition.
-       *  It is here just to signify a Definition acceptable by Leon
-       */
-      def unapply(vd: ValDef) : Boolean = {
+      /** Matches a definition of a lazy field */
+      def unapply(vd: ValDef): Option[(Symbol, Type, Tree)] = {
         val sym = vd.symbol
         vd match {
           case ValDef(mods, name, tpt, rhs) if (
             sym.isLazy && !sym.isCaseAccessor && !sym.isParamAccessor &&
-            !sym.isSynthetic && !sym.isAccessor
+            !sym.isSynthetic
           ) =>
-            true
-          case _ => false
+            Some((sym, tpt.tpe, rhs))
+          case _ => None
         }
       }
     }
 
-    object ExFieldAccessorFunction{
+    object ExFieldAccessorFunction {
       /** Matches the accessor function of a field */
       def unapply(dd: DefDef): Option[(Symbol, Type, Seq[ValDef], Tree)] = dd match {
         case DefDef(_, name, tparams, vparamss, tpt, rhs) if(
@@ -808,13 +831,13 @@ trait ASTExtractors {
 
     object ExTupleExtract {
       def unapply(tree: Select) : Option[(Tree,Int)] = tree match {
-        case Select(lhs, n) => {
+        case Select(lhs @ TupleSymbol(i), n) => {
           val methodName = n.toString
           if(methodName.head == '_') {
             val indexString = methodName.tail
             try {
               val index = indexString.toInt
-              if(index > 0) {
+              if(index > 0 && index <= i) {
                 Some((lhs, index))
               } else None
             } catch {

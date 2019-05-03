@@ -3,7 +3,7 @@
 import stainless.annotation._
 import stainless.lang._
 
-object Nat {
+object Peano {
   sealed abstract class Nat
   case class Zero() extends Nat
   case class Succ(num: Nat) extends Nat

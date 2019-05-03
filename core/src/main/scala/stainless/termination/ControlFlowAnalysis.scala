@@ -96,8 +96,10 @@ trait CICFA {
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
   private val cache: MutableMap[Identifier, Analysis] = MutableMap.empty
-  def analyze(id: Identifier): Analysis = cache.getOrElseUpdate(id, timers.termination.cfa.run {
-    new Analysis(id)
+  def analyze(id: Identifier): Analysis = cache.getOrElse(id, timers.termination.cfa.run {
+    val res = new Analysis(id)
+    cache(id) = res
+    res
   })
 
   class Analysis(id: Identifier) {
@@ -110,8 +112,8 @@ trait CICFA {
 
     // initialize summaries to identity function from bot to empty
     // for the current function, initialize it to External
-    private def getTabulation(fun: Function): Summary = tabulation.getOrElseUpdate(fun, {
-      Summary(fun match {
+    private def getTabulation(fun: Function): Summary = tabulation.getOrElse(fun, {
+      val res = Summary(fun match {
         case n: NamedFunction =>
           if (id == n.fd.id) AbsEnv(n.fd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
           else AbsEnv(n.fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
@@ -119,14 +121,21 @@ trait CICFA {
         case l: LambdaFunction =>
           AbsEnv(l.lambda.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
       }, emptyEnv, Set())
+
+      tabulation(fun) = res
+      res
     })
 
     // a mapping from ADTs to argvars (used to represent arguments of each ADT creation by a fresh variable)
     private val objectsMap: MutableMap[Expr, AbsObj] = MutableMap.empty
     private def getOrCreateObject(objExpr: Expr): AbsObj =
-      objectsMap.getOrElseUpdate(objExpr, objExpr match {
-        case adt: ADT => ConsObject(adt, freshVars(adt.args.size))
-        case tp: Tuple => TupleObject(tp, freshVars(tp.exprs.size))
+      objectsMap.getOrElse(objExpr, {
+        val res = objExpr match {
+          case adt: ADT => ConsObject(adt, freshVars(adt.args.size))
+          case tp: Tuple => TupleObject(tp, freshVars(tp.exprs.size))
+        }
+        objectsMap(objExpr) = res
+        res
       })
 
     // set of lambdas that are applied
@@ -159,7 +168,11 @@ trait CICFA {
 
     // initialize callers to empty sets
     private val callers: MutableMap[Function, MutableSet[Function]] = MutableMap.empty
-    private def getCallers(fun: Function): MutableSet[Function] = callers.getOrElseUpdate(fun, MutableSet.empty)
+    private def getCallers(fun: Function): MutableSet[Function] = callers.getOrElse(fun, {
+      val res = MutableSet.empty[Function]
+      callers(fun) = res
+      res
+    })
 
     private val creator: MutableMap[Lambda, Function] = MutableMap.empty
     private def createdBy(lambda: Function, fun: Function): Boolean = lambda match {

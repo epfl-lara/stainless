@@ -2,8 +2,10 @@
 
 package stainless.io
 
+import scala.language.implicitConversions
+
+import stainless.lang._
 import stainless.annotation._
-import stainless.lang.Option
 
 // See NOTEs in StdIn.
 //
@@ -21,15 +23,14 @@ object FileInputStream {
   def open(filename: String)(implicit state: State): FileInputStream = {
     state.seed += 1
 
-    // FIXME Importing stainless.lang.Option doesn't mean it is imported, why?
     new FileInputStream(
       try {
         // Check whether the stream can be opened or not
         val out = new java.io.FileReader(filename)
         out.close()
-        stainless.lang.Some[String](filename)
+        Some[String](filename)
       } catch {
-        case _: Throwable => stainless.lang.None[String]
+        case _: Throwable => None[String]()
       },
       0 // nothing consumed yet
     )
@@ -48,7 +49,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
   def close(implicit state: State): Boolean = {
     state.seed += 1
 
-    filename = stainless.lang.None[String]
+    filename = None[String]()
     true // This implementation never fails
   }
 

@@ -10,9 +10,8 @@ object IgnoredFieldNonExtern2 {
     bar: scala.collection.mutable.ListBuffer[Boolean]
   )
 
-  def wrong2(foo: Foo): Unit = {
-    foo.bar
-    ()
+  def wrong2(foo: Foo): Boolean = {
+    foo.bar == foo.bar
   }
 
 }

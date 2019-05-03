@@ -3,6 +3,8 @@
 package stainless.lang
 import stainless.annotation._
 
+import scala.language.implicitConversions
+
 @ignore
 class Real(val theReal: scala.math.BigDecimal) {
 

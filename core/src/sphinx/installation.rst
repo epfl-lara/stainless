@@ -3,23 +3,77 @@
 Installing Stainless
 ====================
 
-Stainless can be very easily integrated with an sbt build by using the sbt-stainless plugin.
-
-If you are not using sbt, then Stainless is probably easiest to build on Linux-like
-platforms, but read on regarding other platforms.
-
 Due to its nature, this documentation section may not always
 be up to date; we welcome pull requests with carefully
 written and tested improvements to the information below.
 
+Use pre-packaged JAR file on Linux & macOS
+------------------------------------------
+
 **Requirements:**
 
 * `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
-* sbt 0.13.x (Available from http://www.scala-sbt.org/)
+
+
+**Instructions:**
+
+1. Download the latest Stainless JAR from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_
+
+2. Paste the following code in a file named ``test.scala``:
+
+.. code-block:: scala
+
+  import stainless.lang._
+
+  object test {
+    def ok = {
+      assert(true)
+    }
+  }
+
+3. In a terminal, type the following command, substituting the proper path to the Stainless JAR previously downloaded:
+
+.. code-block:: bash
+
+  $ java -jar /path/to/stainless/jar/file.jar test.scala
+
+4. The output should read:
+
+.. code-block:: text
+
+  [Warning ] The Z3 native interface is not available. Falling back onto princess.
+  [  Info  ]  - Checking cache: 'body assertion' VC for ok @5:5...
+  [  Info  ] Cache miss: 'body assertion' VC for ok @5:5...
+  [  Info  ]  - Now solving 'body assertion' VC for ok @5:5...
+  [  Info  ]  - Result for 'body assertion' VC for ok @5:5:
+  [  Info  ]  => VALID
+  [  Info  ]   ┌───────────────────┐
+  [  Info  ] ╔═╡ stainless summary ╞══════════════════════════════════════════════════════════════════════╗
+  [  Info  ] ║ └───────────────────┘                                                                      ║
+  [  Info  ] ║ ok   body assertion           valid     U:princess      test.scala:5:5           0.931     ║
+  [  Info  ] ╟┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╢
+  [  Info  ] ║ total: 1    valid: 1    (0 from cache) invalid: 0    unknown: 0    time:   0.931           ║
+  [  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════╝
+  [  Info  ] Shutting down executor service.
+
+Improve performance using external solvers
+------------------------------------------
+
+If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will instead use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_, which can sometime be quite slow.
+
+To improve performance, one can install an external SMT solver, as described in section ":ref:`smt-solvers`".
+
+Build from source on Linux & macOS
+----------------------------------
+
+**Requirements:**
+
+* `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
+* sbt 1.2.x (Available from http://www.scala-sbt.org/)
+* An external SMT solver (see Section ":ref:`smt-solvers`")
 * `Sphinx restructured text tool <http://sphinx-doc.org/>`_ (for building local documentation)
 
-Standalone installation on Linux & macOS
-----------------------------------------
+**Instructions:**
 
 Get the sources of Stainless by cloning the official Stainless repository:
 
@@ -57,8 +111,8 @@ From a user point of view, this should most of
 the time be transparent and the build command should take
 care of everything.
 
-Standalone installation on Windows
-----------------------------------
+Build from source on Windows
+----------------------------
 
 Get the sources of Stainless by cloning the official Stainless
 repository. You will need a Git shell for windows, e.g. 
@@ -79,12 +133,11 @@ Compilation will automatically generate the following two bash scripts:
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
 Usage within an sbt project
---------------------------
+---------------------------
 
 Setting up an sbt build file to use Stainless is a simple 4-step procedure:
 
-1. Start by installing an external solver (see Section
-   ":ref:`smt-solvers`").
+1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
 2. Add the ``sbt-stainless`` plugin together with the required resolver to your ``project/plugins.sbt``
 
@@ -127,13 +180,71 @@ External Solvers
 
 `Inox <https://github.com/epfl-lara/inox>`_, the solving backend for Stainless,
 relies on SMT solvers for reasoning about quantifier-free formulas.
-See `inox' solver documentation <https://github.com/epfl-lara/inox#solver-backends>`_
-for more information on how to get/install these solvers.
 
-Note that for the `Native Z3 API <https://github.com/epfl-lara/inox#native-z3-api>`_
-to be available, you will have to place the jar produced by building
-`ScalaZ3 <https://github.com/epfl-lara/ScalaZ3>`_ into
-``unmanaged/scalaz3-$os-$arch-$scalaVersion.jar``.
+Inox ships with the JVM SMT solver Princess which should work out of the box on any system, but is quite slow.
+
+It is recommended that you use one of the following external SMT solvers:
+
+* CVC4 1.6, http://cvc4.cs.stanford.edu
+* Z3 4.7.1, https://github.com/Z3Prover/z3
+
+Solver binaries that you install should match your operating system and your architecture.
+We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc4``).
+
+Install Z3 4.7.1 (Linux & macOS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Download Z3 4.7.1 from https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1
+2. Unzip the downloaded archive
+3. Copy the ``z3`` binary found in the ``bin/`` directory of the inflated archive to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
+4. Make sure ``z3`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ z3 --version
+
+5. The output should read:
+
+.. code-block:: text
+
+  Z3 version 4.7.1 - 64 bit`
+
+Install CVC 1.6 (Linux)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Download CVC4 1.6 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/
+
+2. Copy the downloaded binary as ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
+
+4. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ cvc4 --version
+
+5. The output should begin with:
+
+.. code-block:: text
+
+  This is CVC4 version 1.6
+
+Install CVC 1.6 (macOS)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Install `Homebrew <https://brew.sh>`_
+2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
+3. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ cvc4 --version
+
+4. The output should begin with:
+
+.. code-block:: text
+
+  This is CVC4 version 1.6
+
 
 Running Tests
 -------------
