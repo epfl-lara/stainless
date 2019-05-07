@@ -158,13 +158,26 @@ object NoRecovery extends RecoveryStrategy {
 
 /** References to unknown class types in `extern` definitions are mapped to BigInt */
 object RecoverExternTypes extends RecoveryStrategy {
+
+  private case class ExternType(tpe: xt.Type, isPure: Boolean) {
+    def collect(missing: Set[Identifier]): Set[ExternType] = {
+      collectMissingTypes(tpe, missing).map(ExternType(_, isPure))
+    }
+  }
+
+  private object ExternType {
+    def apply(vd: xt.ValDef): ExternType = ExternType(vd.tpe, vd.flags contains xt.IsPure)
+  }
+
   override protected def recoverFunction(fd: xt.FunDef, missing: Set[Identifier]): Recovered[xt.FunDef] = {
     if (!fd.flags.contains(xt.Extern))
       return Left(fd -> missing)
 
-    val types = fd.params.map(_.tpe) ++ Seq(fd.returnType)
-    val missingTypes = types.flatMap (collectMissingTypes(_, missing))
-    val subst: Map[xt.Type, xt.Type] = missingTypes.map(tp => tp -> replaceMissingType(tp)).toMap
+    val externTypes = fd.params.map(ExternType(_)) ++ Seq(ExternType(fd.returnType, fd.flags contains xt.IsPure))
+    val missingTypes = externTypes flatMap (_.collect(missing))
+    val subst: Map[xt.Type, xt.Type] = missingTypes.map {
+      case ExternType(tp, isPure) => tp -> replaceMissingType(tp, isPure)
+    }.toMap
 
     val returnType = xt.typeOps.replace(subst, fd.returnType)
 
@@ -177,10 +190,12 @@ object RecoverExternTypes extends RecoveryStrategy {
 
   override protected def recoverClass(cd: xt.ClassDef, missing: Set[Identifier]): Recovered[xt.ClassDef] = {
     val (externFields, otherFields) = cd.fields.partition(_.flags contains xt.Extern)
-    val (externTypes, otherTypes) = (externFields.map(_.tpe), otherFields.map(_.tpe))
+    val (externTypes, otherTypes) = (externFields.map(ExternType(_)), otherFields.map(_.tpe))
 
-     val missingExternTypes = externTypes flatMap (collectMissingTypes(_, missing))
-     val subst: Map[xt.Type, xt.Type] = missingExternTypes.map(tp => tp -> replaceMissingType(tp)).toMap
+     val missingExternTypes = externTypes flatMap (_.collect(missing))
+     val subst: Map[xt.Type, xt.Type] = missingExternTypes.map {
+       case ExternType(tp, isPure) => tp -> replaceMissingType(tp, isPure)
+     }.toMap
 
     val recovered = cd.copy(
       fields = cd.fields.map(vd => vd.copy(tpe = xt.typeOps.replace(subst, vd.tpe)))
@@ -199,7 +214,7 @@ object RecoverExternTypes extends RecoveryStrategy {
     } (tpe)
   }
 
-  private def replaceMissingType(tpe: xt.Type): xt.Type = {
-    xt.UnknownType().copiedFrom(tpe)
+  private def replaceMissingType(tpe: xt.Type, isPure: Boolean): xt.Type = {
+    xt.UnknownType(isPure).copiedFrom(tpe)
   }
 }

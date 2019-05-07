@@ -66,7 +66,7 @@ trait TypeEncoding
   private[this] def isObject(tpe: s.Type)(implicit scope: Scope): Boolean = tpe match {
     case _: s.ClassType => true
     case s.NothingType() | s.AnyType() => true
-    case s.UnknownType() => true
+    case s.UnknownType(_) => true
     case s.TypeBounds(_, _, _) => true
     case tp: s.TypeParameter => scope.tparams contains tp
     case _ => false
@@ -313,7 +313,8 @@ trait TypeEncoding
 
       case (_, s.AnyType()) => t.BooleanLiteral(true)
       case (_, s.NothingType()) => t.BooleanLiteral(false)
-      case (_, s.UnknownType()) => t.BooleanLiteral(true)
+
+      case (_, s.UnknownType(_)) => t.BooleanLiteral(true)
       case (_, s.TypeBounds(_, hi, _)) => instanceOf(e, in, hi)
 
       case (s.RefinementType(vd, pred), _) => instanceOf(e, vd.tpe, tpe)
@@ -723,7 +724,7 @@ trait TypeEncoding
           x => t.Annotated(t.BooleanLiteral(false).copiedFrom(tp), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
-      case s.UnknownType() => transform(s.AnyType().copiedFrom(tp))
+      case s.UnknownType(_) => transform(s.AnyType().copiedFrom(tp))
 
       case ct: s.ClassType =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
