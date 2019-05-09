@@ -69,7 +69,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[Final.type]      (149),
       classSerializer[Decreases]       (151),
       classSerializer[Erasable.type]   (155),
-      classSerializer[IndexedAt.type]  (156),
+      classSerializer[IndexedAt]       (156),
       classSerializer[Synthetic.type]  (182)
     )
 }
