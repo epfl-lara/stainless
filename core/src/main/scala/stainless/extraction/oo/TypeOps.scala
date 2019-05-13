@@ -17,6 +17,14 @@ trait TypeOps extends innerfuns.TypeOps {
     case (UnknownType(_), AnyType()) if upper => Some(Untyped)
     case (AnyType(), UnknownType(_)) if !upper => Some(Untyped)
 
+    // Impure unknown type is not a subtype of pure unknown type
+    case (UnknownType(false), UnknownType(true)) =>
+      Some(Untyped)
+
+    case (UnknownType(true), UnknownType(false)) =>
+      if (upper) Some(UnknownType(false))
+      else Some(UnknownType(true))
+
     case (tp, UnknownType(_)) if tp.getType.isTyped => Some(tp)
     case (UnknownType(_), tp) if tp.getType.isTyped => Some(tp)
 
