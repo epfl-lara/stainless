@@ -15,10 +15,11 @@ object StainlessPlugin extends sbt.AutoPlugin {
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
 
   override def requires: Plugins = plugins.JvmPlugin
-  override def trigger: PluginTrigger = noTrigger // --> This plugin needs to be manually enabled
+  override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
 
   object autoImport {
     val stainlessVersion = settingKey[String]("The version of stainless to use")
+    val stainlessEnabled = settingKey[Boolean]("Enable stainless")
   }
 
   import autoImport._
@@ -57,6 +58,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
     stainlessVersion := BuildInfo.stainlessVersion,
+    stainlessEnabled := true,
     autoCompilerPlugins := true,
     ivyConfigurations += StainlessLibSources,
     libraryDependencies ++= stainlessModules.value,
@@ -69,10 +71,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    Seq(
+    if (stainlessEnabled.value) Seq(
       compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
       ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    )
+    ) else Seq.empty
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
@@ -94,9 +96,12 @@ object StainlessPlugin extends sbt.AutoPlugin {
       config,
       artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
     )
+
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
-    if (sourceJars.length > 1)
+
+    if (sourceJars.length > 1) {
       log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
+    }
 
     val destDir = stainlessLibraryLocation.value
 
@@ -110,7 +115,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
       }
       destDir.toPath
     }
-
 
     /** Collect all .scala files in the passed `folders`.*/
     @annotation.tailrec

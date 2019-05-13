@@ -40,7 +40,6 @@ class GhostPluginComponent(val global: Global) extends PluginComponent with Ghos
   override val runsAfter = List[String]("pickler")
 }
 
-
 class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.DefaultReporter(debugSections) {
   // FIXME: Mapping of stainless -> scalac positions
   override def emit(msg: Message): Unit = {
