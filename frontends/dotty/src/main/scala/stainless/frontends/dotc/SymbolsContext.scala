@@ -27,7 +27,6 @@ class SymbolsContext {
           } else {
             sym.fullName.toString.trim.split("\\.")
               .filter(_ != "package$")
-              .map(name => if (name.startsWith("~")) name.dropWhile(_ == '~') else name)
               .map(name => if (name.endsWith("$")) name.init else name)
               .map(name => if (name.startsWith("_$")) name.drop(2) else name)
               .mkString(".")
