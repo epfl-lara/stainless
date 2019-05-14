@@ -50,7 +50,7 @@ package object frontend {
    * Based on the context option, return the list of active component (e.g. verification, termination).
    * By default, return [[stainless.verification.VerificationComponent]].
    */
-  private def getActiveComponents(ctx: inox.Context) = {
+  private def getActiveComponents(ctx: inox.Context): Seq[Component] = {
     val fromOptions = allComponents.filter { c =>
       ctx.options.options.collectFirst {
         case inox.OptionValue(o, value: Boolean) if o.name == c.name => value
@@ -67,10 +67,15 @@ package object frontend {
   /** Get one callback for all active components. */
   def getCallBack(implicit ctx: inox.Context): CallBack = {
     val activeComponents = getActiveComponents(ctx)
-    if(ctx.options.findOptionOrDefault(optBatchedProgram))
+    if (batchSymbols(activeComponents))
       new BatchedCallBack(activeComponents)
     else
       new SplitCallBack(activeComponents)
+  }
+
+  private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
+    ctx.options.findOptionOrDefault(optBatchedProgram) ||
+    activeComponents.contains(termination.TerminationComponent)
   }
 }
 

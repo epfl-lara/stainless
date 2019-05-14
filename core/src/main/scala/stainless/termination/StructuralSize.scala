@@ -18,7 +18,10 @@ trait StructuralSize { self: SolverProvider =>
     val s: trees.type = trees
     val t: trees.type = trees
 
-    def transform(s: Symbols): Symbols = s.withFunctions(functions)
+    def transform(s: Symbols): Symbols = {
+      val sortFunctions = s.sorts.values.map(fullSizeFunDef)
+      s.withFunctions(functions ++ sortFunctions)
+    }
   })
 
   /* Absolute value for BigInt type
@@ -97,7 +100,37 @@ trait StructuralSize { self: SolverProvider =>
     fd
   })
 
-  private val fullCache: MutableMap[Type, Identifier] = MutableMap.empty
+  private val fullCache: MutableMap[ADTType, Identifier] = MutableMap.empty
+
+  private def fullSizeId(tpe: ADTType): Identifier = fullCache.getOrElseUpdate(tpe, {
+    FreshIdentifier("fullSize$" + tpe.id.name)
+  })
+
+  private def fullSizeFunDef(sort: ADTSort): FunDef = {
+    val tpe = ADTType(sort.id, sort.typeArgs)
+    val id = fullSizeId(tpe)
+
+    // we want to reuse generic size functions for sub-types
+    val tparams = sort.tparams.map(_.tp)
+
+    val v = Variable.fresh("x", tpe)
+    val fd = new FunDef(
+      id,
+      sort.tparams,
+      Seq(v.toVal),
+      IntegerType(),
+      Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
+        val arguments = cons.fields.map(_.freshen)
+        val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
+        val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
+        val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
+        MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
+      }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(sort),
+      Seq.empty
+    )
+
+    fd
+  }
 
   /* Fully recursive size computation
    *
@@ -111,29 +144,8 @@ trait StructuralSize { self: SolverProvider =>
       val fid = fullCache.get(tpe) match {
         case Some(id) => id
         case None =>
-          val id = FreshIdentifier("fullSize$" + adt.id.name)
-          fullCache += tpe -> id
-
-          // we want to reuse generic size functions for sub-types
-          val tparams = sort.tparams.map(_.tp)
-
-          val v = Variable.fresh("x", tpe)
-          functions += new FunDef(
-            id,
-            sort.tparams,
-            Seq(v.toVal),
-            IntegerType(),
-            Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
-              val arguments = cons.fields.map(_.freshen)
-              val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
-              val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
-              val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
-              MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
-            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(expr),
-            Seq.empty
-          )
+          val id = fullSizeId(tpe)
           clearSolvers()
-
           id
       }
 
