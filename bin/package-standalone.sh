@@ -40,8 +40,7 @@ function fail {
 
 # -----
 
-# TMP_DIR=`mktemp -d 2>/dev/null || mktemp -d -t 'stainless-package-standalone'`
-TMP_DIR="./package-tmp"; mkdir $TMP_DIR 2>/dev/null || true
+TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-package-standalone")
 
 STAINLESS_JAR_BASENAME=$(basename $STAINLESS_JAR_PATH)
 
