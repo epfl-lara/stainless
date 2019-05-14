@@ -50,7 +50,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                 // Check if a precise effect can be computed
                 getEffect(e)
               } catch {
-                case _: MissformedStainlessCode =>
+                case _: MalformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
               }
 
@@ -69,7 +69,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case l @ Lambda(args, body) =>
               if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
-              if (effects(body).exists(e => !args.exists(_ == e.receiver.toVal)))
+              if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
                 throw ImperativeEliminationException(l, "Illegal effects in lambda body")
               super.traverse(l)
 

@@ -18,7 +18,7 @@ trait StructuralSize { self: SolverProvider =>
     val s: trees.type = trees
     val t: trees.type = trees
 
-    def transform(s: Symbols): Symbols = s.withFunctions(functions.toSeq)
+    def transform(s: Symbols): Symbols = s.withFunctions(functions)
   })
 
   /* Absolute value for BigInt type

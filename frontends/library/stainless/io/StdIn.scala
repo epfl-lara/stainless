@@ -2,6 +2,8 @@
 
 package stainless.io
 
+import scala.language.implicitConversions
+
 import stainless.annotation._
 
 /*

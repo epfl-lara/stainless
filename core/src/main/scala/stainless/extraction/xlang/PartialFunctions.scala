@@ -21,7 +21,7 @@ trait PartialFunctions
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
-    val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.$tilde$greater")
+    val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.~>")
 
     /** Infer the partial function's precondition, by replacing every
      *  right-hand side of the pattern match with `true`.

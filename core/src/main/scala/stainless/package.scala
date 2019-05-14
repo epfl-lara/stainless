@@ -1,10 +1,11 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 import scala.collection.parallel.ForkJoinTasks
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.ExecutionContext
 import java.util.concurrent.Executors
 
 import inox.transformers._
+import inox.utils.{Position, NoPosition}
 
 package object stainless {
 
@@ -29,11 +30,15 @@ package object stainless {
   type Identifier = inox.Identifier
   val FreshIdentifier = inox.FreshIdentifier
 
-  implicit class IdentifierFromSymbol(id: Identifier) {
+  implicit final class IdentifierFromSymbol(id: Identifier) {
     def fullName: String = id match {
       case ast.SymbolIdentifier(name) => name
       case _ => id.name
     }
+  }
+
+  implicit final class PositioningWrapper[T <: inox.ast.Trees#Tree](tree: T) {
+    def ensurePos(pos: Position): T = if (tree.getPos != NoPosition) tree else tree.setPos(pos)
   }
 
   object trees extends ast.Trees with inox.ast.SimpleSymbols {

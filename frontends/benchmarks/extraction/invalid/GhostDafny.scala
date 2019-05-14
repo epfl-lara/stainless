@@ -1,5 +1,5 @@
 
-object HereAreMoreGhostTests {
+object GhostDafny {
 
   import stainless.annotation._
 

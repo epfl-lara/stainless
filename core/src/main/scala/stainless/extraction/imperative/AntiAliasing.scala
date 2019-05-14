@@ -174,14 +174,14 @@ trait AntiAliasing
               }
 
             for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
-              val aliased = effects.toSeq.tails.flatMap {
+              val aliased = effects.tails.flatMap {
                 case e1 +: es => es.collect { case e2 if (e1 prefixOf e2) || (e2 prefixOf e1) => (e1, e2) }
                 case Nil => Nil
               }
 
               if (aliased.nonEmpty) {
                 val (e1, _) = aliased.next
-                throw MissformedStainlessCode(e1.receiver, "Illegal passing of aliased parameter")
+                throw MalformedStainlessCode(e1.receiver, "Illegal passing of aliased parameter")
               }
             }
 
@@ -268,7 +268,7 @@ trait AntiAliasing
                   val vd = ValDef(FreshIdentifier("index", true), Int32Type().copiedFrom(i)).copiedFrom(i)
                   (eBindings :+ (vd -> i), ArraySelect(eLift, vd.toVariable).copiedFrom(e))
                 case _ if effects(e).nonEmpty =>
-                  throw MissformedStainlessCode(m, "Unexpected effects in match scrutinee")
+                  throw MalformedStainlessCode(m, "Unexpected effects in match scrutinee")
                 case _ => (Seq.empty, e)
               }
 
@@ -295,7 +295,7 @@ trait AntiAliasing
               val applied = applyEffect(effect + ArrayAccessor(i), v)
               transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
             } else {
-              throw MissformedStainlessCode(up, "Unsupported form of array update")
+              throw MalformedStainlessCode(up, "Unsupported form of array update")
             }
 
           case up @ MutableMapUpdate(map, k, v) =>
@@ -315,7 +315,7 @@ trait AntiAliasing
               val applied = applyEffect(effect + FieldAccessor(id), v)
               transform(Assignment(effect.receiver, applied).copiedFrom(as), env)
             } else {
-              throw MissformedStainlessCode(as, "Unsupported form of field assignment")
+              throw MalformedStainlessCode(as, "Unsupported form of field assignment")
             }
 
           //we need to replace local fundef by the new updated fun defs.

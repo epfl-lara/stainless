@@ -5,6 +5,8 @@ package stainless.proof
 import stainless.lang._
 import stainless.annotation._
 
+import scala.language.implicitConversions
+
 /** Internal helper classes and methods for the 'proof' package. */
 object Internal {
 

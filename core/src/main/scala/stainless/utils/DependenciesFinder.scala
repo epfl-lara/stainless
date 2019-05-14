@@ -1,80 +1,57 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
-
 package stainless
 package utils
 
-import extraction.xlang.{ trees => xt }
-
-import scala.collection.mutable.{ Set => MutableSet }
-
-/**
- * [[DependenciesFinder]] find the set of dependencies for a function/class,
- * it is not thread safe and is designed for one and only one run!
- *
- * It returns only the *direct* dependencies, without the argument itself
- * although it could be a recursive function. Moreover, it doesn't capture
- * the notion of class hierarchy as it doesn't know about other classes.
- *
- * It also does **not** handle dependencies toward class invariant/methods
- * because this requires the knowledge of existing functions in addition to
- * the class itself.
- */
-class DependenciesFinder {
-  private val deps: MutableSet[Identifier] = MutableSet.empty
-  private val finder = new xt.SelfTreeTraverser {
-    override def traverse(e: xt.Expr): Unit = e match {
-      case xt.FunctionInvocation(id, _, _) =>
-        deps += id
-        super.traverse(e)
-
-      case xt.MethodInvocation(_, id, _, _) =>
-        deps += id
-        super.traverse(e)
-
-      case _ => super.traverse(e)
+trait DefinitionIdFinder extends transformers.DefinitionTraverser {
+  val s: trees.Symbols
+  private val idsMap = {
+    s.functions.keys.map(id => id -> id) ++
+    s.sorts.values.flatMap { s =>
+      s.constructors.map(c => c.id -> s.id) ++ Seq(s.id -> s.id)
     }
+  }.toMap
 
-    override def traverse(pat: xt.Pattern): Unit = pat match {
-      case xt.UnapplyPattern(_, _, id, _, _) =>
-        deps += id
-        super.traverse(pat)
+  def initEnv = ()
+  type Env = Unit
 
-      case _ => super.traverse(pat)
-    }
-
-    override def traverse(tpe: xt.Type): Unit = tpe match {
-      case xt.ClassType(id, _) =>
-        deps += id
-        super.traverse(tpe)
-
-      case _ => super.traverse(tpe)
-    }
-
-    override def traverse(flag: xt.Flag): Unit = flag match {
-      case xt.IsMethodOf(id) =>
-        deps += id
-        super.traverse(flag)
-
-      case _ => super.traverse(flag)
-    }
+  protected var ids: Set[Identifier] = Set()
+  override def traverse(id: Identifier, env: Env): Unit = {
+    ids ++= idsMap.get(id)
   }
 
-  def apply(fd: xt.FunDef): Set[Identifier] = {
-    finder.traverse(fd)
-    deps -= fd.id
-
-    deps.toSet
+  def doTraverse(fd: trees.FunDef): Set[Identifier] = {
+    ids = Set()
+    traverse(fd)
+    ids
   }
 
-  def apply(cd: xt.ClassDef): Set[Identifier] = {
-    cd.tparams foreach finder.traverse
-    cd.parents foreach finder.traverse
-    cd.fields foreach finder.traverse
-    cd.flags foreach finder.traverse
-    deps -= cd.id
-
-    deps.toSet
+  def doTraverse(sort: trees.ADTSort): Set[Identifier] = {
+    ids = Set()
+    traverse(sort)
+    ids
   }
 }
 
+trait DependenciesFinder {
+  val t: stainless.ast.Trees
+  protected def traverser(s: t.Symbols): DefinitionIdFinder { val trees: t.type }
+
+  def findDependencies(roots: Set[Identifier], s: t.Symbols): t.Symbols = {
+    val tr = traverser(s)
+    var found = Set[Identifier]()
+    var toExplore = roots
+
+    while(toExplore.nonEmpty) {
+      val fIds = s.functions.values.view.force.filter(f => toExplore(f.id))
+        .flatMap((fd: t.FunDef) => tr.doTraverse(fd)).toSet
+      val sIds = s.sorts.values.view.force.filter(s => toExplore(s.id))
+        .flatMap((s: t.ADTSort) => tr.doTraverse(s)).toSet
+      found ++= toExplore
+      toExplore = (fIds ++ sIds) -- found
+    }
+
+    t.NoSymbols
+      .withFunctions(s.functions.values.toSeq.filter(f => found(f.id)))
+      .withSorts(s.sorts.values.toSeq.filter(f => found(f.id)))
+  }
+}
 

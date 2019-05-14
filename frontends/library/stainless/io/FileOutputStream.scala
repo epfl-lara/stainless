@@ -2,8 +2,10 @@
 
 package stainless.io
 
+import scala.language.implicitConversions
+
+import stainless.lang._
 import stainless.annotation._
-import stainless.lang.Option
 
 // NOTE I couldn't use java.io.FileOutputStream as a field of FileOutputStream... Leon doesn't
 //      accept it. Instead, the stream is opened and closed everytime an operation is
@@ -29,9 +31,9 @@ object FileOutputStream {
         // Check whether the stream can be opened or not (and empty the file)
         val out = new java.io.FileWriter(filename, false)
         out.close()
-        stainless.lang.Some[String](filename)
+        Some[String](filename)
       } catch {
-        case _: Throwable => stainless.lang.None[String]
+        case _: Throwable => None[String]()
       }
     )
   }
@@ -47,7 +49,7 @@ case class FileOutputStream(var filename: Option[String]) {
    * NOTE The stream must not be used afterward, even on failure.
    */
   def close(): Boolean = {
-    filename = stainless.lang.None[String]
+    filename = None[String]()
     true // This implementation never fails
   }
 
@@ -66,7 +68,7 @@ case class FileOutputStream(var filename: Option[String]) {
    */
   @extern
   def write(x: Int): Boolean = {
-    require(isOpen)
+    require(isOpen())
     try {
       val out = new java.io.FileWriter(filename.get, true)
       out.append(x.toString)
@@ -84,7 +86,7 @@ case class FileOutputStream(var filename: Option[String]) {
    */
   @extern
   def write(c: Char): Boolean = {
-    require(isOpen)
+    require(isOpen())
     try {
       val out = new java.io.FileWriter(filename.get, true)
       out.append(c)
@@ -102,7 +104,7 @@ case class FileOutputStream(var filename: Option[String]) {
    */
   @extern
   def write(s: String): Boolean = {
-    require(isOpen)
+    require(isOpen())
     try {
       val out = new java.io.FileWriter(filename.get, true)
       out.append(s)

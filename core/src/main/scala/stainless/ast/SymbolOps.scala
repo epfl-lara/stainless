@@ -6,8 +6,6 @@ package ast
 import inox.utils.Position
 import inox.transformers.{TransformerOp, TransformerWithExprOp, TransformerWithTypeOp}
 
-import scala.collection.mutable.{Map => MutableMap}
-
 trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees._
   import trees.exprOps._
@@ -62,7 +60,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subTests = pairs.map(p => apply(adtSelector(in, p._1.id), p._2))
+        val subTests = pairs.map(p => apply(Annotated(adtSelector(in, p._1.id), Seq(Unchecked)), p._2))
         pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
 
       case TuplePattern(ob, subps) =>
@@ -117,7 +115,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subMaps = pairs.map(p => mapForPattern(adtSelector(in, p._1.id), p._2))
+        val subMaps = pairs.map(p => mapForPattern(Annotated(adtSelector(in, p._1.id), Seq(Unchecked)), p._2))
         val together = subMaps.flatten.toMap
         bindIn(b) ++ together
 

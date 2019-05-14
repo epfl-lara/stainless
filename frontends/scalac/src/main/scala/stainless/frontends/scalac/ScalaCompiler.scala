@@ -45,7 +45,7 @@ class SymbolMapping {
     s2i.getOrElse(path, {
       val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
       val symbol = s2s.getOrElse(top, {
-        val name = sym.fullName.toString.trim
+        val name = sym.fullNameAsName('.').decode.trim
         val res = ast.Symbol(if (name endsWith "$") name.init else name)
         s2s(top) = res
         res

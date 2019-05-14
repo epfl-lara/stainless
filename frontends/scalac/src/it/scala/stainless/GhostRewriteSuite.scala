@@ -72,12 +72,12 @@ class GhostRewriteSuite extends FunSpec {
 
 
   describe("Rewrite suite should remove all ghosts") {
-    it("should not leave ghost code around in ghost-methods.scala") {
-      compileFile("frontends/benchmarks/extraction/valid/ghost-methods.scala")
+    it("should not leave ghost code around in GhostMethods.scala") {
+      compileFile("frontends/benchmarks/extraction/valid/GhostMethods.scala")
     }
 
-    it("should not leave ghost code around in ghost-caseclass.scala") {
-      compileFile("frontends/benchmarks/extraction/valid/ghost-caseclass.scala")
+    it("should not leave ghost code around in GhostCaseClass.scala") {
+      compileFile("frontends/benchmarks/extraction/valid/GhostCaseClass.scala")
     }
   }
 

@@ -106,7 +106,7 @@ trait EffectsAnalyzer extends CachingPhase {
 
           val baseResult = Result(
             inners.flatMap { case (fd, inners) => inners + Outer(fd) }.map(_ -> Set.empty[Effect]).toMap,
-            inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) }.toMap)
+            inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) })
 
           val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
             Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)
@@ -212,7 +212,7 @@ trait EffectsAnalyzer extends CachingPhase {
         case FieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
         case _ =>
-          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+          throw MalformedStainlessCode(expr, "Couldn't compute effect targets")
       }
       case Assert(_, _, e) => rec(e, path)
       case Annotated(e, _) => rec(e, path)
@@ -226,10 +226,10 @@ trait EffectsAnalyzer extends CachingPhase {
           Some(Effect(ee.receiver, Target(ee.target.path ++ be.target.path)))
         case (_, Some(be)) => Some(be)
         case _ =>
-          throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+          throw MalformedStainlessCode(expr, "Couldn't compute effect targets")
       }
       case _ =>
-        throw MissformedStainlessCode(expr, "Couldn't compute effect targets")
+        throw MalformedStainlessCode(expr, "Couldn't compute effect targets")
     }
 
 
@@ -238,13 +238,13 @@ trait EffectsAnalyzer extends CachingPhase {
 
   def getExactEffect(expr: Expr)(implicit symbols: Symbols): Effect = getEffect(expr) match {
     case Some(effect) => effect
-    case _ => throw MissformedStainlessCode(expr, "Couldn't compute exact effect targets")
+    case _ => throw MalformedStainlessCode(expr, "Couldn't compute exact effect targets")
   }
 
   def getKnownEffect(expr: Expr)(implicit symbols: Symbols): Option[Effect] = try {
     getEffect(expr)
   } catch {
-    case _: MissformedStainlessCode => None
+    case _: MalformedStainlessCode => None
   }
 
   /** Return all effects of expr

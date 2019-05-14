@@ -1,6 +1,8 @@
 package stainless
 package frontends.dotc
 
+import scala.language.implicitConversions
+
 import dotty.tools.dotc._
 import ast.tpd
 import ast.Trees._
@@ -16,12 +18,15 @@ import scala.collection.mutable.{ Map => MutableMap }
 
 trait ASTExtractors {
 
-  protected implicit val ctx: Context
+  protected implicit val ctx: dotty.tools.dotc.core.Contexts.Context
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
-    (for {
+    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
+    val inline = if (sym.annotations exists (_.symbol.fullName.toString == "scala.inline")) Seq(("inline", Seq.empty)) else Seq()
+
+    erased ++ inline ++ (for {
       a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
@@ -34,6 +39,7 @@ trait ASTExtractors {
 
   // Well-known symbols that we match on
 
+  protected lazy val scalaAnySym  = classFromName("scala.Any")
   protected lazy val scalaMapSym  = classFromName("scala.collection.immutable.Map")
   protected lazy val scalaSetSym  = classFromName("scala.collection.immutable.Set")
   protected lazy val scalaListSym = classFromName("scala.collection.immutable.List")
@@ -105,6 +111,10 @@ trait ASTExtractors {
     }
   }
 
+  def isAnySym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == scalaAnySym
+  }
+
   def isSetSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == setSym
   }
@@ -159,11 +169,11 @@ trait ASTExtractors {
 //  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
 
   def isDefaultGetter(sym: Symbol) = {
-    sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
+    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
   }
 
   def isCopyMethod(sym: Symbol) = {
-    sym.name.isTermName && sym.name.toTermName.toString == "copy"
+    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString == "copy"
   }
 
   def canExtractSynthetic(sym: Symbol) = {
@@ -206,21 +216,21 @@ trait ASTExtractors {
   object ExpressionExtractors {
 
     object ExIdentifier {
-      def unapply(tree: tpd.Ident): Option[(Symbol, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(Symbol, tpd.Ident)] = tree match {
         case i: tpd.Ident => Some((i.symbol, i))
         case _ => None
       }
     }
 
     object ExThis {
-      def unapply(tree: tpd.This): Option[(Symbol, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(Symbol, tpd.This)] = tree match {
         case thiz: tpd.This => Some((thiz.symbol, thiz))
         case _ => None
       }
     }
 
     object ExTyped {
-      def unapply(tree: tpd.Typed): Option[(tpd.Tree, tpd.Tree)] = tree match {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Typed(e,t) => Some((e, t))
         case _ => None
       }
@@ -378,10 +388,10 @@ trait ASTExtractors {
 
     object ExConstructor {
       def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] = tree match {
-        case Apply(Select(New(tpt), CONSTRUCTOR), args) =>
+        case Apply(Select(New(tpt), nme.CONSTRUCTOR), args) =>
           Some((tpt.tpe, args))
 
-        case Apply(TypeApply(Select(New(tpt), CONSTRUCTOR), _), args) =>
+        case Apply(TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
           Some((tree.tpe, args))
 
         case Apply(e, args) if (
@@ -455,8 +465,8 @@ trait ASTExtractors {
     }
 
     object ExFunctionDef {
-      def unapply(dd: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, rhs) =>
+      def unapply(tree: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = tree match {
+        case dd @ DefDef(name, tparams, vparamss, tpt, rhs) =>
           if ((
             name != nme.CONSTRUCTOR &&
             !dd.symbol.is(Accessor) &&
@@ -465,7 +475,7 @@ trait ASTExtractors {
           ) || (
             (dd.symbol is Synthetic) &&
             canExtractSynthetic(dd.symbol) &&
-            !(getAnnotations(tpt.symbol) contains "ignore")
+            !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
           )) {
             Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
           } else {
@@ -536,17 +546,24 @@ trait ASTExtractors {
     }
 
     object ExWhile {
-      def unapply(trees: List[tpd.Tree]): Option[(tpd.Tree, List[tpd.Tree], List[tpd.Tree])] = trees match {
-        case (dd @ DefDef(nme.WHILE_PREFIX, Seq(), Seq(Seq()), unit, _)) :: app :: rest => dd.rhs match {
-          case If(cond, Block(body, Apply(c, Nil)), ExUnitLiteral()) if dd.symbol == c.symbol => app match {
-            case Apply(c, Nil) if dd.symbol == c.symbol => Some((cond, body, rest))
-            case Apply(
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case WhileDo(cond, body) => Some((cond, body))
+        case _ => None
+      }
+    }
+
+    object ExWhileWithInvariant {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(
+          Select(
+            Apply(
               ExSymbol("stainless", "lang", "package$", "WhileDecorations"),
-              Seq(Apply(c, Nil))) if dd.symbol == c.symbol => Some((cond, body, rest))
-            case _ => None
-          }
-          case _ => None
-        }
+              List(ExWhile(cond, body)),
+            ),
+            ExNamed("invariant"),
+          ),
+          List(pred)
+        ) => Some((cond, body, pred))
         case _ => None
       }
     }
@@ -572,11 +589,17 @@ trait ASTExtractors {
 
     object ExAssert {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
+        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body)) =>
+          Some((body, None, false))
+
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
           Some((body, None, false))
 
         case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "assert"), Seq(body)) =>
           Some((body, None, true))
+
+        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
+          Some((body, Some(cnst.stringValue), false))
 
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
           Some((body, Some(cnst.stringValue), false))
@@ -619,6 +642,27 @@ trait ASTExtractors {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "BooleanDecorations", "holds"),
           Seq(), args) => Some(rec +: args)
+        case _ => None
+      }
+    }
+
+    object ExHoldsBecause {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
+          Some((body, proof))
+
+        case Apply(
+          Select(
+            Apply(
+              ExSymbol("stainless", "lang" | "proof", "package$", "boolean2ProofOps"),
+              List(ExHolds(body)),
+            ),
+            ExNamed("because"),
+          ),
+          List(proof)
+        ) =>
+          Some((body, proof))
+
         case _ => None
       }
     }

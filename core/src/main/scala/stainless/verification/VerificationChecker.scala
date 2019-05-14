@@ -94,7 +94,7 @@ trait VerificationChecker { self =>
     val results = Future.traverse(vcs)(vc => Future {
       if (stop) None else {
         val simplifiedVC: VC = (vc.copy(
-          condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))
+          condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
         ): VC).setPos(vc)
         val sf = getFactoryForVC(vc)
         val res = checkVC(simplifiedVC, sf)
@@ -183,16 +183,11 @@ trait VerificationChecker { self =>
   }
 
   private def simplifyAssertions(expr: Expr): Expr = {
-    def rec(expr: Expr): Expr = expr match {
-      case Annotated(e, Seq(Unchecked)) =>
-        exprOps.postMap {
-          case Assert(_, _, e) => Some(e)
-          case _ => None
-        } (e)
-      case Operator(es, recons) => recons(es map rec)
-    }
-
-    rec(expr)
+    exprOps.postMap {
+      case Assert(_, _, e) => Some(e)
+      case Annotated(e, Seq(Unchecked)) => Some(e)
+      case _ => None
+    }(expr)
   }
 
   protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
