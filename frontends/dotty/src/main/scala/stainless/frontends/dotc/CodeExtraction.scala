@@ -1776,6 +1776,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case AppliedType(tr: TypeRef, tps) if TupleSymbol.unapply(tr.classSymbol).isDefined =>
         xt.TupleType(tps map extractType)
 
+      case AppliedType(tr: TypeRef, tps) if isMutableMapSym(tr.symbol) =>
+        val Seq(from, to) = tps map extractType
+        xt.MutableMapType(from, to)
+
       case tr: TypeRef if isMutableMapSym(tr.symbol) =>
         val Seq(from, to) = extractTypeParams(tr.classSymbol.typeParams)
         xt.MutableMapType(from, to)
