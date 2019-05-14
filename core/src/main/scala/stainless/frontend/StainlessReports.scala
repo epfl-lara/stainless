@@ -20,7 +20,7 @@ trait StainlessReports {
       }.toSeq
     )
 
-    override lazy val annotatedRows = reports.flatMap(_.report.annotatedRows: Seq[RecordRow])
+    override lazy val annotatedRows = adjustRows(reports)
 
     override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
 
@@ -39,4 +39,15 @@ trait StainlessReports {
     }
   }
 
+  private def adjustRows(reports: Seq[RunReport]): Seq[RecordRow] = {
+    val maxExtra = reports
+      .flatMap(_.report.annotatedRows)
+      .foldLeft(0) { case (max, row) => Math.max(max, row.extra.size) }
+
+    reports flatMap { re =>
+      re.report.annotatedRows map { row =>
+        row.copy(extra = row.extra ++ Seq.fill(maxExtra - row.extra.size)(""))
+      }
+    }
+  }
 }
