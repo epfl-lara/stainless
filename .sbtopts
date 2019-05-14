@@ -3,3 +3,4 @@
 -J-Xmx12G
 -J-XX:MaxMetaspaceSize=512M
 -J-XX:+UseCodeCacheFlushing
+-J-XX:ReservedCodeCacheSize=256M
