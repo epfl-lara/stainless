@@ -6,6 +6,7 @@ object ArraySlice {
 
   def slice[A](array: Array[A], start: Int, end: Int): List[A] = {
     require(start >= 0 && end >= 0 && end <= array.length && end >= start)
+    decreases(end - start)
     if (end - start == 0) Nil()
     else Cons(array(start), slice(array, start + 1, end))
   }
