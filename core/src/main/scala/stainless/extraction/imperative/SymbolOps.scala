@@ -39,7 +39,8 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     isMutableClassType(ct, mutableClasses)
   }
 
-  private[this] val mutableClasses: Set[Identifier] = {
+  @inline def mutableClasses: Set[Identifier] = _mutableClasses.get
+  private[this] val _mutableClasses = inox.utils.Lazy({
     val initialClasses = symbols.classes.values.filter { cd =>
       cd.fields.exists(_.flags contains IsVar)
     }.map(_.id).toSet
@@ -54,7 +55,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
         cd.ancestors.map(_.id).toSet ++ cd.descendants.map(_.id).toSet
       }
     } (initialClasses)
-  }
+  })
 
   private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier]): Boolean = {
     mutableClasses.contains(ct.id) || ct.tcd.fields.exists { vd =>
