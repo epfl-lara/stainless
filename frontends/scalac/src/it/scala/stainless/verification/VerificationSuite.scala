@@ -99,6 +99,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
 
+    // Requires map with non-default values, unsupported by CVC4
+    case "verification/valid/ArraySlice" => Ignore
+
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
