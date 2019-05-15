@@ -278,6 +278,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ClassSelector(e, id) => rec(e, ClassFieldAccessor(id) +: path)
       case ArraySelect(a, idx) => rec(a, ArrayAccessor(idx) +: path)
       case MutableMapApply(a, idx) => rec(a, MutableMapAccessor(idx) +: path)
+      case MutableMapDuplicate(m) => rec(m, path)
 
       case ADT(id, _, args) => path match {
         case ADTFieldAccessor(fid) +: rest =>
