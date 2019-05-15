@@ -73,6 +73,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
     case any: AnyType => true
     case arr: ArrayType => true
+    case map: MutableMapType => true
     case ft: FunctionType => false
     case ct: ClassType => isMutableClassType(ct, mutableClasses)
     case adt: ADTType => isMutableADTType(adt, mutableClasses)
