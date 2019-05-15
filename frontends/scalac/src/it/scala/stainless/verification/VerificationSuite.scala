@@ -78,6 +78,9 @@ class CodeGenVerificationSuite extends VerificationSuite {
     case "verification/valid/MergeSort2" => Ignore
     case "verification/valid/IntSetInv" => Ignore
 
+    // Does not work with --feeling-lucky. See #490
+    case "verification/valid/MsgQueue" => Skip
+
     case _ => super.filter(ctx, name)
   }
 }
