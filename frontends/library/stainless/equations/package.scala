@@ -55,24 +55,25 @@ package object equations {
   }
 
   @library @inline
-  implicit def any2RAEqEvidence[A](x: => A): RAEqEvidence[A] = RAEqEvidence(() => x, () => x, () => true)
+  implicit def any2RAEqEvidence[A](x: => A): RAEqEvidence[A, Unit] = RAEqEvidence(() => x, () => x, () => ())
 
   @library
-  case class RAEqEvidence[A](x: () => A, y: () => A, evidence: () => Boolean) {
-    require(x() == y() && evidence())
+  def keepEvidence[C](x: C): Boolean = true
+
+  @library
+  case class RAEqEvidence[A, B](x: () => A, y: () => A, evidence: () => B) {
+    require(x() == y())
 
     @inline
-    def ==:|(proof: => Boolean): RAEqEvidence[A] = {
-      require(proof)
+    def ==:|[C](proof: => C): RAEqEvidence[A, C] = {
       RAEqEvidence(x, y, () => proof)
     }
 
     @inline
-    def |:(prev: RAEqEvidence[A]): RAEqEvidence[A] = {
-      require(prev.evidence() ==> (prev.y() == x()))
+    def |:[C](prev: RAEqEvidence[A, C]): RAEqEvidence[A, C] = {
+      require (keepEvidence(prev.evidence()) ==> (prev.y() == x()))
       RAEqEvidence(prev.x, y, prev.evidence)
     }
-
     @inline
     def qed: Boolean = (x() == y()).holds
   }
