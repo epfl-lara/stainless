@@ -134,5 +134,4 @@ package object lang {
   def print(x: String): Unit = {
     scala.Predef.print(x)
   }
-
 }
