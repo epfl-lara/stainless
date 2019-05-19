@@ -3,19 +3,16 @@
 Installing Stainless
 ====================
 
-Due to its nature, this documentation section may not always
-be up to date; we welcome pull requests with carefully
-written and tested improvements to the information below.
+General Requirement
+-------------------
 
-Use pre-packaged JAR file on Linux & macOS
-------------------------------------------
+* `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ for your platform
 
-**Requirements:**
-
-* `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
+Make sure ``java -version`` reports a version starting with ``1.8``.
 
 
-**Instructions:**
+Use Pre-Packaged JAR file
+-------------------------
 
 1. Download the latest Stainless JAR from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_
 
@@ -56,48 +53,120 @@ Use pre-packaged JAR file on Linux & macOS
   [  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════╝
   [  Info  ] Shutting down executor service.
 
-Improve performance using external solvers
-------------------------------------------
+.. _smt-solvers:
 
-If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will instead use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_, which can sometime be quite slow.
+External Solver Binaries
+------------------------
 
-To improve performance, one can install an external SMT solver, as described in section ":ref:`smt-solvers`".
+If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_ 
 
-Build from source on Linux & macOS
+To improve performance, we highly recommend that you install the following two additional external SMT solvers as binaries for your platform:
+
+* CVC4 1.7, http://cvc4.cs.stanford.edu
+* Z3 4.7.1, https://github.com/Z3Prover/z3
+
+You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4`` flags.
+
+Solver binaries that you install should match your operating system and your architecture. We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc4``).
+
+Install Z3 4.7.1 (Linux & macOS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Download Z3 4.7.1 from https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1
+2. Unzip the downloaded archive
+3. Copy the ``z3`` binary found in the ``bin/`` directory of the inflated archive to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
+4. Make sure ``z3`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ z3 --version
+
+5. The output should read:
+
+.. code-block:: text
+
+  Z3 version 4.7.1 - 64 bit`
+
+Install CVC 1.7 (Linux)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Download CVC4 1.7 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
+
+2. Copy or link the downloaded binary under name ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
+
+4. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ cvc4 --version | head
+
+5. The output should begin with:
+
+.. code-block:: text
+
+  This is CVC4 version 1.7
+
+Install CVC 1.6 (macOS)
+~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Install `Homebrew <https://brew.sh>`_
+2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
+3. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
+
+.. code-block:: bash
+
+  $ cvc4 --version
+
+4. The output should begin with:
+
+.. code-block:: text
+
+  This is CVC4 version 1.6
+
+
+Build from Source on Linux & macOS
 ----------------------------------
 
-**Requirements:**
+To build Stainless, we simply use ``sbt``. This requires an Internet connection.
 
-* `Java SE Development Kit 8 <http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html>`_ or `Java SE Development Kit 7 <http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html>`_ for your platform
-* sbt 1.2.x (Available from http://www.scala-sbt.org/)
-* An external SMT solver (see Section ":ref:`smt-solvers`")
-* `Sphinx restructured text tool <http://sphinx-doc.org/>`_ (for building local documentation)
+In an attempt to be more reproducible, the instructions below assume that the directory called ``stainless`` does not exist. Moreover, they instruct ``sbt`` to use a relative path for its bootstrap and do not require adding ``sbt`` to your path.
 
-**Instructions:**
+**Install sbt**
+
+* Download ``sbt`` 1.2.8, available from http://www.scala-sbt.org/
+* Unpack the arhive in some place where you will store them permanently
+* Find the path to file ``sbt-launch.jar`` inside the unpacked directory (e.g. under ``sbt/bin/``). Let us call this path ``/path/to/sbt-launch.jar``
+
+**Check out sources**
 
 Get the sources of Stainless by cloning the official Stainless repository:
 
 .. code-block:: bash
 
   $ git clone https://github.com/epfl-lara/stainless.git
-  Cloning into 'stainless'...
-  // ...
+  Cloning into 'stainless'...  
+
+**Run sbt**
+
+The following instructions will invoke sbt while using a stainless sub-directory to download files. 
+
+.. code-block:: bash
+
   $ cd stainless
-  $ sbt clean universal:stage
-  // takes about 1 minute
+  $ java -Dsbt.boot.directory=./sbt-boot/ -jar /path/to/sbt-launch.jar universal:stage
 
 The compilation will automatically generate the following two bash scripts:
 
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
 
-You may want to introduce a soft-link from ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` to ``stainless``:
+You may want to introduce a soft-link from ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` to a file called ``stainless``:
 
 .. code-block:: bash
 
   $ ln -s frontends/scalac/target/universal/stage/bin/stainless-scalac stainless
 
-These scripts work for all platforms and allow additional control over the execution, such as
+Analogous scripts work for various platforms and allow additional control over the execution, such as
 passing JVM arguments or system properties:
 
 .. code-block:: bash
@@ -111,8 +180,10 @@ From a user point of view, this should most of
 the time be transparent and the build command should take
 care of everything.
 
-Build from source on Windows
-----------------------------
+Build from Source on Windows 10
+-------------------------------
+
+Before following the infrequently updated instructions in this section, considering running Ubuntu on Windows 10  and following the instructions for Linux. That said, Stainless is just a JVM application that invokes binaries that are also available for Windows, so it is not too difficult to build a version that runs without a VM.
 
 Get the sources of Stainless by cloning the official Stainless
 repository. You will need a Git shell for windows, e.g. 
@@ -132,7 +203,7 @@ Compilation will automatically generate the following two bash scripts:
 1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
 2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
 
-Usage within an sbt project
+Usage within an sbt Project
 ---------------------------
 
 Setting up an sbt build file to use Stainless is a simple 4-step procedure:
@@ -167,84 +238,11 @@ Note that if you are using ``.scala`` build files you need to use the fully qual
 
 That's all there is to it. However, the ``sbt-stainless`` plugin currently has the following limitations you should know about:
 
-* No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.
+* No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.ub
 
 * The plugin only supports vanilla Scala. To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
 Also, note that the plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell.
-
-.. _smt-solvers:
-
-External Solvers
-----------------
-
-`Inox <https://github.com/epfl-lara/inox>`_, the solving backend for Stainless,
-relies on SMT solvers for reasoning about quantifier-free formulas.
-
-Inox ships with the JVM SMT solver Princess which should work out of the box on any system, but is quite slow.
-
-It is recommended that you use one of the following external SMT solvers:
-
-* CVC4 1.6, http://cvc4.cs.stanford.edu
-* Z3 4.7.1, https://github.com/Z3Prover/z3
-
-Solver binaries that you install should match your operating system and your architecture.
-We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc4``).
-
-Install Z3 4.7.1 (Linux & macOS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-1. Download Z3 4.7.1 from https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1
-2. Unzip the downloaded archive
-3. Copy the ``z3`` binary found in the ``bin/`` directory of the inflated archive to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
-4. Make sure ``z3`` can be found, by opening a new terminal window and typing:
-
-.. code-block:: bash
-
-  $ z3 --version
-
-5. The output should read:
-
-.. code-block:: text
-
-  Z3 version 4.7.1 - 64 bit`
-
-Install CVC 1.6 (Linux)
-~~~~~~~~~~~~~~~~~~~~~~~
-
-1. Download CVC4 1.6 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/
-
-2. Copy the downloaded binary as ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
-
-4. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
-
-.. code-block:: bash
-
-  $ cvc4 --version
-
-5. The output should begin with:
-
-.. code-block:: text
-
-  This is CVC4 version 1.6
-
-Install CVC 1.6 (macOS)
-~~~~~~~~~~~~~~~~~~~~~~~
-
-1. Install `Homebrew <https://brew.sh>`_
-2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
-3. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
-
-.. code-block:: bash
-
-  $ cvc4 --version
-
-4. The output should begin with:
-
-.. code-block:: text
-
-  This is CVC4 version 1.6
-
 
 Running Tests
 -------------
@@ -263,64 +261,19 @@ It's also possible to run tests in isolation, for example, the following command
 
   $ sbt 'it:testOnly *ExtractionSuite* -- -z "in termination/looping"'
 
-
 Building Stainless Documentation
 --------------------------------
 
-To build this documentation locally, you will need Sphinx (
+Stainless documentation is available at https://epfl-lara.github.io/stainless/ .
+To build the documentation locally, you will need Sphinx (
 http://sphinx-doc.org/ ), a restructured text toolkit that
 was originally developed to support Python documentation.
 
+* On Ubuntu 18, you can use ``sudo apt install sphinx-common``
+
 After installing sphinx, run ``sbt previewSite``. This will generate the documentation and open a browser.
 
-The documentation resides in the ``core/src/sphinx/`` directory and can also be built without ``sbt``
-using the provided ``Makefile``. To do this, in a Linux shell go to the directory ``core/src/sphinx/``,
+The documentation resides in the ``core/src/sphinx/`` directory and can also be alternatively built without ``sbt``, using the provided ``Makefile``. To do this, in a Linux shell go to the directory ``core/src/sphinx/``,
 type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
-``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, since
-they are human readable in their source form.
-
-Using Stainless in Eclipse
---------------------------
-
-**Untested!**
-
-You first need to tell sbt to globally include the Eclipse plugin in its known plugins.
-To do so type 
-
-.. code-block:: bash
-
- $ echo "addSbtPlugin(\"com.typesafe.sbteclipse\" % \"sbteclipse-plugin\" % \"2.4.0\")" >> ~/.sbt/0.13/plugins/plugins.sbt
-
-In your Stainless home folder, type: ```sbt clean compile eclipse```
-
-This should create all the necessary metadata to load Stainless as a project in Eclipse.
-
-You should now be able to `import the project <http://help.eclipse.org/juno/index.jsp?topic=%2Forg.eclipse.platform.doc.user%2Ftasks%2Ftasks-importproject.htm>`_ into your Eclipse workspace. Don't forget to also import dependencies (the dotty and cafebabe projects, found somewhere in your ~/.sbt directory).
-
-For each run configuration in Eclipse, you have to set the
-``ECLIPSE_HOME`` environment variable to point to the home
-directory of your Eclipse installation.  To do so, go to 
-
-Run -> Run Configuration 
-
-and then, after picking the configuration you want to run,
-set the variable in the Environment tab.
-
-If you want to use ScalaTest from within Eclipse, download the ScalaTest plugin. For instructions, 
-see `Using ScalaTest with Eclipse <http://www.scalatest.org/user_guide/using_scalatest_with_eclipse>`_. 
-Do NOT declare your test packages as nested packages in
-separate lines, because ScalaTest will not see them for some
-reason. E.g. don't write
-
-.. code-block:: scala
-
- package stainless
- package test
- package myTestPackage 
-
-but instead
-
-.. code-block:: scala
-
- package stainless.test.myTestPackage
-
+``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, since they are human readable in their source form.
+ub for Windows.
