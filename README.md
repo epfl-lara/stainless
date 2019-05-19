@@ -8,9 +8,9 @@ and [Imperative](https://epfl-lara.github.io/stainless/imperative.html)
 for more details about the supported fragment).
 
 To get started, see the documentation chapters, such as
-  * [Installation](https://epfl-lara.github.io/stainless/installation.html)
-  * [Getting Started](https://epfl-lara.github.io/stainless/gettingstarted.html)
   * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
+  * [Installation](https://epfl-lara.github.io/stainless/installation.html)
+  * [Tutorial](https://epfl-lara.github.io/stainless/gettingstarted.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
