@@ -127,9 +127,8 @@ Install CVC 1.6 (macOS)
 Build from Source on Linux & macOS
 ----------------------------------
 
-To build Stainless, we simply use ``sbt``. This requires an Internet connection.
-
-In an attempt to be more reproducible, the instructions below assume that the directory called ``stainless`` does not exist. Moreover, they instruct ``sbt`` to use a relative path for its bootstrap and do not require adding ``sbt`` to your path.
+To build Stainless, we use ``sbt``. In a typical configuration, ``sbt universal:stage`` in the root of the source tree should work, yet, 
+in an attempt to be more reproducible and independent from sbt cache and path, the instructions below assume that the directory called ``stainless`` does not exist, they instruct ``sbt`` to use a relative path for its bootstrap, and do not require adding ``sbt`` to your path.
 
 **Install sbt**
 
@@ -154,6 +153,8 @@ The following instructions will invoke sbt while using a stainless sub-directory
 
   $ cd stainless
   $ java -Dsbt.boot.directory=./sbt-boot/ -jar /path/to/sbt-launch.jar universal:stage
+
+**Where to find generated files**
 
 The compilation will automatically generate the following two bash scripts:
 
