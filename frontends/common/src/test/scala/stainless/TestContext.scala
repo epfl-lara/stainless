@@ -2,7 +2,7 @@
 
 package stainless
 
-import inox.{ Context, DebugSection, Options, OptionValue }
+import inox.{ DebugSection, Options, OptionValue }
 import stainless.verification.optVCCache
 
 object TestContext {
@@ -13,7 +13,7 @@ object TestContext {
    * Unless explicitely present in [[options]], the returned
    * context is set to use no VC cache.
    */
-  def apply(options: Options): Context = {
+  def apply(options: Options): inox.Context = {
     val newOptions =
       if ((options findOption optVCCache).isDefined) options
       else options + OptionValue(optVCCache)(false)
@@ -25,15 +25,15 @@ object TestContext {
    *
    * The returned context has a DefaultReporter.
    **/
-  def debug(sections: Set[DebugSection], options: Options): Context = {
-    val reporter = new inox.DefaultReporter(sections)
+  def debug(sections: Set[DebugSection], options: Options): inox.Context = {
+    val reporter = new stainless.DefaultReporter(sections)
     val ctx = apply(options)
-    Context(reporter, ctx.interruptManager, ctx.options, ctx.timers)
+    inox.Context(reporter, ctx.interruptManager, ctx.options, ctx.timers)
   }
 
-  def debug(sections: Set[DebugSection]): Context = debug(sections, Options.empty)
+  def debug(sections: Set[DebugSection]): inox.Context = debug(sections, Options.empty)
 
-  def empty: Context = apply(Options.empty)
+  def empty: inox.Context = apply(Options.empty)
 
 }
 

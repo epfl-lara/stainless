@@ -1,4 +1,6 @@
-package stainless.frontends.scalac
+package stainless
+package frontends
+package scalac
 
 import scala.reflect.io.AbstractFile
 import scala.reflect.internal.util.{NoPosition, Position, BatchSourceFile}
@@ -11,7 +13,7 @@ import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
 class StainlessPlugin(override val global: Global) extends Plugin {
-  val stainlessContext: inox.Context = inox.Context.empty
+  val stainlessContext: inox.Context = stainless.Context.empty
 
   override val name: String = "stainless-plugin"
   override val description: String = "stainless scala compiler plugin"
@@ -23,7 +25,7 @@ class StainlessPlugin(override val global: Global) extends Plugin {
 
 class StainlessPluginComponent(
   val global: Global,
-  val stainlessContext: inox.Context = inox.Context.empty
+  val stainlessContext: inox.Context = stainless.Context.empty
 ) extends PluginComponent with StainlessExtraction {
   override implicit val ctx: inox.Context = {
     val adapter = new ReporterAdapter(global.reporter, Set())
@@ -64,8 +66,8 @@ class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSectio
     val pos = toScalaPos(message.position)
 
     message.msg match {
-      case vc: stainless.verification.VCResultMessage[_, _] =>
-        vc.emit(this)
+      case msg: ReportMessage =>
+        msg.emit(this)
 
       case msg: String =>
         message.severity match {
