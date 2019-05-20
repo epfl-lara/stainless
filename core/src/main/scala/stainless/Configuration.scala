@@ -13,10 +13,15 @@ object Configuration {
 
   import scala.collection.JavaConverters._
 
-  val ConfigName = "stainless.conf"
+  val ConfigName: String = "stainless.conf"
+
+  private def isConfigFile(file: File): Boolean = {
+    file.getName == ConfigName ||
+    file.getName == s".$ConfigName"
+  }
 
   def findConfigFile(): Option[File] = {
-    RecursiveFileFinder.find(ConfigName)
+    RecursiveFileFinder.find(isConfigFile(_))
   }
 
   def parseDefault(options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
@@ -65,28 +70,26 @@ object Configuration {
 }
 
 object RecursiveFileFinder {
-
   import scala.collection.JavaConverters._
 
   def currentDirectory(): File = {
     FileSystems.getDefault().getPath(".").normalize.toAbsolutePath().toFile
   }
 
-  def find(name: String): Option[File] = {
-    findIn(name, currentDirectory())
+  def find(pred: File => Boolean): Option[File] = {
+    findIn(pred, currentDirectory())
   }
 
-  def findIn(name: String, directory: File): Option[File] = {
-    findWithin(name, directory) orElse {
+  def findIn(pred: File => Boolean, directory: File): Option[File] = {
+    findWithin(pred, directory) orElse {
       val parent = Option(directory.toPath.getParent).map(_.toFile)
-      parent flatMap (p => findIn(name, p))
+      parent flatMap (p => findIn(pred, p))
     }
   }
 
-  private def findWithin(name: String, directory: File): Option[File] = {
+  private def findWithin(pred: File => Boolean, directory: File): Option[File] = {
     directory.listFiles().toList
       .filter(_.isFile)
-      .find(_.getName == name)
+      .find(pred)
   }
-
 }
