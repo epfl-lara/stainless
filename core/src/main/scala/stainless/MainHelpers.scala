@@ -86,6 +86,9 @@ trait MainHelpers extends inox.MainHelpers {
 
   // TODO add (optional) customisation points for CallBacks to access intermediate reports(?)
 
+  override protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
+    new stainless.DefaultReporter(debugSections)
+
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)
     import ctx.{ reporter, timers }
