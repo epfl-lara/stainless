@@ -11,15 +11,6 @@ trait Trees extends ast.Trees { self =>
    *             EXPRESSIONS
    * ======================================== */
 
-  /** $encodingof `decreases(measure); body` */
-  case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = measure.getType match {
-      case IntegerType() | BVType(_, _) => body.getType
-      case TupleType(tps) if tps.forall { case IntegerType() | BVType(_, _) => true case _ => false } => body.getType
-      case _ => Untyped
-    }
-  }
-
   override val exprOps: ExprOps { val trees: self.type } = new {
     protected val trees: self.type = self
   } with ExprOps
@@ -66,29 +57,6 @@ trait Trees extends ast.Trees { self =>
 
 trait Printer extends ast.Printer {
   protected val trees: Trees
-  import trees._
-
-  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
-    case Decreases(rank, body) =>
-      p"""|decreases($rank)
-          |$body"""
-    case _ => super.ppBody(tree)
-  }
-
-  override protected def isSimpleExpr(e: Expr): Boolean = e match {
-    case (_: Decreases) => false
-    case _ => super.isSimpleExpr(e)
-  }
-
-  override protected def noBracesSub(e: Tree): Seq[Expr] = e match {
-    case Decreases(_, bd) => Seq(bd)
-    case _ => super.noBracesSub(e)
-  }
-
-  override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
-    case (_, Some(_: Decreases)) => false
-    case _ => super.requiresParentheses(ex, within)
-  }
 }
 
 trait ExprOps extends ast.ExprOps {
@@ -188,11 +156,4 @@ trait ExprOps extends ast.ExprOps {
 trait TreeDeconstructor extends ast.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
-
-  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
-    case s.Decreases(measure, body) =>
-      (Seq(), Seq(), Seq(measure, body), Seq(), Seq(), (_, _, es, _, _) => t.Decreases(es(0), es(1)))
-
-    case _ => super.deconstruct(e)
-  }
 }

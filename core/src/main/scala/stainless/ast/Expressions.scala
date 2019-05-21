@@ -249,4 +249,12 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /** $encodingof `decreases(measure); body` */
+  case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = measure.getType match {
+      case Untyped => Untyped
+      case _ => body.getType
+    }
+  }
+
 }
