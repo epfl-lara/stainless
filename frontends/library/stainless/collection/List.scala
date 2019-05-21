@@ -660,7 +660,6 @@ object ListSpecs {
     }
   )
 
-  @induct
   @isabelle.lemma(about = "stainless.collection.List.apply")
   def consIndex[T](h: T, t: List[T], i: BigInt): Boolean = {
     require(0 <= i && i < t.size + 1)
