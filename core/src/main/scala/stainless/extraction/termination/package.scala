@@ -5,7 +5,7 @@ package extraction
 
 import scala.language.existentials
 
-package object induction {
+package object termination {
 
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
@@ -13,16 +13,16 @@ package object induction {
       sorts: Map[Identifier, ADTSort]
     ) extends SimpleSymbols with AbstractSymbols
 
-    object printer extends Printer { val trees: induction.trees.type = induction.trees }
+    object printer extends Printer { val trees: termination.trees.type = termination.trees }
   }
 
   def extractor(implicit ctx: inox.Context) = {
     val lowering = ExtractionPipeline(new CheckingTransformer {
       override val s: trees.type = trees
-      override val t: termination.trees.type = termination.trees
+      override val t: extraction.trees.type = extraction.trees
     })
 
-    utils.DebugPipeline("InductElimination", InductElimination(trees)) andThen
+    utils.DebugPipeline("SizeInjection", SizeInjection(trees)) andThen
     lowering
   }
 }
