@@ -90,6 +90,7 @@ object ListOperations {
     def concat(l1: List, l2: List) : List = 
       concat0(l1, l2, Nil()) ensuring(content(_) == content(l1) ++ content(l2))
 
+    @induct // This is not required but is kept as a sanity check
     def concat0(l1: List, l2: List, l3: List) : List = (l1 match {
       case Nil() => l2 match {
         case Nil() => reverse(l3)
