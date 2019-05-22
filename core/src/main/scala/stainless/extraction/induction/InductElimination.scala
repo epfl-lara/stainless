@@ -54,12 +54,15 @@ trait InductElimination extends CachingPhase
 
     val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
 
-    if (!inductionParams.isEmpty)
-      specs.foreach {
-        case Measure(_) =>
-          context.reporter.warning(fd.getPos, s"Ignoring decreases clause of ${fd.id.asString}. The @induct annotation automatically inserts a decreases clause corresponding to the argument")
-        case _ => ()
-      }
+    // Disabled until we merge the new typechecker, as Stainless can currently properly infer the right measure.
+    // TODO: Typechecker
+    //
+    // if (!inductionParams.isEmpty)
+    //   specs.foreach {
+    //     case Measure(_) =>
+    //       context.reporter.warning(fd.getPos, s"Ignoring decreases clause of ${fd.id.asString}. The @induct annotation automatically inserts a decreases clause corresponding to the argument")
+    //     case _ => ()
+    //   }
 
     val inductionBody = oldBodyOpt.map(oldBody =>
       inductionParams.foldRight(oldBody) { case (vd, currentBody) =>
@@ -135,21 +138,28 @@ trait InductElimination extends CachingPhase
       }
     )
 
-    val newMeasure: Option[Specification] =
-      if (inductionParams.isEmpty) None
-      else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))
-      else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
-    val newSpecs =
-      if (inductionParams.isEmpty) specs
-      else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
+    // Disabled until we merge the new typechecker, as Stainless can currently properly infer the right measure.
+    // TODO: Typechecker
+    //
+    // val newMeasure: Option[Specification] =
+    //   if (inductionParams.isEmpty) None
+    //   else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))
+    //   else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
+    //
+    // val newSpecs =
+    //   if (inductionParams.isEmpty) specs
+    //   else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
+
+    val newSpecs = specs
     val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
 
     new FunDef(
       fd.id,
       fd.tparams,
       fd.params,
-      // FIXME: fd.params should be fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_.name == "induct")).copiedFrom(vd)),
-      // but that creates a well-formedness exception
+      // FIXME: fd.params should be
+      //        `fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_.name == "induct")).copiedFrom(vd))`,
+      //         but that creates a well-formedness exception
       fd.returnType,
       newBody,
       fd.flags
