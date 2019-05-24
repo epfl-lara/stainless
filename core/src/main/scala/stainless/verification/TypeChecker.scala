@@ -870,6 +870,7 @@ trait TypeChecker {
       case (_: MatchExpr, _) => checkType(tc, matchToIfThenElse(e, false), tpe)
 
       case (IfExpr(b, e1, e2), _) =>
+        checkType(tc.setPos(b), b, BooleanType()) ++
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
