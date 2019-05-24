@@ -32,7 +32,11 @@ class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
   private val strategy = strategies.reduceLeft(_ orElse _)
 
   def recover(missings: Map[Identifier, Set[Identifier]]): RecoveryResult = {
-    val definitions = (symbols.functions.values ++ symbols.classes.values).toSeq
+    val definitions = (
+      symbols.functions.values ++
+      symbols.classes.values ++
+      symbols.typeDefs.values
+    ).toSeq
 
     val recovered = definitions map {
       case d if missings contains d.id =>
@@ -67,15 +71,20 @@ class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
     } else {
       val classes = defs collect { case Right(cd: xt.ClassDef) => cd }
       val functions = defs collect { case Right(fd: xt.FunDef) => fd }
+      val typeDefs = defs collect { case Right(td: xt.TypeDef) => td }
 
-      Success(xt.NoSymbols.withClasses(classes).withFunctions(functions))
+      Success(xt.NoSymbols.withClasses(classes).withFunctions(functions).withTypeDefs(typeDefs))
     }
   }
 }
 
 object Recovery {
   def recover(symbols: xt.Symbols)(implicit ctx: inox.Context): xt.Symbols = {
-    val allDefs = (symbols.classes.values ++ symbols.functions.values).toSeq
+    val allDefs = (
+      symbols.functions.values ++
+      symbols.classes.values ++
+      symbols.typeDefs.values
+    ).toSeq
 
     val missings = allDefs.toSeq.flatMap { defn =>
       val missingDeps = findMissingDeps(defn, symbols)
@@ -93,7 +102,10 @@ object Recovery {
 
         case RecoveryResult.Failure(errors) =>
           errors foreach { case (definition, unknowns) =>
-            ctx.reporter.error(s"${definition.id.uniqueName} depends on missing dependencies: ${unknowns map (_.uniqueName) mkString ", "}.")
+            ctx.reporter.error(
+              s"${definition.id.uniqueName} depends on missing dependencies: " +
+              s"${unknowns map (_.uniqueName) mkString ", "}."
+            )
           }
           ctx.reporter.fatalError(s"Cannot recover from missing dependencies")
       }
@@ -107,7 +119,8 @@ object Recovery {
     val deps = finder(defn)
     deps.filter { dep =>
       !symbols.classes.contains(dep) &&
-      !symbols.functions.contains(dep)
+      !symbols.functions.contains(dep) &&
+      !symbols.typeDefs.contains(dep)
     }
   }
 }
@@ -118,12 +131,14 @@ abstract class RecoveryStrategy { self =>
 
   protected def recoverFunction(fd: xt.FunDef, missing: Set[Identifier]): Recovered[xt.FunDef]
   protected def recoverClass(cd: xt.ClassDef, missing: Set[Identifier]): Recovered[xt.ClassDef]
+  protected def recoverTypeDef(td: xt.TypeDef, missing: Set[Identifier]): Recovered[xt.TypeDef]
 
   def recover[Def <: xt.Definition](definition: Def, missing: Set[Identifier]): Recovered[Def] = {
     definition match {
-      case fd: xt.FunDef => recoverFunction(fd, missing).asInstanceOf[Recovered[Def]] // 2.11 needs some help here
-      case cd: xt.ClassDef => recoverClass(cd, missing).asInstanceOf[Recovered[Def]]  // 2.11 needs some help here
-      case as: xt.ADTSort => sys.error("There should never be any ADTSort at this stage")
+      case fd: xt.FunDef   => recoverFunction(fd, missing).asInstanceOf[Recovered[Def]]
+      case cd: xt.ClassDef => recoverClass(cd, missing).asInstanceOf[Recovered[Def]]
+      case td: xt.TypeDef  => recoverTypeDef(td, missing).asInstanceOf[Recovered[Def]]
+      case as: xt.ADTSort  => sys.error("There should never be any ADTSort at this stage")
     }
   }
 
@@ -144,6 +159,9 @@ abstract class RecoveryStrategy { self =>
 
     override protected def recoverClass(cd: xt.ClassDef, missing: Set[Identifier]): Recovered[xt.ClassDef] =
       recover(cd, missing)
+
+    override protected def recoverTypeDef(td: xt.TypeDef, missing: Set[Identifier]): Recovered[xt.TypeDef] =
+      recover(td, missing)
   }
 }
 
@@ -154,6 +172,9 @@ object NoRecovery extends RecoveryStrategy {
 
   override protected def recoverClass(cd: xt.ClassDef, missing: Set[Identifier]): Recovered[xt.ClassDef] =
     Left(cd -> missing)
+
+  override protected def recoverTypeDef(td: xt.TypeDef, missing: Set[Identifier]): Recovered[xt.TypeDef] =
+    Left(td -> missing)
 }
 
 /** References to unknown class types in `extern` definitions are mapped to BigInt */
@@ -167,6 +188,7 @@ object RecoverExternTypes extends RecoveryStrategy {
 
   private object ExternType {
     def apply(vd: xt.ValDef): ExternType = ExternType(vd.tpe, vd.flags contains xt.IsPure)
+    def apply(td: xt.TypeDef): ExternType = ExternType(td.rhs, td.flags contains xt.IsPure)
   }
 
   override protected def recoverFunction(fd: xt.FunDef, missing: Set[Identifier]): Recovered[xt.FunDef] = {
@@ -205,6 +227,19 @@ object RecoverExternTypes extends RecoveryStrategy {
 
     if (stillMissing.isEmpty) Right(recovered)
     else Left(recovered -> stillMissing.map(_.id))
+  }
+
+  override protected def recoverTypeDef(td: xt.TypeDef, missing: Set[Identifier]): Recovered[xt.TypeDef] = {
+    if (!td.flags.contains(xt.Extern))
+      return Left(td -> missing)
+
+     val missingExternTypes = ExternType(td).collect(missing)
+     val subst: Map[xt.Type, xt.Type] = missingExternTypes.map {
+       case ExternType(tp, isPure) => tp -> replaceMissingType(tp, isPure)
+     }.toMap
+
+    val recovered = td.copy(rhs = xt.typeOps.replace(subst, td.rhs))
+    Right(recovered)
   }
 
   private def collectMissingTypes(tpe: xt.Type, missing: Set[Identifier]): Set[xt.ClassType] = {
