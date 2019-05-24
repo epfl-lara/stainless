@@ -102,8 +102,10 @@ class XLangDependenciesFinder {
   }
 
   def apply(defn: xt.Definition): Set[Identifier] = defn match {
-    case fd: xt.FunDef => apply(fd)
+    case fd: xt.FunDef   => apply(fd)
     case cd: xt.ClassDef => apply(cd)
+    case td: xt.TypeDef  => apply(td)
+    case _: xt.ADTSort   => sys.error("There should be not sorts at this stage")
   }
 
   def apply(fd: xt.FunDef): Set[Identifier] = {
