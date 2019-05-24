@@ -1,5 +1,5 @@
 
-object TypeMembers1 {
+object TypeMembers3 {
 
   trait A
   case class B(value: Int) extends A
