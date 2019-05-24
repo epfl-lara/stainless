@@ -1722,7 +1722,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val result = xt.RefinementType(subject, predExpr).setPos(tpt.pos)
         Some(result)
 
-      case Select(prefix, name) if !(prefix.symbol is ModuleClass) =>
+      case Select(prefix, name) if !(prefix.symbol.is(ModuleClass) || prefix.symbol.is(Module)) =>
         val path = extractTreeOrNoTree(prefix)
         val id = getIdentifier(tpt.symbol)
         val result = xt.TypeApply(xt.TypeSelect(Some(path).filterNot(_ == xt.NoTree), id), Seq())
@@ -1786,7 +1786,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tr @ TypeRef(ref: TermRef, name) if !dctx.resolveTypes && !(ref.symbol is Module) =>
         val vd = xt.ValDef(SymbolIdentifier(ref.name.mangledString), extractType(ref.underlying), Seq.empty)
         val selector = getIdentifier(tr.symbol)
-        println(tr -> (vd, selector))
         xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
