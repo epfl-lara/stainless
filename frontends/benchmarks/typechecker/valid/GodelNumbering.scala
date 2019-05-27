@@ -93,7 +93,7 @@ object GodelNumbering {
   }.holds
 
   def commutative_plus(n1: Nat, n2: Nat): Boolean = {
-    decreases(n1)
+    decreases(n1, n2)
     n1 match {
       case Zero => zero_plus(n2) && plus_zero(n2)
       case Succ(p1) => n2 match {
@@ -109,14 +109,14 @@ object GodelNumbering {
     n1 * (n2 + n3) == (n1 * n2) + (n1 * n3) because (n1 match {
       case Zero => true
       case Succ(p1) => {
-        Succ(p1) * (n2 + n3)       ==| trivial |
-        p1 * (n2 + n3) + (n2 + n3) ==| distributive_times(p1, n2, n3) |
-        (p1 * n2) + (p1 * n3) + (n2 + n3) ==| associative_plus((p1 * n2) + (p1 * n3), n2, n3) |
-        (p1 * n2) + (p1 * n3) + n2 + n3 ==| associative_plus(p1 * n2, p1 * n3, n2) |
-        (p1 * n2) + ((p1 * n3) + n2) + n3 ==| commutative_plus(p1 * n3, n2) |
-        (p1 * n2) + (n2 + (p1 * n3)) + n3 ==| associative_plus(p1 * n2, n2, p1 * n3) |
-        ((p1 * n2) + n2) + (p1 * n3) + n3 ==| associative_plus((p1 * n2) + n2, p1 * n3, n3) |
-        ((p1 * n2) + n2) + ((p1 * n3) + n3) ==| trivial |
+        Succ(p1) * (n2 + n3)       ==:| trivial |:
+        p1 * (n2 + n3) + (n2 + n3) ==:| distributive_times(p1, n2, n3) |:
+        (p1 * n2) + (p1 * n3) + (n2 + n3) ==:| associative_plus((p1 * n2) + (p1 * n3), n2, n3) |:
+        (p1 * n2) + (p1 * n3) + n2 + n3 ==:| associative_plus(p1 * n2, p1 * n3, n2) |:
+        (p1 * n2) + ((p1 * n3) + n2) + n3 ==:| commutative_plus(p1 * n3, n2) |:
+        (p1 * n2) + (n2 + (p1 * n3)) + n3 ==:| associative_plus(p1 * n2, n2, p1 * n3) |:
+        ((p1 * n2) + n2) + (p1 * n3) + n3 ==:| associative_plus((p1 * n2) + n2, p1 * n3, n3) |:
+        ((p1 * n2) + n2) + ((p1 * n3) + n3) ==:| trivial |:
         (n1 * n2) + (n1 * n3)
       }.qed
     })
@@ -129,17 +129,17 @@ object GodelNumbering {
       case (Zero, Succ(p2)) => commutative_times(n1, p2)
       case (Succ(p1), Zero) => commutative_times(p1, n2)
       case (Succ(p1), Succ(p2)) => {
-        n1 * n2               ==| trivial                                                      |
-        (p1 * n2) + n2        ==| commutative_times(p1, n2)                                    |
-        (n2 * p1) + n2        ==| trivial                                                      |
-        ((p2 * p1) + p1) + n2 ==| commutative_times(p1, p2)                                    |
-        ((p1 * p2) + p1) + n2 ==| associative_plus(p1 * p2, p1, n2)                            |
-        (p1 * p2) + (p1 + n2) ==| commutative_plus(p1, n2)                                     |
-        (p1 * p2) + (n2 + p1) ==| (associative_plus(p2, One, p1) && commutative_plus(p2, One)) |
-        (p1 * p2) + (p2 + n1) ==| associative_plus(p1 * p2, p2, n1)                            |
-        ((p1 * p2) + p2) + n1 ==| trivial                                                      |
-        (n1 * p2) + n1        ==| commutative_times(n1, p2)                                    |
-        (p2 * n1) + n1        ==| trivial                                                      |
+        n1 * n2               ==:| trivial                                                      |:
+        (p1 * n2) + n2        ==:| commutative_times(p1, n2)                                    |:
+        (n2 * p1) + n2        ==:| trivial                                                      |:
+        ((p2 * p1) + p1) + n2 ==:| commutative_times(p1, p2)                                    |:
+        ((p1 * p2) + p1) + n2 ==:| associative_plus(p1 * p2, p1, n2)                            |:
+        (p1 * p2) + (p1 + n2) ==:| commutative_plus(p1, n2)                                     |:
+        (p1 * p2) + (n2 + p1) ==:| (associative_plus(p2, One, p1) && commutative_plus(p2, One)) |:
+        (p1 * p2) + (p2 + n1) ==:| associative_plus(p1 * p2, p2, n1)                            |:
+        ((p1 * p2) + p2) + n1 ==:| trivial                                                      |:
+        (n1 * p2) + n1        ==:| commutative_times(n1, p2)                                    |:
+        (p2 * n1) + n1        ==:| trivial                                                      |:
         n2 * n1
       }.qed
     })
@@ -159,12 +159,12 @@ object GodelNumbering {
     (n1 * (n2 * n3) == (n1 * n2) * n3) because (n1 match {
       case Zero => true
       case Succ(p1) => {
-        n1 * (n2 * n3)               ==|                       trivial |
-        (p1 * (n2 * n3)) + (n2 * n3) ==| associative_times(p1, n2, n3) |
-        ((p1 * n2) * n3) + (n2 * n3) ==| commutative_plus((p1 * n2) * n3, n2 * n3) |
-        (n2 * n3) + ((p1 * n2) * n3) ==| distributive_times2(n2, p1 * n2, n3) |
-        (n2 + (p1 * n2)) * n3        ==| commutative_plus(n2, p1 * n2) |
-        ((p1 * n2) + n2) * n3        ==| trivial |
+        n1 * (n2 * n3)               ==:|                       trivial |:
+        (p1 * (n2 * n3)) + (n2 * n3) ==:| associative_times(p1, n2, n3) |:
+        ((p1 * n2) * n3) + (n2 * n3) ==:| commutative_plus((p1 * n2) * n3, n2 * n3) |:
+        (n2 * n3) + ((p1 * n2) * n3) ==:| distributive_times2(n2, p1 * n2, n3) |:
+        (n2 + (p1 * n2)) * n3        ==:| commutative_plus(n2, p1 * n2) |:
+        ((p1 * n2) + n2) * n3        ==:| trivial |:
         (n1 * n2) * n3
       }.qed
     })
@@ -229,10 +229,10 @@ object GodelNumbering {
   }.holds
 
   def plus_succ(n1: Nat, n2: Nat): Boolean = {
-    n1 + Succ(n2)   ==| associative_plus(n1, One, n2) |
-    (n1 + One) + n2 ==| commutative_plus(n1, One)     |
-    (One + n1) + n2 ==| associative_plus(One, n1, n2) |
-    Succ(n1 + n2)
+    n1 + Succ(n2)   ==:| associative_plus(n1, One, n2) |:
+    (n1 + One) + n2 ==:| commutative_plus(n1, One)     |:
+    (One + n1) + n2 ==:| associative_plus(One, n1, n2) |:
+    (Succ(n1 + n2): Nat)
   }.qed
 
   def plus_<(n1: Nat, n2: Nat, n3: Nat): Boolean = {
@@ -261,12 +261,12 @@ object GodelNumbering {
     (n1 + n2) - n3 == n1 + (n2 - n3) because ((n2, n3) match {
       case (Succ(p2), Succ(p3)) =>
         {
-          (n1 + Succ(p2)) - Succ(p3)    ==|          commutative_plus(One, p2) |
-          (n1 + (p2 + One)) - Succ(p3)  ==|      associative_plus(n1, p2, One) |
-          ((n1 + p2) + One) - Succ(p3)  ==|     commutative_plus(n1 + p2, One) |
-          Succ(n1 + p2) - Succ(p3)      ==|                            trivial |
-          (n1 + p2) - p3                ==| associative_plus_minus(n1, p2, p3) |
-          n1 + (p2 - p3)                ==|                            trivial |
+          (n1 + Succ(p2)) - Succ(p3)    ==:|          commutative_plus(One, p2) |:
+          (n1 + (p2 + One)) - Succ(p3)  ==:|      associative_plus(n1, p2, One) |:
+          ((n1 + p2) + One) - Succ(p3)  ==:|     commutative_plus(n1 + p2, One) |:
+          Succ(n1 + p2) - Succ(p3)      ==:|                            trivial |:
+          (n1 + p2) - p3                ==:| associative_plus_minus(n1, p2, p3) |:
+          n1 + (p2 - p3)                ==:|                            trivial |:
           n1 + (n2 - n3)
         }.qed
       case _ => true
@@ -283,11 +283,11 @@ object GodelNumbering {
     (n1 * n2) / n2 == n1 because (n1 match {
       case Succ(p1) =>
         {
-          (n1 * n2) / n2                           ==| trivial                                                   |
-          (p1 * n2 + n2) / n2                      ==|
-            (commutative_plus(p1 * n2, n2) && increasing_plus(n2, p1 * n2) && antisymmetric_<(p1 * n2 + n2, n2)) |
-          (Succ(((p1 * n2 + n2) - n2) / n2) : Nat) ==| additive_inverse(p1 * n2, n2)                             |
-          (Succ((p1 * n2) / n2)             : Nat) ==| multiplicative_inverse(p1, n2)                            |
+          (n1 * n2) / n2                           ==:| trivial                                                   |:
+          (p1 * n2 + n2) / n2                      ==:|
+            (commutative_plus(p1 * n2, n2) && increasing_plus(n2, p1 * n2) && antisymmetric_<(p1 * n2 + n2, n2)) |:
+          (Succ(((p1 * n2 + n2) - n2) / n2) : Nat) ==:| additive_inverse(p1 * n2, n2)                             |:
+          (Succ((p1 * n2) / n2)             : Nat) ==:| multiplicative_inverse(p1, n2)                            |:
           n1
         }.qed
 
@@ -316,7 +316,7 @@ object GodelNumbering {
         assert(increasing_plus_strict(p1 * n2, n2))
         assert(p1 == p1 * n2 || transitive_<(p1, p1 * n2, p1 * n2 + n2))
         assert(succ_<=(p1, p1 * n2 + n2))
-        (n1 <= n1 * n2 ==| trivial | true).qed
+        (n1 <= n1 * n2 ==:| trivial |: true).qed
     })
   }.holds
 
@@ -351,11 +351,11 @@ object GodelNumbering {
     isEven(Two * n) because (n match {
       case Zero => true
       case Succ(p) => {
-        isEven(Two * n)       ==| commutative_times(Two, n)      |
-        isEven(n * Two)       ==| trivial                        |
-        isEven(p * Two + Two) ==| commutative_plus(p * Two, Two) |
-        isEven(p * Two)       ==| commutative_times(Two, p)      |
-        isEven(Two * p)       ==| times_two_even(p)              |
+        isEven(Two * n)       ==:| commutative_times(Two, n)      |:
+        isEven(n * Two)       ==:| trivial                        |:
+        isEven(p * Two + Two) ==:| commutative_plus(p * Two, Two) |:
+        isEven(p * Two)       ==:| commutative_times(Two, p)      |:
+        isEven(Two * p)       ==:| times_two_even(p)              |:
         true
       }.qed
     })
@@ -403,48 +403,48 @@ object GodelNumbering {
         }.holds
 
         {
-          log2_and_remainder(Succ(pair(n1, n2)))                                  ==|
-                                                                            trivial |
-          log2_and_remainder(Succ(pow(Two, n1) * (Two * n2 + One) - One))         ==|
-                                                                            trivial |
-          log2_and_remainder(One + (pow(Two, n1) * (Two * n2 + One) - One))       ==|
-                                                           assoc_plus_minus_one(n1) |
-          log2_and_remainder((One + pow(Two, n1) * (Two * n2 + One)) - One)       ==|
-                             commutative_plus(One, pow(Two, n1) * (Two * n2 + One)) |
-          log2_and_remainder(pow(Two, n1) * (Two * n2 + One) + One - One)         ==|
-                             additive_inverse(pow(Two, n1) * (Two * n2 + One), One) |
-          log2_and_remainder(pow(Two, n1) * (Two * n2 + One))                     ==|
-                                                                            trivial |
-          log2_and_remainder((Two * pow(Two, p1)) * (Two * n2 + One))             ==|
-                               associative_times(Two, pow(Two, p1), Two * n2 + One) |
-          log2_and_remainder(Two * (pow(Two, p1) * (Two * n2 + One)))             ==|
-                             additive_inverse(pow(Two, p1) * (Two * n2 + One), One) |
-          log2_and_remainder(Two * (pow(Two, p1) * (Two * n2 + One) + One - One)) ==|
-                             commutative_plus(One, pow(Two, p1) * (Two * n2 + One)) |
-          log2_and_remainder(Two * (One + pow(Two, p1) * (Two * n2 + One) - One)) ==|
-                                                           assoc_plus_minus_one(p1) |
-          log2_and_remainder(Two * Succ(pow(Two, p1) * (Two * n2 + One) - One))   ==|
-                                                                            trivial |
-          log2_and_remainder(Two * Succ(pair(p1, n2)))                            ==|
+          log2_and_remainder(Succ(pair(n1, n2)))                                  ==:|
+                                                                            trivial |:
+          log2_and_remainder(Succ(pow(Two, n1) * (Two * n2 + One) - One))         ==:|
+                                                                            trivial |:
+          log2_and_remainder(One + (pow(Two, n1) * (Two * n2 + One) - One))       ==:|
+                                                           assoc_plus_minus_one(n1) |:
+          log2_and_remainder((One + pow(Two, n1) * (Two * n2 + One)) - One)       ==:|
+                             commutative_plus(One, pow(Two, n1) * (Two * n2 + One)) |:
+          log2_and_remainder(pow(Two, n1) * (Two * n2 + One) + One - One)         ==:|
+                             additive_inverse(pow(Two, n1) * (Two * n2 + One), One) |:
+          log2_and_remainder(pow(Two, n1) * (Two * n2 + One))                     ==:|
+                                                                            trivial |:
+          log2_and_remainder((Two * pow(Two, p1)) * (Two * n2 + One))             ==:|
+                               associative_times(Two, pow(Two, p1), Two * n2 + One) |:
+          log2_and_remainder(Two * (pow(Two, p1) * (Two * n2 + One)))             ==:|
+                             additive_inverse(pow(Two, p1) * (Two * n2 + One), One) |:
+          log2_and_remainder(Two * (pow(Two, p1) * (Two * n2 + One) + One - One)) ==:|
+                             commutative_plus(One, pow(Two, p1) * (Two * n2 + One)) |:
+          log2_and_remainder(Two * (One + pow(Two, p1) * (Two * n2 + One) - One)) ==:|
+                                                           assoc_plus_minus_one(p1) |:
+          log2_and_remainder(Two * Succ(pow(Two, p1) * (Two * n2 + One) - One))   ==:|
+                                                                            trivial |:
+          log2_and_remainder(Two * Succ(pair(p1, n2)))                            ==:|
                                              (times_two_even(Succ(pair(p1, n2))) &&
                                                        project_1_inverse(p1, n2) &&
                                       commutative_times(Two, Succ(pair(p1, n2))) &&
-                                   multiplicative_inverse(Succ(pair(p1, n2)), Two)) |
+                                   multiplicative_inverse(Succ(pair(p1, n2)), Two)) |:
           (n1, Two * n2 + One)
         }.qed
 
       case _ =>
         {
-          log2_and_remainder(Succ(pair(n1, n2)))                                  ==|
-                                                                            trivial |
-          log2_and_remainder(Succ(pow(Two, n1) * (Two * n2 + One) - One))         ==|
-                                                                            trivial |
-          log2_and_remainder(Succ(Two * n2 + One - One))                          ==|
-                                                    additive_inverse(Two * n2, One) |
-          log2_and_remainder(Succ(Two * n2))                                      ==|
-                                                         times_two_plus_one_odd(n2) |
-          ((Zero, Succ(Two * n2)): (Nat, Nat))                                    ==|
-                                                    commutative_plus(Two * n2, One) |
+          log2_and_remainder(Succ(pair(n1, n2)))                                  ==:|
+                                                                            trivial |:
+          log2_and_remainder(Succ(pow(Two, n1) * (Two * n2 + One) - One))         ==:|
+                                                                            trivial |:
+          log2_and_remainder(Succ(Two * n2 + One - One))                          ==:|
+                                                    additive_inverse(Two * n2, One) |:
+          log2_and_remainder(Succ(Two * n2))                                      ==:|
+                                                         times_two_plus_one_odd(n2) |:
+          ((Zero, Succ(Two * n2)): (Nat, Nat))                                    ==:|
+                                                    commutative_plus(Two * n2, One) |:
           ((Zero, Two * n2 + One): (Nat, Nat))
         }.qed
     })
@@ -456,12 +456,12 @@ object GodelNumbering {
     val (p1, remainder) = log2_and_remainder(Succ(pair(n1, n2)))
     val p2 = (remainder - One) / Two
 
-    project(pair(n1, n2))                ==| trivial                         |
-    (p1, p2)                             ==| trivial                         |
-    (p1, (remainder - One) / Two)        ==| project_1_inverse(n1, n2)       |
-    (n1, ((Two * n2 + One) - One) / Two) ==| additive_inverse(Two * n2, One) |
-    (n1, (Two * n2) / Two)               ==| commutative_times(Two, n2)      |
-    (n1, (n2 * Two) / Two)               ==| multiplicative_inverse(n2, Two) |
+    project(pair(n1, n2))                ==:| trivial                         |:
+    (p1, p2)                             ==:| trivial                         |:
+    (p1, (remainder - One) / Two)        ==:| project_1_inverse(n1, n2)       |:
+    (n1, ((Two * n2 + One) - One) / Two) ==:| additive_inverse(Two * n2, One) |:
+    (n1, (Two * n2) / Two)               ==:| commutative_times(Two, n2)      |:
+    (n1, (n2 * Two) / Two)               ==:| multiplicative_inverse(n2, Two) |:
     (n1, n2)
   }.qed
 
@@ -472,10 +472,10 @@ object GodelNumbering {
       assert(project(pair(n1, n2)) == project(pair(n3, n4)))
       assert(inverse_lemma(n1, n2) && inverse_lemma(n3, n4))
       assert((n1, n2) == (n3, n4))
-      ((n1, n2) == (n3, n4) ==| trivial | true).qed
+      ((n1, n2) == (n3, n4) ==:| trivial |: true).qed
     } else {
       assert((n1, n2) != (n3, n4))
-      ((n1, n2) == (n3, n4) ==| trivial | false).qed
+      ((n1, n2) == (n3, n4) ==:| trivial |: false).qed
     }
   }
 }
