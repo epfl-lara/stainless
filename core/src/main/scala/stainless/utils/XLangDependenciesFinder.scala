@@ -111,6 +111,7 @@ class XLangDependenciesFinder {
   def apply(fd: xt.FunDef): Set[Identifier] = {
     finder.traverse(fd)
     deps -= fd.id
+    deps --= fd.params.map(_.id)
 
     deps.toSet
   }
@@ -118,6 +119,7 @@ class XLangDependenciesFinder {
   def apply(cd: xt.ClassDef): Set[Identifier] = {
     finder.traverse(cd)
     deps -= cd.id
+    deps --= cd.fields.map(_.id)
 
     deps.toSet
   }
