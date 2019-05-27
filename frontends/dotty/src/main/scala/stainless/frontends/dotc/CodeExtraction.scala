@@ -556,9 +556,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       flags :+= xt.IsUnapply(getIdentifier(isEmptyDenot.symbol), getIdentifier(getDenot.symbol))
     }
 
-    val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
+    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(fctx0)
 
-    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(nctx)
+    val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
 
     val (finalBody, returnType) = if (isAbstract) {
       flags :+= xt.IsAbstract
@@ -1726,6 +1726,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case Select(prefix, name) if !(prefix.symbol.is(ModuleClass) || prefix.symbol.is(Module)) =>
         val path = extractTreeOrNoTree(prefix)
         val id = getIdentifier(tpt.symbol)
+        println((prefix, name, path, path.getClass))
         val result = xt.TypeApply(xt.TypeSelect(Some(path).filterNot(_ == xt.NoTree), id), Seq())
         Some(result)
 
