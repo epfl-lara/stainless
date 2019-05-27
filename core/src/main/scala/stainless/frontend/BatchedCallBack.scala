@@ -78,15 +78,17 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       analysis match {
         case Success(analysis) =>
           val report = Await.result(analysis, Duration.Inf).toReport
-          Some(RunReport(run)(report))
+          RunReport(run)(report)
 
         case Failure(err) =>
-          reporter.error(s"Run has failed with error: $err")
-          reporter.error(err.getStackTrace.map(_.toString).mkString("\n"))
-          None
+          val msg = s"Run has failed with error: $err\n\n" +
+                    err.getStackTrace.map(_.toString).mkString("\n")
+
+          reporter.fatalError(msg)
       }
     }
-    report = Report(reports collect { case Some(r) => r })
+
+    report = Report(reports)
   }
 
   def stop(): Unit = {
