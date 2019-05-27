@@ -69,6 +69,12 @@ You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4
 
 Solver binaries that you install should match your operating system and your architecture. We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc4``).
 
+Note that somewhat lower version numbers of solvers should work as well and might even have different sets of soundness-related issues.
+
+You can use multiple solvers in portfolio mode, as with the options ``--timeout=15 --solvers=smt-z3,smt-cvc4``, where verification succeeds if at least one of the solvers proves (within the given number of seconds) each the verification conditions. We suggest to order the solvers starting from the one most likely to succeed quickly.
+
+For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
+
 Install Z3 4.7.1 (Linux & macOS)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -86,6 +92,7 @@ Install Z3 4.7.1 (Linux & macOS)
 .. code-block:: text
 
   Z3 version 4.7.1 - 64 bit`
+
 
 Install CVC 1.7 (Linux)
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -207,7 +214,7 @@ Compilation will automatically generate the following two bash scripts:
 Usage within an sbt Project
 ---------------------------
 
-Setting up an sbt build file to use Stainless is a simple 4-step procedure:
+Setting up an sbt build file to use Stainless is a simple 4-step procedure that avoids the need to explicitly build stainless itself.
 
 1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
@@ -237,11 +244,11 @@ Note that if you are using ``.scala`` build files you need to use the fully qual
 
 4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
 
-That's all there is to it. However, the ``sbt-stainless`` plugin currently has the following limitations you should know about:
+That's all there is to it. However, the ``sbt-stainless`` plugin is a more recent addition to stainless compared to command-line script. It has seen less testing in the field and currently has the following limitations:
 
 * No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.ub
 
-* The plugin only supports vanilla Scala. To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
+* The plugin *does not* support Scala 3 (dotty). To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
 Also, note that the plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell.
 
@@ -276,5 +283,5 @@ After installing sphinx, run ``sbt previewSite``. This will generate the documen
 
 The documentation resides in the ``core/src/sphinx/`` directory and can also be alternatively built without ``sbt``, using the provided ``Makefile``. To do this, in a Linux shell go to the directory ``core/src/sphinx/``,
 type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
-``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, since they are human readable in their source form.
-ub for Windows.
+``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
+
