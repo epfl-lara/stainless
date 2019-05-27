@@ -9,7 +9,7 @@ trait Printer extends inox.ast.Printer {
 
   protected object Operator {
     def unapply(id: Identifier): Option[String] = {
-      if (!id.name.forall(_.isLetterOrDigit))
+      if (id.name.forall(!_.isLetterOrDigit))
         Some(id.name)
       else
         None
