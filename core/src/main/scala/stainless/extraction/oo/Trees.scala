@@ -125,7 +125,10 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case Some(expr) => expr.getType match {
         case ct: ClassType =>
           ct.getTypeMember(selector)
-        case other => sys.error(s"Cannot select type on type $other")
+        case other =>
+          println(this)
+          println(expr.getClass)
+          sys.error(s"Cannot select type on type $other")
       }
     }
 
