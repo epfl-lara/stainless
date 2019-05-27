@@ -63,8 +63,6 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
                   .withFunctions(currentFunctions.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)))
                   .withTypeDefs(currentTypeDefs.filter(td => hasKeepFlag(td.flags) || userDependencies.contains(td.id)))
 
-    println(preSymbols.asString(xt.PrinterOptions(printUniqueIds = true)))
-
     val symbols = Recovery.recover(preSymbols)
 
     try {
