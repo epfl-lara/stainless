@@ -180,7 +180,6 @@ pseudoxml:
 gh-pages:
 	$(MAKE) html
 	cd $(BUILDDIR)/html && \
-	touch .nojekyll _static/.nojekyll _images/.nojekyll _sources/.nojekyll && \
 	git init && \
 	git add . && \
 	git commit -am "Update documentation" && \
