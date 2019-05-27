@@ -35,6 +35,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         case any: AnyType => true
         case arr: ArrayType => true
         case map: MutableMapType => true
+        case ta: TypeApply => rec(ta.dealias, seen)
         case UnknownType(isPure) => !isPure
         case ClassType(cid, _) if mutableClasses(cid) => true
         case ClassType(cid, _) if seen(cid) => false

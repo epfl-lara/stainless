@@ -1,6 +1,8 @@
+import stainless.annotation._
 
 object TypeMembers2 {
   abstract class M {
+    @mutable
     type T
     def c(t: T): Unit
   }

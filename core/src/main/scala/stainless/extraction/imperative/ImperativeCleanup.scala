@@ -15,7 +15,7 @@ trait ImperativeCleanup
   extends oo.SimplePhase
      with SimplyCachedFunctions
      with SimplyCachedSorts
-     with oo.IdentityTypeDefs
+     with oo.SimplyCachedTypeDefs
      with oo.SimplyCachedClasses { self =>
 
   val s: Trees
@@ -36,6 +36,8 @@ trait ImperativeCleanup
       case s.MutableMapType(from, to) => t.MapType(transform(from), transform(to))
       case s.TypeParameter(id, flags) if flags exists isImperativeFlag =>
         t.TypeParameter(id, flags filterNot isImperativeFlag map transform).copiedFrom(tpe)
+      case s.TypeBounds(lo, hi, flags) if flags exists isImperativeFlag =>
+        t.TypeBounds(transform(lo), transform(hi), flags filterNot isImperativeFlag map transform)
       case _ => super.transform(tpe)
     }
 
@@ -109,6 +111,10 @@ trait ImperativeCleanup
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
     super.extractClass(context, cd.copy(flags = cd.flags filterNot context.isImperativeFlag))
+  }
+
+  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = {
+    super.extractTypeDef(context, td.copy(flags = td.flags filterNot context.isImperativeFlag))
   }
 }
 

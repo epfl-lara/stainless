@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-import inox._
+import inox.FatalError
 
 trait AntiAliasing
   extends oo.CachingPhase
@@ -340,10 +340,7 @@ trait AntiAliasing
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
-            val accessor = o.getType match {
-              case _: ADTType => ADTFieldAccessor(id)
-              case _: ClassType => ClassFieldAccessor(id)
-            }
+            val accessor = typeToAccessor(o.getType, id)
 
             Block(effects.toSeq map { effect =>
               val applied = applyEffect(effect + accessor, v)
@@ -456,9 +453,9 @@ trait AntiAliasing
       freeVars.filter(v => isMutableType(v.tpe))
     }
 
-    //given a receiver object (mutable class, array or map, usually as a reference id),
-    //and a path of field/index access, build a copy of the original object, with
-    //properly updated values
+    // Given a receiver object (mutable class, array or map, usually as a reference id),
+    // and a path of field/index access, build a copy of the original object, with
+    // properly updated values
     def applyEffect(effect: Target, newValue: Expr): Expr = {
       def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
         case ADTFieldAccessor(id) :: fs =>
@@ -472,8 +469,16 @@ trait AntiAliasing
           }).copiedFrom(newValue)
 
         case ClassFieldAccessor(id) :: fs =>
-          val ct = classForField(receiver.getType.asInstanceOf[ClassType], id).get.toType
-          val casted = AsInstanceOf(receiver, ct).copiedFrom(receiver)
+          val optCd = s.dealias(receiver.getType) match {
+            case ct: ClassType => classForField(ct, id)
+            case tp => throw FatalError(s"Cannot apply ClassFieldAccessor to type $tp")
+          }
+
+          val (cd, ct) = optCd.map(cd => (cd, cd.toType)).getOrElse {
+            throw FatalError(s"Could find class for type ${s.dealias(receiver.getType)}")
+          }
+
+          val casted = AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)
           val r = rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
 
           ClassConstructor(ct, ct.tcd.fields.map { vd =>

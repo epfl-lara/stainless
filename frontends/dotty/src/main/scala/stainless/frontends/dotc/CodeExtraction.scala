@@ -289,7 +289,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case TypeBoundsTree(lo, hi) =>
         val (loType, hiType) = (extractType(lo)(dctx), extractType(hi)(dctx))
-        (Seq.empty, xt.TypeBounds(loType, hiType, Seq.empty))
+        val fls = flags.filterNot(_ == xt.IsAbstract)
+        (Seq.empty, xt.TypeBounds(loType, hiType, flags))
 
       case tpt =>
         (Seq.empty, extractType(tpt, tpt.tpe))

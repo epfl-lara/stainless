@@ -308,7 +308,10 @@ trait CodeExtraction extends ASTExtractors {
     val tparams = extractTypeParams(tparamsSyms)
 
     val tpCtx = dctx.withNewTypeParams(tparamsSyms zip tparams)
-    val body = extractType(td.rhs)(tpCtx)
+    val body = extractType(td.rhs)(tpCtx) match {
+      case xt.TypeBounds(lo, hi, fls) => xt.TypeBounds(lo, hi, fls ++ flags.filterNot(_ == xt.IsAbstract))
+      case tp => tp
+    }
 
     new xt.TypeDef(
       id,

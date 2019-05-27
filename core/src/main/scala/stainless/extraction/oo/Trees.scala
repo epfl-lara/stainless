@@ -152,9 +152,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     }
 
     def dealias(implicit s: Symbols): Type = {
-      val AppliedTypeDef(td, tps) = applied
-      val tpSubst = td.tparams.map(_.tp) zip tps
-      self.dealias(typeOps.instantiateType(td.rhs, tpSubst.toMap))
+      applied.resolve
     }
   }
 
