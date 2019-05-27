@@ -18,15 +18,17 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
+  private[this] val candidateCache = new utils.ConcurrentCache[Identifier, Boolean]
+  private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = candidateCache.cached(id) {
     import s._
     val cd = symbols.getClass(id)
 
-    cd.typeMembers.isEmpty && (cd.parents match {
+    cd.parents match {
       case Nil =>
         def rec(cd: s.ClassDef): Boolean = {
           val cs = cd.children
           (cd.parents.size <= 1) &&
+          (cd.typeMembers.isEmpty) &&
           (cs forall rec) &&
           (cd.parents forall (_.tps == cd.typeArgs)) &&
           ((cd.flags contains IsAbstract) || cs.isEmpty) &&
@@ -35,7 +37,7 @@ trait AdtSpecialization
         }
         rec(cd)
       case _ => isCandidate(root(cd.id))
-    })
+    }
   }
 
   private[this] val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
@@ -153,9 +155,7 @@ trait AdtSpecialization
   )
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected final def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = {
-    context.transform(td)
-  }
+  override protected final def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = context.transform(td)
   override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
 
   override protected final type ClassResult = Either[t.ClassDef, (Option[t.ADTSort], Seq[t.FunDef])]
@@ -242,8 +242,6 @@ trait AdtSpecialization
     val newSymbols = super.extractSymbols(context, symbols)
       .withFunctions(OptionSort.functions(symbols))
       .withSorts(OptionSort.sorts(symbols))
-
-      // println(newSymbols.asString(PrinterOptions.fromContext(self.context))
 
     val dependencies: Set[Identifier] =
       (symbols.functions.keySet ++ symbols.sorts.keySet ++ symbols.classes.keySet)

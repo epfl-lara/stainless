@@ -137,6 +137,11 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       val tpSubst = td.tparams.map(_.tp) zip tps
       typeOps.instantiateType(bounds, tpSubst.toMap).asInstanceOf[TypeBounds]
     }
+
+    def resolve(implicit s: Symbols): Type = {
+      val tpSubst = td.tparams.map(_.tp) zip tps
+      self.dealias(typeOps.instantiateType(td.rhs, tpSubst.toMap))
+    }
   }
 
   case class ClassLookupException(id: Identifier) extends LookupException(id, "class")

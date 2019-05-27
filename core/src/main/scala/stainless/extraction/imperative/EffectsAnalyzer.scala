@@ -4,6 +4,8 @@ package stainless
 package extraction
 package imperative
 
+import inox.FatalError
+
 /** Provides effect analysis for full Stainless language
   *
   * This holds state for caching the current state of the analysis, so if
@@ -355,6 +357,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: MalformedStainlessCode => Set.empty
   }
 
+  protected def typeToAccessor(tpe: Type, id: Identifier)(implicit s: Symbols): Accessor = tpe match {
+    case at: ADTType   => ADTFieldAccessor(id)
+    case ct: ClassType => ClassFieldAccessor(id)
+    case ta: TypeApply => typeToAccessor(ta.dealias, id)
+    case _ => throw FatalError(s"Cannot have accessors over type $tpe")
+  }
+
   /** Return all effects of expr
     *
     * Effects of expr are any free variables in scope (either local vars
@@ -406,12 +415,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case MutableMapDuplicate(map) =>
         rec(map, env)
 
-      case FieldAssignment(o, id, v) =>
-        val accessor = o.getType match {
-          case _: ADTType => ADTFieldAccessor(id)
-          case _: ClassType => ClassFieldAccessor(id)
-        }
-
+      case fa @ FieldAssignment(o, id, v) =>
+        val accessor = typeToAccessor(o.getType, id)
         rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_ + accessor)
 
       case Application(callee, args) =>
