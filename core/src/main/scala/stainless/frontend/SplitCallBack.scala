@@ -177,15 +177,16 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
             val runReport = future map { a =>
               RunReport(run)(a.toReport): RunReport
             }
-            Some(runReport)
+            runReport
 
           case Failure(err) =>
-            context.reporter.error(s"Run has failed with error: $err")
-            context.reporter.error(err.getStackTrace.map(_.toString).mkString("\n"))
-            None
+            val msg = s"Run has failed with error: $err\n\n" +
+                      err.getStackTrace.map(_.toString).mkString("\n")
+
+            reporter.fatalError(msg)
         }
       }
-    }.flatten
+    }
 
     val futureReport = Future.sequence(componentReports).map(Report)
     this.synchronized { tasks += futureReport }
