@@ -293,11 +293,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         (Seq.empty, xt.TypeBounds(loType, hiType, flags))
 
       case tpt =>
-        (Seq.empty, extractType(tpt, tpt.tpe))
+        val tpe =
+          if (tpt.symbol is Opaque)
+            tpt.symbol.typeRef.translucentSuperType
+          else
+            tpt.tpe
+
+        (Seq.empty, extractType(tpt, tpe))
     }
 
+    // Opaque types are referenced from their opaque right-hand side for some reason.
+    val realId = if (td.rhs.symbol is Opaque) getIdentifier(td.rhs.symbol) else id
+
     new xt.TypeDef(
-      id,
+      realId,
       tparams.map(xt.TypeParameterDef(_)),
       body,
       flags
@@ -1726,7 +1735,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case Select(prefix, name) if !(prefix.symbol.is(ModuleClass) || prefix.symbol.is(Module)) =>
         val path = extractTreeOrNoTree(prefix)
         val id = getIdentifier(tpt.symbol)
-        println((prefix, name, path, path.getClass))
         val result = xt.TypeApply(xt.TypeSelect(Some(path).filterNot(_ == xt.NoTree), id), Seq())
         Some(result)
 
@@ -1785,10 +1793,17 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val selector = getIdentifier(tr.symbol)
         xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
 
-      case tr @ TypeRef(ref: TermRef, name) if !dctx.resolveTypes && !(ref.symbol is Module) =>
-        val vd = xt.ValDef(SymbolIdentifier(ref.name.mangledString), extractType(ref.underlying), Seq.empty)
+      case tr @ TypeRef(ref: TermRef, name) if !dctx.resolveTypes && (tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueHelper) =>
+        val path = if ((ref.symbol is Module) || (ref.symbol is ModuleClass)) {
+          None
+        } else {
+          val id = SymbolIdentifier(ref.name.mangledString)
+          val vd = xt.ValDef(id, extractType(ref.underlying), Seq.empty)
+          Some(vd.toVariable)
+        }
+
         val selector = getIdentifier(tr.symbol)
-        xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
+        xt.TypeApply(xt.TypeSelect(path, selector), Seq.empty)
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams.get(tr.symbol).getOrElse {
