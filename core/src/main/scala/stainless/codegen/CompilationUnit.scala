@@ -126,7 +126,7 @@ trait CompilationUnit extends CodeGeneration {
     case Int16Literal(v) => java.lang.Short.valueOf(v)
     case Int32Literal(v) => java.lang.Integer.valueOf(v)
     case Int64Literal(v) => java.lang.Long.valueOf(v)
-    case bi @ BVLiteral(_, _, size) => println(s"NOT IMPLEMENTED!!!"); ???
+    case bi @ BVLiteral(_, _, size) => sys.error(s"NOT IMPLEMENTED");
 
     case BooleanLiteral(v) =>
       java.lang.Boolean.valueOf(v)
