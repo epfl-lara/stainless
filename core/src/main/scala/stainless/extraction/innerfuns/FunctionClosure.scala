@@ -23,8 +23,7 @@ trait FunctionClosure
     import s._
     import symbols._
 
-    // Represents a substitution to a new function, along with parameter and type parameter
-    // mappings
+    // Represents a substitution to a new function, along with parameter and type parameter mappings
     case class FunSubst(
       fd: FunDef,
       paramsMap: Map[ValDef, ValDef],
@@ -54,10 +53,16 @@ trait FunctionClosure
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
-      val freshVals = (params ++ free).map { vd =>
-        val tvd = inst.transform(vd)
-        tvd -> tvd.freshen
-      }
+
+      val (paramSubst, freshVals) = (params ++ free)
+        .map { vd =>
+          vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
+        }
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vd) =>
+          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+          val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
+          (paramSubst + (vd -> nvd.toVariable), params :+ (vd -> nvd))
+        }
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
@@ -82,7 +87,7 @@ trait FunctionClosure
         id,
         tparams ++ tpFresh,
         freshParams,
-        inst.transform(returnType),
+        typeOps.replaceFromSymbols(paramSubst, inst.transform(returnType)),
         newBody,
         (flags ++ outer.flags :+ Derived(outer.id)).distinct
       ).copiedFrom(inner)
