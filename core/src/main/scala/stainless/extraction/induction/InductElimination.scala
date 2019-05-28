@@ -33,8 +33,7 @@ trait InductElimination extends CachingPhase
       case _ => false
     }
 
-    // @induct on the function refers to induction on the first parameter for
-    // which `canInductOn` returns true
+    // @induct on the function refers to induction on the first parameter for which `canInductOn` returns true
     val firstInductionParam =
       if (fd.flags.exists(_.name == "induct")) {
         fd.params.find(vd => canInductOn(vd.getType)) match {
@@ -44,13 +43,21 @@ trait InductElimination extends CachingPhase
       } else {
         Seq()
       }
+
     val inductionParams =
       firstInductionParam ++
-      fd.params.filter(vd => !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct"))
+      fd.params.filter { vd =>
+        !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct")
+      }
 
-    // TODO: decide what we want to do with multiple inductions and implement it
-    if (inductionParams.size > 1)
+    if (inductionParams.isEmpty) {
+      return fd
+    }
+
+    // TODO: Decide what we want to do with multiple inductions and implement it
+    if (inductionParams.size > 1) {
       context.reporter.fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
+    }
 
     val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
 
