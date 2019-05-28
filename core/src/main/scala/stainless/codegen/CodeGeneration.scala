@@ -630,7 +630,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Let(vd,d,b) =>
       mkExpr(d, ch)
       val slot = ch.getFreshVar(typeToJVM(d.getType))
-      if (slot > 127) println("Error while converting one more slot which is too much " + e)
+      if (slot > 127) sys.error("Error while converting one more slot which is too much " + e)
       ch << (vd.getType match {
         case JvmIType() => IStore(slot)
         case Int64Type() => LStore(slot)
@@ -1413,7 +1413,7 @@ trait CodeGeneration { self: CompilationUnit =>
       if (smallArrays) {
         ch << CheckCast(BoxedArrayClass)
         base match {
-          case Int8Type() | Int16Type() | Int64Type() => println(s"NOT IMPLEMENTED!!!"); ??? // TODO implement me
+          case Int8Type() | Int16Type() | Int64Type() => sys.error("NOT IMPLEMENTED")
           case Int32Type() =>
             ch << InvokeVirtual(BoxedArrayClass, "intArray", s"()${typeToJVM(tp)}")
           case BooleanType() =>
