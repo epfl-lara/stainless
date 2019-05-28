@@ -1,7 +1,7 @@
 import sbt.ScriptedPlugin
 
 enablePlugins(GitVersioning)
-git.baseVersion in ThisBuild := "0.1.0"
+git.baseVersion in ThisBuild := "0.2.0"
 git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
 
 val osInf = Option(System.getProperty("os.name")).getOrElse("")

@@ -8,16 +8,18 @@
 # ====
 set -e
 
+STAINLESS_VERSION="0.2.0"
 SCALA_VERSION="2.12"
+Z3_VERSION="4.7.1"
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
-STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-0.1.0.jar"
+STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
 SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-$SCALA_VERSION.jar"
 SCALAZ3_JAR_OSX_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
 
-Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-4.6.0"
-Z3_LINUX_NAME="z3-4.6.0-x64-ubuntu-16.04.zip"
-Z3_OSX_NAME="z3-4.6.0-x64-osx-10.11.6.zip"
+Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
+Z3_LINUX_NAME="z3-$Z3_VERSION-x64-ubuntu-16.04.zip"
+Z3_OSX_NAME="z3-$Z3_VERSION-x64-osx-10.11.6.zip"
 
 LOG="./package-standalone.log"
 
