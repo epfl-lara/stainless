@@ -18,8 +18,7 @@ trait AdtSpecialization
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] val candidateCache = new utils.ConcurrentCache[Identifier, Boolean]
-  private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = candidateCache.cached(id) {
+  private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
 
