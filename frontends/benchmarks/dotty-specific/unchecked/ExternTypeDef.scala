@@ -8,7 +8,7 @@ import scala.collection.concurrent.TrieMap
 object ExternTypeDef {
 
   @extern
-  type AMap[A, B] = TrieMap[A, B]
+  opaque type AMap[A, B] = TrieMap[A, B]
 
   object AMap {
     @extern @pure
