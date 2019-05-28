@@ -813,11 +813,19 @@ trait TypeChecker {
 
   def buildVC(tc: TypingContext, e: Expr): TyperResult = {
     require(tc.currentFid.isDefined)
+
+    val TopLevelAnds(es) = e
+    val e2 =
+      andJoin(es.filterNot {
+        case Annotated(_, flags) => flags contains Unchecked
+        case _ => false
+      }).copiedFrom(e)
+
     val vc: StainlessVC =
-      (VC(Implies(pathFromContext(tc.termVariables), e), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
+      (VC(Implies(pathFromContext(tc.termVariables), e2), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
     val simplifiedCondition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
     reporter.debug(s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\nVC:\n${simplifiedCondition.asString}\n\n\n")(DebugSectionTypeCheckerVCs)
-    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e), Seq())))
+    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
   }
 
   /** The `checkType` function checks that an expression `e` has type `tpe` by
