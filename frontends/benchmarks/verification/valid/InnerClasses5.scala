@@ -8,7 +8,6 @@ object InnerClasses5 {
     def something: A
   }
 
-  @inline
   def foo[Foo](x: Foo, y: BigInt): Test[Foo] = {
     require(y == 0)
     def bar[Bar](a: Bar, b: BigInt): Test[Foo] = {
