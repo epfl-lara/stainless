@@ -476,7 +476,7 @@ object ReachabilityChecker {
         }
     }
   } ensuring (res =>
-                simple(res) && (l.isEmpty || (res.head == l.head &&
+                simple(res) && (l.isEmpty || (!res.isEmpty && res.head == l.head &&
                   isTrace(s, res) && !res.isEmpty && res.last == l.last)))
 
   def removeCycle(s: System,
