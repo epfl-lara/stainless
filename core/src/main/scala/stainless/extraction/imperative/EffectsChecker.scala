@@ -266,7 +266,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }
 
     try {
-      check(Outer(fd))
+      // We only check the bodies of functions which are not accessors
+      if (!isAccessor(Outer(fd)))
+        check(Outer(fd))
       CheckResult.Ok
     } catch {
       case e: ImperativeEliminationException => CheckResult.Error(e)
