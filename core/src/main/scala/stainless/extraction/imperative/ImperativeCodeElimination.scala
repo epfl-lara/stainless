@@ -181,14 +181,17 @@ trait ImperativeCodeElimination
           val (scope, fun) = exprs.foldRight((body: Expr) => body, Map[Variable, Variable]()) { (e, acc) =>
             val (accScope, accFun) = acc
             val (rVal, rScope, rFun) = toFunction(e)
-            val scope = (body: Expr) => rVal match {
-              case fi: FunctionInvocation =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", fi.tfd.returnType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
-              case alr: ApplyLetRec =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", alr.getType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
-              case _ =>
-                rScope(replaceFromSymbols(rFun, accScope(body)))
-            }
+            val scope = (body: Expr) =>
+              rScope(
+                replaceFromSymbols(
+                  rFun,
+                  Let(
+                    ValDef.fresh("tmp", rVal.getType).copiedFrom(body),
+                    rVal,
+                    accScope(body)
+                  ).copiedFrom(body)
+                )
+              )
             (scope, rFun ++ accFun)
           }
 
