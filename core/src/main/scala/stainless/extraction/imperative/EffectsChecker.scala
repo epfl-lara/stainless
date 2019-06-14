@@ -52,13 +52,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         object traverser extends SelfTreeTraverser {
           override def traverse(e: Expr): Unit = e match {
             case l @ Let(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
-                // Check if a precise effect can be computed
-                getEffects(e)
-              } catch {
-                case _: MalformedStainlessCode =>
-                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-              }
+              if (!isExpressionFresh(e) && isMutableType(vd.tpe))
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
 
               super.traverse(l)
 
