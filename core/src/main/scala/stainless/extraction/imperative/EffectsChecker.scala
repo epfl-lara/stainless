@@ -53,31 +53,31 @@ trait EffectsChecker { self: EffectsAnalyzer =>
           override def traverse(e: Expr): Unit = e match {
             case l @ Let(vd, e, b) =>
               if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+                throw ImperativeEliminationException(l, "Illegal aliasing: " + e.asString)
 
               super.traverse(l)
 
             case l @ LetVar(vd, e, b) =>
               if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+                throw ImperativeEliminationException(l, "Illegal aliasing: " + e.asString)
 
               super.traverse(l)
 
             case au @ ArrayUpdate(a, i, e) =>
               if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+                throw ImperativeEliminationException(au, "Illegal aliasing: " + e.asString)
 
               super.traverse(au)
 
             case mu @ MapUpdated(m, k, e) =>
               if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+                throw ImperativeEliminationException(mu, "Illegal aliasing: " + e.asString)
 
               super.traverse(mu)
 
             case fa @ FieldAssignment(o, sel, e) =>
               if (!isExpressionFresh(e) && isMutableType(fa.getField.get.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+                throw ImperativeEliminationException(fa, "Illegal aliasing: " + e.asString)
 
               super.traverse(fa)
 
