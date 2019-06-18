@@ -8,7 +8,7 @@
 # ====
 set -e
 
-STAINLESS_VERSION="0.2.0"
+STAINLESS_VERSION=$(git tag | tail -n 1)
 SCALA_VERSION="2.12"
 Z3_VERSION="4.7.1"
 
