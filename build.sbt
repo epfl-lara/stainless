@@ -1,8 +1,9 @@
 import sbt.ScriptedPlugin
 
 enablePlugins(GitVersioning)
-git.baseVersion in ThisBuild := "0.2.1"
-git.formattedShaVersion in ThisBuild := git.gitHeadCommit.value map { sha => s"${git.baseVersion.value}-${sha}" }
+enablePlugins(GitBranchPrompt)
+
+git.useGitDescribe := true
 
 val osInf = Option(System.getProperty("os.name")).getOrElse("")
 
@@ -48,7 +49,7 @@ lazy val baseSettings: Seq[Setting[_]] = Seq(
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := SupportedScalaVersions
+  crossScalaVersions := SupportedScalaVersions,
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -195,7 +196,7 @@ lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
   name,
   version,
   scalaVersion,
-  sbtVersion
+  sbtVersion,
 )
 
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
@@ -208,6 +209,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
     buildInfoKeys := stainlessBuildInfoKeys ++ Seq[BuildInfoKey]("useJavaClassPath" -> false),
     buildInfoPackage := "stainless",
+    buildInfoOptions += BuildInfoOption.BuildTime,
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
     assemblyExcludedJars in assembly := {
       val cp = (fullClasspath in assembly).value
@@ -238,8 +240,9 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
     name := "stainless-scalac-standalone",
     buildInfoKeys := stainlessBuildInfoKeys ++ Seq[BuildInfoKey]("useJavaClassPath" -> true),
     buildInfoPackage := "stainless",
+    buildInfoOptions += BuildInfoOption.BuildTime,
     (mainClass in assembly) := Some("stainless.Main"),
-    (assemblyJarName in assembly) := (name.value + "-" + (git.baseVersion in ThisBuild).value + ".jar"),
+    (assemblyJarName in assembly) := (name.value + "-" + version.value + ".jar"),
     (assemblyMergeStrategy in assembly) := {
       // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
       // hence the following merge strategy picks the standalone BuildInfo over the usual one.
@@ -261,6 +264,7 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
 
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .enablePlugins(JavaAppPackaging)
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "stainless-dotty",
     frontendClass := "dotc.DottyCompiler")
@@ -284,8 +288,9 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys := Seq[BuildInfoKey](
       BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
-      "supportedScalaVersions" -> SupportedScalaVersions
-    )
+      "supportedScalaVersions" -> SupportedScalaVersions,
+    ),
+    buildInfoOptions += BuildInfoOption.BuildTime,
   )
   .settings(
     scripted := scripted.tag(Tags.Test).evaluated,
