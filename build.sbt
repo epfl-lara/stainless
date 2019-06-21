@@ -211,7 +211,6 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
-    extraClasspath := "", // no need for the classpath extension with scalac
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
