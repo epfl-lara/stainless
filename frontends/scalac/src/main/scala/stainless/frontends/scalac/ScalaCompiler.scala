@@ -171,7 +171,7 @@ object ScalaCompiler {
     } getOrElse { ctx.reporter.fatalError("No Scala library found.") }
 
     settings.classpath.value = scalaLib
-    settings.usejavacp.value = stainless.BuildInfo.useJavaClassPath
+    settings.usejavacp.value = BuildInfo.useJavaClassPath
     settings.deprecation.value = true
     settings.Yrangepos.value = true
 
