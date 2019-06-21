@@ -15,11 +15,14 @@ object MainHelpers {
 
 trait MainHelpers extends inox.MainHelpers { self =>
 
+  final object optVersion extends inox.FlagOptionDef("version", false)
+
   case object Pipelines extends Category
   case object Verification extends Category
   case object Termination extends Category
 
   override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+    optVersion -> Description(General, "Display the version number"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
@@ -67,6 +70,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
+    reporter.info(s"Version: ${BuildInfo.version}")
+    reporter.info(s"Built at: ${BuildInfo.builtAtString}")
+    reporter.info(s"Bundled Scala compiler version: ${BuildInfo.scalaVersion}")
   }
 
   override protected def getName: String = "stainless"
@@ -108,6 +114,12 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)
+
+    if (ctx.options.findOptionOrDefault(optVersion)) {
+      displayVersion(ctx.reporter)
+      System.exit(0)
+    }
+
     import ctx.{ reporter, timers }
 
     if (!useParallelism) {
