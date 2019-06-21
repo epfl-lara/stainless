@@ -4,6 +4,8 @@
 ## Unreleased
 
 - Bump Inox version to 1.1.0-329-g3c23a86 (#530)
+- Switch to git-describe based versioning scheme (#550)
+- Add `--version` flag (#550)
 
 ## Version 0.2-cfac3aaf (28-05-2019)
 
