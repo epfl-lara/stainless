@@ -108,6 +108,18 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   mappings in (Compile, packageDoc) := Seq()
 )
 
+lazy val assemblySettings: Seq[Setting[_]] = Seq(
+  assembly / assemblyMergeStrategy := {
+    // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
+    // hence the following merge strategy picks the standalone BuildInfo over the usual one.
+    case "stainless/BuildInfo.class" => MergeStrategy.first
+    case "stainless/BuildInfo$.class" => MergeStrategy.first
+    case x =>
+      val oldStrategy = (assembly / assemblyMergeStrategy).value
+      oldStrategy(x)
+  },
+)
+
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
@@ -207,7 +219,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings, scriptSettings)
+  .settings(commonSettings, commonFrontendSettings, scriptSettings, assemblySettings)
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
@@ -228,7 +240,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
 lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-scalac-plugin")
-  .settings(artifactSettings, publishMavenSettings)
+  .settings(artifactSettings, publishMavenSettings, assemblySettings)
   .settings(
     name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
@@ -238,20 +250,12 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
 lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainless-scalac-standalone")
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(JavaAppPackaging)
-  .settings(artifactSettings)
+  .settings(artifactSettings, assemblySettings)
   .settings(
     name := "stainless-scalac-standalone",
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
     (mainClass in assembly) := Some("stainless.Main"),
     (assemblyJarName in assembly) := (name.value + "-" + version.value + ".jar"),
-    (assemblyMergeStrategy in assembly) := {
-      // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
-      // hence the following merge strategy picks the standalone BuildInfo over the usual one.
-      case "stainless/BuildInfo$.class" => MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
     (unmanagedJars in Runtime) := (unmanagedJars in (`stainless-scalac`, Runtime)).value
   )
   .dependsOn(`stainless-scalac`)
@@ -315,7 +319,7 @@ lazy val root = (project in file("."))
   .settings(
     sourcesInBase in Compile := false,
     publishArtifact := false, // Don't publish root project
-    publish := (())
+    publish := (()),
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
   .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
