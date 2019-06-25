@@ -2,12 +2,13 @@ package test
 
 import stainless._
 import stainless.lang._
-import stainless.annotation.ghost
+import stainless.annotation._
 
 import java.io.File
 
 object Main {
 
+  @extern
   def touchFile(name: String): Unit = {
     val f = new File(s"target/$name")
     f.delete() // in case it's a leftover
