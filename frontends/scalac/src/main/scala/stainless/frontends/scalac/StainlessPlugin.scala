@@ -12,24 +12,46 @@ import inox.DebugSection
 import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
-class StainlessPlugin(override val global: Global) extends Plugin {
-  val stainlessContext: inox.Context = stainless.Context.empty
+class StainlessPlugin(val global: Global) extends Plugin {
+
+  val mainHelper = new stainless.MainHelpers {
+    override lazy val factory = {
+      sys.error("stainless.MainHelpers#factory should never be called from the scalac plugin")
+    }
+  }
+
+  val stainlessContext: inox.Context = {
+    mainHelper.getConfigContext(stainless.Context.empty.reporter)
+  }
 
   override val name: String = "stainless-plugin"
+
   override val description: String = "stainless scala compiler plugin"
+
   override val components: List[PluginComponent] = List(
     new StainlessPluginComponent(global, stainlessContext),
     new GhostPluginComponent(global)
   )
+
+  override def init(options: List[String], error: String => Unit) = {
+    require(options.isEmpty)
+    true
+  }
 }
 
 class StainlessPluginComponent(
   val global: Global,
-  val stainlessContext: inox.Context = stainless.Context.empty
+  val stainlessContext: inox.Context
 ) extends PluginComponent with StainlessExtraction {
   override implicit val ctx: inox.Context = {
-    val adapter = new ReporterAdapter(global.reporter, Set())
-    stainlessContext.copy(reporter = adapter)
+    val adapter = new ReporterAdapter(global.reporter, stainlessContext.reporter.debugSections)
+
+    inox.Context(
+      reporter         = adapter,
+      interruptManager = new inox.utils.InterruptManager(adapter),
+      options          = stainlessContext.options,
+      timers           = stainlessContext.timers,
+    )
   }
 
   override protected val callback: CallBack = stainless.frontend.getCallBack(ctx)

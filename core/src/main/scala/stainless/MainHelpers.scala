@@ -96,11 +96,18 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
+  def getConfigOptions(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+    Configuration.parseDefault(self.options.keys.toSeq)(initReporter)
+  }
+
+  def getConfigContext(implicit initReporter: inox.Reporter): inox.Context = {
+    super.processOptions(Seq.empty, getConfigOptions)
+  }
+
   override
   protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
                               (implicit initReporter: inox.Reporter): inox.Context = {
-
-    val configOptions = Configuration.parseDefault(self.options.keys.toSeq)(initReporter)
+    val configOptions = getConfigOptions
 
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)
