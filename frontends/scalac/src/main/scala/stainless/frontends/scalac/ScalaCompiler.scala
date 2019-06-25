@@ -84,12 +84,16 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack
      with Positions {
 
   object stainlessExtraction extends {
-    val global: ScalaCompiler.this.type = ScalaCompiler.this
-    val runsAfter = List[String]("typer")
-    val runsRightAfter = None
-    val ctx = ScalaCompiler.this.ctx
-    val callback = ScalaCompiler.this.callback
-    val cache = ScalaCompiler.this.cache
+    override val global: ScalaCompiler.this.type = ScalaCompiler.this
+
+    override val phaseName      = "stainless"
+    override val runsAfter      = List("typer")
+    override val runsRightAfter = None
+    override val runsBefore     = List("patmat")
+
+    override val ctx      = ScalaCompiler.this.ctx
+    override val callback = ScalaCompiler.this.callback
+    override val cache    = ScalaCompiler.this.cache
   } with StainlessExtraction
 
   override protected def computeInternalPhases() : Unit = {

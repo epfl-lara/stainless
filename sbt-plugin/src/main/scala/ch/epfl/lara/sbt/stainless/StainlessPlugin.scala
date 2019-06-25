@@ -57,11 +57,12 @@ object StainlessPlugin extends sbt.AutoPlugin {
   override lazy val projectSettings: Seq[Def.Setting[_]] = stainlessSettings
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
-    stainlessVersion := BuildInfo.stainlessVersion,
-    stainlessEnabled := true,
-    autoCompilerPlugins := true,
-    ivyConfigurations += StainlessLibSources,
+    stainlessVersion     := BuildInfo.stainlessVersion,
+    stainlessEnabled     := true,
+    autoCompilerPlugins  := true,
+    ivyConfigurations    += StainlessLibSources,
     libraryDependencies ++= stainlessModules.value,
+
     // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
     // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
     resolvers += Resolver.bintrayRepo("epfl-lara", "maven")

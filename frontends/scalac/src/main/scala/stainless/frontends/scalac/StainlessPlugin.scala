@@ -58,10 +58,10 @@ class StainlessPluginComponent(
 
   override protected val cache: SymbolMapping = new SymbolMapping
 
-  // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?
-  override val phaseName: String = "stainless"
-  override val runsAfter = List[String]()
-  override val runsRightAfter = Some("typer")
+  override val phaseName      = "stainless"
+  override val runsAfter      = List("typer")
+  override val runsRightAfter = None
+  override val runsBefore     = List("patmat")
 }
 
 class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
