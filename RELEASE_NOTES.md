@@ -3,9 +3,18 @@
 
 ## Unreleased
 
-- Bump Inox version to 1.1.0-329-g3c23a86 (#530)
+## Version 0.2.2 (25-06-2019)
+
+- Fix sbt plugin, metals integration, and tests (#556)
 - Switch to git-describe based versioning scheme (#550)
 - Add `--version` flag (#550)
+
+## Version 0.2.1 (18-06-2019)
+
+- Fix license in sbt build definition (#545)
+- Prevent over-simplifications in ImperativeCodeElimination (#533)
+- Fix check in mutable map effect analysis (#525)
+- Bump Inox version to 1.1.0-329-g3c23a86 (#530)
 
 ## Version 0.2-cfac3aaf (28-05-2019)
 
