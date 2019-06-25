@@ -78,18 +78,20 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.typesafeIvyRepo("releases"),
     Resolver.bintrayRepo("epfl-lara", "maven"),
-    "uuverifiers" at "http://logicrunch.it.uu.se:4096/~wv/maven"
+    "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
   ),
 
   libraryDependencies ++= Seq(
-    "ch.epfl.lara" %% "inox" % inoxVersion,
-    "ch.epfl.lara" %% "inox" % inoxVersion % "test" classifier "tests",
-    "ch.epfl.lara" %% "cafebabe" % "1.2",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "test",
-    "io.circe" %% "circe-core" % circeVersion,
-    "io.circe" %% "circe-generic" % circeVersion,
-    "io.circe" %% "circe-parser" % circeVersion,
-    "com.typesafe" % "config" % "1.3.2"
+    "ch.epfl.lara"  %% "inox"          % inoxVersion,
+    "ch.epfl.lara"  %% "inox"          % inoxVersion % "test" classifier "tests",
+    "ch.epfl.lara"  %% "cafebabe"      % "1.2",
+    "uuverifiers"   %% "princess"      % "2018-02-26" ,
+    "io.circe"      %% "circe-core"    % circeVersion,
+    "io.circe"      %% "circe-generic" % circeVersion,
+    "io.circe"      %% "circe-parser"  % circeVersion,
+    "com.typesafe"   % "config"        % "1.3.2",
+
+    "org.scalatest" %% "scalatest"     % "3.0.1" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development
