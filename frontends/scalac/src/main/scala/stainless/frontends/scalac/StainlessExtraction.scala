@@ -4,6 +4,7 @@ package stainless
 package frontends.scalac
 
 import extraction.xlang.{trees => xt}
+import scala.tools.nsc
 import scala.tools.nsc._
 
 import stainless.frontend.{ UnsupportedCodeException, CallBack }
@@ -17,10 +18,11 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
   implicit val ctx: inox.Context
   protected val callback: CallBack
 
-  def newPhase(prev: scala.tools.nsc.Phase): StdPhase = new Phase(prev)
+  def newPhase(prev: nsc.Phase): StdPhase = new Phase(prev)
 
-  class Phase(prev: scala.tools.nsc.Phase) extends StdPhase(prev) {
-    def apply(u: CompilationUnit): Unit = {
+  class Phase(prev: nsc.Phase) extends StdPhase(prev) {
+
+    override def apply(u: CompilationUnit): Unit = {
       val file = u.source.file.absolute.path
       val checker = new Checker
       checker(u.body)
@@ -32,6 +34,18 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
       if (!hasErrors()) {
         val (unit, classes, functions, typeDefs) = extractUnit(u)
         callback(file, unit, classes, functions, typeDefs)
+      }
+    }
+
+    override def run(): Unit = {
+      callback.beginExtractions()
+      super.run()
+      callback.endExtractions()
+      callback.join()
+
+      val report = callback.getReport
+      report foreach { report =>
+        report.emit(ctx)
       }
     }
   }

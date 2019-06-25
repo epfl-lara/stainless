@@ -12,6 +12,8 @@ import scala.concurrent.duration._
 class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports {
   import context.reporter
 
+  private implicit val debugSection = DebugSectionFrontend
+
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
   private var currentTypeDefs = Seq[xt.TypeDef]()
@@ -30,7 +32,12 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     functions: Seq[xt.FunDef],
     typeDefs: Seq[xt.TypeDef]
   ): Unit = {
-    synchronized {
+    reporter.debug(s"Got a unit for $file: ${unit.id} with:")
+    reporter.debug(s"\tfunctions -> [${functions.map { _.id }.sorted mkString ", "}]")
+    reporter.debug(s"\tclasses   -> [${classes.map { _.id }.sorted mkString ", "}]")
+    reporter.debug(s"\ttype defs -> [${typeDefs.map { _.id }.sorted mkString ", "}]")
+
+    this.synchronized {
       currentFunctions ++= functions
       currentClasses ++= classes
       currentTypeDefs ++= typeDefs
