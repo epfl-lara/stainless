@@ -29,7 +29,7 @@ trait PositionChecker { self: DebugPipeline =>
       if (!e.getPos.isDefined) {
         context.reporter.debug(
           NoPosition,
-          s"After $name: Missing position for expression '$e' (of type ${e.getClass})." +
+          s"After $name: Missing position for expression '$e' (of type ${e.getClass}). " +
           s"Last known position: $lastKnownPosition"
         )
       } else {
