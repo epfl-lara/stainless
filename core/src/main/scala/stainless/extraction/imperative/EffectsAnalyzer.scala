@@ -319,7 +319,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case fi: FunctionInvocation => Set.empty
       case (_: ApplyLetRec | _: Application) => Set.empty
-      case (_: FiniteArray | _: LargeArray | _: ArrayUpdated) => Set.empty
+      case (_: FiniteArray | _: LargeArray | _: ArrayUpdated | _: MutableMapUpdated) => Set.empty
       case IsInstanceOf(e, _) => rec(e, path)
       case AsInstanceOf(e, _) => rec(e, path)
       case Old(_) => Set.empty
