@@ -589,7 +589,24 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       }
     }
 
+    object KeywordChecker extends xt.SelfTreeTraverser {
+      override def traverse(e: xt.Expr) = {
+        e match {
+          case _: xt.Require =>
+            reporter.warning(e.getPos, s"This require is ignored for verification because it is not at the top-level of this @extern function.")
+          case _: xt.Ensuring =>
+            reporter.warning(e.getPos, s"This ensuring is ignored for verification because it is not at the top-level of this @extern function.")
+          case _: xt.Assert =>
+            reporter.warning(e.getPos, s"This assert is ignored for verification because it is not at the top-level of this @extern function.")
+          case _ =>
+            ()
+        }
+        super.traverse(e)
+      }
+    }
+
     val fullBody = if (fctx.isExtern) {
+      xt.exprOps.withoutSpecs(finalBody) foreach { KeywordChecker.traverse }
       xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(rhs.pos))
     } else {
       finalBody
