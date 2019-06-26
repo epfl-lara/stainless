@@ -291,6 +291,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .settings(
     description := "Plugin integrating Stainless in sbt",
     sbtPlugin := true,
+    publishMavenStyle := false,
     buildInfoUsePackageAsPath := true,
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys ++= Seq[BuildInfoKey](
