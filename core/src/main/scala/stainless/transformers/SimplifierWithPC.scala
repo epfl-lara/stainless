@@ -14,18 +14,21 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
     case Assert(pred, oerr, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (BooleanLiteral(false), true) =>
-        val (rb, _) = simplify(body, path)
-        (Assert(BooleanLiteral(false).copiedFrom(e), oerr, rb).copiedFrom(e), opts.assumeChecked)
+        val (rb, p) = simplify(body, path)
+        (
+          Assert(BooleanLiteral(false).copiedFrom(e), oerr, rb).copiedFrom(e),
+          opts.assumeChecked && p
+        )
       case (rp, _) =>
-        val (rb, _) = simplify(body, path withCond rp)
-        (Assert(rp, oerr, rb).copiedFrom(e), opts.assumeChecked)
+        val (rb, p) = simplify(body, path withCond rp)
+        (Assert(rp, oerr, rb).copiedFrom(e), opts.assumeChecked && p)
     }
 
     case Require(pred, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (rp, _) =>
-        val (rb, _) = simplify(body, path withCond rp)
-        (Require(rp, rb).copiedFrom(e), opts.assumeChecked)
+        val (rb, p) = simplify(body, path withCond rp)
+        (Require(rp, rb).copiedFrom(e), opts.assumeChecked && p)
     }
 
     case Ensuring(body, l @ Lambda(Seq(res), pred)) => simplify(pred, path) match {
