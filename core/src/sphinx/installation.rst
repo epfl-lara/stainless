@@ -220,12 +220,13 @@ Setting up an sbt build file to use Stainless is a simple 4-step procedure that 
 
 .. code-block:: scala
 
-  resolvers += Resolver.url(
-      "LARA sbt plugins releases",
-      url("https://dl.bintray.com/epfl-lara/sbt-plugins/")
-    )(Resolver.ivyStylePatterns)
+   resolvers ++= Seq(
+     Resolver.bintrayRepo("epfl-lara", "princess"),
+     Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
+     "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+   )
 
-  addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
+   addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
 
 Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
 
@@ -234,9 +235,10 @@ Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-p
 .. code-block:: scala
 
   // build.sbt
-  lazy val algorithm = (project in file("algorithm"))
-  .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
-  .settings(...)
+  lazy val algorithm = project
+    .in(file("algorithm"))
+    .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
+    .settings(...)
 
 Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use stainless on a module.
 
@@ -248,7 +250,7 @@ That's all there is to it. However, the ``sbt-stainless`` plugin is a more recen
 
 * The plugin *does not* support Scala 3 (dotty). To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
-Also, note that the plugin offers a ``stainlessIsEnabled`` setting that can help experimenting with stainless. The ``stainlessIsEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessIsEnabled := false`` while inside the sbt interactive shell.
+Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
 
 Running Tests
 -------------
