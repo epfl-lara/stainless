@@ -20,6 +20,10 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
 
   def newPhase(prev: nsc.Phase): StdPhase = new Phase(prev)
 
+  protected def onRun(run: () => Unit): Unit = {
+    run()
+  }
+
   class Phase(prev: nsc.Phase) extends StdPhase(prev) {
 
     override def apply(u: CompilationUnit): Unit = {
@@ -38,15 +42,7 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
     }
 
     override def run(): Unit = {
-      callback.beginExtractions()
-      super.run()
-      callback.endExtractions()
-      callback.join()
-
-      val report = callback.getReport
-      report foreach { report =>
-        report.emit(ctx)
-      }
+      onRun(() => super.run())
     }
   }
 }
