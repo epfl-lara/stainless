@@ -62,6 +62,18 @@ class StainlessPluginComponent(
   override val runsAfter      = List("typer")
   override val runsRightAfter = None
   override val runsBefore     = List("patmat")
+
+  override def onRun(run: () => Unit): Unit = {
+    callback.beginExtractions()
+    run()
+    callback.endExtractions()
+    callback.join()
+
+    val report = callback.getReport
+    report foreach { report =>
+      report.emit(ctx)
+    }
+  }
 }
 
 class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
