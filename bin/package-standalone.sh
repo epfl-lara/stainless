@@ -9,6 +9,12 @@
 set -e
 
 STAINLESS_VERSION=$(git describe --abbrev=7 | sed 's/v//g')
+if [[ $(git diff --stat) != '' || -n $(git status -s) ]]; then
+  STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
+fi
+echo $STAINLESS_VERSION
+exit
+
 SCALA_VERSION="2.12"
 Z3_VERSION="4.7.1"
 
@@ -46,7 +52,7 @@ function fail {
 
 TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-package-standalone")
 
-STAINLESS_JAR_BASENAME=$(basename $STAINLESS_JAR_PATH)
+STAINLESS_JAR_BASENAME=$(basename "$STAINLESS_JAR_PATH")
 
 function fetch_z3 {
   local PLAT="$1"
@@ -89,11 +95,14 @@ END
 function package {
   local PLAT="$1"
   local SCALAZ3_JAR_PATH="$2"
-  local SCALAZ3_JAR_BASENAME=$(basename "$SCALAZ3_JAR_PATH")
+  local SCALAZ3_JAR_BASENAME
+  SCALAZ3_JAR_BASENAME=$(basename "$SCALAZ3_JAR_PATH")
+
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT"
 
-  local ZIPF="$(pwd)/${STAINLESS_JAR_BASENAME%.*}-$PLAT.zip"
+  local ZIPF
+  ZIPF="$(pwd)/${STAINLESS_JAR_BASENAME%.*}-$PLAT.zip"
 
   if [ -f "$ZIPF" ]; then
     rm "$ZIPF" || fail
@@ -135,6 +144,6 @@ package "linux" $SCALAZ3_JAR_LINUX_PATH
 package "osx" $SCALAZ3_JAR_OSX_PATH
 
 info "\n${BLD}[] Cleaning up..."
-rm -r $TMP_DIR && okay
+rm -r "$TMP_DIR" && okay
 
 info "\n${BLD}Packaging successful."
