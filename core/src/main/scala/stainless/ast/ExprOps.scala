@@ -37,11 +37,20 @@ trait ExprOps extends inox.ast.ExprOps {
       trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda])
   }
 
+  case class Measure(expr: Expr) extends Specification {
+    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
+      case t: ast.Trees =>
+        t.exprOps.Measure(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
+      case _ =>
+        throw new java.lang.IllegalArgumentException("Can't map measure into non-stainless trees")
+    }
+  }
 
   /** Returns an expression annotated with the provided spec. */
   def withSpec(expr: Expr, spec: Specification): Expr = spec match {
     case Precondition(pred) => withPrecondition(expr, Some(pred))
     case Postcondition(post) => withPostcondition(expr, Some(post))
+    case Measure(meas) => withMeasure(expr, Some(meas))
   }
 
   /** Returns whether a particular [[Expressions.Expr]] contains specification
@@ -50,6 +59,7 @@ trait ExprOps extends inox.ast.ExprOps {
   def hasSpec(e: Expr): Boolean = e match {
     case Require(_, _) => true
     case Ensuring(_, _) => true
+    case Decreases(_, _) => true
     case Let(i, e, b) => hasSpec(b)
     case _ => false
   }
@@ -118,11 +128,19 @@ trait ExprOps extends inox.ast.ExprOps {
     */
   def withBody(e: Expr, body: Expr): Expr = e match {
     case Let(i, e, b) if hasSpec(b)            => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
+    case Require(pre, d @ Decreases(meas, _)) =>
+      Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(e)
     case Require(pre, _)                       => Require(pre, body).copiedFrom(e)
-    case Ensuring(req @ Require(pre, _), post) => 
+    case Decreases(meas, _) =>
+      Decreases(meas, body).copiedFrom(e)
+    case Ensuring(r @ Require(pre, d @ Decreases(meas, _)), post) =>
+      Ensuring(Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(r), post).copiedFrom(e)
+    case Ensuring(d @ Decreases(meas, _), post) =>
+      Ensuring(Decreases(meas, body).copiedFrom(d), post).copiedFrom(e)
+    case Ensuring(req @ Require(pre, _), post) =>
       Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
-    case Ensuring(_, post)                     => Ensuring(body, post).copiedFrom(e)
-    case _                                     => body
+    case Ensuring(_, post)                      => Ensuring(body, post).copiedFrom(e)
+    case _                                      => body
   }
 
   /** Extracts the body without its specification
@@ -135,11 +153,15 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Require]]
     */
   def withoutSpecs(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                    => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
-    case Require(pre, b)                 => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Require(pre, b), post) => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(b, post)               => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case b                               => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Let(i, e, b)                             => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
+    case Decreases(_, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Require(_, Decreases(_, b))              => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Require(pre, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(Require(_, Decreases(_, b)), _) => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(Require(pre, b), post)          => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(Decreases(_, b), _)             => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case Ensuring(b, post)                        => Option(b).filterNot(_.isInstanceOf[NoTree])
+    case b                                        => Option(b).filterNot(_.isInstanceOf[NoTree])
   }
 
   /** Returns the precondition of an expression wrapped in Option */
@@ -157,8 +179,52 @@ trait ExprOps extends inox.ast.ExprOps {
     case _                 => None
   }
 
+  def measureOf(expr: Expr): Option[Expr] = expr match {
+    // @nv: we allow lets to wrap decreases (and other contracts) to facilitate
+    //      certain program transformations (eg. FunctionClosure) and avoid
+    //      repeating the let chains in each contract and body
+    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr))
+    case Decreases(m, _)                          => Some(m)
+    case Require(_, Decreases(m, _))              => Some(m)
+    case Ensuring(Require(_, Decreases(m, _)), _) => Some(m)
+    case Ensuring(Decreases(m, _), _)             => Some(m)
+    case _                                        => None
+  }
+
+  def withMeasure(expr: Expr, meas: Option[Expr]): Expr = (meas, expr) match {
+    case (_, Let(i, e, b)) if hasSpec(b) =>
+      wrapSpec(i, e, withMeasure(expr, meas)).copiedFrom(expr)
+    case (Some(newMeas), Ensuring(r @ Require(pre, d @ Decreases(_, b)), post)) =>
+      Ensuring(Require(pre, Decreases(newMeas, b).copiedFrom(d)).copiedFrom(r), post).copiedFrom(expr)
+    case (Some(newMeas), Ensuring(r @ Require(pre, b), post)) =>
+      Ensuring(Require(pre, Decreases(newMeas, b).copiedFrom(b)).copiedFrom(r), post).copiedFrom(expr)
+    case (Some(newMeas), Ensuring(d @ Decreases(_, b), post)) =>
+      Ensuring(Decreases(newMeas, b).copiedFrom(d), post).copiedFrom(expr)
+    case (Some(newMeas), Ensuring(b, post)) =>
+      Ensuring(Decreases(newMeas, b).copiedFrom(b), post).copiedFrom(expr)
+    case (Some(newMeas), Require(pre, d @ Decreases(_, b))) =>
+      Require(pre, Decreases(newMeas, b).copiedFrom(d)).copiedFrom(expr)
+    case (Some(newMeas), Require(pre, b)) =>
+      Require(pre, Decreases(newMeas, b).copiedFrom(b)).copiedFrom(expr)
+    case (Some(newMeas), Decreases(_, b)) =>
+      Decreases(newMeas, b).copiedFrom(expr)
+    case (Some(newMeas), b) =>
+      Decreases(newMeas, b).copiedFrom(expr)
+    case (None, Ensuring(r @ Require(pre, Decreases(_, b)), post)) =>
+      Ensuring(Require(pre, b).copiedFrom(r), post).copiedFrom(expr)
+    case (None, Ensuring(Decreases(_, b), post)) =>
+      Ensuring(b, post).copiedFrom(expr)
+    case (None, Require(pre, Decreases(_, b))) =>
+      Require(pre, b).copiedFrom(expr)
+    case (None, Decreases(_, b)) =>
+      b
+    case (None, b) =>
+      b
+  }
+
   /** Deconstructs an expression into its [[Specification]] and body parts. */
   def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
+    val measure = measureOf(e).map(Measure)
     val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
     val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
       Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
@@ -166,7 +232,7 @@ trait ExprOps extends inox.ast.ExprOps {
     ).copiedFrom(e)))
 
     val body = withoutSpecs(e)
-    (Seq(pre, post), body)
+    (Seq(pre, post) ++ measure, body)
   }
 
   /** Reconstructs an expression given a set of specifications

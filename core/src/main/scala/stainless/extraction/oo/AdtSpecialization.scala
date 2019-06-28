@@ -70,10 +70,7 @@ trait AdtSpecialization
     override def transform(e: s.Expr): t.Expr = e match {
       case s.ClassSelector(expr, selector) => s.dealias(expr.getType) match {
         case s.ClassType(id, tps) if isCandidate(id) =>
-          val vd = t.ValDef.fresh("e", t.ADTType(root(id), tps map transform).copiedFrom(e)).copiedFrom(e)
-          t.Let(vd, transform(expr),
-            t.Annotated(t.ADTSelector(vd.toVariable, selector).copiedFrom(e), Seq(t.Unchecked)).copiedFrom(e)
-          ).copiedFrom(e)
+          t.ADTSelector(transform(expr), selector).copiedFrom(e)
         case _ => super.transform(e)
       }
 

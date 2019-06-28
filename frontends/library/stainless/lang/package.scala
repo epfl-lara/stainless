@@ -11,6 +11,9 @@ package object lang {
   @library
   def ghost[A](@ghost value: A): Unit = ()
 
+  @library
+  def indexedAt[T](n: BigInt, t: T): T = (??? : T)
+
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
@@ -58,17 +61,11 @@ package object lang {
   @ignore def choose[A,B,C,D](predicate: (A,B,C,D) => Boolean): (A,B,C,D) = sys.error("Can't execute non-deterministic choose")
   @ignore def choose[A,B,C,D,E](predicate: (A,B,C,D,E) => Boolean): (A,B,C,D,E) = sys.error("Can't execute non-deterministic choose")
 
-  @ignore def decreases(@ghost r1: BigInt): Unit = ()
-  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt): Unit = ()
-  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt): Unit = ()
-  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt, @ghost r4: BigInt): Unit = ()
-  @ignore def decreases(@ghost r1: BigInt, @ghost r2: BigInt, @ghost r3: BigInt, @ghost r4: BigInt, @ghost r5: BigInt): Unit = ()
-
-  @ignore def decreases(@ghost r1: Int): Unit = ()
-  @ignore def decreases(@ghost r1: Int, @ghost r2: Int): Unit = ()
-  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int): Unit = ()
-  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int, @ghost r4: Int): Unit = ()
-  @ignore def decreases(@ghost r1: Int, @ghost r2: Int, @ghost r3: Int, @ghost r4: Int, @ghost r5: Int): Unit = ()
+  @ignore def decreases(@ghost r1: Any): Unit = ()
+  @ignore def decreases(@ghost r1: Any, @ghost r2: Any): Unit = ()
+  @ignore def decreases(@ghost r1: Any, @ghost r2: Any, @ghost r3: Any): Unit = ()
+  @ignore def decreases(@ghost r1: Any, @ghost r2: Any, @ghost r3: Any, @ghost r4: Any): Unit = ()
+  @ignore def decreases(@ghost r1: Any, @ghost r2: Any, @ghost r3: Any, @ghost r4: Any, @ghost r5: Any): Unit = ()
 
   @ignore
   implicit class WhileDecorations(val u: Unit) {

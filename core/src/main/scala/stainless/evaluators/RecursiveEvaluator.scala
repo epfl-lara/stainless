@@ -20,6 +20,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     case en @ Ensuring(body, pred) =>
       e(en.toAssert)
 
+    case Decreases(measure, body) =>
+      e(body)
+
     case Assert(pred, err, body) =>
       if (!ignoreContracts && e(pred) != BooleanLiteral(true))
         throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))

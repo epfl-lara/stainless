@@ -983,6 +983,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }
   }
 
+  private def stripAnnotations(tpe: xt.Type): xt.Type = tpe match {
+    case xt.AnnotatedType(tpe, _) => stripAnnotations(tpe)
+    case _ => tpe
+  }
+
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
     case SingletonTypeTree(tree) => extractTree(tree)
 
@@ -1466,7 +1471,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
         }
 
-      case Some(lhs) => extractType(lhs)(dctx.setResolveTypes(true)) match {
+      case Some(lhs) => stripAnnotations(extractType(lhs)(dctx.setResolveTypes(true))) match {
         case ct: xt.ClassType =>
           val id = if (sym is ParamAccessor) getParam(sym) else getIdentifier(sym)
           xt.MethodInvocation(extractTree(lhs), id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
@@ -1991,6 +1996,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         }
 
       case tp: TypeVar => extractType(tp.stripTypeVar)
+
+      case AnnotatedType(tpe, ExIndexedAt(n)) =>
+        xt.AnnotatedType(extractType(tpe), Seq(xt.IndexedAt(extractTree(n))))
 
       case AnnotatedType(tpe, _) => extractType(tpe)
 

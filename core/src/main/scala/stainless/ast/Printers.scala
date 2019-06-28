@@ -108,6 +108,19 @@ trait Printer extends inox.ast.Printer {
     case ArrayType(base) =>
       p"Array[$base]"
 
+    case RecursiveType(id, tps, size) =>
+      p"${ADTType(id, tps)}($size)"
+
+    case ValueType(tpe) =>
+      p"Top"
+
+    case AnnotatedType(tpe, flags) =>
+      p"$tpe"
+      for (f <- flags) p" @${f.asString(ctx.opts)}"
+
+    case SizedADT(id, tps, args, size) =>
+      p"$id${nary(tps, ", ", "[", "]")}($size)($args)"
+
     case FiniteArray(elems, base) =>
       if (elems.isEmpty) {
         p"Array[$base]()"

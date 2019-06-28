@@ -6,7 +6,7 @@ package inlining
 
 trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   val s: Trees
-  val t: induction.Trees
+  val t: termination.Trees
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
@@ -59,14 +59,14 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         // later on check that the class invariant is valid.
         val body = exprOps.withoutSpecs(tfd.fullBody) match {
           case Some(body) if isSynthetic => body
-          case Some(body) => annotated(body, Unchecked)
+          case Some(body) => annotated(body, Unchecked).setPos(fi)
           case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
         }
 
         val pre = exprOps.preconditionOf(tfd.fullBody)
         def addPreconditionAssertion(e: Expr): Expr = pre match {
           case None => e
-          case Some(pre) => Assert(pre, Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
+          case Some(pre) => Assert(pre.setPos(fi), Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
         }
 
         val post = exprOps.postconditionOf(tfd.fullBody)
@@ -75,16 +75,17 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           // It is thus inlined into an assertion here.
           case Some(Lambda(Seq(vd), post)) if isSynthetic =>
             val err = Some("Inlined postcondition of " + tfd.id.name)
-            Let(vd, e, Assert(post, err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+            Let(vd, e, Assert(post.setPos(fi), err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case Some(Lambda(Seq(vd), post)) =>
-            Let(vd, e, Assume(post, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+            Let(vd, e, Assume(post.setPos(fi), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case _ => e
         }
+
 
         val newBody = addPreconditionAssertion(addPostconditionAssumption(body))
 
         val result = (tfd.params zip args).foldRight(newBody) {
-          case ((vd, e), body) => let(vd, e, body)
+          case ((vd, e), body) => let(vd, e, body).setPos(fi)
         }
 
         val freshened = exprOps.freshenLocals(result)
@@ -136,7 +137,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 }
 
 object FunctionInlining {
-  def apply(ts: Trees, tt: induction.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: termination.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new FunctionInlining {

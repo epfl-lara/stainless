@@ -601,6 +601,7 @@ trait CodeExtraction extends ASTExtractors {
 
         val returnType = stainlessType(sym.info.finalResultType)(tctx, sym.pos)
         val bctx = fctx.copy(localClasses = fctx.localClasses ++ tctx.localClasses)
+        // FIXME: `flattenBlocks` should not change the positions that appear in `ntparams`
         (xt.exprOps.flattenBlocks(extractTreeOrNoTree(body)(bctx)), returnType)
       }
     }

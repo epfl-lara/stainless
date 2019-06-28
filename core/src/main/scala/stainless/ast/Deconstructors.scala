@@ -169,16 +169,25 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Decreases(measure, body) =>
       (Seq(), Seq(), Seq(measure, body), Seq(), Seq(), (_, _, es, _, _) => t.Decreases(es(0), es(1)))
 
+    case s.SizedADT(id, tps, args, e) =>
+      (Seq(id), Seq(), e +: args, tps, Seq(), (ids, _, es, ntps, _) => t.SizedADT(ids(0), ntps, es.tail, es.head))
+
     case _ => super.deconstruct(expr)
   }
 
   override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
     case s.ArrayType(base) => (Seq(), Seq(), Seq(), Seq(base), Seq(), (_, _, _, tps, _) => t.ArrayType(tps(0)))
+    case s.RecursiveType(id, tps, e) => (Seq(id), Seq(), Seq(e), tps, Seq(), (ids, _, es, ntps, _) => t.RecursiveType(ids(0), ntps, es(0)))
+    case s.ValueType(tpe) => (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.ValueType(tps(0)))
+    case s.AnnotatedType(tpe, flags) =>
+      (Seq(), Seq(), Seq(), Seq(tpe), flags, (_, _, _, tps, flags) => t.AnnotatedType(tps(0), flags))
     case _ => super.deconstruct(tpe)
   }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.Law => (Seq(), Seq(), Seq(), (_, _, _) => t.Law)
+    case s.Erasable => (Seq(), Seq(), Seq(), (_, _, _) => t.Erasable)
+    case s.IndexedAt(e) => (Seq(), Seq(e), Seq(), (_, es, _) => t.IndexedAt(es(0)))
     case s.Ghost => (Seq(), Seq(), Seq(), (_, _, _) => t.Ghost)
     case s.Extern => (Seq(), Seq(), Seq(), (_, _, _) => t.Extern)
     case s.Opaque => (Seq(), Seq(), Seq(), (_, _, _) => t.Opaque)

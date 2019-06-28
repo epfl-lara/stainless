@@ -13,6 +13,7 @@ import core.StdNames._
 import core.Symbols._
 import core.Types._
 import core.Flags._
+import core.Annotations._
 
 import scala.collection.mutable.{ Map => MutableMap }
 
@@ -712,6 +713,15 @@ trait ASTExtractors {
     object ExSnapshot {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "snapshot"), Seq(_)), Seq(arg)) => Some(arg)
+        case _ => None
+      }
+    }
+
+    object ExIndexedAt {
+      def unapply(annot: Annotation): Option[tpd.Tree] = annot match {
+        case ConcreteAnnotation(
+          Apply(Select(New(ExSymbol("stainless", "annotation", "indexedAt")), _), Seq(arg))
+        ) => Some(arg)
         case _ => None
       }
     }

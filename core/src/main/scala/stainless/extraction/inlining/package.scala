@@ -16,6 +16,6 @@ package object inlining {
     object printer extends Printer { val trees: inlining.trees.type = inlining.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = 
-    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, induction.trees))
+  def extractor(implicit ctx: inox.Context) =
+    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, termination.trees))
 }

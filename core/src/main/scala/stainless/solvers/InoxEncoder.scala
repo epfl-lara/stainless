@@ -18,8 +18,8 @@ trait InoxEncoder extends ProgramEncoder {
   import context._
 
   private[this] def keepFlag(flag: Flag): Boolean = flag match {
-    case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Final | Law | Ghost => false
-    case Derived(_) | IsField(_) | IsUnapply(_, _) => false
+    case Unchecked | Synthetic | PartialEval | Extern | Opaque | Private | Final | Law | Ghost | Erasable => false
+    case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) => false
     case _ => true
   }
 
@@ -114,6 +114,9 @@ trait InoxEncoder extends ProgramEncoder {
       case s.Assert(pred, error, body) =>
         transform(body)
 
+      case s.Decreases(measure, body) =>
+        transform(body)
+
       case s.Annotated(body, _) => transform(body)
 
       case s.FiniteArray(elems, base) =>
@@ -159,12 +162,21 @@ trait InoxEncoder extends ProgramEncoder {
         val s.FunctionType(from, to) = caller.getType
         t.Application(transform(caller).copiedFrom(e), args map transform).copiedFrom(e)
 
+      case s.SizedADT(sort, tps, args, size) => transform(s.ADT(sort, tps, args))
+
       case _ => super.transform(e)
     }
 
     override def transform(tpe: s.Type): t.Type = tpe match {
       case s.ArrayType(base) =>
         t.ADTType(arrayID, Seq(transform(base))).copiedFrom(tpe)
+
+      case s.RecursiveType(sort, tps, size) => transform(s.ADTType(sort, tps))
+
+      case s.ValueType(tpe) => transform(tpe)
+
+      case s.AnnotatedType(tpe, _) => transform(tpe)
+
       case _ => super.transform(tpe)
     }
 

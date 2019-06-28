@@ -41,6 +41,7 @@ package object extraction {
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
+    "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "SizeInjection"             -> "Injects a size function for each ADT",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
@@ -49,7 +50,7 @@ package object extraction {
   val phaseNames: Set[String] = phases.map(_._1).toSet
 
   /** Unifies all stainless tree definitions */
-  trait Trees extends ast.Trees with stainless.termination.Trees { self =>
+  trait Trees extends ast.Trees { self =>
     override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
       case tree: Trees => new TreeDeconstructor {
         protected val s: self.type = self
@@ -65,16 +66,16 @@ package object extraction {
   }
 
   /** Unifies all stainless tree printers */
-  trait Printer extends ast.Printer with stainless.termination.Printer
+  trait Printer extends ast.Printer
 
   /** Unifies all stainless tree extractors */
-  trait TreeDeconstructor extends ast.TreeDeconstructor with stainless.termination.TreeDeconstructor {
+  trait TreeDeconstructor extends ast.TreeDeconstructor {
     protected val s: Trees
     protected val t: Trees
   }
 
   /** Unifies all stainless expression operations */
-  trait ExprOps extends ast.ExprOps with stainless.termination.ExprOps
+  trait ExprOps extends ast.ExprOps
 
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
@@ -97,7 +98,6 @@ package object extraction {
     oo.extractor           andThen
     innerfuns.extractor    andThen
     inlining.extractor     andThen
-    induction.extractor    andThen
     termination.extractor
   }
 

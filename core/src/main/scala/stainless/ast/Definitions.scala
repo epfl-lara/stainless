@@ -9,6 +9,9 @@ import scala.collection.mutable.{Map => MutableMap}
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   case object Law extends Flag("law", Seq.empty)
+  // TODO: Move Erasable to Inox?
+  case object Erasable extends Flag("erasable", Seq.empty)
+  case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
   case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
@@ -23,6 +26,8 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law
+    case ("erasable", Seq()) => Erasable
+    case ("indexedAt", Seq(e)) => IndexedAt(e)
     case ("ghost", Seq()) => Ghost
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
@@ -39,6 +44,11 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
        with SymbolOps
        with CallGraph
        with DependencyGraph { self0: Symbols =>
+
+    private[this] val measureCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
+    @inline def getMeasure(fd: FunDef): Option[Expr] = getMeasure(fd.typed)
+    def getMeasure(tfd: TypedFunDef): Option[Expr] =
+      measureCache.getOrElseUpdate(tfd, exprOps.measureOf(tfd.fullBody))
 
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
@@ -97,6 +107,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(fd)
 
     @inline def postcondition(implicit s: Symbols): Option[Lambda] = s.getPostcondition(fd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
@@ -125,6 +136,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue: Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body: Option[Expr] = tfd.symbols.getBody(tfd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
 
     @inline def postcondition: Option[Lambda] = tfd.symbols.getPostcondition(tfd)
     @inline def hasPostcondition: Boolean = postcondition.isDefined

@@ -621,6 +621,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case Require(pre, body) =>
       mkExpr(IfExpr(pre, body, Error(body.getType, "Precondition failed")), ch)
 
+    case Decreases(measure, body) =>
+      mkExpr(body, ch)
+
     case Let(vd, d, v) if vd.toVariable == v => // Optimization for local variables.
       mkExpr(d, ch)
 

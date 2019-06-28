@@ -257,4 +257,30 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /* Recursive Types */
+
+  /** $encodingof of `ADTType(id,tps)<n>` */
+  sealed case class RecursiveType(id: Identifier, tps: Seq[Type], index: Expr) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = ADTType(id, tps).getType
+  }
+
+
+  /** $encodingof of `Constructor<size>[tps](args)` */
+  sealed case class SizedADT(id: Identifier, tps: Seq[Type], args: Seq[Expr], size: Expr) extends Expr with CachingTyped {
+    def getConstructor(implicit s: Symbols) = s.getConstructor(id, tps)
+    override protected def computeType(implicit s: Symbols): Type = ADT(id, tps, args).getType
+  }
+
+  /* Top type */
+
+  /** $encodingof of Top (with underlying Inox type `tpe`) */
+  sealed case class ValueType(tpe: Type) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+  }
+
+  /* Annotation on types */
+  sealed case class AnnotatedType(tpe: Type, flags: Seq[Flag]) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+  }
+
 }
