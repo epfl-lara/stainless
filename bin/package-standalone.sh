@@ -8,7 +8,7 @@
 # ====
 set -e
 
-STAINLESS_VERSION=$(git tag | tail -n 1 | sed 's/v//g')
+STAINLESS_VERSION=$(git describe --abbrev=7 | sed 's/v//g')
 SCALA_VERSION="2.12"
 Z3_VERSION="4.7.1"
 
