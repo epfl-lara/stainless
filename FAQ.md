@@ -38,25 +38,3 @@ Stainless supports a fairly general language and a broad class of properties. Re
 
 We have also developed an approach to generate solidity code from Scala, which we are using to develop formally verified smart contracts. Smart contracts are a great target for verification because their correctness has important financial consequences, and because they are reasonably short, so it is feasible to rewrite them to ensure that they satisfy a formal specification.
 
-## Factory: Stainless for Smart Contracts - a C4DT Use Case
-
-> Since LARA's Stainless library has sparked interest from multiple partners, it has become a focal point for the C4DT Factory, in particular for Christian Grigis, who is working on Stainless applied to Smart Contracts and its integration with Omniledger. Feel free to contact him directly.
-
-### 1. How are libraries evaluated by C4DT's Factory?
-
-**CG:** The C4DT defines three phases for the software projects, indicating their global level of maturity: Showcase (laboratory projects), Incubator (actively worked on) and Market (stable).
-
-To guarantee uniformity across all projects, the C4DT also specifies a number of quality criteria, as well as the requirements to satisfy in order to transition from phase to phase. These criteria cover various aspects: code structure, documentation, testing coverage, ease of deployment, etc.
-
-Every project starts by undergoing an evaluation, during which each criteria is reviewed and a note is assigned to it, according to its level. The result provides an assessment of the work required at each phase in order to proceed towards Market.
-
-### 2. Where is the Stainless library in this pocess?
-
-**CG:** The Stainless library is in the Incubator phase. This means that the code is well-documented, understandable and tested. It has also attracted potential industrial partners to invest and it was signed off by C4DT advisory board. A first beta version of the demonstrator will soon be online, in which the Stainless library is integrated in the OmniLedger blockchain.
-
-### 3. Why the Stainless-OmniLedger Integration?
-**CG:** While capable of formally verifying arbitrary Scala programs, Stainless is particularly suited for Smart Contracts, as they are relatively small programs, usually developed from scratch, and highly risky.
-
-In order to present the power of Stainless, and allow partners to evaluate its abilities, the C4DT is developing a demonstrator permitting users to write Smart Contracts and verify them with Stainless, all without the need for any local installation.
-
-Stainless normally targets the well-known Ethereum blockchain. The C4DT has however added the capability to run Ethereum code within the OmniLedger blockchain from the DEDIS lab, enabling the demonstrator to run and directly interact with the Smart Contracts after successful verification.
