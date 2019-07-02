@@ -1,7 +1,21 @@
 
 # Release Notes
 
-## Unreleased
+## Version 0.2.3 (02-06-2019)
+
+- Display counter-examples when using metals (#579)
+- Add --no-colors option, for use via metals in VS Code
+- Fix "a required artifact is not listed by module descriptor" error
+- Microtests from recently closed issues (#578)
+- Add FAQ extracted from the C4DT newsletter (#570)
+- Use git-describe to compute version of artifact in packaging script
+- Indexed recursive types and type-checking based VC generation (#479) 
+- Bump Inox version to 1.1.0-332-ga6cbf8e (#571)
+- Fix report being shown twice (#567)
+- Emit warning when dropping require/ensuring/assert in a user @extern function (#562)
+- Update sbt docs and fix plugin publishing issues (#565)
+- Make purity of requires and assertions depend on their bodies (#547)
+- Fix effects checker for MutableMapUpdated tree (#563)
 
 ## Version 0.2.2 (25-06-2019)
 
