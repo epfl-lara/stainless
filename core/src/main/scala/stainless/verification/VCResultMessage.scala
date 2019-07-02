@@ -10,7 +10,7 @@ case class VCResultMessage[T <: ast.Trees, +M](
 
   override val sbtPluginOnly: Boolean = true
 
-  override def toString: String = {
+  def title: String = {
     s"VC '${vc.kind}' @ ${vc.getPos}: " +
     s"${result.status.name.toUpperCase}"
   }
@@ -18,23 +18,23 @@ case class VCResultMessage[T <: ast.Trees, +M](
   override def emit(reporter: inox.Reporter): Unit = {
     result.status match {
       case VCStatus.Valid =>
-        reporter.warning(vc.getPos, toString)
+        reporter.warning(vc.getPos, title)
 
       case VCStatus.Invalid(reason) =>
-        reporter.error(vc.getPos, toString)
-
-        reason match {
+        val reasonStr = reason match {
           case VCStatus.CounterExample(cex) =>
-            reporter.error(vc.getPos, "Found counter-example:")
-            reporter.error(vc.getPos, "  " + cex.toString.replaceAll("\n", "\n  "))
+            s"Found counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
 
           case VCStatus.Unsatisfiable =>
-            reporter.error(vc.getPos, "Property wasn't satisfiable")
+            "Property wasn't satisfiable"
         }
 
+        val msg = s"$title\n$reasonStr"
+        reporter.error(vc.getPos, msg)
+
       case status =>
-        reporter.error(vc.getPos, toString)
-        reporter.error(vc.getPos, " => " + result.status.name.toUpperCase)
+        val msg = s"$title\n => ${result.status.name.toUpperCase}"
+        reporter.error(vc.getPos, msg)
     }
   }
 }
