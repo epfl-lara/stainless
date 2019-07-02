@@ -78,3 +78,6 @@ out-classes
 # metals and VSCode
 .vscode
 .metals
+
+# ripgrep
+.rgignore

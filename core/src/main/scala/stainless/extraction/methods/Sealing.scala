@@ -83,7 +83,7 @@ trait Sealing extends oo.CachingPhase
 
   // For each class, we add a sealed flag, and optionally add a dummy subclass
   // with the corresponding methods
-  override protected type ClassResult = (ClassDef, Option[ClassDef], Seq[FunDef])
+  override protected type ClassResult = (ClassDef, Option[ClassDef], Seq[FunDef], Seq[TypeDef])
 
   override protected final val classCache = new ExtractionCache[ClassDef, ClassResult]({ (cd, context) =>
     val symbols = context.symbols
@@ -150,12 +150,13 @@ trait Sealing extends oo.CachingPhase
           }.toMap
       }.get)
 
-      // These are the flags that we *discard* when overriding an accessor or a methodand creating a field
+      // These are the flags that we *discard* when overriding an accessor or a method and creating a field
       def overrideDiscardFlag(flag: Flag) = flag match {
-        case IsAbstract => true
-        case IsAccessor(_) => true
-        case IsMethodOf(_) => true
-        case _ => false
+        case IsAbstract        => true
+        case IsAccessor(_)     => true
+        case IsMethodOf(_)     => true
+        case IsTypeMemberOf(_) => true
+        case _                 => false
       }
 
       // These are the flags that we *keep* when creating a field for an accessor
@@ -221,7 +222,7 @@ trait Sealing extends oo.CachingPhase
       }
 
       // For the normal methods, we create overrides with no body
-      val dummyOverrides = methods.map { id =>
+      val dummyFunOverrides = methods.map { id =>
         val fd = symbols.getFunction(id)
         val instantiator = getInstantiator(fd)
         val (specs, _) = deconstructSpecs(fd.fullBody)
@@ -238,9 +239,21 @@ trait Sealing extends oo.CachingPhase
         context.addPurityAnnotations(instantiator.transform(dummy))
       }
 
-      (newCd, Some(dummyClass), dummyOverrides ++ newAccessors)
+      val dummyTypeDefOverrides = cd.typeMembers.map { id =>
+        val td = symbols.getTypeDef(id)
+        td.copy(
+          id = ast.SymbolIdentifier(id.symbol),
+          rhs = TypeBounds(NothingType(), AnyType(), Seq.empty),
+          flags = (
+            td.flags.filterNot(overrideDiscardFlag) ++
+            Seq(IsAbstract, Derived(td.id), Synthetic, IsTypeMemberOf(dummyClass.id))
+          ).distinct
+        )
+      }
+
+      (newCd, Some(dummyClass), dummyFunOverrides ++ newAccessors, dummyTypeDefOverrides)
     }
-    else (cd, None, Seq())
+    else (cd, None, Seq.empty, Seq.empty)
   }
 
 
@@ -272,6 +285,7 @@ trait Sealing extends oo.CachingPhase
     syms
       .withClasses(results.flatMap(cr => cr._1 +: cr._2.toSeq))
       .withFunctions(results.flatMap(_._3))
+      .withTypeDefs(results.flatMap(_._4))
 
   override protected def registerFunctions(syms: Symbols, results: Seq[FunctionResult]): Symbols =
     syms.withFunctions(results.flatMap(fr => fr._1 +: fr._2.toSeq))

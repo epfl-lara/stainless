@@ -27,7 +27,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case _ => None
     }
 
-    protected def computeType(implicit s: Symbols): Type = self.dealias(expr.getType) match {
+    protected def computeType(implicit s: Symbols): Type = expr.getType match {
       case ct: ClassType =>
         field.map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
           case (Some(fd), Some(tcd)) =>
@@ -78,7 +78,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
    * ======================================== */
 
   protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] =
-    self.dealias(tpe) match {
+    tpe match {
       case ct: ClassType => ct.getField(selector)
       case _ => None
     }
@@ -91,14 +91,14 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
         tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }
-          .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
+          .orElse(tcd.parents.view.reverse.flatMap(rec).headOption)
       lookupClass.flatMap(rec)
     }
 
     def getTypeMember(selector: Identifier)(implicit s: Symbols): Option[TypeDef] = {
       def rec(tcd: TypedClassDef): Option[TypeDef] = {
-        tcd.typeMembers.find(_.id == selector)
-          .orElse(tcd.parents.reverse.view.flatMap(rec).headOption)
+        tcd.typeMembers.find(_.id.name == selector.name)
+          .orElse(tcd.parents.view.reverse.flatMap(rec).headOption)
       }
       lookupClass.flatMap(rec)
     }
@@ -126,7 +126,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
         case ct: ClassType =>
           ct.getTypeMember(selector)
         case other =>
-          sys.error(s"Cannot select type on type $other")
+          sys.error(s"Cannot select type on type $other (${other.getClass})")
       }
     }
 
@@ -136,37 +136,31 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   /** $encodingof `expr.Type[A, B, ...]` */
   case class TypeApply(selector: TypeSelect, tps: Seq[Type]) extends Type {
     override protected def computeType(implicit s: Symbols): Type = {
-      lazy val dealiased = dealias
-      if (getTypeDef.tparams.length != tps.length) Untyped
-      else if (isPathDependent) this
-      else if (dealiased != this) dealias.getType
-      else dealiased
+      if (!wellKinded) Untyped
+      else if (applied.isAbstract) this
+      else resolve.getType
     }
+
+    def wellKinded(implicit s: Symbols): Boolean =
+      getTypeDef.tparams.length == tps.length
 
     val isPathDependent = selector.isPathDependent
+    def isAbstract(implicit s: Symbols) = getTypeDef.isAbstract
 
-    def lookupTypeDef(implicit s: Symbols): Option[TypeDef] =
-      selector.lookupTypeDef
+    def bounds(implicit s: Symbols): TypeBounds = applied.bounds
+    def lowerBound(implicit s: Symbols): Type = bounds.lo
+    def upperBound(implicit s: Symbols): Type = bounds.hi
 
-    def getTypeDef(implicit s: Symbols): TypeDef =
-      selector.getTypeDef
+    def lookupTypeDef(implicit s: Symbols): Option[TypeDef] = selector.lookupTypeDef
+    def getTypeDef(implicit s: Symbols): TypeDef = lookupTypeDef.get
 
-    def applied(implicit s: Symbols): AppliedTypeDef = {
-      getTypeDef.typed(tps)
-    }
-
-    def dealias(implicit s: Symbols): Type = {
-      applied.resolve
-    }
+    def applied(implicit s: Symbols): AppliedTypeDef = getTypeDef.typed(tps)
+    def resolve(implicit s: Symbols): Type = applied.resolve
   }
 
-  def dealias(tp: Type)(implicit s: Symbols): Type = typeOps.preMap {
-    case ta: TypeApply => Some(ta.dealias)
-    case tp => None
-  } (tp)
-
-  protected def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = dealias(tpe.getType) match {
+  protected def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
     case tp: TypeParameter => widenTypeParameter(tp.upperBound)
+    case ta: TypeApply => widenTypeParameter(ta.upperBound)
     case tpe => tpe
   }
 
@@ -278,10 +272,9 @@ trait Printer extends innerfuns.Printer {
       p"type ${td.id}${nary(td.tparams, ", ", "[", "]")}"
 
       if (td.isAbstract) {
-        td.bounds foreach { case TypeBounds(lo, hi, _) =>
-          if (lo != NothingType()) p" >: $lo"
-          if (hi != AnyType()) p" <: $hi"
-        }
+        val TypeBounds(lo, hi, _) = td.bounds
+        if (lo != NothingType()) p" >: $lo"
+        if (hi != AnyType()) p" <: $hi"
       } else {
         p" = ${td.rhs}"
       }

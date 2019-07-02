@@ -21,7 +21,7 @@ trait TypeOps extends oo.TypeOps { self =>
         }
       }.orElse(super.unapplyAccessorResultType(id, inType))
 
-  def firstSuper(id: SymbolIdentifier): Option[SymbolIdentifier] = {
+  def firstSuperMethod(id: SymbolIdentifier): Option[SymbolIdentifier] = {
     def rec(cd: ClassDef): Option[SymbolIdentifier] = {
       cd.methods.find(_.symbol == id.symbol)
         .orElse(cd.parents.headOption.flatMap(ct => rec(symbols.getClass(ct.id))))
@@ -29,6 +29,18 @@ trait TypeOps extends oo.TypeOps { self =>
 
     getFunction(id).flags
       .collectFirst { case IsMethodOf(id) => symbols.getClass(id) }
+      .flatMap(cd => cd.parents.headOption.map(ct => symbols.getClass(ct.id)))
+      .flatMap(rec(_))
+  }
+
+  def firstSuperTypeMember(id: SymbolIdentifier): Option[SymbolIdentifier] = {
+    def rec(cd: ClassDef): Option[SymbolIdentifier] = {
+      cd.typeMembers.find(_.symbol == id.symbol)
+        .orElse(cd.parents.headOption.flatMap(ct => rec(symbols.getClass(ct.id))))
+    }
+
+    getTypeDef(id).flags
+      .collectFirst { case IsTypeMemberOf(id) => symbols.getClass(id) }
       .flatMap(cd => cd.parents.headOption.map(ct => symbols.getClass(ct.id)))
       .flatMap(rec(_))
   }

@@ -20,7 +20,7 @@ trait TransformerWithType extends TreeTransformer {
       import s._
       widen(tp.upperBound)
     case ta: s.TypeApply =>
-      widen(ta.dealias(symbols))
+      widen(ta.upperBound)
     case _ => tpe
   }
 

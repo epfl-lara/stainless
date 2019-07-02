@@ -80,7 +80,7 @@ trait Laws
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, context) =>
     FunctionKey(fd) + new ValueKey(
       if ((fd.flags exists { case s.IsMethodOf(_) => true case _ => false }) && (fd.flags contains s.Law)) {
-        context.symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).toSet[Identifier]
+        context.symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier).toSet[Identifier]
       } else {
         Set.empty[Identifier]
       }
@@ -112,7 +112,7 @@ trait Laws
         throw MalformedStainlessCode(fd, "Unexpected law without a body")
       if (symbols.isRecursive(fd.id))
         throw MalformedStainlessCode(fd, "Unexpected recursive law")
-      if (symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).exists { sid =>
+      if (symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier).exists { sid =>
         val sfd = symbols.getFunction(sid)
         !sfd.isAbstract && !sfd.isLaw
       }) throw MalformedStainlessCode(fd, "Unexpected law overriding concrete function")
@@ -149,7 +149,7 @@ trait Laws
         val newSpecs = specs.map(_.map(t)(transform(_, env)))
         val returnType = transform(fd.returnType, env)
         val newBody = t.exprOps.reconstructSpecs(newSpecs, Some(t.andJoin(
-          symbols.firstSuper(fd.id.unsafeToSymbolIdentifier).map { sid =>
+          symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier).map { sid =>
             t.MethodInvocation(
               t.This(ct).setPos(fd), lawID(sid),
               fd.typeArgs map (transform(_, env)),
@@ -174,7 +174,7 @@ trait Laws
 
       (newFd, Some(propFd))
     } else {
-      symbols.firstSuper(fd.id.unsafeToSymbolIdentifier)
+      symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier)
         .map(id => symbols.getFunction(id))
         .filter(_.flags contains s.Law)
         .map { sfd =>

@@ -468,13 +468,13 @@ trait AntiAliasing
           }).copiedFrom(newValue)
 
         case ClassFieldAccessor(id) :: fs =>
-          val optCd = s.dealias(receiver.getType) match {
+          val optCd = receiver.getType match {
             case ct: ClassType => classForField(ct, id)
             case tp => throw FatalError(s"Cannot apply ClassFieldAccessor to type $tp")
           }
 
           val (cd, ct) = optCd.map(cd => (cd, cd.toType)).getOrElse {
-            throw FatalError(s"Could find class for type ${s.dealias(receiver.getType)}")
+            throw FatalError(s"Could find class for type ${receiver.getType}")
           }
 
           val casted = AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)

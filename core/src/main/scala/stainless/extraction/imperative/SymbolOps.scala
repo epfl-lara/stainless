@@ -75,9 +75,10 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     case arr: ArrayType => true
     case map: MutableMapType => true
     case ft: FunctionType => false
-    case ta: TypeApply => isMutableType(ta.dealias, mutableClasses)
     case ct: ClassType => isMutableClassType(ct, mutableClasses)
     case adt: ADTType => isMutableADTType(adt, mutableClasses)
+    case ta: TypeApply if ta.isAbstract => ta.getTypeDef.flags contains IsMutable
+    case ta: TypeApply => isMutableType(ta.getType, mutableClasses)
     case NAryType(tps, _) => tps.exists(isMutableType(_, mutableClasses))
   }
 

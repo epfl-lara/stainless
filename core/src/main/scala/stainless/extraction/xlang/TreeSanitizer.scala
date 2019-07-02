@@ -23,7 +23,7 @@ trait TreeSanitizer {
       cd <- symbols.classes.values
       id <- cd.methods(symbols)
       if !symbols.getFunction(id).isSetter
-      sid <- symbols.firstSuper(id)
+      sid <- symbols.firstSuperMethod(id)
       if symbols.getFunction(sid).isSetter
     } throw MalformedStainlessCode(symbols.getFunction(id),
       "Cannot override a `var` accessor with a non-accessor method.")
