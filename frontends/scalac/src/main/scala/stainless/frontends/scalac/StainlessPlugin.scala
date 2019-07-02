@@ -21,7 +21,7 @@ class StainlessPlugin(val global: Global) extends Plugin {
   }
 
   val stainlessContext: inox.Context = {
-    mainHelper.getConfigContext(stainless.Context.empty.reporter)
+    mainHelper.getConfigContext(new stainless.PlainTextReporter(Set.empty))
   }
 
   override val name: String = "stainless-plugin"
@@ -80,7 +80,7 @@ class GhostPluginComponent(val global: Global) extends PluginComponent with Ghos
   override val runsAfter = List[String]("pickler")
 }
 
-class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.DefaultReporter(debugSections) {
+class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.PlainTextReporter(debugSections) {
   private def toSourceFile(file: java.io.File): BatchSourceFile = {
     new BatchSourceFile(AbstractFile.getFile(file))
   }
