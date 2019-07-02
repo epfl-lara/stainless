@@ -1,7 +1,7 @@
 
 # Release Notes
 
-## Version 0.2.3 (02-06-2019)
+## Version 0.3.0 (02-06-2019)
 
 - Display counter-examples when using metals (#579)
 - Add --no-colors option, for use via metals in VS Code
