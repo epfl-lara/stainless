@@ -1,23 +1,30 @@
+# Stainless
 /bin/stainless-*
 .stainless-cache/
 .stainless.conf
 stainless.conf
 
+# Vim
 *.swp
 
+# emacs
 *~
 
+# ensime
 .ensime
 .ensime_cache
 
+# sbt
 target
 /project/build
 /stainless
 /.test-history
 /out-classes
 
+# synthesis
 derivation*.dot
 
+# stainless
 last.log
 *.last
 *.table
@@ -29,24 +36,30 @@ stainless.out/
 repairs.dat
 tmp
 
+#eclipse
 .cache
 .classpath
 .project
 .settings/
 .worksheet/
 
+#intellij
 .idea
 Leon.eml
 Leon.iml
 *.iml
 /.idea_modules
 
+#scripts
 out-classes
 
+#z3
 .z3-trace
 
+#travis
 /travis/builds
 
+# Windows
 /cvc4.exe
 /libz3.dll
 /libz3.lib
@@ -59,5 +72,6 @@ out-classes
 /libz3java.dll
 /libz3java.lib
 
+# metals and VSCode
 .vscode
 .metals
