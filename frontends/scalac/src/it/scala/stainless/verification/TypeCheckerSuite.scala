@@ -42,12 +42,13 @@ trait TypeCheckerSuite extends ComponentTestSuite {
 }
 
 class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
-  override val cacheAllowed = false
+  override val cacheAllowed = true
 
   override def configurations = super.configurations.map {
     seq => Seq(
       inox.optSelectedSolvers(Set("smt-z3")),
-      inox.solvers.optCheckModels(true)
+      inox.solvers.optCheckModels(true),
+      verification.optVCCache(true),
     ) ++ seq
   }
 
@@ -56,25 +57,14 @@ class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
   }
 }
 
-class SMTZ3TypeCheckerCacheSuite extends TypeCheckerSuite {
+class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
   override val cacheAllowed = true
 
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3")),
-      inox.solvers.optCheckModels(true),
-      verification.optVCCache(true)
-    ) ++ seq
-  }
-}
-
-class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
-  override val cacheAllowed = false
-
-  override def configurations = super.configurations.map {
-    seq => Seq(
       inox.optSelectedSolvers(Set("smt-cvc4")),
-      inox.solvers.optCheckModels(true)
+      inox.solvers.optCheckModels(true),
+      verification.optVCCache(true),
     ) ++ seq
   }
 
