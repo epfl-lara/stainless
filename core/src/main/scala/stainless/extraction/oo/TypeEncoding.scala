@@ -69,6 +69,7 @@ trait TypeEncoding
     case s.UnknownType(_) => true
     case s.TypeBounds(_, _, _) => true
     case tp: s.TypeParameter => scope.tparams contains tp
+    case ta: s.TypeApply => ta.isAbstract(scope.symbols)
     case _ => false
   }
 
@@ -154,8 +155,8 @@ trait TypeEncoding
   private[this] val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
   private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(implicit scope: Scope): t.Expr = {
-    val t1 = s.dealias(tpe.getType(scope.symbols))(scope.symbols)
-    val t2 = s.dealias(expected.getType(scope.symbols))(scope.symbols)
+    val t1 = tpe.getType(scope.symbols)
+    val t2 = expected.getType(scope.symbols)
 
     ((e, t1, t2) match {
       case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
@@ -301,7 +302,7 @@ trait TypeEncoding
   private[this] val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
 
   private[this] def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(implicit scope: Scope): t.Expr = {
-    ((s.dealias(in)(scope.symbols), s.dealias(tpe)(scope.symbols)) match {
+    ((in.getType(scope.symbols), tpe.getType(scope.symbols)) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
         !s.typeOps.typeParamsOf(tp2).exists { t2 =>
@@ -747,8 +748,11 @@ trait TypeEncoding
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
         }.copiedFrom(tp)
 
-      case ta: s.TypeApply =>
-        transform(ta.dealias)
+      case ta: s.TypeApply if ta.isAbstract =>
+        transform(ta.bounds)
+
+      case ta: s.TypeApply if !ta.isAbstract =>
+        transform(ta.resolve)
 
       case tp: s.TypeParameter if testers contains tp =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {

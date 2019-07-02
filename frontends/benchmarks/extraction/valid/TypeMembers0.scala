@@ -1,14 +1,14 @@
 
-object TypeMembers1 {
+object TypeMembers0 {
 
-  abstract class Foo {
+  sealed abstract class Foo {
     type Bar
     def x: Bar
   }
 
   case class SomeFoo() extends Foo {
     type Bar = Int
-    def x: Int = 42
+    def x: Bar = 42
   }
 
   def test(sf: SomeFoo) = {

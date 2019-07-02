@@ -41,8 +41,10 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def descendants(implicit s: Symbols): Seq[ClassDef] =
       children.flatMap(cd => cd +: cd.descendants).distinct
 
-    def typeMembers(implicit s: Symbols): Seq[TypeDef] =
-      s.typeDefs.values.filter(_.flags contains IsTypeMemberOf(id)).toSeq
+    def typeMembers(implicit s: Symbols): Seq[SymbolIdentifier] =
+      s.typeDefs.values
+        .filter(_.flags contains IsTypeMemberOf(id))
+        .map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
 
     def typeArgs = tparams map (_.tp)
 
@@ -97,8 +99,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
 
     @inline def typeMembers: Seq[TypeDef] = _typeMembers.get
     private[this] val _typeMembers = inox.utils.Lazy({
-      if (tpSubst.isEmpty) cd.typeMembers
-      else cd.typeMembers.map(td => td.copy(rhs = typeOps.instantiateType(td.rhs, tpSubst)))
+      val tds = cd.typeMembers.map(symbols.typeDefs)
+      if (tpSubst.isEmpty) tds
+      else tds.map(td => td.copy(rhs = typeOps.instantiateType(td.rhs, tpSubst)))
     })
 
     @inline def toType = ClassType(id, tps).copiedFrom(this)
@@ -113,14 +116,25 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     val typeArgs = tparams map (_.tp)
 
     val isAbstract: Boolean = flags contains IsAbstract
+    def isFinal: Boolean = flags contains Final
 
-    def bounds: Option[TypeBounds] = rhs match {
-      case tb: TypeBounds => Some(tb)
-      case _ => None
+    def bounds: TypeBounds = rhs match {
+      case tb: TypeBounds => 
+        assert(isAbstract)
+        tb
+
+      case _ =>
+        TypeBounds(rhs, rhs, Seq.empty)
     }
 
-    def typed(tps: Seq[Type])(implicit s: Symbols): AppliedTypeDef = AppliedTypeDef(this, tps)
-    def typed(implicit s: Symbols): AppliedTypeDef = typed(tparams.map(_.tp))
+    def lowerBound: Type = bounds.lo
+    def upperBound: Type = bounds.hi
+
+    def typed(tps: Seq[Type])(implicit s: Symbols): AppliedTypeDef =
+      AppliedTypeDef(this, tps)
+
+    def typed(implicit s: Symbols): AppliedTypeDef =
+      typed(tparams.map(_.tp))
 
     def copy(
       id: Identifier = id,
@@ -133,14 +147,26 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case class AppliedTypeDef(td: TypeDef, tps: Seq[Type]) extends Tree {
     copiedFrom(td)
 
-    def bounds: Option[TypeBounds] = td.bounds map { bounds =>
+    def isAbstract: Boolean = td.isAbstract
+    def isFinal: Boolean = td.isFinal
+
+    def bounds(implicit s: Symbols): TypeBounds = {
       val tpSubst = td.tparams.map(_.tp) zip tps
-      typeOps.instantiateType(bounds, tpSubst.toMap).asInstanceOf[TypeBounds]
+      typeOps.instantiateType(td.bounds, tpSubst.toMap) match {
+        case tb: TypeBounds => tb
+        case _ => sys.error("cannot happen")
+      }
     }
 
+    def lowerBound(implicit s: Symbols): Type =
+      bounds.lo
+    def upperBound(implicit s: Symbols): Type =
+      bounds.hi
+
     def resolve(implicit s: Symbols): Type = {
+      require(!isAbstract)
       val tpSubst = td.tparams.map(_.tp) zip tps
-      self.dealias(typeOps.instantiateType(td.rhs, tpSubst.toMap))
+      typeOps.instantiateType(td.rhs, tpSubst.toMap)
     }
   }
 
@@ -169,11 +195,12 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
         res
       })
 
-    private val appliedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[AppliedTypeDef]] = MutableMap.empty
     def getClass(id: Identifier): ClassDef =
       lookupClass(id).getOrElse(throw ClassLookupException(id))
     def getClass(id: Identifier, tps: Seq[Type]): TypedClassDef =
       lookupClass(id, tps).getOrElse(throw ClassLookupException(id))
+
+    private val appliedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[AppliedTypeDef]] = MutableMap.empty
 
     def lookupTypeDef(id: Identifier): Option[TypeDef] = typeDefs.get(id)
     def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[AppliedTypeDef] =

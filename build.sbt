@@ -109,11 +109,11 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   Keys.fork in run := true,
 
+  /* javaOptions in run += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
+
   testOptions in Test := Seq(Tests.Argument("-oDF")),
 
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF")),
-
-  mappings in (Compile, packageDoc) := Seq()
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = Seq(

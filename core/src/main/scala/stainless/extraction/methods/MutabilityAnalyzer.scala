@@ -35,7 +35,8 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         case any: AnyType => true
         case arr: ArrayType => true
         case map: MutableMapType => true
-        case ta: TypeApply => rec(ta.dealias, seen)
+        case ta: TypeApply if ta.isAbstract => ta.getTypeDef.flags contains IsMutable
+        case ta: TypeApply => rec(ta.getType, seen)
         case UnknownType(isPure) => !isPure
         case ClassType(cid, _) if mutableClasses(cid) => true
         case ClassType(cid, _) if seen(cid) => false
@@ -66,14 +67,14 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         (cd.methods exists (fid => symbols.getFunction(fid).isSetter)) // class contains a setter
       }.map(_.id).toSet
 
-      inox.utils.fixpoint[Set[Identifier]](mutableClasses =>
+      inox.utils.fixpoint[Set[Identifier]] { mutableClasses =>
         mutableClasses ++
         symbols.classes.collect { case (id, cd) if isMutableType(cd.typed.toType, mutableClasses) => id } ++
         mutableClasses.flatMap { id =>
           val cd = symbols.getClass(id)
           cd.ancestors.map(_.id) ++ cd.descendants.map(_.id)
         }
-      )(initialClasses)
+      } (initialClasses)
     }
 
     def isMutable(cd: ClassDef) = mutableClasses(cd.id)

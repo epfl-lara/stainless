@@ -37,24 +37,40 @@ trait Trees extends throwing.Trees { self =>
         val optTfd = s.lookupFunction(id)
           .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)
           .map(_.typed(tps))
+
         val optTcd = s.lookupClass(ct.id)
           .filter(cd => ct.tps.size == cd.tparams.size)
           .map(_.typed(ct.tps))
 
-        (optTfd zip optTcd).headOption.flatMap { case (tfd, tcd) =>
+        (optTfd zip optTcd).headOption.flatMap { case (tfd, ctcd) =>
           tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
-            .flatMap(cid => (tcd +: tcd.ancestors).find(_.id == cid))
+            .flatMap(cid => (ctcd +: ctcd.ancestors).find(_.id == cid))
             .map { tcd =>
               val tpSubst = tcd.tpSubst ++ tfd.tpSubst
-              checkParamTypes(
-                args,
-                tfd.fd.params.map(vd => typeOps.instantiateType(vd.getType, tpSubst)),
-                typeOps.instantiateType(tfd.fd.getType, tpSubst)
-              )
+              val it = new InstantiateThis(ctcd.toType)
+
+              val instParams = tfd.fd.params.map { vd =>
+                it.transform(typeOps.instantiateType(vd.getType, tpSubst))
+              }
+
+              val fdTpe = it.transform(typeOps.instantiateType(tfd.fd.getType, tpSubst))
+              checkParamTypes(args, instParams, fdTpe)
             }
         }.getOrElse(Untyped)
 
       case _ => Untyped
+    }
+  }
+
+  private[this] class InstantiateThis(thisType: ClassType) extends oo.TreeTransformer {
+    val s: self.type = self
+    val t: self.type = self
+
+    override def transform(tpe: Type): Type = tpe match {
+      case TypeSelect(Some(This(_)), sel) =>
+        super.transform(TypeSelect(Some(This(thisType)), sel))
+
+      case _ => super.transform(tpe)
     }
   }
 
@@ -65,6 +81,15 @@ trait Trees extends throwing.Trees { self =>
     extends super.AbstractSymbols
        with DependencyGraph
        with TypeOps { self0: Symbols =>
+
+    override protected def ensureWellFormedFunction(fd: FunDef): Unit = {
+      val res = fd.getClassDef.fold(fd) { cd =>
+        val it = new InstantiateThis(cd.typed.toType)
+        it.transform(fd)
+      }
+
+      super.ensureWellFormedFunction(res)
+    }
 
     override protected def ensureWellFormedClass(cd: ClassDef) = {
       super.ensureWellFormedClass(cd)
@@ -84,19 +109,47 @@ trait Trees extends throwing.Trees { self =>
         }
       }
 
-      // Check that method overrides are well-typed
       val ancestors = cd.ancestors(this).map(cd => cd.id -> cd).toMap
-      cd.methods.foreach { id =>
-        firstSuper(id).foreach { sid =>
-          val cid = getFunction(sid).flags
-            .collectFirst { case IsMethodOf(cid) => cid }
-            .getOrElse(throw NotWellFormedException(getFunction(sid)))
 
-          if (!(ancestors contains cid)) throw NotWellFormedException(getFunction(sid))
+      // Check that type members overrides are well-typed
+      cd.typeMembers.foreach { id =>
+        firstSuperTypeMember(id).foreach { sid =>
+          val td = getTypeDef(id)
+          val std = getTypeDef(sid)
+          val cid = std.flags
+            .collectFirst { case IsTypeMemberOf(cid) => cid }
+            .getOrElse(throw NotWellFormedException(std, Some(s"must be a type member")))
+
+          if (!(ancestors contains cid))
+            throw NotWellFormedException(std, Some(s"first super is not a method of an ancestor"))
+
+          val acd = ancestors(cid)
+
+          if (td.isAbstract && !std.isAbstract)
+            throw NotWellFormedException(td, Some(s"cannot override concrete type with abstract type."))
+
+          if (std.isFinal)
+            throw NotWellFormedException(td, Some(s"cannot override final type: $std"))
+
+          if (td.tparams.size != std.tparams.size)
+            throw NotWellFormedException(td, Some(s"type parameters length are not equal"))
+        }
+      }
+
+      // Check that method overrides are well-typed
+      cd.methods.foreach { id =>
+        firstSuperMethod(id).foreach { sid =>
+          val sfd = getFunction(sid)
+          val cid = sfd.flags
+            .collectFirst { case IsMethodOf(cid) => cid }
+            .getOrElse(throw NotWellFormedException(sfd, Some(s"must be a method")))
+
+          if (!(ancestors contains cid))
+            throw NotWellFormedException(sfd, Some(s"first super is not a method of an ancestor"))
+
           val acd = ancestors(cid)
 
           val fd = getFunction(id)
-          val sfd = getFunction(sid)
 
           if (fd.isAbstract && !sfd.isAbstract)
             throw NotWellFormedException(fd, Some(s"cannot override concrete function with abstract function."))
@@ -104,33 +157,45 @@ trait Trees extends throwing.Trees { self =>
           if (sfd.isFinal)
             throw NotWellFormedException(fd, Some(s"cannot override final function:\n$sfd"))
 
-          if (fd.tparams.size != sfd.tparams.size) throw NotWellFormedException(fd)
+          if (fd.tparams.size != sfd.tparams.size)
+            throw NotWellFormedException(fd, Some(s"type parameters length are not equal"))
+
+          val it = new InstantiateThis(cd.typed.toType)
 
           val tpSubst = (fd.typeArgs zip sfd.typeArgs).toMap
+
           (fd.typeArgs zip sfd.typeArgs).foreach { case (tp, stp) =>
             val TypeBounds(lo, hi, _) = tp.bounds
             val TypeBounds(slo, shi, _) = stp.bounds
 
             if (!isSubtypeOf(
-              typeOps.instantiateType(lo, tpSubst),
-              typeOps.instantiateType(slo, acd.tpSubst))) throw NotWellFormedException(fd)
+              it.transform(typeOps.instantiateType(lo, tpSubst)),
+              it.transform(typeOps.instantiateType(slo, acd.tpSubst)))) {
+                throw NotWellFormedException(fd, Some(s"TODO"))
+              }
 
             if (!isSubtypeOf(
-              typeOps.instantiateType(shi, acd.tpSubst),
-              typeOps.instantiateType(hi, tpSubst))) throw NotWellFormedException(fd)
+              it.transform(typeOps.instantiateType(shi, acd.tpSubst)),
+              it.transform(typeOps.instantiateType(hi, tpSubst)))) {
+                throw NotWellFormedException(fd, Some("TODO"))
+              }
           }
 
-          if (fd.params.size != sfd.params.size) throw NotWellFormedException(fd)
+          if (fd.params.size != sfd.params.size)
+            throw NotWellFormedException(fd, Some("Method override does not have the same number of parameters as parent"))
 
           (fd.params zip sfd.params).foreach { case (vd, svd) =>
-            if (!isSubtypeOf(
-              typeOps.instantiateType(svd.getType, acd.tpSubst),
-              typeOps.instantiateType(vd.getType, tpSubst))) throw NotWellFormedException(fd)
+            val aTpe = it.transform(typeOps.instantiateType(svd.getType, acd.tpSubst))
+            val tpe = it.transform(typeOps.instantiateType(vd.getType, tpSubst))
+            if (!isSubtypeOf(aTpe, tpe))
+              throw NotWellFormedException(fd, Some(s"Parameter ${vd.id} of type $tpe is not a subtype of ancestor $aTpe"))
           }
 
-          if (!isSubtypeOf(
-            typeOps.instantiateType(fd.getType, tpSubst),
-            typeOps.instantiateType(sfd.getType, acd.tpSubst))) throw NotWellFormedException(fd)
+          val t1 = it.transform(typeOps.instantiateType(fd.getType, tpSubst))
+          val t2 = it.transform(typeOps.instantiateType(sfd.getType, acd.tpSubst))
+
+          if (!isSubtypeOf(t1.getType, t2.getType))
+            throw NotWellFormedException(fd, Some(s"return type ${t1} is not a subtype of ${t2}"))
         }
       }
     }
@@ -145,7 +210,9 @@ trait Trees extends throwing.Trees { self =>
     def isAbstract: Boolean = cd.flags contains IsAbstract
 
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
-      s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
+      s.functions.values
+        .filter(_.flags contains IsMethodOf(cd.id))
+        .map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
     }
 
     def invariant(implicit s: Symbols): Option[FunDef] = {
@@ -210,7 +277,7 @@ trait Printer extends throwing.Printer {
       ctx.opts.symbols.foreach { implicit s =>
         if (cd.methods.nonEmpty || cd.typeMembers.nonEmpty) {
           p""" {
-            |  ${typeDefs(cd.typeMembers.map(_.id))}
+            |  ${typeDefs(cd.typeMembers)}
             |
             |  ${functions(cd.methods)}
           |}"""
