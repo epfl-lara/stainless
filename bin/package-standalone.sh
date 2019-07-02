@@ -4,7 +4,7 @@
 #  a fat jar and packages it into an archive that contains additional Z3
 #  dependencies and a launcher script that makes said dependencies available
 #  to the java process.
-#  Currently only linux (i.e. Z3's `ubuntu` binaries) and osx are implemented.
+#  Currently only Linux (i.e. Z3's `ubuntu` binaries) and macOS are implemented.
 # ====
 set -e
 
@@ -19,11 +19,11 @@ Z3_VERSION="4.7.1"
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
 STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
 SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-$SCALA_VERSION.jar"
-SCALAZ3_JAR_OSX_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
+SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
 Z3_LINUX_NAME="z3-$Z3_VERSION-x64-ubuntu-16.04.zip"
-Z3_OSX_NAME="z3-$Z3_VERSION-x64-osx-10.11.6.zip"
+Z3_MAC_NAME="z3-$Z3_VERSION-x64-osx-10.11.6.zip"
 
 LOG="./package-standalone.log"
 
@@ -134,12 +134,12 @@ else
 fi
 
 info "${BLD}\n[] Downloading Z3 binaries..."
-fetch_z3 "linux" $Z3_LINUX_NAME
-fetch_z3 "osx" $Z3_OSX_NAME
+fetch_z3 "Linux" $Z3_LINUX_NAME
+fetch_z3 "macOS" $Z3_MAC_NAME
 
 info "${BLD}\n[] Packaging..."
-package "linux" $SCALAZ3_JAR_LINUX_PATH
-package "osx" $SCALAZ3_JAR_OSX_PATH
+package "Linux" $SCALAZ3_JAR_LINUX_PATH
+package "macOS" $SCALAZ3_JAR_MAC_PATH
 
 info "\n${BLD}[] Cleaning up..."
 rm -r "$TMP_DIR" && okay
