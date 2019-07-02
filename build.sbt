@@ -49,6 +49,13 @@ lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
   sbtVersion,
 )
 
+lazy val noPublishSettings: Seq[Setting[_]] = Seq(
+  publish         := {},
+  publishLocal    := {},
+  publishM2       := {},
+  skip in publish := true,
+)
+
 lazy val baseSettings: Seq[Setting[_]] = Seq(
   organization := "ch.epfl.lara",
   licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html"))
@@ -234,6 +241,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
       cp filter {_.data.getName.startsWith("scalaz3")}
     },
     publish := (()),
+    publishM2 := (()),
     skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
   )
   .dependsOn(`stainless-core`)
@@ -310,7 +318,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     scriptedBufferLog := false,
     scriptedDependencies := {
       publishLocal.value
-      (update in `stainless-library`).value
+      (update       in `stainless-library`).value
       (publishLocal in `stainless-library`).value
       (publishLocal in `stainless-scalac-plugin`).value
     }
@@ -318,11 +326,9 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
 
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
-  .settings(artifactSettings)
+  .settings(artifactSettings, noPublishSettings)
   .settings(
     sourcesInBase in Compile := false,
-    publishArtifact := false, // Don't publish root project
-    publish := (()),
   )
   .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
   .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
