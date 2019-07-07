@@ -78,10 +78,10 @@ trait Trees extends throwing.Trees { self =>
             acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol)
         }
 
-        // if (remainingAbstract.nonEmpty) {
-        //   throw NotWellFormedException(cd,
-        //     Some("Abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
-        // }
+        if (remainingAbstract.nonEmpty) {
+          throw NotWellFormedException(cd,
+            Some("Abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
+        }
       }
 
       // Check that method overrides are well-typed
