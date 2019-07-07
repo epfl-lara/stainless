@@ -165,6 +165,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     } catch {
       case e: syms.TypeErrorException =>
         reportError(e.pos, e.getMessage, syms)
+      case e @ xt.NotWellFormedException(defn, _) =>
+        reportError(defn.getPos, e.getMessage, syms)
     }
 
     reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")

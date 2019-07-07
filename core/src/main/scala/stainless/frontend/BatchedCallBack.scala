@@ -79,6 +79,15 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
         reportError(e.tree.getPos, e.getMessage, symbols)
     }
 
+    try {
+      symbols.ensureWellFormed
+    } catch {
+      case e: symbols.TypeErrorException =>
+        reportError(e.pos, e.getMessage, symbols)
+      case e @ xt.NotWellFormedException(defn, _) =>
+        reportError(defn.getPos, e.getMessage, symbols)
+    }
+
     val reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
       val analysis = Try(run(ids, symbols, filterSymbols = true))

@@ -88,6 +88,14 @@ trait InputUtils {
     // Check that extracted symbols are valid
     TreeSanitizer(xt) check syms
 
+    // Check that extracted symbols are well-formed
+    try {
+      syms.ensureWellFormed
+    } catch {
+      case e @ xt.NotWellFormedException(defn, _) =>
+        throw new extraction.MalformedStainlessCode(defn, e.getMessage)
+    }
+
     (units.sortBy(_.id.name), inox.Program(xt)(syms))
   }
 
