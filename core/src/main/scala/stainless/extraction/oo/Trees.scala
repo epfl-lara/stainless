@@ -136,8 +136,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   /** $encodingof `expr.Type[A, B, ...]` */
   case class TypeApply(selector: TypeSelect, tps: Seq[Type]) extends Type {
     override protected def computeType(implicit s: Symbols): Type = {
+      lazy val dealiased = dealias
       if (getTypeDef.tparams.length != tps.length) Untyped
-      else this
+      else if (isPathDependent) this
+      else if (dealiased != this) dealias.getType
+      else dealiased
     }
 
     val isPathDependent = selector.isPathDependent
