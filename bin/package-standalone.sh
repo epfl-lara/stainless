@@ -9,7 +9,7 @@
 set -e
 
 STAINLESS_VERSION=$(git describe --abbrev=7 | sed 's/v//g')
-if [[ $(git diff --stat) != '' || -n $(git status -s) ]]; then
+if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
@@ -124,7 +124,7 @@ function package {
 
 # -----
 
-echo -e "Starting packaging version $STAINLESS_VERSION on $(date).\n-----\n" > $LOG
+echo -e "Starting packaging version $STAINLESS_VERSION on $(date).\n-----\n" | tee -a $LOG
 
 info "${BLD}[] Assembling fat jar..."
 if [ -f "$STAINLESS_JAR_PATH" ]; then
@@ -134,12 +134,12 @@ else
 fi
 
 info "${BLD}\n[] Downloading Z3 binaries..."
-fetch_z3 "Linux" $Z3_LINUX_NAME
-fetch_z3 "macOS" $Z3_MAC_NAME
+fetch_z3 "linux" $Z3_LINUX_NAME
+fetch_z3 "mac" $Z3_MAC_NAME
 
 info "${BLD}\n[] Packaging..."
-package "Linux" $SCALAZ3_JAR_LINUX_PATH
-package "macOS" $SCALAZ3_JAR_MAC_PATH
+package "linux" $SCALAZ3_JAR_LINUX_PATH
+package "mac" $SCALAZ3_JAR_MAC_PATH
 
 info "\n${BLD}[] Cleaning up..."
 rm -r "$TMP_DIR" && okay
