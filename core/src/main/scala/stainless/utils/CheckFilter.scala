@@ -3,6 +3,8 @@
 package stainless
 package utils
 
+import inox.Reporter
+
 /** Filter functions for verification purposes. */
 trait CheckFilter {
   protected val context: inox.Context
@@ -45,6 +47,35 @@ trait CheckFilter {
         if (p endsWith Seq("_")) path containsSlice p.init
         else path endsWith p
       }
+  }
+
+  def filter(ids: Seq[Identifier], symbols: trees.Symbols, reporter: Reporter, componentName: String): Seq[Identifier] = {
+    def isDerivedFrom(ids: Set[Identifier])(fd: trees.FunDef): Boolean =
+      fd.flags.exists { case trees.Derived(id) => ids(id) case _ => false }
+
+    val init = ids.flatMap(id => symbols.lookupFunction(id).toSeq).filter(shouldBeChecked).map(_.id).toSet
+
+    println(('ids, ids.map(_.asString(new trees.PrinterOptions(printUniqueIds = true)))))
+    println(('init, init.map(_.asString(new trees.PrinterOptions(printUniqueIds = true)))))
+
+    val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
+      ids ++ symbols.functions.values.toSeq
+        .filter(isDerivedFrom(ids))
+        .filter(shouldBeChecked)
+        .map(_.id)
+    } (init)
+
+    val toProcess = toCheck.toSeq.sortBy(symbols.getFunction(_).getPos)
+
+    for (id <- toProcess) {
+      val fd = symbols.getFunction(id)
+      if (fd.flags exists (_.name == "library")) {
+        val fullName = fd.id.fullName
+        reporter.warning(s"Component [${componentName}]: Forcing processing of $fullName which was assumed verified")
+      }
+    }
+
+    toProcess
   }
 
   /** Checks whether the given function/class should be verified at some point. */
