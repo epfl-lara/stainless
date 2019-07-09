@@ -1,6 +1,14 @@
 
 # Release Notes
 
+## Version 0.3.1 (09-06-2019)
+
+- Add testcase for #532 (#589)
+- Add documentation about the Gitter8 template, and re-order some sections (#588)
+- Re-enable check for abstract methods overrides and consider methods of abstract classes with empty body to be abstract (#587)
+- Dealias type aliases more eagerly (#585)
+- Add microtests from recently closed issues (#578)
+
 ## Version 0.3.0 (02-06-2019)
 
 - Display counter-examples when using metals (#579)
