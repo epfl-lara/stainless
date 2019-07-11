@@ -4,6 +4,7 @@ package stainless
 package frontend
 
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
+import stainless.utils.LibraryFilter._
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
@@ -47,76 +48,30 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
-    implicit val popts = xt.PrinterOptions.fromContext(context)
-
-    def shouldRemoveLibraryFlag(fn: xt.FunDef, symbols: xt.Symbols): Boolean = {
-      if(fn.flags.contains(xt.Synthetic) || !fn.isLibrary || !fn.isLaw)
-        false
-      else {
-        val optClass = fn.getClassDef(symbols)
-
-        optClass match {
-          case None => false
-          case Some(cd) =>
-            (for {
-              subclass <- cd.descendants(symbols)
-              
-              // Check if subclass is not library
-              if !subclass.isLibrary
-
-              // Check if the subclass doesn't override the method with one that is specifically flagged as library
-              if !subclass.methods(symbols).map(symbols.getFunction).exists(subFn =>
-                    subFn.id.name == fn.id.name && subFn.isLibrary)
-            } yield subclass).nonEmpty
-        }
-      }
-    }
-
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
   
-    val funsToRemoveLibrary: Set[Identifier] =
-      (for {
-        fd <- allSymbols.functions.values
-        if shouldRemoveLibraryFlag(fd, allSymbols)
-      } yield fd.id).toSet
-
-    def removeLibrary(fd: xt.FunDef): xt.FunDef =
-      if (funsToRemoveLibrary.contains(fd.id))
-        fd.copy(flags = fd.flags.filterNot(_.name == "library"))
-      else
-        fd
-
-    currentFunctions = currentFunctions.map(removeLibrary)
-  
-    val allSymbolsLibraryFlagRemoved = xt.NoSymbols
-      .withClasses(currentClasses)
-      .withFunctions(currentFunctions)
-      .withTypeDefs(currentTypeDefs)
+    val symbolsRmFlag = removeLibraryFlag(allSymbols)
 
     def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
 
     val userIds =
-      currentClasses.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      currentFunctions.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
-      currentTypeDefs.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
-    
-    // println(userIds.map(_.asString))
+      symbolsRmFlag.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
+      symbolsRmFlag.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
+      symbolsRmFlag.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
 
-    val userDependencies = userIds.flatMap(id => allSymbolsLibraryFlagRemoved.dependencies(id)) ++ userIds
+    val userDependencies = (userIds.flatMap(id => symbolsRmFlag.dependencies(id)) ++ userIds).toSeq
     val keepGroups = context.options.findOptionOrDefault(optKeep)
 
     def hasKeepFlag(flags: Seq[xt.Flag]) =
       keepGroups.exists(g => flags.contains(xt.Annotation("keep", Seq(xt.StringLiteral(g)))))
 
     val preSymbols =
-      xt.NoSymbols.withClasses(currentClasses.filter(cd => hasKeepFlag(cd.flags) || userDependencies.contains(cd.id)))
-                  .withFunctions(currentFunctions.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)))
-                  .withTypeDefs(currentTypeDefs.filter(td => hasKeepFlag(td.flags) || userDependencies.contains(td.id)))
-
-    // println(preSymbols.asString)
+      xt.NoSymbols.withClasses(symbolsRmFlag.classes.values.filter(cd => hasKeepFlag(cd.flags) || userDependencies.contains(cd.id)).toSeq)
+                  .withFunctions(symbolsRmFlag.functions.values.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)).toSeq)
+                  .withTypeDefs(symbolsRmFlag.typeDefs.values.filter(td => hasKeepFlag(td.flags) || userDependencies.contains(td.id)).toSeq)
 
     val symbols = Recovery.recover(preSymbols)
 
