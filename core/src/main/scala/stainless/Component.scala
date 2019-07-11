@@ -99,9 +99,6 @@ trait ComponentRun { self =>
 
     val toProcess = extractionFilter.filter(ids, exSymbols, reporter, component.name)
 
-    println(toProcess.map(_.asString(new xt.PrinterOptions(printUniqueIds = true))))
-    println(exSymbols.asString(new trees.PrinterOptions(printUniqueIds = true)))
-
     if (filterSymbols)
       execute(toProcess, filter(toProcess, exSymbols))
     else
