@@ -238,6 +238,7 @@ trait Laws
           .map(tp => t.TypeParameterDef(transform(tp, env).asInstanceOf[t.TypeParameter]).copiedFrom(tp))
         val params = lawFd.params
           .map(vd => transform(vd.copy(tpe = s.typeOps.instantiateType(vd.tpe, acd.tpSubst)), env))
+        val libraryFlag = if (cd.flags.contains(s.Library)) Seq(t.Library, t.Unchecked) else Seq.empty
 
         t.exprOps.freshenSignature(new t.FunDef(
           SymbolIdentifier(lawFd.id.unsafeToSymbolIdentifier.symbol),
@@ -255,7 +256,7 @@ trait Laws
               ).setPos(lawFd)
             ).setPos(lawFd)
           ).setPos(lawFd),
-          Seq(t.IsMethodOf(cd.id), t.Derived(lawFd.id), t.Law)
+          Seq(t.IsMethodOf(cd.id), t.Derived(lawFd.id), t.Law) ++ libraryFlag.toSeq
         ).setPos(cd))
       }
 
