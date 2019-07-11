@@ -194,6 +194,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Private => (Seq(), Seq(), Seq(), (_, _, _) => t.Private)
     case s.Final => (Seq(), Seq(), Seq(), (_, _, _) => t.Final)
     case s.Unchecked => (Seq(), Seq(), Seq(), (_, _, _) => t.Unchecked)
+    case s.Library => (Seq(), Seq(), Seq(), (_, _, _) => t.Library)
     case s.Synthetic => (Seq(), Seq(), Seq(), (_, _, _) => t.Synthetic)
     case s.Derived(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.Derived(ids.head))
     case s.IsField(isLazy) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsField(isLazy))

@@ -143,6 +143,7 @@ trait Trees extends throwing.Trees { self =>
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
     def isAbstract: Boolean = cd.flags contains IsAbstract
+    def isLibrary: Boolean = cd.flags contains Library
 
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values.filter(_.flags contains IsMethodOf(cd.id)).map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
@@ -184,6 +185,7 @@ trait Trees extends throwing.Trees { self =>
     def isInvariant: Boolean = fd.flags contains IsInvariant
     def isExtern: Boolean = fd.flags contains Extern
     def isLaw: Boolean = fd.flags contains Law
+    def isLibrary: Boolean = fd.flags contains Library
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
