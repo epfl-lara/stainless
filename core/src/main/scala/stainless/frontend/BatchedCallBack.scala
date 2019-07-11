@@ -49,41 +49,26 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def endExtractions(): Unit = {
     implicit val popts = xt.PrinterOptions.fromContext(context)
 
-    def rewriteSymbols(symbols: xt.Symbols): xt.Symbols = {
-      // remove library flag from all classes and laws that have subclasses without @library
-      ???
-    }
-
-    def keepDefinition(defn: xt.Definition, symbols: xt.Symbols): Boolean = {
-      if(defn.flags.contains(xt.Synthetic))
+    def shouldRemoveLibraryFlag(fn: xt.FunDef, symbols: xt.Symbols): Boolean = {
+      if(fn.flags.contains(xt.Synthetic) || !fn.isLibrary || !fn.isLaw)
         false
-      else defn match {
-        case cd: xt.ClassDef => !cd.flags.exists(f => f.name == "library")
-        case td: xt.TypeDef => !td.flags.exists(f => f.name == "library")
-        case fn: xt.FunDef =>
-          val isLibrary = fn.flags.exists(f => f.name == "library")
+      else {
+        val optClass = fn.getClassDef(symbols)
 
-          if (fn.isLaw)
-            if(isLibrary) {
-              val optClass = fn.getClassDef(symbols)
+        optClass match {
+          case None => false
+          case Some(cd) =>
+            (for {
+              subclass <- cd.descendants(symbols)
 
-              optClass match {
-                case None => false
-                case Some(cd) => {
+              // Check if subclass is not library
+              if !subclass.isLibrary
 
-                  (for {
-                    subclass <- cd.descendants(symbols)
-
-                    if !subclass.flags.exists(f => f.name == "library")
-                    if !subclass.methods(symbols).map(symbols.getFunction).exists(subFn => subFn.id.name == fn.id.name && subFn.flags.exists(flag => flag.name == "library"))
-                  } yield subclass).nonEmpty
-                }
-              }
-
-            } else
-              true
-          else
-            !isLibrary
+              // Check if the subclass doesn't override the method with one that is specifically flagged as library
+              if !subclass.methods(symbols).map(symbols.getFunction).exists(subFn =>
+                    subFn.id.name == fn.id.name && subFn.isLibrary)
+            } yield subclass).nonEmpty
+        }
       }
     }
 
@@ -92,16 +77,35 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
 
+    val funsToRemoveLibrary: Set[Identifier] =
+      (for {
+        fd <- allSymbols.functions.values
+        if shouldRemoveLibraryFlag(fd, allSymbols)
+      } yield fd.id).toSet
+
+    def removeLibrary(fd: xt.FunDef): xt.FunDef =
+      if (funsToRemoveLibrary.contains(fd.id))
+        fd.copy(flags = fd.flags.filterNot(_.name == "library"))
+      else
+        fd
+
+    currentFunctions = currentFunctions.map(removeLibrary)
+
+    val allSymbolsLibraryFlagRemoved = xt.NoSymbols
+      .withClasses(currentClasses)
+      .withFunctions(currentFunctions)
+      .withTypeDefs(currentTypeDefs)
+
     def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
 
     val userIds =
-      currentClasses.filter(cd => keepDefinition(cd, allSymbols)).map(_.id) ++
-      currentFunctions.filter(fd => keepDefinition(fd, allSymbols)).map(_.id) ++
-      currentTypeDefs.filter(td => keepDefinition(td, allSymbols)).map(_.id)
+      currentClasses.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
+      currentFunctions.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
+      currentTypeDefs.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
 
     // println(userIds.map(_.asString))
 
-    val userDependencies = userIds.flatMap(id => allSymbols.dependencies(id)) ++ userIds
+    val userDependencies = userIds.flatMap(id => allSymbolsLibraryFlagRemoved.dependencies(id)) ++ userIds
     val keepGroups = context.options.findOptionOrDefault(optKeep)
 
     def hasKeepFlag(flags: Seq[xt.Flag]) =
