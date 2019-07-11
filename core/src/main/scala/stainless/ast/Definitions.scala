@@ -18,6 +18,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Private extends Flag("private", Seq.empty)
   case object Final extends Flag("final", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
+  case object Library extends Flag("library", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
@@ -32,6 +33,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
+    case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
     case _ => Annotation(name, args)
   }
