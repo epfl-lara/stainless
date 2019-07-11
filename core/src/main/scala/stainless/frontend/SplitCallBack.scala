@@ -3,6 +3,8 @@
 package stainless
 package frontend
 
+import stainless.utils.LibraryFilter._
+
 import scala.language.existentials
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
@@ -60,6 +62,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   final override def failed(): Unit = ()
 
   final override def endExtractions(): Unit = {
+    symbols = removeLibraryFlag(symbols)
+
     processSymbols(symbols)
 
     if (report != null) report = report.filter(recentIdentifiers.toSet)
