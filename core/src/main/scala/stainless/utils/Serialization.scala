@@ -55,6 +55,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[Extern.type]     (139),
       classSerializer[Opaque.type]     (140),
       classSerializer[Unchecked.type]  (141),
+      classSerializer[Library.type]    (158),
       classSerializer[Derived]         (142),
       classSerializer[IsField]         (143),
       classSerializer[IsUnapply]       (144),
