@@ -10,6 +10,9 @@ stainless.conf
 # emacs
 *~
 
+# Ripgrep
+.rgignore
+
 # ensime
 .ensime
 .ensime_cache
