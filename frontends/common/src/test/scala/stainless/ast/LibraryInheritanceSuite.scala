@@ -72,7 +72,7 @@ class LibraryInheritanceSuite extends FunSuite with InputUtils {
     val law_commu = libraryBigInt.methods(symbols).map(symbols.getFunction).find(_.id.name == "law_commutative").get
     val law_asso = libraryBigInt.methods(symbols).map(symbols.getFunction).find(_.id.name == "law_associative").get
 
-    assert(libraryAppend.flags.exists(_.name == "library"))
+    assert(libraryAppend.flags.contains(xlangProgram.trees.Library))
     assert(law_commu.flags.contains(Library))
     assert(law_asso.flags.contains(Library))
   }

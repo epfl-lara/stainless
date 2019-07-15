@@ -55,9 +55,6 @@ trait CheckFilter {
 
     val init = ids.flatMap(id => symbols.lookupFunction(id).toSeq).filter(shouldBeChecked).map(_.id).toSet
 
-    println(('ids, ids.map(_.asString(new trees.PrinterOptions(printUniqueIds = true)))))
-    println(('init, init.map(_.asString(new trees.PrinterOptions(printUniqueIds = true)))))
-
     val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
       ids ++ symbols.functions.values.toSeq
         .filter(isDerivedFrom(ids))
