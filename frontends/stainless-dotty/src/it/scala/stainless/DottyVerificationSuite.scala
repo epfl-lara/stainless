@@ -22,7 +22,9 @@ trait DottyVerificationSuite extends ComponentTestSuite {
     case _ => super.filter(ctx, name)
   }
 
-  testAll("dotty-specific/valid") { (analysis, reporter) =>
+  val folder: String
+
+  testAll(folder) { (analysis, reporter) =>
     assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
@@ -39,4 +41,19 @@ class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {
       inox.solvers.optCheckModels(true)
     ) ++ seq
   }
+
+  val folder = "dotty-specific/valid"
+}
+
+
+class SMTZ3TypeCheckerDottyVerificationSuite extends DottyVerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.solvers.optCheckModels(true),
+      optTypeChecker(true)
+    ) ++ seq
+  }
+
+  val folder = "dotty-specific/typechecker"
 }
