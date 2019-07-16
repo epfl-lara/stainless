@@ -1,6 +1,10 @@
 
 # Release Notes
 
+## Version 0.3.2 (16-06-2019)
+
+- Improve support for type members and type aliases (#580)
+
 ## Version 0.3.1 (09-06-2019)
 
 - Add testcase for #532 (#589)
