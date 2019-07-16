@@ -6,7 +6,7 @@ object JoinSemilattice {
   abstract class JoinSemilattice[A] {
     def join(x: A, y: A): A
 
-    private def lteqv(x: A, y: A): Boolean = join(x, y) == y
+    final def lteqv(x: A, y: A): Boolean = join(x, y) == y
 
     @law
     def law_associativity(x: A, y: A, z: A): Boolean = {
