@@ -6,7 +6,7 @@ object MeetSemilattice {
   abstract class MeetSemilattice[A] {
     def meet(x: A, y: A): A
 
-    private def lteqv(x: A, y: A): Boolean = meet(x, y) == x
+    final def lteqv(x: A, y: A): Boolean = meet(x, y) == x
 
     @law
     def law_associativity(x: A, y: A, z: A): Boolean = {
