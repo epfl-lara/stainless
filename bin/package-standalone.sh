@@ -52,6 +52,21 @@ TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-package-standalone")
 
 STAINLESS_JAR_BASENAME=$(basename "$STAINLESS_JAR_PATH")
 
+function check_tools {
+  for tool in \
+    wget \
+    unzip \
+    zip \
+    ; do
+    if ! which ${tool} > /dev/null; then
+      echo "Missing required utility \"${tool}\"; please install it" >> $LOG
+      fail
+    fi
+  done
+
+  okay
+}
+
 function fetch_z3 {
   local PLAT="$1"
   local NAME="$2"
@@ -125,6 +140,9 @@ function package {
 # -----
 
 echo -e "Starting packaging version $STAINLESS_VERSION on $(date).\n-----\n" | tee -a $LOG
+
+info "${BLD}[] Checking required tools..."
+check_tools
 
 info "${BLD}[] Assembling fat jar..."
 if [ -f "$STAINLESS_JAR_PATH" ]; then
