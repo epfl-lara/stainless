@@ -83,7 +83,16 @@ function generate_launcher {
 
 BASE_DIR="\$( cd "\$( dirname "\${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 Z3_DIR="\$BASE_DIR/z3"
-JARS="\$BASE_DIR/lib/$STAINLESS_JAR_BASENAME:\$BASE_DIR/lib/$SCALAZ3_JAR_BASENAME"
+STAINLESS_JAR="\$BASE_DIR/lib/$STAINLESS_JAR_BASENAME"
+SCALAZ3_JAR="\$BASE_DIR/lib/$SCALAZ3_JAR_BASENAME"
+JARS="\$STAINLESS_JAR:\$SCALAZ3_JAR"
+
+for JAR in \$STAINLESS_JAR \$SCALAZ3_JAR; do
+  if ! [[ -r \$JAR ]]; then
+    echo "Read access for the jar file \$JAR is required."
+    exit 1
+  fi
+done
 
 exec env PATH="\$Z3_DIR:\$PATH" java -cp \$JARS \$JAVA_OPTS stainless.Main "\$@"
 END
