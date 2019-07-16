@@ -24,10 +24,6 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "typechecker/valid/SuperCall5" => Ignore
     case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
 
-    // FIXME: Indexed recursive types are only supported by the Dotty frontend
-    // We could move the type-checker suite to the Dotty tests
-    case "typechecker/valid/Streams" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 
