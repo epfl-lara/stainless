@@ -165,6 +165,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     } catch {
       case e: syms.TypeErrorException =>
         reportError(e.pos, e.getMessage, syms)
+      case e @ xt.NotWellFormedException(defn, _) =>
+        reportError(defn.getPos, e.getMessage, syms)
     }
 
     reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
@@ -209,7 +211,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
     reporter.error(pos, msg)
-    reporter.error(s"The extracted sub-program in not well formed.")
+    reporter.error(s"The extracted sub-program is not well formed.")
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")

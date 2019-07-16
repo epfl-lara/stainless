@@ -17,15 +17,17 @@ trait FieldAccessors extends oo.CachingPhase
   val t: oo.Trees
   import s._
 
-  private def dropAccessor(fd: FunDef): Boolean = isConcreteAccessor(fd) || isExternAccessor(fd)
-  private def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
-  private def isExternAccessor(fd: FunDef): Boolean = fd.isAccessor && fd.isExtern
-
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
+
+    implicit private val syms = symbols
+
+    def dropAccessor(fd: FunDef): Boolean = isConcreteAccessor(fd) || isExternAccessor(fd)
+    def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
+    def isExternAccessor(fd: FunDef): Boolean = fd.isAccessor && fd.isExtern
 
     override def transform(e: s.Expr): t.Expr = e match {
       case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
@@ -50,7 +52,7 @@ trait FieldAccessors extends oo.CachingPhase
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
     (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
       .flatMap(id => ctx.symbols.lookupFunction(id))
-      .filter(dropAccessor)
+      .filter(ctx.dropAccessor)
       .map(_.id)
     )(ctx.symbols)
   })
@@ -59,7 +61,7 @@ trait FieldAccessors extends oo.CachingPhase
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (dropAccessor(fd)) None else Some(context.transform(fd))
+    if (context.dropAccessor(fd)) None else Some(context.transform(fd))
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)

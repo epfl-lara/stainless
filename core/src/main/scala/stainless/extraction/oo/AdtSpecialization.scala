@@ -68,7 +68,7 @@ trait AdtSpecialization
     protected implicit val implicitContext: TransformerContext = this
 
     override def transform(e: s.Expr): t.Expr = e match {
-      case s.ClassSelector(expr, selector) => s.dealias(expr.getType) match {
+      case s.ClassSelector(expr, selector) => expr.getType match {
         case s.ClassType(id, tps) if isCandidate(id) =>
           t.ADTSelector(transform(expr), selector).copiedFrom(e)
         case _ => super.transform(e)
@@ -122,7 +122,7 @@ trait AdtSpecialization
         .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
           val rootCd = symbols.getClass(root(cd.id))
           val classes = Set(rootCd.id) ++ rootCd.descendants.map(_.id)
-          classes ++ classes.flatMap(id => symbols.getClass(id).typeMembers.map(_.id))
+          classes ++ classes.flatMap(id => symbols.getClass(id).typeMembers)
         })
     )
   // The function cache must consider the descendants of all classes on which the

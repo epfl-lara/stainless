@@ -1,4 +1,4 @@
-Stainless 0.2 [![Build Status](http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master)](http://laraquad4.epfl.ch:9000/epfl-lara/stainless) [![Gitter chat](https://img.shields.io/gitter/room/gitterHQ/gitter.svg)](https://gitter.im/epfl-lara/stainless)
+Stainless 0.3.1 [![Build Status](http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master)](http://laraquad4.epfl.ch:9000/epfl-lara/stainless) [![Gitter chat](https://img.shields.io/gitter/room/gitterHQ/gitter.svg)](https://gitter.im/epfl-lara/stainless)
 =============
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language.

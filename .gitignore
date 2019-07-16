@@ -10,6 +10,9 @@ stainless.conf
 # emacs
 *~
 
+# Ripgrep
+.rgignore
+
 # ensime
 .ensime
 .ensime_cache
@@ -75,3 +78,6 @@ out-classes
 # metals and VSCode
 .vscode
 .metals
+
+# ripgrep
+.rgignore

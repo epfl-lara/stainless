@@ -176,10 +176,17 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           rec(ADTSelector(expr, id), xs)
 
         case ClassFieldAccessor(id) +: xs =>
-          symbols.classForField(expr.getType.asInstanceOf[ClassType], id) match {
-            case Some(tcd) => rec(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
-            case None => None
+          def asClassType(tpe: Type): Option[ClassType] = tpe match {
+            case ct: ClassType => Some(ct)
+            case ta: TypeApply if !ta.isAbstract => asClassType(ta.resolve)
+            case other => None
           }
+
+          for {
+            ct  <- asClassType(expr.getType)
+            tcd <- symbols.classForField(ct, id)
+            res <- rec(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
+          } yield res
 
         case ArrayAccessor(idx) +: xs =>
           rec(ArraySelect(expr, idx), xs)
@@ -360,7 +367,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   protected def typeToAccessor(tpe: Type, id: Identifier)(implicit s: Symbols): Accessor = tpe match {
     case at: ADTType   => ADTFieldAccessor(id)
     case ct: ClassType => ClassFieldAccessor(id)
-    case ta: TypeApply => typeToAccessor(ta.dealias, id)
+    case ta: TypeApply => typeToAccessor(ta.getType, id)
     case _ => throw FatalError(s"Cannot have accessors over type $tpe")
   }
 

@@ -9,8 +9,7 @@ package object xlang {
 
   object trees extends xlang.Trees with oo.ClassSymbols {
     case class Symbols(
-      functions: Map[Identifier, FunDef],
-      sorts: Map[Identifier, ADTSort],
+      functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
     ) extends ClassSymbols with AbstractSymbols

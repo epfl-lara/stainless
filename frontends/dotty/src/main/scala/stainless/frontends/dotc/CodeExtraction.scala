@@ -276,21 +276,19 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractTypeDef(td: tpd.TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
     val sym = td.symbol
     val id = getIdentifier(sym)
-    val flags = annotationsOf(sym) ++
-      (if (sym is Abstract) Some(xt.IsAbstract) else None)
+    val flags = annotationsOf(sym)
 
-    val (tparams, body) = td.rhs match {
+    val (tparams, body, isAbstract) = td.rhs match {
       case LambdaTypeTree(tparams, body) =>
         val typeParamsSymbols = typeParamSymbols(tparams)
         val typeParams = extractTypeParams(typeParamsSymbols)
         val tpCtx = dctx.withNewTypeParams(typeParamsSymbols zip typeParams)
         val typeBody = extractType(body)(tpCtx)
-        (typeParams, typeBody)
+        (typeParams, typeBody, false)
 
       case TypeBoundsTree(lo, hi) =>
         val (loType, hiType) = (extractType(lo)(dctx), extractType(hi)(dctx))
-        val fls = flags.filterNot(_ == xt.IsAbstract)
-        (Seq.empty, xt.TypeBounds(loType, hiType, flags))
+        (Seq.empty, xt.TypeBounds(loType, hiType, Seq.empty), true)
 
       case tpt =>
         val tpe =
@@ -299,7 +297,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           else
             tpt.tpe
 
-        (Seq.empty, extractType(tpt, tpe))
+        (Seq.empty, extractType(tpt, tpe), false)
     }
 
     // Opaque types are referenced from their opaque right-hand side for some reason.
@@ -309,7 +307,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       realId,
       tparams.map(xt.TypeParameterDef(_)),
       body,
-      flags
+      flags ++ (if (isAbstract) Seq(xt.IsAbstract) else Seq.empty)
     )
   }
 

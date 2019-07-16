@@ -79,18 +79,25 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
         reportError(e.tree.getPos, e.getMessage, symbols)
     }
 
+    try {
+      symbols.ensureWellFormed
+    } catch {
+      case e: symbols.TypeErrorException =>
+        reportError(e.pos, e.getMessage, symbols)
+      case e @ xt.NotWellFormedException(defn, _) =>
+        reportError(defn.getPos, e.getMessage, symbols)
+    }
+
     val reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
-      val analysis = Try(run(ids, symbols, filterSymbols = true))
+      val analysis = Try(Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf))
+
       analysis match {
         case Success(analysis) =>
-          val report = Await.result(analysis, Duration.Inf).toReport
-          RunReport(run)(report)
+          RunReport(run)(analysis.toReport)
 
         case Failure(err) =>
-          val msg = s"Run has failed with error: $err\n\n" +
-                    err.getStackTrace.map(_.toString).mkString("\n")
-
+          val msg = s"Run has failed with error: $err\n\n" + err.getStackTrace.map(_.toString).mkString("\n")
           reporter.fatalError(msg)
       }
     }
@@ -110,7 +117,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
     reporter.error(pos, msg)
-    reporter.error(s"The extracted program in not well formed.")
+    reporter.error(s"The extracted program is not well formed.")
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")

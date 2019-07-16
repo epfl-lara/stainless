@@ -51,7 +51,6 @@ lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
 
 lazy val noPublishSettings: Seq[Setting[_]] = Seq(
   publish         := {},
-  publishLocal    := {},
   publishM2       := {},
   skip in publish := true,
 )
@@ -110,11 +109,11 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   Keys.fork in run := true,
 
+  /* javaOptions in run += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
+
   testOptions in Test := Seq(Tests.Argument("-oDF")),
 
   testOptions in IntegrationTest := Seq(Tests.Argument("-oDF")),
-
-  mappings in (Compile, packageDoc) := Seq()
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = Seq(
@@ -228,7 +227,9 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings, scriptSettings, assemblySettings)
+  .settings(commonSettings, commonFrontendSettings)
+  .settings(scriptSettings, assemblySettings)
+  .settings(noPublishSettings)
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
@@ -240,9 +241,6 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
       // Don't include scalaz3 dependency because it is OS dependent
       cp filter {_.data.getName.startsWith("scalaz3")}
     },
-    publish := (()),
-    publishM2 := (()),
-    skip in publish := true // following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
   )
   .dependsOn(`stainless-core`)
   //.dependsOn(inox % "test->test;it->test,it")
@@ -279,10 +277,12 @@ lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
 lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings, artifactSettings, scriptSettings)
+  .settings(commonSettings, commonFrontendSettings)
+  .settings(artifactSettings, scriptSettings)
+  .settings(noPublishSettings)
   .settings(
     name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler"
+    frontendClass := "dotc.DottyCompiler",
   )
   //.dependsOn(inox % "test->test;it->test,it")
   .dependsOn(`stainless-dotty-frontend`)

@@ -60,6 +60,9 @@ trait RefinementLifting
           Some(s.RefinementType(nvd, npred).copiedFrom(tpe))
         }
 
+      case ta: s.TypeApply if !ta.isAbstract =>
+        Some(ta.resolve)
+
       case _ => None
     } (tpe)
 

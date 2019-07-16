@@ -72,7 +72,7 @@ trait MethodLifting
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
-        val ct = s.dealias(rec.getType(symbols))(symbols).asInstanceOf[s.ClassType]
+        val ct = rec.getType(symbols).asInstanceOf[s.ClassType]
         val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
         val tcd = (ct.tcd(symbols) +: ct.tcd(symbols).ancestors).find(_.id == cid).get
         t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
@@ -327,12 +327,12 @@ trait MethodLifting
 }
 
 object MethodLifting {
-  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: ts.type
-    val t: tt.type
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
   } = new MethodLifting {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
+    override val s: trees.type = trees
+    override val t: trees.type = trees
     override val context = ctx
   }
 }
