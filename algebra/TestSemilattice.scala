@@ -9,21 +9,21 @@ object TestSemilattice {
   import BoundedJoinSemilattice._
   import BoundedMeetSemilattice._
 
-  implicit def maxSemilattice: JoinSemilattice[BigInt] = new JoinSemilattice[BigInt] {
+  def maxSemilattice: JoinSemilattice[BigInt] = new JoinSemilattice[BigInt] {
     def join(x: BigInt, y: BigInt): BigInt = stainless.math.max(x, y)
   }
 
-  implicit def minSemilattice: MeetSemilattice[BigInt] = new MeetSemilattice[BigInt] {
+  def minSemilattice: MeetSemilattice[BigInt] = new MeetSemilattice[BigInt] {
     def meet(x: BigInt, y: BigInt): BigInt = stainless.math.min(x, y)
   }
 
-  implicit def maxNatSemilattice: BoundedJoinSemilattice[Nat] = new BoundedJoinSemilattice[Nat] {
+  def maxNatSemilattice: BoundedJoinSemilattice[Nat] = new BoundedJoinSemilattice[Nat] {
     def zero: Nat = Nat(0)
 
     def join(x: Nat, y: Nat): Nat = stainless.math.max(x, y)
   }
 
-  implicit def andSemilattice: BoundedMeetSemilattice[Boolean] = new BoundedMeetSemilattice[Boolean] {
+  def andSemilattice: BoundedMeetSemilattice[Boolean] = new BoundedMeetSemilattice[Boolean] {
     def one: Boolean = true
 
     def meet(x: Boolean, y: Boolean): Boolean = x && y
