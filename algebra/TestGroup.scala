@@ -6,7 +6,7 @@ import stainless.math.Nat
 object TestGroup {
   import Group._
 
-  case class Addition() extends Group[BigInt] {
+  implicit def additionGroup: Group[BigInt] = new Group[BigInt] {
     def combine(x: BigInt, y: BigInt): BigInt = x + y
 
     def identity: BigInt = 0
