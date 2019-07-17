@@ -3,7 +3,7 @@
 package stainless
 package frontend
 
-import stainless.utils.LibraryFilter._
+import stainless.utils.LibraryFilter
 
 import scala.language.existentials
 
@@ -62,7 +62,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   final override def failed(): Unit = ()
 
   final override def endExtractions(): Unit = {
-    symbols = removeLibraryFlag(symbols)
+    symbols = LibraryFilter.removeLibraryFlag(symbols)
 
     processSymbols(symbols)
 

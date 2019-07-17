@@ -97,7 +97,7 @@ trait ComponentRun { self =>
   def apply(ids: Seq[Identifier], symbols: xt.Symbols, filterSymbols: Boolean = false): Future[Analysis] = try {
     val exSymbols = extract(symbols)
 
-    val toProcess = extractionFilter.filter(ids, exSymbols, reporter, component.name)
+    val toProcess = extractionFilter.filter(ids, exSymbols, component)
 
     if (filterSymbols)
       execute(toProcess, filter(toProcess, exSymbols))
