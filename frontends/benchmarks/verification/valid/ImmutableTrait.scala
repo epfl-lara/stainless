@@ -9,6 +9,6 @@ trait B {
     // We can ensure that `a` has not changed during the call to `f`
     // because ImmutableTrait has no var's and is assumed immutable.
     // See similar example in imperative/invalid/MutableTrait.scala
-    assert(a == a0)
+    stainless.lang.StaticChecks.assert(a == a0)
   }
 }

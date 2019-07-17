@@ -12,6 +12,7 @@ trait Types extends methods.Trees { self: Trees =>
     tps: Seq[Type],
     ancestors: Seq[Type]
   ) extends Type {
+    def toClassTypeAbs(implicit syms: Symbols): ClassTypeAbs = ClassTypeAbs(this)
     def toClassType: ClassType = ClassType(id, tps)
   }
 

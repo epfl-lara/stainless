@@ -19,6 +19,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     val flags: Seq[Flag]
   ) extends Definition {
 
+    def isAbstract: Boolean = flags.contains(IsAbstract)
+    def isSealed: Boolean = flags.contains(IsSealed)
+
     def ancestors(implicit s: Symbols): Seq[TypedClassDef] = {
       val allAncestors = parents.flatMap(_.lookupClass).flatMap(tcd => tcd +: tcd.ancestors)
       val typedMap = allAncestors.groupBy(_.cd).map { case (cd, tcds) =>
