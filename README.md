@@ -1,4 +1,4 @@
-Stainless 0.3.1 [![Build Status](http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master)](http://laraquad4.epfl.ch:9000/epfl-lara/stainless) [![Gitter chat](https://img.shields.io/gitter/room/gitterHQ/gitter.svg)](https://gitter.im/epfl-lara/stainless)
+Stainless [![Release][release-img]][latest-release] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 =============
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language.
@@ -27,3 +27,13 @@ termination checking features of Leon. The new projects aim to provide a more st
 principled implementation of the verification techniques underlying Leon. Feature-wise,
 Stainless has already outgrown Leon verification and provides new features such as higher-order
 contracts and contract-based termination checking.
+
+[latest-release]: https://github.com/epfl-lara/stainless/releases/latest
+[license-img]: https://img.shields.io/badge/license-Apache_2.0-blue.svg?color=134EA2
+[license-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless
+[gitter-img]: https://img.shields.io/gitter/room/gitterHQ/gitter.svg
+[gitter-ref]: https://gitter.im/epfl-lara/stainless
+[larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master
+[larabot-ref]: https://travis-ci.org/amnh/PCGhive/master.zip
+[release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
+[tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout
