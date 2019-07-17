@@ -4,7 +4,7 @@ package stainless
 package frontend
 
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
-import stainless.utils.LibraryFilter._
+import stainless.utils.LibraryFilter
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
@@ -53,25 +53,28 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
 
-    val symbolsRmFlag = removeLibraryFlag(allSymbols)
+    val initialSymbols = LibraryFilter.removeLibraryFlag(allSymbols)
 
     def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
 
     val userIds =
-      symbolsRmFlag.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      symbolsRmFlag.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
-      symbolsRmFlag.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
+      initialSymbols.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
+      initialSymbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
+      initialSymbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
 
-    val userDependencies = (userIds.flatMap(id => symbolsRmFlag.dependencies(id)) ++ userIds).toSeq
+    val userDependencies = (userIds.flatMap(initialSymbols.dependencies) ++ userIds).toSeq
     val keepGroups = context.options.findOptionOrDefault(optKeep)
 
     def hasKeepFlag(flags: Seq[xt.Flag]) =
       keepGroups.exists(g => flags.contains(xt.Annotation("keep", Seq(xt.StringLiteral(g)))))
 
+    def keepDefinition(defn: xt.Definition): Boolean =
+      hasKeepFlag(defn.flags) || userDependencies.contains(defn.id)
+
     val preSymbols =
-      xt.NoSymbols.withClasses(symbolsRmFlag.classes.values.filter(cd => hasKeepFlag(cd.flags) || userDependencies.contains(cd.id)).toSeq)
-                  .withFunctions(symbolsRmFlag.functions.values.filter(fd => hasKeepFlag(fd.flags) || userDependencies.contains(fd.id)).toSeq)
-                  .withTypeDefs(symbolsRmFlag.typeDefs.values.filter(td => hasKeepFlag(td.flags) || userDependencies.contains(td.id)).toSeq)
+      xt.NoSymbols.withClasses(initialSymbols.classes.values.filter(keepDefinition).toSeq)
+                  .withFunctions(initialSymbols.functions.values.filter(keepDefinition).toSeq)
+                  .withTypeDefs(initialSymbols.typeDefs.values.filter(keepDefinition).toSeq)
 
     val symbols = Recovery.recover(preSymbols)
 

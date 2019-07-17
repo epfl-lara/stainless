@@ -3,8 +3,6 @@
 package stainless
 package utils
 
-import inox.Reporter
-
 /** Filter functions for verification purposes. */
 trait CheckFilter {
   protected val context: inox.Context
@@ -49,7 +47,7 @@ trait CheckFilter {
       }
   }
 
-  def filter(ids: Seq[Identifier], symbols: trees.Symbols, reporter: Reporter, componentName: String): Seq[Identifier] = {
+  def filter(ids: Seq[Identifier], symbols: trees.Symbols, component: Component): Seq[Identifier] = {
     def isDerivedFrom(ids: Set[Identifier])(fd: trees.FunDef): Boolean =
       fd.flags.exists { case trees.Derived(id) => ids(id) case _ => false }
 
@@ -68,7 +66,8 @@ trait CheckFilter {
       val fd = symbols.getFunction(id)
       if (fd.flags exists (_.name == "library")) {
         val fullName = fd.id.fullName
-        reporter.warning(s"Component [${componentName}]: Forcing processing of $fullName which was assumed verified")
+        context.reporter.warning(
+          s"Component [${component.name}]: Forcing processing of $fullName which was assumed verified")
       }
     }
 
