@@ -63,6 +63,7 @@ trait TransformerWithType extends oo.TransformerWithType {
     case s.MutableMapDuplicate(map) =>
       val mmt @ s.MutableMapType(from, to) = widen(map.getType)
       t.MutableMapDuplicate(transform(map, mmt)).copiedFrom(expr)
+
     case s.Old(e) =>
       t.Old(transform(e, tpe)).copiedFrom(expr)
 

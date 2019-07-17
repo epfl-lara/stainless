@@ -148,6 +148,13 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
         t.MatchExpr(newScrut, crecons(ids, vs, nes, tps))
       })
 
+    case s.Passes(in, out, cases) =>
+      val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
+      (cids, cvs, Seq(in, out) ++ ces, ctps, Seq(), (ids, vs, es, tps, _) => {
+        val newIn +: newOut +: nes = es
+        t.Passes(newIn, newOut, crecons(ids, vs, nes, tps))
+      })
+
     case s.FiniteArray(elems, base) =>
       (Seq(), Seq(), elems, Seq(base), Seq(), (_, _, es, tps, _) => t.FiniteArray(es, tps.head))
 

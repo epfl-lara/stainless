@@ -293,4 +293,18 @@ trait ExprOps extends inox.ast.ExprOps {
       fd.flags
     ).copiedFrom(fd)
   }
+
+  /** Applies the function to the I/O constraint and simplifies the resulting constraint */
+  def applyAsMatches(p: Passes, f: Expr => Expr): Expr = {
+    f(p.asConstraint) match {
+      case Equals(newOut, MatchExpr(newIn, newCases)) =>
+        val filtered = newCases flatMap {
+          case MatchCase(p, g, `newOut`) => None
+          case other => Some(other)
+        }
+        Passes(newIn, newOut, filtered)
+      case other =>
+        other
+    }
+  }
 }

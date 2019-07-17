@@ -35,6 +35,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         case _ => throw RuntimeError("MatchError: " + rscrut + " did not match any of the cases:\n" + cases)
       }
 
+    case p: Passes =>
+      e(p.asConstraint)
+
     case FiniteArray(elems, base) =>
       FiniteArray(elems.map(e), base)
 

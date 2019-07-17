@@ -1216,8 +1216,11 @@ trait CodeGeneration { self: CompilationUnit =>
     case NoTree(_) =>
       ch << ACONST_NULL
 
-    case m : MatchExpr =>
+    case m: MatchExpr =>
       mkExpr(matchToIfThenElse(m, assumeExhaustive = false), ch)
+
+    case p: Passes =>
+      mkExpr(p.asConstraint, ch)
 
     case b if b.getType == BooleanType() && canDelegateToMkBranch =>
       val fl = ch.getFreshLabel("boolfalse")

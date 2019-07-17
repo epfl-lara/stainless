@@ -22,6 +22,7 @@ trait ASTExtractors {
   protected implicit val ctx: dotty.tools.dotc.core.Contexts.Context
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
+  def moduleFromName(nameStr: String): TermSymbol = ctx.requiredModule(typeName(nameStr))
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
@@ -75,7 +76,12 @@ trait ASTExtractors {
     classFromName("scala.Function" + i)
   }
 
-  def isTuple(sym: Symbol, size: Int): Boolean = (size > 0 && size <= 22) && (sym == classFromName(s"scala.Tuple$size"))
+  def isTuple(sym: Symbol, size: Int): Boolean = {
+    (size > 0 && size <= 22) && {
+      (sym == classFromName(s"scala.Tuple$size")) ||
+      (sym == moduleFromName(s"scala.Tuple$size"))
+    }
+  }
 
   object TupleSymbol {
     // It is particularly time expensive so we cache this.
@@ -338,6 +344,14 @@ trait ASTExtractors {
       }
     }
 
+    object ExLambda {
+      def unapply(tree: tpd.Tree): Option[(Seq[tpd.ValDef], tpd.Tree)] = tree match {
+        case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), ExUnwrapped(Closure(Nil, call, _))) if call.symbol == dd.symbol =>
+          Some((vparams, dd.rhs))
+        case _ => None
+      }
+    }
+
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other
@@ -417,6 +431,8 @@ trait ASTExtractors {
     object ExTuple {
       def unapply(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
         case Apply(Select(New(tupleType), nme.CONSTRUCTOR), args) if isTuple(tupleType.symbol, args.size) =>
+          Some(args)
+        case Apply(TypeApply(Select(ExIdentifier(sym, id), _), _), args) if isTuple(sym, args.size) =>
           Some(args)
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
@@ -699,6 +715,34 @@ trait ASTExtractors {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
           _, Seq(expected)) => Some((rec, expected))
+        case _ => None
+      }
+    }
+
+    /** Extracts the `(input, output) passes { case In => Out ...}` and returns (input, output, list of case classes) */
+    object ExPasses {
+      import ExpressionExtractors._
+
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree, List[tpd.CaseDef])] = tree match {
+        case ExCall(Some(rec),
+          ExSymbol("stainless", "lang", "package$", "Passes", "passes"),
+          _,
+          Seq(ExLambda(_, Match(_, cases)))
+        ) =>
+          def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
+            case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "Passes"), _), Seq(body)) =>
+              Some(body)
+            case _ => None
+          }
+
+          extract(rec) flatMap {
+            case ExTuple(Seq(in, out)) => Some((in, out, cases))
+            case res =>
+              println("GOT")
+              println(res)
+              None
+          }
+
         case _ => None
       }
     }

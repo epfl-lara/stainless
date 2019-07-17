@@ -31,10 +31,14 @@ trait DefaultTactic extends Tactic {
           vcs
         }).flatten
 
+      case p: Passes =>
+        Seq()
+
       case _ =>
         val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
         val body = andJoin(es.filterNot {
           case Annotated(e, flags) => flags contains Unchecked
+          case p: Passes => true
           case _ => false
         }).copiedFrom(b)
 
@@ -45,7 +49,11 @@ trait DefaultTactic extends Tactic {
         }
     }
 
-    rec(e, Path.empty)
+    val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+    val examples = es collect { case p: Passes => p.asConstraint }
+    val examplesPost = if (examples.nonEmpty) Seq(Let(res, e, andJoin(examples)).copiedFrom(e)) else Seq()
+
+    rec(e, Path.empty) ++ examplesPost
   }
 
   def generatePostconditions(id: Identifier): Seq[VC] = {

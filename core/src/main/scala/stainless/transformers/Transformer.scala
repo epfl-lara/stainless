@@ -14,26 +14,43 @@ trait Transformer extends inox.transformers.Transformer { self =>
     s.getDeconstructor(t).asInstanceOf[ast.TreeDeconstructor { val s: self.s.type; val t: self.t.type }]
   }
 
+  private def transformCases(cases: Seq[s.MatchCase], env: Env): (Seq[t.MatchCase], Boolean) = {
+    var changed = false
+    val newCases = for (cse @ s.MatchCase(pat, guard, rhs) <- cases) yield {
+      val newPat = transform(pat, env)
+      val newGuard = guard.map(transform(_, env))
+      val newRhs = transform(rhs, env)
+
+      if ((pat ne newPat) || guard.exists(_ ne newGuard.get) || (rhs ne newRhs) || (s ne t)) {
+        changed = true
+        t.MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
+      } else {
+        cse.asInstanceOf[t.MatchCase]
+      }
+    }
+    (newCases, changed)
+  }
+
+
   override def transform(e: s.Expr, env: Env): t.Expr = e match {
     case s.MatchExpr(scrut, cases) =>
       val newScrut = transform(scrut, env)
-
-      var changed = false
-      val newCases = for (cse @ s.MatchCase(pat, guard, rhs) <- cases) yield {
-        val newPat = transform(pat, env)
-        val newGuard = guard.map(transform(_, env))
-        val newRhs = transform(rhs, env)
-
-        if ((pat ne newPat) || guard.exists(_ ne newGuard.get) || (rhs ne newRhs) || (s ne t)) {
-          changed = true
-          t.MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
-        } else {
-          cse.asInstanceOf[t.MatchCase]
-        }
-      }
+      val (newCases, changed) = transformCases(cases, env)
 
       if ((scrut ne newScrut) || changed || (s ne t)) {
         t.MatchExpr(newScrut, newCases).copiedFrom(e)
+      } else {
+        e.asInstanceOf[t.Expr]
+      }
+
+    case s.Passes(in, out, cases) =>
+      val newIn = transform(in, env)
+      val newOut = transform(out, env)
+
+      val (newCases, changed) = transformCases(cases, env)
+
+      if ((in ne newIn) || (out ne newOut) || changed || (s ne t)) {
+        t.Passes(newIn, newOut, newCases).copiedFrom(e)
       } else {
         e.asInstanceOf[t.Expr]
       }
