@@ -9,7 +9,11 @@ import inox.utils.{Position, NoPosition}
 object DebugSectionPositions extends inox.DebugSection("positions")
 
 /** Inspect trees, detecting missing positions. */
-trait PositionChecker { self: DebugPipeline =>
+trait PositionChecker {
+  val t: ast.Trees
+
+  val name: String
+  val context: inox.Context
 
   final class PositionTraverser extends t.SelfTreeTraverser { self =>
     import t._
