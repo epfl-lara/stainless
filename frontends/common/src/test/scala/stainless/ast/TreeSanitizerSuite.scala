@@ -83,6 +83,12 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
        |    val b = (x: BigInt) => x
        |    compareGhost(a == b)
        |  }
+       |
+       |  def oops5 = {
+       |    val a = (x: BigInt) => x
+       |    val b = (x: BigInt) => x
+       |    compare((a, a) == (b, b))
+       |  }
        |}
        |""".stripMargin)
 
@@ -91,7 +97,13 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
     val (_, program) = load(sources1, sanitize = false)
 
     val errors = TreeSanitizer(xt).check(program.symbols)
-    assert(errors.length == 4)
+
+    // errors.sortBy(_.tree.getPos).foreach { err =>
+    //   println(s"${err.tree.getPos.fullString}")
+    //   println(s"${err.getMessage}")
+    //   println(s"${err.tree}")
+    //   println()
+    // }
 
     errors
       .sortBy(_.tree.getPos)
@@ -100,7 +112,10 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
         case (err, 1) => assert(err.tree.getPos.line == 39)
         case (err, 2) => assert(err.tree.getPos.line == 45)
         case (err, 3) => assert(err.tree.getPos.line == 67)
+        case (err, 4) => assert(err.tree.getPos.line == 79)
         case (err, _) => assert(false, s"Unexpected error yielded at ${err.tree.getPos}: ${err.getMessage}")
       }
+
+    assert(errors.length == 5)
   }
 }

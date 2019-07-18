@@ -7,10 +7,24 @@ package xlang
 import scala.collection.mutable.ListBuffer
 
 /** Inspect trees, detecting illegal structures. */
-trait TreeSanitizer {
+trait TreeSanitizer { self =>
 
   val trees: xlang.Trees
   import trees._
+
+  object TypeOperator extends {
+    protected val s: self.trees.type = self.trees
+    protected val t: self.trees.type = self.trees
+  } with inox.ast.TreeExtractor {
+    type Source = Type
+    type Target = Type
+
+    def unapply(t: Type): Option[(Seq[Type], Seq[Type] => Type)] = {
+      val (ids, vs, es, tps, flags, builder) = deconstructor.deconstruct(t)
+      Some((tps, tpss => builder(ids, vs, es, tpss, flags)))
+    }
+  }
+
 
   /** Throw a [[MalformedStainlessCode]] exception when detecting an illegal pattern. */
   def check(symbols: Symbols)(implicit ctx: inox.Context): Seq[MalformedStainlessCode] = {
@@ -22,7 +36,7 @@ trait TreeSanitizer {
       new SoundEquality(symbols, ctx),
     )
 
-    checks.flatMap(_.sanitize)
+    checks.flatMap(_.sanitize.distinct)
   }
 
   def enforce(symbols: Symbols)(implicit ctx: inox.Context): Unit = {
@@ -202,7 +216,7 @@ trait TreeSanitizer {
   private[this] class SoundEquality(syms: Symbols, ctx: inox.Context)
     extends Sanitizer(syms, ctx) with SelfTreeTraverser {
 
-    final val PEDANTIC = true
+    private[this] val PEDANTIC = true
 
     private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
@@ -243,8 +257,9 @@ trait TreeSanitizer {
       case Annotated(body, flags) if flags contains Ghost =>
         withinGhostContext(traverse(body))
 
-      case Decreases(_, body) =>
-        withinGhostContext(traverse(body))
+      case Decreases(measure, body) =>
+        withinGhostContext(traverse(measure))
+        traverse(body)
 
       case Snapshot(body) =>
         withinGhostContext(traverse(body))
@@ -296,7 +311,7 @@ trait TreeSanitizer {
         }
 
       case Equals(lhs, rhs) if !ghostContext =>
-        (lhs.getType, rhs.getType) match {
+        def rec(tps: (Type, Type)): Unit = tps match {
           case (ct1: ClassType, ct2) if hasLocalSubClasses(ct1.id) =>
             errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
           case (ct1, ct2: ClassType) if hasLocalSubClasses(ct2.id) =>
@@ -317,8 +332,28 @@ trait TreeSanitizer {
           case (ft1, ft2: FunctionType) =>
             errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
 
-          case _ => ()
+          // case (tp1, tp2) if PEDANTIC && tp1 != tp2 =>
+          //   errors += MalformedStainlessCode(e,
+          //     s"Cannot compare two different types for equality ($tp1 and $tp2)")
+
+          // case (tp1, tp2) if PEDANTIC =>
+          //   assert(tp1 == tp2) // because of first case in the surround pattern match
+          //   val TypeOperator(es, _) = tp1
+          //   es.zip(es).foreach(rec)
+
+          case (tp1, tp2) =>
+            val TypeOperator(es1, _) = tp1
+            val TypeOperator(es2, _) = tp2
+
+            if (es1.length == es2.length) {
+              es1.zip(es2).foreach(rec)
+            } else {
+              errors += MalformedStainlessCode(e,
+                s"Cannot compare these two types because of their different structure: $tp1 and $tp2")
+            }
         }
+
+        rec((lhs.getType, rhs.getType))
 
       case _ => super.traverse(e)
     }
