@@ -6,7 +6,7 @@ package extraction
 import transformers._
 
 trait ExtractionPipeline { self =>
-  val s: extraction.Trees
+  val s: ast.Trees
   val t: ast.Trees
 
   implicit val context: inox.Context

@@ -45,6 +45,8 @@ package object extraction {
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "SizeInjection"             -> "Injects a size function for each ADT",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
+    "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
+    "ChooseInjector"            -> "Insert chooses where necessary",
   )
 
   val phaseNames: Set[String] = phases.map(_._1).toSet
