@@ -118,6 +118,9 @@ trait Printer extends innerclasses.Printer {
   }
 }
 
+trait GhostTraverser extends innerclasses.GhostTraverser {
+  val trees: Trees
+}
 
 trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
 

@@ -213,6 +213,10 @@ trait DefinitionTraverser extends oo.DefinitionTraverser {
 
 trait TreeTraverser extends transformers.TreeTraverser with DefinitionTraverser
 
+trait GhostTraverser extends methods.GhostTraverser {
+  val trees: Trees
+}
+
 trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   protected val s: Trees
   protected val t: Trees
