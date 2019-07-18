@@ -85,6 +85,7 @@ case class Some[T](v: T) extends Option[T]
 @isabelle.constructor(name = "Option.option.None")
 case class None[T]() extends Option[T]
 
+@library
 object Option {
   @library @extern @pure
   def apply[A](x: A): Option[A] = {
