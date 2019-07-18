@@ -55,7 +55,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
           t.Equals(signBit(size, lhs), signBit(size, rhs)).copiedFrom(e),
           t.Equals(signBit(size, lhs), signBit(size, newE)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Addition Overflow"),
+        Some("Addition overflow"),
         newE
       ).copiedFrom(e)
 
@@ -67,7 +67,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
       t.Assert(
         // the result must be greater than the lhs
         t.GreaterEquals(t.Plus(lhs, rhs), lhs).copiedFrom(e),
-        Some("Addition Overflow"),
+        Some("Addition overflow"),
         newE
       ).copiedFrom(e)
 
@@ -81,7 +81,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
           t.Not(t.Equals(signBit(size, lhs), signBit(size, rhs)).copiedFrom(e)).copiedFrom(e),
           t.Equals(signBit(size, lhs), signBit(size, newE)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Subtraction Overflow"),
+        Some("Subtraction overflow"),
         newE
       ).copiedFrom(e)
 
@@ -93,16 +93,17 @@ trait AssertionInjector extends transformers.TreeTransformer {
       t.Assert(
         // rhs must be smaller than lhs
         t.LessEquals(rhs, lhs).copiedFrom(e),
-        Some("Subtraction Overflow"),
+        Some("Subtraction overflow"),
         newE
       ).copiedFrom(e)
 
-    case BVTyped(true, size, s.UMinus(e0)) if strictArithmetic =>
-      val newE = transform(e0)
+    case BVTyped(true, size, e0 @ s.UMinus(n0)) if strictArithmetic =>
+      val n = transform(n0)
+      val newE = super.transform(e0)
       t.Assert(
         // -MinValue overflows
-        t.Not(t.Equals(newE, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
-        Some("Negation Overflow"),
+        t.Not(t.Equals(n, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
+        Some("Negation overflow"),
         newE
       ).copiedFrom(e)
 
@@ -116,7 +117,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
           t.Equals(lhs, zero(signed, size, e.getPos)).copiedFrom(e),
           t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Multiplication Overflow"),
+        Some("Multiplication overflow"),
         newE
       ).copiedFrom(e)
 
@@ -131,7 +132,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
               t.Equals(transform(n), minValue(size, n.getPos)).copiedFrom(n),
               t.Equals(transform(d), t.BVLiteral(true, -1, size).copiedFrom(d))
             ).copiedFrom(e)).copiedFrom(e),
-            Some("Division Overflow"),
+            Some("Division overflow"),
             newE
           ).copiedFrom(e)
 
