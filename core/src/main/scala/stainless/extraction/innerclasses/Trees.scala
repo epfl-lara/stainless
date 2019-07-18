@@ -12,6 +12,16 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     extends super.AbstractSymbols
     with DependencyGraph
     with TypeOps { self0: Symbols =>
+
+    @inline def localClasses: Seq[LocalClassDef] = _localClasses.get
+    private[this] val _localClasses = inox.utils.Lazy({
+      self0.functions.values.flatMap { fd =>
+        exprOps.collect[LocalClassDef] {
+          case LetClass(lcds, _) => lcds.toSet
+          case _ => Set.empty
+        } (fd.fullBody)
+      }.toSeq
+    })
   }
 
   case class LetClass(classes: Seq[LocalClassDef], body: Expr) extends Expr with CachingTyped {

@@ -17,7 +17,7 @@ trait InputUtils {
   type Filter = CheckFilter { val trees: xt.type }
 
   /** Compile and extract the given files' **content** (& the library). */
-  def load(contents: Seq[String], filterOpt: Option[Filter] = None)
+  def load(contents: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
           (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
     val files = contents.map { content =>
       val file = File.createTempFile("stainless", ".scala")
@@ -28,11 +28,11 @@ trait InputUtils {
       file.getAbsolutePath
     }
 
-    loadFiles(files, filterOpt)
+    loadFiles(files, filterOpt, sanitize)
   }
 
   /** Compile and extract the given files (& the library). */
-  def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None)
+  def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
                (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     // Use the callback to collect the trees.
@@ -85,8 +85,10 @@ trait InputUtils {
     // Ensure the callback yields all classes and functions (unless using a custom filter)
     assert(done)
 
-    // Check that extracted symbols are valid
-    TreeSanitizer(xt) check syms
+    if (sanitize) {
+      // Check that extracted symbols are valid
+      TreeSanitizer(xt) enforce syms
+    }
 
     // Check that extracted symbols are well-formed
     try {

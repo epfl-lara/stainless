@@ -3,7 +3,7 @@ import stainless.annotation._
 
 object LambdaEquality2 {
   sealed abstract class Nat
-  case class Zero() extends Nat 
+  case class Zero() extends Nat
   case class Succ(n: Nat) extends Nat
 
   def plus(a: Nat, b: Nat): Nat = a match {
@@ -16,6 +16,7 @@ object LambdaEquality2 {
     plus(a, Zero()) == a
   } holds
 
+  @ghost
   def equalFunctions[X,Y](y1: Y, y2: Y) = {
     require(y1 == y2)
 
@@ -25,6 +26,7 @@ object LambdaEquality2 {
     f1 == f2
   } holds
 
+  @ghost
   def theorem(a: Nat) = {
     val p = plus(a, Zero())
     val f1 = (x: Nat) => a

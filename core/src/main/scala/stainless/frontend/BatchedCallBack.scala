@@ -78,11 +78,9 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
     val symbols = Recovery.recover(preSymbols)
 
-    try {
-      TreeSanitizer(xt).check(symbols)
-    } catch {
-      case e: extraction.MalformedStainlessCode =>
-        reportError(e.tree.getPos, e.getMessage, symbols)
+    val errors = TreeSanitizer(xt).check(symbols)
+    if (!errors.isEmpty) {
+      reportErrorFooter(symbols)
     }
 
     try {
@@ -123,6 +121,10 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {
     reporter.error(pos, msg)
+    reportErrorFooter(syms)
+  }
+
+  private def reportErrorFooter(syms: xt.Symbols): Unit = {
     reporter.error(s"The extracted program is not well formed.")
     reporter.error(s"Symbols are:")
     reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
