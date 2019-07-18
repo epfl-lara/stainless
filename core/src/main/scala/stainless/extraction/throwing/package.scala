@@ -15,9 +15,17 @@ package object throwing {
       typeDefs: Map[Identifier, TypeDef],
     ) extends ClassSymbols with AbstractSymbols
 
-    object printer extends Printer { val trees: throwing.trees.type = throwing.trees }
+    object printer extends Printer {
+      val trees: throwing.trees.type = throwing.trees
+    }
   }
 
-  def extractor(implicit ctx: inox.Context) = 
-    utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
+  def extractor(implicit ctx: inox.Context) = {
+    ExtractionPipeline(new CheckingTransformer {
+      override val s: trees.type = trees
+      override val t: imperative.trees.type = imperative.trees
+    })
+  }
+
+    // utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
 }
