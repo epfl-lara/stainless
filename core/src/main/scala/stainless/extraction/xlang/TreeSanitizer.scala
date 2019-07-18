@@ -213,36 +213,14 @@ trait TreeSanitizer { self =>
   }
 
   /** Disallow equality between lambdas and non-sealed abstract classes in non-ghost code */
-  private[this] class SoundEquality(syms: Symbols, ctx: inox.Context)
-    extends Sanitizer(syms, ctx) with SelfTreeTraverser {
-
+  private[this] class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
     private[this] val PEDANTIC = true
-
     private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
-
-    private[this] var ghostContext: Boolean = false
-
-    private[this] def withinGhostContext[A](body: => A): A = {
-      val old = ghostContext
-      ghostContext = true
-      val res = body
-      ghostContext = old
-      res
-    }
-
 
     override def sanitize(): Seq[MalformedStainlessCode] = {
       errors = ListBuffer.empty
-      ghostContext = false
-      symbols.functions.values.toSeq.foreach(traverse)
+      symbols.functions.values.toSeq.foreach(ghostTraverser.traverse)
       errors.toSeq
-    }
-
-    override def traverse(fd: FunDef): Unit = {
-      if (fd.flags contains Ghost)
-        withinGhostContext(super.traverse(fd))
-      else
-        super.traverse(fd)
     }
 
     private[this] val hasLocalSubClasses: Identifier => Boolean =
@@ -253,109 +231,60 @@ trait TreeSanitizer { self =>
       ancestors.exists(tcd => tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 
-    override def traverse(e: Expr): Unit = e match {
-      case Annotated(body, flags) if flags contains Ghost =>
-        withinGhostContext(traverse(body))
+    private[this] object ghostTraverser extends xlang.GhostTraverser {
+      override val trees: self.trees.type = self.trees
+      import trees._
 
-      case Decreases(measure, body) =>
-        withinGhostContext(traverse(measure))
-        traverse(body)
+      override implicit val symbols = sanitizer.symbols
 
-      case Snapshot(body) =>
-        withinGhostContext(traverse(body))
+      override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
+        case Equals(lhs, rhs) if !ctx.isGhost =>
+          def rec(tps: (Type, Type)): Unit = tps match {
+            case (ct1: ClassType, ct2) if hasLocalSubClasses(ct1.id) =>
+              errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
+            case (ct1, ct2: ClassType) if hasLocalSubClasses(ct2.id) =>
+              errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
 
-      case FunctionInvocation(id, _, args) if symbols.getFunction(id).flags contains Ghost =>
-        withinGhostContext {
-          args foreach traverse
-        }
+            case (ct1: ClassType, ct2) if PEDANTIC && isOrHasNonSealedAncestors(ct1) =>
+              errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
+            case (ct1, ct2: ClassType) if PEDANTIC && isOrHasNonSealedAncestors(ct2) =>
+              errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
 
-      case FunctionInvocation(id, _, args) =>
-        val fd = symbols.getFunction(id)
-        (fd.params zip args) foreach {
-          case (vd, arg) if vd.flags contains Ghost =>
-            withinGhostContext(traverse(arg))
-          case (_, arg) =>
-            traverse(arg)
-        }
+            case (lct1: LocalClassType, lct2) =>
+              errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
+            case (lct1, lct2: LocalClassType) =>
+              errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
 
-      case MethodInvocation(rec, id, _, args) if symbols.getFunction(id).flags contains Ghost =>
-        traverse(rec)
-        withinGhostContext {
-          args foreach traverse
-        }
+            case (ft1: FunctionType, ft2) =>
+              errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
+            case (ft1, ft2: FunctionType) =>
+              errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
 
-      case MethodInvocation(rec, id, _, args) =>
-        traverse(rec)
-        val fd = symbols.getFunction(id)
-        (fd.params zip args) foreach {
-          case (vd, arg) if vd.flags contains Ghost =>
-            withinGhostContext(traverse(arg))
-          case (_, arg) =>
-            traverse(arg)
-        }
+            // case (tp1, tp2) if PEDANTIC && tp1 != tp2 =>
+            //   errors += MalformedStainlessCode(e,
+            //     s"Cannot compare two different types for equality ($tp1 and $tp2)")
 
-      case ADT(id, _, args) =>
-        (symbols.getConstructor(id).fields zip args) foreach {
-          case (vd, arg) if vd.flags contains Ghost =>
-            withinGhostContext(traverse(arg))
-          case (_, arg) =>
-            traverse(arg)
-        }
+            // case (tp1, tp2) if PEDANTIC =>
+            //   assert(tp1 == tp2) // because of first case in the surround pattern match
+            //   val TypeOperator(es, _) = tp1
+            //   es.zip(es).foreach(rec)
 
-      case ClassConstructor(ct, args) =>
-        (ct.tcd.fields zip args).foreach {
-          case (vd, arg) if vd.flags contains Ghost =>
-            withinGhostContext(traverse(arg))
-          case (_, arg) =>
-            traverse(arg)
-        }
+            case (tp1, tp2) =>
+              val TypeOperator(es1, _) = tp1
+              val TypeOperator(es2, _) = tp2
 
-      case Equals(lhs, rhs) if !ghostContext =>
-        def rec(tps: (Type, Type)): Unit = tps match {
-          case (ct1: ClassType, ct2) if hasLocalSubClasses(ct1.id) =>
-            errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
-          case (ct1, ct2: ClassType) if hasLocalSubClasses(ct2.id) =>
-            errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
+              if (es1.length == es2.length) {
+                es1.zip(es2).foreach(rec)
+              } else {
+                errors += MalformedStainlessCode(e,
+                  s"Cannot compare these two types because of their different structure: $tp1 and $tp2")
+              }
+          }
 
-          case (ct1: ClassType, ct2) if PEDANTIC && isOrHasNonSealedAncestors(ct1) =>
-            errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
-          case (ct1, ct2: ClassType) if PEDANTIC && isOrHasNonSealedAncestors(ct2) =>
-            errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
+          rec((lhs.getType, rhs.getType))
 
-          case (lct1: LocalClassType, lct2) =>
-            errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
-          case (lct1, lct2: LocalClassType) =>
-            errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
-
-          case (ft1: FunctionType, ft2) =>
-            errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
-          case (ft1, ft2: FunctionType) =>
-            errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
-
-          // case (tp1, tp2) if PEDANTIC && tp1 != tp2 =>
-          //   errors += MalformedStainlessCode(e,
-          //     s"Cannot compare two different types for equality ($tp1 and $tp2)")
-
-          // case (tp1, tp2) if PEDANTIC =>
-          //   assert(tp1 == tp2) // because of first case in the surround pattern match
-          //   val TypeOperator(es, _) = tp1
-          //   es.zip(es).foreach(rec)
-
-          case (tp1, tp2) =>
-            val TypeOperator(es1, _) = tp1
-            val TypeOperator(es2, _) = tp2
-
-            if (es1.length == es2.length) {
-              es1.zip(es2).foreach(rec)
-            } else {
-              errors += MalformedStainlessCode(e,
-                s"Cannot compare these two types because of their different structure: $tp1 and $tp2")
-            }
-        }
-
-        rec((lhs.getType, rhs.getType))
-
-      case _ => super.traverse(e)
+        case _ => super.traverse(e, ctx)
+      }
     }
   }
 }
