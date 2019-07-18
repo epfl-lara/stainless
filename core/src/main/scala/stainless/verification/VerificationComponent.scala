@@ -17,7 +17,8 @@ import extraction._
  *
  * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
  */
-object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
+object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", true)
+
 object optTypeChecker extends inox.FlagOptionDef("type-checker", false)
 
 object VerificationComponent extends Component {
