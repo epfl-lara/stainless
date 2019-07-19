@@ -201,7 +201,10 @@ trait DefinitionTraverser extends oo.DefinitionTraverser {
 
   def traverse(lcd: LocalClassDef): Unit = {
     val env = initEnv
+    traverse(lcd, initEnv)
+  }
 
+  def traverse(lcd: LocalClassDef, env: Env): Unit = {
     traverse(lcd.id, env)
     lcd.tparams.foreach(traverse(_, env))
     lcd.parents.foreach(traverse(_, env))
@@ -225,10 +228,6 @@ trait DefinitionTraverser extends oo.DefinitionTraverser {
 }
 
 trait TreeTraverser extends transformers.TreeTraverser with DefinitionTraverser
-
-trait GhostTraverser extends methods.GhostTraverser {
-  val trees: Trees
-}
 
 trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   protected val s: Trees

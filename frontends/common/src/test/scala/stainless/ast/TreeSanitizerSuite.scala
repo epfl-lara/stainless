@@ -12,6 +12,7 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
     """|
        |import stainless.lang._
        |import stainless.annotation._
+       |import stainless.lang.StaticChecks
        |
        |object test {
        |
@@ -66,7 +67,7 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
        |  def ok3bis = {
        |    val a = (x: BigInt) => x
        |    val b = (x: BigInt) => x
-       |    stainless.lang.StaticChecks.assert(a == b)
+       |    StaticChecks.assert(a == b)
        |  }
        |
        |  def compare(prop: Boolean): Unit = ()
@@ -89,6 +90,18 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
        |    val b = (x: BigInt) => x
        |    compare((a, a) == (b, b))
        |  }
+       |
+       |  def oops6 = {
+       |    val a = (x: BigInt) => x
+       |    val b = (x: BigInt) => x
+       |
+       |    case class InnerClass() {
+       |      @ghost def innerOk(test: Boolean): Boolean = test && a == b // ok
+       |      def innerBad(@ghost test: Boolean): Boolean = a == b // bad
+       |    }
+       |    StaticChecks.assert(InnerClass().innerOk(a == b)) // ok
+       |    assert(InnerClass().innerBad(a == b)) // ok
+       |  }
        |}
        |""".stripMargin)
 
@@ -108,14 +121,15 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
     errors
       .sortBy(_.tree.getPos)
       .zipWithIndex foreach {
-        case (err, 0) => assert(err.tree.getPos.line == 19)
-        case (err, 1) => assert(err.tree.getPos.line == 39)
-        case (err, 2) => assert(err.tree.getPos.line == 45)
-        case (err, 3) => assert(err.tree.getPos.line == 67)
-        case (err, 4) => assert(err.tree.getPos.line == 79)
+        case (err, 0) => assert(err.tree.getPos.line == 20)
+        case (err, 1) => assert(err.tree.getPos.line == 40)
+        case (err, 2) => assert(err.tree.getPos.line == 46)
+        case (err, 3) => assert(err.tree.getPos.line == 68)
+        case (err, 4) => assert(err.tree.getPos.line == 80)
+        case (err, 5) => assert(err.tree.getPos.line == 89)
         case (err, _) => assert(false, s"Unexpected error yielded at ${err.tree.getPos}: ${err.getMessage}")
       }
 
-    assert(errors.length == 5)
+    assert(errors.length == 6)
   }
 }
