@@ -10,13 +10,13 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
   val trees: Trees
   import trees._
 
-  private[this] var innerClasses = Map.empty[Identifier, LocalClassDef]
+  private[this] var localClasses = Map.empty[Identifier, LocalClassDef]
 
-  private[this] def withInnerClasses[A](fds: Seq[LocalClassDef])(a: => A): A = {
-    val prev = innerClasses
-    innerClasses = fds.map(fd => fd.id -> fd).toMap
+  private[this] def withLocalClasses[A](fds: Seq[LocalClassDef])(a: => A): A = {
+    val prev = localClasses
+    localClasses ++= fds.map(cd => cd.id -> cd)
     val res = a
-    innerClasses = prev
+    localClasses = prev
     res
   }
 
@@ -33,14 +33,14 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
       traverse(lct, ctx)
 
     case LetClass(lcds, body) =>
-      withInnerClasses(lcds) {
+      withLocalClasses(lcds) {
         lcds.foreach(traverse(_, ctx))
         traverse(body, ctx)
       }
 
     case LocalMethodInvocation(caller, method, tparams, tps, args) =>
       val lct = caller.getType.asInstanceOf[LocalClassType]
-      val lcd = innerClasses(lct.id)
+      val lcd = localClasses(lct.id)
       val lmd = lcd.methods.find(_.id == method.id).get
 
       val subCtx = ctx.inGhost(lmd.flags contains Ghost)
@@ -54,7 +54,7 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
 
     case LocalClassConstructor(ct, args) =>
       traverse(ct, ctx)
-      val lcd = innerClasses(ct.id)
+      val lcd = localClasses(ct.id)
 
       (lcd.fields zip args).foreach { case (vd, arg) =>
         traverse(arg, ctx.inGhost(vd.flags contains Ghost))
