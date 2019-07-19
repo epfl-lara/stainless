@@ -213,7 +213,7 @@ trait TreeSanitizer { self =>
     }
   }
 
-  /** Disallow equality between lambdas and non-sealed abstract classes in non-ghost code */
+  /** Disallow equality tests between lambdas and non-sealed abstract classes in non-ghost code */
   private[this] class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
 
     val PEDANTIC = false
@@ -242,44 +242,33 @@ trait TreeSanitizer { self =>
 
       override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
         case Equals(lhs, rhs) if !ctx.isGhost =>
-          def rec(tps: (Type, Type)): Unit = tps match {
-            case (tp1, tp2) if PEDANTIC && (typeOps.isParametricType(tp1) || typeOps.isParametricType(tp2)) =>
+          def rec(tp: Type): Unit = tp match {
+            case tp if PEDANTIC && typeOps.isParametricType(tp) =>
               errors += MalformedStainlessCode(e,
-                s"Cannot compare parametric types for equality. Use the === method of the Eq typeclass instead.")
+                s"Testing parametric types for equality, use the === method of the Eq typeclass instead")
 
-            case (ct1: ClassType, ct2) if hasLocalSubClasses(ct1.id) =>
-              errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
-            case (ct1, ct2: ClassType) if hasLocalSubClasses(ct2.id) =>
-              errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
+            case ct: ClassType if hasLocalSubClasses(ct.id) =>
+              errors += MalformedStainlessCode(e,
+                "Testing classes with local subclasses for equality in non-ghost code is unsound")
 
-            case (ct1: ClassType, ct2) if isOrHasNonSealedAncestors(ct1) =>
-              errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
-            case (ct1, ct2: ClassType) if isOrHasNonSealedAncestors(ct2) =>
-              errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
+            case ct: ClassType if isOrHasNonSealedAncestors(ct) =>
+              errors += MalformedStainlessCode(e,
+                "Testing classes with non sealed ancestors for equality in non-ghost code is unsound")
 
-            case (lct1: LocalClassType, lct2) =>
-              errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
-            case (lct1, lct2: LocalClassType) =>
-              errors += MalformedStainlessCode(e, "Cannot compare local classes for equality in non-ghost code")
+            case lct: LocalClassType =>
+              errors += MalformedStainlessCode(e,
+                "Testing local classes for equality in non-ghost code is unsound")
 
-            case (ft1: FunctionType, ft2) =>
-              errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
-            case (ft1, ft2: FunctionType) =>
-              errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
+            case ft: FunctionType =>
+              errors += MalformedStainlessCode(e, "Testing lambdas for equality in non-ghost code is unsound")
 
-            case (tp1, tp2) =>
-              val TypeOperator(es1, _) = tp1
-              val TypeOperator(es2, _) = tp2
-
-              if (es1.length == es2.length) {
-                es1.zip(es2).foreach(rec)
-              } else {
-                errors += MalformedStainlessCode(e,
-                  s"Cannot compare these two types because of their different structure: $tp1 and $tp2")
-              }
+            case tp =>
+              val TypeOperator(es, _) = tp
+              es.foreach(rec)
           }
 
-          rec((lhs.getType, rhs.getType))
+          rec(lhs.getType)
+          rec(rhs.getType)
 
         case _ => super.traverse(e, ctx)
       }
