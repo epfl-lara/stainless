@@ -86,7 +86,7 @@ case class Some[T](v: T) extends Option[T]
 case class None[T]() extends Option[T]
 
 object Option {
-  @extern @pure
+  @library @extern @pure
   def apply[A](x: A): Option[A] = {
     if (x == null) None[A]() else Some[A](x)
   } ensuring { res =>
