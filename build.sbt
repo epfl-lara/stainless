@@ -100,6 +100,11 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "org.scalatest" %% "scalatest"     % "3.0.1" % "test",
   ),
 
+  libraryDependencies += "org.scala-lang.modules" %% "scala-collection-compat" % "2.1.1",
+
+  // scalafixDependencies in ThisBuild += "org.scala-lang.modules" %% "scala-collection-migrations" % "2.1.1",
+  // scalacOptions ++= List("-Yrangepos", "-P:semanticdb:synthetics:on"),
+
   // disable documentation packaging in universal:stage to speedup development
   mappings in (Compile, packageDoc) := Seq(),
 

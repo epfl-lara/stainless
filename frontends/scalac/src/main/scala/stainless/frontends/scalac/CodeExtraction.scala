@@ -11,6 +11,7 @@ import scala.reflect.internal.util._
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 import scala.language.implicitConversions
+import scala.Iterable
 
 /**
  * Extract Scalac Trees into Stainless Trees.
@@ -133,7 +134,7 @@ trait CodeExtraction extends ASTExtractors {
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
-    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+    def withNewTypeParams(ntparams: Iterable[(Symbol, xt.TypeParameter)]) = {
       copy(tparams = tparams ++ ntparams)
     }
 
@@ -141,7 +142,7 @@ trait CodeExtraction extends ASTExtractors {
       copy(tparams = tparams + tparam)
     }
 
-    def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
+    def withNewVars(nvars: Iterable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
 
