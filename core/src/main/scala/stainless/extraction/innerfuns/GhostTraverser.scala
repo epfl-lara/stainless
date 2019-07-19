@@ -8,28 +8,28 @@ trait GhostTraverser extends transformers.GhostTraverser {
   val trees: Trees
   import trees._
 
-  private[this] var innerFuns = Map.empty[Identifier, LocalFunDef]
+  private[this] var localFuns = Map.empty[Identifier, LocalFunDef]
 
-  private[this] def withInnerFuns[A](fds: Seq[LocalFunDef])(a: => A): A = {
-    val prev = innerFuns
-    innerFuns = fds.map(fd => fd.id -> fd).toMap
+  private[this] def withLocalFuns[A](fds: Seq[LocalFunDef])(a: => A): A = {
+    val prev = localFuns
+    localFuns ++= fds.map(fd => fd.id -> fd)
     val res = a
-    innerFuns = prev
+    localFuns = prev
     res
   }
 
   override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
     case LetRec(defs, body) =>
-      withInnerFuns(defs) {
+      withLocalFuns(defs) {
         defs.foreach(traverse(_, ctx))
         traverse(body, ctx)
       }
 
-    case alr: ApplyLetRec if innerFuns(alr.id).flags contains Ghost =>
+    case alr: ApplyLetRec if localFuns(alr.id).flags contains Ghost =>
       super.traverse(alr, ctx.withinGhost)
 
     case ApplyLetRec(id, tparams, tpe, tps, args) =>
-      val fd = innerFuns(id)
+      val fd = localFuns(id)
       traverse(id, ctx)
       tparams.foreach(traverse(_, ctx))
       traverse(tpe, ctx)
@@ -42,13 +42,13 @@ trait GhostTraverser extends transformers.GhostTraverser {
   }
 
   def traverse(fd: LocalFunDef, ctx: GhostContext): Unit = {
-    val innerCtx = ctx.inGhost(fd.flags contains Ghost)
-    traverse(fd.id, innerCtx)
-    fd.tparams map (traverse(_, innerCtx))
-    fd.params map (traverse(_, innerCtx))
-    traverse(fd.returnType, innerCtx)
-    traverse(fd.fullBody, innerCtx)
-    fd.flags map (traverse(_, innerCtx))
+    val localCtx = ctx.inGhost(fd.flags contains Ghost)
+    traverse(fd.id, localCtx)
+    fd.tparams map (traverse(_, localCtx))
+    fd.params map (traverse(_, localCtx))
+    traverse(fd.returnType, localCtx)
+    traverse(fd.fullBody, localCtx)
+    fd.flags map (traverse(_, localCtx))
   }
 }
 
