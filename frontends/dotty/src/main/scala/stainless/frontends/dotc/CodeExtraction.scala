@@ -1169,7 +1169,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case TermRef(tt: ThisType, _) =>
             val thiss = extractType(tt)(dctx, id.pos) match {
               case ct: xt.ClassType => xt.This(ct)
-              case lct: xt.LocalClassType => xt.This(lct.toClassType)
+              case lct: xt.LocalClassType => xt.LocalThis(lct)
             }
             xt.FieldAssignment(thiss.setPos(id.pos), getIdentifier(id.symbol), extractTree(rhs))
 
@@ -1371,7 +1371,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     case t @ This(_) =>
       extractType(t) match {
         case ct: xt.ClassType => xt.This(ct)
-        case lct: xt.LocalClassType => xt.This(lct.toClassType)
+        case lct: xt.LocalClassType => xt.LocalThis(lct)
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 
@@ -1434,7 +1434,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           xt.MethodInvocation(thiss, id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
 
         case lct: xt.LocalClassType =>
-          val thiss = xt.This(lct.toClassType).setPos(tr.pos)
+          val thiss = xt.LocalThis(lct).setPos(tr.pos)
           val lcd = dctx.localClasses(lct.id)
           val fd = lcd.methods.find(_.id == id).get
           xt.LocalMethodInvocation(
