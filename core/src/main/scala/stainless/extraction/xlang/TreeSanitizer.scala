@@ -36,10 +36,10 @@ trait TreeSanitizer { self =>
       new SoundEquality(symbols, ctx),
     )
 
-    checks.flatMap(_.sanitize.distinct)
+    checks.flatMap(_.sanitize.distinct).sortBy(_.tree.getPos)
   }
 
-  def enforce(symbols: Symbols)(implicit ctx: inox.Context): Unit = {
+  def enforce(symbols: Symbols)(implicit ctx: inox.Context): Seq[MalformedStainlessCode] = {
     import ctx.reporter
 
     val errors = check(symbols)
@@ -48,6 +48,7 @@ trait TreeSanitizer { self =>
         reporter.error(error.tree.getPos, error.getMessage)
       }
     }
+    errors
   }
 
   private[this] abstract class Sanitizer(syms: Symbols, ctx: inox.Context) {
