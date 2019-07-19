@@ -10,6 +10,9 @@ import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
 class TreeSanitizerSuite extends FunSuite with InputUtils {
 
+  // Change this to trigger re-compilation
+  val ID = 2
+
   val sources = List(
     FileProvider.getFileContents(
       "frontends/common/src/test/resources/SoundEquality.scala"
@@ -37,6 +40,10 @@ class TreeSanitizerSuite extends FunSuite with InputUtils {
     5 -> 89,
     6 -> 98,
   )
+
+  test(s"SoundEquality test file compiles successfully") {
+    assert(!program.symbols.functions.isEmpty)
+  }
 
   test(s"SoundEquality check yield exactly ${expected.size} errors") {
     assert(errors.length == expected.size)

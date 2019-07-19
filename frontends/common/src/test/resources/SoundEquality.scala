@@ -94,8 +94,12 @@ object TreeSanitizerTest {
 
   type IAmALambda = Int => Boolean
 
-  def oops7(a: IAmALambda, b: IAmALambda) = {
-    a == b // bad
+  def oops7(iamALambdaA: IAmALambda, iamALambdaB: IAmALambda) = {
+    iamALambdaA == iamALambdaB // bad
+  }
+
+  def oops8[A](optA: Option[A], optB: Option[A]) = {
+    optA == optB // bad when PEDANTIC is on
   }
 }
 
