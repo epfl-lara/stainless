@@ -39,8 +39,12 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
       }
 
     case LocalMethodInvocation(caller, method, tparams, tps, args) =>
-      val lct = caller.getType.asInstanceOf[LocalClassType]
-      val lcd = localClasses(lct.id)
+      val id = caller.getType match {
+        case lct: LocalClassType => lct.id
+        case ct: ClassType => ct.id
+      }
+
+      val lcd = localClasses(id)
       val lmd = lcd.methods.find(_.id == method.id).get
 
       val subCtx = ctx.inGhost(lmd.flags contains Ghost)
