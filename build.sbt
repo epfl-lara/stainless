@@ -1,5 +1,7 @@
 import sbt.ScriptedPlugin
 
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1")
+
 enablePlugins(GitVersioning)
 enablePlugins(GitBranchPrompt)
 
