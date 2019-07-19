@@ -5,6 +5,7 @@ package termination
 
 import scala.concurrent.duration._
 import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
+import scala.collection.compat._
 
 import scala.language.existentials
 
@@ -178,7 +179,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       if (funDefs(fd1) && funDefs(fd2)) Some(fd1 -> fd2) else None
     }
 
-    val callGraph = pairs.groupBy(_._1).mapValues(_.map(_._2))
+    val callGraph = pairs.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
     val allComponents = inox.utils.SCC.scc(callGraph)
 
     val notWellFormed = (for (fd <- funDefs; reason <- dtChecker check fd) yield {

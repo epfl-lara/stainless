@@ -3,6 +3,8 @@
 package stainless
 package termination
 
+import scala.collection.compat._
+
 trait OrderingRelation extends SolverProvider {
   val checker: ProcessingPipeline
   import checker.program.trees._
@@ -59,7 +61,7 @@ trait BVOrdering extends OrderingRelation { self: StructuralSize =>
 
   private def compare(args1: Seq[Expr], args2: Seq[Expr], strict: Boolean): Expr = {
     def groupedBySize(as: Seq[Expr]): Map[Int, Seq[Expr]] =
-      as.collect { case IsTyped(e, BVType(_, i)) => i -> e }.groupBy(_._1).mapValues(_.map(_._2))
+      as.collect { case IsTyped(e, BVType(_, i)) => i -> e }.view.groupBy(_._1).mapValues(_.map(_._2)).toMap
 
     val bv1 = groupedBySize(args1)
     val bv2 = groupedBySize(args2)

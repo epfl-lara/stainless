@@ -4,6 +4,8 @@ package stainless
 package extraction
 package oo
 
+import scala.collection.compat._
+
 trait TransformerWithType extends TreeTransformer {
   val s: Trees
   val t: Trees
@@ -326,7 +328,7 @@ trait TransformerWithType extends TreeTransformer {
 
     case s.LargeArray(elems, dflt, size, base) =>
       t.LargeArray(
-        elems mapValues (transform(_, base)),
+        elems.view.mapValues(transform(_, base)).toMap,
         transform(dflt, base),
         transform(size, s.Int32Type()),
         transform(base)
