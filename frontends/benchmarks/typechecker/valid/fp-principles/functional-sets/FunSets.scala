@@ -79,13 +79,13 @@ object FunSets {
     else filterIterForallCheck(a+1, s, p)
 
     iterForallCheck(a, res, p)
-  } holds
+  }.holds
 
   def filterForallCheck(s: Int => Boolean, p: Int => Boolean): Boolean = {
     filterIterForallCheck(-bound, s, p)
     val res = filter(s, p)
     forallCheck(res, p)
-  } holds
+  }.holds
 
   // The bounds on absolute value of `forallCheck` and `existsCheck`
   val bound = 1000

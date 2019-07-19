@@ -24,6 +24,6 @@ object Lambdas2 {
     require(intForAll2(n, n, smallNumbers(n, init_messages)))
     
     invariant(n, init_messages)
-  } holds
+  }.holds
   
 }

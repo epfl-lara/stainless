@@ -4,7 +4,7 @@ object LambdaPreconditions {
   def a() = {
     require(false)
     false
-  } holds
+  }.holds
 
   def f(b: Boolean): () => Boolean = {
     if (b) a

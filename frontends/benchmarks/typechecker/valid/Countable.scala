@@ -24,6 +24,6 @@ object Countable {
     e.gof(d)
     check(d(f(d)) == d(f(d)) + 1)
     false
-  } holds
+  }.holds
 }
 

@@ -61,7 +61,7 @@ object NNF {
   @induct
   def simplifySemantics(f: Formula) : Boolean = {
     eval(f) == eval(simplify(f))
-  } holds
+  }.holds
 
   // Note that matching is exhaustive due to precondition.
   def vars(f: Formula): Set[BigInt] = {
@@ -85,17 +85,17 @@ object NNF {
   def simplifyPreservesNNF(f: Formula) : Boolean = {
     require(isNNF(f))
     isNNF(simplify(f))
-  } holds
+  }.holds
 
   @induct
   def nnfIsStable(f: Formula) : Boolean = {
     require(isNNF(f))
     nnf(f) == f
-  } holds
+  }.holds
 
   @induct
   def simplifyIsStable(f: Formula) : Boolean = {
     require(isSimplified(f))
     simplify(f) == f
-  } holds
+  }.holds
 }

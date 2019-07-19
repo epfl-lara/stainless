@@ -34,5 +34,5 @@ object Factorial {
     case S(n2) => mult(n)(factorial(n2))
   }
 
-  def test_factorial2() = { factorial(five) == mult(ten)(twelve) } holds
+  def test_factorial2() = { factorial(five) == mult(ten)(twelve) }.holds
 }

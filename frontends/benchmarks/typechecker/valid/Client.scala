@@ -14,7 +14,7 @@ object Minimal {
 
   def theorem() = {
     client.f(0).size != BigInt(0)
-  } holds
+  }.holds
 
 }
 

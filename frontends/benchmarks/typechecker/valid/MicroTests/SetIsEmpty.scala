@@ -6,19 +6,19 @@ object SetIsEmpty {
 
   def emptySetIsEmpty: Boolean = {
     Set().isEmpty
-  } holds
+  }.holds
 
   //  def emptyContainsNothing[A](set: Set[A]): Boolean = {
   //    set.isEmpty ==> forall((x: A) => !set.contains(x))
-  //  } holds
+  //  }.holds
 
    def complementItselfEmpty[A](set: Set[A]): Boolean = {
      (set -- set).isEmpty
-   } holds
+   }.holds
 
    def addToEmptyNonEmpty[A](set: Set[A], x: A): Boolean = {
      require(set.isEmpty)
      !((set + x).isEmpty)
-   } holds
+   }.holds
 
 }

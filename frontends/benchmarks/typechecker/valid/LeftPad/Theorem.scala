@@ -9,14 +9,14 @@ object Theorem {
       require(p && underlying)
 
       underlying
-    } holds
+    }.holds
 
     @inline
     def proved(): Boolean = {
       require(underlying)
 
       underlying
-    } holds
+    }.holds
   }
 
   @inline
@@ -24,5 +24,5 @@ object Theorem {
     require(b)
 
     b
-  } holds
+  }.holds
 }

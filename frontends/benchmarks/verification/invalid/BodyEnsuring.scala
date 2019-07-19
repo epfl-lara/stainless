@@ -4,7 +4,7 @@ object BodyEnsuring {
   def f(): () => Boolean = {
     () => {
       false 
-    } holds
+    }.holds
   }
 
   def g() = {

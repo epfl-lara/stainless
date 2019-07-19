@@ -1,6 +1,8 @@
 import stainless.lang._
 import stainless.annotation._
 
+import scala.language.postfixOps
+
 object IntSetProp {
   case class Empty() extends IntSet
   case class Node(left: IntSet,

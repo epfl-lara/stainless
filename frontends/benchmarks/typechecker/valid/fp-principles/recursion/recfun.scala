@@ -17,12 +17,12 @@ object Main {
 
   def checkPascal(c: BigInt): Boolean = {
     c<0 || pascal(c, c) == 1
-  } holds
+  }.holds
 
   def checkPascal2(c: BigInt, r: BigInt): Boolean = {
     require(c>=0 && r>=0 && c<=r)
     pascal(c,r)==1 || pascal(c,r) == pascal(c-1,r-1) + pascal(c,r-1)
-  } holds
+  }.holds
 
   // Exercise 2
   def balance(chars: List[Char]): Boolean = {
@@ -42,7 +42,7 @@ object Main {
 
   def checkBalance(chars: List[Char]) : Boolean = {
     !balance(')' :: chars)
-  } holds
+  }.holds
 
   // Exercise 3
   def distinct[T](l: List[T]): Boolean = {

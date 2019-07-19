@@ -29,7 +29,7 @@ object Basics {
 
   def test_next_weeday() = {
     next_weekday(next_weekday(Saturday)) == Tuesday
-  } holds
+  }.holds
 
   sealed abstract class Bool
   case object True extends Bool
@@ -50,10 +50,10 @@ object Basics {
     case False => b2
   }
 
-  def test_orb1() = { orb(True, False) == True } holds
-  def test_orb2() = { orb(False, False) == False } holds
-  def test_orb3() = { orb(False, True) == True } holds
-  def test_orb4() = { orb(True, True) == True } holds
+  def test_orb1() = { orb(True, False) == True }.holds
+  def test_orb2() = { orb(False, False) == False }.holds
+  def test_orb3() = { orb(False, True) == True }.holds
+  def test_orb4() = { orb(True, True) == True }.holds
 
   // When using the operators && and || on an element of type Bool, the Scala
   // compiler will understand that Bool has to be wrapped in a
@@ -63,17 +63,17 @@ object Basics {
     def ||(b2: Bool) = orb(b, b2)
   }
 
-  def test_orb5() = { (False || False || True) == True } holds
+  def test_orb5() = { (False || False || True) == True }.holds
 
 
   /** **** Exercise: 1 star (nandb) */
 
   def nandb(b1: Bool, b2: Bool): Bool = negb(b1 && b2)
 
-  def test_nandb1() = { nandb(True, False) == True } holds
-  def test_nandb2() = { nandb(False, False) == True } holds
-  def test_nandb3() = { nandb(False, True) == True } holds
-  def test_nandb4() = { nandb(True, True) == False } holds
+  def test_nandb1() = { nandb(True, False) == True }.holds
+  def test_nandb2() = { nandb(False, False) == True }.holds
+  def test_nandb3() = { nandb(False, True) == True }.holds
+  def test_nandb4() = { nandb(True, True) == False }.holds
 
   /** [] */
 
@@ -82,10 +82,10 @@ object Basics {
 
   def andb3(b1: Bool, b2: Bool, b3: Bool): Bool = b1 && b2 && b3
 
-  def test_andb31() = { andb3(True, True, True) == True } holds
-  def test_andb32() = { andb3(False, True, True) == False } holds
-  def test_andb33() = { andb3(True, False, True) == False } holds
-  def test_andb34() = { andb3(True, True, False) == False } holds
+  def test_andb31() = { andb3(True, True, True) == True }.holds
+  def test_andb32() = { andb3(False, True, True) == False }.holds
+  def test_andb33() = { andb3(True, False, True) == False }.holds
+  def test_andb34() = { andb3(True, True, False) == False }.holds
 
   /** [] */
 
@@ -160,8 +160,8 @@ object Basics {
 
   def oddb(n: Nat): Boolean = !evenb(n)
 
-  def test_oddb1() = { oddb(S(O)) } holds
-  def test_oddb2() = { !oddb(four) } holds
+  def test_oddb1() = { oddb(S(O)) }.holds
+  def test_oddb2() = { !oddb(four) }.holds
 
   def plus(n: Nat, m: Nat): Nat = {
     decreases(n)
@@ -208,10 +208,10 @@ object Basics {
     }
   }
 
-  def test_factorial1() = { factorial(three) == six } holds
+  def test_factorial1() = { factorial(three) == six }.holds
 
   // commented out because that takes a while to verify
-  // def test_factorial2() = { factorial(five) == mult(ten, twelve) } holds
+  // def test_factorial2() = { factorial(five) == mult(ten, twelve) }.holds
 
   /** [] */
 
@@ -249,31 +249,31 @@ object Basics {
     }
   }
 
-  def test_leb1() = { leb(two, two) } holds
-  def test_leb2() = { leb(two, four) } holds
-  def test_leb3() = { !leb(four, two) } holds
+  def test_leb1() = { leb(two, two) }.holds
+  def test_leb2() = { leb(two, four) }.holds
+  def test_leb3() = { !leb(four, two) }.holds
 
   /** **** Exercise: 1 star (blt_nat) */
 
   def blt_nat(n: Nat, m: Nat): Boolean = leb(n, m) && !beq_nat(n, m)
 
-  def test_blt_nat1() = { !blt_nat(two, two) } holds
-  def test_blt_nat2() = { blt_nat(two, four) } holds
-  def test_blt_nat3() = { !blt_nat(four, two) } holds
+  def test_blt_nat1() = { !blt_nat(two, two) }.holds
+  def test_blt_nat2() = { blt_nat(two, four) }.holds
+  def test_blt_nat3() = { !blt_nat(four, two) }.holds
 
   /** [] */
 
-  def plus_O_n(n: Nat) = { O + n == n } holds
+  def plus_O_n(n: Nat) = { O + n == n }.holds
 
-  def plus_1_l(n: Nat) = { one + n == S(n) } holds
+  def plus_1_l(n: Nat) = { one + n == S(n) }.holds
 
-  def mult_0_l(n: Nat) = { O * n == O } holds
+  def mult_0_l(n: Nat) = { O * n == O }.holds
 
   def plus_id_example(n: Nat, m: Nat): Boolean = {
     require(n == m)
 
     n + m == m + n
-  } holds
+  }.holds
 
   /** **** Exercise: 1 star (plus_id_exercise) */
 
@@ -281,13 +281,13 @@ object Basics {
     require(n == m && m == o)
 
     n + m == m + o
-  } holds
+  }.holds
 
   /** [] */
 
   def mult_0_plus(n: Nat, m: Nat): Boolean = {
     (O + n) * m == n * m
-  } holds
+  }.holds
 
   /** **** Exercise: 2 stars (mult_S_1)  */
 
@@ -295,20 +295,20 @@ object Basics {
     require(m == S(n))
 
     m * (one + n) == m * m
-  } holds
+  }.holds
 
   /** [] */
 
   def plus_1_neq_0(n: Nat) = {
     !beq_nat(n + one, zero)
-  } holds
+  }.holds
 
   /** Some examples using the Bool type defined above */
 
 
-  def negb_involutive(b: Bool) = { negb(negb(b)) == b } holds
+  def negb_involutive(b: Bool) = { negb(negb(b)) == b }.holds
 
-  def andb_commutative(b: Bool, c: Bool) = { andb(b, c) == andb(c, b) } holds
+  def andb_commutative(b: Bool, c: Bool) = { andb(b, c) == andb(c, b) }.holds
 
   def andb3_exchange(b: Bool, c: Bool, d: Bool) = { andb(andb(b, c), d) == andb(andb(b, d), c) }
 
@@ -318,7 +318,7 @@ object Basics {
     require(andb(b, c) == True)
 
     c == True
-  } holds
+  }.holds
 
   /** [] */
 
@@ -326,7 +326,7 @@ object Basics {
 
   def zero_nbeq_plus_1(n: Nat): Boolean = {
     !beq_nat(O, n + one)
-  } holds
+  }.holds
 
   /** [] */
 
@@ -370,7 +370,7 @@ object Basics {
     }
 
     natToBigInt(n) < natToBigInt(m)
-  } holds
+  }.holds
 
   /** [] */
 
@@ -385,7 +385,7 @@ object Basics {
     require(andb(b, c) == orb(b, c))
 
     b == c
-  } holds
+  }.holds
 
   /** [] */
 
@@ -430,11 +430,11 @@ object Basics {
   val ten_bin = Twice(five_bin)
 
 
-  def test_bin_incr1() = {  bin_to_nat(six_bin) == six } holds
-  def test_bin_incr2() = {  bin_to_nat(eight_bin) == eight } holds
-  def test_bin_incr3() = {  bin_to_nat(incr(five_bin)) == S(bin_to_nat(five_bin)) } holds
-  def test_bin_incr4() = {  bin_to_nat(incr(ten_bin)) == S(bin_to_nat(ten_bin)) } holds
-  def test_bin_incr5() = {  bin_to_nat(incr(incr(one_bin))) == three } holds
+  def test_bin_incr1() = {  bin_to_nat(six_bin) == six }.holds
+  def test_bin_incr2() = {  bin_to_nat(eight_bin) == eight }.holds
+  def test_bin_incr3() = {  bin_to_nat(incr(five_bin)) == S(bin_to_nat(five_bin)) }.holds
+  def test_bin_incr4() = {  bin_to_nat(incr(ten_bin)) == S(bin_to_nat(ten_bin)) }.holds
+  def test_bin_incr5() = {  bin_to_nat(incr(incr(one_bin))) == three }.holds
 
   /** [] */
 

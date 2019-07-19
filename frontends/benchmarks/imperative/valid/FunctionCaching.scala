@@ -25,7 +25,7 @@ object FunctionCaching {
     multipleCalls(trash, x)
     val res2 = fun(x)
     res1 == res2
-  } holds
+  }.holds
 
   def multipleCalls(args: List[BigInt], x: BigInt)(implicit funCache: FunCache): Unit = {
     require(funCache.cached.get(x).forall(_ == 2*x + 42))

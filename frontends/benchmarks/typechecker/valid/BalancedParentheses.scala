@@ -187,18 +187,18 @@ object BalancedParenthesesSpecs {
 
   def append_is_associative(a: Balance, b: Balance, c: Balance): Boolean = {
     a ++ (b ++ c) == (a ++ b) ++ c
-  } holds
+  }.holds
 
   def cons_append_equivalence(p: Parenthesis, b: Balance): Boolean = {
     require(b.nonNegative)
 
     p +: b == fromParenthesis(p) ++ b
-  } holds
+  }.holds
 
   @induct
   def folds_equivalence(xs: List[Parenthesis]): Boolean = {
     xs.foldRight(Balance(0, 0))(fromParenthesis(_) ++ _) == xs.foldRight(Balance(0, 0))(_ +: _)
-  } holds
+  }.holds
 
   def append(xs: List[Balance], ys: List[Balance]): Boolean = {
     require(!xs.isEmpty() && !ys.isEmpty())
@@ -224,7 +224,7 @@ object BalancedParenthesesSpecs {
         } qed
       }
     }
-  } holds
+  }.holds
 
   def fold_foldRight1_equivalence(tree: Tree[Balance]): Boolean = {
     decreases(tree)
@@ -249,12 +249,12 @@ object BalancedParenthesesSpecs {
         } qed
       }
     }
-  } holds
+  }.holds
 
   @induct
   def map_append(xs: List[Parenthesis], ys: List[Parenthesis], f: Parenthesis => Balance): Boolean = {
     xs.map(f).append(ys.map(f)) == xs.append(ys).map(f)
-  } holds
+  }.holds
 
   def toList_map_commutativity(tree: Tree[Parenthesis], f: Parenthesis => Balance): Boolean = {
     decreases(tree)
@@ -268,17 +268,17 @@ object BalancedParenthesesSpecs {
         }
       }
     }
-  } holds
+  }.holds
 
   @induct
   def foldRight_accumulator_equivalence[A](xs: List[A], z: A, f: (A, A) => A): Boolean = {
     xs.foldRight(z)(f) == xs.append(Cons(z, Nil())).foldRight1(f)
-  } holds
+  }.holds
 
   @induct
   def foldRight_map_commutivity(xs: List[Parenthesis]): Boolean = {
     xs.foldRight(Balance(0, 0))(fromParenthesis(_) ++ _) == xs.map(fromParenthesis).foldRight(Balance(0, 0))(_ ++ _)
-  } holds
+  }.holds
 
   def remove_null_balance(xs: List[Parenthesis]): Boolean = {
     require(!xs.isEmpty())
@@ -307,7 +307,7 @@ object BalancedParenthesesSpecs {
         } qed
       }
     }
-  } holds
+  }.holds
 
 
 
@@ -322,7 +322,7 @@ object BalancedParenthesesSpecs {
     require(b.nonNegative())
 
     updateCounter(p, balanceToCounter(b)) == balanceToCounter(p +: b)
-  } holds
+  }.holds
 
 
   def original_sequential_helper(xs: List[Parenthesis]): Boolean = {
@@ -351,7 +351,7 @@ object BalancedParenthesesSpecs {
           } qed)
       }
     }
-  } holds
+  }.holds
 
 
   def original_sequential_equivalence(xs: List[Parenthesis]): Boolean = {
@@ -360,7 +360,7 @@ object BalancedParenthesesSpecs {
     } because {
       check(original_sequential_helper(xs))
     }
-  } holds
+  }.holds
 
   def sequential_hybrid_equivalence(xs: List[Parenthesis]): Boolean = {
     require(!xs.isEmpty())
@@ -379,7 +379,7 @@ object BalancedParenthesesSpecs {
         xs.map(fromParenthesis).foldRight1(_ ++ _)
       } qed
     }
-  } holds
+  }.holds
 
   def hybrid_parallel_equivalence(tree: Tree[Parenthesis]): Boolean = {
     (isMatchedHybid(tree.toList()) == isMatchedParallel(tree)) because {
@@ -391,7 +391,7 @@ object BalancedParenthesesSpecs {
         tree.map(fromParenthesis).fold(_ ++ _)
       } qed
     }
-  } holds
+  }.holds
 
 
   /** Main lemma. States that the sequential and parallel versions are equivalent. */
@@ -402,5 +402,5 @@ object BalancedParenthesesSpecs {
       check(sequential_hybrid_equivalence(tree.toList())) &&
       check(hybrid_parallel_equivalence(tree))
     }
-  } holds
+  }.holds
 }
