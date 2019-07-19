@@ -251,7 +251,7 @@ trait InnerClasses
         case LocalThis(lct) =>
           val subst = ctx.substs(lct.id)
           val ct = ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx))).copiedFrom(lct)
-          t.This(ct)
+          t.This(ct).copiedFrom(e)
 
         case LocalClassConstructor(lct, args) =>
           val subst = ctx.substs(lct.id)
@@ -362,7 +362,9 @@ trait InnerClasses
       // New necessary fields and type parameters
       val newTypeParams  = freeTypeParams.map(TypeParameterDef(_))
       val freeVarFields  = freeVars.map(_.toVal)
-      val outerRefFields = freeOuterRefs.map(r => ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), context.toGlobalType(r.ct)))
+      val outerRefFields = freeOuterRefs.map { r =>
+        ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), context.toGlobalType(r.ct))
+      }
 
       // Convert all parents to a ClassType
       val parents = lcd.parents map context.toGlobalType
@@ -388,7 +390,7 @@ trait InnerClasses
 
       // Map each outer reference to the corresponding field selector
       val freeOuterRefsMap = freeOuterRefs.zip(outerRefFields).map { case (thiss, vd) =>
-        thiss.ct -> ClassSelector(This(classType), vd.id).copiedFrom(thiss)
+        thiss.ct.id -> ClassSelector(This(classType), vd.id).copiedFrom(thiss)
       }.toMap
 
       /** Rewrite the given method to access free variables through the new fields,
@@ -403,8 +405,11 @@ trait InnerClasses
             val ClassSelector(rec, sel) = freeVarsMap(v)
             Some(FieldAssignment(rec, sel, e).copiedFrom(a))
 
-          case thiss: This if freeOuterRefsMap contains thiss.ct =>
-            Some(freeOuterRefsMap(thiss.ct))
+          case thiss: This if freeOuterRefsMap contains thiss.ct.id =>
+            Some(freeOuterRefsMap(thiss.ct.id))
+
+          case thiss: LocalThis if freeOuterRefsMap contains thiss.lct.id =>
+            Some(freeOuterRefsMap(thiss.lct.id))
 
           case lcc @ LocalClassConstructor(lct, args) if lct.id == lcd.id =>
             val ct = ClassType(lcd.id, lct.tps ++ newTypeParams.map(_.tp))
