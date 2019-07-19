@@ -18,6 +18,17 @@ trait GhostTraverser extends transformers.GhostTraverser {
     res
   }
 
+  override def traverse(fd: FunDef): Unit = {
+    val lfds = exprOps.collect[LocalFunDef] {
+      case LetRec(lfds, _) => lfds.toSet
+      case _ => Set.empty
+    } (fd.fullBody)
+
+    withLocalFuns(lfds.toSeq) {
+      super.traverse(fd)
+    }
+  }
+
   override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
     case LetRec(defs, body) =>
       withLocalFuns(defs) {

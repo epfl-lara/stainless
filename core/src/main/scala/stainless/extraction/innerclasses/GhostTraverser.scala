@@ -12,12 +12,23 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
 
   private[this] var localClasses = Map.empty[Identifier, LocalClassDef]
 
-  private[this] def withLocalClasses[A](fds: Seq[LocalClassDef])(a: => A): A = {
+  private[this] def withLocalClasses[A](lcds: Seq[LocalClassDef])(a: => A): A = {
     val prev = localClasses
-    localClasses ++= fds.map(cd => cd.id -> cd)
+    localClasses ++= lcds.map(cd => cd.id -> cd)
     val res = a
     localClasses = prev
     res
+  }
+
+  override def traverse(fd: FunDef): Unit = {
+    val lcds = exprOps.collect[LocalClassDef] {
+      case LetClass(lcds, _) => lcds.toSet
+      case _ => Set.empty
+    } (fd.fullBody)
+
+    withLocalClasses(lcds.toSeq) {
+      super.traverse(fd)
+    }
   }
 
   override def traverse(lcd: LocalClassDef, ctx: GhostContext): Unit = {
