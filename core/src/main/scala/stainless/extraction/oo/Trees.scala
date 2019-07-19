@@ -255,6 +255,8 @@ trait Printer extends innerfuns.Printer {
             |"""
       }
 
+      if (cd.isSealed) p"sealed "
+      if (cd.isAbstract) p"abstract " else p"case "
       p"class ${cd.id}"
       p"${nary(cd.tparams, ", ", "[", "]")}"
       if (cd.fields.nonEmpty) p"(${cd.fields})"
@@ -269,6 +271,7 @@ trait Printer extends innerfuns.Printer {
             |"""
       }
 
+      if (td.isAbstract) p"abstract "
       p"type ${td.id}${nary(td.tparams, ", ", "[", "]")}"
 
       if (td.isAbstract) {

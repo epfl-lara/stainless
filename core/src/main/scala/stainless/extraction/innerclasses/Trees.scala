@@ -91,6 +91,12 @@ trait Printer extends methods.Printer {
 
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case cd: LocalClassDef =>
+      if (cd.flags contains IsSealed) p"sealed "
+      if (cd.flags contains IsAbstract) p"abstract " else p"case "
+      for (an <- cd.flags) {
+        p"""|@${an.asString(ctx.opts)}
+            |"""
+      }
       p"class ${cd.id}"
       p"${nary(cd.tparams, ", ", "[", "]")}"
       if (cd.fields.nonEmpty) p"(${cd.fields})"
