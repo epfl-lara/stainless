@@ -215,8 +215,10 @@ trait TreeSanitizer { self =>
 
   /** Disallow equality between lambdas and non-sealed abstract classes in non-ghost code */
   private[this] class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
-    private[this] val PEDANTIC = true
-    private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
+
+    val PEDANTIC = false
+
+    var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
     override def sanitize(): Seq[MalformedStainlessCode] = {
       errors = ListBuffer.empty
@@ -224,15 +226,15 @@ trait TreeSanitizer { self =>
       errors.toSeq
     }
 
-    private[this] val hasLocalSubClasses: Identifier => Boolean =
+    val hasLocalSubClasses: Identifier => Boolean =
       symbols.localClasses.flatMap(_.globalAncestors.map(_.id)).toSet
 
-    private[this] def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
+   def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
       val ancestors = (ct.tcd +: ct.tcd.ancestors)
       ancestors.exists(tcd => tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 
-    private[this] object ghostTraverser extends xlang.GhostTraverser {
+    object ghostTraverser extends xlang.GhostTraverser {
       override val trees: self.trees.type = self.trees
       import trees._
 
@@ -241,14 +243,18 @@ trait TreeSanitizer { self =>
       override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
         case Equals(lhs, rhs) if !ctx.isGhost =>
           def rec(tps: (Type, Type)): Unit = tps match {
+            case (tp1, tp2) if PEDANTIC && (typeOps.isParametricType(tp1) || typeOps.isParametricType(tp2)) =>
+              errors += MalformedStainlessCode(e,
+                s"Cannot compare parametric types for equality. Use the === method of the Eq typeclass instead.")
+
             case (ct1: ClassType, ct2) if hasLocalSubClasses(ct1.id) =>
               errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
             case (ct1, ct2: ClassType) if hasLocalSubClasses(ct2.id) =>
               errors += MalformedStainlessCode(e, "Cannot compare classes with local subclasses for equality")
 
-            case (ct1: ClassType, ct2) if PEDANTIC && isOrHasNonSealedAncestors(ct1) =>
+            case (ct1: ClassType, ct2) if isOrHasNonSealedAncestors(ct1) =>
               errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
-            case (ct1, ct2: ClassType) if PEDANTIC && isOrHasNonSealedAncestors(ct2) =>
+            case (ct1, ct2: ClassType) if isOrHasNonSealedAncestors(ct2) =>
               errors += MalformedStainlessCode(e, "Cannot compare classes with non sealed ancestors for equality in non-ghost code")
 
             case (lct1: LocalClassType, lct2) =>
@@ -260,15 +266,6 @@ trait TreeSanitizer { self =>
               errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
             case (ft1, ft2: FunctionType) =>
               errors += MalformedStainlessCode(e, "Cannot compare lambdas for equality in non-ghost code")
-
-            // case (tp1, tp2) if PEDANTIC && tp1 != tp2 =>
-            //   errors += MalformedStainlessCode(e,
-            //     s"Cannot compare two different types for equality ($tp1 and $tp2)")
-
-            // case (tp1, tp2) if PEDANTIC =>
-            //   assert(tp1 == tp2) // because of first case in the surround pattern match
-            //   val TypeOperator(es, _) = tp1
-            //   es.zip(es).foreach(rec)
 
             case (tp1, tp2) =>
               val TypeOperator(es1, _) = tp1
