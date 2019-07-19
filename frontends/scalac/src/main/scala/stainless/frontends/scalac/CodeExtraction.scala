@@ -107,9 +107,11 @@ trait CodeExtraction extends ASTExtractors {
   private def getIdentifier(sym: Symbol): SymbolIdentifier = cache fetch sym
 
   private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Seq[xt.Flag] = {
-    getAnnotations(sym, ignoreOwner).map { case (name, args) =>
-      xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
-    }
+    getAnnotations(sym, ignoreOwner)
+      .filter { case (name, _) => !name.startsWith("isabelle") }
+      .map { case (name, args) =>
+        xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
+      }
   }
 
   private case class DefContext(

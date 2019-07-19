@@ -53,8 +53,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def getIdentifier(sym: Symbol): SymbolIdentifier = cache fetch sym
 
   private def annotationsOf(sym: Symbol, ignoreOwner: Boolean = false): Seq[xt.Flag] = {
-    getAnnotations(sym, ignoreOwner = ignoreOwner).map {
-      case (name, args) => xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
+    getAnnotations(sym, ignoreOwner = ignoreOwner)
+      .filter { case (name, _) => !name.startsWith("isabelle") }
+      .map { case (name, args) =>
+        xt.extractFlag(name, args.map(extractTree(_)(DefContext())))
     }
   }
 
