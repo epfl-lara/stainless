@@ -248,6 +248,11 @@ trait InnerClasses
 
           transform(LetRec(localFunDefs, body), ctx withSubsts lifted)
 
+        case LocalThis(lct) =>
+          val subst = ctx.substs(lct.id)
+          val ct = ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx))).copiedFrom(lct)
+          t.This(ct)
+
         case LocalClassConstructor(lct, args) =>
           val subst = ctx.substs(lct.id)
           val ct = ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx))).copiedFrom(lct)

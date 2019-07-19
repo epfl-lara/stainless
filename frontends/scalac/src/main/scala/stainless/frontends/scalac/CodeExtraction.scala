@@ -1226,7 +1226,7 @@ trait CodeExtraction extends ASTExtractors {
     case t: This =>
       extractType(t) match {
         case ct: xt.ClassType => xt.This(ct)
-        case lct: xt.LocalClassType => xt.This(lct.toClassType)
+        case lct: xt.LocalClassType => xt.LocalThis(lct)
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
 

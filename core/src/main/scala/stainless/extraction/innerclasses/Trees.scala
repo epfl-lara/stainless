@@ -28,6 +28,10 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     protected def computeType(implicit s: Symbols): Type = body.getType
   }
 
+  case class LocalThis(lct: LocalClassType) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): LocalClassType = lct
+  }
+
   case class LocalClassConstructor(lct: LocalClassType, args: Seq[Expr]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): LocalClassType = lct
   }
@@ -46,13 +50,19 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     tps: Seq[Type],
     args: Seq[Expr]
   ) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = method.tpe match {
-      case FunctionType(from, to) =>
-        val tpMap = (tparams zip tps).toMap
-        val realFrom = from.map(typeOps.instantiateType(_, tpMap))
-        val realTo = typeOps.instantiateType(to, tpMap)
-        checkParamTypes(args.map(_.getType), realFrom, realTo)
-      case _ => Untyped
+    protected def computeType(implicit s: Symbols): Type = {
+      receiver.getType match {
+        case lct: LocalClassType =>
+          method.tpe match {
+            case FunctionType(from, to) =>
+              val tpMap = (tparams zip tps).toMap
+              val realFrom = from.map(typeOps.instantiateType(_, tpMap))
+              val realTo = typeOps.instantiateType(to, tpMap)
+              checkParamTypes(args.map(_.getType), realFrom, realTo)
+            case _ => Untyped
+          }
+        case _ => Untyped
+      }
     }
   }
 
@@ -109,6 +119,9 @@ trait Printer extends methods.Printer {
             |"""
       }
       p"$body"
+
+    case LocalThis(_) =>
+      p"this"
 
     case LocalClassConstructor(ct, args) =>
       p"$ct(${nary(args, ", ")})"
@@ -277,6 +290,10 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
           t.LetClass(newClasses, es.head)
         }
       )
+
+    case s.LocalThis(lct) =>
+      (Seq(), Seq(), Seq(), Seq(lct), Seq(), (_, _, _, tps, _) =>
+        t.LocalThis(tps(0).asInstanceOf[t.LocalClassType]))
 
     case s.LocalClassConstructor(lct, args) =>
       (Seq(), Seq(), args, Seq(lct), Seq(), (_, _, es, tps, _) =>
