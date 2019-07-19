@@ -4,18 +4,26 @@ package stainless
 package extraction
 package innerfuns
 
-import scala.collection.mutable.{Map => MutableMap}
-
 trait GhostTraverser extends transformers.GhostTraverser {
   val trees: Trees
   import trees._
 
-  private[this] val innerFuns = MutableMap.empty[Identifier, LocalFunDef]
+  private[this] var innerFuns = Map.empty[Identifier, LocalFunDef]
+
+  private[this] def withInnerFuns[A](fds: Seq[LocalFunDef])(a: => A): A = {
+    val prev = innerFuns
+    innerFuns = fds.map(fd => fd.id -> fd).toMap
+    val res = a
+    innerFuns = prev
+    res
+  }
 
   override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
     case LetRec(defs, body) =>
-      defs.foreach(traverse(_, ctx))
-      traverse(body, ctx)
+      withInnerFuns(defs) {
+        defs.foreach(traverse(_, ctx))
+        traverse(body, ctx)
+      }
 
     case alr: ApplyLetRec if innerFuns(alr.id).flags contains Ghost =>
       super.traverse(alr, ctx.withinGhost)
@@ -34,8 +42,6 @@ trait GhostTraverser extends transformers.GhostTraverser {
   }
 
   def traverse(fd: LocalFunDef, ctx: GhostContext): Unit = {
-    innerFuns += (fd.id -> fd)
-
     val innerCtx = ctx.inGhost(fd.flags contains Ghost)
     traverse(fd.id, innerCtx)
     fd.tparams map (traverse(_, innerCtx))
