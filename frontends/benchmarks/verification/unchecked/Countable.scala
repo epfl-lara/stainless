@@ -22,7 +22,7 @@ object Countable {
     assert(d(f(d)) == g(f(d))(f(d)) + 1)
     assert(d(f(d)) == d(f(d)) + 1)
     false
-  } holds
+  }.holds
 
   def theorem() = {
     if (forall((x: Empty) => false))

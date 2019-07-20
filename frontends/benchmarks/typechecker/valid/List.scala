@@ -541,13 +541,13 @@ sealed abstract class LList[T] {
   def partitionMultiplicity(p: T => Boolean, x: T): Boolean = {
     val (l1, l2) = partition(p)
     count(_ == x) == l1.count(_ == x) + l2.count(_ == x)
-  } holds
+  }.holds
 
   @induct
   def partitionMultiplicity2(p: T => Boolean, p2: T => Boolean): Boolean = {
     val (l1, l2) = partition(p)
     count(p2) == l1.count(p2) + l2.count(p2)
-  } holds
+  }.holds
 
   // In case we implement for-comprehensions
   def withFilter(p: T => Boolean) = filter(p)

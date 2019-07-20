@@ -43,5 +43,5 @@ object Factorial {
     }
   }
 
-  def test_factorial2() = { factorial(five) == mult(ten)(twelve) } holds
+  def test_factorial2() = { factorial(five) == mult(ten)(twelve) }.holds
 }

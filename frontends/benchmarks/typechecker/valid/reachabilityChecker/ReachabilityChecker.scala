@@ -165,7 +165,7 @@ object ReachabilityChecker {
     }
 
     tr.contains((s, st))
-  } holds
+  }.holds
 
   def canTransition(tr: List[(State, State)],
                     x: State,
@@ -192,7 +192,7 @@ object ReachabilityChecker {
           s,
           xs) && canTransition(tr, s, succ)
     }
-  } holds
+  }.holds
 
   def canTransitionSucc(tr: List[(State, State)], s: State): Boolean = {
     val succ = successors(tr, s)
@@ -201,7 +201,7 @@ object ReachabilityChecker {
     canTransitionSuccHelp(tr, s, succ) &&
     canTransition(tr, s, succ)
 
-  } holds
+  }.holds
 
   def subset[X](l1: List[X], l2: List[X]): Boolean = {
     decreases(l1)
@@ -220,7 +220,7 @@ object ReachabilityChecker {
           xs,
           l1) && subset(l1, l1)
     }
-  } holds
+  }.holds
 
   def subsetExtend[X](l1: List[X], l2: List[X], x: X): Boolean = {
     require(subset(l1, l2))
@@ -229,7 +229,7 @@ object ReachabilityChecker {
     check(l1.isEmpty || subsetExtend(l1.tail, l2, x))
 
     subset(l1, Cons(x, l2))
-  } holds
+  }.holds
 
   def addStateToTrace(t: List[State], s: System, st: State): Boolean = {
     require(isTrace(s, t) && (t.isEmpty || s.transitions.contains((t.last, st))))
@@ -238,7 +238,7 @@ object ReachabilityChecker {
     check(t.isEmpty || addStateToTrace(t.tail, s, st))
 
     isTrace(s, t :+ st)
-  } holds
+  }.holds
 
   def noTarget(t: List[State], target: State, x: State): Boolean = {
     require(!t.contains(target))
@@ -249,7 +249,7 @@ object ReachabilityChecker {
     check(t.isEmpty || noTarget(t.tail, target, x))
 
     x == l.last && (target == x || !l.contains(target))
-  } holds
+  }.holds
 
 
   def isTrace(s: System, t: List[State]): Boolean = {
@@ -269,7 +269,7 @@ object ReachabilityChecker {
     check(tr.isEmpty || tr.head == (s1,s2) || inSuccessors(tr.tail, s1, s2))
 
     successors(tr, s1).contains(s2)
-  } holds
+  }.holds
 
   def disjoint[X](l1: List[X], l2: List[X]): Boolean = {
     (l1 & l2).isEmpty
@@ -287,7 +287,7 @@ object ReachabilityChecker {
     require(l.contains(x))
 
     l.content.contains(x)
-  } holds
+  }.holds
 
   def completeTrace(l: List[State],
                     s: System,
@@ -336,7 +336,7 @@ object ReachabilityChecker {
       case _ => false
     }
 
-  } holds
+  }.holds
 
   def completeTraceExploreSucc(l: List[State],
                                s: System,
@@ -425,7 +425,7 @@ object ReachabilityChecker {
       case Trace(_) => true
       case _ => false
     })
-  } holds
+  }.holds
 
   def completeTraceInit(l: List[State],
                         s: System,
@@ -450,7 +450,7 @@ object ReachabilityChecker {
       case _ => false
     })
 
-  } holds
+  }.holds
 
   def statesToString(l: List[State]): String = {
     decreases(l)
@@ -500,7 +500,7 @@ object ReachabilityChecker {
   def simplePrepend[X](x: X, l: List[X]): Boolean = {
     require(simple(l) && !l.contains(x))
     simple(Cons(x, l))
-  } holds
+  }.holds
 
   def simpleNoAdd(s: System, l: List[State], st: State): Boolean = {
     require(isTrace(s, l) && !l.contains(st))
@@ -521,7 +521,7 @@ object ReachabilityChecker {
     })
 
     !sim.contains(st)
-  } holds
+  }.holds
 
   // @induct
   def removeCycleNoAdd(s: System,
@@ -536,7 +536,7 @@ object ReachabilityChecker {
     check(l.isEmpty || l.head == duplicateState || removeCycleNoAdd(s, l.tail, duplicateState, st))
 
     !rc.contains(st)
-  } holds
+  }.holds
 
   // @induct
   def removeCycleLast(s: System,
@@ -548,7 +548,7 @@ object ReachabilityChecker {
     check(l.isEmpty || l.head == duplicateState || removeCycleLast(s, l.tail, duplicateState))
 
     l.last == (Cons(duplicateState, removeCycle(s, l, duplicateState))).last
-  } holds
+  }.holds
 
   def simpleAppend[X](@induct t: List[X], x: X): Boolean = {
     require(simple(t) && !t.contains(x))
@@ -556,5 +556,5 @@ object ReachabilityChecker {
     check(t.isEmpty || simpleAppend(t.tail, x))
 
     simple(t :+ x)
-  } holds
+  }.holds
 }

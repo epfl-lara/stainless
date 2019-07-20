@@ -16,5 +16,5 @@ object AndTest {
    def foo(y: BigInt) : Boolean = {
      require(precond(y))
      y >= 0 && (nonterm(0) == 0)
-   } holds
+   }.holds
 }

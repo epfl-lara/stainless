@@ -21,7 +21,7 @@ object Induction {
     }
 
     n + O == n
-  } holds
+  }.holds
 
   // For such simple examples, Stainless also supports an @induct annotation,
   // that tells Stainless to use the inductive hypothesis.
@@ -29,7 +29,7 @@ object Induction {
   @induct
   def plus_n_O_auto(n: Nat): Boolean = {
     n + O == n
-  } holds
+  }.holds
 
   // minus_diag is defined in Basics.scala
 
@@ -38,12 +38,12 @@ object Induction {
   @induct
   def mult_0_r(n: Nat) = {
     n * O == O
-  } holds
+  }.holds
 
   @induct
   def plus_n_Sm(n: Nat, m: Nat) = {
     S (n + m) == n + (S(m))
-  } holds
+  }.holds
 
   // here, we do the induction manually, as we need to use the previous lemma
   // during the induction
@@ -56,12 +56,12 @@ object Induction {
         check(plus_n_Sm(m,n2)) // S(m + n2) == m + S(n2)
     }
     n + m == m + n
-  } holds
+  }.holds
 
   @induct
   def plus_assoc(n: Nat, m: Nat, p: Nat) = {
     n + (m + p) == (n + m) + p
-  } holds
+  }.holds
 
   /** [] */
 
@@ -85,7 +85,7 @@ object Induction {
     }
 
     double(n) == n + n
-  } holds
+  }.holds
 
   /** [] */
 
@@ -95,7 +95,7 @@ object Induction {
   @induct
   def evenb_S(n: Nat): Boolean = {
     evenb (S(n)) == !evenb(n)
-  } holds
+  }.holds
 
   /** [] */
 
@@ -103,12 +103,12 @@ object Induction {
   def mult_0_plus2(n: Nat, m: Nat): Boolean = {
     assert (O + n == n) // this is not really required here
     (O + n) * m == n * m
-  } holds
+  }.holds
 
   def plus_rearrange(n: Nat, m: Nat, p: Nat, q: Nat): Boolean = {
     check(plus_comm(n,m)) // asserts that n+m == m+n
     (n + m) + (p + q) == (m + n) + (p + q)
-  } holds
+  }.holds
 
   /** **** Exercise: 3 stars, recommended (mult_comm)  */
 
@@ -118,7 +118,7 @@ object Induction {
     plus_comm(p,n) // p+n = n+p
 
     n + (m + p) == m + (n + p)
-  } holds
+  }.holds
 
   def mult_n_Sm(n: Nat, m: Nat): Boolean = {
     decreases(n)
@@ -131,7 +131,7 @@ object Induction {
         plus_swap(m,n2,n2*m) // m + (n2 + n2*m) = n2 + (m + n2 * m)
     }
     n * S(m) == n + n * m
-  } holds
+  }.holds
 
   def mult_comm(n: Nat, m: Nat): Boolean = {
     decreases(n)
@@ -150,7 +150,7 @@ object Induction {
     }
 
     n * m == m * n
-  } holds
+  }.holds
 
   /** [] */
 
@@ -163,38 +163,38 @@ object Induction {
   @induct
   def leb_refl(n: Nat) = {
     leb(n,n)
-  } holds
+  }.holds
 
   def zero_nbeq_S(n: Nat) = {
     !beq_nat(O,S(n))
-  } holds
+  }.holds
 
   def andb_false_r(b: Bool) = {
     andb(b,False) == False
-  } holds
+  }.holds
 
   @induct
   def plus_ble_compat_l(p: Nat, n: Nat, m: Nat) = {
     require(leb(n,m))
 
     leb(p+n,p+m)
-  } holds
+  }.holds
 
   def S_nbeq_0(n: Nat) = {
     !beq_nat(S(n), O)
-  } holds
+  }.holds
 
   def mult_1_l(n: Nat) = {
     plus_n_O(n)
     one * n == n
-  } holds
+  }.holds
 
   def all3_spec(b: Bool, c: Bool) = {
     orb(
       andb(b,c),
       orb(negb(b),negb(c))
     ) == True
-  } holds
+  }.holds
 
   def mult_plus_distr_r(n: Nat, m: Nat, p: Nat): Boolean = {
     decreases(n)
@@ -214,7 +214,7 @@ object Induction {
         // assert((n + m) * p == (n * p) + (m * p)) // by definition of *
     }
     (n + m) * p == (n * p) + (m * p)
-  } holds
+  }.holds
 
   def mult_assoc(n: Nat, m: Nat, p: Nat): Boolean = {
     decreases(n)
@@ -233,7 +233,7 @@ object Induction {
     }
 
     n * (m * p) == (n * m) * p
-  } holds
+  }.holds
 
   /** [] */
 
@@ -242,7 +242,7 @@ object Induction {
   @induct
   def beq_nat_refl(n: Nat) = {
     beq_nat(n,n)
-  } holds
+  }.holds
 
   /** [] */
 
@@ -267,7 +267,7 @@ object Induction {
     }
 
     bin_to_nat(incr(b)) == S(bin_to_nat(b))
-  } holds
+  }.holds
 
   /** [] */
 
@@ -299,7 +299,7 @@ object Induction {
     }
 
     bin_to_nat(nat_to_bin(n)) == n
-  } holds
+  }.holds
 
   /** (c) */
 
@@ -345,7 +345,7 @@ object Induction {
     }
 
     incr(plus_bin(a,b)) == plus_bin(incr(a),b)
-  } holds
+  }.holds
 
 
   def nat_to_bin_plus(a: Nat, b: Nat): Boolean = {
@@ -366,7 +366,7 @@ object Induction {
     }
 
     nat_to_bin(a+b) == plus_bin(nat_to_bin(a), nat_to_bin(b))
-  } holds
+  }.holds
 
   def bin_to_nat_to_bin(b: Bin): Boolean = {
     decreases(b)
@@ -398,7 +398,7 @@ object Induction {
     }
 
     nat_to_bin(bin_to_nat(b)) == normalize(b)
-  } holds
+  }.holds
 
   /** [] */
 

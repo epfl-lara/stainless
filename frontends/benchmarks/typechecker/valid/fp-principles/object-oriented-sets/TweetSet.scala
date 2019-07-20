@@ -285,7 +285,7 @@ object TweetSetLemmas {
         inclSize(right, e) &&
         (s incl e).size <= s.size + 1
     }
-  } holds
+  }.holds
 
   def unionSize(s1: TweetSet, s2: TweetSet): Boolean = {
     decreases(s1)
@@ -299,7 +299,7 @@ object TweetSetLemmas {
         inclSize(s2, elem) &&
         (s1 union s2).size <= s1.size + s2.size
     }
-  } holds
+  }.holds
 
   def removeSize(s: TweetSet, e: Tweet): Boolean = {
     decreases(s)
@@ -317,7 +317,7 @@ object TweetSetLemmas {
           (!s.contains(e) && (s remove e).size <= s.size)
         )
     }
-  } holds
+  }.holds
 
 
   def mostRetweetedAccContained(s: TweetSet, max: Tweet): Boolean = {
@@ -334,7 +334,7 @@ object TweetSetLemmas {
     }
 
     elem == max || s.slowContains(elem)
-  } holds
+  }.holds
 
   def instantiateForall(s: TweetSet, p: Tweet => Boolean, elem: Tweet): Boolean = {
     require(s.slowContains(elem) && s.forall(p))
@@ -348,7 +348,7 @@ object TweetSetLemmas {
     }
 
     p(elem)
-  } holds
+  }.holds
 
   def slowContainedIsContained(s: TweetSet, elem: Tweet): Boolean = {
     require(s.isSearchTree && s.slowContains(elem))
@@ -368,7 +368,7 @@ object TweetSetLemmas {
     }
 
     s.contains(elem)
-  } holds
+  }.holds
 
   def inclForall(s: TweetSet, elem: Tweet, p: Tweet => Boolean): Boolean = {
     require(s.forall(p) && p(elem))
@@ -382,7 +382,7 @@ object TweetSetLemmas {
     }
 
     (s incl elem).forall(p)
-  } holds
+  }.holds
 
   def inclIsSearchTree(s: TweetSet, elem: Tweet): Boolean = {
     require(s.isSearchTree)
@@ -404,7 +404,7 @@ object TweetSetLemmas {
     }
 
     (s incl elem).isSearchTree
-  } holds
+  }.holds
 
   def unionForall(s1: TweetSet, s2: TweetSet, p: Tweet => Boolean): Boolean = {
     require(s1.forall(p) && s2.forall(p))
@@ -419,7 +419,7 @@ object TweetSetLemmas {
     }
 
     (s1 union s2).forall(p)
-  } holds
+  }.holds
 
   def unionIsSearchTree(s1: TweetSet, s2: TweetSet): Boolean = {
     require(s1.isSearchTree && s2.isSearchTree)
@@ -434,7 +434,7 @@ object TweetSetLemmas {
     }
 
     (s1 union s2).isSearchTree
-  } holds
+  }.holds
 
   def removeForall(s: TweetSet, p: Tweet => Boolean, elem: Tweet): Boolean = {
     require(s.forall(p))
@@ -449,7 +449,7 @@ object TweetSetLemmas {
     }
 
     s.remove(elem).forall(p)
-  } holds
+  }.holds
 
   def removeIsSearchTree(s: TweetSet, elem: Tweet): Boolean = {
     require(s.isSearchTree)
@@ -466,7 +466,7 @@ object TweetSetLemmas {
     }
 
     s.remove(elem).isSearchTree
-  } holds
+  }.holds
 }
 
 sealed trait TweetList {

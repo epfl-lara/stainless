@@ -22,7 +22,7 @@ object Countable2 {
     assert(d(f(d)) == g(f(d))(f(d)) + 1)
     assert(d(f(d)) == d(f(d)) + 1)
     false
-  } holds
+  }.holds
 
   /* true but unprovable with current quantifier module
   def theorem() = {

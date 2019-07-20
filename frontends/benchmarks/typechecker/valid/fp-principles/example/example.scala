@@ -38,7 +38,7 @@ object Lists {
   def sumInit(@induct xs: List[Int]) = {
     (xs.isEmpty && sum(xs) == 0) ||
     (sum(xs) == xs.last + sum(xs.init))
-  } holds
+  }.holds
 
   /**
    * This method returns the largest element in a list of integers. If the
@@ -76,7 +76,7 @@ object Lists {
     }
 
     recmax(xs, max1) >= recmax(xs, max2)
-  } holds
+  }.holds
 
   def maxTail(xs: List[Int]) = {
     require(!xs.isEmpty && !xs.tail.isEmpty)
@@ -90,5 +90,5 @@ object Lists {
       check(recmaxGreater(xs.tail.tail, xs.tail.head, xs.head))
 
     max(xs) >= max(xs.tail)
-  } holds
+  }.holds
 }

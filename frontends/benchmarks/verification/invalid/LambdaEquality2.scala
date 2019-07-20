@@ -14,7 +14,7 @@ object LambdaEquality2 {
   @induct
   def plusZero(a: Nat) = {
     plus(a, Zero()) == a
-  } holds
+  }.holds
 
   @ghost
   def equalFunctions[X,Y](y1: Y, y2: Y) = {
@@ -24,7 +24,7 @@ object LambdaEquality2 {
     val f2 = (x: X) => y2
 
     f1 == f2
-  } holds
+  }.holds
 
   @ghost
   def theorem(a: Nat) = {

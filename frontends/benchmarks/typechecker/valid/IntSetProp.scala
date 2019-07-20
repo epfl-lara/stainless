@@ -46,7 +46,7 @@ object IntSetProp {
       }
 
       (s incl x) contains x
-    } holds
+    }.holds
 
     def P3(s: IntSet, x: Int,  y: Int): Boolean = {
       require(x != y)
@@ -61,6 +61,6 @@ object IntSetProp {
       }
 
       ((s incl x) contains y) == (s contains y)
-    } holds
+    }.holds
   }
 }

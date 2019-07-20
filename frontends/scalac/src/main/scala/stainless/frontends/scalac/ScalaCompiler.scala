@@ -176,6 +176,8 @@ object ScalaCompiler {
 
     settings.classpath.value = scalaLib
     settings.usejavacp.value = BuildInfo.useJavaClassPath
+    settings.feature.value = true
+    settings.unchecked.value = true
     settings.deprecation.value = true
     settings.Yrangepos.value = true
 
