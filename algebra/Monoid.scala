@@ -4,38 +4,54 @@ import stainless.annotation._
 import stainless.collection._
 import stainless.lang._
 import stainless.proof._
+import Semigroup._
+import stainless.math.Nat
+
+abstract class Monoid[A] extends Semigroup[A] {
+  def identity: A
+
+  @law
+  def law_leftIdentity(x: A): Boolean = {
+    combine(identity, x) == x
+  }
+
+  @law
+  def law_rightIdentity(x: A): Boolean = {
+    combine(x, identity) == x
+  }
+}
 
 object Monoid {
-  import Semigroup._
+  case class Product[A](toProduct: A)
+  case class Sum[A](toSum: A)
 
-  abstract class Monoid[A] extends Semigroup[A] {
-    def identity: A
-
-    @law
-    def law_leftIdentity(x: A): Boolean = {
-      combine(identity, x) == x
-    }
-
-    @law
-    def law_rightIdentity(x: A): Boolean = {
-      combine(x, identity) == x
-    }
+  // Monoid, multiplication of integers
+  def multiplicationBigIntMonoid: Monoid[Product[BigInt]] = new Monoid[Product[BigInt]] {
+    def identity: Product[BigInt] = Product(1)
+    def combine(x: Product[BigInt], y: Product[BigInt]): Product[BigInt] = Product(x.toProduct * y.toProduct)
   }
 
-  def multiplicationMonoid: Monoid[BigInt] = new Monoid[BigInt] {
-    def combine(x: BigInt, y: BigInt): BigInt = x * y
-
-    def identity: BigInt = 1
+  // Monoid, addition of integers
+  def additionBigIntMonoid: Monoid[Sum[BigInt]] = new Monoid[Sum[BigInt]] {
+    def identity: Sum[BigInt] = Sum(0)
+    def combine(x: Sum[BigInt], y: Sum[BigInt]): Sum[BigInt] = Sum(x.toSum + y.toSum)
   }
 
-  @induct
-  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T]): Boolean = {
-    x ++ (y ++ z) == (x ++ y) ++ z
-  }.holds
+  // Monoid, multiplication of natural numbers
+  def multiplicationNatMonoid: Monoid[Product[Nat]] = new Monoid[Product[Nat]] {
+    def identity: Product[Nat] = Product(Nat(1))
+    def combine(x: Product[Nat], y: Product[Nat]): Product[Nat] = Product(x.toProduct * y.toProduct)
+  }
 
-  def listConcatMonoid[T]: Monoid[List[T]] = new Monoid[List[T]] {
+  // Monoid, addition of natural numbers
+  def additionNatMonoid: Monoid[Sum[Nat]] = new Monoid[Sum[Nat]] {
+    def identity: Sum[Nat] = Sum(Nat(0))
+    def combine(x: Sum[Nat], y: Sum[Nat]): Sum[Nat] = Sum(x.toSum + y.toSum)
+  }
+
+  // Monoid, concatenation of lists
+  implicit def listConcatMonoid[T]: Monoid[List[T]] = new Monoid[List[T]] {
     def identity: List[T] = Nil[T]()
-
     def combine(x: List[T], y: List[T]): List[T] = x ++ y
 
     override def law_associativity(x: List[T], y: List[T], z: List[T]): Boolean = {
@@ -43,7 +59,13 @@ object Monoid {
     }
   }
 
-  def optionMonoid[T](implicit ev: Monoid[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
+  @induct
+  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T]): Boolean = {
+    x ++ (y ++ z) == (x ++ y) ++ z
+  }.holds
+
+  // Monoid of options
+  implicit def optionMonoid[T](implicit ev: Monoid[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
     def identity: Option[T] = None[T]()
     def combine(x: Option[T], y: Option[T]): Option[T] = {
       (x, y) match {
@@ -54,7 +76,7 @@ object Monoid {
       }
     }
 
-    override def law_associativity(x: Option[T], y: Option[T], z: Option[T]): Boolean = {
+    override def law_associativity(@induct x: Option[T], y: Option[T], z: Option[T]): Boolean = {
       super.law_associativity(x, y, z) because {
         (x, y, z) match {
           case (Some(a), Some(b), Some(c)) => check(ev.law_associativity(a, b, c))
