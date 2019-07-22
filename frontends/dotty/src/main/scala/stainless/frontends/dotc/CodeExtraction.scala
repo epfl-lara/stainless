@@ -420,6 +420,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case tpd.EmptyTree =>
         // ignore
 
+      case i: tpd.Import =>
+        // ignore
+
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
 

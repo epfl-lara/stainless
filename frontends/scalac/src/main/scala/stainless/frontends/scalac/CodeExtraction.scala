@@ -404,6 +404,9 @@ trait CodeExtraction extends ASTExtractors {
       case EmptyTree =>
         // ignore
 
+      case i: Import =>
+        // ignore
+
       case t if annotationsOf(t.symbol).contains(xt.Ignore) && !t.symbol.isCaseAccessor =>
         // ignore
 
