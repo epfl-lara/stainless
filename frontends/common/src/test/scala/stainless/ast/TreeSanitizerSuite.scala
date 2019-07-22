@@ -8,57 +8,72 @@ import org.scalatest._
 import stainless.macros.FileProvider
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
-class TreeSanitizerSuite extends FunSuite with InputUtils {
+class TreeSanitizerSuite extends FunSpec with InputUtils {
 
   // Change this to trigger re-compilation
-  val ID = 2
+  val ID = 3
 
-  val sources = List(
-    FileProvider.getFileContents(
+  val sources = Map(
+    "SoundEquality" -> FileProvider.getFileContents(
       "frontends/common/src/test/resources/SoundEquality.scala"
+    ),
+    "GhostOverrides" -> FileProvider.getFileContents(
+      "frontends/common/src/test/resources/GhostOverrides.scala"
     )
   )
 
-  implicit val ctx = stainless.TestContext.empty
-  val (_, program) = load(sources, sanitize = false)
+  makeTest("SoundEquality", Vector(
+    20,
+    40,
+    46,
+    68,
+    80,
+    89,
+    98,
+  ))
 
-  val errors = TreeSanitizer(xt).check(program.symbols)
+  makeTest("GhostOverrides", Vector(19))
 
-  // errors.sortBy(_.tree.getPos).foreach { err =>
-  //   println(s"${err.tree.getPos.fullString}")
-  //   println(s"${err.getMessage}")
-  //   println(s"${err.tree}")
-  //   println()
-  // }
+  def makeTest(name: String, expected: Seq[Int]): Unit = {
+    implicit val ctx = stainless.TestContext.empty
+    val (_, program) = load(Seq(sources(name)), sanitize = false)
 
-  val expected = Map(
-    0 -> 20,
-    1 -> 40,
-    2 -> 46,
-    3 -> 68,
-    4 -> 80,
-    5 -> 89,
-    6 -> 98,
-  )
+    val errors = TreeSanitizer(xt).check(program.symbols)
 
-  test(s"SoundEquality test file compiles successfully") {
-    assert(!program.symbols.functions.isEmpty)
-  }
+    // errors.sortBy(_.tree.getPos).foreach { err =>
+    //   println(s"${err.tree.getPos.fullString}")
+    //   println(s"${err.getMessage}")
+    //   println(s"${err.tree}")
+    //   println()
+    // }
 
-  test(s"SoundEquality check yield exactly ${expected.size} errors") {
-    assert(errors.length == expected.size)
-  }
-
-  errors.zipWithIndex foreach {
-    case (err, i) if expected.contains(i) =>
-      val line = expected(i)
-      test(s"SoundEquality check yields an error at line $line") {
-        assert(err.tree.getPos.line == line)
+    describe(s"$name check") {
+      it(s"compiles successfully") {
+        assert(!program.symbols.functions.isEmpty)
       }
 
-    case (err, _) =>
-      test(s"SoundEquality check does not yield any other errors") {
-        assert(false, s"Unexpected error yielded at ${err.tree.getPos}: ${err.getMessage}")
+      it(s"yields exactly ${expected.length} errors") {
+        assert(errors.length == expected.size)
       }
+
+      errors
+        .zipWithIndex
+        .filter { case (err, i) => i < expected.length }
+        .foreach { case (err, i) =>
+          val line = expected(i)
+          it(s"yields an error at line $line") {
+            assert(err.tree.getPos.line == line)
+          }
+        }
+
+      it(s"does not yield any other errors") {
+        errors
+          .zipWithIndex
+          .filter { case (err, i) => i >= expected.length }
+          .foreach { case (err, _) =>
+              assert(false, s"Unexpected error yielded at ${err.tree.getPos}: ${err.getMessage}")
+          }
+      }
+    }
   }
 }
