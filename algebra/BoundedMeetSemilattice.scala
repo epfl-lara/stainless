@@ -13,4 +13,10 @@ object BoundedMeetSemilattice {
       meet(x, one) == x
     }
   }
+
+  def andSemilattice: BoundedMeetSemilattice[Boolean] = new BoundedMeetSemilattice[Boolean] {
+    def one: Boolean = true
+
+    def meet(x: Boolean, y: Boolean): Boolean = x && y
+  }
 }

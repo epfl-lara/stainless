@@ -23,4 +23,8 @@ object MeetSemilattice {
       meet(x, x) == x
     }
   }
+
+  def minSemilattice: MeetSemilattice[BigInt] = new MeetSemilattice[BigInt] {
+    def meet(x: BigInt, y: BigInt): BigInt = stainless.math.min(x, y)
+  }
 }

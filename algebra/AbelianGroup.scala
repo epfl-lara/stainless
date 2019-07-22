@@ -11,4 +11,12 @@ object AbelianGroup {
       combine(x, y) == combine(y, x)
     }
   }
+
+  def additionAbelianGroup: AbelianGroup[BigInt] = new AbelianGroup[BigInt] {
+    def combine(x: BigInt, y: BigInt): BigInt = x + y
+
+    def identity: BigInt = 0
+
+    def inverse(x: BigInt): BigInt = -x
+  }
 }
