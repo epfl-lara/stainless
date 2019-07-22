@@ -25,4 +25,10 @@ object Ring {
       multiplication.combine(addition.combine(y, z), x) == addition.combine(multiplication.combine(y, x), multiplication.combine(z, x))
     }
   }
+
+  def ringBigInt: Ring[BigInt] = new Ring[BigInt] {
+    def addition: AbelianGroup[BigInt] = additionAbelianGroup
+
+    def multiplication: Monoid[BigInt] = multiplicationMonoid
+  }
 }

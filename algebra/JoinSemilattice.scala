@@ -23,4 +23,8 @@ object JoinSemilattice {
       join(x, x) == x
     }
   }
+
+  def maxSemilattice: JoinSemilattice[BigInt] = new JoinSemilattice[BigInt] {
+    def join(x: BigInt, y: BigInt): BigInt = stainless.math.max(x, y)
+  }
 }

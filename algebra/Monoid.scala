@@ -18,4 +18,10 @@ object Monoid {
       combine(x, identity) == x
     }
   }
+
+  def multiplicationMonoid: Monoid[BigInt] = new Monoid[BigInt] {
+    def combine(x: BigInt, y: BigInt): BigInt = x * y
+
+    def identity: BigInt = 1
+  }
 }
