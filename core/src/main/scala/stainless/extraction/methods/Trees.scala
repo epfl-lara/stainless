@@ -209,6 +209,7 @@ trait Trees extends throwing.Trees { self =>
     def isSealed: Boolean = cd.flags contains IsSealed
     def isAbstract: Boolean = cd.flags contains IsAbstract
     def isLibrary: Boolean = cd.flags contains Library
+    def isGhost: Boolean = cd.flags contains Ghost
 
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values
@@ -224,6 +225,8 @@ trait Trees extends throwing.Trees { self =>
   implicit class FunDefWrapper(fd: FunDef) {
     def isMethod: Boolean =
       fd.flags exists { case IsMethodOf(_) => true case _ => false }
+
+    def isGhost: Boolean = fd.flags contains Ghost
 
     def getClassId: Option[Identifier] =
       fd.flags collectFirst { case IsMethodOf(id) => id }

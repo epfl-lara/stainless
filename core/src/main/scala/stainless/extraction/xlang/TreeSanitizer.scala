@@ -32,6 +32,7 @@ trait TreeSanitizer { self =>
       new Preconditions(symbols, ctx),
       new IgnoredFields(symbols, ctx),
       new SettersOverrides(symbols, ctx),
+      new GhostOverrides(symbols, ctx),
       new SealedClassesChildren(symbols, ctx),
       new SoundEquality(symbols, ctx),
     )
@@ -59,7 +60,7 @@ trait TreeSanitizer { self =>
     def sanitize(): Seq[MalformedStainlessCode]
   }
 
-  /** check that setters are only overriden by other setters */
+  /** Check that setters are only overriden by other setters */
   private[this] class SettersOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
@@ -73,6 +74,23 @@ trait TreeSanitizer { self =>
     }
   }
 
+  /** Check that methods are only overriden by methods with the same ghostiness */
+  private[this] class GhostOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+    override def sanitize(): Seq[MalformedStainlessCode] = {
+      for {
+        cd  <- symbols.classes.values.toSeq
+        id  <- cd.methods(symbols)
+        sid <- symbols.firstSuperMethod(id)
+        isGhostOverride = symbols.getFunction(id).isGhost
+        isGhostSuper = symbols.getFunction(sid).isGhost
+        if isGhostOverride != isGhostSuper
+      } yield MalformedStainlessCode(
+        symbols.getFunction(id),
+        if (isGhostSuper) s"Cannot override ghost method ${sid.asString} with non-ghost method"
+        else s"Cannot override non-ghost method ${sid.asString} with ghost method"
+      )
+    }
+  }
 
   /** Check that sealed traits have children */
   private[this] class SealedClassesChildren(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
