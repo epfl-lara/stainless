@@ -399,7 +399,12 @@ trait ASTExtractors {
           case _ => None
         }
 
-        optCall.map { case (rec, sym, tps, args) => (rec.filterNot(r => (r.symbol is Module) && !(r.symbol is Case)), sym, tps, args) }
+        optCall.map { case (rec, sym, tps, args) =>
+          val newRec = rec.filterNot { r =>
+            (r.symbol is Module) && !(r.symbol is Case)
+          }
+          (newRec, sym, tps, args)
+        }
       }
     }
 

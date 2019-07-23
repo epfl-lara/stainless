@@ -1272,16 +1272,14 @@ trait CodeExtraction extends ASTExtractors {
       xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case c @ ExCall(rec, sym, tps, args) => rec match {
-      // Case object fields and methods are treated differently by scalac for some reason
-      // so we need a special extractor here.
       case None if sym.owner.isModuleClass && sym.owner.isCase =>
         val ct = extractType(sym.owner.tpe)(dctx, c.pos).asInstanceOf[xt.ClassType]
         xt.MethodInvocation(
-          xt.ClassConstructor(ct, Seq.empty).setPos(c.pos),
+          xt.This(ct).setPos(tr.pos),
           getIdentifier(sym),
           tps map extractType,
           args map extractTree
-        ).setPos(c.pos)
+        ).setPos(tr.pos)
 
       case None =>
         dctx.localFuns.get(sym) match {
