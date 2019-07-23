@@ -1168,11 +1168,15 @@ trait ASTExtractors {
         }
 
         res.map { case (rec, sym, tps, args) =>
-          val newRec = rec.filter(r => r.symbol == null || !(r.symbol.isModule && !r.symbol.isCase || r.symbol.isModuleClass))
+          val newRec = rec.filter {
+            case r if r.symbol == null => true
+            case r if (r.symbol.isModule || r.symbol.isModuleClass) && !r.symbol.isCase => false
+            case r => true
+          }
+
           (newRec, sym, tps, args)
         }
       }
     }
-
   }
 }

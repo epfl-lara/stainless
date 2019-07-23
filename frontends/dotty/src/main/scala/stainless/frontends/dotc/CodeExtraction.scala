@@ -1462,12 +1462,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case Some(Select(rec @ Super(_, _), m)) if (sym is Abstract) && m != nme.CONSTRUCTOR =>
         outOfSubsetError(tr.pos, "Cannot issue a super call to an abstract method.")
 
-      // Case object fields and methods are treated differently by dotty (same as scalac) for some
-      // reason so we need a special extractor here.
       case None if (sym.owner is ModuleClass) && (sym.owner is Case) =>
         val ct = extractType(sym.owner.thisType)(dctx, tr.pos).asInstanceOf[xt.ClassType]
         xt.MethodInvocation(
-          xt.ClassConstructor(ct, Seq()).setPos(tr.pos),
+          xt.This(ct).setPos(tr.pos),
           getIdentifier(sym),
           tps map extractType,
           args map extractTree
