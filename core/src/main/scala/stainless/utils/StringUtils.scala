@@ -7,7 +7,7 @@ object StringUtils {
 
   def indent(text: String, spaces: Int): String = {
     val prefix = " " * spaces
-    text.lines.map(prefix ++ _).mkString("\n")
+    text.linesIterator.map(prefix ++ _).mkString("\n")
   }
 
 }
