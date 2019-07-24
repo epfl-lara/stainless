@@ -17,20 +17,13 @@ object SymbolMapping {
 
   def empty = new SymbolMapping()
 
-  /**
-   * To avoid suffering too much from changes in symbols' id, we generate a
-   * more stable kind to disambiguate symbols. This allows --watch to not be
-   * fooled by the insertion/deletion of symbols (e.g. new top level classes)
-   * but unfortunately not methods because overloading/generics makes things
-   * ambiguous and hard to unify.
-   */
   private def kind(sym: Global#Symbol): String = {
     if (sym.isPackageClass) "0"
     else if (sym.isModule) "1"
     else if (sym.isModuleClass) "2"
-    else if (sym.isClass) "3"
+    else if (sym.isClass) "c" + sym.id
     else if (sym.isMethod) "m" + sym.id
-    else if (sym.isType) "5"
+    else if (sym.isType) "tp" + sym.id
     else if (sym.isTerm) "t" + sym.id // Many things are terms... Fallback to its id
     else ???
   }
