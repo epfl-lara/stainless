@@ -1,0 +1,10 @@
+# The settings below correspond to the various
+# options listed by `stainless --help`
+
+vc-cache     = true
+debug        = ["verification"]
+timeout      = 30
+check-models = true
+print-ids    = false
+print-types  = false
+batched      = true

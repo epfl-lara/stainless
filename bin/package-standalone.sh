@@ -137,9 +137,10 @@ function package {
   mkdir "$TGTLIBD" >> $LOG || fail
   cp "$STAINLESS_JAR_PATH" "$TGTLIBD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
   cp "$SCALAZ3_JAR_PATH" "$TGTLIBD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
+  cp "stainless.conf.default" "$TMPD/stainless.conf" >> $LOG || fail
 
   cd "$TMPD" && \
-    zip "$ZIPF" lib/** z3/** stainless >> $LOG && \
+    zip "$ZIPF" lib/** z3/** stainless stainless.conf >> $LOG && \
     cd - >/dev/null || fail
   info "    Created archive $ZIPF"
 
