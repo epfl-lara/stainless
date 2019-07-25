@@ -81,5 +81,3 @@ out-classes
 
 # ripgrep
 .rgignore
-
-*.scala
