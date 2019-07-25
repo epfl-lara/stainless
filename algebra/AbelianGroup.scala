@@ -3,6 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 import stainless.lang.Real
 
+@library
 abstract class AbelianGroup[A] extends Group[A] {
   @law
   def law_commutative(x: A, y: A): Boolean = {
@@ -10,6 +11,7 @@ abstract class AbelianGroup[A] extends Group[A] {
   }
 }
 
+@library
 object AbelianGroup {
   // Abelian group for addition of integers
   def additionAbelianGroup: AbelianGroup[BigInt] = new AbelianGroup[BigInt] {

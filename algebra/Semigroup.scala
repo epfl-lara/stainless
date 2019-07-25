@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class Semigroup[A] {
   def combine(x: A, y: A): A
 

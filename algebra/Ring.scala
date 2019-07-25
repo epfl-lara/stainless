@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class Ring[A] {
   def addition: AbelianGroup[A]
 
@@ -22,6 +23,7 @@ abstract class Ring[A] {
   }
 }
 
+@library
 object Ring {
   import AbelianGroup._
   import Monoid._

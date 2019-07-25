@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class Group[A] extends Monoid[A] {
   def inverse(x: A): A
 
