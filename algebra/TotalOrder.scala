@@ -5,6 +5,7 @@ import stainless.lang._
 import stainless.proof._
 import stainless.math.Nat
 
+@library
 abstract class TotalOrder[A] extends PartialOrder[A] {
     final def compare(x: A, y: A): BigInt = {
         assert(law_connex(x, y))
@@ -22,6 +23,7 @@ abstract class TotalOrder[A] extends PartialOrder[A] {
     }
 }
 
+@library
 object TotalOrder {
     def bigIntTotalOrder: TotalOrder[BigInt] = new TotalOrder[BigInt] {
         def eq(x: BigInt, y: BigInt): Boolean = {

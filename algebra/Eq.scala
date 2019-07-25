@@ -3,6 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 import stainless.lang._
 
+@library
 abstract class Eq[A] {
     def eq(x: A, y: A): Boolean
 

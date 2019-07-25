@@ -3,6 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 import stainless.lang._
 
+@library
 abstract class PartialOrder[A] extends Eq[A] {
     def lteq(x: A, y: A): Boolean
 
