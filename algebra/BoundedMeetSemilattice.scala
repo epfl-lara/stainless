@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class BoundedMeetSemilattice[A] extends MeetSemilattice[A] {
   def one: A
 
@@ -11,6 +12,7 @@ abstract class BoundedMeetSemilattice[A] extends MeetSemilattice[A] {
   }
 }
 
+@library
 object BoundedMeetSemilattice {
   def andSemilattice: BoundedMeetSemilattice[Boolean] = new BoundedMeetSemilattice[Boolean] {
     def one: Boolean = true
