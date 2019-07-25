@@ -4,7 +4,6 @@ import stainless.annotation._
 import stainless.collection._
 import stainless.lang._
 import stainless.proof._
-import Semigroup._
 import stainless.math.Nat
 
 abstract class Monoid[A] extends Semigroup[A] {
