@@ -6,6 +6,7 @@ import stainless.lang._
 import stainless.proof._
 import stainless.math.Nat
 
+@library
 abstract class Monoid[A] extends Semigroup[A] {
   def identity: A
 
@@ -20,6 +21,7 @@ abstract class Monoid[A] extends Semigroup[A] {
   }
 }
 
+@library
 object Monoid {
   case class Product[A](toProduct: A)
   case class Sum[A](toSum: A)

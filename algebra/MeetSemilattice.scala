@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class MeetSemilattice[A] {
   def meet(x: A, y: A): A
 
@@ -23,6 +24,7 @@ abstract class MeetSemilattice[A] {
   }
 }
 
+@library
 object MeetSemilattice {
   def minSemilattice: MeetSemilattice[BigInt] = new MeetSemilattice[BigInt] {
     def meet(x: BigInt, y: BigInt): BigInt = stainless.math.min(x, y)

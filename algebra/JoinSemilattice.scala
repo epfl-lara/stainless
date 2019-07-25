@@ -2,6 +2,7 @@ package stainless.algebra
 
 import stainless.annotation._
 
+@library
 abstract class JoinSemilattice[A] {
   def join(x: A, y: A): A
 
@@ -23,6 +24,7 @@ abstract class JoinSemilattice[A] {
   }
 }
 
+@library
 object JoinSemilattice {
   def maxSemilattice: JoinSemilattice[BigInt] = new JoinSemilattice[BigInt] {
     def join(x: BigInt, y: BigInt): BigInt = stainless.math.max(x, y)
