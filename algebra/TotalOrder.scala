@@ -1,28 +1,28 @@
+package stainless.algebra
+
 import stainless.annotation._
 import stainless.lang._
 import stainless.proof._
 import stainless.math.Nat
 
-object TotalOrder {
-    import PartialOrder._
+abstract class TotalOrder[A] extends PartialOrder[A] {
+    final def compare(x: A, y: A): BigInt = {
+        assert(law_connex(x, y))
 
-    abstract class TotalOrder[A] extends PartialOrder[A] {
-        final def compare(x: A, y: A): BigInt = {
-            assert(law_connex(x, y))
-
-            (lteq(x, y), lteq(y, x)) match {
-                case (true, true) => 0
-                case (true, false) => -1
-                case (false, true) => 1
-            }
-        }
-
-        @law
-        def law_connex(x: A, y: A): Boolean = {
-            lteq(x, y) || lteq(y, x)
+        (lteq(x, y), lteq(y, x)) match {
+            case (true, true) => 0
+            case (true, false) => -1
+            case (false, true) => 1
         }
     }
 
+    @law
+    def law_connex(x: A, y: A): Boolean = {
+        lteq(x, y) || lteq(y, x)
+    }
+}
+
+object TotalOrder {
     def bigIntTotalOrder: TotalOrder[BigInt] = new TotalOrder[BigInt] {
         def eq(x: BigInt, y: BigInt): Boolean = {
             x == y
