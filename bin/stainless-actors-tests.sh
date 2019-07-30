@@ -9,20 +9,22 @@ cd "$TEST_DIR" || exit 1
 
 echo "Verifying stainless-actors with Stainless version $STAINLESS_VERSION"
 
-git clone https://github.com/epfl-lara/stainless-actors
+git clone https://github.com/jad-hamza/stainless-actors
 
 cd stainless-actors || exit 1
+
+git checkout configs-fix
 
 sed -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
 
 # ACTOR_EXAMPLES="counter leader-election kvs"
 # FIXME: leader-election is unstable at the moment so it is ignored
-ACTOR_EXAMPLES="counter kvs"
+ACTOR_EXAMPLES="counter leader-election kvs"
 
 for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
 
   echo "Running example $ACTOR_EXAMPLE..."
-  sbt "$ACTOR_EXAMPLE"/compile
+  sbt -mem 8192 "$ACTOR_EXAMPLE"/compile
 
   status=$?
 
