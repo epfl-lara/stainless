@@ -12,6 +12,7 @@ import cafebabe.Flags._
 
 import inox.utils._
 
+import scala.collection.compat._
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 import scala.collection.concurrent.{TrieMap => ConcurrentMap}
 
@@ -1779,7 +1780,7 @@ trait CodeGeneration { self: CompilationUnit =>
       val constrParams = Seq(monitorID -> s"L$MonitorClass;")
 
       val newLocs = NoLocals.withVars {
-        constrParams.map(_._1).zipWithIndex.toMap.mapValues(_ + 1)
+        constrParams.map(_._1).zipWithIndex.toMap.view.mapValues(_ + 1).toMap
       }
 
       val cch = cf.addConstructor(constrParams.map(_._2) : _*).codeHandler

@@ -6,6 +6,7 @@ package verification
 import io.circe._
 
 import scala.concurrent.Future
+import scala.collection.compat._
 import scala.language.existentials
 
 import extraction._
@@ -71,11 +72,11 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
     val encoder = inox.transformers.ProgramEncoder(p)(assertions andThen chooses)
 
-    val res = VerificationChecker.verify(encoder.targetProgram, context)(vcs).map(_.mapValues {
+    val res = VerificationChecker.verify(encoder.targetProgram, context)(vcs).map(_.view.mapValues {
       case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
         VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
-    })
+    }.toMap)
 
     res.map(r => new VerificationAnalysis {
       override val program: p.type = p

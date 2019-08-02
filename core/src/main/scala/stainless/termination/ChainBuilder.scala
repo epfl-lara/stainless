@@ -3,6 +3,7 @@
 package stainless
 package termination
 
+import scala.collection.compat._
 import scala.collection.mutable.{Map => MutableMap}
 
 trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRelation =>
@@ -15,7 +16,11 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
   case class Chain(relations: List[Relation]) {
 
     private lazy val identifier: Map[(Relation, Relation), Int] = {
-      (relations zip (relations.tail :+ relations.head)).groupBy(p => p).mapValues(_.size)
+      (relations zip (relations.tail :+ relations.head))
+        .groupBy(p => p)
+        .view
+        .mapValues(_.size)
+        .toMap
     }
 
     override def equals(obj: Any): Boolean = obj match {
@@ -41,8 +46,22 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
     }
 
     def compose(that: Chain): Set[Chain] = {
-      val map = relations.zipWithIndex.map(p => p._1.call.tfd.fd -> ((p._2 + 1) % relations.size)).groupBy(_._1).mapValues(_.map(_._2))
-      val tmap = that.relations.zipWithIndex.map(p => p._1.fd -> p._2).groupBy(_._1).mapValues(_.map(_._2))
+      val map = relations
+        .zipWithIndex
+        .map(p => p._1.call.tfd.fd -> ((p._2 + 1) % relations.size))
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2))
+        .toMap
+
+      val tmap = that.relations
+        .zipWithIndex
+        .map(p => p._1.fd -> p._2)
+        .groupBy(_._1)
+        .view
+        .mapValues(_.map(_._2))
+        .toMap
+
       val keys = map.keys.toSet & tmap.keys.toSet
 
       for {

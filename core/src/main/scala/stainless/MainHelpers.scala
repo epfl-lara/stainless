@@ -2,6 +2,8 @@
 
 package stainless
 
+import scala.collection.compat._
+
 import utils.JsonUtils
 import java.io.File
 
@@ -122,8 +124,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)
       .groupBy(_.optionDef.name)
-      .mapValues(_.head)
       .values
+      .map(_.head)
       .toSeq
 
     val ctx = super.processOptions(files, options)

@@ -3,6 +3,7 @@
 package stainless
 package termination
 
+import scala.collection.compat._
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 trait RelationBuilder { self: Strengthener =>
@@ -26,7 +27,7 @@ trait RelationBuilder { self: Strengthener =>
       val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
       val freshSubst = (instPath.bound map { vd => vd -> vd.freshen }).toMap
-      val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
+      val newSubst = subst ++ freshSubst.view.mapValues(_.toVariable).toMap
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
       val newCall = exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]

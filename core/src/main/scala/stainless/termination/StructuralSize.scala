@@ -4,6 +4,7 @@ package stainless
 package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
+import scala.collection.compat._
 
 trait StructuralSize { self: SolverProvider =>
 
@@ -176,7 +177,7 @@ trait StructuralSize { self: SolverProvider =>
   }
 
   def flatTypesPowerset(tpe: Type): Set[Expr => Expr] = {
-    def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
+    def powerSetToFunSet(l: IterableOnce[Expr => Expr]): Set[Expr => Expr] = {
       l.toSet.subsets.filter(_.nonEmpty).map{
         (reconss: Set[Expr => Expr]) => (e : Expr) =>
           tupleWrap(reconss.toSeq map { f => f(e) })

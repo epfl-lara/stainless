@@ -20,6 +20,7 @@ import extraction.xlang.{trees => xt}
 import scala.collection.mutable.{ Map => MutableMap }
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
+import scala.Iterable
 
 class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val ctx: Context)
   extends ASTExtractors {
@@ -90,7 +91,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
-    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+    def withNewTypeParams(ntparams: Iterable[(Symbol, xt.TypeParameter)]) = {
       copy(tparams = tparams ++ ntparams)
     }
 
@@ -98,7 +99,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       copy(tparams = tparams + tparam)
     }
 
-    def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
+    def withNewVars(nvars: Iterable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
 
@@ -110,7 +111,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       copy(mutableVars = mutableVars + nvar)
     }
 
-    def withNewMutableVars(nvars: Traversable[(Symbol, () => xt.Variable)]) = {
+    def withNewMutableVars(nvars: Iterable[(Symbol, () => xt.Variable)]) = {
       copy(mutableVars = mutableVars ++ nvars)
     }
 
@@ -122,7 +123,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       copy(localClasses = this.localClasses + (lcd.id -> lcd))
     }
 
-    def withDepParams(dps: Traversable[(TermName, xt.ValDef)]) = {
+    def withDepParams(dps: Iterable[(TermName, xt.ValDef)]) = {
       copy(depParams = depParams ++ dps)
     }
 

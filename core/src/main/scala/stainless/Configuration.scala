@@ -2,6 +2,8 @@
 
 package stainless
 
+import scala.collection.compat._
+
 import inox.{Reporter, OptionDef, OptionValue}
 
 import java.io.File
@@ -36,7 +38,7 @@ object Configuration {
       entry.getKey -> convert(entry.getKey, entry.getValue)
     }.toMap
 
-    val optDefMap = options.groupBy(_.name).mapValues(_.head)
+    val optDefMap = options.groupBy(_.name).view.mapValues(_.head).toMap
 
     val optValues = entries map { case (name, str) =>
       optDefMap.get(name) map { optDef =>
