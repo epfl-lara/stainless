@@ -22,7 +22,7 @@ trait DottyVerificationSuite extends ComponentTestSuite {
     case _ => super.filter(ctx, name)
   }
 
-  val folder: String
+  def folder: String
 
   testAll(folder) { (analysis, reporter) =>
     assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
@@ -42,7 +42,7 @@ class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {
     ) ++ seq
   }
 
-  val folder = "dotty-specific/valid"
+  def folder = "dotty-specific/valid"
 }
 
 
@@ -55,5 +55,5 @@ class SMTZ3TypeCheckerDottyVerificationSuite extends DottyVerificationSuite {
     ) ++ seq
   }
 
-  val folder = "dotty-specific/typechecker"
+  def folder = "dotty-specific/typechecker"
 }
