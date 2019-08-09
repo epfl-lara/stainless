@@ -24,6 +24,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
   def testAll(dir: String, recursive: Boolean = false)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
+    require(dir != null, "Function testAll must be called with a non-null directory string")
     val fs = resourceFiles(dir, _.endsWith(".scala"), recursive).toList
 
     // Toggle this variable if you need to debug one specific test.
