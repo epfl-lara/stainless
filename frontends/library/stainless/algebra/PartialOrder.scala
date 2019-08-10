@@ -17,7 +17,7 @@ abstract class PartialOrder[A] extends Eq[A] {
     }
 
     @law
-    def law_reflexivity(x: A): Boolean = {
+    def law_reflexivity_order(x: A): Boolean = {
         lteq(x, x)
     }
 
@@ -27,7 +27,7 @@ abstract class PartialOrder[A] extends Eq[A] {
     }
 
     @law
-    def law_transitivity(x: A, y: A, z: A): Boolean = {
+    def law_transitivity_order(x: A, y: A, z: A): Boolean = {
         (lteq(x, y) && lteq(y, z)) ==> lteq(x, z)
     }
 }
