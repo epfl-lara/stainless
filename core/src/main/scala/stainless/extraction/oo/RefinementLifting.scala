@@ -22,11 +22,32 @@ trait RefinementLifting
   override protected def registerSorts(symbols: t.Symbols, sorts: Seq[(t.ADTSort, Option[t.FunDef])]): t.Symbols =
     symbols.withSorts(sorts.map(_._1)).withFunctions(sorts.flatMap(_._2))
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: s.Symbols): TransformerContext = {
+    val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
 
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
+    if (typeCheckerEnabled)
+      new IdentityContext(symbols)
+    else
+      new LiftingContext(symbols)
+  }
+
+  protected abstract class TransformerContext extends oo.TreeTransformer {
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
+
+    def extractClass(cd: s.ClassDef): t.ClassDef =
+      transform(cd)
+
+    def extractSort(sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) =
+      (transform(sort), None)
+
+    def extractFunction(fd: s.FunDef): t.FunDef =
+      transform(fd)
+  }
+
+  protected class IdentityContext(val symbols: s.Symbols) extends TransformerContext
+
+  protected class LiftingContext(val symbols: s.Symbols) extends TransformerContext {
     import s._
     import symbols._
 
@@ -174,99 +195,103 @@ trait RefinementLifting
     }
 
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
-  }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    import s._
-
-    val (newParams, cond) = context.parameterConds(fd.params)
-    val optPre = cond match {
-      case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
-        case None => Some(cond.copiedFrom(fd))
+    override def extractFunction(fd: s.FunDef): t.FunDef = {
+      val (newParams, cond) = parameterConds(fd.params)
+      val optPre = cond match {
+        case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
+          case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
+          case None => Some(cond.copiedFrom(fd))
+        }
+        case _ => s.exprOps.preconditionOf(fd.fullBody)
       }
-      case _ => s.exprOps.preconditionOf(fd.fullBody)
-    }
 
-    val optPost = context.liftRefinements(fd.returnType) match {
-      case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
-        case Some(post @ s.Lambda(Seq(res), body)) =>
-          Some(s.Lambda(Seq(res), s.and(
-              exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
-              body).copiedFrom(body)).copiedFrom(post))
-        case None =>
-          Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
+      val optPost = liftRefinements(fd.returnType) match {
+        case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
+          case Some(post @ s.Lambda(Seq(res), body)) =>
+            Some(s.Lambda(Seq(res), s.and(
+                exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
+                body).copiedFrom(body)).copiedFrom(post))
+          case None =>
+            Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
+        }
+        case _ => s.exprOps.postconditionOf(fd.fullBody)
       }
-      case _ => s.exprOps.postconditionOf(fd.fullBody)
+
+      transform(fd.copy(
+        fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
+        returnType = dropRefinements(fd.returnType)
+      ).copiedFrom(fd))
     }
 
-    context.transform(fd.copy(
-      fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
-      returnType = context.dropRefinements(fd.returnType)
-    ).copiedFrom(fd))
-  }
+    override def extractSort(sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
+      val v = s.Variable.fresh("v", s.ADTType(sort.id, sort.typeArgs))
+      val (newCons, conds) = sort.constructors.map { cons =>
+        val (newFields, conds) = parameterConds(cons.fields)
+        val newCons = cons.copy(fields = newFields).copiedFrom(cons)
+        val newCond = s.implies(
+          isCons(v, cons.id).copiedFrom(cons),
+          s.exprOps.replaceFromSymbols(
+            newFields.map(vd => vd.toVariable -> s.ADTSelector(v, vd.id).copiedFrom(cons)).toMap,
+            conds
+          )
+        ).copiedFrom(cons)
+        (newCons, newCond)
+      }.unzip
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
-    import s._
-    import context.symbols._
+      val cond = s.andJoin(conds).copiedFrom(sort)
+      val optInv = if (cond == s.BooleanLiteral(true)) {
+        None
+      } else {
+        Some(sort.invariant match {
+          case Some(fd) =>
+            fd.copy(fullBody = s.and(
+              s.typeOps.instantiateType(
+                s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), cond),
+                (sort.typeArgs zip fd.typeArgs).toMap
+              ),
+              fd.fullBody
+            ).copiedFrom(fd.fullBody)).copiedFrom(fd)
 
-    val v = s.Variable.fresh("v", s.ADTType(sort.id, sort.typeArgs))
-    val (newCons, conds) = sort.constructors.map { cons =>
-      val (newFields, conds) = context.parameterConds(cons.fields)
-      val newCons = cons.copy(fields = newFields).copiedFrom(cons)
-      val newCond = s.implies(
-        isCons(v, cons.id).copiedFrom(cons),
-        s.exprOps.replaceFromSymbols(
-          newFields.map(vd => vd.toVariable -> s.ADTSelector(v, vd.id).copiedFrom(cons)).toMap,
-          conds
-        )
-      ).copiedFrom(cons)
-      (newCons, newCond)
-    }.unzip
+          case None =>
+            import s.dsl._
+            mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
+              tparams => (
+                Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
+                s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
+                  s.typeOps.instantiateType(
+                    s.exprOps.replaceFromSymbols(Map(v -> thiss), cond),
+                    (sort.typeArgs zip tparams).toMap
+                  )
+                })
+            }.copiedFrom(sort)
+        })
+      }
 
-    val cond = s.andJoin(conds).copiedFrom(sort)
-    val optInv = if (cond == s.BooleanLiteral(true)) {
-      None
-    } else {
-      Some(sort.invariant match {
-        case Some(fd) =>
-          fd.copy(fullBody = s.and(
-            s.typeOps.instantiateType(
-              s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), cond),
-              (sort.typeArgs zip fd.typeArgs).toMap
-            ),
-            fd.fullBody
-          ).copiedFrom(fd.fullBody)).copiedFrom(fd)
+      val newSort = transform(sort.copy(
+        constructors = newCons,
+        flags = sort.flags ++ optInv.map(fd => s.HasADTInvariant(fd.id))
+      ).copiedFrom(sort))
 
-        case None =>
-          import s.dsl._
-          mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
-            tparams => (
-              Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
-              s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
-                s.typeOps.instantiateType(
-                  s.exprOps.replaceFromSymbols(Map(v -> thiss), cond),
-                  (sort.typeArgs zip tparams).toMap
-                )
-              })
-          }.copiedFrom(sort)
-      })
+      val newInv = optInv.map(transform(_))
+
+      (newSort, newInv)
     }
 
-    val newSort = context.transform(sort.copy(
-      constructors = newCons,
-      flags = sort.flags ++ optInv.map(fd => s.HasADTInvariant(fd.id))
-    ).copiedFrom(sort))
-
-    val newInv = optInv.map(fd => context.transform(fd))
-
-    (newSort, newInv)
+    override def extractClass(cd: s.ClassDef): t.ClassDef = {
+      // TODO: lift refinements to invariant?
+      transform(cd)
+    }
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
-    // TODO: lift refinements to invariant?
-    context.transform(cd)
-  }
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) =
+    context.extractSort(sort)
+
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef =
+    context.extractFunction(fd)
+
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef =
+    context.extractClass(cd)
 }
 
 object RefinementLifting {
