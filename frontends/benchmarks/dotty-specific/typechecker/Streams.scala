@@ -50,18 +50,4 @@ object Stream {
       indexedAt(n, Stream(h1, (() => compress(n - 1, s.tail()))))
     }
   }
-
-  def compressOnes(
-    n: BigInt,
-    s: Stream[BigInt]
-  ): Unit = {
-    require(n >= 0 && s.head >= 1 && s.head <= 9 && s.tail() == constant(n, BigInt(1)))
-    decreases((n, max(9 - s.head, 0)))
-    val h1: BigInt = s.head
-    val h2: BigInt = s.tail().head
-    if (h1 >= 1 && h1 < 9 && h2 == 1)
-      compressOnes(n, Stream[BigInt](h1 + 1, () => s.tail().tail()))
-    else if (n > 0)
-      compressOnes(n - 1, s.tail())
-  } ensuring(_ => take(n, compress(n, s)) == 9)
 }
