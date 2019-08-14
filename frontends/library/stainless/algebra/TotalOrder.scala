@@ -14,7 +14,6 @@ abstract class TotalOrder[A] extends PartialOrder[A] {
             case (true, true) => 0
             case (true, false) => -1
             case (false, true) => 1
-            case (false, false) => stainless.lang.error[BigInt]("Connex law unsatisfied: !(x <= y || y <= x)")
         }
     }
 
