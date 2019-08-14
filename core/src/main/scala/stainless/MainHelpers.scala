@@ -60,6 +60,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     evaluators.DebugSectionEvaluator,
     verification.DebugSectionVerification,
+    verification.DebugSectionFullVC,
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
     verification.DebugSectionPartialEval,

@@ -39,7 +39,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
   private lazy val vccache = CacheLoader.get(context)
 
-  override def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }) = {
+  override def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.info(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
 
     // NOTE This algorithm is not 100% perfect: it is possible that two equivalent VCs in
@@ -56,11 +56,12 @@ trait VerificationCache extends VerificationChecker { self =>
       val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
       if (vccache contains key) {
+        implicit val debugSection = DebugSectionCacheHit
         reporter.synchronized {
           reporter.info(s"Cache hit: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
-          reporter.debug("The following VC has already been verified:")(DebugSectionCacheHit)
-          reporter.debug(vc.condition)(DebugSectionCacheHit)
-          reporter.debug("--------------")(DebugSectionCacheHit)
+          reporter.debug("The following VC has already been verified:")
+          debugVC(vc, origVC)
+          reporter.debug("--------------")
         }
         VCResult(VCStatus.ValidFromCache, None, None)
       } else {
@@ -68,10 +69,10 @@ trait VerificationCache extends VerificationChecker { self =>
           reporter.info(s"Cache miss: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
           reporter.ifDebug { debug =>
             implicit val debugSection = DebugSectionCacheMiss
-            debug("Cache miss for VC")
-            debug(vc.condition)
-
             implicit val printerOpts = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))
+
+            debugVC(vc, origVC)
+
             debug("Canonical symbols:")
             debug(" ## SORTS ##")
             debug(canonicalSymbols.sorts.values.map(_.asString).toList.sorted.mkString("\n\n"))
@@ -83,7 +84,7 @@ trait VerificationCache extends VerificationChecker { self =>
           } (DebugSectionCacheMiss)
         }
 
-        val result = super.checkVC(vc,sf)
+        val result = super.checkVC(vc, origVC, sf)
         if (result.isValid) {
           vccache addPersistently key
         }
