@@ -5,7 +5,6 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.proof._
 
-@library
 sealed abstract class AmortizedQueue[A] {
   import AmortizedQueue._
 	
@@ -24,10 +23,8 @@ sealed abstract class AmortizedQueue[A] {
 
   def tail: AmortizedQueue[A] = {
     require(isAmortized && !isEmpty)
-    this match {
-      case AQueue(Cons(f, fs), rear) => amortizedQueue(fs, rear)
-      case AQueue(Nil(), _) => stainless.lang.error[AmortizedQueue[A]]("Queue is in an invalid state. Queue is either not amortized or empty.")
-    }
+    val AQueue(Cons(f, fs), rear) = this
+    amortizedQueue(fs, rear)
   } ensuring (_.isAmortized)
 
   def enqueue(elem: A): AmortizedQueue[A] = (this match {
@@ -36,17 +33,13 @@ sealed abstract class AmortizedQueue[A] {
 
   def head: A = {
     require(isAmortized && !isEmpty)
-    this match {
-      case AQueue(Cons(f, _), _) => f
-      case AQueue(Nil(), _) => stainless.lang.error[A]("Queue is in an invalid state. Queue is either not amortized or empty.")
-    }
+    val AQueue(Cons(f, _), _) = this
+    f
   }
 }
 
-@library
 case class AQueue[A](front: List[A], rear: List[A]) extends AmortizedQueue[A]
 
-@library
 object AmortizedQueue {
   def amortizedQueue[A](front: List[A], rear: List[A]) : AmortizedQueue[A] = {
     if (rear.size <= front.size)
@@ -56,7 +49,6 @@ object AmortizedQueue {
   } ensuring(_.isAmortized)
 }
 
-@library
 object AmortizedQueueSpecs {
   import ListSpecs._
 
