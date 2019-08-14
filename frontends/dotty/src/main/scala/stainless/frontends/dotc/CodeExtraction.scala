@@ -1110,6 +1110,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       xt.Passes(ine, oute, rc)
 
+    case ExError(str, tpt) => xt.Error(extractType(tpt), str)
+
     case ExOld(e) => xt.Old(extractTree(e))
 
     case ExSnapshot(e) => xt.Snapshot(extractTree(e))

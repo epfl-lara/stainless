@@ -752,6 +752,15 @@ trait ASTExtractors {
       }
     }
 
+    object ExError {
+      def unapply(tree: tpd.Apply) : Option[(String, tpd.Tree)] = tree match {
+        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "error"), List(tpe)), List(lit : tpd.Literal)) =>
+          Some((lit.const.stringValue, tpe))
+        case _ =>
+          None
+      }
+    }
+
     object ExOld {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "old"), Seq(_)), Seq(arg)) => Some(arg)
