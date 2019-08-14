@@ -26,6 +26,7 @@ sealed abstract class AmortizedQueue[A] {
     require(isAmortized && !isEmpty)
     this match {
       case AQueue(Cons(f, fs), rear) => amortizedQueue(fs, rear)
+      case AQueue(Nil(), _) => stainless.lang.error[AmortizedQueue[A]]("Queue is in an invalid state. Queue is either not amortized or empty.")
     }
   } ensuring (_.isAmortized)
 
@@ -37,6 +38,7 @@ sealed abstract class AmortizedQueue[A] {
     require(isAmortized && !isEmpty)
     this match {
       case AQueue(Cons(f, _), _) => f
+      case AQueue(Nil(), _) => stainless.lang.error[A]("Queue is in an invalid state. Queue is either not amortized or empty.")
     }
   }
 }
