@@ -14,6 +14,7 @@ abstract class TotalOrder[A] extends PartialOrder[A] {
             case (true, true) => 0
             case (true, false) => -1
             case (false, true) => 1
+            case (false, false) => error[BigInt]("Impossible case because of law connex")
         }
     }
 

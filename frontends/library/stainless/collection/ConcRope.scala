@@ -325,6 +325,7 @@ object ConcRope {
       case Append(l, r) =>
         if (i < l.size) lookup(l, i)
         else lookup(r, i - l.size)
+      case _ => error[T]("Impossible case because of requirements")
     }
   } ensuring (res =>  instAppendIndexAxiom(xs, i) &&  // an auxiliary axiom instantiation that required for the proof
     res == xs.toList(i)) // correctness
@@ -353,6 +354,7 @@ object ConcRope {
           Append(update(l, i, y), r)
         } else
           Append(l, update(r, i - l.size, y))
+      case _ => error[Conc[T]]("Impossible case because of requirements")
     }
   } ensuring (res => instAppendUpdateAxiom(xs, i, y) && // an auxiliary axiom instantiation
     res.level == xs.level && // heights of the input and output trees are equal
@@ -422,8 +424,10 @@ object ConcRope {
                 } else {
                   CC(CC(l, rl), nrr)
                 }
+              case _ => error[Conc[T]]("Impossible case")
             }
           }
+        case _ => error[Conc[T]]("Impossible case")
       }
     } else {
       ys match {
@@ -439,8 +443,10 @@ object ConcRope {
                 } else {
                   CC(nll, CC(lr, r))
                 }
+              case _ => error[Conc[T]]("Impossible case")
             }
           }
+        case _ => error[Conc[T]]("Impossible case")
       }
     }
   } ensuring (res =>
@@ -559,6 +565,7 @@ object ConcRope {
         } else {
           (l, r)
         }
+      case _ => error[(Conc[T], Conc[T])]("Impossible case")
     }
   } ensuring (res  => instSplitAxiom(xs, n) && // instantiation of an axiom
     res._1.valid && res._2.valid && // tree invariants are preserved
