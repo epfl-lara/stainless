@@ -15,6 +15,7 @@ object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", true)
 
 object DebugSectionVerification extends inox.DebugSection("verification")
+object DebugSectionFullVC extends inox.DebugSection("full-vc")
 
 trait VerificationChecker { self =>
   val program: Program
@@ -97,7 +98,7 @@ trait VerificationChecker { self =>
           condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
         ): VC).setPos(vc)
         val sf = getFactoryForVC(vc)
-        val res = checkVC(simplifiedVC, sf)
+        val res = checkVC(simplifiedVC, vc, sf)
 
         val shouldStop = stopWhen(res)
         interruptManager.synchronized { // Make sure that we only interrupt the manager once.
@@ -190,7 +191,7 @@ trait VerificationChecker { self =>
     }(expr)
   }
 
-  private def prettify(expr: Expr): Expr = {
+  protected def prettify(expr: Expr): Expr = {
     def rec(expr: Expr): Expr = expr match {
       case Annotated(e, Seq(Unchecked)) => rec(e)
       case Operator(es, recons) => recons(es map rec)
@@ -199,15 +200,16 @@ trait VerificationChecker { self =>
     rec(expr)
   }
 
-  protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
+  protected def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
 
     try {
       val cond = vc.condition
+
       reporter.synchronized {
         reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
-        reporter.debug(prettify(cond).asString)
+        debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
       }
 
@@ -293,6 +295,26 @@ trait VerificationChecker { self =>
       vcres
     } finally {
       s.free()
+    }
+  }
+
+  protected def debugVC(simplifiedVC: VC, origVC: VC)(implicit debugSection: inox.DebugSection): Unit = {
+    import stainless.utils.StringUtils.indent
+
+    if (reporter.isDebugEnabled(debugSection)) {
+      if (!reporter.isDebugEnabled(DebugSectionFullVC)) {
+        reporter.debug(prettify(simplifiedVC.condition).asString)
+      } else {
+        reporter.whenDebug(DebugSectionFullVC) { debug =>
+          debug(s"")
+          debug(s" - Original VC:")
+          debug(indent(prettify(origVC.condition).asString, 3))
+          debug(s"")
+          debug(s" - Simplified VC:")
+          debug(indent(prettify(simplifiedVC.condition).asString, 3))
+          debug(s"")
+        }
+      }
     }
   }
 }
