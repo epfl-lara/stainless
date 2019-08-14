@@ -25,7 +25,8 @@ class XLangDependenciesFinder {
 
   private trait TreeTraverser extends xt.SelfTreeTraverser {
     def traverse(lcd: xt.LocalClassDef): Unit
-    def traverse(mld: xt.LocalMethodDef): Unit
+    def traverse(lmd: xt.LocalMethodDef): Unit
+    def traverse(ltd: xt.LocalTypeDef): Unit
   }
 
   private val finder = new TreeTraverser {
@@ -46,6 +47,7 @@ class XLangDependenciesFinder {
 
           deps --= lcds.map(_.id).toSet
           deps --= lcds.flatMap(_.methods).map(_.id).toSet
+          deps --= lcds.flatMap(_.typeMembers).map(_.id).toSet
         }
 
       case _ => super.traverse(e)
@@ -95,10 +97,15 @@ class XLangDependenciesFinder {
       lcd.tparams foreach traverse
       lcd.parents foreach traverse
       lcd.fields foreach traverse
+      lcd.typeMembers foreach traverse
       lcd.flags foreach traverse
     }
 
-    override def traverse(lmd: xt.LocalMethodDef): Unit = traverse(lmd.toFunDef)
+    override def traverse(lmd: xt.LocalMethodDef): Unit =
+      traverse(lmd.toFunDef)
+
+    override def traverse(ltd: xt.LocalTypeDef): Unit =
+      traverse(ltd.toTypeDef)
   }
 
   def apply(defn: xt.Definition): Set[Identifier] = defn match {

@@ -881,8 +881,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val (lcds, cctx) = es.collect {
       case cd @ ExClassDef() => cd
     }.foldLeft((Map.empty[Symbol, xt.LocalClassDef], vctx)) { case ((lcds, dctx), cd) =>
-      val (xcd, methods, typeDefs) = extractClass(cd)(dctx) // TODO: Handle typedefs
-      val lcd = xt.LocalClassDef(xcd, methods)
+      val (xcd, methods, typeDefs) = extractClass(cd)(dctx)
+      val lcd = xt.LocalClassDef(xcd, methods, typeDefs)
       (lcds + (cd.symbol -> lcd), dctx.withLocalClass(lcd))
     }
 
@@ -1819,21 +1819,21 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case cet: CachedExprType => extractType(cet.resultType)
 
       case tr @ TypeRef(ref: TermParamRef, _) if dctx.depParams contains ref.paramName =>
-        val vd = dctx.depParams(ref.paramName)
+        val vd = dctx.depParams(ref.paramName).setPos(pos)
         val selector = getIdentifier(tr.symbol)
-        xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector), Seq.empty)
+        xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector).setPos(pos), Seq.empty)
 
       case tr @ TypeRef(ref: TermRef, name) if !dctx.resolveTypes && (tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueHelper) =>
         val path = if ((ref.symbol is Module) || (ref.symbol is ModuleClass)) {
           None
         } else {
           val id = SymbolIdentifier(ref.name.mangledString)
-          val vd = xt.ValDef(id, extractType(ref.underlying), Seq.empty)
+          val vd = xt.ValDef(id, extractType(ref.underlying), Seq.empty).setPos(pos)
           Some(vd.toVariable)
         }
 
         val selector = getIdentifier(tr.symbol)
-        xt.TypeApply(xt.TypeSelect(path, selector), Seq.empty)
+        xt.TypeApply(xt.TypeSelect(path, selector).setPos(pos), Seq.empty)
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams.get(tr.symbol).getOrElse {
@@ -1847,12 +1847,17 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         extractType(tr.translucentSuperType)
 
       case tr @ TypeRef(thisRef: ThisType, _) if tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueHelper =>
-        val thiss = if (thisRef.tref.symbol is ModuleClass) None else {
-          Some(xt.This(extractType(thisRef).asInstanceOf[xt.ClassType]))
-        }
+        val thiss =
+          if (thisRef.tref.symbol is ModuleClass)
+            None
+          else
+            extractType(thisRef) match {
+              case ct: xt.ClassType => Some(xt.This(ct).setPos(pos))
+              case lct: xt.LocalClassType => Some(xt.LocalThis(lct).setPos(pos))
+            }
 
         val selector = getIdentifier(tr.symbol)
-        xt.TypeApply(xt.TypeSelect(thiss, selector), Seq.empty)
+        xt.TypeApply(xt.TypeSelect(thiss, selector).setPos(pos), Seq.empty).setPos(pos)
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
         extractType(TypeRef(prefix.widenTermRefExpr, name))

@@ -12,6 +12,7 @@ trait Definitions extends methods.Trees { self: Trees =>
     parents: Seq[Type],
     fields: Seq[ValDef],
     methods: Seq[LocalMethodDef],
+    typeMembers: Seq[LocalTypeDef],
     flags: Seq[Flag]
   ) extends Definition {
 
@@ -42,9 +43,13 @@ trait Definitions extends methods.Trees { self: Trees =>
 
   object LocalClassDef {
     // Note: Only to be used during extraction from Scala/Dotty trees
-    def apply(cd: ClassDef, methods: Seq[FunDef]): LocalClassDef = {
-      LocalClassDef(cd.id, cd.tparams, cd.parents,
-        cd.fields, methods.map(LocalMethodDef(_)), cd.flags).copiedFrom(cd)
+    def apply(cd: ClassDef, methods: Seq[FunDef], typeMembers: Seq[TypeDef]): LocalClassDef = {
+      LocalClassDef(
+        cd.id, cd.tparams, cd.parents, cd.fields,
+        methods.map(LocalMethodDef(_)),
+        typeMembers.map(LocalTypeDef(_)),
+        cd.flags
+      ).copiedFrom(cd)
     }
   }
 
@@ -63,5 +68,20 @@ trait Definitions extends methods.Trees { self: Trees =>
     // Note: Only to be used during extraction from Scala/Dotty trees
     def apply(fd: FunDef): LocalMethodDef =
       LocalMethodDef(fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags).copiedFrom(fd)
+  }
+
+  case class LocalTypeDef(
+    id: Identifier,
+    tparams: Seq[TypeParameterDef],
+    rhs: Type,
+    flags: Seq[Flag],
+  ) extends Definition {
+    def toTypeDef: TypeDef = new TypeDef(id, tparams, rhs, flags).copiedFrom(this)
+  }
+
+  object LocalTypeDef {
+    // Note: Only to be used during extraction from Scala/Dotty trees
+    def apply(td: TypeDef): LocalTypeDef =
+      LocalTypeDef(td.id, td.tparams, td.rhs, td.flags).copiedFrom(td)
   }
 }

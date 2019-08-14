@@ -817,8 +817,8 @@ trait CodeExtraction extends ASTExtractors {
     val (lcds, cctx) = es.collect {
       case cd: ClassDef => cd
     }.foldLeft((Map.empty[Symbol, xt.LocalClassDef], vctx)) { case ((lcds, dctx), cd) =>
-      val (xcd, methods, typeDefs) = extractClass(cd)(dctx) // TODO: Handle typedefs
-      val lcd = xt.LocalClassDef(xcd, methods).setPos(xcd)
+      val (xcd, methods, typeDefs) = extractClass(cd)(dctx)
+      val lcd = xt.LocalClassDef(xcd, methods, typeDefs).setPos(xcd)
       (lcds + (cd.symbol -> lcd), dctx.withLocalClass(lcd))
     }
 
@@ -1651,7 +1651,11 @@ trait CodeExtraction extends ASTExtractors {
         case _ if prefix.typeSymbol.isModuleClass =>
           None
         case thiss: ThisType =>
-          Some(xt.This(extractType(thiss).asInstanceOf[xt.ClassType]))
+          val id = getIdentifier(thiss.sym)
+          dctx.localClasses.get(id) match {
+            case Some(lcd) => Some(xt.LocalThis(extractType(thiss).asInstanceOf[xt.LocalClassType]))
+            case None => Some(xt.This(extractType(thiss).asInstanceOf[xt.ClassType]))
+          }
         case SingleType(_, sym) if dctx.vars contains sym =>
           Some(dctx.vars(sym)())
         case SingleType(_, sym) =>

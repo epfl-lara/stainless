@@ -89,6 +89,10 @@ trait Printer extends methods.Printer {
     implicit pctx: PrinterContext => withSymbols(methods.map(fd => Left(fd)), "def")
   }
 
+  protected def localTypeDefs(typeDefs: Seq[LocalTypeDef]): PrintWrapper = {
+    implicit pctx: PrinterContext => withSymbols(typeDefs.map(td => Left(td)), "type")
+  }
+
   override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case cd: LocalClassDef =>
       if (cd.flags contains IsSealed) p"sealed "
@@ -102,22 +106,16 @@ trait Printer extends methods.Printer {
       if (cd.fields.nonEmpty) p"(${cd.fields})"
       if (cd.parents.nonEmpty) p" extends ${nary(cd.parents, " with ")}"
       p"""| {
+          |  ${localTypeDefs(cd.typeMembers)}
+          |
           |  ${localMethods(cd.methods)}
           |}"""
 
     case fd: LocalMethodDef =>
-      for (an <- fd.flags) {
-        p"""|@${an.asString(ctx.opts)}
-            |"""
-      }
+      p"${fd.toFunDef}"
 
-      p"def ${fd.id}${nary(fd.tparams, ", ", "[", "]")}"
-      if (fd.params.nonEmpty) {
-        p"(${fd.params})"
-      }
-
-      p": ${fd.returnType} = "
-      p"${fd.fullBody}"
+    case td: LocalTypeDef =>
+      p"${td.toTypeDef}"
 
     case LetClass(lcds, body) =>
       lcds foreach { lcd =>
@@ -179,6 +177,7 @@ trait DefinitionTransformer extends oo.DefinitionTransformer {
       lcd.parents.map(transform(_, env)),
       lcd.fields.map(transform(_, env)),
       lcd.methods.map(transform(_, env)),
+      lcd.typeMembers.map(transform(_, env)),
       lcd.flags.map(transform(_, env))
     ).copiedFrom(lcd)
   }
@@ -196,6 +195,19 @@ trait DefinitionTransformer extends oo.DefinitionTransformer {
       transform(lmd.fullBody, env),
       lmd.flags.map(transform(_, env))
     ).copiedFrom(lmd)
+  }
+
+  def transform(ltd: s.LocalTypeDef): t.LocalTypeDef = {
+    transform(ltd, initEnv)
+  }
+
+  def transform(ltd: s.LocalTypeDef, env: Env): t.LocalTypeDef = {
+    t.LocalTypeDef(
+      transform(ltd.id, env),
+      ltd.tparams.map(transform(_, env)),
+      transform(ltd.rhs, env),
+      ltd.flags.map(transform(_, env))
+    ).copiedFrom(ltd)
   }
 }
 
@@ -269,7 +281,7 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
           var rflags = flags
 
           val newClasses = for {
-            (lcd @ s.LocalClassDef(_, tparams, parents, fields, _, flags), id) <- classes zip ids
+            (lcd @ s.LocalClassDef(_, tparams, parents, fields, _, _, flags), id) <- classes zip ids
           } yield {
             val (currVs, nextVs) = rvs.splitAt(fields.size)
             rvs = nextVs
@@ -287,7 +299,8 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
               currTparams map (tp => t.TypeParameterDef(tp.asInstanceOf[t.TypeParameter]).copiedFrom(tp)),
               currParents,
               currVs.map(_.toVal),
-              lcd.methods.map(fd => transformer.transform(fd)), // FIXME
+              lcd.methods.map(fd => transformer.transform(fd)),     // FIXME
+              lcd.typeMembers.map(td => transformer.transform(td)), // FIXME
               currFlags
             ).copiedFrom(lcd)
           }
