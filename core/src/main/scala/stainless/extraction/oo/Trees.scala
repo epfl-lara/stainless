@@ -379,8 +379,8 @@ trait ExprOps extends innerfuns.ExprOps {
     tps.map(tpMap)
   }
 
-  /** Freshen the type parameters, fields and methods of the given [[ClassDef]]. */
-  def freshenClass(cd: ClassDef, methods: Seq[FunDef]): (ClassDef, Seq[FunDef]) = {
+  /** Freshen the type parameters, fields, methods and type members of the given [[ClassDef]]. */
+  def freshenClass(cd: ClassDef, methods: Seq[FunDef], typeMembers: Seq[TypeDef]): (ClassDef, Seq[FunDef], Seq[TypeDef]) = {
     val typeArgs = freshenTypeParams(cd.typeArgs)
     val tpSubst = (cd.typeArgs zip typeArgs).toMap
 
@@ -412,7 +412,9 @@ trait ExprOps extends innerfuns.ExprOps {
       freshenSignature(freshener.transform(fd))
     }
 
-    (freshCd, freshMethods)
+    val freshTypeMembers = typeMembers map (freshener.transform(_))
+
+    (freshCd, freshMethods, freshTypeMembers)
   }
 }
 

@@ -78,6 +78,7 @@ trait InnerClasses
     case class ClassSubst(
       cd: ClassDef,               // Lifted classd
       methods: Seq[FunDef],       // Lifted methods
+      typeMembers: Seq[TypeDef],  // Lifted type members
       newTypeParams: Seq[Type],   // New (closed over) type params
       newParams: Seq[ValDef],     // New (closed over) fields
       outerRefs: Seq[ValDef],     // Outer references
@@ -85,6 +86,7 @@ trait InnerClasses
     ) {
 
       def withMethods(methods: Seq[FunDef]): ClassSubst = copy(methods = methods)
+      def withTypeMembers(typeMembers: Seq[TypeDef]): ClassSubst = copy(typeMembers = typeMembers)
 
       /** Add required type parameters to the list of explictly given ones */
       def addNewTypeParams(tps: Seq[Type]): Seq[Type] = tps ++ newTypeParams
@@ -183,8 +185,11 @@ trait InnerClasses
         val methods = subst.methods
           .map(fd => fd.copy(flags = fd.flags :+ derived))
           .map(transform)
+        val typeDefs = subst.typeMembers
+          .map(td => td.copy(flags = td.flags :+ derived))
+          .map(transform)
 
-        (cd, methods)
+        (cd, methods, typeDefs)
       }
 
       (transform(result), newSymbols)
@@ -422,12 +427,14 @@ trait InnerClasses
       }
 
       val methods = (localInv.toSeq ++ lcd.methods) map liftMethod
+      val typeMembers = lcd.typeMembers map (_.toTypeDef)
 
       checkValidLiftedClass(cd, methods, freeVars)
 
       ClassSubst(
         cd,
         methods,
+        typeMembers,
         freeTypeParams,
         freeVars.map(_.toVal),
         outerRefFields,
@@ -436,7 +443,7 @@ trait InnerClasses
     }
   }
 
-  override protected type FunctionResult = (t.FunDef, Seq[(t.ClassDef, Seq[t.FunDef])])
+  override protected type FunctionResult = (t.FunDef, Seq[(t.ClassDef, Seq[t.FunDef], Seq[t.TypeDef])])
 
   override protected val funCache: SimpleCache[s.FunDef, FunctionResult] = new SimpleCache[s.FunDef, FunctionResult]
 
@@ -449,11 +456,15 @@ trait InnerClasses
 
   override protected def registerFunctions(symbols: t.Symbols, results: Seq[FunctionResult]): t.Symbols = {
     val (functions, locals) = results.unzip
-    val (localClasses, localMethods) = locals.flatten.map {
-      case (cd, methods) => t.exprOps.freshenClass(cd, methods)
-    }.unzip
 
-    symbols.withClasses(localClasses).withFunctions(functions ++ localMethods.flatten)
+    val (localClasses, localMethods, localTypeDefs) = locals.flatten.map {
+      case (cd, methods, typeDefs) => t.exprOps.freshenClass(cd, methods, typeDefs)
+    }.unzip3
+
+    symbols
+      .withClasses(localClasses)
+      .withTypeDefs(localTypeDefs.flatten)
+      .withFunctions(functions ++ localMethods.flatten)
   }
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
