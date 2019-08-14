@@ -197,7 +197,7 @@ object ConcRope {
     } ensuring ( res => if(this.size == 0)
                           res == None[T]()
                         else
-                          res == Some(this(0)) && res == Some(this.toList(0)))
+                          res == Some[T](this(0)) && res == Some[T](this.toList(0)))
 
     def ++(that: Conc[T]): Conc[T] = {
       require(this.valid && that.valid)
