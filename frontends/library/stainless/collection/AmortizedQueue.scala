@@ -5,6 +5,7 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.proof._
 
+@library
 sealed abstract class AmortizedQueue[A] {
   import AmortizedQueue._
 	
@@ -38,8 +39,10 @@ sealed abstract class AmortizedQueue[A] {
   }
 }
 
+@library
 case class AQueue[A](front: List[A], rear: List[A]) extends AmortizedQueue[A]
 
+@library
 object AmortizedQueue {
   def amortizedQueue[A](front: List[A], rear: List[A]) : AmortizedQueue[A] = {
     if (rear.size <= front.size)
@@ -49,6 +52,7 @@ object AmortizedQueue {
   } ensuring(_.isAmortized)
 }
 
+@library
 object AmortizedQueueSpecs {
   import ListSpecs._
 
