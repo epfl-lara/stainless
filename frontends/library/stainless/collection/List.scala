@@ -542,7 +542,7 @@ sealed abstract class List[T] {
   def indexWhere(p: T => Boolean): BigInt = { this match {
     case Nil() => BigInt(-1)
     case Cons(h, _) if p(h) => BigInt(0)
-    case Cons(_, t) => 
+    case Cons(_, t) =>
       val rec = t.indexWhere(p)
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
@@ -552,7 +552,7 @@ sealed abstract class List[T] {
 
 
   // Translation to other collections
-  def toSet: Set[T] = foldLeft(Set[T]()){ 
+  def toSet: Set[T] = foldLeft(Set[T]()){
     case (current, next) => current ++ Set(next)
   }
 }
@@ -581,7 +581,7 @@ object List {
     else Cons[T](x, fill[T](n-1)(x))
   } ensuring(res => (res.content == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
                     res.size == (if (n <= BigInt(0)) BigInt(0) else n))
-           
+
   /* Range from start (inclusive) to until (exclusive) */
   @library
   def range(start: BigInt, until: BigInt): List[BigInt] = {
@@ -589,7 +589,7 @@ object List {
     decreases(until - start)
     if(until <= start) Nil[BigInt]() else Cons(start, range(start + 1, until))
   } ensuring{(res: List[BigInt]) => res.size == until - start }
-  
+
   @library
   def mkString[A](l: List[A], mid: String, f: A => String) = {
     def rec(l: List[A]): String = l match {
@@ -920,7 +920,7 @@ object ListSpecs {
       case Cons(x, xs) => if (i == 0) true else appendInsert[T](xs, l2, i - 1, y)
     }
   )
-  
+
   /** A way to apply the forall axiom */
   def applyForAll[T](l: List[T], i: BigInt, p: T => Boolean): Boolean = {
     require(i >= 0 && i < l.length && l.forall(p))
