@@ -20,31 +20,7 @@ object TerminationComponent extends Component {
     val t: extraction.trees.type = extraction.trees
 
     override def transform(syms: s.Symbols): t.Symbols = {
-      syms.transform(new transformers.TreeTransformer {
-        val s: extraction.trees.type = extraction.trees
-        val t: extraction.trees.type = extraction.trees
-
-        override def transform(e: s.Expr): t.Expr = e match {
-          case s.Decreases(rank, body) =>
-            val trank = transform(rank)
-            val es = rank.getType(syms) match {
-              case s.TupleType(tps) => tps.indices.map(i => t.TupleSelect(trank, i + 1))
-              case _ => Seq(trank)
-            }
-
-            t.Assert(
-              t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
-                case s.BVType(signed, size) => t.BVLiteral(signed, 0, size)
-                case s.IntegerType() => t.IntegerLiteral(0)
-                case tpe => throw inox.FatalError(s"Unexpected measure type ($tpe) for $e")
-              }))),
-              Some("Measure not guaranteed positive"),
-              transform(body)
-            ).copiedFrom(e)
-
-          case _ => super.transform(e)
-        }
-      })
+      syms.transform(DecreasesTransformer(s)(syms))
     }
   }
 
