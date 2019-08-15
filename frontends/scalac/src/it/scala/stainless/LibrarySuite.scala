@@ -11,6 +11,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
   describe("stainless library") {
     val opts = inox.Options(Seq(inox.optSelectedSolvers(Set("smt-z3"))))
+    // implicit val ctx = stainless.TestContext.debug(options = opts)
     implicit val ctx = stainless.TestContext(opts)
     import ctx.reporter
 
@@ -27,7 +28,15 @@ class LibrarySuite extends FunSpec with InputUtils {
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
+
+      def dontCheck(fd: FunDef): Boolean = {
+        fd.flags.contains(Unchecked) || (fd.id match {
+          case si: SymbolIdentifier => si.symbol.name.startsWith("stainless.algebra")
+          case _ => false
+        })
+      }
+
+      val funs = exProgram.symbols.functions.values.filterNot(dontCheck).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
