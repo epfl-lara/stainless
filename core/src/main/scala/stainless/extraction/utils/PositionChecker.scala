@@ -18,22 +18,32 @@ trait PositionChecker {
   final class PositionTraverser extends t.SelfTreeTraverser { self =>
     import t._
 
+    implicit val popts = t.PrinterOptions.fromContext(context)
+    implicit val debugSection = DebugSectionPositions
+
     private var lastKnownPosition: Position = NoPosition
 
     override def traverse(fd: FunDef): Unit = {
-      if (!fd.flags.contains(Synthetic)) {
-        lastKnownPosition = NoPosition
-        super.traverse(fd)
+      if (fd.flags.contains(Synthetic)) {
+        return ()
       }
+
+      if (!fd.getPos.isDefined) {
+        context.reporter.debug(
+          NoPosition,
+          s"After $name: Missing position for function '${fd.asString}'."
+        )
+      }
+
+      lastKnownPosition = fd.getPos
+      super.traverse(fd)
     }
 
     override def traverse(e: Expr): Unit = {
-      implicit val debugSection = DebugSectionPositions
-
       if (!e.getPos.isDefined) {
         context.reporter.debug(
           NoPosition,
-          s"After $name: Missing position for expression '$e' (of type ${e.getClass}). " +
+          s"After $name: Missing position for expression '${e.asString}' (of type ${e.getClass}). " +
           s"Last known position: $lastKnownPosition"
         )
       } else {
@@ -44,12 +54,10 @@ trait PositionChecker {
     }
 
     override def traverse(tpe: Type): Unit = {
-      implicit val debugSection = DebugSectionPositions
-
       if (!tpe.getPos.isDefined) {
         context.reporter.debug(
           NoPosition,
-          s"After $name: Missing position for type '$tpe' (of type ${tpe.getClass})." +
+          s"After $name: Missing position for type '${tpe.getPos}' (of type ${tpe.getClass})." +
           s"Last known position: $lastKnownPosition"
         )
       } else {
