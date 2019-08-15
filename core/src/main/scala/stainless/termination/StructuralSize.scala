@@ -124,12 +124,12 @@ trait StructuralSize { self: SolverProvider =>
             Seq(v.toVal),
             IntegerType(),
             Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
-              val arguments = cons.fields.map(_.freshen)
+              val arguments = cons.fields.map(_.freshen).toList
               val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
               val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
               val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)
               MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
-            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(expr),
+            }.toList), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(expr),
             Seq.empty
           )
           clearSolvers()
