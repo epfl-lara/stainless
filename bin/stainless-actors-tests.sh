@@ -9,11 +9,9 @@ cd "$TEST_DIR" || exit 1
 
 echo "Verifying stainless-actors with Stainless version $STAINLESS_VERSION"
 
-git clone https://github.com/jad-hamza/stainless-actors
+git clone https://github.com/epfl-lara/stainless-actors
 
 cd stainless-actors || exit 1
-
-git checkout configs-fix
 
 sed -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
 
