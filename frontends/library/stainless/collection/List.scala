@@ -937,17 +937,17 @@ object ListSpecs {
     (xs.foldLeft(M.identity)(M.combine) == xs.foldRight(M.identity)(M.combine)) because {
       xs match {
         case Nil() => {
-          Nil[A]().foldLeft(M.identity)(M.combine)           ==| trivial |
-          M.identity                                        ==| trivial |
+          Nil[A]().foldLeft(M.identity)(M.combine)   ==| trivial |
+          M.identity                                 ==| trivial |
           Nil[A]().foldRight(M.identity)(M.combine)
         }.qed
         case Cons(y, Nil()) => {
           Cons(y, Nil[A]()).foldLeft(M.identity)(M.combine)       ==| trivial                  |
-          Nil[A]().foldLeft(M.combine(M.identity, y))(M.combine)   ==| M.law_leftIdentity(y)    |
-          Nil[A]().foldLeft(y)(M.combine)                      ==| trivial                  |
-          y                                                   ==| M.law_rightIdentity(y)   |
+          Nil[A]().foldLeft(M.combine(M.identity, y))(M.combine)  ==| M.law_leftIdentity(y)    |
+          Nil[A]().foldLeft(y)(M.combine)                         ==| trivial                  |
+          y                                                       ==| M.law_rightIdentity(y)   |
           M.combine(y, M.identity)                                ==| trivial                  |
-          M.combine(y, Nil[A]().foldRight(M.identity)(M.combine))  ==| trivial                  |
+          M.combine(y, Nil[A]().foldRight(M.identity)(M.combine)) ==| trivial                  |
           Cons(y, Nil[A]()).foldRight(M.identity)(M.combine)
         }.qed
         case Cons(y1, Cons(y2, ys)) =>
