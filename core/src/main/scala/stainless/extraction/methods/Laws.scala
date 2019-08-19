@@ -18,7 +18,7 @@ trait Laws
   import s.ClassDefWrapper // implicit wrapper for cd.methods
 
   private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
-    id => SymbolIdentifier(id.name)
+    id => SymbolIdentifier(id.symbol.name)
   )
 
   override protected final def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
