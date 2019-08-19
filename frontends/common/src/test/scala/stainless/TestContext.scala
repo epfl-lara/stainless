@@ -25,13 +25,11 @@ object TestContext {
    *
    * The returned context has a DefaultReporter.
    **/
-  def debug(sections: Set[DebugSection], options: Options): inox.Context = {
+  def debug(sections: Set[DebugSection] = Set.empty, options: Options = Options.empty): inox.Context = {
     val reporter = new stainless.DefaultReporter(sections)
     val ctx = apply(options)
     inox.Context(reporter, ctx.interruptManager, ctx.options, ctx.timers)
   }
-
-  def debug(sections: Set[DebugSection]): inox.Context = debug(sections, Options.empty)
 
   def empty: inox.Context = apply(Options.empty)
 
