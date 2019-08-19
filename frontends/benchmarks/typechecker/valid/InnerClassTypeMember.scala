@@ -45,13 +45,17 @@ object InnerClassTypeMember {
         case S(p) => p
       }
       def succ(n: N): N = S(n)
-      def toBigInt(n: N): BigInt = n match {
-        case Z => 0
-        case S(m) => 1 + toBigInt(m)
+      def toBigInt(n: N): BigInt = {
+        decreases(n)
+        n match {
+          case Z => 0
+          case S(m) => 1 + toBigInt(m)
+        }
       }
     }
 
     assert(nNat.succ(nNat.one) == nNat.two)
   }
 }
+
 
