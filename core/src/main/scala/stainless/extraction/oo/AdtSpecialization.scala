@@ -162,6 +162,11 @@ trait AdtSpecialization
     }
   }
 
+  private def keepSortFlag(flag: s.Flag): Boolean = flag match {
+    case s.IsAbstract | s.IsSealed | s.IsCaseObject => false
+    case _ => true
+  }
+
   override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
     import context.{t => _, s => _, _}
     if (isCandidate(cd.id)) {
@@ -182,7 +187,7 @@ trait AdtSpecialization
               }
             ).copiedFrom(consCd)
           },
-          cd.flags filterNot (f => f == s.IsAbstract || f == s.IsSealed) map (f => context.transform(f))
+          cd.flags filter keepSortFlag map (f => context.transform(f))
         ).copiedFrom(cd)
 
         val functions = (cd +: cd.descendants).flatMap { cd =>
@@ -190,7 +195,7 @@ trait AdtSpecialization
 
           val objectFunction = if (isCaseObject(cd.id)) {
             val vd = t.ValDef.fresh("v", t.ADTType(root(cd.id), cd.typeArgs map (transform(_))).setPos(cd)).setPos(cd)
-            val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, cd.id).setPos(cd)).setPos(cd)
+            val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, constructorID(cd.id)).setPos(cd)).setPos(cd)
             Some(mkFunDef(caseObject(cd.id), t.Inline, t.Derived(cd.id))()(_ => (
               Seq(),
               returnType,
