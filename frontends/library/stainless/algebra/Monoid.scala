@@ -66,6 +66,8 @@ object Monoid {
   }.holds
 
   // Monoid of options
+  /* Termination doesn't work yet on this instance
+
   implicit def optionMonoid[T](implicit ev: Monoid[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
     def identity: Option[T] = None[T]()
     def combine(x: Option[T], y: Option[T]): Option[T] = {
@@ -86,4 +88,5 @@ object Monoid {
       }
     }
   }
+  */
 }
