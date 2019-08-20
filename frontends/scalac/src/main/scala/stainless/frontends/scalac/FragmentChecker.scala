@@ -75,7 +75,12 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
     private def propagateGhostAnnotation(m: MemberDef): Unit = {
       val sym = m.symbol
 
-      if (sym.isCaseCopy) {
+      if (sym.isArtifact) m match {
+        case vd @ ValDef(mods, _, _, ExCall(_, c, _, _)) if isDefaultGetter(c) && c.hasAnnotation(ghostAnnotation) =>
+          sym.addAnnotation(ghostAnnotation)
+        case _ => ()
+      }
+      else if (sym.isCaseCopy) {
         val caseClassParams = sym.owner.primaryConstructor.info.params
         for ((copyParam, caseParam) <-sym.info.params.zip(caseClassParams) if caseParam.hasAnnotation(ghostAnnotation))
           copyParam.addAnnotation(ghostAnnotation)
