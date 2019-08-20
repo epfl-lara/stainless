@@ -41,6 +41,7 @@ object ConcRope {
     }
 
     def fromListReversed[T](xs: List[T]): Conc[T] = {
+      decreases(xs)
       xs match {
         case Nil() => Empty[T]()
         case Cons(y, ys) => append(fromListReversed(ys), y)
@@ -48,7 +49,22 @@ object ConcRope {
     } ensuring (res => res.valid &&
       res.content == xs.content &&
       res.size == xs.size &&
-      (res.toList == xs.reverse) because lemma_fromListReversed(xs))
+      (res.toList == xs.reverse) because { xs match {
+        case Nil() =>
+          assert(res.toList == Nil[T]())
+          assert(Nil[T]() == Nil[T]().reverse)
+          check(res.toList == Nil[T]().reverse)
+        case Cons(y, ys) =>
+          assert(res.toList == append(fromListReversed(ys), y).toList)
+          assert(append(fromListReversed(ys), y).toList == fromListReversed(ys).toList ++ Cons(y, Nil[T]()))
+          assert(fromListReversed(ys).toList == ys.reverse)
+          assert(fromListReversed(ys).toList ++ Cons(y, Nil[T]()) == ys.reverse ++ Cons(y, Nil[T]()))
+          assert(ys.reverse ++ Cons(y, Nil[T]()) == ys.reverse ++ Cons(y, Nil[T]()).reverse)
+          assert(ListSpecs.reverseAppend(Cons(y, Nil[T]()), ys))
+          assert(ys.reverse ++ Cons(y, Nil[T]()).reverse == (Cons(y, Nil[T]() ++ ys).reverse))
+          assert((Cons(y, Nil[T]()) ++ ys).reverse == (y :: ys).reverse)
+          check(res.toList == xs.reverse)
+      }})
   }
 
   @library
@@ -216,7 +232,9 @@ object ConcRope {
       case Append(left, right) => Append(left.map(f), right.map(f))
     }} ensuring { _.size == this.size }
 
-    def foldMap[R](f: T => R)(implicit M: Monoid[R]): R = { this match {
+    def foldMap[R](f: T => R)(implicit M: Monoid[R]): R = {
+    decreases(this)
+    this match {
       case Empty() => M.identity
       case Single(x) => f(x)
       case CC(left, right) => M.combine(left.foldMap(f), right.foldMap(f))
@@ -673,26 +691,4 @@ object ConcRope {
     res.size == xs.size + ys.size && //other auxiliary properties
     res.level <= xs.level
     )
-
-    def lemma_fromListReversed[A](xs: List[A]): Boolean = {
-      import Conc._
-      decreases(xs.size)
-      (fromListReversed(xs).toList == xs.reverse) because { xs match {
-        case Nil() =>
-          assert(fromListReversed(Nil[A]()).toList == Nil[A]())
-          assert(Nil[A]() == Nil[A]().reverse)
-          check(fromListReversed(Nil[A]()).toList == Nil[A]().reverse)
-        case Cons(y, ys) => {
-          assert(fromListReversed(y :: ys).toList == append(fromListReversed(ys), y).toList)
-          assert(append(fromListReversed(ys), y).toList == fromListReversed(ys).toList ++ Cons(y, Nil[A]()))
-          assert(lemma_fromListReversed(ys))
-          assert(fromListReversed(ys).toList ++ Cons(y, Nil[A]()) == ys.reverse ++ Cons(y, Nil[A]()))
-          assert(ys.reverse ++ Cons(y, Nil[A]()) == ys.reverse ++ Cons(y, Nil[A]()).reverse)
-          assert(ListSpecs.reverseAppend(Cons(y, Nil[A]()), ys))
-          assert(ys.reverse ++ Cons(y, Nil[A]()).reverse == (Cons(y, Nil[A]()) ++ ys).reverse)
-          assert((Cons(y, Nil[A]()) ++ ys).reverse == (y :: ys).reverse)
-          check(fromListReversed(xs).toList == xs.reverse)
-        }
-      }}
-    }.holds
 }
