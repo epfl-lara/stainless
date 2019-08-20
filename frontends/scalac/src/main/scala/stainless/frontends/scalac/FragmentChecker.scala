@@ -66,6 +66,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       res
     }
 
+    private def isGhostDefaultGetter(m: Tree): Boolean = m match {
+      case DefDef(mods, name, tparams, vparamss, tpt, field @ Select(This(_), f)) =>
+        field.symbol.hasAnnotation(ghostAnnotation)
+      case _ => false
+    }
 
     /**
      * Synthetics introduced by typer for case classes won't propagate the @ghost annotation
@@ -82,19 +87,19 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       }
       else if (sym.isCaseCopy) {
         val caseClassParams = sym.owner.primaryConstructor.info.params
-        for ((copyParam, caseParam) <-sym.info.params.zip(caseClassParams) if caseParam.hasAnnotation(ghostAnnotation))
+        for ((copyParam, caseParam) <- sym.info.params.zip(caseClassParams) if caseParam.hasAnnotation(ghostAnnotation))
           copyParam.addAnnotation(ghostAnnotation)
-      } else if (sym.isDefaultGetter) m match {
-        case DefDef(mods, name, tparams, vparamss, tpt, field @ Select(This(_), f)) =>
-          if (field.symbol.hasAnnotation(ghostAnnotation))
-            sym.addAnnotation(ghostAnnotation)
-        case _ =>
-      } else if (sym.isSetter && sym.hasAnnotation(ghostAnnotation)) {
+      }
+      else if (sym.isDefaultGetter && isGhostDefaultGetter(m)) {
+        sym.addAnnotation(ghostAnnotation)
+      }
+      else if (sym.isSetter && sym.hasAnnotation(ghostAnnotation)) {
         // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
         // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
         sym.removeAnnotation(ghostAnnotation)
         sym.info.params.head.addAnnotation(ghostAnnotation)
-      } else if (sym.isModuleOrModuleClass && sym.companionClass.hasAnnotation(ghostAnnotation)) {
+      }
+      else if (sym.isModuleOrModuleClass && sym.companionClass.hasAnnotation(ghostAnnotation)) {
         sym.addAnnotation(ghostAnnotation)
         sym.moduleClass.addAnnotation(ghostAnnotation)
       }
@@ -134,12 +139,12 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           super.traverse(tree)
 
         case m: MemberDef  =>
-          if (m.symbol.isSynthetic || m.symbol.isAccessor)
+          if (m.symbol.isSynthetic || m.symbol.isAccessor || m.symbol.isArtifact)
             propagateGhostAnnotation(m)
 
-          // we consider some synthetic methods as being inside ghost but don't auto-annotate as such because we
-          // don't want all code to be removed. They are synthetic case class methods that are harmless if they
-          // see some ghost nulls
+          // We consider some synthetic methods values as being inside ghost
+          // but don't auto-annotate as such because we don't want all code to be removed.
+          // They are synthetic case class methods that are harmless if they see some ghost nulls
           if (m.symbol.hasAnnotation(ghostAnnotation) || effectivelyGhost(sym))
             withinGhostContext(super.traverse(m))
           else
