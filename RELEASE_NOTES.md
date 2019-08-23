@@ -16,7 +16,7 @@
 - Port partial specification feature from Leon (#438)
 - Add BoundedQuantifiers module to the library (#596)
 
-## Improvements
+### Improvements
 
 - Propagate @ghost annotation to variables introduced by calls to default copy getter (#643)
 - Do not lift refinement into pre-/post-conditions when `--type-checker` is enabled (#620)
@@ -25,7 +25,7 @@
 - Check that required tools are installed before packaging (#599)
 - Add readability check for jars in script (#600)
 
-## Bug fixes
+### Bug fixes
 
 - Add missing serializer for LocalThis (#631)
 - Fix malformed case object constructor method (#641)
@@ -38,7 +38,7 @@
 
 ## Version 0.3.2 (16-06-2019)
 
-## Improvements
+### Improvements
 
 - Improve support for type members and type aliases (#580)
 
