@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 TEST_DIR=$1
 STAINLESS_VERSION=$2
 
@@ -49,4 +51,5 @@ for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
 
 done;
 
-cd ../..
+cd ../.. || true
+

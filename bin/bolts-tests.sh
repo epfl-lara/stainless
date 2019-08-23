@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 TEST_DIR=$1
 echo "Moving to $TEST_DIR"
 mkdir -p "$TEST_DIR"
@@ -16,20 +18,26 @@ cd bolts || exit 1
 # purpose.
 # TODO: test that they are indeed reported as invalid
 
-echo "Running `stainless-scalac` on bolts..."
-find . -not \( -path ./WIP -prune \) -not \( -path ./invalid -prune \) -name "*.scala" -exec ../../frontends/scalac/target/universal/stage/bin/stainless-scalac --fail-early {} +
+STAINLESS_SCALAC="stainless-scalac --timeout=300 --vc-cache=false --fail-early"
+
+echo "Running stainless-scalac on bolts..."
+find . \
+  -not \( -path ./WIP -prune \) \
+  -not \( -path ./invalid -prune \) \
+  -name "*.scala" \
+  -exec $STAINLESS_SCALAC {} +
 status=$?
 
 if [ $status -ne 0 ]
 then
-  echo "`stainless-scalac` failed on bolts."
+  echo "$STAINLESS_SCALAC failed on bolts."
   exit 1
 fi
 
 # The `--type-checker` option does not support `forall` so all files containing
 # `forall` are ignored.
 
-echo "Running `stainless-scalac --type-checker` on bolts..."
+echo "Running stainless-scalac --type-checker on bolts..."
 find . \
   -not \( -path ./WIP -prune \)\
   -not \( -path ./invalid -prune \)\
@@ -37,13 +45,14 @@ find . \
   -not \( -path ./gcd/gcd.scala -prune \)\
   -not \( -path ./algorithms/sorting/QuickSortSize.scala -prune \)\
   -not \( -path ./algorithms/sorting/QuickSortSizeOccur.scala -prune \)\
-  -name "*.scala" -exec stainless-scalac --type-checker --fail-early {} +
+  -name "*.scala" -exec $STAINLESS_SCALAC --type-checker {} +
 status=$?
 
 if [ $status -ne 0 ]
 then
-  echo "`stainless-scalac --type-checker` failed on bolts."
+  echo "$STAINLESS_SCALAC --type-checker failed on bolts."
   exit 1
 fi
 
-cd ../..
+cd ../.. || true
+
