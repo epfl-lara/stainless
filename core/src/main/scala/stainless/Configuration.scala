@@ -9,6 +9,8 @@ import java.nio.file.{FileSystems, Path}
 
 import com.typesafe.config.{ConfigFactory, ConfigValue, ConfigValueType, ConfigException}
 
+object optConfigFile extends FileOptionDef("config-file")
+
 object Configuration {
 
   import scala.collection.JavaConverters._
@@ -24,6 +26,8 @@ object Configuration {
     RecursiveFileFinder.find(isConfigFile(_))
   }
 
+  val empty: Seq[OptionValue[_]] = Seq.empty
+
   def parseDefault(options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
     findConfigFile() map { file =>
       parse(file, options)
@@ -31,6 +35,13 @@ object Configuration {
   }
 
   def parse(file: File, options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = try {
+    if (!file.exists()) {
+      reporter.fatalError(s"Configuration file does not exists: ${file.getAbsolutePath}")
+    }
+    else if (!file.canRead()) {
+      reporter.fatalError(s"Configuration file is not readable: ${file.getAbsolutePath}")
+    }
+
     val conf = ConfigFactory.parseFile(file)
     val entries = asScalaSet(conf.entrySet).map { entry =>
       entry.getKey -> convert(entry.getKey, entry.getValue)
