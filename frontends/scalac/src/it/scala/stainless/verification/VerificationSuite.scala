@@ -26,9 +26,6 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
 
-    // Too slow
-    case "verification/invalid/PartialSplit" => Skip
-
     case _ => super.filter(ctx, name)
   }
 
@@ -99,8 +96,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/Overrides" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
-    case "verification/valid/BigIntRing" => Ignore
-    case "verification/valid/InnerClasses4" => Ignore
+
+    // This test is flaky on CVC4
+    case "verification/valid/CovariantList" => Ignore
 
     // Requires map with non-default values, unsupported by CVC4
     case "verification/valid/ArraySlice" => Ignore
@@ -108,9 +106,6 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
-
-    // This test is flaky on CVC4
-    case "verification/valid/CovariantList" => Ignore
 
     // These tests make CVC4 crash
     case "verification/valid/PartialCompiler" => Ignore
