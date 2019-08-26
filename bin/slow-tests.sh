@@ -83,30 +83,7 @@ BASE_DIR=$( dirname "$BIN_DIR" )
 
 cd "$BASE_DIR" || exit 1
 
-# Compile Stainless
-
-echo "Compiling Stainless..."
-
-sbt universal:stage
-
-export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
-
-# Publish Stainless local and save the version
-
-echo "Publishing Stainless..."
-
-STAINLESS_VERSION=$(sbt publishLocal | sed -n -r 's#^.*stainless-scalac-plugin_2.12.8/([^/]+)/poms.*$#\1#p')
-
-echo "Published Stainless version is: $STAINLESS_VERSION"
-
-# Create a directory for doing tests and move there
-
-TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-external-tests")
-
-mkdir -p "$TEST_DIR"
-
-"$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
-"$BIN_DIR/bolts-tests.sh" "$TEST_DIR"
-
-rm -rf "$TEST_DIR" || true
+echo "Running the full test suite (slow tests enabled)..."
+echo "$ RUN_SLOW_TESTS=true sbt -batch -Dparallel=1 it:test"
+RUN_SLOW_TESTS=true sbt -batch -Dparallel=1 it:test
 
