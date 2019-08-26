@@ -23,6 +23,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optVersion -> Description(General, "Display the version number"),
+    optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
@@ -103,12 +104,17 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
-    Configuration.parseDefault(self.options.keys.toSeq)(initReporter)
+  def getConfigOptions(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+    val optKeys = self.options.keys.toSeq
+    configFile match {
+      case OptionOrDefault.Some(file) => Configuration.parse(file, optKeys)
+      case OptionOrDefault.Default    => Configuration.parseDefault(optKeys)
+      case OptionOrDefault.None       => Configuration.empty
+    }
   }
 
-  def getConfigContext(implicit initReporter: inox.Reporter): inox.Context = {
-    val ctx = super.processOptions(Seq.empty, getConfigOptions)
+  def getConfigContext(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): inox.Context = {
+    val ctx = super.processOptions(Seq.empty, getConfigOptions(configFile))
 
     if (ctx.options.findOptionOrDefault(optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
@@ -119,7 +125,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
   override
   protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
                               (implicit initReporter: inox.Reporter): inox.Context = {
-    val configOptions = getConfigOptions
+
+    val configFile = inox.Options(cmdOptions).findOptionOrDefault(optConfigFile)
+    val configOptions = getConfigOptions(configFile)
 
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)
