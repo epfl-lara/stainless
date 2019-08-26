@@ -14,7 +14,7 @@ object split {
 
   val spent = List(
     S(Alice   ,     0),
-    S(Bob     ,  3000),
+    // S(Bob     ,  3000),
     S(Charlie ,  4000)
   )
 

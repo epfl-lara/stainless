@@ -21,7 +21,38 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
-  protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
+  protected val runSlowTests: Boolean = {
+    sys.env
+      .get("RUN_SLOW_TESTS")
+      .map {
+        case "true" => true
+        case _      => false
+      }
+      .getOrElse(false)
+  }
+
+  protected val slowBenchmarks = Set(
+    "imperative/valid/NestedFunParamsMutation2",
+    "termination/valid/ConstantPropagation",
+    "termination/valid/NNFSimple",
+    "typechecker/valid/GodelNumbering",
+    "verification/invalid/BadConcRope",
+    "verification/invalid/Nested15",
+    "verification/invalid/PartialSplit",
+    "verification/valid/AmortizedQueue",
+    "verification/valid/BigIntRing",
+    "verification/valid/ConcRope",
+    "verification/valid/ConcTree",
+    "verification/valid/CovariantList",
+    "verification/valid/InnerClasses4",
+    "verification/valid/SuperCall4",
+    "verification/valid/TransitiveQuantification",
+  )
+
+  protected def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    case name if !runSlowTests && slowBenchmarks.contains(name) => Skip
+    case name => Test
+  }
 
   def testAll(dir: String, recursive: Boolean = false)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
     require(dir != null, "Function testAll must be called with a non-null directory string")
