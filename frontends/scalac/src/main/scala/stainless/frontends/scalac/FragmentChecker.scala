@@ -220,7 +220,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
     )
 
     // method println is overloaded, so we need to add all overloads to our map
-    addOverloadsToMap(definitions.PredefModule.info.decl(newTermName("println")), "stainless.StdOut.println")
+    addOverloadsToMap(definitions.PredefModule.info.decl(newTermName("println")), "stainless.io.StdOut.println")
 
     private def addOverloadsToMap(sym: Symbol, replacement: String): Unit = {
       sym.alternatives.foreach(a => stainlessReplacement += a -> replacement)
