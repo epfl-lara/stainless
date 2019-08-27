@@ -96,6 +96,8 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/Overrides" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
+    case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
 
     // This test is flaky on CVC4
     case "verification/valid/CovariantList" => Ignore
