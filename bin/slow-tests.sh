@@ -84,6 +84,6 @@ BASE_DIR=$( dirname "$BIN_DIR" )
 cd "$BASE_DIR" || exit 1
 
 echo "Running the full test suite (slow tests enabled)..."
-echo "$ RUN_SLOW_TESTS=true sbt -batch -Dparallel=1 it:test"
+echo "$ RUN_SLOW_TESTS=true sbt -batch -Dparallel=5 it:test"
 RUN_SLOW_TESTS=true sbt -batch -Dparallel=5 it:test
 
