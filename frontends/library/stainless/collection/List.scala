@@ -9,6 +9,7 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.math._
 import stainless.proof._
+import stainless.lang.StaticChecks._
 
 @library
 @isabelle.typ(name = "List.list")

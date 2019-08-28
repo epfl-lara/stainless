@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 
 import stainless.lang._
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 // See NOTEs in StdIn.
 //

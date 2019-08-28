@@ -4,6 +4,7 @@ package stainless
 
 import stainless.lang._
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 import scala.language.implicitConversions
 

@@ -6,12 +6,13 @@ package lang
 import scala.language.implicitConversions
 
 import annotation._
+import stainless.lang.StaticChecks._
 
 /**
  * Describe a partial function with precondition `pre`.
  *
  * Do not attempt to create it using the ~>'s companion object's apply method.
- * Instead, use `PartialFunction$.apply` defined beflow. (Private constructor
+ * Instead, use `PartialFunction$.apply` defined below. (Private constructor
  * cannot be expressed in Stainless.)
  */
 @library

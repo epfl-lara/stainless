@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 
 import stainless.lang._
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 // NOTE I couldn't use java.io.FileOutputStream as a field of FileOutputStream... Leon doesn't
 //      accept it. Instead, the stream is opened and closed everytime an operation is
