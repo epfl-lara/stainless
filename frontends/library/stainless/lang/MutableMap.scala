@@ -1,7 +1,9 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless.lang
+
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 object MutableMap {
   @extern @library

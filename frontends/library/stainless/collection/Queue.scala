@@ -4,6 +4,7 @@ package stainless.collection
 import stainless.lang._
 import stainless.annotation._
 import stainless.proof._
+import stainless.lang.StaticChecks._
 
 @library
 case class Queue[A](front: List[A], rear: List[A]) {

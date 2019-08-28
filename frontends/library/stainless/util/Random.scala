@@ -5,6 +5,7 @@ package stainless.util
 import scala.language.implicitConversions
 
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 object Random {
 

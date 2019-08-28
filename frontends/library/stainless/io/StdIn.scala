@@ -5,6 +5,7 @@ package stainless.io
 import scala.language.implicitConversions
 
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 /*
  * NOTEs for GenC:
@@ -48,10 +49,10 @@ object StdIn {
   @library
   @extern
   private def nativeReadInt(seed: BigInt): Int = {
-    /* WARNING This code is singificantly a duplicate of stainless.io.FileInputStream.nativeReadInt
+    /* WARNING This code is significantly a duplicate of stainless.io.FileInputStream.nativeReadInt
      *         because there's no clean way to refactor this in Leon's library.
      *
-     * This implementation mimic `scanf("%d")` for 32-bit integer.
+     * This implementation mimics `scanf("%d")` for 32-bit integer.
      *
      * NOTE
      *  - The `%d` flag is for signed decimal integers;

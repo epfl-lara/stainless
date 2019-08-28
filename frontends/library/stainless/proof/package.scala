@@ -3,11 +3,12 @@
 package stainless
 
 import stainless.annotation._
+import stainless.proof.Internal._
 import stainless.lang._
+import stainless.lang.StaticChecks._
 
 import scala.language.implicitConversions
 
-import stainless.proof.Internal._
 
 package object proof {
 
