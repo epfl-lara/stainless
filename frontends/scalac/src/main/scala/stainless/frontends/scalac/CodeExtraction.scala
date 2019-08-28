@@ -618,8 +618,6 @@ trait CodeExtraction extends ASTExtractors {
             reporter.warning(e.getPos, s"This require is ignored for verification because it is not at the top-level of this @extern function.")
           case _: xt.Ensuring =>
             reporter.warning(e.getPos, s"This ensuring is ignored for verification because it is not at the top-level of this @extern function.")
-          case _: xt.Assert =>
-            reporter.warning(e.getPos, s"This assert is ignored for verification because it is not at the top-level of this @extern function.")
           case _ =>
             ()
         }
