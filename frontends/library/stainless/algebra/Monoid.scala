@@ -66,9 +66,9 @@ object Monoid {
   }.holds
 
   // Monoid of options
-  /* Termination doesn't work yet on this instance
+  /* Termination doesn't work yet on this instance, if uncommented, termination checks of other instances fail as well
 
-  implicit def optionMonoid[T](implicit ev: Monoid[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
+  implicit def optionMonoid[T](implicit ev: Semigroup[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
     def identity: Option[T] = None[T]()
     def combine(x: Option[T], y: Option[T]): Option[T] = {
       (x, y) match {
@@ -79,7 +79,7 @@ object Monoid {
       }
     }
 
-    override def law_associativity(@induct x: Option[T], y: Option[T], z: Option[T]): Boolean = {
+    override def law_associativity(x: Option[T], y: Option[T], z: Option[T]): Boolean = {
       super.law_associativity(x, y, z) because {
         (x, y, z) match {
           case (Some(a), Some(b), Some(c)) => check(ev.law_associativity(a, b, c))
@@ -87,6 +87,5 @@ object Monoid {
         }
       }
     }
-  }
-  */
+  }*/
 }
