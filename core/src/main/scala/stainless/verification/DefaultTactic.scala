@@ -62,7 +62,7 @@ trait DefaultTactic extends Tactic {
       case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.contains(Unchecked) =>
         getPostconditions(body, post).map { vc =>
           val vcKind = if (fd.flags.exists(_.name == "law")) VCKind.Law else VCKind.Postcondition
-          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(fd)
+          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(vc)
         }
       case _ => Nil
     }
