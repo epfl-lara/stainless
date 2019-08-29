@@ -7,10 +7,25 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class LibrarySuite extends FunSpec with InputUtils {
+abstract class AbstractLibrarySuite(options: Seq[inox.OptionValue[_]]) extends FunSpec with InputUtils {
+  import ast.SymbolIdentifier
+
+  def symbolName(id: Identifier): String = id match {
+    case si: SymbolIdentifier => si.symbol.name
+    case id => id.name
+  }
+
+  def isSlow(fd: ast.Trees#FunDef): Boolean =
+    symbolName(fd.id).startsWith("stainless.algebra")
+
+  protected def keep(fd: ast.Trees#FunDef): Boolean = fd match {
+    case fd if fd.flags exists (_.name == "unchecked") => false
+    case fd if !SlowTests.enabled && isSlow(fd) => false
+    case fd => true
+  }
 
   describe("stainless library") {
-    val opts = inox.Options(Seq(inox.optSelectedSolvers(Set("smt-z3"))))
+    val opts = inox.Options(options ++ Seq(inox.optSelectedSolvers(Set("smt-z3"))))
     implicit val ctx = stainless.TestContext(opts)
     import ctx.reporter
 
@@ -27,7 +42,7 @@ class LibrarySuite extends FunSpec with InputUtils {
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
+      val funs = exProgram.symbols.functions.values.filter(keep).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
@@ -40,10 +55,10 @@ class LibrarySuite extends FunSpec with InputUtils {
       import termination.TerminationComponent
       val run = TerminationComponent.run(extraction.pipeline)
       val exProgram = inox.Program(run.trees)(run extract tryProgram.get.symbols)
-      assert(reporter.errorCount == 0, "Verification extraction had errors")
+      assert(reporter.errorCount == 0, "Termination extraction had errors")
 
       import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
+      val funs = exProgram.symbols.functions.values.filter(keep).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
 
       assert(
@@ -54,3 +69,7 @@ class LibrarySuite extends FunSpec with InputUtils {
     }
   }
 }
+
+class LibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(false)))
+
+// class TypeCheckerLibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(true)))
