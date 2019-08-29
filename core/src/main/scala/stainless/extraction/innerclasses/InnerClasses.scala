@@ -131,8 +131,8 @@ trait InnerClasses
         val fields = for {
           cd    <- currentClass.toSeq
           field <- cd.fields
-          thiss = This(ClassType(cd.id, cd.typeArgs))
-        } yield (field.id -> ClassSelector(thiss, field.id))
+          thiss = This(ClassType(cd.id, cd.typeArgs).copiedFrom(field)).copiedFrom(field)
+        } yield (field.id -> ClassSelector(thiss, field.id).copiedFrom(field))
 
         val params = for {
           fd    <- currentFunction.toSeq
@@ -147,7 +147,7 @@ trait InnerClasses
         case lct: LocalClassType =>
           substs(lct.id).classType
         case ct: ClassType if substs.contains(ct.id) && ct.tps.size != substs(ct.id).cd.tparams.size =>
-          ClassType(ct.id, substs(ct.id).addNewTypeParams(ct.tps))
+          ClassType(ct.id, substs(ct.id).addNewTypeParams(ct.tps)).copiedFrom(ct)
         case ct: ClassType =>
           ct
       }
@@ -251,7 +251,7 @@ trait InnerClasses
             lifted
           }
 
-          transform(LetRec(localFunDefs, body), ctx withSubsts lifted)
+          transform(LetRec(localFunDefs, body).copiedFrom(e), ctx withSubsts lifted)
 
         case LocalThis(lct) =>
           val subst = ctx.substs(lct.id)
@@ -275,14 +275,14 @@ trait InnerClasses
       override def transform(tp: Type, ctx: Context): t.Type = tp match {
         case lct: LocalClassType =>
           val subst = ctx.substs(lct.id)
-          t.ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx)))
+          t.ClassType(lct.id, subst.addNewTypeParams(lct.tps) map (transform(_, ctx))).copiedFrom(tp)
 
         // We sometimes encounter a ClassType for a local class, which lacks the closed over type parameters.
         // eg. when we compute the parents of the lifted class in [[lift]].
         case ClassType(id, tps) if ctx.substs contains id =>
           val subst = ctx.substs(id)
-          if (tps.size == subst.cd.tparams.size) t.ClassType(id, tps map (transform(_, ctx)))
-          else t.ClassType(id, subst.addNewTypeParams(tps) map (transform(_, ctx)))
+          if (tps.size == subst.cd.tparams.size) t.ClassType(id, tps map (transform(_, ctx))).copiedFrom(tp)
+          else t.ClassType(id, subst.addNewTypeParams(tps) map (transform(_, ctx))).copiedFrom(tp)
 
         case _ => super.transform(tp, ctx)
       }
@@ -368,7 +368,7 @@ trait InnerClasses
       val newTypeParams  = freeTypeParams.map(TypeParameterDef(_))
       val freeVarFields  = freeVars.map(_.toVal)
       val outerRefFields = freeOuterRefs.map { r =>
-        ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), context.toGlobalType(r.ct))
+        ValDef(FreshIdentifier(s"outer${r.ct.id.name}"), context.toGlobalType(r.ct)).setPos(lcd.getPos)
       }
 
       // Convert all parents to a ClassType
@@ -390,12 +390,12 @@ trait InnerClasses
 
       // Map each free variable to the corresponding field selector
       val freeVarsMap = freeVars.zip(freeVarFields).map { case (v, vd) =>
-        v -> ClassSelector(This(classType), vd.id).copiedFrom(v)
+        v -> ClassSelector(This(classType).copiedFrom(v), vd.id).copiedFrom(v)
       }.toMap
 
       // Map each outer reference to the corresponding field selector
       val freeOuterRefsMap = freeOuterRefs.zip(outerRefFields).map { case (thiss, vd) =>
-        thiss.ct.id -> ClassSelector(This(classType), vd.id).copiedFrom(thiss)
+        thiss.ct.id -> ClassSelector(This(classType).copiedFrom(thiss), vd.id).copiedFrom(thiss)
       }.toMap
 
       /** Rewrite the given method to access free variables through the new fields,
@@ -423,7 +423,7 @@ trait InnerClasses
           case _ => None
         } (fd.fullBody)
 
-        new FunDef(fd.id, fd.tparams, fd.params, fd.returnType, body, fd.flags)
+        new FunDef(fd.id, fd.tparams, fd.params, fd.returnType, body, fd.flags).copiedFrom(fd)
       }
 
       val methods = (localInv.toSeq ++ lcd.methods) map liftMethod
