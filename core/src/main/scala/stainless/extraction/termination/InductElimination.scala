@@ -147,8 +147,9 @@ trait InductElimination extends CachingPhase
       else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))
       else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
 
+    val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
     val newSpecs =
-      if (inductionParams.isEmpty) specs
+      if (inductionParams.isEmpty || !typeCheckerEnabled) specs
       else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
 
     val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
