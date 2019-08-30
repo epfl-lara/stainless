@@ -75,6 +75,7 @@ object VCStatus {
   case object Cancelled extends VCStatus[Nothing]("cancelled")
   case object Crashed extends VCStatus[Nothing]("crashed")
   case object Unsupported extends VCStatus[Nothing]("unsupported")
+  case object ExternalBug extends VCStatus[Nothing]("external bug")
 }
 
 case class VCResult[+Model](
