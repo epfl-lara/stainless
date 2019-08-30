@@ -20,6 +20,7 @@ object ConcRope {
 
     def flatten[T](xs: Conc[Conc[T]]): Conc[T] = {
       require(xs.forall(c => c.valid))
+      decreases(xs)
       xs match {
         case Empty() => Empty[T]()
         case Single(x) => normalize(x)
@@ -30,10 +31,13 @@ object ConcRope {
 
     def empty[T]: Conc[T] = Empty[T]()
 
-    def fromList[T](xs: List[T]): Conc[T] = { xs match {
-      case Nil() => Empty[T]()
-      case y :: ys => y :: fromList(ys)
-    }} ensuring { res => res.toList == xs &&
+    def fromList[T](xs: List[T]): Conc[T] = {
+      decreases(xs)
+      xs match {
+        case Nil() => Empty[T]()
+        case y :: ys => y :: fromList(ys)
+      }
+    } ensuring { res => res.toList == xs &&
       res.size == xs.size &&
       res.content == xs.content &&
       res.valid &&
@@ -44,17 +48,8 @@ object ConcRope {
       decreases(xs)
       xs match {
         case Nil() => Empty[T]()
-        case Cons(y, ys) => append(fromListReversed(ys), y)
-      }
-    } ensuring (res => res.valid &&
-      res.content == xs.content &&
-      res.size == xs.size &&
-      (res.toList == xs.reverse) because { xs match {
-        case Nil() =>
-          assert(res.toList == Nil[T]())
-          assert(Nil[T]() == Nil[T]().reverse)
-          check(res.toList == Nil[T]().reverse)
         case Cons(y, ys) =>
+          val res = append(fromListReversed(ys), y)
           assert(res.toList == append(fromListReversed(ys), y).toList)
           assert(append(fromListReversed(ys), y).toList == fromListReversed(ys).toList ++ Cons(y, Nil[T]()))
           assert(fromListReversed(ys).toList == ys.reverse)
@@ -64,7 +59,12 @@ object ConcRope {
           assert(ys.reverse ++ Cons(y, Nil[T]()).reverse == (Cons(y, Nil[T]() ++ ys).reverse))
           assert((Cons(y, Nil[T]()) ++ ys).reverse == (y :: ys).reverse)
           check(res.toList == xs.reverse)
-      }})
+          res
+      }
+    } ensuring (res => res.valid &&
+      res.content == xs.content &&
+      res.size == xs.size &&
+      (res.toList == xs.reverse))
   }
 
   @library
@@ -89,6 +89,7 @@ object ConcRope {
     }
 
     def valid: Boolean = {
+      decreases(this, 1)
       concInv && balanced && appendInv
     }
 
@@ -96,15 +97,19 @@ object ConcRope {
      * (a) left and right trees of conc node should be non-empty
      * (b) they cannot be append nodes
      */
-    def concInv: Boolean = this match {
-      case CC(l, r) =>
-        !l.isEmpty && !r.isEmpty &&
-          l.isNormalized && r.isNormalized &&
-          l.concInv && r.concInv
-      case _ => true
+    def concInv: Boolean = {
+      decreases(this, 0)
+      this match {
+        case CC(l, r) =>
+          !l.isEmpty && !r.isEmpty &&
+            l.isNormalized && r.isNormalized &&
+            l.concInv && r.concInv
+        case _ => true
+      }
     }
 
     def balanced: Boolean = {
+      decreases(this, 0)
       this match {
         case CC(l, r) =>
           l.level - r.level >= -1 && l.level - r.level <= 1 &&
@@ -119,21 +124,25 @@ object ConcRope {
      * 		a.right.level < b.right.level
      * (c) left and right are not empty
      */
-    def appendInv: Boolean = this match {
-      case Append(l, r) =>
-        !l.isEmpty && !r.isEmpty &&
-          l.valid && r.valid &&
-          r.isNormalized &&
-          (l match {
-            case Append(_, lr) =>
-              lr.level > r.level
-            case _ =>
-              l.level > r.level
-          })
-      case _ => true
+    def appendInv: Boolean = {
+      decreases(this, 0)
+      this match {
+        case Append(l, r) =>
+          !l.isEmpty && !r.isEmpty &&
+            l.valid && r.valid &&
+            r.isNormalized &&
+            (l match {
+              case Append(_, lr) =>
+                lr.level > r.level
+              case _ =>
+                l.level > r.level
+            })
+        case _ => true
+      }
     }
 
     val level: BigInt = {
+      decreases(this)
       (this match {
         case Empty() => 0
         case Single(x) => 0
@@ -145,6 +154,7 @@ object ConcRope {
     } ensuring (_ >= 0)
 
     val size: BigInt = {
+      decreases(this)
       (this match {
         case Empty() => 0
         case Single(x) => 1
@@ -156,6 +166,7 @@ object ConcRope {
     } ensuring (_ >= 0)
 
     def toList: List[T] = {
+      decreases(this)
       this match {
         case Empty() => Nil[T]()
         case Single(x) => Cons(x, Nil[T]())
@@ -168,11 +179,14 @@ object ConcRope {
 
     def toSet: Set[T] = content
 
-    def content: Set[T] = this match {
-      case Empty() => Set[T]()
-      case Single(x) => Set(x)
-      case CC(left, right) => left.content ++ right.content
-      case Append(left, right) => left.content ++ right.content
+    def content: Set[T] = {
+      decreases(this)
+      this match {
+        case Empty() => Set[T]()
+        case Single(x) => Set(x)
+        case CC(left, right) => left.content ++ right.content
+        case Append(left, right) => left.content ++ right.content
+      }
     }
 
     def apply(i: BigInt): T = {
@@ -225,12 +239,15 @@ object ConcRope {
       res.isNormalized //auxiliary properties
       )
 
-    def map[R](f: T => R): Conc[R] = { this match {
-      case Empty() => Empty[R]()
-      case Single(x) => Single(f(x))
-      case CC(left, right) => CC(left.map(f), right.map(f))
-      case Append(left, right) => Append(left.map(f), right.map(f))
-    }} ensuring { _.size == this.size }
+    def map[R](f: T => R): Conc[R] = {
+      decreases(this)
+      this match {
+        case Empty() => Empty[R]()
+        case Single(x) => Single(f(x))
+        case CC(left, right) => CC(left.map(f), right.map(f))
+        case Append(left, right) => Append(left.map(f), right.map(f))
+      }
+    } ensuring { _.size == this.size }
 
     def foldMap[R](f: T => R)(implicit M: Monoid[R]): R = {
     decreases(this)
@@ -241,37 +258,44 @@ object ConcRope {
       case Append(left, right) => M.combine(left.foldMap(f), right.foldMap(f))
     }}
 
-    def foldLeft[R](z: R)(f: (R, T) => R): R = { this match {
-      case Empty() => z
-      case Single(x) => f(z, x)
-      case CC(left, right) => {
-        val leftFold = left.foldLeft(z)(f)
-        right.foldLeft(leftFold)(f)
+    def foldLeft[R](z: R)(f: (R, T) => R): R = {
+      decreases(this)
+      this match {
+        case Empty() => z
+        case Single(x) => f(z, x)
+        case CC(left, right) => {
+          val leftFold = left.foldLeft(z)(f)
+          right.foldLeft(leftFold)(f)
+        }
+        case Append(left, right) => {
+          val leftFold = left.foldLeft(z)(f)
+          right.foldLeft(leftFold)(f)
+        }
       }
-      case Append(left, right) => {
-        val leftFold = left.foldLeft(z)(f)
-        right.foldLeft(leftFold)(f)
-      }
-    }}
+    }
 
-    def foldRight[R](z: R)(f: (T, R) => R): R = { this match {
-      case Empty() => z
-      case Single(x) => f(x, z)
-      case CC(left, right) => {
-        val rightFold = right.foldRight(z)(f)
-        left.foldRight(rightFold)(f)
+    def foldRight[R](z: R)(f: (T, R) => R): R = {
+      decreases(this)
+      this match {
+        case Empty() => z
+        case Single(x) => f(x, z)
+        case CC(left, right) => {
+          val rightFold = right.foldRight(z)(f)
+          left.foldRight(rightFold)(f)
+        }
+        case Append(left, right) => {
+          val rightFold = right.foldRight(z)(f)
+          left.foldRight(rightFold)(f)
+        }
       }
-      case Append(left, right) => {
-        val rightFold = right.foldRight(z)(f)
-        left.foldRight(rightFold)(f)
-      }
-    }}
+    }
 
     // Could there be a better way?
     // Rather than requiring that the function gives us only valid ConcRope, we could maybe 'sanitize' the produced ConcRopes
     // Because maybe this is too restrictive
     def flatMap[R](f: T => Conc[R]): Conc[R] = {
       require(map(f).forall(c => c.valid))
+      decreases(this)
 
       this match {
         case Empty() => Empty[R]()
@@ -281,41 +305,50 @@ object ConcRope {
       }
     } ensuring (res => res.valid && res.isNormalized)
 
-    def forall(p: T => Boolean): Boolean = { this match {
-      case Empty() => true
-      case Single(x) => p(x)
-      case CC(left, right) => left.forall(p) && right.forall(p)
-      case Append(left, right) => left.forall(p) && right.forall(p)
-    }}
+    def forall(p: T => Boolean): Boolean = {
+      decreases(this)
+      this match {
+        case Empty() => true
+        case Single(x) => p(x)
+        case CC(left, right) => left.forall(p) && right.forall(p)
+        case Append(left, right) => left.forall(p) && right.forall(p)
+      }
+    }
 
     def exists(p: T => Boolean): Boolean = !forall(!p(_))
 
-    def contains(v: T): Boolean = { this match {
-      case Empty() => false
-      case Single(x) => v == x
-      case CC(left, right) => left.contains(v) || right.contains(v)
-      case Append(left, right) => left.contains(v) || right.contains(v)
-    }} ensuring { res => res == (content contains v) && res == (toList contains v) }
+    def contains(v: T): Boolean = {
+      decreases(this)
+      this match {
+        case Empty() => false
+        case Single(x) => v == x
+        case CC(left, right) => left.contains(v) || right.contains(v)
+        case Append(left, right) => left.contains(v) || right.contains(v)
+      }
+    } ensuring { res => res == (content contains v) && res == (toList contains v) }
 
-    def find(p: T => Boolean): Option[T] = { this match {
-      case Empty() => None[T]()
-      case Single(x) if p(x) => Some(x)
-      case Single(x) => None[T]()
-      case CC(left, right) => {
-        val l = left.find(p)
-        if(l.isEmpty)
-          right.find(p)
-        else
-          l
+    def find(p: T => Boolean): Option[T] = {
+      decreases(this)
+      this match {
+        case Empty() => None[T]()
+        case Single(x) if p(x) => Some(x)
+        case Single(x) => None[T]()
+        case CC(left, right) => {
+          val l = left.find(p)
+          if(l.isEmpty)
+            right.find(p)
+          else
+            l
+        }
+        case Append(left, right) => {
+          val l = left.find(p)
+          if(l.isEmpty)
+            right.find(p)
+          else
+            l
+        }
       }
-      case Append(left, right) => {
-        val l = left.find(p)
-        if(l.isEmpty)
-          right.find(p)
-        else
-          l
-      }
-    }} ensuring { res => res match {
+    } ensuring { res => res match {
       case Some(t) => (content contains t) && p(t)
       case None() => true
     }}
@@ -335,6 +368,7 @@ object ConcRope {
 
   def lookup[T](xs: Conc[T], i: BigInt): T = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
+    decreases(xs)
     xs match {
       case Single(x) => x
       case CC(l, r) =>
@@ -362,6 +396,7 @@ object ConcRope {
 
   def update[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
+    decreases(xs)
     xs match {
       case Single(x) => Single(y)
       case CC(l, r) =>
@@ -423,6 +458,7 @@ object ConcRope {
     require(xs.valid && ys.valid &&
       xs.isNormalized && ys.isNormalized &&
       !xs.isEmpty && !ys.isEmpty)
+    decreases(xs, ys)
 
     val diff = ys.level - xs.level
     if (diff >= -1 && diff <= 1)
@@ -507,6 +543,7 @@ object ConcRope {
   def insert[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
     require(xs.valid && i >= 0 && i <= xs.size &&
       xs.isNormalized) //note the precondition
+    decreases(xs)
     xs match {
       case Empty() => Single(y)
       case Single(x) =>
@@ -531,6 +568,7 @@ object ConcRope {
    */
   def insertAtIndex[T](l: List[T], i: BigInt, y: T): List[T] = {
     require(0 <= i && i <= l.size)
+    decreases(l)
     l match {
       case Nil() =>
         Cons[T](y, Nil())
@@ -544,6 +582,7 @@ object ConcRope {
   // A lemma about `append` and `insertAtIndex`
   def appendInsertIndex[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
     require(0 <= i && i <= l1.size + l2.size)
+    decreases(l1)
     (l1 match {
       case Nil() => true
       case Cons(x, xs) => if (i == 0) true else appendInsertIndex[T](xs, l2, i - 1, y)
@@ -564,6 +603,7 @@ object ConcRope {
 
   def split[T](xs: Conc[T], n: BigInt): (Conc[T], Conc[T]) = {
     require(xs.valid && xs.isNormalized)
+    decreases(xs)
     xs match {
       case Empty() =>
         (Empty[T](), Empty[T]())
@@ -624,6 +664,7 @@ object ConcRope {
     require(xs.valid && ys.valid &&
       !ys.isEmpty && ys.isNormalized &&
       xs.right.level >= ys.level)
+    decreases(xs)
 
     if (xs.right.level > ys.level)
       Append(xs, ys)
@@ -653,6 +694,7 @@ object ConcRope {
   }.holds
 
   def numTrees[T](t: Conc[T]): BigInt = {
+    decreases(t)
     t match {
       case Append(l, r) => numTrees(l) + 1
       case _ => BigInt(1)
@@ -677,6 +719,7 @@ object ConcRope {
   def wrap[T](xs: Append[T], ys: Conc[T]): Conc[T] = {
     require(xs.valid && ys.valid && ys.isNormalized &&
       xs.right.level >= ys.level)
+    decreases(xs)
     val nr  = concatNormalized(xs.right, ys)
     xs.left match {
       case l @ Append(_, _) => wrap(l, nr)
