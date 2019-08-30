@@ -26,14 +26,11 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
 
-    // Too slow
-    case "verification/invalid/PartialSplit" => Skip
-
     case _ => super.filter(ctx, name)
   }
 
   testAll("verification/valid") { (analysis, reporter) =>
-    assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for this tests")
+    assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
@@ -77,6 +74,10 @@ class CodeGenVerificationSuite extends VerificationSuite {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
     case "verification/valid/IntSetInv" => Ignore
+
+    // Does not work with --feeling-lucky. See #490
+    case "verification/valid/MsgQueue" => Skip
+
     case _ => super.filter(ctx, name)
   }
 }
@@ -95,6 +96,15 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/Overrides" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
+    case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
+
+    // This test is flaky on CVC4
+    case "verification/valid/CovariantList" => Ignore
+
+    // Requires map with non-default values, unsupported by CVC4
+    case "verification/valid/ArraySlice" => Ignore
+
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
     case "verification/invalid/BadConcRope" => Ignore
@@ -102,6 +112,7 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     // These tests make CVC4 crash
     case "verification/valid/PartialCompiler" => Ignore
     case "verification/valid/PartialKVTrace" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 }

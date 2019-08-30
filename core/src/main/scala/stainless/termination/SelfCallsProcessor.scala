@@ -3,7 +3,6 @@
 package stainless
 package termination
 
-import transformers.CollectorWithPC
 import scala.collection.mutable.{Set => MutableSet}
 
 trait SelfCallsProcessor extends Processor {
@@ -31,30 +30,21 @@ trait SelfCallsProcessor extends Processor {
 
   private def alwaysCalls(expr: Expr, fid: Identifier): Boolean = {
     val seen: MutableSet[Identifier] = MutableSet.empty
+    var result: Boolean = false
 
-    object collector extends CollectorWithPC {
-      type Result = Boolean
-      val trees: checker.program.trees.type = checker.program.trees
-      val symbols: checker.program.symbols.type = checker.program.symbols
+    transformWithPC(expr)((e, path, op) => e match {
+      case l: Lambda => l
+      case _ if !path.isEmpty || result => e
+      case fi: FunctionInvocation =>
+        if (path.isEmpty && fi.id == fid) result = true
+        else if (path.isEmpty && !seen(fi.id)) {
+          seen += fi.id
+          op(getFunction(fi.id).fullBody, path)
+        }
+        op.sup(e, path)
+      case _ => op.sup(e, path)
+    })
 
-      override protected def rec(e: Expr, env: Path): Expr = e match {
-        case l: Lambda => l // ignore body
-        case _ => super.rec(e, env)
-      }
-
-      def step(e: Expr, pc: Path): List[Boolean] = e match {
-        case FunctionInvocation(id, tps, args) if pc.isEmpty && id == fid =>
-          List(true)
-
-        case FunctionInvocation(id, tps, args) if pc.isEmpty && !seen(id) =>
-          seen += id
-          List(calls(getFunction(id).fullBody))
-
-        case _ => Nil
-      }
-    }
-
-    def calls(e: Expr): Boolean = collector.collect(e).foldLeft(false)(_ || _)
-    calls(expr)
+    result
   }
 }

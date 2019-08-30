@@ -15,36 +15,12 @@ object TerminationComponent extends Component {
   override type Report = TerminationReport
   override type Analysis = TerminationAnalysis
 
-  override object lowering extends inox.ast.SymbolTransformer {
+  override object lowering extends inox.transformers.SymbolTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
 
     override def transform(syms: s.Symbols): t.Symbols = {
-      syms.transform(new ast.TreeTransformer {
-        val s: extraction.trees.type = extraction.trees
-        val t: extraction.trees.type = extraction.trees
-
-        override def transform(e: s.Expr): t.Expr = e match {
-          case s.Decreases(rank, body) =>
-            val trank = transform(rank)
-            val es = rank.getType(syms) match {
-              case s.TupleType(tps) => tps.indices.map(i => t.TupleSelect(trank, i + 1))
-              case _ => Seq(trank)
-            }
-
-            t.Assert(
-              t.andJoin(es.map(e => t.GreaterEquals(e, e.getType(syms) match {
-                case s.BVType(size) => t.BVLiteral(0, size)
-                case s.IntegerType() => t.IntegerLiteral(0)
-                case _ => throw inox.FatalError("Unexpected measure type for " + e)
-              }))),
-              Some("Measure not guaranteed positive"),
-              transform(body)
-            ).copiedFrom(e)
-
-          case _ => super.transform(e)
-        }
-      })
+      syms.transform(DecreasesTransformer(s)(syms))
     }
   }
 
@@ -56,14 +32,14 @@ object TerminationComponent extends Component {
 class TerminationRun(override val pipeline: extraction.StainlessPipeline)
                     (override implicit val context: inox.Context) extends {
   override val component = TerminationComponent
-  override val trees: termination.trees.type = termination.trees
+  override val trees: stainless.trees.type = stainless.trees
 } with ComponentRun {
 
   import component.{Report, Analysis}
 
   override def parse(json: Json): Report = TerminationReport.parse(json)
 
-  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
     import trees._
     import context._
 

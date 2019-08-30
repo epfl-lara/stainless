@@ -3,24 +3,39 @@
 package stainless
 package ast
 
-import scala.collection.mutable.{Map => MutableMap}
+import inox.utils.Position
+import inox.transformers.{TransformerOp, TransformerWithExprOp, TransformerWithTypeOp}
 
 trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   import trees._
   import trees.exprOps._
   import symbols._
 
-  override protected def createSimplifier(popts: inox.solvers.PurityOptions): SimplifierWithPC = new {
+  override protected def simplifierWithPC(popts: inox.solvers.PurityOptions): SimplifierWithPC = new {
     val opts: inox.solvers.PurityOptions = popts
   } with transformers.SimplifierWithPC with SimplifierWithPC with inox.transformers.SimplifierWithPath {
-    override def pp = implicitly[PathProvider[Env]]
+    override val pp = implicitly[PathProvider[Env]]
   }
 
-  override protected def createTransformer[P <: PathLike[P]](path: P, f: (Expr, P, TransformerOp[P]) => Expr)
-                                                            (implicit ppP: PathProvider[P]): TransformerWithPC[P] =
-    new TransformerWithPC[P](path, f) with transformers.TransformerWithPC with TransformerWithFun {
-      val pp = ppP
-    }
+  protected class TransformerWithPC[P <: PathLike[P]](
+    initEnv: P,
+    exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr,
+    typeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
+  )(implicit val pp: PathProvider[P]) extends super.TransformerWithPC[P](initEnv, exprOp, typeOp) {
+    self0: TransformerWithExprOp with TransformerWithTypeOp =>
+      val symbols = self.symbols
+  }
+
+  override protected def transformerWithPC[P <: PathLike[P]](
+    path: P,
+    exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr,
+    typeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
+  )(implicit pp: PathProvider[P]): TransformerWithPC[P] = {
+    new TransformerWithPC[P](path, exprOp, typeOp)
+      with transformers.TransformerWithPC
+      with TransformerWithExprOp
+      with TransformerWithTypeOp
+  }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
     case (_: Require) | (_: Ensuring) | (_: Assert) => true
@@ -45,7 +60,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subTests = pairs.map(p => apply(adtSelector(in, p._1.id), p._2))
+        val subTests = pairs.map(p => apply(Annotated(adtSelector(in, p._1.id), Seq(Unchecked)), p._2))
         pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
 
       case TuplePattern(ob, subps) =>
@@ -100,7 +115,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subMaps = pairs.map(p => mapForPattern(adtSelector(in, p._1.id), p._2))
+        val subMaps = pairs.map(p => mapForPattern(Annotated(adtSelector(in, p._1.id), Seq(Unchecked)), p._2))
         val together = subMaps.flatten.toMap
         bindIn(b) ++ together
 
@@ -144,7 +159,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           val (cases :+ ((_, rhs, _))) = condsAndRhs
           (cases, rhs)
         } else {
-          (condsAndRhs, Error(m.getType, "Match is non-exhaustive").copiedFrom(m))
+          (condsAndRhs, Error(m.getType, "match exhaustiveness").copiedFrom(m))
         }
 
         val bigIte = branches.foldRight(elze)((p1, ex) => {
@@ -260,23 +275,31 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     *
     * This method is useful to reconstruct if-expressions or assumptions
     * where the condition can be added to the expression in a position
-    * that implies further positions.
+    * that implies further assertions.
+    *
+    * The last argument `pos` is used to give a proper position to the
+    * synthetic boolean literal `true` that is used as a base case.
+    * Without it, we would lose position information in the resulting tree.
     */
-  def withShared(path: Path, es: Seq[Expr], recons: (Expr, Seq[Expr]) => Expr): Expr = {
+  def withShared(path: Path, es: Seq[Expr], recons: (Expr, Seq[Expr]) => Expr, pos: Position): Expr = {
     import Path._
 
     val (outers, rest) = path.elements span { !_.isInstanceOf[Condition] }
     val bindings = rest collect { case CloseBound(vd, e) => vd -> e }
-    val cond = fold[Expr](BooleanLiteral(true), Let, And(_, _))(rest)
+    val cond = fold[Expr](
+      BooleanLiteral(true).setPos(pos),
+      Let(_,_,_).setPos(pos),
+      And(_, _).setPos(pos)
+    )(rest)
 
     def wrap(e: Expr): Expr = {
       val subst = bindings.map(p => p._1 -> p._1.toVariable.freshen).toMap
       val replace = exprOps.replaceFromSymbols(subst, _: Expr)
-      bindings.foldRight(replace(e)) { case ((vd, e), b) => Let(subst(vd).toVal, replace(e), b) }
+      bindings.foldRight(replace(e)) { case ((vd, e), b) => Let(subst(vd).toVal, replace(e), b).setPos(pos) }
     }
 
     val full = recons(cond, es.map(wrap))
-    fold[Expr](full, Let, (_, _) => scala.sys.error("Should never happen!"))(outers)
+    fold[Expr](full, Let(_,_,_).setPos(pos), (_, _) => scala.sys.error("Should never happen!"))(outers)
   }
 
   /** Merges the given [[Path]] into the provided [[Expressions.Expr]].
@@ -299,18 +322,38 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     }
 
     def spec(cond: Expr, es: Seq[Expr]): Expr = es match {
-      case Seq(e) => Require(cond, e)
-      case Seq(e, pre) => Require(And(cond, pre), e)
-      case Seq(e, pre, post) => Ensuring(Require(And(cond, pre), e), unwrap(post))
+      case Seq(e) => Require(cond, e).copiedFrom(cond)
+      case Seq(e, pre) => Require(And(cond, pre).copiedFrom(cond), e).copiedFrom(cond)
+      case Seq(e, pre, post) => Ensuring(Require(and(cond, pre), e).copiedFrom(cond), unwrap(post)).copiedFrom(cond)
       case _ => scala.sys.error("Should never happen!")
     }
 
     expr match {
       case Let(i, e, b) => withPath(b, path withBinding (i -> e))
-      case Require(pre, b) => withShared(path, Seq(b, pre), spec)
-      case Ensuring(Require(pre, b), post) => withShared(path, Seq(b, pre, post), spec)
-      case Ensuring(b, post) => withShared(path, Seq(b, BooleanLiteral(true), post), spec)
-      case b => withShared(path, Seq(b), spec)
+      case Require(pre, b) => withShared(path, Seq(b, pre), spec, expr.getPos)
+      case Ensuring(Require(pre, b), post) => withShared(path, Seq(b, pre, post), spec, expr.getPos)
+      case Ensuring(b, post) => withShared(path, Seq(b, BooleanLiteral(true).copiedFrom(expr), post), spec, expr.getPos)
+      case b => withShared(path, Seq(b), spec, expr.getPos)
     }
+  }
+
+  /** Make a String representation for a table of Symbols `s`, only keeping
+    * functions and classes whose names appear in `objs`.
+    *
+    * @see [[extraction.DebugPipeline]]
+    */
+  def debugString(filter: String => Boolean = (x: String) => true)(implicit pOpts: PrinterOptions): String = {
+    wrapWith("Functions", objectsToString(functions.values, filter)) ++
+    wrapWith("Sorts", objectsToString(sorts.values, filter))
+  }
+
+  protected def objectsToString(m: Iterable[Definition], filter: String => Boolean)
+                               (implicit pOpts: PrinterOptions): String = {
+    m.collect { case d if filter(d.id.name) => d.asString(pOpts) } mkString "\n\n"
+  }
+
+  protected def wrapWith(header: String, s: String) = {
+    if (s.isEmpty) ""
+    else "-------------" + header + "-------------\n" + s + "\n\n"
   }
 }

@@ -20,6 +20,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     case en @ Ensuring(body, pred) =>
       e(en.toAssert)
 
+    case Decreases(measure, body) =>
+      e(body)
+
     case Assert(pred, err, body) =>
       if (!ignoreContracts && e(pred) != BooleanLiteral(true))
         throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
@@ -31,6 +34,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         case Some(Some((c, mapping))) => e(c.rhs)(rctx.withNewVars(mapping), gctx)
         case _ => throw RuntimeError("MatchError: " + rscrut + " did not match any of the cases:\n" + cases)
       }
+
+    case p: Passes =>
+      e(p.asConstraint)
 
     case FiniteArray(elems, base) =>
       FiniteArray(elems.map(e), base)
@@ -110,7 +116,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
       case (up @ UnapplyPattern(ob, rec, id, tps, subs), scrut) =>
         val eRec = rec map e
-        val unapp = e(FunctionInvocation(id, tps, eRec.toSeq :+ scrut))
+        val unapp = e(FunctionInvocation(id, tps, eRec :+ scrut))
         e(up.isEmptyUnapplied(unapp)) match {
           case BooleanLiteral(false) =>
             val extracted = e(up.getUnapplied(unapp))

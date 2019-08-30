@@ -47,6 +47,33 @@ trait CheckFilter {
       }
   }
 
+  def filter(ids: Seq[Identifier], symbols: trees.Symbols, component: Component): Seq[Identifier] = {
+    def isDerivedFrom(ids: Set[Identifier])(fd: trees.FunDef): Boolean =
+      fd.flags.exists { case trees.Derived(id) => ids(id) case _ => false }
+
+    val init = ids.flatMap(id => symbols.lookupFunction(id).toSeq).filter(shouldBeChecked).map(_.id).toSet
+
+    val toCheck = inox.utils.fixpoint { (ids: Set[Identifier]) =>
+      ids ++ symbols.functions.values.toSeq
+        .filter(isDerivedFrom(ids))
+        .filter(shouldBeChecked)
+        .map(_.id)
+    } (init)
+
+    val toProcess = toCheck.toSeq.sortBy(symbols.getFunction(_).getPos)
+
+    for (id <- toProcess) {
+      val fd = symbols.getFunction(id)
+      if (fd.flags exists (_.name == "library")) {
+        val fullName = fd.id.fullName
+        context.reporter.warning(
+          s"Component [${component.name}]: Forcing processing of $fullName which was assumed verified")
+      }
+    }
+
+    toProcess
+  }
+
   /** Checks whether the given function/class should be verified at some point. */
   def shouldBeChecked(fd: FunDef): Boolean =
     shouldBeChecked(fd.id, fd.flags)

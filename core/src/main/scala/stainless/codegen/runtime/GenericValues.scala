@@ -11,7 +11,7 @@ object GenericValues {
   private[this] var gvToI = ScalaMap[ast.Trees#GenericValue, Int]()
   private[this] var iTogv = ScalaMap[Int, ast.Trees#GenericValue]()
 
-  def register(gv: ast.Trees#GenericValue): Int = {
+  def register(gv: ast.Trees#GenericValue): Int = synchronized {
     if (gvToI contains gv) {
       gvToI(gv)
     } else {
@@ -22,7 +22,7 @@ object GenericValues {
     }
   }
 
-  def get(i: Int): java.lang.Object = {
+  def get(i: Int): java.lang.Object = synchronized {
     iTogv(i)
   }
 }

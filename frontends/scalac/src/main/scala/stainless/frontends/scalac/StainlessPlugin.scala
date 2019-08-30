@@ -1,47 +1,118 @@
-package stainless.frontends.scalac
+package stainless
+package frontends
+package scalac
 
-import scala.reflect.internal.util.NoPosition
+import scala.reflect.io.AbstractFile
+import scala.reflect.internal.util.{NoPosition, Position, BatchSourceFile}
 import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.Plugin
 import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
-import inox.{Context => InoxContext, DefaultReporter => InoxDefaultReporter}
 import inox.DebugSection
+import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
-class StainlessPlugin(override val global: Global) extends Plugin {
+class StainlessPlugin(val global: Global) extends Plugin {
+
+  val mainHelper = new stainless.MainHelpers {
+    override lazy val factory = {
+      sys.error("stainless.MainHelpers#factory should never be called from the scalac plugin")
+    }
+  }
+
+  val stainlessContext: inox.Context = {
+    implicit val reporter = new stainless.PlainTextReporter(Set.empty)
+    mainHelper.getConfigContext(OptionOrDefault.Default)
+  }
+
   override val name: String = "stainless-plugin"
+
   override val description: String = "stainless scala compiler plugin"
-  override val components: List[PluginComponent] = {
-    List(new StainlessPluginComponent(global))
+
+  override val components: List[PluginComponent] = List(
+    new StainlessPluginComponent(global, stainlessContext),
+    new GhostPluginComponent(global)
+  )
+
+  override def init(options: List[String], error: String => Unit) = {
+    require(options.isEmpty)
+    true
   }
 }
 
-class StainlessPluginComponent(val global: Global) extends PluginComponent with StainlessExtraction {
+class StainlessPluginComponent(
+  val global: Global,
+  val stainlessContext: inox.Context
+) extends PluginComponent with StainlessExtraction {
   override implicit val ctx: inox.Context = {
-    val adapter = new ReporterAdapter(global.reporter, Set())
-    InoxContext.empty.copy(reporter = adapter)
+    val adapter = new ReporterAdapter(global.reporter, stainlessContext.reporter.debugSections)
+
+    inox.Context(
+      reporter         = adapter,
+      interruptManager = new inox.utils.InterruptManager(adapter),
+      options          = stainlessContext.options,
+      timers           = stainlessContext.timers,
+    )
   }
-  override protected val callback: CallBack = stainless.frontend.getStainlessCallBack(ctx)
+
+  override protected val callback: CallBack = stainless.frontend.getCallBack(ctx)
+
   override protected val cache: SymbolMapping = new SymbolMapping
 
-  // FIXME: Mind the duplication with ScalaCompiler#stainlessExtraction. Should we extract the common bits?
-  override val phaseName: String = "stainless"
-  override val runsAfter = List[String]()
-  override val runsRightAfter = Some("typer")
+  override val phaseName      = "stainless"
+  override val runsAfter      = List("typer")
+  override val runsRightAfter = None
+  override val runsBefore     = List("patmat")
+
+  override def onRun(run: () => Unit): Unit = {
+    callback.beginExtractions()
+    run()
+    callback.endExtractions()
+    callback.join()
+
+    val report = callback.getReport
+    report foreach { report =>
+      report.emit(ctx)
+    }
+  }
 }
 
-class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends InoxDefaultReporter(debugSections) {
-  // FIXME: Mapping of stainless -> scalac positions
-  override def emit(msg: Message): Unit = {
-    // FIXME: Reporting the message through the inox reporter shouldn't be needed. But without it the compilation error is
-    //        not reported. Maybe this is because stainless stops after the first error?
-    super.emit(msg)
-    msg.severity match {
-      case INFO => underlying.echo(NoPosition, msg.msg.toString)
-      case WARNING => underlying.warning(NoPosition, msg.msg.toString)
-      case ERROR | FATAL | INTERNAL => underlying.error(NoPosition, msg.msg.toString)
-      case _ => underlying.echo(NoPosition, msg.msg.toString) // DEBUG messages are at reported at INFO level
+class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
+  override val runsAfter = List[String]("pickler")
+}
+
+class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSection]) extends inox.PlainTextReporter(debugSections) {
+  private def toSourceFile(file: java.io.File): BatchSourceFile = {
+    new BatchSourceFile(AbstractFile.getFile(file))
+  }
+
+  private def toScalaPos(pos: InoxPosition.Position): Position = pos match {
+    case InoxPosition.NoPosition =>
+      NoPosition
+
+    case InoxPosition.OffsetPosition(_, _, point, file) =>
+      Position.offset(toSourceFile(file), point)
+
+    case InoxPosition.RangePosition(_, _, pointFrom, _, _, pointTo, file) =>
+      Position.range(toSourceFile(file), pointFrom, pointFrom, pointTo)
+  }
+
+  override def emit(message: Message): Unit = {
+    val pos = toScalaPos(message.position)
+
+    message.msg match {
+      case msg: ReportMessage =>
+        msg.emit(this)
+
+      case msg: String =>
+        message.severity match {
+          case INFO                     => underlying.echo(pos, msg)
+          case WARNING                  => underlying.warning(pos, msg)
+          case ERROR | FATAL | INTERNAL => underlying.error(pos, msg)
+          case _                        => underlying.echo(pos, msg) // DEBUG messages are at reported at INFO level
+        }
+
+      case _ => ()
     }
   }
 }

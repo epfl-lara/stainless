@@ -8,6 +8,8 @@ import io.circe._
 import scala.concurrent.Future
 import scala.language.existentials
 
+import extraction.utils.DebugSymbols
+
 import extraction._
 
 /**
@@ -17,6 +19,7 @@ import extraction._
  */
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
 object optCoq extends inox.FlagOptionDef("coq", false)
+object optTypeChecker extends inox.FlagOptionDef("type-checker", false)
 
 object VerificationComponent extends Component {
   override val name = "verification"
@@ -25,7 +28,7 @@ object VerificationComponent extends Component {
   override type Report = VerificationReport
   override type Analysis = VerificationAnalysis
 
-  override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  override val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
     val s: trees.type = trees
     val t: trees.type = trees
   })
@@ -39,17 +42,32 @@ class VerificationRun(override val pipeline: StainlessPipeline)
                      (override implicit val context: inox.Context) extends {
   override val component = VerificationComponent
   override val trees: stainless.trees.type = stainless.trees
-} with ComponentRun {
+} with ComponentRun { self =>
 
   import component.{Report, Analysis}
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
-  override protected def createPipeline = pipeline andThen lowering andThen PartialEvaluation(extraction.trees)
+  override protected def createPipeline = pipeline andThen
+    extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
 
   implicit val debugSection = DebugSectionVerification
 
-  override def apply(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
+  private[this] val debugAssertions = new DebugSymbols {
+    val name = "AssertionInjector"
+    val context = self.context
+    val s: self.trees.type = self.trees
+    val t: self.trees.type = self.trees
+  }
+
+  private[this] val debugChooses = new DebugSymbols {
+    val name = "ChooseInjector"
+    val context = self.context
+    val s: self.trees.type = self.trees
+    val t: self.trees.type = self.trees
+  }
+
+  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
     import context._
 
     val p = inox.Program(trees)(symbols)
@@ -61,19 +79,33 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     val assertions = AssertionInjector(p, context)
     val chooses = ChooseInjector(p)
 
-    reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
-
     // We do not need to encode empty trees as chooses when generating the VCs,
     // as we rely on having empty trees to filter out some VCs.
-    val assertionEncoder = inox.ast.ProgramEncoder(p)(assertions)
-    val vcs = VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+    val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
+
+    if (debugAssertions.isEnabled) {
+      debugAssertions.debugEncoder(assertionEncoder)
+    }
 
     // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
-    val encoder = inox.ast.ProgramEncoder(p)(assertions andThen chooses)
+    val chooseEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(chooses)
 
-    val res = VerificationChecker.verify(encoder.targetProgram, context)(vcs).map(_.mapValues {
+    if (debugChooses.isEnabled) {
+      debugChooses.debugEncoder(chooseEncoder)
+    }
+
+    reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
+
+    val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
+      TypeChecker.checkType(assertionEncoder.targetProgram, context)(functions)
+    else
+      VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+
+    val fullEncoder = assertionEncoder andThen chooseEncoder
+
+    val res = VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
       case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-        VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(encoder.reverse))), s, t)
+        VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
       case res => res.asInstanceOf[VCResult[p.Model]]
     })
 

@@ -4,7 +4,7 @@ package stainless
 package extraction
 package throwing
 
-trait Trees extends oo.Trees { self =>
+trait Trees extends imperative.Trees { self =>
 
   protected def getExceptionType(implicit s: Symbols): Option[Type] =
     s.lookup.get[ClassDef]("stainless.lang.Exception").map(cd => ClassType(cd.id, Seq()))
@@ -48,8 +48,8 @@ trait Trees extends oo.Trees { self =>
     }
   }
 
-  override val exprOps: ExprOps { val trees: self.type } = new {
-    protected val trees: self.type = self
+  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
+    protected val trees: Trees.this.type = Trees.this
   } with ExprOps
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
@@ -62,7 +62,7 @@ trait Trees extends oo.Trees { self =>
   }
 }
 
-trait Printer extends oo.Printer {
+trait Printer extends imperative.Printer {
   protected val trees: Trees
   import trees._
 
@@ -180,7 +180,7 @@ trait ExprOps extends imperative.ExprOps {
   }
 }
 
-trait TreeDeconstructor extends oo.TreeDeconstructor {
+trait TreeDeconstructor extends imperative.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 

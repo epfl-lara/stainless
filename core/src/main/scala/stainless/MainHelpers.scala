@@ -3,9 +3,6 @@
 package stainless
 
 import utils.JsonUtils
-
-import scala.util.{ Failure, Success }
-
 import java.io.File
 
 import io.circe.Json
@@ -16,23 +13,34 @@ object MainHelpers {
   val components: Seq[Component] = frontend.allComponents
 }
 
-trait MainHelpers extends inox.MainHelpers {
+trait MainHelpers extends inox.MainHelpers { self =>
+
+  final object optVersion extends inox.FlagOptionDef("version", false)
 
   case object Pipelines extends Category
   case object Verification extends Category
   case object Termination extends Category
 
-  override protected def getOptions = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
-    optFunctions -> Description(General, "Only consider functions s1,s2,..."),
+  override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+    optVersion -> Description(General, "Display the version number"),
+    optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
+    optFunctions -> Description(General, "Only consider functions f1,f2,..."),
+    extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
+    extraction.utils.optDebugPhases -> Description(General, {
+      "Only print debug output for phases p1,p2,...\nAvailable: " +
+      extraction.phases.map { case (name, desc) => f"\n  $name%-26s : $desc" }.mkString("")
+    }),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
-    verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behaviour and overflows"),
     verification.optCoq -> Description(Verification, "Transform the program into a Coq program, and let Coq generate subgoals automatically"),
     verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
+    verification.optStrictArithmetic -> Description(Verification,
+      s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
+    verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
@@ -40,7 +48,10 @@ trait MainHelpers extends inox.MainHelpers {
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
+    optNoColors -> Description(General, "Disable colored output"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
+    frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
+    frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
@@ -52,18 +63,27 @@ trait MainHelpers extends inox.MainHelpers {
   override protected def getDebugSections: Set[inox.DebugSection] = super.getDebugSections ++ Set(
     evaluators.DebugSectionEvaluator,
     verification.DebugSectionVerification,
+    verification.DebugSectionFullVC,
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
     verification.DebugSectionCoq,
     verification.DebugSectionPartialEval,
+    verification.DebugSectionTypeChecker,
+    verification.DebugSectionTypeCheckerVCs,
+    verification.DebugSectionDerivation,
     termination.DebugSectionTermination,
-    DebugSectionExtraction,
+    extraction.utils.DebugSectionTrees,
+    extraction.utils.DebugSectionPositions,
+    frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
-    utils.DebugSectionRegistry
+    frontend.DebugSectionRecovery,
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
+    reporter.info(s"Version: ${BuildInfo.version}")
+    reporter.info(s"Built at: ${BuildInfo.builtAtString}")
+    reporter.info(s"Bundled Scala compiler version: ${BuildInfo.scalaVersion}")
   }
 
   override protected def getName: String = "stainless"
@@ -83,8 +103,58 @@ trait MainHelpers extends inox.MainHelpers {
 
   // TODO add (optional) customisation points for CallBacks to access intermediate reports(?)
 
+  override
+  protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
+    new stainless.DefaultReporter(debugSections)
+
+  def getConfigOptions(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+    val optKeys = self.options.keys.toSeq
+    configFile match {
+      case OptionOrDefault.Some(file) => Configuration.parse(file, optKeys)
+      case OptionOrDefault.Default    => Configuration.parseDefault(optKeys)
+      case OptionOrDefault.None       => Configuration.empty
+    }
+  }
+
+  def getConfigContext(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): inox.Context = {
+    val ctx = super.processOptions(Seq.empty, getConfigOptions(configFile))
+
+    if (ctx.options.findOptionOrDefault(optNoColors)) {
+      val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
+      Context.withReporter(reporter)(ctx)
+    } else ctx
+  }
+
+  override
+  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
+                              (implicit initReporter: inox.Reporter): inox.Context = {
+
+    val configFile = inox.Options(cmdOptions).findOptionOrDefault(optConfigFile)
+    val configOptions = getConfigOptions(configFile)
+
+    // Override config options with command-line options
+    val options = (cmdOptions ++ configOptions)
+      .groupBy(_.optionDef.name)
+      .mapValues(_.head)
+      .values
+      .toSeq
+
+    val ctx = super.processOptions(files, options)
+
+    if (ctx.options.findOptionOrDefault(optNoColors)) {
+      val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
+      Context.withReporter(reporter)(ctx)
+    } else ctx
+  }
+
   def main(args: Array[String]): Unit = try {
     val ctx = setup(args)
+
+    if (ctx.options.findOptionOrDefault(optVersion)) {
+      displayVersion(ctx.reporter)
+      System.exit(0)
+    }
+
     import ctx.{ reporter, timers }
 
     if (!useParallelism) {
@@ -125,7 +195,7 @@ trait MainHelpers extends inox.MainHelpers {
       val files: Set[File] = compiler.sources.toSet map {
         file: String => new File(file).getAbsoluteFile
       }
-      val watcher = new utils.FileWatcher(ctx, files, action = watchRunCycle)
+      val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
 
       watchRunCycle() // first run
       watcher.run()   // subsequent runs on changes

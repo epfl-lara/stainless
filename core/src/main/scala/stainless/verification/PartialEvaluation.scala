@@ -22,6 +22,10 @@ trait PartialEvaluation
 
   protected val semantics: inox.SemanticsProvider { val trees: s.type }
 
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+    getDependencyKey(fd.id)(context.symbols)
+  )
+
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
   protected class TransformerContext(val symbols: s.Symbols) { self0 =>
@@ -32,7 +36,7 @@ trait PartialEvaluation
       override val symbols: self0.symbols.type = self0.symbols
       override val opts = inox.solvers.PurityOptions.assumeChecked
     } with transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
-      override def pp = Env
+      override val pp = Env
     }
 
     private[this] val solvingSimplifier = new {
@@ -42,7 +46,7 @@ trait PartialEvaluation
       override val semantics = self.semantics
       override val opts = inox.solvers.PurityOptions.assumeChecked
     } with transformers.PartialEvaluator with transformers.SimplifierWithSolver {
-      override def pp = Env
+      override val pp = Env
     }
 
     private[this] val hasPartialEvalFlag: Set[Identifier] =
@@ -81,7 +85,7 @@ trait PartialEvaluation
           reporter.debug(s"   Time elapsed: " + "%.4f".format(elapsed.millis.toUnit(SECONDS)) + " seconds\n")
           res.get
 
-        case _ => op.superRec(e, path)
+        case _ => op.sup(e, path)
       })
 
       fd.copy(fullBody = eval(fd.fullBody), flags = fd.flags filterNot (_ == PartialEval))

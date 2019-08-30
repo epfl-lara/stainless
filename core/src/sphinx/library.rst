@@ -61,12 +61,20 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@induct``       | Use the inductive tactic when generating                       |
 |                   | verification conditions.                                       |
 +-------------------+----------------------------------------------------------------+
+| ``@ghost``        | Drop the annotated field or method during compilation.         |
+|                   | See the :doc:`corresponding section <ghost>` for more          |
+|                   | information.                                                   |
++-------------------+----------------------------------------------------------------+
 | ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
 |                   | This annotation is useful to define functions                  |
 |                   | that are not in Stainless's language but will be               |
 |                   | hard-coded into specialized trees, or to include               |
 |                   | code written in full Scala which is not verifiable             |
-|                   | by Stainless.                                                  |
+|                   | by Stainless. Can also be used on class fields whose type      |
+|                   | cannot be understood by Stainless, eg. because it comes from   |
+|                   | an external library, the JDK, or some other code which         |
+|                   | does not understand.                                           |
+|                   | See the corresponding :doc:`documentation page <wrap>`.        |
 +-------------------+----------------------------------------------------------------+
 | ``@inline``       | Inline this function. Stainless will refuse to inline          |
 |                   | (mutually) recursive functions.                                |

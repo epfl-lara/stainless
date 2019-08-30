@@ -16,12 +16,14 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
     (ctx, fs)
   }
 
-  def testExtractAll(dir: String): Unit = {
-    implicit val (ctx, files) = testSetUp(dir)
+  def testExtractAll(dir: String, excludes: String*): Unit = {
+    implicit val (ctx, allFiles) = testSetUp(dir)
+    val files = allFiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
     describe(s"Program extraction in $dir") {
       val tryProgram = scala.util.Try(loadFiles(files)._2)
+
       it("should be successful") { assert(tryProgram.isSuccess) }
 
       if (tryProgram.isSuccess) {
@@ -84,7 +86,7 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
         tryPrograms foreach { case (f, tp) => tp match {
           // we expect a specific kind of exception:
           case Failure(e: stainless.frontend.UnsupportedCodeException) => assert(true)
-          case Failure(e: stainless.extraction.MissformedStainlessCode) => assert(true)
+          case Failure(e: stainless.extraction.MalformedStainlessCode) => assert(true)
           case Failure(e) => assert(false, s"$f was rejected with $e:\nStack trace:\n${e.getStackTrace().map(_.toString).mkString("\n")}")
           case Success(n) => assert(n > 0, s"$f was successfully extracted")
         }}

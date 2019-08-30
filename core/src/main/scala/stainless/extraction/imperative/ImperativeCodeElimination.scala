@@ -4,13 +4,23 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
+trait ImperativeCodeElimination
+  extends oo.CachingPhase
+     with SimpleFunctions
+     with IdentitySorts
+     with oo.IdentityClasses
+     with oo.IdentityTypeDefs
+     with SimplyCachedFunctions
+     with SimplyCachedSorts
+     with oo.SimplyCachedClasses {
+
   val s: Trees
   val t: s.type
   import s._
 
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
+
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._
@@ -21,11 +31,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
     case class State(
       parent: FunDef,
       varsInScope: Set[Variable],
-      localsMapping: Map[Variable, (Seq[TypeParameter], Seq[Variable])]
+      localsMapping: Map[Identifier, (LocalFunDef, Seq[Variable])]
     ) {
       def withVar(vd: ValDef) = copy(varsInScope = varsInScope + vd.toVariable)
-      def withLocal(v: Variable, tparams: Seq[TypeParameter], vars: Seq[Variable]) =
-        copy(localsMapping = localsMapping + (v -> (tparams, vars)))
+      def withLocal(id: Identifier, fd: LocalFunDef, vars: Seq[Variable]) =
+        copy(localsMapping = localsMapping + (id -> (fd, vars)))
     }
 
     //return a "scope" consisting of purely functional code that defines potentially needed
@@ -49,6 +59,8 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, body).copiedFrom(expr))
           (UnitLiteral(), scope, rhsFun + (v -> newVd.toVariable))
+
+        case Snapshot(e) => toFunction(e)
 
         case ite @ IfExpr(cond, tExpr, eExpr) =>
           val (cRes, cScope, cFun) = toFunction(cond)
@@ -121,17 +133,21 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
 
         case wh @ While(cond, body, optInv) =>
-          val name = ValDef.fresh(parent.id.name + "While", FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)).copiedFrom(wh)
+          val id = FreshIdentifier(parent.id.name + "While")
+          val tpe = FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)
 
           val (specs, without) = deconstructSpecs(body)
           val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
           val measure = measures.headOption.map { case Measure(m) => m }
 
-          val newBody = IfExpr(cond,
-            Block(
-              Seq(reconstructSpecs(otherSpecs, without, body.getType)),
-              ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh),
-            UnitLiteral().copiedFrom(wh)).copiedFrom(wh)
+          val newBody = Block(
+            Seq(reconstructSpecs(otherSpecs, without, body.getType)),
+            IfExpr(
+              cond,
+              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+              UnitLiteral().copiedFrom(wh)
+            ).copiedFrom(wh)
+          ).copiedFrom(wh)
 
           val newPost = Lambda(
             Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
@@ -141,18 +157,22 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
             ).copiedFrom(wh)
           ).copiedFrom(wh)
 
-          val fullBody = Lambda(Seq.empty,
-            withPostcondition(
-              withPrecondition(
-                withMeasure(newBody, measure).copiedFrom(wh),
-                optInv
-              ).copiedFrom(wh),
-              Some(newPost)
-            ).copiedFrom(wh)
-          )
+          val fullBody = withPostcondition(
+            withPrecondition(
+              withMeasure(newBody, measure).copiedFrom(wh),
+              Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
+            ).copiedFrom(wh),
+            Some(newPost)
+          ).copiedFrom(wh)
 
-          val newExpr = LetRec(Seq(LocalFunDef(name, Seq(), fullBody)), ApplyLetRec(name.toVariable, Seq(), Seq(), Seq()).copiedFrom(wh)).copiedFrom(wh)
-          toFunction(newExpr)
+          toFunction(LetRec(
+            Seq(LocalFunDef(id, Seq(), Seq(), UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+            IfExpr(
+              cond,
+              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+              UnitLiteral().copiedFrom(wh)
+            ).copiedFrom(wh)
+          ).copiedFrom(wh))
 
         case Block(Seq(), expr) =>
           toFunction(expr)
@@ -161,14 +181,17 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           val (scope, fun) = exprs.foldRight((body: Expr) => body, Map[Variable, Variable]()) { (e, acc) =>
             val (accScope, accFun) = acc
             val (rVal, rScope, rFun) = toFunction(e)
-            val scope = (body: Expr) => rVal match {
-              case fi: FunctionInvocation =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", fi.tfd.returnType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
-              case alr: ApplyLetRec =>
-                rScope(replaceFromSymbols(rFun, Let(ValDef.fresh("tmp", alr.getType).copiedFrom(body), rVal, accScope(body)).copiedFrom(body)))
-              case _ =>
-                rScope(replaceFromSymbols(rFun, accScope(body)))
-            }
+            val scope = (body: Expr) =>
+              rScope(
+                replaceFromSymbols(
+                  rFun,
+                  Let(
+                    ValDef.fresh("tmp", rVal.getType).copiedFrom(body),
+                    rVal,
+                    accScope(body)
+                  ).copiedFrom(body)
+                )
+              )
             (scope, rFun ++ accFun)
           }
 
@@ -191,7 +214,7 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
           )
 
         //a function invocation can update variables in scope.
-        case alr @ ApplyLetRec(fun, tparams, tps, args) if localsMapping contains fun =>
+        case alr @ ApplyLetRec(id, tparams, tpe, tps, args) if localsMapping contains id =>
           val (recArgs, argScope, argFun) = args.foldRight((Seq[Expr](), (body: Expr) => body, Map[Variable, Variable]())) { (arg, acc) =>
             val (accArgs, accScope, accFun) = acc
             val (argVal, argScope, argFun) = toFunction(arg)
@@ -199,11 +222,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
 
-          val (tparams, modifiedVars) = localsMapping(fun)
-          val newReturnType = TupleType(fun.tpe.asInstanceOf[FunctionType].to +: modifiedVars.map(_.tpe))
-          val newInvoc = ApplyLetRec(
-            fun.copy(tpe = FunctionType(recArgs.map(_.getType) ++ modifiedVars.map(_.tpe), newReturnType)),
-            tparams, tps, recArgs ++ modifiedVars
+          val (fd, modifiedVars) = localsMapping(id)
+          val newReturnType = TupleType(tpe.to +: modifiedVars.map(_.getType))
+          val newInvoc = ApplyLetRec(id, fd.tparams.map(_.tp),
+            FunctionType(tpe.from ++ modifiedVars.map(_.getType), newReturnType).copiedFrom(tpe),
+            tps, recArgs ++ modifiedVars
           ).setPos(alr)
 
           val freshVars = modifiedVars.map(_.freshen)
@@ -242,9 +265,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
               val modifiedVars: Seq[Variable] = {
                 val freeVars = variablesOf(inner.fullBody)
                 val transitiveVars = collect[Variable] {
-                  case ApplyLetRec(fun, _, _, _) => state.localsMapping.get(fun).map(p => p._2.toSet).getOrElse(Set())
+                  case ApplyLetRec(id, _, _, _, _) =>
+                    state.localsMapping.get(id).map(_._2.toSet).getOrElse(Set())
                   case _ => Set()
                 } (inner.fullBody)
+
                 (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq
               }
 
@@ -273,9 +298,9 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
                 }
 
                 val (fdRes, fdScope, fdFun) = toFunction(wrappedBody)(State(state.parent, Set(),
-                  state.localsMapping.map { case (v, (tparams, mvs)) =>
-                    (v, (tparams, mvs.map(v => rewritingMap.getOrElse(v, v))))
-                  } + (fd.name.toVariable -> ((fd.tparams.map(_.tp), freshVarDecls)))
+                  state.localsMapping.map { case (v, (fd, mvs)) =>
+                    (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
+                  } + (fd.id -> ((fd, freshVarDecls)))
                 ))
 
                 val newRes = Tuple(fdRes +: freshVarDecls.map(fdFun))
@@ -312,7 +337,7 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
                   returnType = newReturnType
                 )
 
-                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withLocal(fd.name.toVariable, fd.tparams.map(_.tp), modifiedVars))
+                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withLocal(fd.id, fd, modifiedVars))
                 (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).copiedFrom(expr), bodyFun)
               }
 
@@ -345,6 +370,11 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
         case Or(args) =>
           val ifExpr = args.reduceRight((el, acc) => IfExpr(el, BooleanLiteral(true), acc))
           toFunction(ifExpr)
+
+        // @romac: Implies needs to be transform into if-else statements, much like Or and And,
+        //         as otherwise assertions get lifted outside of the implication. See #425.
+        case i @ Implies(lhs, rhs) =>
+          toFunction(Or(Not(lhs).copiedFrom(lhs), rhs).copiedFrom(i))
 
         //TODO: this should be handled properly by the Operator case, but there seems to be a subtle bug in the way Let's are lifted
         //      which leads to Assert refering to the wrong value of a var in some cases.
@@ -385,6 +415,7 @@ trait ImperativeCodeElimination extends SimpleFunctions with IdentitySorts {
       case (e: While) => true
       case (e: LetVar) => true
       case (e: Old) => true
+      case (e: Snapshot) => true
       case _ => false
     }
 

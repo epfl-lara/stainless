@@ -2,7 +2,10 @@
 
 package stainless.lang
 
+import scala.language.implicitConversions
+
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 @library
 @isabelle.typ(name = "Option.option")
@@ -75,8 +78,20 @@ sealed abstract class Option[T] {
   }
 }
 
+@library
 @isabelle.constructor(name = "Option.option.Some")
 case class Some[T](v: T) extends Option[T]
 
+@library
 @isabelle.constructor(name = "Option.option.None")
 case class None[T]() extends Option[T]
+
+@library
+object Option {
+  @library @extern @pure
+  def apply[A](x: A): Option[A] = {
+    if (x == null) None[A]() else Some[A](x)
+  } ensuring { res =>
+    res == None[A]() || res == Some[A](x)
+  }
+}

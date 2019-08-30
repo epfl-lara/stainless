@@ -34,8 +34,8 @@ Pure Scala supports two kinds of top-level declarations:
      case class Identifier(id: BigInt)
   }
 
-Boolean
-#######
+Booleans
+--------
 
 Booleans are used to express truth conditions in Stainless.
 Unlike some proof assistants, there is no separation
@@ -77,6 +77,7 @@ that the corresponding argument is evaluated.
 
 3. termination checking, which takes into account that only one of the paths in an if expression is evaluated for a given truth value of the condition.
 
+.. _adts:
 
 Algebraic Data Types
 --------------------
@@ -153,13 +154,14 @@ You can define methods in classes.
   abstract class List[T] {
     def contains(e: T) = { .. }
   }
+
   case class Cons[T](hd: T, tl: List[T]) extends List[T]
   case object Nil extends List[Nothing]
 
   def test(a: List[Int]) = a.contains(42)
 
 It is possible to define abstract methods in abstract classes and implement them in case classes.
-It is also possible to override methods.
+Multiple layers of inheritance are allowed, as is the ability to override concrete methods.
 
 .. code-block:: scala
 
@@ -184,7 +186,54 @@ It is also possible to override methods.
 
   case class D() extends B
 
-It is not possible, however, to call methods of a superclass with the ``super`` keyword.
+It is also possible to call methods of a superclass with the ``super`` keyword.
+
+.. code-block:: scala
+
+  sealed abstract class Base {
+    def double(x: BigInt): BigInt = x * 2
+  }
+
+  case class Override() extends Base {
+    override def double(x: BigInt): BigInt = {
+      super.double(x + 1) + 42
+    }
+  }
+
+Copy Method
+***********
+
+The ``copy`` method of classes with immutable fields is extracted as well,
+and ensures that the class invariant (if any) is maintained by requiring it
+to be satisfied as a precondition.
+
+.. code-block:: scala
+
+  case class Foo(x: BigInt) {
+    require(x > 0)
+  }
+
+  def prop(foo: Foo, y: BigInt) = {
+    require(y > 1)
+    foo.copy(x = y)
+  }
+
+.. note::
+  The example above would not verify without the precondition in function ``prop``,
+  as ``Foo`` require its field ``x`` to be positive.
+
+
+Default Parameters
+******************
+
+Functions and methods can have default values for their parameters.
+
+.. code-block:: scala
+
+  def test(x: Int = 21): Int = x * 2
+
+  assert(test() == 42) // valid
+
 
 Specifications
 --------------
@@ -214,8 +263,8 @@ Postconditions constraint the resulting value, and is expressed using `ensuring`
     a + 1
   } ensuring { res => res > a }
 
-Body Assertsions
-****************
+Body Assertions
+***************
 
 Assertions constrain intermediate expressions within the body of a function.
 
@@ -297,11 +346,62 @@ Inner Functions
   }
 
 
+Local and Anonymous Classes
+***************************
+
+Functions and methods can declare local classes, which can close over
+the fields of the enclosing class, as well as the parameters of the enclosing
+function or method.
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = {
+    case class Local() extends Foo {
+      def bar: Int = x
+    }
+    Local()
+  }
+
+.. note:: Functions and methods which return an instance of a local class
+          must have an explicit return type, which will typically be that of the parent class.
+          Otherwise, a structural type will be inferred by the Scala compiler, and those are
+          currently unsupported.
+
+Anonymous classes with an explicit parent are supported as well:
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = new Foo {
+    def bar: Int = x
+  }
+
+.. note:: Anonymous classes cannot declare more public members than their parent class,
+          ie. the following is not supported:
+
+.. code-block:: scala
+
+  abstract class Foo {
+    def bar: Int
+  }
+
+  def makeFoo(x: Int): Foo = new Foo {
+    def bar: Int = x
+    def hi: String = "Hello, world"
+  }
+
 Predefined Types
-****************
+----------------
 
 TupleX
-######
+******
 
 .. code-block:: scala
 
@@ -311,7 +411,7 @@ TupleX
 
 
 Int
-###
+***
 
 .. code-block:: scala
 
@@ -331,7 +431,7 @@ Int
  Integers are treated as 32bits integers and are subject to overflows.
 
 BigInt
-######
+******
 
 .. code-block:: scala
 
@@ -354,7 +454,7 @@ BigInt
   BigInt are mathematical integers (arbitrary size, no overflows).
 
 Real
-####
+****
 
 ``Real`` represents the mathematical real numbers (different from floating points). It is an
 extension to Scala which is meant to write programs closer to their true semantics.
@@ -389,7 +489,7 @@ extension to Scala which is meant to write programs closer to their true semanti
 
 
 Set
-###
+***
 
 .. code-block:: scala
 
@@ -406,7 +506,7 @@ Set
 
 
 Functional Array
-################
+****************
 
 .. code-block:: scala
 
@@ -418,7 +518,7 @@ Functional Array
 
 
 Map
-###
+***
 
 .. code-block:: scala
 
@@ -437,7 +537,7 @@ Map
 
 
 Function
-########
+********
 
 .. code-block:: scala
 

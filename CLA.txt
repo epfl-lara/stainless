@@ -1,4 +1,4 @@
-EPFL-LARA Leon Project Distribution:
+EPFL-LARA Stainless Project Distribution:
 
 Software Grant and Individual Contributor License Agreement ("Agreement"), v1.0
 

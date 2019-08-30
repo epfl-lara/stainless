@@ -244,3 +244,29 @@ Evaluators
 
   Ignores function contracts during evaluation.
 
+Configuration File
+------------------
+
+Stainless supports setting default values for command line options configuration files.   
+The file must be named ``stainless.conf`` or ``.stainless.conf`` and be a valid HOCON file.
+
+For example, consider the config file containin the following lines:
+
+.. code-block:: text
+
+   vc-cache = false
+   debug = [verification, trees]
+   timeout = 5
+   check-models = true
+   print-ids = true
+    
+
+The file will translate to the following command line options:
+    
+``--vc-cache=false --debug=verification,trees --timeout=5 --print-ids``
+
+Stainless searches for a configuration file recursively
+starting from the current directory and walking up the
+directory hierarchy.  For example, if one runs stainless
+from ``/a/b/c`` and there is a config file in any of `c`,
+`b` or `a`, the first of those is going to be loaded.

@@ -1,7 +1,8 @@
 import stainless.lang._
+import stainless.annotation._
 
 object SimpleImperative {
-  abstract class A {
+  @mutable abstract class A {
     def f(): Unit 
   }
 

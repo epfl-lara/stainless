@@ -4,7 +4,11 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
+trait FunctionClosure
+  extends CachingPhase
+     with SimplyCachedFunctions
+     with IdentitySorts { self =>
+
   val s: Trees
   val t: ast.Trees
 
@@ -19,8 +23,7 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
     import s._
     import symbols._
 
-    // Represents a substitution to a new function, along with parameter and type parameter
-    // mappings
+    // Represents a substitution to a new function, along with parameter and type parameter mappings
     case class FunSubst(
       fd: FunDef,
       paramsMap: Map[ValDef, ValDef],
@@ -42,7 +45,7 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
     }
 
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
-      val LocalFunDef(name, tparams, Lambda(args, body)) = inner
+      val LocalFunDef(id, tparams, params, returnType, fullBody, flags) = inner
 
       val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
@@ -50,23 +53,29 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
-      val freshVals = (args ++ free).map { vd =>
-        val tvd = inst.transform(vd)
-        tvd -> tvd.freshen
-      }
+
+      val (paramSubst, freshVals) = (params ++ free)
+        .map { vd =>
+          vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
+        }
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vd) =>
+          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+          val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
+          (paramSubst + (vd -> nvd.toVariable), params :+ (vd -> nvd))
+        }
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val instBody = inst.transform(withPath(body, reqPC))
+      val instBody = inst.transform(withPath(fullBody, reqPC))
 
-      val fullBody = exprOps.preMap {
-        case v: Variable => freeMap.get(v.toVal).map(_.toVariable)
+      val newBody = exprOps.preMap {
+        case v: Variable => freeMap.get(v.toVal).map(_.toVariable.copiedFrom(v))
 
         case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
           Some(Let(freeMap(id), v, r).copiedFrom(let))
 
-        case app @ ApplyLetRec(v @ Variable(id, FunctionType(from, to), _), tparams, tps, args) if v == name =>
+        case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
           val ntps = tps ++ tpFresh.map(_.tp)
           val nargs = args ++ freshParams.drop(args.length).map(_.toVariable)
           Some(FunctionInvocation(id, ntps, nargs).copiedFrom(app))
@@ -75,12 +84,12 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
       }(instBody)
 
       val newFd = new s.FunDef(
-        name.id,
+        id,
         tparams ++ tpFresh,
         freshParams,
-        inst.transform(name.tpe.asInstanceOf[FunctionType].to),
-        fullBody,
-        (name.flags ++ outer.flags :+ Derived(outer.id)).distinct
+        typeOps.replaceFromSymbols(paramSubst, inst.transform(returnType)),
+        newBody,
+        (flags ++ outer.flags :+ Derived(outer.id)).distinct
       ).copiedFrom(inner)
 
       FunSubst(newFd, freeMap, tparamsMap)
@@ -104,14 +113,14 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
 
       val nestedWithPaths = (for((fds, path) <- nestedWithPathsFull; fd <- fds) yield (fd, path)).toMap
       val nestedFuns = nestedWithPaths.keys.toSeq
-      val nestedFunsIds = nestedFuns.map(_.name.id).toSet
+      val nestedFunsIds = nestedFuns.map(_.id).toSet
 
       // Transitively called functions from each function
       val callGraph: Map[Identifier, Set[Identifier]] = inox.utils.GraphOps.transitiveClosure(
         nestedFuns.map { f =>
-          val calls = exprOps.innerFunctionCalls(f.body) intersect nestedFunsIds
+          val calls = exprOps.innerFunctionCalls(f.fullBody) intersect nestedFunsIds
           val pcCalls = exprOps.innerFunctionCalls(nestedWithPaths(f).fullClause) intersect nestedFunsIds
-          f.name.id -> (calls ++ pcCalls)
+          f.id -> (calls ++ pcCalls)
         }.toMap
       )
 
@@ -123,13 +132,13 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
       val transFreeWithBindings: Map[Identifier, Set[Variable]] = {
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
-            val transFreeVars = (callGraph(fd.name.id) + fd.name.id).flatMap(current)
+            val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
             val reqPath = filterByIds(nestedWithPaths(fd), transFreeVars.map(_.id))
-            (fd.name.id, transFreeVars ++ exprOps.variablesOf(fd.body) ++ reqPath.freeVariables)
+            (fd.id, transFreeVars ++ fd.freeVariables ++ reqPath.freeVariables)
           }.toMap
         }
 
-        val init = nestedFuns.map(fd => (fd.name.id, exprOps.variablesOf(fd.body))).toMap
+        val init = nestedFuns.map(fd => (fd.id, fd.freeVariables)).toMap
         inox.utils.fixpoint(step)(init)
       }
 
@@ -139,18 +148,18 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedWithPaths.map {
-        case (inner, pc) => inner.name.id -> closeFd(inner, fd, pc, transFree(inner.name.id).map(_.toVal))
+        case (inner, pc) => inner.id -> closeFd(inner, fd, pc, transFree(inner.id).map(_.toVal))
       }
 
-      trait ClosingTransformer extends ast.TreeTransformer {
+      trait ClosingTransformer extends transformers.TreeTransformer {
         val s: self.s.type = self.s
         val subst: FunSubst
 
         lazy val FunSubst(_, callerMap, callerTMap) = subst
 
         override def transform(e: s.Expr): t.Expr = e match {
-          case app @ ApplyLetRec(fun, tparams, tps, args) if closed contains fun.id =>
-            val FunSubst(newCallee, calleeMap, calleeTMap) = closed(fun.id)
+          case app @ ApplyLetRec(id, tparams, tpe, tps, args) if closed contains id =>
+            val FunSubst(newCallee, calleeMap, calleeTMap) = closed(id)
 
             // This needs some explanation.
             // Say we have caller and callee. First we find the param. substitutions of callee
@@ -159,7 +168,7 @@ trait FunctionClosure extends CachingPhase with IdentitySorts { self =>
             // So we pass the callee parameters through these two mappings to get the caller parameters.
 
             val tReverse = calleeTMap map { _.swap }
-            val tOrigExtraOrdered = newCallee.tparams.map{_.tp}.drop(tparams.size).map(tReverse)
+            val tOrigExtraOrdered = newCallee.tparams.map(_.tp).drop(tparams.size).map(tReverse)
             val tFinalExtra: Seq[TypeParameter] = tOrigExtraOrdered.map(tp => callerTMap(tp))
             val tparamsMap = (newCallee.tparams.map(_.tp).drop(tparams.size) zip tFinalExtra).toMap
 

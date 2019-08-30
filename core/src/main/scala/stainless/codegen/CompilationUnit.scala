@@ -7,17 +7,12 @@ import inox.utils.UniqueCounter
 import runtime.Monitor
 
 import cafebabe._
-import cafebabe.AbstractByteCodes._
 import cafebabe.ByteCodes._
 import cafebabe.ClassFileTypes._
 import cafebabe.Flags._
 
-import scala.collection.JavaConverters._
-
 import java.lang.reflect.Constructor
 import java.lang.reflect.InvocationTargetException
-
-import evaluators._
 
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -102,13 +97,15 @@ trait CompilationUnit extends CodeGeneration {
   private[this] val adtConstructors: MutableMap[ADTConstructor, Constructor[_]] = MutableMap.empty
 
   private[this] def adtConstructor(cons: ADTConstructor): Constructor[_] =
-    adtConstructors.getOrElseUpdate(cons, {
+    adtConstructors.getOrElse(cons, {
       val cf = getClass(cons)
       val klass = loader.loadClass(cf.className)
       // This is a hack: we pick the constructor with the most arguments.
       val conss = klass.getConstructors.sortBy(_.getParameterTypes.length)
       assert(conss.nonEmpty)
-      conss.last
+      val res = conss.last
+      adtConstructors(cons) = res
+      res
     })
 
   private[this] lazy val tupleConstructor: Constructor[_] = {
@@ -129,7 +126,7 @@ trait CompilationUnit extends CodeGeneration {
     case Int16Literal(v) => java.lang.Short.valueOf(v)
     case Int32Literal(v) => java.lang.Integer.valueOf(v)
     case Int64Literal(v) => java.lang.Long.valueOf(v)
-    case bi @ BVLiteral(_, size) => println(s"NOT IMPLEMENTED!!!"); ???
+    case bi @ BVLiteral(_, _, size) => sys.error(s"NOT IMPLEMENTED");
 
     case BooleanLiteral(v) =>
       java.lang.Boolean.valueOf(v)
@@ -193,19 +190,24 @@ trait CompilationUnit extends CodeGeneration {
 
     case lambda: Lambda =>
       val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false))
-      val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
-      val depsMap = deps.map(p => p._1.id -> valueToJVM(p._2)).toMap
-      val args = closures.map { case (id, _) =>
-        if (id == monitorID) monitor
-        else if (id == tpsID) tparams.map(registerType).toArray
-        else depsMap(id)
-      }
+      if (deps.forall { case (_, e, conds) => isValue(e) && conds.isEmpty }) {
+        val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
+        val depsMap = deps.map { case (v, dep, _) => v.id -> valueToJVM(dep) }.toMap
 
-      val lc = loader.loadClass(afName)
-      val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
-      assert(conss.nonEmpty)
-      val lambdaConstructor = conss.last
-      lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
+        val args = closures.map { case (id, _) =>
+          if (id == monitorID) monitor
+          else if (id == tpsID) tparams.map(registerType).toArray
+          else depsMap(id)
+        }
+
+        val lc = loader.loadClass(afName)
+        val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
+        assert(conss.nonEmpty)
+        val lambdaConstructor = conss.last
+        lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
+      } else {
+        compileExpression(lambda, Seq.empty).evalToJVM(Seq.empty, monitor)
+      }
 
     case f @ IsTyped(FiniteArray(elems, base), ArrayType(underlying)) =>
       import scala.reflect.ClassTag
@@ -294,7 +296,7 @@ trait CompilationUnit extends CodeGeneration {
     case (s: java.lang.Short,   Int16Type()) => Int16Literal(s.toShort)
     case (i: java.lang.Integer, Int32Type()) => Int32Literal(i.toInt)
     case (l: java.lang.Long,    Int64Type()) => Int64Literal(l.toLong)
-    case (bv: runtime.BitVector, BVType(size)) => BVLiteral(BigInt(bv.toString, 2), size)
+    case (bv: runtime.BitVector, BVType(signed, size)) => BVLiteral(signed, BigInt(bv.toBigInteger), size)
 
     case (c: runtime.BigInt, IntegerType()) =>
       IntegerLiteral(c.toScala)
@@ -319,7 +321,7 @@ trait CompilationUnit extends CodeGeneration {
       // identify case class type of ct
       jvmClassNameToCons(cons.getClass.getName) match {
         case Some(cons) =>
-          val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.tpe)).map {
+          val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.getType)).map {
             case (e, tpe) => jvmToValue(e, tpe)
           }
           ADT(cons.id, adt.tps, exFields)
@@ -359,7 +361,7 @@ trait CompilationUnit extends CodeGeneration {
 
       val tparams: Seq[TypeParameter] = {
         var tpSeq: Seq[TypeParameter] = Seq.empty
-        object collector extends TreeTraverser {
+        object collector extends SelfTreeTraverser {
           override def traverse(tpe: Type): Unit = tpe match {
             case tp: TypeParameter => tpSeq :+= tp
             case _ => super.traverse(tpe)
@@ -380,7 +382,7 @@ trait CompilationUnit extends CodeGeneration {
       val closures = exprOps.variablesOf(tpLambda).toSeq.sortBy(_.id.uniqueName)
       val closureVals = closures.map { v =>
         val fieldVal = lambda.getClass.getField(v.id.uniqueName).get(lambda)
-        jvmToValue(fieldVal, v.tpe)
+        jvmToValue(fieldVal, v.getType)
       }
 
       exprOps.replaceFromSymbols((closures zip closureVals).toMap, tpLambda)

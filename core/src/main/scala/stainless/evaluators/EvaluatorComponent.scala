@@ -30,7 +30,7 @@ object EvaluatorComponent extends Component { self =>
   override type Report = EvaluatorReport
   override type Analysis = EvaluatorAnalysis
 
-  override val lowering = inox.ast.SymbolTransformer(new ast.TreeTransformer {
+  override val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
   })
@@ -69,7 +69,7 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
 
   override def createFilter = EvaluatorCheckFilter(trees, context)
 
-  override def apply(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
+  private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
     import context._
 
     val p = inox.Program(trees)(symbols)
@@ -129,7 +129,7 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
           }
       }
 
-      reporter.info(s"Result for ${fid} @${fd.getPos}:")
+      reporter.info(s"Result for ${fid.asString} @${fd.getPos}:")
 
       status match {
         case BodyFailed(error) => reporter.warning(" => CRASHED")

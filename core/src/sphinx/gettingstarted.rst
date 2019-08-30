@@ -1,7 +1,7 @@
 .. _gettingstarted:
 
-Getting Started
-===============
+Verifying Examples
+==================
 
 Stainless is currently only available as a command line tool,
 which exposes most of the functionality. See the

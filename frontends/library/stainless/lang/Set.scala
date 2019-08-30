@@ -1,7 +1,11 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless.lang
+
 import stainless.annotation._
+import stainless.lang.StaticChecks._
+
+import scala.language.implicitConversions
 
 object Set {
   @library @inline
@@ -19,7 +23,7 @@ object Set {
 }
 
 @ignore
-case class Set[T](val theSet: scala.collection.immutable.Set[T]) {
+case class Set[T](theSet: scala.collection.immutable.Set[T]) {
   def +(a: T): Set[T] = new Set[T](theSet + a)
   def ++(a: Set[T]): Set[T] = new Set[T](theSet ++ a.theSet)
   def -(a: T): Set[T] = new Set[T](theSet - a)
@@ -30,4 +34,3 @@ case class Set[T](val theSet: scala.collection.immutable.Set[T]) {
   def subsetOf(b: Set[T]): Boolean = theSet.subsetOf(b.theSet)
   def &(a: Set[T]): Set[T] = new Set[T](theSet & a.theSet)
 }
-

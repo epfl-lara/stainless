@@ -2,11 +2,14 @@
 
 package stainless.collection
 
+import scala.language.implicitConversions
+
 import stainless._
 import stainless.lang._
 import stainless.annotation._
 import stainless.math._
 import stainless.proof._
+import stainless.lang.StaticChecks._
 
 @library
 @isabelle.typ(name = "List.list")
@@ -73,7 +76,7 @@ sealed abstract class List[T] {
       case Nil() => Cons(t, this)
       case Cons(x, xs) => Cons(x, xs :+ (t))
     }
-  } ensuring(res => (res.size == size + 1) && (res.content == content ++ Set(t)))
+  } ensuring(res => (res.size == size + 1) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
 
   @isabelle.function(term = "List.rev")
   def reverse: List[T] = {
@@ -311,14 +314,13 @@ sealed abstract class List[T] {
 
   def splitAtIndex(index: BigInt) : (List[T], List[T]) = { this match {
     case Nil() => (Nil[T](), Nil[T]())
-    case Cons(h, rest) => {
+    case Cons(h, rest) =>
       if (index <= BigInt(0)) {
         (Nil[T](), this)
       } else {
         val (left,right) = rest.splitAtIndex(index - 1)
         (Cons[T](h,left), right)
       }
-    }
   }} ensuring { (res:(List[T],List[T])) =>
     res._1 ++ res._2 == this &&
     res._1 == take(index) && res._2 == drop(index)
@@ -542,7 +544,7 @@ sealed abstract class List[T] {
       val rec = t.indexWhere(p)
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
-  }} ensuring { 
+  }} ensuring {
     _ >= BigInt(0) == (this exists p)
   }
 
@@ -553,9 +555,11 @@ sealed abstract class List[T] {
   }
 }
 
+@library
 @isabelle.constructor(name = "List.list.Cons")
 case class Cons[T](h: T, t: List[T]) extends List[T]
 
+@library
 @isabelle.constructor(name = "List.list.Nil")
 case class Nil[T]() extends List[T]
 
@@ -659,10 +663,11 @@ object ListSpecs {
     }
   )
 
-  @induct
   @isabelle.lemma(about = "stainless.collection.List.apply")
   def consIndex[T](h: T, t: List[T], i: BigInt): Boolean = {
     require(0 <= i && i < t.size + 1)
+    decreases(t)
+    check(t.isEmpty || i == 0 || consIndex(h, t.tail, i-1))
     (h :: t).apply(i) == (if (i == 0) h else t.apply(i - 1))
   }.holds
 
@@ -714,13 +719,11 @@ object ListSpecs {
     }
   }
 
-  @induct
-  def appendAssoc[T](l1: List[T], l2: List[T], l3: List[T]): Boolean = {
+  def appendAssoc[T](@induct l1: List[T], l2: List[T], l3: List[T]): Boolean = {
     (l1 ++ l2) ++ l3 == l1 ++ (l2 ++ l3)
   }.holds
 
-  @induct
-  def rightUnitAppend[T](l1: List[T]): Boolean = {
+  def rightUnitAppend[T](@induct l1: List[T]): Boolean = {
     l1 ++ Nil() == l1
   }.holds
 
@@ -841,8 +844,7 @@ object ListSpecs {
   //  associative[T, Boolean](l1, l2, _.exists(p), _ && _ )
   //}.holds
 
-  @induct
-  def scanVsFoldRight[A,B](l: List[A], z: B, f: (A,B) => B): Boolean = {
+  def scanVsFoldRight[A,B](@induct l: List[A], z: B, f: (A,B) => B): Boolean = {
     l.scanRight(z)(f).head == l.foldRight(z)(f)
   }.holds
 

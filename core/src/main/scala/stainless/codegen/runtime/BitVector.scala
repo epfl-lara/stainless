@@ -4,11 +4,11 @@ package stainless.codegen.runtime
 
 import java.math.BigInteger
 
-final class BitVector(private val bits: Array[Boolean]) {
+final class BitVector(private val signed: Boolean, private val bits: Array[Boolean]) {
 
   def size = bits.length
 
-  def this(bi: BigInteger, size: Int) = this({
+  def this(signed: Boolean, bi: BigInteger, size: Int) = this(signed, {
     // Extract positive numbers only
     def extract(bi: BigInteger): Array[Boolean] = {
       val two = new BigInteger("2")
@@ -17,16 +17,18 @@ final class BitVector(private val bits: Array[Boolean]) {
 
     if (bi.compareTo(BigInteger.ZERO) >= 0) {
       extract(bi)
+    } else if (!signed) {
+      new BitVector(signed, new BigInteger("2").pow(size).add(bi), size).bits
     } else {
-      new BitVector(bi.negate, size).neg.bits
+      new BitVector(signed, bi.negate, size).neg.bits
     }
   })
 
-  def this(value: String, size: Int) = this(new BigInteger(value), size)
-  def this(value: Byte, size: Int)   = this(new BigInteger(value.toString), size)
-  def this(value: Short, size: Int)  = this(new BigInteger(value.toString), size)
-  def this(value: Int, size: Int)    = this(new BigInteger(value.toString), size)
-  def this(value: Long, size: Int)   = this(new BigInteger(value.toString), size)
+  def this(signed: Boolean, value: String, size: Int) = this(signed, new BigInteger(value), size)
+  def this(value: Byte, size: Int)   = this(true, new BigInteger(value.toString), size)
+  def this(value: Short, size: Int)  = this(true, new BigInteger(value.toString), size)
+  def this(value: Int, size: Int)    = this(true, new BigInteger(value.toString), size)
+  def this(value: Long, size: Int)   = this(true, new BigInteger(value.toString), size)
 
   def toBigInteger: BigInteger = {
     val two = new BigInteger("2")
@@ -34,8 +36,10 @@ final class BitVector(private val bits: Array[Boolean]) {
       val bitValue = if (bit) two.pow(i) else BigInteger.ZERO
       res.add(bitValue)
     }
-    if (bits.head) unsigned.subtract(two.pow(size)) else unsigned
+    if (signed && bits.head) unsigned.subtract(two.pow(size)) else unsigned
   }
+
+  private def toUnsigned: BitVector = new BitVector(false, bits)
 
   def toByte: Byte = toBigInteger.byteValueExact
   def toShort: Short = toBigInteger.shortValueExact
@@ -49,43 +53,43 @@ final class BitVector(private val bits: Array[Boolean]) {
         val newCarry = (b1 && b2) || (b1 && carry) || (b2 && carry)
         (newBit :: res) -> newCarry
       }
-    new BitVector(newBits.toArray)
+    new BitVector(signed, newBits.toArray)
   }
 
-  def neg: BitVector = this.not.add(new BitVector("1", size)) // -x equals (~x)+1
-  def sub(that: BitVector): BitVector = this.add(that.neg)
-  def mult(that: BitVector): BitVector = new BitVector(this.toBigInteger.multiply(that.toBigInteger), size)
-  def div(that: BitVector): BitVector = new BitVector(this.toBigInteger.divide(that.toBigInteger), size)
-  def rem(that: BitVector): BitVector = new BitVector(this.toBigInteger.remainder(that.toBigInteger), size)
-  def mod(that: BitVector): BitVector = new BitVector({
-    val (bi, tbi) = (this.toBigInteger, that.toBigInteger)
+  def neg: BitVector = not.add(new BitVector(signed, "1", size)) // -x equals (~x)+1
+  def sub(that: BitVector): BitVector = add(that.neg)
+  def mult(that: BitVector): BitVector = new BitVector(signed, toBigInteger.multiply(that.toBigInteger), size)
+  def div(that: BitVector): BitVector = new BitVector(signed, toBigInteger.divide(that.toBigInteger), size)
+  def rem(that: BitVector): BitVector = new BitVector(signed, toBigInteger.remainder(that.toBigInteger), size)
+  def mod(that: BitVector): BitVector = new BitVector(signed, {
+    val (bi, tbi) = (toBigInteger, that.toBigInteger)
     if (tbi.compareTo(BigInteger.ZERO) < 0) bi.mod(tbi.negate)
     else bi.mod(tbi)
-  }, bits.length)
+  }, size)
 
-  def not: BitVector = new BitVector(bits map { !_ })
-  def and(that: BitVector): BitVector = new BitVector((bits zip that.bits) map { case (b1, b2) => b1 && b2 })
-  def or(that: BitVector): BitVector  = new BitVector((bits zip that.bits) map { case (b1, b2) => b1 || b2 })
-  def xor(that: BitVector): BitVector = new BitVector((bits zip that.bits) map { case (b1, b2) => b1 ^  b2 })
+  def not: BitVector = new BitVector(signed, bits map (!_))
+  def and(that: BitVector): BitVector = new BitVector(signed, (bits zip that.bits) map (p => p._1 && p._2))
+  def or(that: BitVector): BitVector  = new BitVector(signed, (bits zip that.bits) map (p => p._1 || p._2))
+  def xor(that: BitVector): BitVector = new BitVector(signed, (bits zip that.bits) map (p => p._1 ^  p._2))
 
-  def shiftLeft(that: BitVector): BitVector = if (that.isNegative) ??? /* negative shift means what exactly? */ else {
-    val shift = that.toBigInteger.intValueExact()
-    new BitVector(this.toBigInteger.shiftLeft(shift), size)
+  def shiftLeft(that: BitVector): BitVector = {
+    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
+    new BitVector(signed, toBigInteger.shiftLeft(shift), size)
   }
 
-  def lShiftRight(that: BitVector): BitVector = if (that.isNegative) ??? /* negative shift means what exactly? */ else {
-    val shift = math.min(size, that.toBigInteger.intValueExact)
+  def lShiftRight(that: BitVector): BitVector = {
+    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
     val msbBits = (0 until shift) map { _ => bits.head }
     val remainings = bits.dropRight(shift).toSeq
     val newBits = msbBits ++ remainings
     assert(newBits.length == size)
-    new BitVector(newBits.toArray)
+    new BitVector(signed, newBits.toArray)
   }
 
   // Preserve MSB (sign bit)
-  def aShiftRight(that: BitVector): BitVector = if (that.isNegative) ??? /* negative shift means what exactly? */ else {
-    val shift = that.toBigInteger.intValueExact()
-    new BitVector(this.toBigInteger.shiftRight(shift), size)
+  def aShiftRight(that: BitVector): BitVector = {
+    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
+    new BitVector(signed, toBigInteger.shiftRight(shift), size)
   }
 
   // Apply sign extension when growing, simply drop bits when shrinking
@@ -93,7 +97,7 @@ final class BitVector(private val bits: Array[Boolean]) {
     val newBits: Seq[Boolean] =
       if (newSize > size) ((size to newSize) map { _ => bits.head }) ++ bits
       else bits.drop(size - newSize)
-    new BitVector(newBits.toArray)
+    new BitVector(signed, newBits.toArray)
   }
 
   def lessThan(that: BitVector): Boolean = toBigInteger.compareTo(that.toBigInteger) < 0
@@ -101,15 +105,16 @@ final class BitVector(private val bits: Array[Boolean]) {
   def greaterThan(that: BitVector): Boolean = toBigInteger.compareTo(that.toBigInteger) > 0
   def greaterEquals(that: BitVector): Boolean = toBigInteger.compareTo(that.toBigInteger) >= 0
 
-  private def isNegative = toBigInteger.signum == -1
-
   override def equals(that: Any): Boolean = that match {
-    case that: BitVector => this.bits.toSeq == that.bits.toSeq // the conversion to Seq is mandatory! Array.equals doesn't work as one expect.
+    // the conversion to Seq is mandatory! Array.equals doesn't work as one expect.
+    case that: BitVector => signed == that.signed && bits.toSeq == that.bits.toSeq
     case _ => false
   }
 
-  override def hashCode: Int = bits.hashCode
+  override def hashCode: Int = (signed, bits.toSeq).hashCode
 
-  override def toString: String = bits.map(b => if (b) "1" else "0").mkString("")
+  override def toString: String =
+    (if (signed) "" else "u") +
+    bits.map(b => if (b) "1" else "0").mkString("")
 }
 

@@ -4,20 +4,11 @@ package stainless
 package transformers
 
 import scala.language.existentials
-import scala.concurrent.duration._
-import scala.collection.mutable.{Map => MutableMap}
-
-import inox.{Context, Semantics}
-import inox.utils._
-import inox.solvers._
-import inox.solvers.SolverResponses._
-import inox.evaluators.EvaluationResults
 
 trait PartialEvaluator extends SimplifierWithPC { self =>
   import trees._
-  import symbols.{simplifier => _, _}
+  import symbols._
   import exprOps._
-  import dsl._
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case fi @ FunctionInvocation(id, tps, args) =>
@@ -53,13 +44,18 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         }
 
         val invocationPaths = collectWithPC(inlined) {
-          case (fi: FunctionInvocation, subPath) if fi.id == id || transitivelyCalls(fi.id, id) => subPath
+          case (fi: FunctionInvocation, subPath) if transitivelyCalls(fi.id, id) =>
+            transform(subPath.toClause, path)
         }
 
         dynBlocked.set(dynBlocked.get + id)
-        val res = invocationPaths.map(p => transform(p.toClause, path)).forall(isKnown)
+        val isProductive = if (tfd.fd.flags contains Synthetic) {
+          invocationPaths.exists(isKnown)
+        } else {
+          invocationPaths.forall(isKnown)
+        }
         dynBlocked.set(dynBlocked.get - id)
-        res
+        isProductive
       }
 
       def unfold(inlined: Expr): (Expr, Boolean) = {

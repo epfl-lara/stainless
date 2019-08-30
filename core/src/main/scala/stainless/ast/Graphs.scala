@@ -9,49 +9,56 @@ trait CallGraph extends inox.ast.CallGraph {
   protected val trees: Trees
   import trees._
 
-  private def collectCalls(e: Expr): Set[Identifier] = exprOps.collect[Identifier] {
-    case MatchExpr(_, cses) =>
-      cses.flatMap { case MatchCase(pat, _, _) =>
-        patternOps.collect[Identifier] {
-          case UnapplyPattern(_, _, id, _, _) =>
-            Set(id) ++ symbols.lookupFunction(id).toSeq.flatMap { fd =>
-              fd.flags.collect { case IsUnapply(isEmpty, get) => Seq(isEmpty, get) }.flatten
-            }
-          case _ => Set()
-        } (pat)
-      }.toSet
-    case _ => Set()
-  } (e)
-
-  override protected def computeCallGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeCallGraph
-    for ((_, fd) <- symbols.functions; id <- collectCalls(fd.fullBody)) {
-      g += SimpleEdge(fd.id, id)
+  protected trait FunctionCollector extends SelfTreeTraverser with super.FunctionCollector {
+    override def traverse(pat: Pattern): Unit = pat match {
+      case UnapplyPattern(_, _, id, _, _) =>
+        register(id)
+        super.traverse(pat)
+      case _ =>
+        super.traverse(pat)
     }
-    g
+
+    override def traverse(flag: Flag): Unit = flag match {
+      case IsUnapply(isEmpty, get) =>
+        register(isEmpty)
+        register(get)
+        super.traverse(flag)
+      case _ =>
+        super.traverse(flag)
+    }
   }
+
+  override protected def getFunctionCollector = new FunctionCollector {}
 }
 
 trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
   import trees._
 
-  private def collectSorts(e: Expr): Set[Identifier] = exprOps.collect[Identifier] {
-    case MatchExpr(_, cses) =>
-      cses.flatMap { case MatchCase(pat, _, _) =>
-        patternOps.collect[Identifier] {
-          case ADTPattern(_, id, _, _) => Set(id)
-          case _ => Set()
-        } (pat)
-      }.toSet
-    case _ => Set()
-  } (e)
-
-  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeDependencyGraph
-    for ((_, fd) <- symbols.functions; id <- collectSorts(fd.fullBody)) {
-      g += SimpleEdge(fd.id, id)
+  protected trait SortCollector extends SelfTreeTraverser with super.SortCollector {
+    override def traverse(pat: Pattern): Unit = pat match {
+      case ADTPattern(_, id, _, _) =>
+        register(symbols.getConstructor(id).sort)
+        super.traverse(pat)
+      case _ =>
+        super.traverse(pat)
     }
-    g
-  }
-}
 
+    override def traverse(tpe: Type): Unit = tpe match {
+      case RecursiveType(id, _, _) =>
+        register(id)
+        super.traverse(tpe)
+      case _ =>
+        super.traverse(tpe)
+    }
+
+    override def traverse(expr: Expr): Unit = expr match {
+      case SizedADT(id, _, _, _) =>
+        register(symbols.getConstructor(id).sort)
+        super.traverse(expr)
+      case _ =>
+        super.traverse(expr)
+    }
+  }
+
+  override def getSortCollector = new SortCollector {}
+}

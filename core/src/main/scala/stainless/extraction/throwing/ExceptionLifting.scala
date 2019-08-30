@@ -4,20 +4,22 @@ package stainless
 package extraction
 package throwing
 
-trait ExceptionLifting extends oo.SimplePhase { self =>
-  val s: Trees
-  val t: oo.Trees
+trait ExceptionLifting
+  extends oo.ExtractionPipeline
+     with IdentityFunctions
+     with IdentitySorts
+     with oo.IdentityTypeDefs
+     with oo.IdentityClasses { self =>
 
-  override protected type TransformerContext = transformer.type
-  override protected def getContext(symbols: s.Symbols) = transformer
-  protected object transformer extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  val s: Trees
+  val t: imperative.Trees
+
+  override protected type TransformerContext = s.Symbols
+  override protected def getContext(symbols: s.Symbols) = symbols
 }
 
 object ExceptionLifting {
-  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: imperative.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
   } = new ExceptionLifting {

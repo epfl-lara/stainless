@@ -6,7 +6,7 @@ package termination
 object DebugSectionTermination extends inox.DebugSection("termination")
 
 trait TerminationChecker {
-  val program: Program { val trees: Trees }
+  val program: Program { val trees: ast.Trees }
   val context: inox.Context
   import program.trees._
   import program.symbols._
@@ -74,7 +74,7 @@ object TerminationChecker {
     object encoder extends {
       val s: p.trees.type = p.trees
       val t: stainless.trees.type = stainless.trees
-    } with ast.TreeTransformer {
+    } with transformers.TreeTransformer {
       override def transform(e: s.Expr): t.Expr = e match {
         case s.Decreases(measure, body) => transform(body)
         case _ => super.transform(e)

@@ -12,19 +12,22 @@ Contents:
    :maxdepth: 2
 
    intro
-   gettingstarted
    installation
+   gettingstarted
    tutorial
+   options
+   verification
+   laws
+   imperative
+   ghost
+   wrap
    purescala
    library
-   imperative
-   verification
    neon
    limitations
-   options
+   casestudies
    faq
    references
    internals
 
 * :ref:`search`
-

@@ -3,7 +3,7 @@
 package stainless
 package ast
 
-trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees =>
+trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** Stands for an undefined Expr, similar to `???` or `null`
     *
@@ -11,7 +11,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * respective type for value types.
     */
   sealed case class NoTree(tpe: Type) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe
+    override def getType(implicit s: Symbols): Type = tpe.getType
   }
 
 
@@ -26,7 +26,7 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
     * @param description The description of the error
     */
   sealed case class Error(tpe: Type, description: String) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe
+    override def getType(implicit s: Symbols): Type = tpe.getType
   }
 
 
@@ -158,30 +158,30 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
   }
 
   protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr = {
-    FunctionInvocation(up.id, up.tps, up.rec.toSeq :+ scrut)
+    FunctionInvocation(up.id, up.tps, up.recs :+ scrut)
   }
 
   protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr = {
     val fd = s.lookupFunction(id)
       .filter(_.params.size == 1)
-      .getOrElse(throw extraction.MissformedStainlessCode(up, "Invalid unapply accessor"))
+      .getOrElse(throw extraction.MalformedStainlessCode(up, "Invalid unapply accessor"))
     val unapp = up.getFunction
-    val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
-      .getOrElse(throw extraction.MissformedStainlessCode(up, "Unapply pattern failed type instantiation"))
+    val tpMap = s.instantiation(fd.params.head.getType, unapp.getType)
+      .getOrElse(throw extraction.MalformedStainlessCode(up, "Unapply pattern failed type instantiation"))
     fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
   }
 
   /** A custom pattern defined through an object's `unapply` function */
-  sealed case class UnapplyPattern(binder: Option[ValDef], rec: Option[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
+  sealed case class UnapplyPattern(binder: Option[ValDef], recs: Seq[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
     def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
     private def getIsEmpty(implicit s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
+        .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
 
     private def getGet(implicit s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
-        .getOrElse(throw extraction.MissformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
+        .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
 
     def isEmptyUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getIsEmpty, this).copiedFrom(this)
     def getUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getGet, this).copiedFrom(this)
@@ -193,13 +193,35 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
       getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
     def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
-      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
+      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.getType).get, subPatterns.size)
   }
 
+  /** Symbolic I/O examples as a match/case.
+    * $encodingof `out == (in match { cases; case _ => out })`
+    *
+    * [[cases]] should be nonempty. If you are not sure about this, you should use [[ast.Constructors#passes]] instead.
+    *
+    * @param in The input expression
+    * @param out The output expression
+    * @param cases The cases to compare against
+    */
+  case class Passes(in: Expr, out: Expr, cases: Seq[MatchCase]) extends Expr with CachingTyped {
+    require(cases.nonEmpty)
+
+    override protected def computeType(implicit s: Symbols) = {
+      if (in.getType == Untyped || out.getType == Untyped) Untyped
+      else if (s.leastUpperBound(cases.map(_.rhs.getType)) == Untyped) Untyped
+      else BooleanType()
+    }
+
+    /** Transforms the set of I/O examples to a constraint equality. */
+    def asConstraint: Expr = {
+      val defaultCase = MatchCase(WildcardPattern(None), None, out).copiedFrom(this)
+      Equals(out, MatchExpr(in, cases :+ defaultCase).copiedFrom(this)).copiedFrom(this)
+    }
+  }
 
   /* Array Operations */
-
-  sealed case class ArrayType(base: Type) extends Type
 
   /** $encodingof `Array(elems...)` */
   sealed case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
@@ -249,6 +271,40 @@ trait Expressions extends inox.ast.Expressions with inox.ast.Types { self: Trees
       case ArrayType(_) => Int32Type()
       case _ => Untyped
     }
+  }
+
+  /** $encodingof `decreases(measure); body` */
+  case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = measure.getType match {
+      case Untyped => Untyped
+      case _ => body.getType
+    }
+  }
+
+  /* Recursive Types */
+
+  /** $encodingof of `ADTType(id,tps)<n>` */
+  sealed case class RecursiveType(id: Identifier, tps: Seq[Type], index: Expr) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = ADTType(id, tps).getType
+  }
+
+
+  /** $encodingof of `Constructor<size>[tps](args)` */
+  sealed case class SizedADT(id: Identifier, tps: Seq[Type], args: Seq[Expr], size: Expr) extends Expr with CachingTyped {
+    def getConstructor(implicit s: Symbols) = s.getConstructor(id, tps)
+    override protected def computeType(implicit s: Symbols): Type = ADT(id, tps, args).getType
+  }
+
+  /* Top type */
+
+  /** $encodingof of Top (with underlying Inox type `tpe`) */
+  sealed case class ValueType(tpe: Type) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+  }
+
+  /* Annotation on types */
+  sealed case class AnnotatedType(tpe: Type, flags: Seq[Flag]) extends Type {
+    override protected def computeType(implicit s: Symbols): Type = tpe.getType
   }
 
 }

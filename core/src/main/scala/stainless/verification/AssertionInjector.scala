@@ -8,7 +8,7 @@ package verification
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
  * that the program is exempt of integer overflow and unexpected behaviour.
  */
-trait AssertionInjector extends ast.TreeTransformer {
+trait AssertionInjector extends transformers.TreeTransformer {
   val s: ast.Trees
   val t: ast.Trees
 
@@ -45,7 +45,7 @@ trait AssertionInjector extends ast.TreeTransformer {
         super.transform(e)
       ).copiedFrom(e)
 
-    case BVTyped(size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -55,11 +55,23 @@ trait AssertionInjector extends ast.TreeTransformer {
           t.Equals(signBit(size, lhs), signBit(size, rhs)).copiedFrom(e),
           t.Equals(signBit(size, lhs), signBit(size, newE)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Addition Overflow"),
+        Some("Addition overflow"),
         newE
       ).copiedFrom(e)
 
-    case BVTyped(size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
+    // Unsigned addition
+    case BVTyped(false, size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
+      val lhs = transform(lhs0)
+      val rhs = transform(rhs0)
+      val newE = super.transform(e0)
+      t.Assert(
+        // the result must be greater than the lhs
+        t.GreaterEquals(t.Plus(lhs, rhs), lhs).copiedFrom(e),
+        Some("Addition overflow"),
+        newE
+      ).copiedFrom(e)
+
+    case BVTyped(true, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -69,30 +81,43 @@ trait AssertionInjector extends ast.TreeTransformer {
           t.Not(t.Equals(signBit(size, lhs), signBit(size, rhs)).copiedFrom(e)).copiedFrom(e),
           t.Equals(signBit(size, lhs), signBit(size, newE)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Subtraction Overflow"),
+        Some("Subtraction overflow"),
         newE
       ).copiedFrom(e)
 
-    case BVTyped(size, s.UMinus(e0)) if strictArithmetic =>
-      val newE = transform(e0)
+    // Unsigned subtraction
+    case BVTyped(false, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
+      val lhs = transform(lhs0)
+      val rhs = transform(rhs0)
+      val newE = super.transform(e0)
+      t.Assert(
+        // rhs must be smaller than lhs
+        t.LessEquals(rhs, lhs).copiedFrom(e),
+        Some("Subtraction overflow"),
+        newE
+      ).copiedFrom(e)
+
+    case BVTyped(true, size, e0 @ s.UMinus(n0)) if strictArithmetic =>
+      val n = transform(n0)
+      val newE = super.transform(e0)
       t.Assert(
         // -MinValue overflows
-        t.Not(t.Equals(newE, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
-        Some("Negation Overflow"),
+        t.Not(t.Equals(n, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
+        Some("Negation overflow"),
         newE
       ).copiedFrom(e)
 
-    case BVTyped(size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
       t.Assert(
         // when lhs is not null, rhs === (lhs * rhs) / lhs
         t.Or(
-          t.Equals(lhs, zero(size, e.getPos)).copiedFrom(e),
+          t.Equals(lhs, zero(signed, size, e.getPos)).copiedFrom(e),
           t.Equals(rhs, t.Division(newE, lhs).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e),
-        Some("Multiplication Overflow"),
+        Some("Multiplication overflow"),
         newE
       ).copiedFrom(e)
 
@@ -100,14 +125,14 @@ trait AssertionInjector extends ast.TreeTransformer {
       // Check division by zero, and if requested/meaningful, check for overflow
       val newE = super.transform(e)
       val rest = e.getType match {
-        case s.BVType(size) if strictArithmetic =>
-          // Overflow happens when -MinValue / -1
+        case s.BVType(true, size) if strictArithmetic =>
+          // Overflow happens for signed bitvectors with -MinValue / -1
           t.Assert(
             t.Not(t.And(
               t.Equals(transform(n), minValue(size, n.getPos)).copiedFrom(n),
-              t.Equals(transform(d), t.BVLiteral(-1, size).copiedFrom(d))
+              t.Equals(transform(d), t.BVLiteral(true, -1, size).copiedFrom(d))
             ).copiedFrom(e)).copiedFrom(e),
-            Some("Division Overflow"),
+            Some("Division overflow"),
             newE
           ).copiedFrom(e)
 
@@ -117,7 +142,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
           case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Division by zero"),
@@ -128,7 +153,7 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Remainder by zero"),
         super.transform(e)
@@ -138,24 +163,21 @@ trait AssertionInjector extends ast.TreeTransformer {
       t.Assert(
         t.Not(t.Equals(transform(d), d.getType match {
           case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-          case s.BVType(i) => t.BVLiteral(0, i).copiedFrom(d)
+          case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
         }).copiedFrom(d)).copiedFrom(d),
         Some("Modulo by zero"),
         super.transform(e)
       ).copiedFrom(e)
 
-    case BVTyped(size, BVShift(rhs0)) if strictArithmetic =>
+    case BVTyped(signed, size, BVShift(rhs0)) if strictArithmetic =>
       val rhs = transform(rhs0)
       val newE = super.transform(e)
-      t.Assert(
-        // Ensure the operation doesn't shift more bits than there are.
-        t.And(
-          t.GreaterEquals(rhs, zero(size, rhs.getPos)).copiedFrom(rhs),
-          t.LessThan(rhs, t.BVLiteral(size, size).copiedFrom(rhs)).copiedFrom(rhs)
-        ).copiedFrom(rhs),
-        Some("Shift Semantics"),
-        newE
-      ).copiedFrom(e)
+      val lt = t.LessThan(rhs, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
+      // positivity check is only relevant for signed bitvectors
+      val pos = t.GreaterEquals(rhs, zero(true, size, rhs.getPos)).copiedFrom(rhs)
+      val range = if (signed) t.And(pos, lt).copiedFrom(rhs) else lt
+      // Ensure the operation doesn't shift more bits than there are.
+      t.Assert(range, Some("Shift Semantics"), newE).copiedFrom(e)
 
     case e: s.Ensuring => super.transform(e.toAssert)
 
@@ -163,8 +185,8 @@ trait AssertionInjector extends ast.TreeTransformer {
   }
 
   private object BVTyped {
-    def unapply(e: s.Expr): Option[(Int, s.Expr)] = e.getType match {
-      case s.BVType(size) => Some(size -> e)
+    def unapply(e: s.Expr): Option[(Boolean, Int, s.Expr)] = e.getType match {
+      case s.BVType(signed, size) => Some((signed, size, e))
       case _ => None
     }
   }
@@ -180,23 +202,23 @@ trait AssertionInjector extends ast.TreeTransformer {
   }
 
   private def signBit(size: Int, e: t.Expr): t.Expr = {
-    val mask = t.BVLiteral(BigInt(1) << (size - 1), size).copiedFrom(e)
+    val mask = t.BVLiteral(true, BigInt(1) << (size - 1), size).copiedFrom(e)
     val sign = t.BVAnd(e, mask).copiedFrom(e)
     sign
   }
 
   private def minValue(size: Int, pos: inox.utils.Position) =
-    t.BVLiteral(-BigInt(2).pow(size - 1), size).setPos(pos)
+    t.BVLiteral(true, -BigInt(2).pow(size - 1), size).setPos(pos)
 
-  private def zero(size: Int, pos: inox.utils.Position) =
-    t.BVLiteral(0, size).setPos(pos)
+  private def zero(signed: Boolean, size: Int, pos: inox.utils.Position) =
+    t.BVLiteral(signed, 0, size).setPos(pos)
 }
 
 object AssertionInjector {
-  def apply(p: Program, ctx: inox.Context): inox.ast.SymbolTransformer {
+  def apply(p: Program, ctx: inox.Context): inox.transformers.SymbolTransformer {
     val s: p.trees.type
     val t: p.trees.type
-  } = new inox.ast.SymbolTransformer {
+  } = new inox.transformers.SymbolTransformer {
     val s: p.trees.type = p.trees
     val t: p.trees.type = p.trees
 

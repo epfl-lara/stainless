@@ -10,80 +10,62 @@ trait CallGraph extends ast.CallGraph {
   protected val trees: methods.Trees
   import trees._
 
-  private def collectCalls(e: Expr): Set[Identifier] = exprOps.collect[Identifier] {
-    case MethodInvocation(_, id, _, _) => Set(id)
-    case _ => Set()
-  } (e)
-
-  override protected def computeCallGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeCallGraph
-    for ((_, fd) <- symbols.functions; id <- collectCalls(fd.fullBody)) {
-      g += SimpleEdge(fd.id, id)
+  protected class FunctionCollector extends super.FunctionCollector with SelfTreeTraverser {
+    override def traverse(e: Expr): Unit = e match {
+      case MethodInvocation(_, id, _, _) =>
+        register(id)
+        super.traverse(e)
+      case _ =>
+        super.traverse(e)
     }
-    g
   }
+
+  override protected def getFunctionCollector = new FunctionCollector
 }
 
-trait DependencyGraph extends ast.DependencyGraph with CallGraph {
+trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   import trees._
 
-  private class ClassCollector extends TreeTraverser {
-    var classes: Set[Identifier] = Set.empty
-
+  protected class ClassCollector extends super.ClassCollector with SelfTreeTraverser {
     override def traverse(flag: Flag): Unit = flag match {
       case IsMethodOf(id) =>
-        classes += id
+        register(id)
         super.traverse(flag)
-
-      case _ => super.traverse(flag)
+      case _ =>
+        super.traverse(flag)
     }
 
     override def traverse(expr: Expr): Unit = expr match {
       case This(ct) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(expr)
-
       case Super(ct) =>
-        classes += ct.id
+        register(ct.id)
         super.traverse(expr)
-
       case _ =>
         super.traverse(expr)
     }
   }
 
-  private def collectClasses(fd: FunDef): Set[Identifier] = {
-    val collector = new ClassCollector
-    collector.traverse(fd)
-    collector.classes
-  }
+  override protected def getClassCollector = new ClassCollector
 
-  private def collectClasses(cd: ClassDef): Set[Identifier] = {
-    val collector = new ClassCollector
-    collector.traverse(cd)
-    collector.classes
-  }
-
-  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
-    var g = super.computeDependencyGraph
-
-    for (fd <- symbols.functions.values; id <- collectClasses(fd)) {
-      g += SimpleEdge(fd.id, id)
-    }
-
-    for (cd <- symbols.classes.values; id <- collectClasses(cd)) {
-      g += SimpleEdge(cd.id, id)
-    }
-
-    for (cd <- symbols.classes.values) {
-      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
-    }
-
+  // Add an edge between a node `n` and an override `oid` of a function `fd` if
+  // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
+  protected def addEdgesToOverrides(g: DiGraph[Identifier, SimpleEdge[Identifier]]) = {
+    var res = g
     for (fd <- symbols.functions.values) {
-      overrides(fd) foreach { id => g += SimpleEdge(fd.id, id) }
+      for (oid <- overrides(fd)) {
+        symbols.getFunction(oid).flags.collectFirst {
+          case IsMethodOf(cid) =>
+            // we look at transitive edges in `res` rather than in `g` in 
+            // order to take into account newly added edges
+            for (n <- (res.transitivePred(fd.id) + fd.id) & (res.transitivePred(cid) + cid)) {
+              res += SimpleEdge(n, oid)
+            }
+        }
+      }
     }
-
-    g
+    res
   }
 
   private def invariant(cd: ClassDef): Option[Identifier] = {
@@ -91,17 +73,55 @@ trait DependencyGraph extends ast.DependencyGraph with CallGraph {
     symbols.functions.values.find(isInvariant).map(_.id)
   }
 
+  private def laws(cd: ClassDef): Set[Identifier] = {
+    (cd +: cd.ancestors(symbols).map(_.cd)).reverse.foldLeft(Map[Symbol, Identifier]()) {
+      case (laws, cd) =>
+        val methods = cd.methods(symbols)
+        val newLaws = methods
+          .filter(id => symbols.getFunction(id).flags.exists(_.name == "law"))
+          .map(id => id.symbol -> id)
+        laws -- methods.map(_.symbol) ++ newLaws
+    }.values.toSet
+  }
+
   private def overrides(fd: FunDef): Set[Identifier] = {
+    if (!fd.id.isInstanceOf[SymbolIdentifier]) return Set.empty
+
+    val symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
+
     (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
       case None => Set.empty
       case Some(cid) =>
-        symbols.classes(cid)
-          .descendants(symbols)
-          .flatMap(_.methods(symbols))
-          .filter(_.symbol == fd.id.asInstanceOf[SymbolIdentifier].symbol)
-          .toSet
+        def rec(cd: ClassDef): Set[Identifier] = cd.children(symbols).flatMap {
+          cd => cd.methods(symbols).find(_.symbol == symbol) match {
+            case Some(id) => Set(id: Identifier)
+            case None => rec(cd)
+          }
+        }.toSet
+
+        rec(symbols.getClass(cid))
     }
   }
 
+  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
+    var g = super.computeDependencyGraph
 
+    for (cd <- symbols.classes.values) {
+      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
+
+      if (!(cd.flags contains IsAbstract)) {
+        laws(cd) foreach { law => g += SimpleEdge(law, cd.id) }
+      }
+
+      for (fid <- cd.methods(symbols) if symbols.getFunction(fid).isAccessor) {
+        g += SimpleEdge(cd.id, fid)
+      }
+    }
+
+    for (fd <- symbols.functions.values; id <- overrides(fd)) {
+      g += SimpleEdge(id, fd.id)
+    }
+
+    inox.utils.fixpoint(addEdgesToOverrides)(g)
+  }
 }

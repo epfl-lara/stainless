@@ -7,7 +7,7 @@ object IntSet {
                   elem: Int,
                   right: IntSet) extends IntSet
 
-  abstract class IntSet {
+  sealed abstract class IntSet {
     def incl(x: Int): IntSet = this match {
       case Empty() => Node(Empty(),x,Empty())
       case Node(left, elem, right) =>

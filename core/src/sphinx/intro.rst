@@ -14,6 +14,7 @@ In particular, Stainless can
 
 * verify that your program will terminate on all inputs
 
+
 Stainless and Scala
 -------------------
 
@@ -49,8 +50,7 @@ e.g. concurrency with a shared mutable heap, though it might
 support more manageable forms of concurrency in the future.
 
 If you would like to use Stainless now, check the
-:doc:`gettingstarted`
-section and try our :doc:`Tutorial <tutorial>`.
+:doc:`installation` section and follow :doc:`gettingstarted` and :doc:`Tutorial <tutorial>`.
 To learn more about the functionality that Stainless provides, read on below.
 
 Software Verification

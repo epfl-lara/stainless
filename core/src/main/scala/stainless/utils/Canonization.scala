@@ -3,9 +3,7 @@
 package stainless
 package utils
 
-import stainless.extraction.inlining.Trees
-
-import scala.collection._
+import scala.collection.mutable
 
 trait Canonization { self =>
 
@@ -17,13 +15,13 @@ trait Canonization { self =>
 
   type VC = verification.VC[trees.type]
 
-  protected class IdTransformer(val symbols: trees.Symbols) extends inox.ast.TreeTransformer {
+  protected class IdTransformer(val symbols: trees.Symbols) extends transformers.TreeTransformer {
     val s: self.trees.type = self.trees
     val t: self.trees.type = self.trees
 
     // Stores the transformed function and ADT definitions
-    private var transformedFunctions = new scala.collection.mutable.ListBuffer[FunDef]()
-    private var transformedSorts = new scala.collection.mutable.ListBuffer[ADTSort]()
+    protected var transformedFunctions = new mutable.ListBuffer[FunDef]()
+    protected var transformedSorts = new mutable.ListBuffer[ADTSort]()
 
     private var localCounter = 0
     // Maps an original identifier to a normalized identifier
@@ -36,12 +34,16 @@ trait Canonization { self =>
 
     override def transform(id: Identifier): Identifier = {
       val visited = ids contains id
-      val nid = ids.getOrElseUpdate(id, freshId())
+      val nid = ids.getOrElse(id, {
+        val res = freshId()
+        ids(id) = res
+        res
+      })
 
       if ((symbols.functions contains id) && !visited) {
-        transformedFunctions += transform(symbols.functions(id))
+        transformedFunctions += transform(symbols.getFunction(id))
       } else if ((symbols.sorts contains id) && !visited) {
-        transformedSorts += transform(symbols.sorts(id))
+        transformedSorts += transform(symbols.getSort(id))
       }
 
       nid
@@ -56,6 +58,13 @@ trait Canonization { self =>
     val newExpr = transformer.transform(expr)
     val newSyms = NoSymbols.withFunctions(transformer.functions).withSorts(transformer.sorts)
     (newSyms, newExpr)
+  }
+
+  def apply(syms: Symbols, id: Identifier): (Symbols, Identifier) = {
+    val transformer = new IdTransformer(syms)
+    val newIdentifier = transformer.transform(id)
+    val newSyms = NoSymbols.withFunctions(transformer.functions).withSorts(transformer.sorts)
+    (newSyms, newIdentifier)
   }
 
   def apply(syms: Symbols): Symbols = {
@@ -84,7 +93,7 @@ trait Canonization { self =>
     NoSymbols.withFunctions(newFunctions).withSorts(newSorts)
   }
 
-  protected class RegisteringTransformer extends inox.ast.TreeTransformer {
+  protected class RegisteringTransformer extends transformers.TreeTransformer {
     val s: self.trees.type = self.trees
     val t: self.trees.type = self.trees
 
@@ -92,9 +101,11 @@ trait Canonization { self =>
     // Maps an original identifier to a normalized identifier
     protected final val ids: mutable.Map[Identifier, Identifier] = mutable.Map.empty
 
-    final def registerId(id: Identifier): Identifier = ids.getOrElseUpdate(id, {
+    final def registerId(id: Identifier): Identifier = ids.getOrElse(id, {
       localCounter = localCounter + 1
-      new Identifier("x",localCounter,localCounter)
+      val res = new Identifier("x",localCounter,localCounter)
+      ids(id) = res
+      res
     })
 
     override def transform(id: Identifier): Identifier = ids.getOrElse(id, id)
@@ -124,6 +135,11 @@ trait Canonization { self =>
     }
   }
 
+  def apply(id: Identifier): Identifier = {
+    val transformer = new RegisteringTransformer
+    transformer.transform(id)
+  }
+
   def apply(expr: Expr): Expr = {
     val transformer = new RegisteringTransformer
     transformer.transform(expr)
@@ -150,10 +166,63 @@ trait XlangCanonization extends Canonization {
     extends super.RegisteringTransformer
        with extraction.oo.TreeTransformer
 
+  protected class XlangIdTransformer(override val symbols: trees.Symbols)
+    extends super.IdTransformer(symbols)
+      with extraction.oo.TreeTransformer {
+
+    protected var transformedClasses = new mutable.ListBuffer[ClassDef]()
+    protected var transformedTypeDefs = new mutable.ListBuffer[TypeDef]()
+
+    override def transform(id: Identifier): Identifier = {
+      val visited = ids contains id
+      val nid = ids.getOrElseUpdate(id, freshId())
+
+      if ((symbols.functions contains id) && !visited) {
+        transformedFunctions += transform(symbols.getFunction(id))
+      } else if ((symbols.sorts contains id) && !visited) {
+        transformedSorts += transform(symbols.getSort(id))
+      } else if ((symbols.classes contains id) && !visited) {
+        transformedClasses += transform(symbols.getClass(id))
+      } else if ((symbols.typeDefs contains id) && !visited) {
+        transformedTypeDefs += transform(symbols.getTypeDef(id))
+      }
+
+      nid
+    }
+
+    final def classes: Seq[ClassDef] = transformedClasses.toSeq
+    final def typeDefs: Seq[TypeDef] = transformedTypeDefs.toSeq
+  }
+
   def apply(cd: ClassDef): ClassDef = {
     val transformer = new RegisteringTransformer
     transformer.registerId(cd.id)
     transformer.transform(cd)
+  }
+
+  def apply(td: TypeDef): TypeDef = {
+    val transformer = new RegisteringTransformer
+    transformer.registerId(td.id)
+    transformer.transform(td)
+  }
+
+  override def apply(syms: Symbols): Symbols = {
+    val transformer = new XlangIdTransformer(syms)
+    val newClasses = syms.classes.values.toSeq.sortBy(_.id.name).map(transformer.transform)
+    val newTypeDefs = syms.typeDefs.values.toSeq.sortBy(_.id.name).map(transformer.transform)
+    super.apply(syms).withClasses(newClasses).withTypeDefs(newTypeDefs)
+  }
+
+  override def apply(syms: Symbols, id: Identifier): (Symbols, Identifier) = {
+    val transformer = new XlangIdTransformer(syms)
+    val newIdentifier = transformer.transform(id)
+    val newSyms = NoSymbols
+      .withFunctions(transformer.functions)
+      .withSorts(transformer.sorts)
+      .withClasses(transformer.classes)
+      .withTypeDefs(transformer.typeDefs)
+
+    (newSyms, newIdentifier)
   }
 }
 

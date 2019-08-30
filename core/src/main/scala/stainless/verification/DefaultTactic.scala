@@ -31,10 +31,14 @@ trait DefaultTactic extends Tactic {
           vcs
         }).flatten
 
+      case p: Passes =>
+        Seq()
+
       case _ =>
         val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
         val body = andJoin(es.filterNot {
           case Annotated(e, flags) => flags contains Unchecked
+          case p: Passes => true
           case _ => false
         }).copiedFrom(b)
 
@@ -45,15 +49,20 @@ trait DefaultTactic extends Tactic {
         }
     }
 
-    rec(e, Path.empty)
+    val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+    val examples = es collect { case p: Passes => p.asConstraint }
+    val examplesPost = if (examples.nonEmpty) Seq(Let(res, e, andJoin(examples)).copiedFrom(e)) else Seq()
+
+    rec(e, Path.empty) ++ examplesPost
   }
 
   def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
-      case (Some(post), Some(body)) =>
+      case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.contains(Unchecked) =>
         getPostconditions(body, post).map { vc =>
-          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, VCKind.Postcondition, false).setPos(fd)
+          val vcKind = if (fd.flags.exists(_.name == "law")) VCKind.Law else VCKind.Postcondition
+          VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(vc)
         }
       case _ => Nil
     }
@@ -103,17 +112,7 @@ trait DefaultTactic extends Tactic {
 
       case (a @ Assert(cond, optErr, _), path) =>
         val condition = path implies cond
-        val kind = optErr.map { err =>
-          if (err.startsWith("Array ")) VCKind.ArrayUsage
-          else if (err.startsWith("Map ")) VCKind.MapUsage
-          else if (err.endsWith("Overflow")) VCKind.Overflow
-          else if (err.startsWith("Shift")) VCKind.Shift
-          else if (err.startsWith("Division ")) VCKind.DivisionByZero
-          else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
-          else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
-          else if (err.startsWith("Cast ")) VCKind.CastError
-          else VCKind.AssertErr(err)
-        }.getOrElse(VCKind.Assert)
+        val kind = VCKind.fromErr(optErr)
         VC(condition, id, kind, false).setPos(a)
 
       case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>

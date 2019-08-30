@@ -1,12 +1,17 @@
 # Stainless
 /bin/stainless-*
 .stainless-cache/
+.stainless.conf
+stainless.conf
 
 # Vim
 *.swp
 
 # emacs
 *~
+
+# Ripgrep
+.rgignore
 
 # ensime
 .ensime
@@ -70,9 +75,6 @@ out-classes
 /libz3java.dll
 /libz3java.lib
 
-# Visual Studio Code
-.vscode
-
 # Coq files
 *#
 .#*
@@ -82,3 +84,10 @@ verif*.v
 *.vo
 *.v.d
 .lia.cache
+
+# metals and VSCode
+.vscode
+.metals
+
+# ripgrep
+.rgignore

@@ -7,12 +7,47 @@ trait Printer extends inox.ast.Printer {
   protected val trees: Trees
   import trees._
 
+  protected object Operator {
+    def unapply(id: Identifier): Option[String] = {
+      if (id.name.forall(!_.isLetterOrDigit))
+        Some(id.name)
+      else
+        None
+    }
+  }
+
+  protected object FunctionOperator {
+    def unapply(expr: Expr): Option[(String, Expr, Expr)] = expr match {
+      case FunctionInvocation(Operator(name), Nil, Seq(a, b)) => Some((name, a, b))
+      case _ => None
+    }
+  }
+
+  override protected def precedence(ex: Expr): Int = ex match {
+    case (FunctionOperator("|", _, _))                                 => 1
+    case (FunctionOperator("^", _, _))                                 => 2
+    case (FunctionOperator("&", _, _))                                 => 3
+    case (FunctionOperator("<", _, _) | FunctionOperator(">", _, _))   => 4
+    case (FunctionOperator("<<", _, _) | FunctionOperator(">>", _, _)) => 4
+    case (FunctionOperator("<=", _, _) | FunctionOperator(">=", _, _)) => 4
+    case (FunctionOperator("==> ", _, _))                              => 5
+    case (FunctionOperator("+", _, _) | FunctionOperator("-", _, _))   => 7
+    case (FunctionOperator("*", _, _) | FunctionOperator("/", _, _))   => 8
+    case (FunctionOperator("%", _, _))                                 => 8
+    case _ => super.precedence(ex)
+  }
+
   override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
     case NoTree(tpe) =>
       p"<empty tree>[$tpe]"
 
     case Error(tpe, desc) =>
       p"""error[$tpe]("$desc")"""
+
+    case FunctionOperator(id, a, b) =>
+      optP {
+        p"$a $id $b"
+      }
 
     case Require(pred, body) =>
       p"""|require($pred)
@@ -70,8 +105,28 @@ trait Printer extends inox.ast.Printer {
       printNameWithPath(id)
       p"(${nary(subs)})"
 
+    case Passes(in, out, cases) =>
+      optP {
+        p"""|($in, $out) passes {
+            |  ${nary(cases, "\n")}
+            |}"""
+      }
+
     case ArrayType(base) =>
       p"Array[$base]"
+
+    case RecursiveType(id, tps, size) =>
+      p"${ADTType(id, tps)}($size)"
+
+    case ValueType(tpe) =>
+      p"Top"
+
+    case AnnotatedType(tpe, flags) =>
+      p"$tpe"
+      for (f <- flags) p" @${f.asString(ctx.opts)}"
+
+    case SizedADT(id, tps, args, size) =>
+      p"$id${nary(tps, ", ", "[", "]")}($size)($args)"
 
     case FiniteArray(elems, base) =>
       if (elems.isEmpty) {
@@ -96,11 +151,16 @@ trait Printer extends inox.ast.Printer {
     case ArrayLength(array) =>
       p"$array.length"
 
+    case Decreases(rank, body) =>
+      p"""|decreases($rank)
+          |$body"""
+
     case _ => super.ppBody(tree)
   }
 
   override protected def isSimpleExpr(e: Expr): Boolean = e match {
     case (_: Assert) | (_: Require) => false
+    case (_: Decreases) => false
     case _ => super.isSimpleExpr(e)
   }
 
@@ -108,13 +168,16 @@ trait Printer extends inox.ast.Printer {
     case Assert(_, _, bd) => Seq(bd)
     case Require(_, bd) => Seq(bd)
     case Ensuring(bd, pred) => Seq(bd, pred)
+    case Decreases(_, bd) => Seq(bd)
     case MatchCase(_, _, rhs) => Seq(rhs)
     case _ => super.noBracesSub(e)
   }
 
   override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
     case (_, Some(_: Ensuring | _: Require | _: Assert | _: MatchExpr | _: MatchCase)) => false
+    case (_, Some(_: Decreases)) => false
     case (_: Pattern, _) => false
+    case (e1: Expr, Some(e2 @ FunctionOperator(_, _, _))) if precedence(e2) > precedence(e1) => true
     case _ => super.requiresParentheses(ex, within)
   }
 

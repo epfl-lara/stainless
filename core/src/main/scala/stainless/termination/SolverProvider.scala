@@ -3,6 +3,8 @@
 package stainless
 package termination
 
+import inox.transformers._
+
 import scala.concurrent.duration._
 
 import scala.language.existentials
@@ -15,13 +17,13 @@ trait SolverProvider { self =>
   import program.trees._
   import program.symbols._
 
-  val encoder: ast.TreeTransformer {
+  val encoder: TreeTransformer {
     val s: trees.type
     val t: stainless.trees.type
   }
 
-  private var transformers: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type } =
-    new inox.ast.SymbolTransformer {
+  private var transformers: SymbolTransformer { val s: trees.type; val t: trees.type } =
+    new SymbolTransformer {
       val s: trees.type = trees
       val t: trees.type = trees
 
@@ -29,7 +31,7 @@ trait SolverProvider { self =>
     }
 
   private[termination] def registerTransformer(
-    transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }
+    transformer: SymbolTransformer { val s: trees.type; val t: trees.type }
   ): Unit = transformers = transformers andThen transformer
 
   private implicit val semanticsProvider: inox.SemanticsProvider { val trees: checker.program.trees.type } =
@@ -37,23 +39,23 @@ trait SolverProvider { self =>
 
 
   private val cache = new inox.utils.LruCache[
-    inox.ast.SymbolTransformer,
+    SymbolTransformer,
     inox.solvers.SolverFactory { val program: Program { val trees: checker.program.trees.type } }
   ](5)
 
   private[termination] def clearSolvers(): Unit = cache.clear()
 
-  private def solverFactory(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) =
+  private def solverFactory(transformer: SymbolTransformer { val s: trees.type; val t: trees.type }) =
     cache.cached(transformer, timers.termination.encoding.run {
-      val transformEncoder = inox.ast.ProgramEncoder(checker.program)(transformer)
+      val transformEncoder = ProgramEncoder(checker.program)(transformer)
       val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
 
       object programEncoder extends {
         val sourceProgram: p.type = p
         val t: stainless.trees.type = stainless.trees
-      } with inox.ast.ProgramEncoder {
+      } with ProgramEncoder {
         val encoder = self.encoder
-        object decoder extends ast.TreeTransformer {
+        object decoder extends TreeTransformer {
           val s: stainless.trees.type = stainless.trees
           val t: trees.type = trees
         }
@@ -72,7 +74,7 @@ trait SolverProvider { self =>
         .withTimeout(timeout)
     })
 
-  private def solverAPI(transformer: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }) = {
+  private def solverAPI(transformer: SymbolTransformer { val s: trees.type; val t: trees.type }) = {
     inox.solvers.SimpleSolverAPI(solverFactory(transformer))
   }
 
@@ -80,7 +82,7 @@ trait SolverProvider { self =>
     val program: inox.Program { val trees: checker.program.trees.type }
   } = solverAPI(transformers)
 
-  def getAPI(t: inox.ast.SymbolTransformer { val s: trees.type; val t: trees.type }): inox.solvers.SimpleSolverAPI {
+  def getAPI(t: SymbolTransformer { val s: trees.type; val t: trees.type }): inox.solvers.SimpleSolverAPI {
     val program: inox.Program { val trees: checker.program.trees.type }
   } = solverAPI(transformers andThen t)
 }

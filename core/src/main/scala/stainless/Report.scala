@@ -55,7 +55,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
   final def emit(ctx: inox.Context): Unit = {
     val compact = isCompactModeOn(ctx)
-    val table = emitTable(!compact)
+    val table = emitTable(!compact)(ctx)
     ctx.reporter.info(table.render)
   }
 
@@ -72,28 +72,37 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   protected[stainless] def annotatedRows: Seq[RecordRow]
 
   /** Filter, sort & process rows. */
-  private def processRows(full: Boolean): Seq[Row] = {
+  private def processRows(full: Boolean)(implicit ctx: inox.Context): Seq[Row] = {
+    val printUniqueName = ctx.options.findOptionOrDefault(inox.ast.optPrintUniqueIds)
+
     // @nv: scala suddently came out with a divering implicit resolution here so we have no other choice
     //      than to manually provide a correct odering to the sort below.
     val ordering = Ordering.Tuple2(implicitly[Ordering[Identifier]], implicitly[Ordering[inox.utils.Position]])
+
     for {
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
-      contents = (id.name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
+      name = if (printUniqueName) id.uniqueName else id.name
+      contents = (name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
-  private def withColor(str: String, level: Level): String = withColor(str, colorOf(level))
-  private def withColor(str: String, color: String): String = color + str + Console.RESET
+  private def withColor(str: String, level: Level)(implicit ctx: inox.Context): String =
+    withColor(str, colorOf(level))
+
+  private def withColor(str: String, color: String)(implicit ctx: inox.Context): String =
+    if (ctx.options.findOptionOrDefault(optNoColors)) str
+    else s"$color$str${Console.RESET}"
+
   private def colorOf(level: Level): String = level match {
-    case Level.Normal => Console.GREEN
+    case Level.Normal  => Console.GREEN
     case Level.Warning => Console.YELLOW
-    case Level.Error => Console.RED
+    case Level.Error   => Console.RED
   }
 
   // Emit the report table, with all VCs when full is true, otherwise only with unknown/invalid VCs.
-  private def emitTable(full: Boolean): Table = {
-    val rows = processRows(full)
+  private def emitTable(full: Boolean)(implicit ctx: inox.Context): Table = {
+    val rows  = processRows(full)
     val width = if (rows.isEmpty) 1 else rows.head.cellsSize // all rows must have the same size
     val color = if (isSuccess) Console.GREEN else Console.RED
 

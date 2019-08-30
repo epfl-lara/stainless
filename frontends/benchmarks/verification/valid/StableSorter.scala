@@ -76,8 +76,7 @@ object StableSorter {
   }.holds
 
   // To prove that insertion sort is stable, we first show that insertion is stable:
-  @induct
-  def insertStableProp[T](t: T, n: BigInt, l: List[(T, BigInt)], key: T => BigInt): Boolean = {
+  def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt): Boolean = {
     require(isStableSorted(l, key) && l2AtLeast(l, n))
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val res = insert((t, n), l, keyAnn)

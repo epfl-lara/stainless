@@ -22,7 +22,7 @@ object FunctionCaching {
     multipleCalls(trash)
     val res2 = fun(x)
     res1 == res2
-  } holds
+  }.holds
 
 
   def multipleCalls(args: List[BigInt])(implicit funCache: FunCache): Unit = args match {

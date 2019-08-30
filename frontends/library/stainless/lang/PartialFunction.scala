@@ -3,13 +3,16 @@
 package stainless
 package lang
 
+import scala.language.implicitConversions
+
 import annotation._
+import stainless.lang.StaticChecks._
 
 /**
- * Describe a partial function with precondition [[pre]].
+ * Describe a partial function with precondition `pre`.
  *
  * Do not attempt to create it using the ~>'s companion object's apply method.
- * Instead, use [[PartialFunction.apply]] defined beflow. (Private constructor
+ * Instead, use `PartialFunction$.apply` defined below. (Private constructor
  * cannot be expressed in Stainless.)
  */
 @library
@@ -36,7 +39,7 @@ case class ~>>[A, B](private val f: A ~> B, post: B => Boolean) {
 object PartialFunction {
   /**
    * Construct an instance of ~> by extracting the precondition (if any) from
-   * the given lambda [[f]]. For example,
+   * the given lambda `f`. For example,
    *
    *   PartialFunction{ (x: A) => require(pre(x)); body(x) }
    *

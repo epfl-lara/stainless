@@ -7,8 +7,9 @@ trait Trees
   extends inox.ast.Trees
      with Definitions
      with Expressions
+     with Types
      with Constructors
-     with Extractors
+     with Deconstructors
      with TreeOps { self =>
 
   type Symbol = ast.Symbol

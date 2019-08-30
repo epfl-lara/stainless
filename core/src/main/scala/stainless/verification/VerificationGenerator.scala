@@ -42,15 +42,7 @@ object VerificationGenerator {
     object generator extends VerificationGenerator {
       val program: p.type = p
 
-      val defaultTactic = DefaultTactic(p, ctx)
-      val inductionTactic = InductionTactic(p, ctx)
-
-      protected def getTactic(fd: p.trees.FunDef) =
-        if (fd.flags exists (_.name == "induct")) {
-          inductionTactic
-        } else {
-          defaultTactic
-        }
+      protected def getTactic(fd: p.trees.FunDef) = DefaultTactic(p, ctx)
     }
 
     generator.generateVCs(funs)

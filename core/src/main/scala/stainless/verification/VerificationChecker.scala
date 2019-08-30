@@ -15,6 +15,7 @@ object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", true)
 
 object DebugSectionVerification extends inox.DebugSection("verification")
+object DebugSectionFullVC extends inox.DebugSection("full-vc")
 
 trait VerificationChecker { self =>
   val program: Program
@@ -51,9 +52,13 @@ trait VerificationChecker { self =>
 
   protected val factoryCache: mutable.Map[Options, TimeoutSolverFactory] = mutable.Map()
   protected def getFactory(opts: inox.Options = options): TimeoutSolverFactory = {
-    factoryCache.getOrElseUpdate(opts, opts.findOption(inox.optTimeout) match {
-      case Some(to) => createFactory(opts).withTimeout(to)
-      case None => createFactory(opts)
+    factoryCache.getOrElse(opts, {
+      val res = opts.findOption(inox.optTimeout) match {
+        case Some(to) => createFactory(opts).withTimeout(to)
+        case None => createFactory(opts)
+      }
+      factoryCache(opts) = res
+      res
     })
   }
 
@@ -89,8 +94,11 @@ trait VerificationChecker { self =>
     import MainHelpers._
     val results = Future.traverse(vcs)(vc => Future {
       if (stop) None else {
+        val simplifiedVC: VC = (vc.copy(
+          condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
+        ): VC).setPos(vc)
         val sf = getFactoryForVC(vc)
-        val res = checkVC(vc, sf)
+        val res = checkVC(simplifiedVC, vc, sf)
 
         val shouldStop = stopWhen(res)
         interruptManager.synchronized { // Make sure that we only interrupt the manager once.
@@ -175,28 +183,33 @@ trait VerificationChecker { self =>
     }
   }
 
-  private def  simplifyAssertions(expr: Expr): Expr = {
+  private def simplifyAssertions(expr: Expr): Expr = {
+    exprOps.postMap {
+      case Assert(_, _, e) => Some(e)
+      case Annotated(e, Seq(Unchecked)) => Some(e)
+      case _ => None
+    }(expr)
+  }
+
+  protected def prettify(expr: Expr): Expr = {
     def rec(expr: Expr): Expr = expr match {
-      case Annotated(e, Seq(Unchecked)) =>
-        exprOps.postMap {
-          case Assert(_, _, e) => Some(e)
-          case _ => None
-        } (e)
+      case Annotated(e, Seq(Unchecked)) => rec(e)
       case Operator(es, recons) => recons(es map rec)
     }
 
     rec(expr)
   }
 
-  protected def checkVC(vc: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
+  protected def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
     val s = sf.getNewSolver
 
     try {
-      val cond = simplifyLets(simplifyAssertions(vc.condition))
+      val cond = vc.condition
+
       reporter.synchronized {
-        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")
-        reporter.debug(cond.asString)
+        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
+        debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
       }
 
@@ -253,8 +266,11 @@ trait VerificationChecker { self =>
         case Failure(e) => reporter.internalError(e)
       }
 
+      val vcResultMsg = VCResultMessage(vc, vcres)
+      reporter.info(vcResultMsg)
+
       reporter.synchronized {
-        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd} @${vc.getPos}:")
+        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:")
 
         vcres.status match {
           case VCStatus.Valid =>
@@ -279,6 +295,26 @@ trait VerificationChecker { self =>
       vcres
     } finally {
       s.free()
+    }
+  }
+
+  protected def debugVC(simplifiedVC: VC, origVC: VC)(implicit debugSection: inox.DebugSection): Unit = {
+    import stainless.utils.StringUtils.indent
+
+    if (reporter.isDebugEnabled(debugSection)) {
+      if (!reporter.isDebugEnabled(DebugSectionFullVC)) {
+        reporter.debug(prettify(simplifiedVC.condition).asString)
+      } else {
+        reporter.whenDebug(DebugSectionFullVC) { debug =>
+          debug(s"")
+          debug(s" - Original VC:")
+          debug(indent(prettify(origVC.condition).asString, 3))
+          debug(s"")
+          debug(s" - Simplified VC:")
+          debug(indent(prettify(simplifiedVC.condition).asString, 3))
+          debug(s"")
+        }
+      }
     }
   }
 }

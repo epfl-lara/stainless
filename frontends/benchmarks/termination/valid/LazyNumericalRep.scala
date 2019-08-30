@@ -124,7 +124,7 @@ object LazyNumericalRep {
     (Val(nq), nsched)
   }
 
-  def Pay[T](q: NumStream, scheds: List[NumStream]): List[NumStream] = {
+  def Pay(q: NumStream, scheds: List[NumStream]): List[NumStream] = {
     scheds match {
       case c @ Cons(head, rest) =>
         head.get match {

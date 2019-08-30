@@ -174,7 +174,7 @@ class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
     def getType(implicit s: Symbols): Type = typ
 
     override def equals(o: Any) = o match {
-      case Var(`name`, `typ`) => true
+      case Var(nme, `typ`) => nme.dropWhile(_ == '~') == name
       case _ => false
     }
   }

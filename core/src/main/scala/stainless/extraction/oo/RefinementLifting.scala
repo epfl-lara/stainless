@@ -6,7 +6,15 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleClasses { self =>
+trait RefinementLifting
+  extends CachingPhase
+     with SimpleFunctions
+     with IdentityTypeDefs
+     with SimpleClasses
+     with SimplyCachedFunctions
+     with SimplyCachedSorts
+     with SimplyCachedClasses { self =>
+
   val s: Trees
   val t: Trees
 
@@ -52,19 +60,23 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
           Some(s.RefinementType(nvd, npred).copiedFrom(tpe))
         }
 
+      case ta: s.TypeApply if !ta.isAbstract =>
+        Some(ta.resolve)
+
       case _ => None
     } (tpe)
 
     def dropRefinements(tpe: s.Type): s.Type = liftRefinements(tpe) match {
-      case s.RefinementType(vd, _) => vd.tpe
+      case s.RefinementType(vd, _) => dropRefinements(vd.tpe)
       case _ => tpe
     }
 
     def parameterConds(vds: Seq[s.ValDef]): (Seq[s.ValDef], s.Expr) = {
       val (newParams, conds) = vds.map(vd => liftRefinements(vd.tpe) match {
         case s.RefinementType(vd2, pred) =>
-          val nvd = vd.copy(tpe = vd2.tpe).copiedFrom(vd)
-          (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), pred))
+          val (Seq(nvd), pred2) = parameterConds(Seq(vd.copy(tpe = vd2.tpe).copiedFrom(vd)))
+
+          (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), s.and(pred, pred2)))
         case _ =>
           (vd, s.BooleanLiteral(true).copiedFrom(vd))
       }).unzip
@@ -92,9 +104,31 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
 
         case s.RefinementType(vd, pred) =>
           transform(s.Assert(
-            s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred),
+            s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred)),
             Some("Cast error"),
             asInstOf(expr, vd.tpe).copiedFrom(e)
+          ).copiedFrom(e))
+
+        case _ => super.transform(e)
+      }
+
+      case s.ApplyLetRec(id, tparams, tpe, tps, args) => liftRefinements(tpe) match {
+        case s.RefinementType(vd, s.BooleanLiteral(true)) =>
+          val ftTpe = vd.tpe.asInstanceOf[s.FunctionType]
+          transform(s.ApplyLetRec(id, tparams, ftTpe, tps, args))
+
+        case s.RefinementType(vd, pred) =>
+          val params = args.zipWithIndex.map { case (arg, i) => s.ValDef.fresh(s"i$i", arg.getType) }
+          val subst = Map(
+            vd -> s.Lambda(
+              params,
+              s.ApplyLetRec(id, tparams, vd.tpe.asInstanceOf[s.FunctionType], tps, params.map(_.toVariable))
+            )
+          )
+          transform(s.Assert(
+            s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
+            Some("Inner refinement lifting"),
+            s.ApplyLetRec(id, tparams, vd.tpe.asInstanceOf[s.FunctionType], tps, args)
           ).copiedFrom(e))
 
         case _ => super.transform(e)
@@ -135,7 +169,8 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
           t.MatchCase(transform(newPat), optGuard map transform, transform(rhs)).copiedFrom(cse)
         }).copiedFrom(e)
 
-      case _ => super.transform(e)
+      case _ =>
+        super.transform(e)
     }
 
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
@@ -147,8 +182,8 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     val (newParams, cond) = context.parameterConds(fd.params)
     val optPre = cond match {
       case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd), pre).copiedFrom(pre))
-        case None => Some(s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(fd))
+        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
+        case None => Some(cond.copiedFrom(fd))
       }
       case _ => s.exprOps.preconditionOf(fd.fullBody)
     }
@@ -156,12 +191,11 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     val optPost = context.liftRefinements(fd.returnType) match {
       case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
         case Some(post @ s.Lambda(Seq(res), body)) =>
-          Some(s.Lambda(Seq(res), s.and(s.Annotated(
-            exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
-            Seq(s.Unchecked)
-          ).copiedFrom(fd), body).copiedFrom(body)).copiedFrom(post))
+          Some(s.Lambda(Seq(res), s.and(
+              exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
+              body).copiedFrom(body)).copiedFrom(post))
         case None =>
-          Some(s.Lambda(Seq(vd2), s.Annotated(pred, Seq(s.Unchecked)).copiedFrom(fd)).copiedFrom(fd))
+          Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }
       case _ => s.exprOps.postconditionOf(fd.fullBody)
     }
@@ -194,12 +228,11 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
     val optInv = if (cond == s.BooleanLiteral(true)) {
       None
     } else {
-      val uncheckedCond = s.Annotated(cond, Seq(s.Unchecked)).copiedFrom(sort)
       Some(sort.invariant match {
         case Some(fd) =>
           fd.copy(fullBody = s.and(
             s.typeOps.instantiateType(
-              s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), uncheckedCond),
+              s.exprOps.replaceFromSymbols(Map(v -> fd.params.head.toVariable), cond),
               (sort.typeArgs zip fd.typeArgs).toMap
             ),
             fd.fullBody
@@ -208,11 +241,11 @@ trait RefinementLifting extends CachingPhase with SimpleFunctions with SimpleCla
         case None =>
           import s.dsl._
           mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
-            case tparams => (
+            tparams => (
               Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
               s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>
                 s.typeOps.instantiateType(
-                  s.exprOps.replaceFromSymbols(Map(v -> thiss), uncheckedCond),
+                  s.exprOps.replaceFromSymbols(Map(v -> thiss), cond),
                   (sort.typeArgs zip tparams).toMap
                 )
               })

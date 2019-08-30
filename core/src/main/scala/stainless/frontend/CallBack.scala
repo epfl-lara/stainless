@@ -5,6 +5,14 @@ package frontend
 
 import extraction.xlang.{ trees => xt }
 
+// Always keep library objects marked by @keep(g) for some g in g1,...,gn
+object optKeep extends inox.OptionDef[Seq[String]] {
+  val name = "keep"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "g1,g2,..."
+}
+
 /**
  * Process the extracted units.
  *
@@ -27,7 +35,7 @@ import extraction.xlang.{ trees => xt }
  */
 trait CallBack {
   def beginExtractions(): Unit
-  def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef]): Unit
+  def apply(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef]): Unit
   def failed(): Unit
   def endExtractions(): Unit
 

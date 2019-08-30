@@ -15,10 +15,11 @@ object StainlessPlugin extends sbt.AutoPlugin {
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
 
   override def requires: Plugins = plugins.JvmPlugin
-  override def trigger: PluginTrigger = noTrigger // --> This plugin needs to be manually enabled
+  override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
 
   object autoImport {
     val stainlessVersion = settingKey[String]("The version of stainless to use")
+    val stainlessEnabled = settingKey[Boolean]("Enable stainless")
   }
 
   import autoImport._
@@ -56,23 +57,30 @@ object StainlessPlugin extends sbt.AutoPlugin {
   override lazy val projectSettings: Seq[Def.Setting[_]] = stainlessSettings
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
-    stainlessVersion := BuildInfo.stainlessVersion,
-    autoCompilerPlugins := true,
-    ivyConfigurations += StainlessLibSources,
+    stainlessVersion     := BuildInfo.stainlessVersion,
+    stainlessEnabled     := true,
+    autoCompilerPlugins  := true,
+    ivyConfigurations    += StainlessLibSources,
     libraryDependencies ++= stainlessModules.value,
+
     // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
     // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
-    resolvers += Resolver.bintrayRepo("epfl-lara", "maven")
+    resolvers ++= Seq(
+      Resolver.bintrayRepo("epfl-lara", "maven"),
+      Resolver.bintrayRepo("epfl-lara", "princess"),
+      Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
+      "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+    )
   ) ++
     inConfig(Compile)(stainlessConfigSettings) ++ // overrides settings that are scoped (by sbt) at the `Compile` configuration
     inConfig(Test)(stainlessConfigSettings) ++    // overrides settings that are scoped (by sbt) at the `Test` configuration
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    Seq(
+    if (stainlessEnabled.value) Seq(
       compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
       ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    )
+    ) else Seq.empty
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
@@ -90,16 +98,20 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
     val config = StainlessLibSources
     val sourceJars = fetchJars(
-      update.value,
+      updateClassifiers.value,
       config,
       artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
     )
+
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
-    if (sourceJars.length > 1)
+
+    if (sourceJars.length > 1) {
       log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
+    }
+
+    val destDir = stainlessLibraryLocation.value
 
     val additionalSourceDirectories = sourceJars map { jar =>
-      val destDir = stainlessLibraryLocation.value
       // Don't unjar every time
       if (!destDir.exists()) {
         // unjar the stainless-library-sources.jar into the `destDirectory`
@@ -109,7 +121,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
       }
       destDir.toPath
     }
-
 
     /** Collect all .scala files in the passed `folders`.*/
     @annotation.tailrec
@@ -134,8 +145,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     * Allows to fetch dependencies scoped to the passed configuration.
     */
   private def fetchJars(report: UpdateReport, config: Configuration, filter: Artifact => Boolean): Seq[File] = {
-    val toolReport = report.configuration(config.name) getOrElse
+    val toolReport = report.configuration(config.toConfigRef) getOrElse {
       sys.error(s"No ${config.name} configuration found. $reportBugText")
+    }
 
     for {
       m <- toolReport.modules
@@ -175,9 +187,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
         )
 
         // FIXME: Properly merge possibly duplicate scalac options
-        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.config.options
-        val updatedConfig = currentCompileInputs.config.copy(options = allScalacOptions)
-        currentCompileInputs.copy(config = updatedConfig)
+        val allScalacOptions = additionalScalacOptions ++ currentCompileInputs.options.scalacOptions
+        val newOptions = currentCompileInputs.options.withScalacOptions(allScalacOptions.toArray)
+        currentCompileInputs.withOptions(newOptions)
       }
     )
   }

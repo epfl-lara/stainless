@@ -8,9 +8,17 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait Definitions extends inox.ast.Definitions { self: Trees =>
 
+  case object Law extends Flag("law", Seq.empty)
+  // TODO: Move Erasable to Inox?
+  case object Erasable extends Flag("erasable", Seq.empty)
+  case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
+  case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
+  case object Private extends Flag("private", Seq.empty)
+  case object Final extends Flag("final", Seq.empty)
   case object Unchecked extends Flag("unchecked", Seq.empty)
+  case object Library extends Flag("library", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
@@ -18,9 +26,14 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("law", Seq()) => Law
+    case ("erasable", Seq()) => Erasable
+    case ("indexedAt", Seq(e)) => IndexedAt(e)
+    case ("ghost", Seq()) => Ghost
     case ("extern", Seq()) => Extern
     case ("opaque", Seq()) => Opaque
     case ("unchecked", Seq()) => Unchecked
+    case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
     case _ => Annotation(name, args)
   }
@@ -34,20 +47,37 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
        with CallGraph
        with DependencyGraph { self0: Symbols =>
 
+    private[this] val measureCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
+    @inline def getMeasure(fd: FunDef): Option[Expr] = getMeasure(fd.typed)
+    def getMeasure(tfd: TypedFunDef): Option[Expr] =
+      measureCache.getOrElseUpdate(tfd, exprOps.measureOf(tfd.fullBody))
+
     private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
     def getBody(tfd: TypedFunDef): Option[Expr] =
-      bodyCache.getOrElseUpdate(tfd, exprOps.withoutSpecs(tfd.fullBody))
+      bodyCache.getOrElse(tfd, {
+        val res = exprOps.withoutSpecs(tfd.fullBody)
+        bodyCache(tfd) = res
+        res
+      })
 
     private[this] val preCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
     @inline def getPrecondition(fd: FunDef): Option[Expr] = getPrecondition(fd.typed)
     def getPrecondition(tfd: TypedFunDef): Option[Expr] =
-      preCache.getOrElseUpdate(tfd, exprOps.preconditionOf(tfd.fullBody))
+      preCache.getOrElse(tfd, {
+        val res = exprOps.preconditionOf(tfd.fullBody)
+        preCache(tfd) = res
+        res
+      })
 
     private[this] val postCache: MutableMap[TypedFunDef, Option[Lambda]] = MutableMap.empty
     @inline def getPostcondition(fd: FunDef): Option[Lambda] = getPostcondition(fd.typed)
     def getPostcondition(tfd: TypedFunDef): Option[Lambda] =
-      postCache.getOrElseUpdate(tfd, exprOps.postconditionOf(tfd.fullBody))
+      postCache.getOrElse(tfd, {
+        val res = exprOps.postconditionOf(tfd.fullBody)
+        postCache(tfd) = res
+        res
+      })
 
     protected class Lookup {
       protected def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
@@ -55,11 +85,11 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
         case _ => false
       }).map(_._2)
 
-      def get[T <: Definition : ClassTag](name: String): Option[T] = ({
+      def get[T <: Definition : ClassTag](name: String): Option[T] = {
         if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, sorts)
         else if (classTag[FunDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, functions)
         else None
-      }).asInstanceOf[Option[T]]
+      }.asInstanceOf[Option[T]]
 
       def apply[T <: Definition : ClassTag](name: String): T = get[T](name).getOrElse {
         if (classTag[ADTSort].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) {
@@ -79,6 +109,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(fd)
 
     @inline def postcondition(implicit s: Symbols): Option[Lambda] = s.getPostcondition(fd)
     @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
@@ -107,6 +138,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     @inline def precOrTrue: Expr = precondition.getOrElse(BooleanLiteral(true))
 
     @inline def body: Option[Expr] = tfd.symbols.getBody(tfd)
+    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
 
     @inline def postcondition: Option[Lambda] = tfd.symbols.getPostcondition(tfd)
     @inline def hasPostcondition: Boolean = postcondition.isDefined

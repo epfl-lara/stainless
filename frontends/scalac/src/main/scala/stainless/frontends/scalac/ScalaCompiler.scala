@@ -17,20 +17,13 @@ object SymbolMapping {
 
   def empty = new SymbolMapping()
 
-  /**
-   * To avoid suffering too much from changes in symbols' id, we generate a
-   * more stable kind to disambiguate symbols. This allows --watch to not be
-   * fooled by the insertion/deletion of symbols (e.g. new top level classes)
-   * but unfortunately not methods because overloading/generics makes things
-   * ambiguous and hard to unify.
-   */
   private def kind(sym: Global#Symbol): String = {
     if (sym.isPackageClass) "0"
     else if (sym.isModule) "1"
     else if (sym.isModuleClass) "2"
-    else if (sym.isClass) "3"
+    else if (sym.isClass) "c" + sym.id
     else if (sym.isMethod) "m" + sym.id
-    else if (sym.isType) "5"
+    else if (sym.isType) "tp" + sym.id
     else if (sym.isTerm) "t" + sym.id // Many things are terms... Fallback to its id
     else ???
   }
@@ -40,20 +33,32 @@ class SymbolMapping {
   import SymbolMapping.getPath
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
-  def fetch(sym: Global#Symbol): SymbolIdentifier = s2i.getOrElseUpdate(getPath(sym), {
-    val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-    val symbol = s2s.getOrElseUpdate(top, {
-      val name = sym.fullName.toString.trim
-      ast.Symbol(if (name endsWith "$") name.init else name)
-    })
+  def fetch(sym: Global#Symbol): SymbolIdentifier = {
+    val path = getPath(sym)
+    s2i.getOrElse(path, {
+      val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
+      val symbol = s2s.getOrElse(top, {
+        val name = sym.fullNameAsName('.').decode.trim
+        val res = ast.Symbol(if (name endsWith "$") name.init else name)
+        s2s(top) = res
+        res
+      })
 
-    SymbolIdentifier(symbol)
-  })
+      val res = SymbolIdentifier(symbol)
+      s2i(path) = res
+      res
+    })
+  }
 
   /** Get the identifier for the class invariant of [[sym]]. */
-  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = invs.getOrElseUpdate(fetch(sym), {
-    SymbolIdentifier(invSymbol)
-  })
+  def fetchInvIdForClass(sym: Global#Symbol): SymbolIdentifier = {
+    val id = fetch(sym)
+    invs.getOrElse(id, {
+      val res = SymbolIdentifier(invSymbol)
+      invs(id) = res
+      res
+    })
+  }
 
   /** Mapping from [[Global#Symbol]] (or rather: its path) and the stainless identifier. */
   private val s2i = MutableMap[String, SymbolIdentifier]()
@@ -72,12 +77,16 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack
      with Positions {
 
   object stainlessExtraction extends {
-    val global: ScalaCompiler.this.type = ScalaCompiler.this
-    val runsAfter = List[String]("typer")
-    val runsRightAfter = None
-    val ctx = ScalaCompiler.this.ctx
-    val callback = ScalaCompiler.this.callback
-    val cache = ScalaCompiler.this.cache
+    override val global: ScalaCompiler.this.type = ScalaCompiler.this
+
+    override val phaseName      = "stainless"
+    override val runsAfter      = List("typer")
+    override val runsRightAfter = None
+    override val runsBefore     = List("patmat")
+
+    override val ctx      = ScalaCompiler.this.ctx
+    override val callback = ScalaCompiler.this.callback
+    override val cache    = ScalaCompiler.this.cache
   } with StainlessExtraction
 
   override protected def computeInternalPhases() : Unit = {
@@ -159,7 +168,9 @@ object ScalaCompiler {
     } getOrElse { ctx.reporter.fatalError("No Scala library found.") }
 
     settings.classpath.value = scalaLib
-    settings.usejavacp.value = false
+    settings.usejavacp.value = BuildInfo.useJavaClassPath
+    settings.feature.value = true
+    settings.unchecked.value = true
     settings.deprecation.value = true
     settings.Yrangepos.value = true
 

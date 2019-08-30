@@ -28,7 +28,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = Await.result(run.apply(funs, exProgram.symbols), Duration.Inf)
+      val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
@@ -44,7 +44,7 @@ class LibrarySuite extends FunSpec with InputUtils {
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filterNot(_.flags contains Unchecked).map(_.id).toSeq
-      val analysis = Await.result(run.apply(funs, exProgram.symbols), Duration.Inf)
+      val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
 
       assert(
         analysis.results forall { case (_, (g, _)) => g.isGuaranteed },

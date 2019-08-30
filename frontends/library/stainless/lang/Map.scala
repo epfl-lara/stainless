@@ -1,7 +1,11 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless.lang
+
+import scala.language.implicitConversions
+
 import stainless.annotation._
+import stainless.lang.StaticChecks._
 
 object Map {
   @library @inline

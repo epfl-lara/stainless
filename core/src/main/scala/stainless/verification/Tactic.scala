@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import scala.collection.mutable.ListBuffer
+
 trait Tactic {
   val program: Program
   val context: inox.Context
@@ -16,20 +18,17 @@ trait Tactic {
     verification.VC(cond, id, kind, satisfiability)
 
   protected def collectForConditions[T](pf: PartialFunction[(Expr, Path),T])(e: Expr): Seq[T] = {
-    new transformers.CollectorWithPC {
-      val trees: program.trees.type = program.trees
-      val symbols: program.symbols.type = program.symbols
-      type Result = T
+    val results: ListBuffer[T] = new ListBuffer
+    val lifted = pf.lift
 
-      private val lifted = pf.lift
+    transformWithPC(e, true /* recurse into types */)((e, path, op) => e match {
+      case Annotated(_, flags) if flags contains Unchecked => e
+      case _ =>
+        lifted(e, path).foreach(results += _)
+        op.sup(e, path)
+    })
 
-      protected def step(e: Expr, env: Env): List[Result] = lifted(e, env).toList
-
-      override protected def rec(e: Expr, env: Env): Expr = e match {
-        case Annotated(_, flags) if flags contains Unchecked => e
-        case _ => super.rec(e, env)
-      }
-    }.collect(e)
+    results.toList
   }
 
   def generateVCs(id: Identifier): Seq[VC] = {

@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object Main {
+object OldInPre {
   def f(x: Int): Int = {
     require(old(x) == x)
     x

@@ -15,7 +15,7 @@ object MutableField {
 
     def extract(): BigInt = {
       c.v
-    } ensuring(_ >= 0)    
+    } ensuring(_ >= 0)
   }
 
   def theorem() = { 

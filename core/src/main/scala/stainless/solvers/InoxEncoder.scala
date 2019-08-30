@@ -3,27 +3,27 @@
 package stainless
 package solvers
 
-import inox.ast._
+import inox.transformers._
 
 trait InoxEncoder extends ProgramEncoder {
   val sourceProgram: Program
   val context: inox.Context
   val t: inox.trees.type = inox.trees
 
-  protected implicit val semantics: sourceProgram.Semantics
+  import sourceProgram.trees._
+  import sourceProgram.symbols._
+
+  protected implicit val semantics: Semantics
 
   import context._
 
+  private[this] def keepFlag(flag: Flag): Boolean = flag match {
+    case Unchecked | Library | Synthetic | PartialEval | Extern | Opaque | Private | Final | Law | Ghost | Erasable => false
+    case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) => false
+    case _ => true
+  }
+
   override protected def encodedProgram: inox.Program { val trees: t.type } = {
-    import sourceProgram.trees._
-    import sourceProgram.symbols._
-
-    def keepFlag(flag: Flag): Boolean = flag match {
-      case Unchecked | Synthetic | PartialEval | Extern | Opaque => false
-      case Derived(_) | IsField(_) | IsUnapply(_, _) => false
-      case _ => true
-    }
-
     inox.InoxProgram(t.NoSymbols
       .withSorts(sourceProgram.symbols.sorts.values.toSeq
         .map(sort => sort.copy(flags = sort.flags.filter(keepFlag)))
@@ -74,6 +74,9 @@ trait InoxEncoder extends ProgramEncoder {
       case m: s.MatchExpr =>
         transform(matchToIfThenElse(m))
 
+      case p: s.Passes =>
+        transform(matchToIfThenElse(p.asConstraint))
+
       case s.NoTree(tpe) =>
         t.Choose(
           t.ValDef(FreshIdentifier("empty", true), transform(tpe)).copiedFrom(e),
@@ -112,6 +115,9 @@ trait InoxEncoder extends ProgramEncoder {
         t.Let(vd, transform(body), t.Assume(transform(postWithAssumes), vd.toVariable).copiedFrom(e)).copiedFrom(e)
 
       case s.Assert(pred, error, body) =>
+        transform(body)
+
+      case s.Decreases(measure, body) =>
         transform(body)
 
       case s.Annotated(body, _) => transform(body)
@@ -159,17 +165,26 @@ trait InoxEncoder extends ProgramEncoder {
         val s.FunctionType(from, to) = caller.getType
         t.Application(transform(caller).copiedFrom(e), args map transform).copiedFrom(e)
 
+      case s.SizedADT(sort, tps, args, size) => transform(s.ADT(sort, tps, args))
+
       case _ => super.transform(e)
     }
 
     override def transform(tpe: s.Type): t.Type = tpe match {
       case s.ArrayType(base) =>
         t.ADTType(arrayID, Seq(transform(base))).copiedFrom(tpe)
+
+      case s.RecursiveType(sort, tps, size) => transform(s.ADTType(sort, tps))
+
+      case s.ValueType(tpe) => transform(tpe)
+
+      case s.AnnotatedType(tpe, _) => transform(tpe)
+
       case _ => super.transform(tpe)
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(flags = vd.flags.filterNot(_ == s.Unchecked)).copiedFrom(vd))
+      super.transform(vd.copy(flags = vd.flags.filter(keepFlag)).copiedFrom(vd))
     }
   }
 
@@ -194,7 +209,7 @@ trait InoxEncoder extends ProgramEncoder {
         Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
       ) if size <= 10 =>
         val elemsMap = elems.toMap
-        t.FiniteArray((0 until size).toSeq.map {
+        t.FiniteArray((0 until size).map {
           i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
         }, transform(base)).copiedFrom(e)
 

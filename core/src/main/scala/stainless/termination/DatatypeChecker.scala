@@ -12,7 +12,7 @@ trait DatatypeChecker {
   import program.trees._
   import program.symbols._
 
-  private class DependencyFinder(deps: MutableSet[Identifier]) extends TreeTraverser {
+  private class DependencyFinder(deps: MutableSet[Identifier]) extends SelfTreeTraverser {
     override def traverse(e: Expr): Unit = e match {
       case FunctionInvocation(id, _, _) =>
         deps += id
