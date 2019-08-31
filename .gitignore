@@ -80,10 +80,12 @@ out-classes
 .#*
 *.aux
 *.glob
-verif*.v
 *.vo
 *.v.d
+verif*.v
 .lia.cache
+.nia.cache
+.coqdeps.d
 
 # metals and VSCode
 .vscode
