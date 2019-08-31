@@ -59,7 +59,8 @@ trait CoqEncoder {
         //non guarded matches without sub patterns
         val unguardedADTs: Seq[Identifier] =
           cases collect {
-            case MatchCase(ADTPattern(_, id, _, subPatterns), guard, _) if subPatterns forall freePatterns => id
+            case MatchCase(ADTPattern(_, id, _, subPatterns), guard, _)
+              if subPatterns forall freePatterns => id
           }
         cases.forall {case MatchCase(_,g,_) => g.isEmpty} &&
           (ctorsIds forall (unguardedADTs contains _))
@@ -82,7 +83,7 @@ trait CoqEncoder {
         transformType(t.getType),
         CoqLambda(coqUnused, transformTree(thenn)),
         CoqLambda(coqUnused, transformTree(elze))
-        )
+      )
     case Variable(id,tpe,flags) =>
       ignoreFlags(t.toString, flags)
       makeFresh(id)
@@ -208,7 +209,10 @@ trait CoqEncoder {
 
   // transform patterns that appear in match cases
   def transformPattern(p: Pattern): CoqPattern = p match {
-    case a@ADTPattern(_, id, _, subPatterns) =>
+    case a@ADTPattern(binder, id, _, subPatterns) =>
+      for (bind <- binder) {
+        ctx.reporter.warning(s"Binder $bind in pattern $a is ignored.")
+      }
       val unusedTypeParameters = (1 to getTParams(constructors(id)).size).map(_ => VariablePattern(None))
       InductiveTypePattern(constructorIdentifier(id), unusedTypeParameters ++ subPatterns.map(transformPattern))
     case WildcardPattern(None) => VariablePattern(None)
@@ -233,14 +237,13 @@ trait CoqEncoder {
       a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
       a.constructors.map(c => makeCase(a, c))
     ) $
-    (if (a.constructors.size > 1)
+    (if (a.constructors.size > 1) {
       buildRecognizers(a) $
       buildExistsCreators(a) $
       buildSubTypes(a) $
       buildAdtTactic(a)
-    else
-      NoCommand
-    ) $
+    } else
+      NoCommand) $
     buildAccessorsForChildren(a)
   }
 
@@ -255,7 +258,7 @@ trait CoqEncoder {
     val element = rawIdentifier("src")
     val tparams = getTParams(constructor).map(t => CoqIdentifier(t.id))
     val extraCase =
-      if (root.id.name != constructor.id.name) {
+      if (root.constructors.size > 1) {
         Some(CoqCase(VariablePattern(None), falseBoolean))
       }
       else
@@ -277,7 +280,7 @@ trait CoqEncoder {
         )) ++ extraCase
       )
     ) $
-    RawCommand(s"Hint Unfold  ${recognizer(constructor.id).coqString}: recognizers. \n")
+    RawCommand(s"Hint Unfold  ${recognizer(constructor.id).coqString}: recognizers.\n")
   }
 
   def buildExistsCreators(a: ADTSort): CoqCommand =
@@ -308,29 +311,23 @@ trait CoqEncoder {
 
   def buildSubTypes(a: ADTSort): CoqCommand =
     manyCommands(a.constructors.map(c => buildSubType(a, c)))
-    // case a: st.ADTSort =>
-    // case a: st.ADTConstructor =>
-    //   buildSubType(a,a)
 
-
-  def buildSubType(root: ADTSort, constructor: ADTConstructor): CoqCommand = constructor match {
-    case a: st.ADTConstructor =>
-      val ttparams = root.tparams.map(p => (CoqIdentifier(p.id), TypeSort))
-      val tparams = root.tparams.map(t => CoqIdentifier(t.id))
-      val element = rawIdentifier("src")
-      // println(a.invariant)
-      NormalDefinition(
-        refinedIdentifier(constructor.id),
-        ttparams,
-        TypeSort,
-        Refinement(
-          element,
-          CoqApplication(makeFresh(root.id), tparams),
-          CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
-        )
-      ) $
-      RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements. \n")
-    case _ => NoCommand
+  def buildSubType(root: ADTSort, constructor: ADTConstructor): CoqCommand = {
+    val ttparams = root.tparams.map(p => (CoqIdentifier(p.id), TypeSort))
+    val tparams = root.tparams.map(t => CoqIdentifier(t.id))
+    val element = rawIdentifier("src")
+    // println(a.invariant)
+    NormalDefinition(
+      refinedIdentifier(constructor.id),
+      ttparams,
+      TypeSort,
+      Refinement(
+        element,
+        CoqApplication(makeFresh(root.id), tparams),
+        CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
+      )
+    ) $
+    RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements.\n")
   }
 
   def buildAccessorsForChildren(a: ADTSort): CoqCommand =
@@ -346,7 +343,7 @@ trait CoqEncoder {
   def buildAccessor(id: Identifier, tpe: Type, i: Int, n: Int, root: ADTSort, constructor: ADTConstructor): CoqCommand = {
     val element = rawIdentifier("src")
     val extraCase =
-      if (root.id.name != constructor.id.name)
+      if (root.constructors.size > 1)
         Some(CoqCase(VariablePattern(None), deriveContradiction))
       else
         None
@@ -354,7 +351,7 @@ trait CoqEncoder {
     val refid = if (root.constructors.size > 1)
                     refinedIdentifier(constructor.id)
                 else
-                    CoqIdentifier (constructor.id)
+                    CoqIdentifier (root.id)
     NormalDefinition(
       makeFresh(id),
         tparams ++
@@ -493,7 +490,7 @@ trait CoqEncoder {
 
         val argDefs: Seq[CoqCommand] = dependentParams.toSeq map { case (x, body) =>
           NormalDefinition(dependentParamNames(x), dependsOn(x) map(y => (y, fullType(y))), typeSort, body) $
-          RawCommand(s"Hint Unfold ${dependentParamNames(x).coqString}.\n\n")
+          RawCommand(s"Hint Unfold ${dependentParamNames(x).coqString}: core.\n\n")
         }
 
         val oldRewriteTactic = rewriteTactic
@@ -521,22 +518,16 @@ trait CoqEncoder {
           ))
 
         SeparatorComment(s"Start of ${fd.id.name}") $
-        // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
-        (if (admitObligations)
-          RawCommand(s"Obligation Tactic:=${idtac.coqString}.")
-        else
-          NoCommand) $
+        RawCommand(s"Obligation Tactic := ${idtac.coqString}.") $
         manyCommands(argDefs) $
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
                     fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
-        RawCommand(s"\nHint Unfold ${funName.coqString}_comp_proj.") $
         (if (admitObligations)
           RawCommand("\nAdmit Obligations.")
         else
           RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).")
         ) $
-        RawCommand("Obligation Tactic := idtac.\n") $
         RawCommand("Fail Next Obligation.\n") $
         CoqMatchTactic(phaseA, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget)),
@@ -550,14 +541,11 @@ trait CoqEncoder {
         )) $
         RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.\n") $
         updateObligationTactic() $
-        // RawCommand(s"""Print "Verified ${fd.id.name}...".""") $
         SeparatorComment(s"End of ${fd.id.name}")
       } else {
         SeparatorComment(s"Start of ${fd.id.name}") $
-        // RawCommand(s"""Print "Verifying ${fd.id.name}...".""") $
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
         RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") $
-        // RawCommand(s"""Print "Verified ${fd.id.name}...".""") $
         SeparatorComment(s"End of ${fd.id.name}")
       }
       tmp
@@ -676,8 +664,9 @@ trait CoqEncoder {
     // RawCommand("Require Import SLC.stdppSets.") $
     RawCommand("Require Import SLC.Tactics.") $
     RawCommand("Require Import SLC.Ints.") $
-    RawCommand("Require Import SLC.Unfolding.") $
+    RawCommand("Require Import SLC.Unfolding.\n") $
     RawCommand("Require Import ZArith.") $
+    RawCommand("Require Import Coq.Strings.String.\n") $
     RawCommand("Set Program Mode.\n") $
     RawCommand("Opaque set_elem_of.") $
     RawCommand("Opaque set_union.") $

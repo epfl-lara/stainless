@@ -44,7 +44,7 @@ Hint Unfold set_empty : i_sets.
 Hint Unfold set_singleton : i_sets.
 Hint Unfold set_difference : i_sets.
 
-Hint Unfold set_equality. (* always unfold *)
+Hint Unfold set_equality: core.
 
 Ltac t_sets_aux :=
   autounfold with i_sets in *;
@@ -73,7 +73,7 @@ Lemma in_union:
     ).
 Proof.
   repeat fast || t_sets_aux || autorewrite with libBool in *.
-Qed.  
+Qed.
 
 Lemma in_intersection:
   forall T (s1 s2: set T) x,
@@ -84,7 +84,7 @@ Lemma in_intersection:
     ).
 Proof.
   repeat fast || t_sets_aux || autorewrite with libBool in *.
-Qed.  
+Qed.
 
 Lemma in_singleton:
   forall T (x y: T),
@@ -107,7 +107,7 @@ Proof.
   repeat fast || t_sets_aux || autorewrite with libProp in *.
 Qed.
 
-     
+
 Hint Rewrite in_union: libSet.
 Hint Rewrite in_intersection: libSet.
 Hint Rewrite in_singleton: libSet.
@@ -127,7 +127,7 @@ Proof.
          autounfold with i_sets in * ||
          autorewrite with libProp in *; eauto.
   apply equal_booleans; repeat fast || autorewrite with libProp libBool in * || apply_any.
-Qed.  
+Qed.
 
 Hint Rewrite subset_union: libSet.
 
@@ -140,7 +140,7 @@ Proof.
   repeat fast ||
          autounfold with i_sets in * ||
          autorewrite with libProp libBool in *.
-Qed.  
+Qed.
 
 Hint Resolve subset_union_true: b_sets.
 
@@ -158,7 +158,7 @@ Proof.
          autorewrite with libProp in *; eauto.
   apply equal_booleans; repeat fast || autorewrite with libProp libBool in * || apply_any;
     firstorder (repeat fast || autorewrite with libBool in *).
-Qed.  
+Qed.
 
 Hint Rewrite subset_intersection: libSet.
 
@@ -171,7 +171,7 @@ Proof.
   repeat fast ||
          autounfold with i_sets in * ||
          autorewrite with libProp libBool in *.
-Qed.  
+Qed.
 
 Hint Resolve subset_intersection_true: b_sets.
 
@@ -190,8 +190,8 @@ Proof.
   apply equal_booleans;
     repeat fast || autorewrite with libProp libBool in * || instantiate_any.
   - destruct (s2 x) eqn:S; repeat t_bool || fast.
-    unshelve epose proof (H3 x _); repeat fast || autorewrite with libBool in *.
-Qed.  
+    unshelve epose proof (H2 x _); repeat fast || autorewrite with libBool in *.
+Qed.
 
 Hint Rewrite subset_difference: libSet.
 
@@ -206,8 +206,8 @@ Proof.
          autorewrite with libProp libBool in *.
   destruct (s2 x) eqn:S; repeat t_bool || fast.
   unshelve epose proof (H2 x _); repeat fast || autorewrite with libBool in *.
-Qed. 
-  
+Qed.
+
 Hint Resolve subset_difference_true: b_sets.
 
 
@@ -236,7 +236,7 @@ Lemma subset_union1:
     (s ⊆ (s1 ∪ s2)) = true.
 Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
-Qed.     
+Qed.
 
 Lemma subset_union2:
   forall T (s s1 s2: set T),
@@ -244,7 +244,7 @@ Lemma subset_union2:
     (s ⊆ (s1 ∪ s2)) = true.
 Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
-Qed.     
+Qed.
 
 Lemma subset_middle:
   forall T (s s1 s2 s3: set T),
@@ -252,7 +252,7 @@ Lemma subset_middle:
     (s ⊆ (s1 ∪ s2) ∪ s3) = true.
 Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
-Qed.     
+Qed.
 
 Lemma subset_middle2:
   forall T (s s1 s2 s3: set T),
@@ -260,7 +260,7 @@ Lemma subset_middle2:
     (s ⊆ s1 ∪ (s2 ∪ s3)) = true.
 Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
-Qed.     
+Qed.
 
 Hint Immediate subset_union1 subset_union2: b_sets.
 Hint Immediate subset_middle subset_middle2: b_sets.
@@ -273,7 +273,7 @@ Proof.
   apply equal_booleans;
     repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *;
     firstorder (repeat fast || autorewrite with libBool in *).
-Qed.                
+Qed.
 
 
 Lemma factor_left2:
@@ -284,7 +284,7 @@ Proof.
   apply equal_booleans;
     repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *;
     firstorder (repeat fast || autorewrite with libBool in *).
-Qed.                
+Qed.
 
 Hint Rewrite factor_left factor_left2: libSet.
 
@@ -372,7 +372,7 @@ Lemma diff_singleton:
 Proof.
   repeat fast || autounfold with i_sets in * || apply functional_extensionality.
   destruct (B@(a = x)); repeat fast.
-Qed.  
+Qed.
 
 Lemma diff_singleton2:
   forall T (a b: T),
@@ -406,20 +406,19 @@ Qed.
 Hint Rewrite diff_singleton3: libSet.
 Hint Rewrite diff_singleton2: libSet.
 Hint Rewrite diff_singleton: libSet.
-  
+
 
 Hint Resolve subset_union3: b_sets.
 Hint Resolve subset_union4: b_sets.
 Hint Resolve subset_intersection3: b_sets.
 Hint Resolve subset_intersection4: b_sets.
 
-Ltac t_sets := 
+Ltac t_sets :=
   match goal with
   | H: ?s1 ⊆ ?s2 = true |- ?s1 ⊆ ?s3 = true =>
     apply subset_trans with s2;
-    solve [ repeat fast || autorewrite with libSet libBool libProp in *; auto 3 with b_sets ] 
-  | H: ?s2 ⊆ ?s3 = true |- ?s1 ⊆ ?s3 = true => 
+    solve [ repeat fast || autorewrite with libSet libBool libProp in *; auto 3 with b_sets ]
+  | H: ?s2 ⊆ ?s3 = true |- ?s1 ⊆ ?s3 = true =>
     apply subset_trans with s2;
     solve [ repeat fast || autorewrite with libSet libBool libProp in *; auto 3 with b_sets ]
   end.
-

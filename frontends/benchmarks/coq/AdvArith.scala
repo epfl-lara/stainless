@@ -1,7 +1,7 @@
 /* Copyright 2009-2016 EPFL, Lausanne */
 
 
-object Arithmetic {
+object AdvArithmetic {
 
   def test(a: BigInt, b: BigInt, c: BigInt): BigInt = {
     require(a > b && c > BigInt(0))

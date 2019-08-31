@@ -4,7 +4,7 @@ Require Import SLC.PropBool.
 Require Import SLC.Unfolding.
 Require Import SLC.Sets.
 
-Ltac t_base := (* program_simpl || *)
+Ltac t_base :=
   libStep ||
   t_bool ||
   t_propbool ||

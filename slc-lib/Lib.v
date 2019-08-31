@@ -3,22 +3,22 @@ Require Import Coq.Strings.String.
 Require Import Coq.Program.Tactics.
 Require Import Coq.Program.Program.
 Require Import Coq.Lists.List.
-Require Import Omega.
 Require Import ZArith.
+Require Import Psatz.
 
 Require Equations.Equations.
 
 Open Scope bool_scope.
 Open Scope Z_scope.
 
-Axiom unsupported: False. 
+Axiom unsupported: False.
 Axiom map_type: Type -> Type -> Type.
 Axiom ignore_termination: nat.
 
 Definition magic (T: Type): T := match unsupported with end.
 Set Default Timeout 60.
 
-Ltac isProp P := 
+Ltac isProp P :=
   let T := type of P in
     unify T Prop.
 
@@ -67,7 +67,7 @@ Ltac fast :=
   cbn -[Z.add] in * ||
   subst ||
   (intuition auto) ||
-  (progress autorewrite with libBool libProp libInts in * ) || 
+  (progress autorewrite with libBool libProp libInts in * ) ||
 (*  (progress rewrite_strat repeat topdown (hints libBool; hints libProp; hints libInts)) ||  *)
 (*  rewrite_everywhere || *)
   congruence ||
@@ -77,7 +77,7 @@ Ltac fast :=
 
 
 Ltac slow :=
-  omega || ring (*|| eauto.*).
+  lia || nia || ring (*|| eauto.*).
 
 Ltac is_construct t :=
   let x := fresh in
@@ -175,7 +175,7 @@ Ltac define m t :=
   pose (Mark M remember).
 
 Ltac pose_let a b :=
-  poseNew (Mark (a, b) rewrite_let);  
+  poseNew (Mark (a, b) rewrite_let);
   (*If only mark for a, we might miss some equations, this way we have useless hypotheses*)
   let A := fresh "A" in
   assert (a = b) as A; [auto | idtac].

@@ -1,5 +1,5 @@
 import sbt.ScriptedPlugin
-mappings in (Compile, packageDoc) := Seq()
+
 enablePlugins(GitVersioning)
 enablePlugins(GitBranchPrompt)
 
@@ -189,7 +189,6 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   ))
 
 val scriptSettings: Seq[Setting[_]] = Seq(
-  mappings in (Compile, packageDoc) := Seq(),
   extraClasspath := {
     ((classDirectory in Compile).value.getAbsolutePath +: (dependencyClasspath in Compile).value.map(_.data.absolutePath))
       .mkString(System.getProperty("path.separator"))
@@ -331,8 +330,8 @@ lazy val root = (project in file("."))
   .settings(
     sourcesInBase in Compile := false,
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")

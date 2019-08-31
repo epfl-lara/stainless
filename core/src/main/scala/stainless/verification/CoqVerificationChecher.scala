@@ -40,7 +40,9 @@ trait CoqVerificationChecker { self =>
     CoqIO.makeOutputDirectory()
     val files = CoqIO.writeToCoqFile(pCoq.map { case (id, name, com) => (name, com) } )
     val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
-    val vcs: Seq[VC] = pCoq map { case(fun, _, _) => VC(getFunction(fun).fullBody, fun, VCKind.CoqMethod, true)}
+    val vcs: Seq[VC] = pCoq map { case(fun, _, _) =>
+      VC(getFunction(fun).fullBody, fun, VCKind.CoqMethod, true).setPos(symbols.getFunction(fun))
+    }
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     val res: Map[VC, VCResult] = pCoq.zip(vcs).map {case(((fun, file, commands)), vc) => {

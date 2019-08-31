@@ -33,7 +33,7 @@ case class CoqTactic(id: CoqIdentifier, tactics: Seq[CoqExpression]) extends Coq
 }
 
 case class CoqMatchTactic(id: CoqIdentifier, cases: Seq[CoqCase]) extends CoqCommand {
-  override def coqString = s"Ltac ${id.coqString} := match goal with \n" +
+  override def coqString = s"Ltac ${id.coqString} := match goal with\n" +
     cases.map(cs => "\t" + tabulate(cs.coqString) + "\n").mkString +
     "end.\n"
 }
@@ -67,19 +67,19 @@ case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExp
 
 case class CoqEquation(id: CoqIdentifier, params: Seq[(CoqIdentifier, CoqExpression)], returnType: CoqExpression, cases: Seq[(CoqExpression, CoqExpression)], ignoreTermination: Boolean) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString})" }.mkString(" ")
-  override def coqString = s"Equations (noind) ${id.coqString} $paramString : ${returnType.coqString} := \n" +
+  override def coqString = s"Equations (noind) ${id.coqString} $paramString : ${returnType.coqString}\n" +
     cases.map {case (cs, expr) =>
       if (ignoreTermination)
-        s"\t${cs.coqString} by rec ignore_termination lt :=\n" +
-        s"\t${cs.coqString} := ${tabulate(expr.coqString)}"
+        s"  by wf ignore_termination lt :=\n" +
+        s"  ${cs.coqString} := ${tabulate(expr.coqString)}"
       else
-      s"\n${cs.coqString} := ${tabulate(expr.coqString)}"
+        s"\n${cs.coqString} := ${tabulate(expr.coqString)}"
     }.mkString("", ";\n", ".")
 }
 
 case class CoqLemma(name: CoqIdentifier, body: CoqExpression, proof: CoqCommand) extends CoqCommand {
   override def coqString =
-      s"Lemma ${name.coqString}: ${body.coqString}. \n" +
+      s"Lemma ${name.coqString}: ${body.coqString}.\n" +
       "Proof.\n" +
       s"\t${tabulate(proof.coqString)}" +
       s"\nQed.\n"
@@ -98,7 +98,7 @@ case class RawCommand(s: String) extends CoqCommand {
 // This is used only for InductiveDefinition's
 case class InductiveCase(constructor: CoqIdentifier, body: CoqExpression) {
   def coqString: String = {
-    s"| ${constructor.coqString}: ${body.coqString}" 
+    s"| ${constructor.coqString}: ${body.coqString}"
   }
 }
 
@@ -142,7 +142,7 @@ case class BiArrow(e1: CoqExpression, e2: CoqExpression) extends CoqExpression {
 }
 
 case class CoqMatch(matched: CoqExpression, cases: Seq[CoqCase]) extends CoqExpression {
-  override def coqString = 
+  override def coqString =
     s"match ${matched.coqString} with" +
       cases.map(_.coqString).mkString("\n","\n","\nend")
 }
@@ -168,7 +168,7 @@ case class CoqIdentifier(id: Identifier) extends CoqExpression {
       .replaceAll("--", "substract_")
       .replaceAll("-", "minus_")
       .replaceAll("&", "c_")
-    if (coqKeywords contains res) coqKeywords(res) 
+    if (coqKeywords contains res) coqKeywords(res)
     else if (validCoqIdentifier(res)) res
     else throw new Exception(s"$res is not a valid coq identifier")
   }
@@ -205,8 +205,8 @@ case class Constructor(id: CoqExpression, args: Seq[CoqExpression]) extends CoqE
 }
 
 case class CoqForall(args: Seq[(CoqIdentifier,CoqExpression)], body: CoqExpression) extends CoqExpression {
-  override def coqString = 
-    /*propInBool.coqString + */"(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) => 
+  override def coqString =
+    /*propInBool.coqString + */"(" + args.foldLeft(body.coqString) { case (acc,(id,tpe)) =>
       s"forall ${id.coqString}: ${tpe.coqString}, $acc"
     } + ")"
 }
@@ -385,7 +385,7 @@ case class CoqCase(pattern: CoqPattern, body: CoqExpression) {
     val pString = pattern.coqString
     val bString = body.coqString
     if (bString.contains("\n") || bString.length + pString.length > charsPerLine) {
-      s"| $pString => \n\t\t${tabulate(bString,2)}"
+      s"| $pString =>\n\t\t${tabulate(bString,2)}"
     } else {
       s"| $pString => $bString"
     }
