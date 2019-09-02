@@ -47,15 +47,15 @@ trait Sealing extends oo.CachingPhase
 
       val (paramSubst, params) = fd.params
         .foldLeft((Map.empty[ValDef, Expr], Seq.empty[ValDef])) { case ((paramSubst, params), vd) =>
-          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe, true)
           val nvd = pureParams.getOrElse(vd.id, vd).copy(tpe = ntpe).copiedFrom(vd)
           (paramSubst + (vd -> nvd.toVariable), params :+ nvd)
         }
 
       fd.copy(
         params = params,
-        returnType = typeOps.replaceFromSymbols(paramSubst, fd.returnType),
-        fullBody = exprOps.replaceFromSymbols(paramSubst, fd.fullBody)
+        returnType = typeOps.replaceFromSymbols(paramSubst, fd.returnType, true),
+        fullBody = exprOps.replaceFromSymbols(paramSubst, fd.fullBody, true)
       ).copiedFrom(fd)
     }
 
