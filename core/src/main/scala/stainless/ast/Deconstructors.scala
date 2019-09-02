@@ -47,13 +47,13 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       Seq[Identifier], Seq[s.Variable], Seq[s.Expr], Seq[s.Type],
       (Seq[Identifier], Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Pattern
     ) = {
-      val (ids, vs, es, tps, pats, recons) = deconstruct(p)
-      val prec = pats.map(pat => rec(pat))
+      val (ids, vs, es, tps, pats, reconsP) = deconstruct(p)
+      val prec = pats.map(pat => (pat, rec(pat)))
       (
-        ids ++ prec.flatMap(_._1),
-        vs ++ prec.flatMap(_._2),
-        es ++ prec.flatMap(_._3),
-        tps ++ prec.flatMap(_._4),
+        ids ++ prec.flatMap(_._2._1),
+        vs ++ prec.flatMap(_._2._2),
+        es ++ prec.flatMap(_._2._3),
+        tps ++ prec.flatMap(_._2._4),
         (nids, nvs, nes, ntps) => {
           val (outerIds, innerIds) = nids.splitAt(ids.size)
           val (outerVs, innerVs) = nvs.splitAt(vs.size)
@@ -64,7 +64,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
           var rvs = innerVs
           var res = innerEs
           var rtps = innerTps
-          val newPats = for ((ids, vs, es, tps, recons) <- prec) yield {
+          val newPats = for ((pat, (ids, vs, es, tps, reconsPat)) <- prec) yield {
             val (currIds, nextIds) = rids.splitAt(ids.size)
             rids = nextIds
 
@@ -77,30 +77,30 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
             val (currTps, nextTps) = rtps.splitAt(tps.size)
             rtps = nextTps
 
-            recons(currIds, currVs, currEs, currTps)
+            reconsPat(currIds, currVs, currEs, currTps).setPos(pat)
           }
 
-          recons(outerIds, outerVs, outerEs, outerTps, newPats)
+          reconsP(outerIds, outerVs, outerEs, outerTps, newPats).setPos(p)
         }
       )
     }
 
     val recCases = for (caze <- cases) yield {
       val (pids, pvs, pes, ptps, precons) = rec(caze.pattern)
-      (caze.optGuard.isDefined, pids, pvs, caze.optGuard.toSeq ++ (caze.rhs +: pes), ptps, precons)
+      (caze, caze.optGuard.isDefined, pids, pvs, caze.optGuard.toSeq ++ (caze.rhs +: pes), ptps, precons)
     }
 
     (
-      recCases.flatMap(_._2),
       recCases.flatMap(_._3),
       recCases.flatMap(_._4),
       recCases.flatMap(_._5),
+      recCases.flatMap(_._6),
       (ids, vs, es, tps) => {
         var rids = ids
         var rvs = vs
         var res = es
         var rtps = tps
-        for ((hasGuard, ids, vs, es, tps, recons) <- recCases) yield {
+        for ((caze, hasGuard, ids, vs, es, tps, reconsCaze) <- recCases) yield {
           val (currIds, nextIds) = rids.splitAt(ids.size)
           rids = nextIds
 
@@ -115,10 +115,10 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
 
           if (hasGuard) {
             val guard +: rhs +: pes = currEs
-            t.MatchCase(recons(currIds, currVs, pes, currTps), Some(guard), rhs)
+            t.MatchCase(reconsCaze(currIds, currVs, pes, currTps).setPos(caze), Some(guard), rhs).setPos(caze)
           } else {
             val rhs +: pes = currEs
-            t.MatchCase(recons(currIds, currVs, pes, currTps), None, rhs)
+            t.MatchCase(reconsCaze(currIds, currVs, pes, currTps).setPos(caze), None, rhs).setPos(caze)
           }
         }
       }
