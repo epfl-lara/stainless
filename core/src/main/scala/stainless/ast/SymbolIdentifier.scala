@@ -14,6 +14,8 @@ class Symbol private[stainless](val path: Seq[String], private[stainless] val id
   }
 
   override def hashCode: Int = id
+
+  override def toString: String = s"$name@$id"
 }
 
 object Symbol {
