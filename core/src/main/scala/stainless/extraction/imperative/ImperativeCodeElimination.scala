@@ -95,7 +95,7 @@ trait ImperativeCodeElimination
           val (scrutRes, scrutScope, scrutFun) = toFunction(scrut)
 
           val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq
-          val res = ValDef.fresh("res", m.getType)
+          val res = ValDef.fresh("res", m.getType).setPos(m)
           val freshVars = modifiedVars.map(_.freshen)
           val matchType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
 
@@ -104,7 +104,7 @@ trait ImperativeCodeElimination
           }
 
           val newRhs = csesVals.zip(csesScope).map {
-            case (cVal, cScope) => replaceFromSymbols(scrutFun, cScope(cVal))
+            case (cVal, cScope) => replaceFromSymbols(scrutFun, cScope(cVal), true)
           }
 
           val matchE = MatchExpr(scrutRes, cses.zip(newRhs).map {
