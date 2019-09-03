@@ -32,21 +32,41 @@ object SymbolMapping {
 class SymbolMapping {
   import SymbolMapping.getPath
 
+  private[this] val ignoredClasses = Set(
+    "scala.Any",
+    "scala.AnyRef",
+    "scala.Product",
+    "scala.Serializable",
+    "java.lang.Object",
+    "java.lang.Serializable",
+  )
+
+  // Note: We can't compare with the global symbols here because
+  // the symbol mapping class is re-used across compiler runs
+  // and thus across `Global` instances, so we have to check
+  // against the full symbol name instead. - @romac
+  def isIgnored(sym: Global#Symbol): Boolean = {
+    val name = sym.fullNameAsName('.').decode.trim
+    ignoredClasses contains name
+  }
+
+  def topmostAncestor(sym: Global#Symbol): Global#Symbol =
+    if (sym.overrideChain.nonEmpty)
+      sym.overrideChain.filterNot(s => isIgnored(s.owner)).last
+    else
+      sym
+
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Global#Symbol): SymbolIdentifier = {
     val path = getPath(sym)
-    s2i.getOrElse(path, {
-      val top = if (sym.overrideChain.nonEmpty) sym.overrideChain.last else sym
-      val symbol = s2s.getOrElse(top, {
+    s2i.getOrElseUpdate(path, {
+      val top = topmostAncestor(sym)
+      val symbol = s2s.getOrElseUpdate(top, {
         val name = sym.fullNameAsName('.').decode.trim
-        val res = ast.Symbol(if (name endsWith "$") name.init else name)
-        s2s(top) = res
-        res
+        ast.Symbol(if (name endsWith "$") name.init else name)
       })
 
-      val res = SymbolIdentifier(symbol)
-      s2i(path) = res
-      res
+      SymbolIdentifier(symbol)
     })
   }
 
