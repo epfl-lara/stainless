@@ -24,6 +24,7 @@ trait ImperativeCodeElimination
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._
+    import exprOps.{ replaceKeepPositions => replace }
 
     /* varsInScope refers to variable declared in the same level scope.
      * Typically, when entering a nested function body, the scope should be
@@ -104,7 +105,7 @@ trait ImperativeCodeElimination
           }
 
           val newRhs = csesVals.zip(csesScope).map {
-            case (cVal, cScope) => replaceFromSymbols(scrutFun, cScope(cVal), true)
+            case (cVal, cScope) => replace(scrutFun, cScope(cVal))
           }
 
           val matchE = MatchExpr(scrutRes, cses.zip(newRhs).map {
