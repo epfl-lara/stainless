@@ -37,7 +37,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
       override def transform(expr: s.Expr): t.Expr = expr match {
-        case fi: FunctionInvocation if fi.tfd.id != fd.id =>
+        case fi: FunctionInvocation =>
           inlineFunctionInvocations(fi.copy(args = fi.args map transform).copiedFrom(fi)).copiedFrom(fi)
 
         case _ => super.transform(expr)
