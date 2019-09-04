@@ -6,6 +6,8 @@ package transformers
 import scala.language.existentials
 import scala.concurrent.duration._
 
+import inox.solvers.optCheckModels
+
 trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   import trees._
   import symbols._
@@ -23,7 +25,7 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
 
   protected val solver =
     semantics.getSemantics(program)
-      .getSolver(context)
+      .getSolver(context.withOpts(optCheckModels(false)))
       .withTimeout(150.millis)
       .toAPI
       .asInstanceOf[inox.solvers.SimpleSolverAPI {
