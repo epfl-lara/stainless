@@ -58,7 +58,7 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[(Expr, Expr)] = t match {
-      case RefinementType(vd, Equals(e1,e2)) => Some((e1,e2))
+      case RefinementType(vd, Equals(e1,e2)) if vd.tpe == UnitType() => Some((e1,e2))
       case _ => None
     }
   }
