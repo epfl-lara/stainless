@@ -762,7 +762,7 @@ trait TypeChecker {
         val sort = getSort(sortId)
         val trInv =
           if (sort.hasInvariant) {
-            val inv = sort.invariant.get
+            val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(id)
             val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
             buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
