@@ -3,7 +3,7 @@ import stainless.annotation._
 import stainless.collection._
 import stainless.util.Random
 
-object comp {
+object PartialCompiler {
 
   sealed trait Expr
   case class Var(name: String)     extends Expr
