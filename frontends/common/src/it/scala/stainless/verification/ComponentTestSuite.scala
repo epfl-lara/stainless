@@ -90,7 +90,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val exProgram = inox.Program(run.trees)(run extract program.symbols)
         exProgram.symbols.ensureWellFormed
-        assert(ctx.reporter.errorCount == 0)
+        assert(ctx.reporter.errorCount == 0, "There were errors during extraction")
 
         val unit = structure.find { _.isMain }.get
         assert(unit.id.name == name, "Expecting compilation unit to have same name as source file")
@@ -117,6 +117,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       // We use a shared run during extraction to ensure caching of
       // extraction results is enabled.
       val extractor = component.run(extraction.pipeline)
+      assert(ctx.reporter.errorCount == 0, "There were errors during initial extraction")
 
       for {
         unit <- structure
@@ -133,6 +134,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val exSymbols = extractor extract symbols
         exSymbols.ensureWellFormed
+        assert(ctx.reporter.errorCount == 0, "There were errors during pipeline extraction")
 
         val run = component.run(extraction.pipeline)
 
