@@ -67,7 +67,7 @@ Use Gitter8 Template
 
 **Install sbt:**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 
 **Create a new project from the template:**
 
@@ -115,7 +115,7 @@ Setting up an sbt build file to use Stainless is a simple 4-step procedure that 
    resolvers ++= Seq(
      Resolver.bintrayRepo("epfl-lara", "princess"),
      Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
-     "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
    )
 
    addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
@@ -230,7 +230,7 @@ in an attempt to be more reproducible and independent from sbt cache and path, t
 
 **Install sbt**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 
 **Check out sources**
 
