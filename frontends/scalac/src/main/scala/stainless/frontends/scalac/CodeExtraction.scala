@@ -36,7 +36,8 @@ trait CodeExtraction extends ASTExtractors {
     SerializableClass.tpe,
     JavaSerializableClass.tpe,
     ProductRootClass.tpe,
-    AnyRefClass.tpe
+    AnyRefClass.tpe,
+    AnyValClass.tpe,
   )
 
   /** Extract the classes and functions from the given compilation unit. */

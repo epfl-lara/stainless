@@ -334,6 +334,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private def isValidParentType(parent: Type, inLibrary: Boolean = false): Boolean = parent match {
+    case tpe if tpe.typeSymbol == defn.AnyClass => false
+    case tpe if tpe.typeSymbol == defn.AnyValClass => false
     case tpe if tpe.typeSymbol == defn.ObjectClass => false
     case tpe if tpe.typeSymbol == defn.ThrowableClass && inLibrary => false
     // case tpe if tpe.typeSymbol == defn.EnumClass => false
