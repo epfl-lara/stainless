@@ -15,23 +15,6 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
       val tfd = fi.tfd
       val (rargs, pargs) = args.map(simplify(_, path)).unzip
 
-      val inlined: Option[Expr] = {
-        val (specs, body) = deconstructSpecs(tfd.fullBody)
-
-        body.map { body =>
-          val pre = specs.collectFirst { case Precondition(e) => e }.get
-          val l @ Lambda(Seq(res), post) = specs.collectFirst { case Postcondition(e) => e }.get
-
-          val newBody: Expr = Assert(pre, Some("Inlined precondition of " + tfd.id.name), Let(res, body,
-            Assert(post, Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(l)
-          ).copiedFrom(body)).copiedFrom(pre)
-
-          freshenLocals((tfd.params zip rargs).foldRight(newBody) {
-            case ((vd, e), body) => Let(vd, e, body).copiedFrom(body)
-          })
-        }
-      }
-
       def containsChoose(expr: Expr): Boolean = exists {
         case (_: Choose) | (_: NoTree) => true
         case _ => false
@@ -65,15 +48,38 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         res
       }
 
-      inlined
-        .filter(_ => isUnfoldable(id))
-        .filter(!containsChoose(_))
-        .filter(isProductiveUnfolding)
-        .map(unfold)
-        .getOrElse (
+      if (!isUnfoldable(id)) {
+        return (
           FunctionInvocation(id, tps, rargs).copiedFrom(fi),
           pargs.foldLeft(isPureFunction(id))(_ && _)
         )
+      }
+
+      val inlined: Option[Expr] = {
+        val (specs, body) = deconstructSpecs(tfd.fullBody)
+
+        body.map { body =>
+          val pre = specs.collectFirst { case Precondition(e) => e }.get
+          val l @ Lambda(Seq(res), post) = specs.collectFirst { case Postcondition(e) => e }.get
+
+          val newBody: Expr = Assert(pre, Some("Inlined precondition of " + tfd.id.name), Let(res, body,
+            Assert(post, Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(l)
+          ).copiedFrom(body)).copiedFrom(pre)
+
+          freshenLocals((tfd.params zip rargs).foldRight(newBody) {
+            case ((vd, e), body) => Let(vd, e, body).copiedFrom(body)
+          })
+        }
+      }
+
+      inlined
+        .filterNot(containsChoose)
+        .filter(isProductiveUnfolding)
+        .map(unfold)
+        .getOrElse((
+          FunctionInvocation(id, tps, rargs).copiedFrom(fi),
+          pargs.foldLeft(isPureFunction(id))(_ && _)
+        ))
 
     case _ => super.simplify(e, path)
   }
