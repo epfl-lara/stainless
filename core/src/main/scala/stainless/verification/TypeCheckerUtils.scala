@@ -63,6 +63,19 @@ object TypeCheckerUtils {
     }
   }
 
+  // The type { letWitness: Unit | e1 == e2 }
+  object LetEquality {
+    def apply(e1: Variable, e2: Expr) = {
+      val vd = ValDef.fresh(letWitness, UnitType())
+      RefinementType(vd, Equals(e1, e2))
+    }
+
+    def unapply(t: Type): Option[(Variable, Expr)] = t match {
+      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1,e2))
+      case _ => None
+    }
+  }
+
   def renameVar(e: Expr, id1: Identifier, id2: Identifier): Expr = {
     new SelfTreeTransformer {
       override def transform(e: Expr) = e match {

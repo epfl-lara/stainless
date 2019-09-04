@@ -813,8 +813,7 @@ trait TypeChecker {
     l.foldRight(e){
       case (v, acc) =>
         v.tpe match {
-          case Equality(e1: Variable, e2) => let(e1.toVal, e2, acc)
-          case Equality(e1, e2: Variable) => let(e2.toVal, e1, acc)
+          case LetEquality(e1: Variable, e2) => let(e1.toVal, e2, acc)
           case Truth(t) => implies(t, acc)
           case _ => acc
         }
