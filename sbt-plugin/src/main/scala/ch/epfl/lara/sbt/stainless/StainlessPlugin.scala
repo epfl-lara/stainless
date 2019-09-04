@@ -69,7 +69,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       Resolver.bintrayRepo("epfl-lara", "maven"),
       Resolver.bintrayRepo("epfl-lara", "princess"),
       Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
-      "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+      ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
     )
   ) ++
     inConfig(Compile)(stainlessConfigSettings) ++ // overrides settings that are scoped (by sbt) at the `Compile` configuration

@@ -82,9 +82,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
-    Resolver.typesafeIvyRepo("releases"),
     Resolver.bintrayRepo("epfl-lara", "maven"),
-    "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+    ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
   ),
 
   libraryDependencies ++= Seq(
@@ -95,9 +94,9 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "io.circe"      %% "circe-core"    % circeVersion,
     "io.circe"      %% "circe-generic" % circeVersion,
     "io.circe"      %% "circe-parser"  % circeVersion,
-    "com.typesafe"   % "config"        % "1.3.2",
+    "com.typesafe"   % "config"        % "1.3.4",
 
-    "org.scalatest" %% "scalatest"     % "3.0.1" % "test",
+    "org.scalatest" %% "scalatest"     % "3.0.8" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development
