@@ -75,7 +75,10 @@ package object equations {
       require (keepEvidence(prev.evidence()) ==> (prev.y() == x()))
       RAEqEvidence(prev.x, y, prev.evidence)
     }
+
     @inline
-    def qed: Boolean = (x() == y()).holds
+    def qed: Unit = {
+      ()
+    } ensuring(_ => x() == y())
   }
 }

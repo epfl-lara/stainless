@@ -58,7 +58,20 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[(Expr, Expr)] = t match {
-      case RefinementType(vd, Equals(e1,e2)) => Some((e1,e2))
+      case RefinementType(vd, Equals(e1,e2)) if vd.tpe == UnitType() => Some((e1,e2))
+      case _ => None
+    }
+  }
+
+  // The type { letWitness: Unit | e1 == e2 }
+  object LetEquality {
+    def apply(e1: Variable, e2: Expr) = {
+      val vd = ValDef.fresh(letWitness, UnitType())
+      RefinementType(vd, Equals(e1, e2))
+    }
+
+    def unapply(t: Type): Option[(Variable, Expr)] = t match {
+      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1,e2))
       case _ => None
     }
   }

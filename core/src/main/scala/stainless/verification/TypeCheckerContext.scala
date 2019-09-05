@@ -7,6 +7,8 @@ import trees._
 import TypeCheckerUtils._
 
 object TypeCheckerContext {
+  val letWitness = "__letWitness"
+
   case class TypingContext(
     depth: Int,
     visibleFunctions: Set[Identifier],
@@ -44,7 +46,7 @@ object TypeCheckerContext {
 
     def bindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariable(vd)
-      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh("__equalityWitness", Equality(vd.toVariable,e))).setPos(this)
+      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, Equality(vd.toVariable,e))).setPos(this)
     }
 
     def bindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context) = {
@@ -57,7 +59,7 @@ object TypeCheckerContext {
     def freshBindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier, Identifier) = {
       val freshVd = vd.freshen
       (
-        copy(termVariables = termVariables :+ freshVd.toVariable :+ Variable.fresh("__equalityWitness", Equality(freshVd.toVariable,e))).setPos(this),
+        copy(termVariables = termVariables :+ freshVd.toVariable :+ Variable.fresh(letWitness, Equality(freshVd.toVariable,e))).setPos(this),
         vd.id,
         freshVd.id
       )

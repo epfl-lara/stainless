@@ -762,7 +762,7 @@ trait TypeChecker {
         val sort = getSort(sortId)
         val trInv =
           if (sort.hasInvariant) {
-            val inv = sort.invariant.get
+            val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(id)
             val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
             buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
@@ -809,10 +809,15 @@ trait TypeChecker {
     (t, tr.root(InferType(tc0, e, t)))
   }
 
-  def pathFromContext(l: Seq[Variable]): Expr = {
-    and(l.collect { v => v.tpe match {
-      case Truth(e) => e
-    }}: _*)
+  def vcFromContext(l: Seq[Variable], e: Expr): Expr = {
+    l.foldRight(e){
+      case (v, acc) =>
+        v.tpe match {
+          case LetEquality(e1: Variable, e2) => let(e1.toVal, e2, acc)
+          case Truth(t) => implies(t, acc)
+          case _ => acc
+        }
+    }
   }
 
   def buildVC(tc: TypingContext, e: Expr): TyperResult = {
@@ -826,7 +831,7 @@ trait TypeChecker {
       }).copiedFrom(e)
 
     val vc: StainlessVC =
-      (VC(Implies(pathFromContext(tc.termVariables), e2), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
+      (VC(vcFromContext(tc.termVariables, e2), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
     val simplifiedCondition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
     reporter.debug(s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\nVC:\n${simplifiedCondition.asString}\n\n\n")(DebugSectionTypeCheckerVCs)
     TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
