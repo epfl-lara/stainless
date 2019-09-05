@@ -98,12 +98,7 @@ object GodelNumbering {
 
   @opaque
   def plus_succ(@induct n1: Nat, n2: Nat): Unit = {
-    (
-      n1 + Succ(n2)   ==:| associative_plus(n1, One, n2) |:
-      (n1 + One) + n2 ==:| commutative_plus(n1, One)     |:
-      (One + n1) + n2 ==:| associative_plus(One, n1, n2) |:
-      (Succ(n1 + n2): Nat)
-    ).qed
+    ()
   }.ensuring(_ => n1 + Succ(n2) == Succ(n1 + n2))
 
   @opaque
