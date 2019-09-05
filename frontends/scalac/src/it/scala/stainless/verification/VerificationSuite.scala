@@ -113,6 +113,10 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/PartialCompiler" => Ignore
     case "verification/valid/PartialKVTrace" => Ignore
 
+    // Codegen assertion error, unsupported by CVC4
+    // => Ignored until #681 fixed
+    case "verification/invalid/BodyEnsuring" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 }
