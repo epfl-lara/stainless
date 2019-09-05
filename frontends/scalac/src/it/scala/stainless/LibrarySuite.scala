@@ -7,32 +7,34 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-abstract class AbstractLibrarySuite(options: Seq[inox.OptionValue[_]]) extends FunSpec with InputUtils {
+abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunSpec with InputUtils {
   import ast.SymbolIdentifier
 
-  def symbolName(id: Identifier): String = id match {
+  protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))
+  protected val options = inox.Options(defaultOptions ++ opts)
+
+  protected def symbolName(id: Identifier): String = id match {
     case si: SymbolIdentifier => si.symbol.name
     case id => id.name
   }
 
-  def isSlow(id: Identifier): Boolean =
+  protected def isSlow(id: Identifier): Boolean =
     symbolName(id).startsWith("stainless.algebra")
 
-  def keepDerived(tr: ast.Trees)(flag: ast.Trees#Flag): Boolean = flag match {
+  protected def keepDerived(tr: ast.Trees)(flag: tr.Flag): Boolean = flag match {
     case tr.Derived(id) => !isSlow(id)
     case _ => true
   }
 
-  protected def keep(tr: ast.Trees)(fd: ast.Trees#FunDef): Boolean = fd match {
+  protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean = fd match {
     case fd if fd.flags exists (_.name == "unchecked") => false
     case fd if !SlowTests.enabled && isSlow(fd.id) => false
-    case fd if !fd.flags.forall(f => keepDerived(tr)(f)) => false
+    case fd if !fd.flags.forall(keepDerived(tr)) => false
     case fd => true
   }
 
   describe("stainless library") {
-    val opts = inox.Options(options ++ Seq(inox.optSelectedSolvers(Set("smt-z3"))))
-    implicit val ctx = stainless.TestContext(opts)
+    implicit val ctx = stainless.TestContext(options)
     import ctx.reporter
 
     val tryProgram = scala.util.Try(loadFiles(Seq.empty)._2)
@@ -48,7 +50,7 @@ abstract class AbstractLibrarySuite(options: Seq[inox.OptionValue[_]]) extends F
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filter(keep).map(_.id).toSeq
+      val funs = exProgram.symbols.functions.values.filter(keep(exProgram.trees)).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
@@ -64,7 +66,7 @@ abstract class AbstractLibrarySuite(options: Seq[inox.OptionValue[_]]) extends F
       assert(reporter.errorCount == 0, "Termination extraction had errors")
 
       import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filter(keep).map(_.id).toSeq
+      val funs = exProgram.symbols.functions.values.filter(keep(exProgram.trees)).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
 
       assert(
