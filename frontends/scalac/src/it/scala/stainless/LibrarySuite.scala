@@ -15,12 +15,18 @@ abstract class AbstractLibrarySuite(options: Seq[inox.OptionValue[_]]) extends F
     case id => id.name
   }
 
-  def isSlow(fd: ast.Trees#FunDef): Boolean =
-    symbolName(fd.id).startsWith("stainless.algebra")
+  def isSlow(id: Identifier): Boolean =
+    symbolName(id).startsWith("stainless.algebra")
 
-  protected def keep(fd: ast.Trees#FunDef): Boolean = fd match {
+  def keepDerived(tr: ast.Trees)(flag: ast.Trees#Flag): Boolean = flag match {
+    case tr.Derived(id) => !isSlow(id)
+    case _ => true
+  }
+
+  protected def keep(tr: ast.Trees)(fd: ast.Trees#FunDef): Boolean = fd match {
     case fd if fd.flags exists (_.name == "unchecked") => false
-    case fd if !SlowTests.enabled && isSlow(fd) => false
+    case fd if !SlowTests.enabled && isSlow(fd.id) => false
+    case fd if !fd.flags.forall(f => keepDerived(tr)(f)) => false
     case fd => true
   }
 
