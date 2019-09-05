@@ -77,10 +77,13 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    if (stainlessEnabled.value) Seq(
-      compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
-      ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    ) else Seq.empty
+    val pluginRef = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
+    val plugin    = Seq(compilerPlugin(pluginRef)).filter(Function.const(stainlessEnabled.value))
+
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value
+    val library    = Seq(libraryRef.sources() % StainlessLibSources)
+
+    plugin ++ library
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
