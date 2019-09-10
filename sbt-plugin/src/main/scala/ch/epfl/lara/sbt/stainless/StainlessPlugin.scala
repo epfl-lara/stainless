@@ -77,13 +77,13 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    val pluginRef = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
-    val plugin    = Seq(compilerPlugin(pluginRef)).filter(Function.const(stainlessEnabled.value))
+    val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaVersion.value}"       % stainlessVersion.value
 
-    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value
-    val library    = Seq(libraryRef.sources() % StainlessLibSources)
-
-    plugin ++ library
+    Seq(
+      compilerPlugin(pluginRef),
+      libraryRef.sources() % StainlessLibSources,
+    )
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
@@ -182,11 +182,18 @@ object StainlessPlugin extends sbt.AutoPlugin {
     Seq(
       compileInputs := {
         val currentCompileInputs = compileInputs.value
+
         val additionalScalacOptions = Seq(
           // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
           // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
           // that are run *after* the stainless phase.
-          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer"
+          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer",
+
+          // Here we tell the stainless plugin whether or not to enable verification
+          s"-P:stainless:verify:${stainlessEnabled.value}",
+
+          // For now we always enable ghost elimination
+          "-P:stainless:ghost-elim:true",
         )
 
         // FIXME: Properly merge possibly duplicate scalac options

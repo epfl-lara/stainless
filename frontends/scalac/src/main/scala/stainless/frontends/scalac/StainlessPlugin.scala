@@ -12,7 +12,22 @@ import inox.DebugSection
 import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
+object StainlessPlugin {
+  val PluginName = "stainless"
+  val PluginDescription = "Inject Stainless verification pipeline"
+  val EnableVerificationOptionName = "verify:"
+  val EnableGhostEliminationOptionName = "ghost-elim:"
+}
+
+case class PluginOptions(
+  var enableVerification: Boolean,
+  var enableGhostElimination: Boolean,
+) {
+  def enabled: Boolean = enableVerification || enableGhostElimination
+}
+
 class StainlessPlugin(val global: Global) extends Plugin {
+  import StainlessPlugin._
 
   val mainHelper = new stainless.MainHelpers {
     override lazy val factory = {
@@ -25,25 +40,54 @@ class StainlessPlugin(val global: Global) extends Plugin {
     mainHelper.getConfigContext(OptionOrDefault.Default)
   }
 
-  override val name: String = "stainless-plugin"
-
-  override val description: String = "stainless scala compiler plugin"
+  override val name: String = PluginName
+  override val description: String = PluginDescription
+  val pluginOptions: PluginOptions = PluginOptions(true, true)
 
   override val components: List[PluginComponent] = List(
-    new StainlessPluginComponent(global, stainlessContext),
-    new GhostPluginComponent(global)
+    new StainlessPluginComponent(pluginOptions, global, stainlessContext),
+    new GhostPluginComponent(pluginOptions, global),
   )
 
-  override def init(options: List[String], error: String => Unit) = {
-    require(options.isEmpty)
-    true
+  override def init(options: List[String], error: String => Unit): Boolean = {
+    for (option <- options) {
+      if (option.startsWith(EnableVerificationOptionName)) {
+        val value = option.substring(EnableVerificationOptionName.length)
+        parseBoolean(value, error) foreach { value =>
+          pluginOptions.enableVerification = value
+        }
+      } else if (option.startsWith(EnableGhostEliminationOptionName)) {
+        val value = option.substring(EnableGhostEliminationOptionName.length)
+        parseBoolean(value, error).foreach { value =>
+          pluginOptions.enableGhostElimination = value
+        }
+      } else {
+        error("Unknown option for Stainless plugin: " + option)
+      }
+    }
+
+    pluginOptions.enabled
+  }
+
+  private def parseBoolean(str: String, error: String => Unit): Option[Boolean] = {
+    str match {
+      case "false" => Some(false)
+      case "true" => Some(true)
+      case other =>
+        error(s"Invalid boolean value: $other")
+        None
+    }
   }
 }
 
 class StainlessPluginComponent(
+  val pluginOptions: PluginOptions,
   val global: Global,
   val stainlessContext: inox.Context
 ) extends PluginComponent with StainlessExtraction {
+
+  override def enabled: Boolean = pluginOptions.enableVerification
+
   override implicit val ctx: inox.Context = {
     val adapter = new ReporterAdapter(global.reporter, stainlessContext.reporter.debugSections)
 
@@ -77,7 +121,10 @@ class StainlessPluginComponent(
   }
 }
 
-class GhostPluginComponent(val global: Global) extends PluginComponent with GhostAccessRewriter {
+class GhostPluginComponent(
+  val pluginOptions: PluginOptions,
+  val global: Global,
+) extends PluginComponent with GhostAccessRewriter {
   override val runsAfter = List[String]("pickler")
 }
 
