@@ -1057,11 +1057,19 @@ trait TypeEncoding
               super.transform(tpe)
 
             case tp: s.TypeParameter if simple(tp) =>
-              if (tp.flags
-                .collect { case s.Bounds(lo, hi) => s.typeOps.typeParamsOf(lo) ++ s.typeOps.typeParamsOf(hi) }
-                .flatMap(boundParams => tparams.filter(boundParams))
-                .filterNot(simple)
-                .nonEmpty) simple -= tp
+              val bounds = tp.flags.collect {
+                case s.Bounds(lo, hi) => Seq(lo, hi)
+              }.flatten.toSet
+
+              val boundParams = tparams.filter(bounds.flatMap(s.typeOps.typeParamsOf))
+
+              if (bounds.nonEmpty) {
+                simple -= tp
+                boundParams foreach { param =>
+                  simple -= param
+                }
+              }
+
               super.transform(tpe)
 
             case _ => super.transform(tpe)
@@ -1074,7 +1082,11 @@ trait TypeEncoding
         traverser.transform(fun.fullBody, fun.returnType.getType)
         fun.flags map (traverser.transform(_))
 
-        FunInfo(fun, tparams.zipWithIndex.collect { case (tp, i) if !simple(tp) => i }.toSet)
+        val nonSimpleParamsIndices = tparams.zipWithIndex.collect {
+          case (tp, i) if !simple(tp) => i
+        }.toSet
+
+        FunInfo(fun, nonSimpleParamsIndices)
       }
 
       val functions = context.symbols.functions.values.toSeq.flatMap { fd =>
