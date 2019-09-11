@@ -235,6 +235,71 @@ Functions and methods can have default values for their parameters.
   assert(test() == 42) // valid
 
 
+Type Definitions
+----------------
+
+Type Aliases
+************
+
+Type aliases can be defined the usual way:
+
+.. code-block:: scala
+
+   object testcase {
+     type Identifier = String
+
+     def newIdentifier: Identifier = /* returns a String */
+   }
+
+Type aliases can also have one or more type parameters:
+
+.. code-block:: scala
+
+   type Collection[A] = List[A]
+
+   def singleton[A](x: A): Collection[A] = List(x)
+
+Type Members
+************
+
+Much like classes can have field members and method members, they can also
+define type members. Much like other members, those can also be declared
+abstract within an abstract class and overriden in implementations:
+
+.. code-block:: scala
+
+  case class Grass()
+
+  abstract class Animal {
+    type Food
+    val happy: Boolean
+    def eat(food: Food): Animal
+  }
+
+  case class Cow(happy: Boolean) extends Animal {
+    type Food = Grass
+    def eat(g: Grass): Cow = Cow(happy = true)
+  }
+
+Note: Like regular type aliases, type members can also have one or more type parameters.
+
+Type members then give rise to path-dependent types, where the type of a variable
+can depend on another variable, by selecting a type member on the latter:
+
+.. code-block:: scala
+
+  //                             Path-dependent type
+  //                                 vvvvvvvvvvv
+  def giveFood(animal: Animal)(food: animal.Food): Animal = {
+    animal.eat(food)
+  }
+
+  def test = {
+    val cow1 = Cow(false)
+    val cow2 = giveFood(cow1)(Grass())
+    assert(cow2.happy) // VALID
+  }
+
 Specifications
 --------------
 
