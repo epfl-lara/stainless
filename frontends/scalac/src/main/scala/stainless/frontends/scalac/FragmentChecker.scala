@@ -44,7 +44,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
   class GhostAnnotationChecker extends Traverser {
     val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
-    val ghostMethod = rootMirror.getPackage(TermName("stainless.lang")).info.member(TermName("ghost"))
+    val ghostMethod = rootMirror.getPackage("stainless.lang").info.member(TermName("ghost"))
 
     private var ghostContext: Boolean = false
 
@@ -195,7 +195,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   }
 
   class Checker extends Traverser {
-    val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
+    val StainlessLangPackage = rootMirror.getPackage("stainless.lang")
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
     val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))

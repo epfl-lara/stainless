@@ -14,11 +14,11 @@ trait ASTExtractors {
   import global.definitions._
 
   def classFromName(str: String) = {
-    rootMirror.getClassByName(newTypeName(str))
+    rootMirror.getClassByName(str)
   }
 
   def objectFromName(str: String) = {
-    rootMirror.getClassByName(newTermName(str))
+    rootMirror.getClassByName(str)
   }
 
   /**

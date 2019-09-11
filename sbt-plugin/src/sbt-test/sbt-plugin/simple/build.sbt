@@ -9,9 +9,8 @@ val unsupportedScalaVersion = "2.11.7"
 val checkScalaFailures = taskKey[Unit]("checkScalaFailures")
 val assertLogMessage = taskKey[Unit]("checks a log message emitted")
 
-assertLogMessage := check(
-  "[unsupported] Project uses unsupported Scala version 2.11.7. " +
-  "To use stainless use one of the following Scala versions: 2.12.8."
+assertLogMessage := checkLogContains(
+  s"Project uses unsupported Scala version: $unsupportedScalaVersion."
 ).value
 
 lazy val success = (project in file("success"))
@@ -41,12 +40,11 @@ def checkScalaFailuresTask(expectedErrorMessage: String) = Def.task {
   assert(first.message == expectedErrorMessage, s"Reported error doesn't match. Expected `$expectedErrorMessage` but was `${first.message}`.")
 }
 
-def check(expectedLogMessage: String) = Def.task {
+def checkLogContains(message: String) = Def.task {
   val lastLog: File = BuiltinCommands.lastLogFile(state.value).get
   val last: String = IO.read(lastLog)
-  val contains = last.contains(expectedLogMessage)
-  if (!contains)
-    sys.error(s"sbt output does not contain expected log message: `$expectedLogMessage`")
+  if (!last.contains(message))
+    sys.error(s"sbt output does not contain expected log message: `$message`")
   else
     IO.write(lastLog, "") // clear the backing log for for 'last'.
 }

@@ -32,7 +32,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.8")
+val SupportedScalaVersions = Seq("2.12.9")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
