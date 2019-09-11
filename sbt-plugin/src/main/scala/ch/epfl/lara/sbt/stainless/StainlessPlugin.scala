@@ -47,10 +47,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
       projRef = ProjectRef(extracted.currentUnit.unit.uri, id)
       sv <- (scalaVersion in projRef).get(extracted.structure.data)
       if !BuildInfo.supportedScalaVersions.contains(sv)
-      projName <- (name in projRef).get(extracted.structure.data)
-    } {
-      state.log.error(s"""[$projName] Project uses unsupported Scala version $sv. To use stainless use one of the following Scala versions: ${BuildInfo.supportedScalaVersions.mkString(",")}.""")
-    }
+    } state.log.error(
+      s"Project uses unsupported Scala version: $sv. " +
+      s"To use Stainless use the following Scala version: ${BuildInfo.supportedScalaVersions.mkString(",")}."
+    )
     state
   }
 
