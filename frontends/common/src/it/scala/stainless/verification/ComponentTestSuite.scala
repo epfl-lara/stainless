@@ -116,8 +116,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
       // We use a shared run during extraction to ensure caching of
       // extraction results is enabled.
-      val extractor = component.run(extraction.pipeline)
-      assert(ctx.reporter.errorCount == 0, "There were errors during initial extraction")
 
       for {
         unit <- structure
@@ -132,6 +130,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           .withFunctions(program.symbols.functions.values.filter(fd => deps(fd.id)).toSeq)
           .withTypeDefs(program.symbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
+        val extractor = component.run(extraction.pipeline)
         val exSymbols = extractor extract symbols
         exSymbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during pipeline extraction")
