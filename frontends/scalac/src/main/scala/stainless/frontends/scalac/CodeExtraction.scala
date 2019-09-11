@@ -1384,7 +1384,7 @@ trait CodeExtraction extends ASTExtractors {
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
                 xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
-                Seq()
+                Seq.empty
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
@@ -1404,6 +1404,15 @@ trait CodeExtraction extends ASTExtractors {
               xt.ClassConstructor(
                 xt.ClassType(getIdentifier(someSymbol), Seq(to)).setPos(tr.pos),
                 Seq(xt.TupleSelect(value, 2).setPos(tr.pos))
+              ).setPos(tr.pos)
+            )
+
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "removed" | "-", Seq(key)) =>
+            xt.MapUpdated(
+              extractTree(lhs), extractTree(key),
+              xt.ClassConstructor(
+                xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                Seq.empty
               ).setPos(tr.pos)
             )
 

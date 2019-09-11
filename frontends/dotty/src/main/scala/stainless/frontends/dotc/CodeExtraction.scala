@@ -1561,7 +1561,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
                 xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
-                Seq()
+                Seq.empty
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
@@ -1583,6 +1583,15 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
                 Seq(xt.TupleSelect(vd.toVariable, 2).setPos(tr.pos))
               ).setPos(tr.pos)
             ).setPos(tr.pos))
+
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "removed" | "-", Seq(key)) =>
+            xt.MapUpdated(
+              extractTree(lhs), extractTree(key),
+              xt.ClassConstructor(
+                xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                Seq.empty
+              ).setPos(tr.pos)
+            )
 
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "++", Seq(rhs)) =>
             extractTree(rhs) match {

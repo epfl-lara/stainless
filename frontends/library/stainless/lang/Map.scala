@@ -26,13 +26,16 @@ object Map {
 @ignore
 case class Map[A, B] (theMap: scala.collection.immutable.Map[A,B]) {
   def apply(k: A): B = theMap.apply(k)
-  def ++(b: Map[A, B]): Map[A,B] = new Map (theMap ++ b.theMap)
   def updated(k: A, v: B): Map[A,B] = new Map(theMap.updated(k, v))
+  def removed(k: A): Map[A, B] = new Map(theMap - k)
   def contains(a: A): Boolean = theMap.contains(a)
   def isDefinedAt(a: A): Boolean = contains(a)
 
   def +(kv: (A, B)): Map[A,B] = updated(kv._1, kv._2)
   def +(k: A, v: B): Map[A,B] = updated(k, v)
+  def -(k: A): Map[A, B] = removed(k)
+
+  def ++(b: Map[A, B]): Map[A,B] = new Map(theMap ++ b.theMap)
 
   def getOrElse(k: A, default: B): B = get(k).getOrElse(default)
 
