@@ -1,0 +1,12 @@
+# Stainless
+.stainless-cache
+.stainless.conf
+stainless.conf
+unmanaged
+
+# sbt
+target
+*/target
+core/target
+frontends/*/target
+
