@@ -1,6 +1,13 @@
 
 # Release Notes
 
+## Version 0.5.1 (12-09-2019)
+
+### Bug fixes
+
+- Fix bug in ScalaCompiler.topmostAncestors (#693)
+- Fix warning about multiple library sources (#692)
+
 ## Version 0.5.0 (12-09-2019)
 
 ### Features
