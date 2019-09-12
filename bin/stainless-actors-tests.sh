@@ -17,8 +17,6 @@ cd stainless-actors || exit 1
 
 sed -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
 
-# ACTOR_EXAMPLES="counter leader-election kvs"
-# FIXME: leader-election is unstable at the moment so it is ignored
 ACTOR_EXAMPLES="counter leader-election kvs"
 
 for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
