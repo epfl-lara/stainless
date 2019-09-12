@@ -60,6 +60,23 @@ Use Standalone Release (recommended)
    [  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════╝
    [  Info  ] Shutting down executor service.
 
+Note: If the warning above says something about falling back on the Princess solver, you might be missing the ``libgomp1`` library,
+which you can install with your favorite package manager. For example, on Debian/Ubuntu, just run ``apt-get install libgomp1```.
+
+.. _docker:
+
+Via Docker
+----------
+
+If you have Docker installed, you can run the latest Stainless version with:
+
+
+.. code-block:: bash
+
+   $ docker run -v $PWD:/local docker.pkg.github.com/romac/stainless/stainless:latest /local/test.scala
+
+This will pull down the latest Stainless image from the GitHub package registry, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for an sample ``test.scala``.
+
 .. _gitter8-template:
 
 Use Gitter8 Template
