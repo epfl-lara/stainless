@@ -100,7 +100,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     val projectName = (name in thisProject).value
 
     val config = StainlessLibSources
-    val sourceJars = fetchJars(
+    var sourceJars = fetchJars(
       updateClassifiers.value,
       config,
       artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
@@ -109,7 +109,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
     log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
 
     if (sourceJars.length > 1) {
-      log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
+      log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration: $sourceJars")
+      sourceJars = sourceJars.init
     }
 
     val destDir = stainlessLibraryLocation.value
