@@ -1,11 +1,38 @@
 
 # Release Notes
 
+## Version 0.5.0 (12-09-2019)
+
+### Features
+
+- Bump Scala version to 2.12.9 and update sbt to 1.3.0 (#629, #591)
+- Add support for removing elements from Map (#688)
+- Setting `stainlessEnabled := false` keeps both library sources and ghost elimination (#684)
+- Include Stainless library sources even when verification is disabled in sbt plugin (#680)
+- Add --config-file option to specify or disable configuration file (#648)
+
+### Improvements
+
+- Document type aliases and type members support (#686)
+- Add Cont monad benchmark to model exceptions (#675)
+- Make qed be of unit type with post-condition (#669)
+- Do not consider built-in classes in override chain (#661)
+- Induct flag only adds decreases check if type checker is enabled (#657)
+- Improve position reporting for postconditions (#656)
+- Remove warnings for asserts in extern functions (#651)
+- Propagate @ghost annotation to variables introduced by calls to default copy getter (#643)
+
+### Bug fixes
+
+- Fix bad mutual recursion in GodelNumbering proof (#679)
+- Ensure type parameters with non-trivial bounds are properly encoded (#685)
+- Do not check model when invoking solver during partial evaluation (#676)
+
 ## Version 0.4.0 (23-08-2019)
 
 ### Features
 
-- Support for type members in local classes  (#633)
+- Support for type members in local classes (#633)
 - Report functions with missing positions in PositionChecker (#639)
 - Add AmortizedQueue data structure to Stainless library (#635)
 - Add debug section to show the full VC before simplification (#637)
