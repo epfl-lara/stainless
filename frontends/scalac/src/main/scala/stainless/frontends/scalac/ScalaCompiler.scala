@@ -50,11 +50,12 @@ class SymbolMapping {
     ignoredClasses contains name
   }
 
-  def topmostAncestor(sym: Global#Symbol): Global#Symbol =
-    if (sym.overrideChain.nonEmpty)
-      sym.overrideChain.filterNot(s => isIgnored(s.owner)).last
-    else
-      sym
+  def topmostAncestor(sym: Global#Symbol): Global#Symbol = {
+    sym.overrideChain
+      .filterNot(s => isIgnored(s.owner))
+      .lastOption
+      .getOrElse(sym)
+  }
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Global#Symbol): SymbolIdentifier = {
