@@ -20,6 +20,7 @@ Videos
 Papers
 ******
 
+ - `System FR: Formalized Foundations for the Stainless Verifier <https://lara.epfl.ch/~kuncak/papers/HamzaETAL19SystemFR.pdf>`_, by *Jad Hamza*, *Nicolas Voirol*, and *Viktor Kuncak*. Object-Oriented Programming, Systems, Languages & Applications (OOPSLA), 2019.
  - `Translating Scala Programs to Isabelle/HOL (System Description) <https://lara.epfl.ch/~kuncak/papers/HupelKuncak16TranslatingScalaProgramsIsabelleHOLSystemDescription.pdf>`_, by *Lars Hupel* and *Viktor Kuncak*. International Joint Conference on Automated Reasoning (IJCAR), 2016.
  - `Counter-example complete verification for higher-order functions <https://lara.epfl.ch/~kuncak/papers/VoirolETAL15CounterExampleCompleteVerificationHigherOrderFunctions.pdf>`_, by *Nicolas Voirol*, *Etienne Kneuss*, and *Viktor Kuncak*. Scala Symposium, 2015.
  - `Sound reasoning about integral data types with a reusable SMT solver interface <https://lara.epfl.ch/~kuncak/papers/BlancKuncak15SoundReasoningIntegralDataTypes.pdf>`_, by *Régis Blanc* and *Viktor Kuncak*. Scala Symposium, 2015.
