@@ -24,12 +24,17 @@ useful preconditions and postconditions of the operations, thus
 providing reasoning abilities using mechanisms entirely available
 to the user.
 
+.. note::
+
+   The ScalaDoc for the library is `available online <_static/stainless-library/index.html>`_.
+
+   For the most up-to-date version of the source code of library,
+   please consult the ``library/`` directory in your Stainless distribution.
+
 To use Stainless' libraries, you need to use the appropriate
 `import` directive at the top of Stainless' compilation units.
 Here is a quick summary of what to import.
-For the most up-to-date version of the library,
-please consult the ``library/`` directory in your Stainless
-distribution.
+
 
 +--------------------------------+----------------------------------------------------+
 | Package to import              | What it gives access to                            |
