@@ -76,10 +76,31 @@ If you have `Docker <https://docs.docker.com>`_ installed, you can run the lates
 
 This will pull down the latest Stainless image from the `GitHub package registry <https://github.com/romac/stainless/packages/21998>`_, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for a sample ``test.scala``.
 
+.. _sbt-usage:
+
+Usage With Sbt
+--------------
+
+Stainless is also avaiable as a sbt plugin, which hooks into the build process to verify
+your code on compilation. This allows for both verifying your code, compiling, and running your
+code in one swift motion.
+
+Moreover, thanks to `Metals <https://scalameta.org/metals/>`_, Stainless diagnostics will 
+automatically appear in your editor of choice (we recommend `VS Code <https://code.visualstudio.com>`_),
+while the full log will typically be available in a separate window/pane.
+To this end, please follow the installation instructions for your editor on
+the `Metals website <https://scalameta.org/metals/docs/editors/overview.html>`_.
+
+To ease the process, we provide a template for a Stainless-enabled sbt project
+which one can then import into their editor of choice to get started in a few steps:
+:ref:`gitter8-template`
+
+Alternatively, one can also integrate Stainless into an existing sbt project: :ref:`sbt-project`.
+
 .. _gitter8-template:
 
-Use Gitter8 Template
---------------------
+Sbt Template Project
+********************
 
 **Install sbt:**
 
@@ -115,12 +136,13 @@ Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 
       > verified/run
 
+
 .. _sbt-project:
 
-Usage within an sbt project
----------------------------
+Usage Within An Existing Project
+********************************
 
-Setting up an sbt build file to use Stainless is a simple 4-step procedure that avoids the need to explicitly build stainless itself.
+Stainless can also be used within an existing sbt 1.3.0 project.
 
 1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
@@ -136,29 +158,29 @@ Setting up an sbt build file to use Stainless is a simple 4-step procedure that 
 
    addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
 
-Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
+Check the `GitHub releases <https://github.com/epfl-lara/stainless/releases>`_ or the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
 
-3. In your project's build file, enable the ``StainlessPlugin`` on the modules that should be verified by stainless. Below is an example:
+3. In your project's build file, enable the ``StainlessPlugin`` on the modules that should be verified by Stainless. Below is an example:
 
 .. code-block:: scala
 
   // build.sbt
   lazy val algorithm = project
     .in(file("algorithm"))
-    .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
+    .enablePlugins(StainlessPlugin) // <-- Enabling Stainless verification on this module!
     .settings(...)
 
-Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use stainless on a module.
+Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use Stainless on a module.
 
-4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
+4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, Stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
 
-That's all there is to it. However, the ``sbt-stainless`` plugin is a more recent addition to stainless compared to command-line script. It has seen less testing in the field and currently has the following limitations:
+That's all there is to it. However, the ``sbt-stainless`` plugin is a more recent addition to Stainless compared to command-line script. It has seen less testing in the field and currently has the following limitations:
 
 * No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.ub
 
 * The plugin *does not* support Scala 3 (dotty). To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
-Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
+Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with Stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
 
 .. _smt-solvers:
 
