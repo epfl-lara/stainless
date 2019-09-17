@@ -100,19 +100,27 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   // disable documentation packaging in universal:stage to speedup development
-  mappings in (Compile, packageDoc) := Seq(),
+  Compile / packageDoc / mappings := Seq(),
 
-  concurrentRestrictions in Global += Tags.limitAll(nParallel),
+  Global / concurrentRestrictions += Tags.limitAll(nParallel),
 
-  sourcesInBase in Compile := false,
+  Compile / sourcesInBase := false,
 
-  Keys.fork in run := true,
+  run / Keys.fork := true,
 
-  /* javaOptions in run += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
+  run / javaOptions ++= Seq(
+    "-Xss256M",
+    "-Xms1024M",
+    "-XX:MaxMetaspaceSize=512M",
+    "-XX:+UseCodeCacheFlushing",
+    "-XX:ReservedCodeCacheSize=256M",
+  ),
 
-  testOptions in Test := Seq(Tests.Argument("-oDF")),
+  /* run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
 
-  testOptions in IntegrationTest := Seq(Tests.Argument("-oDF")),
+  Test / testOptions := Seq(Tests.Argument("-oDF")),
+
+  IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = Seq(
