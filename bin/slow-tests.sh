@@ -83,7 +83,9 @@ BASE_DIR=$( dirname "$BIN_DIR" )
 
 cd "$BASE_DIR" || exit 1
 
+SBT_OPTS="-batch -Dparallel=5 -Dsbt.color=always -Dsbt.supershell=false"
+
 echo "Running the full test suite (slow tests enabled)..."
-echo "$ RUN_SLOW_TESTS=true sbt -batch -Dparallel=5 it:test"
-RUN_SLOW_TESTS=true sbt -batch -Dparallel=5 it:test
+echo "$ RUN_SLOW_TESTS=true sbt $SBT_OPTS it:test"
+RUN_SLOW_TESTS=true sbt $SBT_OPTS it:test
 
