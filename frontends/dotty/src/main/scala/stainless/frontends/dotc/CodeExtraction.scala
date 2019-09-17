@@ -452,6 +452,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case td @ TypeDef(_, _) if td.symbol is Param =>
         // ignore
 
+      case cd @ ExClassDef() =>
+        outOfSubsetError(cd.pos, "Classes can only be defined at the top-level, within objects, or within methods")
+
       // Class invariants
       case ExRequire(body, isStatic) =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x

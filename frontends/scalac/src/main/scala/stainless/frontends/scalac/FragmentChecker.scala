@@ -278,12 +278,21 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             sym.isNonBottomSubClass(definitions.AnnotationClass)
           }
 
-          if (!isSupported)
+          if (!isSupported) {
             reportError(tree.pos, "Only abstract classes, case classes, anonymous classes, and objects are allowed in Stainless.")
+          }
 
           val parents = impl.parents.map(_.tpe).filterNot(ignoredClasses)
-          if (parents.length > 1)
+          if (parents.length > 1) {
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
+          }
+
+          impl foreach {
+            case cd: ClassDef if !cd.symbol.owner.isMethod =>
+              reportError(cd.pos, "Classes can only be defined at the top-level, within objects, or within methods")
+
+            case _ => ()
+          }
 
           atOwner(sym)(traverse(impl))
 
