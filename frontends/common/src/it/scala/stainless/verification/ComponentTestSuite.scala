@@ -55,6 +55,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "verification/invalid/PartialSplit",
     "verification/valid/AmortizedQueue",
     "verification/valid/BigIntRing",
+    "verification/valid/BitsTricksSlow",
     "verification/valid/ConcRope",
     "verification/valid/ConcTree",
     "verification/valid/CovariantList",
