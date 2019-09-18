@@ -56,14 +56,17 @@ class SMTZ3VerificationSuite extends VerificationSuite {
     // Flaky on smt-z3 for some reason
     case "verification/valid/MergeSort2" => Ignore
     case "verification/valid/IntSetInv" => Ignore
+
+    // Too slow on smt-z3, even for nightly build
+    case "verification/valid/BitsTricksSlow" => Skip
+
     case _ => super.filter(ctx, name)
   }
 }
 
-class CodeGenVerificationSuite extends VerificationSuite {
+class CodeGenVerificationSuite extends SMTZ3VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3")),
       inox.solvers.unrolling.optFeelingLucky(true),
       inox.solvers.optCheckModels(true),
       evaluators.optCodeGen(true)
@@ -71,10 +74,6 @@ class CodeGenVerificationSuite extends VerificationSuite {
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // Flaky on smt-z3 for some reason
-    case "verification/valid/MergeSort2" => Ignore
-    case "verification/valid/IntSetInv" => Ignore
-
     // Does not work with --feeling-lucky. See #490
     case "verification/valid/MsgQueue" => Skip
 
