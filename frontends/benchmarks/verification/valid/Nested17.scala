@@ -1,6 +1,6 @@
 package test.resources.regression.verification.purescala.valid
 
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 object Nested17 {
 
