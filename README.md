@@ -6,12 +6,28 @@ functional programs with local imperative features (see [Pure Scala](https://epf
 and [Imperative](https://epfl-lara.github.io/stainless/imperative.html)
 for more details about the supported fragment).
 
+## Documentation
+
 To get started, see the documentation chapters, such as
+
   * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
   * [Installation](https://epfl-lara.github.io/stainless/installation.html)
-  * [Tutorial](https://epfl-lara.github.io/stainless/gettingstarted.html)
+  * [Getting Started](https://epfl-lara.github.io/stainless/gettingstarted.html)
+  * [Command-line Options](https://epfl-lara.github.io/stainless/options.html)
+  * [Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
+
+## Other Links
+
+* Stainless Website: https://stainless.epfl.ch
+* EPFL-LARA Website: https://lara.epfl.ch/w/
+
+## License
+
+Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for more information.
+
+---
 
 ### Relation to [Inox](https://github.com/epfl-lara/inox)
 
@@ -36,3 +52,4 @@ contracts and contract-based termination checking.
 [larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
 [release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
 [tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout
+
