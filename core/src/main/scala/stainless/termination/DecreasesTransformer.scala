@@ -36,8 +36,9 @@ trait DecreasesTransformer extends transformers.TreeTransformer {
 object DecreasesTransformer {
   def apply(tr: ast.Trees)(syms: tr.Symbols): DecreasesTransformer {
     val trees: tr.type
-  } = new DecreasesTransformer {
+  } = new {
     val trees: tr.type = tr
+  } with DecreasesTransformer {
     implicit val symbols: syms.type = syms
   }
 }
