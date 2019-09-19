@@ -10,7 +10,11 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   val component: Component
 
   override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
-    Seq(inox.optSelectedSolvers(Set("smt-z3")), inox.optTimeout(300.seconds))
+    Seq(
+      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.optTimeout(300.seconds),
+      verification.optStrictArithmetic(false),
+    )
   )
 
   final override def createContext(options: inox.Options) = stainless.TestContext(options)
