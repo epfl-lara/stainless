@@ -104,7 +104,7 @@ Sbt Template Project
 
 **Install sbt:**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
 
 **Create a new project from the template:**
 
@@ -142,7 +142,7 @@ Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 Usage Within An Existing Project
 ********************************
 
-Stainless can also be used within an existing sbt 1.3.0 project.
+Stainless can also be used within an existing sbt 1.2.8 project.
 
 1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
@@ -153,7 +153,7 @@ Stainless can also be used within an existing sbt 1.3.0 project.
    resolvers ++= Seq(
      Resolver.bintrayRepo("epfl-lara", "princess"),
      Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
-     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
+     "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
    )
 
    addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
@@ -268,7 +268,7 @@ in an attempt to be more reproducible and independent from sbt cache and path, t
 
 **Install sbt**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
 
 **Check out sources**
 

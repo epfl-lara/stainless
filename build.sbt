@@ -83,7 +83,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.bintrayRepo("epfl-lara", "maven"),
-    ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
+    "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
   ),
 
   libraryDependencies ++= Seq(
