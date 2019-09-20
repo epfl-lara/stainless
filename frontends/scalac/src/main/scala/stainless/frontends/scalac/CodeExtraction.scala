@@ -123,6 +123,7 @@ trait CodeExtraction extends ASTExtractors {
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
     isExtern: Boolean = false,
     resolveTypes: Boolean = false,
+    wrappingArithmetic: Boolean = false,
   ){
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
@@ -131,7 +132,8 @@ trait CodeExtraction extends ASTExtractors {
            this.localFuns ++ that.localFuns,
            this.localClasses ++ that.localClasses,
            this.isExtern || that.isExtern,
-           this.resolveTypes || that.resolveTypes)
+           this.resolveTypes || that.resolveTypes,
+           this.wrappingArithmetic || that.wrappingArithmetic)
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -166,6 +168,10 @@ trait CodeExtraction extends ASTExtractors {
 
     def setResolveTypes(resolveTypes: Boolean) = {
       copy(resolveTypes = resolveTypes)
+    }
+
+    def setWrappingArithmetic(wrappingArithmetic: Boolean) = {
+      copy(wrappingArithmetic = wrappingArithmetic)
     }
   }
 
@@ -1057,6 +1063,10 @@ trait CodeExtraction extends ASTExtractors {
         case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
         case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
       }
+
+    case ExWrapping(tree) =>
+      val body = extractTree(tree)(dctx.setWrappingArithmetic(true))
+      xt.Annotated(body, Seq(xt.Wrapping))
 
     case ExRealLiteral(n, d) =>
       (extractTree(n), extractTree(d)) match {

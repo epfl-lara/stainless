@@ -460,6 +460,16 @@ trait ASTExtractors {
       }
     }
 
+    /** Matches the construct stainless.math.wrapping[A](a) and returns a */
+    object ExWrapping {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(TypeApply(ExSelected("stainless", "math", "package", "wrapping"), Seq(_)), tree :: Nil) =>
+          Some(tree)
+        case _ =>
+          None
+      }
+    }
+
     /** Matches the construct List[tpe](a, b, ...) and returns tpe and arguments */
     object ExListLiteral {
       def unapply(tree: Apply): Option[(Tree, List[Tree])] = tree  match {
