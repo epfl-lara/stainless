@@ -216,6 +216,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.IsField(isLazy) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsField(isLazy))
     case s.IsUnapply(isEmpty, get) => (Seq(isEmpty, get), Seq(), Seq(), (ids, _, _) => t.IsUnapply(ids(0), ids(1)))
     case s.PartialEval => (Seq(), Seq(), Seq(), (_, _, _) => t.PartialEval)
+    case s.Wrapping => (Seq(), Seq(), Seq(), (_, _, _) => t.Wrapping)
     case _ => super.deconstruct(f)
   }
 }

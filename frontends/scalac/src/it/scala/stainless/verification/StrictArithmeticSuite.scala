@@ -15,8 +15,8 @@ class StrictArithmeticSuite extends ComponentTestSuite {
 
   val component = VerificationComponent
 
-  testAll("strictarithmetic/valid") { (report, reporter) =>
-    for ((vc, vr) <- report.vrs) {
+  testAll("strictarithmetic/valid") { (analysis, reporter) =>
+    for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
     }
