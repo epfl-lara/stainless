@@ -19,9 +19,9 @@ trait AssertionInjector extends transformers.TreeTransformer {
   private[this] var inWrappingMode: Boolean = false
   private[this] def checkOverflow: Boolean = strictArithmetic && !inWrappingMode
 
-  private[this] def wrapping[A](a: => A): A = {
+  def wrapping[A](enabled: Boolean)(a: => A): A = {
     val old = inWrappingMode
-    inWrappingMode = true
+    inWrappingMode = enabled
     val res = a
     inWrappingMode = old
     res
@@ -34,7 +34,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
 
   override def transform(e: s.Expr): t.Expr = e match {
     case s.Annotated(body, flags) if flags contains s.Wrapping =>
-      t.Annotated(wrapping(transform(body)), flags map transform).copiedFrom(e)
+      t.Annotated(wrapping(true)(transform(body)), flags map transform).copiedFrom(e)
 
     case s.ArraySelect(a, i) =>
       t.Assert(
@@ -246,20 +246,23 @@ object AssertionInjector {
 
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.map { fd =>
-          val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
-          val newSpecs = specs.map(_.map(injector.transform(_)))
-          val newBody = body map injector.transform
+          injector.wrapping(fd.flags.contains(s.Wrapping)) {
+            val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
+            val newSpecs = specs.map(_.map(injector.transform(_)))
+            val newBody = body map injector.transform
 
-          val resultType = injector.transform(fd.returnType)
-          val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
-          new t.FunDef(
-            fd.id,
-            fd.tparams map injector.transform,
-            fd.params map injector.transform,
-            resultType,
-            fullBody,
-            fd.flags map injector.transform
-          ).copiedFrom(fd)
+            val resultType = injector.transform(fd.returnType)
+            val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
+
+            new t.FunDef(
+              fd.id,
+              fd.tparams map injector.transform,
+              fd.params map injector.transform,
+              resultType,
+              fullBody,
+              fd.flags map injector.transform
+            ).copiedFrom(fd)
+          }
         })
         .withSorts(syms.sorts.values.toSeq.map(injector.transform))
     }

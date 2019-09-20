@@ -36,6 +36,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("unchecked", Seq()) => Unchecked
     case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
+    case ("wrapping", Seq()) => Wrapping
     case _ => Annotation(name, args)
   }
 
