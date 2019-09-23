@@ -205,7 +205,7 @@ You can use multiple solvers in portfolio mode, as with the options ``--timeout=
 For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
 
 Install Z3 4.7.1 (Linux & macOS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+********************************
 
 1. Download Z3 4.7.1 from https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1
 2. Unzip the downloaded archive
@@ -224,7 +224,7 @@ Install Z3 4.7.1 (Linux & macOS)
 
 
 Install CVC 1.7 (Linux)
-~~~~~~~~~~~~~~~~~~~~~~~
+***********************
 
 1. Download CVC4 1.7 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
 
@@ -243,7 +243,7 @@ Install CVC 1.7 (Linux)
   This is CVC4 version 1.7
 
 Install CVC 1.6 (macOS)
-~~~~~~~~~~~~~~~~~~~~~~~
+***********************
 
 1. Install `Homebrew <https://brew.sh>`_
 2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
