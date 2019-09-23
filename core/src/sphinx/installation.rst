@@ -74,7 +74,7 @@ If you have `Docker <https://docs.docker.com>`_ installed, you can run the lates
 
    $ docker run -v "$PWD:/local" epfllara/stainless:latest /local/test.scala
 
-This will pull down the latest Stainless image from the `GitHub package registry <https://github.com/romac/stainless/packages/21998>`_, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for a sample ``test.scala``.
+This will pull down the latest Stainless image from `Docker Hub <https://hub.docker.com/r/epfllara/stainless>`_, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for a sample ``test.scala``.
 
 .. _sbt-usage:
 
