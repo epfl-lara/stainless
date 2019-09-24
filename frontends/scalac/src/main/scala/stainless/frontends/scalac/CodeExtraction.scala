@@ -1436,6 +1436,21 @@ trait CodeExtraction extends ASTExtractors {
               case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
             }
 
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "--", Seq(rhs)) =>
+            extractTree(rhs) match {
+              case xt.FiniteSet(els, _) =>
+                val none = xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                  Seq.empty
+                ).setPos(tr.pos)
+
+                els.foldLeft(extractTree(lhs)) { case (map, k) =>
+                  xt.MapUpdated(map, k, none).setPos(tr.pos)
+                }
+
+              case _ => outOfSubsetError(tr, "Can't extract map diff with non-finite map")
+            }
+
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "getOrElse", Seq(key, orElse)) =>
             xt.MethodInvocation(
               xt.MapApply(extractTree(lhs), extractTree(key)).setPos(tr.pos),

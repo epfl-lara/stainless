@@ -36,6 +36,7 @@ case class Map[A, B] (theMap: scala.collection.immutable.Map[A,B]) {
   def -(k: A): Map[A, B] = removed(k)
 
   def ++(b: Map[A, B]): Map[A,B] = new Map(theMap ++ b.theMap)
+  def --(b: Set[A]): Map[A,B] = new Map(theMap -- b.theSet)
 
   def getOrElse(k: A, default: B): B = get(k).getOrElse(default)
 
