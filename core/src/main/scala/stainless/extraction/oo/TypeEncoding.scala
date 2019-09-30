@@ -1255,7 +1255,7 @@ trait TypeEncoding
       .withFunctions(context.functions)
       .withSorts(context.sorts)
 
-    newSymbols.ensureWellFormed
+    // newSymbols.ensureWellFormed
 
     val dependencies: Set[Identifier] =
       (symbols.functions.keySet ++ symbols.sorts.keySet)
@@ -1265,7 +1265,7 @@ trait TypeEncoding
       .withFunctions(newSymbols.functions.values.toSeq.filter(fd => dependencies(fd.id)))
       .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
 
-    independentSymbols.ensureWellFormed
+    // independentSymbols.ensureWellFormed
 
     val constructors: Set[Identifier] = {
       import independentSymbols._
@@ -1300,7 +1300,7 @@ trait TypeEncoding
         context.refSort.flags)
       ))
 
-    result.ensureWellFormed
+    // result.ensureWellFormed
     result
   }
 
