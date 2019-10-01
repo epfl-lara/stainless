@@ -232,8 +232,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         if stainlessReplacement.contains(tp.dealias.typeSymbol)
       } yield tp -> stainlessReplacement(tp.typeSymbol)
 
-      for ((tp, replacement) <- errors.distinct)
-        reportError(pos, s"Scala API ($tp) no longer extracted, please use ${replacement}")
+      for ((tp, replacement) <- errors.distinct) {
+        reportError(pos, s"Scala API `$tp` is not directly supported, please use `$replacement` instead.")
+      }
     }
 
     private var classBody = false
@@ -252,14 +253,18 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
 
         // exit early if it's a subtree we shouldn't validate
-        if (isExtern || isIgnore || sym.isSynthetic)
-          return
+        if (isExtern || isIgnore || sym.isSynthetic) {
+          return ()
+        }
 
         // ignore param accessors because they are duplicates of constructor parameters.
         // We catch them when we check constructors
-        if ((sym.tpe ne null) && !sym.isParamAccessor)
+        if ((sym.tpe ne null) && !sym.isParamAccessor) {
           checkType(tree.pos, sym.tpe)
-      } else super.traverse(tree)
+        }
+      } else {
+        super.traverse(tree)
+      }
 
       tree match {
         case od @ ExObjectDef(_, tmpl) =>
