@@ -25,6 +25,37 @@ object Iterables {
     assert(!res.contains(4))
   }
 
+  val oneToSix = Set[BigInt](1,2,3,4,5,6)
+
+  def test_setFilter(set: Set[BigInt]) = {
+    require((set & oneToSix) == oneToSix)
+
+    val res = set.filter(_ < 4)
+
+    assert(res.contains(1))
+    assert(res.contains(2))
+    assert(res.contains(3))
+    assert(!res.contains(4))
+    assert(!res.contains(5))
+    assert(!res.contains(6))
+  }
+
+  // def test_setWithFilter(set: Set[BigInt]) = {
+  //   require((set & oneToSix) == oneToSix)
+
+  //   val res = for {
+  //     x <- set
+  //     if x < 4
+  //   } yield x
+
+  //   assert(res.contains(1))
+  //   assert(res.contains(2))
+  //   assert(res.contains(3))
+  //   assert(!res.contains(4))
+  //   assert(!res.contains(5))
+  //   assert(!res.contains(6))
+  // }
+
   def test_mapKeys(map: Map[Int, String]) = {
     require(map.contains(1) && map.contains(2) && !map.contains(3))
 

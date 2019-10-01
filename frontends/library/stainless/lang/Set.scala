@@ -34,6 +34,20 @@ object Set {
     }
 
     @extern @pure
+    def filter(p: A => Boolean): Set[A] = {
+      new Set(set.theSet.filter(p))
+    } ensuring { res =>
+      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
+    }
+
+    @extern @pure
+    def withFilter(p: A => Boolean): Set[A] = {
+      new Set(set.theSet.filter(p))
+    } ensuring { res =>
+      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
+    }
+
+    @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
     } ensuring { res =>
@@ -47,8 +61,9 @@ object Set {
     def mkString(infix: String)(format: A => String): String = {
       set.theSet.map(format).toList.sorted.mkString(infix)
     }
-  }
 
+    def nonEmpty: Boolean = !set.isEmpty
+  }
 }
 
 @ignore
