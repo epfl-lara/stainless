@@ -6,12 +6,9 @@ import scala.language.implicitConversions
 object StaticChecks {
 
   @library
-  case class Ensuring[A](x: A) {
+  implicit class Ensuring[A](val x: A) extends AnyVal {
     def ensuring(@ghost cond: (A) => Boolean): A = x
   }
-
-  @library
-  implicit def any2Ensuring[A](x: A): Ensuring[A] = Ensuring(x)
 
   @library
   def require(@ghost pred: Boolean): Unit = ()

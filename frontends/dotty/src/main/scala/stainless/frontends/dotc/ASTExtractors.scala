@@ -470,8 +470,10 @@ trait ASTExtractors {
     object ExUnwrapped {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(
-          ExSymbol("scala", "Predef$", "Ensuring") |
-          ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(arg)) => Some(arg)
+            ExSymbol("scala", "Predef$", "Ensuring") |
+            ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring"),
+            Seq(arg)) => Some(arg)
+
         case Apply(ExSymbol("stainless", "lang", "package$", "Throwing"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)
