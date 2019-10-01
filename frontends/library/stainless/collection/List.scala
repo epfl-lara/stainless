@@ -3,6 +3,7 @@
 package stainless.collection
 
 import scala.language.implicitConversions
+import scala.collection.immutable.{List => ScalaList}
 
 import stainless._
 import stainless.lang._
@@ -551,6 +552,11 @@ sealed abstract class List[T] {
   def toSet: Set[T] = foldLeft(Set[T]()){
     case (current, next) => current ++ Set(next)
   }
+
+  @extern @pure
+  def toScala[A](list: List[A]): ScalaList[A] = {
+    list.foldRight(ScalaList.empty[A])(_ :: _)
+  }
 }
 
 @library
@@ -573,6 +579,11 @@ object List {
 
   @library
   def empty[T]: List[T] = Nil[T]()
+
+  @library @extern @pure
+  def fromScala[A](list: ScalaList[A]): List[A] = {
+    list.foldRight(List.empty[A])(_ :: _)
+  }
 
   @library
   def fill[T](n: BigInt)(x: T) : List[T] = {
