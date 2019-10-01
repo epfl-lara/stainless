@@ -3,9 +3,11 @@
 package stainless.lang
 
 import scala.language.implicitConversions
+import scala.collection.immutable.{Map => ScalaMap}
 
+import StaticChecks._
 import stainless.annotation._
-import stainless.lang.StaticChecks._
+import stainless.collection.List
 
 object Map {
   @library @inline
@@ -16,10 +18,48 @@ object Map {
   def apply[A,B](elems: (A,B)*) = {
     new Map[A,B](scala.collection.immutable.Map[A,B](elems : _*))
   }
-  
-  @extern @library
-  def mkString[A, B](map: Map[A, B], inkv: String, betweenkv: String, fA : A => String, fB: B => String) = {
-    map.theMap.map{ case (k, v) => fA(k) + inkv + fB(v)}.toList.sorted.mkString(betweenkv)
+
+  @library @extern @pure
+  def fromScala[A, B](map: ScalaMap[A, B]): Map[A, B] = {
+    new Map(map)
+  }
+
+  @library
+  implicit class MapOps[A, B](val map: Map[A, B]) extends AnyVal {
+
+    @extern @pure
+    def keys: List[A] = {
+      List.fromScala(map.theMap.keys.toList)
+    } ensuring { res =>
+      forall((a: A) => map.contains(a) == res.contains(a))
+    }
+
+    @extern @pure
+    def values: List[B] = {
+      List.fromScala(map.theMap.values.toList)
+    } ensuring { res =>
+      forall((a: A, b: B) => (map.contains(a) && map(a) == b) == res.contains(b))
+    }
+
+    @extern @pure
+    def toList: List[(A, B)] = {
+      List.fromScala(map.theMap.toList)
+    } ensuring { res =>
+      forall((a: A) => map.contains(a) == res.contains((a, map(a))))
+    }
+
+    @extern @pure
+    def toScala: ScalaMap[A, B] = {
+      map.theMap
+    }
+
+    @extern @pure
+    def mkString(inkv: String, betweenkv: String)(fA: A => String, fB: B => String): String = {
+      map.theMap
+        .map { case (k, v) => fA(k) + inkv + fB(v) }
+        .toList.sorted
+        .mkString(betweenkv)
+    }
   }
 }
 
