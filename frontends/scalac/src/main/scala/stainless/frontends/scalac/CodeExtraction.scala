@@ -351,8 +351,11 @@ trait CodeExtraction extends ASTExtractors {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
+    val isValueClass = cd.impl.parents.map(_.tpe).exists(_ == AnyValClass.tpe)
+
     val annots = annotationsOf(sym)
     val flags = annots ++
+      (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
       (if (sym.isSealed) Some(xt.IsSealed) else None) ++
       (if (sym.tpe.typeSymbol.isModuleClass && sym.isCase) Some(xt.IsCaseObject) else None)

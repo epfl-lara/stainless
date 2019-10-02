@@ -358,14 +358,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractClass(td: tpd.TypeDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val sym = td.symbol
     val id = getIdentifier(sym)
+    val template = td.rhs.asInstanceOf[tpd.Template]
+
+    val isValueClass = template.parents.exists(_.tpe.typeSymbol == defn.AnyValClass)
 
     val annots = annotationsOf(sym)
     val flags = annots ++
+      (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
       (if (sym is Sealed) Some(xt.IsSealed) else None) ++
       (if ((sym is ModuleClass) && (sym is Case)) Some(xt.IsCaseObject) else None)
-
-    val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = extractTypeParams(sym.asClass.typeParams)(DefContext())
     val defCtx = dctx.copy(tparams = dctx.tparams ++ (sym.asClass.typeParams zip extparams))
