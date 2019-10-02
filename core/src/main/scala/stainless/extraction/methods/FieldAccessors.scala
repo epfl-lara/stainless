@@ -68,12 +68,12 @@ trait FieldAccessors extends oo.CachingPhase
 }
 
 object FieldAccessors {
-  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
-    val s: ts.type
-    val t: tt.type
+  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: tr.type
+    val t: tr.type
   } = new FieldAccessors {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
+    override val s: tr.type = tr
+    override val t: tr.type = tr
     override val context = ctx
   }
 }

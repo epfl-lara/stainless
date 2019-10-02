@@ -25,10 +25,18 @@ package object methods {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new MethodsException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) =
-    utils.DebugPipeline("Laws",           Laws(trees))          andThen
-    utils.DebugPipeline("SuperCalls",     SuperCalls(trees))    andThen
-    utils.DebugPipeline("Sealing",        Sealing(trees))       andThen
-    utils.DebugPipeline("MethodLifting",  MethodLifting(trees)) andThen
-    utils.DebugPipeline("FieldAccessors", FieldAccessors(trees, throwing.trees))
+  def extractor(implicit ctx: inox.Context) = {
+    val lowering = ExtractionPipeline(new CheckingTransformer {
+      override val s: trees.type = trees
+      override val t: throwing.trees.type = throwing.trees
+    })
+
+    utils.DebugPipeline("Laws",           Laws(trees))           andThen
+    utils.DebugPipeline("SuperCalls",     SuperCalls(trees))     andThen
+    utils.DebugPipeline("Sealing",        Sealing(trees))        andThen
+    utils.DebugPipeline("MethodLifting",  MethodLifting(trees))  andThen
+    utils.DebugPipeline("FieldAccessors", FieldAccessors(trees)) andThen
+    utils.DebugPipeline("ValueClasses",   ValueClasses(trees))   andThen
+    lowering
+  }
 }
