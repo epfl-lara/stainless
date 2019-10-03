@@ -481,7 +481,13 @@ sealed abstract class List[T] {
   }
 
   // In case we implement for-comprehensions
-  def withFilter(p: T => Boolean) = filter(p)
+  def withFilter(p: T => Boolean): List[T] = {
+    filter(p)
+  } ensuring { res =>
+    res.size <= this.size &&
+    res.content.subsetOf(this.content) &&
+    res.forall(p)
+  }
 
   @isabelle.function(term = "%xs P. List.list_all P xs")
   def forall(p: T => Boolean): Boolean = this match {
