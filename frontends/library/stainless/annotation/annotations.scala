@@ -27,6 +27,10 @@ class extern extends Annotation
 @ignore
 class opaque extends Annotation
 
+/** Denotes the annotated method as an invariant of its class */
+@ignore
+class invariant extends Annotation
+
 /** Specify that the annotated function is pure, which will be checked. */
 @ignore @field @getter @setter @param
 class pure extends Annotation
