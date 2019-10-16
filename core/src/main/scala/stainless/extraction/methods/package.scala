@@ -31,12 +31,14 @@ package object methods {
       override val t: throwing.trees.type = throwing.trees
     })
 
-    utils.DebugPipeline("Laws",           Laws(trees))           andThen
-    utils.DebugPipeline("SuperCalls",     SuperCalls(trees))     andThen
-    utils.DebugPipeline("Sealing",        Sealing(trees))        andThen
-    utils.DebugPipeline("MethodLifting",  MethodLifting(trees))  andThen
-    utils.DebugPipeline("FieldAccessors", FieldAccessors(trees)) andThen
-    utils.DebugPipeline("ValueClasses",   ValueClasses(trees))   andThen
+    utils.DebugPipeline("Laws",            Laws(trees))            andThen 
+    utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen 
+    utils.DebugPipeline("Sealing",         Sealing(trees))         andThen 
+    utils.DebugPipeline("Invariants",      Sealing(trees))         andThen 
+    utils.DebugPipeline("MethodLifting",   MethodLifting(trees))   andThen 
+    utils.DebugPipeline("MergeInvariants", MergeInvariants(trees)) andThen 
+    utils.DebugPipeline("FieldAccessors",  FieldAccessors(trees))  andThen 
+    utils.DebugPipeline("ValueClasses",    ValueClasses(trees))    andThen 
     lowering
   }
 }
