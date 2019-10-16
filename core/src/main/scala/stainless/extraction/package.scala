@@ -32,6 +32,7 @@ package object extraction {
     "SuperCalls"                -> "Resolve super-function calls",
     "Sealing"                   -> "Seal every class and add mutable flags",
     "MethodLifting"             -> "Lift methods into dispatching functions",
+    "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "AntiAliasing"              -> "Rewrite field and array mutations",
