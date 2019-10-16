@@ -66,6 +66,17 @@ trait ValueClasses
 
     val valueClasses = symbols.classes.filter(_._2.isValueClass)
 
+    val invariants = valueClasses.mapValues { cd =>
+      cd.flags.collectFirst {
+        case HasADTInvariant(id) => symbols.getFunction(id)
+      }
+    }.toMap
+
+    val invToClass = invariants.flatMap {
+      case (id, Some(inv)) => Some(inv.id -> valueClasses(id))
+      case _ => None
+    }.toMap
+
     val valueClassConversions = symbols.functions.filter { case (id, fd) =>
       fd.isSynthetic && !fd.isMethod && (fd.returnType match {
         case ClassType(id, _) => valueClasses.contains(id)
@@ -73,9 +84,47 @@ trait ValueClasses
       })
     }
 
-    def underlyingType(ct: ClassType): Type = {
+    def baseType(ct: ClassType): Type = {
       require(valueClasses contains ct.id)
       ct.tcd.fields.head.getType
+    }
+
+    def underlyingType(ct: ClassType): Type = {
+      require(valueClasses contains ct.id)
+      invariants(ct.id) match {
+        case Some(fd) =>
+          val vd = ValDef.fresh("this", baseType(ct))
+          val pred = fd.typed(ct.tps).applied(Seq(vd.toVariable))
+          RefinementType(vd, pred)
+
+        case None =>
+          baseType(ct)
+      }
+    }
+
+    override def transform(fd: FunDef): t.FunDef = {
+      invToClass.get(fd.id) match {
+        case Some(cd) =>
+          val vd = fd.params.head
+          val ct = vd.getType match {
+            case ct: ClassType if ct.id == cd.id => ct
+            case _ => context.reporter.fatalError(s"Found malformed invariant: ${fd.id.asString}")
+          }
+
+          val erased = super.transform(fd)
+          val base = baseType(ct).copiedFrom(ct)
+          val nvd = transform(vd.copy(tpe = base))
+
+          erased.copy(
+            params = Seq(nvd),
+            fullBody = t.exprOps.preMap {
+              case v: t.Variable if v.id == vd.id => Some(nvd.toVariable)
+              case _ => None
+            } (erased.fullBody)
+          )
+
+        case None => super.transform(fd)
+      }
     }
 
     override def transform(tp: Type): t.Type = tp match {
@@ -94,7 +143,8 @@ trait ValueClasses
 
       // Erase constructor of value class
       case ClassConstructor(ct, Seq(arg)) if valueClasses contains ct.id =>
-        transform(arg)
+        val vd = t.ValDef.fresh("vc", transform(underlyingType(ct))).setPos(e)
+        t.Let(vd, transform(arg), vd.toVariable.setPos(e)).copiedFrom(e)
 
       // Erase selection of underlying value on value class
       case cs @ ClassSelector(rec, _) =>
