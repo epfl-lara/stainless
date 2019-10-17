@@ -143,8 +143,8 @@ trait ValueClasses
 
       // Erase constructor of value class
       case ClassConstructor(ct, Seq(arg)) if valueClasses contains ct.id =>
-        val vd = t.ValDef.fresh("vc", transform(underlyingType(ct))).setPos(e)
-        t.Let(vd, transform(arg), vd.toVariable.setPos(e)).copiedFrom(e)
+        val vd = t.ValDef.fresh("vc", transform(underlyingType(ct)))
+        t.Let(vd.setPos(e), transform(arg).setPos(e), vd.toVariable.setPos(e)).copiedFrom(e)
 
       // Erase selection of underlying value on value class
       case cs @ ClassSelector(rec, _) =>
