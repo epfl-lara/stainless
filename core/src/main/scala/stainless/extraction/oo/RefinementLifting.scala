@@ -127,7 +127,7 @@ trait RefinementLifting
               s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
               Some("Inner refinement lifting"),
               body,
-            )
+            ).copiedFrom(e)
           ).copiedFrom(e))
 
         case _ => super.transform(e)
