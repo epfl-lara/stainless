@@ -36,6 +36,7 @@ trait TreeSanitizer { self =>
       new SealedClassesChildren(symbols, ctx),
       new SoundEquality(symbols, ctx),
       new SoundInvariants(symbols, ctx),
+      new AbstractValsOverride(symbols, ctx),
     )
 
     checks.flatMap(_.sanitize.distinct).sortBy(_.tree.getPos)
@@ -360,6 +361,69 @@ trait TreeSanitizer { self =>
         case e =>
           val Operator(es, _) = e
           es.foreach(checkThisUsage)
+      }
+    }
+  }
+
+  /** Check that abstract vals are only overriden by constructor parameters */
+  private[this] class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+
+    var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
+
+    override def sanitize(): Seq[MalformedStainlessCode] = {
+      errors = ListBuffer.empty
+      symbols.classes.values.filter(_.isAbstract).foreach(check)
+      errors.toSeq
+    }
+
+    private[this] def symbolOf(defn: Definition): Symbol =
+      defn.id.asInstanceOf[SymbolIdentifier].symbol
+
+    private[this] def check(cd: ClassDef): Unit = {
+      val abstractFields = cd.methods
+        .map(symbols.getFunction)
+        .filter(fd => fd.isAbstract && fd.isGetter)
+        .map(fd => symbolOf(fd) -> fd)
+        .toMap
+
+      val abstractFieldSymbols = abstractFields.keys.toSet
+
+      cd.descendants.foreach {
+        case desc if desc.isAbstract =>
+          val methods = desc.methods
+            .map(symbols.getFunction)
+            .map(fd => symbolOf(fd) -> fd)
+            .toMap
+
+          val methodSymbols = methods.keys.toSet
+
+          val wrongOverrides = methodSymbols & abstractFieldSymbols
+          wrongOverrides foreach { sym =>
+            errors += MalformedStainlessCode(methods(sym),
+              s"Abstract values can only be overriden in concrete subclasses (with a field)")
+          }
+
+        case desc =>
+          val methods = desc.methods.map(symbols.getFunction)
+          val fieldSymbols = desc.fields.map(symbolOf).toSet
+          val accessorSymbols = desc.fields.map { vd =>
+            val accessor = methods.find { fd =>
+              fd.isGetter && fd.flags.exists {
+                case IsAccessor(Some(id)) => id == vd.id
+                case _ => false
+              }
+            }
+
+            symbolOf(accessor.get) // Safe: All fields have accessors
+          }
+
+          val allSymbols = fieldSymbols ++ accessorSymbols
+
+          if (!abstractFieldSymbols.subsetOf(allSymbols)) {
+            val missing = abstractFieldSymbols -- allSymbols
+            val vals = missing.map(abstractFields(_)).map(_.id.asString).mkString("`", "`, `", "`")
+            errors += MalformedStainlessCode(desc, s"Abstract values $vals must be overriden with fields in concrete subclass")
+          }
       }
     }
   }

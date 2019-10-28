@@ -28,10 +28,13 @@ object Countable2 {
     false
   }.holds
 
-  /* true but unprovable with current quantifier module
   def theorem() = {
-    assert(forall((e: Empty) => lemma(e)))
-    forall((e: Empty) => false)
-  }.holds
-  */
+    if (forall((x: Empty) => false))
+      assert(false) // Inox assumes every type is not empty
+    else {
+      val e: Empty = choose((x: Empty) => true)
+      assert(lemma(e))
+      assert(false)
+    }
+  }
 }
