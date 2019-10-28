@@ -6,8 +6,8 @@ object FieldInheritance {
 
   sealed abstract class Foo[B] {
     val thisIsIt: BigInt = 1
-    val y: BigInt
     val weird: B
+    def y: BigInt
   }
 
   case class Bar[X](override val thisIsIt: BigInt, weird: X) extends Foo[X] {

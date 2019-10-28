@@ -47,5 +47,18 @@ object SoundInvariants {
   }
   case class IEmp(a: Int) extends IADT
 
+  sealed abstract class Abs {
+    require(x != 0)
+    val x: Int
+    val y: Int
+    def z: Int
+  }
+  case class AbsValid(x: Int, y: Int, z: Int) extends Abs
+  case class AbsInvalid() extends Abs {
+    def x: Int = 1
+    lazy val y: Int = 2
+    def z: Int = 3
+  }
+
 }
 
