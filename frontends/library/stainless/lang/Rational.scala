@@ -10,7 +10,7 @@ import scala.language.implicitConversions
 @library
 case class Rational(numerator: BigInt, denominator: BigInt) {
 
-  require(this.isRational)
+  require(denominator > 0)
 
   def +(that: Rational): Rational = {
     Rational(this.numerator*that.denominator + that.numerator*this.denominator, this.denominator*that.denominator)
@@ -64,8 +64,6 @@ case class Rational(numerator: BigInt, denominator: BigInt) {
   def nonZero: Boolean = {
     numerator != 0
   }
-
-  private def isRational: Boolean = denominator > 0
 
   private def normalize(num: BigInt, den: BigInt): Rational = {
     require(den != 0)
