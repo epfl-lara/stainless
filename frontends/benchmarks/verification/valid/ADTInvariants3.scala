@@ -5,7 +5,7 @@ object ADTInvariants3 {
   sealed abstract class A
   sealed abstract class B extends A {
     require(this match {
-      case Cons(h, t) => h == size
+      case Cons(h, t) => h == t.size + 1
       case Nil(_) => true
     })
 

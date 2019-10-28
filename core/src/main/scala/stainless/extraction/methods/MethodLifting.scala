@@ -298,10 +298,12 @@ trait MethodLifting
       t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
     }
 
-    val newBody = if (!(fd.flags contains IsInvariant)) dispatchBody else {
-      // If `fd` is an invariant, we need to conjoin both the constructor's and parent's invariants,
-      // otherwise we would only end up the checking the former.
+    // If `fd` is an invariant, we need to conjoin both the constructor's and parent's invariants,
+    // otherwise we would only end up the checking the former.
+    val newBody = if (fd.flags contains IsInvariant) {
       t.and(dispatchBody, elze.copiedFrom(dispatchBody))
+    } else {
+      dispatchBody
     }
 
     val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)

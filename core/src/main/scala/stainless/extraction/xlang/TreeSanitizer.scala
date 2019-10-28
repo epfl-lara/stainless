@@ -35,6 +35,7 @@ trait TreeSanitizer { self =>
       new GhostOverrides(symbols, ctx),
       new SealedClassesChildren(symbols, ctx),
       new SoundEquality(symbols, ctx),
+      new SoundInvariants(symbols, ctx),
     )
 
     checks.flatMap(_.sanitize.distinct).sortBy(_.tree.getPos)
@@ -182,7 +183,7 @@ trait TreeSanitizer { self =>
     }
 
     private def isFieldAccessor(id: Identifier): Boolean =
-      symbols.getFunction(id).flags exists { case IsAccessor(_) => true case _ => false }
+      symbols.getFunction(id).isAccessor
 
     override def traverse(e: Expr): Unit = e match {
       case ClassSelector(obj, selector) =>
@@ -289,6 +290,76 @@ trait TreeSanitizer { self =>
           rec(rhs.getType)
 
         case _ => super.traverse(e, ctx)
+      }
+    }
+  }
+
+  /** Check that invariants only refer to the fields of their enclosing class, and not methods */
+  private[this] class SoundInvariants(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+
+    var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
+
+    override def sanitize(): Seq[MalformedStainlessCode] = {
+      errors = ListBuffer.empty
+      symbols.functions.values.filter(_.isInvariant).foreach(check)
+      errors.toSeq
+    }
+
+    private[this] def check(inv: FunDef): Unit = {
+      if (inv.hasPrecondition) {
+        errors += MalformedStainlessCode(inv, "Invariants cannot have preconditions")
+      }
+
+      if (inv.hasPostcondition) {
+        errors += MalformedStainlessCode(inv, "Invariants cannot have postconditions")
+      }
+
+      if (!inv.isMethod) {
+        errors += MalformedStainlessCode(inv, "Only methods of a class can be annotated with @invariant")
+      }
+
+      checkThisUsage(inv.fullBody)
+    }
+
+    private[this] def isAccessor(id: Identifier): Boolean = {
+      symbols.getFunction(id).isAccessor
+    }
+
+    private[this] def checkThisUsage(c: MatchCase): Unit = {
+      c.optGuard.foreach(checkThisUsage)
+      checkThisUsage(c.rhs)
+    }
+
+    private[this] def checkThisUsage(e: Expr): Unit = {
+      e match {
+        case ClassSelector(This(_), _)              => ()
+        case LocalClassSelector(LocalThis(_), _, _) => ()
+
+        case MethodInvocation(This(_), id, _, args) if isAccessor(id) =>
+          args.foreach(checkThisUsage)
+
+        case LocalMethodInvocation(LocalThis(_), vd, _, _, args) if isAccessor(vd.id) =>
+          args.foreach(checkThisUsage)
+
+        case MatchExpr(_: This | _: LocalThis, cases) =>
+          cases.foreach {
+            case c if c.pattern.binder.isDefined =>
+              errors += MalformedStainlessCode(c, "Binding `this` in a match case within an invariant is unsound")
+            case c if c.pattern.isInstanceOf[UnapplyPattern] =>
+              errors += MalformedStainlessCode(c, "Matching `this` against an unapply pattern within an invariant is unsound")
+            case _ => ()
+          }
+
+          cases.foreach(checkThisUsage)
+
+        case t: This =>
+          errors += MalformedStainlessCode(t, "Calling a method or function on `this` within an invariant is unsound")
+        case l: LocalThis =>
+          errors += MalformedStainlessCode(l, "Calling a method or function on `this` within an invariant is unsound")
+
+        case e =>
+          val Operator(es, _) = e
+          es.foreach(checkThisUsage)
       }
     }
   }
