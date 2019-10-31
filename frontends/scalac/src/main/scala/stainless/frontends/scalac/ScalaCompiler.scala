@@ -142,7 +142,7 @@ object ScalaCompiler {
         var underlying: ScalaCompiler#Run = _
         val cache = SymbolMapping.empty
 
-        val args = allCompilerArguments(compilerArgs)
+        val args = allCompilerArguments(ctx, compilerArgs)
         val settings = buildSettings(ctx)
 
         override val sources = getFiles(args, ctx, settings)

@@ -87,16 +87,17 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   libraryDependencies ++= Seq(
-    "ch.epfl.lara"  %% "inox"          % inoxVersion,
-    "ch.epfl.lara"  %% "inox"          % inoxVersion % "test" classifier "tests",
-    "ch.epfl.lara"  %% "cafebabe"      % "1.2",
-    "uuverifiers"   %% "princess"      % "2018-02-26" ,
-    "io.circe"      %% "circe-core"    % circeVersion,
-    "io.circe"      %% "circe-generic" % circeVersion,
-    "io.circe"      %% "circe-parser"  % circeVersion,
-    "com.typesafe"   % "config"        % "1.3.4",
+    "ch.epfl.lara"    %% "inox"          % inoxVersion,
+    "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
+    "ch.epfl.lara"    %% "cafebabe"      % "1.2",
+    "uuverifiers"     %% "princess"      % "2018-02-26" ,
+    "io.circe"        %% "circe-core"    % circeVersion,
+    "io.circe"        %% "circe-generic" % circeVersion,
+    "io.circe"        %% "circe-parser"  % circeVersion,
+    "io.get-coursier" %% "coursier"      % "2.0.0-RC4-1",
+    "com.typesafe"     % "config"        % "1.3.4",
 
-    "org.scalatest" %% "scalatest"     % "3.0.8" % "test",
+    "org.scalatest"   %% "scalatest"     % "3.0.8" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development

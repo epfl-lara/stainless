@@ -12,6 +12,7 @@ trait FrontendFactory {
 
   protected val extraCompilerArguments: Seq[String] = Nil
   protected val libraryPaths: Seq[String]
+
   private lazy val cl = getClass.getClassLoader
 
   /** Paths to the library files used by this frontend. */
@@ -39,8 +40,17 @@ trait FrontendFactory {
     }
   }
 
+  protected def extraSourceFiles(ctx: inox.Context): Seq[String] = {
+    val extraDeps = ctx.options.findOptionOrDefault(optExtraDeps)
+
+    val resolver = new DependencyResolver(ctx)
+    resolver.fetchAll(extraDeps)
+  }
+
   /** All the arguments for the underlying compiler. */
-  protected def allCompilerArguments(compilerArgs: Seq[String]): Seq[String] =
-    extraCompilerArguments ++ libraryFiles ++ compilerArgs
+  protected def allCompilerArguments(ctx: inox.Context, compilerArgs: Seq[String]): Seq[String] = {
+    val extraSources = extraSourceFiles(ctx)
+    extraCompilerArguments ++ libraryFiles ++ extraSources ++ compilerArgs
+  }
 }
 
