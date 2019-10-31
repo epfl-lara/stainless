@@ -24,11 +24,10 @@ object Bytes {
 object Caches {
 
   /** Caches used by stainless' components are stored in the same directory, denoted by this option. */
-  object optCacheDir extends inox.OptionDef[String] {
+  object optCacheDir extends FileOptionDef {
     val name = "cache-dir"
-    val default = ".stainless-cache/"
-    val parser = inox.OptionParsers.stringParser
-    val usageRhs = "directory"
+    val default = new File(".stainless-cache/")
+    override val usageRhs = "DIR"
   }
 
   /**
@@ -55,13 +54,13 @@ object Caches {
    * The cache file itself is not created.
    */
   def getCacheFile(ctx: inox.Context, filename: String): File = {
-    val cacheDir = new File(ctx.options findOptionOrDefault optCacheDir).getAbsoluteFile
+    val cacheDir = ctx.options.findOptionOrDefault(optCacheDir).getAbsoluteFile
     getSubFile(cacheDir, filename)
   }
 
   private def getSubFile(dir: File, filename: String): File = {
     dir.mkdirs()
-    assert(dir.isDirectory)
+    assert(dir.isDirectory, s"Not a directory: ${dir.getAbsolutePath}")
     new File(dir, filename)
   }
 }

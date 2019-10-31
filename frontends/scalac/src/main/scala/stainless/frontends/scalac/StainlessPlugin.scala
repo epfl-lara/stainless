@@ -37,7 +37,7 @@ class StainlessPlugin(val global: Global) extends Plugin {
 
   val stainlessContext: inox.Context = {
     implicit val reporter = new stainless.PlainTextReporter(Set.empty)
-    mainHelper.getConfigContext(OptionOrDefault.Default)
+    mainHelper.getConfigContext(inox.Options.empty)
   }
 
   override val name: String = PluginName
