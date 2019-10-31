@@ -104,17 +104,12 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
-    val optKeys = self.options.keys.toSeq
-    configFile match {
-      case OptionOrDefault.Some(file) => Configuration.parse(file, optKeys)
-      case OptionOrDefault.Default    => Configuration.parseDefault(optKeys)
-      case OptionOrDefault.None       => Configuration.empty
-    }
+  def getConfigOptions(options: inox.Options)(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+    Configuration.get(options, self.options.keys.toSeq)
   }
 
-  def getConfigContext(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): inox.Context = {
-    val ctx = super.processOptions(Seq.empty, getConfigOptions(configFile))
+  def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
+    val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
 
     if (ctx.options.findOptionOrDefault(optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
@@ -125,9 +120,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   override
   protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
                               (implicit initReporter: inox.Reporter): inox.Context = {
-
-    val configFile = inox.Options(cmdOptions).findOptionOrDefault(optConfigFile)
-    val configOptions = getConfigOptions(configFile)
+    val configOptions = getConfigOptions(inox.Options(cmdOptions))
 
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)
