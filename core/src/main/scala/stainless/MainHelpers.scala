@@ -50,6 +50,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),
+    frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
@@ -74,6 +75,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
     frontend.DebugSectionRecovery,
+    frontend.DebugSectionExtraDeps,
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
