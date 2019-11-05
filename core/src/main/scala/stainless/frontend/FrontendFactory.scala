@@ -42,8 +42,9 @@ trait FrontendFactory {
 
   protected def extraSourceFiles(ctx: inox.Context): Seq[String] = {
     val extraDeps = ctx.options.findOptionOrDefault(optExtraDeps)
+    val extraResolvers = ctx.options.findOptionOrDefault(optExtraResolvers)
 
-    val resolver = new DependencyResolver(ctx)
+    val resolver = new DependencyResolver(ctx, extraResolvers)
     resolver.fetchAll(extraDeps)
   }
 

@@ -30,22 +30,37 @@ object optExtraDeps extends inox.OptionDef[Set[Dependency]] {
       setParser(depParser)
 }
 
-object DependencyResolver {
-  def parseDependency(input: String): Either[String, Dependency] = {
-    DependencyParser.dependency(input, Properties.versionNumberString)
-  }
+object optExtraResolvers extends inox.OptionDef[Set[Repository]] {
+    import inox.OptionParsers._
+
+    val name     = "extra-resolvers"
+    val default  = Set.empty[Repository]
+    val usageRhs = "URL,..."
+
+    private val repoParser: OptionParser[Repository] =
+      DependencyResolver.parseRepository(_).toOption
+
+    val parser: String => Option[Set[Repository]] =
+      setParser(repoParser)
 }
 
-class DependencyResolver(ctx: inox.Context) {
+class DependencyResolver(ctx: inox.Context, repositories: Set[Repository]) {
+  import DependencyResolver._
   import ctx.{reporter, options}
+
+  private val defaultRepositories: Set[Repository] = Set(
+    Repositories.bintray("epfl-lara", "maven")
+  )
 
   implicit private val debugSection = DebugSectionExtraDeps
 
   def fetchAll(deps: Set[Dependency]): Seq[String] = {
+    val repos = defaultRepositories ++ repositories
+
     val fetch = Fetch()
       .withDependencies(deps.map(_.withTransitive(false)).toSeq)
-      .addRepositories(Repositories.bintray("epfl-lara", "maven"))
-      .addClassifiers(Classifier.sources)
+      .addRepositories(repos.toSeq: _*)
+      .withClassifiers(Set(Classifier.sources))
 
     reporter.debug(s"Fetching ${deps map prettyName mkString ", "}...")
 
@@ -96,7 +111,19 @@ class DependencyResolver(ctx: inox.Context) {
     s"${dep.module}:${dep.version}"
   }
 
-  private def unjar(jar: File, destPath: Path): Unit = {
+}
+
+object DependencyResolver {
+
+  def parseRepository(input: String): Either[String, Repository] = {
+    Right(MavenRepository(input))
+  }
+
+  def parseDependency(input: String): Either[String, Dependency] = {
+    DependencyParser.dependency(input, Properties.versionNumberString)
+  }
+
+  def unjar(jar: File, destPath: Path): Unit = {
     import scala.collection.JavaConverters._
 
     var archive: ZipFile = null
@@ -118,7 +145,7 @@ class DependencyResolver(ctx: inox.Context) {
     }
   }
 
-  private def allScalaSources(folders: Seq[Path]): Seq[File] = {
+  def allScalaSources(folders: Seq[Path]): Seq[File] = {
     import scala.collection.JavaConverters._
 
     @tailrec
