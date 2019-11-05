@@ -13,9 +13,9 @@ import inox.{utils => InoxPosition}
 import stainless.frontend.CallBack
 
 object StainlessPlugin {
-  val PluginName = "stainless"
-  val PluginDescription = "Inject Stainless verification pipeline"
-  val EnableVerificationOptionName = "verify:"
+  val PluginName                       = "stainless"
+  val PluginDescription                = "Inject Stainless verification pipeline"
+  val EnableVerificationOptionName     = "verify:"
   val EnableGhostEliminationOptionName = "ghost-elim:"
 }
 
@@ -42,7 +42,8 @@ class StainlessPlugin(val global: Global) extends Plugin {
 
   override val name: String = PluginName
   override val description: String = PluginDescription
-  val pluginOptions: PluginOptions = PluginOptions(true, true)
+
+  private val pluginOptions: PluginOptions = PluginOptions(true, true)
 
   override val components: List[PluginComponent] = List(
     new StainlessPluginComponent(pluginOptions, global, stainlessContext),
@@ -56,12 +57,14 @@ class StainlessPlugin(val global: Global) extends Plugin {
         parseBoolean(value, error) foreach { value =>
           pluginOptions.enableVerification = value
         }
-      } else if (option.startsWith(EnableGhostEliminationOptionName)) {
+      }
+      else if (option.startsWith(EnableGhostEliminationOptionName)) {
         val value = option.substring(EnableGhostEliminationOptionName.length)
         parseBoolean(value, error).foreach { value =>
           pluginOptions.enableGhostElimination = value
         }
-      } else {
+      }
+      else {
         error("Unknown option for Stainless plugin: " + option)
       }
     }
