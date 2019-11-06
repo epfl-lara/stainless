@@ -155,16 +155,13 @@ Stainless supports type parameters for classes and functions.
 
 
 .. note::
-  Type parameters are always **invariant**. It is not possible to define ADTs like:
+  Type parameters can also be marked as co- or contra-variant, eg.
 
   .. code-block:: scala
 
-    abstract class List[T]
+    abstract class List[+T]
     case class Cons[T](hd: T, tl: List[T]) extends List[T]
     case object Nil extends List[Nothing]
-
-  Stainless, in fact, restricts type parameters to "simple hierarchies",
-  where subclasses define the same type parameters in the same order.
 
 Methods
 -------
