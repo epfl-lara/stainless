@@ -115,6 +115,28 @@ It is also possible to defined case objects, without fields:
 
   case object BaseCase extends MyType
 
+Value Classes
+*************
+
+One can define a value class just like in standard Scala,
+by extending the ``AnyVal`` class.
+
+.. code-block:: scala
+
+  case class Positive(value: BigInt) extends AnyVal {
+    @invariant
+    def isPositive: Boolean = value >= 0
+  }
+
+In the code block above, we also specify an invariant of the value
+class, using the ``@invariant`` annotation. Such invariants are
+subsequently lifted into a refinement type of the underlying type.
+
+.. note::
+
+   Invariants are only allowed to refer to fields of their class, and
+   cannot call any methods on ``this`` (but calls to methods on their
+   fields are allowed).
 
 Generics
 --------

@@ -66,9 +66,21 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@induct``       | Use the inductive tactic when generating                       |
 |                   | verification conditions.                                       |
 +-------------------+----------------------------------------------------------------+
+| ``@invariant``    | Treat the annotated method as an invariant of the enclosing    |
+|                   | class. Can be used instead of ``require`` within a value class |
+|                   | body. For soundness, invariants can only refer to fields of    |
+|                   | their class, and thus cannot call methods on ``this``.         |
++-------------------+----------------------------------------------------------------+
 | ``@ghost``        | Drop the annotated field or method during compilation.         |
 |                   | See the :doc:`corresponding section <ghost>` for more          |
 |                   | information.                                                   |
++-------------------+----------------------------------------------------------------+
+| ``@extern``       | Only extract the contracts of a function, replacing            |
+|                   | its body by a ``choose`` expression.                           |
++-------------------+----------------------------------------------------------------+
+| ``@pure``         | Specify that this function is pure, which will then            |
+|                   | be checked. If the function is also annotated with             |
+|                   | ``@extern``, it will not be checked, but assumed pure.         |
 +-------------------+----------------------------------------------------------------+
 | ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
 |                   | This annotation is useful to define functions                  |
@@ -87,13 +99,6 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@inlineOnce``   | Inline this function but only once, which is allowed           |
 |                   | even on (mutually) recursive functions.                        |
 |                   | Note: A recursive function will not be inlined within itself.  |
-+-------------------+----------------------------------------------------------------+
-| ``@extern``       | Only extract the contracts of a function, replacing            |
-|                   | its body by a ``choose`` expression.                           |
-+-------------------+----------------------------------------------------------------+
-| ``@pure``         | Specify that this function is pure, which will then            |
-|                   | be checked. If the function is also annotated with             |
-|                   | ``@extern``, it will not be checked, but assumed pure.         |
 +-------------------+----------------------------------------------------------------+
 | ``@partialEval``  | Partially evaluate calls to this function.                     |
 |                   | Note: ``stainless.lang.partialEval`` can also be used to       |
