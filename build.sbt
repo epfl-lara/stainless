@@ -231,6 +231,20 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
     scalaSource in Compile := baseDirectory.value
   )
 
+lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
+  .disablePlugins(AssemblyPlugin)
+  .settings(commonSettings, publishMavenSettings)
+  .settings(
+    name := "stainless-algebra",
+    version := "0.1.0",
+
+    // don't publish binaries - stainless-algebra is only consumed as a sources component
+    publishArtifact in packageBin := false,
+    crossVersion := CrossVersion.binary,
+    scalaSource in Compile := baseDirectory.value,
+  )
+  .dependsOn(`stainless-library`)
+
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
