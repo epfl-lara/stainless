@@ -82,7 +82,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
     val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
-    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaVersion.value}"       % stainlessVersion.value
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaBinaryVersion.value}" % stainlessVersion.value
 
     val sourceDeps = (libraryRef +: stainlessExtraDeps.value).map { dep =>
       dep.intransitive().sources() % StainlessLibSources

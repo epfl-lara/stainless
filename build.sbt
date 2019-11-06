@@ -226,9 +226,10 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(commonSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
+
     // don't publish binaries - stainless-library is only consumed as a sources component
     publishArtifact in packageBin := false,
-    crossVersion := CrossVersion.full,
+    crossVersion := CrossVersion.binary,
     scalaSource in Compile := baseDirectory.value
   )
 
