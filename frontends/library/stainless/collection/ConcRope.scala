@@ -8,7 +8,6 @@ import stainless.proof._
 import stainless.lang.StaticChecks._
 import ListSpecs._
 import stainless.annotation._
-import stainless.algebra._
 
 @library
 object ConcRope {
@@ -248,15 +247,6 @@ object ConcRope {
         case Append(left, right) => Append(left.map(f), right.map(f))
       }
     } ensuring { _.size == this.size }
-
-    def foldMap[R](f: T => R)(implicit M: Monoid[R]): R = {
-    decreases(this)
-    this match {
-      case Empty() => M.identity
-      case Single(x) => f(x)
-      case CC(left, right) => M.combine(left.foldMap(f), right.foldMap(f))
-      case Append(left, right) => M.combine(left.foldMap(f), right.foldMap(f))
-    }}
 
     def foldLeft[R](z: R)(f: (R, T) => R): R = {
       decreases(this)

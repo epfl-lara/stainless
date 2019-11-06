@@ -18,9 +18,9 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
     case id => id.name
   }
 
-  protected def isSlow(id: Identifier): Boolean =
-    symbolName(id).startsWith("stainless.algebra") ||
+  protected def isSlow(id: Identifier): Boolean = {
     symbolName(id).startsWith("stainless.collection.ConcRope")
+  }
 
   protected def keepDerived(tr: ast.Trees)(flag: tr.Flag): Boolean = flag match {
     case tr.Derived(id) => !isSlow(id)
@@ -82,3 +82,4 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
 class LibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(false)))
 
 // class TypeCheckerLibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(true)))
+//
