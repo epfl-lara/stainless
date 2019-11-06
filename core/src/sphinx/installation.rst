@@ -182,6 +182,20 @@ That's all there is to it. However, the ``sbt-stainless`` plugin is a more recen
 
 Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with Stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
 
+5. It is possible to specify extra source dependencies to be added to the set of files processed by Stainless via the ``stainlessExtraDeps`` setting. For example, to add both the ``stainless-algebra`` and ``stainless-actors`` packages, along with the latter's dependency on Akka,
+   one can add the following settings to their build:
+
+.. code-block:: scala
+
+   stainlessExtraDeps ++= Seq(
+     "ch.epfl.lara" %% "stainless-algebra" % "0.1.0",
+     "ch.epfl.lara" %% "stainless-actors"  % "0.1.0",
+   )
+
+   libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
+
+Note that the dependencies specified in ``stainlessExtraDeps`` must be available as a source JAR from any of the resolvers configured in the build.
+
 .. _smt-solvers:
 
 External Solver Binaries
