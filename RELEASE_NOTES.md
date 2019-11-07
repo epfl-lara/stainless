@@ -1,6 +1,35 @@
 
 # Release Notes
 
+## Version 0.6.0 (07-11-2019)
+
+### Features
+
+- Enable strict arithmetic by default (#608)
+- Introduce `stainless.math.wrapping` method to opt-out of overflow checks (#608)
+- Add `@wrapping` annotation for function definitions (#608)
+- Add ability to resolve extra source dependencies via Coursier (#715)
+- Erase values classes (#712)
+- Expose @invariant flag to user-land (#712)
+- Lift invariants of value classes to a refinement type (#712)
+- Implement Map#-- for finite maps (#705)
+- Add List.empty method
+
+### Improvements
+
+- Enforce overriding of abstract vals with constructor params (#712)
+- Ensure soundness of invariants in TreeSanitizer (#712)
+- Lift refinements in lets into assertions (#712)
+- Update ScalaZ3 to its latest release (bundling Z3 4.7.1) (#707)
+- Disallow defining classes within a class body (#697)
+- Document type aliases and type members (#686)
+- Ensure type parameters with non-trivial bounds are properly encoded (#685)
+
+### Bug fixes
+
+- Fix null pointer exception when running --eval (#699)
+- Fix warning about multiple library sources (#692)
+
 ## Version 0.5.1 (12-09-2019)
 
 ### Bug fixes
