@@ -124,17 +124,23 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
 )
 
-lazy val assemblySettings: Seq[Setting[_]] = Seq(
-  assembly / assemblyMergeStrategy := {
-    // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
-    // hence the following merge strategy picks the standalone BuildInfo over the usual one.
-    case "stainless/BuildInfo.class" => MergeStrategy.first
-    case "stainless/BuildInfo$.class" => MergeStrategy.first
-    case x =>
-      val oldStrategy = (assembly / assemblyMergeStrategy).value
-      oldStrategy(x)
-  },
-)
+lazy val assemblySettings: Seq[Setting[_]] = {
+  def isNativeLib(file: String): Boolean =
+    file.endsWith("dll") || file.endsWith("so") || file.endsWith("jnilib")
+
+  Seq(
+    assembly / assemblyMergeStrategy := {
+      // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
+      // hence the following merge strategy picks the standalone BuildInfo over the usual one.
+      case "stainless/BuildInfo.class" => MergeStrategy.first
+      case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case file if isNativeLib(file) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
+        oldStrategy(x)
+    },
+  )
+}
 
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
