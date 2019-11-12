@@ -1,4 +1,5 @@
-package stainless.algebra
+package stainless
+package algebra
 package ops
 
 import stainless.lang._
@@ -6,7 +7,9 @@ import stainless.collection.ConcRope._
 
 object ConcRope {
 
+  @library
   implicit class ConcRopeOps[A](val conc: Conc[A]) extends AnyVal {
+    @library
     final def foldMap[B](f: A => B)(implicit M: Monoid[B]): B = {
       decreases(conc)
       conc match {

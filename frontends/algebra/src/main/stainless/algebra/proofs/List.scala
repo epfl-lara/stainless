@@ -7,6 +7,7 @@ import stainless.collection._
 
 object List {
 
+  @library
   def foldLeftEqualsFoldRight[A](xs: List[A])(implicit M: Monoid[A]): Boolean = {
     decreases(xs.size)
 
