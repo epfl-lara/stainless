@@ -3,6 +3,7 @@ package algebra
 package ops
 
 import stainless.lang._
+import stainless.annotation._
 import stainless.collection.ConcRope._
 
 object ConcRope {

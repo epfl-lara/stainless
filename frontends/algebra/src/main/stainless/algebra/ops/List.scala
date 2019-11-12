@@ -3,6 +3,7 @@ package algebra
 package ops
 
 import stainless.lang._
+import stainless.annotation._
 import stainless.collection.{List => StainlessList}
 
 object List {

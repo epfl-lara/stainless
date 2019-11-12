@@ -3,6 +3,7 @@ package proofs
 
 import stainless.lang._
 import stainless.proof._
+import stainless.annotation._
 import stainless.collection._
 
 object List {

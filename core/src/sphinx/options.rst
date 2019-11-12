@@ -149,7 +149,7 @@ These options are available to all Stainless components:
   Note: Stainless will not pull transitive dependencies, so one has to specify
   all transitive dependencies explicitely via this option.
 
-  Example: ``--extra-deps=ch.epfl.lara:stainless-algebra_2.12:0.1.1``
+  Example: ``--extra-deps=ch.epfl.lara:stainless-algebra_2.12:0.1.2``
 
 * ``--extra-resolvers=URL,...``
 

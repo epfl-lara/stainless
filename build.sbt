@@ -244,7 +244,7 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
   .settings(commonSettings, publishMavenSettings)
   .settings(
     name := "stainless-algebra",
-    version := "0.1.1",
+    version := "0.1.2",
 
     // don't publish binaries - stainless-algebra is only consumed as a sources component
     publishArtifact in packageBin := false,
