@@ -97,7 +97,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
   )
 
   private def stainlessExtraDepsSourcesLocation = Def.setting {
-    target.value / s"stainless-extra-deps_${scalaVersion.value}"
+    target.value / s"stainless-extra-deps_${scalaBinaryVersion.value}"
   }
 
   private def fetchAndUnzipExtraDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
@@ -119,7 +119,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     }
 
     val additionalSourceDirectories = sourceJars map { jar =>
-      val subDir = jar.getName.takeWhile(_ != '_')
+      val subDir = jar.getName.stripSuffix(".jar")
       val subDestDir = destDir.toPath.resolve(subDir).toFile
 
       // Don't unjar every time
