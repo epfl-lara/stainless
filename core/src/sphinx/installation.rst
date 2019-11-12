@@ -188,7 +188,7 @@ Also, note that the plugin offers a ``stainlessEnabled`` setting that can help e
 .. code-block:: scala
 
    stainlessExtraDeps ++= Seq(
-     "ch.epfl.lara" %% "stainless-algebra" % "0.1.0",
+     "ch.epfl.lara" %% "stainless-algebra" % "0.1.1",
      "ch.epfl.lara" %% "stainless-actors"  % "0.1.0",
    )
 
