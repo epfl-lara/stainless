@@ -189,7 +189,7 @@ Also, note that the plugin offers a ``stainlessEnabled`` setting that can help e
 
    stainlessExtraDeps ++= Seq(
      "ch.epfl.lara" %% "stainless-algebra" % "0.1.2",
-     "ch.epfl.lara" %% "stainless-actors"  % "0.1.0",
+     "ch.epfl.lara" %% "stainless-actors"  % "0.1.1",
    )
 
    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
