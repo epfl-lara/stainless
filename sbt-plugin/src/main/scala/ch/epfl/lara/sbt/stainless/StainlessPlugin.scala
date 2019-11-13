@@ -92,15 +92,15 @@ object StainlessPlugin extends sbt.AutoPlugin {
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
-    managedSources ++= fetchAndUnzipExtraDeps.value,
-    managedSourceDirectories += stainlessExtraDepsSourcesLocation.value
+    managedSources ++= fetchAndUnzipSourceDeps.value,
+    managedSourceDirectories += stainlessSourcesLocation.value
   )
 
-  private def stainlessExtraDepsSourcesLocation = Def.setting {
-    target.value / s"stainless-extra-deps_${scalaBinaryVersion.value}"
+  private def stainlessSourcesLocation = Def.setting {
+    target.value / s"stainless_${scalaBinaryVersion.value}"
   }
 
-  private def fetchAndUnzipExtraDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
+  private def fetchAndUnzipSourceDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
     val log = streams.value.log
     val projectName = (name in thisProject).value
 
@@ -113,7 +113,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
     log.debug(s"[$projectName] Configuration ${config.name} has modules: ${sourceJars.mkString(", ")}")
 
-    val destDir = stainlessExtraDepsSourcesLocation.value
+    val destDir = stainlessSourcesLocation.value
     if (!destDir.exists) {
       Files.createDirectories(destDir.toPath)
     }
