@@ -16,7 +16,7 @@ echo "Press ENTER to continue, or Ctrl-C to abort..."
 read tmp
 
 echo "Building Docker image 'stainless:$STAINLESS_VERSION'..."
-docker build --build-arg "STAINLESS_VERSION=$STAINLESS_VERSION" -t "stainless:$STAINLESS_VERSION"
+docker build --build-arg "STAINLESS_VERSION=$STAINLESS_VERSION" -t "stainless:$STAINLESS_VERSION" .
 
 echo "Tagging Docker image 'stainless:latest'..."
 docker tag stainless:$STAINLESS_VERSION stainless:latest
