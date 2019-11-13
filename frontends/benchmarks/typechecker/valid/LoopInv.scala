@@ -32,7 +32,7 @@ object LoopInv {
             case Plus  if state <= 4 => state += 2
             case Minus if state >= 2 => state -= 2
             case _                   => ()
-          Cannot recover from missing dependencies}
+          }
 
           remains = remains.tail
       }

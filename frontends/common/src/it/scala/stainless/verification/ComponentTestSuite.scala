@@ -75,7 +75,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       for {
         file <- fs.sortBy(_.getPath)
         path = file.getPath
-        name = file.getName dropRight ".scala".length
+        name = file.getName stripSuffix ".scala"
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
         val (structure, program) = loadFiles(Seq(path))
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
@@ -87,7 +87,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         exProgram.symbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during extraction")
 
-        val unit = structure.find { _.isMain }.get
+        val unit = structure.find(_.isMain).get
         assert(unit.id.name == name, "Expecting compilation unit to have same name as source file")
 
         val defs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
@@ -109,8 +109,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       val (structure, program) = loadFiles(fs.map(_.getPath))
       program.symbols.ensureWellFormed
 
-      // We use a shared run during extraction to ensure caching of
-      // extraction results is enabled.
+      // We use a shared run during extraction to ensure caching of extraction results is enabled.
 
       for {
         unit <- structure
@@ -152,5 +151,5 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       }
     }
   }
-
 }
+

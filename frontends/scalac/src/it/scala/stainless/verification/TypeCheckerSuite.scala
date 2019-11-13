@@ -24,9 +24,6 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "typechecker/valid/SuperCall5" => Ignore
     case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
 
-    // Disabled until https://github.com/epfl-lara/stainless/issues/677 is fixed
-    case "typechecker/valid/GodelNumbering" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 
