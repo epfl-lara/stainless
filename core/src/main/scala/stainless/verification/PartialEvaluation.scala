@@ -31,14 +31,6 @@ trait PartialEvaluation
   protected class TransformerContext(val symbols: s.Symbols) { self0 =>
     import symbols._
 
-    private[this] val simpleSimplifier = new {
-      override val trees: s.type = s
-      override val symbols: self0.symbols.type = self0.symbols
-      override val opts = inox.solvers.PurityOptions.assumeChecked
-    } with transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
-      override val pp = Env
-    }
-
     private[this] val solvingSimplifier = new {
       override val trees: s.type = s
       override val symbols: self0.symbols.type = self0.symbols
@@ -61,11 +53,8 @@ trait PartialEvaluation
     def shouldPartialEval(fd: FunDef): Boolean =
       invocationsToEval(fd.id).nonEmpty && !(fd.flags contains Synthetic)
 
-    private[this] def partialEval(fi: FunctionInvocation, path: Path, simple: Boolean = false): Expr = {
-      if (simple)
-        simpleSimplifier.transform(fi, simpleSimplifier.Env(path))
-      else
-        solvingSimplifier.transform(fi, solvingSimplifier.Env(path))
+    private[this] def partialEval(fi: FunctionInvocation, path: Path): Expr = {
+      solvingSimplifier.transform(fi, solvingSimplifier.Env(path))
     }
 
     final def transform(fd: FunDef): FunDef = {
@@ -78,7 +67,7 @@ trait PartialEvaluation
           reporter.debug(s"   Before: $fi")
 
           val (elapsed, res) = timers.partialeval.runAndGetTime {
-            partialEval(fi, path, simple = isSynthetic(fi.id))
+            partialEval(fi, path)
           }
 
           reporter.debug(s"   After: ${res.get}")
