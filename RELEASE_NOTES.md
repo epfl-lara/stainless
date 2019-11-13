@@ -1,6 +1,19 @@
 
 # Release Notes
 
+## Version 0.6.1 (13-11-2019)
+
+### Improvements
+
+- Modularize Dockerfile and automate Docker image release process
+- Specify version of extra deps when extracting sources from JAR
+- Change name of target directory for extracted sources
+
+## Bug fixes
+
+- Add missing @library annotation to stainless-algebra. Bump to 0.1.1
+- Fix missing import in stainless-algebra. Bump to 0.1.2
+
 ## Version 0.6.0 (07-11-2019)
 
 ### Features
