@@ -4,6 +4,7 @@ set -e
 
 TEST_DIR=$1
 STAINLESS_VERSION=$2
+SBT_ARGS="-batch -Dparallel=5 -Dsbt.color=always -Dsbt.supershell=false"
 
 echo "Moving to $TEST_DIR"
 mkdir -p "$TEST_DIR"
@@ -22,7 +23,7 @@ ACTOR_EXAMPLES="counter leader-election kvs"
 for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
 
   echo "Running example $ACTOR_EXAMPLE..."
-  sbt -mem 8192 "$ACTOR_EXAMPLE"/compile
+  sbt $SBT_ARGS "$ACTOR_EXAMPLE"/compile
 
   status=$?
 
@@ -37,7 +38,7 @@ done;
 for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
 
   echo "Running example $ACTOR_EXAMPLE with --type-checker..."
-  sbt "$ACTOR_EXAMPLE"/compile
+  sbt $SBT_ARGS "$ACTOR_EXAMPLE"/compile
 
   status=$?
 
