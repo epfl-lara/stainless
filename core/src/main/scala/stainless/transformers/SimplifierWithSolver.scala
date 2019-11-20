@@ -7,7 +7,7 @@ import scala.language.existentials
 import scala.concurrent.duration._
 
 import inox.solvers.optCheckModels
-import inox.solvers.unrolling.optMaxUnfoldSteps
+import inox.solvers.unrolling.{optUnrollBound, optUnrollFactor}
 
 trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   import trees._
@@ -25,7 +25,7 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   } = inox.Program(trees)(symbols)
 
   protected val solver = {
-    val solverContext = context.withOpts(optCheckModels(false), optMaxUnfoldSteps(1))
+    val solverContext = context.withOpts(optCheckModels(false), optUnrollBound(1), optUnrollFactor(2))
     semantics.getSemantics(program)
       .getSolver(solverContext)
       .toAPI
