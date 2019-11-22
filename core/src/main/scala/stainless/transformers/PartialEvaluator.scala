@@ -31,17 +31,11 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
       } (expr)
 
       def validMeasure: Boolean = {
-        println("measure: " + measureOf(tfd.fullBody))
         measureOf(tfd.fullBody) match {
           case Some(measure) =>
             val nextMeasure = exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, measure)
-            println("next: " + nextMeasure)
             val query = strictlyPositive(nextMeasure.getType, nextMeasure)
-            println("query: " + query)
-            val result = path.implies(query)
-
-            println("result: " + result)
-            result
+            path.implies(query)
 
           case None => false
         }
