@@ -64,6 +64,20 @@ class SMTZ3VerificationSuite extends VerificationSuite {
   }
 }
 
+class SMTZ3UnrollBoundVerificationSuite(unrollBound: Int, unrollFactor: Int) extends SMTZ3VerificationSuite {
+  override def configurations = super.configurations.map {
+    seq => Seq(
+      inox.solvers.unrolling.optUnrollBound(unrollBound),
+      inox.solvers.unrolling.optUnrollFactor(unrollFactor),
+    ) ++ seq
+  }
+}
+
+class SMTZ3UnrollBoundOneOneSuite extends SMTZ3UnrollBoundVerificationSuite(1, 1)
+class SMTZ3UnrollBoundOneTwoSuite extends SMTZ3UnrollBoundVerificationSuite(1, 2)
+class SMTZ3UnrollBoundTwoOneSuite extends SMTZ3UnrollBoundVerificationSuite(2, 1)
+class SMTZ3UnrollBoundTwoTwoSuite extends SMTZ3UnrollBoundVerificationSuite(2, 2)
+
 class CodeGenVerificationSuite extends SMTZ3VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
