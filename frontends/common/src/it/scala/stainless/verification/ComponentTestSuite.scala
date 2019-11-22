@@ -13,7 +13,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     Seq(
       inox.optTimeout(300.seconds),
       inox.optSelectedSolvers(Set("smt-z3")),
-      inox.solvers.unrolling.optMaxUnfoldSteps(1),
       verification.optStrictArithmetic(false),
     )
   )
