@@ -27,4 +27,14 @@ package object termination {
     utils.DebugPipeline("SizeInjection", SizeInjection(trees)) andThen
     lowering
   }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: termination.trees.type } = {
+    extraction.phaseSemantics(termination.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: extraction.trees.type } = {
+    extraction.extractionSemantics
+  }
 }

@@ -126,17 +126,29 @@ package object extraction {
     val t: trees.type
   }
 
-  implicit val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } =
-    new inox.SemanticsProvider {
-      val trees: extraction.trees.type = extraction.trees
+  implicit val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } = {
+    getSemantics(extraction.trees)(syms => syms)
+  }
 
-      def getSemantics(p: inox.Program { val trees: extraction.trees.type }): p.Semantics = new inox.Semantics { self =>
+  def phaseSemantics(tr: ast.Trees)
+                    (pipeline: ExtractionPipeline { val s: tr.type; val t: extraction.trees.type }):
+                    inox.SemanticsProvider { val trees: tr.type } = {
+    getSemantics(tr)(syms => pipeline.extract(syms))
+  }
+
+  def getSemantics(tr: ast.Trees)(processSymbols: tr.Symbols => extraction.trees.Symbols):
+                   inox.SemanticsProvider { val trees: tr.type } =
+    new inox.SemanticsProvider {
+      val trees: tr.type = tr
+
+      def getSemantics(p: inox.Program { val trees: tr.type }): p.Semantics = new inox.Semantics { self =>
         val trees: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
         val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
           p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-        private[this] val targetProgram = inox.Program(stainless.trees)(completeSymbols(symbols)(stainless.trees))
+        private[this] val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
+        private[this] val targetProgram = inox.Program(stainless.trees)(targetSymbols)
 
         private object encoder extends inox.transformers.ProgramTransformer {
           override val sourceProgram: self.program.type = self.program

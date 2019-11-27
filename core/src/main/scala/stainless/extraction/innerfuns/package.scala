@@ -16,6 +16,18 @@ package object innerfuns {
     object printer extends Printer { val trees: innerfuns.trees.type = innerfuns.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = 
+  def extractor(implicit ctx: inox.Context) = {
     utils.DebugPipeline("FunctionClosure", FunctionClosure(trees, inlining.trees))
+  }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = inlining.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {
+    extraction.phaseSemantics(innerfuns.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: inlining.trees.type } = {
+    inlining.phaseSemantics
+  }
 }

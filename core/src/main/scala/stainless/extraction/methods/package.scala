@@ -41,4 +41,15 @@ package object methods {
     utils.DebugPipeline("ValueClasses",    ValueClasses(trees))    andThen
     lowering
   }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = throwing.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {
+    extraction.phaseSemantics(methods.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
+    throwing.phaseSemantics
+  }
 }

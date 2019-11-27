@@ -29,4 +29,15 @@ package object oo {
     utils.DebugPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
     lowering
   }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = innerfuns.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: oo.trees.type } = {
+    extraction.phaseSemantics(oo.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {
+    innerfuns.phaseSemantics
+  }
 }
