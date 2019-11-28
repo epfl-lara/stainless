@@ -4,11 +4,11 @@ package stainless
 package extraction
 package termination
 
-trait InductElimination extends CachingPhase
-  with SimpleFunctions
-  with SimplyCachedFunctions
-  with IdentitySorts
-  { self =>
+trait InductElimination
+    extends CachingPhase
+    with SimpleFunctions
+    with SimplyCachedFunctions
+    with IdentitySorts { self =>
   val s: Trees
   val t: s.type
 
@@ -29,8 +29,8 @@ trait InductElimination extends CachingPhase
     def canInductOn(tpe: Type): Boolean = tpe match {
       case ADTType(_, _) => true
       case IntegerType() => true
-      case BVType(_, _) => true
-      case _ => false
+      case BVType(_, _)  => true
+      case _             => false
     }
 
     // @induct on the function refers to induction on the first parameter for which `canInductOn` returns true
@@ -38,7 +38,11 @@ trait InductElimination extends CachingPhase
       if (fd.flags.exists(_.name == "induct")) {
         fd.params.find(vd => canInductOn(vd.getType)) match {
           case Some(vd) => Seq(vd)
-          case None => context.reporter.fatalError(fd.getPos, s"In ${fd.id.asString}, could not find an argument on which to do induction")
+          case None =>
+            context.reporter.fatalError(
+              fd.getPos,
+              s"In ${fd.id.asString}, could not find an argument on which to do induction"
+            )
         }
       } else {
         Seq()
@@ -46,9 +50,9 @@ trait InductElimination extends CachingPhase
 
     val inductionParams =
       firstInductionParam ++
-      fd.params.filter { vd =>
-        !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct")
-      }
+        fd.params.filter { vd =>
+          !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct")
+        }
 
     if (inductionParams.isEmpty) {
       return fd
@@ -56,7 +60,8 @@ trait InductElimination extends CachingPhase
 
     // TODO: Decide what we want to do with multiple inductions and implement it
     if (inductionParams.size > 1) {
-      context.reporter.fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
+      context.reporter
+        .fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
     }
 
     val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
@@ -64,81 +69,85 @@ trait InductElimination extends CachingPhase
     if (!inductionParams.isEmpty)
       specs.foreach {
         case Measure(_) =>
-          context.reporter.warning(fd.getPos, s"Ignoring decreases clause of ${fd.id.asString}. The @induct annotation automatically inserts a decreases clause corresponding to the argument")
+          context.reporter.warning(
+            fd.getPos,
+            s"Ignoring decreases clause of ${fd.id.asString}. The @induct annotation automatically inserts a decreases clause corresponding to the argument"
+          )
         case _ => ()
       }
 
     val inductionBody = oldBodyOpt.map(oldBody =>
-      inductionParams.foldRight(oldBody) { case (vd, currentBody) =>
-        vd.getType match {
-          case ADTType(id, tps) =>
-            val sort = syms.getSort(id)
-            MatchExpr(vd.toVariable, sort.typed(tps).constructors.map { cons =>
-              val freshBinders = cons.fields.map(vd => vd.freshen.setPos(oldBody))
-              val recursionBinders = freshBinders.filter(binder =>
-                binder.getType == vd.getType
+      inductionParams.foldRight(oldBody) {
+        case (vd, currentBody) =>
+          vd.getType match {
+            case ADTType(id, tps) =>
+              val sort = syms.getSort(id)
+              MatchExpr(
+                vd.toVariable,
+                sort.typed(tps).constructors.map {
+                  cons =>
+                    val freshBinders = cons.fields.map(vd => vd.freshen.setPos(oldBody))
+                    val recursionBinders = freshBinders.filter(binder => binder.getType == vd.getType)
+                    val rhs = recursionBinders.foldLeft(currentBody) {
+                      (letBody, binder) =>
+                        val newParams = fd.params.map(param =>
+                          if (param == vd) binder.toVariable
+                          else param.toVariable
+                        )
+                        // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
+                        Let(
+                          ValDef.fresh("inductVal", fd.returnType).setPos(oldBody),
+                          FunctionInvocation(fd.id, fd.tparams.map(_.tp), newParams).setPos(oldBody),
+                          letBody
+                        ).setPos(oldBody)
+                    }
+                    MatchCase(
+                      ADTPattern(
+                        None,
+                        cons.id,
+                        tps,
+                        freshBinders.map(binder => WildcardPattern(Some(binder)).setPos(oldBody))
+                      ).setPos(oldBody),
+                      None,
+                      rhs
+                    ).setPos(oldBody)
+                }
+              ).setPos(oldBody)
+            case IntegerType() =>
+              // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
+              val inductionVd = ValDef.fresh("inductVal", fd.returnType).setPos(oldBody)
+              val newParams = fd.params.map(param =>
+                if (param == vd) Minus(param.toVariable, IntegerLiteral(1)).setPos(oldBody)
+                else param.toVariable
               )
-              val rhs = recursionBinders.foldLeft(currentBody) { (letBody, binder) =>
-                val newParams = fd.params.map(param =>
-                  if (param == vd) binder.toVariable
-                  else param.toVariable
-                )
-                // FIXME: When fd.returnType is a dependent type, we must bind its
-                // variables with newParams
+              IfExpr(
+                LessEquals(vd.toVariable, IntegerLiteral(0).setPos(oldBody)).setPos(oldBody),
+                currentBody,
                 Let(
-                  ValDef.fresh("inductVal", fd.returnType).setPos(oldBody),
+                  inductionVd,
                   FunctionInvocation(fd.id, fd.tparams.map(_.tp), newParams).setPos(oldBody),
-                  letBody
+                  currentBody
                 ).setPos(oldBody)
-              }
-              MatchCase(
-                ADTPattern(
-                  None,
-                  cons.id,
-                  tps,
-                  freshBinders.map(binder => WildcardPattern(Some(binder)).setPos(oldBody))
-                ).setPos(oldBody),
-                None,
-                rhs
               ).setPos(oldBody)
-            }).setPos(oldBody)
-          case IntegerType() =>
-            // FIXME: When fd.returnType is a dependent type, we must bind its
-            // variables with newParams
-            val inductionVd = ValDef.fresh("inductVal", fd.returnType).setPos(oldBody)
-            val newParams = fd.params.map(param =>
-              if (param == vd) Minus(param.toVariable, IntegerLiteral(1)).setPos(oldBody)
-              else param.toVariable
-            )
-            IfExpr(
-              LessEquals(vd.toVariable, IntegerLiteral(0).setPos(oldBody)).setPos(oldBody),
-              currentBody,
-              Let(
-                inductionVd,
-                FunctionInvocation(fd.id, fd.tparams.map(_.tp), newParams).setPos(oldBody),
-                currentBody
-              ).setPos(oldBody)
-            ).setPos(oldBody)
-          case BVType(sign, size) =>
-            // FIXME: When fd.returnType is a dependent type, we must bind its
-            // variables with newParams
-            val inductionVd = ValDef.fresh("inductVal", fd.returnType)
-            val newParams = fd.params.map(param =>
-              if (param == vd) Minus(param.toVariable, BVLiteral(sign, size, 1))
-              else param.toVariable
-            )
-            IfExpr(
-              LessEquals(vd.toVariable, BVLiteral(sign, size, 0).setPos(oldBody)).setPos(oldBody),
-              currentBody,
-              Let(
-                inductionVd,
-                FunctionInvocation(fd.id, fd.tparams.map(_.tp), newParams).setPos(oldBody),
-                currentBody
-              ).setPos(oldBody)
-            )
-          case tpe =>
-            context.reporter.fatalError(vd.getPos, s"Induction on type ${tpe.asString} is not supported")
-        }
+            case BVType(sign, size) =>
+              // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
+              val inductionVd = ValDef.fresh("inductVal", fd.returnType)
+              val newParams = fd.params.map(param =>
+                if (param == vd) Minus(param.toVariable, BVLiteral(sign, size, 1))
+                else param.toVariable
+              )
+              IfExpr(
+                LessEquals(vd.toVariable, BVLiteral(sign, size, 0).setPos(oldBody)).setPos(oldBody),
+                currentBody,
+                Let(
+                  inductionVd,
+                  FunctionInvocation(fd.id, fd.tparams.map(_.tp), newParams).setPos(oldBody),
+                  currentBody
+                ).setPos(oldBody)
+              )
+            case tpe =>
+              context.reporter.fatalError(vd.getPos, s"Induction on type ${tpe.asString} is not supported")
+          }
       }
     )
 
@@ -148,6 +157,7 @@ trait InductElimination extends CachingPhase
       else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
 
     val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
+
     val newSpecs =
       if (inductionParams.isEmpty || !typeCheckerEnabled) specs
       else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure

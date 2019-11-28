@@ -59,23 +59,6 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
         "Invalids are:\n" + analysis.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
         "Unknowns are:\n" + analysis.vrs.filter(_._2.isInconclusive).mkString("\n"))
     }
-
-    it("should terminate") {
-      import termination.TerminationComponent
-      val run = TerminationComponent.run(extraction.pipeline)
-      val exProgram = inox.Program(run.trees)(run extract tryProgram.get.symbols)
-      assert(reporter.errorCount == 0, "Termination extraction had errors")
-
-      import exProgram.trees._
-      val funs = exProgram.symbols.functions.values.filter(keep(exProgram.trees)).map(_.id).toSeq
-      val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
-
-      assert(
-        analysis.results forall { case (_, (g, _)) => g.isGuaranteed },
-        "Library functions couldn't be shown terminating:\n" +
-        (analysis.results collect { case (fd, (g, _)) if !g.isGuaranteed => fd.id.name -> g } mkString "\n")
-      )
-    }
   }
 }
 

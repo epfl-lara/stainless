@@ -4,10 +4,7 @@ package stainless
 package extraction
 package termination
 
-trait SizedADTExtraction extends SimplePhase
-  with SimplyCachedFunctions
-  with IdentitySorts
-  { self =>
+trait SizedADTExtraction extends SimplePhase with SimplyCachedFunctions with IdentitySorts { self =>
   val s: Trees
   val t: s.type
 
@@ -20,23 +17,29 @@ trait SizedADTExtraction extends SimplePhase
 
     override def transform(e: Expr) = e match {
       case FunctionInvocation(
-        ast.SymbolIdentifier("stainless.lang.indexedAt"),
-        Seq(_),
-        Seq(n, ADT(id, tps, args))
-      ) => SizedADT(transform(id), tps.map(transform), args.map(transform), transform(n))
+          ast.SymbolIdentifier("stainless.lang.indexedAt"),
+          Seq(_),
+          Seq(n, ADT(id, tps, args))
+          ) =>
+        SizedADT(transform(id), tps.map(transform), args.map(transform), transform(n))
 
       case _ => super.transform(e)
     }
 
     override def transform(tpe: Type) = tpe match {
-      case AnnotatedType(adt@ADTType(id, tps), flags) =>
-        flags.collectFirst {
-          case IndexedAt(n) =>
-            AnnotatedType(
-              RecursiveType(transform(id), tps.map(transform), transform(n)),
-              flags.filter { case IndexedAt(_) => false case _ => true }
-            )
-        }.getOrElse(super.transform(tpe))
+      case AnnotatedType(adt @ ADTType(id, tps), flags) =>
+        flags
+          .collectFirst {
+            case IndexedAt(n) =>
+              AnnotatedType(
+                RecursiveType(transform(id), tps.map(transform), transform(n)),
+                flags.filter {
+                  case IndexedAt(_) => false
+                  case _            => true
+                }
+              )
+          }
+          .getOrElse(super.transform(tpe))
       case _ => super.transform(tpe)
     }
   }
