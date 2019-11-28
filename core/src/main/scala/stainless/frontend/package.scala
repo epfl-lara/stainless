@@ -42,7 +42,7 @@ package object frontend {
    */
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
-    termination.TerminationComponent,
+    // termination.TerminationComponent,
     evaluators.EvaluatorComponent
   )
 
@@ -75,8 +75,8 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
-    !ctx.options.findOptionOrDefault(optKeep).isEmpty ||
-    activeComponents.contains(termination.TerminationComponent)
+    !ctx.options.findOptionOrDefault(optKeep).isEmpty || false
+    // activeComponents.contains(termination.TerminationComponent)
   }
 }
 

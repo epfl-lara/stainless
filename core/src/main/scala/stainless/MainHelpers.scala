@@ -42,7 +42,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
+    // termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
@@ -70,7 +70,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.DebugSectionTypeChecker,
     verification.DebugSectionTypeCheckerVCs,
     verification.DebugSectionDerivation,
-    termination.DebugSectionTermination,
+    // termination.DebugSectionTermination,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,
     frontend.DebugSectionExtraction,
