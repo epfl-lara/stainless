@@ -4,11 +4,11 @@ package stainless
 package extraction
 package termination
 
-trait SizeInjection extends CachingPhase
-  with SimpleFunctions
-  with SimplyCachedFunctions
-  with SimplyCachedSorts
-  { self =>
+trait SizeInjection
+    extends CachingPhase
+    with SimpleFunctions
+    with SimplyCachedFunctions
+    with SimplyCachedSorts { self =>
   val s: Trees
   val t: s.type
 
@@ -25,38 +25,45 @@ trait SizeInjection extends CachingPhase
     val s: self.s.type = self.s
     val t: s.type = s
 
-    for ((id, _ ) <- symbols.sorts if !sizeFunctionId.contains(id)) {
+    for ((id, _) <- symbols.sorts if !sizeFunctionId.contains(id)) {
       sizeFunctionId(id) = FreshIdentifier(id.name + "PrimitiveSize")
     }
 
     val sizeFunction: Map[Identifier, FunDef] = {
-      symbols.sorts.map { case (id, sort) =>
-        val tpe = ADTType(sort.id, sort.typeArgs)
-        val tparams = sort.tparams.map(_.tp)
-        val v = Variable.fresh("x", tpe)
-        val fd =
-          new FunDef(
-            sizeFunctionId(id),
-            sort.tparams,
-            Seq(v.toVal),
-            IntegerType(),
-            Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
-              val arguments = cons.fields.map(_.freshen)
-              val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
-              val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
-              val rhsValues: Seq[Expr] = arguments.map(vd => size(vd.toVariable))
-              val rhs = rhsValues.foldLeft[Expr](base)(_ + _)
-              MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
-            }), \("res" :: IntegerType())(res => res >= E(BigInt(0)))).copiedFrom(sort),
-            Seq(Synthetic)
-          )
-        id -> fd
+      symbols.sorts.map {
+        case (id, sort) =>
+          val tpe = ADTType(sort.id, sort.typeArgs)
+          val tparams = sort.tparams.map(_.tp)
+          val v = Variable.fresh("x", tpe)
+          val fd =
+            new FunDef(
+              sizeFunctionId(id),
+              sort.tparams,
+              Seq(v.toVal),
+              IntegerType(),
+              Ensuring(
+                MatchExpr(
+                  v,
+                  sort.typed(tparams).constructors.map { cons =>
+                    val arguments = cons.fields.map(_.freshen)
+                    val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
+                    val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
+                    val rhsValues: Seq[Expr] = arguments.map(vd => size(vd.toVariable))
+                    val rhs = rhsValues.foldLeft[Expr](base)(_ + _)
+                    MatchCase(ADTPattern(None, cons.id, cons.tps, argumentPatterns), None, rhs)
+                  }
+                ),
+                \("res" :: IntegerType())(res => res >= E(BigInt(0)))
+              ).copiedFrom(sort),
+              Seq(Synthetic)
+            )
+          id -> fd
       }
     }
 
     private def size(v: Variable): Expr = v.getType match {
       case ADTType(id, tps) => FunctionInvocation(sizeFunctionId(id), tps, Seq(v)).setPos(v)
-      case _ => IntegerLiteral(0)
+      case _                => IntegerLiteral(0)
     }
 
     override def transform(e: Expr) = e match {
@@ -65,7 +72,7 @@ trait SizeInjection extends CachingPhase
       case Decreases(Tuple(ts), body) =>
         Decreases(Tuple(ts.map {
           case v: Variable if v.getType.isInstanceOf[ADTType] => size(v)
-          case e => transform(e)
+          case e                                              => transform(e)
         }), transform(body))
       case _ => super.transform(e)
     }

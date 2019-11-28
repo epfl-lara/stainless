@@ -44,6 +44,7 @@ object NNFSimple {
   }
 
   def evalLit(id : BigInt) : Boolean = (id == 42) // could be any function
+
   def eval(f: Formula) : Boolean = f match {
     case And(lhs, rhs) => eval(lhs) && eval(rhs)
     case Or(lhs, rhs) => eval(lhs) || eval(rhs)

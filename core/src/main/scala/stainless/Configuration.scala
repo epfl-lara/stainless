@@ -76,7 +76,7 @@ object Configuration {
       entry.getKey -> convert(entry.getKey, entry.getValue)
     }.toMap
 
-    val optDefMap = options.groupBy(_.name).mapValues(_.head)
+    val optDefMap = options.view.groupBy(_.name).mapValues(_.head)
 
     val optValues = entries map { case (name, str) =>
       optDefMap.get(name) map { optDef =>

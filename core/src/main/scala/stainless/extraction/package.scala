@@ -47,6 +47,7 @@ package object extraction {
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "SizeInjection"             -> "Injects a size function for each ADT",
+    "MeasureAnnotation"         -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
     "ChooseInjector"            -> "Insert chooses where necessary",
@@ -56,6 +57,8 @@ package object extraction {
 
   /** Unifies all stainless tree definitions */
   trait Trees extends ast.Trees { self =>
+    case object Uncached extends Flag("uncached", Seq.empty)
+
     override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
       case tree: Trees => new TreeDeconstructor {
         protected val s: self.type = self
