@@ -86,10 +86,11 @@ trait TerminationChecker { self =>
     val checker: self.type
   }
 
-  def get =
+  def get = {
     integerOrdering.functions ++
-      lexicographicOrdering.functions ++
-      bvOrdering.functions
+    lexicographicOrdering.functions ++
+    bvOrdering.functions
+  }
 }
 
 object TerminationChecker {

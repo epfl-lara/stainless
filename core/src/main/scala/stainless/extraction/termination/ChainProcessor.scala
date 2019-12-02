@@ -35,7 +35,7 @@ trait ChainProcessor extends OrderingProcessor {
     val api = getAPI
 
     reporter.debug("- Running ChainBuilder")
-    val chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])] = problem.funSet.map { funDef =>
+    val chainsMap = problem.funSet.map { funDef =>
       funDef -> getChains(funDef)
     }.toMap
 
@@ -67,15 +67,13 @@ trait ChainProcessor extends OrderingProcessor {
           val (path, args) = chain.loop
           (path, tupleWrap(args))
         }
+
         val e2 = tupleWrap(funDef.params.map(_.toVariable))
 
         val formulas = lessThan(e1s, e2)
 
         val decreases = formulas.find { f =>
-          println(f._1.asString(PrinterOptions.fromContext(context)))
-          val res = api.solveVALID(f._1)
-          println(res)
-          res.contains(true)
+          api.solveVALID(f._1).contains(true)
         }
 
         if (cleared || decreases.isDefined) {
@@ -110,11 +108,7 @@ trait ChainProcessor extends OrderingProcessor {
     Measure annotation for the chain processor
    */
 
-  // register holding all measures deduced for a function.
-  // instead of a value List we can put Set to avoid repetitions
-  // (if don't care about efficiency).
-  //
-  // again this seems to do with concurrency
+  // Register holding all measures deduced for a function.
   private object MeasureRegister {
     private val cache: MutableMap[FunDef, MutableSet[(Path, Expr)]] = MutableMap.empty
 
@@ -174,5 +168,4 @@ trait ChainProcessor extends OrderingProcessor {
         Some(rec(IfExpr(path.toClause, expr, zeroTuple(expr)), rest))
     }
   }
-
 }

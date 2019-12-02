@@ -6,12 +6,16 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 
-trait MeasureAnnotation extends ExtractionPipeline { self =>
+trait MeasureAnnotation
+  extends CachingPhase
+    with SimplyCachedSorts
+    with IdentitySorts
+    with SimpleFunctions
+    with SimplyCachedFunctions { self =>
+
   val s: Trees
   val t: extraction.Trees
   import s._
-
-  private[this] val measureCache: MutableMap[FunDef, Expr] = MutableMap.empty
 
   private[this] final object identity extends inox.transformers.TreeTransformer {
     override val s: self.s.type = self.s
@@ -22,11 +26,16 @@ trait MeasureAnnotation extends ExtractionPipeline { self =>
     val trees: s.type = self.s
   } with SizeFunctions
 
-  def extract(symbols: s.Symbols): t.Symbols = {
-    val program = inox.Program(s)(symbols)
-    val pipeline = TerminationChecker(program, context)(sizes)
+  override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty)
 
-    def annotate(original: s.FunDef): s.FunDef = measureCache.get(original) match {
+  protected case class TransformerContext(symbols: Symbols, measureCache: MutableMap[FunDef, Expr]) {
+    val program = inox.Program(s)(symbols)
+
+    val pipeline = TerminationChecker(program, self.context)(sizes)
+
+    val sizeFunctions = sizes.getFunctions(symbols)
+
+    def annotate(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
       case None =>
@@ -53,34 +62,25 @@ trait MeasureAnnotation extends ExtractionPipeline { self =>
             original
         }
     }
-
-    val annotated = symbols.functions.values.map(fd => identity.transform(annotate(fd)))
-    val sizeFunctions = sizes.getFunctions(symbols).map(identity.transform)
-    val functions = annotated ++ sizeFunctions
-    val sorts = symbols.sorts.values.map(identity.transform)
-
-    t.NoSymbols.withFunctions(functions.toSeq).withSorts(sorts.toSeq)
   }
 
-  protected case class TransformerContext(symbols: Symbols, cache: MutableMap[FunDef, Expr])
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+    identity.transform(context.annotate(fd))
+  }
 
-  def invalidate(id: Identifier): Unit = ()
-
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    val sizeFunctions = sizes.getFunctions(symbols).map(identity.transform)
+    registerFunctions(super.extractSymbols(context, symbols), sizeFunctions)
+  }
 }
 
 object MeasureAnnotation { self =>
-
-  val name = "measures"
-
-  val description = "Check program termination."
-
   def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: tr.type
     val t: tr.type
-  } =
-    new {
-      override val s: tr.type = tr
-      override val t: tr.type = tr
-      override val context = ctx
-    } with MeasureAnnotation
+  } = new {
+    override val s: tr.type = tr
+    override val t: tr.type = tr
+    override val context = ctx
+  } with MeasureAnnotation
 }
