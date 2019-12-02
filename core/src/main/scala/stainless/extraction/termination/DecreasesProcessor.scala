@@ -37,7 +37,7 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
     if (fds.exists { _.measure.isDefined }) {
       checkMeasures(problem)
       annotateGraph(problem) // should fail internally if not all can be annotated
-      Some(fds.map(fd => Cleared(fd, measureRegister.getMeasure(fd))))
+      Some(fds.map(fd => Cleared(fd, MeasureRegister.getMeasure(fd))))
     } else {
       None
     }
@@ -72,7 +72,7 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
     Measure annotation
    */
 
-  private object measureRegister {
+  private object MeasureRegister {
     // change cache to contain only idenfier
     private val cache: MutableMap[FunDef, Set[(Option[Relation], Expr, BigInt)]] = MutableMap.empty
     private val measures: MutableMap[FunDef, Expr] = MutableMap.empty
@@ -80,6 +80,7 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
       case Some(s) => cache.update(fd, s + ((r, measure, index)))
       case None    => cache += (fd -> Set((r, measure, index)))
     }
+    def has(fd: FunDef): Boolean = get(fd).nonEmpty
     def get(fd: FunDef): Set[(Option[Relation], Expr, BigInt)] = cache.get(fd) match {
       case Some(s) => s
       case None    => Set.empty
@@ -93,13 +94,13 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
 
     def rec(fd: FunDef, seen: Set[FunDef]): Unit = {
 
-      if (!problem.funSet(fd) || !measureRegister.get(fd).isEmpty) {
+      if (!problem.funSet(fd) || !MeasureRegister.get(fd).isEmpty) {
         // Nothing to do
       } else if (fd.measure.isDefined) {
         // Here we start at one to avoid (0,0) > (0,0) that happen for instance in PackratParsing
-        measureRegister.add(fd, None, fd.measure.get, 1)
+        MeasureRegister.add(fd, None, fd.measure.get, 1)
         val flat = flatten(fd.measure.get, Seq(IntegerLiteral(1)))
-        measureRegister.addMeasure(fd, flat)
+        MeasureRegister.addMeasure(fd, flat)
       } else if (seen(fd)) {
         // Fail, non-annotated cycle detected
         throw FailedMeasureInference(fd, "Cycle without measure detected for: " + fd.id)
@@ -115,7 +116,7 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
             val target = fi.tfd.fd
             rec(target, seen + target)
 
-            measureRegister.get(target).map {
+            MeasureRegister.get(target).map {
               case (oRel, oExpr, oIndex) =>
                 val nCall = Relation(fd, path, fi, false) // for now we don't need inLambda
                 val rel = oRel match { case Some(r) => nCall compose r; case None => nCall }
@@ -124,11 +125,13 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
                 val subst: Map[ValDef, Expr] = (rel.call.tfd.params zip freshParams.map(_.toVariable)).toMap
                 val oExprP = exprOps.replaceFromSymbols(subst, oExpr)
                 val (nRel, nExpr, nIndex) = (Some(rel), bindingsToLets(fullPath.bindings, oExprP), oIndex + 1)
-                measureRegister.add(fd, nRel, nExpr, nIndex)
+                MeasureRegister.add(fd, nRel, nExpr, nIndex)
             }
         }
 
-        measureRegister.addMeasure(fd, buildMeasure(measureRegister.get(fd).toList))
+        if (MeasureRegister.has(fd)) {
+          MeasureRegister.addMeasure(fd, buildMeasure(MeasureRegister.get(fd).toList))
+        }
       }
 
     }
@@ -143,9 +146,8 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
     increasing the index by one.
    */
 
-  // beware the path-condition
-  // transform to foldRight?
   def buildMeasure(measures: List[(Option[Relation], Expr, BigInt)]): Expr = {
+    require(measures.nonEmpty)
 
     @annotation.tailrec
     def rec(builtIf: Expr, measures: List[(Option[Relation], Expr, BigInt)]): Expr = measures match {
@@ -153,17 +155,16 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
         val path = rel match { case Some(r) => r.path; case None => Path.empty }
         val measure = flatten(expr, Seq(IntegerLiteral(index)))
         rec(IfExpr(path.toClause, expr, builtIf), rest)
-      case Nil => builtIf
+      case Nil =>
+        builtIf
     }
 
-    measures match {
-      case Nil => throw FailedMeasureInference(null, "Called build decrease with no measure") // FIXME
-      case (rel, expr, index) :: rest =>
-        val path = rel match { case Some(r) => r.path; case None => Path.empty }
-        val flat = flatten(expr, Seq(IntegerLiteral(index)))
-        val baseIf = IfExpr(path.toClause, flat, zeroTuple(flat))
-        rec(baseIf, rest)
-    }
+    val (rel, expr, index) :: rest = measures // safe because of precondition
+
+    val path = rel match { case Some(r) => r.path; case None => Path.empty }
+    val flat = flatten(expr, Seq(IntegerLiteral(index)))
+    val baseIf = IfExpr(path.toClause, flat, zeroTuple(flat))
+    rec(baseIf, rest)
   }
 
   /*
