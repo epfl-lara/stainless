@@ -151,7 +151,7 @@ trait SizeFunctions {
 
   private val fullCache: MutableMap[ADTSort, Identifier] = MutableMap.empty
 
-  private def fullSizeId(sort: ADTSort): Identifier = synchronized {
+  def fullSizeId(sort: ADTSort): Identifier = synchronized {
     fullCache.getOrElseUpdate(sort, FreshIdentifier(s"${sort.id.name}PrimitiveSize"))
   }
 
