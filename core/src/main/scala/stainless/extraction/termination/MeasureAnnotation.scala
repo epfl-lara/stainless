@@ -17,11 +17,6 @@ trait MeasureAnnotation
   val t: extraction.Trees
   import s._
 
-  private[this] final object identity extends inox.transformers.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
-
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
   } with SizeFunctions
@@ -34,6 +29,29 @@ trait MeasureAnnotation
     val pipeline = TerminationChecker(program, self.context)(sizes)
 
     val sizeFunctions = sizes.getFunctions(symbols)
+
+    final object transformer extends inox.transformers.TreeTransformer {
+      override val s: self.s.type = self.s
+      override val t: self.t.type = self.t
+
+      override def transform(e: s.Expr): t.Expr = e match {
+        case Decreases(v: Variable, body) if v.getType(symbols).isInstanceOf[ADTType] =>
+          t.Decreases(transform(size(v)), transform(body))
+        case Decreases(Tuple(ts), body) =>
+          t.Decreases(t.Tuple(ts.map {
+            case v: Variable if v.getType(symbols).isInstanceOf[ADTType] => transform(size(v))
+            case e => transform(e)
+          }), transform(body))
+        case _ =>
+          super.transform(e)
+      }
+
+      private def size(v: Variable): Expr = {
+        require(v.getType(symbols).isInstanceOf[ADTType])
+        val ADTType(id, tps) = v.getType(symbols)
+        FunctionInvocation(sizes.fullSizeId(symbols.sorts(id)), tps, Seq(v)).setPos(v)
+      }
+    }
 
     def annotate(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
@@ -65,11 +83,11 @@ trait MeasureAnnotation
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    identity.transform(context.annotate(fd))
+    context.transformer.transform(context.annotate(fd))
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val sizeFunctions = sizes.getFunctions(symbols).map(identity.transform)
+    val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
     registerFunctions(super.extractSymbols(context, symbols), sizeFunctions)
   }
 }
