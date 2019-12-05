@@ -185,6 +185,9 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Decreases(measure, body) =>
       (Seq(), Seq(), Seq(measure, body), Seq(), Seq(), (_, _, es, _, _) => t.Decreases(es(0), es(1)))
 
+    case s.Max(exprs) =>
+      (Seq(), Seq(), exprs, Seq(), Seq(), (_, _, es, _, _) => t.Max(es))
+
     case s.SizedADT(id, tps, args, e) =>
       (Seq(id), Seq(), e +: args, tps, Seq(), (ids, _, es, ntps, _) => t.SizedADT(ids(0), ntps, es.tail, es.head))
 

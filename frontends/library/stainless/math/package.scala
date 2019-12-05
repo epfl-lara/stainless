@@ -29,6 +29,9 @@ package object math {
   def max(i1: BigInt, i2: BigInt) = if (i1 >= i2) i1 else i2
 
   @library
+  def max(i1: BigInt, i2: BigInt, i3: BigInt) = if (i1 >= i2) i1 else if (i2 >= i3) i2 else i3
+
+  @library
   def min(i1: Nat, i2: Nat) = if (i1 <= i2) i1 else i2
 
   @library

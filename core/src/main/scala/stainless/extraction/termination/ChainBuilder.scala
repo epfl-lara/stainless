@@ -14,6 +14,11 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
   import program.trees.exprOps._
 
   case class Chain(relations: List[Relation]) {
+    override def toString: String = {
+      import stainless.utils.StringUtils.indent
+      s"Chain(${relations.map(_.toString).map(indent(_, 2)).mkString("\n", ",\n", "\n")})" +
+      s"\nLoop(${loop})"
+    }
 
     private lazy val identifier: Map[(Relation, Relation), Int] = {
       (relations zip (relations.tail :+ relations.head)).view.groupBy(p => p).mapValues(_.size).toMap
