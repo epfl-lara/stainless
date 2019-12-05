@@ -575,6 +575,13 @@ trait TypeChecker {
         val tr = isType(tc, tpe)
         (tpe, tr ++ buildVC(tc.withVCKind(VCKind.fromErr(Some(descr))).setPos(e), BooleanLiteral(false)))
 
+      case Max(exprs) =>
+        val (_, vcs) = exprs.foldLeft((tc, TyperResult.valid)){
+          case ((tcAcc, tr), expr) =>
+            (tcAcc.withTruth(expr), tr ++ checkType(tcAcc, expr, IntegerType()))
+        }
+        (IntegerType(), vcs)
+
       case And(exprs) =>
         val (_, vcs) = exprs.foldLeft((tc, TyperResult.valid)){
           case ((tcAcc, tr), expr) =>

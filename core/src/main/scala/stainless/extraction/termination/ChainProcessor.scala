@@ -72,8 +72,8 @@ trait ChainProcessor extends OrderingProcessor {
 
         val formulas = lessThan(e1s, e2)
 
-        val decreases = formulas.find { f =>
-          api.solveVALID(f._1).contains(true)
+        val decreases = formulas.find { case (query, _, _) =>
+          api.solveVALID(query).contains(true)
         }
 
         if (cleared || decreases.isDefined) {
@@ -89,7 +89,7 @@ trait ChainProcessor extends OrderingProcessor {
 
     if (cleared) {
       Some(problem.funDefs.map { fd =>
-        val induced = buildDecreases(MeasureRegister.getOrElse(fd, Set()).toList)
+        val induced = buildDecreases(fd, MeasureRegister.getOrElse(fd, Set.empty).toList)
         induced match {
           case Some(measure) =>
             measureCache.add(fd -> measure)
@@ -105,67 +105,79 @@ trait ChainProcessor extends OrderingProcessor {
   }
 
   /*
-    Measure annotation for the chain processor
+   * Measure annotation for the chain processor
    */
 
-  // Register holding all measures deduced for a function.
+  /** Register holding all measures deduced for a function. */
   private object MeasureRegister {
-    private val cache: MutableMap[FunDef, MutableSet[(Path, Expr)]] = MutableMap.empty
+    private val cache: MutableMap[FunDef, MutableSet[(Chain, Expr)]] = MutableMap.empty
 
-    def add(fd: FunDef, path: Path, measure: Expr) = {
-      cache.get(fd) match {
-        case Some(s) => cache.update(fd, s += (path -> measure))
-        case None    => cache += (fd -> MutableSet((path, measure)))
+    def add(chain: Chain, measure: Expr) = {
+      cache.get(chain.fd) match {
+        case Some(s) => cache.update(chain.fd, s += (chain -> measure))
+        case None    => cache += (chain.fd -> MutableSet(chain -> measure))
       }
     }
 
     def get(fd: FunDef) = cache.get(fd)
-    def getOrElse(fd: FunDef, elze: => Set[(Path, Expr)]) = cache.getOrElse(fd, elze)
+    def getOrElse(fd: FunDef, elze: => Set[(Chain, Expr)]) = cache.getOrElse(fd, elze)
   }
 
-  // Registers the function annotated, the path condition and the measure contribution of this branch
+  def simplify(e: Expr) = {
+    exprOps.postMap({
+      case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), Seq(Unchecked)), b) =>
+        Some(exprOps.replaceFromSymbols(Map(vd -> a), b))
+      case _ =>
+        None
+    }, applyRec = true)(e)
+  }
+
+  /** Registers the function annotated, the path condition and the measure contribution of this branch */
   private def annotate(chains: Set[Chain], fd: FunDef, recons: Expr => Expr): Unit = {
+    def writeMeasure(chain: Chain) = {
+      val (path, args) = chain.loop
 
-    def writeMeasure(r: Relation, chain: Chain, index: Int, first: Boolean) = {
-      val (bPath, bArgs) = chain.loop
-      val (path, args) = (r.path, if (first) r.fd.params.map(_.toVariable) else bArgs)
-      val induced = ordering.measure(Seq(recons(tupleWrap(args))))
-      val measure = {
-        val templateMeasure = flatten(induced, Seq(IntegerLiteral(index)))
-        if (first) templateMeasure else bindingsToLets(bPath.bindings, templateMeasure)
-      }
-      MeasureRegister.add(r.fd, path, measure)
+      // val induced = ordering.measure(Seq(recons(tupleWrap(args))))
+      // val measure = simplify(bindingsToLets(path.bindings, induced))
+
+      // println(s"Chain: $chain")
+      // println(s"Relation: $relation")
+      // println(s"Index: $index")
+      // println(s"First: $first")
+      // println(s"Induced: $induced")
+      // println(s"Measure: $measure")
+      // println(s"path: ${relation.path}")
+      // println(s"args: ${relation.fd.params.map(_.toVariable)}")
+      // println(s"bArgs: $bArgs")
+      // println(s"bPath: $bPath")
+
+      val measure = Max(chain.relations.map { rel =>
+        val induced = ordering.measure(Seq(recons(tupleWrap(rel.call.args))))
+        val measure = simplify(bindingsToLets(rel.path.bindings, induced))
+        IfExpr(simplify(rel.path.toClause), measure, IntegerLiteral(0))
+      })
+
+      MeasureRegister.add(chain, measure)
     }
 
-    @annotation.tailrec
-    def rec(chain: Chain, index: Int): Unit = chain.relations match {
-      case r :: Nil => writeMeasure(r, chain, index, false); ()
-      case r :: rs  => writeMeasure(r, chain, index, false); rec(Chain(rs), index - 1)
-      case Nil      => ()
-    }
+    println("\n============")
+    println(chains.mkString("\n----------\n"))
+    println("============\n")
 
-    val newChains = chains.map { chain =>
-      val (start, end) = chain.relations.splitAt(chain.relations.map(_.fd.id).indexOf(fd.id))
-      Chain(end ++ start)
-    }
+    val transposed = chains.toList.map(_.relations).transpose.map(Chain.apply)
 
-    newChains.map { chain =>
-      writeMeasure(chain.relations.head, chain, 0, true)
-      rec(Chain(chain.relations.tail), chain.size - 1)
-    }
+    println("\n============")
+    println(transposed.mkString("\n----------\n"))
+    println("============\n")
+
+    transposed.foreach(writeMeasure)
   }
 
-  private def buildDecreases(l: List[(Path, Expr)]) = {
-    @annotation.tailrec
-    def rec(acc: Expr, l: List[(Path, Expr)]): Expr = l match {
-      case (p, e) :: t => rec(IfExpr(p.toClause, e, acc), t)
-      case Nil         => acc
-    }
+  private def buildDecreases(fd: FunDef, chains: List[(Chain, Expr)]): Option[Expr] = {
+    if (chains.isEmpty) return None
 
-    l match {
-      case Nil                  => None
-      case (path, expr) :: rest =>
-        Some(rec(IfExpr(path.toClause, expr, zeroTuple(expr)), rest))
-    }
+    val induced = ordering.measure(Seq(tupleWrap(fd.params.map(_.toVariable))))
+    val decreases = chains.map(_._2).foldLeft(induced)(Plus(_, _))
+    Some(decreases)
   }
 }

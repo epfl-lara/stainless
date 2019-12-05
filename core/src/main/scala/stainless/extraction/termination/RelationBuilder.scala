@@ -15,7 +15,7 @@ trait RelationBuilder { self: Strengthener =>
 
   case class Relation(fd: FunDef, path: Path, call: FunctionInvocation, inLambda: Boolean) {
     override def toString: String =
-      "Relation(" + fd.id + "," + path + ", " +
+      "Relation(" + fd.id + "," + path.toClause + ", " +
         call.tfd.id + call.args.mkString("(", ",", ")") + "," + inLambda + ")"
 
     def compose(that: Relation): Relation = {

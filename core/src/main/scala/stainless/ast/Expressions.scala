@@ -281,6 +281,15 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /** $encodingof `max(e1, e2, e3)` */
+  case class Max(exprs: Seq[Expr]) extends Expr with CachingTyped {
+    require(exprs.nonEmpty)
+
+    protected def computeType(implicit s: Symbols): Type = {
+      checkAllTypes(exprs.map(_.getType), IntegerType(), IntegerType())
+    }
+  }
+
   /* Recursive Types */
 
   /** $encodingof of `ADTType(id,tps)<n>` */

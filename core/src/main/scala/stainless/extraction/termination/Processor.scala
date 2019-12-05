@@ -61,14 +61,11 @@ trait OrderingProcessor extends Processor {
     }
   }
 
-  // transforms a sequence of bindings extracted from a path in a sequence of lets
-  // this is useful in the measure annotation of the Chain and Decreases processors.
-
-  // substitute this by foldright
-  def bindingsToLets(bindings: Seq[(ValDef, Expr)], expr: Expr): Expr = bindings match {
-    case (vd, vl) :: Nil  => Let(vd, vl, expr)
-    case (vd, vl) :: rest => Let(vd, vl, bindingsToLets(rest, expr))
-    case Nil              => expr
+  /** Transforms a sequence of bindings extracted from a path in a sequence of lets.
+    * This is useful in the measure annotation of the Chain and Decreases processors. */
+  def bindingsToLets(bindings: Seq[(ValDef, Expr)], expr: Expr): Expr = {
+    bindings.foldRight(expr) { case ((vd, vl), acc) =>
+      Let(vd, vl, acc)
+    }
   }
-
 }

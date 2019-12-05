@@ -67,6 +67,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
       case LargeArray(_, _, s, _) => s
     }
 
+    case m: Max =>
+      e(maxToIfThenElse(m))
+
     case Error(tpe, msg) =>
       throw RuntimeError("Error reached in evaluation: " + msg)
 

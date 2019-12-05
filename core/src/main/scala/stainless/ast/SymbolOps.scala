@@ -220,6 +220,18 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     }
   }
 
+  /** Rewrites the given `max(e1, e2, ...)` into if-then-else expressions.
+    */
+  def maxToIfThenElse(max: Max): Expr = {
+    require(max.exprs.nonEmpty)
+    def go(exprs: Seq[Expr]): Expr = exprs match {
+      case e1 :: Nil      => e1
+      case e1 :: e2 :: es => IfExpr(GreaterThan(e1, e2).copiedFrom(max), e1, go(e2 :: es)).copiedFrom(max)
+    }
+
+    go(max.exprs)
+  }
+
 
   /* ======================
    * Stainless Constructors

@@ -155,6 +155,9 @@ trait Printer extends inox.ast.Printer {
       p"""|decreases($rank)
           |$body"""
 
+    case Max(es) =>
+      p"""max($es)"""
+
     case _ => super.ppBody(tree)
   }
 
