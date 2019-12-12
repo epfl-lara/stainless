@@ -6,7 +6,7 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 
-trait MeasureAnnotation
+trait MeasureInference
   extends CachingPhase
     with SimplyCachedSorts
     with IdentitySorts
@@ -57,7 +57,7 @@ trait MeasureAnnotation
       }
     }
 
-    def annotate(original: FunDef): FunDef = measureCache.get(original) match {
+    def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
 
@@ -89,7 +89,7 @@ trait MeasureAnnotation
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     if (options.findOptionOrDefault(optTermination)) {
-      context.transformer.transform(context.annotate(fd))
+      context.transformer.transform(context.inferMeasure(fd))
     } else {
       context.transformer.transform(fd)
     }
@@ -101,7 +101,7 @@ trait MeasureAnnotation
   }
 }
 
-object MeasureAnnotation { self =>
+object MeasureInference { self =>
   def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: tr.type
     val t: tr.type
@@ -109,5 +109,5 @@ object MeasureAnnotation { self =>
     override val s: tr.type = tr
     override val t: tr.type = tr
     override val context = ctx
-  } with MeasureAnnotation
+  } with MeasureInference
 }

@@ -32,8 +32,7 @@ package object termination {
 
     utils.DebugPipeline("SizedADTExtraction", SizedADTExtraction(trees)) andThen
     utils.DebugPipeline("InductElimination", InductElimination(trees)) andThen
-    // utils.DebugPipeline("SizeInjection", SizeInjection(trees)) andThen
-    utils.DebugPipeline("MeasureAnnotation", MeasureAnnotation(trees)) andThen
+    utils.DebugPipeline("MeasureInference", MeasureInference(trees)) andThen
     lowering
   }
 
