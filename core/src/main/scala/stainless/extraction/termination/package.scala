@@ -7,6 +7,8 @@ import scala.language.existentials
 
 package object termination {
 
+  object optTermination extends inox.FlagOptionDef("termination", true)
+
   object DebugSectionTermination extends inox.DebugSection("termination")
 
   object trees extends Trees with inox.ast.SimpleSymbols {

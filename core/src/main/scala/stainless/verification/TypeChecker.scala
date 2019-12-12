@@ -9,6 +9,8 @@ import TypeCheckerUtils._
 import TypeCheckerDerivation._
 import TypeCheckerContext._
 
+import stainless.extraction.termination.optTermination
+
 import scala.collection._
 
 object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
@@ -26,6 +28,8 @@ trait TypeChecker {
   import CallGraphOrderings._
 
   implicit val debugSection = DebugSectionTypeChecker
+
+  val checkTermination = options.findOptionOrDefault(optTermination)
 
   /* ====================================
    *     Polarity in ADT definitions
@@ -657,17 +661,20 @@ trait TypeChecker {
 
         val fiS = shortString(e.asString, 40)
 
-        val trPre =
+        val trPre = {
           if (calleeTfd.precondition.isDefined) {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
             val pre = calleeTfd.precondition.get
             val (tc2, freshener) = tc.freshBindWithValues(calleeTfd.params, args)
             buildVC(tc2.withVCKind(kind).setPos(e), freshener.transform(pre))
-          } else
+          } else {
             TyperResult.valid
+          }
+        }
 
-        val trSize =
-          if (tc.currentFid.exists(fid => dependencies(id).contains(fid))) {
+        val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
+        val trSize = {
+          if (checkTermination && isRecursive) {
             // All these assertions should hold since we check in
             //    checkType(funs: Seq[Identifier]): Seq[StainlessVC]
             // that all recursive functions have measures
@@ -683,8 +690,10 @@ trait TypeChecker {
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
             )
-          } else
+          } else {
             TyperResult.valid
+          }
+        }
 
         val argsKind = VCKind.Error(s"argument types (call $fiS)")
         (insertFreshLets(calleeTfd.params, args, calleeTfd.returnType),
@@ -1100,16 +1109,20 @@ trait TypeChecker {
     (trArgs ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
   }
 
-  def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    for ((id,fd) <- symbols.functions) {
-      if (
-        symbols.isRecursive(id) &&
-        !fd.flags.contains(Synthetic) &&
-        !fd.flags.exists(_.name == "library") &&
-        fd.measure.isEmpty
-      )
-        throw new TypeCheckingException(fd, s"A recursive function (${id.asString}) must have a measure")
+  def needsMeasure(fd: FunDef): Boolean = {
+    symbols.isRecursive(fd.id) &&
+    !fd.flags.contains(Synthetic) &&
+    !fd.flags.exists(_.name == "library")
+  }
+
+  def ensureHasMeasure(fd: FunDef) = {
+    if (checkTermination && needsMeasure(fd) && fd.measure.isEmpty) {
+      throw new TypeCheckingException(fd, s"A recursive function (${fd.id.asString}) must have a measure")
     }
+  }
+
+  def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
+    symbols.functions.values.foreach(ensureHasMeasure)
 
     val vcs = (for (id <- funs) yield {
       val fd = getFunction(id)
