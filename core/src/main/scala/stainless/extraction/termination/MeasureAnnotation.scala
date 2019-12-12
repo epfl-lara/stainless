@@ -17,6 +17,8 @@ trait MeasureAnnotation
   val t: extraction.Trees
   import s._
 
+  import context.options
+
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
   } with SizeFunctions
@@ -37,11 +39,13 @@ trait MeasureAnnotation
       override def transform(e: s.Expr): t.Expr = e match {
         case Decreases(v: Variable, body) if v.getType(symbols).isInstanceOf[ADTType] =>
           t.Decreases(transform(size(v)), transform(body))
+
         case Decreases(Tuple(ts), body) =>
           t.Decreases(t.Tuple(ts.map {
             case v: Variable if v.getType(symbols).isInstanceOf[ADTType] => transform(size(v))
             case e => transform(e)
           }), transform(body))
+
         case _ =>
           super.transform(e)
       }
@@ -56,6 +60,7 @@ trait MeasureAnnotation
     def annotate(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
+
       case None =>
         try {
           val program = inox.Program(s)(symbols)
@@ -83,7 +88,11 @@ trait MeasureAnnotation
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    context.transformer.transform(context.annotate(fd))
+    if (options.findOptionOrDefault(optTermination)) {
+      context.transformer.transform(context.annotate(fd))
+    } else {
+      context.transformer.transform(fd)
+    }
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
