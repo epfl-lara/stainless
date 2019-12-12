@@ -673,11 +673,10 @@ trait TypeChecker {
         }
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
+        val hasMeasure = calleeTfd.measure.isDefined
+
         val trSize = {
-          if (checkTermination && isRecursive) {
-            // All these assertions should hold since we check in
-            //    checkType(funs: Seq[Identifier]): Seq[StainlessVC]
-            // that all recursive functions have measures
+          if (checkTermination && isRecursive && hasMeasure) {
             assert(tc.measureType.isDefined)
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
@@ -1115,14 +1114,14 @@ trait TypeChecker {
     !fd.flags.exists(_.name == "library")
   }
 
-  def ensureHasMeasure(fd: FunDef) = {
+  def checkHasMeasure(fd: FunDef) = {
     if (checkTermination && needsMeasure(fd) && fd.measure.isEmpty) {
-      throw new TypeCheckingException(fd, s"A recursive function (${fd.id.asString}) must have a measure")
+      reporter.error(fd.getPos, s"Recursive function ${fd.id.asString} must have a measure (inferred or user-defined).")
     }
   }
 
   def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    symbols.functions.values.foreach(ensureHasMeasure)
+    symbols.functions.values.foreach(checkHasMeasure)
 
     val vcs = (for (id <- funs) yield {
       val fd = getFunction(id)
