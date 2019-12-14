@@ -43,7 +43,8 @@ package object frontend {
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
     termination.TerminationComponent,
-    evaluators.EvaluatorComponent
+    evaluators.EvaluatorComponent,
+    wasmgen.WasmComponent
   )
 
   /**
