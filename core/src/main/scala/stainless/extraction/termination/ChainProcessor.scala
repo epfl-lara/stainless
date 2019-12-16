@@ -110,17 +110,17 @@ trait ChainProcessor extends OrderingProcessor {
 
   /** Register holding all measures deduced for a function. */
   private object MeasureRegister {
-    private val cache: MutableMap[FunDef, MutableSet[(Chain, Expr)]] = MutableMap.empty
+    private val cache: MutableMap[FunDef, MutableSet[(Int, Expr)]] = MutableMap.empty
 
-    def add(chain: Chain, measure: Expr) = {
-      cache.get(chain.fd) match {
-        case Some(s) => cache.update(chain.fd, s += (chain -> measure))
-        case None    => cache += (chain.fd -> MutableSet(chain -> measure))
+    def add(fd: FunDef, index: Int, measure: Expr) = {
+      cache.get(fd) match {
+        case Some(s) => cache.update(fd, s += (index -> measure))
+        case None    => cache += (fd -> MutableSet(index -> measure))
       }
     }
 
     def get(fd: FunDef) = cache.get(fd)
-    def getOrElse(fd: FunDef, elze: => Set[(Chain, Expr)]) = cache.getOrElse(fd, elze)
+    def getOrElse(fd: FunDef, elze: => Set[(Int, Expr)]) = cache.getOrElse(fd, elze)
   }
 
   def simplify(e: Expr) = {
@@ -137,47 +137,42 @@ trait ChainProcessor extends OrderingProcessor {
     def writeMeasure(chain: Chain) = {
       val (path, args) = chain.loop
 
-      // val induced = ordering.measure(Seq(recons(tupleWrap(args))))
-      // val measure = simplify(bindingsToLets(path.bindings, induced))
-
-      // println(s"Chain: $chain")
-      // println(s"Relation: $relation")
-      // println(s"Index: $index")
-      // println(s"First: $first")
-      // println(s"Induced: $induced")
-      // println(s"Measure: $measure")
-      // println(s"path: ${relation.path}")
-      // println(s"args: ${relation.fd.params.map(_.toVariable)}")
-      // println(s"bArgs: $bArgs")
-      // println(s"bPath: $bPath")
-
-      val measure = Max(chain.relations.map { rel =>
+      for ((rel, index) <- chain.relations.zipWithIndex) {
         val induced = ordering.measure(Seq(recons(tupleWrap(rel.call.args))))
         val measure = simplify(bindingsToLets(rel.path.bindings, induced))
-        IfExpr(simplify(rel.path.toClause), measure, IntegerLiteral(0))
-      })
+        val guarded = IfExpr(simplify(rel.path.toClause), measure, IntegerLiteral(0))
 
-      MeasureRegister.add(chain, measure)
+        MeasureRegister.add(fd, index, guarded)
+      }
     }
 
-    println("\n============")
-    println(chains.mkString("\n----------\n"))
-    println("============\n")
+    chains.foreach(writeMeasure)
 
-    val transposed = chains.toList.map(_.relations).transpose.map(Chain.apply)
+    // val transposed = chains.toList.map(_.relations).transpose.map(Chain.apply)
 
-    println("\n============")
-    println(transposed.mkString("\n----------\n"))
-    println("============\n")
+    // println("\n============")
+    // println(transposed.mkString("\n----------\n"))
+    // println("============\n")
 
-    transposed.foreach(writeMeasure)
+    // transposed.foreach(writeMeasure)
   }
 
-  private def buildDecreases(fd: FunDef, chains: List[(Chain, Expr)]): Option[Expr] = {
-    if (chains.isEmpty) return None
+  private def buildDecreases(fd: FunDef, stages: List[(Int, Expr)]): Option[Expr] = {
+    if (stages.isEmpty) return None
+
+    val measures = stages
+      .groupBy(_._1)
+      .mapValues(_.map(_._2))
+      .toList
+      .sortBy(_._1)
+      .map(_._2)
+      .map(Max(_))
+
+    println(measures)
 
     val induced = ordering.measure(Seq(tupleWrap(fd.params.map(_.toVariable))))
-    val decreases = chains.map(_._2).foldLeft(induced)(Plus(_, _))
+    val decreases = measures.foldLeft(induced)(Plus(_, _))
+
     Some(decreases)
   }
 }
