@@ -10,7 +10,7 @@ trait DatatypeChecker {
   val checker: TerminationChecker
   import checker._
   import program._
-  import program.trees.{NonTerminating => _, _}
+  import program.trees._
   import program.symbols._
 
   private class DependencyFinder(deps: MutableSet[Identifier]) extends SelfTreeTraverser {

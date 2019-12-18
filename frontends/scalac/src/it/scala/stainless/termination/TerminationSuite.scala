@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 
 // class TerminationSuite extends ComponentTestSuite {
 
-//   val component = TerminationComponent
+//   val component = VerificationComponent
 
 //   override protected def optionsString(options: inox.Options): String = {
 //     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
