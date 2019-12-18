@@ -6,6 +6,8 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 
+object optInferMeasures extends inox.FlagOptionDef("infer-measures", true)
+
 trait MeasureInference
   extends CachingPhase
     with SimplyCachedSorts
@@ -88,7 +90,7 @@ trait MeasureInference
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    if (options.findOptionOrDefault(optTermination)) {
+    if (options.findOptionOrDefault(optInferMeasures)) {
       context.transformer.transform(context.inferMeasure(fd))
     } else {
       context.transformer.transform(fd)
