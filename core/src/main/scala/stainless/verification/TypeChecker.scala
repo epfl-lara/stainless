@@ -9,7 +9,7 @@ import TypeCheckerUtils._
 import TypeCheckerDerivation._
 import TypeCheckerContext._
 
-import stainless.extraction.termination.optTermination
+import stainless.extraction.termination.optCheckMeasures
 
 import scala.collection._
 
@@ -29,7 +29,7 @@ trait TypeChecker {
 
   implicit val debugSection = DebugSectionTypeChecker
 
-  val checkTermination = options.findOptionOrDefault(optTermination)
+  val checkMeasures = options.findOptionOrDefault(optCheckMeasures)
 
   /* ====================================
    *     Polarity in ADT definitions
@@ -676,7 +676,7 @@ trait TypeChecker {
         val hasMeasure = calleeTfd.measure.isDefined
 
         val trSize = {
-          if (checkTermination && isRecursive && hasMeasure) {
+          if (checkMeasures && isRecursive && hasMeasure) {
             assert(tc.measureType.isDefined)
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
@@ -1115,7 +1115,7 @@ trait TypeChecker {
   }
 
   def checkHasMeasure(fd: FunDef) = {
-    if (checkTermination && needsMeasure(fd) && fd.measure.isEmpty) {
+    if (checkMeasures && needsMeasure(fd) && fd.measure.isEmpty) {
       reporter.error(fd.getPos, s"Recursive function ${fd.id.asString} must have a measure (inferred or user-defined).")
     }
   }
