@@ -3,6 +3,8 @@
 package stainless
 package ast
 
+import stainless.extraction.termination.TerminationChecker
+
 import scala.reflect._
 import scala.collection.mutable.{Map => MutableMap}
 
@@ -12,6 +14,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   // TODO: Move Erasable to Inox?
   case object Erasable extends Flag("erasable", Seq.empty)
   case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
+
   case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
@@ -22,9 +25,12 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case object Wrapping extends Flag("wrapping", Seq.empty)
+
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
+
+  case class NonTerminating(reason: TerminationChecker#NonTerminating, msg: String) extends Flag("nonTerminating", Seq(msg))
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law

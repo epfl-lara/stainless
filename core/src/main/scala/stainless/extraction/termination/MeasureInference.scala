@@ -63,29 +63,35 @@ trait MeasureInference
       case Some(measure) =>
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
 
-      case None =>
-        try {
-          val program = inox.Program(s)(symbols)
-          pipeline.terminates(original) match {
-            case pipeline.Terminates(_, Some(measure)) =>
-              measureCache ++= pipeline.measureCache.get
-              original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
-            case pipeline.Terminates(_, None) =>
-              original
-            case _ if exprOps.measureOf(original.fullBody).isDefined =>
-              original
-            case nt: pipeline.NonTerminating =>
-              context.reporter.error(original.getPos, nt.asString)
-              original
-            case _ =>
-              context.reporter.error(original.getPos, s"Could not infer measure for function ${original.id.asString}")
-              original
-          }
-        } catch {
-          case FailedMeasureInference(fd, msg) =>
-            context.reporter.error(fd.getPos, msg)
+      case None => try {
+        pipeline.terminates(original) match {
+          case pipeline.Terminates(_, Some(measure)) =>
+            measureCache ++= pipeline.measureCache.get
+            original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
+
+          case pipeline.Terminates(_, None) =>
+            original
+
+          case _ if exprOps.measureOf(original.fullBody).isDefined =>
+            original
+
+          case nt: pipeline.NonTerminating =>
+            context.reporter.error(original.getPos, nt.asString)
+            annotate(original, nt)
+
+          case _ =>
+            context.reporter.error(original.getPos, s"Could not infer measure for function ${original.id.asString}")
             original
         }
+      } catch {
+        case FailedMeasureInference(fd, msg) =>
+          context.reporter.error(fd.getPos, msg)
+          original
+      }
+    }
+
+    private def annotate(fd: FunDef, reason: pipeline.NonTerminating): FunDef = {
+      fd.copy(flags = fd.flags :+ NonTerminating(reason, reason.asString))
     }
   }
 
