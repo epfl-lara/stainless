@@ -7,7 +7,7 @@ import scala.language.existentials
 
 package object termination {
 
-  object optTermination extends inox.FlagOptionDef("termination", true)
+  object optCheckMeasures extends inox.FlagOptionDef("check-measures", true)
 
   object DebugSectionTermination extends inox.DebugSection("termination")
 
