@@ -3,7 +3,7 @@
 package stainless
 package ast
 
-import stainless.extraction.termination.TerminationChecker
+import stainless.termination.TerminationReport
 
 import scala.reflect._
 import scala.collection.mutable.{Map => MutableMap}
@@ -30,7 +30,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
 
-  case class NonTerminating(reason: TerminationChecker#NonTerminating, msg: String) extends Flag("nonTerminating", Seq(msg))
+  case class TerminationStatus(status: TerminationReport.Status) extends Flag("termination", Seq(status))
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law

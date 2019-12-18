@@ -4,6 +4,8 @@ package stainless
 package extraction
 package termination
 
+import stainless.termination.TerminationReport
+
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 
 object optInferMeasures extends inox.FlagOptionDef("infer-measures", true)
@@ -64,7 +66,8 @@ trait MeasureInference
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
 
       case None => try {
-        pipeline.terminates(original) match {
+        val guarantee = pipeline.terminates(original);
+        val result = guarantee match {
           case pipeline.Terminates(_, Some(measure)) =>
             measureCache ++= pipeline.measureCache.get
             original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
@@ -77,12 +80,14 @@ trait MeasureInference
 
           case nt: pipeline.NonTerminating =>
             context.reporter.error(original.getPos, nt.asString)
-            annotate(original, nt)
+            original
 
           case _ =>
             context.reporter.error(original.getPos, s"Could not infer measure for function ${original.id.asString}")
             original
         }
+
+        annotate(result, guarantee)
       } catch {
         case FailedMeasureInference(fd, msg) =>
           context.reporter.error(fd.getPos, msg)
@@ -90,8 +95,14 @@ trait MeasureInference
       }
     }
 
-    private def annotate(fd: FunDef, reason: pipeline.NonTerminating): FunDef = {
-      fd.copy(flags = fd.flags :+ NonTerminating(reason, reason.asString))
+    private def annotate(fd: FunDef, guarantee: pipeline.TerminationGuarantee): FunDef = {
+      fd.copy(flags = fd.flags :+ TerminationStatus(status(guarantee)))
+    }
+
+    private def status(g: pipeline.TerminationGuarantee): TerminationReport.Status = g match {
+      case pipeline.NoGuarantee      => TerminationReport.Unknown
+      case pipeline.Terminates(_, _) => TerminationReport.Terminating
+      case _                         => TerminationReport.NonTerminating
     }
   }
 
