@@ -456,7 +456,7 @@ trait TypeChecker {
         (StringType(),
           checkType(tc, s, StringType()) ++
           checkType(tc, start, IntegerType()) ++
-          checkType(tc, start, IntegerType())
+          checkType(tc, end, IntegerType())
         )
       case StringLength(s) =>
         (IntegerType(), checkType(tc, s, StringType()))
