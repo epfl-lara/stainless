@@ -92,10 +92,12 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
     reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
 
-    val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
-      TypeChecker.checkType(assertionEncoder.targetProgram, context)(functions)
-    else
+    val vcs = if (context.options.findOptionOrDefault(optTypeChecker)) {
+      val tc = TypeChecker(assertionEncoder.targetProgram, context)(VCFilter.all)
+      tc.checkFunctionsAndADTs(functions)
+    } else {
       VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+    }
 
     val fullEncoder = assertionEncoder andThen chooseEncoder
 

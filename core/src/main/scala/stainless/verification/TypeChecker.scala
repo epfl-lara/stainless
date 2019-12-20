@@ -17,9 +17,25 @@ object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
 object DebugSectionTypeCheckerVCs extends inox.DebugSection("type-checker-vcs")
 object DebugSectionDerivation extends inox.DebugSection("derivation")
 
+trait VCFilter { self =>
+  def apply(vc: StainlessVC): Boolean
+  def inverse: VCFilter = vc => !self.apply(vc)
+}
+
+object VCFilter {
+  val all: VCFilter  = vc => true
+  val none: VCFilter = vc => false
+
+  def only(kinds: Set[VCKind]): VCFilter = vc => kinds.contains(vc.kind)
+
+  val measuresOnly: VCFilter = only(Set(VCKind.MeasureDecreases, VCKind.MeasurePositive))
+  val noMeasures: VCFilter = measuresOnly.inverse
+}
+
 trait TypeChecker {
   val program: StainlessProgram
   val context: inox.Context
+  val vcFilter: VCFilter
 
   import context._
   import program._
@@ -839,16 +855,25 @@ trait TypeChecker {
     require(tc.currentFid.isDefined)
 
     val TopLevelAnds(es) = e
-    val e2 =
-      andJoin(es.filterNot {
-        case Annotated(_, flags) => flags contains Unchecked
-        case _ => false
-      }).copiedFrom(e)
+    val e2 = andJoin(es.filterNot {
+      case Annotated(_, flags) => flags contains Unchecked
+      case _ => false
+    }).copiedFrom(e)
 
     val vc: StainlessVC =
       (VC(vcFromContext(tc.termVariables, e2), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
+
+    if (!vcFilter(vc)) {
+      return TyperResult.valid
+    }
+
     val simplifiedCondition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
-    reporter.debug(s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\nVC:\n${simplifiedCondition.asString}\n\n\n")(DebugSectionTypeCheckerVCs)
+
+    reporter.debug(
+      s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\n" +
+      s"VC:\n${simplifiedCondition.asString}\n\n\n"
+    )(DebugSectionTypeCheckerVCs)
+
     TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
   }
 
@@ -1186,12 +1211,13 @@ trait TypeChecker {
 }
 
 object TypeChecker {
-  def checkType(p: StainlessProgram, ctx: inox.Context)(funs: Seq[Identifier]): Seq[VC[p.trees.type]] = {
-    val typeChecker = new {
+  def apply(p: StainlessProgram, ctx: inox.Context)
+           (filter: VCFilter = VCFilter.all)
+           : TypeChecker { val program: p.type } = {
+    new {
       val program: p.type = p
       val context = ctx
+      val vcFilter = filter
     } with TypeChecker
-    typeChecker.checkFunctionsAndADTs(funs)
   }
-
 }
