@@ -21,7 +21,7 @@ trait MeasureInference
   val t: extraction.Trees
   import s._
 
-  import context.options
+  import context.{options, timers}
 
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
@@ -66,7 +66,10 @@ trait MeasureInference
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
 
       case None => try {
-        val guarantee = pipeline.terminates(original);
+        val guarantee = timers.evaluators.termination.inference.run {
+          pipeline.terminates(original)
+        }
+
         val result = guarantee match {
           case pipeline.Terminates(_, Some(measure)) =>
             measureCache ++= pipeline.measureCache.get
