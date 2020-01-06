@@ -25,6 +25,7 @@ object RealTimeQueue {
   private case class SNil[T]() extends Stream[T]
 
   def rotate[T](f: Stream[T], r: List[T], a: Stream[T]): Stream[T] = {
+    decreases(r) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
     (f, r) match {
       case (SNil(), Cons(y, _)) =>
         SCons[T](y, () => a)
