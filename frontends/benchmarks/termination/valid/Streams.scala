@@ -5,18 +5,25 @@ import stainless.lang._
 object Streams {
 
   sealed abstract class Stream[T] {
-    def map[U](f: T => U): Stream[U] = this match {
-      case SCons(x, tfun) => SCons(f(x), () => tfun().map(f))
-      case SNil() => SNil()
+    def map[U](f: T => U): Stream[U] = {
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
+      this match {
+        case SCons(x, tfun) => SCons(f(x), () => tfun().map(f))
+        case SNil() => SNil()
+      }
     }
 
-    def ++(that: Stream[T]): Stream[T] = this match {
-      case SCons(x, tfun) => SCons(x, () => tfun() ++ that)
-      case SNil() => that
+    def ++(that: Stream[T]): Stream[T] = {
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
+      this match {
+        case SCons(x, tfun) => SCons(x, () => tfun() ++ that)
+        case SNil() => that
+      }
     }
 
     def drop(i: BigInt): Stream[T] = {
       require(i >= 0)
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
       this match {
         case SCons(x, tfun) if i > 0 => tfun().drop(i - 1)
         case _ => this
@@ -25,21 +32,28 @@ object Streams {
 
     def take(i: BigInt): Stream[T] = {
       require(i >= 0)
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
       this match {
         case SCons(x, tfun) if i > 0 => SCons(x, () => tfun().take(i - 1))
         case _ => SNil()
       }
     }
 
-    def zip[U](that: Stream[U]): Stream[(T, U)] = (this, that) match {
-      case (SCons(x, xs), SCons(y, ys)) => SCons((x, y), () => xs() zip ys())
-      case _ => SNil()
+    def zip[U](that: Stream[U]): Stream[(T, U)] = {
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
+      (this, that) match {
+        case (SCons(x, xs), SCons(y, ys)) => SCons((x, y), () => xs() zip ys())
+        case _ => SNil()
+      }
     }
 
-    def scanLeft[U](z: U)(f: (U,T) => U): Stream[U] = SCons(z, () => this match {
-      case SCons(x, tfun) => tfun().scanLeft(f(z, x))(f)
-      case SNil() => SNil()
-    })
+    def scanLeft[U](z: U)(f: (U,T) => U): Stream[U] = {
+      decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
+      SCons(z, () => this match {
+        case SCons(x, tfun) => tfun().scanLeft(f(z, x))(f)
+        case SNil() => SNil()
+      })
+    }
 
     /* ---- non terminating ----
      *
