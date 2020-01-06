@@ -843,10 +843,20 @@ trait TypeChecker {
             throw new TypeCheckingException(e, s"The type of ${expr.asString} (${tpe.asString}) is not an ADT")
         }
 
+      // @romac - FIXME: What should the result type actually be?
+      case Forall(vds, pred) =>
+        (BooleanType(), checkType(tc.bind(vds).setPos(pred), pred, BooleanType()))
+
+      // @romac - FIXME: Is that correct?
+      case Choose(vd, pred) =>
+        (RefinementType(vd, pred), checkType(tc.bind(vd).setPos(pred), pred, BooleanType()))
+
       case _ =>
         throw new TypeCheckingException(e, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
     }
+
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
+
     (t, tr.root(InferType(tc0, e, t)))
   }
 
