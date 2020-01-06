@@ -5,9 +5,16 @@ package extraction
 
 import scala.language.existentials
 
+import stainless.utils.YesNoOnly
+
 package object termination {
 
-  object optCheckMeasures extends inox.FlagOptionDef("check-measures", true)
+  object optCheckMeasures extends inox.OptionDef[YesNoOnly] {
+    val name     = "check-measures"
+    val default  = YesNoOnly.Yes
+    val parser   = YesNoOnly.parse(_)
+    val usageRhs = "yes|no|only"
+  }
 
   object DebugSectionTermination extends inox.DebugSection("termination")
 

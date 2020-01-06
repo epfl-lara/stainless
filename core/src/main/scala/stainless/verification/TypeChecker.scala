@@ -30,6 +30,16 @@ object VCFilter {
 
   val measuresOnly: VCFilter = only(Set(VCKind.MeasureDecreases, VCKind.MeasurePositive))
   val noMeasures: VCFilter = measuresOnly.inverse
+
+  def fromOptions(options: inox.Options): VCFilter = {
+    import stainless.utils.YesNoOnly._
+
+    options.findOptionOrDefault(optCheckMeasures) match {
+      case Yes  => VCFilter.all
+      case Only => VCFilter.noMeasures
+      case No   => VCFilter.measuresOnly
+    }
+  }
 }
 
 trait TypeChecker {
@@ -692,7 +702,7 @@ trait TypeChecker {
         val hasMeasure = calleeTfd.measure.isDefined
 
         val trSize = {
-          if (checkMeasures && isRecursive && hasMeasure) {
+          if (checkMeasures.isTrue && isRecursive && hasMeasure) {
             assert(tc.measureType.isDefined)
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
@@ -1140,7 +1150,7 @@ trait TypeChecker {
   }
 
   def checkHasMeasure(fd: FunDef) = {
-    if (checkMeasures && needsMeasure(fd) && fd.measure.isEmpty) {
+    if (checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty) {
       reporter.error(fd.getPos, s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined).")
     }
   }
@@ -1211,13 +1221,11 @@ trait TypeChecker {
 }
 
 object TypeChecker {
-  def apply(p: StainlessProgram, ctx: inox.Context)
-           (filter: VCFilter = VCFilter.all)
-           : TypeChecker { val program: p.type } = {
+  def apply(p: StainlessProgram, ctx: inox.Context): TypeChecker { val program: p.type } = {
     new {
       val program: p.type = p
       val context = ctx
-      val vcFilter = filter
+      val vcFilter = VCFilter.fromOptions(ctx.options)
     } with TypeChecker
   }
 }
