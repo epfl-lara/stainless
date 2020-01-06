@@ -96,7 +96,7 @@ trait ChainProcessor extends OrderingProcessor {
             Cleared(fd, Some(measure))
           case None =>
             throw FailedMeasureInference(fd,
-              "No measure annotated in function: " + fd.id + " which was cleared in chain processor.")
+              s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
         }
       })
     } else {
@@ -147,14 +147,6 @@ trait ChainProcessor extends OrderingProcessor {
     }
 
     chains.foreach(writeMeasure)
-
-    // val transposed = chains.toList.map(_.relations).transpose.map(Chain.apply)
-
-    // println("\n============")
-    // println(transposed.mkString("\n----------\n"))
-    // println("============\n")
-
-    // transposed.foreach(writeMeasure)
   }
 
   private def buildDecreases(fd: FunDef, stages: List[(Int, Expr)]): Option[Expr] = {
@@ -167,8 +159,6 @@ trait ChainProcessor extends OrderingProcessor {
       .sortBy(_._1)
       .map(_._2)
       .map(Max(_))
-
-    println(measures)
 
     val induced = ordering.measure(Seq(tupleWrap(fd.params.map(_.toVariable))))
     val decreases = measures.foldLeft(induced)(Plus(_, _))
