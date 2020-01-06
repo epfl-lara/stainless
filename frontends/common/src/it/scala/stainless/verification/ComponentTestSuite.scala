@@ -5,6 +5,8 @@ package stainless
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import stainless.utils.YesNoOnly
+
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils { self =>
 
   val component: Component
@@ -14,6 +16,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       inox.optSelectedSolvers(Set("smt-z3")),
       inox.optTimeout(300.seconds),
       verification.optStrictArithmetic(false),
+      extraction.termination.optInferMeasures(false),
+      extraction.termination.optCheckMeasures(YesNoOnly.No),
     )
   )
 
