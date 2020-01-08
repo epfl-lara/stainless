@@ -40,7 +40,8 @@ class TerminationSuite extends ComponentTestSuite {
     case "verification/valid/LawTypeArgsElim" => Skip
 
     // FIXME: Remove once done with debugging
-    case _ => WithContext(ctx.copy(reporter = new DefaultReporter(Set(extraction.termination.DebugSectionTermination))))
+    // case _ => WithContext(ctx.copy(reporter = new DefaultReporter(Set(extraction.termination.DebugSectionTermination))))
+    case _ => super.filter(ctx, name)
   }
 
   def getResults(analysis: VerificationAnalysis) = {
