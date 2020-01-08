@@ -67,7 +67,7 @@ object ContMonad_Throw {
     require(a != 0)
     div(a, b)(err => zero)
   } ensuring { res =>
-    res.run == 0 || res.run == (a / b)
+    res.run == 0 || b != 0 && res.run == (a / b)
   }
 
   def testOk(a: Int, b: Int): Cont[Int, Int] = {

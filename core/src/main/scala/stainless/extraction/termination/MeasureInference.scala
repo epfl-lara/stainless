@@ -21,7 +21,7 @@ trait MeasureInference
   val t: extraction.Trees
   import s._
 
-  import context.{options, timers}
+  import context.{options, timers, reporter}
 
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
@@ -82,18 +82,18 @@ trait MeasureInference
             original
 
           case nt: pipeline.NonTerminating =>
-            context.reporter.error(original.getPos, nt.asString)
+            reporter.warning(original.getPos, nt.asString)
             original
 
           case _ =>
-            context.reporter.error(original.getPos, s"Could not infer measure for function ${original.id.asString}")
+            reporter.warning(original.getPos, s"Could not infer measure for function ${original.id.asString}")
             original
         }
 
         annotate(result, guarantee)
       } catch {
         case FailedMeasureInference(fd, msg) =>
-          context.reporter.error(fd.getPos, msg)
+          reporter.warning(fd.getPos, msg)
           original
       }
     }

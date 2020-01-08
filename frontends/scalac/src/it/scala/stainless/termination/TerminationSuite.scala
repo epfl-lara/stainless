@@ -15,7 +15,6 @@ class TerminationSuite extends ComponentTestSuite {
 
   override def configurations = super.configurations.map { seq =>
     Seq(
-      optFailInvalid(true),
       optTypeChecker(true),
       optInferMeasures(true),
       optCheckMeasures(YesNoOnly.Only),
@@ -93,15 +92,17 @@ class TerminationSuite extends ComponentTestSuite {
     val notLooping = looping.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
     assert(notLooping.isEmpty, "Functions " + notLooping.map(_.id) + " should be marked as non-terminating")
 
-    // val calling = statuses.filter { case (fd, _) => fd.id.name.startsWith("calling") }
-    // val notCalling = calling collect { case (fd, status) => g.isInstanceOf[report.checker.CallsNonTerminating] }
-    // assert(notCalling.isEmpty, "Functions " + notCalling.map(_._1.id) + " should call non-terminating")
+    val calling = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("calling") }
+    val notCalling = calling.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
+    assert(notCalling.isEmpty, "Functions " + notCalling.map(_.id) + " should be marked as non-terminating")
 
     val guaranteed = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("ok") }
     val notGuaranteed = guaranteed.collect { case (fd, Some(status)) if !status.isTerminating => fd }
     assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_.id) + " should be marked as terminating")
 
-    for ((vc, vr) <- analysis.vrs) {
+    val mustHaveValidVCs = guaranteed.map(_._1.id)
+
+    for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fd.id)) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
     }
