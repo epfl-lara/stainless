@@ -26,18 +26,26 @@ object VCFilter {
   val all: VCFilter  = vc => true
   val none: VCFilter = vc => false
 
-  def only(kinds: Set[VCKind]): VCFilter = vc => kinds.contains(vc.kind)
+  def only(kinds: VCKind*): VCFilter = {
+    val set = kinds.toSet
+    vc => set.contains(vc.kind)
+  }
 
-  val measuresOnly: VCFilter = only(Set(VCKind.MeasureDecreases, VCKind.MeasurePositive))
-  val noMeasures: VCFilter = measuresOnly.inverse
+  def except(kinds: VCKind*): VCFilter = {
+    val set = kinds.toSet
+    vc => set.contains(vc.kind)
+  }
+
+  val measuresOnly: VCFilter = only(VCKind.MeasureDecreases, VCKind.MeasurePositive)
+  val noMeasures: VCFilter   = measuresOnly.inverse
 
   def fromOptions(options: inox.Options): VCFilter = {
     import stainless.utils.YesNoOnly._
 
     options.findOptionOrDefault(optCheckMeasures) match {
       case Yes  => VCFilter.all
-      case Only => VCFilter.noMeasures
-      case No   => VCFilter.measuresOnly
+      case Only => VCFilter.measuresOnly
+      case No   => VCFilter.noMeasures
     }
   }
 }
@@ -1161,7 +1169,7 @@ trait TypeChecker {
 
   def checkHasMeasure(fd: FunDef) = {
     if (checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty) {
-      reporter.error(fd.getPos, s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined).")
+      reporter.warning(fd.getPos, s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined).")
     }
   }
 

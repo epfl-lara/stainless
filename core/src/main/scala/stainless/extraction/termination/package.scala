@@ -13,7 +13,7 @@ package object termination {
     val name     = "check-measures"
     val default  = YesNoOnly.Yes
     val parser   = YesNoOnly.parse(_)
-    val usageRhs = "yes|no|only"
+    val usageRhs = "yes | no | only"
   }
 
   object DebugSectionTermination extends inox.DebugSection("termination")

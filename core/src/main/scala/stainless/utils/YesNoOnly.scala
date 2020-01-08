@@ -19,8 +19,8 @@ object YesNoOnly {
 
   def parse(str: String): Option[YesNoOnly] = str match {
     case "yes" | "true" | "on"  => Some(Yes)
-    case "no" | "false" | "off" => Some(Yes)
-    case "only"                 => Some(Yes)
+    case "no" | "false" | "off" => Some(No)
+    case "only"                 => Some(Only)
     case _                      => None
   }
 }
