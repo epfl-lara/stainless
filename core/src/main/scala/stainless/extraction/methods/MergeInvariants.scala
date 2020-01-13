@@ -6,14 +6,7 @@ package methods
 
 import inox.utils.Position
 
-/** Erase value classes (ie. classes which extend [[AnyVal]])
-  *
-  * - Erase value classes constructors
-  * - Erase field selections on value classes
-  * - Erase value classes types to their underlying types
-  * - Erase value classes themselves
-  * - Erase implicit conversions to value classes
-  */
+/** Merge all invariants of a class into a single method */
 trait MergeInvariants
   extends oo.CachingPhase
     with IdentitySorts

@@ -32,7 +32,7 @@ package object methods {
     })
 
     utils.DebugPipeline("Laws",            Laws(trees))            andThen
-    // TODO: utils.DebugPipeline("Invariants",            Invariants(trees))            andThen
+    utils.DebugPipeline("SuperInvariants", SuperInvariants(trees))      andThen
     utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen
     utils.DebugPipeline("Sealing",         Sealing(trees))         andThen
     utils.DebugPipeline("MethodLifting",   MethodLifting(trees))   andThen

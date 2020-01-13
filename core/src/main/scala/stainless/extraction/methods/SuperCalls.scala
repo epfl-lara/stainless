@@ -151,8 +151,9 @@ trait SuperCalls
 
     if (context.mustDuplicate(fd)) {
       val sid = superID(fd.id.unsafeToSymbolIdentifier)
+      val flags = fd.flags.filterNot(_ == IsInvariant) :+ Final
       val superFd = exprOps.freshenSignature(
-        new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, (fd.flags :+ Final).distinct).setPos(fd)
+        new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, flags.distinct).setPos(fd)
       )
 
       val cd = symbols.getClass(fd.flags.collectFirst { case s.IsMethodOf(cid) => cid }.get)
