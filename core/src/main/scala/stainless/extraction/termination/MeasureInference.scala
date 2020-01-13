@@ -34,8 +34,6 @@ trait MeasureInference
 
     val pipeline = TerminationChecker(program, self.context)(sizes)
 
-    val sizeFunctions = sizes.getFunctions(symbols)
-
     final object transformer extends inox.transformers.TreeTransformer {
       override val s: self.s.type = self.s
       override val t: self.t.type = self.t
@@ -118,8 +116,9 @@ trait MeasureInference
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    val extracted = super.extractSymbols(context, symbols)
     val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
-    registerFunctions(super.extractSymbols(context, symbols), sizeFunctions)
+    registerFunctions(extracted, sizeFunctions)
   }
 }
 
