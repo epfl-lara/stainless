@@ -851,6 +851,10 @@ trait TypeChecker {
             throw new TypeCheckingException(e, s"The type of ${expr.asString} (${tpe.asString}) is not an ADT")
         }
 
+      // @romac - FIXME: Properly typecheck Passes
+      case p: Passes =>
+        (BooleanType(), checkType(tc, p.asConstraint, BooleanType()))
+
       // @romac - FIXME: What should the result type actually be?
       case Forall(vds, pred) =>
         (BooleanType(), checkType(tc.bind(vds).setPos(pred), pred, BooleanType()))
