@@ -15,7 +15,7 @@ trait StructuralSize { self: SolverProvider =>
 
   val sizes: SizeFunctions { val trees: checker.program.trees.type }
 
-  val functions: Seq[FunDef] = sizes.getFunctions(checker.program.symbols)
+  def functions: Seq[FunDef] = sizes.getFunctions(checker.program.symbols)
 
   registerTransformer(new inox.transformers.SymbolTransformer {
     val s: trees.type = trees
