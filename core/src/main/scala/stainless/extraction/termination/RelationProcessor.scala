@@ -41,52 +41,47 @@ trait RelationProcessor extends OrderingProcessor {
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
-    val api = {
-      //val updatedSymbols = apiTransform(checker.program.symbols)
-      getAPI
-    }
+    val api = getAPI
 
     reporter.debug("- Searching for size decrease")
-    val decreasing = formulas.map({
+    val decreasing = formulas.map {
       case (fd, formulas) =>
-        val solved = formulas.map({
+        val solved = formulas.map {
           case (fid, (gt, ge)) =>
             if (api.solveVALID(gt).contains(true)) Success
             else if (api.solveVALID(ge).contains(true)) Dep(Set(fid))
             else Failure
-        })
+        }
 
         val result =
           if (solved.contains(Failure)) Failure
           else {
-            val deps = solved.collect({ case Dep(fds) => fds }).flatten
+            val deps = solved.collect { case Dep(fds) => fds }.flatten
             if (deps.isEmpty) Success
             else Dep(deps)
           }
         fd -> result
-    })
+    }
 
     val (terminating, nonTerminating) = {
-      val ok = decreasing.collect({ case (fd, Success) => fd -> IntegerLiteral(0) })
-      val nok = decreasing.collect({ case (fd, Dep(fds)) => fd -> fds }).toList
+      val ok = decreasing.collect { case (fd, Success) => fd -> IntegerLiteral(0) }
+      val nok = decreasing.collect { case (fd, Dep(fds)) => fd -> fds }.toList
 
       var iteration = 0
       val (allOk, allNok) = fixpoint[(Set[(FunDef, IntegerLiteral)], List[(FunDef, Set[FunDef])])] {
         case (fds, deps) =>
           iteration += 1
-          val (okDeps, nokDeps) = deps.partition({ case (fd, deps) => deps.subsetOf(fds.map { _._1 }) })
+          val (okDeps, nokDeps) = deps.partition { case (fd, deps) => deps.subsetOf(fds.map { _._1 }) }
           val newFds = fds ++ okDeps.map { p =>
             (p._1, IntegerLiteral(iteration))
           }
           (newFds, nokDeps)
-      }((ok.toSet, nok))
+      } ((ok.toSet, nok))
 
-      (allOk, allNok.map(_._1).toSet ++ decreasing.collect({ case (fd, Failure) => fd }))
+      (allOk, allNok.map(_._1).toSet ++ decreasing.collect { case (fd, Failure) => fd })
     }
 
-    assert(terminating.map { tf =>
-      tf._1
-    } ++ nonTerminating == problem.funSet)
+    assert(terminating.map(_._1) ++ nonTerminating == problem.funSet)
 
     if (nonTerminating.isEmpty) {
       Some(terminating.map { tf =>
