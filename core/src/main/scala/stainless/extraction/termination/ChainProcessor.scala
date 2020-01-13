@@ -71,7 +71,6 @@ trait ChainProcessor extends OrderingProcessor {
         val e2 = tupleWrap(funDef.params.map(_.toVariable))
 
         val formulas = lessThan(e1s, e2)
-
         val decreases = formulas.find { case (query, _, _) =>
           api.solveVALID(query).contains(true)
         }

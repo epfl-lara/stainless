@@ -127,8 +127,7 @@ trait Strengthener { self: OrderingRelation =>
     val transitiveFunDefs = funDefs ++ funDefs.flatMap(transitiveCallees)
     val sortedFunDefs = transitiveFunDefs.toSeq.sorted
 
-    for (fd <- sortedFunDefs
-         if fd.body.isDefined && !strengthenedApp(fd) && checker.terminates(fd).isGuaranteed) {
+    for (fd <- sortedFunDefs if fd.body.isDefined && !strengthenedApp(fd) && checker.terminates(fd).isGuaranteed) {
 
       val applications = collectWithPC(fd.fullBody) {
         case (Application(v: Variable, args), path) => (path, v, args)
