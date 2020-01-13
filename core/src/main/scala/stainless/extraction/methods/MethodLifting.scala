@@ -298,21 +298,17 @@ trait MethodLifting
       t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
     }
 
-    // If `fd` is an invariant, we need to conjoin both the constructor's and parent's invariants,
-    // otherwise we would only end up the checking the former.
-    val newBody = if (fd.flags contains IsInvariant) {
-      t.and(dispatchBody, elze.copiedFrom(dispatchBody))
-    } else {
-      dispatchBody
-    }
-
-    val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
+    val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(dispatchBody), returnType)
 
     // a lifted method is derived from the methods that (first) override it
     val derivedFrom = cos.flatMap(o => firstOverrides(o).map(_._2))
     val derivedFlags = derivedFrom.map(fd => t.Derived(fd.id))
     val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.flags.exists(_.name == "accessor"))
     val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
+    val filteredFlags = fd.flags filter {
+        case s.IsMethodOf(_) | s.IsInvariant => false
+        case _ => true
+      } map transformer.transform
 
     new t.FunDef(
       fd.id,
@@ -320,10 +316,7 @@ trait MethodLifting
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      (fd.flags filter {
-        case s.IsMethodOf(_) | s.IsInvariant => false
-        case _ => true
-      } map transformer.transform) ++ derivedFlags ++ accessorFlag.toSeq
+      (filteredFlags ++ derivedFlags ++ accessorFlag.toSeq).distinct
     ).copiedFrom(fd)
   }
 }

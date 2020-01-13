@@ -29,6 +29,7 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "InnerClasses"              -> "Lift inner classes",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
+    "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
     "SuperCalls"                -> "Resolve super-function calls",
     "Sealing"                   -> "Seal every class and add mutable flags",
     "MethodLifting"             -> "Lift methods into dispatching functions",
