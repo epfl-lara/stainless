@@ -17,10 +17,12 @@ object BottomUpMergeSortPrecise {
 
   sealed abstract class List[T] {
     // length is used in the implementation
-    val length: BigInt = (this match {
-      case Nil() => BigInt(0)
-      case Cons(h, t) => 1 + t.length
-    }) ensuring (_ >= 0)
+    val length: BigInt = {
+      this match {
+        case Nil() => BigInt(0)
+        case Cons(h, t) => 1 + t.length
+      }
+    } ensuring (_ >= 0)
   }
   case class Cons[T](x: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
@@ -39,7 +41,7 @@ object BottomUpMergeSortPrecise {
     }
 
     def finite: Boolean = {
-      decreases(this.size)
+      decreases(this.size) // FIXME(measure): Cannot infer measure
       this match {
         case c @ SCons(_, _, sz) =>
           val rear = c.tail
@@ -52,7 +54,7 @@ object BottomUpMergeSortPrecise {
   private case class SNil() extends LList
 
   @inline
-  private val nilStream = () => SNil()
+  private val nilStream: () => LList = () => SNil()
 
   /**
    *
@@ -60,7 +62,7 @@ object BottomUpMergeSortPrecise {
    */
   private def constructMergeTree(l: List[BigInt], from: BigInt, to: BigInt): (LList, List[BigInt]) = {
     require(from <= to && from >= 0)
-    decreases(abs(to-from))
+    decreases(abs(to-from)) // FIXME(measure): Cannot infer measure
     l match {
       case Nil()           => (SNil(), Nil[BigInt]()) // this case is unreachable
       case Cons(x, tail)  =>
@@ -76,7 +78,7 @@ object BottomUpMergeSortPrecise {
 
   private def merge(a: LList, b: LList): LList = {
     require(a.finite && b.finite)
-    decreases(a.size + b.size)
+    decreases(a.size + b.size) // FIXME(measure): Cannot infer measure
     b match {
       case SNil() => a
       case SCons(x, xs, bsz) =>
@@ -104,6 +106,7 @@ object BottomUpMergeSortPrecise {
 
   private def kthMinRec(l: LList, k: BigInt): BigInt = {
     require(k >= 0)
+    decreases(k) // FIXME(measure): Required because measure infered by ChainProcessor ins invalid
     l match {
       case SCons(x, _, _) =>
         if (k == 0) x
