@@ -10,24 +10,28 @@ trait TypeCheckerSuite extends ComponentTestSuite {
   val component = VerificationComponent
   val cacheAllowed: Boolean
 
-  override def configurations = super.configurations.map {
-    seq => optTypeChecker(true) +: optFailInvalid(true) +: seq
-  }
-
-  override protected def optionsString(options: inox.Options): String = {
-    super.optionsString(options) +
-    (if (options.findOptionOrDefault(evaluators.optCodeGen)) " codegen" else "")
+  override def configurations = super.configurations.map { seq =>
+    Seq(
+      optTypeChecker(true),
+      optFailInvalid(true),
+    ) ++ seq
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // FIXME: fails in the tests but succeeds on command-line
+    // FIXME: Fails in the tests but succeeds on command-line
     case "typechecker/valid/SuperCall5" => Ignore
     case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
+
+    // Rejected by typechecker because of ADT <=> refinement recursion due to TypeEncoding
+    case "verification/valid/LawTypeArgsElim" => Ignore
+
+    // Not compatible with typechecker
+    case "verification/valid/Countable2" => Ignore
 
     case _ => super.filter(ctx, name)
   }
 
-  testAll("typechecker/valid", true) { (analysis, reporter) =>
+  testAll("verification/valid", true) { (analysis, reporter) =>
     assert(cacheAllowed || analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
@@ -35,6 +39,11 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     }
     reporter.terminateIfError()
   }
+
+  // testAll("verification/invalid") { (analysis, _) =>
+  //   val report = analysis.toReport
+  //   assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
+  // }
 }
 
 class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
@@ -66,19 +75,19 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Same ignores as SMTCVC4VerificationSuite
-    case "typechecker/valid/BigIntMonoidLaws" => Ignore
-    case "typechecker/valid/ConcRope" => Ignore
-    case "typechecker/valid/CovariantList" => Ignore
-    case "typechecker/valid/Huffman" => Ignore
-    case "typechecker/valid/List" => Ignore
-    case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
-    case "typechecker/valid/MoreExtendedEuclidReachability" => Ignore
-    case "typechecker/valid/Overrides" => Ignore
-    case "typechecker/valid/PartialCompiler" => Ignore
-    case "typechecker/valid/PartialKVTrace" => Ignore
-    case "typechecker/valid/ReachabilityChecker" => Ignore
-    case "typechecker/valid/TestPartialFunction" => Ignore
-    case "typechecker/valid/TestPartialFunction3" => Ignore
+    case "verification/valid/BigIntMonoidLaws" => Ignore
+    case "verification/valid/ConcRope" => Ignore
+    case "verification/valid/CovariantList" => Ignore
+    case "verification/valid/Huffman" => Ignore
+    case "verification/valid/List" => Ignore
+    case "verification/valid/MoreExtendedEuclidGCD" => Ignore
+    case "verification/valid/MoreExtendedEuclidReachability" => Ignore
+    case "verification/valid/Overrides" => Ignore
+    case "verification/valid/PartialCompiler" => Ignore
+    case "verification/valid/PartialKVTrace" => Ignore
+    case "verification/valid/ReachabilityChecker" => Ignore
+    case "verification/valid/TestPartialFunction" => Ignore
+    case "verification/valid/TestPartialFunction3" => Ignore
     case _ => super.filter(ctx, name)
   }
 }
