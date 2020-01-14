@@ -36,23 +36,20 @@ class TerminationSuite extends ComponentTestSuite {
     // case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
 
     // Relation processor hangs when strengthening applications (TODO: open issue and link it here)
-    case "verification/valid/LawTypeArgsElim" => Skip
-    case "verification/valid/QuickSortFilter" => Skip
-    case "verification/valid/StableSorter" => Skip
-
-    // Invalid measure inferred in ChainProcessor
-    case "termination/valid/BottomUpMergeSort" => Skip
+    case "verification/valid/LawTypeArgsElim" => Ignore
+    case "verification/valid/QuickSortFilter" => Ignore
+    case "verification/valid/StableSorter" => Ignore
 
     // Invalid measure inferred in RelationProcessor
-    case "termination/valid/HOTermination" => Skip
-    case "termination/valid/Indirect" => Skip
-    case "termination/valid/QuickSort" => Skip
-    case "verification/valid/MergeSort" => Skip
-    case "verification/valid/MergeSort2" => Skip
+    case "termination/valid/HOTermination" => Ignore
+    case "termination/valid/Indirect" => Ignore
+    case "termination/valid/QuickSort" => Ignore
+    case "verification/valid/MergeSort" => Ignore
+    case "verification/valid/MergeSort2" => Ignore
 
     // Fails due to a bug in ChainProcessor
-    case "verification/valid/Nested14" => Skip
-    case "verification/valid/Nested16" => Skip
+    case "verification/valid/Nested14" => Ignore
+    case "verification/valid/Nested16" => Ignore
 
     case _ => super.filter(ctx, name)
   }
