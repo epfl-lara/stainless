@@ -1,21 +1,9 @@
 /* Copyright 2009-2019 EPFL, Lausanne */
 
 import stainless.lang._
+import stainless.collection._
 
 object HOTermination {
-  sealed abstract class List[T]
-  case class Cons[T](head: T, tail: List[T]) extends List[T]
-  case class Nil[T]() extends List[T]
-
-  sealed abstract class Option[T]
-  case class Some[T](value: T) extends Option[T]
-  case class None[T]() extends Option[T]
-
-  def map[A,B](list: List[A], f: A => B): List[B] = list match {
-    case Cons(head, tail) => Cons(f(head), map(tail, f))
-    case Nil() => Nil()
-  }
-
   sealed abstract class Expr
   case class Invocation(e: Expr, args: List[Expr]) extends Expr
   case class Addition(e1: Expr, e2: Expr) extends Expr
@@ -27,7 +15,7 @@ object HOTermination {
       case None() => e match {
         case Invocation(c, args) =>
           val newC = transform(c, f)
-          val newArgs = map(args, (x: Expr) => transform(x, f))
+          val newArgs = args.map((x: Expr) => transform(x, f))
           Invocation(newC, newArgs)
         case Addition(e1, e2) =>
           Addition(transform(e1, f), transform(e2, f))
@@ -37,4 +25,3 @@ object HOTermination {
   }
 }
 
-// vim: set ts=4 sw=4 et:
