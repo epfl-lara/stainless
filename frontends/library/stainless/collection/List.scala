@@ -636,6 +636,8 @@ object ListOps {
     }
   } ensuring { res => isSorted(res) && res.content == ls.content + v }
 
+  def sum(l: List[BigInt]): BigInt = l.foldLeft(BigInt(0))(_ + _)
+
   def toMap[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()){
     case (current, (k, v)) => current ++ Map(k -> v)
   }
