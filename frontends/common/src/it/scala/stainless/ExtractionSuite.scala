@@ -2,16 +2,22 @@
 
 package stainless
 
-import scala.util.{Success, Failure, Try}
-
 import org.scalatest._
+import scala.util.{Success, Failure, Try}
+import stainless.utils.YesNoOnly
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
  *  the relevant directories. */
 abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
 
+  def options: Seq[inox.OptionValue[_]] = Seq(
+    extraction.termination.optInferMeasures(false),
+  )
+
+  final def createContext(options: inox.Options) = stainless.TestContext(options)
+
   private def testSetUp(dir: String): (inox.Context, List[String]) = {
-    val ctx = stainless.TestContext.empty
+    val ctx = createContext(inox.Options(options))
     val fs = resourceFiles(dir, _.endsWith(".scala")).toList map { _.getPath }
     (ctx, fs)
   }
@@ -93,7 +99,5 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
       }
     }
   }
-
 }
-
 
