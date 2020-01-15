@@ -906,6 +906,10 @@ trait TypeChecker {
   def buildVC(tc: TypingContext, e: Expr): TyperResult = {
     require(tc.currentFid.isDefined)
 
+    if (!tc.emitVCs) {
+      return TyperResult.valid
+    }
+
     val TopLevelAnds(es) = e
     val e2 = andJoin(es.filterNot {
       case Annotated(_, flags) => flags contains Unchecked
@@ -945,8 +949,7 @@ trait TypeChecker {
 
     val tc = tc0.inc
     val res = (e, tpe) match {
-
-      case (UncheckedExpr(e), _) => TyperResult.valid
+      case (UncheckedExpr(e), tpe) => checkType(tc.withEmitVCs(false), e, tpe)
 
       case (Annotated(e, _), _) => checkType(tc, e, tpe)
       case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
@@ -1092,10 +1095,12 @@ trait TypeChecker {
     reporter.debug(s"\n${tc0.indent}Checking that: ${t1.asString} and ${t2.asString} are equal types")
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
+
     val tc = tc0.inc
-    val tr =
-      if (t1 == t2) TyperResult.valid
-      else isSubtype(tc, t1, t2) ++ isSubtype(tc, t2, t1)
+    val tr = if (t1 == t2) TyperResult.valid else {
+      isSubtype(tc, t1, t2) ++ isSubtype(tc, t2, t1)
+    }
+
     tr.root(AreEqualTypes(tc0, t1, t2))
   }
 

@@ -82,7 +82,12 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
 
-        val newBody = addPreconditionAssertion(addPostconditionAssumption(body))
+        val res = ValDef.fresh("inlined", tfd.returnType)
+        val inlined = addPreconditionAssertion(addPostconditionAssumption(body))
+
+        // We bind the inlined expression in a let to avoid propagating
+        // the @unchecked annotation to postconditions, etc.
+        val newBody = let(res, inlined, res.toVariable.setPos(fi)).setPos(fi)
 
         val result = (tfd.params zip args).foldRight(newBody) {
           case ((vd, e), body) => let(vd, e, body).setPos(fi)
