@@ -809,14 +809,16 @@ trait TypeChecker {
         val cons = getConstructor(id)
         val sortId = cons.sort
         val sort = getSort(sortId)
+
         val trInv =
           if (sort.hasInvariant) {
             val inv = sort.typed(tps).invariant.get
-            val invKind = VCKind.AdtInvariant(id)
-            val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
-            buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
-          } else
+            val invKind = VCKind.AdtInvariant(inv.id)
+            buildVC(tc.withVCKind(invKind).setPos(e), inv.applied(Seq(e)))
+          } else {
             TyperResult.valid
+          }
+
         val tr =
           lookupSort(sortId)
             .filter(_.tparams.size == tps.size)
@@ -825,9 +827,10 @@ trait TypeChecker {
                 .find(_.id == id)
                 .filter(_.fields.size == args.size)
                 .map(tcons => checkDependentTypes(tc, args, tcons.fields))
-            }.getOrElse (
+            }.getOrElse(
               throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
             )
+
         (ADTType(sortId, tps), trInv ++ tr)
 
       case IsConstructor(expr, id) =>
