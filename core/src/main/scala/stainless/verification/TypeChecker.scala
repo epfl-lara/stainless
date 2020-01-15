@@ -1073,12 +1073,13 @@ trait TypeChecker {
     tr.root(AreEqualTypes(tc0, t1, t2))
   }
 
-  def checkType(id: Identifier): TyperResult = {
+  def checkType(fd: FunDef): TyperResult = {
     // TODO: check that arguments marked by `@erasable` can be erased
-    val fd = getFunction(id)
+    val id = fd.id
+
+    // FIXME: This should be relaxed for TypeEncoding to work
     val deps = dependencies(id)
     val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
-
     mutuallyRecursiveDeps.find(sort => lookupSort(sort).isDefined) match {
       case Some(sort) =>
         throw new TypeCheckingException(fd, s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
@@ -1123,22 +1124,23 @@ trait TypeChecker {
     val freshenedReturnType = freshener.transform(fd.returnType)
 
     // We check that the post-condition takes the return type to booleans
-    val trPost = postOpt.map(post =>
+    val trPost = postOpt.fold(TyperResult.valid) { post =>
       checkType(
         tcWithPre,
         post,
         FunctionType(Seq(freshenedReturnType), BooleanType())
       )
-    ).getOrElse(TyperResult.valid)
+    }
 
     val (measureType, trMeasure): (Option[Type], TyperResult) =
       if (measureOpt.isDefined) {
         val measure = measureOpt.get
         val (measureType, trMeasureType) = inferType(tcWithPre, measure)
-        val trMeasurePos =
-          buildVC(
-            tcWithPre.withVCKind(VCKind.MeasurePositive).setPos(measure),
-            positive(measureType, measure))
+        val trMeasurePos = buildVC(
+          tcWithPre.withVCKind(VCKind.MeasurePositive).setPos(measure),
+          positive(measureType, measure)
+        )
+
         (Some(measureType), trMeasureType ++ trMeasurePos)
       } else {
         (None, TyperResult.valid)
@@ -1150,20 +1152,16 @@ trait TypeChecker {
     val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
 
     // We check that the body of the function respects the return type and
-    // the post-condition. We allow here references to mutually recursive
-    // dependencies (in `deps`)
-    val trBody =
-      if (bodyOpt.isDefined) {
-        if (postOpt.isDefined) {
-          val Lambda(Seq(retArg), postBody) = postOpt.get
+    // the post-condition. We allow here references to mutually recursive dependencies (in `deps`)
+    val trBody = bodyOpt.fold(TyperResult.valid) { body =>
+      postOpt.fold(checkType(tcBody, body, freshenedReturnType)) {
+        case Lambda(Seq(retArg), postBody) =>
           val refinedReturnType = RefinementType(retArg, postBody)
-          checkType(tcBody.withVCKind(VCKind.Postcondition), bodyOpt.get, refinedReturnType)
-        } else {
-          checkType(tcBody, bodyOpt.get, freshenedReturnType)
+          val vcKind = if (fd.flags.contains(Law)) VCKind.Law else VCKind.Postcondition
+
+          checkType(tcBody.withVCKind(vcKind), body, refinedReturnType)
         }
-      } else {
-        TyperResult.valid
-      }
+    }
 
     (trArgs ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
   }
@@ -1187,38 +1185,53 @@ trait TypeChecker {
       val fd = getFunction(id)
 
       if (fd.body.isDefined) {
-        val TyperResult(vcs, trees) = checkType(id)
-        if (reporter.debugSections.contains(DebugSectionDerivation))
+        val TyperResult(vcs, trees) = checkType(fd)
+
+        if (reporter.debugSections.contains(DebugSectionDerivation)) {
           makeHTMLFile(id + ".html", trees)
+        }
+
         vcs
       } else {
         Nil
       }
     }).flatten
 
-    vcs.sortBy(vc => (getFunction(vc.fd),
-      if (vc.kind.underlying == VCKind.Precondition) 0
-      else if (vc.kind.underlying == VCKind.Assert) 1
-      else 2
-    ))
+    vcs.sortBy { vc =>
+      (
+        getFunction(vc.fd),
+        vc.kind.underlying match {
+          case VCKind.Law          => 0
+          case VCKind.Precondition => 1
+          case VCKind.Assert       => 2
+          case _                   => 3
+        }
+      )
+    }
+  }
+
+  // FIXME: This should be relaxed for TypeEncoding to work
+  def checkADTRefinementRecursion(sort: ADTSort) = {
+    val deps = dependencies(sort.id)
+
+    deps.find(fid => lookupFunction(fid).isDefined && dependencies(fid).contains(sort.id)) match {
+      case Some(fid) =>
+        throw new TypeCheckingException(sort, s"An ADT (${sort.id.asString}), and a function (${fid.asString}) cannot be mutually recursive")
+      case None => ()
+    }
   }
 
   def wellFormedADT(sort: ADTSort): Seq[StainlessVC] = {
+    checkADTRefinementRecursion(sort)
+
     val id = sort.id
     val deps = dependencies(id)
 
-    deps.find(fid => lookupFunction(fid).isDefined && dependencies(fid).contains(id)) match {
-      case Some(fid) =>
-        throw new TypeCheckingException(sort, s"An ADT (${id.asString}), and a function (${fid.asString}) cannot be mutually recursive")
-      case None => ()
-    }
-
-    val tc =
-      TypingContext.empty.
-        withIdentifiers(deps).
-        withTypeVariables(sort.tparams.map(_.tp).toSet).
-        inADT(id).
-        setPos(sort)
+    val tc = TypingContext.empty.
+      withIdentifiers(deps).
+      withTypeVariables(sort.tparams.map(_.tp).toSet).
+      inADT(id).
+      setPos(sort)
 
     val TyperResult(vcs, trees) = TyperResult(
       sort.constructors.map(cons =>
@@ -1226,8 +1239,10 @@ trait TypeChecker {
       )
     ).root(OKADT(id))
 
-    if (reporter.debugSections.contains(DebugSectionDerivation))
+    if (reporter.debugSections.contains(DebugSectionDerivation)) {
       makeHTMLFile(id + ".html", trees)
+    }
+
     vcs
   }
 
