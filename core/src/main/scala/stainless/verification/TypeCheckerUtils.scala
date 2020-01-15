@@ -13,6 +13,13 @@ object TypeCheckerUtils {
   class TypeCheckingException(val tree: inox.ast.Trees#Tree, val msg: String)
     extends Exception(msg)
 
+  object UncheckedExpr {
+    def unapply(e: Expr): Option[Expr] = e match {
+      case Annotated(body, flags) if flags contains Unchecked => Some(body)
+      case _ => None
+    }
+  }
+
   // The type Top as an abstraction for `ValueType(_)` which ignores the
   // underlying type, arbitrarily set to `UnitType` here
   object Top {
@@ -26,8 +33,8 @@ object TypeCheckerUtils {
 
   // The type { b: Boolean | b }
   object TrueBoolean {
-    def apply() = {
-      val vd = ValDef.fresh("__b", BooleanType())
+    def apply(name: String = "b") = {
+      val vd = ValDef.fresh(name, BooleanType())
       RefinementType(vd, vd.toVariable)
     }
 
