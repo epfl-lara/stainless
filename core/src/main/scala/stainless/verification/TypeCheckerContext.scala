@@ -19,7 +19,8 @@ object TypeCheckerContext {
     currentADT: Option[Identifier],
     currentMeasure: Option[Expr],
     measureType: Option[Type],
-    vcKind: VCKind
+    vcKind: VCKind,
+    checkSAT: Boolean,
   ) extends inox.utils.Positioned {
 
     def inc() = {
@@ -135,11 +136,16 @@ object TypeCheckerContext {
       copy(vcKind = kind).setPos(this)
     }
 
+    def withCheckSAT(checkSAT: Boolean) = {
+      copy(checkSAT = checkSAT).setPos(this)
+    }
+
     def indent: String = "  " * depth
 
     def asString(indent: String = "")(implicit opts: PrinterOptions) = {
       (if (indent != "") s"${indent}Depth: $depth\n" else "") +
       s"""|${indent}Kind: ${vcKind}
+          |${indent}Check SAT: ${checkSAT}
           |${indent}Functions: ${visibleFunctions.map(_.asString).mkString(", ")}
           |${indent}ADTs: ${visibleADTs.map(_.asString).mkString(", ")}
           |${indent}Type Variables: ${typeVariables.map(_.asString).mkString(", ")}
@@ -149,6 +155,6 @@ object TypeCheckerContext {
   }
 
   object TypingContext {
-    def empty = TypingContext(0, Set(), Set(), Set(), Seq(), None, None, None, None, VCKind.Assert)
+    def empty = TypingContext(0, Set(), Set(), Set(), Seq(), None, None, None, None, VCKind.Assert, checkSAT = false)
   }
 }

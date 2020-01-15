@@ -442,7 +442,7 @@ trait TypeChecker {
       case FractionLiteral(_, _) => (RealType(), TyperResult.valid)
       case BVLiteral(signed, _, size) => (BVType(signed, size), TyperResult.valid)
 
-      case Annotated(e, flags) if flags.contains(Unchecked) => (inferType(tc, e)._1, TyperResult.valid)
+      case UncheckedExpr(e) => (inferType(tc, e)._1, TyperResult.valid)
       case Annotated(e, _) => inferType(tc, e)
 
       case NoTree(tpe) => (tpe, isType(tc, tpe))
@@ -862,9 +862,19 @@ trait TypeChecker {
       case Forall(vds, pred) =>
         (BooleanType(), checkType(tc.bind(vds).setPos(pred), pred, BooleanType()))
 
-      // @romac - FIXME: Is that correct?
-      case Choose(vd, pred) =>
-        (RefinementType(vd, pred), checkType(tc.bind(vd).setPos(pred), pred, BooleanType()))
+      case c @ Choose(vd, pred) =>
+        val trPred = checkType(tc.bind(vd).setPos(pred), pred, BooleanType())
+
+        val trVC = if (!tc.termVariables.exists(isPathCondition) && exprOps.variablesOf(c).isEmpty) {
+          val tc1 = tc.withVCKind(VCKind.Info(VCKind.Choose, "check-sat")).withCheckSAT(true).setPos(c)
+          buildVC(tc1, pred)
+        } else {
+          val tc1 = tc.withVCKind(VCKind.Choose).withCheckSAT(false).setPos(c)
+          val condition = Not(Forall(Seq(vd), Not(pred)))
+          buildVC(tc1, condition)
+        }
+
+        (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
         throw new TypeCheckingException(e, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
@@ -876,13 +886,20 @@ trait TypeChecker {
   }
 
   def vcFromContext(l: Seq[Variable], e: Expr): Expr = {
-    l.foldRight(e){
-      case (v, acc) =>
-        v.tpe match {
-          case LetEquality(e1: Variable, e2) => let(e1.toVal, e2, acc)
-          case Truth(t) => implies(t, acc)
-          case _ => acc
-        }
+    l.foldRight(e) { case (v, acc) =>
+      v.tpe match {
+        case LetEquality(e1: Variable, e2) => let(e1.toVal, e2, acc)
+        case Truth(t) => implies(t, acc)
+        case _ => acc
+      }
+    }
+  }
+
+  def isPathCondition(v: Variable): Boolean = {
+    v.tpe match {
+      case LetEquality(_, _) => true
+      case Truth(_) => true
+      case _ => false
     }
   }
 
@@ -895,8 +912,12 @@ trait TypeChecker {
       case _ => false
     }).copiedFrom(e)
 
-    val vc: StainlessVC =
-      (VC(vcFromContext(tc.termVariables, e2), tc.currentFid.get, tc.vcKind, false): StainlessVC).setPos(tc)
+    val vc: StainlessVC = VC(
+      vcFromContext(tc.termVariables, e2),
+      tc.currentFid.get,
+      tc.vcKind,
+      tc.checkSAT,
+    ).setPos(tc)
 
     if (!vcFilter(vc)) {
       return TyperResult.valid
@@ -925,14 +946,7 @@ trait TypeChecker {
     val tc = tc0.inc
     val res = (e, tpe) match {
 
-      case (UncheckedExpr(e), TrueBoolean()) =>
-        buildVC(tc, e)
-
-      case (UncheckedExpr(e), RefinementType(vd, prop)) =>
-        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc2, freshener.transform(prop), TrueBoolean())
-
-      case (UncheckedExpr(e), _)  => TyperResult.valid
+      case (UncheckedExpr(e), _) => TyperResult.valid
 
       case (Annotated(e, _), _) => checkType(tc, e, tpe)
       case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
@@ -941,7 +955,9 @@ trait TypeChecker {
       // Unapply for `Top` matches any `ValueType(_)`
       case (v@Variable(id, _, _), Top()) =>
         if (tc.termVariables.exists(tv => tv.id == v.id)) TyperResult.valid
-        else throw new TypeCheckingException(v, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+        else throw new TypeCheckingException(v,
+          s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+
       case (UnitLiteral(), Top()) => TyperResult.valid
       case (BooleanLiteral(_), Top()) => TyperResult.valid
       case (IntegerLiteral(_), Top()) => TyperResult.valid
