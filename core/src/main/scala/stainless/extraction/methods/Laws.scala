@@ -160,7 +160,7 @@ trait Laws
 
         val newFlags = (
           (fd.flags filter (_ != s.Law) map (transform(_, env))) ++
-          Seq(t.InlineOnce, t.Derived(fd.id), t.Final)
+          Seq(t.Derived(fd.id), t.Final)
         ).distinct
 
         t.exprOps.freshenSignature(

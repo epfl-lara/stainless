@@ -921,9 +921,19 @@ trait TypeChecker {
     reporter.debug(s"${tc0.indent}has type: ${tpe.asString}")
     reporter.debug(s"${tc0.indent}in context")
     reporter.debug(tc0.asString(tc0.indent))
+
     val tc = tc0.inc
-    val res: TyperResult = (e, tpe) match {
-      case (Annotated(e, flags), _) if flags.contains(Unchecked) => TyperResult.valid
+    val res = (e, tpe) match {
+
+      case (UncheckedExpr(e), TrueBoolean()) =>
+        buildVC(tc, e)
+
+      case (UncheckedExpr(e), RefinementType(vd, prop)) =>
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc2, freshener.transform(prop), TrueBoolean())
+
+      case (UncheckedExpr(e), _)  => TyperResult.valid
+
       case (Annotated(e, _), _) => checkType(tc, e, tpe)
       case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
