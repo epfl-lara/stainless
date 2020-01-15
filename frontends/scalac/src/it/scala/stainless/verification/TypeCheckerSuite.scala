@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import scala.concurrent.duration._
+
 import org.scalatest._
 
 trait TypeCheckerSuite extends ComponentTestSuite {
@@ -18,9 +20,13 @@ trait TypeCheckerSuite extends ComponentTestSuite {
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // FIXME: Fails in the tests but succeeds on command-line
-    case "typechecker/valid/SuperCall5" => Ignore
-    case "typechecker/valid/MoreExtendedEuclidGCD" => Ignore
+    // Same as VerificationSuite
+    case "verification/valid/Extern1" => Ignore
+    case "verification/valid/Extern2" => Ignore
+    case "verification/valid/ChooseLIA" => Ignore
+    case "verification/invalid/SpecWithExtern" => Ignore
+    case "verification/invalid/BinarySearchTreeQuant" => Ignore
+    case "verification/invalid/ForallAssoc" => Ignore
 
     // Rejected by typechecker because of ADT <=> refinement recursion due to TypeEncoding
     case "verification/valid/LawTypeArgsElim" => Ignore
@@ -28,10 +34,15 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
 
+    // Fails due to bug in typechecker
+    case "verification/invalid/Equations1" => Ignore
+    case "verification/invalid/Equations2" => Ignore
+    case "verification/invalid/Equations3" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 
-  testAll("verification/valid", true) { (analysis, reporter) =>
+  testAll("verification/valid", recursive = true) { (analysis, reporter) =>
     assert(cacheAllowed || analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
     for ((vc, vr) <- analysis.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
@@ -40,10 +51,10 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  // testAll("verification/invalid") { (analysis, _) =>
-  //   val report = analysis.toReport
-  //   assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
-  // }
+  testAll("verification/invalid") { (analysis, _) =>
+    val report = analysis.toReport
+    assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
+  }
 }
 
 class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
