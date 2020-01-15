@@ -95,12 +95,12 @@ trait Trees extends throwing.Trees { self =>
       super.ensureWellFormedClass(cd)
 
       // Check that abstract methods are overriden
-      if (!(cd.flags contains IsAbstract)) {
+      if (!cd.isAbstract) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
           case (abstractSymbols, acd) =>
-            abstractSymbols --
-            acd.methods.map(_.symbol) ++
-            acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol)
+            val concreteSymbols = acd.methods.map(_.symbol).toSet
+            val newAbstractSymbols = acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol).toSet
+            abstractSymbols -- concreteSymbols ++ newAbstractSymbols
         }
 
         if (remainingAbstract.nonEmpty) {
@@ -252,7 +252,7 @@ trait Trees extends throwing.Trees { self =>
 
     def isAbstract(implicit s: Symbols): Boolean = {
       (fd.flags contains IsAbstract) ||
-      (!isExtern && fd.getClassDef.forall(_.isAbstract) && !hasBody)
+      (!isExtern && !hasBody && !isSynthetic && fd.getClassDef.forall(_.isAbstract))
     }
 
     def hasBody: Boolean = exprOps.withoutSpecs(fd.fullBody).isDefined
