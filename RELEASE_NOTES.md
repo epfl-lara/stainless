@@ -1,6 +1,13 @@
 
 # Release Notes
 
+## Version 0.6.2 (16-01-2020)
+
+- Ensures invariants of ancestors cannot be weakened
+- Limit parallelism when running stainless-actors tests
+- Fix broken benchmark in TypeCheckerSuite
+- Update Docker packaging script
+
 ## Version 0.6.1 (13-11-2019)
 
 ### Improvements
