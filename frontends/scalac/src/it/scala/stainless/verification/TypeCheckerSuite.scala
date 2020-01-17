@@ -86,6 +86,7 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Same ignores as SMTCVC4VerificationSuite
+    case "verification/valid/ArraySlice" => Ignore
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/ConcRope" => Ignore
     case "verification/valid/CovariantList" => Ignore
@@ -99,6 +100,7 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
     case "verification/valid/ReachabilityChecker" => Ignore
     case "verification/valid/TestPartialFunction" => Ignore
     case "verification/valid/TestPartialFunction3" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 }
