@@ -689,9 +689,7 @@ trait TypeChecker {
         val calleeFd = getFunction(id)
         val calleeTfd = calleeFd.typed(tps)
 
-        if (!tc.visibleFunctions(id)) {
-          throw new TypeCheckingException(e, s"Call to function ${id.asString} is not allowed here")
-        }
+        checkFunctionIsVisible(tc, id, e)
 
         val fiS = shortString(e.asString, 40)
 
@@ -1195,6 +1193,27 @@ trait TypeChecker {
     }
 
     (trArgs ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
+  }
+
+  def checkFunctionIsVisible(tc: TypingContext, id: Identifier, in: Expr): Unit = {
+    if (tc.visibleFunctions(id)) return
+
+    val errorInfo = tc.currentFid flatMap { currentFid =>
+      val currentDeps = dependencies(currentFid)
+      val mutuallyRecursiveDeps = currentDeps.filter { did =>
+        dependencies(did).contains(currentFid)
+      }
+
+      if (mutuallyRecursiveDeps.contains(id)) {
+        Some(s", because it is mutually recursive with the current function ${currentFid.asString}")
+      } else {
+        None
+      }
+    }
+
+    throw new TypeCheckingException(in,
+      s"Call to function ${id.asString} is not allowed here${errorInfo.getOrElse("")}"
+    )
   }
 
   def needsMeasure(fd: FunDef): Boolean = {
