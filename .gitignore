@@ -79,7 +79,9 @@ out-classes
 # metals and VSCode
 .vscode
 .metals
+.bloop
 project/metals.sbt
+project/.bloop
 
 # ripgrep
 .rgignore
