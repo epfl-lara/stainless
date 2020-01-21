@@ -32,20 +32,25 @@ class TerminationSuite extends ComponentTestSuite {
     // Not compatible with System FR type-checker
     case "termination/valid/Streams" => Skip
 
-    // smt-z3 crashes on some permutations of the MergeSort2 problem encoding due to Bags...
-    // case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
+    // Already correctly rejected by the type-checker
+    case "termination/looping/Inconsistency5"           => Skip // ADT Object must appear only in strictly positive positions of Machine
+    case "termination/looping/NegativeDatatype"         => Skip // ADT Code must appear only in strictly positive positions of Code
+    case "termination/looping/NonStrictPositiveTypes"   => Skip // ADT A must appear only in strictly positive positions of A
+    case "termination/looping/NonStrictPositiveTypesIR" => Skip // ADT A must appear only in strictly positive positions of A
+    case "termination/looping/Queue"                    => Skip // Call to function looping_2$0 is not allowed here, because it
+                                                                // is mutually recursive with the current function looping_1$0
 
     // Relation processor hangs when strengthening applications (TODO: open issue and link it here)
     case "verification/valid/LawTypeArgsElim" => Ignore
     case "verification/valid/QuickSortFilter" => Ignore
-    case "verification/valid/StableSorter" => Ignore
+    case "verification/valid/StableSorter"    => Ignore
 
     // Invalid measure inferred in RelationProcessor
     case "termination/valid/HOTermination" => Ignore
-    case "termination/valid/Indirect" => Ignore
-    case "termination/valid/QuickSort" => Ignore
-    case "verification/valid/MergeSort" => Ignore
-    case "verification/valid/MergeSort2" => Ignore
+    case "termination/valid/Indirect"      => Ignore
+    case "termination/valid/QuickSort"     => Ignore
+    case "verification/valid/MergeSort"    => Ignore
+    case "verification/valid/MergeSort2"   => Ignore
 
     // Fails due to a bug in ChainProcessor
     case "verification/valid/Nested14" => Ignore
@@ -95,28 +100,28 @@ class TerminationSuite extends ComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  // testAll("termination/looping") { (analysis, reporter) =>
-  //   import analysis.program.symbols
-  //   import analysis.program.trees._
+  testAll("termination/looping") { (analysis, reporter) =>
+    import analysis.program.symbols
+    import analysis.program.trees._
 
-  //   val looping = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("looping") }
-  //   val notLooping = looping.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
-  //   assert(notLooping.isEmpty, "Functions " + notLooping.map(_.id) + " should be marked as non-terminating")
+    val looping = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("looping") }
+    val notLooping = looping.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
+    assert(notLooping.isEmpty, "Functions " + notLooping.map(_.id) + " should be marked as non-terminating")
 
-  //   val calling = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("calling") }
-  //   val notCalling = calling.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
-  //   assert(notCalling.isEmpty, "Functions " + notCalling.map(_.id) + " should be marked as non-terminating")
+    val calling = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("calling") }
+    val notCalling = calling.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
+    assert(notCalling.isEmpty, "Functions " + notCalling.map(_.id) + " should be marked as non-terminating")
 
-  //   val guaranteed = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("ok") }
-  //   val notGuaranteed = guaranteed.collect { case (fd, Some(status)) if !status.isTerminating => fd }
-  //   assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_.id) + " should be marked as terminating")
+    val guaranteed = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("ok") }
+    val notGuaranteed = guaranteed.collect { case (fd, Some(status)) if !status.isTerminating => fd }
+    assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_.id) + " should be marked as terminating")
 
-  //   val mustHaveValidVCs = guaranteed.map(_._1.id)
+    val mustHaveValidVCs = guaranteed.map(_._1.id)
 
-  //   for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fd.id)) {
-  //     if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-  //     if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
-  //   }
-  //   reporter.terminateIfError()
-  // }
+    for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fd.id)) {
+      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+    }
+    reporter.terminateIfError()
+  }
 }
