@@ -677,11 +677,21 @@ trait TypeChecker {
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
-      case Assume(cond, body) => inferType(tc.withTruth(cond), body)
+      case Assume(cond, body) =>
+        val tr = checkType(tc.setPos(cond), cond, BooleanType())
+        val (tpe, tr2) = inferType(tc.withTruth(cond), body)
+        (tpe, tr ++ tr2)
 
       case Assert(cond, optErr, body) =>
         val kind = VCKind.fromErr(optErr)
         val tr = checkType(tc.withVCKind(kind).setPos(cond), cond, TrueBoolean())
+        val (tpe, tr2) = inferType(tc.withTruth(cond), body)
+        (tpe, tr ++ tr2)
+
+      // NOTE: `require` clauses in functions are type-checked in `checkType(FunDef)`, but since
+      // they can also appear in lambdas bodies, they need to be handled here as well.
+      case Require(cond, body) =>
+        val tr = checkType(tc.setPos(cond), cond, BooleanType())
         val (tpe, tr2) = inferType(tc.withTruth(cond), body)
         (tpe, tr ++ tr2)
 
@@ -994,7 +1004,7 @@ trait TypeChecker {
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
-      // // FIXME: This split creates too many VCs
+      // FIXME: This split creates too many VCs
       // case (And(exprs), TrueBoolean()) =>
       //   exprs.foldLeft((tc, TyperResult.valid)){
       //     case ((tcAcc, tr), expr) =>
@@ -1102,18 +1112,20 @@ trait TypeChecker {
     tr.root(AreEqualTypes(tc0, t1, t2))
   }
 
+  // TODO: check that arguments marked by `@erasable` can be erased
   def checkType(fd: FunDef): TyperResult = {
-    // TODO: check that arguments marked by `@erasable` can be erased
     val id = fd.id
 
-    // FIXME: This should be relaxed for TypeEncoding to work
     val deps = dependencies(id)
     val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
-    mutuallyRecursiveDeps.find(sort => lookupSort(sort).isDefined) match {
-      case Some(sort) =>
-        throw new TypeCheckingException(fd, s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
-      case None => ()
-    }
+
+    // FIXME: This should be relaxed for TypeEncoding to work
+    mutuallyRecursiveDeps
+      .find(sort => lookupSort(sort).isDefined)
+      .foreach { sort =>
+        throw new TypeCheckingException(fd,
+          s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
+      }
 
     val toFreshen = fd.tparams.map(tpd => tpd.tp.id) ++ fd.params.map(vd => vd.id)
 
