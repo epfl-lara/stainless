@@ -170,6 +170,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[LetClass]             (232),
       classSerializer[LocalClassDef]        (233),
       classSerializer[LocalMethodDef]       (234),
+      classSerializer[LocalTypeDef]         (246),
       classSerializer[LocalMethodInvocation](240),
       classSerializer[LocalClassConstructor](235),
       classSerializer[LocalClassSelector]   (241),
