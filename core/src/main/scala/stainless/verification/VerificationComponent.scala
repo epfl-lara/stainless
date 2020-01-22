@@ -8,9 +8,9 @@ import io.circe._
 import scala.concurrent.Future
 import scala.language.existentials
 
-import extraction.utils.DebugSymbols
-
-import extraction._
+import stainless.extraction._
+import stainless.extraction.utils.DebugSymbols
+import stainless.termination.MeasureInference
 
 /**
  * Strict Arithmetic Mode:
@@ -48,8 +48,11 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
-  override protected def createPipeline = pipeline andThen
+  override protected def createPipeline = {
+    pipeline andThen
+    extraction.utils.DebugPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
     extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+  }
 
   implicit val debugSection = DebugSectionVerification
 

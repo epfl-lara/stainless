@@ -9,7 +9,7 @@ import TypeCheckerUtils._
 import TypeCheckerDerivation._
 import TypeCheckerContext._
 
-import stainless.extraction.termination.optCheckMeasures
+import stainless.termination.optCheckMeasures
 
 import scala.collection._
 

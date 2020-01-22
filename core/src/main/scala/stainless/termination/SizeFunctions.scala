@@ -1,7 +1,6 @@
 /* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
-package extraction
 package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}

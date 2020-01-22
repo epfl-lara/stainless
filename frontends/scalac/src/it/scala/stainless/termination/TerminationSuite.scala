@@ -5,7 +5,6 @@ package termination
 
 import stainless.utils.YesNoOnly
 import stainless.verification.{VerificationComponent, VerificationAnalysis, optFailInvalid, optTypeChecker}
-import stainless.extraction.termination.{optIgnorePosts, optInferMeasures, optCheckMeasures}
 
 import scala.concurrent.duration._
 

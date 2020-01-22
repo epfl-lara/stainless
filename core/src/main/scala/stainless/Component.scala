@@ -60,7 +60,7 @@ trait ComponentRun { self =>
   }
 
   /* Override point for pipeline extensions in certain components.
-   * For example, the partial evaluator pipeline in the verification component. */
+   * For example, the partial evaluator and measure inference pipeline in the verification component. */
   protected def createPipeline: extraction.StainlessPipeline = pipeline andThen lowering
 
   private[this] final val extractionPipeline = createPipeline andThen extraction.completer(trees)

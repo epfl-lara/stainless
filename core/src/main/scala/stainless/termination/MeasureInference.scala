@@ -1,24 +1,19 @@
 /* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
-package extraction
 package termination
-
-import stainless.termination.TerminationReport
 
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 
-object optInferMeasures extends inox.FlagOptionDef("infer-measures", true)
-
 trait MeasureInference
-  extends CachingPhase
-    with SimplyCachedSorts
-    with IdentitySorts
-    with SimpleFunctions
-    with SimplyCachedFunctions { self =>
+  extends extraction.CachingPhase
+    with extraction.SimplyCachedSorts
+    with extraction.IdentitySorts
+    with extraction.SimpleFunctions
+    with extraction.SimplyCachedFunctions { self =>
 
   val s: Trees
-  val t: extraction.Trees
+  val t: Trees
   import s._
 
   import context.{options, timers, reporter}
@@ -123,7 +118,7 @@ trait MeasureInference
 }
 
 object MeasureInference { self =>
-  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tr: Trees)(implicit ctx: inox.Context): extraction.ExtractionPipeline {
     val s: tr.type
     val t: tr.type
   } = new {

@@ -1,7 +1,6 @@
 /* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
-package extraction
 package termination
 
 import scala.collection.mutable.{Set => MutableSet}

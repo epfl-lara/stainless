@@ -13,8 +13,8 @@ class TerminationVerificationSuite extends ComponentTestSuite {
     Seq(
       optFailInvalid(true),
       verification.optTypeChecker(true),
-      extraction.termination.optInferMeasures(false),
-      extraction.termination.optCheckMeasures(YesNoOnly.No),
+      termination.optInferMeasures(false),
+      termination.optCheckMeasures(YesNoOnly.No),
     ) ++ seq
   }
 
