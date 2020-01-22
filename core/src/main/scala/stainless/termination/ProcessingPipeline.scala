@@ -1,10 +1,7 @@
 /* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
-package extraction
 package termination
-
-// trait ProcessingPipeline { val context: inox.Context; val program: Program { val trees: termination.trees.type } }
 
 import scala.concurrent.duration._
 import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}

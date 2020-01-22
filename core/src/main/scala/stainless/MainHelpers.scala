@@ -39,8 +39,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optStrictArithmetic -> Description(Verification,
       s"Check arithmetic operations for unintended behaviour and overflows (default: true)"),
     verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
-    extraction.termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
-    extraction.termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
+    termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
+    termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
@@ -71,9 +71,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.DebugSectionTypeChecker,
     verification.DebugSectionTypeCheckerVCs,
     verification.DebugSectionDerivation,
+    termination.DebugSectionTermination,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,
-    extraction.termination.DebugSectionTermination,
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
     frontend.DebugSectionRecovery,

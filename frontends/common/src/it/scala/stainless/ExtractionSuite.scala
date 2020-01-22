@@ -4,15 +4,12 @@ package stainless
 
 import org.scalatest._
 import scala.util.{Success, Failure, Try}
-import stainless.utils.YesNoOnly
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
  *  the relevant directories. */
 abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
 
-  def options: Seq[inox.OptionValue[_]] = Seq(
-    extraction.termination.optInferMeasures(false),
-  )
+  def options: Seq[inox.OptionValue[_]] = Seq()
 
   final def createContext(options: inox.Options) = stainless.TestContext(options)
 

@@ -65,11 +65,13 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
   }
 }
 
-class LibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(false)))
+class LibrarySuite extends AbstractLibrarySuite(Seq(
+  verification.optTypeChecker(false)
+))
 
 class TypeCheckerLibrarySuite extends AbstractLibrarySuite(Seq(
   verification.optTypeChecker(true),
-  extraction.termination.optInferMeasures(true),
-  extraction.termination.optCheckMeasures(YesNoOnly.Yes),
+  termination.optInferMeasures(true),
+  termination.optCheckMeasures(YesNoOnly.Yes),
 ))
 
