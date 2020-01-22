@@ -6,6 +6,13 @@ TEST_DIR=$1
 STAINLESS_VERSION=$2
 SBT_ARGS="-batch -Dparallel=5 -Dsbt.color=always -Dsbt.supershell=false"
 
+if command -v gsed >/dev/null 2>&1;
+then
+  SED="gsed"
+else
+  SED="sed"
+fi
+
 echo "Moving to $TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR" || exit 1
@@ -16,7 +23,7 @@ git clone https://github.com/epfl-lara/stainless-actors
 
 cd stainless-actors || exit 1
 
-sed -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
+$SED -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
 
 ACTOR_EXAMPLES="counter leader-election kvs"
 
