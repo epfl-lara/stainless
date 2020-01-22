@@ -81,6 +81,13 @@ _canonicalize_file_path() {
 BIN_DIR=$( dirname "$( realpath "${BASH_SOURCE[0]}" )" )
 BASE_DIR=$( dirname "$BIN_DIR" )
 
+if command -v gsed >/dev/null 2>&1;
+then
+  SED="gsed"
+else
+  SED="sed"
+fi
+
 cd "$BASE_DIR" || exit 1
 
 # Compile Stainless
@@ -95,7 +102,7 @@ export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
 
 echo "Publishing Stainless..."
 
-STAINLESS_VERSION=$(sbt publishLocal | sed -n -r 's#^.*stainless-scalac-plugin_2.12.9/([^/]+)/poms.*$#\1#p')
+STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.9/([^/]+)/poms.*$#\1#p')
 
 echo "Published Stainless version is: $STAINLESS_VERSION"
 
