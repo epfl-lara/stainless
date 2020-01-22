@@ -7,10 +7,13 @@ import org.scalatest._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import stainless.utils.YesNoOnly
+
 abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunSpec with InputUtils {
   import ast.SymbolIdentifier
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))
+
   protected val options = inox.Options(defaultOptions ++ opts)
 
   protected def symbolName(id: Identifier): String = id match {
@@ -64,5 +67,9 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
 
 class LibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(false)))
 
-// class TypeCheckerLibrarySuite extends AbstractLibrarySuite(Seq(verification.optTypeChecker(true)))
-//
+class TypeCheckerLibrarySuite extends AbstractLibrarySuite(Seq(
+  verification.optTypeChecker(true),
+  extraction.termination.optInferMeasures(true),
+  extraction.termination.optCheckMeasures(YesNoOnly.Yes),
+))
+
