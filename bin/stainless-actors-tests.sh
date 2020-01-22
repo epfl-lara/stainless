@@ -42,20 +42,5 @@ for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
 
 done;
 
-for ACTOR_EXAMPLE in $ACTOR_EXAMPLES; do
-
-  echo "Running example $ACTOR_EXAMPLE with --type-checker..."
-  sbt $SBT_ARGS "$ACTOR_EXAMPLE"/compile
-
-  status=$?
-
-  if [ $status -ne 0 ]
-  then
-    echo "Actor example $ACTOR_EXAMPLE failed with --type-checker."
-    exit 1
-  fi
-
-done;
-
 cd ../.. || true
 
