@@ -30,14 +30,11 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         case _ => false
       } (expr)
 
-      def validMeasure: Boolean = {
-        measureOf(tfd.fullBody) match {
-          case Some(measure) =>
-            val nextMeasure = exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, measure)
-            val query = strictlyPositive(nextMeasure.getType, nextMeasure)
-            path.implies(query)
-
-          case None => false
+      def validMeasure: Option[Boolean] = {
+        measureOf(tfd.fullBody) map { measure =>
+          val nextMeasure = exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, measure)
+          val query = strictlyPositive(nextMeasure.getType, nextMeasure)
+          path.implies(query)
         }
       }
 
@@ -95,7 +92,7 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
 
       inlined
         .filterNot(containsChoose)
-        .filter(expr => validMeasure || isProductiveUnfolding(expr))
+        .filter(expr => validMeasure.getOrElse(isProductiveUnfolding(expr)))
         .map(unfold)
         .getOrElse((
           FunctionInvocation(id, tps, rargs).copiedFrom(fi),
