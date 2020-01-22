@@ -10,7 +10,17 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
   import symbols._
   import exprOps._
 
+  protected def strictlyPositive(tpe: Type, e: Expr): Expr = (tpe match {
+    case IntegerType() => GreaterThan(e, IntegerLiteral(0))
+    case BVType(signed, size) => GreaterThan(e, BVLiteral(signed, 0, size))
+    case TupleType(tps) => and((1 to tps.length).map(i => strictlyPositive(tps(i-1), TupleSelect(e,i))): _*)
+    case _ => sys.error(s"Type $tpe is not supported for measures")
+  }).setPos(e)
+
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
+    // case Annotated(e, Seq(Unchecked)) =>
+    //   simplify(e, path)
+
     case fi @ FunctionInvocation(id, tps, args) =>
       val tfd = fi.tfd
       val (rargs, pargs) = args.map(simplify(_, path)).unzip
@@ -19,6 +29,14 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
         case (_: Choose) | (_: NoTree) => true
         case _ => false
       } (expr)
+
+      def validMeasure: Option[Boolean] = {
+        measureOf(tfd.fullBody) map { measure =>
+          val nextMeasure = exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, measure)
+          val query = strictlyPositive(nextMeasure.getType, nextMeasure)
+          path.implies(query)
+        }
+      }
 
       def isProductiveUnfolding(inlined: Expr): Boolean = {
         def isKnown(expr: Expr): Boolean = expr match {
@@ -74,7 +92,7 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
 
       inlined
         .filterNot(containsChoose)
-        .filter(isProductiveUnfolding)
+        .filter(expr => validMeasure.getOrElse(isProductiveUnfolding(expr)))
         .map(unfold)
         .getOrElse((
           FunctionInvocation(id, tps, rargs).copiedFrom(fi),
