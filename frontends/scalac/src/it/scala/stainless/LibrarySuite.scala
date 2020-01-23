@@ -21,19 +21,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunS
     case id => id.name
   }
 
-  protected def isSlow(id: Identifier): Boolean = {
-    symbolName(id).startsWith("stainless.collection.ConcRope")
-  }
-
-  protected def keepDerived(tr: ast.Trees)(flag: tr.Flag): Boolean = flag match {
-    case tr.Derived(id) => !isSlow(id)
-    case _ => true
-  }
-
   protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean = fd match {
-    case fd if fd.flags exists (_.name == "unchecked") => false
-    case fd if !SlowTests.enabled && isSlow(fd.id) => false
-    case fd if !fd.flags.forall(keepDerived(tr)) => false
+    case fd if fd.flags.exists(_.name == "unchecked") => false
     case fd => true
   }
 
