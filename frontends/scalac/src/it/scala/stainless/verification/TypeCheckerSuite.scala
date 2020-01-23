@@ -21,15 +21,16 @@ trait TypeCheckerSuite extends ComponentTestSuite {
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Same as VerificationSuite
-    case "verification/valid/Extern1" => Ignore
-    case "verification/valid/Extern2" => Ignore
-    case "verification/valid/ChooseLIA" => Ignore
-    case "verification/invalid/SpecWithExtern" => Ignore
+    case "verification/valid/Extern1"                 => Ignore
+    case "verification/valid/Extern2"                 => Ignore
+    case "verification/valid/ChooseLIA"               => Ignore
+    case "verification/invalid/SpecWithExtern"        => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
-    case "verification/invalid/ForallAssoc" => Ignore
+    case "verification/invalid/ForallAssoc"           => Ignore
 
     // Rejected by typechecker because of ADT <=> refinement recursion due to TypeEncoding
     case "verification/valid/LawTypeArgsElim" => Ignore
+    case "verification/valid/CovariantList"   => Ignore
 
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
@@ -38,6 +39,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "verification/invalid/Equations1" => Ignore
     case "verification/invalid/Equations2" => Ignore
     case "verification/invalid/Equations3" => Ignore
+    case "verification/invalid/BadConcope" => Ignore
 
     case _ => super.filter(ctx, name)
   }
@@ -88,9 +90,11 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
     // Same ignores as SMTCVC4VerificationSuite
     case "verification/valid/ArraySlice" => Ignore
     case "verification/valid/BigIntMonoidLaws" => Ignore
+    case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/ConcRope" => Ignore
     case "verification/valid/CovariantList" => Ignore
     case "verification/valid/Huffman" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
     case "verification/valid/List" => Ignore
     case "verification/valid/MoreExtendedEuclidGCD" => Ignore
     case "verification/valid/MoreExtendedEuclidReachability" => Ignore

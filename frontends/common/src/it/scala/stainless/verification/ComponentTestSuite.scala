@@ -26,7 +26,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   override protected def optionsString(options: inox.Options): String = {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
-    "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
+    "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels) + " "
+    "type-checker=" + options.findOptionOrDefault(optTypeChecker)
   }
 
   protected val slowBenchmarks = Set(
@@ -34,19 +35,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
     "termination/valid/ConstantPropagation",
     "termination/valid/NNFSimple",
-
-    "typechecker/invalid/BadConcRope",
-    "typechecker/invalid/Nested15",
-    "typechecker/invalid/PartialSplit",
-    "typechecker/valid/GodelNumbering",
-    "typechecker/valid/AmortizedQueue",
-    "typechecker/valid/BigIntRing",
-    "typechecker/valid/ConcRope",
-    "typechecker/valid/ConcTree",
-    "typechecker/valid/CovariantList",
-    "typechecker/valid/InnerClasses4",
-    "typechecker/valid/SuperCall4",
-    "typechecker/valid/TransitiveQuantification",
 
     "verification/invalid/BadConcRope",
     "verification/invalid/Nested15",
