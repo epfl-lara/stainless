@@ -44,14 +44,14 @@ class TerminationSuite extends ComponentTestSuite {
     case "verification/valid/QuickSortFilter" => Ignore
     case "verification/valid/StableSorter"    => Ignore
 
-    // Invalid measure inferred in RelationProcessor
+    // Invalid measure inferred in RelationProcessor (TODO: open issue and link it here)
     case "termination/valid/HOTermination" => Ignore
     case "termination/valid/Indirect"      => Ignore
     case "termination/valid/QuickSort"     => Ignore
     case "verification/valid/MergeSort"    => Ignore
     case "verification/valid/MergeSort2"   => Ignore
 
-    // Fails due to a bug in ChainProcessor
+    // Fails due to a bug in ChainProcessor (TODO: open issue and link it here)
     case "verification/valid/Nested14" => Ignore
     case "verification/valid/Nested16" => Ignore
 

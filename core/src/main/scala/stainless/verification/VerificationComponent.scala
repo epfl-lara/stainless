@@ -19,6 +19,9 @@ import stainless.termination.MeasureInference
  */
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", true)
 
+/**
+ * Generate VC via the System FR type-checker instead of the ad-hoc DefaultTactic.
+ */
 object optTypeChecker extends inox.FlagOptionDef("type-checker", false)
 
 object VerificationComponent extends Component {
