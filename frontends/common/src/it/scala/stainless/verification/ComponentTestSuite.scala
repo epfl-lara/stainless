@@ -27,33 +27,10 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels) + " "
-    "type-checker=" + options.findOptionOrDefault(optTypeChecker)
+    "type-checker=" + options.findOptionOrDefault(verification.optTypeChecker)
   }
 
-  protected val slowBenchmarks = Set(
-    "imperative/valid/NestedFunParamsMutation2",
-
-    "termination/valid/ConstantPropagation",
-    "termination/valid/NNFSimple",
-
-    "verification/invalid/BadConcRope",
-    "verification/invalid/Nested15",
-    "verification/invalid/PartialSplit",
-    "verification/valid/AmortizedQueue",
-    "verification/valid/BigIntRing",
-    "verification/valid/BitsTricksSlow",
-    "verification/valid/ConcRope",
-    "verification/valid/ConcTree",
-    "verification/valid/CovariantList",
-    "verification/valid/InnerClasses4",
-    "verification/valid/SuperCall4",
-    "verification/valid/TransitiveQuantification",
-  )
-
-  protected def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    case name if SlowTests.disabled && slowBenchmarks.contains(name) => Skip
-    case name => Test
-  }
+  protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
   def testAll(dir: String, recursive: Boolean = false)(block: (component.Analysis, inox.Reporter) => Unit): Unit = {
     require(dir != null, "Function testAll must be called with a non-null directory string")
