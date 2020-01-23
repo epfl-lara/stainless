@@ -66,14 +66,17 @@ object ConstantPropagation {
   }
 
   sealed abstract class Expr {
-    def size: BigInt = this match {
-      case Plus(lhs, rhs) => 1 + lhs.size + rhs.size
-      case Times(lhs, rhs) => 1 + lhs.size + rhs.size
-      case FunctionCall(calleeId, args) => args.map(_.size).sum
-      case IfThenElse(cond, thenExpr, elseExpr) => 1 + cond.size + thenExpr.size + elseExpr.size
-      case _ => 1
+    def size: BigInt = {
+      this match {
+        case Plus(lhs, rhs) => 1 + lhs.size + rhs.size
+        case Times(lhs, rhs) => 1 + lhs.size + rhs.size
+        case FunctionCall(calleeId, args) => args.map(_.size).sum
+        case IfThenElse(cond, thenExpr, elseExpr) => 1 + cond.size + thenExpr.size + elseExpr.size
+        case _ => 1
+      }
     }
   }
+
   case class Times(lhs: Expr, rhs: Expr) extends Expr
   case class Plus(lhs: Expr, rhs: Expr) extends Expr
   case class BigIntLiteral(v: BigInt) extends Expr
@@ -121,6 +124,8 @@ object ConstantPropagation {
    */
   def computeSummaries(p: Program, initVals: List[(BigInt /*function id*/ , Element)], noIters: BigInt): List[(BigInt /*function id*/ , Element)] = {
     require(noIters >= 0)
+    decreases(noIters) // FIXME(measure): Wrong measure is inferred
+
     if (noIters <= 0) {
       initVals
     } else

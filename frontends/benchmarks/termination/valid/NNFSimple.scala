@@ -12,75 +12,68 @@ object NNFSimple {
   case class Not(f: Formula) extends Formula
   case class Literal(id: BigInt) extends Formula
 
-  def simplify(f: Formula): Formula = (f match {
-    case And(lhs, rhs) => And(simplify(lhs), simplify(rhs))
-    case Or(lhs, rhs) => Or(simplify(lhs), simplify(rhs))
-    case Implies(lhs, rhs) => Or(Not(simplify(lhs)), simplify(rhs))
-    case Not(f) => Not(simplify(f))
-    case Literal(_) => f
-  }) ensuring(isSimplified(_))
+  def simplify(f: Formula): Formula = {
+    f match {
+      case And(lhs, rhs) => And(simplify(lhs), simplify(rhs))
+      case Or(lhs, rhs) => Or(simplify(lhs), simplify(rhs))
+      case Implies(lhs, rhs) => Or(Not(simplify(lhs)), simplify(rhs))
+      case Not(f) => Not(simplify(f))
+      case Literal(_) => f
+    }
+  } ensuring(isSimplified(_))
 
-  def isSimplified(f: Formula): Boolean = f match {
-    case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
-    case Or(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
-    case Implies(_,_) => false
-    case Not(f) => isSimplified(f)
-    case Literal(_) => true
+  def isSimplified(f: Formula): Boolean = {
+    f match {
+      case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
+      case Or(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
+      case Implies(_,_) => false
+      case Not(f) => isSimplified(f)
+      case Literal(_) => true
+    }
   }
 
-  import stainless.math.max
-
-  // def measure(f: Formula): BigInt = f match {
-  //   case Or(lhs, rhs) =>
-  //     size(f) + max(size(lhs), size(rhs))
-  //   case Implies(lhs, rhs) =>
-  //     size(f) + size(Or(Not(lhs), rhs))
-  //   case _ => 0
-  // }
-
-  // def orImpliesMeasure: BigInt = measure(Or(Implies(Literal(0), Literal(0)), Literal(0)))
-
-  // def size(f: Formula): BigInt = {
-  //   decreases(f)
-  //   f match {
-  //     case And(lhs, rhs) => 1 + size(lhs) + size(rhs)
-  //     case Or(lhs, rhs) => 1 + size(lhs) + size(rhs)
-  //     case Implies(lhs, rhs) => 1 + size(lhs) + size(rhs)
-  //     case Not(f) => 1 + size(f)
-  //     case Literal(b) => stainless.math.abs(b)
-  //   }
-  // } ensuring { _ >= 0 }
-
-  @extern
-  def b: Boolean = true
+  // Measure used to prove termination of `nnf`
+  // Implies is given more weight than other nodes
+  def simpleNNFMeasure(formula: Formula): BigInt = {
+    formula match {
+      case And(lhs, rhs) => simpleNNFMeasure(lhs) + simpleNNFMeasure(rhs) + 1
+      case Or(lhs, rhs) => simpleNNFMeasure(lhs) + simpleNNFMeasure(rhs) + 1
+      case Implies(lhs, rhs) => simpleNNFMeasure(lhs) + simpleNNFMeasure(rhs) + 3
+      case Not(f) => simpleNNFMeasure(f) + 1
+      case Literal(_) => BigInt(0)
+    }
+  } ensuring((res: BigInt) => res >= 0)
 
   def simpleNNF(formula: Formula): Formula = {
-    // decreases(measure(formula))
+    // FIXME(measure): Wrong measure inferred in ChainProcessor
+    decreases(simpleNNFMeasure(formula))
     formula match {
-      // case Or(lhs, rhs) => Or(if (b) simpleNNF(lhs) else simpleNNF(rhs), simpleNNF(rhs))
       case Or(lhs, rhs) => Or(simpleNNF(lhs), simpleNNF(rhs))
       case Implies(lhs, rhs) => simpleNNF(Or(Not(lhs), rhs))
       case _ => formula
     }
   }
 
-  def isNNF(f: Formula): Boolean = f match {
-    case And(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
-    case Or(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
-    case Implies(lhs, rhs) => false
-    case Not(Literal(_)) => true
-    case Not(_) => false
-    case Literal(_) => true
+  def isNNF(f: Formula): Boolean = {
+    f match {
+      case And(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
+      case Or(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
+      case Implies(lhs, rhs) => false
+      case Not(Literal(_)) => true
+      case Not(_) => false
+      case Literal(_) => true
+    }
   }
 
   def evalLit(id : BigInt) : Boolean = (id == 42) // could be any function
-
-  def eval(f: Formula) : Boolean = f match {
-    case And(lhs, rhs) => eval(lhs) && eval(rhs)
-    case Or(lhs, rhs) => eval(lhs) || eval(rhs)
-    case Implies(lhs, rhs) => !eval(lhs) || eval(rhs)
-    case Not(f) => !eval(f)
-    case Literal(id) => evalLit(id)
+  def eval(f: Formula) : Boolean = {
+    f match {
+      case And(lhs, rhs) => eval(lhs) && eval(rhs)
+      case Or(lhs, rhs) => eval(lhs) || eval(rhs)
+      case Implies(lhs, rhs) => !eval(lhs) || eval(rhs)
+      case Not(f) => !eval(f)
+      case Literal(id) => evalLit(id)
+    }
   }
 
   @induct
