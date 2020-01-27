@@ -35,7 +35,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
 
-    // Fails due to bug in typechecker
+    // Considered valid due to bug in typechecker
     case "verification/invalid/Equations1"  => Ignore
     case "verification/invalid/Equations2"  => Ignore
     case "verification/invalid/Equations3"  => Ignore
