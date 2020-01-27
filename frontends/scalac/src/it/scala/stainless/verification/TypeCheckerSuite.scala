@@ -36,10 +36,10 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "verification/valid/Countable2" => Ignore
 
     // Fails due to bug in typechecker
-    case "verification/invalid/Equations1" => Ignore
-    case "verification/invalid/Equations2" => Ignore
-    case "verification/invalid/Equations3" => Ignore
-    case "verification/invalid/BadConcope" => Ignore
+    case "verification/invalid/Equations1"  => Ignore
+    case "verification/invalid/Equations2"  => Ignore
+    case "verification/invalid/Equations3"  => Ignore
+    case "verification/invalid/BadConcRope" => Ignore
 
     case _ => super.filter(ctx, name)
   }
