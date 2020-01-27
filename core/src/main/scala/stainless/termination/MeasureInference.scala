@@ -60,18 +60,22 @@ trait MeasureInference
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
+          reporter.info(s"Inferring measure for ${original.id.asString}...")
           pipeline.terminates(original)
         }
 
         val result = guarantee match {
           case pipeline.Terminates(_, Some(measure)) =>
+            reporter.info(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
             original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
 
           case pipeline.Terminates(_, None) =>
+            reporter.info(s" => No measure needed for ${original.id.asString}.")
             original
 
           case _ if exprOps.measureOf(original.fullBody).isDefined =>
+            reporter.info(s" => Function ${original.id.asString} already has a measure.")
             original
 
           case nt: pipeline.NonTerminating =>
