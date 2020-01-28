@@ -60,7 +60,7 @@ trait MeasureInference
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
-          reporter.info(s"Inferring measure for ${original.id.asString}...")
+          reporter.info(s"  - Inferring measure for ${original.id.asString}...")
           pipeline.terminates(original)
         }
 
