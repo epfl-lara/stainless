@@ -28,10 +28,6 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc"           => Ignore
 
-    // Rejected by typechecker because of ADT <=> refinement recursion due to TypeEncoding
-    case "verification/valid/LawTypeArgsElim" => Ignore
-    case "verification/valid/CovariantList"   => Ignore
-
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
 
