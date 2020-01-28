@@ -1173,15 +1173,6 @@ trait TypeChecker {
 
     val freshenedReturnType = freshener.transform(fd.returnType)
 
-    // We check that the post-condition takes the return type to booleans
-    val trPost = postOpt.fold(TyperResult.valid) { post =>
-      checkType(
-        tcWithPre,
-        post,
-        FunctionType(Seq(freshenedReturnType), BooleanType())
-      )
-    }
-
     val (measureType, trMeasure): (Option[Type], TyperResult) =
       if (measureOpt.isDefined) {
         val measure = measureOpt.get
@@ -1213,7 +1204,7 @@ trait TypeChecker {
         }
     }
 
-    (trArgs ++ trPre ++ trMeasure ++ trPost ++ trBody).root(OKFunction(id))
+    (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id))
   }
 
   def checkFunctionIsVisible(tc: TypingContext, id: Identifier, in: Expr): Unit = {
