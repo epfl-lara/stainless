@@ -30,7 +30,6 @@ class TerminationSuite extends ComponentTestSuite {
 
     // Not compatible with System FR type-checker
     case "termination/valid/Streams" => Skip
-    case "verification/valid/CovariantList" => Skip
 
     // Already correctly rejected by the type-checker
     case "termination/looping/Inconsistency5"           => Skip // ADT Object must appear only in strictly positive positions of Machine
