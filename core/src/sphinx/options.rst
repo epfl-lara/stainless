@@ -23,10 +23,6 @@ By default, ``--verification`` is chosen.
 
   Proves or disproves function contracts, as explained in the :doc:`verification` section.
 
-* ``--termination``
-
-  Runs termination analysis. Can be used along ``--verification``.
-
 * ``--eval``
 
   Evaluate parameterless functions and report their body's value and whether
@@ -51,6 +47,14 @@ These options are available to all Stainless components:
 
   Reduces the components' summaries to only the invalid elements (e.g. invalid VC).
 
+* ``--infer-measures=[yes|no|only] (default: yes)``
+
+  Infers measures for recursive functions which do not already have one.
+
+* ``--check-measures=[true|false] (default: true)``
+
+  Check termination of functions with measures, ie. whether measures decrease between recursive calls.
+
 * ``--debug=d1,d2,...``
 
   Enables printing detailed messages for the components d1,d2,... .
@@ -65,6 +69,14 @@ These options are available to all Stainless components:
   * ``trees`` (Manipulation of trees)
 
   * ``verification`` (Verification)
+
+  * ``full-vc`` (Display VCs before and after simplification)
+
+  * ``type-checker`` (Type checking of the final program for VC generation)
+
+  * ``type-checker-vcs`` (Generation of VCs by the type-checker)
+
+  * ``derivation`` (Dump typing derivations)
 
 * ``--functions=f1,f2,...``
 
