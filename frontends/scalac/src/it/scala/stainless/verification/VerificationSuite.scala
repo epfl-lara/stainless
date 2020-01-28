@@ -9,8 +9,11 @@ trait VerificationSuite extends ComponentTestSuite {
 
   val component = VerificationComponent
 
-  override def configurations = super.configurations.map {
-    seq => optFailInvalid(true) +: seq
+  override def configurations = super.configurations.map { seq =>
+    Seq(
+      optTypeChecker(false),
+      optFailInvalid(true)
+    ) ++ seq
   }
 
   override protected def optionsString(options: inox.Options): String = {

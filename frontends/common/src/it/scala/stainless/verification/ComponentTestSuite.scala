@@ -13,6 +13,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
     Seq(
+      verification.optTypeChecker(true),
       inox.optSelectedSolvers(Set("smt-z3")),
       inox.optTimeout(300.seconds),
       verification.optStrictArithmetic(false),
