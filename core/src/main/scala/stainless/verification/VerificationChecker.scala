@@ -92,26 +92,36 @@ trait VerificationChecker { self =>
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     import MainHelpers._
-    val results = Future.traverse(vcs)(vc => Future {
-      if (stop) None else {
-        val simplifiedVC: VC = (vc.copy(
-          condition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
-        ): VC).setPos(vc)
-        val sf = getFactoryForVC(vc)
-        val res = checkVC(simplifiedVC, vc, sf)
 
-        val shouldStop = stopWhen(res)
-        interruptManager.synchronized { // Make sure that we only interrupt the manager once.
-          if (shouldStop && !stop && !interruptManager.isInterrupted) {
-            stop = true
-            interruptManager.interrupt()
+    val results = Future.traverse(vcs) { vc =>
+      Future.successful {
+        if (stop) None else {
+          val simplifiedCondition = simplifyExpr(
+            simplifyLets(simplifyAssertions(vc.condition))
+          )(PurityOptions.assumeChecked)
+
+          val simplifiedVC = (vc.copy(condition = simplifiedCondition): VC).setPos(vc)
+
+          val sf = getFactoryForVC(vc)
+          val res = checkVC(simplifiedVC, vc, sf)
+
+          val shouldStop = stopWhen(res)
+
+          interruptManager.synchronized { // Make sure that we only interrupt the manager once.
+            if (shouldStop && !stop && !interruptManager.isInterrupted) {
+              stop = true
+              interruptManager.interrupt()
+            }
           }
-        }
 
-        if (interruptManager.isInterrupted) interruptManager.reset()
-        Some(vc -> res)
+          if (interruptManager.isInterrupted) {
+            interruptManager.reset()
+          }
+
+          Some(vc -> res)
+        }
       }
-    }).map(_.flatten)
+    }.map(_.flatten)
 
     results.map(initMap ++ _)
   }
