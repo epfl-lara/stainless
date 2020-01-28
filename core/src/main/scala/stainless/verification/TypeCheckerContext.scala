@@ -48,7 +48,7 @@ object TypeCheckerContext {
 
     def bindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariable(vd)
-      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, Equality(vd.toVariable,e))).setPos(this)
+      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, LetEquality(vd.toVariable,e))).setPos(this)
     }
 
     def bindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context) = {

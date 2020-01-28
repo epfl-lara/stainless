@@ -33,8 +33,8 @@ object TypeCheckerUtils {
 
   // The type { b: Boolean | b }
   object TrueBoolean {
-    def apply(name: String = "b") = {
-      val vd = ValDef.fresh(name, BooleanType())
+    def apply() = {
+      val vd = ValDef.fresh("__b", BooleanType())
       RefinementType(vd, vd.toVariable)
     }
 
@@ -52,7 +52,12 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[Expr] = t match {
-      case RefinementType(vd, e) => Some(e)
+      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
+      case _ => None
+    }
+
+    def unapply(v: Variable): Option[Expr] = v.tpe match {
+      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
       case _ => None
     }
   }
@@ -78,8 +83,15 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[(Variable, Expr)] = t match {
-      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1,e2))
+      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1, e2))
       case _ => None
+    }
+
+    def unapply(v: Variable): Option[(Variable, Expr)] = {
+      v.tpe match {
+        case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && v.id.name == letWitness => Some((e1, e2))
+        case _ => None
+      }
     }
   }
 

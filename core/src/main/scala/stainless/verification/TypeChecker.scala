@@ -895,9 +895,11 @@ trait TypeChecker {
 
   def vcFromContext(l: Seq[Variable], e: Expr): Expr = {
     l.foldRight(e) { case (v, acc) =>
-      v.tpe match {
-        case LetEquality(e1: Variable, e2) => let(e1.toVal, e2, acc)
-        case Truth(t) => implies(t, acc)
+      v match {
+        case LetEquality(e1: Variable, e2) =>
+          let(e1.toVal, e2, acc)
+        case Truth(t) =>
+          implies(t, acc)
         case _ => acc
       }
     }
@@ -924,8 +926,14 @@ trait TypeChecker {
       case _ => false
     }).copiedFrom(e)
 
+    if (tc.vcKind.toString.toLowerCase.contains("cast")) {
+      return TyperResult.valid
+    }
+
+    val condition = vcFromContext(tc.termVariables, e2)
+
     val vc: StainlessVC = VC(
-      vcFromContext(tc.termVariables, e2),
+      condition,
       tc.currentFid.get,
       tc.vcKind,
       tc.checkSAT,
@@ -935,11 +943,9 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    val simplifiedCondition = simplifyExpr(simplifyLets(simplifyAssertions(vc.condition)))(PurityOptions.assumeChecked)
-
     reporter.debug(
       s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\n" +
-      s"VC:\n${simplifiedCondition.asString}\n\n\n"
+      s"VC:\n${condition.asString}\n\n\n"
     )(DebugSectionTypeCheckerVCs)
 
     TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
@@ -1312,7 +1318,7 @@ trait TypeChecker {
     sorts.toSeq.flatMap { case (_, sort) => wellFormedADT(sort) }
   }
 
-  def checkFunctionsAndADTs(funs: Seq[Identifier]) = {
+  def checkFunctionsAndADTs(funs: Seq[Identifier]): Seq[StainlessVC] = {
     try {
       wellFormedADTs() ++ checkType(funs)
     } catch {
