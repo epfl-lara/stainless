@@ -54,6 +54,8 @@ trait MeasureInference
       }
     }
 
+    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id)
+
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
         original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
@@ -107,7 +109,7 @@ trait MeasureInference
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    if (options.findOptionOrDefault(optInferMeasures)) {
+    if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
       context.transformer.transform(context.inferMeasure(fd))
     } else {
       context.transformer.transform(fd)
