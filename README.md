@@ -1,4 +1,4 @@
-# Stainless [![Release][release-img]][latest-release] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
+# Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language.
 Supports contract-driven verification as well as termination checking of higher-order
@@ -50,6 +50,8 @@ contracts and contract-based termination checking.
 [gitter-ref]: https://gitter.im/epfl-lara/stainless
 [larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master
 [larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
+[nightly-larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master?nightly=true
+[nightly-larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
 [release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
 [tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout
 
