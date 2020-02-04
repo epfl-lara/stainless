@@ -85,6 +85,7 @@ class SMTCVC4TypeCheckerSuite extends TypeCheckerSuite {
     case "verification/valid/CovariantList" => Ignore
     case "verification/valid/Huffman" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
+    case "verification/valid/Iterables" => Ignore
     case "verification/valid/List" => Ignore
     case "verification/valid/MoreExtendedEuclidGCD" => Ignore
     case "verification/valid/MoreExtendedEuclidReachability" => Ignore

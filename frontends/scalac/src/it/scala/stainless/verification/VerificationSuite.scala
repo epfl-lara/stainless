@@ -106,6 +106,7 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
 
     // Requires map with non-default values, unsupported by CVC4
     case "verification/valid/ArraySlice" => Ignore
+    case "verification/valid/Iterables" => Ignore
 
     // These tests are too slow on CVC4 and make the regression unstable
     case "verification/valid/ConcRope" => Ignore
