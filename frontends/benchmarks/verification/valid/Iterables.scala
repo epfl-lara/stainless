@@ -40,6 +40,7 @@ object Iterables {
     assert(!res.contains(6))
   }
 
+  // See https://github.com/epfl-lara/inox/issues/109
   // def test_setWithFilter(set: Set[BigInt]) = {
   //   require((set & oneToSix) == oneToSix)
 

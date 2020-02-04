@@ -550,24 +550,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val extparams = typeParamSymbols(tdefs)
     val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
-    val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams))
-
-    val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
-      val flags = annotationsOf(param.symbol, ignoreOwner = true)
-
-      val tctx = dctx.withExtern(flags contains xt.Extern)
-      val tpe = stainlessType(param.tpe)(tctx, param.tpt.pos)
-      val ptpe = extractType(param.tpt, param.tpe)(tctx)
-
-      val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
-      val expr = param.tpt match {
-        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq()).setPos(param.tpt.pos)
-        case _ => () => vd.toVariable
-      }
-
-      (params :+ vd, dctx.withNewVar(param.symbol -> expr))
-    }
-
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -581,15 +563,34 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract)))
       else Seq())
 
+    val nctx = dctx.copy(
+      tparams = dctx.tparams ++ (extparams zip ntparams),
+      isExtern = flags contains xt.Extern,
+    )
+
+    val (newParams, fctx) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
+      val flags = annotationsOf(param.symbol, ignoreOwner = true)
+
+      val tctx = dctx.withExtern(nctx.isExtern || flags.contains(xt.Extern))
+      val tpe = stainlessType(param.tpe)(tctx, param.tpt.pos)
+      val ptpe = extractType(param.tpt, param.tpe)(tctx)
+
+      val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
+      val expr = param.tpt match {
+        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq()).setPos(param.tpt.pos)
+        case _ => () => vd.toVariable
+      }
+
+      (params :+ vd, dctx.withNewVar(param.symbol -> expr))
+    }
+
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
       val getDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.get)
       flags :+= xt.IsUnapply(getIdentifier(isEmptyDenot.symbol), getIdentifier(getDenot.symbol))
     }
 
-    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(fctx0)
-
-    val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
+    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(fctx)
 
     val (finalBody, returnType) = if (isAbstract) {
       flags :+= xt.IsAbstract
@@ -2018,6 +2019,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val sym = at.classSymbol
         val id = getIdentifier(sym)
         val tps = args map extractType
+
 
         dctx.localClasses.get(id) match {
           case Some(lcd) => extractLocalClassType(tycon, lcd.id, tps)
