@@ -24,6 +24,14 @@ object Map {
     new Map(map)
   }
 
+  @library @extern @pure
+  def mkString[A, B](map: Map[A, B], innerSep: String, outerSep: String)(fA: A => String, fB: B => String): String = {
+    map.theMap
+      .map { case (k, v) => fA(k) + innerSep + fB(v) }
+      .toList.sorted
+      .mkString(outerSep)
+  }
+
   @library
   implicit class MapOps[A, B](val map: Map[A, B]) extends AnyVal {
 
@@ -51,14 +59,6 @@ object Map {
     @extern @pure
     def toScala: ScalaMap[A, B] = {
       map.theMap
-    }
-
-    @extern @pure
-    def mkString(inkv: String, betweenkv: String)(fA: A => String, fB: B => String): String = {
-      map.theMap
-        .map { case (k, v) => fA(k) + inkv + fB(v) }
-        .toList.sorted
-        .mkString(betweenkv)
     }
   }
 }

@@ -129,7 +129,7 @@ package object lang {
 
     def unapply(b: scala.math.BigInt): scala.Option[Int] = {
       if(b >= Integer.MIN_VALUE && b <= Integer.MAX_VALUE) {
-        scala.Some(b.intValue())
+        scala.Some(b.intValue)
       } else {
         scala.None
       }
