@@ -23,6 +23,11 @@ object Set {
     new Set(set)
   }
 
+  @extern @pure @library
+  def mkString[A](set: Set[A], infix: String)(format: A => String): String = {
+    set.theSet.map(format).toList.sorted.mkString(infix)
+  }
+
   @library
   implicit class SetOps[A](val set: Set[A]) extends AnyVal {
 
