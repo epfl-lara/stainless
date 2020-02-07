@@ -54,7 +54,7 @@ trait MeasureInference
       }
     }
 
-    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id)
+    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
