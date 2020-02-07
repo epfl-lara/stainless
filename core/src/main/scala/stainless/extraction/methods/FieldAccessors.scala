@@ -33,7 +33,7 @@ trait FieldAccessors extends oo.CachingPhase
       case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
         val tfd = symbols.getFunction(id, tps)
         transform(s.exprOps.freshenLocals(
-          s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody)))
+          s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody))).setPos(e)
       case other => super.transform(other)
     }
 
