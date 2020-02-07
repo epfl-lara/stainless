@@ -1,12 +1,36 @@
 
 # Release Notes
 
+## Version 0.7.0 (07-02-2020)
+
+### Features
+
+- Enable `--type-checker` by default (#721)
+- Rework the termination checker to infer measures for recursive functions (#721)
+
+### Improvements
+
+- Relax mutual recursion check for functions/ADTs enough for TypeEncoding (#721)
+- Add `List#toScala` and `List.fromScala` to the library (#708)
+- Add methods `map`, `withFilter`, `toList`, and `toScala` to `Set` (#708)
+- Add methods `keys`, `values`, `toList` and `toScala` to `Map` (#708)
+
+### Bug fixes
+
+- Add missing position in `FieldAccessors` phase (#734)
+- Fix extraction of extern types with Dotty frontend (#708)
+
 ## Version 0.6.2 (16-01-2020)
+
+### Improvements
 
 - Ensures invariants of ancestors cannot be weakened
 - Limit parallelism when running stainless-actors tests
-- Fix broken benchmark in TypeCheckerSuite
 - Update Docker packaging script
+
+### Bug fixes
+
+- Fix broken benchmark in TypeCheckerSuite
 
 ## Version 0.6.1 (13-11-2019)
 
