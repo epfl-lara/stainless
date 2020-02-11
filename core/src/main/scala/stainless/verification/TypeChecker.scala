@@ -602,7 +602,12 @@ trait TypeChecker {
           case _ => throw new TypeCheckingException(e, s"Cannot use tuple selection on type ${tpe.asString}")
         }
 
-      case _: MatchExpr => inferType(tc, matchToIfThenElse(e, false))
+      case m: MatchExpr =>
+        val (tpe, tr) = inferType(tc, matchToIfThenElse(e, true))
+        val me = orJoin(m.cases.map(matchCaseCondition[Path](m.scrutinee, _).toClause))
+        val mr = buildVC(tc.withVCKind(VCKind.ExhaustiveMatch).setPos(m), me)
+
+        (tpe, tr ++ mr)
 
       case IfExpr(b, e1, e2) =>
         val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
@@ -1003,7 +1008,12 @@ trait TypeChecker {
         checkType(tc.setPos(value), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
-      case (_: MatchExpr, _) => checkType(tc, matchToIfThenElse(e, false), tpe)
+      case (m: MatchExpr, _) =>
+        val tr = checkType(tc, matchToIfThenElse(e, true), tpe)
+        val me = orJoin(m.cases.map(matchCaseCondition[Path](m.scrutinee, _).toClause))
+        val mr = buildVC(tc.withVCKind(VCKind.ExhaustiveMatch).setPos(m), me)
+
+        tr ++ mr
 
       case (IfExpr(b, e1, e2), _) =>
         checkType(tc.setPos(b), b, BooleanType()) ++
