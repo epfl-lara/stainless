@@ -1024,6 +1024,11 @@ trait TypeChecker {
         checkType(tc.setPos(value), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
+      case (Assert(cond, optErr, body), _) =>
+        val kind = VCKind.fromErr(optErr)
+        checkType(tc.withVCKind(kind).setPos(cond), cond, TrueBoolean()) ++
+        checkType(tc.withTruth(cond), body, tpe)
+
       case (m: MatchExpr, _) =>
         val tr = checkType(tc, matchToIfThenElse(e, true), tpe)
         val me = orJoin(m.cases.map(matchCaseCondition[Path](m.scrutinee, _).toClause))
