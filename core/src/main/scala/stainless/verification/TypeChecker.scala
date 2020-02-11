@@ -1262,7 +1262,10 @@ trait TypeChecker {
 
   def checkHasMeasure(fd: FunDef) = {
     if (checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty) {
-      reporter.warning(fd.getPos, s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined).")
+      throw new TypeCheckingException(
+        fd.fullBody,
+        s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined)."
+      )
     }
   }
 
