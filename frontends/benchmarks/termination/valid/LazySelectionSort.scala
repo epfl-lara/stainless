@@ -31,9 +31,10 @@ object LazySelectionSort {
             else Cons(y, Cons(x, ys))
         }
     }
-  }
+  } ensuring(res => res.size <= l.size)
 
   def sort(l: List[BigInt]): LList = {
+    decreases(l.size)
     pullMin(l) match {
       case Cons(x, xs) =>
         // here, x is the minimum
@@ -45,6 +46,7 @@ object LazySelectionSort {
 
   // a lazy concat method
   def concat(l1: List[BigInt], l2: LList) : LList = {
+    decreases(l1)
     l1 match {
       case Cons(x, xs) => SCons(x, Stream(() => concat(xs, l2)))
       case Nil() => SNil()
