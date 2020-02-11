@@ -23,7 +23,7 @@ git clone https://github.com/epfl-lara/stainless-actors
 
 cd stainless-actors || exit 1
 
-$SED -i "s/StainlessVersion = \".*\"/StainlessVersion = \"$STAINLESS_VERSION\"/" project/plugins.sbt || exit 1
+$SED -i "s#StainlessVersion = \".*\"#StainlessVersion = \"$STAINLESS_VERSION\"#" project/plugins.sbt || exit 1
 
 ACTOR_EXAMPLES="counter leader-election kvs"
 
