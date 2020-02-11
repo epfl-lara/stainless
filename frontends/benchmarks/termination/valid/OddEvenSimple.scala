@@ -7,7 +7,6 @@ object OddEvenSimple {
 
   def isOdd(n: BigInt): Boolean = {
     require(n >= 0)
-    decreases(abs(n))
     if(n == 0) false
     else isEven(n-1)
   }
@@ -26,7 +25,6 @@ object OddEvenSimple {
 
   def isEven2(n: BigInt): Boolean = {
     require(n >= 0)
-    decreases(abs(n))
     if(n == 0) true
     else !isOdd2(n)
   }
