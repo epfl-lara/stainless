@@ -599,7 +599,9 @@ trait TypeChecker {
             val returnType = (from.map(_.tpe) :+ to).toSeq(i-1)
             val previousElements = (1 to i-1).toSeq.map(j => TupleSelect(p,j))
             (insertFreshLets(binders, previousElements, returnType), vcs)
-          case _ => throw new TypeCheckingException(e, s"Cannot use tuple selection on type ${tpe.asString}")
+          case _ => throw new TypeCheckingException(e,
+            s"${tc0.currentFid.map(fid => "(In function " + fid + ")").mkString} Cannot use tuple selection on type ${tpe.asString} with index $i"
+          )
         }
 
       case m: MatchExpr =>
