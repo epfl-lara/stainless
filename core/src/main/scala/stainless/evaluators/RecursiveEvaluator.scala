@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package evaluators
@@ -66,6 +66,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
       case FiniteArray(elems, _) => Int32Literal(elems.size)
       case LargeArray(_, _, s, _) => s
     }
+
+    case m: Max =>
+      e(maxToIfThenElse(m))
 
     case Error(tpe, msg) =>
       throw RuntimeError("Error reached in evaluation: " + msg)

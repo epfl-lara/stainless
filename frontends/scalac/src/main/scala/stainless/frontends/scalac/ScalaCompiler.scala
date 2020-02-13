@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -50,11 +50,12 @@ class SymbolMapping {
     ignoredClasses contains name
   }
 
-  def topmostAncestor(sym: Global#Symbol): Global#Symbol =
-    if (sym.overrideChain.nonEmpty)
-      sym.overrideChain.filterNot(s => isIgnored(s.owner)).last
-    else
-      sym
+  def topmostAncestor(sym: Global#Symbol): Global#Symbol = {
+    sym.overrideChain
+      .filterNot(s => isIgnored(s.owner))
+      .lastOption
+      .getOrElse(sym)
+  }
 
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Global#Symbol): SymbolIdentifier = {
@@ -141,7 +142,7 @@ object ScalaCompiler {
         var underlying: ScalaCompiler#Run = _
         val cache = SymbolMapping.empty
 
-        val args = allCompilerArguments(compilerArgs)
+        val args = allCompilerArguments(ctx, compilerArgs)
         val settings = buildSettings(ctx)
 
         override val sources = getFiles(args, ctx, settings)

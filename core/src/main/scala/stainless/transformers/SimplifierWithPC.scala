@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package transformers
@@ -11,6 +11,12 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
   implicit val pp: PathProvider[Env]
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
+    case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), Seq(Unchecked)), b) =>
+      simplify(exprOps.replaceFromSymbols(Map(vd -> a), b), path)
+
+    case Let(vd, cs @ ADTSelector(v: Variable, _), b) =>
+      simplify(exprOps.replaceFromSymbols(Map(vd -> cs), b), path)
+
     case Assert(pred, oerr, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (BooleanLiteral(false), true) =>

@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -36,7 +36,8 @@ trait CodeExtraction extends ASTExtractors {
     SerializableClass.tpe,
     JavaSerializableClass.tpe,
     ProductRootClass.tpe,
-    AnyRefClass.tpe
+    AnyRefClass.tpe,
+    AnyValClass.tpe,
   )
 
   /** Extract the classes and functions from the given compilation unit. */
@@ -122,6 +123,7 @@ trait CodeExtraction extends ASTExtractors {
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
     isExtern: Boolean = false,
     resolveTypes: Boolean = false,
+    wrappingArithmetic: Boolean = false,
   ){
     def union(that: DefContext) = {
       copy(this.tparams ++ that.tparams,
@@ -130,7 +132,8 @@ trait CodeExtraction extends ASTExtractors {
            this.localFuns ++ that.localFuns,
            this.localClasses ++ that.localClasses,
            this.isExtern || that.isExtern,
-           this.resolveTypes || that.resolveTypes)
+           this.resolveTypes || that.resolveTypes,
+           this.wrappingArithmetic || that.wrappingArithmetic)
     }
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
@@ -165,6 +168,10 @@ trait CodeExtraction extends ASTExtractors {
 
     def setResolveTypes(resolveTypes: Boolean) = {
       copy(resolveTypes = resolveTypes)
+    }
+
+    def setWrappingArithmetic(wrappingArithmetic: Boolean) = {
+      copy(wrappingArithmetic = wrappingArithmetic)
     }
   }
 
@@ -344,8 +351,11 @@ trait CodeExtraction extends ASTExtractors {
     val sym = cd.symbol
     val id = getIdentifier(sym.moduleClass.orElse(sym))
 
+    val isValueClass = cd.impl.parents.map(_.tpe).exists(_ == AnyValClass.tpe)
+
     val annots = annotationsOf(sym)
     val flags = annots ++
+      (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (sym.isAbstractClass) Some(xt.IsAbstract) else None) ++
       (if (sym.isSealed) Some(xt.IsSealed) else None) ++
       (if (sym.tpe.typeSymbol.isModuleClass && sym.isCase) Some(xt.IsCaseObject) else None)
@@ -1057,6 +1067,10 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
       }
 
+    case ExWrapping(tree) =>
+      val body = extractTree(tree)(dctx.setWrappingArithmetic(true))
+      xt.Annotated(body, Seq(xt.Wrapping))
+
     case ExRealLiteral(n, d) =>
       (extractTree(n), extractTree(d)) match {
         case (xt.IntegerLiteral(n), xt.IntegerLiteral(d)) => xt.FractionLiteral(n, d)
@@ -1383,7 +1397,7 @@ trait CodeExtraction extends ASTExtractors {
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
                 xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
-                Seq()
+                Seq.empty
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
@@ -1406,6 +1420,15 @@ trait CodeExtraction extends ASTExtractors {
               ).setPos(tr.pos)
             )
 
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "removed" | "-", Seq(key)) =>
+            xt.MapUpdated(
+              extractTree(lhs), extractTree(key),
+              xt.ClassConstructor(
+                xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                Seq.empty
+              ).setPos(tr.pos)
+            )
+
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "++", Seq(rhs)) =>
             extractTree(rhs) match {
               case xt.FiniteMap(pairs,  default, keyType, valueType) =>
@@ -1414,6 +1437,21 @@ trait CodeExtraction extends ASTExtractors {
                 }
 
               case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
+            }
+
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "--", Seq(rhs)) =>
+            extractTree(rhs) match {
+              case xt.FiniteSet(els, _) =>
+                val none = xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                  Seq.empty
+                ).setPos(tr.pos)
+
+                els.foldLeft(extractTree(lhs)) { case (map, k) =>
+                  xt.MapUpdated(map, k, none).setPos(tr.pos)
+                }
+
+              case _ => outOfSubsetError(tr, "Can't extract map diff with non-finite map")
             }
 
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "getOrElse", Seq(key, orElse)) =>

@@ -1,7 +1,9 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
+
+import stainless.termination.TerminationReport
 
 import scala.reflect._
 import scala.collection.mutable.{Map => MutableMap}
@@ -12,6 +14,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   // TODO: Move Erasable to Inox?
   case object Erasable extends Flag("erasable", Seq.empty)
   case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
+
   case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
   case object Opaque extends Flag("opaque", Seq.empty)
@@ -21,9 +24,13 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Library extends Flag("library", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
+  case object Wrapping extends Flag("wrapping", Seq.empty)
+
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
+
+  case class TerminationStatus(status: TerminationReport.Status) extends Flag("termination", Seq(status))
 
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law
@@ -35,6 +42,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("unchecked", Seq()) => Unchecked
     case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
+    case ("wrapping", Seq()) => Wrapping
     case _ => Annotation(name, args)
   }
 

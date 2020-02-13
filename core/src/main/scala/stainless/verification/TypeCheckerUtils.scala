@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -12,6 +12,13 @@ object TypeCheckerUtils {
 
   class TypeCheckingException(val tree: inox.ast.Trees#Tree, val msg: String)
     extends Exception(msg)
+
+  object UncheckedExpr {
+    def unapply(e: Expr): Option[Expr] = e match {
+      case Annotated(body, flags) if flags contains Unchecked => Some(body)
+      case _ => None
+    }
+  }
 
   // The type Top as an abstraction for `ValueType(_)` which ignores the
   // underlying type, arbitrarily set to `UnitType` here
@@ -45,7 +52,12 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[Expr] = t match {
-      case RefinementType(vd, e) => Some(e)
+      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
+      case _ => None
+    }
+
+    def unapply(v: Variable): Option[Expr] = v.tpe match {
+      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
       case _ => None
     }
   }
@@ -71,8 +83,15 @@ object TypeCheckerUtils {
     }
 
     def unapply(t: Type): Option[(Variable, Expr)] = t match {
-      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1,e2))
+      case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && vd.id.name == letWitness => Some((e1, e2))
       case _ => None
+    }
+
+    def unapply(v: Variable): Option[(Variable, Expr)] = {
+      v.tpe match {
+        case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && v.id.name == letWitness => Some((e1, e2))
+        case _ => None
+      }
     }
   }
 

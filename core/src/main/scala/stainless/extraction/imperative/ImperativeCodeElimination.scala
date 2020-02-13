@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -24,6 +24,7 @@ trait ImperativeCodeElimination
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
     import symbols._
     import exprOps._
+    import exprOps.{ replaceKeepPositions => replace }
 
     /* varsInScope refers to variable declared in the same level scope.
      * Typically, when entering a nested function body, the scope should be
@@ -95,7 +96,7 @@ trait ImperativeCodeElimination
           val (scrutRes, scrutScope, scrutFun) = toFunction(scrut)
 
           val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq
-          val res = ValDef.fresh("res", m.getType)
+          val res = ValDef.fresh("res", m.getType).setPos(m)
           val freshVars = modifiedVars.map(_.freshen)
           val matchType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
 
@@ -104,7 +105,7 @@ trait ImperativeCodeElimination
           }
 
           val newRhs = csesVals.zip(csesScope).map {
-            case (cVal, cScope) => replaceFromSymbols(scrutFun, cScope(cVal))
+            case (cVal, cScope) => replace(scrutFun, cScope(cVal))
           }
 
           val matchE = MatchExpr(scrutRes, cses.zip(newRhs).map {

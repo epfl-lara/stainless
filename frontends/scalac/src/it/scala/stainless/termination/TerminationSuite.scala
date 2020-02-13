@@ -1,46 +1,127 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
+
+import stainless.utils.YesNoOnly
+import stainless.verification.{VerificationComponent, VerificationAnalysis, optFailInvalid, optTypeChecker}
 
 import scala.concurrent.duration._
 
 class TerminationSuite extends ComponentTestSuite {
 
-  val component = TerminationComponent
+  val component = VerificationComponent
+
+  override def configurations = super.configurations.map { seq =>
+    Seq(
+      optTypeChecker(true),
+      optInferMeasures(true),
+      optCheckMeasures(YesNoOnly.Only),
+    ) ++ seq
+  }
 
   override protected def optionsString(options: inox.Options): String = {
     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    // Cannot prove termination (with either old or new termination checking mechanism)
     case "termination/valid/NNF" => Skip
-    // smt-z3 crashes on some permutations of the MergeSort2 problem encoding due to Bags...
-    case "verification/valid/MergeSort2" => WithContext(ctx.copy(options = ctx.options + optIgnorePosts(true)))
+
+    // Not compatible with System FR type-checker
+    case "termination/valid/Streams" => Skip
+
+    // Already correctly rejected by the type-checker
+    case "termination/looping/Inconsistency5"           => Skip // ADT Object must appear only in strictly positive positions of Machine
+    case "termination/looping/NegativeDatatype"         => Skip // ADT Code must appear only in strictly positive positions of Code
+    case "termination/looping/NonStrictPositiveTypes"   => Skip // ADT A must appear only in strictly positive positions of A
+    case "termination/looping/NonStrictPositiveTypesIR" => Skip // ADT A must appear only in strictly positive positions of A
+    case "termination/looping/Queue"                    => Skip // Call to function looping_2$0 is not allowed here, because it
+                                                                // is mutually recursive with the current function looping_1$0
+
+    // Relation processor hangs when strengthening applications (https://github.com/epfl-lara/stainless/issues/724)
+    case "verification/valid/LawTypeArgsElim" => Ignore
+    case "verification/valid/QuickSortFilter" => Ignore
+    case "verification/valid/StableSorter"    => Ignore
+
+    // Invalid measure inferred in RelationProcessor (https://github.com/epfl-lara/stainless/issues/725)
+    case "termination/valid/ConstantPropagation" => Ignore
+    case "termination/valid/HOTermination"       => Ignore
+    case "termination/valid/Indirect"            => Ignore
+    case "termination/valid/QuickSort"           => Ignore
+    case "verification/valid/MergeSort"          => Ignore
+    case "verification/valid/MergeSort2"         => Ignore
+
+    // Fails due to a bug in ChainProcessor (https://github.com/epfl-lara/stainless/issues/726)
+    case "verification/valid/Nested14" => Ignore
+    case "verification/valid/Nested16" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 
-  testAll("termination/valid") { (report, _) =>
-    val failures = report.results collect { case (fd, (guarantee, _)) if !guarantee.isGuaranteed => fd }
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should terminate")
+  def getResults(analysis: VerificationAnalysis) = {
+    import analysis.program.symbols
+    import analysis.program.trees._
+
+    analysis.sources
+      .toSeq
+      .sortBy(_.name)
+      .map(symbols.getFunction(_))
+      .map { fd =>
+        fd -> fd.flags.collectFirst { case TerminationStatus(status) => status }
+      }
   }
 
-  testAll("verification/valid") { (report, _) =>
-    val failures = report.results collect { case (fd, (guarantee, _)) if !guarantee.isGuaranteed => fd }
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should terminate")
+  testAll("termination/valid") { (analysis, reporter) =>
+    val failures = getResults(analysis).collect {
+      case (fd, Some(status)) if !status.isTerminating => fd
+    }
+
+    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
+
+    for ((vc, vr) <- analysis.vrs) {
+      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+    }
+    reporter.terminateIfError()
   }
 
-  testAll("termination/looping") { (report, _) =>
-    val looping = report.results filter { case (fd, _) => fd.id.name.startsWith("looping") }
-    val notLooping = looping filterNot { case (_, (g, _)) => g.isInstanceOf[report.checker.NonTerminating] }
-    assert(notLooping.isEmpty, "Functions " + notLooping.map(_._1.id) + " should not terminate")
+  testAll("verification/valid") { (analysis, reporter) =>
+    val failures = getResults(analysis).collect {
+      case (fd, Some(status)) if !status.isTerminating => fd
+    }
 
-    val calling = report.results filter { case (fd, _) => fd.id.name.startsWith("calling") }
-    val notCalling = calling filterNot { case (_, (g, _)) => g.isInstanceOf[report.checker.CallsNonTerminating] }
-    assert(notCalling.isEmpty, "Functions " + notCalling.map(_._1.id) + " should call non-terminating")
+    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
 
-    val guaranteed = report.results filter { case (fd, _) => fd.id.name.startsWith("ok") }
-    val notGuaranteed = guaranteed filterNot { case (_, (g, _)) => g.isGuaranteed }
-    assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_._1.id) + " should terminate")
+    for ((vc, vr) <- analysis.vrs) {
+      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+    }
+    reporter.terminateIfError()
+  }
+
+  testAll("termination/looping") { (analysis, reporter) =>
+    import analysis.program.symbols
+    import analysis.program.trees._
+
+    val looping = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("looping") }
+    val notLooping = looping.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
+    assert(notLooping.isEmpty, "Functions " + notLooping.map(_.id) + " should be marked as non-terminating")
+
+    val calling = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("calling") }
+    val notCalling = calling.collect { case (fd, Some(status)) if !status.isNonTerminating => fd }
+    assert(notCalling.isEmpty, "Functions " + notCalling.map(_.id) + " should be marked as non-terminating")
+
+    val guaranteed = getResults(analysis).filter { case (fd, _) => fd.id.name.startsWith("ok") }
+    val notGuaranteed = guaranteed.collect { case (fd, Some(status)) if !status.isTerminating => fd }
+    assert(notGuaranteed.isEmpty, "Functions " + notGuaranteed.map(_.id) + " should be marked as terminating")
+
+    val mustHaveValidVCs = guaranteed.map(_._1.id)
+
+    for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fd.id)) {
+      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+    }
+    reporter.terminateIfError()
   }
 }

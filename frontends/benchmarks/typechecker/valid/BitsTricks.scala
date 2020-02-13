@@ -1,7 +1,7 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
-import stainless.annotation._
 import stainless.lang._
+import stainless.annotation._
 
 object BitsTricks {
 
@@ -47,19 +47,6 @@ object BitsTricks {
     x ^ y ^ x
   } ensuring(res => res == y)
 
-  def turnOffRightmostOneRec(x: Int, indexFromLeft: Int): Int = {
-    require(0 <= indexFromLeft && indexFromLeft < 32)
-    decreases(indexFromLeft)
-    if(bitAt(x, 31 - indexFromLeft)) toggleBitN(x, 31 - indexFromLeft)//(x ^ (1 << (31 - indexFromLeft)))
-    else if(indexFromLeft == 0) x
-    else turnOffRightmostOneRec(x, indexFromLeft - 1)
-  }
-
-  // proves in 10s
-  def turnOffRightmostOne(x: Int): Int = {
-    x & (x - 1)
-  } //ensuring(_ == turnOffRightmostOneRec(x, 31))
-
   // 010100 -> 010111
   def rightPropagateRightmostOne(x: Int): Int = {
     x | (x - 1)
@@ -77,13 +64,6 @@ object BitsTricks {
     if (i == 0) isOk else isOk && isRotationLeft(x, y, n, i-1)
   }
 
-  //rotateLeft proves in 1 minute (on very powerful computer)
-  def rotateLeft(x: Int, n: Int): Int = {
-    require(n >= 0 && n < 32)
-    val front = x >>> (32 - n)
-    (x << n) | front
-  } //ensuring(res => isRotationLeft(x, res, n, 31))
-
   //careful with overflows, case definition, truncated
   def safeMean(x: Int, y: Int): Int = {
     if(x >= 0 && y <= 0 || x <= 0 && y >= 0) (x + y)/2
@@ -92,12 +72,5 @@ object BitsTricks {
     else if(x <= 0 && x <= y) y + (x - y)/2
     else x + (y - x)/2
   }
-
-  //proves in 45 seconds
-  def magicMean(x: Int, y: Int): Int = {
-    val t = (x&y)+((x^y) >> 1)
-    t + ((t >>> 31) & (x ^ y))
-  } //ensuring(res => res == safeMean(x, y))
-
 
 }

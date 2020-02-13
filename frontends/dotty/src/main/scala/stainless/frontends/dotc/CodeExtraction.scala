@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.dotc
@@ -73,7 +73,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     localClasses: Map[Identifier, xt.LocalClassDef] = Map(),
     depParams: Map[TermName, xt.ValDef] = Map(),
     isExtern: Boolean = false,
-    resolveTypes: Boolean = false
+    resolveTypes: Boolean = false,
+    wrappingArithmetic: Boolean = false,
   ) {
     def union(that: DefContext) = {
       copy(
@@ -84,7 +85,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         this.localClasses ++ that.localClasses,
         this.depParams ++ that.depParams,
         this.isExtern || that.isExtern,
-        this.resolveTypes || that.resolveTypes
+        this.resolveTypes || that.resolveTypes,
+        this.wrappingArithmetic || that.wrappingArithmetic,
       )
     }
 
@@ -128,6 +130,14 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
     def setResolveTypes(resolveTypes: Boolean) = {
       copy(resolveTypes = resolveTypes)
+    }
+
+    def setWrappingArithmetic(wrappingArithmetic: Boolean) = {
+      copy(wrappingArithmetic = wrappingArithmetic)
+    }
+
+    def withExtern(extern: Boolean) = {
+      copy(isExtern = isExtern || extern)
     }
   }
 
@@ -334,6 +344,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   }
 
   private def isValidParentType(parent: Type, inLibrary: Boolean = false): Boolean = parent match {
+    case tpe if tpe.typeSymbol == defn.AnyClass => false
+    case tpe if tpe.typeSymbol == defn.AnyValClass => false
     case tpe if tpe.typeSymbol == defn.ObjectClass => false
     case tpe if tpe.typeSymbol == defn.ThrowableClass && inLibrary => false
     // case tpe if tpe.typeSymbol == defn.EnumClass => false
@@ -350,14 +362,16 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
   private def extractClass(td: tpd.TypeDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef], Seq[xt.TypeDef]) = {
     val sym = td.symbol
     val id = getIdentifier(sym)
+    val template = td.rhs.asInstanceOf[tpd.Template]
+
+    val isValueClass = template.parents.exists(_.tpe.typeSymbol == defn.AnyValClass)
 
     val annots = annotationsOf(sym)
     val flags = annots ++
+      (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if ((sym is Abstract) || (sym is Trait)) Some(xt.IsAbstract) else None) ++
       (if (sym is Sealed) Some(xt.IsSealed) else None) ++
       (if ((sym is ModuleClass) && (sym is Case)) Some(xt.IsCaseObject) else None)
-
-    val template = td.rhs.asInstanceOf[tpd.Template]
 
     val extparams = extractTypeParams(sym.asClass.typeParams)(DefContext())
     val defCtx = dctx.copy(tparams = dctx.tparams ++ (sym.asClass.typeParams zip extparams))
@@ -450,6 +464,9 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case td @ TypeDef(_, _) if td.symbol is Param =>
         // ignore
 
+      case cd @ ExClassDef() =>
+        outOfSubsetError(cd.pos, "Classes can only be defined at the top-level, within objects, or within methods")
+
       // Class invariants
       case ExRequire(body, isStatic) =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
@@ -533,22 +550,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     val extparams = typeParamSymbols(tdefs)
     val ntparams = typeParams.getOrElse(extractTypeParams(extparams))
 
-    val nctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams))
-
-    val (newParams, fctx0) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
-      val tpe = stainlessType(param.tpe)(dctx, param.tpt.pos)
-      val ptpe = extractType(param.tpt, param.tpe)(dctx)
-
-      val flags = annotationsOf(param.symbol, ignoreOwner = true)
-      val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
-      val expr = param.tpt match {
-        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq()).setPos(param.tpt.pos)
-        case _ => () => vd.toVariable
-      }
-
-      (params :+ vd, dctx.withNewVar(param.symbol -> expr))
-    }
-
     val isAbstract = rhs == tpd.EmptyTree
 
     var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
@@ -562,15 +563,34 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         Seq(xt.IsAccessor(Option(getIdentifier(sym.underlyingSymbol)).filterNot(_ => isAbstract)))
       else Seq())
 
+    val nctx = dctx.copy(
+      tparams = dctx.tparams ++ (extparams zip ntparams),
+      isExtern = flags contains xt.Extern,
+    )
+
+    val (newParams, fctx) = vdefs.foldLeft((Seq.empty[xt.ValDef], nctx)) { case ((params, dctx), param) =>
+      val flags = annotationsOf(param.symbol, ignoreOwner = true)
+
+      val tctx = dctx.withExtern(nctx.isExtern || flags.contains(xt.Extern))
+      val tpe = stainlessType(param.tpe)(tctx, param.tpt.pos)
+      val ptpe = extractType(param.tpt, param.tpe)(tctx)
+
+      val vd = xt.ValDef(getIdentifier(param.symbol), ptpe, flags).setPos(param.pos)
+      val expr = param.tpt match {
+        case ByNameTypeTree(_) => () => xt.Application(vd.toVariable, Seq()).setPos(param.tpt.pos)
+        case _ => () => vd.toVariable
+      }
+
+      (params :+ vd, dctx.withNewVar(param.symbol -> expr))
+    }
+
     if (sym.name == nme.unapply) {
       val isEmptyDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.isEmpty)
       val getDenot = typer.Applications.extractorMember(sym.info.finalResultType, nme.get)
       flags :+= xt.IsUnapply(getIdentifier(isEmptyDenot.symbol), getIdentifier(getDenot.symbol))
     }
 
-    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(fctx0)
-
-    val fctx = fctx0.copy(isExtern = fctx0.isExtern || (flags contains xt.Extern))
+    lazy val retType = extractType(tree.tpt, sym.info.finalResultType)(fctx)
 
     val (finalBody, returnType) = if (isAbstract) {
       flags :+= xt.IsAbstract
@@ -1016,7 +1036,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       xt.Throw(extractTree(arg))
 
     case Ident(_) if tr.tpe.signature.resSig.toString startsWith "scala.collection.immutable.Nil" =>
-      outOfSubsetError(tr.pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported List operations.")
+      outOfSubsetError(tr.pos, "Scala's List API is not directly supported, please use `stainless.lang.collection.List that defines supported List operations.")
 
     case ExIdentity(body) =>
       extractTree(body)
@@ -1107,6 +1127,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       val rc = cases.map(extractMatchCase)
 
       xt.Passes(ine, oute, rc)
+
+    case ExError(str, tpt) => xt.Error(extractType(tpt), str)
 
     case ExOld(e) => xt.Old(extractTree(e))
 
@@ -1213,6 +1235,10 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
       case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
     }
+
+    case ExWrapping(tree) =>
+      val body = extractTree(tree)(dctx.setWrappingArithmetic(true))
+      xt.Annotated(body, Seq(xt.Wrapping))
 
     case ExRealLiteral(args) => args.map(extractTree) match {
       case Seq(xt.IntegerLiteral(n), xt.IntegerLiteral(d)) => xt.FractionLiteral(n, d)
@@ -1559,7 +1585,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
               xt.MapApply(extractTree(lhs), extractTree(rhs)).setPos(tr.pos),
               xt.ClassConstructor(
                 xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
-                Seq()
+                Seq.empty
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
@@ -1582,6 +1608,15 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
               ).setPos(tr.pos)
             ).setPos(tr.pos))
 
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "removed" | "-", Seq(key)) =>
+            xt.MapUpdated(
+              extractTree(lhs), extractTree(key),
+              xt.ClassConstructor(
+                xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                Seq.empty
+              ).setPos(tr.pos)
+            )
+
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "++", Seq(rhs)) =>
             extractTree(rhs) match {
               case xt.FiniteMap(pairs, default, keyType, valueType) =>
@@ -1591,6 +1626,22 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
               case _ => outOfSubsetError(tr, "Can't extract map union with non-finite map")
             }
+
+          case (xt.MapType(_, xt.ClassType(_, Seq(to))), "--", Seq(rhs)) =>
+            extractTree(rhs) match {
+              case xt.FiniteSet(els, _) =>
+                val none = xt.ClassConstructor(
+                  xt.ClassType(getIdentifier(noneSymbol), Seq(to)).setPos(tr.pos),
+                  Seq.empty
+                ).setPos(tr.pos)
+
+                els.foldLeft(extractTree(lhs)) { case (map, k) =>
+                  xt.MapUpdated(map, k, none).setPos(tr.pos)
+                }
+
+              case _ => outOfSubsetError(tr, "Can't extract map diff with non-finite map")
+            }
+
 
           case (xt.MapType(_, xt.ClassType(_, Seq(to))), "getOrElse", Seq(key, orElse)) =>
             xt.MethodInvocation(
@@ -1867,20 +1918,20 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
           case (tp @ xt.NAryType(tps, _), _) => tps(idx)
         }
 
-      case AppliedType(tr: TypeRef, _) if isScalaSetSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
-      case tr: TypeRef if isScalaSetSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's Set API is no longer extracted. Make sure you import stainless.lang.Set that defines supported Set operations.")
+      case AppliedType(tr: TypeRef, _) if !dctx.isExtern && isScalaSetSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Set API is not directly supported, please use `stainless.lang.Set` instead.")
+      case tr: TypeRef if !dctx.isExtern && isScalaSetSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Set API is not directly supported, please use `stainless.lang.Set` instead.")
 
-      case AppliedType(tr: TypeRef, _) if isScalaListSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
-      case tr: TypeRef if isScalaListSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's List API is no longer extracted. Make sure you import stainless.lang.collection.List that defines supported Map operations.")
+      case AppliedType(tr: TypeRef, _) if !dctx.isExtern && isScalaListSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's List API is not directly supported, please use `stainless.lang.collection.List` instead.")
+      case tr: TypeRef if !dctx.isExtern && isScalaListSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's List API is not directly supported, please use `stainless.lang.collection.List` instead.")
 
-      case AppliedType(tr: TypeRef, _) if isScalaMapSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
-      case tr: TypeRef if isScalaMapSym(tr.symbol) =>
-        outOfSubsetError(pos, "Scala's Map API is no longer extracted. Make sure you import stainless.lang.Map that defines supported Map operations.")
+      case AppliedType(tr: TypeRef, _) if !dctx.isExtern && isScalaMapSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Map API is not directly supported, please use `stainless.lang.Map` instead.")
+      case tr: TypeRef if !dctx.isExtern && isScalaMapSym(tr.symbol) =>
+        outOfSubsetError(pos, "Scala's Map API is not directly supported, please use `stainless.lang.Map` instead.")
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         xt.SetType(extractType(tp))
@@ -1968,6 +2019,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val sym = at.classSymbol
         val id = getIdentifier(sym)
         val tps = args map extractType
+
 
         dctx.localClasses.get(id) match {
           case Some(lcd) => extractLocalClassType(tycon, lcd.id, tps)

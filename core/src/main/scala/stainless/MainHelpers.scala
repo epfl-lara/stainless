@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 
@@ -41,10 +41,11 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optStrictArithmetic -> Description(Verification,
       s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
     verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
+    termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
+    termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
-    termination.optIgnorePosts -> Description(Termination, "Ignore existing postconditions during strengthening"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
@@ -52,6 +53,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),
+    frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
+    frontend.optExtraResolvers -> Description(General, "Extra resolvers to use to fetch extra source dependencies"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
@@ -77,6 +80,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
     frontend.DebugSectionRecovery,
+    frontend.DebugSectionExtraDeps,
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
@@ -107,17 +111,12 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
-    val optKeys = self.options.keys.toSeq
-    configFile match {
-      case OptionOrDefault.Some(file) => Configuration.parse(file, optKeys)
-      case OptionOrDefault.Default    => Configuration.parseDefault(optKeys)
-      case OptionOrDefault.None       => Configuration.empty
-    }
+  def getConfigOptions(options: inox.Options)(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+    Configuration.get(options, self.options.keys.toSeq)
   }
 
-  def getConfigContext(configFile: OptionOrDefault[File])(implicit initReporter: inox.Reporter): inox.Context = {
-    val ctx = super.processOptions(Seq.empty, getConfigOptions(configFile))
+  def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
+    val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
 
     if (ctx.options.findOptionOrDefault(optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
@@ -128,9 +127,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   override
   protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
                               (implicit initReporter: inox.Reporter): inox.Context = {
-
-    val configFile = inox.Options(cmdOptions).findOptionOrDefault(optConfigFile)
-    val configOptions = getConfigOptions(configFile)
+    val configOptions = getConfigOptions(inox.Options(cmdOptions))
 
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)

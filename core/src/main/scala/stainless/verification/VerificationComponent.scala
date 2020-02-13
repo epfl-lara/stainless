@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -8,18 +8,26 @@ import io.circe._
 import scala.concurrent.Future
 import scala.language.existentials
 
-import extraction.utils.DebugSymbols
-
-import extraction._
+import stainless.extraction._
+import stainless.extraction.utils.DebugSymbols
+import stainless.termination.MeasureInference
 
 /**
  * Strict Arithmetic Mode:
  *
  * Add assertions for integer overflow checking and other unexpected behaviour (e.g. x << 65).
  */
-object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", false)
+object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", true)
+
+/**
+ * Generate VC via the System FR type-checker instead of the ad-hoc DefaultTactic.
+ */
+object optTypeChecker extends inox.FlagOptionDef("type-checker", true)
+
+/**
+ * Verify program using Coq
+ */
 object optCoq extends inox.FlagOptionDef("coq", false)
-object optTypeChecker extends inox.FlagOptionDef("type-checker", false)
 
 object VerificationComponent extends Component {
   override val name = "verification"
@@ -48,8 +56,11 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
-  override protected def createPipeline = pipeline andThen
+  override protected def createPipeline = {
+    pipeline andThen
+    extraction.utils.DebugPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
     extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+  }
 
   implicit val debugSection = DebugSectionVerification
 
@@ -96,10 +107,12 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
     reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
 
-    val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
-      TypeChecker.checkType(assertionEncoder.targetProgram, context)(functions)
-    else
+    val vcs = if (context.options.findOptionOrDefault(optTypeChecker)) {
+      val tc = TypeChecker(assertionEncoder.targetProgram, context)
+      tc.checkFunctionsAndADTs(functions)
+    } else {
       VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+    }
 
     val fullEncoder = assertionEncoder andThen chooseEncoder
 

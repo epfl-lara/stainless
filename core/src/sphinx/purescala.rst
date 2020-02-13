@@ -115,6 +115,28 @@ It is also possible to defined case objects, without fields:
 
   case object BaseCase extends MyType
 
+Value Classes
+*************
+
+One can define a value class just like in standard Scala,
+by extending the ``AnyVal`` class.
+
+.. code-block:: scala
+
+  case class Positive(value: BigInt) extends AnyVal {
+    @invariant
+    def isPositive: Boolean = value >= 0
+  }
+
+In the code block above, we also specify an invariant of the value
+class, using the ``@invariant`` annotation. Such invariants are
+subsequently lifted into a refinement type of the underlying type.
+
+.. note::
+
+   Invariants are only allowed to refer to fields of their class, and
+   cannot call any methods on ``this`` (but calls to methods on their
+   fields are allowed).
 
 Generics
 --------
@@ -133,16 +155,13 @@ Stainless supports type parameters for classes and functions.
 
 
 .. note::
-  Type parameters are always **invariant**. It is not possible to define ADTs like:
+  Type parameters can also be marked as co- or contra-variant, eg.
 
   .. code-block:: scala
 
-    abstract class List[T]
+    abstract class List[+T]
     case class Cons[T](hd: T, tl: List[T]) extends List[T]
     case object Nil extends List[Nothing]
-
-  Stainless, in fact, restricts type parameters to "simple hierarchies",
-  where subclasses define the same type parameters in the same order.
 
 Methods
 -------
@@ -234,6 +253,71 @@ Functions and methods can have default values for their parameters.
 
   assert(test() == 42) // valid
 
+
+Type Definitions
+----------------
+
+Type Aliases
+************
+
+Type aliases can be defined the usual way:
+
+.. code-block:: scala
+
+   object testcase {
+     type Identifier = String
+
+     def newIdentifier: Identifier = /* returns a String */
+   }
+
+Type aliases can also have one or more type parameters:
+
+.. code-block:: scala
+
+   type Collection[A] = List[A]
+
+   def singleton[A](x: A): Collection[A] = List(x)
+
+Type Members
+************
+
+Much like classes can have field members and method members, they can also
+define type members. Much like other members, those can also be declared
+abstract within an abstract class and overriden in implementations:
+
+.. code-block:: scala
+
+  case class Grass()
+
+  abstract class Animal {
+    type Food
+    val happy: Boolean
+    def eat(food: Food): Animal
+  }
+
+  case class Cow(happy: Boolean) extends Animal {
+    type Food = Grass
+    def eat(g: Grass): Cow = Cow(happy = true)
+  }
+
+Note: Like regular type aliases, type members can also have one or more type parameters.
+
+Type members then give rise to path-dependent types, where the type of a variable
+can depend on another variable, by selecting a type member on the latter:
+
+.. code-block:: scala
+
+  //                             Path-dependent type
+  //                                 vvvvvvvvvvv
+  def giveFood(animal: Animal)(food: animal.Food): Animal = {
+    animal.eat(food)
+  }
+
+  def test = {
+    val cow1 = Cow(false)
+    val cow2 = giveFood(cow1)(Grass())
+    assert(cow2.happy) // VALID
+  }
 
 Specifications
 --------------

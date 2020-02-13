@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -13,14 +13,24 @@ import stainless.frontend.{CallBack, UnsupportedCodeException}
 trait GhostAccessRewriter extends Transform {
   import global._
 
+  val pluginOptions: PluginOptions
   val phaseName = "ghost-removal"
 
-  override def newTransformer(unit: global.CompilationUnit): Transformer =
-    new GhostRewriteTransformer
+  override def newTransformer(unit: global.CompilationUnit): Transformer = {
+    if (pluginOptions.enableGhostElimination) {
+      new GhostRewriteTransformer
+    } else {
+      new IdentityTransformer
+    }
+  }
 
   lazy val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
 
-  class GhostRewriteTransformer extends Transformer {
+  private class IdentityTransformer extends Transformer {
+    override def transform(tree: Tree): Tree = tree
+  }
+
+  private class GhostRewriteTransformer extends Transformer {
 
     /**
      * Is this symbol @ghost, or enclosed inside a ghost definition?

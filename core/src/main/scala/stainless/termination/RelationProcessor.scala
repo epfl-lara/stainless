@@ -1,7 +1,9 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
+
+import scala.language.existentials
 
 import inox.utils._
 
@@ -41,47 +43,61 @@ trait RelationProcessor extends OrderingProcessor {
     val api = getAPI
 
     reporter.debug("- Searching for size decrease")
-    val decreasing = formulas.map({ case (fd, formulas) =>
-      val solved = formulas.map({ case (fid, (gt, ge)) =>
-        if (api.solveVALID(gt).contains(true)) Success
-        else if (api.solveVALID(ge).contains(true)) Dep(Set(fid))
-        else Failure
-      })
+    val decreasing = formulas.map {
+      case (fd, formulas) =>
+        val solved = formulas.map {
+          case (fid, (gt, ge)) =>
+            if (api.solveVALID(gt).contains(true)) Success
+            else if (api.solveVALID(ge).contains(true)) Dep(Set(fid))
+            else Failure
+        }
 
-      val result = if(solved.contains(Failure)) Failure else {
-        val deps = solved.collect({ case Dep(fds) => fds }).flatten
-        if (deps.isEmpty) Success
-        else Dep(deps)
-      }
-      fd -> result
-    })
-
-    val (terminating, nonTerminating) = {
-      def currentReducing(fds: Set[FunDef], deps: List[(FunDef, Set[FunDef])]): (Set[FunDef], List[(FunDef, Set[FunDef])]) = {
-        val (okDeps, nokDeps) = deps.partition({ case (fd, deps) => deps.subsetOf(fds) })
-        val newFds = fds ++ okDeps.map(_._1)
-        (newFds, nokDeps)
-      }
-
-      def fix[A,B](f: (A,B) => (A,B), a: A, b: B): (A,B) = {
-        val (na, nb) = f(a, b)
-        if(na == a && nb == b) (a,b) else fix(f, na, nb)
-      }
-
-      val ok = decreasing.collect({ case (fd, Success) => fd })
-      val nok = decreasing.collect({ case (fd, Dep(fds)) => fd -> fds }).toList
-      val (allOk, allNok) = fixpoint[(Set[FunDef], List[(FunDef, Set[FunDef])])] { case (fds, deps) =>
-        val (okDeps, nokDeps) = deps.partition({ case (fd, deps) => deps.subsetOf(fds) })
-        val newFds = fds ++ okDeps.map(_._1)
-        (newFds, nokDeps)
-      } ((ok.toSet, nok))
-
-      (allOk, allNok.map(_._1).toSet ++ decreasing.collect({ case (fd, Failure) => fd }))
+        val result =
+          if (solved.contains(Failure)) Failure
+          else {
+            val deps = solved.collect { case Dep(fds) => fds }.flatten
+            if (deps.isEmpty) Success
+            else Dep(deps)
+          }
+        fd -> result
     }
 
-    assert(terminating ++ nonTerminating == problem.funSet)
+    val (terminating, nonTerminating) = {
+      val ok = decreasing.collect { case (fd, Success) => fd -> IntegerLiteral(0) }
+      val nok = decreasing.collect { case (fd, Dep(fds)) => fd -> fds }.toList
 
-    if (nonTerminating.isEmpty) Some(terminating.map(Cleared).toSeq)
-    else None
+      var iteration = 0
+      val (allOk, allNok) = fixpoint[(Set[(FunDef, IntegerLiteral)], List[(FunDef, Set[FunDef])])] {
+        case (fds, deps) =>
+          iteration += 1
+          val (okDeps, nokDeps) = deps.partition { case (fd, deps) => deps.subsetOf(fds.map { _._1 }) }
+          val newFds = fds ++ okDeps.map { p =>
+            (p._1, IntegerLiteral(iteration))
+          }
+          (newFds, nokDeps)
+      } ((ok.toSet, nok))
+
+      (allOk, allNok.map(_._1).toSet ++ decreasing.collect { case (fd, Failure) => fd })
+    }
+
+    assert(terminating.map(_._1) ++ nonTerminating == problem.funSet)
+
+    if (nonTerminating.isEmpty) {
+      Some(terminating.map { tf =>
+        val measure = exprOps.measureOf(tf._1.fullBody) match {
+          case Some(measure) => measure
+          case None =>
+            val induced = ordering.measure(tf._1.params.map { _.toVariable })
+            flatten(induced, Seq(tf._2))
+        }
+
+        // We preserve the measure specified by the user
+        measureCache.add(tf._1 -> measure)
+
+        Cleared(tf._1, Some(measure))
+      }.toSeq)
+    } else {
+      None
+    }
   }
 }

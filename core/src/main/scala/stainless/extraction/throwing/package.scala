@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -21,11 +21,21 @@ package object throwing {
   }
 
   def extractor(implicit ctx: inox.Context) = {
+    // utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
     ExtractionPipeline(new CheckingTransformer {
       override val s: trees.type = trees
       override val t: imperative.trees.type = imperative.trees
     })
   }
 
-    // utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = imperative.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
+    extraction.phaseSemantics(throwing.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: imperative.trees.type } = {
+    imperative.phaseSemantics
+  }
 }

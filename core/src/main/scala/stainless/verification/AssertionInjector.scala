@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -16,12 +16,26 @@ trait AssertionInjector extends transformers.TreeTransformer {
 
   val strictArithmetic: Boolean
 
+  private[this] var inWrappingMode: Boolean = false
+  private[this] def checkOverflow: Boolean = strictArithmetic && !inWrappingMode
+
+  def wrapping[A](enabled: Boolean)(a: => A): A = {
+    val old = inWrappingMode
+    inWrappingMode = enabled
+    val res = a
+    inWrappingMode = old
+    res
+  }
+
   private def indexUpTo(i: t.Expr, e: t.Expr) = t.And(
     t.GreaterEquals(i, t.Int32Literal(0).copiedFrom(i)).copiedFrom(i),
     t.LessThan(i, e).copiedFrom(e)
   ).copiedFrom(i)
 
   override def transform(e: s.Expr): t.Expr = e match {
+    case s.Annotated(body, flags) if flags contains s.Wrapping =>
+      t.Annotated(wrapping(true)(transform(body)), flags map transform).copiedFrom(e)
+
     case s.ArraySelect(a, i) =>
       t.Assert(
         indexUpTo(transform(i), t.ArrayLength(transform(a)).copiedFrom(a)),
@@ -45,7 +59,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
         super.transform(e)
       ).copiedFrom(e)
 
-    case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -60,7 +74,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
       ).copiedFrom(e)
 
     // Unsigned addition
-    case BVTyped(false, size, e0 @ s.Plus(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(false, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -71,7 +85,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
         newE
       ).copiedFrom(e)
 
-    case BVTyped(true, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(true, size, e0 @ s.Minus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -86,7 +100,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
       ).copiedFrom(e)
 
     // Unsigned subtraction
-    case BVTyped(false, size, e0 @ s.Minus(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(false, size, e0 @ s.Minus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -97,7 +111,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
         newE
       ).copiedFrom(e)
 
-    case BVTyped(true, size, e0 @ s.UMinus(n0)) if strictArithmetic =>
+    case BVTyped(true, size, e0 @ s.UMinus(n0)) if checkOverflow =>
       val n = transform(n0)
       val newE = super.transform(e0)
       t.Assert(
@@ -107,7 +121,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
         newE
       ).copiedFrom(e)
 
-    case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if strictArithmetic =>
+    case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
       val rhs = transform(rhs0)
       val newE = super.transform(e0)
@@ -125,7 +139,7 @@ trait AssertionInjector extends transformers.TreeTransformer {
       // Check division by zero, and if requested/meaningful, check for overflow
       val newE = super.transform(e)
       val rest = e.getType match {
-        case s.BVType(true, size) if strictArithmetic =>
+        case s.BVType(true, size) if checkOverflow =>
           // Overflow happens for signed bitvectors with -MinValue / -1
           t.Assert(
             t.Not(t.And(
@@ -175,9 +189,9 @@ trait AssertionInjector extends transformers.TreeTransformer {
       val lt = t.LessThan(rhs, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
       // positivity check is only relevant for signed bitvectors
       val pos = t.GreaterEquals(rhs, zero(true, size, rhs.getPos)).copiedFrom(rhs)
-      val range = if (signed) t.And(pos, lt).copiedFrom(rhs) else lt
+      val range = if (signed && checkOverflow) t.And(pos, lt).copiedFrom(rhs) else lt
       // Ensure the operation doesn't shift more bits than there are.
-      t.Assert(range, Some("Shift Semantics"), newE).copiedFrom(e)
+      t.Assert(range, Some("Shift semantics"), newE).copiedFrom(e)
 
     case e: s.Ensuring => super.transform(e.toAssert)
 
@@ -227,26 +241,28 @@ object AssertionInjector {
         val s: p.trees.type = p.trees
         val t: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
-        val strictArithmetic: Boolean =
-          ctx.options.findOptionOrDefault(optStrictArithmetic)
+        val strictArithmetic: Boolean = ctx.options.findOptionOrDefault(optStrictArithmetic)
       }
 
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.map { fd =>
-          val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
-          val newSpecs = specs.map(_.map(injector.transform(_)))
-          val newBody = body map injector.transform
+          injector.wrapping(fd.flags.contains(s.Wrapping)) {
+            val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
+            val newSpecs = specs.map(_.map(injector.transform(_)))
+            val newBody = body map injector.transform
 
-          val resultType = injector.transform(fd.returnType)
-          val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
-          new t.FunDef(
-            fd.id,
-            fd.tparams map injector.transform,
-            fd.params map injector.transform,
-            resultType,
-            fullBody,
-            fd.flags map injector.transform
-          ).copiedFrom(fd)
+            val resultType = injector.transform(fd.returnType)
+            val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
+
+            new t.FunDef(
+              fd.id,
+              fd.tparams map injector.transform,
+              fd.params map injector.transform,
+              resultType,
+              fullBody,
+              fd.flags map injector.transform
+            ).copiedFrom(fd)
+          }
         })
         .withSorts(syms.sorts.values.toSeq.map(injector.transform))
     }

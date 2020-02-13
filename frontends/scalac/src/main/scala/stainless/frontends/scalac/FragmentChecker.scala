@@ -44,7 +44,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
   class GhostAnnotationChecker extends Traverser {
     val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
-    val ghostMethod = rootMirror.getPackage(TermName("stainless.lang")).info.member(TermName("ghost"))
+    val ghostMethod = rootMirror.getPackage("stainless.lang").info.member(TermName("ghost"))
 
     private var ghostContext: Boolean = false
 
@@ -195,7 +195,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
   }
 
   class Checker extends Traverser {
-    val StainlessLangPackage = rootMirror.getPackage(newTermName("stainless.lang"))
+    val StainlessLangPackage = rootMirror.getPackage("stainless.lang")
     val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
     val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
     val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
@@ -232,8 +232,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         if stainlessReplacement.contains(tp.dealias.typeSymbol)
       } yield tp -> stainlessReplacement(tp.typeSymbol)
 
-      for ((tp, replacement) <- errors.distinct)
-        reportError(pos, s"Scala API ($tp) no longer extracted, please use ${replacement}")
+      for ((tp, replacement) <- errors.distinct) {
+        reportError(pos, s"Scala API `$tp` is not directly supported, please use `$replacement` instead.")
+      }
     }
 
     private var classBody = false
@@ -252,14 +253,18 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
         val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
 
         // exit early if it's a subtree we shouldn't validate
-        if (isExtern || isIgnore || sym.isSynthetic)
-          return
+        if (isExtern || isIgnore || sym.isSynthetic) {
+          return ()
+        }
 
         // ignore param accessors because they are duplicates of constructor parameters.
         // We catch them when we check constructors
-        if ((sym.tpe ne null) && !sym.isParamAccessor)
+        if ((sym.tpe ne null) && !sym.isParamAccessor) {
           checkType(tree.pos, sym.tpe)
-      } else super.traverse(tree)
+        }
+      } else {
+        super.traverse(tree)
+      }
 
       tree match {
         case od @ ExObjectDef(_, tmpl) =>
@@ -278,12 +283,21 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             sym.isNonBottomSubClass(definitions.AnnotationClass)
           }
 
-          if (!isSupported)
+          if (!isSupported) {
             reportError(tree.pos, "Only abstract classes, case classes, anonymous classes, and objects are allowed in Stainless.")
+          }
 
           val parents = impl.parents.map(_.tpe).filterNot(ignoredClasses)
-          if (parents.length > 1)
+          if (parents.length > 1) {
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
+          }
+
+          impl foreach {
+            case cd: ClassDef if !cd.symbol.owner.isMethod =>
+              reportError(cd.pos, "Classes can only be defined at the top-level, within objects, or within methods")
+
+            case _ => ()
+          }
 
           atOwner(sym)(traverse(impl))
 

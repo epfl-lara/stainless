@@ -64,13 +64,54 @@ to. The web interface will display these results for us.
   def test3 = max(-5, -7)
 
 The code seems to work correctly on the example values.
-However, Stainless automatically finds that it is not correct,
-showing us a counter-example inputs, such as
+However, Stainless automatically finds that it is not correct:
 
-.. code-block:: scala
+.. code-block:: text
 
-  x -> -1639624704
-  y -> 1879048192
+   [  Info  ]  - Now solving 'postcondition' VC for max @6:16...
+   [  Info  ]  - Result for 'postcondition' VC for max @6:16:
+   [Warning ]  => INVALID
+   [Warning ] Found counter-example:
+   [Warning ]   y: Int -> 2147483647
+   [Warning ]   x: Int -> -2147483648
+
+   [  Info  ]  - Now solving 'postcondition' VC for max @7:10...
+   [  Info  ]  - Result for 'postcondition' VC for max @7:10:
+   [Warning ]  => INVALID
+   [Warning ] Found counter-example:
+   [Warning ]   y: Int -> -2147483648
+   [Warning ]   x: Int -> 1
+
+   [  Info  ]  - Now solving 'body assertion: Subtraction overflow' VC for max @5:13...
+   [  Info  ]  - Result for 'body assertion: Subtraction overflow' VC for max @5:13:
+   [Warning ]  => INVALID
+   [Warning ] Found counter-example:
+   [Warning ]   y: Int -> -2147483648
+   [Warning ]   x: Int -> 0
+
+Here, Stainless emits three distinct verification conditions:
+
+* One which corresponds to the postcondition of ``max`` when we take the `then` branch
+  of the ``if`` statement, on line 6.
+
+* Another one for the postcondition of ``max`` when we take the `else` branch
+  of the ``if`` statement, on line 7.
+
+* A last one with an overflow check for the subtraction on line 5.
+
+Let us look at the first verification condition:
+
+.. code-block:: text
+
+    - Now solving 'postcondition' VC for max @6:16...
+    - Result for 'postcondition' VC for max @6:16:
+    => INVALID
+   Found counter-example:
+     y: Int -> 2147483647
+     x: Int -> -2147483648
+
+Stainless tells us that it found two input for which the ``ensuring`` clause of the
+``max`` function evaluates to ``false``. The second verification is similar.
 
 We may wish to define a test method
 
@@ -78,13 +119,18 @@ We may wish to define a test method
 
   def test4 = max(-1639624704, 1879048192)
 
-whose evaluation indeed results in `ensuring` condition being violated.
+whose evaluation indeed results in ``ensuring`` condition being violated.
 The problem is due to overflow of 32-bit integers, due to which
 the value `d` becomes positive, even though `x` is negative and thus smaller than
 the large positive value `y`.
-As in Scala, the `Int` type denotes 32-bit
-integers with the usual signed arithmetic operations from
-computer architecture and the JVM specification.
+
+In fact, Stainless alerts us of this very problem in the third verification condition,
+to help us pin point the place where the overflow occured.
+
+.. note::
+
+   As in Scala, the `Int` type denotes 32-bit integers with the usual signed arithmetic
+   operations from computer architecture and the JVM specification.
 
 To use unbounded integers, we simply change the types to
 `BigInt`, obtaining a program that verifies (and, as
@@ -172,7 +218,23 @@ non-negative 32-bit integers as inputs.
 **Question:** What if we restrict the inputs to `max` to be
 `a)` non-positive, or `b)` strictly negative? Modify the
 `require` clause for each case accordingly and explain the
-behavior of Stainless.
+behavior of Stainless. See the note below, as well.
+
+.. note::
+
+   By default, Stainless will emit verification conditions to
+   check that arithmetic operations on sized integers such as
+   `Int` cannot overflow. To opt-out of this behavior, eg. when
+   such wrapping semantics are desired, one can wrap the offending
+   expression in a call to `stainless.math.wrapping`:
+
+   .. code-block:: scala
+
+      import stainless.math.wrapping
+
+      def doubleOverflow(x: Int): Int = {
+         wrapping { x + x }
+      }
 
 In the sequel, we will mostly use `BigInt` types.
 

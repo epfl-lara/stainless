@@ -721,8 +721,7 @@ propositions using Stainless is related to *termination checking*.  When
 verifying inductive proofs (and more generally the postconditions of
 recursive methods), Stainless assumes that the corresponding proofs are
 *well-founded*, or equivalently, that the corresponding recursive
-methods terminate on all inputs.  Yet Stainless does not -- by default --
-check that this is the case.  It is thus possible -- and indeed rather
+methods terminate on all inputs.  It is thus possible -- and indeed rather
 easy -- to write bogus proofs (intentionally or accidentally) which
 Stainless recognizes as valid, but which are not well-founded.  Consider
 the following lemma, which apparently establishes that all lists are
@@ -749,9 +748,11 @@ empty:
       }.holds
     }
 
-Stainless has support for termination checking, which can be
-enabled using the ``--termination`` command line option to minimize
+Stainless hences performs termination checking by default to minimize
 the risk of accidentally writing bogus proofs such as the one above.
+It will thus emit a warning if it cannot prove that a function terminates, or
+if it can show that its measure (inferred or user-defined) does not decreases between
+recursive calls.
 
 .. TODO example: folds + future work (alt. version of folds)
 

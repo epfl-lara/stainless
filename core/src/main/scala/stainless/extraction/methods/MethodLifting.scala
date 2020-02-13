@@ -40,15 +40,14 @@ trait MethodLifting
       }.toSet)
   })
 
-  // The class cache must consider all direct overrides of a potential invariant function
-  // attached to the class.
+  // The class cache must consider all direct overrides of potential invariants function attached to the class.
   // Note that we could again use the set of transitive overrides here instead of all invariants.
-  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Option[t.FunDef])]({
+  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Seq[t.FunDef])]({
     (cd, symbols) =>
       val ids = cd.descendants(symbols).map(_.id).toSet + cd.id
 
       val invariants = symbols.functions.values.filter { fd =>
-        // (fd.flags contains s.IsInvariant) &&
+        (fd.flags contains s.IsInvariant) &&
         (fd.flags exists { case s.IsMethodOf(id) => ids(id) case _ => false })
       }.map(FunctionKey(_)).toSet
 
@@ -92,7 +91,7 @@ trait MethodLifting
     val default = new BaseTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
-      val (invariant, functionToOverrides) = metadata(cd.id)(symbols)
+      val (invariants, functionToOverrides) = metadata(cd.id)(symbols)
 
       def transformMethod(fd: FunDef)(syms: Symbols): t.FunDef = {
         val o = functionToOverrides(fd.id)
@@ -107,13 +106,13 @@ trait MethodLifting
 
       functions ++= funs
 
-      val inv = invariant map { inv =>
+      val invs = invariants map { inv =>
         funCache.cached(inv, symbols)(transformMethod(inv)(symbols.withFunctions(Seq(inv))))
       }
 
       val (cls, fun) = classCache.cached(cd, symbols) {
-        val cls = identity.transform(cd.copy(flags = cd.flags ++ invariant.map(fd => HasADTInvariant(fd.id))))
-        (cls, inv)
+        val cls = identity.transform(cd.copy(flags = cd.flags ++ invariants.map(fd => HasADTInvariant(fd.id))))
+        (cls, invs)
       }
 
       classes += cls
@@ -133,7 +132,7 @@ trait MethodLifting
     t.NoSymbols.withFunctions(functions).withClasses(classes).withTypeDefs(typeDefs)
   }
 
-  private[this] type Metadata = (Option[s.FunDef], Map[Identifier, Override])
+  private[this] type Metadata = (Seq[s.FunDef], Map[Identifier, Override])
   private[this] def metadata(cid: Identifier)(symbols: s.Symbols): Metadata = {
     val overrides: Map[Symbol, Override] = {
       def rec(id: Identifier): Map[Symbol, Override] = {
@@ -164,11 +163,12 @@ trait MethodLifting
       overrides.map { case (sym, o) => sym -> rec(o) }
     }
 
-    val invariantOverride = overrides
+    val invariantOverrides = overrides
       .map { case (sym, o) => (o, funs(sym).toList.filter(p => symbols.getFunction(p._1).flags contains IsInvariant)) }
-      .collectFirst { case (o: Override, fs) if fs.nonEmpty => (o, fs) }
+      .collect { case (o: Override, fs) if fs.nonEmpty => (o, fs) }
+      .toSeq
 
-    val invariant = invariantOverride.map {
+    val invariants = invariantOverrides.map {
       case (o, ((id, Override(_, optFid, _))) :: rest) if o.fid.isEmpty =>
         new FunDef(
           id.freshen,
@@ -186,9 +186,9 @@ trait MethodLifting
     }
 
     val mappings = funs.flatMap(_._2) ++
-      (invariantOverride zip invariant).map { case ((o, _), fd) => fd.id -> o.copy(fid = Some(fd.id)) }
+      (invariantOverrides zip invariants).map { case ((o, _), fd) => fd.id -> o.copy(fid = Some(fd.id)) }
 
-    (invariant, mappings)
+    (invariants, mappings)
   }
 
   private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
@@ -298,19 +298,17 @@ trait MethodLifting
       t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
     }
 
-    val newBody = if (!(fd.flags contains IsInvariant)) dispatchBody else {
-      // If `fd` is an invariant, we need to conjoin both the constructor's and parent's invariants,
-      // otherwise we would only end up the checking the former.
-      t.and(dispatchBody, elze.copiedFrom(dispatchBody))
-    }
-
-    val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(newBody), returnType)
+    val fullBody = t.exprOps.reconstructSpecs(newSpecs, Some(dispatchBody), returnType)
 
     // a lifted method is derived from the methods that (first) override it
     val derivedFrom = cos.flatMap(o => firstOverrides(o).map(_._2))
     val derivedFlags = derivedFrom.map(fd => t.Derived(fd.id))
     val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.flags.exists(_.name == "accessor"))
     val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
+    val filteredFlags = fd.flags filter {
+        case s.IsMethodOf(_) | s.IsInvariant => false
+        case _ => true
+      } map transformer.transform
 
     new t.FunDef(
       fd.id,
@@ -318,10 +316,7 @@ trait MethodLifting
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      (fd.flags filter {
-        case s.IsMethodOf(_) | s.IsInvariant => false
-        case _ => true
-      } map transformer.transform) ++ derivedFlags ++ accessorFlag.toSeq
+      (filteredFlags ++ derivedFlags ++ accessorFlag.toSeq).distinct
     ).copiedFrom(fd)
   }
 }

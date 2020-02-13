@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -316,6 +316,11 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
   case class IsTypeMemberOf(id: Identifier) extends Flag("typeMember", Seq(id))
+
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("invariant", Seq()) => IsInvariant
+    case _ => super.extractFlag(name, args)
+  }
 
   implicit class TypeParameterWrapper(tp: TypeParameter) {
     def bounds: TypeBounds = {

@@ -2,14 +2,34 @@
 
 package stainless
 
-import inox.{Reporter, OptionDef, OptionValue}
+import inox.{Reporter, Options, OptionDef, OptionValue}
 
 import java.io.File
 import java.nio.file.{FileSystems, Path}
+import scala.util.Try
 
 import com.typesafe.config.{ConfigFactory, ConfigValue, ConfigValueType, ConfigException}
 
-object optConfigFile extends FileOptionDef("config-file")
+sealed abstract class OptionOrDefault[+A]
+object OptionOrDefault {
+  case class  Some[A](get: A) extends OptionOrDefault[A]
+  case object None            extends OptionOrDefault[Nothing]
+  case object Default         extends OptionOrDefault[Nothing]
+}
+
+object optConfigFile extends OptionDef[OptionOrDefault[File]] {
+  override val name = "config-file"
+
+  override val parser = {
+    case ""      => Some(OptionOrDefault.None)
+    case "false" => Some(OptionOrDefault.None)
+    case path    => Try(OptionOrDefault.Some(new File(path))).toOption
+  }
+
+  override val default: OptionOrDefault[File] = OptionOrDefault.Default
+
+  override val usageRhs = "FILE"
+}
 
 object Configuration {
 
@@ -27,6 +47,15 @@ object Configuration {
   }
 
   val empty: Seq[OptionValue[_]] = Seq.empty
+
+  def get(options: Options, keys: Seq[inox.OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
+    import OptionOrDefault._
+    options.findOptionOrDefault(optConfigFile) match {
+      case Some(file) => parse(file, keys)
+      case Default    => parseDefault(keys)
+      case None       => empty
+    }
+  }
 
   def parseDefault(options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
     findConfigFile() map { file =>
@@ -47,7 +76,7 @@ object Configuration {
       entry.getKey -> convert(entry.getKey, entry.getValue)
     }.toMap
 
-    val optDefMap = options.groupBy(_.name).mapValues(_.head)
+    val optDefMap = options.view.groupBy(_.name).mapValues(_.head)
 
     val optValues = entries map { case (name, str) =>
       optDefMap.get(name) map { optDef =>

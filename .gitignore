@@ -90,6 +90,7 @@ verif*.v
 # metals and VSCode
 .vscode
 .metals
+project/metals.sbt
 
 # ripgrep
 .rgignore

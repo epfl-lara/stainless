@@ -10,7 +10,7 @@ object Alphabet {
 object LazyTree {
 
   sealed abstract class Tree[T] {
-    val depth: BigInt
+    def depth: BigInt
 
     def lookup(word: List[T]): Boolean = (this, word) match {
       case (Node(child, _), Cons(x, xs)) => child(x).lookup(xs)

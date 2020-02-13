@@ -10,6 +10,7 @@ object XPlus2N {
 
   def f(n: BigInt): BigInt => BigInt = {
     require(n >= 0)
+    decreases(n) // FIXME(measure): Measure cannot be inferred
     if (n == 0) succ _
     else (x: BigInt) => g(f(n - 1))(x)
   }

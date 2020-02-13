@@ -18,8 +18,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
   override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
 
   object autoImport {
-    val stainlessVersion = settingKey[String]("The version of stainless to use")
-    val stainlessEnabled = settingKey[Boolean]("Enable stainless")
+    val stainlessVersion        = settingKey[String]("The version of stainless to use")
+    val stainlessEnabled        = settingKey[Boolean]("Enable stainless")
+    val stainlessExtraDeps      = settingKey[Seq[sbt.librarymanagement.ModuleID]]("Extra source dependencies to pass along to Stainless")
+    val stainlessExtraResolvers = settingKey[Seq[sbt.librarymanagement.MavenRepository]]("Extra resolvers to pass along to Stainless")
   }
 
   import autoImport._
@@ -31,7 +33,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
   private val StainlessLibSources = config("stainless-lib").hide
 
   override def globalSettings = Seq(
-    onLoad := onLoad.value andThen checkProjectsScalaVersion
+    onLoad := onLoad.value andThen checkProjectsScalaVersion,
+    stainlessExtraResolvers := Seq(Resolver.sonatypeRepo("releases"))
   )
 
   /**
@@ -47,21 +50,22 @@ object StainlessPlugin extends sbt.AutoPlugin {
       projRef = ProjectRef(extracted.currentUnit.unit.uri, id)
       sv <- (scalaVersion in projRef).get(extracted.structure.data)
       if !BuildInfo.supportedScalaVersions.contains(sv)
-      projName <- (name in projRef).get(extracted.structure.data)
-    } {
-      state.log.error(s"""[$projName] Project uses unsupported Scala version $sv. To use stainless use one of the following Scala versions: ${BuildInfo.supportedScalaVersions.mkString(",")}.""")
-    }
+    } state.log.error(
+      s"Project uses unsupported Scala version: $sv. " +
+      s"To use Stainless use the following Scala version: ${BuildInfo.supportedScalaVersions.mkString(",")}."
+    )
     state
   }
 
   override lazy val projectSettings: Seq[Def.Setting[_]] = stainlessSettings
 
   lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
-    stainlessVersion     := BuildInfo.stainlessVersion,
-    stainlessEnabled     := true,
-    autoCompilerPlugins  := true,
-    ivyConfigurations    += StainlessLibSources,
-    libraryDependencies ++= stainlessModules.value,
+    stainlessVersion        := BuildInfo.stainlessVersion,
+    stainlessEnabled        := true,
+    stainlessExtraDeps      := Seq.empty,
+    autoCompilerPlugins     := true,
+    ivyConfigurations       += StainlessLibSources,
+    libraryDependencies    ++= stainlessModules.value,
 
     // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
     // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
@@ -69,7 +73,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       Resolver.bintrayRepo("epfl-lara", "maven"),
       Resolver.bintrayRepo("epfl-lara", "princess"),
       Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
-      "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+      ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
     )
   ) ++
     inConfig(Compile)(stainlessConfigSettings) ++ // overrides settings that are scoped (by sbt) at the `Compile` configuration
@@ -77,49 +81,55 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    if (stainlessEnabled.value) Seq(
-      compilerPlugin("ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value),
-      ("ch.epfl.lara" % s"stainless-library_${scalaVersion.value}" % stainlessVersion.value).sources() % StainlessLibSources
-    ) else Seq.empty
+    val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaBinaryVersion.value}" % stainlessVersion.value
+
+    val sourceDeps = (libraryRef +: stainlessExtraDeps.value).map { dep =>
+      dep.intransitive().sources() % StainlessLibSources
+    }
+
+    compilerPlugin(pluginRef) +: sourceDeps
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
-    managedSources ++= fetchAndUnzipStainlessLibrary.value,
-    managedSourceDirectories += stainlessLibraryLocation.value
+    managedSources ++= fetchAndUnzipSourceDeps.value,
+    managedSourceDirectories += stainlessSourcesLocation.value
   )
 
-  private def stainlessLibraryLocation = Def.setting {
-    target.value / s"stainless-library_${scalaVersion.value}"
+  private def stainlessSourcesLocation = Def.setting {
+    target.value / s"stainless_${scalaBinaryVersion.value}"
   }
 
-  private def fetchAndUnzipStainlessLibrary: Def.Initialize[Task[Seq[File]]] = Def.task {
+  private def fetchAndUnzipSourceDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
     val log = streams.value.log
     val projectName = (name in thisProject).value
 
     val config = StainlessLibSources
-    val sourceJars = fetchJars(
+    var sourceJars = fetchJars(
       updateClassifiers.value,
       config,
-      artifact => artifact.classifier == Some(Artifact.SourceClassifier) && artifact.name.startsWith("stainless-library")
-    )
+      artifact => artifact.classifier == Some(Artifact.SourceClassifier)
+    ).distinct
 
-    log.debug(s"[$projectName] Configuration ${config.name} has modules: $sourceJars")
+    log.debug(s"[$projectName] Configuration ${config.name} has modules: ${sourceJars.mkString(", ")}")
 
-    if (sourceJars.length > 1) {
-      log.warn(s"Several source jars where found for the ${StainlessLibSources.name} configuration. $reportBugText")
+    val destDir = stainlessSourcesLocation.value
+    if (!destDir.exists) {
+      Files.createDirectories(destDir.toPath)
     }
 
-    val destDir = stainlessLibraryLocation.value
-
     val additionalSourceDirectories = sourceJars map { jar =>
+      val subDir = jar.getName.stripSuffix(".jar")
+      val subDestDir = destDir.toPath.resolve(subDir).toFile
+
       // Don't unjar every time
-      if (!destDir.exists()) {
-        // unjar the stainless-library-sources.jar into the `destDirectory`
-        Files.createDirectories(destDir.toPath)
-        unjar(jar, destDir.toPath)
-        log.debug(s"[$projectName] Unzipped ${jar.getName} in $destDir")
+      if (!subDestDir.exists()) {
+        Files.createDirectories(subDestDir.toPath)
+        unjar(jar, subDestDir.toPath)
+        log.debug(s"[$projectName] UnJARed ${jar.getName} in $subDestDir")
       }
-      destDir.toPath
+
+      subDestDir.toPath
     }
 
     /** Collect all .scala files in the passed `folders`.*/
@@ -179,11 +189,18 @@ object StainlessPlugin extends sbt.AutoPlugin {
     Seq(
       compileInputs := {
         val currentCompileInputs = compileInputs.value
+
         val additionalScalacOptions = Seq(
           // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
           // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
           // that are run *after* the stainless phase.
-          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer"
+          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer",
+
+          // Here we tell the stainless plugin whether or not to enable verification
+          s"-P:stainless:verify:${stainlessEnabled.value}",
+
+          // For now we always enable ghost elimination
+          "-P:stainless:ghost-elim:true",
         )
 
         // FIXME: Properly merge possibly duplicate scalac options

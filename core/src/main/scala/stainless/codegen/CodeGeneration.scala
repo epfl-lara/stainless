@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package codegen
@@ -1228,6 +1228,9 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(1)
       mkBranch(b, al, fl, ch, canDelegateToMkExpr = false)
       ch << Label(fl) << POP << Ldc(0) << Label(al)
+
+    case m: Max =>
+      mkExpr(maxToIfThenElse(m), ch)
 
     case Annotated(body, _) =>
       mkExpr(body, ch)

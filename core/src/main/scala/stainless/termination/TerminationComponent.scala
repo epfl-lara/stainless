@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -19,9 +19,7 @@ object TerminationComponent extends Component {
     val s: extraction.trees.type = extraction.trees
     val t: extraction.trees.type = extraction.trees
 
-    override def transform(syms: s.Symbols): t.Symbols = {
-      syms.transform(DecreasesTransformer(s)(syms))
-    }
+    override def transform(syms: s.Symbols): t.Symbols = syms
   }
 
   override def run(pipeline: extraction.StainlessPipeline)(implicit ctx: inox.Context) = {
@@ -44,22 +42,16 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
     import context._
 
     val p = inox.Program(trees)(symbols)
-    val c = TerminationChecker(p, context)
 
     val res = functions map { id =>
       val fd = symbols.getFunction(id)
-      val (time, tryStatus) = timers.termination.runAndGetTime { c.terminates(fd) }
-      tryStatus match {
-        case Success(status) => fd -> (status, time)
-        case Failure(e) => reporter.internalError(e)
-      }
+      fd -> fd.flags.collectFirst { case TerminationStatus(status) => status }.get
     }
 
     Future.successful(new TerminationAnalysis {
-      override val checker: c.type = c
-      override val results: Map[p.trees.FunDef, (c.TerminationGuarantee, Long)] = res.toMap
+      override val program: p.type = p
+      override val results: Map[p.trees.FunDef, TerminationReport.Status] = res.toMap
       override val sources = functions.toSet
     })
   }
 }
-

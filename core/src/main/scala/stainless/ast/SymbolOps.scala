@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -218,6 +218,18 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       case None =>
         patternC
     }
+  }
+
+  /** Rewrites the given `max(e1, e2, ...)` into if-then-else expressions.
+    */
+  def maxToIfThenElse(max: Max): Expr = {
+    require(max.exprs.nonEmpty)
+    def go(exprs: Seq[Expr]): Expr = exprs match {
+      case e1 :: Nil      => e1
+      case e1 :: e2 :: es => IfExpr(GreaterThan(e1, e2).copiedFrom(max), e1, go(e2 :: es)).copiedFrom(max)
+    }
+
+    go(max.exprs)
   }
 
 

@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -28,5 +28,16 @@ package object oo {
     utils.DebugPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
     utils.DebugPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
     lowering
+  }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = innerfuns.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: oo.trees.type } = {
+    extraction.phaseSemantics(oo.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {
+    innerfuns.phaseSemantics
   }
 }

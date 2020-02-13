@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -14,11 +14,11 @@ trait ASTExtractors {
   import global.definitions._
 
   def classFromName(str: String) = {
-    rootMirror.getClassByName(newTypeName(str))
+    rootMirror.getClassByName(str)
   }
 
   def objectFromName(str: String) = {
-    rootMirror.getClassByName(newTermName(str))
+    rootMirror.getClassByName(str)
   }
 
   /**
@@ -212,7 +212,8 @@ trait ASTExtractors {
           unapplySeq(from).map(prefix => prefix :+ name.toString)
 
         case Select(from: Ident, name) =>
-          Some(Seq(from.toString, name.toString))
+          val full = name.toString :: from.symbol.ownerChain.init.map(_.name.toString)
+          Some(full.reverse)
 
         case _ =>
           None
@@ -232,7 +233,7 @@ trait ASTExtractors {
           => Some((body, contract, false))
 
         case Apply(Select(Apply(TypeApply(
-              ExSelected("stainless", "lang", "StaticChecks", "any2Ensuring"),
+              ExSelected("stainless", "lang", "StaticChecks", "Ensuring"),
               _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
           => Some((body, contract, true))
 
@@ -457,6 +458,16 @@ trait ASTExtractors {
       def unapply(tree: Tree): Option[Tree] = tree  match {
         case Apply(ExSelected("math", "BigInt", "int2bigInt"), tree :: Nil) => Some(tree)
         case _ => None
+      }
+    }
+
+    /** Matches the construct stainless.math.wrapping[A](a) and returns a */
+    object ExWrapping {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(TypeApply(ExSelected("stainless", "math", "package", "wrapping"), Seq(_)), tree :: Nil) =>
+          Some(tree)
+        case _ =>
+          None
       }
     }
 

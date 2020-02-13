@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -28,8 +28,9 @@ object TerminationReport {
   implicit val statusEncoder: Encoder[Status] = deriveEncoder
 
   case class Record(
-    id: Identifier, pos: inox.utils.Position, time: Long,
-    status: Status, verdict: String,
+    id: Identifier,
+    pos: inox.utils.Position,
+    status: Status,
     derivedFrom: Identifier
   ) extends AbstractReportHelper.Record
 
@@ -55,29 +56,27 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
 
   override val name: String = TerminationComponent.name
 
-  lazy val totalValid = results count { _.status.isTerminating }
+  lazy val totalValid          = results count { _.status.isTerminating }
   lazy val totalValidFromCache = 0
-  lazy val totalInvalid = results count { _.status.isNonTerminating }
-  lazy val totalUnknown = results count { _.status.isUnknown }
-  lazy val totalTime = (results map { _.time }).sum
+  lazy val totalInvalid        = results count { _.status.isNonTerminating }
+  lazy val totalUnknown        = results count { _.status.isUnknown }
 
   override lazy val annotatedRows = results map {
-    case Record(id, pos, time, status, verdict, _) =>
-      val level = levelOf(status)
+    case Record(id, pos, status, _) =>
+      val level  = levelOf(status)
       val symbol = if (status.isTerminating) "\u2713" else "\u2717"
-      val extra = Seq(s"$symbol $verdict")
+      val extra  = Seq(s"$symbol")
 
-      RecordRow(id, pos, level, extra, time)
+      RecordRow(id, pos, level, extra, 0L)
   }
 
   private def levelOf(status: Status) = status match {
-    case Terminating => Level.Normal
-    case Unknown => Level.Warning
+    case Terminating    => Level.Normal
+    case Unknown        => Level.Warning
     case NonTerminating => Level.Error
   }
 
   override lazy val stats =
-    ReportStats(results.size, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
+    ReportStats(results.size, 0L, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
 
 }
-

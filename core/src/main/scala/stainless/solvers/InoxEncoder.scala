@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package solvers
@@ -18,8 +18,10 @@ trait InoxEncoder extends ProgramEncoder {
   import context._
 
   private[this] def keepFlag(flag: Flag): Boolean = flag match {
-    case Unchecked | Library | Synthetic | PartialEval | Extern | Opaque | Private | Final | Law | Ghost | Erasable => false
+    case Unchecked | Library | Synthetic | PartialEval | Extern => false
+    case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) => false
+    case TerminationStatus(_) => false
     case _ => true
   }
 
@@ -167,6 +169,9 @@ trait InoxEncoder extends ProgramEncoder {
 
       case s.SizedADT(sort, tps, args, size) => transform(s.ADT(sort, tps, args))
 
+      case m: s.Max =>
+        transform(maxToIfThenElse(m))
+
       case _ => super.transform(e)
     }
 
@@ -224,7 +229,7 @@ trait InoxEncoder extends ProgramEncoder {
       case _ => super.transform(e)
     }
 
-    override def transform(tpe: s.Type): t.Type = tpe match {
+  override def transform(tpe: s.Type): t.Type = tpe match {
       case s.ADTType(`arrayID`, Seq(base)) =>
         t.ArrayType(transform(base)).copiedFrom(tpe)
       case _ => super.transform(tpe)

@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -13,20 +13,25 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
   import program.trees.exprOps._
 
   case class Chain(relations: List[Relation]) {
+    override def toString: String = {
+      import stainless.utils.StringUtils.indent
+      s"Chain(${relations.map(_.toString).map(indent(_, 2)).mkString("\n", ",\n", "\n")})" +
+      s"\nLoop(${loop})"
+    }
 
     private lazy val identifier: Map[(Relation, Relation), Int] = {
-      (relations zip (relations.tail :+ relations.head)).groupBy(p => p).mapValues(_.size)
+      (relations zip (relations.tail :+ relations.head)).view.groupBy(p => p).mapValues(_.size).toMap
     }
 
     override def equals(obj: Any): Boolean = obj match {
       case (chain: Chain) => chain.identifier == identifier
-      case _ => false
+      case _              => false
     }
 
     override def hashCode: Int = identifier.hashCode()
 
-    lazy val fd  : FunDef      = relations.head.fd
-    lazy val fds : Set[FunDef] = relations.map(_.fd).toSet
+    lazy val fd: FunDef = relations.head.fd
+    lazy val fds: Set[FunDef] = relations.map(_.fd).toSet
 
     lazy val size: Int = relations.size
 
@@ -35,13 +40,16 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
       (bigRel.path, bigRel.call.args)
     }
 
-    lazy val cycles : Seq[List[Relation]] = relations.indices.map { index =>
+    lazy val cycles: Seq[List[Relation]] = relations.indices.map { index =>
       val (start, end) = relations.splitAt(index)
       end ++ start
     }
 
     def compose(that: Chain): Set[Chain] = {
-      val map = relations.zipWithIndex.map(p => p._1.call.tfd.fd -> ((p._2 + 1) % relations.size)).groupBy(_._1).mapValues(_.map(_._2))
+      val map = relations.zipWithIndex
+        .map(p => p._1.call.tfd.fd -> ((p._2 + 1) % relations.size))
+        .groupBy(_._1)
+        .mapValues(_.map(_._2))
       val tmap = that.relations.zipWithIndex.map(p => p._1.fd -> p._2).groupBy(_._1).mapValues(_.map(_._2))
       val keys = map.keys.toSet & tmap.keys.toSet
 
@@ -56,19 +64,18 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
     }
   }
 
-
   protected type ChainSignature = (FunDef, Set[RelationSignature])
 
   protected def funDefChainSignature(funDef: FunDef): ChainSignature = {
     funDef -> (transitiveCallees(funDef) + funDef).map(funDefRelationSignature)
   }
 
-  private val chainCache : MutableMap[FunDef, (Set[FunDef], Set[Chain], ChainSignature)] = MutableMap.empty
+  private val chainCache: MutableMap[FunDef, (Set[FunDef], Set[Chain], ChainSignature)] = MutableMap.empty
 
   def getChains(funDef: FunDef): (Set[FunDef], Set[Chain]) = chainCache.get(funDef) match {
     case Some((subloop, chains, signature)) if signature == funDefChainSignature(funDef) => subloop -> chains
     case _ => {
-      def chains(seen: Set[FunDef], chain: List[Relation]) : (Set[FunDef], Set[Chain]) = {
+      def chains(seen: Set[FunDef], chain: List[Relation]): (Set[FunDef], Set[Chain]) = {
         val Relation(_, _, FunctionInvocation(id, _, _), _) :: _ = chain
         val fd = getFunction(id)
 

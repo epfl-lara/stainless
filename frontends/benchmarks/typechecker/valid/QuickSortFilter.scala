@@ -89,7 +89,7 @@ object QuickSortFilter {
   }.holds
 
   def sorted_lemma(ls: List[BigInt]): Boolean = {
-    decreases(ls.size)
+    decreases(ls.size) // FIXME(measure): Required because RelationProcessor hangs when strengthening applications
 
     ls match {
       case Nil() => true

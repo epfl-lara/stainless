@@ -298,130 +298,308 @@ It then becomes possible to unambiguously pick which instance to use depending o
 Under the hood
 --------------
 
-In this section we describe how laws are encoded. Let's take as an example the
-following typeclass:
+In this section we describe how laws are encoded within Stainless.
+
+Let's take as an example the Semigroup+Monoid hierarchy, slightly
+amended to exercise at once all the features described above.
 
 .. code-block:: scala
 
-  abstract class Structure[A] {
-    def doSomething(x: A, y: A): A
+   abstract class Semigroup[A] {
+     def append(x: A, y: A): A
 
-    @law
-    def someLaw(x: A, y: A): Boolean = {
-      doSomething(x, y) == doSomething(y, x)
+     @law
+     def law_associativity(x: A, y: A, z: A): Boolean = {
+       append(x, append(y, z)) == append(append(x, y), z)
+     }
+   }
+
+   abstract class Monoid[A] extends Semigroup[A] {
+     def empty: A
+
+     @law
+     def law_leftIdentity(x: A): Boolean = {
+       append(empty, x) == x
+     }
+
+     @law
+     def law_leftIdentity(x: A): Boolean = {
+       append(x, empty) == x
+     }
+
+     override def law_associativity(x: A, y: A, z: A): Boolean = {
+       // We refine the Semigroup associativity law with a dummy
+       // predicate `refineLaw` to demonstrate this feature.
+       super.law_associativity(x, y, z) && refineLaw(x, y, z)
+     }
+   }
+
+   def refineLaw[A](x: A, y: A, z: A): Boolean = true
+
+Together with a simple implementation for ``BigInt``:
+
+.. code-block:: scala
+
+  def bigIntAdditiveMonoid: Monoid[BigInt] = new Monoid[BigInt] {
+    def empty: BigInt = 0
+    def append(x: BigInt, y: BigInt): BigInt = x + y
+
+    override def law_rightIdentity(x: BigInt): Boolean = {
+      // no manual proof is needed in this case, but we include
+      // a dummy one for the sake of this example.
+      someProof
     }
   }
 
+  def someProof: Boolean = true
 
+Here is the internal Stainless AST pretty much right after extraction
+from the Scala compiler.
 
-And a valid instance for ``BigInt``:
+Each symbol (class, method, variable) is annotated with its internal identifier
+(ie. the number after the ``$`` sign at the end of its name) which will prove useful
+for reading the code after the next phase, as it introduces new symbols with the same
+name but different identifiers.
 
 .. code-block:: scala
 
-  val bigIntInstance: Structure[BigInt] = new Structure[BigInt] {
-    override def doSomething(x: BigInt, y: BigInt): BigInt = {
-      x + y
-    }
+   abstract class Semigroup$0[A$85] {
 
-    override def someLaw(x: BigInt, y: BigInt): Boolean = {
-      super.someLaw(x, y) because {
-        x + y == y + y
+     @abstract
+     def append$3(x$108: A$85, y$24: A$85): A$85 = <empty tree>[A$85]
+
+     @law
+     def law_associativity$0(x$109: A$85, y$25: A$85, z$11: A$85): Boolean = {
+       this.append$3(x$109, this.append$3(y$25, z$11)) ==
+       this.append$3(this.append$3(x$109, y$25), z$11)
       }
-    }
-  }
+   }
 
+   abstract class Monoid$0[A$86] extends Semigroup$0[A$86] {
 
+     @abstract
+     def empty$6: A$86 = <empty tree>[A$86]
 
-.. code-block:: scala
+     @law
+     def law_leftIdentity$0(x$110: A$86): Boolean =
+      this.append$3(this.empty$6, x$110) == x$110
 
-  abstract class Structure[A] {
-    @abstract
-    def doSomething(x: A, y: A): Boolean = {
-      <empty tree>[A]
-    }
+     @law
+     def law_rightIdentity$0(x$111: A$86): Boolean =
+      this.append$3(x$111, this.empty$6) == x$111
 
-    @abstract
-    def someLaw(x: A, y: A): Boolean = {
-      <empty tree>[Boolean]
-    } ensuring { res => res && this.someLawProp(x, y) }
+     def law_associativity$1(x$112: A$86, y$26: A$86, z$12: A$86): Boolean =
+       super.law_associativity$0(x$112, y$26, z$12) && refineLaw$0[A$86](x$112, y$26, z$12)
+   }
 
-    def someLawProp(x: A, y: A): Boolean = {
-      this.doSomething(x, y) == this.doSomething(y, x)
-    }
-  }
+   def refineLaw$0[A$87](x$113: A$87, y$27: A$87, z$13: A$87): Boolean = true
 
-  val bigIntInstance: Structure[BigInt] = new Structure[BigInt] {
-    def doSomething(x: BigInt, y: BigInt): BigInt = {
-      x + y
-    }
+   case class $anon$0() extends Monoid$0[BigInt] {
+     def empty$7: BigInt = 0
+     def append$4(x$112: BigInt, y$26: BigInt): BigInt = x$112 + y$26
 
-    def someLaw(x: BigInt, y: BigInt): Boolean = {
-      super.someLaw(x, y) because {
-        x + y == y + x
-      }
-    }
-  }
+     def law_rightIdentity$1(x$113: BigInt): Boolean = someProof$0
+   }
 
-.. code-block:: scala
+   def bigIntAdditiveMonoid$0: Monoid$0[BigInt] = $anon$0()
 
-  abstract class A {
-    def x: BigInt
+   def someProof$0: Boolean = true
 
-    @law def constraint = x != 0
-  }
+The code above maps in straightforward way to the original code.
 
-  abstract class B extends A
-
-  abstract class C extends B {
-    override def constraint = x > 0
-  }
-
-  case class D() extends C {
-    def x = 42
-  }
+Let's now take a look at the output of the ``Laws`` phase. This is
+the phase which desugars the law definitions and their overrides
+into methods with explicit postconditions.
 
 .. code-block:: scala
 
-  abstract class A {
-    def x: BigInt
+   abstract class Semigroup$0[A$85] {
 
-    @law def constraint$1 = {
-      <empty tree>[Boolean]
-    } ensuring { res => res && this.constraintProp$1 }
+     @abstract
+     def append$3(x$108: A$85, y$24: A$85): A$85 = <empty tree>[A$85]
 
-    def constraintProp$1 = x != 0
-  }
+     @final
+     @inlineOnce
+     @derived(law_associativity$0)
+     def law_associativity$2(x$120: A$85, y$30: A$85, z$14: A$85): Boolean = {
+       this.append$3(x$120, this.append$3(y$30, z$14)) ==
+       this.append$3(this.append$3(x$120, y$30), z$14)
+     }
 
-  abstract class B extends A {
-    @law def constraint$2 = {
-      super.constraint$1 && this.constraintProp$2
-    }
+     @abstract
+     def law_associativity$0(x$109: A$85, y$25: A$85, z$11: A$85): Boolean = {
+       <empty tree>[Boolean]
+     } ensuring {
+       (res$82: Boolean) => res$82 && this.law_associativity$2(x$109, y$25, z$11)
+     }
+   }
 
-    def constraintProp$2 = true
-  }
+   abstract class Monoid$0[A$86] extends Semigroup$0[A$86] {
 
-  abstract class C extends B {
-    @law def constraint$3 = {
-      super.constraint$2 && this.constraintProp$3
-    }
+     @abstract
+     def empty$6: A$86 = <empty tree>[A$86]
 
-    def constraintProp$3 = x > 0
-  }
+     @final
+     @inlineOnce
+     @derived(law_leftIdentity$0)
+     def law_leftIdentity$1(x$116: A$86): Boolean =
+       this.append$3(this.empty$6, x$116) == x$116
 
-  case class D() extends C {
-    def x = 42
+     @abstract
+     def law_leftIdentity$0(x$110: A$86): Boolean = {
+       <empty tree>[Boolean]
+     } ensuring {
+       (res$77: Boolean) => res$77 && this.law_leftIdentity$1(x$110)
+     }
 
-    @law def constraint$3 = {
-      super.constraint$3 && this.constraintProp$4
-    }
+     @final
+     @inlineOnce
+     @derived(law_rightIdentity$0)
+     def law_rightIdentity$2(x$117: A$86): Boolean =
+       this.append$3(x$117, this.empty$6) == x$117
 
-    def constraintProp$4 = true
-  }
+     @abstract
+     def law_rightIdentity$0(x$111: A$86): Boolean = {
+       <empty tree>[Boolean]
+     } ensuring {
+       (res$80: Boolean) => res$80 && this.law_rightIdentity$2(x$111)
+     }
+
+     @law
+     def law_associativity$1(x$112: A$86, y$26: A$86, z$12: A$86): Boolean = {
+       this.law_associativity$2(x$112, y$26, z$12) && refineLaw$0[A$86](x$112, y$26, z$12)
+     } ensuring {
+       (res$84: Boolean) => res$84 && this.law_associativity$2(x$112, y$26, z$12)
+     }
+   }
+
+   @derived(bigIntAdditiveMonoid$0)
+   case class $anon$0() extends Monoid$0[BigInt] {
+
+     def empty$7: BigInt = 0
+     def append$4(x$114: BigInt, y$27: BigInt): BigInt = x$114 + y$27
+
+     @law
+     @derived(law_leftIdentity$0)
+     def law_leftIdentity$2(x$119: BigInt): Boolean = {
+       true
+     } ensuring {
+       (res$84: Boolean) => this.law_leftIdentity$1(x$119)
+     }
+
+     @law
+     def law_rightIdentity$1(x$115: BigInt): Boolean = {
+       someProof$0
+     } ensuring {
+       (res$79: Boolean) => res$79 && this.law_rightIdentity$2(x$115)
+     }
+
+     @law
+     @derived(law_associativity$0)
+     def law_associativity$2(x$120: BigInt, y$29: BigInt, z$13: BigInt): Boolean = {
+       true
+     } ensuring {
+       (res$85: Boolean) => this.law_associativity$1(x$120, y$29, z$13)
+     }
+   }
+
+   def bigIntAdditiveMonoid$0: Monoid$0[BigInt] = $anon$0()
+
+   def someProof$0: Boolean = true
+
+There are a few things going on here:
+
+1. First of all, each method marked ``@law`` introduces a new method which
+   holds the original body of the law. The law's body is then rewritten to
+   be empty, and is provided with a postcondition which refers to the newly
+   introduced method. This desugaring step basically turns the laws
+   into abstract methods which must be overriden at some point with
+   methods whose body can be proven to be true, while also satisfying the law
+   itself.
+
+   The helper method will be used in subsequent steps to refer to the
+   law's body, without having to inline it or call the law itself,
+   which is disallowed since it is conceptually an abstract method, as
+   evidenced by its newly added ``@abstract`` flag.
+
+   .. code-block:: scala
+
+     // In class `Semigroup`...
+
+     // This is the helper method.
+     @final
+     @inlineOnce
+     @derived(law_associativity$0)
+     def law_associativity$2(x$120: A$85, y$30: A$85, z$14: A$85): Boolean = {
+       this.append$3(x$120, this.append$3(y$30, z$14)) ==
+       this.append$3(this.append$3(x$120, y$30), z$14)
+     }
+
+     // This is the original law definition, which now became an abstract method.
+     @abstract
+     def law_associativity$0(x$109: A$85, y$25: A$85, z$11: A$85): Boolean = {
+       <empty tree>[Boolean]
+     } ensuring {
+       (res$82: Boolean) => res$82 && this.law_associativity$2(x$109, y$25, z$11)
+     }
+
+2. Laws which are overriden into abstract subclasses, are provided with a
+   postcondition that ensures that their body can be proven true,
+   while still satisfying the original law via a call to the helper
+   method introduced in the previous step. This step ensures that laws
+   cannot be fully redefined, and thus potentially weakened, in subclasses.
+
+   .. code-block:: scala
+
+     // In class `Monoid`...
+
+     @law
+     def law_associativity$1(x$112: A$86, y$26: A$86, z$12: A$86): Boolean = {
+       this.law_associativity$2(x$112, y$26, z$12) && refineLaw$0[A$86](x$112, y$26, z$12)
+     } ensuring {
+       (res$84: Boolean) => res$84 && this.law_associativity$2(x$112, y$26, z$12)
+     }
+
+3. In the typeclass implementations (eg. class ``$anon$0``), methods which override laws
+   are provided with a postcondition which again ensures that their body holds,
+   while still satisfying the law they override, again via a call to the helper
+   method introduced in step 1.
+
+   .. code-block:: scala
+
+     // In class `$anon$0`...
+
+     @law
+     def law_rightIdentity$1(x$115: BigInt): Boolean = {
+       someProof$0
+     } ensuring {
+       (res$79: Boolean) => res$79 && this.law_rightIdentity$2(x$115)
+     }
+
+4. If a law is not overriden in a typeclass implementation, a stub override is
+   automatically defined by Stainless, to ensure that a verification condition
+   will be generated. Those stubs just have ``true`` as a body, and a postcondition
+   which calls to the appropriate law helper introduced in step 1.
+   This expresses the fact that the law holds on its own, without any additional proof steps.
+
+   .. code-block:: scala
+
+     // In class `$anon$0`
+
+     @law
+     @derived(law_leftIdentity$0)
+     def law_leftIdentity$2(x$119: BigInt): Boolean = {
+       true
+     } ensuring {
+       (res$84: Boolean) => this.law_leftIdentity$1(x$119)
+     }
 
 .. note::
 
-  As can be seen above, calling the super method when refining or proving a law is superfluous,
-  since it is done anyway during the encoding, but can help readability, as doing so makes the
-  code more closely match the semantics of Stainless.
+  As can be seen above, calling the super method when refining (such as in ``law_associativity``)
+  or proving (such as in ``law_rightIdentity``) a law is superfluous, since it is done anyway
+  during the encoding as to ensure that laws cannot be weakened. Doing so can nonetheless help
+  readability, since it makes the code match more closely to the semantics of Scala.
 
 .. [WB89] P. Wadler and S. Blott. 1989. How to make ad-hoc polymorphism less ad hoc.
+

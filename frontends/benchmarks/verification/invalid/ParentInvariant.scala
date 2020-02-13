@@ -1,10 +1,11 @@
 
 import stainless.lang._
+import stainless.annotation._
 
 object ParentInvariant {
 
   abstract class Foo {
-    require(foo(0) == 0)
+    @law def inv = foo(0) == 0
     def foo(x: BigInt): BigInt
   }
 

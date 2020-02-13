@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -95,12 +95,12 @@ trait Trees extends throwing.Trees { self =>
       super.ensureWellFormedClass(cd)
 
       // Check that abstract methods are overriden
-      if (!(cd.flags contains IsAbstract)) {
+      if (!cd.isAbstract) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
           case (abstractSymbols, acd) =>
-            abstractSymbols --
-            acd.methods.map(_.symbol) ++
-            acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol)
+            val concreteSymbols = acd.methods.map(_.symbol).toSet
+            val newAbstractSymbols = acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol).toSet
+            abstractSymbols -- concreteSymbols ++ newAbstractSymbols
         }
 
         if (remainingAbstract.nonEmpty) {
@@ -205,11 +205,14 @@ trait Trees extends throwing.Trees { self =>
   case class IsAccessor(id: Option[Identifier]) extends Flag("accessor", id.toSeq)
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
+  case object ValueClass extends Flag("valueClass", Seq.empty)
+
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
     def isAbstract: Boolean = cd.flags contains IsAbstract
     def isLibrary: Boolean = cd.flags contains Library
     def isGhost: Boolean = cd.flags contains Ghost
+    def isValueClass: Boolean = cd.flags contains ValueClass
 
     def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values
@@ -227,6 +230,8 @@ trait Trees extends throwing.Trees { self =>
       fd.flags exists { case IsMethodOf(_) => true case _ => false }
 
     def isGhost: Boolean = fd.flags contains Ghost
+
+    def isSynthetic: Boolean = fd.flags contains Synthetic
 
     def getClassId: Option[Identifier] =
       fd.flags collectFirst { case IsMethodOf(id) => id }
@@ -247,7 +252,7 @@ trait Trees extends throwing.Trees { self =>
 
     def isAbstract(implicit s: Symbols): Boolean = {
       (fd.flags contains IsAbstract) ||
-      (!isExtern && fd.getClassDef.forall(_.isAbstract) && !hasBody)
+      (!isExtern && !hasBody && !isSynthetic && fd.getClassDef.forall(_.isAbstract))
     }
 
     def hasBody: Boolean = exprOps.withoutSpecs(fd.fullBody).isDefined
@@ -329,6 +334,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
+    case s.ValueClass => (Seq(), Seq(), Seq(), (_, _, _) => t.ValueClass)
     case _ => super.deconstruct(f)
   }
 }

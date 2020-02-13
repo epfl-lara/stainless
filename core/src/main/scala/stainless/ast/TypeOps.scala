@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -67,5 +67,14 @@ trait TypeOps extends inox.ast.TypeOps {
             }
           }
       }
+  }
+
+  def replaceKeepPositions(subst: Map[Variable, Expr], tpe: Type): Type = {
+    new SelfTreeTransformer {
+      override def transform(expr: Expr): Expr = expr match {
+        case v: Variable => subst.getOrElse(v, v).copiedFrom(v)
+        case _ => super.transform(expr)
+      }
+    }.transform(tpe)
   }
 }

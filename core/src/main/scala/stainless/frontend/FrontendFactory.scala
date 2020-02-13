@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontend
@@ -12,10 +12,10 @@ trait FrontendFactory {
 
   protected val extraCompilerArguments: Seq[String] = Nil
   protected val libraryPaths: Seq[String]
+
   private lazy val cl = getClass.getClassLoader
 
   /** Paths to the library files used by this frontend. */
-  // final lazy val libraryFiles: Seq[String] = libraryPaths map cl.getResource map { url =>
   final lazy val libraryFiles: Seq[String] = libraryPaths map cl.getResource map { url =>
     // There are two run modes: either the library is not packaged in a jar, and therefore
     // directly available as is from the disk, or it is embedded in stainless' jar file, in
@@ -40,8 +40,18 @@ trait FrontendFactory {
     }
   }
 
+  protected def extraSourceFiles(ctx: inox.Context): Seq[String] = {
+    val extraDeps = ctx.options.findOptionOrDefault(optExtraDeps)
+    val extraResolvers = ctx.options.findOptionOrDefault(optExtraResolvers)
+
+    val resolver = new DependencyResolver(ctx, extraResolvers)
+    resolver.fetchAll(extraDeps)
+  }
+
   /** All the arguments for the underlying compiler. */
-  protected def allCompilerArguments(compilerArgs: Seq[String]): Seq[String] =
-    extraCompilerArguments ++ libraryFiles ++ compilerArgs
+  protected def allCompilerArguments(ctx: inox.Context, compilerArgs: Seq[String]): Seq[String] = {
+    val extraSources = extraSourceFiles(ctx)
+    extraCompilerArguments ++ libraryFiles ++ extraSources ++ compilerArgs
+  }
 }
 

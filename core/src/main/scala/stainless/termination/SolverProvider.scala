@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -11,6 +11,7 @@ import scala.language.existentials
 
 trait SolverProvider { self =>
   val checker: ProcessingPipeline
+
   import checker._
   import context._
   import program._
@@ -27,26 +28,28 @@ trait SolverProvider { self =>
       val s: trees.type = trees
       val t: trees.type = trees
 
-      def transform(syms: Symbols): Symbols = syms
+      def transform(syms: Symbols): Symbols = {
+        val newSorts = symbols.sorts.values.toSeq
+        val newFunctions = symbols.functions.values.toSeq.map(fd =>
+          fd.copy(flags = fd.flags.filter {
+            case Uncached => false
+            case _        => true
+          })
+        )
+
+        NoSymbols.withSorts(newSorts).withFunctions(newFunctions)
+      }
     }
 
   private[termination] def registerTransformer(
-    transformer: SymbolTransformer { val s: trees.type; val t: trees.type }
+      transformer: SymbolTransformer { val s: trees.type; val t: trees.type }
   ): Unit = transformers = transformers andThen transformer
 
   private implicit val semanticsProvider: inox.SemanticsProvider { val trees: checker.program.trees.type } =
     encodingSemantics(trees)(encoder)
 
-
-  private val cache = new inox.utils.LruCache[
-    SymbolTransformer,
-    inox.solvers.SolverFactory { val program: Program { val trees: checker.program.trees.type } }
-  ](5)
-
-  private[termination] def clearSolvers(): Unit = cache.clear()
-
   private def solverFactory(transformer: SymbolTransformer { val s: trees.type; val t: trees.type }) =
-    cache.cached(transformer, timers.termination.encoding.run {
+    (timers.termination.encoding.run {
       val transformEncoder = ProgramEncoder(checker.program)(transformer)
       val p: transformEncoder.targetProgram.type = transformEncoder.targetProgram
 
@@ -63,14 +66,17 @@ trait SolverProvider { self =>
 
       val timeout = options.findOption(inox.optTimeout) match {
         case Some(to) => to / 100
-        case None => 2.5.seconds
+        case None     => 2.5.seconds
       }
 
       solvers.SolverFactory
-        .getFromSettings(p, context.withOpts(
-          inox.solvers.optSilentErrors(true),
-          inox.solvers.optCheckModels(true)
-        ))(programEncoder)(p.getSemantics)
+        .getFromSettings(
+          p,
+          context.withOpts(
+            inox.solvers.optSilentErrors(true),
+            inox.solvers.optCheckModels(true)
+          )
+        )(programEncoder)(p.getSemantics)
         .withTimeout(timeout)
     })
 
@@ -85,4 +91,6 @@ trait SolverProvider { self =>
   def getAPI(t: SymbolTransformer { val s: trees.type; val t: trees.type }): inox.solvers.SimpleSolverAPI {
     val program: inox.Program { val trees: checker.program.trees.type }
   } = solverAPI(transformers andThen t)
+
+  def apiTransform(s: Symbols) = transformers.transform(s)
 }

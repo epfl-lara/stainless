@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -107,6 +107,27 @@ trait RefinementLifting
             s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(Map(vd -> asInstOf(expr, vd.tpe).copiedFrom(e)), pred)),
             Some("Cast error"),
             asInstOf(expr, vd.tpe).copiedFrom(e)
+          ).copiedFrom(e))
+
+        case _ => super.transform(e)
+      }
+
+      case s.Let(vd, value, body) => liftRefinements(vd.tpe) match {
+        case s.RefinementType(ivd, s.BooleanLiteral(true)) =>
+          transform(s.Let(vd.copy(tpe = ivd.tpe), value, body))
+
+        case s.RefinementType(ivd, pred) =>
+          val nvd = vd.copy(tpe = ivd.tpe)
+          val subst = Map(ivd -> nvd.toVariable)
+
+          transform(s.Let(
+            nvd,
+            value,
+            s.Assert(
+              s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
+              Some("Inner refinement lifting"),
+              body,
+            ).copiedFrom(e)
           ).copiedFrom(e))
 
         case _ => super.transform(e)

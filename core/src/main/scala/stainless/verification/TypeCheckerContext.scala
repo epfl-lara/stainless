@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -19,7 +19,9 @@ object TypeCheckerContext {
     currentADT: Option[Identifier],
     currentMeasure: Option[Expr],
     measureType: Option[Type],
-    vcKind: VCKind
+    vcKind: VCKind,
+    checkSAT: Boolean,
+    emitVCs: Boolean,
   ) extends inox.utils.Positioned {
 
     def inc() = {
@@ -46,7 +48,7 @@ object TypeCheckerContext {
 
     def bindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariable(vd)
-      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, Equality(vd.toVariable,e))).setPos(this)
+      copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, LetEquality(vd.toVariable,e))).setPos(this)
     }
 
     def bindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context) = {
@@ -135,11 +137,21 @@ object TypeCheckerContext {
       copy(vcKind = kind).setPos(this)
     }
 
+    def withCheckSAT(checkSAT: Boolean) = {
+      copy(checkSAT = checkSAT).setPos(this)
+    }
+
+    def withEmitVCs(emitVCs: Boolean) = {
+      copy(emitVCs = emitVCs).setPos(this)
+    }
+
     def indent: String = "  " * depth
 
     def asString(indent: String = "")(implicit opts: PrinterOptions) = {
       (if (indent != "") s"${indent}Depth: $depth\n" else "") +
       s"""|${indent}Kind: ${vcKind}
+          |${indent}Check SAT: ${checkSAT}
+          |${indent}Emit VCs: ${emitVCs}
           |${indent}Functions: ${visibleFunctions.map(_.asString).mkString(", ")}
           |${indent}ADTs: ${visibleADTs.map(_.asString).mkString(", ")}
           |${indent}Type Variables: ${typeVariables.map(_.asString).mkString(", ")}
@@ -149,6 +161,19 @@ object TypeCheckerContext {
   }
 
   object TypingContext {
-    def empty = TypingContext(0, Set(), Set(), Set(), Seq(), None, None, None, None, VCKind.Assert)
+    def empty = TypingContext(
+      depth = 0,
+      visibleFunctions = Set(),
+      visibleADTs = Set(),
+      typeVariables = Set(),
+      termVariables = Seq(),
+      currentFid = None,
+      currentADT = None,
+      currentMeasure = None,
+      measureType = None,
+      vcKind = VCKind.Assert,
+      checkSAT = false,
+      emitVCs = true,
+    )
   }
 }

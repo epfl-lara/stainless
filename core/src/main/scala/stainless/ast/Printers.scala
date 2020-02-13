@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -154,6 +154,9 @@ trait Printer extends inox.ast.Printer {
     case Decreases(rank, body) =>
       p"""|decreases($rank)
           |$body"""
+
+    case Max(es) =>
+      p"""max($es)"""
 
     case _ => super.ppBody(tree)
   }

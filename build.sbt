@@ -32,7 +32,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.8")
+val SupportedScalaVersions = Seq("2.12.9")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -82,51 +82,65 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
 
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
-    Resolver.typesafeIvyRepo("releases"),
     Resolver.bintrayRepo("epfl-lara", "maven"),
-    "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+    ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
   ),
 
   libraryDependencies ++= Seq(
-    "ch.epfl.lara"  %% "inox"          % inoxVersion,
-    "ch.epfl.lara"  %% "inox"          % inoxVersion % "test" classifier "tests",
-    "ch.epfl.lara"  %% "cafebabe"      % "1.2",
-    "uuverifiers"   %% "princess"      % "2018-02-26" ,
-    "io.circe"      %% "circe-core"    % circeVersion,
-    "io.circe"      %% "circe-generic" % circeVersion,
-    "io.circe"      %% "circe-parser"  % circeVersion,
-    "com.typesafe"   % "config"        % "1.3.2",
+    "ch.epfl.lara"    %% "inox"          % inoxVersion,
+    "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
+    "ch.epfl.lara"    %% "cafebabe"      % "1.2",
+    "uuverifiers"     %% "princess"      % "2018-02-26" ,
+    "io.circe"        %% "circe-core"    % circeVersion,
+    "io.circe"        %% "circe-generic" % circeVersion,
+    "io.circe"        %% "circe-parser"  % circeVersion,
+    "io.get-coursier" %% "coursier"      % "2.0.0-RC4-1",
+    "com.typesafe"     % "config"        % "1.3.4",
 
-    "org.scalatest" %% "scalatest"     % "3.0.1" % "test",
+    "org.scalatest"   %% "scalatest"     % "3.0.8" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development
-  mappings in (Compile, packageDoc) := Seq(),
+  Compile / packageDoc / mappings := Seq(),
 
-  concurrentRestrictions in Global += Tags.limitAll(nParallel),
+  Global / concurrentRestrictions += Tags.limitAll(nParallel),
 
-  sourcesInBase in Compile := false,
+  Compile / sourcesInBase := false,
 
-  Keys.fork in run := true,
+  run / Keys.fork := true,
 
-  /* javaOptions in run += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
+  run / javaOptions ++= Seq(
+    "-Xss256M",
+    "-Xms1024M",
+    "-XX:MaxMetaspaceSize=512M",
+    "-XX:+UseCodeCacheFlushing",
+    "-XX:ReservedCodeCacheSize=256M",
+  ),
 
-  testOptions in Test := Seq(Tests.Argument("-oDF")),
+  /* run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
 
-  testOptions in IntegrationTest := Seq(Tests.Argument("-oDF")),
+  Test / testOptions := Seq(Tests.Argument("-oDF")),
+
+  IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
 )
 
-lazy val assemblySettings: Seq[Setting[_]] = Seq(
-  assembly / assemblyMergeStrategy := {
-    // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
-    // hence the following merge strategy picks the standalone BuildInfo over the usual one.
-    case "stainless/BuildInfo.class" => MergeStrategy.first
-    case "stainless/BuildInfo$.class" => MergeStrategy.first
-    case x =>
-      val oldStrategy = (assembly / assemblyMergeStrategy).value
-      oldStrategy(x)
-  },
-)
+lazy val assemblySettings: Seq[Setting[_]] = {
+  def isNativeLib(file: String): Boolean =
+    file.endsWith("dll") || file.endsWith("so") || file.endsWith("jnilib")
+
+  Seq(
+    assembly / assemblyMergeStrategy := {
+      // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
+      // hence the following merge strategy picks the standalone BuildInfo over the usual one.
+      case "stainless/BuildInfo.class" => MergeStrategy.first
+      case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case file if isNativeLib(file) => MergeStrategy.first
+      case x =>
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
+        oldStrategy(x)
+    },
+  )
+}
 
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
@@ -218,11 +232,26 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(commonSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
+
     // don't publish binaries - stainless-library is only consumed as a sources component
     publishArtifact in packageBin := false,
-    crossVersion := CrossVersion.full,
+    crossVersion := CrossVersion.binary,
     scalaSource in Compile := baseDirectory.value
   )
+
+lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
+  .disablePlugins(AssemblyPlugin)
+  .settings(commonSettings, publishMavenSettings)
+  .settings(
+    name := "stainless-algebra",
+    version := "0.1.2",
+
+    // don't publish binaries - stainless-algebra is only consumed as a sources component
+    publishArtifact in packageBin := false,
+    crossVersion := CrossVersion.binary,
+    scalaSource in Compile := baseDirectory.value,
+  )
+  .dependsOn(`stainless-library`)
 
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)

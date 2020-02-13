@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package frontends.dotc
@@ -63,7 +63,7 @@ object DottyCompiler {
         val compiler = new DottyCompiler(ctx, callback, cache)
 
         val flags = Seq("-language:implicitConversions")
-        val args = allCompilerArguments(compilerArgs) ++ flags
+        val args = allCompilerArguments(ctx, compilerArgs) ++ flags
 
         val driver = new DottyDriver(args, compiler)
 

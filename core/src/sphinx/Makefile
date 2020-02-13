@@ -50,6 +50,9 @@ help:
 clean:
 	rm -rf $(BUILDDIR)/*
 
+serve:
+	cd _build/html/ && httplz
+
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo

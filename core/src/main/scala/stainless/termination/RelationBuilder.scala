@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -13,8 +13,9 @@ trait RelationBuilder { self: Strengthener =>
   val cfa: CICFA { val program: checker.program.type }
 
   case class Relation(fd: FunDef, path: Path, call: FunctionInvocation, inLambda: Boolean) {
-    override def toString : String = "Relation(" + fd.id + "," + path + ", " +
-      call.tfd.id + call.args.mkString("(",",",")") + "," + inLambda + ")"
+    override def toString: String =
+      "Relation(" + fd.id + "," + path.toClause + ", " +
+        call.tfd.id + call.args.mkString("(", ",", ")") + "," + inLambda + ")"
 
     def compose(that: Relation): Relation = {
       val tfd = call.tfd
@@ -25,11 +26,14 @@ trait RelationBuilder { self: Strengthener =>
       val paramPath = Path.empty withBindings (freshParams zip call.args)
       val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-      val freshSubst = (instPath.bound map { vd => vd -> vd.freshen }).toMap
+      val freshSubst = (instPath.bound map { vd =>
+        vd -> vd.freshen
+      }).toMap
       val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
-      val newCall = exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]
+      val newCall =
+        exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]
 
       Relation(fd, path merge paramPath merge newPath, newCall, inLambda || that.inLambda)
     }
@@ -42,7 +46,7 @@ trait RelationBuilder { self: Strengthener =>
     (fd, fd.fullBody, checker.terminates(fd).isGuaranteed, strengthenedCallees)
   }
 
-  private val relationCache : MutableMap[FunDef, (Set[Relation], RelationSignature)] = MutableMap.empty
+  private val relationCache: MutableMap[FunDef, (Set[Relation], RelationSignature)] = MutableMap.empty
 
   def getRelations(funDef: FunDef): Set[Relation] = relationCache.get(funDef) match {
     case Some((relations, signature)) if signature == funDefRelationSignature(funDef) => relations

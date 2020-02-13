@@ -5,8 +5,7 @@ Command Line Options
 
 Stainless's command line options have the form ``--option`` or ``--option=value``.
 To enable a flag option, use ``--option=true`` or ``on`` or ``yes``,
-or just ``--option``. To disable a flag option, use ``--option=false``
-or ``off`` or ``no``.
+or just ``--option``. To disable a flag option, use ``--option=false``.
 
 Additionally, if you need to pass options to the ``scalac`` frontend of Stainless,
 you can do it by using a single dash ``-``. For example, try ``-Ybrowse:typer``.
@@ -23,10 +22,6 @@ By default, ``--verification`` is chosen.
 * ``--verification``
 
   Proves or disproves function contracts, as explained in the :doc:`verification` section.
-
-* ``--termination``
-
-  Runs termination analysis. Can be used along ``--verification``.
 
 * ``--eval``
 
@@ -52,6 +47,14 @@ These options are available to all Stainless components:
 
   Reduces the components' summaries to only the invalid elements (e.g. invalid VC).
 
+* ``--infer-measures=[yes|no|only] (default: yes)``
+
+  Infers measures for recursive functions which do not already have one.
+
+* ``--check-measures=[true|false] (default: true)``
+
+  Check termination of functions with measures, ie. whether measures decrease between recursive calls.
+
 * ``--debug=d1,d2,...``
 
   Enables printing detailed messages for the components d1,d2,... .
@@ -66,6 +69,14 @@ These options are available to all Stainless components:
   * ``trees`` (Manipulation of trees)
 
   * ``verification`` (Verification)
+
+  * ``full-vc`` (Display VCs before and after simplification)
+
+  * ``type-checker`` (Type checking of the final program for VC generation)
+
+  * ``type-checker-vcs`` (Generation of VCs by the type-checker)
+
+  * ``derivation`` (Dump typing derivations)
 
 * ``--functions=f1,f2,...``
 
@@ -140,6 +151,28 @@ These options are available to all Stainless components:
 
   Export the verification and/or termination analyses to the given file.
 
+* ``--extra-deps=org:name_scalaVersion:version,...``
+
+  Fetch the specified dependencies, and add their sources to the set of files
+  processed by Stainless. Each dependency must be available as a source JAR
+  from MavenCentral, the EPFL-LARA bintray organization, your local Ivy database,
+  or through another resolver specified via ``--extra-resolvers``.
+
+  Note: Stainless will not pull transitive dependencies, so one has to specify
+  all transitive dependencies explicitely via this option.
+
+  Example: ``--extra-deps=ch.epfl.lara:stainless-algebra_2.12:0.1.2``
+
+* ``--extra-resolvers=URL,...``
+
+  Specify additional resolvers to be used to fetch the dependencies specified via
+  the ``--extra-deps`` option.
+
+  Note: The full URL of the resolver must be used.
+
+  Example: ``--extra-resolvers=https://oss.sonatype.org/content/repositories/snapshots/``
+
+  See the `Coursier source code <https://github.com/coursier/coursier/blob/8d011f7eeb2a9dde5ed2518fb2407e7aaecfc54f/modules/coursier/shared/src/main/scala/coursier/Repositories.scala>`_ for the list of most common repositories URLs.
 
 
 Additional Options (by component)

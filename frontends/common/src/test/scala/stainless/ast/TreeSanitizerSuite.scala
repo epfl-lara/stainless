@@ -10,29 +10,27 @@ import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
 class TreeSanitizerSuite extends FunSpec with InputUtils {
 
-  // Change this to trigger re-compilation
-  val ID = 3
+  val ID = 2 // Change this to trigger re-compilation
 
   val sources = Map(
-    "SoundEquality" -> FileProvider.getFileContents(
-      "frontends/common/src/test/resources/SoundEquality.scala"
+    "AbstractValOverrides" -> FileProvider.getFileContents(
+      "frontends/common/src/test/resources/AbstractValOverrides.scala"
     ),
     "GhostOverrides" -> FileProvider.getFileContents(
       "frontends/common/src/test/resources/GhostOverrides.scala"
+    ),
+    "SoundEquality" -> FileProvider.getFileContents(
+      "frontends/common/src/test/resources/SoundEquality.scala"
+    ),
+    "SoundInvariants" -> FileProvider.getFileContents(
+      "frontends/common/src/test/resources/SoundInvariants.scala"
     )
   )
 
-  makeTest("SoundEquality", Vector(
-    20,
-    40,
-    46,
-    68,
-    80,
-    89,
-    98,
-  ))
-
-  makeTest("GhostOverrides", Vector(19))
+  makeTest("AbstractValOverrides",  Seq(26, 29, 31))
+  makeTest("GhostOverrides",        Seq(19))
+  makeTest("SoundEquality",         Seq(20, 40, 46, 68, 80, 89, 98))
+  makeTest("SoundInvariants",       Seq(11, 22, 45, 57))
 
   def makeTest(name: String, expected: Seq[Int]): Unit = {
     implicit val ctx = stainless.TestContext.empty

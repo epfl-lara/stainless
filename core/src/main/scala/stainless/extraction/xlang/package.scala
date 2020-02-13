@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -56,5 +56,16 @@ package object xlang {
     }
 
     utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen lowering
+  }
+
+  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(implicit ctx: inox.Context) = innerclasses.fullExtractor
+
+  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: xlang.trees.type } = {
+    extraction.phaseSemantics(xlang.trees)(fullExtractor)
+  }
+
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {
+    innerclasses.phaseSemantics
   }
 }

@@ -3,7 +3,7 @@ object DependentFunTypes {
 
   trait Entry {
     type Key
-    val key: Key
+    def key: Key
   }
 
   def extractKey(e: Entry): e.Key = e.key
@@ -12,7 +12,7 @@ object DependentFunTypes {
 
   case class IntEntry() extends Entry {
     type Key = Int
-    val key: Int = 42
+    def key: Int = 42
   }
 
   def test1(entry: IntEntry) = {

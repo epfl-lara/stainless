@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -13,7 +13,7 @@ import inox._
   */
 trait CICFA {
 
-  val program: Program { val trees: stainless.trees.type }
+  val program: Program { val trees: Trees }
   val context: inox.Context
 
   import context._
@@ -26,18 +26,18 @@ trait CICFA {
     def body: Expr
 
     override def equals(that: Any): Boolean = (this, that) match {
-      case (n1: NamedFunction, n2: NamedFunction) => n1.fd == n2.fd
+      case (n1: NamedFunction, n2: NamedFunction)   => n1.fd == n2.fd
       case (l1: LambdaFunction, l2: LambdaFunction) => l1.lambda == l2.lambda
-      case _ => false
+      case _                                        => false
     }
 
     override def hashCode: Int = this match {
-      case n: NamedFunction => n.fd.hashCode
+      case n: NamedFunction  => n.fd.hashCode
       case l: LambdaFunction => l.lambda.hashCode
     }
 
     override def toString: String = this match {
-      case n: NamedFunction => n.fd.id.asString
+      case n: NamedFunction  => n.fd.id.asString
       case l: LambdaFunction => l.lambda.asString
     }
   }
@@ -69,9 +69,10 @@ trait CICFA {
       case (k, v) => store.contains(k) && other.store(k).subsetOf(store(k))
     }
 
-    def join(other: AbsEnv): AbsEnv = AbsEnv((store.keySet ++ other.store.keys).map { k =>
-      k -> (store.getOrElse(k, Set.empty) ++ other.store.getOrElse(k, Set.empty))
-    }.toMap)
+    def join(other: AbsEnv): AbsEnv =
+      AbsEnv((store.keySet ++ other.store.keys).map { k =>
+        k -> (store.getOrElse(k, Set.empty) ++ other.store.getOrElse(k, Set.empty))
+      }.toMap)
 
     // this is a disjoint union, where only the new keys that
     // are found are added to the map (this likely to be efficient)
@@ -96,11 +97,10 @@ trait CICFA {
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
   private val cache: MutableMap[Identifier, Analysis] = MutableMap.empty
-  def analyze(id: Identifier): Analysis = cache.getOrElse(id, timers.termination.cfa.run {
-    val res = new Analysis(id)
-    cache(id) = res
-    res
-  })
+  def analyze(id: Identifier): Analysis =
+    cache.getOrElseUpdate(id, timers.termination.cfa.run {
+      new Analysis(id)
+    })
 
   class Analysis(id: Identifier) {
     val fd = getFunction(id)
@@ -112,30 +112,31 @@ trait CICFA {
 
     // initialize summaries to identity function from bot to empty
     // for the current function, initialize it to External
-    private def getTabulation(fun: Function): Summary = tabulation.getOrElse(fun, {
-      val res = Summary(fun match {
-        case n: NamedFunction =>
-          if (id == n.fd.id) AbsEnv(n.fd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
-          else AbsEnv(n.fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+    private def getTabulation(fun: Function): Summary =
+      tabulation.getOrElseUpdate(
+        fun, {
+          Summary(
+            fun match {
+              case n: NamedFunction =>
+                if (id == n.fd.id)
+                  AbsEnv(n.fd.fd.params.map(vd => vd.toVariable -> Set[AbsValue](External)).toMap)
+                else AbsEnv(n.fd.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
 
-        case l: LambdaFunction =>
-          AbsEnv(l.lambda.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
-      }, emptyEnv, Set())
-
-      tabulation(fun) = res
-      res
-    })
+              case l: LambdaFunction =>
+                AbsEnv(l.lambda.params.map(vd => vd.toVariable -> Set[AbsValue]()).toMap)
+            },
+            emptyEnv,
+            Set()
+          )
+        }
+      )
 
     // a mapping from ADTs to argvars (used to represent arguments of each ADT creation by a fresh variable)
     private val objectsMap: MutableMap[Expr, AbsObj] = MutableMap.empty
     private def getOrCreateObject(objExpr: Expr): AbsObj =
-      objectsMap.getOrElse(objExpr, {
-        val res = objExpr match {
-          case adt: ADT => ConsObject(adt, freshVars(adt.args.size))
-          case tp: Tuple => TupleObject(tp, freshVars(tp.exprs.size))
-        }
-        objectsMap(objExpr) = res
-        res
+      objectsMap.getOrElseUpdate(objExpr, objExpr match {
+        case adt: ADT  => ConsObject(adt, freshVars(adt.args.size))
+        case tp: Tuple => TupleObject(tp, freshVars(tp.exprs.size))
       })
 
     // set of lambdas that are applied
@@ -150,11 +151,14 @@ trait CICFA {
     }
 
     private def passedLambdas(vals: Set[AbsValue], env: AbsEnv): Set[Lambda] = vals.flatMap {
-      case Closure(lam) => variablesOf(lam).flatMap { v => passedLambdas(env.store(v), env) } + lam
+      case Closure(lam) =>
+        variablesOf(lam).flatMap { v =>
+          passedLambdas(env.store(v), env)
+        }.toSet + lam
       case _ => Set[Lambda]()
     }
 
-    private def freshVars(size: Int) = (1 to size).map(i => Variable.fresh("arg" + i, Untyped, true))
+    private def freshVars(size: Int) = (1 to size).map(i => Variable.fresh("arg" + i, Untyped, true)).toSeq
 
     // iteratively process functions from the worklist.
     // (a) at every direct function call, join the arguments passed in with the `in` fact in the summary
@@ -168,19 +172,17 @@ trait CICFA {
 
     // initialize callers to empty sets
     private val callers: MutableMap[Function, MutableSet[Function]] = MutableMap.empty
-    private def getCallers(fun: Function): MutableSet[Function] = callers.getOrElse(fun, {
-      val res = MutableSet.empty[Function]
-      callers(fun) = res
-      res
-    })
+    private def getCallers(fun: Function): MutableSet[Function] =
+      callers.getOrElseUpdate(fun, MutableSet.empty)
 
     private val creator: MutableMap[Lambda, Function] = MutableMap.empty
     private def createdBy(lambda: Function, fun: Function): Boolean = lambda match {
-      case f: LambdaFunction => creator.get(f.lambda) match {
-        case Some(`fun`) => true
-        case Some(f2: LambdaFunction) => createdBy(f2.lambda, fun)
-        case _ => false
-      }
+      case f: LambdaFunction =>
+        creator.get(f.lambda) match {
+          case Some(`fun`)              => true
+          case Some(f2: LambdaFunction) => createdBy(f2.lambda, fun)
+          case _                        => false
+        }
       case _ => false
     }
 
@@ -340,7 +342,7 @@ trait CICFA {
         (tval ++ eval, condesc join tesc join eesc)
 
       case MatchExpr(scrut, cases) =>
-        import Path.{ CloseBound, Condition }
+        import Path.{CloseBound, Condition}
         var resenv: AbsEnv = emptyEnv
         val absres = for (cse <- cases) yield {
           val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
@@ -418,8 +420,10 @@ trait CICFA {
             seen += in
             in match {
               case Closure(lam) => lambdas += lam
-              case ConsObject(_, vars) => for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
-              case TupleObject(_, vars) => for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
+              case ConsObject(_, vars) =>
+                for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
+              case TupleObject(_, vars) =>
+                for (v <- vars; value <- newesc.store.getOrElse(v, Set.empty)) rec(value)
               case External =>
             }
           }
@@ -446,18 +450,18 @@ trait CICFA {
       var callees = Set[Identifier]()
 
       exprOps.postTraversal {
-        case nl: Lambda => llams += nl
+        case nl: Lambda                   => llams += nl
         case FunctionInvocation(id, _, _) => callees += id
-        case _ =>
-      } (l.body)
+        case _                            =>
+      }(l.body)
 
       callees.foreach { cid =>
         val fd = getFunction(cid)
         (transitiveCallees(fd) + fd).foreach { tc =>
           exprOps.postTraversal {
             case nl: Lambda => llams += nl
-            case _ =>
-          } (tc.fullBody)
+            case _          =>
+          }(tc.fullBody)
         }
       }
 

@@ -60,14 +60,51 @@ Use Standalone Release (recommended)
    [  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════╝
    [  Info  ] Shutting down executor service.
 
+Note: If the warning above says something about falling back on the Princess solver, you might be missing the ``libgomp1`` library,
+which you can install with your favorite package manager. For example, on Debian/Ubuntu, just run ``apt-get install libgomp1``.
+
+.. _via_docker:
+
+Via Docker
+----------
+
+If you have `Docker <https://docs.docker.com>`_ installed, you can run the latest Stainless version with:
+
+.. code-block:: bash
+
+   $ docker run -v "$PWD:/local" epfllara/stainless:latest /local/test.scala
+
+This will pull down the latest Stainless image from `Docker Hub <https://hub.docker.com/r/epfllara/stainless>`_, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for a sample ``test.scala``.
+
+.. _sbt-usage:
+
+Usage With Sbt
+--------------
+
+Stainless is also avaiable as a sbt plugin, which hooks into the build process to verify
+your code on compilation. This allows for both verifying your code, compiling, and running your
+code in one swift motion.
+
+Moreover, thanks to `Metals <https://scalameta.org/metals/>`_, Stainless diagnostics will 
+automatically appear in your editor of choice (we recommend `VS Code <https://code.visualstudio.com>`_),
+while the full log will typically be available in a separate window/pane.
+To this end, please follow the installation instructions for your editor on
+the `Metals website <https://scalameta.org/metals/docs/editors/overview.html>`_.
+
+To ease the process, we provide a template for a Stainless-enabled sbt project
+which one can then import into their editor of choice to get started in a few steps:
+:ref:`gitter8-template`
+
+Alternatively, one can also integrate Stainless into an existing sbt project: :ref:`sbt-project`.
+
 .. _gitter8-template:
 
-Use Gitter8 Template
---------------------
+Sbt Template Project
+********************
 
 **Install sbt:**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 
 **Create a new project from the template:**
 
@@ -99,12 +136,13 @@ Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
 
       > verified/run
 
+
 .. _sbt-project:
 
-Usage within an sbt project
----------------------------
+Usage Within An Existing Project
+********************************
 
-Setting up an sbt build file to use Stainless is a simple 4-step procedure that avoids the need to explicitly build stainless itself.
+Stainless can also be used within an existing sbt 1.3.0 project.
 
 1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
@@ -115,34 +153,48 @@ Setting up an sbt build file to use Stainless is a simple 4-step procedure that 
    resolvers ++= Seq(
      Resolver.bintrayRepo("epfl-lara", "princess"),
      Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
-     "uuverifiers" at "http://logicrunch.research.it.uu.se/maven",
+     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
    )
 
    addSbtPlugin("ch.epfl.lara" % "sbt-stainless" % "<insert-version>")
 
-Check the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
+Check the `GitHub releases <https://github.com/epfl-lara/stainless/releases>`_ or the `sbt-stainless bintray repository <https://bintray.com/epfl-lara/sbt-plugins/sbt-stainless>`_ for the available versions.
 
-3. In your project's build file, enable the ``StainlessPlugin`` on the modules that should be verified by stainless. Below is an example:
+3. In your project's build file, enable the ``StainlessPlugin`` on the modules that should be verified by Stainless. Below is an example:
 
 .. code-block:: scala
 
   // build.sbt
   lazy val algorithm = project
     .in(file("algorithm"))
-    .enablePlugins(StainlessPlugin) // <-- Enabling stainless verification on this module!
+    .enablePlugins(StainlessPlugin) // <-- Enabling Stainless verification on this module!
     .settings(...)
 
-Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use stainless on a module.
+Note that if you are using ``.scala`` build files you need to use the fully qualified name ``ch.epfl.lara.sbt.stainless.StainlessPlugin``. Also, because stainless accepts a subset of the Scala language, you may need to refactor your build a bit and code to successfully use Stainless on a module.
 
-4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
+4. After modifying the build, type ``reload`` if inside the sbt interactive shell. From now on, when executing ``compile`` on a module where the ``StainlessPlugin`` is enabled, Stainless will check your Scala code and report errors in the shell (just like any other error that would be reported during compilation).
 
-That's all there is to it. However, the ``sbt-stainless`` plugin is a more recent addition to stainless compared to command-line script. It has seen less testing in the field and currently has the following limitations:
+That's all there is to it. However, the ``sbt-stainless`` plugin is a more recent addition to Stainless compared to command-line script. It has seen less testing in the field and currently has the following limitations:
 
 * No incremental compilation support. All sources (included the stainless-library sources) are recompiled at every ``compile`` execution.ub
 
 * The plugin *does not* support Scala 3 (dotty). To track sbt support in dotty you can follow `issue #178 <https://github.com/epfl-lara/stainless/issues/178>`_.
 
-Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
+Also, note that the plugin offers a ``stainlessEnabled`` setting that can help experimenting with Stainless. The ``stainlessEnabled`` setting is set to ``true`` by default, but you can flip the flag to false by typing ``set every stainlessEnabled := false`` while inside the sbt interactive shell.
+
+5. It is possible to specify extra source dependencies to be added to the set of files processed by Stainless via the ``stainlessExtraDeps`` setting. For example, to add both the ``stainless-algebra`` and ``stainless-actors`` packages, along with the latter's dependency on Akka,
+   one can add the following settings to their build:
+
+.. code-block:: scala
+
+   stainlessExtraDeps ++= Seq(
+     "ch.epfl.lara" %% "stainless-algebra" % "0.1.2",
+     "ch.epfl.lara" %% "stainless-actors"  % "0.1.1",
+   )
+
+   libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
+
+Note that the dependencies specified in ``stainlessExtraDeps`` must be available as a source JAR from any of the resolvers configured in the build.
 
 .. _smt-solvers:
 
@@ -167,7 +219,7 @@ You can use multiple solvers in portfolio mode, as with the options ``--timeout=
 For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
 
 Install Z3 4.7.1 (Linux & macOS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+********************************
 
 1. Download Z3 4.7.1 from https://github.com/Z3Prover/z3/releases/tag/z3-4.7.1
 2. Unzip the downloaded archive
@@ -186,7 +238,7 @@ Install Z3 4.7.1 (Linux & macOS)
 
 
 Install CVC 1.7 (Linux)
-~~~~~~~~~~~~~~~~~~~~~~~
+***********************
 
 1. Download CVC4 1.7 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
 
@@ -205,7 +257,7 @@ Install CVC 1.7 (Linux)
   This is CVC4 version 1.7
 
 Install CVC 1.6 (macOS)
-~~~~~~~~~~~~~~~~~~~~~~~
+***********************
 
 1. Install `Homebrew <https://brew.sh>`_
 2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
@@ -230,7 +282,7 @@ in an attempt to be more reproducible and independent from sbt cache and path, t
 
 **Install sbt**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.2.8.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 
 **Check out sources**
 

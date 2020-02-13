@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -47,13 +47,13 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       Seq[Identifier], Seq[s.Variable], Seq[s.Expr], Seq[s.Type],
       (Seq[Identifier], Seq[t.Variable], Seq[t.Expr], Seq[t.Type]) => t.Pattern
     ) = {
-      val (ids, vs, es, tps, pats, recons) = deconstruct(p)
-      val prec = pats.map(pat => rec(pat))
+      val (ids, vs, es, tps, pats, reconsP) = deconstruct(p)
+      val prec = pats.map(pat => (pat, rec(pat)))
       (
-        ids ++ prec.flatMap(_._1),
-        vs ++ prec.flatMap(_._2),
-        es ++ prec.flatMap(_._3),
-        tps ++ prec.flatMap(_._4),
+        ids ++ prec.flatMap(_._2._1),
+        vs ++ prec.flatMap(_._2._2),
+        es ++ prec.flatMap(_._2._3),
+        tps ++ prec.flatMap(_._2._4),
         (nids, nvs, nes, ntps) => {
           val (outerIds, innerIds) = nids.splitAt(ids.size)
           val (outerVs, innerVs) = nvs.splitAt(vs.size)
@@ -64,7 +64,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
           var rvs = innerVs
           var res = innerEs
           var rtps = innerTps
-          val newPats = for ((ids, vs, es, tps, recons) <- prec) yield {
+          val newPats = for ((pat, (ids, vs, es, tps, reconsPat)) <- prec) yield {
             val (currIds, nextIds) = rids.splitAt(ids.size)
             rids = nextIds
 
@@ -77,30 +77,39 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
             val (currTps, nextTps) = rtps.splitAt(tps.size)
             rtps = nextTps
 
-            recons(currIds, currVs, currEs, currTps)
+            reconsPat(currIds, currVs, currEs, currTps).setPos(pat)
           }
 
-          recons(outerIds, outerVs, outerEs, outerTps, newPats)
+          reconsP(outerIds, outerVs, outerEs, outerTps, newPats).setPos(p)
         }
       )
     }
 
     val recCases = for (caze <- cases) yield {
       val (pids, pvs, pes, ptps, precons) = rec(caze.pattern)
-      (caze.optGuard.isDefined, pids, pvs, caze.optGuard.toSeq ++ (caze.rhs +: pes), ptps, precons)
+      (
+        caze.getPos,
+        caze.pattern.getPos,
+        caze.optGuard.isDefined,
+        pids,
+        pvs,
+        caze.optGuard.toSeq ++ (caze.rhs +: pes),
+        ptps,
+        precons
+      )
     }
 
     (
-      recCases.flatMap(_._2),
-      recCases.flatMap(_._3),
       recCases.flatMap(_._4),
       recCases.flatMap(_._5),
+      recCases.flatMap(_._6),
+      recCases.flatMap(_._7),
       (ids, vs, es, tps) => {
         var rids = ids
         var rvs = vs
         var res = es
         var rtps = tps
-        for ((hasGuard, ids, vs, es, tps, recons) <- recCases) yield {
+        for ((cazePos, patternPos, hasGuard, ids, vs, es, tps, precons) <- recCases) yield {
           val (currIds, nextIds) = rids.splitAt(ids.size)
           rids = nextIds
 
@@ -115,10 +124,10 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
 
           if (hasGuard) {
             val guard +: rhs +: pes = currEs
-            t.MatchCase(recons(currIds, currVs, pes, currTps), Some(guard), rhs)
+            t.MatchCase(precons(currIds, currVs, pes, currTps).setPos(patternPos), Some(guard), rhs).setPos(cazePos)
           } else {
             val rhs +: pes = currEs
-            t.MatchCase(recons(currIds, currVs, pes, currTps), None, rhs)
+            t.MatchCase(precons(currIds, currVs, pes, currTps).setPos(patternPos), None, rhs).setPos(cazePos)
           }
         }
       }
@@ -176,6 +185,9 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Decreases(measure, body) =>
       (Seq(), Seq(), Seq(measure, body), Seq(), Seq(), (_, _, es, _, _) => t.Decreases(es(0), es(1)))
 
+    case s.Max(exprs) =>
+      (Seq(), Seq(), exprs, Seq(), Seq(), (_, _, es, _, _) => t.Max(es))
+
     case s.SizedADT(id, tps, args, e) =>
       (Seq(id), Seq(), e +: args, tps, Seq(), (ids, _, es, ntps, _) => t.SizedADT(ids(0), ntps, es.tail, es.head))
 
@@ -207,6 +219,8 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.IsField(isLazy) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsField(isLazy))
     case s.IsUnapply(isEmpty, get) => (Seq(isEmpty, get), Seq(), Seq(), (ids, _, _) => t.IsUnapply(ids(0), ids(1)))
     case s.PartialEval => (Seq(), Seq(), Seq(), (_, _, _) => t.PartialEval)
+    case s.Wrapping => (Seq(), Seq(), Seq(), (_, _, _) => t.Wrapping)
+    case s.TerminationStatus(status) => (Seq(), Seq(), Seq(), (_, _, _) => t.TerminationStatus(status))
     case _ => super.deconstruct(f)
   }
 }

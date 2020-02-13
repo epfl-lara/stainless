@@ -3,11 +3,14 @@
 Verifying Examples
 ==================
 
-Stainless is currently only available as a command line tool,
-which exposes most of the functionality. See the
-:doc:`installation documentation <installation>`
-for more information. It is henceforth assumed that there
-exists a ``stainless`` script in in your PATH.
+Stainless is currently available as either:
+
+* a command line tool, which exposes most of the functionality, available as a ZIP file or via Docker.
+* via a sbt plugin, for use with `Metals <https://scalameta.org/metals/>`_ and your editor of choice, eg. VS Code.
+
+See the :doc:`installation documentation <installation>` for more information.
+
+It is henceforth assumed that there exists a ``stainless`` script in in your ``PATH``.
 
 To see the main options, use
 

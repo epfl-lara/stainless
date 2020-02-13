@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package lang
@@ -25,7 +25,7 @@ case class ~>[A, B] private[stainless](pre: A => Boolean, private val f: A => B)
 
 @library
 case class ~>>[A, B](private val f: A ~> B, post: B => Boolean) {
-  require(forall((x: A) => pre(x) ==> post(f(x))))
+  require(forall((x: A) => f.pre(x) ==> post(f(x))))
 
   val pre = f.pre
 

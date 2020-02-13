@@ -352,6 +352,16 @@ trait ASTExtractors {
       }
     }
 
+    /** Matches the construct stainless.math.wrapping[A](a) and returns a */
+    object ExWrapping {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree  match {
+        case Apply(TypeApply(ExSymbol("stainless", "math", "package$", "wrapping"), Seq(_)), tree :: Nil) =>
+          Some(tree)
+        case _ =>
+          None
+      }
+    }
+
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other
@@ -460,8 +470,10 @@ trait ASTExtractors {
     object ExUnwrapped {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(
-          ExSymbol("scala", "Predef$", "Ensuring") |
-          ExSymbol("stainless", "lang", "StaticChecks$", "any2Ensuring"), Seq(arg)) => Some(arg)
+            ExSymbol("scala", "Predef$", "Ensuring") |
+            ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring"),
+            Seq(arg)) => Some(arg)
+
         case Apply(ExSymbol("stainless", "lang", "package$", "Throwing"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)
@@ -749,6 +761,15 @@ trait ASTExtractors {
           }
 
         case _ => None
+      }
+    }
+
+    object ExError {
+      def unapply(tree: tpd.Apply) : Option[(String, tpd.Tree)] = tree match {
+        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "error"), List(tpe)), List(lit : tpd.Literal)) =>
+          Some((lit.const.stringValue, tpe))
+        case _ =>
+          None
       }
     }
 

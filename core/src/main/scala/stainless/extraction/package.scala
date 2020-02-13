@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 
@@ -29,9 +29,12 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "InnerClasses"              -> "Lift inner classes",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
+    "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
     "SuperCalls"                -> "Resolve super-function calls",
     "Sealing"                   -> "Seal every class and add mutable flags",
     "MethodLifting"             -> "Lift methods into dispatching functions",
+    "MergeInvariants"           -> "Merge all class invariants into a single method",
+    "ValueClasses"              -> "Erase value classes",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "AntiAliasing"              -> "Rewrite field and array mutations",
     "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
@@ -44,6 +47,7 @@ package object extraction {
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "SizeInjection"             -> "Injects a size function for each ADT",
+    "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
     "ChooseInjector"            -> "Insert chooses where necessary",
@@ -53,6 +57,8 @@ package object extraction {
 
   /** Unifies all stainless tree definitions */
   trait Trees extends ast.Trees { self =>
+    case object Uncached extends Flag("uncached", Seq.empty)
+
     override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
       case tree: Trees => new TreeDeconstructor {
         protected val s: self.type = self
@@ -124,17 +130,29 @@ package object extraction {
     val t: trees.type
   }
 
-  implicit val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } =
-    new inox.SemanticsProvider {
-      val trees: extraction.trees.type = extraction.trees
+  implicit val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } = {
+    getSemantics(extraction.trees)(syms => syms)
+  }
 
-      def getSemantics(p: inox.Program { val trees: extraction.trees.type }): p.Semantics = new inox.Semantics { self =>
+  def phaseSemantics(tr: ast.Trees)
+                    (pipeline: ExtractionPipeline { val s: tr.type; val t: extraction.trees.type }):
+                    inox.SemanticsProvider { val trees: tr.type } = {
+    getSemantics(tr)(syms => pipeline.extract(syms))
+  }
+
+  def getSemantics(tr: ast.Trees)(processSymbols: tr.Symbols => extraction.trees.Symbols):
+                   inox.SemanticsProvider { val trees: tr.type } =
+    new inox.SemanticsProvider {
+      val trees: tr.type = tr
+
+      def getSemantics(p: inox.Program { val trees: tr.type }): p.Semantics = new inox.Semantics { self =>
         val trees: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
         val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
           p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-        private[this] val targetProgram = inox.Program(stainless.trees)(completeSymbols(symbols)(stainless.trees))
+        private[this] val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
+        private[this] val targetProgram = inox.Program(stainless.trees)(targetSymbols)
 
         private object encoder extends inox.transformers.ProgramTransformer {
           override val sourceProgram: self.program.type = self.program

@@ -1,4 +1,4 @@
-/* Copyright 2009-2018 EPFL, Lausanne */
+/* Copyright 2009-2019 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -278,6 +278,15 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     protected def computeType(implicit s: Symbols): Type = measure.getType match {
       case Untyped => Untyped
       case _ => body.getType
+    }
+  }
+
+  /** $encodingof `max(e1, e2, e3)` */
+  case class Max(exprs: Seq[Expr]) extends Expr with CachingTyped {
+    require(exprs.nonEmpty)
+
+    protected def computeType(implicit s: Symbols): Type = {
+      checkAllTypes(exprs.map(_.getType), IntegerType(), IntegerType())
     }
   }
 
