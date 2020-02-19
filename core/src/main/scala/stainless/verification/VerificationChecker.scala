@@ -76,7 +76,8 @@ trait VerificationChecker { self =>
 
   def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     try {
-      reporter.debug("Checking Verification Conditions...")
+      if (!vcs.isEmpty)
+        reporter.debug("Checking Verification Conditions...")
       checkVCs(vcs, stopWhen)
     } finally {
       factoryCache.values.foreach(_.shutdown())

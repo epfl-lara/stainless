@@ -43,7 +43,11 @@ class wrapping extends Annotation
   * This might be useful if one wants to eg. inline a recursive function.
   * Note: A recursive function will not be inlined within itself. */
 @ignore
-class inlineOnce   extends Annotation
+class inlineOnce extends Annotation
+
+/** Add an @inline flag to the invariant generated for this class. */
+@ignore
+class inlineInvariant extends Annotation
 
 /** Instruct Stainless to partially evaluate calls to the annotated function. */
 @ignore
