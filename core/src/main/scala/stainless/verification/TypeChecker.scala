@@ -794,12 +794,19 @@ trait TypeChecker {
             }
         val trInv =
           if (sort.hasInvariant) {
-            val inv = sort.invariant.get
+            val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(id)
-            val (tc2, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
-            buildVC(tc2.withVCKind(invKind).setPos(e), freshener.transform(inv.fullBody))
+            val tc2 = tc.withVCKind(invKind).setPos(e)
+            if (inv.flags.contains(InlineInvariant)) {
+              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              buildVC(tc3, freshener.transform(inv.fullBody))
+            } else {
+              val application: Expr = inv.applied(Seq(e))
+              buildVC(tc2, application)
+            }
           } else
             TyperResult.valid
+
         val trZero = lookedUpConstructor.map { tcons =>
             checkDependentTypes(tc.withTruth(Equals(size, IntegerLiteral(0))),
             args,
@@ -807,6 +814,7 @@ trait TypeChecker {
         }.getOrElse (
           throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
         )
+
         val trSucc = lookedUpConstructor.map { tcons =>
             checkDependentTypes(tc.withTruth(GreaterThan(size, IntegerLiteral(0))),
             args,
@@ -827,7 +835,13 @@ trait TypeChecker {
           if (sort.hasInvariant) {
             val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(inv.id)
-            buildVC(tc.withVCKind(invKind).setPos(e), inv.applied(Seq(e)))
+            val tc2 = tc.withVCKind(invKind).setPos(e)
+            if (inv.flags.contains(InlineInvariant)) {
+              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              buildVC(tc3, freshener.transform(inv.fullBody))
+            } else {
+              buildVC(tc2, inv.applied(Seq(e)))
+            }
           } else {
             TyperResult.valid
           }

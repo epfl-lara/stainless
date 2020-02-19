@@ -565,7 +565,7 @@ trait CodeExtraction extends ASTExtractors {
     val id = getIdentifier(sym)
     val isAbstract = rhs == EmptyTree
 
-    var flags = annotationsOf(sym).filterNot(_ == xt.IsMutable) ++
+    var flags = annotationsOf(sym).filterNot(annot => annot == xt.IsMutable || annot.name == "inlineInvariant") ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
       (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
