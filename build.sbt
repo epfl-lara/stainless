@@ -14,8 +14,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-// val inoxVersion = "1.1.0-332-ga6cbf8e"
-val inoxVersion = "1.1.0-357-ge271ca1-SNAPSHOT"
+val inoxVersion = "1.1.0-364-g0934eb7"
 val dottyLibrary = "dotty-compiler_2.12"
 val dottyVersion = "0.12.0-RC1-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
@@ -319,6 +318,22 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .aggregate(`stainless-dotty-frontend`)
   // Should truly depend on dotty, overriding the "provided" modifier above:
   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
+  .configs(IntegrationTest)
+
+// "No extraction mode": A frontend consuming serialized xlang programs via the standard input
+lazy val `stainless-noxt-frontend` = (project in file("frontends/noxt"))
+  .enablePlugins(JavaAppPackaging)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(commonSettings, commonFrontendSettings)
+  .settings(artifactSettings, scriptSettings, assemblySettings)
+  .settings(noPublishSettings)
+  .settings(
+    name := "stainless-noxt",
+    frontendClass := "noxt.NoxtFrontend",
+    mainClass in assembly := Some("stainless.Main"),
+    assemblyJarName in assembly := (name.value + "-" + version.value + ".jar"),
+  )
+  .dependsOn(`stainless-core`)
   .configs(IntegrationTest)
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
