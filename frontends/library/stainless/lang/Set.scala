@@ -2,6 +2,7 @@
 
 package stainless.lang
 
+import StaticChecks._
 import stainless.annotation._
 import stainless.collection.List
 
