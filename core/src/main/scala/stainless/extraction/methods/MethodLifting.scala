@@ -309,6 +309,7 @@ trait MethodLifting
         case s.IsMethodOf(_) | s.IsInvariant => false
         case _ => true
       } map transformer.transform
+    val inlineInvariantFlag = if (fd.isInvariant && cd.flags.contains(InlineInvariant)) Some(t.InlineInvariant) else None
 
     new t.FunDef(
       fd.id,
@@ -316,7 +317,7 @@ trait MethodLifting
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      (filteredFlags ++ derivedFlags ++ accessorFlag.toSeq).distinct
+      (filteredFlags ++ derivedFlags ++ accessorFlag ++ inlineInvariantFlag).distinct
     ).copiedFrom(fd)
   }
 }
