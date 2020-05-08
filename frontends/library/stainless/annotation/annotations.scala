@@ -19,6 +19,10 @@ class library extends Annotation
 @ignore
 class induct extends Annotation
 
+/** Apply the "traceInduct" tactic during verification of the annotated function. */
+@ignore
+class traceInduct(fun: String) extends Annotation
+
 /** Only extract the contracts and replace the annotated function's body with a choose. */
 @ignore @field @getter @setter @param
 class extern extends Annotation
