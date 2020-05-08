@@ -17,17 +17,17 @@ package object inlining {
   }
 
   def extractor(implicit ctx: inox.Context) = {
-    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, termination.trees))
+    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, trace.trees))
   }
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = termination.fullExtractor
+  def nextExtractor(implicit ctx: inox.Context) = trace.fullExtractor
 
   def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: inlining.trees.type } = {
     extraction.phaseSemantics(inlining.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: termination.trees.type } = {
-    termination.phaseSemantics
+  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: trace.trees.type } = {
+    trace.phaseSemantics
   }
 }

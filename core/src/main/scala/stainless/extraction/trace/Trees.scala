@@ -1,17 +1,17 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2018 EPFL, Lausanne */
 
 package stainless
 package extraction
-package inlining
+package trace
 
-trait Trees extends trace.Trees { self =>
+trait Trees extends termination.Trees { self =>
 
-  case object Inline extends Flag("inline", Seq())
-  case object InlineOnce extends Flag("inlineOnce", Seq())
+  //case object Induct extends Flag("induct", Seq())
+  case object TraceInduct extends Flag("traceInduct", Seq())
 
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
-    case ("inline", Seq()) => Inline
-    case ("inlineOnce", Seq()) => InlineOnce
+    //case ("induct", Seq()) => Induct
+    case ("traceInduct", Seq()) => TraceInduct
     case _ => super.extractFlag(name, args)
   }
 
@@ -25,17 +25,17 @@ trait Trees extends trace.Trees { self =>
   }
 }
 
-trait Printer extends trace.Printer {
+trait Printer extends termination.Printer {
   protected val trees: Trees
 }
 
-trait TreeDeconstructor extends trace.TreeDeconstructor {
+trait TreeDeconstructor extends termination.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
-    case s.Inline => (Seq(), Seq(), Seq(), (_, _, _) => t.Inline)
-    case s.InlineOnce => (Seq(), Seq(), Seq(), (_, _, _) => t.InlineOnce)
+    //case s.Induct => (Seq(), Seq(), Seq(), (_, _, _) => t.Induct)
+    case s.TraceInduct => (Seq(), Seq(), Seq(), (_, _, _) => t.TraceInduct)
     case _ => super.deconstruct(f)
   }
 }
