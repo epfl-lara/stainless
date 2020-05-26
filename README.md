@@ -16,6 +16,7 @@ To get started, see the documentation chapters, such as
   * [Command-line Options](https://epfl-lara.github.io/stainless/options.html)
   * [Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
+  * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
 ## Other Links
