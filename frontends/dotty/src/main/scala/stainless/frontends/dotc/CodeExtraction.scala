@@ -279,7 +279,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
 
       case other =>
-        reporter.warning(other.pos, "Could not extract tree in static container: " + other)
+        reporter.warning(other.pos, s"Stainless does not support `$other` in static containers")
     }
 
     (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
@@ -510,7 +510,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case other =>
-        reporter.warning(other.pos, "Could not extract tree in class: " + other)
+        reporter.warning(other.pos, s"Stainless does not support `$other` in class $id")
     }
 
     val optInv = if (invariants.isEmpty) None else Some {
@@ -1712,7 +1712,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     }
 
     // default behaviour is to complain :)
-    case _ => outOfSubsetError(tr, "Could not extract tree " + tr + " ("+tr.getClass+")")
+    case _ => outOfSubsetError(tr, s"Stainless does not support expression: `$tr`")
   }).ensurePos(tr.pos)
 
 
@@ -1886,7 +1886,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case tr @ TypeRef(NoPrefix | _: ThisType, _) if dctx.tparams contains tr.symbol =>
         dctx.tparams.get(tr.symbol).getOrElse {
-          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
+          outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt in context ${dctx.tparams}")
         }
 
       case tr: TypeRef if tr.symbol.isAbstractOrAliasType && dctx.resolveTypes =>
@@ -2055,7 +2055,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case pp @ TypeParamRef(binder, num) =>
         dctx.tparams.collect { case (k, v) if k.name == pp.paramName => v }.lastOption.getOrElse {
-          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract "+tpt+" with context " + dctx.tparams)
+          outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt in context ${dctx.tparams}")
         }
 
       case tp: TypeVar => extractType(tp.stripTypeVar)
@@ -2067,7 +2067,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case _ =>
         if (tpt ne null) {
-          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract type: "+tpt+" ("+tpt.getClass+")")
+          outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt")
         } else {
           outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
         }

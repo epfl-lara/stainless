@@ -111,7 +111,7 @@ class StainlessPluginComponent(
   override val runsRightAfter = None
   override val runsBefore     = List("patmat")
 
-  override def onRun(run: () => Unit): Unit = {
+  override def onRun(run: () => Unit): Unit = try {
     callback.beginExtractions()
     run()
     callback.endExtractions()
@@ -121,6 +121,8 @@ class StainlessPluginComponent(
     report foreach { report =>
       report.emit(ctx)
     }
+  } catch {
+    case e: Throwable => topLevelErrorHandler(e)
   }
 }
 
