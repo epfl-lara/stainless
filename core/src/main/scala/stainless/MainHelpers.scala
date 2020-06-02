@@ -146,10 +146,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     implicit val ctx: inox.Context = try {
       setup(args)
     } catch {
-      case _: Throwable =>
-        println("There was an exception while parsing command-line options")
-        System.exit(2)
-        ???
+      case e: Throwable =>
+        topLevelErrorHandler(e)(Context.empty)
     }
 
     try {

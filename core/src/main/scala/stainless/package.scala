@@ -108,7 +108,7 @@ package object stainless {
     }
   }
 
-  def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Unit = {
+  def topLevelErrorHandler[T](e: Throwable)(implicit ctx: inox.Context): T = {
     ctx.reporter.error("Stainless terminated with an error.")
 
     val sw = new StringWriter
@@ -121,6 +121,7 @@ package object stainless {
       ctx.reporter.error(sw.toString)
 
     System.exit(2)
+    ??? // unreachable
   }
 
 
