@@ -187,13 +187,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
           compiler = newCompiler()
       }
 
-      def regularRunCycle() = try {
-        baseRunCycle()
-      } catch {
-        case e: inox.FatalError => throw e
-        case e: Throwable => reporter.internalError(e)
-      }
-
       val watchMode = isWatchModeOn(ctx)
       if (watchMode) {
         val files: Set[File] = compiler.sources.toSet map {
@@ -204,7 +197,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
         watchRunCycle() // first run
         watcher.run()   // subsequent runs on changes
       } else {
-        regularRunCycle()
+        baseRunCycle()
       }
 
       // Export final results to JSON if asked to.
