@@ -279,7 +279,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
 
       case other =>
-        reporter.warning(other.pos, s"Stainless does not support `$other` in static containers")
+        reporter.warning(other.pos, s"Stainless does not support the following tree in static containers:\n$other")
     }
 
     (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
@@ -510,7 +510,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         // ignore
 
       case other =>
-        reporter.warning(other.pos, s"Stainless does not support `$other` in class $id")
+        reporter.warning(other.pos, s"In class $id, Stainless does not support:\n$other")
     }
 
     val optInv = if (invariants.isEmpty) None else Some {
