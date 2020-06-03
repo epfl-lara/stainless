@@ -11,12 +11,14 @@ object StdOut {
 
   @extern
   @library
+  @pure
   def print(x: Any): Unit = {
     scala.Predef.print(x)
   }
 
   @extern
   @library
+  @pure
   def println(x: Any): Unit = {
     scala.Predef.println(x)
   }
