@@ -2,6 +2,7 @@
 
 package stainless.collection
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 import scala.collection.immutable.{List => ScalaList}
 
@@ -656,6 +657,12 @@ object ListOps {
 
   def toMap[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()){
     case (current, (k, v)) => current ++ Map(k -> v)
+  }
+
+  @tailrec
+  def noDuplicate[T](l: List[T]): Boolean = l match {
+    case Nil() => true
+    case Cons(h, t) => !t.contains(h) && noDuplicate(t)
   }
 }
 
