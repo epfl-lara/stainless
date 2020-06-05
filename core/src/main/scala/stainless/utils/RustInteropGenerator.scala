@@ -11,5 +11,7 @@ object RustInteropGeneratorTool extends inox.utils.RustInteropGenerator {
     new XLangSerializer(stainless.extraction.xlang.trees) with RustInteropGeneration {
       override protected val optSymbolIdentifierT: Option[Type] =
         Some(typeOf[stainless.ast.SymbolIdentifier])
+      override protected val optPatternT: Option[Type] =
+        Some(typeOf[stainless.trees.Pattern])
     }
 }
