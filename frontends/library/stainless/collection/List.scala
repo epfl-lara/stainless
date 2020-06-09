@@ -561,8 +561,8 @@ sealed abstract class List[T] {
   }
 
   @extern @pure
-  def toScala[A](list: List[A]): ScalaList[A] = {
-    list.foldRight(ScalaList.empty[A])(_ :: _)
+  def toScala: ScalaList[T] = {
+    foldRight(ScalaList.empty[T])(_ :: _)
   }
 }
 
