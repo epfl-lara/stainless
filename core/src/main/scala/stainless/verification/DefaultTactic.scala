@@ -126,7 +126,7 @@ trait DefaultTactic extends Tactic {
       case (a @ ADT(aid, tps, args), path) if a.getConstructor.sort.hasInvariant =>
         val invId = a.getConstructor.sort.invariant.get.id
         val condition = path implies FunctionInvocation(invId, tps, Seq(a))
-        VC(condition, id, VCKind.AdtInvariant(invId), false).setPos(a)
+        VC(condition, id, VCKind.AdtInvariant(invId, condition), false).setPos(a)
     }(getFunction(id).fullBody)
   }
 }
