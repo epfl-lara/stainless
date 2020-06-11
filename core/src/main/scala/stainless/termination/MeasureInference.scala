@@ -9,14 +9,19 @@ trait MeasureInference
   extends extraction.CachingPhase
     with extraction.SimplyCachedSorts
     with extraction.IdentitySorts
-    with extraction.SimpleFunctions
-    with extraction.SimplyCachedFunctions { self =>
+    with extraction.SimpleFunctions { self =>
 
   val s: Trees
   val t: Trees
   import s._
 
   import context.{options, timers, reporter}
+
+  // Measure inference depends on functions that are mutually recursive with `fd`,
+  // so we include all dependencies in the key calculation
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+    getDependencyKey(fd.id)(context.symbols)
+  )
 
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
@@ -54,14 +59,26 @@ trait MeasureInference
       }
     }
 
-    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) &&
-      fd.measure(symbols).isEmpty &&
-      symbols.dependencies(fd.id).forall(id =>
-        symbols.lookupFunction(id).forall(fd2 =>
-          !symbols.dependencies(fd2.id).contains(fd.id) ||
-          fd2.measure(symbols).isEmpty
-        )
-      )
+    def needsMeasure(fd: FunDef): Boolean = {
+      if (symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty) {
+        symbols.dependencies(fd.id).find(id =>
+          symbols.lookupFunction(id).exists(fd2 =>
+            symbols.dependencies(fd2.id).contains(fd.id) &&
+            !fd2.measure(symbols).isEmpty
+          )
+        ) match {
+          case None =>
+            true
+          case Some(id) =>
+            reporter.fatalError(fd.getPos,
+              s"""Function ${fd.id} has no measure annotated, but mutually recursive function ${id} has one.
+                 |Please annotated both with a measure, or none for measure inference.""".stripMargin
+            )
+        }
+      } else {
+        false
+      }
+    }
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>

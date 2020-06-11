@@ -229,7 +229,7 @@ trait TypeChecker {
             }
 
           case _ =>
-            throw new TypeCheckingException(t, s"Couldn't determine polarity of type ${t.asString}")
+            reporter.fatalError(t.getPos, s"Couldn't determine polarity of type ${t.asString}")
         }
         explore(vd.tpe, Seq())
       }
@@ -267,7 +267,7 @@ trait TypeChecker {
     val deps = dependencies(id1)
     for (id2 <- sorts.keySet if id1 == id2 || (deps.contains(id2) && dependencies(id2).contains(id1))) {
       if (!(polarities((id1,id2)) >= StrictlyPositive))
-        throw new TypeCheckingException(sort, s"ADT ${id2.asString} must appear only in strictly positive positions of ${id1.asString}")
+        reporter.fatalError(sort.getPos, s"ADT ${id2.asString} must appear only in strictly positive positions of ${id1.asString}")
     }
   }
 
@@ -355,18 +355,18 @@ trait TypeChecker {
 
       case tp@TypeParameter(id, _) =>
         if (tc.typeVariables(tp)) TyperResult.valid
-        else throw new TypeCheckingException(t, s"Type variable ${id.asString} is not defined in context:\n${tc.asString()}")
+        else reporter.fatalError(t.getPos, s"Type variable ${id.asString} is not defined in context:\n${tc.asString()}")
 
       case ADTType(id, tps) =>
         if (tc.visibleADTs(id)) TyperResult(tps.map(isType(tc, _)))
-        else throw new TypeCheckingException(t, s"ADT ${id.asString} is not in context:\n${tc.asString()}")
+        else reporter.fatalError(t.getPos, s"ADT ${id.asString} is not in context:\n${tc.asString()}")
 
       case RecursiveType(id, tps, e) =>
         if (tc.visibleADTs(id)) TyperResult(tps.map(isType(tc, _))) ++ checkType(tc, e, IntegerType())
-        else throw new TypeCheckingException(t, s"ADT ${id.asString} is not in context:\n${tc.asString()}")
+        else reporter.fatalError(t.getPos, s"ADT ${id.asString} is not in context:\n${tc.asString()}")
 
       case _ =>
-        throw new TypeCheckingException(t, s"Could not check well-formedness of type: ${t.asString} (${t.getClass})\nin context:\n${tc.asString()}")
+        reporter.fatalError(t.getPos, s"Could not check well-formedness of type: ${t.asString} (${t.getClass})\nin context:\n${tc.asString()}")
     }
     res.root(IsType(tc,t))
   }
@@ -378,7 +378,7 @@ trait TypeChecker {
       val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => tpe))
       (returnType.getOrElse(tpe), tr ++ tr2)
     } else {
-      throw new TypeCheckingException(fullExpr, s"Cannot use `$name` on type: ${tpe.asString}\nin context:\n${tc.asString()}")
+      reporter.fatalError(fullExpr.getPos, s"Cannot use `$name` on type: ${tpe.asString}\nin context:\n${tc.asString()}")
     }
   }
 
@@ -483,14 +483,14 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, e2)
         stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from < newType.size => (newType, vcs)
-          case _ => throw new TypeCheckingException(e, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
+          case _ => reporter.fatalError(e.getPos, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
         }
 
       case c@BVNarrowingCast(e2, newType) =>
         val (tpe, vcs) = inferType(tc, e2)
         stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from > newType.size => (newType, vcs)
-          case _ => throw new TypeCheckingException(e, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
+          case _ => reporter.fatalError(e.getPos, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
         }
 
       case FiniteSet(elements, tpe) =>
@@ -505,13 +505,13 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, set)
         stripRefinementsAndAnnotations(tpe) match {
           case SetType(base) => (BooleanType(), checkType(tc, element, base))
-          case _ => throw new TypeCheckingException(set, s"Expected set type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(set.getPos, s"Expected set type, but got ${tpe.asString}")
         }
       case SetAdd(bag, element) =>
         val (tpe, vcs) = inferType(tc, bag)
         stripRefinementsAndAnnotations(tpe) match {
           case t@SetType(base) => (t, checkType(tc, element, base))
-          case _ => throw new TypeCheckingException(bag, s"Expected set type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(bag.getPos, s"Expected set type, but got ${tpe.asString}")
         }
 
       case FiniteBag(elements, tpe) =>
@@ -528,13 +528,13 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, bag)
         stripRefinementsAndAnnotations(tpe) match {
           case BagType(base) => (IntegerType(), checkType(tc, element, base))
-          case _ => throw new TypeCheckingException(bag, s"Expected bag type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(bag.getPos, s"Expected bag type, but got ${tpe.asString}")
         }
       case BagAdd(bag, element) =>
         val (tpe, vcs) = inferType(tc, bag)
         stripRefinementsAndAnnotations(tpe) match {
           case t@BagType(base) => (t, checkType(tc, element, base))
-          case _ => throw new TypeCheckingException(bag, s"Expected bag type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(bag.getPos, s"Expected bag type, but got ${tpe.asString}")
         }
 
       case FiniteMap(pairs, default, from, to) =>
@@ -549,13 +549,13 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, m)
         stripRefinementsAndAnnotations(tpe) match {
           case t@MapType(from, to) => (t, vcs ++ checkType(tc, k, from) ++ checkType(tc, v, to))
-          case _ => throw new TypeCheckingException(m, s"Expected map type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(m.getPos, s"Expected map type, but got ${tpe.asString}")
         }
       case MapApply(m, k) =>
         val (tpe, vcs) = inferType(tc, m)
         stripRefinementsAndAnnotations(tpe) match {
           case MapType(from, to) => (to, vcs ++ checkType(tc, k, from))
-          case _ => throw new TypeCheckingException(m, s"Expected map type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(m.getPos, s"Expected map type, but got ${tpe.asString}")
         }
 
       case FiniteArray(elements, tpe) =>
@@ -571,19 +571,19 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, a)
         stripRefinementsAndAnnotations(tpe) match {
           case ArrayType(_) => (Int32Type(), vcs)
-          case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(a.getPos, s"Expected array type, but got ${tpe.asString}")
         }
       case ArraySelect(a, i) =>
         val (tpe, vcs) = inferType(tc, a)
         stripRefinementsAndAnnotations(tpe) match {
           case ArrayType(base) => (base, vcs ++ checkType(tc, i, Int32Type()))
-          case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(a.getPos, s"Expected array type, but got ${tpe.asString}")
         }
       case ArrayUpdated(a, i, v) =>
         val (tpe, vcs) = inferType(tc, a)
         stripRefinementsAndAnnotations(tpe) match {
           case t@ArrayType(base) => (t, vcs ++ checkType(tc, i, Int32Type()) ++ checkType(tc, v, base))
-          case _ => throw new TypeCheckingException(a, s"Expected array type, but got ${tpe.asString}")
+          case _ => reporter.fatalError(a.getPos, s"Expected array type, but got ${tpe.asString}")
         }
 
       case Tuple(es) =>
@@ -599,7 +599,7 @@ trait TypeChecker {
             val returnType = (from.map(_.tpe) :+ to).toSeq(i-1)
             val previousElements = (1 to i-1).toSeq.map(j => TupleSelect(p,j))
             (insertFreshLets(binders, previousElements, returnType), vcs)
-          case _ => throw new TypeCheckingException(e,
+          case _ => reporter.fatalError(e.getPos,
             s"${tc0.currentFid.map(fid => "(In function " + fid + ")").mkString} Cannot use tuple selection on type ${tpe.asString} with index $i"
           )
         }
@@ -653,14 +653,14 @@ trait TypeChecker {
         tc.termVariables.find(tv => tv.id == id) match {
           case Some(tv) => (tv.tpe, TyperResult.valid)
           case None =>
-            throw new TypeCheckingException(v, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+            reporter.fatalError(v.getPos, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
         }
 
       case Equals(e1, e2) =>
         val (tpe1, tr1) = inferType(tc, e1)
         val (tpe2, tr2) = inferType(tc, e2)
         if (tpe1.getType != tpe2.getType) {
-          throw new TypeCheckingException(e, s"Comparing elements of different types:\n${e1.asString} of type ${tpe1.asString} and\n${e2.asString} of type ${tpe2.asString}")
+          reporter.fatalError(e.getPos, s"Comparing elements of different types:\n${e1.asString} of type ${tpe1.asString} and\n${e2.asString} of type ${tpe2.asString}")
         }
         (BooleanType(), tr1 ++ tr2)
 
@@ -760,7 +760,7 @@ trait TypeChecker {
                 .map(_.typed(tps)).toSeq
                 .flatMap(_.constructors.flatMap(_.fields))
                 .find(_.id == selector).map(_.tpe).getOrElse(
-                  throw new TypeCheckingException(e, s"Unexpected type ${tpe.asString} for selector ${selector.asString}")
+                  reporter.fatalError(e.getPos, s"Unexpected type ${tpe.asString} for selector ${selector.asString}")
                 )
             (selectorType, tr)
           case RecursiveType(id, tps, e) if tc.visibleADTs(id) =>
@@ -770,7 +770,7 @@ trait TypeChecker {
                 .map(_.typed(tps)).toSeq
                 .flatMap(_.constructors.flatMap(_.fields))
                 .find(_.id == selector).map(sel => sel.tpe).getOrElse(
-                  throw new TypeCheckingException(e, s"Unexpected type ${tpe.asString} for selector ${selector.asString}")
+                  reporter.fatalError(e.getPos, s"Unexpected type ${tpe.asString} for selector ${selector.asString}")
                 )
             if (selectorType == baseType(id, selectorType)) {
               // In that case we do not need a strictly positive VC check for the index:
@@ -779,7 +779,7 @@ trait TypeChecker {
               (index(id, selectorType, Minus(e,IntegerLiteral(1))), tr ++ buildVC(tc.withVCKind(VCKind.UnfoldType), GreaterThan(e, IntegerLiteral(0))))
             }
           case _ =>
-            throw new TypeCheckingException(e, s"Type of ${expr.asString} is ${tpe.asString}, but an ADT was expected")
+            reporter.fatalError(e.getPos, s"Type of ${expr.asString} is ${tpe.asString}, but an ADT was expected")
         }
 
       case SizedADT(id, tps, args, size) =>
@@ -814,7 +814,7 @@ trait TypeChecker {
             args,
             tcons.fields.map(vd => baseType(sortId, vd)))
         }.getOrElse (
-          throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
+          reporter.fatalError(e.getPos, s"Could not infer type for ${e.asString}")
         )
 
         val trSucc = lookedUpConstructor.map { tcons =>
@@ -822,7 +822,7 @@ trait TypeChecker {
             args,
             tcons.fields.map(vd => index(sortId, vd, pred(size))))
         }.getOrElse (
-          throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
+          reporter.fatalError(e.getPos, s"Could not infer type for ${e.asString}")
         )
         val kind = VCKind.fromErr(Some("Non-Negative Size for Sized ADT"))
         (RecursiveType(sortId, tps, size),
@@ -857,7 +857,7 @@ trait TypeChecker {
                 .filter(_.fields.size == args.size)
                 .map(tcons => checkDependentTypes(tc, args, tcons.fields))
             }.getOrElse(
-              throw new TypeCheckingException(e, s"Could not infer type for ${e.asString}")
+              reporter.fatalError(e.getPos, s"Could not infer type for ${e.asString}")
             )
 
         (ADTType(sortId, tps), trInv ++ tr)
@@ -870,17 +870,17 @@ trait TypeChecker {
               case (Some(sort), Some(cons)) if sort.id == cons.sort =>
                 (BooleanType(), tr)
               case _ =>
-                throw new TypeCheckingException(e, s"Type of ${expr.asString} is ${tpe.asString}, which does not have ${id.asString} as a constructor")
+                reporter.fatalError(e.getPos, s"Type of ${expr.asString} is ${tpe.asString}, which does not have ${id.asString} as a constructor")
             }
           case RecursiveType(sort, _, _) if (tc.visibleADTs(sort)) =>
             (lookupSort(sort), lookupConstructor(id)) match {
               case (Some(sort), Some(cons)) if sort.id == cons.sort =>
                 (BooleanType(), tr)
               case _ =>
-                throw new TypeCheckingException(e, s"Type of ${expr.asString} is ${tpe.asString}, which does not have ${id.asString} as a constructor")
+                reporter.fatalError(e.getPos, s"Type of ${expr.asString} is ${tpe.asString}, which does not have ${id.asString} as a constructor")
             }
           case _ =>
-            throw new TypeCheckingException(e, s"The type of ${expr.asString} (${tpe.asString}) is not an ADT")
+            reporter.fatalError(e.getPos, s"The type of ${expr.asString} (${tpe.asString}) is not an ADT")
         }
 
       // @romac - FIXME: Properly typecheck Passes
@@ -906,7 +906,7 @@ trait TypeChecker {
         (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
-        throw new TypeCheckingException(e, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
+        reporter.fatalError(e.getPos, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
     }
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
@@ -993,7 +993,7 @@ trait TypeChecker {
       // Unapply for `Top` matches any `ValueType(_)`
       case (v@Variable(id, _, _), Top()) =>
         if (tc.termVariables.exists(tv => tv.id == v.id)) TyperResult.valid
-        else throw new TypeCheckingException(v,
+        else reporter.fatalError(v.getPos,
           s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
 
       case (UnitLiteral(), Top()) => TyperResult.valid
@@ -1072,7 +1072,7 @@ trait TypeChecker {
         stripRefinementsAndAnnotations(inferredType) match {
           case SetType(base1) => tr ++ areEqualTypes(tc, base1, base2)
           case _ =>
-            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected a `SetType`")
+            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected a `SetType`")
         }
 
       // we force invariance for now
@@ -1084,7 +1084,7 @@ trait TypeChecker {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
             })
           case _ =>
-            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
+            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
         }
 
       // we force invariance for now
@@ -1102,7 +1102,7 @@ trait TypeChecker {
               case (t1,t2) => areEqualTypes(tc, t1, t2)
             })
           case _ =>
-            throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
+            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
         }
 
       case _ =>
@@ -1110,7 +1110,7 @@ trait TypeChecker {
         if (tpe == stripRefinementsAndAnnotations(inferredType))
           vcs
         else
-          throw new TypeCheckingException(e, s"Inferred type ${inferredType.asString} for ${e.asString}, which does not match ${tpe.asString}")
+          reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, which does not match ${tpe.asString}")
     }
     reporter.debug(s"\n${tc0.indent}Checked that: ${e.asString} (${e.getPos})")
     reporter.debug(s"${tc0.indent}has type: ${tpe.asString}")
@@ -1157,7 +1157,7 @@ trait TypeChecker {
       mutuallyRecursiveDeps
         .find(sort => lookupSort(sort).isDefined)
         .foreach { sort =>
-          throw new TypeCheckingException(fd,
+          reporter.fatalError(fd.getPos,
             s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
         }
     }
@@ -1249,7 +1249,7 @@ trait TypeChecker {
       }
     }
 
-    throw new TypeCheckingException(in,
+    reporter.fatalError(in.getPos,
       s"Call to function ${id.asString} is not allowed here${errorInfo.getOrElse("")}"
     )
   }
@@ -1260,29 +1260,26 @@ trait TypeChecker {
     !fd.flags.exists(_.name == "library")
   }
 
-  def checkHasMeasure(fd: FunDef) = {
-    if (checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty) {
-      throw new TypeCheckingException(
-        fd.fullBody,
-        s"Recursive function ${fd.id.asString} does not have a measure (inferred or user-defined)."
-      )
-    }
+  def noMeasure(fd: FunDef): Boolean = {
+    checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty
   }
 
   def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    symbols.functions.values.foreach(checkHasMeasure)
-
     val vcs = (for (id <- funs) yield {
       val fd = getFunction(id)
 
       if (fd.body.isDefined) {
-        val TyperResult(vcs, trees) = checkType(fd)
+        if (noMeasure(fd)) {
+          Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
+        } else {
+          val TyperResult(vcs, trees) = checkType(fd)
 
-        if (reporter.debugSections.contains(DebugSectionDerivation)) {
-          makeHTMLFile(id + ".html", trees)
+          if (reporter.debugSections.contains(DebugSectionDerivation)) {
+            makeHTMLFile(id + ".html", trees)
+          }
+
+          vcs
         }
-
-        vcs
       } else {
         Nil
       }
@@ -1309,7 +1306,7 @@ trait TypeChecker {
 
       deps.find(fid => lookupFunction(fid).isDefined && dependencies(fid).contains(sort.id)) match {
         case Some(fid) =>
-          throw new TypeCheckingException(sort, s"An ADT (${sort.id.asString}), and a function (${fid.asString}) cannot be mutually recursive")
+          reporter.fatalError(sort.getPos, s"An ADT (${sort.id.asString}), and a function (${fid.asString}) cannot be mutually recursive")
         case None => ()
       }
     }
@@ -1344,12 +1341,7 @@ trait TypeChecker {
   }
 
   def checkFunctionsAndADTs(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    try {
-      wellFormedADTs() ++ checkType(funs)
-    } catch {
-      case e: TypeCheckingException =>
-        reporter.fatalError(e.tree.getPos, s"Type checking failed with message:\n${e.msg}")
-    }
+    wellFormedADTs() ++ checkType(funs)
   }
 }
 

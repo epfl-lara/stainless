@@ -108,8 +108,8 @@ package object stainless {
     }
   }
 
-  def topLevelErrorHandler[T](e: Throwable)(implicit ctx: inox.Context): T = {
-    ctx.reporter.error("Stainless terminated with an error.")
+  def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+    ctx.reporter.error(s"Stainless terminated with an error.")
 
     val sw = new StringWriter
     e.printStackTrace(new PrintWriter(sw))
@@ -119,6 +119,8 @@ package object stainless {
 
     if (ctx.options.findOptionOrDefault(frontend.optPrintStackTrace))
       ctx.reporter.error(sw.toString)
+    else
+      ctx.reporter.error("You may use the option --print-trace to have the stack trace displayed in the output.")
 
     System.exit(2)
     ??? // unreachable

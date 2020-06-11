@@ -181,7 +181,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       } catch {
         case e: Throwable =>
           reporter.debug(e)(frontend.DebugSectionFrontend)
-          reporter.error(e.getMessage)
+          reporter.error("There was an error during the watch cycle")
           compiler = newCompiler()
       }
 

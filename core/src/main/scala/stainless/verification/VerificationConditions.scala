@@ -31,6 +31,7 @@ object VCKind {
   case object ModuloByZero                  extends VCKind("modulo by zero", "mod 0")
   case object MeasureDecreases              extends VCKind("measure decreases", "measure")
   case object MeasurePositive               extends VCKind("non-negative measure", "measure")
+  case object MeasureMissing                extends VCKind("measure missing", "measure")
   case object UnfoldType                    extends VCKind("strictly positive index for ADT selection", "unfold")
   case object RemainderByZero               extends VCKind("remainder by zero", "rem 0")
   case object CastError                     extends VCKind("cast correctness", "cast")
