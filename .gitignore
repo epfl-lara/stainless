@@ -38,6 +38,7 @@ pri-sessions/
 stainless.out/
 repairs.dat
 tmp
+stainless-debug.txt
 
 #eclipse
 .cache
