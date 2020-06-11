@@ -59,14 +59,18 @@ trait MeasureInference
       }
     }
 
+    def mutuallyRecursiveWithoutMeasure(id: Identifier): Option[Identifier] = {
+      symbols.dependencies(id).find(id2 =>
+        symbols.lookupFunction(id2).exists(fd2 =>
+          symbols.dependencies(id2).contains(id) &&
+          !fd2.measure(symbols).isEmpty
+        )
+      )
+    }
+
     def needsMeasure(fd: FunDef): Boolean = {
       if (symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty) {
-        symbols.dependencies(fd.id).find(id =>
-          symbols.lookupFunction(id).exists(fd2 =>
-            symbols.dependencies(fd2.id).contains(fd.id) &&
-            !fd2.measure(symbols).isEmpty
-          )
-        ) match {
+        mutuallyRecursiveWithoutMeasure(fd.id) match {
           case None =>
             true
           case Some(id) =>
