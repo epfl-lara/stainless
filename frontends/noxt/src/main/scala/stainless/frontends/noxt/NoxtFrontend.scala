@@ -9,6 +9,76 @@ import extraction.xlang.{trees => xt}
 import java.io.{File, FileInputStream, InputStream}
 
 object NoxtFrontend {
+object xtTransformer extends xt.SelfTreeTransformer {
+    import scala.collection.mutable.HashMap
+    var newIds: HashMap[Identifier, Identifier] = HashMap.empty
+
+    // Since Identifiers in the given deserialized symbols were created externally, we need
+    // to avoid Stainless from potentially creating duplicate ids at a later point.
+    // We therefore replace replace all the deserialized ids by fresh ones.
+    override def transform(id: Identifier): Identifier = {
+      newIds.getOrElseUpdate(id, {
+        id match {
+          case id: xt.SymbolIdentifier =>
+            new xt.SymbolIdentifier(FreshIdentifier(id.name), ast.Symbol(id.symbol.path))
+          case _ =>
+            FreshIdentifier(id.name)
+        }
+      })
+    }
+
+    override def transform(e: xt.Expr): xt.Expr = e match {
+      case xt.ADT(id, tps, args) =>
+        val newId = transform(id)
+        xt.ClassConstructor(xt.ClassType(newId, tps.map(transform)), args.map(transform)).copiedFrom(e)
+      case xt.MatchExpr(scrut, cases) =>
+        xt.MatchExpr(transform(scrut), cases.map(arm => {
+          xt.MatchCase(transform(arm.pattern), arm.optGuard.map(transform), transform(arm.rhs)).copiedFrom(arm)
+        })).copiedFrom(e)
+      case _ => super.transform(e)
+    }
+
+    override def transform(tpe: xt.Type): xt.Type = tpe match {
+      case xt.ADTType(id, tps) =>
+        val newId = transform(id)
+        xt.ClassType(newId, tps.map(transform))
+      case _ => super.transform(tpe)
+    }
+
+    override def transform(pat: xt.Pattern): xt.Pattern = pat match {
+      case xt.ADTPattern(binder, id, tps, subs) =>
+        val newId = transform(id)
+        // FIXME: The rustc frontend produces `tps` here even though the ADT doesn't have any type parameters
+        // val ct = xt.ClassType(newId, tps.map(transform))
+        val ct = xt.ClassType(newId, Seq.empty)  // Temporary workaround (remove once fixed)
+        xt.ClassPattern(binder, ct, subs.map(transform))
+      case _ => super.transform(pat)
+    }
+
+    def adtsToClassDefs(adts: Seq[xt.ADTSort]): Seq[xt.ClassDef] = {
+      adts.flatMap(sort => {
+        assert(sort.tparams.isEmpty) // NOTE: type parameters are not supported yet
+        assert(sort.flags.isEmpty)
+
+        val newSortId = transform(sort.id)
+        val parentCd = new xt.ClassDef(
+          newSortId, Seq.empty, Seq.empty, Seq.empty, Seq(xt.IsAbstract, xt.IsSealed))
+        val parentType = new xt.ClassType(newSortId, Seq.empty)
+        parentCd +: sort.constructors.map { cons =>
+          val newConsId = transform(cons.id)
+          val fields = cons.fields.map(transform)
+          new xt.ClassDef(newConsId, Seq.empty, Seq(parentType), fields, Seq.empty)
+        }
+      })
+    }
+  }
+
+  def toExtractionTrees(syms: xt.Symbols): (Seq[xt.ClassDef], Seq[xt.FunDef]) = {
+    val classes = xtTransformer.adtsToClassDefs(syms.sorts.values.toSeq)
+    val funs = syms.functions.values.toSeq.map(fd => xtTransformer.transform(fd))
+    (classes, funs)
+  }
+
   class Factory(
     override val extraCompilerArguments: Seq[String],
     override val libraryPaths: Seq[String]
@@ -60,11 +130,13 @@ object NoxtFrontend {
           callback.beginExtractions()
           readUnit() match {
             case Some(syms) =>
+              val (classes, funs) = toExtractionTrees(syms)
+
               val name = sources.headOption.getOrElse("stdin")
               val ud = xt.UnitDef(
-                FreshIdentifier(name), Seq.empty, Seq.empty, Seq.empty, false)
-              // TODO: Generate classes/functions/typedefs per compilation unit
-              callback(name, ud, Seq.empty, syms.functions.values.toSeq, Seq.empty)
+                FreshIdentifier(name), Seq.empty, classes.map(_.id), Seq.empty, false)
+
+              callback(name, ud, classes, funs, Seq.empty)
             case None =>
               callback.failed()
           }
