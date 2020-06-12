@@ -406,15 +406,14 @@ trait TreeSanitizer { self =>
         case desc =>
           val methods = desc.methods.map(symbols.getFunction)
           val fieldSymbols = desc.fields.map(symbolOf).toSet
-          val accessorSymbols = desc.fields.map { vd =>
+          val accessorSymbols = desc.fields.flatMap { vd =>
             val accessor = methods.find { fd =>
               fd.isGetter && fd.flags.exists {
                 case IsAccessor(Some(id)) => id == vd.id
                 case _ => false
               }
             }
-
-            symbolOf(accessor.get) // Safe: All fields have accessors
+            accessor.map(symbolOf)
           }
 
           val allSymbols = fieldSymbols ++ accessorSymbols

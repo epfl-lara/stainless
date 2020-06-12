@@ -21,6 +21,7 @@ class Symbol private[stainless](val path: Seq[String], private[stainless] val id
 object Symbol {
   private val counter = new inox.utils.UniqueCounter[Unit]
 
+  def apply(path: Seq[String]) = new Symbol(path, counter.nextGlobal)
   def apply(name: String) = new Symbol(name, counter.nextGlobal)
 }
 
