@@ -113,14 +113,14 @@ package object stainless {
 
     val sw = new StringWriter
     e.printStackTrace(new PrintWriter(sw))
-    new PrintWriter("stainless-debug.txt") { write(sw.toString); close }
+    new PrintWriter("stainless-stack-trace.txt") { write(sw.toString); close }
 
-    ctx.reporter.error("Debug output is available in the file `stainless-debug.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
+    ctx.reporter.error("Debug output is available in the file `stainless-stack-trace.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
 
-    if (ctx.options.findOptionOrDefault(frontend.optPrintStackTrace))
-      ctx.reporter.error(sw.toString)
+    if (ctx.reporter.debugSections.contains(frontend.DebugSectionFrontend))
+      ctx.reporter.debug(sw.toString)(frontend.DebugSectionFrontend)
     else
-      ctx.reporter.error("You may use the option --print-trace to have the stack trace displayed in the output.")
+      ctx.reporter.error("You may use --debug=frontend to have the stack trace displayed in the output.")
 
     System.exit(2)
     ??? // unreachable

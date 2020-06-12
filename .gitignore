@@ -38,7 +38,7 @@ pri-sessions/
 stainless.out/
 repairs.dat
 tmp
-stainless-debug.txt
+stainless-stack-trace.txt
 
 #eclipse
 .cache
