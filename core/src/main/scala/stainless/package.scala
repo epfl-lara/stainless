@@ -49,7 +49,7 @@ package object stainless {
       sorts: Map[Identifier, ADTSort]
     ) extends SimpleSymbols with AbstractSymbols
 
-    object printer extends ast.Printer { val trees: stainless.trees.type = stainless.trees }
+    object printer extends ast.ScalaPrinter { val trees: stainless.trees.type = stainless.trees }
   }
 
   implicit val stainlessSemantics: inox.SemanticsProvider { val trees: stainless.trees.type } =

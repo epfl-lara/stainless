@@ -188,3 +188,14 @@ trait Printer extends inox.ast.Printer {
     p"$id"
   }
 }
+
+trait ScalaPrinter extends Printer {
+  import trees._
+
+  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+    case FractionLiteral(i, j) if j == 1 => p"""Real(BigInt("$i")"""
+    case FractionLiteral(i, j)           => p"""Real(BigInt("$i"), BigInt("$j"))"""
+    case IntegerLiteral(i)               => p"""BigInt("$i")"""
+    case _ => super.ppBody(tree)
+  }
+}
