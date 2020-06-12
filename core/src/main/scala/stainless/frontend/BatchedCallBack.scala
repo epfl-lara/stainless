@@ -87,8 +87,10 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       symbols.ensureWellFormed
     } catch {
       case e: symbols.TypeErrorException =>
+        reporter.debug(e)
         reportError(e.pos, e.getMessage, symbols)
       case e @ xt.NotWellFormedException(defn, _) =>
+        reporter.debug(e)
         reportError(defn.getPos, e.getMessage, symbols)
     }
 
@@ -117,11 +119,11 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   }
 
   private def reportErrorFooter(syms: xt.Symbols): Unit = {
-    reporter.error(s"The extracted program is not well formed.")
-    reporter.error(s"Symbols are:")
-    reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-    reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-    reporter.error(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
+    reporter.debug(s"The extracted program is not well formed.")
+    reporter.debug(s"Symbols are:")
+    reporter.debug(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    reporter.debug(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.debug(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
     reporter.fatalError(s"Aborting from BatchedCallBack")
   }
 }

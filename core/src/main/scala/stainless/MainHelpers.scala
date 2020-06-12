@@ -48,7 +48,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optNoColors -> Description(General, "Disable colored output"),
-    frontend.optPrintStackTrace -> Description(General, "Print stack trace when an exception occurs"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),

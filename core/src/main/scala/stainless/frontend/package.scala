@@ -22,10 +22,6 @@ package object frontend {
     */
   object optBatchedProgram extends inox.FlagOptionDef("batched", false)
 
-  /** Print stack trace when Stainless throws an exception
-    */
-  object optPrintStackTrace extends inox.FlagOptionDef("print-trace", false)
-
   /**
    * Given a context (with its reporter) and a frontend factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components

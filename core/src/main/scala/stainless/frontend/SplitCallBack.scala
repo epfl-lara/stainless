@@ -166,8 +166,10 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
       syms.ensureWellFormed
     } catch {
       case e: syms.TypeErrorException =>
+        reporter.debug(e)
         reportError(e.pos, e.getMessage, syms)
       case e @ xt.NotWellFormedException(defn, _) =>
+        reporter.debug(e)
         reportError(defn.getPos, e.getMessage, syms)
     }
 
@@ -207,11 +209,11 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   }
 
   private def reportErrorFooter(syms: xt.Symbols): Unit = {
-    reporter.error(s"The extracted sub-program is not well formed.")
-    reporter.error(s"Symbols are:")
-    reporter.error(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
-    reporter.error(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
-    reporter.error(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
+    reporter.debug(s"The extracted sub-program is not well formed.")
+    reporter.debug(s"Symbols are:")
+    reporter.debug(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
+    reporter.debug(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
+    reporter.debug(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
     reporter.fatalError(s"Aborting from SplitCallBack")
   }
 }
