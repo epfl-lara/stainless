@@ -196,6 +196,46 @@ trait ScalaPrinter extends Printer {
     case FractionLiteral(i, j) if j == 1 => p"""Real(BigInt("$i")"""
     case FractionLiteral(i, j)           => p"""Real(BigInt("$i"), BigInt("$j"))"""
     case IntegerLiteral(i)               => p"""BigInt("$i")"""
+
+    case NoTree(tpe) => p"(??? : $tpe)"
+
+    case Error(tpe, desc) =>
+      p"""stainless.lang.error[$tpe]("$desc")"""
+
+    case Annotated(body, flags) if flags.nonEmpty =>
+      p"($body):"
+      for (f <- flags) p" @${f.asString(ctx.opts)} "
+
+    case Not(Equals(l, r)) => optP {
+      p"$l != $r"
+    }
+
+    case IsConstructor(e, id) => p"$e.isInstanceOf[$id]"
+
+    case fs @ FiniteSet(rs, base) =>
+      if (rs.isEmpty)
+        p"Set[$base]()"
+      else
+        p"Set($rs)"
+
+    case fs @ FiniteBag(rs, base) =>
+      if (rs.isEmpty)
+        p"Bag[$base]()"
+      else
+        p"Bag(${rs})"
+
+    case Not(expr) => p"!$expr"
+
+    case ElementOfSet(e, s) => p"$s.contains($e)"
+    case SubsetOf(l, r) => p"$l.subsetOf($r)"
+    case SetAdd(s, e) => p"$s + $e"
+    case SetUnion(l, r) => p"$l ++ $r"
+    case BagUnion(l, r) => p"$l ++ $r"
+
+    case SetIntersection(l, r) => p"$l & $r"
+    case BagIntersection(l, r) => p"$l & $r"
+
+
     case _ => super.ppBody(tree)
   }
 }
