@@ -28,7 +28,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     import symbols._
     var funInv: Option[FunctionInvocation] = None
 
-    if(fd.flags.filter(elem => elem.name == "traceInduct").size == 1) {
+    if(fd.flags.contains(TraceInduct)) {
       fd.flags.filter(elem => elem.name == "traceInduct").head match {
         case Annotation("traceInduct", fun) => {
           exprOps.preTraversal {
@@ -62,7 +62,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     def inductPattern(e: Expr): Expr = {
       e match {
         case IfExpr(c, th, el) =>
-          createAnd(Seq(inductPattern(c), IfExpr(c, inductPattern(th), inductPattern(el))))
+          andJoin(Seq(inductPattern(c), IfExpr(c, inductPattern(th), inductPattern(el))))
         case MatchExpr(scr, cases) =>
           val scrpat = inductPattern(scr)
           val casePats = cases.map {
@@ -71,11 +71,11 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
               (guardPat, MatchCase(pat, optGuard, inductPattern(rhs)))
           }
           val pats = scrpat +: casePats.flatMap(_._1) :+ MatchExpr(scr, casePats.map(_._2))
-          createAnd(pats)
+          andJoin(pats)
         case Let(i, v, b) =>
-          createAnd(Seq(inductPattern(v), Let(i, v, inductPattern(b))))
+          andJoin(Seq(inductPattern(v), Let(i, v, inductPattern(b))))
         case FunctionInvocation(tfd, _, args) =>
-          val argPattern = createAnd(args.map(inductPattern))
+          val argPattern = andJoin(args.map(inductPattern))
           if (tfd == callee.id) { // self recursive call ?
             // create a tactFun invocation to mimic the recursion pattern
             val paramVars = function.params.map(_.toVariable)
@@ -92,23 +92,23 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
             val recArgs = (0 until indexedArgs.size).map(indexedArgs)
             val recCall = FunctionInvocation(function.id, function.typeArgs, recArgs)
 
-            createAnd(Seq(argPattern, recCall))
+            andJoin(Seq(argPattern, recCall))
           } else {
             argPattern
           }
         case Operator(args, op) =>
           // conjoin all the expressions and return them
-          createAnd(args.map(inductPattern))
+          andJoin(args.map(inductPattern))
       }
     }
 
     val argsMap = callee.params.map(_.toVariable).zip(finv.args).toMap
     val tparamMap = callee.typeArgs.zip(finv.tfd.tps).toMap
-    val inlinedBody = typeOps.instantiateType(replaceFromIDs(argsMap, callee.body.get), tparamMap)
+    val inlinedBody = typeOps.instantiateType(exprOps.replaceFromSymbols(argsMap, callee.body.get), tparamMap)
     val inductScheme = inductPattern(inlinedBody)
  
     // body, pre and post for the tactFun
-    val body = createAnd(Seq(inductScheme, function.fullBody))
+    val body = andJoin(Seq(inductScheme, function.fullBody))
     val precondition = function.precondition
     val postcondition = function.postcondition
  
@@ -116,29 +116,6 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     //val bodyPost = exprOps.withPostcondition(bodyPre,postcondition)
 
     function.copy(function.id, function.tparams, function.params, function.returnType, bodyPre, function.flags)
-  }
- 
-
-  private def replaceFromIDs(substs: Map[Variable, Expr], expr: Expr) : Expr = {
-    exprOps.postMap({
-      case a: Variable => substs.get(a)
-      case _ => None
-    })(expr)
-  }
-
-  private def createAnd(exprs: Seq[Expr]): Expr = {
-    // pull ands if any in the subexpression to the top
-    val newExprs = exprs.flatMap {
-      case BooleanLiteral(true) => Seq()
-      case And(args) => args
-      case e => Seq(e)
-    }
-    //val newExprs = exprs.filterNot(conj => conj == tru)
-    newExprs match {
-      case Seq()  => BooleanLiteral(true)
-      case Seq(e) => e
-      case _      => And(newExprs)
-    }
   }
 
 }
