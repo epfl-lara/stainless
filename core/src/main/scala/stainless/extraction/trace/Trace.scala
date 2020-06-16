@@ -28,7 +28,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     import symbols._
     var funInv: Option[FunctionInvocation] = None
 
-    if(fd.flags.contains(TraceInduct)) {
+    if(fd.flags.exists(elem => elem.name == "traceInduct")) {
       fd.flags.filter(elem => elem.name == "traceInduct").head match {
         case Annotation("traceInduct", fun) => {
           exprOps.preTraversal {
