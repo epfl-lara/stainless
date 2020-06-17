@@ -279,7 +279,7 @@ trait TypeChecker {
 
   def checkTypes(tc: TypingContext, exprs: Seq[Expr], types: Seq[Type]): TyperResult = {
     exprs.zip(types).foldLeft(TyperResult.valid){
-      case (tr, (e,tpe)) => tr ++ checkType(tc, e, tpe)
+      case (tr, (e, tpe)) => tr ++ checkType(tc, e, tpe)
     }
   }
 
@@ -299,7 +299,7 @@ trait TypeChecker {
   }
 
   def checkDependentTypes(tc: TypingContext, exprs: Seq[Expr], types: Seq[ValDef]): TyperResult = {
-    exprs.zip(types).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)){
+    exprs.zip(types).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), (e, vd)) =>
         val freshVd = freshener.transform(vd)
         val (newTc, oldId, newId) = tcAcc.freshBindWithValue(freshVd, e)
@@ -1050,15 +1050,12 @@ trait TypeChecker {
         val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
         checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
 
-      case (_, TupleType(ts)) =>
-        val projections = (1 to ts.length).toSeq.map(i => TupleSelect(e, i))
-        checkTypes(tc, projections, ts)
+      case (Tuple(es), TupleType(tps)) =>
+        checkTypes(tc, es, tps)
 
-      case (_, SigmaType(from, to)) =>
-        val projections = (1 to from.length).toSeq.map(i => TupleSelect(e, i))
-        val last = TupleSelect(e, from.length + 1)
-        checkDependentTypes(tc, projections, from) ++
-        checkType(tc.bindWithValues(from, projections), last, to)
+      case (Tuple(es), SigmaType(from, to)) =>
+        checkDependentTypes(tc, es.init, from) ++
+        checkType(tc.bindWithValues(from, es.init), es.last, to)
 
       case (_, PiType(from, to)) =>
         checkType(tc.bind(from), Application(e, from.map(_.toVariable)), to)
