@@ -1,6 +1,26 @@
 
 # Release Notes
 
+## Version 0.7.1 (17-06-2020)
+
+### Features
+
+- Add `ListOps.noDuplicate`, and a contract for `Set#toList` (#746)
+- Check match exhaustiveness in type checker (#737)
+
+### Improvements
+
+- Rearrange debugging options (#781)
+- Change StdOut print functions to handle Any (#761)
+- Improve error reporting (#756)
+- Add `@inlineInvariant` flag to ADT invariant dispatch method (#744)
+- Use static checks for `SetOps` methods (#742)
+- Recommend using Z3 4.8.6 instead of 4.7.1 (#741)
+
+### Bug fixes
+
+- Fix `List#toScala` method (#778)
+
 ## Version 0.7.0 (07-02-2020)
 
 ### Features
