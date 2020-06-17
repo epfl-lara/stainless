@@ -106,16 +106,22 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     val tparamMap = callee.typeArgs.zip(finv.tfd.tps).toMap
     val inlinedBody = typeOps.instantiateType(exprOps.replaceFromSymbols(argsMap, callee.body.get), tparamMap)
     val inductScheme = inductPattern(inlinedBody)
- 
+
+    val prevBody = function.fullBody match {
+      case Ensuring(body, pred) => body
+      case _ => function.fullBody
+    }
+
     // body, pre and post for the tactFun
-    val body = andJoin(Seq(inductScheme, function.fullBody))
+
+    val body = andJoin(Seq(inductScheme, prevBody))
     val precondition = function.precondition
     val postcondition = function.postcondition
  
     val bodyPre = exprOps.withPrecondition(body, precondition)
-    //val bodyPost = exprOps.withPostcondition(bodyPre,postcondition)
+    val bodyPost = exprOps.withPostcondition(bodyPre,postcondition)
 
-    function.copy(function.id, function.tparams, function.params, function.returnType, bodyPre, function.flags)
+    function.copy(function.id, function.tparams, function.params, function.returnType, bodyPost, function.flags)
   }
 
 }
