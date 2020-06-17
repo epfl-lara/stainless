@@ -14,7 +14,7 @@ if [[ $(git diff --stat) != '' ]]; then
 fi
 
 SCALA_VERSION="2.12"
-Z3_VERSION="4.8.6"
+Z3_VERSION="4.8.8"
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
 STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
