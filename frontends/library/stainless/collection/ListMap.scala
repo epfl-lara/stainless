@@ -215,13 +215,13 @@ object ListMapLemmas {
 
     if (!l.isEmpty && l.head != (a, b)) {
       uniqueImage(l.tail, a, b)
-      assert(l.tail.find(_._1 == a) == Some((a, b)))
+      assert(l.tail.find(_._1 == a) == Some[(A,B)]((a, b)))
       findFirstContained(l.tail, a)
-      assert(l.find(_._1 == a) == Some((a, b)))
+      assert(l.find(_._1 == a) == Some[(A,B)]((a, b)))
     }
 
   }.ensuring(_ =>
-    l.find(_._1 == a) == Some((a, b))
+    l.find(_._1 == a) == Some[(A,B)]((a, b))
   )
 
   @opaque
@@ -231,7 +231,7 @@ object ListMapLemmas {
     uniqueImage(lm.toList, a, b)
 
   }.ensuring(_ =>
-    lm.get(a) == Some(b)
+    lm.get(a) == Some[B](b)
   )
 
   def keysOfSoundLemma0[A, B](@induct l1: List[(A, B)], l2: List[(A, B)], b: B): Unit = {
@@ -270,17 +270,17 @@ object ListMapLemmas {
 
     if (!l.isEmpty) {
       keysOfSoundLemma2(l.tail, lm, b) // gives us:
-      assert(l.tail.map(_._1).forall(key => lm.get(key) == Some(b)))
+      assert(l.tail.map(_._1).forall(key => lm.get(key) == Some[B](b)))
 
       uniqueImage(lm, l.head._1, l.head._2) // gives us:
-      assert(lm.get(l.head._1) == Some(l.head._2))
+      assert(lm.get(l.head._1) == Some[B](l.head._2))
 
       forallContained(filtered, (kv: (A, B)) => kv._2 == b, l.head) // gives us:
       assert(l.head._2 == b)
     }
 
   }.ensuring(_ =>
-    l.map(_._1).forall(key => lm.get(key) == Some(b))
+    l.map(_._1).forall(key => lm.get(key) == Some[B](b))
   )
 
   @opaque
@@ -296,9 +296,9 @@ object ListMapLemmas {
     assert(filtered.forall(filtered.contains))
 
     keysOfSoundLemma2(filtered, lm, value) // gives us:
-    assert(filtered.map(_._1).forall(key => lm.get(key) == Some(value)))
+    assert(filtered.map(_._1).forall(key => lm.get(key) == Some[B](value)))
 
   }.ensuring(_ =>
-    lm.keysOf(value).forall(key => lm.get(key) == Some(value))
+    lm.keysOf(value).forall(key => lm.get(key) == Some[B](value))
   )
 }
