@@ -442,7 +442,7 @@ trait TypeChecker {
       case FractionLiteral(_, _) => (RealType(), TyperResult.valid)
       case BVLiteral(signed, _, size) => (BVType(signed, size), TyperResult.valid)
 
-      case UncheckedExpr(e) => (inferType(tc, e)._1, TyperResult.valid)
+      case UncheckedExpr(e) => inferType(tc.withEmitVCs(false), e)
       case Annotated(e, _) => inferType(tc, e)
 
       case NoTree(tpe) => (tpe, isType(tc, tpe))
@@ -984,10 +984,6 @@ trait TypeChecker {
 
     val tc = tc0.inc
     val res = (e, tpe) match {
-      case (UncheckedExpr(e), tpe) => checkType(tc.withEmitVCs(false), e, tpe)
-
-      case (Annotated(e, _), _) => checkType(tc, e, tpe)
-      case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
       // High-priority rules for `Top`.
       // Unapply for `Top` matches any `ValueType(_)`
@@ -1107,17 +1103,16 @@ trait TypeChecker {
             reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
         }
 
+      case (UncheckedExpr(e), tpe) =>
+        val (inferredType, tr) = inferType(tc.withEmitVCs(false), e)
+        tr ++ isSubtype(tc, e, inferredType, tpe)
+
+      case (Annotated(e, _), _) => checkType(tc, e, tpe)
+      case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
+
       case _ =>
-        val (inferredType, vcs) = inferType(tc, e)
-        if (tpe == stripRefinementsAndAnnotations(inferredType))
-          vcs
-        else {
-          val vd = ValDef.fresh("x", inferredType)
-          isSubtype(tc.setPos(e),
-            RefinementType(vd, Equals(vd.toVariable, e)),
-            tpe
-          )
-        }
+        val (inferredType, tr) = inferType(tc, e)
+        tr ++ isSubtype(tc, e, inferredType, tpe)
     }
     reporter.debug(s"\n${tc0.indent}Checked that: ${e.asString} (${e.getPos})")
     reporter.debug(s"${tc0.indent}has type: ${tpe.asString}")
@@ -1126,7 +1121,18 @@ trait TypeChecker {
     res.root(CheckType(tc0, e, tpe))
   }
 
-  /** The `isSubtype` function simply calls `checkType` */
+  def isSubtype(tc: TypingContext, e: Expr, tp1: Type, tp2: Type): TyperResult = {
+    if (tp2 == stripRefinementsAndAnnotations(tp1))
+      TyperResult.valid
+    else {
+      val vd = ValDef.fresh("x", tp1)
+      isSubtype(tc.setPos(e),
+        RefinementType(vd, Equals(vd.toVariable, e)),
+        tp2
+      )
+    }
+  }
+
   def isSubtype(tc0: TypingContext, tp1: Type, tp2: Type): TyperResult = {
     reporter.debug(s"\n${tc0.indent}Checking that: ${tp1.asString}")
     reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
