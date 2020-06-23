@@ -22,6 +22,7 @@ trait InoxEncoder extends ProgramEncoder {
     case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) => false
     case TerminationStatus(_) => false
+    case InlineInvariant => false
     case _ => true
   }
 

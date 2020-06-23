@@ -2,8 +2,9 @@
 
 package stainless.lang
 
+import StaticChecks._
 import stainless.annotation._
-import stainless.collection.List
+import stainless.collection.{List, ListOps}
 
 import scala.language.implicitConversions
 import scala.collection.immutable.{Set => ScalaSet}
@@ -56,7 +57,8 @@ object Set {
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
     } ensuring { res =>
-      forall((a: A) => res.contains(a) == set.contains(a))
+      forall((a: A) => res.contains(a) == set.contains(a)) &&
+      ListOps.noDuplicate(res)
     }
 
     @extern @pure

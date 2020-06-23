@@ -51,7 +51,7 @@ object PackratParsing {
 
   def pAdd(i: BigInt): Result = {
     require(i >= 0)
-    decreases(2*abs(i) + 1)
+    decreases(2*abs(i) + 1, 0)
     // Rule 1: Add <- Mul + Add
     val mulRes = pMul(i)
     mulRes match {
@@ -71,7 +71,7 @@ object PackratParsing {
 
   def pMul(i: BigInt): Result = {
     require(i >= 0)
-    decreases(2*abs(i))
+    decreases(2*abs(i), 2)
     // Rule 1: Mul <- Prim *  Mul
     val primRes = pPrim(i)
     primRes match {
@@ -91,6 +91,7 @@ object PackratParsing {
 
   def pPrim(i: BigInt): Result = {
     require(i >= 0)
+    decreases(2*abs(i), 1)
     val char = lookup(i)
     if (char == Digit()) {
       if (i > 0)

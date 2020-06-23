@@ -14,6 +14,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   // TODO: Move Erasable to Inox?
   case object Erasable extends Flag("erasable", Seq.empty)
   case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
+  case object InlineInvariant extends Flag("inlineInvariant", Seq())
 
   case object Ghost extends Flag("ghost", Seq.empty)
   case object Extern extends Flag("extern", Seq.empty)
@@ -43,6 +44,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
     case ("wrapping", Seq()) => Wrapping
+    case ("inlineInvariant", Seq()) => InlineInvariant
     case _ => Annotation(name, args)
   }
 

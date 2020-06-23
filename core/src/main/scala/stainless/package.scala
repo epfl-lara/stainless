@@ -3,6 +3,8 @@
 import scala.collection.parallel.ForkJoinTasks
 import scala.concurrent.ExecutionContext
 import java.util.concurrent.Executors
+import java.io.PrintWriter
+import java.io.StringWriter
 
 import inox.transformers._
 import inox.utils.{Position, NoPosition}
@@ -104,6 +106,24 @@ package object stainless {
         } = inox.evaluators.EncodingEvaluator(self.program)(encoder)(evaluators.Evaluator(encoder.targetProgram, ctx))
       }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
     }
+  }
+
+  def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+    ctx.reporter.error(s"Stainless terminated with an error.")
+
+    val sw = new StringWriter
+    e.printStackTrace(new PrintWriter(sw))
+    new PrintWriter("stainless-stack-trace.txt") { write(sw.toString); close }
+
+    ctx.reporter.error("Debug output is available in the file `stainless-stack-trace.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
+
+    if (ctx.reporter.debugSections.contains(frontend.DebugSectionFrontend))
+      ctx.reporter.debug(sw.toString)(frontend.DebugSectionFrontend)
+    else
+      ctx.reporter.error("You may use --debug=frontend to have the stack trace displayed in the output.")
+
+    System.exit(2)
+    ??? // unreachable
   }
 
 

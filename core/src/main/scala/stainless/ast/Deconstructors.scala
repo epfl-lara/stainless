@@ -207,6 +207,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.Law => (Seq(), Seq(), Seq(), (_, _, _) => t.Law)
     case s.Erasable => (Seq(), Seq(), Seq(), (_, _, _) => t.Erasable)
     case s.IndexedAt(e) => (Seq(), Seq(e), Seq(), (_, es, _) => t.IndexedAt(es(0)))
+    case s.InlineInvariant => (Seq(), Seq(), Seq(), (_, _, _) => t.InlineInvariant)
     case s.Ghost => (Seq(), Seq(), Seq(), (_, _, _) => t.Ghost)
     case s.Extern => (Seq(), Seq(), Seq(), (_, _, _) => t.Extern)
     case s.Opaque => (Seq(), Seq(), Seq(), (_, _, _) => t.Opaque)
