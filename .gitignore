@@ -87,6 +87,11 @@ verif*.v
 .lia.cache
 .nia.cache
 .coqdeps.d
+*.vok
+*.vos
+slc-lib/.Makefile.d
+slc-lib/Makefile
+slc-lib/Makefile.conf
 
 # metals and VSCode
 .vscode
