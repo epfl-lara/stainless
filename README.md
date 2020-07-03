@@ -19,6 +19,10 @@ To get started, see the documentation chapters, such as
   * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
+## Development
+
+To build the projet, run `sbt universal:stage`. If all goes well, a binary gets generated: `frontends/scalac/target/universal/stage/bin/stainless-scalac`. More information is available in the documentation links.
+
 ## Other Links
 
 * Stainless Website: https://stainless.epfl.ch

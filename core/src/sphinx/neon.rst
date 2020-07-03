@@ -261,6 +261,32 @@ the second case::
 This is especially helpful when "debugging" proofs.
 
 
+.. _proofcontrol:
+
+Proof control using ``assert`` and ``check``
+********************************************
+
+Both the ``assert`` and ``check`` keywords generate a verification condition for
+the corresponding formula in the current context. The difference in these
+keywords is in how they affect the context of other verification conditions. As
+a rule of thumb, assertions do not affect the context of verification conditions
+outside the block of the assertion, while ``check`` does. Thus you can use
+assertions to prove local properties, and use ``check`` to have the property
+(checked and) visible outside the block.
+
+.. code-block:: scala
+
+    import stainless.proof.check
+
+    def foo(): Unit = {
+      val x = {
+        assert(b1) // verification condition: b1
+        check(b2)  // verification condition: b1 ==> b2
+      }
+      assert(b3)   // verification condition: b2 ==> b3 (b1 not visible to the solver)
+    }
+
+
 .. _induction:
 
 Induction
