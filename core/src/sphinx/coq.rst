@@ -7,9 +7,9 @@ Initially based on a project done by `Bence Czipó
 <https://github.com/czipobence>`_, this translation is an early experimental
 stage.
 
-The `--coq` option of Stainless the standard verification checker (which uses
-Inox) by a translation to Coq. Each function from the `*.scala` file is
-translated to a Coq file, and obligations corresponding to assertions,
+The `--coq` option of Stainless replaces the standard verification checker
+(which uses Inox) by a translation to Coq. Each function from the `*.scala` file
+is translated to a Coq file, and obligations corresponding to assertions,
 preconditions, and postconditions are solved using predefined tactics in Coq.
 
 .. _coq-requirements:
