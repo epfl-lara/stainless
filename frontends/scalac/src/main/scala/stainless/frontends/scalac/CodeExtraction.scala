@@ -11,6 +11,7 @@ import scala.reflect.internal.util._
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
 import scala.language.implicitConversions
+import java.text.FieldPosition
 
 /**
  * Extract Scalac Trees into Stainless Trees.
@@ -410,7 +411,7 @@ trait CodeExtraction extends ASTExtractors {
     var methods: Seq[xt.FunDef]      = Seq.empty
     var typeMembers: Seq[xt.TypeDef] = Seq.empty
 
-    for (d <- cd.impl.body) d match {
+    for ((d, i) <- cd.impl.body.zipWithIndex) d match {
       case EmptyTree =>
         // ignore
 
@@ -440,7 +441,7 @@ trait CodeExtraction extends ASTExtractors {
         methods :+= extractFunction(fsym, tparams, vparams, rhs)(defCtx)
 
       case t @ ExFieldDef(fsym, _, rhs) =>
-        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
+        methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx).copy(flags = flags :+ xt.FieldDefPosition(i))
 
       case t @ ExLazyFieldDef(fsym, _, rhs) =>
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)

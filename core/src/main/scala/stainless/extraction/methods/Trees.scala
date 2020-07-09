@@ -94,6 +94,39 @@ trait Trees extends throwing.Trees { self =>
     override protected def ensureWellFormedClass(cd: ClassDef) = {
       super.ensureWellFormedClass(cd)
 
+      val fids = cd.methods.filter(id => !getFunction(id).getFieldDefPosition.isEmpty)
+      for (fid <- fids) {
+        val fd = getFunction(fid)
+        val position = fd.getFieldDefPosition.get
+        val dependencies = this.dependencies(fid)
+
+        // Check that fields do not refer to future fields
+        for (fid2 <- fids if dependencies.contains(fid2)) {
+          if (getFunction(fid2).getFieldDefPosition.get > position)
+            throw NotWellFormedException(cd,
+              Some(s"future reference from field $fid to $fid2 is not allowed")
+            )
+        }
+
+        // Check that fields do not refer to `this`
+        for (
+          id <- dependencies + fid;
+          fd2 <- lookupFunction(id)
+          ) {
+          if (
+            fd2.getClassDef.exists { cd2 =>
+              (cd2.ancestors :+ cd2).exists { tcd2 =>
+                (cd.ancestors :+ cd).contains(tcd2) }} &&
+            exprOps.exists({
+              case This(_) => true
+              case _ => false
+            })(fd2.fullBody))
+            throw NotWellFormedException(cd,
+              Some(s"field $fid should not refer to `this`${if (fd2.id.name != fid.name) " through " + fd2.id else ""}")
+            )
+        }
+      }
+
       // Check that abstract methods are overriden
       if (!cd.isAbstract) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
@@ -206,6 +239,7 @@ trait Trees extends throwing.Trees { self =>
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   case object ValueClass extends Flag("valueClass", Seq.empty)
+  case class FieldDefPosition(i: Int) extends Flag("fieldDefPosition", Seq(i))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
@@ -235,6 +269,9 @@ trait Trees extends throwing.Trees { self =>
 
     def getClassId: Option[Identifier] =
       fd.flags collectFirst { case IsMethodOf(id) => id }
+
+    def getFieldDefPosition: Option[Int] =
+      fd.flags collectFirst { case FieldDefPosition(i) => i }
 
     def getClassDef(implicit s: Symbols): Option[ClassDef] =
       getClassId flatMap s.lookupClass
@@ -335,6 +372,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
     case s.ValueClass => (Seq(), Seq(), Seq(), (_, _, _) => t.ValueClass)
+    case s.FieldDefPosition(i) => (Seq(), Seq(), Seq(), (_, _, _) => t.FieldDefPosition(i))
     case _ => super.deconstruct(f)
   }
 }
