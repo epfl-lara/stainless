@@ -130,14 +130,15 @@ trait InductElimination
                 ).setPos(oldBody)
               ).setPos(oldBody)
             case BVType(sign, size) =>
+
               // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
               val inductionVd = ValDef.fresh("inductVal", fd.returnType)
-              val newParams = fd.params.map(param =>
-                if (param == vd) Minus(param.toVariable, BVLiteral(sign, size, 1))
+              val newParams = fd.params.map { param =>
+                if (param == vd) Minus(param.toVariable, BVLiteral(sign, 1, size))
                 else param.toVariable
-              )
+              }
               IfExpr(
-                LessEquals(vd.toVariable, BVLiteral(sign, size, 0).setPos(oldBody)).setPos(oldBody),
+                LessEquals(vd.toVariable, BVLiteral(sign, 0, size).setPos(oldBody)).setPos(oldBody),
                 currentBody,
                 Let(
                   inductionVd,

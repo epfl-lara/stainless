@@ -142,7 +142,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     }
 
     def wellKinded(implicit s: Symbols): Boolean =
-      getTypeDef.tparams.length == tps.length
+      lookupTypeDef.exists(_.tparams.length == tps.length)
 
     val isPathDependent = selector.isPathDependent
     def isAbstract(implicit s: Symbols) = getTypeDef.isAbstract

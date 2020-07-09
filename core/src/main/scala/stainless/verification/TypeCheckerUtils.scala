@@ -10,9 +10,6 @@ object TypeCheckerUtils {
 
   type StainlessVC = verification.VC[stainless.trees.type]
 
-  class TypeCheckingException(val tree: inox.ast.Trees#Tree, val msg: String)
-    extends Exception(msg)
-
   object UncheckedExpr {
     def unapply(e: Expr): Option[Expr] = e match {
       case Annotated(body, flags) if flags contains Unchecked => Some(body)
@@ -105,7 +102,7 @@ object TypeCheckerUtils {
   }
 
   // TODO: implement ite for more types (PiType, SigmaType, etc.)
-  def ite(b: Expr, t1: Type, t2: Type)(implicit opts: PrinterOptions): Type = (t1, t2) match {
+  def ite(b: Expr, t1: Type, t2: Type)(implicit opts: PrinterOptions, ctx: inox.Context): Type = (t1, t2) match {
     case _ if (t1 == t2) => t1
 
     case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) =>
@@ -130,7 +127,7 @@ object TypeCheckerUtils {
       ADTType(id1, tps1.zip(tps2).map { case (t1, t2) => ite(b, t1, t2) })
 
     case _ =>
-      throw new TypeCheckingException(b, s"The `If Then Else` type is not defined for types ${t1.asString} and ${t2.asString}")
+      ctx.reporter.fatalError(b.getPos, s"The `If Then Else` type is not defined for types ${t1.asString} and ${t2.asString}")
   }
 
   // def lets(vds: Seq[ValDef], es: Seq[Expr], expr: Expr): Expr = {
@@ -202,7 +199,7 @@ object TypeCheckerUtils {
     case _ => false
   }
 
-  def lessThan(tpe: Type, e1: Expr, e2: Expr)(implicit opts: PrinterOptions): Expr = (tpe match {
+  def lessThan(tpe: Type, e1: Expr, e2: Expr)(implicit ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => LessThan(e1, e2)
     case BVType(_, _) => LessThan(e1, e2)
     case TupleType(tps) =>
@@ -215,15 +212,15 @@ object TypeCheckerUtils {
         )
       ): _*)
     case _ =>
-      throw new TypeCheckingException(e2, s"Type ${tpe.asString} is not supported for measures")
+      ctx.reporter.fatalError(e2.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e1)
 
-  def positive(tpe: Type, e: Expr)(implicit opts: PrinterOptions): Expr = (tpe match {
+  def positive(tpe: Type, e: Expr)(implicit ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => GreaterEquals(e, IntegerLiteral(0))
     case BVType(signed, size) => GreaterEquals(e, BVLiteral(signed, 0, size))
     case TupleType(tps) => and((1 to tps.length).map(i => positive(tps(i-1), TupleSelect(e,i))): _*)
     case _ =>
-      throw new TypeCheckingException(e, s"Type ${tpe.asString} is not supported for measures")
+      ctx.reporter.fatalError(e.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e)
 
   case class Freshener(subst: Map[Identifier, Identifier]) extends SelfTreeTransformer {

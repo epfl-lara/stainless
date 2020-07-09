@@ -38,6 +38,7 @@ pri-sessions/
 stainless.out/
 repairs.dat
 tmp
+stainless-stack-trace.txt
 
 #eclipse
 .cache
@@ -74,6 +75,23 @@ out-classes
 /z3.exe
 /libz3java.dll
 /libz3java.lib
+
+# Coq files
+*#
+.#*
+*.aux
+*.glob
+*.vo
+*.v.d
+verif*.v
+.lia.cache
+.nia.cache
+.coqdeps.d
+*.vok
+*.vos
+slc-lib/.Makefile.d
+slc-lib/Makefile
+slc-lib/Makefile.conf
 
 # metals and VSCode
 .vscode

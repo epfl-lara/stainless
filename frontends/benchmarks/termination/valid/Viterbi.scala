@@ -79,6 +79,7 @@ object Viterbi {
 
   def viterbi(i: BigInt, j: BigInt, K: BigInt): BigInt = {
     require(i >= 0 && j >= 0 && K >= i)
+    decreases(abs(j), abs(K + 1))
     if (j == 0) {
       C(i) + B(i, Y(0))
     } else {

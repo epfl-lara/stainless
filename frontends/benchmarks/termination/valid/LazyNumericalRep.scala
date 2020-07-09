@@ -32,7 +32,7 @@ object LazyNumericalRep {
     }
 
     def finite: Boolean = {
-      decreases(this.size)
+      decreases(this.size, 0)
       this match {
         case c @ Spine(_, rear, sz) =>
           sz >= 0 && sz > rear.size && rear.finite  //  Note here the exact value of size is not important it should just increase
@@ -68,7 +68,10 @@ object LazyNumericalRep {
 
     def size = this.get.size
 
-    def finite: Boolean = this.get.finite
+    def finite: Boolean = {
+      decreases(this.get.size, 1)
+      this.get.finite
+    }
   }
   private case class Val(x: NumList) extends NumStream
   private case class Susp(fun: () => NumList) extends NumStream

@@ -28,7 +28,7 @@ object Knapscak {
 
   def maxValue(items: IList, w: BigInt, currList: IList): BigInt = {
     require(w >= 0)
-    decreases(w, currList.size)
+    decreases(w, currList.size, 0)
     currList match {
       case Cons((wi, vi), tail) =>
         val oldMax = maxValue(items, w, tail)
@@ -45,6 +45,7 @@ object Knapscak {
 
   def knapSack(w: BigInt, items: IList): BigInt = {
     require(w >= 0)
+    decreases(w, items.size, 1)
     if (w == 0) BigInt(0)
     else {
       maxValue(items, w, items)

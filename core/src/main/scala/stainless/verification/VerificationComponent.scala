@@ -24,6 +24,11 @@ object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", true)
  */
 object optTypeChecker extends inox.FlagOptionDef("type-checker", true)
 
+/**
+ * Verify program using Coq
+ */
+object optCoq extends inox.FlagOptionDef("coq", false)
+
 object VerificationComponent extends Component {
   override val name = "verification"
   override val description = "Verification of function contracts"
@@ -78,6 +83,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
     val p = inox.Program(trees)(symbols)
 
+    if (context.options.findOptionOrDefault(optCoq)) {
+      CoqVerificationChecker.verify(functions, p, context)
+    } else {
+
     val assertions = AssertionInjector(p, context)
     val chooses = ChooseInjector(p)
 
@@ -120,6 +129,8 @@ class VerificationRun(override val pipeline: StainlessPipeline)
       override val sources = functions.toSet
       override val results = r
     })
+
+    }
   }
 }
 

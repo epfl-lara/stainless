@@ -297,7 +297,7 @@ trait CodeExtraction extends ASTExtractors {
         outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
 
       case other =>
-        reporter.warning(other.pos, "Could not extract tree in static container: " + other)
+        reporter.warning(other.pos, s"Stainless does not support the following tree in static containers:\n$other")
     }
 
     (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
@@ -474,7 +474,7 @@ trait CodeExtraction extends ASTExtractors {
         // ignore
 
       case other =>
-        reporter.warning(other.pos, "Could not extract tree in class: " + other + " (" + other.getClass + ")")
+        reporter.warning(other.pos, s"In class $id, Stainless does not support:\n$other")
     }
 
     val optInv = if (invariants.isEmpty) None else Some({
@@ -1521,7 +1521,7 @@ trait CodeExtraction extends ASTExtractors {
     }
 
     // default behaviour is to complain :)
-    case _ => outOfSubsetError(tr, "Could not extract " + tr + " (Scala tree of type "+tr.getClass+")")
+    case _ => outOfSubsetError(tr, s"Stainless does not support expression: `$tr`")
   }).ensurePos(tr.pos)
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
@@ -1734,14 +1734,14 @@ trait CodeExtraction extends ASTExtractors {
           tpe
 
         case None =>
-          outOfSubsetError(tpt.typeSymbol.pos, "Could not extract refined type: "+tpt+" ("+tpt.getClass+")")
+          outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt")
       }
 
     case AnnotatedType(_, tpe) => extractType(tpe)
 
     case _ =>
       if (tpt ne null) {
-        outOfSubsetError(tpt.typeSymbol.pos, "Could not extract type: "+tpt+" ("+tpt.getClass+")")
+        outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt")
         throw new Exception()
       } else {
         outOfSubsetError(NoPosition, "Tree with null-pointer as type found")

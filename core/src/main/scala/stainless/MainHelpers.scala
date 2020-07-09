@@ -36,8 +36,10 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
+    verification.optCoq -> Description(Verification, "Transform the program into a Coq program, and let Coq generate subgoals automatically"),
+    verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
     verification.optStrictArithmetic -> Description(Verification,
-      s"Check arithmetic operations for unintended behaviour and overflows (default: true)"),
+      s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
     verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
@@ -67,6 +69,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.DebugSectionFullVC,
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
+    verification.DebugSectionCoq,
     verification.DebugSectionPartialEval,
     verification.DebugSectionTypeChecker,
     verification.DebugSectionTypeCheckerVCs,
@@ -141,81 +144,82 @@ trait MainHelpers extends inox.MainHelpers { self =>
     } else ctx
   }
 
-  def main(args: Array[String]): Unit = try {
-    val ctx = setup(args)
-
-    if (ctx.options.findOptionOrDefault(optVersion)) {
-      displayVersion(ctx.reporter)
-      System.exit(0)
-    }
-
-    import ctx.{ reporter, timers }
-
-    if (!useParallelism) {
-      reporter.warning(s"Parallelism is disabled.")
-    }
-
-    val compilerArgs = args.toList filterNot { _.startsWith("--") }
-    def newCompiler() = frontend.build(ctx, compilerArgs, factory)
-    var compiler = newCompiler()
-
-    // For each cycle, passively wait until the compiler has finished
-    // & print summary of reports for each component
-    def baseRunCycle(): Unit = timers.cycle.run {
-      compiler.run()
-      compiler.join()
-
-      compiler.getReport foreach { _.emit(ctx) }
-    }
-
-    def watchRunCycle() = try {
-      baseRunCycle()
+  def main(args: Array[String]): Unit = {
+    implicit val ctx: inox.Context = try {
+      setup(args)
     } catch {
       case e: Throwable =>
-        reporter.debug(e)(frontend.DebugSectionFrontend)
-        reporter.error(e.getMessage)
-        compiler = newCompiler()
+        topLevelErrorHandler(e)(Context.empty)
     }
 
-    def regularRunCycle() = try {
-      baseRunCycle()
-    } catch {
-      case e: inox.FatalError => throw e
-      case e: Throwable => reporter.internalError(e)
-    }
+    try {
 
-    val watchMode = isWatchModeOn(ctx)
-    if (watchMode) {
-      val files: Set[File] = compiler.sources.toSet map {
-        file: String => new File(file).getAbsoluteFile
+      if (ctx.options.findOptionOrDefault(optVersion)) {
+        displayVersion(ctx.reporter)
+        System.exit(0)
       }
-      val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
 
-      watchRunCycle() // first run
-      watcher.run()   // subsequent runs on changes
-    } else {
-      regularRunCycle()
+      import ctx.{ reporter, timers }
+
+      if (!useParallelism) {
+        reporter.warning(s"Parallelism is disabled.")
+      }
+
+      val compilerArgs = args.toList filterNot { _.startsWith("--") }
+      def newCompiler() = frontend.build(ctx, compilerArgs, factory)
+      var compiler = newCompiler()
+
+      // For each cycle, passively wait until the compiler has finished
+      // & print summary of reports for each component
+      def baseRunCycle(): Unit = timers.cycle.run {
+        compiler.run()
+        compiler.join()
+
+        compiler.getReport foreach { _.emit(ctx) }
+      }
+
+      def watchRunCycle() = try {
+        baseRunCycle()
+      } catch {
+        case e: Throwable =>
+          reporter.debug(e)(frontend.DebugSectionFrontend)
+          reporter.error("There was an error during the watch cycle")
+          compiler = newCompiler()
+      }
+
+      val watchMode = isWatchModeOn(ctx)
+      if (watchMode) {
+        val files: Set[File] = compiler.sources.toSet map {
+          file: String => new File(file).getAbsoluteFile
+        }
+        val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
+
+        watchRunCycle() // first run
+        watcher.run()   // subsequent runs on changes
+      } else {
+        baseRunCycle()
+      }
+
+      // Export final results to JSON if asked to.
+      ctx.options.findOption(optJson) foreach { file =>
+        val output = if (file.isEmpty) optJson.default else file
+        reporter.info(s"Printing JSON summary to $output")
+        exportJson(compiler.getReport, output)
+      }
+
+      reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
+        timers.outputTable(debug)
+      }
+
+      // Shutdown the pool for a clean exit.
+      reporter.info("Shutting down executor service.")
+      stainless.shutdown()
+
+      val success = compiler.getReport.exists(_.isSuccess)
+      System.exit(if (success) 0 else 1)
+    } catch {
+      case e: Throwable => topLevelErrorHandler(e)
     }
-
-    // Export final results to JSON if asked to.
-    ctx.options.findOption(optJson) foreach { file =>
-      val output = if (file.isEmpty) optJson.default else file
-      reporter.info(s"Printing JSON summary to $output")
-      exportJson(compiler.getReport, output)
-    }
-
-    reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-      timers.outputTable(debug)
-    }
-
-    // Shutdown the pool for a clean exit.
-    reporter.info("Shutting down executor service.")
-    stainless.shutdown()
-
-    val success = compiler.getReport.exists(_.isSuccess)
-    System.exit(if (success) 0 else 1)
-  } catch {
-    case _: inox.FatalError => System.exit(2)
   }
 
   /** Exports the reports to the given file in JSON format. */

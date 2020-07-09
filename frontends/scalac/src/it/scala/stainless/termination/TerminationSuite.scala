@@ -28,8 +28,11 @@ class TerminationSuite extends ComponentTestSuite {
     // Cannot prove termination (with either old or new termination checking mechanism)
     case "termination/valid/NNF" => Skip
 
-    // Not compatible with System FR type-checker
-    case "termination/valid/Streams" => Skip
+    // Not compatible with System FR type-checker, or needs more inference
+    case "termination/valid/Streams"              => Skip
+    case "termination/valid/CyclicFibStream"      => Skip
+    case "termination/valid/CyclicHammingStream"  => Skip
+    case "termination/valid/Consistent"           => Skip
 
     // Already correctly rejected by the type-checker
     case "termination/looping/Inconsistency5"           => Skip // ADT Object must appear only in strictly positive positions of Machine

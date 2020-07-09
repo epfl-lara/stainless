@@ -327,9 +327,9 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           if (args.size != 1 || !args.head.isInstanceOf[Literal])
             reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
 
-      case ExCall(Some(s @ Select(rec: Super, _)), _, _, _) =>
-        if (s.symbol.isAbstract && !s.symbol.isConstructor)
-          reportError(tree.pos, "Cannot issue a super call to an abstract method.")
+        case ExCall(Some(s @ Select(rec: Super, _)), _, _, _) =>
+          if (s.symbol.isAbstract && !s.symbol.isConstructor)
+            reportError(tree.pos, "Cannot issue a super call to an abstract method.")
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
