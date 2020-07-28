@@ -192,7 +192,6 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case _ => Untyped
     }
 
-
   /* ========================================
    *              EXTRACTORS
    * ======================================== */

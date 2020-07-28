@@ -306,7 +306,7 @@ trait MethodLifting
     val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.flags.exists(_.name == "accessor"))
     val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
     val filteredFlags = fd.flags filter {
-        case s.IsMethodOf(_) | s.IsInvariant => false
+        case s.IsMethodOf(_) | s.IsInvariant | s.FieldDefPosition(_) => false
         case _ => true
       } map transformer.transform
     val inlineInvariantFlag = if (fd.isInvariant && cd.flags.contains(InlineInvariant)) Some(t.InlineInvariant) else None

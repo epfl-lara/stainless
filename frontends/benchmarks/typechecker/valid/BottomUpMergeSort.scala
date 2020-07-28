@@ -17,7 +17,7 @@ object BottomUpMergeSortPrecise {
 
   sealed abstract class List[T] {
     // length is used in the implementation
-    val length: BigInt = {
+    lazy val length: BigInt = {
       decreases(this)
       this match {
         case Nil() => BigInt(0)

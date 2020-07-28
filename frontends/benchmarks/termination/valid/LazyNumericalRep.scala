@@ -22,9 +22,9 @@ object LazyNumericalRep {
 
   sealed abstract class NumList {
     @inline
-    val isTip = this == Tip()
+    lazy val isTip = this == Tip()
     @inline
-    val isSpine: Boolean = !isTip
+    lazy val isSpine: Boolean = !isTip
 
     def size = this match {
       case Spine(_, _, sz) if sz >= 0 => sz
