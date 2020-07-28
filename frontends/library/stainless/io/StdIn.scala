@@ -146,7 +146,7 @@ object StdIn {
   @library
   @extern
   private def nativeReadBigInt(seed: BigInt): BigInt = {
-    BigInt(scala.io.StdIn.readInt)
+    BigInt(scala.io.StdIn.readInt())
   } ensuring((x: BigInt) => true)
 
   @library
@@ -158,7 +158,7 @@ object StdIn {
   @library
   @extern
   private def nativeReadBoolean(seed: BigInt): Boolean = {
-    scala.io.StdIn.readBoolean
+    scala.io.StdIn.readBoolean()
   } ensuring((x: Boolean) => true)
 
 }

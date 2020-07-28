@@ -124,6 +124,6 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     reporter.debug(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.debug(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
     reporter.debug(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
-    reporter.fatalError(s"Aborting from BatchedCallBack")
+    reporter.fatalError(s"Well-formedness check failed after extraction")
   }
 }

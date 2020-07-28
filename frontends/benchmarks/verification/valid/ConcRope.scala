@@ -75,7 +75,7 @@ object ConcRope {
       case _ => true
     }
 
-    val level: BigInt = {
+    lazy val level: BigInt = {
       (this match {
         case Empty() => 0
         case Single(x) => 0
@@ -86,7 +86,7 @@ object ConcRope {
       }): BigInt
     } ensuring (_ >= 0)
 
-    val size: BigInt = {
+    lazy val size: BigInt = {
       (this match {
         case Empty() => 0
         case Single(x) => 1

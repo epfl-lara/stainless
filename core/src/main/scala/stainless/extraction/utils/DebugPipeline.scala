@@ -77,7 +77,18 @@ trait DebugSymbols extends PositionChecker { self =>
     if (debugTrees) {
       // ensure well-formedness after each extraction step
       context.reporter.debug(s"Ensuring well-formedness after phase $name...")
-      res.ensureWellFormed
+      try {
+        res.ensureWellFormed
+      } catch {
+        case e: res.TypeErrorException =>
+          context.reporter.debug(e)(frontend.DebugSectionFrontend)
+          context.reporter.error(e.pos, e.getMessage)
+          context.reporter.fatalError(s"Well-formedness check failed after phase $name")
+        case e @ xlang.trees.NotWellFormedException(defn, _) =>
+          context.reporter.debug(e)(frontend.DebugSectionFrontend)
+          context.reporter.error(defn.getPos, e.getMessage)
+          context.reporter.fatalError(s"Well-formedness check failed after phase $name")
+      }
       context.reporter.debug(s"=> SUCCESS")
       context.reporter.debug(s"")
     }
