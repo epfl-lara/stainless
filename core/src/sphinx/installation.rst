@@ -371,7 +371,7 @@ was originally developed to support Python documentation.
 
 * On Ubuntu 18, you can use ``sudo apt install sphinx-common``
 
-The documentation resides in the ``core/src/sphinx/`` directory and can be built using the provided ``Makefile``. To do this, in a Linux shell go to the directory ``core/src/sphinx/``,
+The documentation resides in the ``core/src/sphinx/`` directory and can be built using the provided ``Makefile``. To do this, in a Linux shell,
 type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
 ``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
 
