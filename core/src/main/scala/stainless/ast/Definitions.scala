@@ -13,6 +13,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Law extends Flag("law", Seq.empty)
   // TODO: Move Erasable to Inox?
   case object Erasable extends Flag("erasable", Seq.empty)
+  case object Lazy extends Flag("lazy", Seq.empty)
   case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
   case object InlineInvariant extends Flag("inlineInvariant", Seq())
 
@@ -36,6 +37,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law
     case ("erasable", Seq()) => Erasable
+    case ("lazy", Seq()) => Lazy
     case ("indexedAt", Seq(e)) => IndexedAt(e)
     case ("ghost", Seq()) => Ghost
     case ("extern", Seq()) => Extern
