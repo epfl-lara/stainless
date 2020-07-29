@@ -276,8 +276,6 @@ assertions to prove local properties, and use ``check`` to have the property
 
 .. code-block:: scala
 
-    import stainless.proof.check
-
     def foo(): Unit = {
       val x = {
         assert(b1) // verification condition: b1
@@ -285,6 +283,17 @@ assertions to prove local properties, and use ``check`` to have the property
       }
       assert(b3)   // verification condition: b2 ==> b3 (b1 not visible to the solver)
     }
+
+Similarly, ``assert``'s are not visible when generating verification conditions
+for postconditions, while ``check``'s are. (Note: ``assert`` are visible to
+postconditions in the mode without type checker with ``--type-checker=false``.)
+
+.. code-block:: scala
+
+    def foo(): Unit = {
+      assert(b1) // verification condition: b1
+      check(b2)  // verification condition: b1 ==> b2
+    }.ensuring(_ => b3) // verification condition b2 ==> b3 (b1 not visible to the solver)
 
 
 .. _induction:
