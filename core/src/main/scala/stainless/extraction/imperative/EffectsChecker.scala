@@ -196,11 +196,16 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case up: UnapplyPattern =>
               val upEffects = effects(Outer(up.getFunction.fd))
               if (upEffects.nonEmpty)
-                throw ImperativeEliminationException(up, "Pattern unapply has effects on: " + upEffects.head.receiver)
+                throw ImperativeEliminationException(up, "Pattern unapply has effects on: " + upEffects.head.receiver.asString)
 
             case _ => ()
           }(cse.pattern)
         }
+
+      case Let(vd, v, rest) if vd.flags.contains(Lazy) =>
+        val eff = effects(v)
+        if (eff.nonEmpty)
+          throw ImperativeEliminationException(v, "Stainless does not support effects in lazy val's on: " + eff.head.receiver.asString)
 
       case _ => ()
     }(fd.fullBody)
