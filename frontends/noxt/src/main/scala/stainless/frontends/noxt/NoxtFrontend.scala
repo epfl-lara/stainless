@@ -9,9 +9,9 @@ import extraction.xlang.{trees => xt}
 import java.io.{File, FileInputStream, InputStream}
 
 object NoxtFrontend {
-object xtTransformer extends xt.SelfTreeTransformer {
+  object xtTransformer extends xt.SelfTreeTransformer {
     import scala.collection.mutable.HashMap
-    var newIds: HashMap[Identifier, Identifier] = HashMap.empty
+    val newIds: HashMap[Identifier, Identifier] = HashMap.empty
 
     // Since Identifiers in the given deserialized symbols were created externally, we need
     // to avoid Stainless from potentially creating duplicate ids at a later point.
@@ -28,9 +28,12 @@ object xtTransformer extends xt.SelfTreeTransformer {
     }
 
     override def transform(e: xt.Expr): xt.Expr = e match {
-      case xt.ADT(id, tps, args) =>
-        val newId = transform(id)
-        xt.ClassConstructor(xt.ClassType(newId, tps.map(transform)), args.map(transform)).copiedFrom(e)
+      case xt.ADT(consId, tps, args) =>
+        val newConsId = transform(consId)
+        xt.ClassConstructor(xt.ClassType(newConsId, tps.map(transform)), args.map(transform)).copiedFrom(e)
+      case xt.ADTSelector(expr, fieldId) =>
+        val newFieldId = transform(fieldId)
+        xt.ClassSelector(transform(expr), newFieldId)
       case xt.MatchExpr(scrut, cases) =>
         xt.MatchExpr(transform(scrut), cases.map(arm => {
           xt.MatchCase(transform(arm.pattern), arm.optGuard.map(transform), transform(arm.rhs)).copiedFrom(arm)
@@ -39,35 +42,70 @@ object xtTransformer extends xt.SelfTreeTransformer {
     }
 
     override def transform(tpe: xt.Type): xt.Type = tpe match {
-      case xt.ADTType(id, tps) =>
-        val newId = transform(id)
+      case xt.ADTType(consId, tps) =>
+        val newId = transform(consId)
         xt.ClassType(newId, tps.map(transform))
       case _ => super.transform(tpe)
     }
 
     override def transform(pat: xt.Pattern): xt.Pattern = pat match {
-      case xt.ADTPattern(binder, id, tps, subs) =>
-        val newId = transform(id)
-        // FIXME: The rustc frontend produces `tps` here even though the ADT doesn't have any type parameters
-        // val ct = xt.ClassType(newId, tps.map(transform))
-        val ct = xt.ClassType(newId, Seq.empty)  // Temporary workaround (remove once fixed)
+      case xt.ADTPattern(binder, consId, tps, subs) =>
+        val newId = transform(consId)
+        val ct = xt.ClassType(newId, tps.map(transform))
         xt.ClassPattern(binder, ct, subs.map(transform))
       case _ => super.transform(pat)
     }
 
+    // FIXME: Deserialization doesn't map flags that are implemented as objects to their singleton
+    // instance, but instead creates a new instance, which is matched by nothing.
+    // This is a temporary workaround.
+    override def transform(flag: xt.Flag): xt.Flag = flag.name match {
+      case "law" => xt.Law
+      case "erasable" => xt.Erasable
+      case "inlineInvariant" => xt.InlineInvariant
+      case "ghost" => xt.Ghost
+      case "extern" => xt.Extern
+      case "opaque" => xt.Opaque
+      case "private" => xt.Private
+      case "final" => xt.Final
+      case "unchecked" => xt.Unchecked
+      case "library" => xt.Library
+      case "synthetic" => xt.Synthetic
+      case "partialEval" => xt.PartialEval
+      case "wrapping" => xt.Wrapping
+      case _ => flag
+    }
+
     def adtsToClassDefs(adts: Seq[xt.ADTSort]): Seq[xt.ClassDef] = {
       adts.flatMap(sort => {
-        assert(sort.tparams.isEmpty) // NOTE: type parameters are not supported yet
         assert(sort.flags.isEmpty)
-
         val newSortId = transform(sort.id)
-        val parentCd = new xt.ClassDef(
-          newSortId, Seq.empty, Seq.empty, Seq.empty, Seq(xt.IsAbstract, xt.IsSealed))
-        val parentType = new xt.ClassType(newSortId, Seq.empty)
-        parentCd +: sort.constructors.map { cons =>
-          val newConsId = transform(cons.id)
-          val fields = cons.fields.map(transform)
-          new xt.ClassDef(newConsId, Seq.empty, Seq(parentType), fields, Seq.empty)
+
+        val newFlags = sort.flags.map(transform)
+
+        val newTparams = sort.tparams.map { tparam =>
+          xt.TypeParameterDef(transform(tparam.tp).asInstanceOf[xt.TypeParameter])
+        }
+
+        val constructors = sort.constructors
+        constructors.headOption match {
+          case Some(cons) if constructors.size == 1 && cons.id == sort.id =>
+            // FIXME: This is to work around the case where we translated to an ADT with a
+            // single constructor, and the id was reused for both the ADT and its constructor.
+            // To avoid desugaring to two classes with the same id, we only create one.
+            val fields = cons.fields.map(transform)
+            val newParentFlags = (newFlags ++ Seq(xt.IsSealed)).distinct
+            Seq(new xt.ClassDef(newSortId, newTparams, Seq.empty, fields, newParentFlags))
+          case _ =>
+            val newParentFlags = (newFlags ++ Seq(xt.IsAbstract, xt.IsSealed)).distinct
+            val parentCd = new xt.ClassDef(
+              newSortId, newTparams, Seq.empty, Seq.empty, newParentFlags)
+            val parentType = new xt.ClassType(newSortId, newTparams.map(_.tp))
+            parentCd +: sort.constructors.map { cons =>
+              val newConsId = transform(cons.id)
+              val fields = cons.fields.map(transform)
+              new xt.ClassDef(newConsId, newTparams, Seq(parentType), fields, Seq.empty)
+            }
         }
       })
     }
@@ -76,7 +114,7 @@ object xtTransformer extends xt.SelfTreeTransformer {
   def toExtractionTrees(syms: xt.Symbols): (Seq[xt.ClassDef], Seq[xt.FunDef]) = {
     val classes = xtTransformer.adtsToClassDefs(syms.sorts.values.toSeq)
     val funs = syms.functions.values.toSeq.map(fd => xtTransformer.transform(fd))
-    (classes, funs)
+    (classes.toList, funs.toList)
   }
 
   class Factory(
