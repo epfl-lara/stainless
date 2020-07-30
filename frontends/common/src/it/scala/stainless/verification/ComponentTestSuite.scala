@@ -7,6 +7,8 @@ import scala.concurrent.duration._
 
 import stainless.utils.YesNoOnly
 
+import extraction.xlang.{ TreeSanitizer, trees => xt }
+
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils { self =>
 
   val component: Component
@@ -49,6 +51,11 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
         val (structure, program) = loadFiles(Seq(path))
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
+        val errors = TreeSanitizer(xt).enforce(program.symbols)
+        if (!errors.isEmpty) {
+          ctx.reporter.fatalError("There were errors in TreeSanitizer")
+        }
+
         program.symbols.ensureWellFormed
 
         val run = component.run(extraction.pipeline)
