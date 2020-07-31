@@ -22,7 +22,13 @@ trait StainlessReports {
 
     override lazy val annotatedRows = adjustRows(reports)
 
-    override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
+    // TODO: Make this backwards compatible with existing consumers of JSON reports (the sbt plugin?)
+    override def emitJson = reports.map { rr =>
+      Json.fromFields(List(
+        "component" -> rr.run.component.name.capitalize.asJson,
+        "data" -> rr.report.emitJson
+      ))
+    }.asJson
 
     override def filter(ids: Set[Identifier]): Report =
       Report(reports.map(rr => RunReport(rr.run)(rr.report filter ids)))

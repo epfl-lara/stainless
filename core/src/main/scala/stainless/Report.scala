@@ -145,7 +145,11 @@ trait BuildableAbstractReport[Record <: AbstractReportHelper.Record,
     sources & ids
   )
 
-  final override def emitJson: Json = (results, sources).asJson
+  // TODO: Make this backwards compatible with existing consumers of JSON reports (the sbt plugin?)
+  final override def emitJson: Json = Json.fromFields(List(
+    "results" -> results.asJson,
+    "sources" -> sources.asJson
+  ))
 }
 
 object AbstractReportHelper {
