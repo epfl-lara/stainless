@@ -321,7 +321,7 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
   .configs(IntegrationTest)
 
 // "No extraction mode": A frontend consuming serialized xlang programs via the standard input
-lazy val `stainless-noxt-frontend` = (project in file("frontends/noxt"))
+lazy val `stainless-noxt` = (project in file("frontends/stainless-noxt"))
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
   .settings(commonSettings, commonFrontendSettings)
@@ -332,6 +332,12 @@ lazy val `stainless-noxt-frontend` = (project in file("frontends/noxt"))
     frontendClass := "noxt.NoxtFrontend",
     mainClass in assembly := Some("stainless.Main"),
     assemblyJarName in assembly := (name.value + "-" + version.value + ".jar"),
+    assemblyExcludedJars in assembly := {
+      val cp = (fullClasspath in assembly).value
+      // Don't include scalaz3 dependency because it is OS dependent
+      cp filter {_.data.getName.startsWith("scalaz3")}
+    },
+    connectInput in run := true,
   )
   .dependsOn(`stainless-core`)
   .configs(IntegrationTest)

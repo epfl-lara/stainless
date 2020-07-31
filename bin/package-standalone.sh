@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ====
-#  This script assembles the `stainless-scalac-standalone` subproject into
+#  This script assembles the `$SBT_PROJECT` subproject into
 #  a fat jar and packages it into an archive that contains additional Z3
 #  dependencies and a launcher script that makes said dependencies available
 #  to the java process.
@@ -14,10 +14,11 @@ if [[ $(git diff --stat) != '' ]]; then
 fi
 
 SCALA_VERSION="2.12"
-Z3_VERSION="4.8.6"
+Z3_VERSION="4.8.8"
 
-SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
-STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
+SBT_PROJECT="stainless-noxt"
+SBT_PACKAGE="sbt $SBT_PROJECT/assembly"
+STAINLESS_JAR_PATH="./frontends/$SBT_PROJECT/target/scala-$SCALA_VERSION/$SBT_PROJECT-$STAINLESS_VERSION.jar"
 SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-$SCALA_VERSION.jar"
 SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
 
