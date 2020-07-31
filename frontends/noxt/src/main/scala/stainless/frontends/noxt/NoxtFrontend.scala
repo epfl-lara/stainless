@@ -60,6 +60,9 @@ object NoxtFrontend {
     // instance, but instead creates a new instance, which is matched by nothing.
     // This is a temporary workaround.
     override def transform(flag: xt.Flag): xt.Flag = flag.name match {
+      case "pure" => xt.IsPure
+      case "mutable" => xt.IsMutable
+      case "var" => xt.IsVar
       case "law" => xt.Law
       case "erasable" => xt.Erasable
       case "inlineInvariant" => xt.InlineInvariant
@@ -76,9 +79,17 @@ object NoxtFrontend {
       case _ => flag
     }
 
+    override def transform(oldFd: xt.FunDef): xt.FunDef = {
+      val fd = super.transform(oldFd)
+      if (fd.flags.contains(xt.Extern)) {
+        fd.copy(fullBody = xt.exprOps.withBody(fd.fullBody, xt.NoTree(fd.returnType).copiedFrom(fd.fullBody)))
+      } else {
+        fd
+      }
+    }
+
     def adtsToClassDefs(adts: Seq[xt.ADTSort]): Seq[xt.ClassDef] = {
       adts.flatMap(sort => {
-        assert(sort.flags.isEmpty)
         val newSortId = transform(sort.id)
 
         val newFlags = sort.flags.map(transform)
