@@ -57,7 +57,10 @@ class InteractiveRunner(ctx: inox.Context, factory: FrontendFactory) {
           compiler.run()
           compiler.join()
 
-          // compiler.getReport foreach { _.emit(ctx) }
+          // Write to log file
+          compiler.getReport foreach { _.emit(ctx) }
+
+          // Emit JSON report
           val report = compiler.getReport
           report match {
             case Some(report) => emitSuccess(report.emitJson)
