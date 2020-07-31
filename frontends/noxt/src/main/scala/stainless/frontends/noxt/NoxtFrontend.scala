@@ -143,7 +143,7 @@ object NoxtFrontend {
           def deserialize(in: InputStream): Option[xt.Symbols] = {
             def fail(e: Throwable) = {
               ctx.reporter.error(s"Failed to deserialize stainless program:\n$e")
-              e.printStackTrace()
+              ctx.reporter.internalError(e)
               None
             }
             val serializer = utils.Serializer(xt)

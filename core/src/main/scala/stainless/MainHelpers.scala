@@ -52,6 +52,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optNoColors -> Description(General, "Disable colored output"),
+    optInteractive -> Description(General, "Whether to run in interactive query mode"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),
@@ -120,13 +121,22 @@ trait MainHelpers extends inox.MainHelpers { self =>
     Configuration.get(options, self.options.keys.toSeq)
   }
 
-  def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
-    val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
-
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
+  def getContextWithReporter(ctx: inox.Context): inox.Context = {
+    if (ctx.options.findOptionOrDefault(optInteractive)) {
+      val logFile = new File("stainless.log")
+      val reporter = new stainless.FilePlainTextReporter(logFile, ctx.reporter.debugSections)
+      Context.withReporter(reporter)(ctx)
+    } else if (ctx.options.findOptionOrDefault(optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
-    } else ctx
+    } else {
+      ctx
+    }
+  }
+
+  def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
+    val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
+    getContextWithReporter(ctx)
   }
 
   override
@@ -142,11 +152,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       .toSeq
 
     val ctx = super.processOptions(files, options)
-
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
-      val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
-      Context.withReporter(reporter)(ctx)
-    } else ctx
+    getContextWithReporter(ctx)
   }
 
   def main(args: Array[String]): Unit = {
@@ -170,18 +176,24 @@ trait MainHelpers extends inox.MainHelpers { self =>
         reporter.warning(s"Parallelism is disabled.")
       }
 
-      val compilerArgs = args.toList filterNot { _.startsWith("--") }
-      def newCompiler() = frontend.build(ctx, compilerArgs, factory)
-      var compiler = newCompiler()
+      val success = if (isInteractiveModeOn(ctx)) {
+        val interactive = new frontend.InteractiveRunner(ctx, factory)
+        interactive.run()
+        true
 
-      // For each cycle, passively wait until the compiler has finished
-      // & print summary of reports for each component
-      def baseRunCycle(): Unit = timers.cycle.run {
-        compiler.run()
-        compiler.join()
+      } else {
+        val compilerArgs = args.toList filterNot { _.startsWith("--") }
+        def newCompiler() = frontend.build(ctx, compilerArgs, factory)
+        var compiler = newCompiler()
 
-        compiler.getReport foreach { _.emit(ctx) }
-      }
+        // For each cycle, passively wait until the compiler has finished
+        // & print summary of reports for each component
+        def baseRunCycle(): Unit = timers.cycle.run {
+          compiler.run()
+          compiler.join()
+
+          compiler.getReport foreach { _.emit(ctx) }
+        }
 
       def watchRunCycle() = try {
         baseRunCycle()
@@ -189,28 +201,29 @@ trait MainHelpers extends inox.MainHelpers { self =>
         case e: Throwable =>
           reporter.debug(e)(frontend.DebugSectionStack)
           reporter.error("There was an error during the watch cycle")
-          reporter.reset()
           compiler = newCompiler()
       }
 
-      val watchMode = isWatchModeOn(ctx)
-      if (watchMode) {
-        val files: Set[File] = compiler.sources.toSet map {
-          file: String => new File(file).getAbsoluteFile
+        if (isWatchModeOn(ctx)) {
+          val files: Set[File] = compiler.sources.toSet map {
+            file: String => new File(file).getAbsoluteFile
+          }
+          val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
+
+          watchRunCycle() // first run
+          watcher.run()   // subsequent runs on changes
+        } else {
+          baseRunCycle()
         }
-        val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
 
-        watchRunCycle() // first run
-        watcher.run()   // subsequent runs on changes
-      } else {
-        baseRunCycle()
-      }
+        // Export final results to JSON if asked to.
+        ctx.options.findOption(optJson) foreach { file =>
+          val output = if (file.isEmpty) optJson.default else file
+          reporter.info(s"Printing JSON summary to $output")
+          exportJson(compiler.getReport, output)
+        }
 
-      // Export final results to JSON if asked to.
-      ctx.options.findOption(optJson) foreach { file =>
-        val output = if (file.isEmpty) optJson.default else file
-        reporter.info(s"Printing JSON summary to $output")
-        exportJson(compiler.getReport, output)
+        compiler.getReport.exists(_.isSuccess)
       }
 
       reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
@@ -221,7 +234,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
       reporter.info("Shutting down executor service.")
       stainless.shutdown()
 
-      val success = compiler.getReport.exists(_.isSuccess)
       System.exit(if (success) 0 else 1)
     } catch {
       case e: Throwable => topLevelErrorHandler(e)

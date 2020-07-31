@@ -18,6 +18,13 @@ package object stainless {
     val usageRhs = "file"
   }
 
+  /**
+    * Run in interactive mode, allowing for synchronous processing of multiple queries
+    * passed directly through the standard input. Useful to interact with other programs.
+    */
+  object optInteractive extends inox.FlagOptionDef("interactive", false)
+  def isInteractiveModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optInteractive)
+
   object optWatch extends inox.FlagOptionDef("watch", false)
   def isWatchModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
 
