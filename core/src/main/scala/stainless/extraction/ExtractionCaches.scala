@@ -25,7 +25,7 @@ trait ExtractionCaches { self: ExtractionContext =>
     override def dependencies = Set(fd.id)
 
     // We can't use the `FunDef` as a key directly here as its equality is
-    // overriden to only consider the `id`, which is insufficient for our
+    // overridden to only consider the `id`, which is insufficient for our
     // caching needs as we maintain identifiers regardless of transformations
     private val key = (
       fd.id,
