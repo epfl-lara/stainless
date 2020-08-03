@@ -30,7 +30,7 @@ class TreeSanitizerSuite extends FunSpec with InputUtils {
   makeTest("AbstractValOverrides",  Seq())
   makeTest("GhostOverrides",        Seq(19))
   makeTest("SoundEquality",         Seq(20, 40, 46, 68, 80, 89, 98))
-  makeTest("SoundInvariants",       Seq(11, 22, 45, 57))
+  makeTest("SoundInvariants",       Seq(11, 22, 45))
 
   def makeTest(name: String, expected: Seq[Int]): Unit = {
     implicit val ctx = stainless.TestContext.empty
