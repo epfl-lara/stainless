@@ -1,4 +1,4 @@
-object ValOverrideAbstract {
+object BadOverride3 {
   sealed abstract class AAA {
     def f: BigInt
   }
