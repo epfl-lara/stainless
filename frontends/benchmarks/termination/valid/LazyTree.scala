@@ -24,7 +24,7 @@ object LazyTree {
   }
 
   case class Leaf[T]() extends Tree[T] {
-    val depth: BigInt = 0
+    def depth: BigInt = 0
   }
 
   def fold[C](tree: Tree[Alphabet], f: List[C] => C): C = {
