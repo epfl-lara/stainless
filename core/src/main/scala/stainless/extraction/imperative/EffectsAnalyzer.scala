@@ -548,7 +548,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     * This disregards the actual implementation of a function, and considers only
     * its type to determine a conservative abstraction of its effects.
     *
-    * In theory this can be overriden to use a different behaviour.
+    * In theory this can be overridden to use a different behaviour.
     */
   def functionTypeEffects(ft: FunctionType)(implicit symbols: Symbols): Set[Int] = {
     ft.from.zipWithIndex.flatMap { case (tpe, i) =>

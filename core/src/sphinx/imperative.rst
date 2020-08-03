@@ -234,7 +234,7 @@ assigned a default value.
     var value: A
   }
 
-Such abstract variables must be overriden at some point by either:
+Such abstract variables must be overridden at some point by either:
 
 a) a mutable field of a case class
 

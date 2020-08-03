@@ -148,7 +148,7 @@
 - Propagate @ghost annotation to variables introduced by calls to default copy getter (#643)
 - Do not lift refinement into pre-/post-conditions when `--type-checker` is enabled (#620)
 - Follow symbolic links when searching for base directory (#621)
-- Check that methods are only overriden by methods with the same ghostiness (#615)
+- Check that methods are only overridden by methods with the same ghostiness (#615)
 - Check that required tools are installed before packaging (#599)
 - Add readability check for jars in script (#600)
 

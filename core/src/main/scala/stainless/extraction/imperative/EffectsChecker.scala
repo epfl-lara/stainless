@@ -140,10 +140,10 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       if (!fd.flags.exists { case IsField(_) => true case _ => false }) return ()
 
       if (isMutableType(fd.returnType))
-        throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
+        throw ImperativeEliminationException(fd, "A field cannot refer to a mutable object")
 
       if (effects(fd.fullBody).nonEmpty)
-        throw ImperativeEliminationException(fd, s"A global field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
+        throw ImperativeEliminationException(fd, s"A field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {

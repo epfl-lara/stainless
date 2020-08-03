@@ -283,7 +283,7 @@ Type Members
 
 Much like classes can have field members and method members, they can also
 define type members. Much like other members, those can also be declared
-abstract within an abstract class and overriden in implementations:
+abstract within an abstract class and overridden in implementations:
 
 .. code-block:: scala
 

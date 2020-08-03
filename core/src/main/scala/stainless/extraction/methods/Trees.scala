@@ -151,18 +151,25 @@ trait Trees extends throwing.Trees { self =>
         }
       }
 
-      // Check that abstract methods are overriden
+      // Check that abstract methods are overridden by a method, a lazy val, or a constructor parameter (but not by a val)
       if (!cd.isAbstract) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
           case (abstractSymbols, acd) =>
-            val concreteSymbols = acd.methods.map(_.symbol).toSet
+            val concreteSymbols = acd.methods
+              .map(id => id.symbol -> getFunction(id))
+              .filter { case (_, fd) => !fd.isAbstract }
+              // fd.getFieldDefPosition is empty for lazy val's, non-empty for val's
+              .filter { case (_, fd) =>
+                (!fd.isAccessor || fd.isAccessorOfParam(acd)) && fd.getFieldDefPosition.isEmpty
+              }
+              .map(_._1).toSet
             val newAbstractSymbols = acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol).toSet
             abstractSymbols -- concreteSymbols ++ newAbstractSymbols
         }
 
         if (remainingAbstract.nonEmpty) {
           throw NotWellFormedException(cd,
-            Some("abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
+            Some("abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overridden by a method, a lazy val, or a constructor parameter"))
         }
       }
 
@@ -302,6 +309,15 @@ trait Trees extends throwing.Trees { self =>
 
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
+
+    def isAccessorOfParam(cd: ClassDef)(implicit s: Symbols): Boolean =
+      fd.flags exists {
+        case IsAccessor(Some(id)) => cd.fields.map(_.id).contains(id)
+        case _ => false
+      }
+
+    def isAccessor(id: Identifier): Boolean =
+      fd.flags exists { case IsAccessor(Some(id2)) if id == id2 => true case _ => false }
 
     def isField: Boolean =
       fd.flags exists { case IsField(_) => true case _ => false }

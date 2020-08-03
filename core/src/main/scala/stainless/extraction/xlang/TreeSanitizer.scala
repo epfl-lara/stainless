@@ -62,7 +62,7 @@ trait TreeSanitizer { self =>
     def sanitize(): Seq[MalformedStainlessCode]
   }
 
-  /** Check that setters are only overriden by other setters */
+  /** Check that setters are only overridden by other setters */
   private[this] class SettersOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
@@ -76,7 +76,7 @@ trait TreeSanitizer { self =>
     }
   }
 
-  /** Check that methods are only overriden by methods with the same ghostiness */
+  /** Check that methods are only overridden by methods with the same ghostiness */
   private[this] class GhostOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
@@ -365,7 +365,7 @@ trait TreeSanitizer { self =>
     }
   }
 
-  /** Check that abstract vals are only overriden by constructor parameters */
+  /** Check that abstract vals are only overridden by constructor parameters */
   private[this] class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
 
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
@@ -379,7 +379,10 @@ trait TreeSanitizer { self =>
     private[this] def symbolOf(defn: Definition): Symbol =
       defn.id.asInstanceOf[SymbolIdentifier].symbol
 
+
     private[this] def check(cd: ClassDef): Unit = {
+
+      // `val` in abstract classes can only be overridden by a constructor parameter
       val abstractFields = cd.methods
         .map(symbols.getFunction)
         .filter(fd => fd.isAbstract && fd.isGetter)
@@ -400,20 +403,14 @@ trait TreeSanitizer { self =>
           val wrongOverrides = methodSymbols & abstractFieldSymbols
           wrongOverrides foreach { sym =>
             errors += MalformedStainlessCode(methods(sym),
-              s"Abstract values can only be overriden in concrete subclasses (with a field)")
+              s"Abstract values can only be overridden in concrete subclasses (with a field)")
           }
 
         case desc =>
           val methods = desc.methods.map(symbols.getFunction)
           val fieldSymbols = desc.fields.map(symbolOf).toSet
           val accessorSymbols = desc.fields.map { vd =>
-            val accessor = methods.find { fd =>
-              fd.isGetter && fd.flags.exists {
-                case IsAccessor(Some(id)) => id == vd.id
-                case _ => false
-              }
-            }
-
+            val accessor = methods.find { fd => fd.isGetter && fd.isAccessor(vd.id) }
             symbolOf(accessor.get) // Safe: All fields have accessors
           }
 
@@ -422,7 +419,7 @@ trait TreeSanitizer { self =>
           if (!abstractFieldSymbols.subsetOf(allSymbols)) {
             val missing = abstractFieldSymbols -- allSymbols
             val vals = missing.map(abstractFields(_)).map(_.id.asString).mkString("`", "`, `", "`")
-            errors += MalformedStainlessCode(desc, s"Abstract values $vals must be overriden with fields in concrete subclass")
+            errors += MalformedStainlessCode(desc, s"Abstract values $vals must be overridden with fields in concrete subclass")
           }
       }
     }
