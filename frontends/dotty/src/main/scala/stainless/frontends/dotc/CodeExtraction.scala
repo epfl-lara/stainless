@@ -485,7 +485,11 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
 
       case t @ ExFieldDef(fsym, _, rhs) =>
         val fd = extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
-        methods :+= fd.copy(flags = fd.flags :+ xt.FieldDefPosition(i))
+        // this case split doesn't appear to be necessary in scalac extraction (always false?)
+        if (fsym is Lazy)
+          methods :+= fd.copy(flags = fd.flags)
+        else
+          methods :+= fd.copy(flags = fd.flags :+ xt.FieldDefPosition(i))
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
         methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
