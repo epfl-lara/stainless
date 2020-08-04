@@ -144,7 +144,7 @@ trait TypeEncoding
     case s.CharType() => getRefField(e, charValue)
     case s.RealType() => getRefField(e, realValue)
     case s.StringType() => getRefField(e, strValue)
-    case s.UnitType() => t.UnitLiteral()
+    case s.UnitType() => let(("u" :: ref.copiedFrom(e)).copiedFrom(e), e) { _ => t.UnitLiteral().copiedFrom(e) }
   }).copiedFrom(e)
 
 
