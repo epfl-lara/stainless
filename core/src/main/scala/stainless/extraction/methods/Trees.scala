@@ -96,59 +96,44 @@ trait Trees extends throwing.Trees { self =>
 
       val methods = cd.methods.map(getFunction)
       val fds = methods.filter(fd => !fd.getFieldDefPosition.isEmpty && fd.isField(isLazy = false))
-      val fids = fds.map(_.id)
+      val fids = fds.map(_.id).toSet
 
-      // Check that references to `this` are only of the form `this.x` for other accessors of the same class
-      var toCheck: Set[Identifier] = fids.toSet
-      var checked: Set[Identifier] = Set()
-      while (!toCheck.isEmpty) {
-        val id = toCheck.head
-        toCheck = toCheck.tail
-        checked += id
-        for (fd <- lookupFunction(id)) {
-          exprOps.fold[Unit] {
-            case (MethodInvocation(This(_), xid, _, Seq()), _) if
-                lookupFunction(xid).forall(fd =>
-                  (fd.isAccessor || fd.isField) &&
-                  fd.getClassId.exists(_ == cd.id)
-                ) =>
-              if (!checked(xid)) toCheck += xid
-            case (ClassSelector(This(_), xid), _) if
-                lookupFunction(xid).forall(fd =>
-                  (fd.isAccessor || fd.isField) &&
-                  fd.getClassId.exists(_ == cd.id)
-                ) =>
-              if (!checked(xid)) toCheck += xid
-            case (th @ This(_), _) =>
-              throw NotWellFormedException(fd,
-                Some(s"field `$id` should only refer to `this` to access previous fields")
-              )
-
-            case (_, subs) =>
-              val _ = subs.toList // force visit to children
-              ()
-          }(fd.fullBody)
-
-        }
-      }
-
-      // Check that fields do not refer to future fields
       for (fd <- fds) {
         val fid = fd.id
         val position = fd.getFieldDefPosition.get
-        val callees = transitiveCallees(fd.id)
 
-        for (fid2 <- (fids.toSet & callees)) {
-          val position2 = getFunction(fid2).getFieldDefPosition.get
-          if (position2 == position)
+        exprOps.fold[Unit] {
+          // allow access to fields defined previously
+          case (MethodInvocation(This(_), xid, _, Seq()), _)
+            if fids(xid) && lookupFunction(xid).forall {
+              fd => (fd.isAccessor || fd.isField) && fd.getFieldDefPosition.forall(_ < position)
+            } =>
+
+          // allways allow access to constructor params
+          case (ClassSelector(This(_), xid), _) =>
+
+          // check that methods and functions don't access fields defined previously
+          case (MethodInvocation(rec, xid, _, _), _) =>
+            for (tid <- (transitiveCallees(xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
+              throw NotWellFormedException(fd,
+                Some(s"field `$fid` cannot only refer to previous fields, not to `$tid`")
+              )
+
+          case (FunctionInvocation(xid, _, _), _) =>
+            for (tid <- (transitiveCallees(xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
+              throw NotWellFormedException(fd,
+                Some(s"field `$fid` cannot only refer to previous fields, not to `$tid`")
+              )
+
+          case (th @ This(_), _) =>
             throw NotWellFormedException(fd,
-              Some(s"self-reference in field `${fd.id}` is not supported by Stainless")
+              Some(s"field `$fid` should only refer to `this` to access previous fields")
             )
-          else if (position2 > position)
-            throw NotWellFormedException(fd,
-              Some(s"future reference in field `${fd.id}` to `$fid2` is not supported by Stainless")
-            )
-        }
+
+          case (_, subs) =>
+            val _ = subs.toList // force visit to children
+            ()
+        }(fd.fullBody)
       }
 
       // Check that abstract methods are overridden by a method, a lazy val, or a constructor parameter (but not by a val)
