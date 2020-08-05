@@ -113,13 +113,15 @@ trait Trees extends throwing.Trees { self =>
           case (ClassSelector(This(_), xid), _) =>
 
           // check that methods and functions don't access fields defined previously
-          case (MethodInvocation(rec, xid, _, _), _) =>
+          case (MethodInvocation(rec, xid, _, _), subs) =>
+            val _ = subs.toList // force visit to children
             for (tid <- (transitiveCallees(xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
               throw NotWellFormedException(fd,
                 Some(s"field `$fid` cannot only refer to previous fields, not to `$tid`")
               )
 
-          case (FunctionInvocation(xid, _, _), _) =>
+          case (FunctionInvocation(xid, _, _), subs) =>
+            val _ = subs.toList // force visit to children
             for (tid <- (transitiveCallees(xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
               throw NotWellFormedException(fd,
                 Some(s"field `$fid` cannot only refer to previous fields, not to `$tid`")
