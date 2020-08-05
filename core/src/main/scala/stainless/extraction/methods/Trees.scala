@@ -127,11 +127,6 @@ trait Trees extends throwing.Trees { self =>
                 Some(s"field `$fid` cannot only refer to previous fields, not to `$tid`")
               )
 
-          case (th @ This(_), _) =>
-            throw NotWellFormedException(fd,
-              Some(s"field `$fid` should only refer to `this` to access previous fields")
-            )
-
           case (_, subs) =>
             val _ = subs.toList // force visit to children
             ()
