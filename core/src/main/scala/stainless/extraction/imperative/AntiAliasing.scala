@@ -173,7 +173,7 @@ trait AntiAliasing
 
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
           if (fiEffects.exists(e => formalArgs contains e.receiver.toVal)) {
-            val localEffects = (formalArgs zip args)
+            val localEffects: Seq[Set[(Effect, Set[Effect])]] = (formalArgs zip args)
               .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
               .filter { case (effects, _) => effects.nonEmpty }
               .map { case (effects, arg) =>
@@ -281,13 +281,13 @@ trait AntiAliasing
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
           case m @ MatchExpr(scrut, cses) if isMutableType(scrut.getType) =>
-            if (effects(scrut).nonEmpty) {
+            if (exprEffects(scrut).nonEmpty) {
               def liftEffects(e: Expr): (Seq[(ValDef, Expr)], Expr) = e match {
-                case ArraySelect(e, i) if effects(i).nonEmpty =>
+                case ArraySelect(e, i) if exprEffects(i).nonEmpty =>
                   val (eBindings, eLift) = liftEffects(e)
                   val vd = ValDef(FreshIdentifier("index", true), Int32Type().copiedFrom(i)).copiedFrom(i)
                   (eBindings :+ (vd -> i), ArraySelect(eLift, vd.toVariable).copiedFrom(e))
-                case _ if effects(e).nonEmpty =>
+                case _ if exprEffects(e).nonEmpty =>
                   throw MalformedStainlessCode(m, "Unexpected effects in match scrutinee")
                 case _ => (Seq.empty, e)
               }
@@ -390,7 +390,7 @@ trait AntiAliasing
               id, tps, args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
             ).copiedFrom(fi)
 
-            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
+            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), funEffects(fd), env)
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
@@ -406,7 +406,7 @@ trait AntiAliasing
             ).copiedFrom(alr)
 
             val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
-            mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
+            mapApplication(fd.params, args, nfi, resultType, funEffects(fd), env)
 
           case app @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType

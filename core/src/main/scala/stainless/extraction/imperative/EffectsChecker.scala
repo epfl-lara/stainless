@@ -87,7 +87,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case l @ Lambda(args, body) =>
               if (isMutableType(body.getType) && !isExpressionFresh(body))
                 throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
-              if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
+              if (exprEffects(body).exists(e => !args.contains(e.receiver.toVal)))
                 throw ImperativeEliminationException(l, "Illegal effects in lambda body")
               super.traverse(l)
 
@@ -142,22 +142,22 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       if (isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd, "A field cannot refer to a mutable object")
 
-      if (effects(fd.fullBody).nonEmpty)
-        throw ImperativeEliminationException(fd, s"A field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
+      if (exprEffects(fd.fullBody).nonEmpty)
+        throw ImperativeEliminationException(fd, s"A field must be pure, but ${fd.id.asString} has effects: ${exprEffects(fd.fullBody).map(_.asString).mkString(", ")}")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
       case Require(pre, _) =>
-        val preEffects = effects(pre)
+        val preEffects = exprEffects(pre)
         if (preEffects.nonEmpty)
           throw ImperativeEliminationException(pre, "Precondition has effects on: " + preEffects.head.receiver.asString)
 
       case Ensuring(_, post @ Lambda(_, body)) =>
-        val bodyEffects = effects(body)
+        val bodyEffects = exprEffects(body)
         if (bodyEffects.nonEmpty)
           throw ImperativeEliminationException(post, "Postcondition has effects on: " + bodyEffects.head.receiver.asString)
 
-        val oldEffects = effects(exprOps.postMap {
+        val oldEffects = exprEffects(exprOps.postMap {
           case Old(e) => Some(e)
           case _ => None
         } (body))
@@ -165,36 +165,36 @@ trait EffectsChecker { self: EffectsAnalyzer =>
           throw ImperativeEliminationException(post, s"Postcondition tries to mutate ${Old(oldEffects.head.receiver).asString}")
 
       case Decreases(meas, _) =>
-        val measEffects = effects(meas)
+        val measEffects = exprEffects(meas)
         if (measEffects.nonEmpty)
           throw ImperativeEliminationException(meas, "Decreases has effects on: " + measEffects.head.receiver.asString)
 
       case Assert(pred, _, _) =>
-        val predEffects = effects(pred)
+        val predEffects = exprEffects(pred)
         if (predEffects.nonEmpty)
           throw ImperativeEliminationException(pred, "Assertion has effects on: " + predEffects.head.receiver.asString)
 
       case Forall(_, pred) =>
-        val predEffects = effects(pred)
+        val predEffects = exprEffects(pred)
         if (predEffects.nonEmpty)
           throw ImperativeEliminationException(pred, "Quantifier has effects on: " + predEffects.head.receiver.asString)
 
       case wh @ While(_, _, Some(invariant)) =>
-        val invEffects = effects(invariant)
+        val invEffects = exprEffects(invariant)
         if (invEffects.nonEmpty)
           throw ImperativeEliminationException(invariant, "Loop invariant has effects on: " + invEffects.head.receiver.asString)
 
       case m @ MatchExpr(_, cses) =>
         cses.foreach { cse =>
           cse.optGuard.foreach { guard =>
-            val guardEffects = effects(guard)
+            val guardEffects = exprEffects(guard)
             if (guardEffects.nonEmpty)
               throw ImperativeEliminationException(guard, "Pattern guard has effects on: " + guardEffects.head.receiver.asString)
           }
 
           patternOps.preTraversal {
             case up: UnapplyPattern =>
-              val upEffects = effects(Outer(up.getFunction.fd))
+              val upEffects = funEffects(up.getFunction.fd)
               if (upEffects.nonEmpty)
                 throw ImperativeEliminationException(up, "Pattern unapply has effects on: " + upEffects.head.receiver.asString)
 
@@ -203,7 +203,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         }
 
       case Let(vd, v, rest) if vd.flags.contains(Lazy) =>
-        val eff = effects(v)
+        val eff = exprEffects(v)
         if (eff.nonEmpty)
           throw ImperativeEliminationException(v, "Stainless does not support effects in lazy val's on: " + eff.head.receiver.asString)
 
@@ -211,7 +211,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }(fd.fullBody)
 
     def checkPurity(fd: FunAbstraction): Unit = {
-      val effs = effects(fd.fullBody)
+      val effs = exprEffects(fd.fullBody)
 
       if ((fd.flags contains IsPure) && !effs.isEmpty)
         throw ImperativeEliminationException(fd, s"Functions marked @pure cannot have side-effects")
@@ -276,7 +276,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
   def checkSort(sort: ADTSort)(analysis: EffectsAnalysis): Unit = {
     for (fd <- sort.invariant(analysis.symbols)) {
-      val invEffects = analysis.effects(fd)
+      val invEffects = analysis.funEffects(fd)
       if (invEffects.nonEmpty)
         throw ImperativeEliminationException(fd, "Invariant has effects on: " + invEffects.head.asString)
     }

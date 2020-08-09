@@ -85,10 +85,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   trait EffectsAnalysis { self: TransformerContext =>
     implicit val symbols: s.Symbols
 
-    private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
+    private[this] def computeFunEffects(fd: FunAbstraction, current: Result): Set[Effect] =
       exprOps.withoutSpecs(fd.fullBody) match {
         case Some(body) =>
-          expressionEffects(body, current)
+          computeExprEffects(body, current)
         case None if !fd.flags.contains(IsPure) =>
           fd.params
             .filter(vd => symbols.isMutableType(vd.getType) && !vd.flags.contains(IsPure))
@@ -121,7 +121,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
             inners.flatMap { case (_, inners) => inners.map(fun => fun.id -> fun) })
 
           val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
-            Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)
+            Result(effects.map { case (fd, _) => fd -> computeFunEffects(fd, res) }, locals)
           } (prevResult merge baseResult)
 
           for ((fd, inners) <- inners) {
@@ -137,14 +137,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         results merge newResult
     }
 
-    def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
-    def effects(fun: FunAbstraction): Set[Effect] = result.effects(fun)
-    def effects(expr: Expr): Set[Effect] = expressionEffects(expr, result)
+    def funEffects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
+    def funEffects(fun: FunAbstraction): Set[Effect] = result.effects(fun)
+    def exprEffects(expr: Expr): Set[Effect] = computeExprEffects(expr, result)
 
     private[imperative] def local(id: Identifier): FunAbstraction = result.locals(id)
 
     private[imperative] def getAliasedParams(fd: FunAbstraction): Seq[ValDef] = {
-      val receivers = effects(fd).map(_.receiver)
+      val receivers = funEffects(fd).map(_.receiver)
       fd.params.filter(vd => receivers(vd.toVariable))
     }
 
@@ -170,6 +170,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
+    // First translates the path into additonal selector expressions wrapping `expr`.
+    // Then computes all the targets
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
       def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
         case ADTFieldAccessor(id) +: xs =>
@@ -410,7 +412,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     *
     * We are assuming no aliasing.
     */
-  private def expressionEffects(expr: Expr, result: Result)(implicit symbols: Symbols): Set[Effect] = {
+  private def computeExprEffects(expr: Expr, result: Result)(implicit symbols: Symbols): Set[Effect] = {
     import symbols._
     val freeVars = variablesOf(expr)
 
