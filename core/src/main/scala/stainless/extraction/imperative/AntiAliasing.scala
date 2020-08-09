@@ -178,7 +178,7 @@ trait AntiAliasing
               .filter { case (effects, _) => effects.nonEmpty }
               .map { case (effects, arg) =>
                 val rArg = exprOps.replaceFromSymbols(env.rewritings, arg)
-                effects map (e => (e, e on rArg))
+                effects map (e => (e, e.effectsOn(rArg)))
               }
 
             for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {

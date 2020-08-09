@@ -170,9 +170,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
-    // First translates the path into additonal selector expressions wrapping `expr`.
-    // Then computes all the targets
-    def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
+    // Compute all the effect targets of a given expression extended by selections of this path.
+    // Note that this is just computing the targets of `expr`, starting with this path.
+    def targetsOn(that: Expr)(implicit symbols: Symbols): Set[Target] = {
       def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
         case ADTFieldAccessor(id) +: xs =>
           rec(ADTSelector(expr, id), xs)
@@ -199,8 +199,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case Seq() =>
           Some(expr)
       }
+      // Check that this path is valid on the given expression
+      assert(rec(that, path).isDefined)
 
-      rec(that, path).toSet.flatMap(getEffects)
+      getEffects(that, path)
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -285,9 +287,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   case class Effect(receiver: Variable, path: Path) {
     def +(elem: Accessor) = Effect(receiver, path :+ elem)
 
-    def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = for {
-      Target(receiver, _, path) <- this.path on that
-    } yield Effect(receiver, path)
+    // Compute all the effects one gets from replacing this effect's receiver by a given expression.
+    def effectsOn(that: Expr)(implicit symbols: Symbols): Set[Effect] =
+      path.targetsOn(that).map(_.toEffect)
 
     def prefixOf(that: Effect): Boolean =
       receiver == that.receiver && (path prefixOf that.path)
@@ -303,7 +305,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  def getEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = {
+  def getEffects(expr: Expr, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols): Set[Target] = {
     def rec(expr: Expr, path: Seq[Accessor]): Set[Target] = expr match {
       case v: Variable => Set(Target(v, None, Path(path)))
       case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
@@ -378,7 +380,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
     }
 
-    rec(expr, Seq.empty)
+    rec(expr, path)
   }
 
   def getExactEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = getEffects(expr) match {
@@ -476,7 +478,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         val currentEffects: Set[Effect] = result.effects(fun)
         val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
         val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
-          case Some(arg) => (e on arg).flatMap(inEnv(_, env))
+          case Some(arg) => e.effectsOn(arg).flatMap(inEnv(_, env))
           case None => Seq(e) // This effect occurs on some variable captured from scope
         })
 
