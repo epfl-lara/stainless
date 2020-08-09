@@ -267,7 +267,7 @@ trait AntiAliasing
         override def transform(e: Expr, env: Env): Expr = (e match {
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            if (getKnownEffects(newExpr).nonEmpty) {
+            if (computeKnownTargets(newExpr).nonEmpty) {
               val newBody = transform(b, env withRewritings Map(vd -> newExpr))
               Let(vd, newExpr, newBody).copiedFrom(l)
             } else {
@@ -310,7 +310,7 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val effects = getExactEffects(ra)
+            val effects = computeExactTargets(ra)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
@@ -322,7 +322,7 @@ trait AntiAliasing
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val effects = getExactEffects(rmap)
+            val effects = computeExactTargets(rmap)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
@@ -334,7 +334,7 @@ trait AntiAliasing
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val effects = getExactEffects(so)
+            val effects = computeExactTargets(so)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")

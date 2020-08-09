@@ -171,7 +171,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
     // Compute all the effect targets of a given expression extended by selections of this path.
-    // Note that this is just computing the targets of `expr`, starting with this path.
     def targetsOn(that: Expr)(implicit symbols: Symbols): Set[Target] = {
       def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
         case ADTFieldAccessor(id) +: xs =>
@@ -199,10 +198,22 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case Seq() =>
           Some(expr)
       }
-      // Check that this path is valid on the given expression
-      assert(rec(that, path).isDefined)
 
-      getEffects(that, path)
+      // Check that this path is valid on the given expression, otherwise return the empty set.
+      // Note that if this path is valid on `expr`, we end up simply computing the targets of
+      // `expr` with `this` appended, since computeTargets will initially strip away the selectors.
+      rec(that, path) match {
+        case None =>
+          // NOTE(gsps): I believe this check is redundant except for the cases where we try to
+          // select class fields on expressions whose type is an abstract type def.
+          // We have a test case (extraction/valid/TypeMembers2.scala) in which we expand an
+          // abstract base class' method to a dispatcher, and such type defs appear. Simply omitting
+          // the effect by returning the empty set in such cases actually seems an odd choice to me,
+          // though I can't see how to exploit it for unsoundness.
+          Set.empty
+        case Some(pathOnExpr) =>
+          computeTargets(pathOnExpr)
+      }
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -305,7 +316,23 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  def getEffects(expr: Expr, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols): Set[Target] = {
+  // Computes the effect targets of a given expression.
+  // The effect targets of an expression represent all the possible variables in scope that might
+  // be affected, if one were to mutate the given expression.
+  //
+  // Individual cases are represented by one Target each. Targets consist of
+  // - the variable being modified (the receiver),
+  // - the path condition under which this happens, and
+  // - the selection path at which this variable is being modified (if any).
+  //
+  // There is no support for the case where we don't have a name for the target's receiver.
+  // (For instance, imagine computing the targets of some temporary ADT value that isn't bound to a
+  // variable.)
+  //
+  // This function provides an under-approximation in some cases; in particular, it might return
+  // an empty set for certain "non-local" constructs like function invocations. These seem to be
+  // handled specially elsewhere.
+  def computeTargets(expr: Expr)(implicit symbols: Symbols): Set[Target] = {
     def rec(expr: Expr, path: Seq[Accessor]): Set[Target] = expr match {
       case v: Variable => Set(Target(v, None, Path(path)))
       case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
@@ -340,6 +367,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           And(Not(cnd).setPos(cnd), e.setPos(cnd)).setPos(cnd)
         } getOrElse(Not(cnd).setPos(cnd))
 
+        // FIXME: This seems wrong: why are we ignoring t.condition?
+        // FIXME: This also seems inefficient: is it really a good idea to "ground" all the paths
+        // rather than representing them as some sort of tree?
         for {
           t <- rec(thn, path)
           e <- rec(els, path)
@@ -366,8 +396,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         rec(b, path)
 
       case Let(vd, e, b) =>
+        // FIXME(gsps): This seems exceedingly cryptic.
         val bEffects = rec(b, path)
-        val res = for (ee <- getEffects(e); be <- bEffects) yield {
+        val res = for (ee <- computeTargets(e); be <- bEffects) yield {
           if (be.receiver == vd.toVariable) ee.append(be) else be
         }
 
@@ -383,13 +414,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     rec(expr, path)
   }
 
-  def getExactEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = getEffects(expr) match {
-    case effects if effects.nonEmpty => effects
+  // Like computeTargets, but never under-approximates.
+  def computeExactTargets(expr: Expr)(implicit symbols: Symbols): Set[Target] = computeTargets(expr) match {
+    case targets if targets.nonEmpty => targets
     case _ => throw MalformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
   }
 
-  def getKnownEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = try {
-    getEffects(expr)
+  // Like computeEffects, but replaces some unsupported cases by the (empty) under-approximation.
+  def computeKnownTargets(expr: Expr)(implicit symbols: Symbols): Set[Target] = try {
+    computeTargets(expr)
   } catch {
     case _: MalformedStainlessCode => Set.empty
   }
@@ -422,7 +455,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getEffects(expr) flatMap { (target: Target) =>
+      computeTargets(expr) flatMap { (target: Target) =>
         inEnv(target.toEffect, env).toSet
       }
 

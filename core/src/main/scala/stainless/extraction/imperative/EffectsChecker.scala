@@ -48,7 +48,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case l @ Let(vd, e, b) =>
               if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
                 // Check if a precise effect can be computed
-                getEffects(e)
+                computeTargets(e)
               } catch {
                 case _: MalformedStainlessCode =>
                   throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
