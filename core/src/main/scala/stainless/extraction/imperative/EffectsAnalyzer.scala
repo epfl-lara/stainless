@@ -411,7 +411,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
     }
 
-    rec(expr, path)
+    rec(expr, Seq.empty)
   }
 
   // Like computeTargets, but never under-approximates.
@@ -420,7 +420,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _ => throw MalformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
   }
 
-  // Like computeEffects, but replaces some unsupported cases by the (empty) under-approximation.
+  // Like computeTargets, but replaces some unsupported cases by the (empty) under-approximation.
   def computeKnownTargets(expr: Expr)(implicit symbols: Symbols): Set[Target] = try {
     computeTargets(expr)
   } catch {
