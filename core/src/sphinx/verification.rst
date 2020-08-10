@@ -206,6 +206,44 @@ This information is used to prove that each expression used as an index in the
 array is strictly smaller than that length. The expression is also checked to
 be positive.
 
+ADT invariants
+**************
+
+Stainless lets the user write ADT invariants with the ``require`` keyword.
+Internally, such invariants are extracted as methods (named ``inv``). Whenever,
+an ADT is constructed, and to make sure that the invariant is true, a
+verification condition is generated with a call to the corresponding ``inv``
+method.
+
+The Stainless annotation ``@inlineInvariant`` used on an ADT or one of its
+ancestors can be used to inline the call to ``inv`` in the verification
+condition, as shown in the following example. This annotation is only
+supported when ``--type-checker=true`` (which is the case by default).
+
+.. code-block:: scala
+
+  import stainless.annotation._
+
+  object InlineInvariant {
+    sealed abstract class A
+
+    case class B(x: BigInt) extends A {
+      require(x >= 50)
+    }
+
+    @inlineInvariant
+    case class C(x: BigInt) extends A {
+      require(x >= 50)
+    }
+
+    def f(): A = {
+      B(100) // VC: inv(B(100))
+      c(100) // VC: 100 >= 50 (call to `inv` was inlined)
+    }
+  }
+
+
+
 Pattern matching exhaustiveness
 *******************************
 
