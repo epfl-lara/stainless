@@ -800,7 +800,7 @@ trait TypeChecker {
             val invKind = VCKind.AdtInvariant(id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
             if (inv.flags.contains(InlineInvariant)) {
-              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              val (tc3, freshener) = tc2.freshBindWithValues(inv.params, Seq(e))
               buildVC(tc3, freshener.transform(inv.fullBody))
             } else {
               val application: Expr = inv.applied(Seq(e))
@@ -839,7 +839,7 @@ trait TypeChecker {
             val invKind = VCKind.AdtInvariant(inv.id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
             if (inv.flags.contains(InlineInvariant)) {
-              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              val (tc3, freshener) = tc2.freshBindWithValues(inv.params, Seq(e))
               buildVC(tc3, freshener.transform(inv.fullBody))
             } else {
               buildVC(tc2, inv.applied(Seq(e)))
