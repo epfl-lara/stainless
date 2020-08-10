@@ -3,6 +3,6 @@ object BadOverride2 {
     val y: Int
   }
   case class AbsInvalid() extends Abs {
-    lazy val y: Int = 2
+    val y: Int = 2
   }
 }
