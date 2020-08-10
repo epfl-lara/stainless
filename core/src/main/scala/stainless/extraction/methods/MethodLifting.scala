@@ -303,13 +303,22 @@ trait MethodLifting
     // a lifted method is derived from the methods that (first) override it
     val derivedFrom = cos.flatMap(o => firstOverrides(o).map(_._2))
     val derivedFlags = derivedFrom.map(fd => t.Derived(fd.id))
-    val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.flags.exists(_.name == "accessor"))
+    val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.isAccessor)
     val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
     val filteredFlags = fd.flags filter {
         case s.IsMethodOf(_) | s.IsInvariant | s.FieldDefPosition(_) => false
         case _ => true
       } map transformer.transform
-    val inlineInvariantFlag = if (fd.isInvariant && cd.flags.contains(InlineInvariant)) Some(t.InlineInvariant) else None
+
+    // we add the @inlineInvariant and @inline flags to invariant methods whose
+    // class (or one descendant, or one ancestor) is annotated by @inlineInvariant
+    val inlineInvariantFlags =
+      if (fd.isInvariant &&
+         (cd.descendants(symbols) ++ cd.ancestors(symbols).map(_.cd) :+ cd)
+          .exists(_.flags.contains(InlineInvariant)))
+        Seq(t.InlineInvariant, t.Inline)
+      else
+        Seq()
 
     new t.FunDef(
       fd.id,
@@ -317,7 +326,7 @@ trait MethodLifting
       arg +: (fd.params map transformer.transform),
       returnType,
       fullBody,
-      (filteredFlags ++ derivedFlags ++ accessorFlag ++ inlineInvariantFlag).distinct
+      (filteredFlags ++ derivedFlags ++ accessorFlag ++ inlineInvariantFlags).distinct
     ).copiedFrom(fd)
   }
 }
