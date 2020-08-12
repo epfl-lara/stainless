@@ -80,6 +80,11 @@ object ListSetSpec {
   }.ensuring(_ ⇒ first.subsetOf(third))
 
   @opaque
+  def selfContained[T](listSet: ListSet[T]): Unit = {
+    ListSpecs.reflexivity(listSet.toList)
+  }.ensuring(_ ⇒ listSet.subsetOf(listSet))
+
+  @opaque
   def uniquenessTransitivity[A, B](list: List[(A, B)]): Unit = {
     require(ListOps.noDuplicate(list.map(_._1)))
     list match {
