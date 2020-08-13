@@ -62,7 +62,7 @@ Actor reference
 ^^^^^^^^^^^^^^^
 
 Each actor is associated with a persistent reference, modeled as instances of the case class ``ActorRef``.
-Each reference has a name, and an underlying Akka ``akka.actor.ActorRef``, marked as extern and pure (see section :doc:`wrap` for more information about extern fields).
+Each reference has a name, and an underlying Akka ``akka.actor.ActorRef``, marked as extern and pure (see Section :doc:`wrap` for more information about extern fields).
 
 .. code-block:: scala
 

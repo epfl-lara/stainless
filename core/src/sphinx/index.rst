@@ -15,6 +15,7 @@ Contents:
    installation
    gettingstarted
    tutorial
+   tutorial-integrate
    options
    verification
    laws

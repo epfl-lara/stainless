@@ -1,4 +1,4 @@
-.. _purescala:
+  .. _purescala:
 
 Pure Scala
 ==========
@@ -219,6 +219,34 @@ It is also possible to call methods of a superclass with the ``super`` keyword.
     }
   }
 
+Abstract methods may have contracts in terms of pre- and postconditions. The
+syntax uses ``???`` and is as follows:
+
+.. code-block:: scala
+
+  abstract class Set[T] {
+    def contains[T](t: T): Boolean
+
+    def add[T](t: T): Set[T] = {
+      require(!this.contains(t))
+      (??? : Set[T])
+    }.ensuring(res => res.contains(t))
+  }
+
+You can then extend such abstract classes by concrete implementations, and
+Stainless will generate verification conditions to make sure that the
+implementation respects the specification.
+
+You can also add implementations and assume that they are correct with respect
+to the specification of the abstract class, without having Stainless check the
+specification (e.g. if you want to use existing Scala data-structures inside).
+In that case, mark the concrete class with ``@extern`` (see Section :doc:`wrap`
+for more info on ``@extern``) or place the concrete implementation in files
+which are not inspected by Stainless (see e.g.
+https://github.com/epfl-lara/stainless-project.g8 for an example of how to setup
+such a hybrid project).
+
+
 Copy Method
 ***********
 
@@ -265,8 +293,8 @@ Overriding
 Stainless supports overriding methods with some constraints:
 * A ``val`` in an abstract class can only be overridden by a concrete class parameter.
 * Methods and ``lazy val``s in abstract classes can be overridden by concrete methods or
-  ``lazy val``'s (interchangably), or by a concrete class parameter, but not by
-  a ``val``.
+``lazy val``'s (interchangably), or by a concrete class parameter, but not by
+a ``val``.
 
 Here are a few examples that are rejected by Stainless:
 
