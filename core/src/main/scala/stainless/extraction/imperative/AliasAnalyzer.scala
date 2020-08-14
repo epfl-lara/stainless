@@ -167,6 +167,9 @@ trait AliasAnalyzer extends oo.CachingPhase {
     def withEscaped(objs: Set[Object]): Graph =
       havoc(objs).copy(escaped = escaped ++ objs)
 
+    def isBindingInvalid(bdg: ValDef): Boolean =
+      bindings(bdg).objects.exists(escaped)
+
     // Ensures that we have explicit objects representing the values accessible at `accessor` of
     // all `objects`.
     // For each unexpanded accessor, we create a fresh object and target it unconditionally.
@@ -209,7 +212,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
   // Graph computation
 
-  private[imperative] def computeGraph(inputs: Seq[ValDef], expr: Expr)(
+  private[imperative] def computeGraph(summaries: Summaries, inputs: Seq[ValDef], expr: Expr)(
     implicit ctx: inox.Context, symbols: Symbols): (Graph, Option[BindingTarget]) =
   {
     import symbols._
@@ -377,6 +380,12 @@ trait AliasAnalyzer extends oo.CachingPhase {
   {
     import java.nio.file.{Files, Paths}
 
+    def isBindingInvalid(bdg: ValDef) =
+      resultOpt match {
+        case Some((resVd, _)) if resVd eq bdg => false
+        case _ => graph.isBindingInvalid(bdg)
+      }
+
     // println(s" --- Function ${fd.id}: ---")
     // println(s"OBJECTS: ${graph.objects}")
     // println(s"CONTENTS: ${graph.contents}")
@@ -384,15 +393,18 @@ trait AliasAnalyzer extends oo.CachingPhase {
     // Describe graph in DOT syntax
     def I(id: Identifier) = id.uniqueName.toString.replace('$', '_').replace(".", "__")
     def N(id: Identifier) = id.toString
+    def O(opts: Seq[String]) = s"[${opts.mkString(", ")}]"
+
     def trim(s: String, maxLength: Int = 20) =
       if (s.length > maxLength) s.slice(0, maxLength-3) + "..." else s
+    def redOpt(cond: Boolean) = if (cond) Some("color=crimson") else None
 
     def describeTarget(src: String, target: Target, opts: Seq[String] = Seq.empty): String = {
       target.toSeq.map { case (cond, recv) =>
         val lblOpts = if (cond == True) Seq.empty
           else Seq(s"""taillabel="${trim(cond.toString)}"""", "labelfontsize=10")
         val allOpts = lblOpts ++ opts
-        s"""$src -> obj_${I(recv.vd.id)} [${allOpts.mkString(", ")}]"""
+        s"""$src -> obj_${I(recv.vd.id)} ${O(allOpts)}"""
       } .mkString("\n")
     }
 
@@ -402,13 +414,13 @@ trait AliasAnalyzer extends oo.CachingPhase {
       val fieldsStr = if (fields.nonEmpty) {
         fields.keys.toSeq.sortBy(_.id).map(f => s"<${I(f.id)}> ${N(f.id)}").mkString("|")
       } else ""
-      val lbl = s"""label="{${N(obj.vd.id)} | {$fieldsStr}}""""
+      val lblOpt = s"""label="{${N(obj.vd.id)} | {$fieldsStr}}""""
 
       // Mark escaped objects
-      val escapedOpt = if (graph.escaped.contains(obj)) Some("color=crimson") else None
+      val escapedOpt = redOpt(graph.escaped.contains(obj))
 
-      val allOpts = Seq(lbl) ++ escapedOpt
-      s"""obj_${I(obj.vd.id)}[${allOpts.mkString(", ")}]"""
+      val allOpts = Seq(lblOpt) ++ escapedOpt
+      s"""obj_${I(obj.vd.id)} ${O(allOpts)}"""
     }
 
     val contents = graph.contents.toSeq.flatMap { case (obj, fields) =>
@@ -422,10 +434,13 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
     val bindingsAndResult = graph.bindings ++ resultOpt
     val bindings = bindingsAndResult.keys.map { bdg =>
-      s"""bdg_${I(bdg.id)}[label="${N(bdg.id)}", style="bold,rounded"]"""
+      val opts = Seq(s"""label="${N(bdg.id)}"""", """style="bold,rounded"""")
+      val allOpts = opts ++ redOpt(isBindingInvalid(bdg))
+      s"""bdg_${I(bdg.id)} ${O(allOpts)}"""
     }
     val bindingEdges = bindingsAndResult.map { case (bdg, target) =>
-      describeTarget(s"bdg_${I(bdg.id)}", target, Seq("style=bold"))
+      val opts = Seq("style=bold") ++ redOpt(isBindingInvalid(bdg))
+      describeTarget(s"bdg_${I(bdg.id)}", target, opts)
     }
 
     val output = s"""digraph heapgraph {
