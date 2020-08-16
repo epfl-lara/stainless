@@ -4,7 +4,8 @@ package stainless
 package extraction
 package imperative
 
-import scala.collection.mutable.{HashMap => MutableMap}
+import scala.collection.mutable.{HashSet => MutableSet}
+import inox.utils.Position
 
 trait AliasAnalyzer extends oo.CachingPhase {
   val s: Trees
@@ -17,6 +18,28 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
   trait AliasAnalysis { self: TransformerContext =>
     implicit val symbols: s.Symbols
+
+    private[imperative] val summaries: Summaries = {
+      def updateStep(summaries: Summaries, fd: FunDef, iteration: Int): Summaries = {
+        val dumpPath = Some(s"heapgraph_${fd.id}#$iteration.dot")
+        val summary = computeSummary(summaries, fd, dumpPath)
+        summaries.copy(functions = summaries.functions + (fd -> summary))
+      }
+
+      // FIXME: There seems to be a bug in DiGraph#stronglyConnnectedComponents that omits nodes
+      val res = symbols.sccs.topSort.reverse.foldLeft(Summaries.empty) { case (summaries, scc) =>
+        val fds = scc.map(symbols.getFunction(_))
+        val emptySummariesForScc = Summaries(fds.map(_ -> Summary(Map.empty)).toMap)
+        var iteration = 0
+        inox.utils.fixpoint[Summaries] { summaries =>
+          iteration += 1
+          fds.foldLeft(summaries)(updateStep(_, _, iteration))
+        } (summaries merge emptySummariesForScc)
+      }
+
+      println(s"\n=== SUMMARIES ===\n${res.asString}\n")
+      res
+    }
   }
 
   // Helpers
@@ -45,14 +68,27 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
   // Data structures
 
-  case class Summaries(functions: Map[FunDef, Summary])
+  case class Summaries(functions: Map[FunDef, Summary]) {
+    def asString(implicit printerOpts: PrinterOptions): String = {
+      val funs = functions.map { case (fd, sum) =>
+        val caps = sum.capturedBy.map { case (captive, captors) =>
+          s"${captive.id} <- ${captors.map(_.id).mkString(", ")}"
+        }
+        s"  ${fd.id}: {${caps.mkString("; ")}}"
+      }
+      s"functions:\n${funs.mkString("\n")}"
+    }
+
+    def merge(that: Summaries) =
+      Summaries(functions ++ that.functions)
+  }
 
   object Summaries {
     val empty = Summaries(Map.empty)
   }
 
   // For every parameter, we approximate whether, and if so, where the original object was captured
-  case class Summary(captures: Map[ValDef, Set[ValDef]])
+  case class Summary(capturedBy: Map[ValDef, Set[ValDef]])
 
   // case class AliasSummary(captures: Map[ValDef, CaptureStatus])
   // // A lattice of capture statuses.
@@ -96,13 +132,14 @@ trait AliasAnalyzer extends oo.CachingPhase {
     }
   }
 
-  // The target of a reference, i.e, the object pointed to depending on the path condition
+  // The target of a reference, i.e, the object pointed to depending on the path condition.
   // Generally, Targets found in the core data structures (such as Graph) should always partition
   // the state space, i.e., `\/_i cond_i = true` and `forall i,j. cond_i /\ cond_j = false`.
   // However, this invariant may be broken for targets produced by intermediate operations.
   case class Target(pairs: Seq[(Expr, Object)]) {
     def toSeq: Seq[(Expr, Object)] = pairs
-    def objects: Seq[Object] = pairs.map(_._2)
+    lazy val objects: Seq[Object] = pairs.map(_._2)
+    def objectSet: Set[Object] = objects.toSet
 
     def flatMap(f: Object => Target): Target = {
       val targetPairs = this.toSeq.flatMap { case (cond, obj) =>
@@ -141,9 +178,10 @@ trait AliasAnalyzer extends oo.CachingPhase {
   case class Graph(
     objects: Set[Object],
     contents: Map[Object, Map[Accessor, Target]],
+    blockedBy: Map[Object, Set[Object]], // for a captured object, its potential captors
     containers: Map[Object, Target], // back edges for contents  // FIXME, doesn't make sense atm
     bindings: Map[ValDef, Target], // mapping from program bindings to heap objects
-    escaped: Set[Object], // objects that escaped and thus don't have precise information about
+    escaped: Set[Object], // objects that escaped and we thus must give up access to
   ) {
     def withObject(obj: Object): Graph =
       this.copy(objects = objects + obj, contents = contents + (obj -> Map.empty))
@@ -194,9 +232,16 @@ trait AliasAnalyzer extends oo.CachingPhase {
     def computeReachable(initialObjects: Set[Object]): Set[Object] =
       inox.utils.fixpoint[Set[Object]](objects => {
         objects ++ objects.flatMap { obj =>
-          this.contents(obj).values.flatMap(_.objects.toSet)
+          this.contents(obj).values.flatMap(_.objectSet)
         }
       })(initialObjects)
+
+    // Find all the transitively reachable objects starting from the given targets
+    // TODO: Cut down the initialObjects set by using the path condition
+    def computeReachable(targets: Seq[Target]): Set[Object] = {
+      val initialObjects = targets.flatMap(target => target.objects)
+      computeReachable(initialObjects.toSet)
+    }
   }
 
   object Graph {
@@ -210,11 +255,12 @@ trait AliasAnalyzer extends oo.CachingPhase {
   // A mapping from a binding to a target within a graph
   type BindingTarget = (ValDef, Target)
 
-  // Graph computation
+  // Graph and summary computation
 
-  private[imperative] def computeGraph(summaries: Summaries, inputs: Seq[ValDef], expr: Expr)(
-    implicit ctx: inox.Context, symbols: Symbols): (Graph, Option[BindingTarget]) =
+  private[this] def computeSummary(summaries: Summaries, fd: FunDef, dumpPath: Option[String])(
+    implicit symbols: Symbols): Summary =
   {
+    val ctx = context
     import symbols._
 
     // Ensure the graph has explicit objects for accessing `accessor` on `expr`
@@ -252,19 +298,47 @@ trait AliasAnalyzer extends oo.CachingPhase {
     }
 
     // Erase all information about objects reachable from the given object
-    def havoc(g: Graph, targets: Seq[Target]): Graph = {
-      // TODO: Cut down the initialObjects set by using the path condition
-      val initialObjects = targets.flatMap(target => target.objects)
-      val reachableObjects = g.computeReachable(initialObjects.toSet)
-      g.havoc(reachableObjects)
-    }
+    def havoc(g: Graph, targets: Seq[Target]): Graph =
+      g.havoc(g.computeReachable(targets))
 
     // Mark all objects reachable from the given targets as escaped
-    def escape(g: Graph, targets: Seq[Target]): Graph = {
-      // TODO: Cut down the initialObjects set by using the path condition
-      val initialObjects = targets.flatMap(target => target.objects)
-      val reachableObjects = g.computeReachable(initialObjects.toSet)
-      g.withEscaped(reachableObjects)
+    def escape(g: Graph, targets: Seq[Target]): Graph =
+      g.withEscaped(g.computeReachable(targets))
+
+    // Check that none of the targets overlap
+    def checkArgumentsDisjoint(g: Graph, argTargets: Seq[Target], pos: Position): Unit = {
+      for {
+        (t1, i) <- argTargets.zipWithIndex
+        t2 <- argTargets.drop(i+1)
+        both = g.computeReachable(t1.objectSet) intersect g.computeReachable(t2.objectSet)
+        bothStr = both.map(_.vd.toString).mkString(", ")
+      } ctx.reporter.fatalError(pos, s"Objects {$bothStr} are aliased in function invocation")
+    }
+
+    // Record whether and by whom the objects underlying the given bindings are captured
+    def capture(g: Graph, captures: Seq[(Seq[Target], Target)]): Graph =
+      captures.foldLeft(g) { case (g, (captorTargets, captiveTarget)) =>
+        val captors = captorTargets.foldLeft(Set.empty[Object])(_ ++ _.objectSet)
+        val captives = captiveTarget.objectSet
+
+        // Mark all the proper subobjects of `obj` as escaped
+        val subObjs = g.computeReachable(captives)
+        val g1 = g.havoc(subObjs).copy(escaped = g.escaped ++ (subObjs diff captives))
+
+        // Record who captured what, so we can perhaps release the captives later
+        assert((g1.blockedBy.keySet intersect captives).isEmpty)
+        g1.copy(blockedBy = g1.blockedBy ++ captives.map(_ -> captors))
+      }
+
+    // Release the underlying objects by making its captors escape
+    def ensureReleased(g: Graph, target: Target): Graph = {
+      val captives = g.computeReachable(target.objectSet) intersect g.blockedBy.keySet
+      if (captives.nonEmpty) {
+        val captors = captives.flatMap(g.blockedBy)
+        g.withEscaped(g.computeReachable(captors))
+      } else {
+        g
+      }
     }
 
     def rec(g: Graph, expr: Expr): (Graph, Option[Target]) = {
@@ -276,16 +350,20 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
       expr match {
         case v: Variable =>
-          val targetOpt = g.bindings.get(v.toVal)
-          assert(!isHeapType(v.tpe) || targetOpt.isDefined)
+          g.bindings.get(v.toVal) match {
+            case targetOpt @ Some(target) =>
+              val escapedTargetObjs = g.escaped intersect g.computeReachable(target.objectSet)
+              if (escapedTargetObjs.nonEmpty) {
+                val objsStr = escapedTargetObjs.mkString(", ")
+                ctx.reporter.fatalError(v.getPos, s"Reference to escaped objects {$objsStr}")
+              }
 
-          val escapedTargetObjs = g.escaped intersect targetOpt.get.objects.toSet
-          if (escapedTargetObjs.nonEmpty) {
-            val objsStr = escapedTargetObjs.mkString("{", ", ", "}")
-            ctx.reporter.fatalError(s"Invalid program: reference to escaped objects $objsStr")
+              val g1 = ensureReleased(g, target)
+              (g1, Some(target))
+            case None =>
+              assert(!isHeapType(v.tpe))
+              (g, None)
           }
-
-          (g, targetOpt)
 
         case Let(vd, value, body) =>
           val (g1, valueTargetOpt) = rec(g, value)
@@ -315,6 +393,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
           }
 
         case FieldAssignment(recv, field, value) =>
+          // FIXME: Prevent introduction of cycles?
           val accessor = Accessor(field)
           if (accessor.yieldsHeapTypeOn(recv.getType)) {
             val (g1, recvTarget) = prepareForAccess(g, recv, accessor)
@@ -322,7 +401,9 @@ trait AliasAnalyzer extends oo.CachingPhase {
             val g3 = update(g2, recvTarget, accessor, valueTarget)
             (g3, None) // returns Unit, so no heap object
           } else {
-            (g, None)
+            val (g1, _) = rec(g, recv)
+            val (g2, _) = rec(g1, value)
+            (g2, None)
           }
 
         // case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
@@ -332,32 +413,42 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
         case fi: FunctionInvocation =>
           val fd = fi.tfd.fd
+          val calleeSummary = summaries.functions(fd)
 
           val (g1, argTargets) = recSequential(g, fi.args)
 
-          val escParams = getEscapingParams(fd)
-          val (escTargets_, nonEscTargets_) = fd.params
-            .zip(argTargets)
-            .partition { case (p, _) => escParams.contains(p) }
-          val escTargets = escTargets_.collect { case (p, Some(t)) => t }
-          val nonEscTargets = nonEscTargets_.collect { case (p, Some(t)) => t }
-
-          // Havoc non-escaping targets
-          val g2 = havoc(g1, nonEscTargets)
-
-          // Havoc and mark escaping arguments
-          val g3 = escape(g2, escTargets)
+          // Ensure no objects are aliased through function arguments
+          checkArgumentsDisjoint(g1, argTargets.flatten, fi.getPos)
 
           // Add new object returned from the call
           val returnTpe = fi.getType
-          val (g4, targetOpt) = if (isHeapType(returnTpe)) {
+          val (g2, resTargetOpt) = if (isHeapType(returnTpe)) {
             val returnObj = Object.fresh("ret", returnTpe)
-            (g3.withObject(returnObj), Some(Target(returnObj)))
+            (g1.withObject(returnObj), Some(Target(returnObj)))
           } else {
-            (g3, None)
+            (g1, None)
           }
 
-          (g4, targetOpt)
+          val paramsAndArgTargets = fd.params.zip(argTargets)
+          val (captTargets, uncaptTargets) = paramsAndArgTargets
+            .collect { case (p, t) if isHeapParam(p) => (p, t.get) }
+            .partition { case (p, _) => calleeSummary.capturedBy.contains(p) }
+
+          // Havoc non-escaping targets
+          // TODO: Don't havoc pure parameters
+          val g3 = havoc(g2, uncaptTargets.map(_._2))
+
+          // Havoc and mark escaping arguments
+          val argTargetsMap: Map[ValDef, Option[Target]] = (
+              paramsAndArgTargets ++
+              resTargetOpt.map(resTarget => (ValDef(ResultId, returnTpe), Some(resTarget))).toSeq
+            ).toMap
+          val captures = captTargets.toSeq.map { case (param, argTarget) =>
+            (calleeSummary.capturedBy(param).toSeq.flatMap(argTargetsMap.apply), argTarget)
+          }
+          val g4 = capture(g3, captures)
+
+          (g4, resTargetOpt)
 
         case _ =>
           val kind = expr.getClass.getName
@@ -365,18 +456,49 @@ trait AliasAnalyzer extends oo.CachingPhase {
       }
     }
 
+    val inputs = fd.params
+    val body = exprOps.withoutSpecs(fd.fullBody).getOrElse(???)
+
     // Create the initial graph containing only the inputs
     val inputObjects = inputs.filter(isHeapParam).map(input => Object(input.freshen))
     val contents = inputObjects.map(_ -> Map.empty[Accessor, Target]).toMap
     val bindings = inputs.zip(inputObjects.map(Target.apply)).toMap
-    val graph = Graph(inputObjects.toSet, contents, Map.empty, bindings, Set.empty)
+    val graph = Graph(inputObjects.toSet, contents, Map.empty, Map.empty, bindings, Set.empty)
 
-    val (resultGraph, resultTargetOpt) = rec(graph, expr)
-    (resultGraph, resultTargetOpt.map(target => (ValDef(ResultId, expr.getType), target)))
+    // Compute the graph at the end of the function
+    val (resultGraph, resultTargetOpt) = rec(graph, body)
+    val resultOpt = resultTargetOpt.map(target => (ValDef(ResultId, body.getType), target))
+
+    // Dump the graph to dot
+    dumpPath.foreach(dumpGraph(resultGraph, resultOpt, _))
+
+    // Compute the captures
+    // TODO: Do this more efficiently by walking up back edges of bindings' objects
+    val capturedBy: Map[ValDef, MutableSet[ValDef]] =
+      graph.bindings.keys.map(_ -> MutableSet.empty[ValDef]).toMap
+    val paramBindings = fd.params.map(p => p -> resultGraph.bindings(p))
+    (paramBindings ++ resultOpt).foreach { case (captorBdg, captorBdgTarget) =>
+      val captorReach = resultGraph.computeReachable(captorBdgTarget.objectSet)
+
+      // FIXME: Probably not actually true, but where do we want to represent this?
+      assert(resultGraph.escaped.intersect(captorReach).isEmpty)
+
+      for {
+        (captiveBdg, captiveBdgTarget) <- paramBindings
+        if captiveBdg ne captorBdg
+        captiveReach = resultGraph.computeReachable(captiveBdgTarget.objectSet)
+        if (captorReach intersect captiveReach).nonEmpty
+      } capturedBy(captiveBdg) += captorBdg
+    }
+    val capturedByFrozen = capturedBy
+      .filter { case (_, mset) => mset.nonEmpty }
+      .mapValues(_.toSet)
+
+    Summary(capturedByFrozen)
   }
 
-  private[imperative] def dumpGraph(graph: Graph, resultOpt: Option[BindingTarget], path: String,
-      showContainers: Boolean = false)(implicit ctx: inox.Context): Unit =
+  private[this] def dumpGraph(graph: Graph, resultOpt: Option[BindingTarget], path: String,
+      showContainers: Boolean = false): Unit =
   {
     import java.nio.file.{Files, Paths}
 

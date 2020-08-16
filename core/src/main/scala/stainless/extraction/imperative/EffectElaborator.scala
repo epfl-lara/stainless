@@ -48,12 +48,6 @@ trait EffectElaborator
     import tctx._
     import symbols._
 
-    // Just run and dump the analysis for now
-    if (fd.params.nonEmpty) {
-      val (graph, resultOpt) = computeGraph(Summaries.empty, fd.params, fd.fullBody)
-      dumpGraph(graph, resultOpt, s"heapgraph_${fd.id}.dot")
-    }
-
     Some(fd)
   }
 
