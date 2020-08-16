@@ -1110,8 +1110,13 @@ trait CodeExtraction extends ASTExtractors {
       }
 
     case ex @ ExIdentifier(sym, tpt) =>
+      def withPos(idLike: xt.Expr, pos: Position): xt.Expr = idLike match {
+        case v: xt.Variable => v.copy().setPos(pos)
+        case a: xt.Application => a.copy().setPos(pos)
+      }
+
       dctx.vars.get(sym).orElse(dctx.mutableVars.get(sym)) match {
-        case Some(builder) => builder().setPos(ex.pos)
+        case Some(builder) => withPos(builder(), ex.pos)
         case None => dctx.localFuns.get(sym) match {
           case Some((id, tparams, tpe)) =>
             assert(tparams.isEmpty, "Unexpected application " + ex + " without type parameters")
