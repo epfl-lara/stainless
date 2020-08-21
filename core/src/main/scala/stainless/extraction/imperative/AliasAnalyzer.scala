@@ -532,8 +532,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
           rec(g2, body)
 
         case Block(exprs, lastExpr) =>
-          val g1 = exprs.foldLeft(g) { case (g, expr) => rec(g, expr)._1 }
-          rec(g1, lastExpr)
+          rec(recSequential(g, exprs)._1, lastExpr)
 
         case expr: ADT =>
           val fields = expr.getConstructor.fields.map(f => f.tpe -> ADTAccessor(f.id))
@@ -662,25 +661,29 @@ trait AliasAnalyzer extends oo.CachingPhase {
         case m: MatchExpr =>
           rec(g, matchToIfThenElse(m))
 
+        // Unimplemented cases
+
+        case _: LetVar | _: Assignment | _: While | _: ArrayUpdate | _: MutableMapWithDefault |
+            _: MutableMapApply | _: MutableMapUpdated | _: MutableMapDuplicate |
+            _: MutableMapUpdate | _: Old | _: Snapshot =>
+          val kind = expr.getClass.getName
+          ctx.reporter.fatalError(s"Unsupported expr of kind $kind: $expr")
+
         // Mundane cases
 
         case _: Literal[_] =>
           // Literals are not heap objects
           (g, None)
 
-        case Equals(lhs, rhs) =>
-          val (g1, _) = rec(g, lhs)
-          val (g2, _) = rec(g1, rhs)
-          (g2, None)
-
         case IsInstanceOf(e, _) => (rec(g, e)._1, None)
         case AsInstanceOf(e, _) => rec(g, e)
         case Assert(_, _, e) => (rec(g, e)._1, None)
         case Annotated(e, _) => rec(g, e)
 
-        case _ =>
-          val kind = expr.getClass.getName
-          ctx.reporter.fatalError(s"Unsupported expr of kind $kind: $expr")
+        // TODO: Double-check that we shouldn't just skip some of these expressions
+        case Operator(exprs, _) =>
+          assert(!isHeapType(expr.getType))
+          (recSequential(g, exprs)._1, None)
       }
     }
 
