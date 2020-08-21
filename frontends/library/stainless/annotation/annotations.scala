@@ -92,3 +92,13 @@ class erasable extends Annotation
 
 @ignore
 class indexedAt(n: BigInt) extends Annotation
+
+/* Specify which parameters a parameter is captured by. An object `a` capturing `b` means that there
+ * exist selections `.p` and `.q` such that `old(a).p eq `b.q`.
+ * `RES` may be used as a pseudo-parameter for the result of the function.
+ * Specifications may be given in the following format:
+ *  Specs := epsilon | Spec (; Spec)*
+ *  Spec  := Param <- Param (, Param)*
+ */
+@ignore
+class capturedBy(specs: String)

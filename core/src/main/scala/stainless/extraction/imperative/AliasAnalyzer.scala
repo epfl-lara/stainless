@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-import scala.collection.mutable.{HashSet => MutableSet}
+import scala.collection.mutable.{HashMap => MutableMap, HashSet => MutableSet}
 import inox.utils.Position
 
 trait AliasAnalyzer extends oo.CachingPhase {
@@ -26,11 +26,14 @@ trait AliasAnalyzer extends oo.CachingPhase {
         summaries.copy(functions = summaries.functions + (fd -> summary))
       }
 
-      // FIXME: There seems to be a bug in DiGraph#stronglyConnnectedComponents that omits nodes
-      val res = symbols.sccs.topSort.reverse.foldLeft(Summaries.empty) { case (summaries, scc) =>
+      // The default call graph omits isolated functions, but we want all of them.
+      val sccs = (symbols.callGraph ++ symbols.functions.keySet).stronglyConnectedComponents
+
+      val res = sccs.topSort.reverse.foldLeft(Summaries.empty) { case (summaries, scc) =>
         val fds = scc.map(symbols.getFunction(_))
         val emptySummariesForScc = Summaries(fds.map(_ -> Summary(Map.empty)).toMap)
         var iteration = 0
+        // TODO: Investigate why some simple cases take two iterations
         inox.utils.fixpoint[Summaries] { summaries =>
           iteration += 1
           fds.foldLeft(summaries)(updateStep(_, _, iteration))
@@ -39,6 +42,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
       println(s"\n=== SUMMARIES ===\n${res.asString}\n")
       res
+      // null
     }
   }
 
@@ -65,6 +69,8 @@ trait AliasAnalyzer extends oo.CachingPhase {
   lazy val True = BooleanLiteral(true)
   lazy val False = BooleanLiteral(false)
   lazy val ResultId = FreshIdentifier("RES")
+
+  lazy val tupleFieldIds = (1 to 16).map(i => FreshIdentifier(s"_$i"))
 
   // Data structures
 
@@ -100,17 +106,29 @@ trait AliasAnalyzer extends oo.CachingPhase {
   // case object Unknown extends CaptureStatus
   // case class CapturedBy(vds: Set[ValDef]) extends CaptureStatus
 
-  // A field accessor (only class fields for now)
-  case class Accessor(id: Identifier) {
+  // An accessor
+  sealed abstract class Accessor {
+    def id: Identifier
+
     // Returns the class field on the given type, if any
     def fieldOn(recvTpe: Type)(implicit symbols: Symbols): Option[ValDef] =
-      recvTpe match {
-        case ct: ClassType => symbols.getClassField(ct, id)
+      (this, recvTpe) match {
+        case (ADTAccessor(id), at: ADTType) =>
+          at.getSort.constructors.flatMap(_.fields).find(_.id == id)
+        case (ClassAccessor(id), ct: ClassType) =>
+          symbols.getClassField(ct, id)
+        case (TupleAccessor(index), TupleType(tps)) =>
+          if (0 <= index && index < tps.length) Some(ValDef(this.id, tps(index))) else None
         case _ => None
       }
 
     def yieldsHeapTypeOn(recvTpe: Type)(implicit symbols: Symbols): Boolean =
       fieldOn(recvTpe).map(f => isHeapType(f.tpe)).getOrElse(false)
+  }
+  case class ADTAccessor(id: Identifier) extends Accessor
+  case class ClassAccessor(id: Identifier) extends Accessor
+  case class TupleAccessor(index: Int) extends Accessor {
+    def id: Identifier = tupleFieldIds(index)
   }
 
   // A sequence of accessors
@@ -152,7 +170,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
       assert(extraCond.getType == BooleanType())
       extraCond match {
         case BooleanLiteral(true) => this
-        case BooleanLiteral(false) => Target(Seq.empty)
+        case BooleanLiteral(false) => Target.empty
         case _ =>
           val adaptedTargetPairs = this.toSeq.map { case (cond, obj) =>
             (symbols.simplifyByConstructors(and(extraCond, cond)), obj)
@@ -172,6 +190,8 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
   object Target {
     def apply(obj: Object): Target = Target(Seq((True, obj)))
+
+    val empty = Target(Seq.empty)
   }
 
   // A graph representing a heap state and bindings into it symbolically
@@ -195,6 +215,9 @@ trait AliasAnalyzer extends oo.CachingPhase {
       this.copy(contents = entries.foldLeft(contents) { case (cs, (obj, target)) =>
         Graph.updatedContents(cs, obj, accessor, target)
       })
+
+    def withContents(obj: Object, targets: Map[Accessor, Target]): Graph =
+      this.copy(contents = contents + (obj -> targets))
 
     def havoc(objs: Set[Object]): Graph = {
       assert(objs.subsetOf(this.objects))
@@ -264,17 +287,21 @@ trait AliasAnalyzer extends oo.CachingPhase {
     import symbols._
 
     // Ensure the graph has explicit objects for accessing `accessor` on `expr`
-    def prepareForAccess(g: Graph, recv: Expr, accessor: Accessor): (Graph, Target) = {
-      val (g1, Some(recvTarget)) = rec(g, recv)
-      val g2 = g1.ensureObjectsUnfoldedAt(recvTarget.objects, accessor)
-      (g2, recvTarget)
+    def prepareForAccess(g: Graph, recvTarget: Target, accessor: Accessor): Graph = {
+      // val missing = recvTarget.objects.filterNot(obj => g.contents(obj).contains(accessor))
+      // if (missing.nonEmpty) {
+      //   ctx.reporter.fatalError(pos,
+      //     s"Not all receiver object(s) unfolded at accessor $accessor! " +
+      //     "You can work around this by adding bindings for intermediate results.")
+      // }
+      g.ensureObjectsUnfoldedAt(recvTarget.objects, accessor)
     }
 
     // Computes the new contents on objects assuming we update `accessor` on `recvTargets`
     // TODO: Try to eliminate targets using the path condition and a simplifier or solver?
     def update(g: Graph, recvTarget: Target, accessor: Accessor, valueTarget: Target): Graph =
     {
-      // Gather the conditions under which a receiver object will be modified
+      // Gather the conditions under which each receiver object will be modified
       val updateConds = recvTarget.toSeq.foldLeft(Map.empty[Object, Seq[Expr]]) {
         case (map, (cond, recvObj)) =>
           map + (recvObj -> (cond +: map.getOrElse(recvObj, Seq.empty)))
@@ -296,10 +323,6 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
       g.withContent(updates, accessor)
     }
-
-    // Erase all information about objects reachable from the given object
-    def havoc(g: Graph, targets: Seq[Target]): Graph =
-      g.havoc(g.computeReachable(targets))
 
     // Mark all objects reachable from the given targets as escaped
     def escape(g: Graph, targets: Seq[Target]): Graph =
@@ -330,6 +353,43 @@ trait AliasAnalyzer extends oo.CachingPhase {
         g1.copy(blockedBy = g1.blockedBy ++ captives.map(_ -> captors))
       }
 
+    def mergeGraphs(gA: Graph, gB: Graph, cond: Expr): Graph = {
+      // TODO: The equality checks among targets could be weakened further. We could also try to
+      // limit the traversal by tracking what changed in the graphs of each branch.
+      val condNeg = not(cond)
+
+      def intersectionMaps[K, V](mapA: Map[K, V], mapB: Map[K, V])(f: (V, V) => V): Map[K, V] =
+        (mapA.keySet intersect mapB.keySet).foldLeft(Map.empty[K, V]) { case (map, key) =>
+          map + (key -> f(mapA(key), mapB(key)))
+        }
+
+      def intersectionTargets[K](mapA: Map[K, Target], mapB: Map[K, Target]): Map[K, Target] =
+        intersectionMaps(mapA, mapB)((tA, tB) =>
+          if (tA == tB) tA else tA.conditional(cond) ++ tB.conditional(condNeg))
+
+      def unionMaps[K, V](mapA: Map[K, V], mapB: Map[K, V])(
+          f: (Option[V], Option[V]) => V): Map[K, V] =
+        (mapA.keySet union mapB.keySet).foldLeft(Map.empty[K, V]) { case (map, key) =>
+          map + (key -> f(mapA.get(key), mapB.get(key)))
+        }
+
+      def unionTargets[K](mapA: Map[K, Target], mapB: Map[K, Target]): Map[K, Target] =
+        unionMaps(mapA, mapB)((tA, tB) =>
+          if (tA == tB) tA.get else tA.getOrElse(Target.empty).conditional(cond) ++
+            tB.getOrElse(Target.empty).conditional(condNeg))
+
+      val objects = gA.objects union gB.objects
+      val contents = unionMaps(gA.contents, gB.contents)((a, b) =>
+        unionTargets(a.getOrElse(Map.empty), b.getOrElse(Map.empty)))
+      val blockedBy = unionMaps(gA.blockedBy, gB.blockedBy)((a, b) =>
+        a.getOrElse(Set.empty) union b.getOrElse(Set.empty))
+      val containers = Map.empty[Object, Target] // TODO
+      val bindings = intersectionTargets(gA.bindings, gB.bindings)
+      val escaped = gA.escaped union gB.escaped
+
+      Graph(objects, contents, blockedBy, containers, bindings, escaped)
+    }
+
     // Release the underlying objects by making its captors escape
     def ensureReleased(g: Graph, target: Target): Graph = {
       val captives = g.computeReachable(target.objectSet) intersect g.blockedBy.keySet
@@ -341,7 +401,37 @@ trait AliasAnalyzer extends oo.CachingPhase {
       }
     }
 
+    // The actual computation of the heap graph
+
+
+
     def rec(g: Graph, expr: Expr): (Graph, Option[Target]) = {
+      // Add a new object of the given typen and with the given subobjects to the graph
+      def construct(g: Graph, tpe: Type, fields: Seq[(Type, Accessor)],
+          args: Seq[Expr]): (Graph, Object) =
+      {
+        val obj = Object.fresh("fresh", tpe)
+        val (g1, argTargets) = recSequential(g, args)
+        val contents = fields.zip(argTargets).foldLeft(Map.empty[Accessor, Target]) {
+          case (cs, ((tpe, acc), Some(target))) if isHeapType(tpe) => cs + (acc -> target)
+          case (cs, _) => cs
+        }
+        (g1.withObject(obj).withContents(obj, contents), obj)
+      }
+
+      // Select the subobject based on the given accessor
+      def select(g: Graph, recv: Expr, accessor: Accessor): (Graph, Option[Target]) = {
+        val (g1, recvTargetOpt) = rec(g, recv)
+        if (accessor.yieldsHeapTypeOn(recv.getType)) {
+          val recvTarget = recvTargetOpt.get
+          val g2 = prepareForAccess(g1, recvTarget, accessor)
+          val accTarget = recvTarget.flatMap(g2.contents(_)(accessor))
+          (g2, Some(accTarget))
+        } else {
+          (g1, None)
+        }
+      }
+
       def recSequential(g: Graph, exprs: Seq[Expr]): (Graph, Seq[Option[Target]]) =
         exprs.foldLeft((g, Seq.empty[Option[Target]])) { case ((ga, targets), expr) =>
           val (gb, target) = rec(ga, expr)
@@ -361,7 +451,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
               val g1 = ensureReleased(g, target)
               (g1, Some(target))
             case None =>
-              assert(!isHeapType(v.tpe))
+              assert(!isHeapType(v.tpe), s"Expected heap graph binding for $v : ${v.tpe}")
               (g, None)
           }
 
@@ -374,32 +464,39 @@ trait AliasAnalyzer extends oo.CachingPhase {
           val g1 = exprs.foldLeft(g) { case (g, expr) => rec(g, expr)._1 }
           rec(g1, lastExpr)
 
-        case _: Literal[_] =>
-          // Literals are not heap objects
-          (g, None)
+        case expr: ADT =>
+          val fields = expr.getConstructor.fields.map(f => f.tpe -> ADTAccessor(f.id))
+          val (g1, obj) = construct(g, expr.getType, fields, expr.args)
+          (g1, Some(Target(obj)))
 
         case ClassConstructor(ct, args) =>
-          val obj = Object.fresh("fresh", ct)
-          (g.withObject(obj), Some(Target(obj)))
+          val fields = ct.tcd.fields.map(f => f.tpe -> ClassAccessor(f.id))
+          val (g1, obj) = construct(g, ct, fields, args)
+          (g1, Some(Target(obj)))
+
+        case Tuple(args) =>
+          val fields = args.zipWithIndex.map(ai => ai._1.getType -> TupleAccessor(ai._2))
+          val (g1, obj) = construct(g, expr.getType, fields, args)
+          (g1, Some(Target(obj)))
+
+        case ADTSelector(recv, field) =>
+          select(g, recv, ADTAccessor(field))
 
         case ClassSelector(recv, field) =>
-          val accessor = Accessor(field)
-          if (accessor.yieldsHeapTypeOn(recv.getType)) {
-            val (g1, recvTarget) = prepareForAccess(g, recv, accessor)
-            val accTarget = recvTarget.flatMap(g1.contents(_)(accessor))
-            (g1, Some(accTarget))
-          } else {
-            (g, None)
-          }
+          select(g, recv, ClassAccessor(field))
+
+        case TupleSelect(recv, index) =>
+          select(g, recv, TupleAccessor(index - 1))
 
         case FieldAssignment(recv, field, value) =>
           // FIXME: Prevent introduction of cycles?
-          val accessor = Accessor(field)
+          val accessor = ClassAccessor(field)
           if (accessor.yieldsHeapTypeOn(recv.getType)) {
-            val (g1, recvTarget) = prepareForAccess(g, recv, accessor)
-            val (g2, Some(valueTarget)) = rec(g1, value)
-            val g3 = update(g2, recvTarget, accessor, valueTarget)
-            (g3, None) // returns Unit, so no heap object
+            val (g1, Some(recvTarget)) = rec(g, recv)
+            val g2 = prepareForAccess(g1, recvTarget, accessor)
+            val (g3, Some(valueTarget)) = rec(g2, value)
+            val g4 = update(g3, recvTarget, accessor, valueTarget)
+            (g4, None) // returns Unit, so no heap object
           } else {
             val (g1, _) = rec(g, recv)
             val (g2, _) = rec(g1, value)
@@ -436,7 +533,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
           // Havoc non-escaping targets
           // TODO: Don't havoc pure parameters
-          val g3 = havoc(g2, uncaptTargets.map(_._2))
+          val g3 = g2.havoc(g2.computeReachable(uncaptTargets.map(_._2)))
 
           // Havoc and mark escaping arguments
           val argTargetsMap: Map[ValDef, Option[Target]] = (
@@ -450,6 +547,44 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
           (g4, resTargetOpt)
 
+        case IfExpr(cond, thenn, elze) =>
+          // TODO: We need to somehow capture `cond` as interpreted at *this* program point
+          // (to reflect the current state of its mutable parts).
+          val (g1, _) = rec(g, cond)
+          val (g2A, targetOptA) = rec(g1, thenn)
+          val (g2B, targetOptB) = rec(g1, elze)
+          val targetOpt = (targetOptA, targetOptB) match {
+            case (Some(targetA), Some(targetB)) =>
+              if (targetA == targetB)
+                Some(targetA)
+              else
+                Some(targetA.conditional(cond) ++ targetB.conditional(not(cond)))
+            case (None, None) =>
+              None
+            case _ => ctx.reporter.internalError("Computing heap graph for if expression " +
+              "returned target in one but not the other branch")
+          }
+          (mergeGraphs(g2A, g2B, cond), targetOpt)
+
+        case m: MatchExpr =>
+          rec(g, matchToIfThenElse(m))
+
+        // Mundane cases
+
+        case _: Literal[_] =>
+          // Literals are not heap objects
+          (g, None)
+
+        case Equals(lhs, rhs) =>
+          val (g1, _) = rec(g, lhs)
+          val (g2, _) = rec(g1, rhs)
+          (g2, None)
+
+        case IsInstanceOf(e, _) => (rec(g, e)._1, None)
+        case AsInstanceOf(e, _) => rec(g, e)
+        case Assert(_, _, e) => (rec(g, e)._1, None)
+        case Annotated(e, _) => rec(g, e)
+
         case _ =>
           val kind = expr.getClass.getName
           ctx.reporter.fatalError(s"Unsupported expr of kind $kind: $expr")
@@ -460,10 +595,15 @@ trait AliasAnalyzer extends oo.CachingPhase {
     val body = exprOps.withoutSpecs(fd.fullBody).getOrElse(???)
 
     // Create the initial graph containing only the inputs
-    val inputObjects = inputs.filter(isHeapParam).map(input => Object(input.freshen))
-    val contents = inputObjects.map(_ -> Map.empty[Accessor, Target]).toMap
-    val bindings = inputs.zip(inputObjects.map(Target.apply)).toMap
-    val graph = Graph(inputObjects.toSet, contents, Map.empty, Map.empty, bindings, Set.empty)
+    val (contentsSeq, bindingsSeq) = inputs
+      .filter(isHeapParam)
+      .map { input =>
+        val obj = Object(input.freshen)
+        (obj -> Map.empty[Accessor, Target], input -> Target(obj))
+      }
+      .unzip
+    val (contents, bindings) = (contentsSeq.toMap, bindingsSeq.toMap)
+    val graph = Graph(contents.keySet, contents, Map.empty, Map.empty, bindings, Set.empty)
 
     // Compute the graph at the end of the function
     val (resultGraph, resultTargetOpt) = rec(graph, body)
@@ -472,29 +612,95 @@ trait AliasAnalyzer extends oo.CachingPhase {
     // Dump the graph to dot
     dumpPath.foreach(dumpGraph(resultGraph, resultOpt, _))
 
-    // Compute the captures
-    // TODO: Do this more efficiently by walking up back edges of bindings' objects
-    val capturedBy: Map[ValDef, MutableSet[ValDef]] =
-      graph.bindings.keys.map(_ -> MutableSet.empty[ValDef]).toMap
-    val paramBindings = fd.params.map(p => p -> resultGraph.bindings(p))
-    (paramBindings ++ resultOpt).foreach { case (captorBdg, captorBdgTarget) =>
-      val captorReach = resultGraph.computeReachable(captorBdgTarget.objectSet)
+    // Compute the actual captures
+    val capturedByActual = {
+      // TODO: Do this more efficiently by walking up back edges of bindings' objects
+      val capturedBy: Map[ValDef, MutableSet[ValDef]] =
+        graph.bindings.keys.map(_ -> MutableSet.empty[ValDef]).toMap
+      val paramBindings = fd.params
+        .filter(resultGraph.bindings.contains)
+        .map(p => p -> resultGraph.bindings(p))
+      (paramBindings ++ resultOpt).foreach {
+        case (captorBdg, captorBdgTarget) =>
+          val captorReach = resultGraph.computeReachable(captorBdgTarget.objectSet)
 
-      // FIXME: Probably not actually true, but where do we want to represent this?
-      assert(resultGraph.escaped.intersect(captorReach).isEmpty)
+          // FIXME: Probably not actually true, but where do we want to represent this?
+          assert(resultGraph.escaped.intersect(captorReach).isEmpty)
 
-      for {
-        (captiveBdg, captiveBdgTarget) <- paramBindings
-        if captiveBdg ne captorBdg
-        captiveReach = resultGraph.computeReachable(captiveBdgTarget.objectSet)
-        if (captorReach intersect captiveReach).nonEmpty
-      } capturedBy(captiveBdg) += captorBdg
+          for {
+            (captiveBdg, captiveBdgTarget) <- paramBindings
+            if captiveBdg ne captorBdg
+            captiveReach = resultGraph.computeReachable(captiveBdgTarget.objectSet)
+            if (captorReach intersect captiveReach).nonEmpty
+          } capturedBy(captiveBdg) += captorBdg
+      }
+      capturedBy
+        .filter { case (_, mset) => mset.nonEmpty }
+        .mapValues(_.toSet)
     }
-    val capturedByFrozen = capturedBy
-      .filter { case (_, mset) => mset.nonEmpty }
-      .mapValues(_.toSet)
 
-    Summary(capturedByFrozen)
+    // Extract the prescribed captures, if any
+    // TODO: Come up with a more integrated solution than this (e.g. like `old` in post conditions)
+    val capturedByExpected = {
+      def bindingByName(name: String): ValDef =
+        if (name == ResultId.name)
+          resultOpt.map(_._1).getOrElse(ctx.reporter.fatalError(
+            "Referred to result parameter 'RES' in a function that doesn't return a heap object"))
+        else
+          resultGraph.bindings.keys
+            .find(b => b.id.name == name)
+            .getOrElse(ctx.reporter.fatalError(s"Referred to unknown parameter '$name'"))
+
+      var hasSpecs = false
+      val specs = fd.flags.flatMap { case Annotation("capturedBy", args) =>
+        hasSpecs = true
+        val specsStr = args.headOption match {
+          case Some(StringLiteral(s)) => s
+          case _ => ctx.reporter.fatalError("Single string expected as captured-by spec")
+        }
+        if (specsStr.nonEmpty)
+          specsStr.split(';').map { specStr =>
+            val specParts = specStr.split("<-").toSeq
+            if (specParts.length < 1 || specParts.length > 2)
+              ctx.reporter.fatalError("Illegal captured-by spec")
+            val captive = bindingByName(specParts(0).trim)
+            val captors =
+              if (specParts.length == 1) Set.empty[ValDef]
+              else specParts(1).split(',').map(n => bindingByName(n.trim)).toSet
+            captive -> captors
+          }
+        else
+          Seq.empty
+      }
+      if (hasSpecs) {
+        val specsMap = specs.toMap
+        if (specs.size != specsMap.size)
+          ctx.reporter.fatalError("Captive was specified more than once in captured-by spec")
+        val specsMapClosed = inox.utils.GraphOps.transitiveClosure(specsMap)
+          .map { case (captive, captors) => captive -> (captors - captive) }
+        Some(specsMapClosed)
+      } else {
+        None
+      }
+    }
+
+    // Check if capturedBy sets match
+    val capturedBy: Map[ValDef, Set[ValDef]] = capturedByExpected match {
+      case Some(exp) =>
+        def capturesAsString(captures: Map[ValDef, Set[ValDef]]): String =
+          captures.toSeq
+            .sortBy(_._1)
+            .map(c => s"${c._1.id.name} <- ${c._2.map(_.id.name).mkString(", ")}")
+            .mkString("; ")
+        if (exp != capturedByActual)
+          ctx.reporter.fatalError(
+            s"Captured-by sets don't match:\n\tExpected: ${capturesAsString(exp)}\n\t" +
+            s"Actual: ${capturesAsString(capturedByActual)}")
+        exp
+      case None => capturedByActual
+    }
+
+    Summary(capturedBy)
   }
 
   private[this] def dumpGraph(graph: Graph, resultOpt: Option[BindingTarget], path: String,
