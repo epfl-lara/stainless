@@ -30,14 +30,18 @@ trait AliasAnalyzer extends oo.CachingPhase {
       val sccs = (symbols.callGraph ++ symbols.functions.keySet).stronglyConnectedComponents
 
       val res = sccs.topSort.reverse.foldLeft(Summaries.empty) { case (summaries, scc) =>
-        val fds = scc.map(symbols.getFunction(_))
-        val emptySummariesForScc = Summaries(fds.map(_ -> Summary(Map.empty)).toMap)
-        var iteration = 0
-        // TODO: Investigate why some simple cases take two iterations
-        inox.utils.fixpoint[Summaries] { summaries =>
-          iteration += 1
-          fds.foldLeft(summaries)(updateStep(_, _, iteration))
-        } (summaries merge emptySummariesForScc)
+        // Fast path for the simple case of a single, non-recursive function
+        if (scc.size == 1 && !symbols.isRecursive(scc.head)) {
+          updateStep(summaries, symbols.getFunction(scc.head), 1)
+        } else {
+          val fds = scc.map(symbols.getFunction(_))
+          val emptySummariesForScc = Summaries(fds.map(_ -> Summary(Map.empty)).toMap)
+          var iteration = 0
+          inox.utils.fixpoint[Summaries] { summaries =>
+            iteration += 1
+            fds.foldLeft(summaries)(updateStep(_, _, iteration))
+          } (summaries merge emptySummariesForScc)
+        }
       }
 
       println(s"\n=== SUMMARIES ===\n${res.asString}\n")
@@ -69,6 +73,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
   lazy val True = BooleanLiteral(true)
   lazy val False = BooleanLiteral(false)
   lazy val ResultId = FreshIdentifier("RES")
+  lazy val FirstOrigin = FreshIdentifier("<first>")
 
   lazy val tupleFieldIds = (1 to 16).map(i => FreshIdentifier(s"_$i"))
 
@@ -186,6 +191,12 @@ trait AliasAnalyzer extends oo.CachingPhase {
       if (this.pairs.isEmpty) that
       else if (that.pairs.isEmpty) this
       else Target(this.pairs ++ that.pairs)
+
+    def replace(subst: Map[Object, Object]): Target =
+      if (pairs.exists(p => subst.contains(p._2)))
+        Target(pairs.map(p => (p._1, subst.getOrElse(p._2, p._2))))
+      else
+        this
   }
 
   object Target {
@@ -194,14 +205,16 @@ trait AliasAnalyzer extends oo.CachingPhase {
     val empty = Target(Seq.empty)
   }
 
+  type Origin = Identifier
+
   // A graph representing a heap state and bindings into it symbolically
   case class Graph(
     objects: Set[Object],
     contents: Map[Object, Map[Accessor, Target]],
     blockedBy: Map[Object, Set[Object]], // for a captured object, its potential captors
-    containers: Map[Object, Target], // back edges for contents  // FIXME, doesn't make sense atm
     bindings: Map[ValDef, Target], // mapping from program bindings to heap objects
     escaped: Set[Object], // objects that escaped and we thus must give up access to
+    initialContents: MutableMap[(Object, Accessor), Object]
   ) {
     def withObject(obj: Object): Graph =
       this.copy(objects = objects + obj, contents = contents + (obj -> Map.empty))
@@ -228,8 +241,8 @@ trait AliasAnalyzer extends oo.CachingPhase {
     def withEscaped(objs: Set[Object]): Graph =
       havoc(objs).copy(escaped = escaped ++ objs)
 
-    def isBindingInvalid(bdg: ValDef): Boolean =
-      bindings(bdg).objects.exists(escaped)
+    def isInvalidBinding(bdg: ValDef): Boolean =
+      (computeReachable(bindings(bdg).objectSet) intersect escaped).nonEmpty
 
     // Ensures that we have explicit objects representing the values accessible at `accessor` of
     // all `objects`.
@@ -242,12 +255,50 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
       val missing = recvObjs.filterNot(obj => contents(obj).contains(accessor))
       missing.foreach { recvObj =>
-        val newObj = Object.freshForAccessor(recvObj, accessor)
+        val newObj = initialContents.getOrElseUpdate((recvObj, accessor), {
+          Object.freshForAccessor(recvObj, accessor)
+        })
         newObjects = newObjects + newObj
         newContents = newContents + (newObj -> Map.empty)
         newContents = Graph.updatedContents(newContents, recvObj, accessor, Target(newObj))
       }
       this.copy(objects = newObjects, contents = newContents)
+    }
+
+    // Replace existing objects in blockedBy and various targets by fresh objects
+    def replaceByFresh(subst: Map[Object, Object]): Graph = {
+      if (subst.isEmpty)
+        return this
+
+      val freshObjects = subst.values.toSet
+      assert((objects intersect freshObjects).isEmpty)
+
+      val newObjects = objects ++ freshObjects
+
+      // TODO: This could be much faster if we had back edges
+      val newContents = contents ++ contents.toSeq.flatMap { case (obj, content) =>
+        val changedContent = content.toSeq.flatMap { case (accessor, target) =>
+          val changedTarget = target.replace(subst)
+          if (target ne changedTarget) Some(accessor -> changedTarget) else None
+        }
+        if (changedContent.nonEmpty) Some(obj -> (content ++ changedContent)) else None
+      } ++ freshObjects.map(_ -> Map.empty[Accessor, Target])
+
+      assert((blockedBy.keySet intersect subst.keySet).isEmpty)
+      val newBlockedBy = blockedBy ++ blockedBy.toSeq.flatMap { case (captive, captors) =>
+        if (captors.exists(subst.contains))
+          Some(captive -> captors.map(obj => subst.getOrElse(obj, obj)))
+        else
+          None
+      }
+
+      val newBindings = bindings ++ bindings.toSeq.flatMap { case (bdg, target) =>
+        val changedTarget = target.replace(subst)
+        if (target ne changedTarget) Some(bdg -> changedTarget) else None
+      }
+
+      this.copy(objects = newObjects, contents = newContents, blockedBy = newBlockedBy,
+        bindings = newBindings)
     }
 
     // Find all the transitively reachable objects starting from a given set of objects
@@ -324,10 +375,6 @@ trait AliasAnalyzer extends oo.CachingPhase {
       g.withContent(updates, accessor)
     }
 
-    // Mark all objects reachable from the given targets as escaped
-    def escape(g: Graph, targets: Seq[Target]): Graph =
-      g.withEscaped(g.computeReachable(targets))
-
     // Check that none of the targets overlap
     def checkArgumentsDisjoint(g: Graph, argTargets: Seq[Target], pos: Position): Unit = {
       for {
@@ -344,14 +391,40 @@ trait AliasAnalyzer extends oo.CachingPhase {
         val captors = captorTargets.foldLeft(Set.empty[Object])(_ ++ _.objectSet)
         val captives = captiveTarget.objectSet
 
-        // Mark all the proper subobjects of `obj` as escaped
-        val subObjs = g.computeReachable(captives)
-        val g1 = g.havoc(subObjs).copy(escaped = g.escaped ++ (subObjs diff captives))
-
         // Record who captured what, so we can perhaps release the captives later
-        assert((g1.blockedBy.keySet intersect captives).isEmpty)
-        g1.copy(blockedBy = g1.blockedBy ++ captives.map(_ -> captors))
+        assert((g.blockedBy.keySet intersect captives).isEmpty)
+        g.copy(blockedBy = g.blockedBy ++ captives.map(_ -> captors))
       }
+
+    // Get the unfolded graph resulting from a set of read accesses
+    def replayUnfolds(g: Graph, unfoldedPairs: Seq[(Object, Accessor)]): Graph = {
+      val unfolded: Map[Object, Seq[Accessor]] = unfoldedPairs
+        .groupBy(_._1).toMap.mapValues(_.map(_._2))
+      var candidates = unfolded.keySet
+      var objects = g.objects
+      var contents = g.contents
+      var continue = true
+      while (continue) {
+        val replayable = candidates intersect objects
+        if (replayable.nonEmpty) {
+          contents = contents ++ replayable.map { case obj =>
+            val currentContent = contents(obj)
+            val newContent = unfolded(obj)
+              .filter(accessor => !currentContent.contains(accessor))
+              .map { accessor =>
+                val newObj = g.initialContents((obj, accessor))
+                objects = objects + newObj
+                accessor -> Target(newObj)
+              }
+            obj -> (currentContent ++ newContent)
+          }
+          candidates = candidates diff replayable
+        } else {
+          continue = false
+        }
+      }
+      g.copy(objects = objects, contents = contents)
+    }
 
     def mergeGraphs(gA: Graph, gB: Graph, cond: Expr): Graph = {
       // TODO: The equality checks among targets could be weakened further. We could also try to
@@ -383,17 +456,23 @@ trait AliasAnalyzer extends oo.CachingPhase {
         unionTargets(a.getOrElse(Map.empty), b.getOrElse(Map.empty)))
       val blockedBy = unionMaps(gA.blockedBy, gB.blockedBy)((a, b) =>
         a.getOrElse(Set.empty) union b.getOrElse(Set.empty))
-      val containers = Map.empty[Object, Target] // TODO
       val bindings = intersectionTargets(gA.bindings, gB.bindings)
       val escaped = gA.escaped union gB.escaped
+      assert(gA.initialContents eq gB.initialContents)
+      val initialContents = gA.initialContents
 
-      Graph(objects, contents, blockedBy, containers, bindings, escaped)
+      Graph(objects, contents, blockedBy, bindings, escaped, initialContents)
     }
 
     // Release the underlying objects by making its captors escape
-    def ensureReleased(g: Graph, target: Target): Graph = {
-      val captives = g.computeReachable(target.objectSet) intersect g.blockedBy.keySet
-      if (captives.nonEmpty) {
+    def ensureRecovered(g: Graph, target: Target, pos: Position): Graph = {
+      val targetObjs = g.computeReachable(target.objectSet)
+      val escaped = targetObjs intersect g.escaped
+      val captives = targetObjs intersect g.blockedBy.keySet
+      if (escaped.nonEmpty) {
+        val objsStr = escaped.mkString(", ")
+        ctx.reporter.fatalError(pos, s"Reference to escaped objects {$objsStr}")
+      } else if (captives.nonEmpty) {
         val captors = captives.flatMap(g.blockedBy)
         g.withEscaped(g.computeReachable(captors))
       } else {
@@ -402,8 +481,6 @@ trait AliasAnalyzer extends oo.CachingPhase {
     }
 
     // The actual computation of the heap graph
-
-
 
     def rec(g: Graph, expr: Expr): (Graph, Option[Target]) = {
       // Add a new object of the given typen and with the given subobjects to the graph
@@ -442,13 +519,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
         case v: Variable =>
           g.bindings.get(v.toVal) match {
             case targetOpt @ Some(target) =>
-              val escapedTargetObjs = g.escaped intersect g.computeReachable(target.objectSet)
-              if (escapedTargetObjs.nonEmpty) {
-                val objsStr = escapedTargetObjs.mkString(", ")
-                ctx.reporter.fatalError(v.getPos, s"Reference to escaped objects {$objsStr}")
-              }
-
-              val g1 = ensureReleased(g, target)
+              val g1 = ensureRecovered(g, target, v.getPos)
               (g1, Some(target))
             case None =>
               assert(!isHeapType(v.tpe), s"Expected heap graph binding for $v : ${v.tpe}")
@@ -517,42 +588,64 @@ trait AliasAnalyzer extends oo.CachingPhase {
           // Ensure no objects are aliased through function arguments
           checkArgumentsDisjoint(g1, argTargets.flatten, fi.getPos)
 
+          // Mark all objects reachable from the heap-relevant arguments as escaped
+          // TODO: Don't let pure parameters escape
+          val g2 = g1.withEscaped(g1.computeReachable(argTargets.flatten))
+
+          // Replace escaping objects
+          val argObjsSubst = fd.params.zip(argTargets).foldLeft(Map.empty[Object, Object]) {
+            case (subst, (param, Some(target))) =>
+              val newObj = Object(param.freshen)
+              subst ++ target.objects.map(obj => obj -> newObj)
+            case (subst, (_, None)) => subst
+          }
+          val g3 = g2.replaceByFresh(argObjsSubst)
+
           // Add new object returned from the call
           val returnTpe = fi.getType
-          val (g2, resTargetOpt) = if (isHeapType(returnTpe)) {
+          val (g4, resTargetOpt) = if (isHeapType(returnTpe)) {
             val returnObj = Object.fresh("ret", returnTpe)
-            (g1.withObject(returnObj), Some(Target(returnObj)))
+            (g3.withObject(returnObj), Some(Target(returnObj)))
           } else {
-            (g1, None)
+            (g3, None)
           }
 
-          val paramsAndArgTargets = fd.params.zip(argTargets)
-          val (captTargets, uncaptTargets) = paramsAndArgTargets
-            .collect { case (p, t) if isHeapParam(p) => (p, t.get) }
-            .partition { case (p, _) => calleeSummary.capturedBy.contains(p) }
-
-          // Havoc non-escaping targets
-          // TODO: Don't havoc pure parameters
-          val g3 = g2.havoc(g2.computeReachable(uncaptTargets.map(_._2)))
-
-          // Havoc and mark escaping arguments
+          // Record captured objects
+          val argTargetsRewritten = argTargets.map(_.map(_.replace(argObjsSubst)))
+          val paramsAndArgTargets = fd.params.zip(argTargetsRewritten)
           val argTargetsMap: Map[ValDef, Option[Target]] = (
               paramsAndArgTargets ++
               resTargetOpt.map(resTarget => (ValDef(ResultId, returnTpe), Some(resTarget))).toSeq
             ).toMap
-          val captures = captTargets.toSeq.map { case (param, argTarget) =>
-            (calleeSummary.capturedBy(param).toSeq.flatMap(argTargetsMap.apply), argTarget)
+          val captures = paramsAndArgTargets.collect {
+            case (param, Some(argTarget)) if calleeSummary.capturedBy.contains(param) =>
+              (calleeSummary.capturedBy(param).toSeq.flatMap(argTargetsMap.apply), argTarget)
           }
-          val g4 = capture(g3, captures)
+          val g5 = capture(g4, captures)
 
-          (g4, resTargetOpt)
+          (g5, resTargetOpt)
 
         case IfExpr(cond, thenn, elze) =>
           // TODO: We need to somehow capture `cond` as interpreted at *this* program point
           // (to reflect the current state of its mutable parts).
           val (g1, _) = rec(g, cond)
+
+          // Process each branch, while keeping track of which objects were unfolded
+          def unfoldsSnapshot(): Set[(Object, Accessor)] = g.initialContents.keySet.toSet
+          val unfoldsBase = unfoldsSnapshot()
           val (g2A, targetOptA) = rec(g1, thenn)
+          val unfoldsAfterA = unfoldsSnapshot()
           val (g2B, targetOptB) = rec(g1, elze)
+          val unfoldsAfterB = unfoldsSnapshot()
+
+          // Make sure that if one branch unfolds an object, so does the other
+          // This ensures that targets will remain exhaustive after the merging step below
+          val (unfoldsA, unfoldsB) =
+            (unfoldsAfterA diff unfoldsBase, unfoldsAfterB diff unfoldsAfterA)
+          val g3A = replayUnfolds(g2A, unfoldsB.toSeq)
+          val g3B = replayUnfolds(g2B, unfoldsA.toSeq)
+
+          // Compute the overall returned target
           val targetOpt = (targetOptA, targetOptB) match {
             case (Some(targetA), Some(targetB)) =>
               if (targetA == targetB)
@@ -564,7 +657,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
             case _ => ctx.reporter.internalError("Computing heap graph for if expression " +
               "returned target in one but not the other branch")
           }
-          (mergeGraphs(g2A, g2B, cond), targetOpt)
+          (mergeGraphs(g3A, g3B, cond), targetOpt)
 
         case m: MatchExpr =>
           rec(g, matchToIfThenElse(m))
@@ -603,7 +696,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
       }
       .unzip
     val (contents, bindings) = (contentsSeq.toMap, bindingsSeq.toMap)
-    val graph = Graph(contents.keySet, contents, Map.empty, Map.empty, bindings, Set.empty)
+    val graph = Graph(contents.keySet, contents, Map.empty, bindings, Set.empty, MutableMap.empty)
 
     // Compute the graph at the end of the function
     val (resultGraph, resultTargetOpt) = rec(graph, body)
@@ -708,10 +801,10 @@ trait AliasAnalyzer extends oo.CachingPhase {
   {
     import java.nio.file.{Files, Paths}
 
-    def isBindingInvalid(bdg: ValDef) =
+    def isInvalidBinding(bdg: ValDef) =
       resultOpt match {
         case Some((resVd, _)) if resVd eq bdg => false
-        case _ => graph.isBindingInvalid(bdg)
+        case _ => graph.isInvalidBinding(bdg)
       }
 
     // println(s" --- Function ${fd.id}: ---")
@@ -763,11 +856,11 @@ trait AliasAnalyzer extends oo.CachingPhase {
     val bindingsAndResult = graph.bindings ++ resultOpt
     val bindings = bindingsAndResult.keys.map { bdg =>
       val opts = Seq(s"""label="${N(bdg.id)}"""", """style="bold,rounded"""")
-      val allOpts = opts ++ redOpt(isBindingInvalid(bdg))
+      val allOpts = opts ++ redOpt(isInvalidBinding(bdg))
       s"""bdg_${I(bdg.id)} ${O(allOpts)}"""
     }
     val bindingEdges = bindingsAndResult.map { case (bdg, target) =>
-      val opts = Seq("style=bold") ++ redOpt(isBindingInvalid(bdg))
+      val opts = Seq("style=bold") ++ redOpt(isInvalidBinding(bdg))
       describeTarget(s"bdg_${I(bdg.id)}", target, opts)
     }
 
