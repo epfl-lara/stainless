@@ -214,6 +214,13 @@ trait AliasAnalyzer extends oo.CachingPhase {
     blockedBy: Map[Object, Set[Object]], // for a captured object, its potential captors
     bindings: Map[ValDef, Target], // mapping from program bindings to heap objects
     escaped: Set[Object], // objects that escaped and we thus must give up access to
+
+    // Mapping that contains the object that `recv.field` unfolds to prior to any modification.
+    // We store this in a mutable map shared among forked graphs, so unfoldings in parallel
+    // branches will result in the same subobjects being created.
+    // When merging graphs from different branches, we make sure that all unfoldings of one
+    // branch are "replayed" in the other (see handling of `Ifs` below). This ensures that once
+    // a field has been unfolded, we know what it points to under all path conditions.
     initialContents: MutableMap[(Object, Accessor), Object]
   ) {
     def withObject(obj: Object): Graph =
@@ -338,15 +345,8 @@ trait AliasAnalyzer extends oo.CachingPhase {
     import symbols._
 
     // Ensure the graph has explicit objects for accessing `accessor` on `expr`
-    def prepareForAccess(g: Graph, recvTarget: Target, accessor: Accessor): Graph = {
-      // val missing = recvTarget.objects.filterNot(obj => g.contents(obj).contains(accessor))
-      // if (missing.nonEmpty) {
-      //   ctx.reporter.fatalError(pos,
-      //     s"Not all receiver object(s) unfolded at accessor $accessor! " +
-      //     "You can work around this by adding bindings for intermediate results.")
-      // }
+    def prepareForAccess(g: Graph, recvTarget: Target, accessor: Accessor): Graph =
       g.ensureObjectsUnfoldedAt(recvTarget.objects, accessor)
-    }
 
     // Computes the new contents on objects assuming we update `accessor` on `recvTargets`
     // TODO: Try to eliminate targets using the path condition and a simplifier or solver?
@@ -589,7 +589,7 @@ trait AliasAnalyzer extends oo.CachingPhase {
 
           // Mark all objects reachable from the heap-relevant arguments as escaped
           // TODO: Don't let pure parameters escape
-          val g2 = g1.withEscaped(g1.computeReachable(argTargets.flatten))
+          val g2 = g1.havoc(g1.computeReachable(argTargets.flatten))
 
           // Replace escaping objects
           val argObjsSubst = fd.params.zip(argTargets).foldLeft(Map.empty[Object, Object]) {
@@ -702,8 +702,18 @@ trait AliasAnalyzer extends oo.CachingPhase {
     val graph = Graph(contents.keySet, contents, Map.empty, bindings, Set.empty, MutableMap.empty)
 
     // Compute the graph at the end of the function
-    val (resultGraph, resultTargetOpt) = rec(graph, body)
+    val (almostResultGraph, resultTargetOpt) = rec(graph, body)
     val resultOpt = resultTargetOpt.map(target => (ValDef(ResultId, body.getType), target))
+
+    // Recover all the input bindings
+    val RecoverInputs = false
+    val resultGraph = if (RecoverInputs) {
+      inputs.foldLeft(almostResultGraph) { case (g, input) =>
+        if (g.bindings.contains(input)) ensureRecovered(g, g.bindings(input), input.getPos) else g
+      }
+    } else {
+      almostResultGraph
+    }
 
     // Dump the graph to dot
     dumpPath.foreach(dumpGraph(resultGraph, resultOpt, _))
@@ -719,10 +729,6 @@ trait AliasAnalyzer extends oo.CachingPhase {
       (paramBindings ++ resultOpt).foreach {
         case (captorBdg, captorBdgTarget) =>
           val captorReach = resultGraph.computeReachable(captorBdgTarget.objectSet)
-
-          // FIXME: Probably not actually true, but where do we want to represent this?
-          assert(resultGraph.escaped.intersect(captorReach).isEmpty)
-
           for {
             (captiveBdg, captiveBdgTarget) <- paramBindings
             if captiveBdg ne captorBdg
