@@ -32,11 +32,11 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
   }
 
   def isMutableType(tpe: Type): Boolean = {
-    isMutableType(tpe, mutableClasses)
+    isMutableType(tpe, mutableClasses, Set())
   }
 
   def isMutableClassType(ct: ClassType): Boolean = {
-    isMutableClassType(ct, mutableClasses)
+    isMutableClassType(ct, mutableClasses, Set())
   }
 
   @inline def mutableClasses: Set[Identifier] = _mutableClasses.get
@@ -48,7 +48,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     inox.utils.fixpoint[Set[Identifier]] { mutableClasses =>
       mutableClasses ++
       symbols.classes.collect {
-        case (id, cd) if isMutableClassType(cd.typed.toType, mutableClasses) => id
+        case (id, cd) if isMutableClassType(cd.typed.toType, mutableClasses, Set()) => id
       } ++
       mutableClasses.flatMap { id =>
         val cd = symbols.getClass(id)
@@ -57,35 +57,36 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     } (initialClasses)
   })
 
-  private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier]): Boolean = {
-    mutableClasses.contains(ct.id) || ct.tcd.fields.exists { vd =>
-      vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses)
-    }
+  private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+    mutableClasses.contains(ct.id) || (!visited(ct.id) && ct.tcd.fields.exists { vd =>
+      vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + ct.id)
+    })
   }
 
-  private[this] def isRealMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = tpe match {
+  private[this] def isRealMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
     case tp: TypeParameter => false
-    case _ => isMutableType(tpe, mutableClasses)
+    case _ => isMutableType(tpe, mutableClasses, visited)
   }
 
-  private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = tpe match {
+  private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
     case tp: TypeParameter => tp.flags contains IsMutable
     case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
     case any: AnyType => true
     case arr: ArrayType => true
     case map: MutableMapType => true
     case ft: FunctionType => false
-    case ct: ClassType => isMutableClassType(ct, mutableClasses)
-    case adt: ADTType => isMutableADTType(adt, mutableClasses)
+    case ct: ClassType => isMutableClassType(ct, mutableClasses, visited)
+    case adt: ADTType => isMutableADTType(adt, mutableClasses, visited)
     case ta: TypeApply if ta.isAbstract => ta.getTypeDef.flags contains IsMutable
-    case ta: TypeApply => isMutableType(ta.getType, mutableClasses)
-    case NAryType(tps, _) => tps.exists(isMutableType(_, mutableClasses))
+    case ta: TypeApply => isMutableType(ta.getType, mutableClasses, visited)
+    case NAryType(tps, _) => tps.exists(isMutableType(_, mutableClasses, visited))
   }
 
-  private[this] def isMutableADTType(adt: ADTType, mutableClasses: Set[Identifier]): Boolean = {
+  private[this] def isMutableADTType(adt: ADTType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+    !visited(adt.id) &&
     adt.getSort.constructors.exists { cons =>
       cons.fields.exists { vd =>
-        vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses)
+        vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + adt.id)
       }
     }
   }

@@ -47,9 +47,9 @@ trait AntiAliasing
     // declared as parameters.
     def makeFunctionTypeExplicit(tpe: Type): Type = tpe match {
       case ft @ FunctionType(from, to) =>
-        ft.copy(to = tupleTypeWrap(to +: from.filter(isMutableType)).copiedFrom(to)).copiedFrom(tpe)
+        ft.copy(to = tupleTypeWrap(to +: from.filter(isMutableType(_))).copiedFrom(to)).copiedFrom(tpe)
       case pt @ PiType(params, to) =>
-        pt.copy(to = tupleTypeWrap(to +: params.map(_.tpe).filter(isMutableType)).copiedFrom(to)).copiedFrom(tpe)
+        pt.copy(to = tupleTypeWrap(to +: params.map(_.tpe).filter(isMutableType(_))).copiedFrom(to)).copiedFrom(tpe)
     }
 
     object transformer extends SelfTreeTransformer {
