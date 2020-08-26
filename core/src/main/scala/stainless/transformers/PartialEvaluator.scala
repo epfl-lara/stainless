@@ -56,17 +56,21 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
       }
 
       val inlined: Option[Expr] = {
-        val (specs, body) = deconstructSpecs(tfd.fullBody)
+        val specced = BodyWithSpecs(tfd.fullBody)
 
-        body.map { body =>
-          val pre = specs.collectFirst { case Precondition(e) => e }.get
-          val l @ Lambda(Seq(res), post) = specs.collectFirst { case Postcondition(e) => e }.get
+        specced.bodyOpt.map { body =>
+          val bodyPost = specced.getSpec(PostconditionKind).map {
+            case Postcondition(lambda @ Lambda(Seq(res), post)) =>
+              Let(res, body, Assert(post,
+                Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(lambda)
+              ).copiedFrom(body)
+          } .getOrElse(body)
 
-          val newBody: Expr = Assert(pre, Some("Inlined precondition of " + tfd.id.name), Let(res, body,
-            Assert(post, Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(l)
-          ).copiedFrom(body)).copiedFrom(pre)
+          val bodyPrePost = specced.getSpec(PreconditionKind).map { case Precondition(pre) =>
+            Assert(pre, Some("Inlined precondition of " + tfd.id.name), bodyPost).copiedFrom(pre)
+          } .getOrElse(bodyPost)
 
-          freshenLocals((tfd.params zip rargs).foldRight(newBody) {
+          freshenLocals((tfd.params zip rargs).foldRight(bodyPrePost) {
             case ((vd, e), body) => Let(vd, e, body).copiedFrom(body)
           })
         }
