@@ -116,7 +116,9 @@ trait ExprOps extends imperative.ExprOps {
   protected val trees: Trees
   import trees._
 
-  case class Exceptions(expr: Lambda) extends Specification {
+  object ExceptionsKind extends SpecKind("exceptions") { type Spec = Exceptions }
+
+  case class Exceptions(expr: Lambda) extends Specification(ExceptionsKind) {
     def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
       case t: throwing.Trees =>
         t.exprOps.Exceptions(f(expr).asInstanceOf[t.Lambda]).asInstanceOf[trees.exprOps.Specification]
@@ -125,58 +127,14 @@ trait ExprOps extends imperative.ExprOps {
     }
   }
 
-  override def withSpec(expr: Expr, spec: Specification): Expr = spec match {
-    case Exceptions(ex) => withThrowing(expr, Some(ex))
-    case _ => super.withSpec(expr, spec)
+  override def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {
+    case Throwing(body, pred) => Some((Exceptions(pred).setPos(expr), body))
+    case _ => super.peelSpec(expr)
   }
 
-  override def hasSpec(e: Expr): Boolean = e match {
-    case Throwing(_, _) => true
-    case _ => super.hasSpec(e)
-  }
-
-  override def withBody(e: Expr, body: Expr): Expr = e match {
-    case Throwing(b, pred) => Throwing(withBody(b, body), pred).copiedFrom(e)
-    case _ => super.withBody(e, body)
-  }
-
-  override def withoutSpecs(e: Expr): Option[Expr] = e match {
-    case Throwing(b, pred) => withoutSpecs(b)
-    case _ => super.withoutSpecs(e)
-  }
-
-  def throwingOf(expr: Expr): Option[Lambda] = expr match {
-    case Let(i, e, b)      => throwingOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(expr)).copiedFrom(l))
-    case Throwing(b, pred) => Some(pred)
-    case _                 => None
-  }
-
-  override def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Throwing(Ensuring(_, post), _) => Some(post)
-    case _ => super.postconditionOf(expr)
-  }
-
-  def withThrowing(expr: Expr, oie: Option[Lambda]): Expr =
-    (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
-      case (Some(npred), Throwing(b, pred))          => Throwing(b, npred).copiedFrom(expr)
-      case (Some(npred), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withThrowing(b, oie)).copiedFrom(expr)
-      case (Some(npred), b)                          => Throwing(b, npred).copiedFrom(expr)
-      case (None, Throwing(b, p))                    => b
-      case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withThrowing(b, oie)).copiedFrom(expr)
-      case (None, b)                                 => b
-    }
-
-  override def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr =
-    (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
-      case (Some(npost), Throwing(en @ Ensuring(b, _), pred)) => Throwing(Ensuring(b, npost).copiedFrom(en), pred).copiedFrom(expr)
-      case (None, Throwing(Ensuring(b, _), pred))             => Throwing(b, pred).copiedFrom(expr)
-      case _                                                  => super.withPostcondition(expr, oie)
-    }
-
-  override def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
-    val exceptions = throwingOf(e).map(Exceptions)
-    val (specs, body) = super.deconstructSpecs(e)
-    (specs ++ exceptions, body)
+  override def applySpec(spec: Specification, body: Expr): Expr = spec match {
+    case Exceptions(pred) => Throwing(body, pred).setPos(spec.getPos)
+    case _ => super.applySpec(spec, body)
   }
 }
 
