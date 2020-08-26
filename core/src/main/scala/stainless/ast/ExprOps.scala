@@ -155,7 +155,8 @@ trait ExprOps extends inox.ast.ExprOps {
     case Measure(measure) => Decreases(measure, body)
   }).setPos(spec.getPos)
 
-  def withSpec(expr: Expr, spec: Either[Specification, SpecKind]): Expr =
+  // Adds or replaces a spec, when given a left. Removes the given spec kind, when given a right.
+  final def withSpec(expr: Expr, spec: Either[Specification, SpecKind]): Expr =
     spec match {
       case Left(spec) => BodyWithSpecs(expr).withSpec(spec).reconstructed
       case Right(specKind) => BodyWithSpecs(expr).withoutSpec(specKind).reconstructed
