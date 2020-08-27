@@ -26,6 +26,7 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
 
     val runnable = new Runnable {
       override def run(): Unit = try {
+        exceptions.clear()
         initRun()
         callback.beginExtractions()
         onRun()
