@@ -24,7 +24,11 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
   private[this] val runs = components.map(_.run(pipeline))
 
-  def beginExtractions(): Unit = {}
+  def beginExtractions(): Unit = {
+    currentClasses = Seq()
+    currentFunctions = Seq()
+    currentTypeDefs = Seq()
+  }
 
   override def apply(
     file: String,
@@ -82,6 +86,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     if (!errors.isEmpty) {
       reportErrorFooter(symbols)
     }
+
 
     try {
       symbols.ensureWellFormed

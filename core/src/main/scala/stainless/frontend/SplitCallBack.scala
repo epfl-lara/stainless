@@ -37,6 +37,9 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
   final override def beginExtractions(): Unit = {
     assert(tasks.isEmpty)
+    recentIdentifiers.clear()
+    toProcess.clear()
+    symbols = xt.NoSymbols
   }
 
   final override def apply(
