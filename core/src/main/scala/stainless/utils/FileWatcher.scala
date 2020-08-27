@@ -62,6 +62,8 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
 
         if (proceed) {
           ctx.reporter.info(s"Detecting some file modifications...: ${modified mkString ", "}")
+          // Wait a little bit to avoid reading incomplete files from disk
+          Thread.sleep(100)
           ctx.interruptManager.unregisterForInterrupts(interruptible)
           action()
           ctx.interruptManager.registerForInterrupts(interruptible)
