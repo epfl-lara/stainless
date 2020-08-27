@@ -9,6 +9,14 @@ import java.util.concurrent.ConcurrentHashMap
 class ConcurrentCache[A,B](underlying: ConcurrentHashMap[A,B] = new ConcurrentHashMap[A,B]) {
   def get(key: A): Option[B] = Option(underlying.get(key))
   def update(key: A, value: B): Unit = underlying.put(key, value)
+  def getOrElseUpdate(key: A, value: => B): B = {
+    if (underlying.containsKey(key)) underlying.get(key)
+    else {
+      val res = value
+      underlying.put(key, res)
+      res
+    }
+  }
   def contains(key: A): Boolean = underlying.containsKey(key)
   def apply(key: A): B = get(key).get
 

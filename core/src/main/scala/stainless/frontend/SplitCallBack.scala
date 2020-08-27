@@ -119,7 +119,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
   private val canonization = utils.XlangCanonization(xt)
 
-  private val cache = new ConcurrentCache[Identifier, SerializationResult]
+  private val cache = new ConcurrentCache[SerializationResult, Future[Report]]
 
   /******************* Internal Helpers ***********************************************************/
 
@@ -150,13 +150,11 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
     val cf = serialize(Right(fun))(funSyms)
 
-    if (!isInCache(id, cf)) {
-      processFunctionSymbols(id, funSyms)
-      cache.update(id, cf)
-    }
+    val futureReport = cache.getOrElseUpdate(cf, processFunctionSymbols(id, funSyms))
+    this.synchronized { tasks += futureReport }
   }
 
-  private def processFunctionSymbols(id: Identifier, syms: xt.Symbols): Unit = {
+  private def processFunctionSymbols(id: Identifier, syms: xt.Symbols): Future[Report] = {
     val errors = TreeSanitizer(xt).enforce(symbols)
     if (!errors.isEmpty) {
       reportErrorFooter(symbols)
@@ -184,12 +182,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
       }
     }
 
-    val futureReport = Future.sequence(componentReports).map(Report)
-    this.synchronized { tasks += futureReport }
-  }
-
-  private def isInCache(id: Identifier, cf: SerializationResult): Boolean = {
-    cache.contains(id) && cache(id) == cf
+    Future.sequence(componentReports).map(Report)
   }
 
   private def serialize(node: Either[xt.ClassDef, xt.FunDef])(implicit syms: xt.Symbols): SerializationResult = {
