@@ -36,6 +36,7 @@ package object extraction {
     "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
+    "EffectElaboration"         -> "Instrument program to make effects explicit",
     "AntiAliasing"              -> "Rewrite field and array mutations",
     "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
