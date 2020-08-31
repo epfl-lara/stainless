@@ -1,6 +1,30 @@
 
 # Release Notes
 
+## Version 0.7.2 (29-08-2020)
+
+### Features
+
+- Add `ListMap` implementation (associative list) (#794)
+
+### Improvements
+
+- Remove type-checking tuple rule that was duplicating VCs (#792)
+- Improve documentation on check/assert (#815)
+- Add documentation for contracts on abstract functions (#825)
+
+### Bug fixes
+
+- Fix `@induct` transformation for bounded-size integers (#804)
+- Add checks to reject programs not supported by Stainless (#810, #814)
+- Fix type encoding translation error (#818)
+- Fix issues on `@inlineInvariant` feature (#820)
+- Fix bug where Stainless could make an infinite loop in `isMutableClassType` (#824)
+- Fix "missing field" error in watch mode (#829)
+- Fix bug in watch mode where errors from previous runs kept getting reported (#830)
+- Fix bug in watch mode that made the verification report incomplete (#831)
+
+
 ## Version 0.7.1 (17-06-2020)
 
 ### Features
