@@ -9,7 +9,7 @@ trait EffectElaboration
      with SimpleSorts
      with oo.IdentityTypeDefs
      with oo.SimpleClasses
-    /* with AliasAnalyzer */ { self =>
+     with StateInstrumentation { self =>
   val s: Trees
   val t: s.type
   import s._
@@ -38,20 +38,12 @@ trait EffectElaboration
     symbols.withFunctions(functions.flatten)
 
   protected case class EffectTransformerContext(symbols: Symbols)
-    //extends AliasAnalysis
+    extends InstrumentationContext
   { context =>
-    object stateInstrumenter extends StateInstrumenter {
-      val trees: self.s.type = self.s
-      val symbols: trees.Symbols = context.symbols.withFunctions(
-        context.symbols.functions.values
-          .map(fd => fd.copy(returnType = InstrumType(fd.returnType))).toSeq
-      )
-    }
-
     def checkEffects(fd: FunDef): Unit = {
       def assertPureIn(expr: Expr, what: String): Unit = {
-        import stateInstrumenter._
-        instrument(expr)(PurityCheckOn(what))(dummyEnv)
+        import instrumenter._
+        instrument(expr)(PurityCheckOn(what))(dummyState)
       }
 
       exprOps.preTraversal {
@@ -61,7 +53,9 @@ trait EffectElaboration
         case Forall(_, pred)              => assertPureIn(pred, "forall quantification")
         case Assert(cond, _, _)           => assertPureIn(cond, "assertion")
         case Assume(cond, _)              => assertPureIn(cond, "assumption")
-        case While(_, _, Some(inv))       => assertPureIn(inv, "loop invariant")
+        case While(_, _, pred, pred2, _)  =>
+          pred.foreach(assertPureIn(_, "loop invariant"))
+          pred2.foreach(assertPureIn(_, "no-return loop invariant"))
         case MatchExpr(_, cses) =>
           cses.foreach { cse =>
             cse.optGuard.foreach { guard => assertPureIn(guard, "case guard") }
@@ -79,36 +73,37 @@ trait EffectElaboration
   override protected type TransformerContext = EffectTransformerContext
   override protected def getContext(symbols: Symbols) = EffectTransformerContext(symbols)
 
+  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    super.extractSymbols(tctx, symbols)
+      .withSorts(Seq(refSort))
+  }
+
   override protected def extractFunction(tctx: EffectTransformerContext,
       fd: FunDef): Option[FunDef] =
   {
     import tctx._
     import symbols._
-    import stateInstrumenter._
+    import instrumenter._
     import dsl._
 
     checkEffects(fd)
 
     // Transform body
-    // TODO: Generalize this to "real" state (and StateInstrumenter itself)
-    val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
-    body match {
-      case Some(body) =>
-        val newBody: Expr = instrument(body)(NoPurityCheck)(IntegerLiteral(0)) match {
-          case Uninstrum(e, env0) => E(e, env0).copiedFrom(e)
-          case Instrum(e) => e
-        }
-
-        val newReturnType = InstrumType(fd.returnType)
-
-        val newFullBody = exprOps.reconstructSpecs(specs, Some(newBody), newReturnType)
-        val newFullBody2 = exprOps.withPostcondition(newFullBody, Some(
-          \("res" :: newReturnType)(res => res._2 <= IntegerLiteral(2))
-        ))
-        Some(fd.copy(fullBody = newFullBody2, returnType = newReturnType))
-      case None =>
-        Some(fd)
-    }
+    val fdAdjusted = adjustFunSig(fd)
+    val initialState = fdAdjusted.params.head.toVariable
+    // TODO: Move introduction of MutableMaps into a separate phase
+    // val body1 = fdAdjusted.fullBody
+    // val body1 = makeHeapMutationExplicit(fdAdjusted.fullBody)
+    val body1 = refTransformer.transform(fd.fullBody)
+    val body2 = ensureInstrum(instrument(body1)(NoPurityCheck)(initialState))
+    val body3 = exprOps.postconditionOf(body2).map { case lam @ Lambda(params, post) =>
+      val newPost = exprOps.postMap {
+        case Old(e) => Some(instrumentPure(e, initialState))
+        case _ => None
+      }(post)
+      exprOps.withPostcondition(body2, Some(Lambda(params, newPost).copiedFrom(lam)))
+    }.getOrElse(body2)
+    Some(fdAdjusted.copy(fullBody = body3))
   }
 
   override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =
