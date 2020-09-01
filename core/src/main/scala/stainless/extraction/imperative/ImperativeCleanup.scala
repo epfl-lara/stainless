@@ -80,23 +80,23 @@ trait ImperativeCleanup
     case _ => ()
   } (expr)
 
-  private def checkValidOldUsage(expr: s.Expr): Unit = s.exprOps.preTraversal {
-    case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
-      throw MalformedStainlessCode(o,
-        s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
-    case o @ s.Old(s.ClassSelector(v: s.Variable, id)) =>
-      throw MalformedStainlessCode(o,
-        s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
-    case o @ s.Old(e) =>
-      throw MalformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
-    case _ => ()
-  } (expr)
+  // private def checkValidOldUsage(expr: s.Expr): Unit = s.exprOps.preTraversal {
+  //   case o @ s.Old(s.ADTSelector(v: s.Variable, id)) =>
+  //     throw MalformedStainlessCode(o,
+  //       s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
+  //   case o @ s.Old(s.ClassSelector(v: s.Variable, id)) =>
+  //     throw MalformedStainlessCode(o,
+  //       s"Stainless `old` can only occur on `this` and variables. Did you mean `old($v).$id`?")
+  //   case o @ s.Old(e) =>
+  //     throw MalformedStainlessCode(o, s"Stainless `old` is only defined on `this` and variables.")
+  //   case _ => ()
+  // } (expr)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(context.symbols)
 
     specs foreach {
-      case post: s.exprOps.Postcondition => post foreach checkValidOldUsage
+      case post: s.exprOps.Postcondition => //post foreach checkValidOldUsage
       case spec => spec foreach checkNoOld
     }
 

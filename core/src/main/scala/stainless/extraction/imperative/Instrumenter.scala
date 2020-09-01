@@ -61,6 +61,10 @@ trait Instrumenter { self =>
         ir
     }
   }
+
+  // Only do the rewriting, but ensure that the result has no instrumentation (i.e. no effects)
+  def instrumentPure(e: Expr, env0: Env): Expr =
+    instrument(e)(PurityCheckOn("pure result"))(env0).asInstanceOf[Uninstrum].ve
 }
 
 case class IllegalImpureInstrumentation(msg: String, pos: Position) extends Exception(
@@ -91,7 +95,7 @@ trait MonadicInstrumenter extends Instrumenter { self =>
       implicit pc: PurityCheck): MExpr =
   {
     def rec(mes: Seq[MExpr], ves: Seq[VExpr]): MExpr = mes match {
-      case Nil => f(ves)
+      case Nil => f(ves.reverse)
       case me +: mes => bind(me)(ve => rec(mes, ve +: ves))
     }
     rec(mes, Seq.empty)
@@ -130,6 +134,10 @@ trait MonadicInstrumenter extends Instrumenter { self =>
           }
         }
       }
+
+    case _: Lambda | _: Application =>
+      // TODO: To implement for postconditions to work
+      ???
 
     case _: LetRec | _: ApplyLetRec =>
       ???
@@ -173,15 +181,15 @@ trait StateInstrumenter extends MonadicInstrumenter {
   type SExpr = Expr
   type Env = SExpr /* Our state is a single BigInt-typed counter */
 
-  def InstrumType(tpe: Type) = T(tpe, IntegerType())
+  def stateTpe: Type
+
+  final def InstrumType(tpe: Type) = T(tpe, stateTpe)
 
   def ensureInstrum(ir: IResult): IExpr =
     ir match {
       case Uninstrum(ve, s0) => E(ve, s0).copiedFrom(ve)
       case Instrum(ie) => ie
     }
-
-  lazy val dummyEnv: Env = IntegerLiteral(0)
 
   protected def pure(ve: VExpr): MExpr = { s0 =>
     Uninstrum(ve, s0)
@@ -204,20 +212,5 @@ trait StateInstrumenter extends MonadicInstrumenter {
 
   protected def choice(mes: Seq[MExpr])(f: Seq[IResult] => IResult): MExpr = { s0 =>
     f(mes.map(_.apply(s0)))
-  }
-
-  override def instrument(e: Expr)(implicit pc: PurityCheck): MExpr = e match {
-    case FunctionInvocation(id, targs, args) =>
-      bindMany(args.map(instrument)) { vargs =>
-        { s0 =>
-          Instrum(E(
-            FunctionInvocation(id, targs, vargs).copiedFrom(e)._1.copiedFrom(e),
-            (s0 + IntegerLiteral(1).copiedFrom(e)).copiedFrom(e)
-          ).copiedFrom(e))
-        }
-      }
-
-    case _ =>
-      super.instrument(e)
   }
 }
