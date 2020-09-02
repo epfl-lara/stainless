@@ -84,6 +84,7 @@ trait EffectElaboration
     import tctx._
     import symbols._
     import instrumenter._
+    import exprOps._
     import dsl._
 
     checkEffects(fd)
@@ -91,19 +92,28 @@ trait EffectElaboration
     // Transform body
     val fdAdjusted = adjustFunSig(fd)
     val initialState = fdAdjusted.params.head.toVariable
-    // TODO: Move introduction of MutableMaps into a separate phase
-    // val body1 = fdAdjusted.fullBody
-    // val body1 = makeHeapMutationExplicit(fdAdjusted.fullBody)
-    val body1 = refTransformer.transform(fd.fullBody)
-    val body2 = ensureInstrum(instrument(body1)(NoPurityCheck)(initialState))
-    val body3 = exprOps.postconditionOf(body2).map { case lam @ Lambda(params, post) =>
-      val newPost = exprOps.postMap {
-        case Old(e) => Some(instrumentPure(e, initialState))
-        case _ => None
-      }(post)
-      exprOps.withPostcondition(body2, Some(Lambda(params, newPost).copiedFrom(lam)))
-    }.getOrElse(body2)
-    Some(fdAdjusted.copy(fullBody = body3))
+    val fullBodyWithRefs = refTransformer.transform(fd.fullBody)
+    val (specs, bodyOpt) = deconstructSpecs(fullBodyWithRefs)
+    val newBodyOpt = bodyOpt.map { body =>
+      ensureInstrum(instrument(body)(NoPurityCheck)(initialState))
+    }
+    val newSpecs = specs.map {
+      case Precondition(expr) =>
+        Precondition(instrumentPure(expr, initialState))
+      case Measure(expr) =>
+        Measure(instrumentPure(expr, initialState))
+      case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
+        val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
+        val finalState = resVd1.toVariable._2
+        val post1 = instrumentPure(post, finalState)
+        val post2 = postMap {
+          case Old(e) => Some(instrumentPure(e, initialState))
+          case _ => None
+        }(post1)
+        Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
+    }
+    val newFullBody = reconstructSpecs(newSpecs, newBodyOpt, fdAdjusted.returnType)
+    Some(fdAdjusted.copy(fullBody = newFullBody))
   }
 
   override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =

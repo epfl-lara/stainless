@@ -136,7 +136,6 @@ trait MonadicInstrumenter extends Instrumenter { self =>
       }
 
     case _: Lambda | _: Application =>
-      // TODO: To implement for postconditions to work
       ???
 
     case _: LetRec | _: ApplyLetRec =>
