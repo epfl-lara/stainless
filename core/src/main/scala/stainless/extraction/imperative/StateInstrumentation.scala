@@ -41,6 +41,11 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
   trait InstrumentationContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
 
+    def smartLet(vd: => ValDef, e: Expr)(f: Expr => Expr): Expr = e match {
+      case _: Terminal => f(e)
+      case _ => let(vd, e)(f)
+    }
+
     def freshStateParam(): ValDef = "s0" :: HeapType
 
     // TODO: Perform some effect analysis to omit some state parameters
@@ -81,12 +86,11 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
           }
 
         case ClassSelector(recv, field) =>
-          val fieldTpe = e.getType
-          val key = E(transform(recv), toHeapField(field)).copiedFrom(e)
-          let("key" :: HeapType.from, key) { key =>
+          smartLet("recv" :: RefType, transform(recv)) { recv =>
+            val key = E(recv, toHeapField(field)).copiedFrom(e)
             val app = MutableMapApply(TheHeap, key).copiedFrom(e)
-            val aio = Annotated(AsInstanceOf(app, fieldTpe).copiedFrom(e), Seq(Unchecked))
-              .copiedFrom(e)
+            val fieldTpe = e.getType
+            val aio = AsInstanceOf(app, fieldTpe).copiedFrom(e)
             Assume(validHeapField(TheHeap, key, fieldTpe).copiedFrom(e), aio).copiedFrom(e)
           }
 
