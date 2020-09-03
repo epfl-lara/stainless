@@ -966,8 +966,17 @@ trait CodeExtraction extends ASTExtractors {
     case md: ModuleDef if md.symbol.isSynthetic => xt.UnitLiteral()
 
     case Block(es, e) =>
-      val b = extractBlock(es :+ e)
-      xt.exprOps.flattenBlocks(b)
+      extractBlock(es :+ e) match {
+        case xt.Block(Seq(ens @ xt.Ensuring(body, lam @ xt.Lambda(Seq(res), post))), xt.UnitLiteral()) =>
+          // Scalac will automatically wrap bodies in Block(Seq(body), UnitLiteral()) when Unit is
+          // expected, but the actual return type is another. This obscures postconditions.
+          val lam2 = xt.Lambda(Seq(res.copy(tpe = xt.UnitType())), post).copiedFrom(lam)
+          val b2 = xt.Block(Seq(body), xt.UnitLiteral().copiedFrom(body)).copiedFrom(body)
+          xt.Ensuring(xt.exprOps.flattenBlocks(b2), lam2).copiedFrom(ens)
+        case b =>
+          xt.exprOps.flattenBlocks(b)
+      }
+
 
     case Try(body, cses, fin) =>
       val rb = extractTree(body)
