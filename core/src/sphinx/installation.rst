@@ -220,7 +220,7 @@ If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will use th
 
 To improve performance, we highly recommend that you install the following two additional external SMT solvers as binaries for your platform:
 
-* CVC4 1.7, http://cvc4.cs.stanford.edu
+* CVC4 1.8, http://cvc4.cs.stanford.edu
 * Z3 4.8.6, https://github.com/Z3Prover/z3
 
 You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4`` flags.
@@ -252,10 +252,10 @@ Install Z3 4.8.6 (Linux & macOS)
   Z3 version 4.8.6 - 64 bit`
 
 
-Install CVC 1.7 (Linux)
+Install CVC 1.8 (Linux)
 ***********************
 
-1. Download CVC4 1.7 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
+1. Download CVC4 1.8 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
 
 2. Copy or link the downloaded binary under name ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
 
@@ -269,7 +269,7 @@ Install CVC 1.7 (Linux)
 
 .. code-block:: text
 
-  This is CVC4 version 1.7
+  This is CVC4 version 1.8
 
 Install CVC 1.6 (macOS)
 ***********************
