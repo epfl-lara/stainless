@@ -83,7 +83,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
-      contents = (name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
+      contents = (name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.1f")
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
@@ -111,7 +111,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +
       f"invalid: ${stats.invalid}%-4d " +
       f"unknown: ${stats.unknown}%-4d " +
-      f"time: ${stats.time/1000d}%7.3f"
+      f"time: ${stats.time/1000d}%7.1f"
 
     var t = Table(withColor(s"$name summary", color))
     t ++= rows
