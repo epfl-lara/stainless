@@ -160,6 +160,11 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
         // case Application(callee, args) =>
         //   ???
 
+        case Block(exprs, expr) =>
+          bindMany(exprs.map(instrument)) { _ =>
+            instrument(expr)
+          }
+
         case Old(_) =>
           // Ignored here, but replaced separately later
           pure(e)
