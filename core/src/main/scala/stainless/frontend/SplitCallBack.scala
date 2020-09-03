@@ -128,36 +128,44 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
   private def processSymbols(syms: xt.Symbols): Unit = {
     val ignoreFlags = Set("library", "synthetic")
-    def shouldProcess(id: Identifier): Boolean = {
-      !syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name) &&
-      this.synchronized {
-        val res = toProcess(id)
-        toProcess -= id
-        res
+    def shouldProcess(id: Identifier): Set[Identifier] = {
+      if (syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name))
+        Set()
+      else {
+        val mutuallyRecursiveDeps =
+          syms.dependencies(id)
+            .filter(syms.lookupFunction(_).nonEmpty)
+            .filter(id2 => syms.dependencies(id2).contains(id))
+        this.synchronized {
+          val res = (mutuallyRecursiveDeps + id).filter(toProcess)
+          toProcess -= id
+          toProcess --= mutuallyRecursiveDeps
+          res
+        }
       }
     }
 
-    for (id <- syms.functions.keys if shouldProcess(id)) {
-      processFunction(id, syms)
+    for (id <- syms.functions.keys) {
+      processFunctions(shouldProcess(id), syms)
     }
   }
 
-  private def processFunction(id: Identifier, syms: xt.Symbols): Unit = {
-    val fun = syms.functions(id)
-    val deps = syms.dependencies(id)
+  private def processFunctions(ids: Set[Identifier], syms: xt.Symbols): Unit = {
+    val funs = ids.map(syms.functions)
+    val deps = ids.flatMap(syms.dependencies)
     val clsDeps = syms.classes.values.filter(cd => deps(cd.id)).toSeq
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
     val typeDeps = syms.typeDefs.values.filter(td => deps(td.id)).toSeq
-    val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(fun +: funDeps).withTypeDefs(typeDeps)
+    val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ funs).withTypeDefs(typeDeps)
     val funSyms = Recovery.recover(preSyms)
 
-    val cf = serialize(Right(fun))(funSyms)
+    val cf = serialize(funs)(funSyms)
 
-    val futureReport = cache.getOrElseUpdate(cf, processFunctionSymbols(id, funSyms))
+    val futureReport = cache.getOrElseUpdate(cf, processFunctionsSymbols(ids, funSyms))
     this.synchronized { tasks += futureReport }
   }
 
-  private def processFunctionSymbols(id: Identifier, syms: xt.Symbols): Future[Report] = {
+  private def processFunctionsSymbols(ids: Set[Identifier], syms: xt.Symbols): Future[Report] = {
     val errors = TreeSanitizer(xt).enforce(symbols)
     if (!errors.isEmpty) {
       reportErrorFooter(symbols)
@@ -179,7 +187,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     // Dispatch a task to the executor service instead of blocking this thread.
     val componentReports: Seq[Future[RunReport]] = {
       runs map { run =>
-        run(id, syms) map { a =>
+        run(ids.toSeq, syms) map { a =>
           RunReport(run)(a.toReport): RunReport
         }
       }
@@ -188,15 +196,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     Future.sequence(componentReports).map(Report)
   }
 
-  private def serialize(node: Either[xt.ClassDef, xt.FunDef])(implicit syms: xt.Symbols): SerializationResult = {
-    def getId(node: Either[xt.ClassDef, xt.FunDef]) = node match {
-      case Left(cd) => cd.id
-      case Right(fd) => fd.id
-    }
-
-    val id = getId(node)
-
-    serializer.serialize(canonization(syms, id))
+  private def serialize(fds: Set[xt.FunDef])(implicit syms: xt.Symbols): SerializationResult = {
+    serializer.serialize(canonization(syms, fds.toSeq.map(_.id).sorted))
   }
 
   private def reportError(pos: inox.utils.Position, msg: String, syms: xt.Symbols): Unit = {

@@ -733,7 +733,6 @@ trait TypeChecker {
             assert(calleeMeasureOpt.isDefined, s"${calleeTfd.id.asString} must have a measure")
             val calleeMeasure = calleeMeasureOpt.get
             val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
-            checkType(tc, calleeMeasureValue, tc.measureType.get) ++
             buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
@@ -1175,10 +1174,36 @@ trait TypeChecker {
     tr.root(AreEqualTypes(tc0, t1, t2))
   }
 
-  // TODO: check that arguments marked by `@erasable` can be erased
-  def checkType(fd: FunDef): TyperResult = {
-    val id = fd.id
+  def checkFunctionIsVisible(tc: TypingContext, id: Identifier, in: Expr): Unit = {
+    if (tc.visibleFunctions(id)) return
 
+    val errorInfo = tc.currentFid flatMap { currentFid =>
+      val currentDeps = dependencies(currentFid)
+      val mutuallyRecursiveDeps = currentDeps.filter { did =>
+        dependencies(did).contains(currentFid)
+      }
+
+      if (mutuallyRecursiveDeps.contains(id)) {
+        Some(s", because it is mutually recursive with the current function ${currentFid.asString}")
+      } else {
+        None
+      }
+    }
+
+    reporter.fatalError(in.getPos,
+      s"Call to function ${id.asString} is not allowed here${errorInfo.getOrElse("")}"
+    )
+  }
+
+  def needsMeasure(fd: FunDef): Boolean = {
+    checkMeasures.isTrue &&
+    symbols.isRecursive(fd.id) &&
+    !fd.flags.contains(Synthetic) &&
+    !fd.flags.exists(_.name == "library")
+  }
+
+  def checkType(id: Identifier): (Option[Type], TyperResult) = {
+    val fd = getFunction(id)
     val deps = dependencies(id)
     val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
 
@@ -1219,16 +1244,10 @@ trait TypeChecker {
         )
     }
 
-    val preOpt = fd.precondition.map(e => freshener.transform(e))
-    val postOpt = fd.postcondition.map(e => freshener.transform(e))
     val measureOpt = fd.measure.map(e => freshener.transform(e))
 
-    // We check that the precondition is a boolean
-    val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
-
+    val preOpt = fd.precondition.map(e => freshener.transform(e))
     val tcWithPre = preOpt.map(pre => tc.withTruth(pre)).getOrElse(tc)
-
-    val freshenedReturnType = freshener.transform(fd.returnType)
 
     val (measureType, trMeasure): (Option[Type], TyperResult) =
       if (measureOpt.isDefined) {
@@ -1243,6 +1262,13 @@ trait TypeChecker {
       } else {
         (None, TyperResult.valid)
       }
+
+    val postOpt = fd.postcondition.map(e => freshener.transform(e))
+
+    // We check that the precondition is a boolean
+    val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
+
+    val freshenedReturnType = freshener.transform(fd.returnType)
 
     val bodyOpt = exprOps.withoutSpecs(fd.fullBody).map(e => freshener.transform(e))
 
@@ -1261,55 +1287,45 @@ trait TypeChecker {
         }
     }
 
-    (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id))
+    (measureType, (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
   }
 
-  def checkFunctionIsVisible(tc: TypingContext, id: Identifier, in: Expr): Unit = {
-    if (tc.visibleFunctions(id)) return
+  def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {
+    val checkedFunctions = fids.map(fid => fid -> checkType(fid))
 
-    val errorInfo = tc.currentFid flatMap { currentFid =>
-      val currentDeps = dependencies(currentFid)
-      val mutuallyRecursiveDeps = currentDeps.filter { did =>
-        dependencies(did).contains(currentFid)
-      }
-
-      if (mutuallyRecursiveDeps.contains(id)) {
-        Some(s", because it is mutually recursive with the current function ${currentFid.asString}")
-      } else {
-        None
-      }
-    }
-
-    reporter.fatalError(in.getPos,
-      s"Call to function ${id.asString} is not allowed here${errorInfo.getOrElse("")}"
-    )
-  }
-
-  def needsMeasure(fd: FunDef): Boolean = {
-    symbols.isRecursive(fd.id) &&
-    !fd.flags.contains(Synthetic) &&
-    !fd.flags.exists(_.name == "library")
-  }
-
-  def noMeasure(fd: FunDef): Boolean = {
-    checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty
-  }
-
-  def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    val vcs = (for (id <- funs) yield {
+    val vcs = (for ((id, (measureType, tr)) <- checkedFunctions) yield {
       val fd = getFunction(id)
 
       if (fd.body.isDefined) {
-        if (noMeasure(fd)) {
+        val nm = needsMeasure(fd)
+        if (nm && measureType.isEmpty) {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
         } else {
-          val TyperResult(vcs, trees) = checkType(fd)
+          if (nm) {
+            checkedFunctions.find { case (id2, (measureType2, _)) =>
+              dependencies(id).contains(id2) &&
+              dependencies(id2).contains(id) &&
+              measureType2 != measureType
+            } match {
+              case None => ()
+              case Some((id2, (None, _))) =>
+                reporter.fatalError(fd.getPos,
+                  s"Measure of ${id.asString} has type ${measureType.get} while mutually recursive function " +
+                  s"${id2.asString} has no measure")
+              case Some((id2, (Some(measureType2), _))) =>
+                reporter.fatalError(fd.getPos,
+                  s"Measure of ${id.asString} has type ${measureType.get} while mutually recursive function " +
+                  s"${id2.asString} has measure with type ${measureType2}")
+            }
+          }
+          val TyperResult(vcs, trees) = tr
 
           if (reporter.debugSections.contains(DebugSectionDerivation)) {
             makeHTMLFile(id + ".html", trees)
           }
 
           vcs
+
         }
       } else {
         Nil

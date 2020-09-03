@@ -87,48 +87,46 @@ class VerificationRun(override val pipeline: StainlessPipeline)
       CoqVerificationChecker.verify(functions, p, context)
     } else {
 
-    val assertions = AssertionInjector(p, context)
-    val chooses = ChooseInjector(p)
+      val assertions = AssertionInjector(p, context)
+      val chooses = ChooseInjector(p)
 
-    // We do not need to encode empty trees as chooses when generating the VCs,
-    // as we rely on having empty trees to filter out some VCs.
-    val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
+      // We do not need to encode empty trees as chooses when generating the VCs,
+      // as we rely on having empty trees to filter out some VCs.
+      val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
 
-    if (debugAssertions.isEnabled) {
-      debugAssertions.debugEncoder(assertionEncoder)
-    }
+      if (debugAssertions.isEnabled) {
+        debugAssertions.debugEncoder(assertionEncoder)
+      }
 
-    // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
-    val chooseEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(chooses)
+      // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
+      val chooseEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(chooses)
 
-    if (debugChooses.isEnabled) {
-      debugChooses.debugEncoder(chooseEncoder)
-    }
+      if (debugChooses.isEnabled) {
+        debugChooses.debugEncoder(chooseEncoder)
+      }
 
-    if (!functions.isEmpty)
-      reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
+      if (!functions.isEmpty)
+        reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
 
-    val vcs = if (context.options.findOptionOrDefault(optTypeChecker)) {
-      val tc = TypeChecker(assertionEncoder.targetProgram, context)
-      tc.checkFunctionsAndADTs(functions)
-    } else {
-      VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
-    }
+      val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
+        TypeChecker(assertionEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
+      else
+        VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
 
-    val fullEncoder = assertionEncoder andThen chooseEncoder
+      val fullEncoder = assertionEncoder andThen chooseEncoder
 
-    val res = VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
-      case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-        VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
-      case res => res.asInstanceOf[VCResult[p.Model]]
-    })
+      val res = VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
+        case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
+          VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
+        case res => res.asInstanceOf[VCResult[p.Model]]
+      })
 
-    res.map(r => new VerificationAnalysis {
-      override val program: p.type = p
-      override val context = VerificationRun.this.context
-      override val sources = functions.toSet
-      override val results = r
-    })
+      res.map(r => new VerificationAnalysis {
+        override val program: p.type = p
+        override val context = VerificationRun.this.context
+        override val sources = functions.toSet
+        override val results = r
+      })
 
     }
   }

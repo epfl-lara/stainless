@@ -67,6 +67,13 @@ trait Canonization { self =>
     (newSyms, newIdentifier)
   }
 
+  def apply(syms: Symbols, ids: Seq[Identifier]): (Symbols, Seq[Identifier]) = {
+    val transformer = new IdTransformer(syms)
+    val newIdentifiers = ids.map(transformer.transform)
+    val newSyms = NoSymbols.withFunctions(transformer.functions).withSorts(transformer.sorts)
+    (newSyms, newIdentifiers)
+  }
+
   def apply(syms: Symbols): Symbols = {
     import exprOps._
     import syms._
@@ -223,6 +230,18 @@ trait XlangCanonization extends Canonization {
       .withTypeDefs(transformer.typeDefs)
 
     (newSyms, newIdentifier)
+  }
+
+  override def apply(syms: Symbols, ids: Seq[Identifier]): (Symbols, Seq[Identifier]) = {
+    val transformer = new XlangIdTransformer(syms)
+    val newIdentifiers = ids.map(transformer.transform)
+    val newSyms = NoSymbols
+      .withFunctions(transformer.functions)
+      .withSorts(transformer.sorts)
+      .withClasses(transformer.classes)
+      .withTypeDefs(transformer.typeDefs)
+
+    (newSyms, newIdentifiers)
   }
 }
 
