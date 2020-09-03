@@ -52,9 +52,12 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
     def adjustFunSig(fd: FunDef): FunDef = {
       val fdStripped = fd.copy(fullBody = exprOps.withBody(fd.fullBody, NoTree(fd.returnType)))
       val fdWithRefs = refTransformer.transform(fdStripped)
-      val stateParam = freshStateParam().copiedFrom(fdWithRefs)
-      val params = stateParam +: fdWithRefs.params
-      val returnType = T(fdWithRefs.returnType, HeapType)
+      val (params, returnType) = if (isPureFunction(fd.id)) {
+        (fdWithRefs.params, fdWithRefs.returnType)
+      } else {
+        val stateParam = freshStateParam().copiedFrom(fdWithRefs)
+        (stateParam +: fdWithRefs.params, T(fdWithRefs.returnType, HeapType))
+      }
       fdWithRefs.copy(params = params, returnType = returnType)
     }
 
@@ -67,11 +70,21 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
     def validHeapField(heap: Expr, key: Expr, tpe: Type): Expr =
       IsInstanceOf(MutableMapApply(heap, key), tpe)
 
+    def erasesToRef(tpe: Type): Boolean = tpe match {
+      case ct: ClassType => symbols.isMutableClassType(ct)
+      case _ => false
+    }
+
+    // HACK: Introduce and use some purity analysis
+    def isPureFunction(id: Identifier): Boolean =
+      id.name == "size" && symbols.getFunction(id).flags.contains(Library) ||
+      id.name == "isWithin"
+
     // Reduce all mutation to MutableMap updates
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
       override def transform(e: Expr): Expr = e match {
-        case ClassConstructor(ct, args) =>
+        case ClassConstructor(ct, args) if erasesToRef(ct) =>
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
           let("ref" :: RefType, ref) { ref =>
@@ -85,24 +98,34 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
             ).copiedFrom(e)
           }
 
-        case ClassSelector(recv, field) =>
+        case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
           smartLet("recv" :: RefType, transform(recv)) { recv =>
             val key = E(recv, toHeapField(field)).copiedFrom(e)
             val app = MutableMapApply(TheHeap, key).copiedFrom(e)
-            val fieldTpe = e.getType
+            val fieldTpe = transform(e.getType)
             val aio = AsInstanceOf(app, fieldTpe).copiedFrom(e)
             Assume(validHeapField(TheHeap, key, fieldTpe).copiedFrom(e), aio).copiedFrom(e)
           }
 
         case FieldAssignment(recv, field, value) =>
+          assert(erasesToRef(recv.getType))
           val key = E(transform(recv), toHeapField(field)).copiedFrom(e)
           MutableMapUpdate(TheHeap, key, transform(value)).copiedFrom(e)
 
         case _ => super.transform(e)
       }
 
+      // TODO: Add discriminator pseudo-field so we can encode IsInstanceOf checks
+      // override def transform(pat: Pattern): Pattern = pat match {
+      //   case ClassPattern(binder, ct, subPats) =>
+      //     ADTPattern(binder.map(transform), refSort.id, Seq.empty, subPats.map(transform))
+      //       .copiedFrom(pat)
+      //   case _ =>
+      //     super.transform(pat)
+      // }
+
       override def transform(tpe: Type): Type = tpe match {
-        case ClassType(_, _) =>
+        case ct: ClassType if erasesToRef(ct) =>
           RefType
         case FunctionType(_, _) =>
           val FunctionType(from, to) = super.transform(tpe)
@@ -142,6 +165,11 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
                 MapUpdated(s0, vkey, vvalue).copiedFrom(e)
               ))
             }
+          }
+
+        case FunctionInvocation(id, targs, args) if isPureFunction(id) =>
+          bindMany(args.map(instrument)) { vargs =>
+            pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
           }
 
         case FunctionInvocation(id, targs, args) =>

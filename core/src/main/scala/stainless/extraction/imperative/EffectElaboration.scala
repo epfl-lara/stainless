@@ -39,7 +39,7 @@ trait EffectElaboration
 
   protected case class EffectTransformerContext(symbols: Symbols)
     extends InstrumentationContext
-  { context =>
+  { tctx =>
     def checkEffects(fd: FunDef): Unit = {
       def assertPureIn(expr: Expr, what: String): Unit = {
         import instrumenter._
@@ -87,33 +87,45 @@ trait EffectElaboration
     import exprOps._
     import dsl._
 
-    checkEffects(fd)
+    try {
+      checkEffects(fd)
 
-    // Transform body
-    val fdAdjusted = adjustFunSig(fd)
-    val initialState = fdAdjusted.params.head.toVariable
-    val fullBodyWithRefs = refTransformer.transform(fd.fullBody)
-    val (specs, bodyOpt) = deconstructSpecs(fullBodyWithRefs)
-    val newBodyOpt = bodyOpt.map { body =>
-      ensureInstrum(instrument(body)(NoPurityCheck)(initialState))
+      // Transform body
+      val fdAdjusted = adjustFunSig(fd)
+      val fullBodyWithRefs = refTransformer.transform(fd.fullBody)
+      // FIXME: Assumes for now that there is no local mutable state in pure functions
+      val newFullBody = if (isPureFunction(fd.id)) {
+        fullBodyWithRefs
+      } else {
+        val (specs, bodyOpt) = deconstructSpecs(fullBodyWithRefs)
+        val initialState = fdAdjusted.params.head.toVariable
+        val newBodyOpt = bodyOpt.map { body =>
+          ensureInstrum(instrument(body)(NoPurityCheck)(initialState))
+        }
+        val newSpecs = specs.map {
+          case Precondition(expr) =>
+            Precondition(instrumentPure(expr, initialState))
+          case Measure(expr) =>
+            Measure(instrumentPure(expr, initialState))
+          case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
+            val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
+            val finalState = resVd1.toVariable._2
+            val post1 = instrumentPure(post, finalState)
+            val post2 = postMap {
+              case Old(e) => Some(instrumentPure(e, initialState))
+              case _ => None
+            }(post1)
+            Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
+        }
+        reconstructSpecs(newSpecs, newBodyOpt, fdAdjusted.returnType)
+      }
+
+      Some(fdAdjusted.copy(fullBody = newFullBody))
+    } catch {
+      case IllegalImpureInstrumentation(msg, pos) =>
+        context.reporter.error(pos, msg)
+        None
     }
-    val newSpecs = specs.map {
-      case Precondition(expr) =>
-        Precondition(instrumentPure(expr, initialState))
-      case Measure(expr) =>
-        Measure(instrumentPure(expr, initialState))
-      case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
-        val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
-        val finalState = resVd1.toVariable._2
-        val post1 = instrumentPure(post, finalState)
-        val post2 = postMap {
-          case Old(e) => Some(instrumentPure(e, initialState))
-          case _ => None
-        }(post1)
-        Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
-    }
-    val newFullBody = reconstructSpecs(newSpecs, newBodyOpt, fdAdjusted.returnType)
-    Some(fdAdjusted.copy(fullBody = newFullBody))
   }
 
   override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =
