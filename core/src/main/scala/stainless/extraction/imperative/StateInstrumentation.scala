@@ -129,7 +129,7 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
           RefType
         case FunctionType(_, _) =>
           val FunctionType(from, to) = super.transform(tpe)
-          FunctionType(HeapType +: from, to)
+          FunctionType(HeapType +: from, T(to, HeapType))
         // TODO: PiType
         case _ =>
           super.transform(tpe)
@@ -179,14 +179,20 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
             }
           }
 
-        // case Lambda(params, body) =>
-        //   val stateParam = freshStateParam().copiedFrom(e)
-        //   val newBody = ensureInstrum(instrument(body)(pc)(stateParam.toVariable))
-        //   val lam = Lambda(stateParam +: params, newBody).copiedFrom(e)
-        //   pure(lam)
+        case Lambda(params, body) =>
+          val stateParam = freshStateParam().copiedFrom(e)
+          val newBody = ensureInstrum(instrument(body)(pc)(stateParam.toVariable))
+          val lam = Lambda(stateParam +: params, newBody).copiedFrom(e)
+          pure(lam)
 
-        // case Application(callee, args) =>
-        //   ???
+        case Application(callee, args) =>
+          bind(instrument(callee)) { vcallee =>
+            bindMany(args.map(instrument)) { vargs =>
+              { s0 =>
+                Instrum(Application(vcallee, s0 +: vargs).copiedFrom(e))
+              }
+            }
+          }
 
         case Block(exprs, expr) =>
           bindMany(exprs.map(instrument)) { _ =>
