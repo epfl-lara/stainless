@@ -17,7 +17,7 @@ General Requirement
 Use Standalone Release (recommended)
 ------------------------------------
 
-1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.7.1.
+1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.8.6.
 
 2. Unzip the the file you just downloaded to a directory.
 
