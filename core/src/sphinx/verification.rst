@@ -1,7 +1,7 @@
 .. _verification:
 
-Verification
-============
+Verification conditions
+=======================
 
 Software verification aims at making software safer. In its typical use case,
 it is a tool that takes as input the source code of a program with
@@ -14,8 +14,6 @@ section, we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
 by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.
 
-Verification conditions
------------------------
 
 Given an input program, Stainless generates individual verification conditions
 corresponding to different properties of the program. A program is correct if
@@ -39,7 +37,7 @@ information provided by (explicit or implicit) preconditions to the ``match``
 expression.
 
 Postconditions
-**************
+--------------
 
 One core concept in verification is to check the contract of functions. The most
 important part of a contract is the postcondition. The postcondition specifies
@@ -96,7 +94,7 @@ prove the correctness. We discuss the exact conditions for this in the
 chapter on Stainless's algorithms.
 
 Preconditions
-*************
+-------------
 
 Preconditions are used as part of the contract of functions. They are a way to
 restrict the input to only relevant inputs, without having to implement guards
@@ -154,7 +152,7 @@ a precondition.
    of a function.
 
 Loop invariants
-***************
+---------------
 
 Stainless supports annotations for loop invariants in :doc:`imperative`. To
 simplify the presentation we will assume a single variable :math:`x` is in
@@ -182,7 +180,7 @@ Stainless will prove the points (1) and (2) above. Together, and by induction, t
 that point (3) holds as well.
 
 Decrease annotation in loops
-****************************
+----------------------------
 
 One can also specify that the value of a given expression of numerical type decreases
 at each loop iteration by adding a ``decreases`` measure within the loop body:
@@ -198,7 +196,7 @@ Stainless will then emit a verification condition that checks whether the expres
 is strictly positive and decreases at each iteration.
 
 Array access safety
-*******************
+-------------------
 
 Stainless generates verification conditions for the safety of array accesses. For
 each array variable, Stainless carries along a symbolic information on its length.
@@ -207,7 +205,7 @@ array is strictly smaller than that length. The expression is also checked to
 be positive.
 
 ADT invariants
-**************
+--------------
 
 Stainless lets the user write ADT invariants with the ``require`` keyword.
 Internally, such invariants are extracted as methods (named ``inv``). Whenever,
@@ -245,7 +243,7 @@ supported when ``--type-checker=true`` (which is the case by default).
 
 
 Pattern matching exhaustiveness
-*******************************
+-------------------------------
 
 Stainless verifies that pattern matching is exhaustive. The regular Scala compiler
 only considers the types of expression involved in pattern matching, but Stainless

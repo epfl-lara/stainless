@@ -284,16 +284,15 @@ assertions to prove local properties, and use ``check`` to have the property
       assert(b3)   // verification condition: b2 ==> b3 (b1 not visible to the solver)
     }
 
-Similarly, ``assert``'s are not visible when generating verification conditions
-for postconditions, while ``check``'s are. (Note: ``assert`` are visible to
-postconditions in the mode without type checker with ``--type-checker=false``.)
+Similarly, ``assert``'s are not guaranteed to be visible when generating
+verification conditions for postconditions, while ``check``'s are.
 
 .. code-block:: scala
 
     def foo(): Unit = {
       assert(b1) // verification condition: b1
       check(b2)  // verification condition: b1 ==> b2
-    }.ensuring(_ => b3) // verification condition b2 ==> b3 (b1 not visible to the solver)
+    }.ensuring(_ => b3) // verification condition b2 ==> b3 (b1 might not be visible to the solver)
 
 
 .. _induction:
