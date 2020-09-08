@@ -1,5 +1,14 @@
-
 # Release Notes
+
+## Version 0.7.3 (2020-09-08)
+
+### Improvements
+
+- Remove check that measure has good type at call site (this was making arguments of recursive functions being type-checked twice, and thus duplicating VCs)
+- Instead, add check that mutually recursive functions have the same measure type
+- `SplitCallBack` now processes mutually recursive functions together
+- Improve HTML output for type-checking derivation
+
 
 ## Version 0.7.2 (29-08-2020)
 
