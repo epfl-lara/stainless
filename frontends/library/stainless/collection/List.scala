@@ -1006,6 +1006,7 @@ object ListSpecs {
     case _ => false
   }
 
+  @opaque
   def subseqTail[T](l1: List[T], l2: List[T]): Unit = {
     require(!l1.isEmpty && subseq(l1, l2))
 
@@ -1171,15 +1172,9 @@ object ListSpecs {
       case Nil() => ()
       case Cons(h, t) =>
         selfContainment(t)
-        expandPredicate(t, t.contains, list.contains)
         prependMaintainsCondition(h, t, list.contains)
     }
   }.ensuring(_ => list.forall(list.contains))
-
-  @opaque
-  def expandPredicate[T](@induct list: List[T], p1: T => Boolean, p2: T => Boolean): Unit = {
-    require(forall((elem: T) => p1(elem) ==> p2(elem)) && list.forall(p1))
-  }.ensuring(_ => list.forall(p2))
 
   @opaque
   def prependMaintainsCondition[T](elem: T, @induct list: List[T], p: T => Boolean): Unit = {
@@ -1192,10 +1187,11 @@ object ListSpecs {
   }.ensuring(_ => second -- first == second -- (first - elem))
 
   @opaque
-  def prependSubset[T](elem: T, @induct list: List[T]): Unit = {}.ensuring { _ ⇒
+  def prependSubset[T](elem: T, @induct list: List[T]): Unit = {
+    ()
+  }.ensuring { _ ⇒
     selfContainment(list)
     val appended = elem :: list
-    expandPredicate(list, list.contains, appended.contains)
     list.forall((elem :: list).contains)
   }
 
@@ -1206,10 +1202,8 @@ object ListSpecs {
       case Nil() => assert(diff.isEmpty)
       case Cons(h, t) if second.contains(h) =>
         restOfSetIsSubset(t, second)
-        expandPredicate(diff, t.contains, first.contains)
       case Cons(h, t) =>
         restOfSetIsSubset(t, second)
-        expandPredicate(t -- second, t.contains, first.contains)
         prependMaintainsCondition(h, t -- second, first.contains)
     }
   }.ensuring(_ => (first -- second).forall(first.contains))
@@ -1304,16 +1298,8 @@ object ListSpecs {
   }.ensuring { _ =>
     val intersection = first & second
     intersection.forall(first.contains) &&
-      intersection.forall(second.contains) &&
-      forall((elem: T) => intersection.contains(elem) == (first.contains(elem) && second.contains(elem)))
+    intersection.forall(second.contains)
   }
-
-  @opaque
-  def listSubsetContainmentLemma[T](original: List[T], @induct first: List[T], second: List[T]): Unit = {
-    require(first.forall(second.contains))
-  }.ensuring(_ =>
-    forall((elem: T) =>
-      (original.contains(elem) && first.contains(elem)) ==> (original.contains(elem) && second.contains(elem))))
 
   @opaque
   def listSubsetIntersectionLemma[T](original: List[T], first: List[T], second: List[T]): Unit = {
@@ -1321,13 +1307,11 @@ object ListSpecs {
   }.ensuring { _ =>
     listIntersectionLemma(original, first)
     listIntersectionLemma(original, second)
-    listSubsetContainmentLemma(original, first, second)
 
     val firstIntersection = original & first
     val secondIntersection = original & second
 
     selfContainment(firstIntersection)
-    expandPredicate(firstIntersection, firstIntersection.contains, secondIntersection.contains)
     firstIntersection.forall(secondIntersection.contains)
   }
 
@@ -1350,33 +1334,5 @@ object ListSpecs {
         containedTail(t, list)
     }
   }.ensuring(_ => list.forall(list.contains))
-
-  @opaque
-  def filteringWithExpandingPredicateCreatesSubsets[T](first: T ⇒ Boolean, second: T ⇒ Boolean, list: List[T]): Unit = {
-    require(forall((elem: T) ⇒ first(elem) ==> second(elem)))
-    list match {
-      case Nil() =>
-      case Cons(h, t) =>
-        filteringWithExpandingPredicateCreatesSubsets(first, second, t)
-        val secondTailFiltered = t.filter(node => second(node))
-        val secondFiltered = list.filter(node => second(node))
-        reflexivity(secondFiltered)
-        assert(secondTailFiltered.forall(secondFiltered.contains))
-
-        val firstTailFiltered = t.filter(node => first(node))
-        assert(firstTailFiltered.forall(secondTailFiltered.contains))
-
-        if (!first(h)) {
-          transitivityLemma(firstTailFiltered, secondTailFiltered, secondFiltered)
-        } else {
-          transitivePredicate(h, first, second)
-          transitivityLemma(firstTailFiltered, secondTailFiltered, secondFiltered)
-        }
-    }
-  }.ensuring { _ =>
-    val secondFiltered = list.filter(node => second(node))
-    val firstFiltered = list.filter(node => first(node))
-    firstFiltered.forall(secondFiltered.contains)
-  }
 
 }

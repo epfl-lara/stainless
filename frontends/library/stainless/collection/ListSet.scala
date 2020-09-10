@@ -20,7 +20,7 @@ case class ListSet[T](toList: List[T]) {
   def ++(other: ListSet[T]): ListSet[T] = {
     val union = ListSetSpec.removeDuplicates(this.toList ++ other.toList)
     ListSet(union)
-  }.ensuring(res ⇒ forall((elem: T) ⇒ (this.contains(elem) || other.contains(elem)) == res.contains(elem)))
+  }
 
   def -(elem: T): ListSet[T] = {
     ListSetSpec.removingFromASetResultsInASet(elem, toList)
@@ -32,18 +32,16 @@ case class ListSet[T](toList: List[T]) {
     ListSpecs.restOfSetIsSubset(toList, other.toList)
     ListSet(toList -- other.toList)
   }.ensuring(res ⇒
-    forall((elem: T) ⇒ (this.contains(elem) && !other.contains(elem)) == res.contains(elem)) &&
-      (res & other).isEmpty &&
-      res.subsetOf(this))
+    (res & other).isEmpty &&
+    res.subsetOf(this))
 
   def &(other: ListSet[T]): ListSet[T] = {
     ListSetSpec.listSetIntersection(toList, other.toList)
     ListSpecs.listIntersectionLemma(toList, other.toList)
     ListSet(toList & other.toList)
   }.ensuring(res ⇒
-    forall((elem: T) ⇒ (this.contains(elem) && other.contains(elem)) == res.contains(elem)) &&
-      res.subsetOf(this) &&
-      res.subsetOf(other))
+    res.subsetOf(this) &&
+    res.subsetOf(other))
 
   def filter(predicate: T ⇒ Boolean): ListSet[T] = {
     ListSetSpec.filteringPreservesPredicate(toList, predicate)
@@ -184,7 +182,7 @@ object ListSetSpec {
       case Cons(h, t) ⇒ if (t.contains(h)) removeDuplicates(t) else h :: removeDuplicates(t)
       case Nil() ⇒ Nil[T]()
     }
-  }.ensuring(res ⇒ ListOps.noDuplicate(res) && forall((elem: T) ⇒ list.contains(elem) == res.contains(elem)))
+  }.ensuring(res ⇒ ListOps.noDuplicate(res))
 
   @opaque
   def listSetDiff[T](@induct first: List[T], second: List[T]): Unit = {
