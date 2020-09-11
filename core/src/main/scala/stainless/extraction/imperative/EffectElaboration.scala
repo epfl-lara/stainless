@@ -110,12 +110,12 @@ trait EffectElaboration
           case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
             val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
             val finalState = resVd1.toVariable._2
-            val post1 = instrumentPure(post, finalState)
-            val post2 = postMap {
+            val post1 = postMap {
               case v: Variable if v.id == resVd.id => Some(resVd1.toVariable._1.copiedFrom(v))
               case Old(e) => Some(instrumentPure(e, initialState))
               case _ => None
-            }(post1)
+            }(post)
+            val post2 = instrumentPure(post1, finalState)
             Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
         }
         reconstructSpecs(newSpecs, newBodyOpt, fdAdjusted.returnType)
@@ -130,10 +130,10 @@ trait EffectElaboration
   }
 
   override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =
-    sort
+    tctx.refTransformer.transform(sort)
 
   override protected def extractClass(tctx: EffectTransformerContext, cd: ClassDef): ClassDef =
-    cd
+    tctx.refTransformer.transform(cd)
 }
 
 object EffectElaboration {

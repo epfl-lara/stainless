@@ -23,13 +23,7 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
   private[this] def Ref(value: Expr): Expr = E(refCons)(value)
   private[this] def getRefValue(ref: Expr): Expr = ref.getField(refValue)
 
-  protected lazy val HeapType: MapType = MapType(T(RefType, IntegerType()), AnyType())
-
-  private[this] lazy val allocFieldId: Identifier = FreshIdentifier("alloc!")
-  private[this] lazy val allocField: Expr = toHeapField(allocFieldId)
-
-  private[this] def toHeapField(id: Identifier): Expr =
-    IntegerLiteral(id.globalId) // FIXME: Cheap hack
+  protected lazy val HeapType: MapType = MapType(RefType, AnyType())
 
   // A sentinel value for the first transformation
   private[this] lazy val TheHeap = NoTree(HeapType)
@@ -62,10 +56,13 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
     }
 
     // Compute symbols with modified signatures and added sorts. Only used during instrumentation.
-    val adjustedSymbols: s.Symbols =
-      context.symbols
-        .withFunctions(context.symbols.functions.values.map(adjustFunSig).toSeq)
-        .withSorts(Seq(refSort))
+    val adjustedSymbols: s.Symbols = {
+      val syms = context.symbols
+      syms
+        .withFunctions(syms.functions.values.map(adjustFunSig).toSeq)
+        .withSorts(Seq(refSort) ++ syms.sorts.values.map(refTransformer.transform).toSeq)
+        .withClasses(syms.classes.values.map(refTransformer.transform).toSeq)
+    }
 
     def validHeapField(heap: Expr, key: Expr, tpe: Type): Expr =
       IsInstanceOf(MutableMapApply(heap, key), tpe)
@@ -83,34 +80,44 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
     // Reduce all mutation to MutableMap updates
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
+      def classTypeInHeap(ct: ClassType): ClassType =
+        ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
+
       override def transform(e: Expr): Expr = e match {
         case ClassConstructor(ct, args) if erasesToRef(ct) =>
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
           let("ref" :: RefType, ref) { ref =>
-            val updates = (allocField -> BooleanLiteral(true)) +:
-              ct.tcd.fields.map(f => toHeapField(f.id)).zip(args.map(transform))
-            Block(
-              updates.map { case (field, arg) =>
-                MutableMapUpdate(TheHeap, E(ref, field).copiedFrom(e), arg).copiedFrom(e)
-              },
+            val ctNew = ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
+            val value = ClassConstructor(ctNew, args.map(transform)).copiedFrom(e)
+            let("alloc" :: UnitType(), MutableMapUpdate(TheHeap, ref, value).copiedFrom(e)) { _ =>
               ref
-            ).copiedFrom(e)
+            }
           }
 
         case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
-          smartLet("recv" :: RefType, transform(recv)) { recv =>
-            val key = E(recv, toHeapField(field)).copiedFrom(e)
-            val app = MutableMapApply(TheHeap, key).copiedFrom(e)
-            val fieldTpe = transform(e.getType)
-            val aio = AsInstanceOf(app, fieldTpe).copiedFrom(e)
-            Assume(validHeapField(TheHeap, key, fieldTpe).copiedFrom(e), aio).copiedFrom(e)
-          }
+          val recvTpe = classTypeInHeap(recv.getType.asInstanceOf[ClassType])
+          val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
+          val aio = AsInstanceOf(app, recvTpe).copiedFrom(e)
+          val iio = IsInstanceOf(app, recvTpe).copiedFrom(e)
+          Assume(iio, ClassSelector(aio, field).copiedFrom(e)).copiedFrom(e)
 
         case FieldAssignment(recv, field, value) =>
           assert(erasesToRef(recv.getType))
-          val key = E(transform(recv), toHeapField(field)).copiedFrom(e)
-          MutableMapUpdate(TheHeap, key, transform(value)).copiedFrom(e)
+          val recvTpe = classTypeInHeap(recv.getType.asInstanceOf[ClassType])
+          smartLet("recv" :: RefType, transform(recv)) { recv =>
+            val app = MutableMapApply(TheHeap, recv).copiedFrom(e)
+            val aio = AsInstanceOf(app, recvTpe).copiedFrom(e)
+            val iio = IsInstanceOf(app, recvTpe).copiedFrom(e)
+            let("oldO" :: recvTpe, Assume(iio, aio).copiedFrom(e)) { oldO =>
+              val newArgs = recvTpe.tcd.fields.map {
+                case vd if vd.id == field => transform(value)
+                case vd => ClassSelector(oldO, vd.id).copiedFrom(e)
+              }
+              val newO = ClassConstructor(recvTpe, newArgs).copiedFrom(e)
+              MutableMapUpdate(TheHeap, recv, newO).copiedFrom(e)
+            }
+          }
 
         case _ => super.transform(e)
       }
