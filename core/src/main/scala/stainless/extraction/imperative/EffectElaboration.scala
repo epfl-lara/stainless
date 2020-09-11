@@ -112,6 +112,7 @@ trait EffectElaboration
             val finalState = resVd1.toVariable._2
             val post1 = instrumentPure(post, finalState)
             val post2 = postMap {
+              case v: Variable if v.id == resVd.id => Some(resVd1.toVariable._1.copiedFrom(v))
               case Old(e) => Some(instrumentPure(e, initialState))
               case _ => None
             }(post1)
