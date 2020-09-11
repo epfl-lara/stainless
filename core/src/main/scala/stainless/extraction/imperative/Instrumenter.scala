@@ -104,6 +104,15 @@ trait MonadicInstrumenter extends Instrumenter { self =>
   /* Default instrumentation (requiring no instrumentation) */
 
   override def instrument(e: Expr)(implicit pc: PurityCheck): MExpr = e match {
+    case Let(vd, value, body) =>
+      bind(instrument(value)) { vvalue =>
+        choice(Seq(instrument(body))) { case Seq(irbody) =>
+          merge(Seq(irbody)) { case Seq(ibody) =>
+            Let(vd, vvalue, ibody).copiedFrom(e)
+          }
+        }
+      }
+
     case IfExpr(cond, thenn, elze) =>
       bind(instrument(cond)) { vcond =>
         choice(Seq(instrument(thenn), instrument(elze))) { case Seq(irthenn, irelze) =>
