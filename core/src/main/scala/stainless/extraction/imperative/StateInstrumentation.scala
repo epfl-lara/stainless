@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-trait StateInstrumentation extends oo.CachingPhase { self =>
+trait StateInstrumentation extends oo.CachingPhase with utils.SyntheticSorts { self =>
   val s: Trees
   val t: s.type
 
@@ -26,7 +26,9 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
   protected lazy val HeapType: MapType = MapType(RefType, AnyType())
 
   // A sentinel value for the first transformation
-  private[this] lazy val TheHeap = NoTree(HeapType)
+  private[this] lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
+
+  private[this] lazy val unapplyId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
 
   /* Instrumentation */
 
@@ -57,15 +59,55 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
 
     // Compute symbols with modified signatures and added sorts. Only used during instrumentation.
     val adjustedSymbols: s.Symbols = {
+      import OptionSort._
       val syms = context.symbols
+      val unapplyFds = syms.classes.values.toSeq.map(makeClassUnapply).flatten
       syms
-        .withFunctions(syms.functions.values.map(adjustFunSig).toSeq)
+        .withFunctions(unapplyFds ++ syms.functions.values.map(adjustFunSig).toSeq)
         .withSorts(Seq(refSort) ++ syms.sorts.values.map(refTransformer.transform).toSeq)
         .withClasses(syms.classes.values.map(refTransformer.transform).toSeq)
     }
 
-    def validHeapField(heap: Expr, key: Expr, tpe: Type): Expr =
-      IsInstanceOf(MutableMapApply(heap, key), tpe)
+    def classTypeInHeap(ct: ClassType): ClassType =
+      ClassType(ct.id, ct.tps.map(refTransformer.transform)).copiedFrom(ct)
+
+    def valueFromHeap(recv: Expr, objTpe: ClassType, fromE: Expr): Expr = {
+      val app = MutableMapApply(TheHeap, recv).copiedFrom(fromE)
+      val aio = AsInstanceOf(app, objTpe).copiedFrom(fromE)
+      val iio = IsInstanceOf(app, objTpe).copiedFrom(fromE)
+      Assume(iio, aio).copiedFrom(fromE)
+    }
+
+    def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
+      if (!symbols.mutableClasses.contains(cd.id))
+        return None
+
+      import OptionSort._
+      Some(mkFunDef(unapplyId(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))(
+          cd.typeArgs.map(_.id.name) : _*) { tparams =>
+        val tcd = cd.typed(tparams)
+        val ct = tcd.toType
+        val objTpe = classTypeInHeap(ct)
+
+        val base = RefType
+        // def condition(ref: Expr): Expr = IsInstanceOf(MutableMapApply(TheHeap, ref), objTpe)
+
+        // val baseReturnType = TupleType(tcd.fields.map(_.tpe))
+        // val vd = t.ValDef.fresh("v", baseReturnType)
+        // val returnType = t.RefinementType(vd, condition(vd.toVariable))
+        val returnType = objTpe
+
+        (Seq("s0" :: HeapType, "x" :: base), T(option)(returnType), { case Seq(s0, x) =>
+          val body =
+            if_ (IsInstanceOf(MutableMapApply(TheHeap, x), objTpe)) {
+              C(some)(returnType)(AsInstanceOf(MutableMapApply(TheHeap, x), objTpe))
+            } else_ {
+              C(none)(returnType)()
+            }
+          instrumenter.instrumentPure(body, s0)
+        })
+      })
+    }
 
     def erasesToRef(tpe: Type): Boolean = tpe match {
       case ct: ClassType => symbols.isMutableClassType(ct)
@@ -80,9 +122,6 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
     // Reduce all mutation to MutableMap updates
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
-      def classTypeInHeap(ct: ClassType): ClassType =
-        ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
-
       override def transform(e: Expr): Expr = e match {
         case ClassConstructor(ct, args) if erasesToRef(ct) =>
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
@@ -96,40 +135,47 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
           }
 
         case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
-          val recvTpe = classTypeInHeap(recv.getType.asInstanceOf[ClassType])
-          val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
-          val aio = AsInstanceOf(app, recvTpe).copiedFrom(e)
-          val iio = IsInstanceOf(app, recvTpe).copiedFrom(e)
-          Assume(iio, ClassSelector(aio, field).copiedFrom(e)).copiedFrom(e)
+          val ct = recv.getType.asInstanceOf[ClassType]
+          val objTpe = classTypeInHeap(ct)
+          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
+            ClassSelector(valueFromHeap(recvRef, objTpe, e), field).copiedFrom(e)
+          }
 
         case FieldAssignment(recv, field, value) =>
           assert(erasesToRef(recv.getType))
-          val recvTpe = classTypeInHeap(recv.getType.asInstanceOf[ClassType])
-          smartLet("recv" :: RefType, transform(recv)) { recv =>
-            val app = MutableMapApply(TheHeap, recv).copiedFrom(e)
-            val aio = AsInstanceOf(app, recvTpe).copiedFrom(e)
-            val iio = IsInstanceOf(app, recvTpe).copiedFrom(e)
-            let("oldO" :: recvTpe, Assume(iio, aio).copiedFrom(e)) { oldO =>
-              val newArgs = recvTpe.tcd.fields.map {
+          val ct = recv.getType.asInstanceOf[ClassType]
+          val objTpe = classTypeInHeap(ct)
+          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
+            val oldObj = valueFromHeap(recvRef, objTpe, e)
+            let("oldObj" :: objTpe, oldObj) { oldObj =>
+              val newCt = objTpe.asInstanceOf[ClassType]
+              val newArgs = newCt.tcd.fields.map {
                 case vd if vd.id == field => transform(value)
-                case vd => ClassSelector(oldO, vd.id).copiedFrom(e)
+                case vd => ClassSelector(oldObj, vd.id).copiedFrom(e)
               }
-              val newO = ClassConstructor(recvTpe, newArgs).copiedFrom(e)
-              MutableMapUpdate(TheHeap, recv, newO).copiedFrom(e)
+              val newObj = ClassConstructor(newCt, newArgs).copiedFrom(e)
+              MutableMapUpdate(TheHeap, recvRef, newObj).copiedFrom(e)
             }
           }
+
+        case IsInstanceOf(recv, tpe) if erasesToRef(tpe) =>
+          val ct = tpe.asInstanceOf[ClassType]
+          val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
+          IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
 
         case _ => super.transform(e)
       }
 
-      // TODO: Add discriminator pseudo-field so we can encode IsInstanceOf checks
-      // override def transform(pat: Pattern): Pattern = pat match {
-      //   case ClassPattern(binder, ct, subPats) =>
-      //     ADTPattern(binder.map(transform), refSort.id, Seq.empty, subPats.map(transform))
-      //       .copiedFrom(pat)
-      //   case _ =>
-      //     super.transform(pat)
-      // }
+      override def transform(pat: Pattern): Pattern = pat match {
+        case ClassPattern(binder, ct, subPats) if erasesToRef(ct) =>
+          UnapplyPattern(binder.map(transform), Seq(TheHeap),
+            unapplyId(ct.id),
+            ct.tps.map(transform),
+            subPats.map(transform)
+          ).copiedFrom(pat)
+        case _ =>
+          super.transform(pat)
+      }
 
       override def transform(tpe: Type): Type = tpe match {
         case ct: ClassType if erasesToRef(ct) =>
@@ -140,6 +186,18 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
         // TODO: PiType
         case _ =>
           super.transform(tpe)
+      }
+
+      override def transform(cd: ClassDef): ClassDef = {
+        val env = initEnv
+        // FIXME: Transform type arguments in parents?
+        new ClassDef(
+          transform(cd.id, env),
+          cd.tparams.map(transform(_, env)),
+          cd.parents,  // don't transform parents
+          cd.fields.map(transform(_, env)),
+          cd.flags.map(transform(_, env))
+        ).copiedFrom(cd)
       }
     }
 
@@ -212,6 +270,14 @@ trait StateInstrumentation extends oo.CachingPhase { self =>
 
         case _ =>
           super.instrument(e)
+      }
+
+      override def instrument(pat: Pattern, s0: Expr): Pattern = pat match {
+        case pat @ UnapplyPattern(_, Seq(`TheHeap`), _, _, subPats) =>
+          val newSubPats = subPats.map(p => instrument(p, s0))
+          pat.copy(recs = Seq(s0), subPatterns = newSubPats).copiedFrom(pat)
+        case PatternExtractor(subPats, recons) =>
+          recons(subPats.map(p => instrument(p, s0)))
       }
     }
   }

@@ -129,18 +129,21 @@ trait MonadicInstrumenter extends Instrumenter { self =>
         val mguards = cses.map(cse => instrument(cse.optGuard.getOrElse(BooleanLiteral(true))))
         bindMany(mguards) { vguards =>
           val mbodies = cses.map(cse => instrument(cse.rhs))
-          choice(mbodies) { irbodies =>
-            merge(irbodies) { ibodies =>
-              val newCses = (cses, vguards, ibodies).zipped.map { (oldCse, vguard, ibody) =>
-                val vguardOpt = vguard match {
-                  case BooleanLiteral(true) => None
-                  case _ => Some(vguard)
+          ({ s0 =>
+            choice(mbodies) { irbodies =>
+              merge(irbodies) { ibodies =>
+                val newCses = (cses, vguards, ibodies).zipped.map { (oldCse, vguard, ibody) =>
+                  val newPattern = instrument(oldCse.pattern, s0)
+                  val vguardOpt = vguard match {
+                    case BooleanLiteral(true) => None
+                    case _ => Some(vguard)
+                  }
+                  MatchCase(newPattern, vguardOpt, ibody).copiedFrom(oldCse)
                 }
-                MatchCase(oldCse.pattern, vguardOpt, ibody).copiedFrom(oldCse)
+                MatchExpr(vscrut, newCses).copiedFrom(e)
               }
-              MatchExpr(vscrut, newCses).copiedFrom(e)
-            }
-          }
+            } (s0)
+          })
         }
       }
 
@@ -179,6 +182,9 @@ trait MonadicInstrumenter extends Instrumenter { self =>
         pure(recons(ves).copiedFrom(e))
       }
   }
+
+  // FIXME: This doesn't follow the monadic interface
+  def instrument(pat: Pattern, env: Env): Pattern = pat
 }
 
 trait StateInstrumenter extends MonadicInstrumenter {
@@ -209,8 +215,9 @@ trait StateInstrumenter extends MonadicInstrumenter {
         case Uninstrum(ve1, _) =>
           f(ve1)(s0)
         case Instrum(ie1) =>
+          // NOTE: For some reason we run into a NPE here, unless we pass `symbols` explicitly
           Instrum(
-            let("ie" :: ie1.getType, ie1)(
+            let("ie" :: ie1.getType(symbols), ie1)(
               ie1 => ensureInstrum(f(ie1._1)(ie1._2))
             ).copiedFrom(ie1)
           )
