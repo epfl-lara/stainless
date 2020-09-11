@@ -8,7 +8,6 @@ trait EffectElaboration
   extends oo.CachingPhase
      with SimpleSorts
      with oo.IdentityTypeDefs
-     with oo.SimpleClasses
      with StateInstrumentation { self =>
   val s: Trees
   val t: s.type
@@ -29,13 +28,20 @@ trait EffectElaboration
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
   override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult](
-    (cd, context) => getDependencyKey(cd.id)(context.symbols)
+    (cd, context) => ClassKey(cd) + OptionSort.key(context.symbols)
   )
 
   override protected type FunctionResult = Option[t.FunDef]
   override protected def registerFunctions(symbols: t.Symbols,
       functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
+
+  override protected final type ClassResult = (t.ClassDef, Option[t.FunDef])
+  override protected final def registerClasses(symbols: t.Symbols,
+      classResults: Seq[ClassResult]): t.Symbols = {
+    val (classes, unapplyFds) = classResults.unzip
+    symbols.withClasses(classes).withFunctions(unapplyFds.flatten)
+  }
 
   protected case class EffectTransformerContext(symbols: Symbols)
     extends InstrumentationContext
@@ -75,17 +81,18 @@ trait EffectElaboration
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
     super.extractSymbols(tctx, symbols)
-      .withSorts(Seq(refSort))
+      .withSorts(Seq(refSort) ++ OptionSort.sorts(symbols))
+      .withFunctions(OptionSort.functions(symbols))
   }
 
   override protected def extractFunction(tctx: EffectTransformerContext,
       fd: FunDef): Option[FunDef] =
   {
     import tctx._
-    import symbols._
-    import instrumenter._
-    import exprOps._
-    import dsl._
+    // import symbols._
+    // import instrumenter._
+    // import exprOps._
+    // import dsl._
 
     try {
       checkEffects(fd)
@@ -97,6 +104,16 @@ trait EffectElaboration
       val newFullBody = if (isPureFunction(fd.id)) {
         fullBodyWithRefs
       } else {
+        // HACK: Manually add applyFds until we split the phase into two
+        val unapplyFds = tctx.symbols.classes.values.toSeq.map(tctx.makeClassUnapply).flatten
+        implicit val symbolsAfterRef: Symbols = tctx.symbols
+          .withFunctions(unapplyFds)
+          .withSorts(Seq(refSort) ++ OptionSort.sorts(symbols))
+        import symbolsAfterRef._
+        import instrumenter._
+        import exprOps._
+        import dsl._
+
         val (specs, bodyOpt) = deconstructSpecs(fullBodyWithRefs)
         val initialState = fdAdjusted.params.head.toVariable
         val newBodyOpt = bodyOpt.map { body =>
@@ -132,8 +149,8 @@ trait EffectElaboration
   override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =
     tctx.refTransformer.transform(sort)
 
-  override protected def extractClass(tctx: EffectTransformerContext, cd: ClassDef): ClassDef =
-    tctx.refTransformer.transform(cd)
+  override protected def extractClass(tctx: EffectTransformerContext, cd: ClassDef): ClassResult =
+    (tctx.refTransformer.transform(cd), tctx.makeClassUnapply(cd))
 }
 
 object EffectElaboration {
