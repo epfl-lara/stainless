@@ -130,6 +130,8 @@ trait TreeSanitizer { self =>
       fd.flags.foreach(traverse)
     }
 
+    val misplacedSpec = "This error message might occur when a function has type Unit while its body has another type"
+
     override def traverse(e: Expr): Unit = e match {
       case wh @ While(cond, body, optInv) =>
         traverse(cond)
@@ -140,10 +142,13 @@ trait TreeSanitizer { self =>
         optInv.foreach(traverse)
 
       case e: Require =>
-        errors += MalformedStainlessCode(e, s"Unexpected `require`.")
+        errors += MalformedStainlessCode(e, s"Unexpected `require`. ($misplacedSpec).")
 
       case e: Decreases =>
-        errors += MalformedStainlessCode(e, s"Unexpected `decreases`.")
+        errors += MalformedStainlessCode(e, s"Unexpected `decreases` ($misplacedSpec).")
+
+      case e: Ensuring =>
+        errors += MalformedStainlessCode(e, s"Unexpected `ensuring` ($misplacedSpec).")
 
       case e: LetRec =>
         // Traverse LocalFunDef independently
