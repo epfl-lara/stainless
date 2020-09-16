@@ -68,7 +68,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       val res = ValDef(FreshIdentifier("res", true), getType)
       Let(res, body, Assert(
         s.application(pred, Seq(res.toVariable)),
-        Some("Postcondition failed @" + this.getPos),
+        Some("Postcondition @" + this.getPos),
         res.toVariable
       ))
     }
