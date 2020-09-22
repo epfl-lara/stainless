@@ -4,202 +4,111 @@ package stainless
 package extraction
 package imperative
 
-trait StateInstrumentation extends oo.CachingPhase with utils.SyntheticSorts { self =>
+trait StateInstrumentation
+  extends oo.CachingPhase
+     with SimpleFunctions
+     with IdentitySorts
+     with oo.IdentityClasses
+     with oo.IdentityTypeDefs
+     with SimplyCachedFunctions
+     with SimplyCachedSorts
+     with oo.SimplyCachedClasses { self =>
+
   val s: Trees
   val t: s.type
-
   import s._
-  import dsl._
 
-  /* Heap encoding */
+  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  private[this] lazy val refId: Identifier = FreshIdentifier("Ref")
-  private[this] lazy val refValue: Identifier = FreshIdentifier("value")
-  private[this] lazy val refCons: Identifier = FreshIdentifier("Ref")
-  protected lazy val refSort: ADTSort = mkSort(refId)() { _ =>
-    Seq((refCons, Seq(ValDef(refValue, IntegerType()))))
+  // A tiny effect analyzer
+  // TODO: Replace this with explicit, modularly-checked annotations
+  trait EffectInferenceContext {
+    val symbols: Symbols
+
+    type EffectLevel = Option[Boolean] // None=NoEffect, Some(false)=reads, Some(true)=writes
+    type EffectSummaries = Map[Identifier, Boolean] // EffectSummaries#get : EffectLevel
+    def effectMax(el1: EffectLevel, el2: EffectLevel): EffectLevel = (el1, el2) match {
+      case (Some(_), None) => el1
+      case (None, Some(_)) => el2
+      case (Some(w1), Some(_)) => if (w1) el1 else el2
+      case _ => None
+    }
+
+    private[imperative] val effectSummaries: EffectSummaries = {
+      def updateStep(summaries: EffectSummaries, fd: FunDef, iteration: Int): EffectSummaries =
+        computeSummary(summaries, fd) match {
+          case None => summaries
+          case Some(writes) => summaries + (fd.id -> writes)
+        }
+
+      // The default call graph omits isolated functions, but we want all of them.
+      val sccs = (symbols.callGraph ++ symbols.functions.keySet).stronglyConnectedComponents
+
+      val empty: EffectSummaries = Map.empty
+      val res = sccs.topSort.reverse.foldLeft(empty) { case (summaries, scc) =>
+        // Fast path for the simple case of a single, non-recursive function
+        if (scc.size == 1 && !symbols.isRecursive(scc.head)) {
+          updateStep(summaries, symbols.getFunction(scc.head), 1)
+        } else {
+          val fds = scc.map(symbols.getFunction(_))
+          var iteration = 0
+          inox.utils.fixpoint[EffectSummaries] { summaries =>
+            iteration += 1
+            fds.foldLeft(summaries)(updateStep(_, _, iteration))
+          } (summaries)
+        }
+      }
+      // println(s"\n=== EFFECT SUMMARIES ===\n${res}\n")
+      res
+    }
+
+    def computeSummary(summaries: EffectSummaries, fd: FunDef): Option[Boolean] = {
+      var effectLevel: EffectLevel = symbols
+        .callees(fd)
+        .toSeq
+        .map(fd => summaries.get(fd.id))
+        .foldLeft(None: EffectLevel)(effectMax)
+
+      exprOps.preTraversal {
+        case _: MutableMapApply =>
+          effectLevel = effectMax(effectLevel, Some(false))
+        case _: MutableMapUpdate =>
+          effectLevel = effectMax(effectLevel, Some(true))
+        case _: ArraySelect | _: FieldAssignment | _: FiniteArray
+            | _: LargeArray | _: ArrayUpdate | _: ArrayUpdated | _: MutableMapWithDefault
+            | _: MutableMapUpdated | _: MutableMapDuplicate =>
+          // FIXME: All of these should have been eliminated by now?
+          ???
+        case _ =>
+      }(fd.fullBody)
+
+      effectLevel
+    }
   }
-  private[this] lazy val RefType: Type = T(refId)()
-  private[this] def Ref(value: Expr): Expr = E(refCons)(value)
-  private[this] def getRefValue(ref: Expr): Expr = ref.getField(refValue)
 
-  protected lazy val HeapType: MapType = MapType(RefType, AnyType())
+  protected class TransformerContext(val symbols: Symbols) extends EffectInferenceContext { tctx =>
+    import dsl._
 
-  // A sentinel value for the first transformation
-  private[this] lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
+    // FIXME: Deduplicate across phases?
+    // FIXME: Degrade gracefully when Ref is not present (assuming that no refTransform is needed)?
+    lazy val RefType: Type = T(symbols.lookup.get[ADTSort]("stainless.lang.Ref").get.id)()
+    lazy val HeapType: MapType = MapType(RefType, AnyType())
+    lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
 
-  private[this] lazy val unapplyId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+    private def freshStateParam(): ValDef = "s0" :: HeapType
 
-  /* Instrumentation */
-
-  protected type TransformerContext <: InstrumentationContext
-
-  trait InstrumentationContext { context: TransformerContext =>
-    implicit val symbols: s.Symbols
-
-    def smartLet(vd: => ValDef, e: Expr)(f: Expr => Expr): Expr = e match {
-      case _: Terminal => f(e)
-      case _ => let(vd, e)(f)
+    def adjustSig(fd: FunDef): FunDef = effectSummaries.get(fd.id) match {
+      case None =>
+        fd
+      case Some(writes) =>
+        fd.copy(
+          params = freshStateParam() +: fd.params,
+          returnType = if (writes) T(fd.returnType, HeapType) else fd.returnType
+        )
     }
 
-    def freshStateParam(): ValDef = "s0" :: HeapType
-
-    // TODO: Perform some effect analysis to omit some state parameters
-    def adjustFunSig(fd: FunDef): FunDef = {
-      val fdStripped = fd.copy(fullBody = exprOps.withBody(fd.fullBody, NoTree(fd.returnType)))
-      val fdWithRefs = refTransformer.transform(fdStripped)
-      val (params, returnType) = if (isPureFunction(fd.id)) {
-        (fdWithRefs.params, fdWithRefs.returnType)
-      } else {
-        val stateParam = freshStateParam().copiedFrom(fdWithRefs)
-        (stateParam +: fdWithRefs.params, T(fdWithRefs.returnType, HeapType))
-      }
-      fdWithRefs.copy(params = params, returnType = returnType)
-    }
-
-    // Compute symbols with modified signatures and added sorts. Only used during instrumentation.
-    val adjustedSymbols: s.Symbols = {
-      import OptionSort._
-      val syms = context.symbols
-      val unapplyFds = syms.classes.values.toSeq.map(makeClassUnapply).flatten
-      syms
-        .withFunctions(unapplyFds ++ syms.functions.values.map(adjustFunSig).toSeq)
-        .withSorts(Seq(refSort) ++ syms.sorts.values.map(refTransformer.transform).toSeq)
-        .withClasses(syms.classes.values.map(refTransformer.transform).toSeq)
-    }
-
-    def classTypeInHeap(ct: ClassType): ClassType =
-      ClassType(ct.id, ct.tps.map(refTransformer.transform)).copiedFrom(ct)
-
-    def valueFromHeap(recv: Expr, objTpe: ClassType, fromE: Expr): Expr = {
-      val app = MutableMapApply(TheHeap, recv).copiedFrom(fromE)
-      val aio = AsInstanceOf(app, objTpe).copiedFrom(fromE)
-      val iio = IsInstanceOf(app, objTpe).copiedFrom(fromE)
-      Assume(iio, aio).copiedFrom(fromE)
-    }
-
-    def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
-      if (!symbols.mutableClasses.contains(cd.id))
-        return None
-
-      import OptionSort._
-      Some(mkFunDef(unapplyId(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))(
-          cd.typeArgs.map(_.id.name) : _*) { tparams =>
-        val tcd = cd.typed(tparams)
-        val ct = tcd.toType
-        val objTpe = classTypeInHeap(ct)
-
-        val base = RefType
-        // def condition(ref: Expr): Expr = IsInstanceOf(MutableMapApply(TheHeap, ref), objTpe)
-
-        // val baseReturnType = TupleType(tcd.fields.map(_.tpe))
-        // val vd = t.ValDef.fresh("v", baseReturnType)
-        // val returnType = t.RefinementType(vd, condition(vd.toVariable))
-        val returnType = objTpe
-
-        (Seq("s0" :: HeapType, "x" :: base), T(option)(returnType), { case Seq(s0, x) =>
-          val body =
-            if_ (IsInstanceOf(MutableMapApply(TheHeap, x), objTpe)) {
-              C(some)(returnType)(AsInstanceOf(MutableMapApply(TheHeap, x), objTpe))
-            } else_ {
-              C(none)(returnType)()
-            }
-          instrumenter.instrumentPure(body, s0)
-        })
-      })
-    }
-
-    def erasesToRef(tpe: Type): Boolean = tpe match {
-      case ct: ClassType => symbols.isMutableClassType(ct)
-      case _ => false
-    }
-
-    // HACK: Introduce and use some purity analysis
-    def isPureFunction(id: Identifier): Boolean =
-      id.name == "size" && symbols.getFunction(id).flags.contains(Library) ||
-      id.name == "isWithin"
-
-    // Reduce all mutation to MutableMap updates
-    // TODO: Handle mutable types other than classes
-    object refTransformer extends SelfTreeTransformer {
-      override def transform(e: Expr): Expr = e match {
-        case ClassConstructor(ct, args) if erasesToRef(ct) =>
-          // TODO: Add mechanism to keep multiple freshly allocated objects apart
-          val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
-          let("ref" :: RefType, ref) { ref =>
-            val ctNew = ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
-            val value = ClassConstructor(ctNew, args.map(transform)).copiedFrom(e)
-            let("alloc" :: UnitType(), MutableMapUpdate(TheHeap, ref, value).copiedFrom(e)) { _ =>
-              ref
-            }
-          }
-
-        case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
-          val ct = recv.getType.asInstanceOf[ClassType]
-          val objTpe = classTypeInHeap(ct)
-          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
-            ClassSelector(valueFromHeap(recvRef, objTpe, e), field).copiedFrom(e)
-          }
-
-        case FieldAssignment(recv, field, value) =>
-          assert(erasesToRef(recv.getType))
-          val ct = recv.getType.asInstanceOf[ClassType]
-          val objTpe = classTypeInHeap(ct)
-          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
-            val oldObj = valueFromHeap(recvRef, objTpe, e)
-            let("oldObj" :: objTpe, oldObj) { oldObj =>
-              val newCt = objTpe.asInstanceOf[ClassType]
-              val newArgs = newCt.tcd.fields.map {
-                case vd if vd.id == field => transform(value)
-                case vd => ClassSelector(oldObj, vd.id).copiedFrom(e)
-              }
-              val newObj = ClassConstructor(newCt, newArgs).copiedFrom(e)
-              MutableMapUpdate(TheHeap, recvRef, newObj).copiedFrom(e)
-            }
-          }
-
-        case IsInstanceOf(recv, tpe) if erasesToRef(tpe) =>
-          val ct = tpe.asInstanceOf[ClassType]
-          val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
-          IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
-
-        case _ => super.transform(e)
-      }
-
-      override def transform(pat: Pattern): Pattern = pat match {
-        case ClassPattern(binder, ct, subPats) if erasesToRef(ct) =>
-          UnapplyPattern(binder.map(transform), Seq(TheHeap),
-            unapplyId(ct.id),
-            ct.tps.map(transform),
-            subPats.map(transform)
-          ).copiedFrom(pat)
-        case _ =>
-          super.transform(pat)
-      }
-
-      override def transform(tpe: Type): Type = tpe match {
-        case ct: ClassType if erasesToRef(ct) =>
-          RefType
-        case FunctionType(_, _) =>
-          val FunctionType(from, to) = super.transform(tpe)
-          FunctionType(HeapType +: from, T(to, HeapType))
-        // TODO: PiType
-        case _ =>
-          super.transform(tpe)
-      }
-
-      override def transform(cd: ClassDef): ClassDef = {
-        val env = initEnv
-        // FIXME: Transform type arguments in parents?
-        new ClassDef(
-          transform(cd.id, env),
-          cd.tparams.map(transform(_, env)),
-          cd.parents,  // don't transform parents
-          cd.fields.map(transform(_, env)),
-          cd.flags.map(transform(_, env))
-        ).copiedFrom(cd)
-      }
-    }
+    private[this] val adjustedSymbols: s.Symbols =
+      symbols.withFunctions(symbols.functions.values.map(adjustSig).toSeq)
 
     // Represent state in a functional way
     object instrumenter extends StateInstrumenter {
@@ -215,10 +124,7 @@ trait StateInstrumentation extends oo.CachingPhase with utils.SyntheticSorts { s
         case MutableMapApply(`TheHeap`, key) =>
           bind(instrument(key)) { vkey =>
             { s0 =>
-              Uninstrum(
-                MapApply(s0, vkey).copiedFrom(e),
-                s0
-              )
+              Uninstrum(MapApply(s0, vkey).copiedFrom(e), s0)
             }
           }
 
@@ -232,15 +138,19 @@ trait StateInstrumentation extends oo.CachingPhase with utils.SyntheticSorts { s
             }
           }
 
-        case FunctionInvocation(id, targs, args) if isPureFunction(id) =>
-          bindMany(args.map(instrument)) { vargs =>
-            pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
-          }
-
         case FunctionInvocation(id, targs, args) =>
           bindMany(args.map(instrument)) { vargs =>
-            { s0 =>
-              Instrum(FunctionInvocation(id, targs, s0 +: vargs).copiedFrom(e))
+            effectSummaries.get(id) match {
+              case None =>
+                pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
+              case Some(false) =>
+                { s0 =>
+                  Uninstrum(FunctionInvocation(id, targs, s0 +: vargs).copiedFrom(e), s0)
+                }
+              case Some(true) =>
+                { s0 =>
+                  Instrum(FunctionInvocation(id, targs, s0 +: vargs).copiedFrom(e))
+                }
             }
           }
 
@@ -273,12 +183,81 @@ trait StateInstrumentation extends oo.CachingPhase with utils.SyntheticSorts { s
       }
 
       override def instrument(pat: Pattern, s0: Expr): Pattern = pat match {
-        case pat @ UnapplyPattern(_, Seq(`TheHeap`), _, _, subPats) =>
+        case pat @ UnapplyPattern(_, recs, id, _, subPats) =>
           val newSubPats = subPats.map(p => instrument(p, s0))
-          pat.copy(recs = Seq(s0), subPatterns = newSubPats).copiedFrom(pat)
+          effectSummaries.get(id) match {
+            case None =>
+              pat.copy(subPatterns = newSubPats)
+            case Some(false) =>
+              pat.copy(recs = Seq(s0) ++ recs, subPatterns = newSubPats).copiedFrom(pat)
+            case Some(true) =>
+              ??? // FIXME: Unapply should never write to heap
+          }
         case PatternExtractor(subPats, recons) =>
           recons(subPats.map(p => instrument(p, s0)))
       }
     }
+  }
+
+  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef = {
+    import tctx._
+    import symbols._
+    import instrumenter._
+    import exprOps._
+    import dsl._
+
+    // FIXME: Assumes for now that there is no local mutable state in pure functions
+    effectSummaries.get(fd.id) match {
+      case None =>
+        fd
+
+      case Some(writes) =>
+        val adjustedFd = adjustSig(fd)
+        val initialState = adjustedFd.params.head.toVariable
+
+        val (specs, bodyOpt) = deconstructSpecs(adjustedFd.fullBody)
+        val newBodyOpt: Option[Expr] = bodyOpt.map { body =>
+          val newBody = instrument(body)(NoPurityCheck)(initialState)
+          if (writes) ensureInstrum(newBody) else newBody.asInstanceOf[Uninstrum].ve
+        }
+
+        val newSpecs = specs.map {
+          case Precondition(expr) =>
+            Precondition(instrumentPure(expr, initialState))
+
+          case Measure(expr) =>
+            Measure(instrumentPure(expr, initialState))
+
+          case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
+            val resVd1 = if (writes) resVd.copy(tpe = T(resVd.tpe, HeapType)) else resVd
+            val post1 = postMap {
+              case v: Variable if writes && v.id == resVd.id =>
+                Some(resVd1.toVariable._1.copiedFrom(v))
+              case Old(e) =>
+                Some(instrumentPure(e, initialState))
+              case _ =>
+                None
+            }(post)
+
+            val finalState = if (writes) resVd1.toVariable._2 else initialState
+            val post2 = instrumentPure(post1, finalState)
+
+            Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
+        }
+        val newBody = reconstructSpecs(newSpecs, newBodyOpt, adjustedFd.returnType)
+
+        adjustedFd.copy(fullBody = newBody)
+    }
+  }
+}
+
+object StateInstrumentation {
+  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
+  } = new StateInstrumentation {
+    override val s: trees.type = trees
+    override val t: trees.type = trees
+    override val context = ctx
   }
 }
