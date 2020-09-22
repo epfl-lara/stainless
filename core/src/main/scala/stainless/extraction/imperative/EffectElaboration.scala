@@ -8,7 +8,7 @@ trait EffectElaboration
   extends oo.CachingPhase
      with SimpleSorts
      with oo.IdentityTypeDefs
-     with StateInstrumentation { self =>
+     with RefTransform { self =>
   val s: Trees
   val t: s.type
   import s._
@@ -43,41 +43,41 @@ trait EffectElaboration
     symbols.withClasses(classes).withFunctions(unapplyFds.flatten)
   }
 
-  protected case class EffectTransformerContext(symbols: Symbols)
-    extends InstrumentationContext
-  { tctx =>
+  protected class TransformerContext(val symbols: Symbols) extends RefTransformContext { tctx =>
+    // TODO: Move this to a later phase
     def checkEffects(fd: FunDef): Unit = {
-      def assertPureIn(expr: Expr, what: String): Unit = {
-        import instrumenter._
-        instrument(expr)(PurityCheckOn(what))(dummyState)
-      }
+      // def assertPureIn(expr: Expr, what: String): Unit = {
+      //   import instrumenter._
+      //   instrument(expr)(PurityCheckOn(what))(dummyState)
+      // }
 
-      exprOps.preTraversal {
-        case Require(pre, _)              => assertPureIn(pre, "precondition")
-        case Ensuring(_, Lambda(_, post)) => assertPureIn(post, "postcondition")
-        case Decreases(meas, _)           => assertPureIn(meas, "measure")
-        case Forall(_, pred)              => assertPureIn(pred, "forall quantification")
-        case Assert(cond, _, _)           => assertPureIn(cond, "assertion")
-        case Assume(cond, _)              => assertPureIn(cond, "assumption")
-        case While(_, _, pred, pred2, _)  =>
-          pred.foreach(assertPureIn(_, "loop invariant"))
-          pred2.foreach(assertPureIn(_, "no-return loop invariant"))
-        case MatchExpr(_, cses) =>
-          cses.foreach { cse =>
-            cse.optGuard.foreach { guard => assertPureIn(guard, "case guard") }
-            patternOps.preTraversal {
-              case up: UnapplyPattern => assertPureIn(???, "pattern unapply")
-              case _ => ()
-            }(cse.pattern)
-          }
-        case Let(vd, e, _) if vd.flags.contains(Lazy) => assertPureIn(e, "lazy val")
-        case _ =>
-      }(fd.fullBody)
+      // exprOps.preTraversal {
+      //   case Require(pre, _)              => assertPureIn(pre, "precondition")
+      //   case Ensuring(_, Lambda(_, post)) => assertPureIn(post, "postcondition")
+      //   case Decreases(meas, _)           => assertPureIn(meas, "measure")
+      //   case Forall(_, pred)              => assertPureIn(pred, "forall quantification")
+      //   case Assert(cond, _, _)           => assertPureIn(cond, "assertion")
+      //   case Assume(cond, _)              => assertPureIn(cond, "assumption")
+      //   case While(_, _, pred, pred2, _)  =>
+      //    pred.foreach(assertPureIn(_, "loop invariant"))
+      //    pred2.foreach(assertPureIn(_, "no-return loop invariant"))
+      //   case MatchExpr(_, cses) =>
+      //     cses.foreach { cse =>
+      //       cse.optGuard.foreach { guard => assertPureIn(guard, "case guard") }
+      //       patternOps.preTraversal {
+      //         case up: UnapplyPattern => assertPureIn(???, "pattern unapply")
+      //         case _ => ()
+      //       }(cse.pattern)
+      //     }
+      //   case Let(vd, e, _) if vd.flags.contains(Lazy) => assertPureIn(e, "lazy val")
+      //   case _ =>
+      // }(fd.fullBody)
+
+      ()
     }
   }
 
-  override protected type TransformerContext = EffectTransformerContext
-  override protected def getContext(symbols: Symbols) = EffectTransformerContext(symbols)
+  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
     super.extractSymbols(tctx, symbols)
@@ -85,71 +85,26 @@ trait EffectElaboration
       .withFunctions(OptionSort.functions(symbols))
   }
 
-  override protected def extractFunction(tctx: EffectTransformerContext,
+  override protected def extractFunction(tctx: TransformerContext,
       fd: FunDef): Option[FunDef] =
   {
     import tctx._
-    // import symbols._
-    // import instrumenter._
-    // import exprOps._
-    // import dsl._
 
-    try {
-      checkEffects(fd)
+    // try {
+    //   checkEffects(fd)
+    // } catch {
+    //   case IllegalImpureInstrumentation(msg, pos) =>
+    //     context.reporter.error(pos, msg)
+    //     None
+    // }
 
-      // Transform body
-      val fdAdjusted = adjustFunSig(fd)
-      val fullBodyWithRefs = refTransformer.transform(fd.fullBody)
-      // FIXME: Assumes for now that there is no local mutable state in pure functions
-      val newFullBody = if (isPureFunction(fd.id)) {
-        fullBodyWithRefs
-      } else {
-        // HACK: Manually add applyFds until we split the phase into two
-        val unapplyFds = tctx.symbols.classes.values.toSeq.map(tctx.makeClassUnapply).flatten
-        implicit val symbolsAfterRef: Symbols = tctx.symbols
-          .withFunctions(unapplyFds)
-          .withSorts(Seq(refSort) ++ OptionSort.sorts(symbols))
-        import symbolsAfterRef._
-        import instrumenter._
-        import exprOps._
-        import dsl._
-
-        val (specs, bodyOpt) = deconstructSpecs(fullBodyWithRefs)
-        val initialState = fdAdjusted.params.head.toVariable
-        val newBodyOpt = bodyOpt.map { body =>
-          ensureInstrum(instrument(body)(NoPurityCheck)(initialState))
-        }
-        val newSpecs = specs.map {
-          case Precondition(expr) =>
-            Precondition(instrumentPure(expr, initialState))
-          case Measure(expr) =>
-            Measure(instrumentPure(expr, initialState))
-          case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
-            val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
-            val finalState = resVd1.toVariable._2
-            val post1 = postMap {
-              case v: Variable if v.id == resVd.id => Some(resVd1.toVariable._1.copiedFrom(v))
-              case Old(e) => Some(instrumentPure(e, initialState))
-              case _ => None
-            }(post)
-            val post2 = instrumentPure(post1, finalState)
-            Postcondition(Lambda(Seq(resVd1), post2).copiedFrom(lam))
-        }
-        reconstructSpecs(newSpecs, newBodyOpt, fdAdjusted.returnType)
-      }
-
-      Some(fdAdjusted.copy(fullBody = newFullBody))
-    } catch {
-      case IllegalImpureInstrumentation(msg, pos) =>
-        context.reporter.error(pos, msg)
-        None
-    }
+    Some(refTransformer.transform(fd))
   }
 
-  override protected def extractSort(tctx: EffectTransformerContext, sort: ADTSort): ADTSort =
+  override protected def extractSort(tctx: TransformerContext, sort: ADTSort): ADTSort =
     tctx.refTransformer.transform(sort)
 
-  override protected def extractClass(tctx: EffectTransformerContext, cd: ClassDef): ClassResult =
+  override protected def extractClass(tctx: TransformerContext, cd: ClassDef): ClassResult =
     (tctx.refTransformer.transform(cd), tctx.makeClassUnapply(cd))
 }
 
@@ -161,5 +116,172 @@ object EffectElaboration {
     override val s: trees.type = trees
     override val t: trees.type = trees
     override val context = ctx
+  }
+}
+
+/** The actual Ref transformation **/
+
+trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
+  val s: Trees
+  val t: s.type
+
+  import s._
+  import dsl._
+
+  /* Heap encoding */
+
+  private[this] lazy val refId: Identifier = ast.SymbolIdentifier("stainless.lang.Ref")
+  private[this] lazy val refValue: Identifier = FreshIdentifier("value")
+  private[this] lazy val refCons: Identifier = ast.SymbolIdentifier("stainless.lang.RefC")
+  protected lazy val refSort: ADTSort = mkSort(refId)() { _ =>
+    Seq((refCons, Seq(ValDef(refValue, IntegerType()))))
+  }
+  private[this] lazy val RefType: Type = T(refId)()
+  private[this] def Ref(value: Expr): Expr = E(refCons)(value)
+  private[this] def getRefValue(ref: Expr): Expr = ref.getField(refValue)
+
+  protected lazy val HeapType: MapType = MapType(RefType, AnyType())
+
+  // A sentinel value for the global heaps
+  private[this] lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
+
+  private[this] lazy val unapplyId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+
+  /* The transformer */
+
+  protected type TransformerContext <: RefTransformContext
+
+  trait RefTransformContext { context: TransformerContext =>
+    implicit val symbols: s.Symbols
+
+    def smartLet(vd: => ValDef, e: Expr)(f: Expr => Expr): Expr = e match {
+      case _: Terminal => f(e)
+      case _ => let(vd, e)(f)
+    }
+
+    def classTypeInHeap(ct: ClassType): ClassType =
+      ClassType(ct.id, ct.tps.map(refTransformer.transform)).copiedFrom(ct)
+
+    def valueFromHeap(recv: Expr, objTpe: ClassType, fromE: Expr): Expr = {
+      val app = MutableMapApply(TheHeap, recv).copiedFrom(fromE)
+      val aio = AsInstanceOf(app, objTpe).copiedFrom(fromE)
+      val iio = IsInstanceOf(app, objTpe).copiedFrom(fromE)
+      Assume(iio, aio).copiedFrom(fromE)
+    }
+
+    def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
+      if (!symbols.mutableClasses.contains(cd.id))
+        return None
+
+      import OptionSort._
+      Some(mkFunDef(unapplyId(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))(
+          cd.typeArgs.map(_.id.name) : _*) { tparams =>
+        val tcd = cd.typed(tparams)
+        val ct = tcd.toType
+        val objTpe = classTypeInHeap(ct)
+
+        (Seq("x" :: RefType), T(option)(objTpe), { case Seq(x) =>
+          if_ (IsInstanceOf(MutableMapApply(TheHeap, x), objTpe)) {
+            C(some)(objTpe)(AsInstanceOf(MutableMapApply(TheHeap, x), objTpe))
+          } else_ {
+            C(none)(objTpe)()
+          }
+        })
+      })
+    }
+
+    def erasesToRef(tpe: Type): Boolean = tpe match {
+      case ct: ClassType => symbols.isMutableClassType(ct)
+      case _ => false
+    }
+
+    // Reduce all mutation to MutableMap updates
+    // TODO: Handle mutable types other than classes
+    object refTransformer extends SelfTreeTransformer {
+      override def transform(e: Expr): Expr = e match {
+        case ClassConstructor(ct, args) if erasesToRef(ct) =>
+          // TODO: Add mechanism to keep multiple freshly allocated objects apart
+          val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
+          let("ref" :: RefType, ref) { ref =>
+            val ctNew = ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
+            val value = ClassConstructor(ctNew, args.map(transform)).copiedFrom(e)
+            let("alloc" :: UnitType(), MutableMapUpdate(TheHeap, ref, value).copiedFrom(e)) { _ =>
+              ref
+            }
+          }
+
+        case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
+          val ct = recv.getType.asInstanceOf[ClassType]
+          val objTpe = classTypeInHeap(ct)
+          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
+            ClassSelector(valueFromHeap(recvRef, objTpe, e), field).copiedFrom(e)
+          }
+
+        case FieldAssignment(recv, field, value) =>
+          assert(erasesToRef(recv.getType))
+          val ct = recv.getType.asInstanceOf[ClassType]
+          val objTpe = classTypeInHeap(ct)
+          smartLet("recv" :: RefType, transform(recv)) { recvRef =>
+            val oldObj = valueFromHeap(recvRef, objTpe, e)
+            let("oldObj" :: objTpe, oldObj) { oldObj =>
+              val newCt = objTpe.asInstanceOf[ClassType]
+              val newArgs = newCt.tcd.fields.map {
+                case vd if vd.id == field => transform(value)
+                case vd => ClassSelector(oldObj, vd.id).copiedFrom(e)
+              }
+              val newObj = ClassConstructor(newCt, newArgs).copiedFrom(e)
+              MutableMapUpdate(TheHeap, recvRef, newObj).copiedFrom(e)
+            }
+          }
+
+        case IsInstanceOf(recv, tpe) if erasesToRef(tpe) =>
+          val ct = tpe.asInstanceOf[ClassType]
+          val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
+          IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
+
+        case _ => super.transform(e)
+      }
+
+      override def transform(pat: Pattern): Pattern = pat match {
+        case ClassPattern(binder, ct, subPats) if erasesToRef(ct) =>
+          val newClassPat = ClassPattern(
+            None,
+            classTypeInHeap(ct),
+            subPats.map(transform)
+          ).copiedFrom(pat)
+          UnapplyPattern(
+            binder.map(transform),
+            Seq(),
+            unapplyId(ct.id),
+            ct.tps.map(transform),
+            Seq(newClassPat)
+          ).copiedFrom(pat)
+        case _ =>
+          super.transform(pat)
+      }
+
+      override def transform(tpe: Type): Type = tpe match {
+        case ct: ClassType if erasesToRef(ct) =>
+          RefType
+        case FunctionType(_, _) =>
+          val FunctionType(from, to) = super.transform(tpe)
+          FunctionType(HeapType +: from, T(to, HeapType))
+        // TODO: PiType
+        case _ =>
+          super.transform(tpe)
+      }
+
+      override def transform(cd: ClassDef): ClassDef = {
+        val env = initEnv
+        // FIXME: Transform type arguments in parents?
+        new ClassDef(
+          transform(cd.id, env),
+          cd.tparams.map(transform(_, env)),
+          cd.parents,  // don't transform parents
+          cd.fields.map(transform(_, env)),
+          cd.flags.map(transform(_, env))
+        ).copiedFrom(cd)
+      }
+    }
   }
 }
