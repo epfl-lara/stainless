@@ -193,7 +193,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
     def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
-      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.getType).get, subPatterns.size)
+      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
   }
 
   /** Symbolic I/O examples as a match/case.
