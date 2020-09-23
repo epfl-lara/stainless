@@ -1,6 +1,6 @@
 import stainless.lang.Option
 
-object AdtSpecializationUnapply {
+object AdtSpecializationUnapply2 {
   sealed trait Root
   sealed trait B extends Root { val x: BigInt }
   case class C(x: BigInt) extends B
