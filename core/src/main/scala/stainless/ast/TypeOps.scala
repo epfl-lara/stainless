@@ -12,9 +12,9 @@ trait TypeOps extends inox.ast.TypeOps {
     lookupFunction(id)
       .filter(_.params.size == 1)
       .flatMap { fd =>
-        instantiation(fd.params.head.getType, inType)
+        instantiation(fd.params.head.tpe, inType)
           .filter(tpMap => fd.typeArgs forall (tpMap contains _))
-          .map(typeOps.instantiateType(fd.getType, _))
+          .map(typeOps.instantiateType(fd.returnType, _))
       }
 
   def patternIsTyped(in: Type, pat: Pattern): Boolean = pat match {
@@ -40,7 +40,7 @@ trait TypeOps extends inox.ast.TypeOps {
     case TuplePattern(ob, subs) => in match {
       case TupleType(tps) =>
         tps.size == subs.size &&
-        ob.forall(vd => isSubtypeOf(vd.getType, in)) && 
+        ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
       case _ => false
     }
@@ -50,7 +50,7 @@ trait TypeOps extends inox.ast.TypeOps {
       lookupFunction(id).exists(_.tparams.size == tps.size) && {
         val unapp = up.getFunction
         unapp.params.nonEmpty &&
-        ob.forall(vd => isSubtypeOf(unapp.params.last.getType, vd.getType))
+        ob.forall(vd => isSubtypeOf(unapp.params.last.getType, vd.getType)) &&
         (recs zip unapp.params.init).forall { case (r, vd) => isSubtypeOf(r.getType, vd.getType) } &&
         unapp.flags
           .collectFirst { case IsUnapply(isEmpty, get) => (isEmpty, get) }
