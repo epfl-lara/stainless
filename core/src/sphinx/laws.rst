@@ -78,7 +78,7 @@ satisfy for the datatype to form a valid monoid.
 
 Stainless will then ensure that the implementation of ``Monoid`` for the ``BigInt`` type satisfy
 those laws. In this case, the above definition of ``bigIntAdditiveMonoid`` will generate the
-following verification conditions:::
+following verification conditions::
 
      ┌───────────────────┐
    ╔═╡ stainless summary ╞══════════════════════════════════════════════════════════════════════╗
@@ -323,7 +323,7 @@ amended to exercise at once all the features described above.
      }
 
      @law
-     def law_leftIdentity(x: A): Boolean = {
+     def law_rightIdentity(x: A): Boolean = {
        append(x, empty) == x
      }
 
