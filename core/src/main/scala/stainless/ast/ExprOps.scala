@@ -60,8 +60,12 @@ trait ExprOps extends inox.ast.ExprOps {
 
     def bodyOpt: Option[Expr] = if (hasBody) Some(body) else None
 
-    def getSpec(kind: SpecKind): Option[kind.Spec] =
+    lazy val hasDuplicates: Boolean = specs.size != specs.map(_.kind).toSet.size
+
+    def getSpec(kind: SpecKind): Option[kind.Spec] = {
+      assert(!hasDuplicates, "Duplicate specs")
       specs.find(_.kind == kind).asInstanceOf[Option[kind.Spec]]
+    }
 
     def withSpec(spec: Specification): BodyWithSpecs = {
       def adaptPos(spec: Specification, closest: Option[Specification]) = {
@@ -69,6 +73,7 @@ trait ExprOps extends inox.ast.ExprOps {
           spec.setPos(closest.getOrElse(body).getPos)
         spec
       }
+      assert(!hasDuplicates, "Duplicate specs")
       val newSpecs = specs.indexWhere(_.kind == spec.kind) match {
         case -1 => adaptPos(spec, specs.headOption) +: specs
         case i => specs.updated(i, adaptPos(spec, Some(specs(i))))
@@ -131,7 +136,6 @@ trait ExprOps extends inox.ast.ExprOps {
           val lets = gatherLets(fullBody, Seq.empty)
           assert(!body.isInstanceOf[Let] || !bodyMissing(body),
             "Body is missing, but there are let bindings irrelevant to specs")
-          assert(specs.size == specs.map(_.kind).toSet.size, "Duplicate specs")
           assert(lets.isEmpty || specs.nonEmpty)
           BodyWithSpecs(lets, specs, body)
         case None =>
