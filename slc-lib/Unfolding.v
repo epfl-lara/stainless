@@ -17,7 +17,7 @@ Lemma swap_rewrite: forall T t1 t2, Rewrite T t1 t2 -> Rewrite T t2 t1.
 Proof.
   unfold Rewrite; auto.
 Qed.
-    
+
 Ltac add_equation E :=
   let U := fresh "U" in
   pose proof (equal_to_rewrite _ _ _ E) as U.

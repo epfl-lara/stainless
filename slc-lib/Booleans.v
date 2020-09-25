@@ -95,14 +95,14 @@ Proof.
 Qed.
 
 Lemma ifthenelse_rewrite_4: forall T (b: bool) (e1 e2 value: T),
-  (if b then e1 else e2) = value -> 
+  (if b then e1 else e2) = value ->
     ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
 Lemma ifthenelse_rewrite_4': forall T (b: bool) (e1 e2 value: T),
-  value = (if b then e1 else e2) -> 
+  value = (if b then e1 else e2) ->
     ((b = true /\ e1 = value) \/ (b = false /\ e2 = value)).
 Proof.
   repeat libStep || ifthenelse_step.
@@ -134,8 +134,8 @@ Ltac splitite b B e1 e2 :=
   let S := fresh "S" in
   let HH1 := fresh "HH" in
   let HH2 := fresh "HH" in
-  let M1 := fresh "MM" in 
-  let M2 := fresh "MM" in 
+  let M1 := fresh "MM" in
+  let M2 := fresh "MM" in
   let X := fresh "XX" in
   let Y := fresh "YY" in
   let B1 := fresh "BB" in
@@ -159,7 +159,7 @@ Ltac splitite b B e1 e2 :=
     try rewrite <- B2 in *;
     clear B2;
     pose proof (Mark Y not_usable) as M2;
-    pose proof Y as cpY 
+    pose proof Y as cpY
   ]
 .
 
@@ -209,16 +209,16 @@ Hint Rewrite negb_equal: libBool.
 
 Ltac t_bool_simpl :=
   match goal with
-  | H: ?b = ?l |- _ => 
+  | H: ?b = ?l |- _ =>
     usable H; not_literal b; literal l; rewrite H in *
   end.
 
 Ltac t_bool :=
   match goal with
-  | H: ?b = true |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_true b A e1 e2 H)) 
-  | H: ?b = false |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_false b A e1 e2 H)) 
-  | H: ?b = true, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_true b A e1 e2 H)) 
-  | H: ?b = false, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_false b A e1 e2 H)) 
+  | H: ?b = true |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_true b A e1 e2 H))
+  | H: ?b = false |- context[ifthenelse ?b ?A ?e1 ?e2] => destruct (eq_sym (ite_false b A e1 e2 H))
+  | H: ?b = true, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_true b A e1 e2 H))
+  | H: ?b = false, H2: context[ifthenelse ?b ?A ?e1 ?e2] |- _ => destruct (eq_sym (ite_false b A e1 e2 H))
   | _ => apply eq_true_not_negb
   | |- ?b1 = ?b2 => not_literal b1; not_literal b2; apply eq_iff_eq_true
   | _ => t_bool_simpl
