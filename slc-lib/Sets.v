@@ -53,7 +53,7 @@ Ltac t_sets_aux :=
 Lemma union_empty_l:
   forall T (s: set T), set_union s set_empty = s.
 Proof.
-  intros; apply functional_extensionality; t_sets_aux.
+  intros; apply functional_extensionality; repeat t_sets_aux || rewrite orb_false_r.
 Qed.
 
 Lemma union_empty_r:
