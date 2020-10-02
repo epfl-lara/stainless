@@ -6,7 +6,7 @@ How to release
 1. Update [RELEASE\_NOTES.md](RELEASE_NOTES.md).
 2. Make sure that the  Git working copy is not dirty, ie. that `git diff --stat` does not output anything.
 3. Tag the release with `git tag -a -s VERSION`, where `VERSION` is of the form `vX.X.X`.
-   In the tag commit message, make include the release notes for that version.
+   In the tag commit message, include the release notes for that version.
 4. Push the tag to GitHub with `git push --tags`.
 5. Build the standalone archives for macOS and Linux with `./bin/package-standalone.sh`.
 6. Create a new release on GitHub, add the release notes for that version and attach the two archives. Make sure to not rename the archives.
