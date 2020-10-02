@@ -1,5 +1,13 @@
 # Release Notes
 
+## Version 0.7.4 (2020-10-02)
+
+### Bug fixes
+
+- Fix unapplyAccessor not instantiating with refinement type (#841)
+- Remove duplicate serializations
+
+
 ## Version 0.7.3 (2020-09-08)
 
 ### Improvements
