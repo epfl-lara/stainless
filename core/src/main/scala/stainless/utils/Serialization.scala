@@ -19,9 +19,9 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
   /** An extension to the set of registered classes in the `InoxSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 120 to 167.
+    * The new identifiers in the mapping range from 120 to 168.
     *
-    * NEXT ID: 168
+    * NEXT ID: 169
     */
   override protected def classSerializers: Map[Class[_], Serializer[_]] =
     super.classSerializers ++ Map(
@@ -59,7 +59,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       classSerializer[Extern.type]     (139),
       classSerializer[Opaque.type]     (140),
       classSerializer[Unchecked.type]  (141),
-      classSerializer[Library.type]    (158),
+      classSerializer[Library.type]    (168),
       classSerializer[Derived]         (142),
       classSerializer[IsField]         (143),
       classSerializer[IsUnapply]       (144),
@@ -95,9 +95,9 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
   /** An extension to the set of registered classes in the `StainlessSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 180 to 247.
+    * The new identifiers in the mapping range from 180 to 255.
     *
-    * NEXT ID: 248
+    * NEXT ID: 256
     */
   override protected def classSerializers: Map[Class[_], Serializer[_]] =
     super.classSerializers ++ Map(
@@ -133,12 +133,12 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[IsMutable.type]         (199),
       classSerializer[IsPure.type]            (230),
       classSerializer[Snapshot]               (239),
-      classSerializer[MutableMapType]         (232),
-      classSerializer[MutableMapWithDefault]  (233),
-      classSerializer[MutableMapApply]        (234),
-      classSerializer[MutableMapUpdate]       (235),
-      classSerializer[MutableMapUpdated]      (236),
-      classSerializer[MutableMapDuplicate]    (237),
+      classSerializer[MutableMapType]         (248),
+      classSerializer[MutableMapWithDefault]  (249),
+      classSerializer[MutableMapApply]        (250),
+      classSerializer[MutableMapUpdate]       (251),
+      classSerializer[MutableMapUpdated]      (252),
+      classSerializer[MutableMapDuplicate]    (253),
 
       // Object-oriented trees
       classSerializer[ClassConstructor] (200),
@@ -161,8 +161,8 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[Variance]         (227),
       classSerializer[IsCaseObject.type](229),
       classSerializer[TypeSelect]       (237),
-      classSerializer[TypeApply]        (238),
-      classSerializer[TypeDef]          (239),
+      classSerializer[TypeApply]        (254),
+      classSerializer[TypeDef]          (255),
       classSerializer[IsTypeMemberOf]   (246),
 
       // Inner classes trees
