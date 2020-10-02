@@ -299,6 +299,7 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
 
 lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
   .settings(commonSettings)
+  .settings(noPublishSettings)
   .settings(name := "stainless-dotty-frontend")
   .dependsOn(`stainless-core`)
   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
