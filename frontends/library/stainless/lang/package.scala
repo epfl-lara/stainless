@@ -178,4 +178,9 @@ package object lang {
     a2(i2) = t
   }
 
+  @ignore
+  def reads(objs: Set[Any]): Unit = ()
+
+  @ignore
+  def modifies(objs: Set[Any]): Unit = ()
 }
