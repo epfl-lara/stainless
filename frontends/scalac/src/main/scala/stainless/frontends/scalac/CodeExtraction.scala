@@ -666,6 +666,10 @@ trait CodeExtraction extends ASTExtractors {
             reporter.warning(e.getPos, s"This require is ignored for verification because it is not at the top-level of this @extern function.")
           case _: xt.Ensuring =>
             reporter.warning(e.getPos, s"This ensuring is ignored for verification because it is not at the top-level of this @extern function.")
+          case _: xt.Reads =>
+            reporter.warning(e.getPos, s"This reads is ignored for verification because it is not at the top-level of this @extern function.")
+          case _: xt.Modifies =>
+            reporter.warning(e.getPos, s"This modifies is ignored for verification because it is not at the top-level of this @extern function.")
           case _ =>
             ()
         }
@@ -891,6 +895,12 @@ trait CodeExtraction extends ASTExtractors {
         val b = rec(xs)
         xt.Decreases(xt.tupleWrap(rs), b).setPos(e.pos)
 
+      case (e @ ExReadsExpression(objs)) :: xs =>
+        xt.Reads(extractTree(objs)(cctx), rec(xs)).setPos(e.pos)
+
+      case (e @ ExModifiesExpression(objs)) :: xs =>
+        xt.Modifies(extractTree(objs)(cctx), rec(xs)).setPos(e.pos)
+
       case (d @ ExFunctionDef(sym, tparams, vparams, tpt, rhs)) :: xs =>
         val (id, tdefs, tpe) = cctx.localFuns(sym)
         val fd = extractFunction(sym, tparams, vparams, rhs, typeParams = Some(tdefs.map(_.tp)))(cctx)
@@ -931,6 +941,8 @@ trait CodeExtraction extends ASTExtractors {
         extractTree(x)(vctx) match {
           case xt.Decreases(m, b) => xt.Decreases(m, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
           case xt.Require(pre, b) => xt.Require(pre, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case xt.Reads(objs, b) => xt.Reads(objs, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
+          case xt.Modifies(objs, b) => xt.Modifies(objs, xt.Block(b +: elems, last).setPos(re)).setPos(x.pos)
           case b => xt.Block(b +: elems, last).setPos(x.pos)
         }
 
@@ -995,6 +1007,12 @@ trait CodeExtraction extends ASTExtractors {
     case ExRequiredExpression(body, isStatic) =>
       def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
       xt.Require(wrap(extractTree(body)), xt.UnitLiteral().setPos(tr.pos))
+
+    case ExReadsExpression(objs) =>
+      xt.Reads(extractTree(objs), xt.UnitLiteral().setPos(tr.pos))
+
+    case ExModifiesExpression(objs) =>
+      xt.Modifies(extractTree(objs), xt.UnitLiteral().setPos(tr.pos))
 
     case ExEnsuredExpression(body, contract, isStatic) =>
       def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
