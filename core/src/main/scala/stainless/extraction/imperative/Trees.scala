@@ -132,6 +132,18 @@ trait Trees extends oo.Trees with Definitions { self =>
       checkAllTypes(Seq(lhs, rhs), BooleanType(), BooleanType())
   }
 
+  /** Represents a `reads(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
+  case class Reads(objs: Expr, body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type =
+      checkParamType(objs, SetType(AnyType()), body.getType)
+  }
+
+  /** Represents a `modifies(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
+  case class Modifies(objs: Expr, body: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type =
+      checkParamType(objs, SetType(AnyType()), body.getType)
+  }
+
   object VarDef {
     def apply(id: Identifier, tpe: Type, flags: Seq[Flag]): ValDef = ValDef(id, tpe, (flags :+ IsVar).distinct)
     def unapply(d: Definition): Option[(Identifier, Type, Seq[Flag])] = d match {
@@ -249,16 +261,26 @@ trait Printer extends oo.Printer {
       p"$lhs ^ $rhs"
     }
 
+    case Reads(objs, body) =>
+      p"""|reads($objs);
+          |$body"""
+
+    case Modifies(objs, body) =>
+      p"""|modifies($objs);
+          |$body"""
+
     case _ => super.ppBody(tree)
   }
 
   override protected def isSimpleExpr(e: Expr): Boolean = e match {
-    case (_: Block) | (_: LetVar) => false
+    case (_: Block) | (_: LetVar) | (_: Reads) | (_: Modifies) => false
     case _ => super.isSimpleExpr(e)
   }
 
   override protected def noBracesSub(e: Tree): Seq[Expr] = e match {
     case LetVar(_, _, bd) => Seq(bd)
+    case Reads(_, bd) => Seq(bd)
+    case Modifies(_, bd) => Seq(bd)
     case _ => super.noBracesSub(e)
   }
 
@@ -324,6 +346,12 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
 
+    case s.Reads(objs, bd) =>
+      (Seq(), Seq(), Seq(objs, bd), Seq(), Seq(), (_, _, es, _, _) => t.Reads(es(0), es(1)))
+
+    case s.Modifies(objs, bd) =>
+      (Seq(), Seq(), Seq(objs, bd), Seq(), Seq(), (_, _, es, _, _) => t.Modifies(es(0), es(1)))
+
     case _ => super.deconstruct(e)
   }
 
@@ -343,6 +371,44 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 trait ExprOps extends oo.ExprOps {
   protected val trees: Trees
   import trees._
+
+  /** The two new kinds of contracts that the imperative phase introduces */
+  object ReadsKind extends SpecKind("reads") { type Spec = ReadsContract }
+  object ModifiesKind extends SpecKind("modifies") { type Spec = ModifiesContract }
+
+  /** Reads contract that corresponds to [[Expressions.Reads]]. */
+  case class ReadsContract(expr: Expr) extends Specification(ReadsKind) {
+    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
+      case t: imperative.Trees =>
+        t.exprOps.ReadsContract(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
+      case _ =>
+        throw new java.lang.IllegalArgumentException("Can't map reads contracts into non-imperative trees")
+    }
+  }
+
+  /** Modifies contract that corresponds to [[Expressions.Modifies]]. */
+  case class ModifiesContract(expr: Expr) extends Specification(ModifiesKind) {
+    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
+      case t: imperative.Trees =>
+        t.exprOps.ModifiesContract(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
+      case _ =>
+        throw new java.lang.IllegalArgumentException("Can't map modifies contracts into non-imperative trees")
+    }
+  }
+
+  /** Overridden to extract the specification from an expression */
+  override def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {
+    case Reads(objs, body) => Some((ReadsContract(objs).setPos(expr), body))
+    case Modifies(objs, body) => Some((ModifiesContract(objs).setPos(expr), body))
+    case _ => super.peelSpec(expr)
+  }
+
+  /** Overridden to add a specification to an expression */
+  override def applySpec(spec: Specification, body: Expr): Expr = spec match {
+    case ReadsContract(objs) => Reads(objs, body).setPos(spec)
+    case ModifiesContract(objs) => Modifies(objs, body).setPos(spec)
+    case _ => super.applySpec(spec, body)
+  }
 
   def flattenBlocks(expr: Expr): Expr = postMap {
     case Block(exprs, last) =>

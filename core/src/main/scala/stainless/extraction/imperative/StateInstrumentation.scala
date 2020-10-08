@@ -221,7 +221,7 @@ trait StateInstrumentation
           if (writes) ensureInstrum(newBody) else newBody.asInstanceOf[Uninstrum].ve
         }
 
-        val newSpecs = specs.map {
+        val newSpecs = specs.collect {
           case Precondition(expr) =>
             Precondition(instrumentPure(expr, initialState))
 

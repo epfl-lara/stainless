@@ -145,4 +145,10 @@ package object lang {
   def print(x: String): Unit = {
     scala.Predef.print(x)
   }
+
+  @ignore
+  def reads(objs: Set[Any]): Unit = ()
+
+  @ignore
+  def modifies(objs: Set[Any]): Unit = ()
 }
