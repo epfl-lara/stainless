@@ -367,6 +367,24 @@ trait ASTExtractors {
       }
     }
 
+    /** Extracts the 'reads' contract from an expression */
+    object ExReadsExpression {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(ExSelected("stainless", "lang", "package", "reads"), objs :: Nil) =>
+          Some(objs)
+        case _ => None
+      }
+    }
+
+    /** Extracts the 'modifies' contract from an expression */
+    object ExModifiesExpression {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(ExSelected("stainless", "lang", "package", "modifies"), objs :: Nil) =>
+          Some(objs)
+        case _ => None
+      }
+    }
+
     /** Extracts the 'decreases' contract for an expression (should be right after 'require') */
     object ExDecreasesExpression {
       def unapply(tree: Apply): Option[Seq[Tree]] = tree match {
