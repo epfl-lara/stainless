@@ -589,6 +589,12 @@ trait TypeChecker {
           case t@MapType(from, to) => (t, vcs ++ checkType(tc, k, from) ++ checkType(tc, v, to))
           case _ => reporter.fatalError(m.getPos, s"Expected map type, but got ${tpe.asString}")
         }
+      case MapMerge(mask, map1, map2) =>
+        val (tpe, vcs) = inferType(tc, map1)
+        stripRefinementsAndAnnotations(tpe) match {
+          case t@MapType(from, to) => (t, vcs ++ checkType(tc, mask, SetType(from)) ++ checkType(tc, map2, t))
+          case _ => reporter.fatalError(map1.getPos, s"Expected map type, but got ${tpe.asString}")
+        }
       case MapApply(m, k) =>
         val (tpe, vcs) = inferType(tc, m)
         stripRefinementsAndAnnotations(tpe) match {
@@ -691,7 +697,7 @@ trait TypeChecker {
         tc.termVariables.find(tv => tv.id == id) match {
           case Some(tv) => (tv.tpe, TyperResult.valid)
           case None =>
-            reporter.fatalError(v.getPos, s"Variable ${id.asString} is not defined in context:\n${tc.asString()}")
+            reporter.fatalError(v.getPos, s"Variable ${id.asString} ${id.id} is not defined in context:\n${tc.asString()}")
         }
 
       case Equals(e1, e2) =>
