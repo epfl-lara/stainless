@@ -286,6 +286,10 @@ trait TransformerWithType extends TreeTransformer {
       val mt @ s.MapType(from, to) = widen(map.getType)
       t.MapUpdated(transform(map, mt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
+    case s.MapMerge(mask, map1, map2) =>
+      val mt @ s.MapType(from, to) = widen(map1.getType)
+      t.MapMerge(transform(mask, s.SetType(from)), transform(map1, mt), transform(map2, mt))
+
     // Stainless expressions
     case s.Require(pred, body) =>
       t.Require(transform(pred, s.BooleanType()), transform(body, tpe)).copiedFrom(expr)

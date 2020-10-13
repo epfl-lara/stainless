@@ -198,7 +198,18 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
     // Reduce all mutation to MutableMap updates
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
+      def transformRefSet(set: Expr): Expr = set match {
+        case FiniteSet(objs, AnyType()) => FiniteSet(objs.map(transform), RefType)
+        case _ => ??? // for now this is too restrictive. TODO: find a better way.
+      }
+
       override def transform(e: Expr): Expr = e match {
+        case Reads(objs, bd) =>
+          Reads(transformRefSet(objs), transform(bd))
+
+        case Modifies(objs, bd) =>
+          Modifies(transformRefSet(objs), transform(bd))
+
         case ClassConstructor(ct, args) if erasesToRef(ct) =>
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
