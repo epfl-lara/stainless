@@ -88,12 +88,14 @@ trait StateInstrumentation
 
   protected class TransformerContext(val symbols: Symbols) extends EffectInferenceContext { tctx =>
     import dsl._
+    import exprOps._
 
     // FIXME: Deduplicate across phases?
     // FIXME: Degrade gracefully when Ref is not present (assuming that no refTransform is needed)?
     lazy val RefType: Type = T(symbols.lookup.get[ADTSort]("stainless.lang.Ref").get.id)()
     lazy val HeapType: MapType = MapType(RefType, AnyType())
     lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
+    lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), RefType, AnyType())    
 
     private def freshStateParam(): ValDef = "s0" :: HeapType
 
@@ -120,6 +122,20 @@ trait StateInstrumentation
       val stateTpe = HeapType
       def dummyState: Env = FiniteMap(Seq.empty, UnitLiteral(), HeapType.from, HeapType.to)
 
+      /**
+       * Given an optional set of read expressions, and an input heap, projects the heap along the read variables.
+       * The projection is conservative so that if no read clause is given, everything is assumed to be read.
+       */
+      def projectHeap(subst: Map[ValDef, Expr], reads: Option[Expr], heap: Expr): Expr =
+        reads.map(r => MapMerge(instrumentPure(replaceFromSymbols(subst, r), heap), heap, EmptyHeap)).getOrElse(heap)
+
+      /**
+       * Given an optional set of modified exprssions and input and ouptut heaps, unprojects the heap along the modified variables.
+       * The projection is conservative so that if no modifies clause is given, everything is assumed to be modified.
+       */
+      def unprojectHeap(subst: Map[ValDef, Expr], modifies: Option[Expr], inputHeap: Expr, outputHeap: Expr): Expr =
+        modifies.map(m => MapMerge(instrumentPure(replaceFromSymbols(subst, m), inputHeap), outputHeap, inputHeap)).getOrElse(outputHeap)
+
       override def instrument(e: Expr)(implicit pc: PurityCheck): MExpr = e match {
         case MutableMapApply(`TheHeap`, key) =>
           bind(instrument(key)) { vkey =>
@@ -138,18 +154,32 @@ trait StateInstrumentation
             }
           }
 
-        case FunctionInvocation(id, targs, args) =>
+        case fi @ FunctionInvocation(id, targs, args) =>
           bindMany(args.map(instrument)) { vargs =>
             effectSummaries.get(id) match {
               case None =>
                 pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
               case Some(false) =>
                 { s0 =>
-                  Uninstrum(FunctionInvocation(id, targs, s0 +: vargs).copiedFrom(e), s0)
+                  val subst = (fi.tfd.params.tail zip vargs).toMap
+                  val reads = readsContractOf(fi.tfd.fullBody)
+                  val projected = projectHeap(subst, reads, s0)
+
+                  Uninstrum(FunctionInvocation(id, targs, projected +: vargs).copiedFrom(e), s0)
                 }
               case Some(true) =>
                 { s0 =>
-                  Instrum(FunctionInvocation(id, targs, s0 +: vargs).copiedFrom(e))
+                  // TODO: for the substitutions, might need to call instrumentPure before substituting
+                  val subst = (fi.tfd.params.tail zip vargs).toMap
+                  val modifies = modifiesContractOf(fi.tfd.fullBody)
+                  val reads = readsContractOf(fi.tfd.fullBody)
+                  
+                  val projected = projectHeap(subst, reads, s0)
+                  val call = FunctionInvocation(id, targs, projected +: vargs).copiedFrom(e)
+
+                  Instrum(let("res" :: fi.tfd.returnType, call) { res =>
+                    E(TupleSelect(res, 1), unprojectHeap(subst, modifies, s0, TupleSelect(res, 2)))
+                  })
                 }
             }
           }

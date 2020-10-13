@@ -19,6 +19,8 @@ object Examples {
     if (c) f(f(x)) else f(x)
 
   def h(b: Box): Unit = {
+    reads(Set(b))
+    modifies(Set(b))
     b.value = g(b.value >= 0, b.value)
   } ensuring(_ => b.value >= 0)
 
