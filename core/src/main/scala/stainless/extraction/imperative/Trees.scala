@@ -506,13 +506,11 @@ trait ExprOps extends oo.ExprOps { self =>
     case _ => super.applySpec(spec, body)
   }
 
-  /** Returns the read contract of a function */
-  final def readsContractOf(body: Expr): Option[Expr] =
-    BodyWithSpecs(body).getSpec(ReadsKind).map(_.expr)
-
-  /** Returns the modifies contract of a function */
-  final def modifiesContractOf(body: Expr): Option[Expr] =
-    BodyWithSpecs(body).getSpec(ModifiesKind).map(_.expr)
+  /** Returns the reads and modifies contracts of a function */
+  final def heapContractsOf(body: Expr): (Option[Expr], Option[Expr]) = {
+    val withSpecs = BodyWithSpecs(body)
+    (withSpecs.getSpec(ReadsKind).map(_.expr), withSpecs.getSpec(ModifiesKind).map(_.expr))
+  }
 
   def flattenBlocks(expr: Expr): Expr = postMap {
     case Block(exprs, last) =>
