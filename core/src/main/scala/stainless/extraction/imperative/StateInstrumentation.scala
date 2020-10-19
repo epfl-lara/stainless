@@ -82,6 +82,18 @@ trait StateInstrumentation
         case _ =>
       }(fd.fullBody)
 
+      val (reads, modifies) = exprOps.heapContractsOf(fd.fullBody)
+      modifies match {
+        case Some(FiniteSet(Seq(), AnyType())) =>
+          reads match {
+            case Some(FiniteSet(Seq(), AnyType())) =>
+            case _ =>
+              effectLevel = effectMax(effectLevel, Some(false))
+          }
+        case _ =>
+          effectLevel = Some(true)
+      }
+
       effectLevel
     }
   }
@@ -161,19 +173,20 @@ trait StateInstrumentation
                 pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
               case Some(false) =>
                 { s0 =>
+                  // If the calee only reads the state, we only need to project the heap
+                  // since it will not return a new heap.
                   val subst = (fi.tfd.params.tail zip vargs).toMap
-                  val reads = readsContractOf(fi.tfd.fullBody)
+                  val (reads, _) = heapContractsOf(fi.tfd.fullBody)
                   val projected = projectHeap(subst, reads, s0)
 
                   Uninstrum(FunctionInvocation(id, targs, projected +: vargs).copiedFrom(e), s0)
                 }
               case Some(true) =>
                 { s0 =>
-                  // TODO: for the substitutions, might need to call instrumentPure before substituting
+                  // If the callee reads and modifies the state, we also need to unproject the
+                  // heap that it returned.
                   val subst = (fi.tfd.params.tail zip vargs).toMap
-                  val modifies = modifiesContractOf(fi.tfd.fullBody)
-                  val reads = readsContractOf(fi.tfd.fullBody)
-                  
+                  val (reads, modifies) = heapContractsOf(fi.tfd.fullBody)
                   val projected = projectHeap(subst, reads, s0)
                   val call = FunctionInvocation(id, targs, projected +: vargs).copiedFrom(e)
 
@@ -239,7 +252,13 @@ trait StateInstrumentation
     // FIXME: Assumes for now that there is no local mutable state in pure functions
     effectSummaries.get(fd.id) match {
       case None =>
-        fd
+        val (specs, bodyOpt) = deconstructSpecs(fd.fullBody)
+        val newSpecs = specs.filterNot {
+          case _: ReadsContract | _: ModifiesContract => true
+          case _ => false
+        }
+
+        fd.copy(fullBody = reconstructSpecs(newSpecs, bodyOpt, fd.returnType))
 
       case Some(writes) =>
         val adjustedFd = adjustSig(fd)
