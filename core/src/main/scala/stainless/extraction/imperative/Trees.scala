@@ -161,16 +161,39 @@ trait Trees extends oo.Trees with Definitions { self =>
       checkAllTypes(Seq(lhs, rhs), BooleanType(), BooleanType())
   }
 
+  /** This checks the given definition for a flag */
+  def hasFlag(df: Definition, flag: String): Boolean = df.flags.exists(_.name == flag)
+
+  /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
+  object AnyHeapRef {
+    def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
+      case ct: ClassType => ct.lookupClass.map(tcd => hasFlag(tcd.cd, "anyHeapRef")).getOrElse(false)
+      case _ => false 
+    }
+  }
+
+  /** This is an extractor for the refEq method in the stainless.lang package */
+  object RefEq {
+    def unapply(expr: Expr)(implicit s: Symbols): Option[(Expr, Expr)] = expr match {
+      case fi @ FunctionInvocation(_, _, Seq(e1, e2)) if (hasFlag(fi.tfd.fd, "refEq")) => Some((e1, e2))
+      case _ => None
+    }
+  }
+
   /** Represents a `reads(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Reads(objs: Expr, body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type =
-      checkParamType(objs, SetType(AnyType()), body.getType)
+    protected def computeType(implicit s: Symbols): Type = objs.getType match {
+      case SetType(AnyHeapRef()) => body.getType
+      case _ => Untyped
+    }
   }
 
   /** Represents a `modifies(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Modifies(objs: Expr, body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type =
-      checkParamType(objs, SetType(AnyType()), body.getType)
+    protected def computeType(implicit s: Symbols): Type = objs.getType match {
+      case SetType(AnyHeapRef()) => body.getType
+      case _ => Untyped
+    }
   }
 
   object VarDef {
