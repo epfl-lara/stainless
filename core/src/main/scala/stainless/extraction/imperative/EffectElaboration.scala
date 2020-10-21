@@ -80,9 +80,16 @@ trait EffectElaboration
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    super.extractSymbols(tctx, symbols)
-      .withSorts(Seq(refSort) ++ OptionSort.sorts(symbols))
-      .withFunctions(OptionSort.functions(symbols))
+    // We filter out the definitions related to AnyHeapRef since they're no longer needed
+    val newSymbols = NoSymbols
+      .withFunctions(symbols.functions.values.filterNot(fd => hasFlag(fd, "refEq")).toSeq)
+      .withClasses(symbols.classes.values.filterNot(cd => hasFlag(cd, "anyHeapRef")).toSeq)
+      .withSorts(symbols.sorts.values.toSeq)
+      .withTypeDefs(symbols.typeDefs.values.toSeq)
+
+    super.extractSymbols(tctx, newSymbols)
+      .withSorts(Seq(refSort) ++ OptionSort.sorts(newSymbols))
+      .withFunctions(OptionSort.functions(newSymbols))
   }
 
   override protected def extractFunction(tctx: TransformerContext,
@@ -199,11 +206,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
       def transformRefSet(set: Expr): Expr = set match {
-        case FiniteSet(objs, AnyType()) => FiniteSet(objs.map(transform), RefType)
+        case FiniteSet(objs, AnyHeapRef()) => FiniteSet(objs.map(transform), RefType)
         case _ => ??? // for now this is too restrictive. TODO: find a better way.
       }
 
       override def transform(e: Expr): Expr = e match {
+        // Reference equality is transformed into value equality on references
+        case RefEq(e1, e2) =>
+          Equals(transform(e1), transform(e2))
+
         case Reads(objs, bd) =>
           Reads(transformRefSet(objs), transform(bd))
 
@@ -285,10 +296,17 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       override def transform(cd: ClassDef): ClassDef = {
         val env = initEnv
         // FIXME: Transform type arguments in parents?
+
+        // We remove the AnyHeapRef from the parents since it is just used for heap contracts type inference
+        val newParents = cd.parents.filter {
+          case AnyHeapRef() => false
+          case _ => true
+        }
+
         new ClassDef(
           transform(cd.id, env),
           cd.tparams.map(transform(_, env)),
-          cd.parents,  // don't transform parents
+          newParents,
           cd.fields.map(transform(_, env)),
           cd.flags.map(transform(_, env))
         ).copiedFrom(cd)

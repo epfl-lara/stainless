@@ -96,7 +96,13 @@ class erasable extends Annotation
 class indexedAt(n: BigInt) extends Annotation
 
 @ignore
-class refEq extends Annotation
+class template extends Annotation
+
+/**
+ * These annotations are used to tag the AnyHeapRef type and its methods
+ */
+@ignore
+class anyHeapRef extends Annotation
 
 @ignore
-class template extends Annotation
+class refEq extends Annotation
