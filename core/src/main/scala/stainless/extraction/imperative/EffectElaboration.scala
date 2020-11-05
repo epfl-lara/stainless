@@ -61,8 +61,18 @@ trait EffectElaboration
       .withFunctions(OptionSort.functions(newSymbols))
   }
 
-  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef =
-    tctx.refTransformer.transform(fd)
+  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef = {
+    import tctx._
+
+    try {
+      contractsChecker(effectLevel(fd.id)).traverse(fd)
+    } catch {
+      case MalformedStainlessCode(tree, msg) =>
+        context.reporter.fatalError(tree.getPos, msg)
+    }
+
+    refTransformer.transform(fd)
+  }
 
   override protected def extractSort(tctx: TransformerContext, sort: ADTSort): ADTSort =
     tctx.refTransformer.transform(sort)
@@ -117,7 +127,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
   trait RefTransformContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
 
+    // This caches whether types live in the heap or not
     lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
+
+    // This caches the effect level for the function definitions
+    lazy val effectLevel = new utils.ConcurrentCached[Identifier, exprOps.EffectLevel]({ id =>
+      exprOps.getEffectLevel(symbols.getFunction(id))
+    })
 
     private def isHeapType(tpe: Type): Boolean = tpe match {
       case AnyHeapRef() => true
@@ -189,8 +205,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             ClassSelector(valueFromHeap(recvRef, objTpe, e), field).copiedFrom(e)
           }
 
-        case FieldAssignment(recv, field, value) =>
-          assert(livesInHeap(recv.getType))
+        case FieldAssignment(recv, field, value) if livesInHeap(recv.getType) =>
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: RefType, transform(recv)) { recvRef =>
@@ -205,6 +220,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
               MutableMapUpdate(TheHeap, recvRef, newObj).copiedFrom(e)
             }
           }
+
+        case FieldAssignment(recv, field, value) =>
+          throw MalformedStainlessCode(e, "Local mutation is not (yet) allowed.")
 
         case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
           val ct = tpe.asInstanceOf[ClassType]
@@ -260,6 +278,49 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           cd.fields.map(transform(_, env)),
           cd.flags.map(transform(_, env))
         ).copiedFrom(cd)
+      }
+    }
+
+    case class contractsChecker(maxLevel: exprOps.EffectLevel) extends SelfTreeTraverser {
+      // Checks that the given effect isn't greater than the maximum allowed effect
+      def checkEffect(tree: Tree, level: Option[Boolean]): Unit = {
+        val exceeded = (level, maxLevel) match {
+          case (Some(true), Some(false)) => true
+          case (Some(_), None) => true
+          case _ => false
+        }
+        
+        if (exceeded)
+          throw MalformedStainlessCode(tree, f"$tree has a greater effect than the enclosing heap contracts allow")
+      }
+      
+      override def traverse(e: Expr): Unit = e match {
+        case ClassConstructor(ct, args) if livesInHeap(ct) =>
+          checkEffect(e, Some(true))
+          args.foreach(traverse)
+        case ClassSelector(recv, _) if livesInHeap(recv.getType) =>
+          checkEffect(e, Some(false))
+          traverse(recv)
+        case FieldAssignment(recv, _, value) if livesInHeap(recv.getType) =>
+          checkEffect(e, Some(true))
+          traverse(recv)
+          traverse(value)
+        case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
+          checkEffect(e, Some(false))
+          traverse(recv)
+        case FunctionInvocation(id, _, args) =>
+          checkEffect(e, effectLevel(id))
+          args.foreach(traverse)
+        case _ =>
+          super.traverse(e)
+      }
+
+      override def traverse(pat: Pattern): Unit = pat match {
+        case ClassPattern(_, ct, subPats) if livesInHeap(ct) =>
+          checkEffect(pat, Some(false))
+          subPats.foreach(traverse)
+        case _ =>
+          super.traverse(pat)
       }
     }
   }
