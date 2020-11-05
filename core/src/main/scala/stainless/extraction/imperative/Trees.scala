@@ -184,6 +184,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   case class Reads(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
       case SetType(AnyHeapRef()) => body.getType
+      case SetType(ADTType(id, Seq())) if id.fullName == "stainless.lang.Ref" => body.getType // TODO: mabye there is a cleaner way than this
       case _ => Untyped
     }
   }
@@ -192,6 +193,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   case class Modifies(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
       case SetType(AnyHeapRef()) => body.getType
+      case SetType(ADTType(id, Seq())) if id.fullName == "stainless.lang.Ref" => body.getType // TODO: mabye there is a cleaner way than this
       case _ => Untyped
     }
   }
