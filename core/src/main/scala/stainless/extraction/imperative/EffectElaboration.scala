@@ -31,10 +31,10 @@ trait EffectElaboration
     (cd, context) => ClassKey(cd) + OptionSort.key(context.symbols)
   )
 
-  override protected type FunctionResult = Option[t.FunDef]
+  override protected type FunctionResult = t.FunDef
   override protected def registerFunctions(symbols: t.Symbols,
-      functions: Seq[Option[t.FunDef]]): t.Symbols =
-    symbols.withFunctions(functions.flatten)
+      functions: Seq[t.FunDef]): t.Symbols =
+    symbols.withFunctions(functions)
 
   override protected final type ClassResult = (t.ClassDef, Option[t.FunDef])
   override protected final def registerClasses(symbols: t.Symbols,
@@ -43,44 +43,13 @@ trait EffectElaboration
     symbols.withClasses(classes).withFunctions(unapplyFds.flatten)
   }
 
-  protected class TransformerContext(val symbols: Symbols) extends RefTransformContext { tctx =>
-    // TODO: Move this to a later phase
-    def checkEffects(fd: FunDef): Unit = {
-      // def assertPureIn(expr: Expr, what: String): Unit = {
-      //   import instrumenter._
-      //   instrument(expr)(PurityCheckOn(what))(dummyState)
-      // }
-
-      // exprOps.preTraversal {
-      //   case Require(pre, _)              => assertPureIn(pre, "precondition")
-      //   case Ensuring(_, Lambda(_, post)) => assertPureIn(post, "postcondition")
-      //   case Decreases(meas, _)           => assertPureIn(meas, "measure")
-      //   case Forall(_, pred)              => assertPureIn(pred, "forall quantification")
-      //   case Assert(cond, _, _)           => assertPureIn(cond, "assertion")
-      //   case Assume(cond, _)              => assertPureIn(cond, "assumption")
-      //   case While(_, _, pred, pred2, _)  =>
-      //    pred.foreach(assertPureIn(_, "loop invariant"))
-      //    pred2.foreach(assertPureIn(_, "no-return loop invariant"))
-      //   case MatchExpr(_, cses) =>
-      //     cses.foreach { cse =>
-      //       cse.optGuard.foreach { guard => assertPureIn(guard, "case guard") }
-      //       patternOps.preTraversal {
-      //         case up: UnapplyPattern => assertPureIn(???, "pattern unapply")
-      //         case _ => ()
-      //       }(cse.pattern)
-      //     }
-      //   case Let(vd, e, _) if vd.flags.contains(Lazy) => assertPureIn(e, "lazy val")
-      //   case _ =>
-      // }(fd.fullBody)
-
-      ()
-    }
-  }
+  protected class TransformerContext(val symbols: Symbols) extends RefTransformContext
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    // We filter out the definitions related to AnyHeapRef since they're no longer needed
+    // We filter out the definitions related to AnyHeapRef since they are only needed for infering which
+    // types live in the heap
     val newSymbols = NoSymbols
       .withFunctions(symbols.functions.values.filterNot(fd => hasFlag(fd, "refEq")).toSeq)
       .withClasses(symbols.classes.values.filterNot(cd => hasFlag(cd, "anyHeapRef")).toSeq)
@@ -92,21 +61,8 @@ trait EffectElaboration
       .withFunctions(OptionSort.functions(newSymbols))
   }
 
-  override protected def extractFunction(tctx: TransformerContext,
-      fd: FunDef): Option[FunDef] =
-  {
-    import tctx._
-
-    // try {
-    //   checkEffects(fd)
-    // } catch {
-    //   case IllegalImpureInstrumentation(msg, pos) =>
-    //     context.reporter.error(pos, msg)
-    //     None
-    // }
-
-    Some(refTransformer.transform(fd))
-  }
+  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef =
+    tctx.refTransformer.transform(fd)
 
   override protected def extractSort(tctx: TransformerContext, sort: ADTSort): ADTSort =
     tctx.refTransformer.transform(sort)
@@ -161,6 +117,14 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
   trait RefTransformContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
 
+    lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
+
+    private def isHeapType(tpe: Type): Boolean = tpe match {
+      case AnyHeapRef() => true
+      case ct: ClassType => ct.tcd.ancestors.exists(a => livesInHeap(a.toType))
+      case _ => false
+    }
+
     def smartLet(vd: => ValDef, e: Expr)(f: Expr => Expr): Expr = e match {
       case _: Terminal => f(e)
       case _ => let(vd, e)(f)
@@ -177,7 +141,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
     }
 
     def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
-      if (!symbols.mutableClasses.contains(cd.id))
+      if (!livesInHeap(cd.typed.toType))
         return None
 
       import OptionSort._
@@ -188,40 +152,26 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
         val objTpe = classTypeInHeap(ct)
 
         (Seq("x" :: RefType), T(option)(objTpe), { case Seq(x) =>
-          if_ (IsInstanceOf(MutableMapApply(TheHeap, x), objTpe)) {
-            C(some)(objTpe)(AsInstanceOf(MutableMapApply(TheHeap, x), objTpe))
-          } else_ {
-            C(none)(objTpe)()
-          }
+          Reads(FiniteSet(Seq(x), RefType), Modifies(FiniteSet(Seq(), RefType),
+            if_ (IsInstanceOf(MutableMapApply(TheHeap, x), objTpe)) {
+              C(some)(objTpe)(AsInstanceOf(MutableMapApply(TheHeap, x), objTpe))
+            } else_ {
+              C(none)(objTpe)()
+            }
+          ))
         })
       })
-    }
-
-    def erasesToRef(tpe: Type): Boolean = tpe match {
-      case ct: ClassType => symbols.isMutableClassType(ct)
-      case _ => false
     }
 
     // Reduce all mutation to MutableMap updates
     // TODO: Handle mutable types other than classes
     object refTransformer extends SelfTreeTransformer {
-      def transformRefSet(set: Expr): Expr = set match {
-        case FiniteSet(objs, AnyHeapRef()) => FiniteSet(objs.map(transform), RefType)
-        case _ => ??? // for now this is too restrictive. TODO: find a better way.
-      }
-
       override def transform(e: Expr): Expr = e match {
         // Reference equality is transformed into value equality on references
         case RefEq(e1, e2) =>
           Equals(transform(e1), transform(e2))
 
-        case Reads(objs, bd) =>
-          Reads(transformRefSet(objs), transform(bd))
-
-        case Modifies(objs, bd) =>
-          Modifies(transformRefSet(objs), transform(bd))
-
-        case ClassConstructor(ct, args) if erasesToRef(ct) =>
+        case ClassConstructor(ct, args) if livesInHeap(ct) =>
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: RefType, BooleanLiteral(true)).copiedFrom(e)
           let("ref" :: RefType, ref) { ref =>
@@ -232,7 +182,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             }
           }
 
-        case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
+        case ClassSelector(recv, field) if livesInHeap(recv.getType) =>
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: RefType, transform(recv)) { recvRef =>
@@ -240,7 +190,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           }
 
         case FieldAssignment(recv, field, value) =>
-          assert(erasesToRef(recv.getType))
+          assert(livesInHeap(recv.getType))
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: RefType, transform(recv)) { recvRef =>
@@ -256,7 +206,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             }
           }
 
-        case IsInstanceOf(recv, tpe) if erasesToRef(tpe) =>
+        case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
           val ct = tpe.asInstanceOf[ClassType]
           val app = MutableMapApply(TheHeap, transform(recv)).copiedFrom(e)
           IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
@@ -265,7 +215,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       }
 
       override def transform(pat: Pattern): Pattern = pat match {
-        case ClassPattern(binder, ct, subPats) if erasesToRef(ct) =>
+        case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
           val newClassPat = ClassPattern(
             None,
             classTypeInHeap(ct),
@@ -283,7 +233,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       }
 
       override def transform(tpe: Type): Type = tpe match {
-        case ct: ClassType if erasesToRef(ct) =>
+        case ct: ClassType if livesInHeap(ct) =>
           RefType
         case FunctionType(_, _) =>
           val FunctionType(from, to) = super.transform(tpe)

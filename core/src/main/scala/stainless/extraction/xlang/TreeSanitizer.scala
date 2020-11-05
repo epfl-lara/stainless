@@ -266,7 +266,7 @@ trait TreeSanitizer { self =>
 
    def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
       val ancestors = (ct.tcd +: ct.tcd.ancestors)
-      ancestors.exists(tcd => tcd.cd.isAbstract && !tcd.cd.isSealed)
+      ancestors.exists(tcd => !tcd.cd.flags.exists(_.name == "anyHeapRef") && tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 
     object ghostTraverser extends xlang.GhostTraverser {

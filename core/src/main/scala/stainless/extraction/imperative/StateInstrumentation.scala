@@ -35,66 +35,23 @@ trait StateInstrumentation
     }
 
     private[imperative] val effectSummaries: EffectSummaries = {
-      def updateStep(summaries: EffectSummaries, fd: FunDef, iteration: Int): EffectSummaries =
-        computeSummary(summaries, fd) match {
-          case None => summaries
-          case Some(writes) => summaries + (fd.id -> writes)
-        }
-
-      // The default call graph omits isolated functions, but we want all of them.
-      val sccs = (symbols.callGraph ++ symbols.functions.keySet).stronglyConnectedComponents
+      def isContractEmpty(contract: Option[Expr]): Boolean = contract match {
+        case None => true
+        case Some(FiniteSet(Seq(), _)) => true
+        case _ => false
+      }
 
       val empty: EffectSummaries = Map.empty
-      val res = sccs.topSort.reverse.foldLeft(empty) { case (summaries, scc) =>
-        // Fast path for the simple case of a single, non-recursive function
-        if (scc.size == 1 && !symbols.isRecursive(scc.head)) {
-          updateStep(summaries, symbols.getFunction(scc.head), 1)
-        } else {
-          val fds = scc.map(symbols.getFunction(_))
-          var iteration = 0
-          inox.utils.fixpoint[EffectSummaries] { summaries =>
-            iteration += 1
-            fds.foldLeft(summaries)(updateStep(_, _, iteration))
-          } (summaries)
-        }
+      symbols.functions.values.foldLeft(empty) { case (summary, fd) => 
+        val (reads, modifies) = exprOps.heapContractsOf(fd.fullBody)
+        val readsNothing = isContractEmpty(reads)
+        val modifiesNothing = isContractEmpty(modifies)
+        
+        if (modifiesNothing)
+          if (readsNothing) summary
+          else summary + (fd.id -> false)
+        else summary + (fd.id -> true)
       }
-      // println(s"\n=== EFFECT SUMMARIES ===\n${res}\n")
-      res
-    }
-
-    def computeSummary(summaries: EffectSummaries, fd: FunDef): Option[Boolean] = {
-      var effectLevel: EffectLevel = symbols
-        .callees(fd)
-        .toSeq
-        .map(fd => summaries.get(fd.id))
-        .foldLeft(None: EffectLevel)(effectMax)
-
-      exprOps.preTraversal {
-        case _: MutableMapApply =>
-          effectLevel = effectMax(effectLevel, Some(false))
-        case _: MutableMapUpdate =>
-          effectLevel = effectMax(effectLevel, Some(true))
-        case _: ArraySelect | _: FieldAssignment | _: FiniteArray
-            | _: LargeArray | _: ArrayUpdate | _: ArrayUpdated | _: MutableMapWithDefault
-            | _: MutableMapUpdated | _: MutableMapDuplicate =>
-          // FIXME: All of these should have been eliminated by now?
-          ???
-        case _ =>
-      }(fd.fullBody)
-
-      val (reads, modifies) = exprOps.heapContractsOf(fd.fullBody)
-      modifies match {
-        case Some(FiniteSet(Seq(), AnyType())) =>
-          reads match {
-            case Some(FiniteSet(Seq(), AnyType())) =>
-            case _ =>
-              effectLevel = effectMax(effectLevel, Some(false))
-          }
-        case _ =>
-          effectLevel = Some(true)
-      }
-
-      effectLevel
     }
   }
 
