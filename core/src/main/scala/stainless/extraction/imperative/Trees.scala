@@ -537,6 +537,29 @@ trait ExprOps extends oo.ExprOps { self =>
     (withSpecs.getSpec(ReadsKind).map(_.expr), withSpecs.getSpec(ModifiesKind).map(_.expr))
   }
 
+  /*
+   * The level of effects of a function.
+   * None = pure, doesn't read nor write to the heap
+   * Some(false), reads but doesn't write to the heap
+   * Some(true), reads and writes to the heap
+   */
+  type EffectLevel = Option[Boolean]
+
+  /** Returns the effect level of a function. None = pure, Some(false) = reads, Some(true) = modifies */
+  def getEffectLevel(fd: FunDef): EffectLevel = {
+    def isContractEmpty(contract: Option[Expr]): Boolean = contract match {
+      case None => true // We assume that omitting a contract is the same as an empty contract
+      case Some(FiniteSet(Seq(), _)) => true
+      case _ => false
+    }
+
+    val (reads, modifies) = heapContractsOf(fd.fullBody)
+    if (isContractEmpty(modifies))
+      if (isContractEmpty(reads)) None
+      else Some(false)
+    else Some(true)
+  }
+
   def flattenBlocks(expr: Expr): Expr = postMap {
     case Block(exprs, last) =>
       val newExprs = (exprs.filter(_ != UnitLiteral()) :+ last).flatMap {
