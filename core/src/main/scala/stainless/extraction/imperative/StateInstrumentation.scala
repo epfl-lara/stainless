@@ -25,34 +25,10 @@ trait StateInstrumentation
   trait EffectInferenceContext {
     val symbols: Symbols
 
-    type EffectLevel = Option[Boolean] // None=NoEffect, Some(false)=reads, Some(true)=writes
-    type EffectSummaries = Map[Identifier, Boolean] // EffectSummaries#get : EffectLevel
-    def effectMax(el1: EffectLevel, el2: EffectLevel): EffectLevel = (el1, el2) match {
-      case (Some(_), None) => el1
-      case (None, Some(_)) => el2
-      case (Some(w1), Some(_)) => if (w1) el1 else el2
-      case _ => None
-    }
-
-    private[imperative] val effectSummaries: EffectSummaries = {
-      def isContractEmpty(contract: Option[Expr]): Boolean = contract match {
-        case None => true
-        case Some(FiniteSet(Seq(), _)) => true
-        case _ => false
-      }
-
-      val empty: EffectSummaries = Map.empty
-      symbols.functions.values.foldLeft(empty) { case (summary, fd) => 
-        val (reads, modifies) = exprOps.heapContractsOf(fd.fullBody)
-        val readsNothing = isContractEmpty(reads)
-        val modifiesNothing = isContractEmpty(modifies)
-        
-        if (modifiesNothing)
-          if (readsNothing) summary
-          else summary + (fd.id -> false)
-        else summary + (fd.id -> true)
-      }
-    }
+    // This caches the effect level for the function definitions
+    lazy val effectLevel = new utils.ConcurrentCached[Identifier, Option[Boolean]]({ id =>
+      exprOps.getEffectLevel(symbols.getFunction(id))
+    })
   }
 
   protected class TransformerContext(val symbols: Symbols) extends EffectInferenceContext { tctx =>
@@ -68,7 +44,7 @@ trait StateInstrumentation
 
     private def freshStateParam(): ValDef = "s0" :: HeapType
 
-    def adjustSig(fd: FunDef): FunDef = effectSummaries.get(fd.id) match {
+    def adjustSig(fd: FunDef): FunDef = effectLevel(fd.id) match {
       case None =>
         fd
       case Some(writes) =>
@@ -125,7 +101,7 @@ trait StateInstrumentation
 
         case fi @ FunctionInvocation(id, targs, args) =>
           bindMany(args.map(instrument)) { vargs =>
-            effectSummaries.get(id) match {
+            effectLevel(id) match {
               case None =>
                 pure(FunctionInvocation(id, targs, vargs).copiedFrom(e))
               case Some(false) =>
@@ -185,7 +161,7 @@ trait StateInstrumentation
       override def instrument(pat: Pattern, s0: Expr): Pattern = pat match {
         case pat @ UnapplyPattern(_, recs, id, _, subPats) =>
           val newSubPats = subPats.map(p => instrument(p, s0))
-          effectSummaries.get(id) match {
+          effectLevel(id) match {
             case None =>
               pat.copy(subPatterns = newSubPats)
             case Some(false) =>
@@ -207,7 +183,7 @@ trait StateInstrumentation
     import dsl._
 
     // FIXME: Assumes for now that there is no local mutable state in pure functions
-    effectSummaries.get(fd.id) match {
+    effectLevel(fd.id) match {
       case None =>
         val (specs, bodyOpt) = deconstructSpecs(fd.fullBody)
         val newSpecs = specs.filterNot {
