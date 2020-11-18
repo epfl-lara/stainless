@@ -166,9 +166,19 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
   object AnyHeapRef {
+    // FIXME: Not sure I like this way of caching stainless library definitions
+    private[this] var _classDef: ClassDef = null
+    private[this] def classDef(implicit s: Symbols) = {
+      if (_classDef eq null)
+        _classDef = s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
+      _classDef
+    }
+
+    def apply()(implicit s: Symbols): Type =
+      classDef.typed.toType
     def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
-      case ct: ClassType => ct.lookupClass.map(tcd => hasFlag(tcd.cd, "anyHeapRef")).getOrElse(false)
-      case _ => false 
+      case ct: ClassType => ct.id == classDef.id
+      case _ => false
     }
   }
 
@@ -183,8 +193,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** Represents a `reads(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Reads(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
-      case SetType(AnyHeapRef()) => body.getType
-      case SetType(ADTType(id, Seq())) if id.fullName == "stainless.lang.Ref" => body.getType // TODO: mabye there is a cleaner way than this
+      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRef()) => body.getType
       case _ => Untyped
     }
   }
@@ -192,8 +201,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** Represents a `modifies(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Modifies(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
-      case SetType(AnyHeapRef()) => body.getType
-      case SetType(ADTType(id, Seq())) if id.fullName == "stainless.lang.Ref" => body.getType // TODO: mabye there is a cleaner way than this
+      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRef()) => body.getType
       case _ => Untyped
     }
   }
@@ -249,6 +257,19 @@ trait Trees extends oo.Trees with Definitions { self =>
 
     case _ => super.getDeconstructor(that)
   }
+
+  /* ========================================
+   *               HEAP ENCODING
+   * ======================================== */
+
+  private[this] lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
+  private[this] lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRefC")
+  lazy val heapRefSort: ADTSort = dsl.mkSort(heapRefId)() { _ =>
+    Seq((heapRefCons, Seq(ValDef(FreshIdentifier("id"), IntegerType()))))
+  }
+
+  lazy val HeapRefType: Type = ADTType(heapRefId, Seq.empty)
+  lazy val HeapType: MapType = MapType(HeapRefType, AnyType())
 }
 
 trait Printer extends oo.Printer {
