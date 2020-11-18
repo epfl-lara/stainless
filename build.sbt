@@ -147,7 +147,7 @@ lazy val assemblySettings: Seq[Setting[_]] = {
 lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
 
 lazy val regenFilesFile = false
-  
+
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
@@ -195,7 +195,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |
           |  val extraClasspath = \"\"\"${removeSlashU(extraClasspath.value)}\"\"\"
           |  val extraCompilerArguments = List("-classpath", \"\"\"${removeSlashU(extraClasspath.value)}\"\"\")
-          | 
+          |
           |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
           |  val libPaths = try {
           |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
