@@ -37,10 +37,10 @@ trait StateInstrumentation
 
     // FIXME: Deduplicate across phases?
     // FIXME: Degrade gracefully when Ref is not present (assuming that no refTransform is needed)?
-    lazy val RefType: Type = T(symbols.lookup.get[ADTSort]("stainless.lang.Ref").get.id)()
+    lazy val RefType: Type = T(symbols.lookup.get[ADTSort]("stainless.lang.HeapRef").get.id)()
     lazy val HeapType: MapType = MapType(RefType, AnyType())
     lazy val TheHeap = NoTree(MutableMapType(HeapType.from, HeapType.to))
-    lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), RefType, AnyType())    
+    lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), RefType, AnyType())
 
     private def freshStateParam(): ValDef = "s0" :: HeapType
 
