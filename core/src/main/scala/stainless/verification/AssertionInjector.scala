@@ -10,9 +10,11 @@ package verification
  */
 trait AssertionInjector extends transformers.TreeTransformer {
   val s: ast.Trees
-  val t: ast.Trees
+  val t: s.type
 
   implicit val symbols: s.Symbols
+
+  import t.dsl._
 
   val strictArithmetic: Boolean
 
@@ -52,12 +54,21 @@ trait AssertionInjector extends transformers.TreeTransformer {
         ti
       ).copiedFrom(i), transform(v)).copiedFrom(e)
 
+    // case sel @ s.ADTSelector(expr, _) =>
+    //   t.Assert(
+    //     t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
+    //     Some("Cast error"),
+    //     super.transform(e)
+    //   ).copiedFrom(e)
+
     case sel @ s.ADTSelector(expr, _) =>
-      t.Assert(
-        t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
-        Some("Cast error"),
-        super.transform(e)
-      ).copiedFrom(e)
+      let("recv" :: expr.getType, transform(expr)) { recv =>
+        t.Assert(
+          t.IsConstructor(recv, sel.constructor.id).copiedFrom(e),
+          Some("Cast error"),
+          super.transform(sel.copy(adt = recv).copiedFrom(e))
+        ).copiedFrom(e)
+      }.copiedFrom(e)
 
     case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)

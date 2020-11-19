@@ -73,6 +73,50 @@ trait InoxEncoder extends ProgramEncoder {
     import sourceProgram._
     import sourceProgram.symbols._
 
+    // Lowering to Inox erases various trees, which provides many opportunities for let simplifications.
+    override def transform(fd: s.FunDef): t.FunDef = {
+      import t._
+      import exprOps._
+
+      def singleOccurences(expr: Expr): Set[Identifier] = {
+        import collection.mutable.HashMap
+        val counts = HashMap.empty[Identifier, Int]
+        preTraversal {
+          case v: Variable => counts.update(v.id, counts.getOrElse(v.id, 0) + 1)
+          case _ =>
+        } (expr)
+        counts.iterator.collect { case (id, 1) => id } .toSet
+      }
+
+      // Copied from Inox's SymbolOps. Doesn't really depend on symbols!
+      def simplifyLetsExt(expr: Expr, forced: Set[Identifier]): Expr = preMap({
+        case l1 @ Let(v1, Let(v2, e2, b2), b1) => Some(Let(v2, e2, Let(v1, b2, b1).copiedFrom(l1)).copiedFrom(l1))
+
+        case Let(v, e, v2) if v.toVariable == v2 => Some(e)
+
+        case Let(v, ts @ (
+          (_: Variable)                |
+          TupleSelect(_: Variable, _)  |
+          ADTSelector(_: Variable, _)  |
+          FiniteMap(Seq(), _, _, _)    |
+          FiniteBag(Seq(), _)          |
+          FiniteSet(Seq(), _)          |
+          IsConstructor(_: Variable, _)
+        ), b) => Some(replaceFromSymbols(Map(v -> ts), b))
+
+        case Let(v, e, b) if forced.contains(v.id) => Some(replaceFromSymbols(Map(v -> e), b))
+
+        case _ => None
+      }, applyRec = true)(expr)
+
+      val newFd = super.transform(fd)
+
+      timers.verification.simplify.run {
+        val simplBody = simplifyLetsExt(newFd.fullBody, singleOccurences(newFd.fullBody))
+        newFd.copy(fullBody = simplBody)
+      }
+    }
+
     override def transform(e: s.Expr): t.Expr = e match {
       case m: s.MatchExpr =>
         transform(matchToIfThenElse(m))
