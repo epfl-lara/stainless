@@ -3,12 +3,15 @@
 package stainless
 package frontends.noxt
 
-import frontend.{ Frontend, ThreadedFrontend, FrontendFactory, CallBack }
+import frontend.{Frontend, ThreadedFrontend, FrontendFactory, CallBack}
 import extraction.xlang.{trees => xt}
 
 import java.io.{File, FileInputStream, InputStream}
 
+import stainless.utils.XLangSerializer
+
 object NoxtFrontend {
+
   object xtTransformer extends xt.SelfTreeTransformer {
     import scala.collection.mutable.HashMap
     val newIds: HashMap[Identifier, Identifier] = HashMap.empty
@@ -30,14 +33,17 @@ object NoxtFrontend {
     override def transform(e: xt.Expr): xt.Expr = e match {
       case xt.ADT(consId, tps, args) =>
         val newConsId = transform(consId)
-        xt.ClassConstructor(xt.ClassType(newConsId, tps.map(transform)), args.map(transform)).copiedFrom(e)
+        xt.ClassConstructor(xt.ClassType(newConsId, tps.map(transform)), args.map(transform))
+          .copiedFrom(e)
       case xt.ADTSelector(expr, fieldId) =>
         val newFieldId = transform(fieldId)
         xt.ClassSelector(transform(expr), newFieldId)
       case xt.MatchExpr(scrut, cases) =>
         xt.MatchExpr(transform(scrut), cases.map(arm => {
-          xt.MatchCase(transform(arm.pattern), arm.optGuard.map(transform), transform(arm.rhs)).copiedFrom(arm)
-        })).copiedFrom(e)
+            xt.MatchCase(transform(arm.pattern), arm.optGuard.map(transform), transform(arm.rhs))
+              .copiedFrom(arm)
+          }))
+          .copiedFrom(e)
       case _ => super.transform(e)
     }
 
@@ -57,8 +63,8 @@ object NoxtFrontend {
     }
 
     // FIXME: Deserialization doesn't map flags that are implemented as objects to their singleton
-    // instance, but instead creates a new instance, which is matched by nothing.
-    // This is a temporary workaround.
+    //   instance, but instead creates a new instance, which is matched by nothing.
+    //   This is a temporary workaround.
     override def transform(flag: xt.Flag): xt.Flag = flag.name match {
       case "pure" => xt.IsPure
       case "mutable" => xt.IsMutable
@@ -76,13 +82,17 @@ object NoxtFrontend {
       case "synthetic" => xt.Synthetic
       case "partialEval" => xt.PartialEval
       case "wrapping" => xt.Wrapping
-      case _ => flag
+      case "abstract" => xt.IsAbstract
+      case "caseObject" => xt.IsCaseObject
+      case _ => super.transform(flag)
     }
 
     override def transform(oldFd: xt.FunDef): xt.FunDef = {
       val fd = super.transform(oldFd)
       if (fd.flags.contains(xt.Extern)) {
-        fd.copy(fullBody = xt.exprOps.withBody(fd.fullBody, xt.NoTree(fd.returnType).copiedFrom(fd.fullBody)))
+        fd.copy(fullBody =
+          xt.exprOps.withBody(fd.fullBody, xt.NoTree(fd.returnType).copiedFrom(fd.fullBody))
+        )
       } else {
         fd
       }
@@ -102,16 +112,16 @@ object NoxtFrontend {
         constructors.headOption match {
           case Some(cons) if constructors.size == 1 && cons.id == sort.id =>
             // FIXME: This is to work around the case where we translated to an ADT with a
-            // single constructor, and the id was reused for both the ADT and its constructor.
-            // To avoid desugaring to two classes with the same id, we only create one.
+            //   single constructor, and the id was reused for both the ADT and its constructor.
+            //   To avoid desugaring to two classes with the same id, we only create one.
             val fields = cons.fields.map(transform)
             val newParentFlags = (newFlags ++ Seq(xt.IsSealed)).distinct
             Seq(new xt.ClassDef(newSortId, newTparams, Seq.empty, fields, newParentFlags))
           case _ =>
             val newParentFlags = (newFlags ++ Seq(xt.IsAbstract, xt.IsSealed)).distinct
-            val parentCd = new xt.ClassDef(
-              newSortId, newTparams, Seq.empty, Seq.empty, newParentFlags)
-            val parentType = new xt.ClassType(newSortId, newTparams.map(_.tp))
+            val parentCd =
+              new xt.ClassDef(newSortId, newTparams, Seq.empty, Seq.empty, newParentFlags)
+            val parentType = xt.ClassType(newSortId, newTparams.map(_.tp))
             parentCd +: sort.constructors.map { cons =>
               val newConsId = transform(cons.id)
               val fields = cons.fields.map(transform)
@@ -123,14 +133,16 @@ object NoxtFrontend {
   }
 
   def toExtractionTrees(syms: xt.Symbols): (Seq[xt.ClassDef], Seq[xt.FunDef]) = {
-    val classes = xtTransformer.adtsToClassDefs(syms.sorts.values.toSeq)
-    val funs = syms.functions.values.toSeq.map(fd => xtTransformer.transform(fd))
+    val classes =
+      xtTransformer.adtsToClassDefs(syms.sorts.values.toSeq) ++
+          syms.classes.values.map(xtTransformer.transform)
+    val funs = syms.functions.values.map(xtTransformer.transform)
     (classes.toList, funs.toList)
   }
 
   class Factory(
-    override val extraCompilerArguments: Seq[String],
-    override val libraryPaths: Seq[String]
+      override val extraCompilerArguments: Seq[String],
+      override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
@@ -140,16 +152,29 @@ object NoxtFrontend {
         override val sources = compilerArgs
 
         private def readUnit(): Option[xt.Symbols] = {
+
+          // Inherit from the used serializer to get access to protected methods
+          // like 'readObject'.
+          val serializer = new XLangSerializer(xt) {
+            // Take another name to make sure, this function is used.
+            def deserializeNoxt(in: InputStream): xt.Symbols = {
+              val serializationResult = readObject(in).asInstanceOf[SerializationResult]
+              val (funs, sorts, classes) = readObject(
+                new java.io.ByteArrayInputStream(serializationResult.bytes)
+              ).asInstanceOf[(Seq[xt.FunDef], Seq[xt.ADTSort], Seq[xt.ClassDef])]
+
+              xt.NoSymbols.withFunctions(funs).withSorts(sorts).withClasses(classes)
+            }
+          }
+
           def deserialize(in: InputStream): Option[xt.Symbols] = {
             def fail(e: Throwable) = {
               ctx.reporter.error(s"Failed to deserialize stainless program:\n$e")
               ctx.reporter.internalError(e)
               None
             }
-            val serializer = utils.Serializer(xt)
-            import serializer._
             try {
-              Some(serializer.deserialize[xt.Symbols](in))
+              Some(serializer.deserializeNoxt(in))
             } catch {
               case e: java.lang.reflect.InvocationTargetException => fail(e.getCause)
               case e: Throwable => fail(e)
@@ -182,8 +207,8 @@ object NoxtFrontend {
               val (classes, funs) = toExtractionTrees(syms)
 
               val name = sources.headOption.getOrElse("stdin")
-              val ud = xt.UnitDef(
-                FreshIdentifier(name), Seq.empty, classes.map(_.id), Seq.empty, false)
+              val ud =
+                xt.UnitDef(FreshIdentifier(name), Seq.empty, classes.map(_.id), Seq.empty, false)
 
               callback(name, ud, classes, funs, Seq.empty)
             case None =>
