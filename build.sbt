@@ -122,6 +122,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   Test / testOptions := Seq(Tests.Argument("-oDF")),
 
   IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
+
+  ThisBuild / maxErrors := 5
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = {

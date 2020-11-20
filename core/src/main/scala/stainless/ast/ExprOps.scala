@@ -316,4 +316,9 @@ trait ExprOps extends inox.ast.ExprOps {
       }
     }.transform(expr)
   }
+
+  def stripAnnotations(tpe: Type): Type = tpe match {
+    case AnnotatedType(tpe, _) => stripAnnotations(tpe)
+    case _ => tpe
+  }
 }

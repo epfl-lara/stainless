@@ -77,4 +77,5 @@ trait TypeOps extends inox.ast.TypeOps {
       }
     }.transform(tpe)
   }
+
 }
