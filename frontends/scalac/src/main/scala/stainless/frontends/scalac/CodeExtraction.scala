@@ -1303,7 +1303,7 @@ trait CodeExtraction extends ASTExtractors {
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
         }
 
-      case Some(lhs) => extractType(lhs)(dctx.setResolveTypes(true)) match {
+      case Some(lhs) => xt.exprOps.stripAnnotations(extractType(lhs)(dctx.setResolveTypes(true))) match {
         case ct: xt.ClassType =>
           val isField = sym.isParamAccessor || sym.isCaseAccessor
           val isMethod = sym.isMethod || sym.isAccessor || !isField
@@ -1738,6 +1738,9 @@ trait CodeExtraction extends ASTExtractors {
         case None =>
           outOfSubsetError(tpt.typeSymbol.pos, s"Stainless does not support type $tpt")
       }
+
+    case AnnotatedType(Seq(ExIndexedAt(n)), tpe) =>
+      xt.AnnotatedType(extractType(tpe), Seq(xt.IndexedAt(extractTree(n))))
 
     case AnnotatedType(_, tpe) => extractType(tpe)
 

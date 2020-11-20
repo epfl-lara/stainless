@@ -644,6 +644,14 @@ trait ASTExtractors {
       }
     }
 
+    object ExIndexedAt {
+      def unapply(annot: Annotation): Option[Tree] = annot match {
+        case AnnotationInfo(TypeRef(_, sym, _), Seq(arg), _) if
+            getResolvedTypeSym(sym) == classFromName("stainless.annotation.indexedAt") =>
+          Some(arg)
+        case _ => None
+      }
+    }
   }
 
   object ExpressionExtractors {
