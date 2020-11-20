@@ -23,6 +23,11 @@ trait SizedADTExtraction extends SimplePhase with SimplyCachedFunctions with Ide
           ) =>
         SizedADT(transform(id), tps.map(transform), args.map(transform), transform(n))
 
+      case FunctionInvocation(ast.SymbolIdentifier("stainless.lang.indexedAt"), _, _) =>
+        context.reporter.fatalError(e.getPos,
+          "The `indexedAt` construct should be used as follows: `indexedAt(n, C(...))` " +
+          "where `n` is a non-negative BigInt, and `C` is an ADT constructor")
+
       case _ => super.transform(e)
     }
 
