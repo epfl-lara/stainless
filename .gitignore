@@ -25,6 +25,9 @@ project/project
 /.test-history
 /out-classes
 
+# scalafmt
+.scalafmt.conf
+
 # synthesis
 derivation*.dot
 
