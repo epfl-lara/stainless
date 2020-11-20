@@ -685,6 +685,9 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(d.toString)
       ch << InvokeSpecial(RationalClass, constructorName, s"(L$JavaStringClass;L$JavaStringClass;)V")
 
+    case adt @ SizedADT(id, tps, as, _) =>
+      mkExpr(ADT(id, tps, as), ch, canDelegateToMkBranch)
+
     case adt @ ADT(id, tps, as) =>
       val tcons = adt.getConstructor
       val cons = tcons.definition
