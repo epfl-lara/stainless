@@ -25,6 +25,7 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/Extern1" => Ignore
     case "verification/valid/Extern2" => Ignore
     case "verification/valid/ChooseLIA" => Ignore
+    case "verification/valid/Streams" => Ignore // only for TypeCheckerSuite
     case "verification/invalid/SpecWithExtern" => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
