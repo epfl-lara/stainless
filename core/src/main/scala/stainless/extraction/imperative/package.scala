@@ -7,7 +7,7 @@ import scala.language.existentials
 
 package object imperative {
 
-  object optNewImperative extends inox.FlagOptionDef("new-imperative", false)
+  object optFullImperative extends inox.FlagOptionDef("full-imperative", false)
 
   object trees extends imperative.Trees with oo.ClassSymbols {
     case class Symbols(
@@ -40,7 +40,7 @@ package object imperative {
   }
 
   def extractor(implicit ctx: inox.Context) =
-    if (ctx.options.findOptionOrDefault(optNewImperative)) newImperative
+    if (ctx.options.findOptionOrDefault(optFullImperative)) newImperative
     else oldImperative
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor

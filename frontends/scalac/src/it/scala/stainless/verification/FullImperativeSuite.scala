@@ -5,17 +5,17 @@ package verification
 
 import org.scalatest._
 
-class NewImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
+class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
 
   override def configurations = super.configurations.map {
-    seq => Seq(extraction.imperative.optNewImperative(true), optFailEarly(true)) ++ seq
+    seq => Seq(extraction.imperative.optFullImperative(true), optFailEarly(true)) ++ seq
   }
 
   override protected def optionsString(options: inox.Options): String = ""
 
   val component = VerificationComponent
 
-  testAll("new-imperative/valid") { (report, reporter) =>
+  testAll("full-imperative/valid") { (report, reporter) =>
     for ((vc, vr) <- report.vrs) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
@@ -23,7 +23,7 @@ class NewImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
     reporter.terminateIfError()
   }
 
-  testAll("new-imperative/invalid") { (analysis, _) =>
+  testAll("full-imperative/invalid") { (analysis, _) =>
     val report = analysis.toReport
     assert(report.totalInvalid > 0, "There should be at least one invalid verification condition.")
   }
