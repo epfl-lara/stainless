@@ -96,10 +96,13 @@ trait ExprOps extends inox.ast.ExprOps {
         NoTree(resultType).setPos(pos)
       })
 
-    def reconstructed: Expr =
-      lets.foldRight(specs.foldRight(body)(applySpec)) {
+    def wrapLets(expr: Expr) =
+      lets.foldRight(expr) {
         case ((vd, e, pos), b) => Let(vd, e, b).setPos(pos)
       }
+
+    def reconstructed: Expr =
+      wrapLets(specs.foldRight(body)(applySpec))
   }
 
   object BodyWithSpecs {
@@ -224,29 +227,34 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  final def withoutSpecs(expr: Expr): Option[Expr] =
-    BodyWithSpecs(expr).bodyOpt
+  final def withoutSpecs(expr: Expr): Option[Expr] = {
+    val specced = BodyWithSpecs(expr)
+    specced.bodyOpt.map(specced.wrapLets)
+  }
 
   /** Returns the precondition of an expression wrapped in Option */
-  final def preconditionOf(expr: Expr): Option[Expr] =
-    BodyWithSpecs(expr).getSpec(PreconditionKind).map(_.expr)
+  final def preconditionOf(expr: Expr): Option[Expr] = {
+    val specced = BodyWithSpecs(expr)
+    specced.getSpec(PreconditionKind).map(s => specced.wrapLets(s.expr))
+  }
 
   /** Returns the postcondition of an expression wrapped in Option */
-  final def postconditionOf(expr: Expr): Option[Lambda] =
-    BodyWithSpecs(expr).getSpec(PostconditionKind).map(_.expr)
+  final def postconditionOf(expr: Expr): Option[Lambda] = {
+    val specced = BodyWithSpecs(expr)
+    specced.getSpec(PostconditionKind).map(s => specced.wrapLets(s.expr).asInstanceOf[Lambda])
+  }
 
-  final def measureOf(expr: Expr): Option[Expr] =
-    BodyWithSpecs(expr).getSpec(MeasureKind).map(_.expr)
+  final def measureOf(expr: Expr): Option[Expr] = {
+    val specced = BodyWithSpecs(expr)
+    specced.getSpec(MeasureKind).map(s => specced.wrapLets(s.expr))
+  }
 
   /** Deconstructs an expression into its [[Specification]] and body parts. */
   final def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val specced = BodyWithSpecs(e)
-    // NOTE: Dubious behavior replicated from `withoutBody` as used in the old `deconstructSpecs`.
-    val wrappedBodyOpt = specced.bodyOpt.map { body =>
-      specced.lets.foldRight(body) { case ((vd, e, pos), b) =>
-        Let(vd, e, b).setPos(pos)
-      }
-    }
+    // NOTE: This behavior is replicated from `withoutBody` as used in the old `deconstructSpecs`.
+    //   Ideally we should not rewrap here to maintain the sharing of lets between specs and body.
+    val wrappedBodyOpt = specced.bodyOpt.map(specced.wrapLets)
     (specced.specs, wrappedBodyOpt)
   }
 
