@@ -106,15 +106,21 @@ trait ExprOps extends inox.ast.ExprOps {
     def apply(fullBody: Expr): BodyWithSpecs = {
       import scala.annotation.tailrec
 
+      // Gather the duplicate-free prefix of specs around `expr`
       @tailrec
       def gatherSpecs(expr: Expr, specs: Seq[Specification]): Option[(Seq[Specification], Expr)] =
         peelSpec(expr) match {
-          case Some((spec, rest)) => gatherSpecs(rest, spec +: specs)
-          case None if specs.nonEmpty => Some((specs.reverse, expr))
-          case None => expr match {
-            case Let(_, _, b) => gatherSpecs(b, specs)
-            case _ => None
-          }
+          case Some((spec, rest)) if !specs.exists(_.kind == spec.kind) =>
+            gatherSpecs(rest, spec +: specs)
+          case _ =>
+            if (specs.nonEmpty) {
+              Some((specs.reverse, expr)) // Done (found some specs)
+            } else {
+              expr match {
+                case Let(_, _, b) => gatherSpecs(b, specs) // A Let potentially wrapping a spec
+                case _ => None // Done (no specs at all)
+              }
+            }
         }
 
       @tailrec
@@ -131,8 +137,10 @@ trait ExprOps extends inox.ast.ExprOps {
         case _ => false
       }
 
+      // First, ignore lets and see if there are any specs
       gatherSpecs(fullBody, Seq.empty) match {
         case Some((specs, body)) =>
+          // If we found specs, distinguish lets on the body from those wrapping specs
           val lets = gatherLets(fullBody, Seq.empty)
           assert(!body.isInstanceOf[Let] || !bodyMissing(body),
             "Body is missing, but there are let bindings irrelevant to specs")
@@ -233,8 +241,13 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Deconstructs an expression into its [[Specification]] and body parts. */
   final def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
     val specced = BodyWithSpecs(e)
-    assert(specced.lets.isEmpty)
-    (specced.specs, specced.bodyOpt)
+    // NOTE: Dubious behavior replicated from `withoutBody` as used in the old `deconstructSpecs`.
+    val wrappedBodyOpt = specced.bodyOpt.map { body =>
+      specced.lets.foldRight(body) { case ((vd, e, pos), b) =>
+        Let(vd, e, b).setPos(pos)
+      }
+    }
+    (specced.specs, wrappedBodyOpt)
   }
 
   /** Reconstructs an expression given a set of specifications
