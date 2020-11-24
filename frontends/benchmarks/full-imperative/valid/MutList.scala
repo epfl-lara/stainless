@@ -40,11 +40,6 @@ object Examples {
       }
     }
 
-    @extern
-    def assume(b: Boolean): Unit = {
-      ()
-    } ensuring (_ => b)
-
     def append(node: Node): Unit = {
       reads(repr.content)
       modifies(repr.content)
