@@ -374,6 +374,28 @@ trait ASTExtractors {
       }
     }
 
+    /** Extracts reference equality ('refEq') on the 'AnyHeapRef' trait */
+    object ExRefEquals {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(Select(lhs, ExNamed("refEq")), rhs :: Nil) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    /** Extracts shallow equality ('=~') between values */
+    object ExShallowEquals {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(
+          Select(
+            Apply(
+              TypeApply(ExSelected("stainless", "lang", "package", "ShallowComparable"), List(_)),
+              lhs :: Nil),
+            ExNamed("$eq$tilde")),
+          rhs :: Nil) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
     /** Extracts the 'decreases' contract for an expression (should be right after 'require') */
     object ExDecreasesExpression {
       def unapply(tree: Apply): Option[Seq[Tree]] = tree match {
