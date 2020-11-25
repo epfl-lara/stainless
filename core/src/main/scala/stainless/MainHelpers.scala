@@ -1,4 +1,4 @@
-/* Copyright 2009-2020 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 

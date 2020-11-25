@@ -20,6 +20,7 @@ stainless.conf
 # sbt
 target
 /project/build
+project/project
 /stainless
 /.test-history
 /out-classes

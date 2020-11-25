@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -28,7 +28,7 @@ trait ImperativeCleanup
     import symbols._
 
     def isImperativeFlag(f: s.Flag): Boolean = f match {
-      case s.IsPure | s.IsVar| s.IsMutable => true
+      case s.IsPure | s.IsVar | s.IsMutable => true
       case _ => false
     }
 

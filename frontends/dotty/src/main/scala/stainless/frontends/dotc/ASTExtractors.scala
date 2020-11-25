@@ -754,10 +754,7 @@ trait ASTExtractors {
 
           extract(rec) flatMap {
             case ExTuple(Seq(in, out)) => Some((in, out, cases))
-            case res =>
-              println("GOT")
-              println(res)
-              None
+            case res => None
           }
 
         case _ => None

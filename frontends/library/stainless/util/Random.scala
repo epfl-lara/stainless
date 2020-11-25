@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.util
 
@@ -6,14 +6,9 @@ import scala.language.implicitConversions
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.io._
 
 object Random {
-
-  @library
-  case class State(var seed: BigInt)
-
-  @library
-  def newState: State = State(0)
 
   @library
   @isabelle.noBody()
