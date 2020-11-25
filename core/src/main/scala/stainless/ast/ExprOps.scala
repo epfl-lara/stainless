@@ -23,32 +23,42 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Abstraction over contracts and specifications. */
   abstract class Specification(val kind: SpecKind) extends Positioned {
     val expr: Expr
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Specification
+    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification
 
     final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
 
     final def foreach(f: Expr => Unit): Unit = f(expr)
+
+    // Close the specification under let bindings shared by all specs
+    def letWrapped(specced: BodyWithSpecs): Specification
   }
 
   /** Precondition contract that corresponds to [[Expressions.Require]]. */
   case class Precondition(expr: Expr) extends Specification(PreconditionKind) {
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Precondition =
-      trees.exprOps.Precondition(f(expr))
+    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Precondition =
+      t.exprOps.Precondition(f(expr)).setPos(this.getPos)
+
+    def letWrapped(specced: BodyWithSpecs): Precondition =
+      Precondition(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   /** Postcondition contract that corresponds to [[Expressions.Ensuring]]. */
   case class Postcondition(expr: Lambda) extends Specification(PostconditionKind) {
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Postcondition =
-      trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda])
+    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Postcondition =
+      t.exprOps.Postcondition(f(expr).asInstanceOf[t.Lambda])
+        .setPos(this.getPos)
+
+    def letWrapped(specced: BodyWithSpecs): Postcondition =
+      Postcondition(expr.copy(body = specced.wrapLets(expr.body)).copiedFrom(expr))
+        .setPos(this.getPos)
   }
 
   case class Measure(expr: Expr) extends Specification(MeasureKind) {
-    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
-      case t: ast.Trees =>
-        t.exprOps.Measure(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
-      case _ =>
-        throw new java.lang.IllegalArgumentException("Can't map measure into non-stainless trees")
-    }
+    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification =
+      t.exprOps.Measure(f(expr)).setPos(this.getPos)
+
+    def letWrapped(specced: BodyWithSpecs): Measure =
+      Measure(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   case class BodyWithSpecs(
@@ -109,30 +119,40 @@ trait ExprOps extends inox.ast.ExprOps {
     def apply(fullBody: Expr): BodyWithSpecs = {
       import scala.annotation.tailrec
 
-      // Gather the duplicate-free prefix of specs around `expr`
+      // Gather the lets and duplicate-free prefix of specs around `expr`.
+      // Also handles lets interleaved with specs.
+      type LetInfo = (ValDef, Expr, Position)
       @tailrec
-      def gatherSpecs(expr: Expr, specs: Seq[Specification]): Option[(Seq[Specification], Expr)] =
+      def gatherSpecs(
+          expr: Expr,
+          letsCommitted: Seq[LetInfo],
+          letsUncommitted: Seq[LetInfo],
+          exprUncommitted: Option[Expr],
+          specs: Seq[Specification]
+        ): Option[(Seq[LetInfo], Seq[Specification], Expr)] =
+      {
         peelSpec(expr) match {
           case Some((spec, rest)) if !specs.exists(_.kind == spec.kind) =>
-            gatherSpecs(rest, spec +: specs)
+            gatherSpecs(rest, letsUncommitted ++ letsCommitted, Seq.empty, None, spec +: specs)
           case _ =>
-            if (specs.nonEmpty) {
-              Some((specs.reverse, expr)) // Done (found some specs)
-            } else {
-              expr match {
-                case Let(_, _, b) => gatherSpecs(b, specs) // A Let potentially wrapping a spec
-                case _ => None // Done (no specs at all)
-              }
+            expr match {
+              case Let(vd, e, b) =>
+                // A Let potentially wrapping a spec
+                val newLetsUncommitted = (vd, e, expr.getPos) +: letsUncommitted
+                val newExprUncommitted = exprUncommitted.orElse(Some(expr))
+                gatherSpecs(b, letsCommitted, newLetsUncommitted, newExprUncommitted, specs)
+              case _ =>
+                if (specs.isEmpty) {
+                  // Done (no specs at all)
+                  None
+                } else {
+                  // Done (found some specs)
+                  val body = exprUncommitted.getOrElse(expr)
+                  Some((letsCommitted.reverse, specs.reverse, body))
+                }
             }
         }
-
-      @tailrec
-      def gatherLets(expr: Expr,
-          lets: Seq[(ValDef, Expr, Position)]): Seq[(ValDef, Expr, Position)] =
-        expr match {
-          case Let(vd, e, rest) => gatherLets(rest, (vd, e, expr.getPos) +: lets)
-          case _ => lets.reverse
-        }
+      }
 
       def bodyMissing(expr: Expr): Boolean = expr match {
         case NoTree(_) => true
@@ -140,11 +160,8 @@ trait ExprOps extends inox.ast.ExprOps {
         case _ => false
       }
 
-      // First, ignore lets and see if there are any specs
-      gatherSpecs(fullBody, Seq.empty) match {
-        case Some((specs, body)) =>
-          // If we found specs, distinguish lets on the body from those wrapping specs
-          val lets = gatherLets(fullBody, Seq.empty)
+      gatherSpecs(fullBody, Seq.empty, Seq.empty, None, Seq.empty) match {
+        case Some((lets, specs, body)) =>
           assert(!body.isInstanceOf[Let] || !bodyMissing(body),
             "Body is missing, but there are let bindings irrelevant to specs")
           assert(lets.isEmpty || specs.nonEmpty)
@@ -235,18 +252,18 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Returns the precondition of an expression wrapped in Option */
   final def preconditionOf(expr: Expr): Option[Expr] = {
     val specced = BodyWithSpecs(expr)
-    specced.getSpec(PreconditionKind).map(s => specced.wrapLets(s.expr))
+    specced.getSpec(PreconditionKind).map(_.letWrapped(specced).expr)
   }
 
   /** Returns the postcondition of an expression wrapped in Option */
   final def postconditionOf(expr: Expr): Option[Lambda] = {
     val specced = BodyWithSpecs(expr)
-    specced.getSpec(PostconditionKind).map(s => specced.wrapLets(s.expr).asInstanceOf[Lambda])
+    specced.getSpec(PostconditionKind).map(_.letWrapped(specced).expr)
   }
 
   final def measureOf(expr: Expr): Option[Expr] = {
     val specced = BodyWithSpecs(expr)
-    specced.getSpec(MeasureKind).map(s => specced.wrapLets(s.expr))
+    specced.getSpec(MeasureKind).map(_.letWrapped(specced).expr)
   }
 
   /** Deconstructs an expression into its [[Specification]] and body parts. */
@@ -255,7 +272,7 @@ trait ExprOps extends inox.ast.ExprOps {
     // NOTE: This behavior is replicated from `withoutBody` as used in the old `deconstructSpecs`.
     //   Ideally we should not rewrap here to maintain the sharing of lets between specs and body.
     val wrappedBodyOpt = specced.bodyOpt.map(specced.wrapLets)
-    (specced.specs, wrappedBodyOpt)
+    (specced.specs.map(_.letWrapped(specced)), wrappedBodyOpt)
   }
 
   /** Reconstructs an expression given a set of specifications

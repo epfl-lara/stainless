@@ -119,12 +119,15 @@ trait ExprOps extends imperative.ExprOps {
   object ExceptionsKind extends SpecKind("exceptions") { type Spec = Exceptions }
 
   case class Exceptions(expr: Lambda) extends Specification(ExceptionsKind) {
-    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
-      case t: throwing.Trees =>
-        t.exprOps.Exceptions(f(expr).asInstanceOf[t.Lambda]).asInstanceOf[trees.exprOps.Specification]
+    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification = t match {
+      case tt: throwing.Trees =>
+        tt.exprOps.Exceptions(f(expr).asInstanceOf[tt.Lambda]).asInstanceOf[t.exprOps.Specification]
       case _ =>
         throw new java.lang.IllegalArgumentException("Can't map exceptions into non-throwing trees")
     }
+
+    def letWrapped(specced: BodyWithSpecs): Measure =
+      Measure(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   override def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {
