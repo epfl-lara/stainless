@@ -119,28 +119,34 @@ trait TreeSanitizer { self =>
       errors.toSeq
     }
 
+    def checkBodyWithSpecs(fullBody: Expr, kindsWhitelist: Option[Set[exprOps.SpecKind]]): Unit = {
+      val specced = exprOps.BodyWithSpecs(fullBody)
+      kindsWhitelist.foreach { allowedKinds =>
+        specced.specs.foreach(spec =>
+          if (!allowedKinds.contains(spec.kind))
+            errors += MalformedStainlessCode(fullBody, s"Unexpected `${spec.kind.name}` specification.")
+        )
+      }
+      specced.specs.groupBy(_.kind).map { case (kind, specs) =>
+        if (specs.length > 1)
+          errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
+      }
+      specced.specs.foreach(s => traverse(s.expr))
+      specced.bodyOpt.foreach(traverse)
+    }
+
     override def traverse(fd: FunDef): Unit = {
       traverse(fd.id)
       fd.tparams.foreach(traverse)
       fd.params.foreach(traverse)
       traverse(fd.returnType)
-      val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
-      specs.foreach(s => traverse(s.expr))
-      body.foreach(traverse)
+      checkBodyWithSpecs(fd.fullBody, kindsWhitelist = None)
       fd.flags.foreach(traverse)
     }
 
     val misplacedSpec = "This error message might occur when a function has type Unit while its body has another type"
 
     override def traverse(e: Expr): Unit = e match {
-      case wh @ While(cond, body, optInv) =>
-        traverse(cond)
-        val (specs, without) = exprOps.deconstructSpecs(body)
-        val (measures, otherSpecs) = specs.partition { case exprOps.Measure(_) => true case _ => false }
-        measures.foreach(s => traverse(s.expr))
-        traverse(exprOps.reconstructSpecs(otherSpecs, without, body.getType))
-        optInv.foreach(traverse)
-
       case e: Require =>
         errors += MalformedStainlessCode(e, s"Unexpected `require`. ($misplacedSpec).")
 
@@ -150,6 +156,11 @@ trait TreeSanitizer { self =>
       case e: Ensuring =>
         errors += MalformedStainlessCode(e, s"Unexpected `ensuring` ($misplacedSpec).")
 
+      case wh @ While(cond, body, optInv) =>
+        traverse(cond)
+        checkBodyWithSpecs(body, kindsWhitelist = Some(Set(exprOps.MeasureKind)))
+        optInv.foreach(traverse)
+
       case e: LetRec =>
         // Traverse LocalFunDef independently
         e.fds.foreach { case LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
@@ -157,9 +168,7 @@ trait TreeSanitizer { self =>
           tparams.foreach(traverse)
           params.foreach(traverse)
           traverse(returnType)
-          val (specs, body) = exprOps.deconstructSpecs(fullBody)
-          specs.foreach(s => traverse(s.expr))
-          body.foreach(traverse)
+          checkBodyWithSpecs(fullBody, kindsWhitelist = None)
           flags.foreach(traverse)
         }
 
@@ -167,10 +176,7 @@ trait TreeSanitizer { self =>
 
       case e: Lambda =>
         e.params.foreach(traverse)
-        val (specs, body) = exprOps.deconstructSpecs(e.body)
-        val (preconditions, otherSpecs) = specs.partition { case exprOps.Precondition(_) => true case _ => false }
-        preconditions.foreach(s => traverse(s.expr))
-        traverse(exprOps.reconstructSpecs(otherSpecs, body, e.body.getType))
+        checkBodyWithSpecs(e.body, kindsWhitelist = Some(Set(exprOps.PreconditionKind)))
 
       case _ => super.traverse(e)
     }
