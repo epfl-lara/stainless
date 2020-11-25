@@ -29,6 +29,9 @@ trait ExprOps extends inox.ast.ExprOps {
 
     final def foreach(f: Expr => Unit): Unit = f(expr)
 
+    // Whether the spec might as well be omitted
+    def isTrivial: Boolean
+
     // Close the specification under let bindings shared by all specs
     def letWrapped(specced: BodyWithSpecs): Specification
   }
@@ -37,6 +40,8 @@ trait ExprOps extends inox.ast.ExprOps {
   case class Precondition(expr: Expr) extends Specification(PreconditionKind) {
     def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Precondition =
       t.exprOps.Precondition(f(expr)).setPos(this.getPos)
+
+    def isTrivial: Boolean = expr == BooleanLiteral(true)
 
     def letWrapped(specced: BodyWithSpecs): Precondition =
       Precondition(specced.wrapLets(expr)).setPos(this.getPos)
@@ -48,6 +53,8 @@ trait ExprOps extends inox.ast.ExprOps {
       t.exprOps.Postcondition(f(expr).asInstanceOf[t.Lambda])
         .setPos(this.getPos)
 
+    def isTrivial: Boolean = expr.body == BooleanLiteral(true)
+
     def letWrapped(specced: BodyWithSpecs): Postcondition =
       Postcondition(expr.copy(body = specced.wrapLets(expr.body)).copiedFrom(expr))
         .setPos(this.getPos)
@@ -56,6 +63,8 @@ trait ExprOps extends inox.ast.ExprOps {
   case class Measure(expr: Expr) extends Specification(MeasureKind) {
     def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification =
       t.exprOps.Measure(f(expr)).setPos(this.getPos)
+
+    def isTrivial: Boolean = false
 
     def letWrapped(specced: BodyWithSpecs): Measure =
       Measure(specced.wrapLets(expr)).setPos(this.getPos)
@@ -288,7 +297,9 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Reconstructs an expression given a set of specifications
     * and a body, as obtained through [[deconstructSpecs]]. */
   final def reconstructSpecs(specs: Seq[Specification], body: Option[Expr], resultType: Type) =
-    BodyWithSpecs(Seq.empty, specs, UnitLiteral()).withBody(body, resultType).reconstructed
+    BodyWithSpecs(Seq.empty, specs.filterNot(_.isTrivial), UnitLiteral())
+      .withBody(body, resultType)
+      .reconstructed
 
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
     val subst: MutableMap[Variable, Variable] = MutableMap.empty

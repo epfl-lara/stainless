@@ -126,6 +126,8 @@ trait ExprOps extends imperative.ExprOps {
         throw new java.lang.IllegalArgumentException("Can't map exceptions into non-throwing trees")
     }
 
+    def isTrivial: Boolean = false
+
     def letWrapped(specced: BodyWithSpecs): Measure =
       Measure(specced.wrapLets(expr)).setPos(this.getPos)
   }
