@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -144,7 +144,7 @@ trait TreeSanitizer { self =>
       fd.flags.foreach(traverse)
     }
 
-    val misplacedSpec = "This error message might occur when a function has type Unit while its body has another type"
+    val misplacedSpec = "This error message might occur when a function has return type Unit while its body has another type"
 
     override def traverse(e: Expr): Unit = e match {
       case e: Require =>

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -269,7 +269,8 @@ trait InnerClasses
         case LocalClassSelector(obj, sel, _) =>
           t.ClassSelector(transform(obj, ctx), sel).copiedFrom(e)
 
-        case _ => super.transform(e, ctx)
+        case _ =>
+          super.transform(e, ctx)
       }
 
       override def transform(tp: Type, ctx: Context): t.Type = tp match {

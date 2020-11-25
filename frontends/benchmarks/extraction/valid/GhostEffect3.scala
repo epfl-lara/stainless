@@ -1,5 +1,6 @@
 import stainless.lang._
 import stainless.annotation._
+import stainless.io._
 
 object GhostEffect3 {
 
@@ -8,7 +9,7 @@ object GhostEffect3 {
   case class Foo(@ghost value: BigInt)
 
   def bar: Foo = {
-    implicit val state = Random.newState
+    implicit val state = newState
     val rand = Random.nextBigInt(state)
     Foo(rand)
   }

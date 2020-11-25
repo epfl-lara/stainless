@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
@@ -40,7 +40,8 @@ package object frontend {
   /** All components handled by the frontend.  */
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
-    evaluators.EvaluatorComponent
+    evaluators.EvaluatorComponent,
+    genc.GenCComponent
   )
 
   /**
@@ -72,6 +73,7 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
+    activeComponents.contains(genc.GenCComponent) ||
     !ctx.options.findOptionOrDefault(optKeep).isEmpty
   }
 }

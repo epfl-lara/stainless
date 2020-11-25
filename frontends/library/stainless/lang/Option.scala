@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.lang
 
@@ -30,7 +30,10 @@ sealed abstract class Option[T] {
     _.isDefined == this.isDefined || or.isDefined
   }
 
-  def isEmpty = this == None[T]()
+  def isEmpty = this match {
+    case Some(_) => false
+    case None() => true
+  }
 
   def nonEmpty  = !isEmpty
 

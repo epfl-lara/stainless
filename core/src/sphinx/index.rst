@@ -23,6 +23,7 @@ Contents:
    wrap
    purescala
    library
+   genc
    neon
    limitations
    casestudies

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
@@ -93,8 +93,9 @@ trait ComponentRun { self =>
   }
 
   /** Passes the provided symbols through the extraction pipeline and compute all
-    * functions to process that are derived from the provided identifier. */
+    * functions to process that are derived from the provided identifiers. */
   def apply(ids: Seq[Identifier], symbols: xt.Symbols, filterSymbols: Boolean = false): Future[Analysis] = try {
+
     val exSymbols = extract(symbols)
 
     val toProcess = extractionFilter.filter(ids, exSymbols, component)
