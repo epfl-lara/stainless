@@ -152,12 +152,6 @@ trait Trees extends oo.Trees with Definitions { self =>
     }
   }
 
-  /** Represents reference equality */
-  case class RefEquals(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type =
-      checkAllTypes(Seq(lhs, rhs), AnyHeapRef(), BooleanType())
-  }
-
   /** Represents shallow equality, that is, structural equality on the erased terms after the imperative phase */
   case class ShallowEquals(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
@@ -311,9 +305,6 @@ trait Printer extends oo.Printer {
       p"$lhs ^ $rhs"
     }
 
-    case RefEquals(lhs, rhs) =>
-      p"$lhs refEq $rhs"
-
     case ShallowEquals(lhs, rhs) =>
       p"$lhs =~ $rhs"
 
@@ -401,9 +392,6 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
-
-    case s.RefEquals(lhs, rhs) =>
-      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.RefEquals(es(0), es(1)))
 
     case s.ShallowEquals(lhs, rhs) =>
       (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.ShallowEquals(es(0), es(1)))

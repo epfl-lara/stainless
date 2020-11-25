@@ -374,14 +374,6 @@ trait ASTExtractors {
       }
     }
 
-    /** Extracts reference equality ('refEq') on the 'AnyHeapRef' trait */
-    object ExRefEquals {
-      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
-        case Apply(Select(lhs, ExNamed("refEq")), rhs :: Nil) => Some((lhs, rhs))
-        case _ => None
-      }
-    }
-
     /** Extracts shallow equality ('=~') between values */
     object ExShallowEquals {
       def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {

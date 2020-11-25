@@ -147,10 +147,7 @@ package object lang {
   }
   
   @ignore
-  trait AnyHeapRef {
-    @ignore
-    def refEq(that: AnyHeapRef): Boolean = true
-  }
+  trait AnyHeapRef
 
   @ignore
   implicit class ShallowComparable[T](val lhs: A) {
