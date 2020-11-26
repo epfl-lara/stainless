@@ -12,7 +12,7 @@ object Factorial {
   val four = S(three)
   val five = S(four)
   val six = S(five)
-  val seven = S(six) 
+  val seven = S(six)
   val eight = S(seven)
   val nine = S(eight)
   val ten = S(nine)
