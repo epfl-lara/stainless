@@ -41,6 +41,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optStrictArithmetic -> Description(Verification,
       s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
     verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
+    verification.optAdmitVCs -> Description(Verification, "Admit all verification conditions"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +

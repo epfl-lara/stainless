@@ -29,6 +29,10 @@ object optTypeChecker extends inox.FlagOptionDef("type-checker", true)
  */
 object optCoq extends inox.FlagOptionDef("coq", false)
 
+/** When enabled, do not verify verification conditions */
+object optAdmitVCs extends inox.FlagOptionDef("admit-vcs", false)
+
+
 object VerificationComponent extends Component {
   override val name = "verification"
   override val description = "Verification of function contracts"
@@ -115,11 +119,16 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
       val fullEncoder = assertionEncoder andThen chooseEncoder
 
-      val res = VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
-        case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-          VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
-        case res => res.asInstanceOf[VCResult[p.Model]]
-      })
+      val res =
+        if (context.options.findOptionOrDefault(optAdmitVCs)) {
+          Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None)).toMap)
+        } else {
+          VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
+            case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
+              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
+            case res => res.asInstanceOf[VCResult[p.Model]]
+          })
+        }
 
       res.map(r => new VerificationAnalysis {
         override val program: p.type = p
