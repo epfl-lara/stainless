@@ -70,6 +70,7 @@ object VCStatus {
 
   case class Invalid[+Model](reason: Reason[Model]) extends VCStatus[Model]("invalid")
   case object Valid extends VCStatus[Nothing]("valid")
+  case object Admitted extends VCStatus[Nothing]("admitted")
   case object ValidFromCache extends VCStatus[Nothing]("valid from cache")
   case object Unknown extends VCStatus[Nothing]("unknown")
   case object Timeout extends VCStatus[Nothing]("timeout")
@@ -86,7 +87,7 @@ case class VCResult[+Model](
 ) {
   def isValid           = status == VCStatus.Valid || isValidFromCache
   def isValidFromCache  = status == VCStatus.ValidFromCache
+  def isAdmitted        = status == VCStatus.Admitted
   def isInvalid         = status.isInstanceOf[VCStatus.Invalid[_]]
   def isInconclusive    = !isValid && !isInvalid
 }
-
