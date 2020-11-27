@@ -291,10 +291,10 @@ trait TypeChecker {
     types.foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), vd) =>
         val freshVd = freshener.transform(vd)
-        val (newTc, oldId, newId) = tcAcc.freshBind(freshVd)
-        if (oldId != vd.id)
-          reporter.internalError("The freshener should not affect the id of the current `vd`.")
-        (newTc, freshener.enrich(oldId, newId), tr ++ isType(tcAcc, freshVd.tpe))
+        val (newTc, newId) = tcAcc.freshBind(freshVd)
+        if (freshVd.id != vd.id)
+          reporter.internalError("In `areDependentTypes', the freshener should not affect the id of the current `vd`.")
+        (newTc, freshener.enrich(vd.id, newId), tr ++ isType(tcAcc, freshVd.tpe))
     }._3
   }
 
@@ -302,11 +302,32 @@ trait TypeChecker {
     exprs.zip(types).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), (e, vd)) =>
         val freshVd = freshener.transform(vd)
-        val (newTc, oldId, newId) = tcAcc.freshBindWithValue(freshVd, e)
-        if (oldId != vd.id)
-          reporter.internalError("The freshener should not affect the id of the current `vd`.")
-        (newTc, freshener.enrich(oldId, newId), tr ++ checkType(tcAcc, e, freshVd.tpe))
+        val (newTc, newId) = tcAcc.freshBindWithValue(freshVd, e)
+        if (freshVd.id != vd.id)
+          reporter.internalError("In `checkDependentTypes', the freshener should not affect the id of the current `vd`.")
+        (newTc, freshener.enrich(vd.id, newId), tr ++ checkType(tcAcc, e, freshVd.tpe))
     }._3
+  }
+
+  def areSubtypes(tc: TypingContext, types1: Seq[ValDef], types2: Seq[ValDef]): (TypingContext, Freshener, TyperResult) = {
+    assert(types1.length == types2.length, "Function `areSubtypes` expects sequences of the same size")
+    types1.zip(types2).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+      case ((tcAcc, freshener, tr), (vd1, vd2)) =>
+        val freshVd1 = freshener.transform(vd1)
+        val freshVd2 = freshener.transform(vd2)
+        if (freshVd1.id != vd1.id)
+          reporter.internalError("In `areSubtypes', the freshener should not affect the id of the current `vd`.")
+        if (freshVd2.id != vd2.id)
+          reporter.internalError("In `areSubtypes', the freshener should not affect the id of the current `vd`.")
+        val (newTc, newId) = tcAcc.freshBind(freshVd1)
+        val newFreshener = freshener.enrich(collection.immutable.Map(vd1.id -> newId, vd2.id -> newId))
+        (newTc, newFreshener, tr ++ isSubtype(tcAcc, freshVd1.tpe, freshVd2.tpe))
+    }
+  }
+
+  def areSubtypes(tc: TypingContext, types1: Seq[Type], types2: Seq[Type]): TyperResult = {
+    assert(types1.length == types2.length, "Function `areSubtypes` (non-dependent) expects sequences of the same size")
+    TyperResult(types1.zip(types2).map { case (tp1, tp2) => isSubtype(tc, tp1, tp2) })
   }
 
 
@@ -339,8 +360,8 @@ trait TypeChecker {
 
       case AnnotatedType(tpe, _) => isType(tc, tpe)
       case RefinementType(vd, prop) =>
-        val (tc2, id1, id2) = tc.freshBind(vd)
-        val freshProp: Expr = Freshener(immutable.Map(id1 -> id2)).transform(prop)
+        val (tc2, id2) = tc.freshBind(vd)
+        val freshProp: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(prop)
         isType(tc, vd.tpe) ++ checkType(tc2, freshProp, BooleanType())
 
       case FunctionType(ts, returnType) =>
@@ -679,8 +700,8 @@ trait TypeChecker {
 
       case Let(vd, value, body) =>
         val trValue = checkType(tc.setPos(value), value, vd.tpe)
-        val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
+        val (tc2, id2) = tc.freshBindWithValue(vd, value)
+        val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
@@ -1014,8 +1035,8 @@ trait TypeChecker {
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
       case (Let(vd, value, body), _) =>
-        val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
+        val (tc2, id2) = tc.freshBindWithValue(vd, value)
+        val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
         checkType(tc.setPos(value), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
@@ -1056,12 +1077,6 @@ trait TypeChecker {
       case (Tuple(es), SigmaType(from, to)) =>
         checkDependentTypes(tc, es.init, from) ++
         checkType(tc.bindWithValues(from, es.init), es.last, to)
-
-      case (_, PiType(from, to)) =>
-        checkType(tc.bind(from), Application(e, from.map(_.toVariable)), to)
-      case (_, ft@FunctionType(from, to)) =>
-        val binders = from.map(tpe => ValDef.fresh("__u", tpe))
-        checkType(tc.bind(binders), Application(e, binders.map(_.toVariable)), to)
 
       // we force invariance for now
       case (_, SetType(base2)) =>
@@ -1132,7 +1147,9 @@ trait TypeChecker {
     }
   }
 
-  def isSubtype(tc0: TypingContext, tp1: Type, tp2: Type): TyperResult = {
+  def isSubtype(tc0: TypingContext, _tp1: Type, _tp2: Type): TyperResult = {
+    val tp1 = exprOps.stripAnnotations(_tp1)
+    val tp2 = exprOps.stripAnnotations(_tp2)
     reporter.debug(s"\n${tc0.indent}Checking that: ${tp1.asString}")
     reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
     reporter.debug(s"${tc0.indent}in context:")
@@ -1140,21 +1157,65 @@ trait TypeChecker {
     val tc = tc0.inc
     if (tp1 == tp2) TyperResult.valid
     else (tp1, tp2) match {
-      case (TupleType(tps1), TupleType(tps2)) =>
-        TyperResult(tps1.zip(tps2).map {
-          case (ty1, ty2) => isSubtype(tc, ty1, ty2)
-        })
+      case (_, Top()) => TyperResult.valid
+
+      case (TupleType(tps1), TupleType(tps2)) if tps1.size == tps2.size =>
+        areSubtypes(tc, tps1, tps2)
+
+      case (TupleType(tps1), SigmaType(params2, to2)) if tps1.size == params2.size + 1 =>
+        val params1 = tps1.zip(params2).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, tps1.last, freshener.transform(to2))
+
+      case (SigmaType(params1, to1), TupleType(tps2)) if tps2.size == params1.size + 1 =>
+        val params2 = tps2.zip(params1).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, freshener.transform(to1), tps2.last)
+
+      case (SigmaType(params1, to1), SigmaType(params2, to2)) =>
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
         buildVC(tc.bind(vd1).withTruth(prop1), renameVar(prop2, vd2.id, vd1.id))
 
+      case (_, RefinementType(vd, prop)) =>
+        isSubtype(tc, tp1, vd.tpe) ++ buildVC(tc, prop)
+
       case (RefinementType(vd, prop), _) =>
         isSubtype(tc, vd.tpe, tp2)
 
-      case (_, RefinementType(vd, prop)) if vd.tpe == tp1 =>
-        buildVC(tc, prop)
+      case (FunctionType(from1, to1), FunctionType(from2, to2)) =>
+        areSubtypes(tc, from2, from1) ++ isSubtype(tc, to1, to2)
 
-      // TODO: implement other subtyping rules
+      case (PiType(params1, to1), FunctionType(from2, to2)) =>
+        val params2 = from2.zip(params1).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), to2)
+
+      case (FunctionType(from1, to1), PiType(params2, to2)) =>
+        val params1 = from1.zip(params2).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), to2)
+
+      case (PiType(params1, to1), PiType(params2, to2)) =>
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
+
+      case (ADTType(id1, tps1), RecursiveType(id2, tps2, index2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) })
+
+      case (ADTType(id1, tps1), ADTType(id2, tps2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) })
+
+      // The equality VC can be relaxed to >= for positive types
+      case (RecursiveType(id1, tps1, index1), RecursiveType(id2, tps2, index2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) }) ++
+        buildVC(tc, Equals(index1, index2))
+
       case (_, _) =>
         reporter.fatalError(tc.getPos, s"Could not check that ${tp1.asString} is a subtype of ${tp2.asString}")
     }
