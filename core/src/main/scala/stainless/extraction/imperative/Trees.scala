@@ -132,33 +132,31 @@ trait Trees extends oo.Trees with Definitions { self =>
       checkAllTypes(Seq(lhs, rhs), BooleanType(), BooleanType())
   }
 
-  /** This checks the given definition for a flag */
-  def hasFlag(df: Definition, flag: String): Boolean = df.flags.exists(_.name == flag)
-
   /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
   object AnyHeapRef {
-    // FIXME: Not sure I like this way of caching stainless library definitions
-    private[this] var _classDef: ClassDef = null
-    private[this] def classDef(implicit s: Symbols) = {
-      if (_classDef eq null)
-        _classDef = s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
-      _classDef
-    }
+    // FIXME: This way of caching symbols makes test suites crash because of the cache being kept between runs
+    // private[this] var _classDef: ClassDef = null
+    // private[this] def classDef(implicit s: Symbols) = {
+    //   if (_classDef eq null)
+    //     _classDef = s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
+    //   _classDef
+    // }
+    // def apply()(implicit s: Symbols): Type =
+    //   classDef.typed.toType
 
     def apply()(implicit s: Symbols): Type =
-      classDef.typed.toType
+      s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get.typed.toType
     def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
-      case ct: ClassType => ct.id == classDef.id
+      case ct: ClassType => ct.id == s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get.id
       case _ => false
     }
   }
 
-  /** This is an extractor for the refEq method in the stainless.lang package */
-  object RefEq {
-    def unapply(expr: Expr)(implicit s: Symbols): Option[(Expr, Expr)] = expr match {
-      case fi @ FunctionInvocation(_, _, Seq(e1, e2)) if (hasFlag(fi.tfd.fd, "refEq")) => Some((e1, e2))
-      case _ => None
-    }
+  /** Represents shallow equality, that is, structural equality on the erased terms after the imperative phase */
+  case class ShallowEquals(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type =
+      if (s.leastUpperBound(lhs.getType, rhs.getType) != Untyped) BooleanType()
+      else Untyped
   }
 
   /** Represents a `reads(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
@@ -307,6 +305,9 @@ trait Printer extends oo.Printer {
       p"$lhs ^ $rhs"
     }
 
+    case ShallowEquals(lhs, rhs) =>
+      p"$lhs =~ $rhs"
+
     case Reads(objs, body) =>
       p"""|reads($objs);
           |$body"""
@@ -391,6 +392,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
+
+    case s.ShallowEquals(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.ShallowEquals(es(0), es(1)))
 
     case s.Reads(objs, bd) =>
       (Seq(), Seq(), Seq(objs, bd), Seq(), Seq(), (_, _, es, _, _) => t.Reads(es(0), es(1)))

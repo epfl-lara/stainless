@@ -1247,6 +1247,12 @@ trait CodeExtraction extends ASTExtractors {
       case _ => injectCasts(xt.Equals)(l, r)
     }
 
+    case ExShallowEquals(l, r) =>
+      injectCasts(xt.ShallowEquals)(l, r)
+
+    case ExShallowNotEquals(l, r) =>
+      xt.Not(injectCasts(xt.ShallowEquals)(l, r))
+
     case ExIfThenElse(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
 

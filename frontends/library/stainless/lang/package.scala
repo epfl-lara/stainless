@@ -146,15 +146,21 @@ package object lang {
     scala.Predef.print(x)
   }
   
-  @extern @library @mutable @anyHeapRef
-  trait AnyHeapRef {
-    @refEq
-    def refEq(that: AnyHeapRef): Boolean = true
+  @anyHeapRef
+  @mutable
+  trait AnyHeapRef
+
+  @ignore
+  implicit class ShallowComparable[T](val lhs: T) {
+    @ignore
+    def =~(rhs: T): Boolean = lhs == rhs
+    @ignore
+    def !=~(rhs: T): Boolean = lhs != rhs
   }
 
   @ignore
   def reads(objs: Set[AnyHeapRef]): Unit = ()
 
   @ignore
-  def modifies(objs: Set[AnyHeapRef]): Unit = ()
+  def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
 }

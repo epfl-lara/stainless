@@ -90,5 +90,54 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
       }
     }
   }
+
+  // -----------------------------------------------------------------
+  // Utilities for heap classes, for the full-imperative pipeline
+  // -----------------------------------------------------------------
+
+  // Indicates whether types live in the heap or not
+  lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](_livesInHeap(_))
+
+  // Indicates whether types touch heap (i.e. contain some data that lives in the heap)
+  lazy val touchesHeap = new utils.ConcurrentCached[Type, Boolean](_touchesHeap(_))
+
+  // Only the trait AnyHeapRef and its descendants live in the heap
+  private def _livesInHeap(tpe: Type): Boolean = tpe match {
+    case AnyHeapRef() => true
+    // We lookup the parents through the cache so that the hierarchy is traversed at most once
+    case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
+    case _ => false
+  }
+  
+  // We recurse on the content of the type to see if it contains references
+  private def _touchesHeap(tpe: Type): Boolean = tpe match {
+    // In the following cases tpe can be instantiated to anything so we are conservative
+    // and assum that it can touch the heap
+    case _: AnyType => true
+    case _: TypeParameter => true
+    case _: TypeBounds => true
+    case ta: TypeApply if ta.isAbstract => true
+
+    // A function doesn't live in the heap in our model
+    case _: FunctionType => false
+
+    // For classes and ADTs we have to recurse over the fields of the type
+    case ct: ClassType =>
+      livesInHeap(ct) || ct.tcd.fields.exists { vd =>
+        touchesHeap(vd.getType)
+      }
+
+    case adt: ADTType =>
+      adt.getSort.constructors.exists { cons =>
+        cons.fields.exists { vd =>
+          touchesHeap(vd.getType)
+        }
+      }
+
+    // For other types, we can just recurse on the structure of the type and check that nothing lives in the heap
+    // In particular, types that do not contain other types do not touch the heap (e.g. string, int, ...)
+    case NAryType(tps, _) =>
+      tps.exists(touchesHeap(_))
+  }
 }
 
