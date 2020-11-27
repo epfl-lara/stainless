@@ -123,7 +123,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
 
     // For classes and ADTs we have to recurse over the fields of the type
     case ct: ClassType =>
-      ct.tcd.fields.exists { vd =>
+      livesInHeap(ct) || ct.tcd.fields.exists { vd =>
         touchesHeap(vd.getType)
       }
 
@@ -134,7 +134,8 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
         }
       }
 
-    // For other types, we can just recurse on the structure of the type
+    // For other types, we can just recurse on the structure of the type and check that nothing lives in the heap
+    // In particular, types that do not contain other types do not touch the heap (e.g. string, int, ...)
     case NAryType(tps, _) =>
       tps.exists(touchesHeap(_))
   }

@@ -49,10 +49,19 @@ trait EffectElaboration
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols =
-    super.extractSymbols(tctx, symbols)
-      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(symbols))
-      .withFunctions(OptionSort.functions(symbols))
+  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    // We filter out the definitions related to AnyHeapRef since they are only needed for infering which
+    // types live in the heap
+    val newSymbols = NoSymbols
+      .withFunctions(symbols.functions.values.toSeq)
+      .withClasses(symbols.classes.values.filterNot(cd => cd.flags.exists(_.name == "anyHeapRef")).toSeq)
+      .withSorts(symbols.sorts.values.toSeq)
+      .withTypeDefs(symbols.typeDefs.values.toSeq)
+      
+    super.extractSymbols(tctx, newSymbols)
+      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(newSymbols))
+      .withFunctions(OptionSort.functions(newSymbols))
+  }
 
   override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef =
     (new tctx.FunRefTransformer).transform(fd)
@@ -240,7 +249,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
         case Equals(e1, e2) =>
           if (touchesHeap(e1.getType) || touchesHeap(e2.getType))
             self.context.reporter.error(e.getPos, "Cannot compare two expressions containing references by value")
-          Equals(e1, e2)
+          Equals(transform(e1, env), transform(e1, env))
 
         case ClassConstructor(ct, args) if livesInHeap(ct) =>
           /*

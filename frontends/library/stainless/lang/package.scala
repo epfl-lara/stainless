@@ -146,13 +146,16 @@ package object lang {
     scala.Predef.print(x)
   }
   
-  @ignore
+  @anyHeapRef
+  @mutable
   trait AnyHeapRef
 
   @ignore
-  implicit class ShallowComparable[T](val lhs: A) {
+  implicit class ShallowComparable[T](val lhs: T) {
     @ignore
-    def =~(rhs: A): Boolean = lhs == rhs
+    def =~(rhs: T): Boolean = lhs == rhs
+    @ignore
+    def !=~(rhs: T): Boolean = lhs != rhs
   }
 
   @ignore
