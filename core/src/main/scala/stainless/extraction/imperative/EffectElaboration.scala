@@ -49,19 +49,10 @@ trait EffectElaboration
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    // We filter out the definitions related to AnyHeapRef since they are only needed for infering which
-    // types live in the heap
-    val newSymbols = NoSymbols
-      .withFunctions(symbols.functions.values.filterNot(fd => hasFlag(fd, "refEq")).toSeq)
-      .withClasses(symbols.classes.values.filterNot(cd => hasFlag(cd, "anyHeapRef")).toSeq)
-      .withSorts(symbols.sorts.values.toSeq)
-      .withTypeDefs(symbols.typeDefs.values.toSeq)
-
-    super.extractSymbols(tctx, newSymbols)
-      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(newSymbols))
-      .withFunctions(OptionSort.functions(newSymbols))
-  }
+  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols =
+    super.extractSymbols(tctx, symbols)
+      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(symbols))
+      .withFunctions(OptionSort.functions(symbols))
 
   override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunDef =
     (new tctx.FunRefTransformer).transform(fd)
@@ -103,23 +94,14 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
 
   trait RefTransformContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
+    import symbols.{ livesInHeap, touchesHeap }
 
     lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), HeapRefType, AnyType())
-
-    // This caches whether types live in the heap or not
-    lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
 
     // This caches the effect level for the function definitions
     lazy val effectLevel = new utils.ConcurrentCached[Identifier, exprOps.EffectLevel]({ id =>
       exprOps.getEffectLevel(symbols.getFunction(id))
     })
-
-    private def isHeapType(tpe: Type): Boolean = tpe match {
-      case AnyHeapRef() => true
-      // We lookup the parents through the cache so that the hierarchy is traversed at most once
-      case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
-      case _ => false
-    }
 
     private def freshStateParam(): ValDef = "heap0" :: HeapType
 
@@ -251,9 +233,14 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       }
 
       override def transform(e: Expr, env: Env): Expr = e match {
-        // Reference equality is transformed into value equality on references
-        case RefEq(e1, e2) =>
+        // Shallow equality is transformed into value equality on the erased trees
+        case ShallowEquals(e1, e2) =>
           Equals(transform(e1, env), transform(e2, env))
+
+        case Equals(e1, e2) =>
+          if (touchesHeap(e1.getType) || touchesHeap(e2.getType))
+            self.context.reporter.error(e.getPos, "Cannot compare two expressions containing references by value")
+          Equals(e1, e2)
 
         case ClassConstructor(ct, args) if livesInHeap(ct) =>
           /*
