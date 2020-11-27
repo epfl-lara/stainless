@@ -1,5 +1,21 @@
 # Release Notes
 
+## Version 0.7.5 (2020-11-27)
+
+### Features
+
+- Add `admit-vcs` option to generate VCs without sending them to the solver
+- Add support for indexed types in scalac frontend
+
+### Improvements
+
+- Generalize specification helpers (#828)
+
+### Bug fixes
+
+- Remove unsound type-checking rule for function types, and add subtying rules instead
+
+
 ## Version 0.7.4 (2020-10-02)
 
 ### Bug fixes
