@@ -226,9 +226,6 @@ object TypeCheckerUtils {
   case class Freshener(subst: Map[Identifier, Identifier]) extends SelfTreeTransformer {
     override def transform(id: Identifier) = subst.getOrElse(id, id)
     def transformTp(tp: TypeParameter): TypeParameter = transform(tp).asInstanceOf[TypeParameter]
-    // def freshenVd(vd: ValDef): ValDef = transform(vd)
-    // def freshenType(tpe: Type): Type = transform(tpe)
-    // def freshenExpr(e: Expr): Expr = transform(e)
     def enrich(id1: Identifier, id2: Identifier): Freshener = {
       require(!subst.contains(id1))
       Freshener(subst + (id1 -> id2))
@@ -240,20 +237,5 @@ object TypeCheckerUtils {
     def contains(id: Identifier) = subst.contains(id)
   }
 
-  // // Predecessor function defined on strictly positive integers
-  // val predId = ast.SymbolIdentifier("pred")
-  // val positiveVd = ValDef(FreshIdentifier("x"), IntegerType())
-  // val positiveType = RefinementType(positiveVd, GreaterThan(positiveVd.toVariable, IntegerLiteral(0)))
-  // val predArg = ValDef(FreshIdentifier("x"), positiveType)
-  // val predBody: Expr = Minus(predArg.toVariable, IntegerLiteral(1))
-  // val predFd = new FunDef(
-  //   predId,
-  //   Seq(),
-  //   Seq(predArg),
-  //   IntegerType(),
-  //   predBody,
-  //   Seq()
-  // )
-  // def pred(e: Expr) = FunctionInvocation(predId, Seq(), Seq(e))
   def pred(e: Expr) = Minus(e, IntegerLiteral(1))
 }

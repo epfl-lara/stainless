@@ -58,11 +58,10 @@ object TypeCheckerContext {
       }
     }
 
-    def freshBindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier, Identifier) = {
+    def freshBindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
       val freshVd = vd.freshen
       (
         copy(termVariables = termVariables :+ freshVd.toVariable :+ Variable.fresh(letWitness, Equality(freshVd.toVariable,e))).setPos(this),
-        vd.id,
         freshVd.id
       )
     }
@@ -73,11 +72,11 @@ object TypeCheckerContext {
       vds.zip(es).foldLeft((this, new Freshener(Map()))) {
         case((tcAcc, freshener), (vd,e)) =>
           val freshVd = freshener.transform(vd)
-          val (newTc, oldId, newId) = tcAcc.freshBindWithValue(freshVd, e)
-          if (freshener.contains(oldId)) {
-            ctx.reporter.internalError(s"Substitution should not contain ${oldId.asString}")
+          val (newTc, newId) = tcAcc.freshBindWithValue(freshVd, e)
+          if (freshener.contains(vd.id)) {
+            ctx.reporter.internalError(s"Substitution should not contain ${vd.id.asString}")
           }
-          (newTc, freshener.enrich(oldId, newId))
+          (newTc, freshener.enrich(vd.id, newId))
       }
     }
 
@@ -95,11 +94,10 @@ object TypeCheckerContext {
       copy(termVariables = termVariables ++ vds.map(_.toVariable)).setPos(this)
     }
 
-    def freshBind(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier, Identifier) = {
+    def freshBind(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
       val freshVd = vd.freshen
       (
         copy(termVariables = termVariables :+ freshVd.toVariable).setPos(this),
-        vd.id,
         freshVd.id
       )
     }
