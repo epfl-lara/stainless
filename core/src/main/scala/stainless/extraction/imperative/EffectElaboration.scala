@@ -116,8 +116,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
 
     private def isHeapType(tpe: Type): Boolean = tpe match {
       case AnyHeapRef() => true
-      // FIXME: This is quadratic? Change to ct.tcd.ancestors.exists(_ == AnyHeapRef())?
-      case ct: ClassType => ct.tcd.ancestors.exists(a => livesInHeap(a.toType))
+      // We lookup the parents through the cache so that the hierarchy is traversed at most once
+      case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
       case _ => false
     }
 

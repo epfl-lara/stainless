@@ -6,9 +6,10 @@ import stainless.annotation._
 import stainless.lang.StaticChecks._
 
 object Examples {
-  final case class Node private (var value: BigInt, var nextOpt: Option[Node], var repr: List[AnyHeapRef]) extends AnyHeapRef {
+  final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghost var repr: List[AnyHeapRef]) extends AnyHeapRef {
+    @ghost
     def valid: Boolean = {
-      reads(repr.content)
+      reads(repr.content ++ Set(this)) // Removing Set(this) make it possible to call this function with an empty repr, which creates inconsistencies
       decreases(repr.size)
 
       (nextOpt match {
@@ -26,7 +27,7 @@ object Examples {
         case None() => BigInt(1)
         case Some(next) => 1 + next.size
       }
-    } ensuring (res => res > 0)
+    } ensuring (_ > 0)
 
     def last: Node = {
       reads(repr.content)
@@ -38,11 +39,6 @@ object Examples {
         case Some(next) => next.last
       }
     }
-
-    @extern
-    def assume(b: Boolean): Unit = {
-      ()
-    } ensuring (_ => b)
 
     def append(node: Node): Unit = {
       reads(repr.content)
