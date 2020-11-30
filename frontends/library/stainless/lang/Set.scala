@@ -84,7 +84,6 @@ case class Set[T](theSet: scala.collection.immutable.Set[T]) {
 
   def &(a: Set[T]): Set[T] = new Set[T](theSet & a.theSet)
 
-  def size: BigInt = theSet.size
   def isEmpty: Boolean = theSet.isEmpty
 
   def contains(a: T): Boolean = theSet.contains(a)
