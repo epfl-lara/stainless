@@ -7,6 +7,8 @@ import scala.language.existentials
 
 package object imperative {
 
+  object optFullImperative extends inox.FlagOptionDef("full-imperative", false)
+
   object trees extends imperative.Trees with oo.ClassSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
@@ -25,14 +27,22 @@ package object imperative {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) = {
-    utils.DebugPipeline("EffectElaboration", EffectElaboration(trees)) andThen
-    // utils.DebugPipeline("StateInstrumentation", StateInstrumentation(trees)) andThen
-    // utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
-    // utils.DebugPipeline("ReturnElimination", ReturnElimination(trees)) andThen
+  def oldImperative(implicit ctx: inox.Context) = {
+    utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
+    utils.DebugPipeline("ReturnElimination", ReturnElimination(trees)) andThen
     utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
     utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }
+
+  def newImperative(implicit ctx: inox.Context) = {
+    utils.DebugPipeline("EffectElaboration", EffectElaboration(trees)) andThen
+    utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
+    utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
+  }
+
+  def extractor(implicit ctx: inox.Context) =
+    if (ctx.options.findOptionOrDefault(optFullImperative)) newImperative
+    else oldImperative
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
   def nextExtractor(implicit ctx: inox.Context) = oo.fullExtractor
