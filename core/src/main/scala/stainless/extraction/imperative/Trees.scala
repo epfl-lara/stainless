@@ -166,20 +166,14 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
   object AnyHeapRef {
-    // FIXME: This way of caching symbols makes test suites crash because of the cache being kept between runs
-    // private[this] var _classDef: ClassDef = null
-    // private[this] def classDef(implicit s: Symbols) = {
-    //   if (_classDef eq null)
-    //     _classDef = s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
-    //   _classDef
-    // }
-    // def apply()(implicit s: Symbols): Type =
-    //   classDef.typed.toType
+    // TODO(gsps): Cache this ClassDef
+    private[this] def classDef(implicit s: Symbols) =
+      s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
 
     def apply()(implicit s: Symbols): Type =
-      s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get.typed.toType
+      classDef.typed.toType
     def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
-      case ct: ClassType => ct.id == s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get.id
+      case ct: ClassType => ct.id == classDef.id
       case _ => false
     }
   }
