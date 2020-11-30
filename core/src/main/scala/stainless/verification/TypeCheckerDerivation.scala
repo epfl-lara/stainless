@@ -132,11 +132,11 @@ object TypeCheckerDerivation {
                 |  background-color: #dadba7
                 |}
                 |
-                |.isSubType {
+                |.isSubtype {
                 |  background-color: #fff6eb
                 |}
                 |
-                |.isSubType:hover {
+                |.isSubtype:hover {
                 |  background-color: #d4d492
                 |}
                 |

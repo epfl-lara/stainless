@@ -20,7 +20,7 @@ How to release
 2. You have created a `.credentials` file under the `~/.bintray` folder, e.g.,
 
 ```
-$ cat .bintray/.credentials 
+$ cat .bintray/.credentials
 realm = Bintray API Realm
 host = api.bintray.com
 user = <your-bintray-username>

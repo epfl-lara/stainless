@@ -1034,6 +1034,29 @@ trait TypeChecker {
       case (ADT(id, tps, args), Top()) => checkTypes(tc, args, Top())
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
+      case (e, TrueBoolean()) =>
+        checkType(tc, e, BooleanType()) ++ buildVC(tc, e)
+
+      case (e, RefinementType(vd, prop)) =>
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
+
+      case (Tuple(es), TupleType(tps)) =>
+        checkTypes(tc, es, tps)
+
+      case (Tuple(es), SigmaType(from, to)) =>
+        checkDependentTypes(tc, es.init, from) ++
+        checkType(tc.bindWithValues(from, es.init), es.last, to)
+
+      case (Lambda(params1, body), FunctionType(params2, to)) =>
+        val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
+        checkType(tc.bind(vds), body, to)
+
+      case (Lambda(params1, body), PiType(params2, to)) =>
+        // val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
+        val freshener = Freshener(params1.map(_.id).zip(params2.map(_.id)).toMap)
+        checkType(tc.bind(params2), freshener.transform(body), to)
+
       case (Let(vd, value, body), _) =>
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
@@ -1057,94 +1080,22 @@ trait TypeChecker {
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
-      // FIXME: This split creates too many VCs
-      // case (And(exprs), TrueBoolean()) =>
-      //   exprs.foldLeft((tc, TyperResult.valid)){
-      //     case ((tcAcc, tr), expr) =>
-      //       (tcAcc.withTruth(expr), tr ++ checkType(tcAcc, expr, TrueBoolean()))
-      //   }._2
-
-      case (e, TrueBoolean()) =>
-        checkType(tc, e, BooleanType()) ++ buildVC(tc, e)
-
-      case (e, RefinementType(vd, prop)) =>
-        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
-
-      case (Tuple(es), TupleType(tps)) =>
-        checkTypes(tc, es, tps)
-
-      case (Tuple(es), SigmaType(from, to)) =>
-        checkDependentTypes(tc, es.init, from) ++
-        checkType(tc.bindWithValues(from, es.init), es.last, to)
-
-      // we force invariance for now
-      case (_, SetType(base2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case SetType(base1) => tr ++ areEqualTypes(tc, base1, base2)
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected a `SetType`")
-        }
-
-      // we force invariance for now
-      case (_, ADTType(id2, tps2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case ADTType(id1, tps1) if (id1 == id2) =>
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            })
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
-        }
-
-      // we force invariance for now
-      // TODO: for positive recursive types, the equality check can be relaxed to >=
-      case (_, RecursiveType(id2, tps2, size2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case RecursiveType(id1, tps1, size1) if (id1 == id2) =>
-            val kind = VCKind.fromErr(Some("Equivalent recursive type indices"))
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            }) ++ buildVC(tc.withVCKind(kind), Equals(size1, size2))
-          case ADTType(id1, tps1) if (id1 == id2) =>
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            })
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
-        }
-
       case (UncheckedExpr(e), tpe) =>
         val (inferredType, tr) = inferType(tc.withEmitVCs(false), e)
-        tr ++ isSubtype(tc, e, inferredType, tpe)
+        tr ++ isSubtype(tc, inferredType, tpe)
 
       case (Annotated(e, _), _) => checkType(tc, e, tpe)
       case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
       case _ =>
         val (inferredType, tr) = inferType(tc, e)
-        tr ++ isSubtype(tc, e, inferredType, tpe)
+        tr ++ isSubtype(tc, inferredType, tpe)
     }
     reporter.debug(s"\n${tc0.indent}Checked that: ${e.asString} (${e.getPos})")
     reporter.debug(s"${tc0.indent}has type: ${tpe.asString}")
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(s"${tc0.asString(tc0.indent)}")
     res.root(CheckType(tc0, e, tpe))
-  }
-
-  def isSubtype(tc: TypingContext, e: Expr, tp1: Type, tp2: Type): TyperResult = {
-    if (tp2 == stripRefinementsAndAnnotations(tp1))
-      TyperResult.valid
-    else {
-      val vd = ValDef.fresh("x", tp1)
-      isSubtype(tc.setPos(e),
-        RefinementType(vd, Equals(vd.toVariable, e)),
-        tp2
-      )
-    }
   }
 
   def isSubtype(tc0: TypingContext, _tp1: Type, _tp2: Type): TyperResult = {
@@ -1155,7 +1106,7 @@ trait TypeChecker {
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
     val tc = tc0.inc
-    if (tp1 == tp2) TyperResult.valid
+    val res = if (tp1 == tp2) TyperResult.valid
     else (tp1, tp2) match {
       case (_, Top()) => TyperResult.valid
 
@@ -1216,9 +1167,17 @@ trait TypeChecker {
         TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) }) ++
         buildVC(tc, Equals(index1, index2))
 
+      case (SetType(base1), SetType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
       case (_, _) =>
         reporter.fatalError(tc.getPos, s"Could not check that ${tp1.asString} is a subtype of ${tp2.asString}")
     }
+    reporter.debug(s"\n${tc0.indent}Checked that: ${tp1.asString} (${tp1.getPos})")
+    reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
+    reporter.debug(s"${tc0.indent}in context:")
+    reporter.debug(s"${tc0.asString(tc0.indent)}")
+    res.root(IsSubtype(tc0, tp1, tp2))
   }
 
   /** The `areEqualTypes` checks the subtyping relation in both directions */
