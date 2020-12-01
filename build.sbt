@@ -69,13 +69,6 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
 )
 
-Global / excludeLintKeys ++= Set(
-  buildInfoPackage,
-  buildInfoKeys,
-  buildInfoOptions,
-  testOptions
-)
-
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
