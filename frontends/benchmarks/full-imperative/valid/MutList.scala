@@ -47,11 +47,13 @@ object Examples {
       decreases(size)
 
       nextOpt match {
-        case None() => nextOpt = Some(node)
-        case Some(next) => next.append(node)
+        case None() =>
+          nextOpt = Some(node)
+          repr = this :: node.repr
+        case Some(next) =>
+          next.append(node)
+          repr = this :: next.repr
       }
-
-      repr = repr ++ node.repr
 
       // We would now like to prove that the size has increased by node.size, but I haven't found a way yet
     } ensuring (_ => valid)
