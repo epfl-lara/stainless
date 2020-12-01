@@ -5,7 +5,7 @@ import stainless.lang.Option._
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-object Examples {
+object MutListExample {
   final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghost var repr: List[AnyHeapRef]) extends AnyHeapRef {
     @ghost
     def valid: Boolean = {

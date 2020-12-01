@@ -2,7 +2,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-object Examples {
+object HeapProjectionsExample {
   final case class Box(var value: BigInt) extends AnyHeapRef
 
   @extern
@@ -13,6 +13,8 @@ object Examples {
   }
 
   def readInvariant(x: Box, y: Box): Unit = {
+    reads(Set(x, y))
+    modifies(Set(y))
     require(!(x refEq y))
     val x1 = read(x)
     y.value += 1
@@ -28,6 +30,8 @@ object Examples {
   }
 
   def writeInvariant(x: Box, y: Box): Unit = {
+    reads(Set(x, y))
+    modifies(Set(x))
     require(!(x refEq y))
     val y1 = y.value
     write(x, y)
