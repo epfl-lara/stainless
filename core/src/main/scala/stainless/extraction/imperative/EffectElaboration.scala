@@ -257,18 +257,17 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           Equals(transform(e1, env), transform(e2, env))
 
         case ClassConstructor(ct, args) if livesInHeap(ct) =>
-          /*
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
+          val heapVd = env.expectHeapVd(e.getPos, "allocate heap object")
           val ref = Choose("ref" :: HeapRefType, BooleanLiteral(true)).copiedFrom(e)
           let("ref" :: HeapRefType, ref) { ref =>
-            val ctNew = ClassType(ct.id, ct.tps.map(transform)).copiedFrom(ct)
-            val value = ClassConstructor(ctNew, args.map(transform)).copiedFrom(e)
-            let("alloc" :: UnitType(), MapUpdated(TheHeap, ref, value).copiedFrom(e)) { _ =>
+            val ctNew = ClassType(ct.id, ct.tps.map(transform(_, env))).copiedFrom(ct)
+            val value = ClassConstructor(ctNew, args.map(transform(_, env))).copiedFrom(e)
+            val newHeap = MapUpdated(heapVd.toVariable, ref, value).copiedFrom(e)
+            let("alloc" :: UnitType(), Assignment(heapVd.toVariable, newHeap).copiedFrom(e)) { _ =>
               ref
             }
           }
-          */
-          ???
 
         case ClassSelector(recv, field) if livesInHeap(recv.getType) =>
           val heapVd = env.expectHeapVd(e.getPos, "read from heap object")
@@ -339,11 +338,17 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
               }
           }
 
+        case e: Old =>
+          // Will be translated separately in postconditions
+          // TODO(gsps): Add ability to refer back to old state snapshots for any ghost code
+          e
+
         case _ => super.transform(e, env)
       }
 
       override def transform(pat: Pattern, env: Env): Pattern = pat match {
         case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
+          val heapVd = env.expectHeapVd(pat.getPos, "class pattern unapply")
           val newClassPat = ClassPattern(
             None,
             classTypeInHeap(ct),
@@ -351,7 +356,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           ).copiedFrom(pat)
           UnapplyPattern(
             binder.map(transform(_, env)),
-            Seq(),
+            Seq(heapVd.toVariable),
             unapplyId(ct.id),
             ct.tps.map(transform(_, env)),
             Seq(newClassPat)
@@ -378,15 +383,22 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
                           heapVdOpt0: Option[ValDef], heapVdOpt1: Option[ValDef]): Expr =
         {
           val replaceRes = resVd != valueVd
+          // Replace value result variable
           val post1 = postMap {
             case v: Variable if replaceRes && v.id == resVd.id =>
               Some(valueVd.toVariable.copiedFrom(v))
-            case Old(e) =>
-              Some(transform(e, specEnv(heapVdOpt0)))
             case _ =>
               None
           }(post)
-          transform(post1, specEnv(heapVdOpt1))
+          // Transform post condition body
+          val post2 = transform(post1, specEnv(heapVdOpt1))
+          // Transform `old(...)` parts of post condition body
+          postMap {
+            case Old(e) =>
+              Some( transform(e, specEnv(heapVdOpt0)))
+            case _ =>
+              None
+          }(post2)
         }
 
         // TODO: Add readSet and writeSet instrumentation for specs
