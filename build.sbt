@@ -14,7 +14,7 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-349-g54f24b6"
+// val inoxVersion = "1.1.0-349-g54f24b6"
 val dottyLibrary = "dotty-compiler_2.12"
 val dottyVersion = "0.12.0-RC1-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
@@ -94,8 +94,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   libraryDependencies ++= Seq(
-    "ch.epfl.lara"    %% "inox"          % inoxVersion,
-    "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
+    // "ch.epfl.lara"    %% "inox"          % inoxVersion,
+    // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
     "ch.epfl.lara"    %% "cafebabe"      % "1.2",
     "uuverifiers"     %% "princess"      % "2018-02-26" ,
     "io.circe"        %% "circe-core"    % circeVersion,
@@ -159,7 +159,7 @@ lazy val libraryFiles: Seq[(String, File)] = {
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   libraryDependencies ++= Seq(
-    "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
+    // "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
@@ -222,6 +222,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 //lazy val inox = RootProject(file("../inox"))
+lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "master")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
@@ -234,7 +235,7 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
   //.settings(site.settings)
-  //.dependsOn(inox % "compile->compile;test->test")
+  .dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
@@ -281,7 +282,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
     },
   )
   .dependsOn(`stainless-core`)
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
@@ -323,7 +324,7 @@ lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
     name := "stainless-dotty",
     frontendClass := "dotc.DottyCompiler",
   )
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .dependsOn(`stainless-dotty-frontend`)
   .aggregate(`stainless-dotty-frontend`)
   // Should truly depend on dotty, overriding the "provided" modifier above:
