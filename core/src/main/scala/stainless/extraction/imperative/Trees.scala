@@ -507,6 +507,14 @@ trait ExprOps extends oo.ExprOps { self =>
       case FiniteSet(Seq(), _) => true
       case _ => false
     }
+
+    def isTrivial: Boolean = expr match {
+      case FiniteSet(Seq(), _) => true
+      case _ => false
+    }
+
+    def letWrapped(specced: BodyWithSpecs): ReadsContract =
+      ReadsContract(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   /** Modifies contract that corresponds to [[Expressions.Modifies]]. */
@@ -532,6 +540,14 @@ trait ExprOps extends oo.ExprOps { self =>
       case FiniteSet(Seq(), _) => true
       case _ => false
     }
+
+    def isTrivial: Boolean = expr match {
+      case FiniteSet(Seq(), _) => true
+      case _ => false
+    }
+
+    def letWrapped(specced: BodyWithSpecs): ModifiesContract =
+      ModifiesContract(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   /** Overridden to extract the specification from an expression */
