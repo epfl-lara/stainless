@@ -59,7 +59,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
 
   private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
     mutableClasses.contains(ct.id) || (!visited(ct.id) && ct.tcd.fields.exists { vd =>
-      vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + ct.id)
+      vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses, visited + ct.id)
     })
   }
 
@@ -86,7 +86,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     !visited(adt.id) &&
     adt.getSort.constructors.exists { cons =>
       cons.fields.exists { vd =>
-        vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + adt.id)
+        vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses, visited + adt.id)
       }
     }
   }
