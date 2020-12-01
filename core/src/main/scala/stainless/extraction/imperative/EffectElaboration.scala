@@ -6,6 +6,7 @@ package imperative
 
 import inox.utils.Position
 
+// TODO(gsps): Ghost annotations are currently unchecked. Should be able to reuse `GhostChecker`.
 trait EffectElaboration
   extends oo.CachingPhase
      with SimpleSorts
