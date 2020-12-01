@@ -103,7 +103,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
 
   trait RefTransformContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
-    import symbols.{ livesInHeap, touchesHeap }
+    import symbols.{ erasesToRef, isHeapType }
 
     lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), HeapRefType, AnyType())
 
@@ -122,7 +122,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       ClassType(ct.id, ct.tps.map(typeOnlyRefTransformer.transform)).copiedFrom(ct)
 
     def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
-      if (!livesInHeap(cd.typed.toType))
+      if (!erasesToRef(cd.typed.toType))
         return None
 
       import OptionSort._
@@ -149,7 +149,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       val t: self.s.type = self.s
 
       override def transform(tpe: Type, env: Env): Type = tpe match {
-        case ct: ClassType if livesInHeap(ct) =>
+        case ct: ClassType if erasesToRef(ct) =>
           HeapRefType
         case FunctionType(_, _) =>
           val FunctionType(from, to) = super.transform(tpe, env)
@@ -247,11 +247,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           Equals(transform(e1, env), transform(e2, env))
 
         case Equals(e1, e2) =>
-          if (touchesHeap(e1.getType) || touchesHeap(e2.getType))
+          if (isHeapType(e1.getType) || isHeapType(e2.getType))
             self.context.reporter.error(e.getPos, "Cannot compare two expressions containing references by value")
           Equals(transform(e1, env), transform(e1, env))
 
-        case ClassConstructor(ct, args) if livesInHeap(ct) =>
+        case ClassConstructor(ct, args) if erasesToRef(ct) =>
           /*
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: HeapRefType, BooleanLiteral(true)).copiedFrom(e)
@@ -265,7 +265,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           */
           ???
 
-        case ClassSelector(recv, field) if livesInHeap(recv.getType) =>
+        case ClassSelector(recv, field) if erasesToRef(recv.getType) =>
           val heapVd = env.expectHeapVd(e.getPos, "read from heap object")
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
@@ -273,7 +273,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             ClassSelector(valueFromHeap(recvRef, objTpe, heapVd, e), field).copiedFrom(e)
           }
 
-        case FieldAssignment(recv, field, value) if livesInHeap(recv.getType) =>
+        case FieldAssignment(recv, field, value) if erasesToRef(recv.getType) =>
           if (!env.writeAllowed)
             self.context.reporter.error(e.getPos, "Can't modify heap in read-only function")
 
@@ -294,7 +294,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             }
           }
 
-        case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
+        case IsInstanceOf(recv, tpe) if erasesToRef(tpe) =>
           val heapVd = env.expectHeapVd(e.getPos, "runtime type-check on heap object")
           val ct = tpe.asInstanceOf[ClassType]
           val app = MapApply(heapVd.toVariable, transform(recv, env)).copiedFrom(e)
@@ -338,7 +338,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       }
 
       override def transform(pat: Pattern, env: Env): Pattern = pat match {
-        case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
+        case ClassPattern(binder, ct, subPats) if erasesToRef(ct) =>
           val newClassPat = ClassPattern(
             None,
             classTypeInHeap(ct),

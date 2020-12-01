@@ -95,49 +95,74 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
   // Utilities for heap classes, for the full-imperative pipeline
   // -----------------------------------------------------------------
 
-  // Indicates whether types live in the heap or not
-  lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](_livesInHeap(_))
+  // Indicates whether a type erases to a reference
+  object erasesToRef {
+    def apply(tpe: Type): Boolean = cache(tpe)
 
-  // Indicates whether types touch heap (i.e. contain some data that lives in the heap)
-  lazy val touchesHeap = new utils.ConcurrentCached[Type, Boolean](_touchesHeap(_))
+    lazy val cache = new utils.ConcurrentCached[Type, Boolean](erasesToRef(_))
 
-  // Only the trait AnyHeapRef and its descendants live in the heap
-  private def _livesInHeap(tpe: Type): Boolean = tpe match {
-    case AnyHeapRef() => true
-    // We lookup the parents through the cache so that the hierarchy is traversed at most once
-    case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
-    case _ => false
+    private def erasesToRef(tpe: Type): Boolean = tpe match {
+      case AnyHeapRef() => true
+      // We lookup the parents through the cache so that the hierarchy is traversed at most once
+      case ct: ClassType => ct.tcd.parents.exists(a => cache(a.toType))
+      case _ => false
+    }
   }
-  
-  // We recurse on the content of the type to see if it contains references
-  private def _touchesHeap(tpe: Type): Boolean = tpe match {
-    // In the following cases tpe can be instantiated to anything so we are conservative
-    // and assum that it can touch the heap
-    case _: AnyType => true
-    case _: TypeParameter => true
-    case _: TypeBounds => true
-    case ta: TypeApply if ta.isAbstract => true
 
-    // A function doesn't live in the heap in our model
-    case _: FunctionType => false
+  // Indicates whether a type is a heap type, that is, contains a reference
+  object isHeapType {
+    def apply(tpe: Type): Boolean = isHeapType(tpe, heapClasses, Set())
 
-    // For classes and ADTs we have to recurse over the fields of the type
-    case ct: ClassType =>
-      livesInHeap(ct) || ct.tcd.fields.exists { vd =>
-        touchesHeap(vd.getType)
-      }
+    @inline def heapClasses: Set[Identifier] = _heapClasses.get
+    private[this] val _heapClasses = inox.utils.Lazy({
+      val initialClasses = symbols.classes.values.filter { cd =>
+        erasesToRef(cd.typed.toType)
+      }.map(_.id).toSet
 
-    case adt: ADTType =>
+      inox.utils.fixpoint[Set[Identifier]] { heapClasses =>
+        heapClasses ++
+        symbols.classes.collect {
+          case (id, cd) if isHeapClassType(cd.typed.toType, heapClasses, Set()) => id
+        } ++
+        heapClasses.flatMap { id =>
+          symbols.getClass(id).ancestors.map(_.id).toSet
+        }
+      } (initialClasses)
+    })
+
+    private[this] def isHeapType(tpe: Type, heapClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
+      // In those cases we have to be conservative and only assume a heap type when
+      // the user says so through a flag
+      case tp: TypeParameter => tp.flags contains IsMutable
+      case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
+      case ta: TypeApply if ta.isAbstract => ta.getTypeDef.flags contains IsMutable
+      case any: AnyType => true
+
+      // For now arrays and maps are not supported by the full-imperative phase
+      case arr: ArrayType => false
+      case map: MutableMapType => false
+      case ft: FunctionType => false // functions do not live in the heap
+
+      // In those cases we have to recurse on the structure of the type
+      case ct: ClassType => isHeapClassType(ct, heapClasses, visited)
+      case adt: ADTType => isHeapADTType(adt, heapClasses, visited)
+      case ta: TypeApply => isHeapType(ta.getType, heapClasses, visited)
+      case NAryType(tps, _) => tps.exists(isHeapType(_, heapClasses, visited))
+    }
+
+    private[this] def isHeapClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+      mutableClasses.contains(ct.id) || (!visited(ct.id) && ct.tcd.fields.exists { vd =>
+        isHeapType(vd.getType, mutableClasses, visited + ct.id)
+      })
+    }
+
+    private[this] def isHeapADTType(adt: ADTType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+      !visited(adt.id) &&
       adt.getSort.constructors.exists { cons =>
         cons.fields.exists { vd =>
-          touchesHeap(vd.getType)
+          isHeapType(vd.getType, mutableClasses, visited + adt.id)
         }
       }
-
-    // For other types, we can just recurse on the structure of the type and check that nothing lives in the heap
-    // In particular, types that do not contain other types do not touch the heap (e.g. string, int, ...)
-    case NAryType(tps, _) =>
-      tps.exists(touchesHeap(_))
+    }
   }
 }
-
