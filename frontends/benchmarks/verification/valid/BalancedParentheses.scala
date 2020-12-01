@@ -131,7 +131,7 @@ object BalancedParentheses {
 
   case class Balance(extraOpen: BigInt, extraClose: BigInt) {
 
-    def nonNegative(): Boolean = extraOpen >= 0 && extraClose >= 0
+    def nonNegative: Boolean = extraOpen >= 0 && extraClose >= 0
 
     def ++(that: Balance): Balance = {
       val openedClosed = min(this.extraOpen, that.extraClose)
@@ -319,7 +319,7 @@ object BalancedParenthesesSpecs {
   }
 
   def toCounter_updateCounter(b: Balance, p: Parenthesis): Boolean = {
-    require(b.nonNegative())
+    require(b.nonNegative)
 
     updateCounter(p, balanceToCounter(b)) == balanceToCounter(p +: b)
   }.holds
@@ -331,13 +331,13 @@ object BalancedParenthesesSpecs {
     val counter = xs.foldRight(BigInt(0))(updateCounter)
 
     {
-      balanceToCounter(balance) == counter && balance.nonNegative()
+      balanceToCounter(balance) == counter && balance.nonNegative
     } because {
       xs match {
         case Nil() => trivial
         case Cons(p, ps) =>
           check(original_sequential_helper(ps)) &&
-          check(ps.foldRight(Balance(0, 0))(_ +: _).nonNegative()) &&
+          check(ps.foldRight(Balance(0, 0))(_ +: _).nonNegative) &&
           ({
             balanceToCounter(balance)                                               ==|
               trivial                                                                 |

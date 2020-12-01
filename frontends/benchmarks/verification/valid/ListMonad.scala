@@ -51,7 +51,7 @@ object ListMonad {
     flatMap(list, (x: T) => Cons(x, Nil())) == list
   }
 
-  def right_unit_induct[T,U](list: List[T]): Boolean = {
+  def right_unit_induct[T](list: List[T]): Boolean = {
     decreases(list)
     right_unit_law(list) because (list match {
       case Cons(head, tail) => right_unit_induct(tail)
@@ -67,7 +67,7 @@ object ListMonad {
     flatMap(list, (x: T) => Nil[T]()) == Nil[T]()
   }
 
-  def flatMap_to_zero_induct[T,U](list: List[T]): Boolean = {
+  def flatMap_to_zero_induct[T](list: List[T]): Boolean = {
     decreases(list)
     flatMap_to_zero_law(list) because (list match {
       case Cons(head, tail) => flatMap_to_zero_induct(tail)
