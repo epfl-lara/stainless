@@ -224,7 +224,6 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-// lazy val inox = RootProject(file("../inox"))
 lazy val inox = ghProject("https://github.com/jad-hamza/inox.git", "bbcdaed95a31ae963412be66952ae415ba288f43")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
