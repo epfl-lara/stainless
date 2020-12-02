@@ -45,10 +45,18 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
       cd.fields.exists(_.flags contains IsVar)
     }.map(_.id).toSet
 
+    def freeClassDefType(cd: ClassDef): ClassType =
+      cd.typed(cd.tparams.map { tparam =>
+        tparam.tp.freshen match {
+          case t @ TypeParameter(id, flags) =>
+            TypeParameter(id, flags.filterNot(_ == IsMutable)).copiedFrom(t)
+        }
+      }).toType
+
     inox.utils.fixpoint[Set[Identifier]] { mutableClasses =>
       mutableClasses ++
       symbols.classes.collect {
-        case (id, cd) if isMutableClassType(cd.typed.toType, mutableClasses, Set()) => id
+        case (id, cd) if isMutableClassType(freeClassDefType(cd), mutableClasses, Set()) => id
       } ++
       mutableClasses.flatMap { id =>
         val cd = symbols.getClass(id)
@@ -59,13 +67,8 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
 
   private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
     mutableClasses.contains(ct.id) || (!visited(ct.id) && ct.tcd.fields.exists { vd =>
-      vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + ct.id)
+      vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses, visited + ct.id)
     })
-  }
-
-  private[this] def isRealMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
-    case tp: TypeParameter => false
-    case _ => isMutableType(tpe, mutableClasses, visited)
   }
 
   private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
@@ -86,7 +89,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
     !visited(adt.id) &&
     adt.getSort.constructors.exists { cons =>
       cons.fields.exists { vd =>
-        vd.flags.contains(IsVar) || isRealMutableType(vd.getType, mutableClasses, visited + adt.id)
+        vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses, visited + adt.id)
       }
     }
   }
