@@ -251,7 +251,20 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             self.context.reporter.error(e.getPos, "Cannot compare two expressions containing references by value")
           Equals(transform(e1, env), transform(e1, env))
 
+        case adt @ ADT(id, tps, args) =>
+          (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tp, ta) =>
+            if (isHeapType(ta) && !(tp.flags contains IsMutable))
+              self.context.reporter.error(e.getPos,
+                s"Cannot instantiate the non-heap type parameter ${tp.asString} with the heap type ${ta.asString}")
+          }
+          ???
+
         case ClassConstructor(ct, args) if erasesToRef(ct) =>
+          (ct.tcd.cd.tparams zip ct.tcd.tps).foreach { case (tp, ta) =>
+            if (isHeapType(ta) && !(tp.flags contains IsMutable))
+              self.context.reporter.error(e.getPos,
+                s"Cannot instantiate the non-heap type parameter ${tp.asString} with the heap type ${ta.asString}")
+          }
           /*
           // TODO: Add mechanism to keep multiple freshly allocated objects apart
           val ref = Choose("ref" :: HeapRefType, BooleanLiteral(true)).copiedFrom(e)
@@ -301,6 +314,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
+          val fd = symbols.getFunction(id)
+          (symbols.getFunction(id).tparams zip targs).foreach { case (tp, ta) =>
+            if (isHeapType(ta) && !tp.flags.contains(IsMutable))
+              self.context.reporter.error(e.getPos,
+                s"Cannot instantiate the non-heap type parameter ${tp.asString} in $fd with the heap type ${ta.asString}")
+          }
+
           val targs1 = targs.map(transform(_, env))
           val vargs1 = vargs.map(transform(_, env))
 

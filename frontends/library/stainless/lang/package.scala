@@ -159,7 +159,7 @@ package object lang {
   }
 
   @ignore
-  def reads(objs: Set[AnyHeapRef]): Unit = ()
+  def reads(@ghost objs: Set[AnyHeapRef]): Unit = ()
 
   @ignore
   def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
