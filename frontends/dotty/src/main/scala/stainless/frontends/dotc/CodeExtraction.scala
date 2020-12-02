@@ -687,12 +687,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Synthetic) Seq(xt.Synthetic) else Seq()) ++
       Seq(xt.IsAccessor(Some(field)))
 
+    val bodyOrEmpty = if (flags.contains(xt.Extern)) {
+      xt.exprOps.withBody(body, xt.NoTree(returnType).setPos(sym.pos))
+    } else {
+      body
+    }
+
     new xt.FunDef(
       id,
       Seq.empty,
       args,
       returnType,
-      body,
+      bodyOrEmpty,
       flags.distinct
     ).setPos(sym.pos)
   }
