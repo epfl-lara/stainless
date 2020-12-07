@@ -199,30 +199,38 @@ trait RefinementLifting
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     import s._
+    import exprOps._
 
+    var specced = BodyWithSpecs(fd.fullBody)
+
+    // FIXME: Shouldn't we propagate `newParams`?
     val (newParams, cond) = context.parameterConds(fd.params)
-    val optPre = cond match {
-      case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
-        case None => Some(cond.copiedFrom(fd))
-      }
-      case _ => s.exprOps.preconditionOf(fd.fullBody)
+    if (cond != s.BooleanLiteral(true)) {
+      specced = specced.mapOrDefaultSpec(PreconditionKind)({
+        spec => spec.map((pre: Expr) => and(cond, pre).copiedFrom(pre)).asInstanceOf[Precondition]
+      }, {
+        Precondition(cond.copiedFrom(fd)).setPos(fd.getPos)
+      })
     }
 
-    val optPost = context.liftRefinements(fd.returnType) match {
-      case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
-        case Some(post @ s.Lambda(Seq(res), body)) =>
-          Some(s.Lambda(Seq(res), s.and(
-              exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
-              body).copiedFrom(body)).copiedFrom(post))
-        case None =>
-          Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
-      }
-      case _ => s.exprOps.postconditionOf(fd.fullBody)
+    context.liftRefinements(fd.returnType) match {
+      case s.RefinementType(vd2, pred) =>
+        specced = specced.mapOrDefaultSpec(PostconditionKind)({
+          case spec @ Postcondition(post @ Lambda(Seq(res), body)) =>
+            Postcondition(
+              Lambda(
+                Seq(res),
+                and(replaceFromSymbols(Map(vd2 -> res.toVariable), pred), body).copiedFrom(body)
+              ).copiedFrom(post)
+            ).setPos(spec.getPos)
+        }, {
+          Postcondition(Lambda(Seq(vd2), pred).copiedFrom(fd)).setPos(fd.getPos)
+        })
+      case _ =>
     }
 
     context.transform(fd.copy(
-      fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
+      fullBody = specced.reconstructed,
       returnType = context.dropRefinements(fd.returnType)
     ).copiedFrom(fd))
   }

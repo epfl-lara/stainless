@@ -25,7 +25,7 @@ trait ExprOps extends inox.ast.ExprOps {
     val expr: Expr
     def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification
 
-    final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
+    final def map(f: Expr => Expr): kind.Spec = map(trees)(f).asInstanceOf[kind.Spec]
 
     final def foreach(f: Expr => Unit): Unit = f(expr)
 
@@ -99,6 +99,10 @@ trait ExprOps extends inox.ast.ExprOps {
       }
       this.copy(specs = newSpecs)
     }
+
+    def mapOrDefaultSpec(kind: SpecKind)(
+        f: kind.Spec => kind.Spec, default: => kind.Spec): BodyWithSpecs =
+      withSpec(getSpec(kind).map(f).getOrElse(default))
 
     def withoutSpec(kind: SpecKind): BodyWithSpecs =
       this.copy(specs = specs.filterNot(_.kind == kind))
