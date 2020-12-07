@@ -30,13 +30,13 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification
     def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit
 
-    final def transform(f: Expr => Expr): Specification = {
+    final def transform(f: Expr => Expr): kind.Spec = {
       object tr extends TreeTransformer {
         val s: trees.type = trees
         val t: trees.type = trees
         override def transform(e: Expr): Expr = f(e)
       }
-      transform(tr).asInstanceOf[Specification]
+      transform(tr).asInstanceOf[kind.Spec]
     }
 
     final def traverse(f: Expr => Unit): Unit = {
@@ -145,6 +145,10 @@ trait ExprOps extends inox.ast.ExprOps { self =>
       }
       this.copy(specs = newSpecs)
     }
+
+    def mapOrDefaultSpec(kind: SpecKind)(
+        f: kind.Spec => kind.Spec, default: => kind.Spec): BodyWithSpecs =
+      withSpec(getSpec(kind).map(f).getOrElse(default))
 
     def withoutSpec(kind: SpecKind): BodyWithSpecs =
       this.copy(specs = specs.filterNot(_.kind == kind))
