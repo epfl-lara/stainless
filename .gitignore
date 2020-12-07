@@ -97,6 +97,7 @@ slc-lib/Makefile.conf
 .vscode
 .metals
 project/metals.sbt
+null
 
 # ripgrep
 .rgignore
