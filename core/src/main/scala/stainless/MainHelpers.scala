@@ -33,6 +33,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       extraction.phases.map { case (name, desc) => f"\n  $name%-26s : $desc" }.mkString("")
     }),
     extraction.imperative.optFullImperative -> Description(Verification, "Use the full imperative phase. That might be unstable because it is still under development."),
+    extraction.imperative.optCheckHeapContracts -> Description(Verification, "Check that heap reads and modifies clauses are valid"),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),

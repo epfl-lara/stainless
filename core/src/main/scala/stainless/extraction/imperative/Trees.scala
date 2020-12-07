@@ -259,12 +259,27 @@ trait Trees extends oo.Trees with Definitions { self =>
    * ======================================== */
 
   private[this] lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
-  private[this] lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRefC")
+  private[this] lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
   lazy val heapRefSort: ADTSort = dsl.mkSort(heapRefId)() { _ =>
     Seq((heapRefCons, Seq(ValDef(FreshIdentifier("id"), IntegerType()))))
   }
 
+  // private[this] lazy val heapId: Identifier = ast.SymbolIdentifier("stainless.lang.Heap")
+  // private[this] lazy val heapCons: Identifier = ast.SymbolIdentifier("stainless.lang.Heap")
+  // lazy val heapMapId: Identifier = FreshIdentifier("map")
+  // lazy val heapReadableId: Identifier = FreshIdentifier("readable")
+  // lazy val heapModifiableId: Identifier = FreshIdentifier("modifiable")
+  // lazy val heapSort: ADTSort = dsl.mkSort(heapId)() { _ =>
+  //   Seq((heapCons, Seq(
+  //     ValDef(heapMapId, HeapMapType),
+  //     ValDef(heapReadableId, HeapRefSetType),
+  //     ValDef(heapModifiableId, HeapRefSetType))))
+  // }
+
   lazy val HeapRefType: Type = ADTType(heapRefId, Seq.empty)
+  // lazy val HeapMapType: MapType = MapType(HeapRefType, AnyType())
+  lazy val HeapRefSetType: Type = SetType(HeapRefType)
+  // lazy val HeapType: Type = ADTType(heapId, Seq.empty)
   lazy val HeapType: MapType = MapType(HeapRefType, AnyType())
 }
 

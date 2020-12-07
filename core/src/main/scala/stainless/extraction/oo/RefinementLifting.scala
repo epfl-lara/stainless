@@ -201,8 +201,11 @@ trait RefinementLifting
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     import s._
+    import exprOps._
 
+    // FIXME: Shouldn't we propagate `newParams`?
     val (newParams, cond) = context.parameterConds(fd.params)
+
     val specced = exprOps.BodyWithSpecs(fd.fullBody)
 
     val optPre =
