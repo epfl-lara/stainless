@@ -915,6 +915,14 @@ trait CodeExtraction extends ASTExtractors {
     }
   }
 
+  def stripAnnotationsExceptStrictBV(tpe: xt.Type): xt.Type = tpe match {
+    case xt.AnnotatedType(tp, flags) if flags.contains(xt.StrictBV) =>
+      xt.AnnotatedType(stripAnnotationsExceptStrictBV(tp), Seq(xt.StrictBV))
+    case xt.AnnotatedType(tp, _) =>
+      stripAnnotationsExceptStrictBV(tp)
+    case _ => tpe
+  }
+
   private def extractTree(tr: Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
     case ExObjectDef(_, _) => xt.UnitLiteral()
     case ExCaseClassSyntheticJunk() => xt.UnitLiteral()
@@ -1069,6 +1077,26 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
       }
 
+    case ExIntToBV(signed, size, tree) =>
+      extractTree(tree) match {
+        case xt.Int32Literal(n) => xt.BVLiteral(signed, BigInt(n), size)
+        case _ => outOfSubsetError(tr, "`intToBV` implicit may only be used on `Int` literals")
+      }
+
+    case ExBigIntToBV(signed, size, tree) =>
+      extractTree(tree) match {
+        case xt.IntegerLiteral(n) => xt.BVLiteral(signed, n, size)
+        case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals")
+      }
+
+    case ExMaxBV(signed, size) =>
+      if (signed) xt.BVLiteral(signed, (BigInt(2) pow (size - 1)) - 1, size)
+      else xt.BVLiteral(signed,  (BigInt(2) pow size) - 1, size)
+
+    case ExMinBV(signed, size) =>
+      if (signed) xt.BVLiteral(signed, -(BigInt(2) pow (size - 1)), size)
+      else xt.BVLiteral(signed, BigInt(0), size)
+
     case ExWrapping(tree) =>
       val body = extractTree(tree)(dctx.setWrappingArithmetic(true))
       xt.Annotated(body, Seq(xt.Wrapping))
@@ -1211,12 +1239,38 @@ trait CodeExtraction extends ASTExtractors {
     case ExNotEquals(l, r) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
       case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
       case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
+
+      case (l2, StrictBVType(signed, size), xt.IntegerLiteral(value), _) =>
+        xt.Equals(l2, xt.BVLiteral(signed, value, size).setPos(r.pos))
+      case (l2, StrictBVType(signed, size), xt.Int32Literal(value), _) =>
+        xt.Equals(l2, xt.BVLiteral(signed, BigInt(value), size).setPos(r.pos))
+      case (xt.IntegerLiteral(value), _, r2, StrictBVType(signed, size)) =>
+        xt.Equals(xt.BVLiteral(signed, value, size).setPos(l.pos), r2)
+      case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
+        xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.pos), r2)
+
+      case (l2, StrictBVType(_, _), r2, _) => xt.Equals(l2, r2)
+      case (l2, _, r2, StrictBVType(_, _)) => xt.Equals(l2, r2)
+
       case _ => injectCasts(xt.Equals)(l, r)
     }).setPos(tr.pos))
 
     case ExEquals(l, r) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
       case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.pos), e)
       case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.pos))
+
+      case (l2, StrictBVType(signed, size), xt.IntegerLiteral(value), _) =>
+        xt.Equals(l2, xt.BVLiteral(signed, value, size).setPos(r.pos))
+      case (l2, StrictBVType(signed, size), xt.Int32Literal(value), _) =>
+        xt.Equals(l2, xt.BVLiteral(signed, BigInt(value), size).setPos(r.pos))
+      case (xt.IntegerLiteral(value), _, r2, StrictBVType(signed, size)) =>
+        xt.Equals(xt.BVLiteral(signed, value, size).setPos(l.pos), r2)
+      case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
+        xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.pos), r2)
+
+      case (l2, StrictBVType(_, _), r2, _) => xt.Equals(l2, r2)
+      case (l2, _, r2, StrictBVType(_, _)) => xt.Equals(l2, r2)
+
       case _ => injectCasts(xt.Equals)(l, r)
     }
 
@@ -1303,7 +1357,7 @@ trait CodeExtraction extends ASTExtractors {
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps.map(extractType), extractArgs(sym, args)).setPos(c.pos)
         }
 
-      case Some(lhs) => xt.exprOps.stripAnnotations(extractType(lhs)(dctx.setResolveTypes(true))) match {
+      case Some(lhs) => stripAnnotationsExceptStrictBV(extractType(lhs)(dctx.setResolveTypes(true))) match {
         case ct: xt.ClassType =>
           val isField = sym.isParamAccessor || sym.isCaseAccessor
           val isMethod = sym.isMethod || sym.isAccessor || !isField
@@ -1464,6 +1518,23 @@ trait CodeExtraction extends ASTExtractors {
               Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
             ).setPos(c.pos)
 
+          case (StrictBVType(_, _), "+",      Seq(rhs)) => xt.Plus(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "-",      Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "*",      Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "%",      Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "mod",    Seq(rhs)) => xt.Modulo(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "/",      Seq(rhs)) => xt.Division(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">",      Seq(rhs)) => xt.GreaterThan(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">=",     Seq(rhs)) => xt.GreaterEquals(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<",      Seq(rhs)) => xt.LessThan(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<=",     Seq(rhs)) => xt.LessEquals(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "|",      Seq(rhs)) => xt.BVOr(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "&",      Seq(rhs)) => xt.BVAnd(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "^",      Seq(rhs)) => xt.BVXor(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<<",     Seq(rhs)) => xt.BVShiftLeft(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">>",     Seq(rhs)) => xt.BVAShiftRight(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">>>",    Seq(rhs)) => xt.BVLShiftRight(extractTree(lhs), extractTree(rhs))
+
           case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
           case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)
           case (_, "*",   Seq(rhs)) => injectCasts(xt.Times)(lhs, rhs)
@@ -1623,6 +1694,14 @@ trait CodeExtraction extends ASTExtractors {
     extractType(t.tpe)(dctx, t.pos)
   }
 
+  object StrictBVType {
+    def unapply(tpe: xt.Type): Option[(Boolean, Int)] = tpe match {
+      case xt.AnnotatedType(xt.BVType(signed, size), flags) if flags.contains(xt.StrictBV) =>
+        Some((signed , size))
+      case _ => None
+    }
+  }
+
   private def extractType(tpt: Type)(implicit dctx: DefContext, pos: Position): xt.Type = (tpt match {
     case CharTpe    => xt.CharType()
     case ByteTpe    => xt.Int8Type()
@@ -1649,6 +1728,9 @@ trait CodeExtraction extends ASTExtractors {
 
     case TypeRef(_, sym, btt :: Nil) if isBagSym(sym) =>
       xt.BagType(extractType(btt))
+
+    case FrontendBVType(signed, size) =>
+      xt.AnnotatedType(xt.BVType(signed, size), Seq(xt.StrictBV))
 
     case TypeRef(_, sym, List(ftt,ttt)) if isMapSym(sym) =>
       xt.MapType(extractType(ftt), xt.ClassType(getIdentifier(optionSymbol), Seq(extractType(ttt))).setPos(pos))
