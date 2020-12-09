@@ -1064,6 +1064,10 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExSnapshotExpression(t) => xt.Snapshot(extractTree(t))
 
+    case ExAllocatedExpression(t) => xt.Allocated(extractTree(t))
+
+    case ExFreshExpression(t) => xt.Fresh(extractTree(t))
+    
     case ExErrorExpression(str, tpt) =>
       xt.Error(extractType(tpt), str)
 

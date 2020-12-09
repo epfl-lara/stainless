@@ -157,4 +157,10 @@ package object lang {
 
   @ignore
   def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
+
+  @ignore
+  def allocated(obj: AnyHeapRef): Boolean = true
+
+  @ignore
+  def fresh(obj: AnyHeapRef): Boolean = false
 }

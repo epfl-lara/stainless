@@ -395,7 +395,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           // Transform `old(...)` parts of post condition body
           postMap {
             case Old(e) =>
-              Some( transform(e, specEnv(heapVdOpt0)))
+              Some(transform(e, specEnv(heapVdOpt0)))
             case _ =>
               None
           }(post2)
