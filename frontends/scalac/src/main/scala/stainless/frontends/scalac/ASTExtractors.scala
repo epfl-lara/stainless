@@ -70,6 +70,8 @@ trait ASTExtractors {
   protected lazy val bagSym        = classFromName("stainless.lang.Bag")
   protected lazy val realSym       = classFromName("stainless.lang.Real")
 
+  protected lazy val bvSym         = classFromName("stainless.math.BitVectors.BV")
+
   protected lazy val optionSymbol = classFromName("stainless.lang.Option")
   protected lazy val someSymbol   = classFromName("stainless.lang.Some")
   protected lazy val noneSymbol   = classFromName("stainless.lang.None")
@@ -104,6 +106,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isBVSym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == bvSym
   }
 
   def isSetSym(sym: Symbol) : Boolean = {
@@ -428,6 +434,94 @@ trait ASTExtractors {
           Some(n)
         case Apply(ExSelected("stainless", "lang", "package", "BigInt", "apply"), n :: Nil) =>
           Some(n)
+        case _ =>
+          None
+      }
+    }
+
+    object FrontendBVType {
+      def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
+        case TypeRef(_, sym, FrontendBVKind(signed, size) :: Nil) if isBVSym(sym) =>
+          Some((signed, size))
+        case TypeRef(_, sym, Nil) if isBVSym(sym) =>
+          val R = """type (UInt|Int)(\d+)""".r
+          sym.toString match {
+            case R(signed, size) => Some((signed == "Int", size.toInt))
+            case _ => None
+          }
+        case _ =>
+          None
+      }
+
+      def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
+
+    object FrontendBVKind {
+      def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
+        case SingleType(_, sym) =>
+          val R = """object ([ui])(\d+)""".r
+          sym.toString match {
+            case R(signed, size) => Some((signed == "i", size.toInt))
+            case _ => None
+          }
+        case _ =>
+          None
+      }
+
+      def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
+
+    /** `max` extraction for bitvectors */
+    object ExMaxBV {
+      def unapply(tree: Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+          ExSelected("stainless", "math", "BitVectors", "max"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `min` extraction for bitvectors */
+    object ExMinBV {
+      def unapply(tree: Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+          ExSelected("stainless", "math", "BitVectors", "min"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `intToBV` extraction */
+    object ExIntToBV {
+      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+            ExSelected("stainless", "math", "BitVectors", "intToBV"),
+            FrontendBVKind(signed, size) :: Nil
+          ), n :: Nil
+        ) =>
+          Some((signed, size, n))
+        case _ =>
+          None
+      }
+    }
+
+    /** `bigIntToBV` extraction */
+    object ExBigIntToBV {
+      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+            ExSelected("stainless", "math", "BitVectors", "bigIntToBV"),
+            FrontendBVKind(signed, size) :: Nil
+          ), n :: Nil
+        ) =>
+          Some((signed, size, n))
         case _ =>
           None
       }

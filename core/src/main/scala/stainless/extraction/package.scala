@@ -27,6 +27,7 @@ package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
     "PartialFunctions"          -> "Lift partial function preconditions",
+    "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
