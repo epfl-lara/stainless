@@ -98,6 +98,9 @@ slc-lib/Makefile.conf
 .metals
 project/metals.sbt
 null
+.bloop/
+project/.bloop/
+project/project/
 
 # ripgrep
 .rgignore
