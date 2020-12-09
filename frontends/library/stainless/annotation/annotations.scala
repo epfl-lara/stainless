@@ -104,3 +104,9 @@ class refEq extends Annotation
 
 @ignore
 class template extends Annotation
+/**
+ * This annotation is used to indicate that a function allocates data on the heap
+ * in the full-imperative encoding.
+ */
+@ignore
+class allocates extends Annotation

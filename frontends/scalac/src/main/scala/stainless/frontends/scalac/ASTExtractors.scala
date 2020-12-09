@@ -702,6 +702,22 @@ trait ASTExtractors {
       }
     }
 
+    /** Extracts the 'allocated' predicate from an expression */
+    object ExAllocatedExpression {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(ExSelected("stainless", "lang", "package", "allocated"), obj :: Nil) => Some(obj)
+        case _ => None
+      }
+    }
+
+    /** Extracts the 'fresh' predicate from an expression */
+    object ExFreshExpression {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(ExSelected("stainless", "lang", "package", "fresh"), obj :: Nil) => Some(obj)
+        case _ => None
+      }
+    }
+
     object ExChooseExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
         case a @ Apply(

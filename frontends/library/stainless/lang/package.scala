@@ -163,4 +163,9 @@ package object lang {
 
   @library
   def specialize[T](call: T): T = call
+  @ignore
+  def allocated(obj: AnyHeapRef): Boolean = true
+
+  @ignore
+  def fresh(obj: AnyHeapRef): Boolean = false
 }

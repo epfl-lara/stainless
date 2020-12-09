@@ -114,6 +114,25 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeType(implicit s: Symbols): Type = e.getType
   }
 
+  /** Represents the predicate `allocated(obj)` that asserts that a given reference was allocated */
+  case class Allocated(obj: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = obj.getType match {
+      case tpe if s.isSubtypeOf(tpe, AnyHeapRef()) => BooleanType()
+      case _ => Untyped
+    }
+  }
+
+  /**
+   * Represents the predicate `fresh(obj)` that asserts that a given reference is fresh after the
+   * enclosing function executes (i.e. it was not allocated at the function start, but it now is)
+   */
+  case class Fresh(obj: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = obj.getType match {
+      case tpe if s.isSubtypeOf(tpe, AnyHeapRef()) => BooleanType()
+      case _ => Untyped
+    }
+  }
+
   /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
   case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
@@ -320,6 +339,12 @@ trait Printer extends oo.Printer {
     case Snapshot(e) =>
       p"snapshot($e)"
 
+    case Allocated(obj) =>
+      p"allocated($obj)"
+
+    case Fresh(obj) =>
+      p"fresh($obj)"
+
     case BoolBitwiseAnd(lhs, rhs) => optP {
       p"$lhs & $rhs"
     }
@@ -416,6 +441,12 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
+
+    case s.Allocated(obj) =>
+      (Seq(), Seq(), Seq(obj), Seq(), Seq(), (_, _, es, _, _) => t.Allocated(es(0)))
+
+    case s.Fresh(obj) =>
+      (Seq(), Seq(), Seq(obj), Seq(), Seq(), (_, _, es, _, _) => t.Fresh(es(0)))
 
     case s.Reads(objs, bd) =>
       (Seq(), Seq(), Seq(objs, bd), Seq(), Seq(), (_, _, es, _, _) => t.Reads(es(0), es(1)))
