@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2020 EPFL, Lausanne */
 
 import scala.collection.parallel.ForkJoinTasks
 import scala.concurrent.ExecutionContext
@@ -117,10 +117,10 @@ package object stainless {
 
     ctx.reporter.error("Debug output is available in the file `stainless-stack-trace.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
 
-    if (ctx.reporter.debugSections.contains(frontend.DebugSectionFrontend))
-      ctx.reporter.debug(sw.toString)(frontend.DebugSectionFrontend)
+    if (ctx.reporter.debugSections.contains(frontend.DebugSectionStack))
+      ctx.reporter.debug(sw.toString)(frontend.DebugSectionStack)
     else
-      ctx.reporter.error("You may use --debug=frontend to have the stack trace displayed in the output.")
+      ctx.reporter.error("You may use --debug=stack to have the stack trace displayed in the output.")
 
     System.exit(2)
     ??? // unreachable

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2020 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -81,11 +81,11 @@ trait DebugSymbols extends PositionChecker { self =>
         res.ensureWellFormed
       } catch {
         case e: res.TypeErrorException =>
-          context.reporter.debug(e)(frontend.DebugSectionFrontend)
+          context.reporter.debug(e)(frontend.DebugSectionStack)
           context.reporter.error(e.pos, e.getMessage)
           context.reporter.fatalError(s"Well-formedness check failed after phase $name")
         case e @ xlang.trees.NotWellFormedException(defn, _) =>
-          context.reporter.debug(e)(frontend.DebugSectionFrontend)
+          context.reporter.debug(e)(frontend.DebugSectionStack)
           context.reporter.error(defn.getPos, e.getMessage)
           context.reporter.fatalError(s"Well-formedness check failed after phase $name")
       }

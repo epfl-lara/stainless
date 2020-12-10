@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2020 EPFL, Lausanne */
 
 package stainless
 
@@ -80,6 +80,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     extraction.utils.DebugSectionPositions,
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
+    frontend.DebugSectionStack,
     frontend.DebugSectionRecovery,
     frontend.DebugSectionExtraDeps,
   )
@@ -183,7 +184,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
         baseRunCycle()
       } catch {
         case e: Throwable =>
-          reporter.debug(e)(frontend.DebugSectionFrontend)
+          reporter.debug(e)(frontend.DebugSectionStack)
           reporter.error("There was an error during the watch cycle")
           compiler = newCompiler()
       }

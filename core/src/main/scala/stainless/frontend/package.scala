@@ -12,6 +12,8 @@ package object frontend {
 
   object DebugSectionFrontend extends inox.DebugSection("frontend")
 
+  object DebugSectionStack extends inox.DebugSection("stack")
+
   /**
    * The persistent caches are stored in the same directory, denoted by this option.
    */
