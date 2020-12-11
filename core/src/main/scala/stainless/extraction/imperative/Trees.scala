@@ -557,6 +557,13 @@ trait ExprOps extends oo.ExprOps {
     else Some(true)
   }
 
+  /**
+   * Returns whether a function allocates or not. For now this is supplied by the user from an annotation,
+   * but in the future, we might want to do something more clever.
+   */
+  def allocates(fd: FunDef): Boolean =
+    fd.flags.exists(_.name == "allocates")
+
   def flattenBlocks(expr: Expr): Expr = postMap {
     case Block(exprs, last) =>
       val newExprs = (exprs.filter(_ != UnitLiteral()) :+ last).flatMap {
