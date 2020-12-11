@@ -432,7 +432,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
 
         case Allocated(ref) =>
           val allocVd = env.expectAllocVdOpt(e.getPos, "checking allocation")
-          ElementOfSet(ref, allocVd.toVariable).copiedFrom(e)
+          ElementOfSet(transform(ref, env), allocVd.toVariable).copiedFrom(e)
 
         case _ => super.transform(e, env)
       }
@@ -507,7 +507,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
         }
 
         // TODO: Add readSet and writeSet instrumentation for specs
-        val newSpecs = specs.collect {
+        val newSpecs = specs.filterNot(_.isTrivial).collect {
           case Precondition(expr) =>
             Precondition(transform(expr, specEnv(heapVdOpt0, allocVdOpt0)))
 
@@ -516,7 +516,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
 
           case Postcondition(lam @ Lambda(Seq(resVd), post)) =>
             val (resVd1, post1) = if (writes || allocs) {
-              val valueVd: ValDef = "resV" :: resVd.tpe
+              val valueVd: ValDef = "resV" :: typeOnlyRefTransformer.transform(resVd.tpe)
               val resVd1 = resVd.copy(tpe = newReturnType)
               var newPost = transformPost(post, resVd, valueVd)
 
@@ -565,7 +565,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           newParams,
           newReturnType,
           newBody,
-          fd.flags.map(typeOnlyRefTransformer.transform)
+          fd.flags.map(typeOnlyRefTransformer.transform).filterNot(_.name == "allocates")
         ).copiedFrom(fd)
       }
     } // << FunRefTransformer

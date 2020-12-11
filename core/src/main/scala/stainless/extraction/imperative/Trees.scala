@@ -505,6 +505,13 @@ trait ExprOps extends oo.ExprOps {
     (withSpecs.getSpec(ReadsKind).map(_.expr), withSpecs.getSpec(ModifiesKind).map(_.expr))
   }
 
+  /**
+   * Returns whether a function allocates or not. For now this is supplied by the user from an annotation,
+   * but in the future, we might want to do something more clever.
+   */
+  def allocates(fd: FunDef): Boolean =
+    fd.flags.exists(_.name == "allocates")
+
   /*
    * The level of effects of a function.
    * None = pure, doesn't read nor write to the heap
@@ -521,19 +528,16 @@ trait ExprOps extends oo.ExprOps {
       case _ => false
     }
 
+    // Functions that allocate always modify the heap
+    if (allocates(fd))
+      return Some(true)
+
     val (reads, modifies) = heapContractsOf(fd.fullBody)
     if (isContractEmpty(modifies))
       if (isContractEmpty(reads)) None
       else Some(false)
     else Some(true)
   }
-
-  /**
-   * Returns whether a function allocates or not. For now this is supplied by the user from an annotation,
-   * but in the future, we might want to do something more clever.
-   */
-  def allocates(fd: FunDef): Boolean =
-    fd.flags.exists(_.name == "allocates")
 
   def flattenBlocks(expr: Expr): Expr = postMap {
     case Block(exprs, last) =>
