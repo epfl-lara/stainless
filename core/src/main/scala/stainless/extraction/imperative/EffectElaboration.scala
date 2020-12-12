@@ -108,17 +108,17 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
     lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), HeapRefType, AnyType())
 
     // This caches whether types live in the heap or not
-    lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
+    lazy val isHeapType = new utils.ConcurrentCached[Type, Boolean](_isHeapType(_))
 
     // This caches the effect level for the function definitions
     lazy val effectLevel = new utils.ConcurrentCached[Identifier, exprOps.EffectLevel]({ id =>
       exprOps.getEffectLevel(symbols.getFunction(id))
     })
 
-    private def isHeapType(tpe: Type): Boolean = tpe match {
+    private def _isHeapType(tpe: Type): Boolean = tpe match {
       case AnyHeapRef() => true
       // We lookup the parents through the cache so that the hierarchy is traversed at most once
-      case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
+      case ct: ClassType => ct.tcd.parents.exists(a => isHeapType(a.toType))
       case _ => false
     }
 
@@ -130,7 +130,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       ClassType(ct.id, ct.tps.map(typeOnlyRefTransformer.transform)).copiedFrom(ct)
 
     def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
-      if (!livesInHeap(cd.typed.toType))
+      if (!isHeapType(cd.typed.toType))
         return None
 
       import OptionSort._
@@ -157,7 +157,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       val t: self.s.type = self.s
 
       override def transform(tpe: Type, env: Env): Type = tpe match {
-        case ct: ClassType if livesInHeap(ct) =>
+        case ct: ClassType if isHeapType(ct) =>
           HeapRefType
         case FunctionType(_, _) =>
           val FunctionType(from, to) = super.transform(tpe, env)
@@ -266,15 +266,12 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
         recv: Expr,
         objTpe: ClassType,
         heapVd: ValDef,
-        allocVdOpt: Option[ValDef],
         fromE: Expr
       ): Expr = {
         val app = MapApply(heapVd.toVariable, recv).copiedFrom(fromE)
         val aio = AsInstanceOf(app, objTpe).copiedFrom(fromE)
         val iio = IsInstanceOf(app, objTpe).copiedFrom(fromE)
-        assumeAlloc(allocVdOpt, recv) {
-          Assume(iio, aio).copiedFrom(fromE)
-        }
+        Assume(iio, aio).copiedFrom(fromE)
       }
 
       def transformReturnType(returnType: Type, writes: Boolean, allocs: Boolean): Type = {
@@ -291,7 +288,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
         case RefEq(e1, e2) =>
           Equals(transform(e1, env), transform(e2, env))
 
-        case ClassConstructor(ct, args) if livesInHeap(ct) =>
+        case ClassConstructor(ct, args) if isHeapType(ct) =>
           if (!env.allocAllowed)
             error(e.getPos, "Can't allocate on the heap in this context")
 
@@ -316,15 +313,20 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             )
           }
 
-        case ClassSelector(recv, field) if livesInHeap(recv.getType) =>
+        case cs @ ClassSelector(recv, field) if isHeapType(recv.getType) =>
           val heapVd = env.expectHeapVd(e.getPos, "read from heap object")
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
-            ClassSelector(valueFromHeap(recvRef, objTpe, heapVd, env.allocVdOpt, e), field).copiedFrom(e)
+            val newCs = ClassSelector(valueFromHeap(recvRef, objTpe, heapVd, e), field).copiedFrom(e)
+            if (isHeapType(cs.getType) && env.allocAllowed) {
+              let("res" :: HeapRefType, newCs) { res =>
+                assumeAlloc(env.allocVdOpt, res)(res)
+              }
+            } else newCs
           }
 
-        case FieldAssignment(recv, field, value) if livesInHeap(recv.getType) =>
+        case FieldAssignment(recv, field, value) if isHeapType(recv.getType) =>
           if (!env.writeAllowed)
             error(e.getPos, "Can't modify heap in this context")
 
@@ -332,7 +334,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
-            val oldObj = valueFromHeap(recvRef, objTpe, heapVd, env.allocVdOpt, e)
+            val oldObj = valueFromHeap(recvRef, objTpe, heapVd, e)
             let("oldObj" :: objTpe, oldObj) { oldObj =>
               val newCt = objTpe.asInstanceOf[ClassType]
               val newArgs = newCt.tcd.fields.map {
@@ -345,14 +347,12 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             }
           }
 
-        case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
+        case IsInstanceOf(recv, tpe) if isHeapType(tpe) =>
           val heapVd = env.expectHeapVd(e.getPos, "runtime type-check on heap object")
           val ct = tpe.asInstanceOf[ClassType]
           val newRecv = transform(recv, env)
           val app = MapApply(heapVd.toVariable, newRecv).copiedFrom(e)
-          assumeAlloc(env.allocVdOpt, newRecv) {
-            IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
-          }
+          IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
           val targs1 = targs.map(transform(_, env))
@@ -438,7 +438,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
       }
 
       override def transform(pat: Pattern, env: Env): Pattern = pat match {
-        case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
+        case ClassPattern(binder, ct, subPats) if isHeapType(ct) =>
           val heapVd = env.expectHeapVd(pat.getPos, "class pattern unapply")
           val newClassPat = ClassPattern(
             None,
@@ -551,9 +551,16 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts { self =>
             varDefs :+= (allocVdOpt.get, allocVdOpt0.get.toVariable)
           }
 
-          val newResult = tupleWrap(results)
-          varDefs.foldRight(newResult) {
+          // We wrap the instrumented state in a tuple and add var definitions
+          val tuple = tupleWrap(results)
+          val withVars = varDefs.foldRight(tuple) {
             case ((vd, value), acc) => LetVar(vd, value, acc)
+          }
+
+          // We add assumptions that all the parameters that live in the heap are allocated
+          val allocVds = if (allocs) newParams.filter(_.tpe == HeapRefType) else Seq()
+          allocVds.foldRight(withVars) {
+            case (vd, acc) => assumeAlloc(allocVdOpt0, vd.toVariable)(acc)
           }
         }
 
