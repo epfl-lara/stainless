@@ -6,6 +6,7 @@ object Allocation {
 
   @allocates
   def earlyAlloc(bb: BoxBox, v: BigInt): Box = {
+    val earlyRead = bb.box // alloc prefetching: removing this makes it fail to verify 
     val b = new Box(v)
     val r = bb.box
     assert(b != r)
