@@ -440,11 +440,12 @@ trait ASTExtractors {
     }
 
     object FrontendBVType {
+      val R = """type (UInt|Int)(\d+)""".r
+
       def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
         case TypeRef(_, sym, FrontendBVKind(signed, size) :: Nil) if isBVSym(sym) =>
           Some((signed, size))
         case TypeRef(_, sym, Nil) if isBVSym(sym) =>
-          val R = """type (UInt|Int)(\d+)""".r
           sym.toString match {
             case R(signed, size) => Some((signed == "Int", size.toInt))
             case _ => None
@@ -457,9 +458,10 @@ trait ASTExtractors {
     }
 
     object FrontendBVKind {
+      val R = """object ([ui])(\d+)""".r
+
       def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
         case SingleType(_, sym) =>
-          val R = """object ([ui])(\d+)""".r
           sym.toString match {
             case R(signed, size) => Some((signed == "i", size.toInt))
             case _ => None
