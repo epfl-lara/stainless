@@ -9,17 +9,17 @@ object MutListExample {
   final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghost var repr: List[AnyHeapRef]) extends AnyHeapRef {
     @ghost
     def valid: Boolean = {
-      reads(repr.content ++ Set(this)) // Removing Set(this) make it possible to call this function with an empty repr, which creates inconsistencies
+      reads(repr.content ++ Set(this))
       decreases(repr.size)
 
-      (nextOpt match {
+      nextOpt match {
         case None() => repr == List(this)
         case Some(next) => repr == this :: next.repr && next.valid
-      })
+      }
     }
 
     def size: BigInt = {
-      reads(repr.content)
+      reads(repr.content ++ Set(this))
       require(valid)
       decreases(repr.size)
 
@@ -30,7 +30,7 @@ object MutListExample {
     } ensuring (_ > 0)
 
     def last: Node = {
-      reads(repr.content)
+      reads(repr.content ++ Set(this))
       require(valid)
       decreases(size)
 
@@ -41,8 +41,8 @@ object MutListExample {
     }
 
     def append(node: Node): Unit = {
-      reads(repr.content)
-      modifies(repr.content)
+      reads(repr.content ++ node.repr.content ++ Set(this, node))
+      modifies(repr.content ++ Set(this))
       require(valid && node.valid && (repr.content & node.repr.content).isEmpty)
       decreases(size)
 
@@ -60,7 +60,7 @@ object MutListExample {
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {
-    reads(l1.repr.content ++ l2.repr.content)
+    reads(l1.repr.content ++ l2.repr.content ++ Set(l1, l2))
     modifies(Set(l2))
     require(l1.valid && l2.valid && (l1.repr.content & l2.repr.content).isEmpty)
     val h1 = l1.value
