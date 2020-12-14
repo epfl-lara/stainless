@@ -75,6 +75,13 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     val t: self.trees.type = self.trees
   }
 
+  private[this] val debugImplPrivateInlining = new DebugSymbols {
+    val name = "ImplPrivateInlining"
+    val context = self.context
+    val s: self.trees.type = self.trees
+    val t: self.trees.type = self.trees
+  }
+
   private[this] val debugChooses = new DebugSymbols {
     val name = "ChooseInjector"
     val context = self.context
@@ -93,6 +100,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
       val assertions = AssertionInjector(p, context)
       val chooses = ChooseInjector(p)
+      val implPrivateInlining = ImplPrivateInlining(p, context)
 
       // We do not need to encode empty trees as chooses when generating the VCs,
       // as we rely on having empty trees to filter out some VCs.
@@ -100,6 +108,14 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
       if (debugAssertions.isEnabled) {
         debugAssertions.debugEncoder(assertionEncoder)
+      }
+
+      // Inline implementation private functions
+      val implPrivateEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(implPrivateInlining)
+      val vcGenEncoder = assertionEncoder andThen implPrivateEncoder
+
+      if (debugImplPrivateInlining.isEnabled) {
+        debugImplPrivateInlining.debugEncoder(implPrivateEncoder)
       }
 
       // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
@@ -113,9 +129,9 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
 
       val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
-        TypeChecker(assertionEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
+        TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
       else
-        VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+        VerificationGenerator.gen(vcGenEncoder.targetProgram, context)(functions)
 
       val fullEncoder = assertionEncoder andThen chooseEncoder
 
