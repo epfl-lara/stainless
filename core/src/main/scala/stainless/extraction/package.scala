@@ -59,6 +59,7 @@ package object extraction {
     "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
+    "ImplPrivateInlining"       -> "Inline @implPrivate functions ahead of VC generation",
     "ChooseInjector"            -> "Insert chooses where necessary",
 
     "ComputeDependencies"       -> "(GenC) Compute the dependencies of a given definition",

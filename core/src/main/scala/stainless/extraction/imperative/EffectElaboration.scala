@@ -188,7 +188,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         return None
 
       import OptionSort._
-      Some(mkFunDef(unapplyId(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))(
+      Some(mkFunDef(unapplyId(cd.id), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))(
           cd.typeArgs.map(_.id.name) : _*) { tparams =>
         val tcd = cd.typed(tparams)
         val ct = tcd.toType
@@ -574,16 +574,16 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           fd.copy(flags = fd.flags.filterNot(_ == Extern))
         }
 
-        // TODO: Activate ImplPrivate
         // TODO: Drop `readsDom` and `modifiesDom`?
-        val privateOpt = if (newFlags.contains(Extern)) None else Some(t.InlineOnce)
+        val extraFlags =
+          if (newFlags.contains(Extern)) Seq.empty
+          else Seq(t.Synthetic, t.DropVCs, t.ImplPrivate)
         val innerFd = freshenSignature(outerFd.copy(
           id = innerId(fd.id),
           // params = newParamsWithoutReadsDomAndModifiesDom,
           fullBody = wrapHeapContractBindings(
             innerBodyOpt.getOrElse(NoTree(newReturnType).copiedFrom(fd))),
-          // flags = (newFlags ++ Seq(t.ImplPrivate, t.Synthetic, t.Unchecked)).distinct
-          flags = (newFlags ++ Seq(t.Synthetic, t.Unchecked) ++ privateOpt).distinct
+          flags = (newFlags ++ extraFlags).distinct
         ).copiedFrom(fd))
 
         Seq(outerFd, innerFd)
