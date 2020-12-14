@@ -68,33 +68,8 @@ trait EffectElaboration
       // .withFunctions(heapFunctions ++ OptionSort.functions(newSymbols))
   }
 
-  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunctionResult = {
-    import tctx._
-    import t.dsl._
-
-    Seq((new FunRefTransformer).transform(fd))
-
-    // TODO: wrapper function
-    // TODO: reads function
-    // TODO: modifies function
-    // TODO: Use wrapperId instead of tfd.id in tfd.fullBody
-    // TODO: Add @heap flag to heap parameters
-    // TODO: In TypeChecker add checks for MapApply on @heap var
-    // TODO: In TypeChecker add checks for MapUpdated on @heap var
-    // TODO: In TypeChecker add checks for functions calls taking @heap var
-
-    // val wrapperFd = {
-    //   val tparams = tfd.tparams.map(_.freshen)
-    //   val params = tfd.params.map(_.freshen)
-    //   val flags = Seq(t.Unchecked, t.Synthetic, t.InlineOnce)
-    //   val body = BodyWithSpecs(
-    //     ...
-    //   ).reconstructed
-    //   t.FunDef(wrapperId(tfd.id), tparams, params, tfd.retType, body, flags)
-    // }
-
-    // Seq(tfd, readsFd, modifiesFd)
-  }
+  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunctionResult =
+    tctx.transformFun(fd)
 
   override protected def extractSort(tctx: TransformerContext, sort: ADTSort): ADTSort =
     tctx.typeOnlyRefTransformer.transform(sort)
@@ -168,9 +143,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
   /* Heap encoding */
 
   protected lazy val unapplyId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  // protected lazy val wrapperId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  // protected lazy val readsId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  // protected lazy val modifiesId = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  protected lazy val innerId = new utils.ConcurrentCached[Identifier, Identifier](
+    id => FreshIdentifier(s"${id.name}__inner")
+  )
 
   /* The transformer */
 
@@ -180,6 +155,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     implicit val symbols: s.Symbols
 
     lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), HeapRefType, AnyType())
+
+    lazy val HeapRefSetType: Type = SetType(HeapRefType)
+    lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
 
     // This caches whether types live in the heap or not
     lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
@@ -272,12 +250,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       def transform(flag: Flag): Flag = transform(flag, ())
     }
 
-    class FunRefTransformer extends RefTransformer {
-      import exprOps._
-
-      val HeapRefSetType: Type = SetType(HeapRefType)
-      val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
-
+    object funRefTransformer extends RefTransformer {
       private lazy val dummyHeapVd: ValDef = "dummyHeap" :: HeapRefSetType
 
       case class Env(
@@ -296,37 +269,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       }
 
       def initEnv: Env = ???  // unused
-
-      /**
-       * Given an optional set of read expressions, and an input heap, projects the heap along
-       * the read variables. The projection is conservative so that if no read clause is given,
-       * everything is assumed to be read.
-       */
-      def projectHeap(subst: Map[ValDef, Expr], reads: Option[Expr], env: Env): Expr = {
-        val heapV = env.heapVdOpt.get.toVariable
-        reads.map { r =>
-          MapMerge(
-            transform(replaceFromSymbols(subst, r), env.noModifications),
-            heapV,
-            EmptyHeap)
-        }.getOrElse(heapV)
-      }
-
-      /**
-       * Given an optional set of modified exprssions and input and ouptut heaps, unprojects the
-       * heap along the modified variables. The projection is conservative so that if no modifies
-       * clause is given, everything is assumed to be modified.
-       */
-      def unprojectHeap(subst: Map[ValDef, Expr], modifies: Option[Expr], outputHeap: Expr,
-                        env: Env): Expr = {
-        val heapV = env.heapVdOpt.get.toVariable
-        modifies.map { m =>
-          MapMerge(
-            transform(replaceFromSymbols(subst, m), env.noModifications),
-            outputHeap,
-            heapV)
-        }.getOrElse(heapV)
-      }
 
       def valueFromHeap(recv: Expr, objTpe: ClassType, heapVd: ValDef, fromE: Expr): Expr = {
         val app = MapApply(heapVd.toVariable, recv).copiedFrom(fromE)
@@ -409,26 +351,18 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
                 EmptyHeapRefSet
               }
 
-              // TODO: Only translate arguments once. This makes the substitution below a bit more
-              // as we have to substitute the local bindings with the old type (to trigger the
-              // correct ref transformation).
-              val subst = (fi.tfd.params zip vargs).toMap
-              val (reads, modifies) = heapContractsOf(fi.tfd.fullBody)
-              val extraArgs = Seq(projectHeap(subst, reads, env), readsDom) ++
+              val extraArgs = Seq(heapVd.toVariable, readsDom) ++
                 (if (writes) Some(modifiesDom) else None)
               val call = FunctionInvocation(id, targs1, extraArgs ++ vargs1).copiedFrom(e)
 
               if (writes) {
-                // If the callee reads and modifies the state, we need to unproject the heap that
-                // it returned and update the local heap variable.
+                // Update the local heap variable and project out the the function result
                 val resTpe = T(typeOnlyRefTransformer.transform(fi.tfd.returnType), HeapType)
                 let("res" :: resTpe, call) { res =>
-                  val unprojected = unprojectHeap(subst, modifies, res._2, env)
-                  Block(Seq(Assignment(heapVd.toVariable, unprojected)),
-                    res._1)
+                  Block(Seq(Assignment(heapVd.toVariable, res._2)), res._1)
                 }
               } else {
-                // If the callee only reads from but does not write to the heap, we merely project.
+                // Nothing to be done, if the callee only reads from but does not write to the heap
                 call
               }
           }
@@ -459,138 +393,205 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         case _ =>
           super.transform(pat, env)
       }
+    } // << funRefTransformer
 
-      override def transform(fd: FunDef): FunDef = {
-        val level = effectLevel(fd.id)
-        val reads = level.isDefined
-        val writes = level.getOrElse(false)
+    def transformFun(fd: FunDef): Seq[FunDef] = {
+      import exprOps._
 
-        val heapVdOpt0 = if (reads) Some(freshStateParam()) else None
-        val readsDomVdOpt = if (reads) Some(freshRefSetVd("readsDom")) else None
-        val modifiesDomVdOpt = if (writes) Some(freshRefSetVd("modifiesDom")) else None
-        val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt).flatten ++
-          fd.params.map(typeOnlyRefTransformer.transform)
+      val level = effectLevel(fd.id)
+      val reads = level.isDefined
+      val writes = level.getOrElse(false)
 
-        val newReturnType = {
-          val newReturnType1 = typeOnlyRefTransformer.transform(fd.returnType)
-          if (writes) T(newReturnType1, HeapType) else newReturnType1
-        }
+      val heapVdOpt0 = if (reads) Some(freshStateParam()) else None
+      val readsDomVdOpt = if (reads) Some(freshRefSetVd("readsDom")) else None
+      val modifiesDomVdOpt = if (writes) Some(freshRefSetVd("modifiesDom")) else None
+      val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt).flatten ++
+        fd.params.map(typeOnlyRefTransformer.transform)
 
-        // Let-bindings to this function's `reads` and `modifies` contract sets
-        val readsVdOpt = if (reads) Some(freshRefSetVd("reads")) else None
-        val modifiesVdOpt = if (writes) Some(freshRefSetVd("modifies")) else None
+      val newReturnType = {
+        val newReturnType1 = typeOnlyRefTransformer.transform(fd.returnType)
+        if (writes) T(newReturnType1, HeapType) else newReturnType1
+      }
 
-        def specEnv(heapVdOpt: Option[ValDef]) =
-          Env(readsVdOpt, modifiesVdOpt = None, heapVdOpt)
-        def bodyEnv(heapVdOpt: Option[ValDef]) =
-          Env(readsVdOpt, modifiesVdOpt, heapVdOpt)
+      // Let-bindings to this function's `reads` and `modifies` contract sets
+      val readsVdOpt = if (reads) Some(freshRefSetVd("reads")) else None
+      val modifiesVdOpt = if (writes) Some(freshRefSetVd("modifies")) else None
 
-        // Transform postcondition body
-        def transformPost(post: Expr, resVd: ValDef, valueVd: ValDef,
-                          heapVdOpt0: Option[ValDef], heapVdOpt1: Option[ValDef]): Expr =
-        {
-          val replaceRes = resVd != valueVd
-          // Rewrite the value result variable (used if `resVd` now also contains the heap state)
-          val post1 = postMap {
-            case v: Variable if replaceRes && v.id == resVd.id =>
-              Some(valueVd.toVariable.copiedFrom(v))
-            case _ =>
-              None
-          }(post)
-          // Transform postcondition body in post-state (ignoring `old(...)` parts)
-          val post2 = transform(post1, specEnv(heapVdOpt1))
-          // Transform `old(...)` parts of postcondition body in pre-state
-          postMap {
-            case Old(e) =>
-              Some( transform(e, specEnv(heapVdOpt0)))
-            case _ =>
-              None
-          }(post2)
-        }
+      def specEnv(heapVdOpt: Option[ValDef]) =
+        funRefTransformer.Env(readsVdOpt, modifiesVdOpt = None, heapVdOpt)
+      def bodyEnv(heapVdOpt: Option[ValDef]) =
+        funRefTransformer.Env(readsVdOpt, modifiesVdOpt, heapVdOpt)
 
-        // Unpack specs from the existing function
-        val specced = BodyWithSpecs(fd.fullBody)
+      // Transform postcondition body
+      def transformPost(post: Expr, resVd: ValDef, valueVd: ValDef,
+                        heapVdOpt0: Option[ValDef], heapVdOpt1: Option[ValDef]): Expr =
+      {
+        val replaceRes = resVd != valueVd
+        // Rewrite the value result variable (used if `resVd` now also contains the heap state)
+        val post1 = postMap {
+          case v: Variable if replaceRes && v.id == resVd.id =>
+            Some(valueVd.toVariable.copiedFrom(v))
+          case _ =>
+            None
+        }(post)
+        // Transform postcondition body in post-state (ignoring `old(...)` parts)
+        val post2 = funRefTransformer.transform(post1, specEnv(heapVdOpt1))
+        // Transform `old(...)` parts of postcondition body in pre-state
+        postMap {
+          case Old(e) =>
+            Some(funRefTransformer.transform(e, specEnv(heapVdOpt0)))
+          case _ =>
+            None
+        }(post2)
+      }
 
-        // Transform existing specs
-        val newSpecsMap: Map[SpecKind, Specification] = specced.specs.map {
-          case spec @ Postcondition(lam @ Lambda(Seq(resVd), post)) =>
-            val (resVd1, post1) = if (writes) {
-              val valueVd: ValDef = "resV" :: resVd.tpe
-              val heapVd1: ValDef = "heap1" :: HeapType
-              val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
-              val post1 = Let(valueVd, resVd1.toVariable._1,
-                Let(heapVd1, resVd1.toVariable._2,
-                  transformPost(post, resVd, valueVd, heapVdOpt0, Some(heapVd1))))
-              (resVd1, post1)
-            } else {
-              (resVd, transformPost(post, resVd, resVd, heapVdOpt0, heapVdOpt0))
-            }
-            val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
-            (spec.kind, newSpec.setPos(spec.getPos))
+      // Unpack specs from the existing function
+      val specced = BodyWithSpecs(fd.fullBody)
 
-          case spec =>
-            (spec.kind, spec.transform(expr => transform(expr, specEnv(heapVdOpt0))))
-        } .toMap
-
-        // Strengthen precondition to check heap contracts, drop `read` and `modifies`
-        val newSpecs: Seq[Specification] = Seq(
-          newSpecsMap.get(PostconditionKind),
-          Some(newSpecsMap
-            .getOrElse(PreconditionKind, Precondition(BooleanLiteral(true)))
-            .transform { expr =>
-              andJoin(Seq(
-                Some(expr),
-                readsVdOpt.map(r =>
-                  SubsetOf(r.toVariable, readsDomVdOpt.get.toVariable).copiedFrom(r)),
-                modifiesVdOpt.map(m =>
-                  SubsetOf(m.toVariable, modifiesDomVdOpt.get.toVariable).copiedFrom(m))
-              ).flatten)
-            }),
-          newSpecsMap.get(MeasureKind),
-        ).flatten
-
-        // Transform function body
-        val newSpecced = specced.withBody(specced.bodyOpt.map { body =>
-          if (writes) {
-            // Add a locally mutable heap binding
-            val heapVd: ValDef = "heap" :: HeapType
-            val innerNewBody = transform(body, bodyEnv(heapVdOpt = Some(heapVd)))
-            LetVar(heapVd, heapVdOpt0.get.toVariable,
-              E(innerNewBody, heapVd.toVariable))
+      // Transform existing specs
+      val newSpecsMap: Map[SpecKind, Specification] = specced.specs.map {
+        case spec @ Postcondition(lam @ Lambda(Seq(resVd), post)) =>
+          val (resVd1, post1) = if (writes) {
+            val valueVd: ValDef = "resV" :: resVd.tpe
+            val heapVd1: ValDef = "heap1" :: HeapType
+            val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
+            val post1 = Let(valueVd, resVd1.toVariable._1,
+              Let(heapVd1, resVd1.toVariable._2,
+                transformPost(post, resVd, valueVd, heapVdOpt0, Some(heapVd1))))
+            (resVd1, post1)
           } else {
-            // Simply transform with pre-state everywhere
-            transform(body, bodyEnv(heapVdOpt = heapVdOpt0))
+            (resVd, transformPost(post, resVd, resVd, heapVdOpt0, heapVdOpt0))
           }
-        }, newReturnType).copy(specs = newSpecs)
+          val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
+          (spec.kind, newSpec.setPos(spec.getPos))
 
-        // Rebuild full body, potentially adding bindings for `reads` and `modifies` sets
-        val newFullBody = {
-          def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
-            vdOpt match {
-              case Some(vd) => Let(vd, value, body).copiedFrom(body)
-              case None => body
-            }
+        case spec =>
+          val newSpec = spec.transform(expr =>
+            funRefTransformer.transform(expr, specEnv(heapVdOpt0)))
+          (spec.kind, newSpec)
+      } .toMap
 
-          maybeLetWrap(
-            readsVdOpt,
-            newSpecsMap.get(ReadsKind).map(_.asInstanceOf[ReadsContract].expr)
-              .getOrElse(EmptyHeapRefSet),
-            maybeLetWrap(
-              modifiesVdOpt,
-              newSpecsMap.get(ModifiesKind).map(_.asInstanceOf[ModifiesContract].expr)
-                .getOrElse(EmptyHeapRefSet),
-              newSpecced.reconstructed))
+      // Translate `reads` and `modifies` into additional precondition
+      val newSpecs: Seq[Specification] = Seq(
+        newSpecsMap.get(PostconditionKind),
+        Some(newSpecsMap
+          .getOrElse(PreconditionKind, Precondition(BooleanLiteral(true)))
+          .transform { expr =>
+            andJoin(Seq(
+              Some(expr),
+              readsVdOpt.map(r =>
+                SubsetOf(r.toVariable, readsDomVdOpt.get.toVariable).copiedFrom(r)),
+              modifiesVdOpt.map(m =>
+                SubsetOf(m.toVariable, modifiesDomVdOpt.get.toVariable).copiedFrom(m))
+            ).flatten)
+          }),
+        newSpecsMap.get(MeasureKind),
+      ).flatten
+
+      // Transform implementation body (which becomes the inner function, if needed)
+      val innerBodyOpt: Option[Expr] = specced.bodyOpt.map { body =>
+        if (writes) {
+          // Add a locally mutable heap binding
+          val heapVd: ValDef = "heap" :: HeapType
+          val innerNewBody = funRefTransformer.transform(body, bodyEnv(heapVdOpt = Some(heapVd)))
+          LetVar(heapVd, heapVdOpt0.get.toVariable,
+            E(innerNewBody, heapVd.toVariable))
+        } else {
+          // Simply transform with pre-state everywhere
+          funRefTransformer.transform(body, bodyEnv(heapVdOpt = heapVdOpt0))
         }
+      }
 
+      // Rebuild full body, potentially adding bindings for `reads` and `modifies` sets
+      def wrapHeapContractBindings(body: Expr): Expr = {
+        def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
+          vdOpt match {
+            case Some(vd) => Let(vd, value, body).copiedFrom(body)
+            case None => body
+          }
+
+        maybeLetWrap(
+          readsVdOpt,
+          newSpecsMap.get(ReadsKind).map(_.asInstanceOf[ReadsContract].expr)
+            .getOrElse(EmptyHeapRefSet),
+          maybeLetWrap(
+            modifiesVdOpt,
+            newSpecsMap.get(ModifiesKind).map(_.asInstanceOf[ModifiesContract].expr)
+              .getOrElse(EmptyHeapRefSet),
+            body))
+      }
+
+      val newTParams = fd.tparams.map(typeOnlyRefTransformer.transform)
+      val newFlags = fd.flags.map(typeOnlyRefTransformer.transform)
+
+      def makeOuterFd(bodyOpt: Option[Expr], freshen: Boolean): FunDef = {
+        val fullBody = wrapHeapContractBindings(
+          specced.withBody(bodyOpt, newReturnType).copy(specs = newSpecs).reconstructed)
         new FunDef(
           fd.id,
-          fd.tparams.map(typeOnlyRefTransformer.transform),
+          newTParams,
           newParams,
           newReturnType,
-          newFullBody,
-          fd.flags.map(typeOnlyRefTransformer.transform)
+          if (freshen) freshenLocals(fullBody) else fullBody,
+          newFlags
         ).copiedFrom(fd)
       }
-    } // << FunRefTransformer
+
+      if (reads) {
+        // If a function involves the heap we split it into
+        // - an outer function that projects the heap according to the reads and modifies clauses,
+        // - an inner function containing the implementation.
+        // The outer function inherits all the specs, whereas the inner function will unchecked.
+        val outerBody = {
+          val fi = FunctionInvocation(
+            innerId(fd.id),
+            newTParams.map(_.tp),
+            MapMerge(
+              readsVdOpt.get.toVariable,
+              heapVdOpt0.get.toVariable,
+              EmptyHeap
+            ).copiedFrom(fd) +: newParams.tail.map(_.toVariable)
+          ).copiedFrom(fd)
+
+          if (writes) {
+            let("res" :: newReturnType, fi) { res =>
+              E(
+                res._1,
+                MapMerge(
+                  modifiesVdOpt.get.toVariable,
+                  res._2,
+                  heapVdOpt0.get.toVariable
+                ).copiedFrom(fd)
+              )
+            }
+          } else {
+            fi
+          }
+        }
+
+        val outerFd = {
+          val fd = makeOuterFd(Some(outerBody), freshen = true)
+          fd.copy(flags = fd.flags.filterNot(_ == Extern))
+        }
+
+        // TODO: Activate ImplPrivate
+        // TODO: Drop `readsDom` and `modifiesDom`?
+        val privateOpt = if (newFlags.contains(Extern)) None else Some(t.InlineOnce)
+        val innerFd = freshenSignature(outerFd.copy(
+          id = innerId(fd.id),
+          // params = newParamsWithoutReadsDomAndModifiesDom,
+          fullBody = wrapHeapContractBindings(
+            innerBodyOpt.getOrElse(NoTree(newReturnType).copiedFrom(fd))),
+          // flags = (newFlags ++ Seq(t.ImplPrivate, t.Synthetic, t.Unchecked)).distinct
+          flags = (newFlags ++ Seq(t.Synthetic, t.Unchecked) ++ privateOpt).distinct
+        ).copiedFrom(fd))
+
+        Seq(outerFd, innerFd)
+
+      } else {
+        // Pure functions are merely ref-transformed.
+        Seq(makeOuterFd(innerBodyOpt, freshen = false))
+      }
+    }
   }
 }
