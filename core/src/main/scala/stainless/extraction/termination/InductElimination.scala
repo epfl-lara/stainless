@@ -65,10 +65,10 @@ trait InductElimination
         .fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
     }
 
-    val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
+    var specced = BodyWithSpecs(fd.fullBody)
 
     if (!inductionParams.isEmpty)
-      specs.foreach {
+      specced.specs.foreach {
         case Measure(_) =>
           context.reporter.warning(
             fd.getPos,
@@ -77,7 +77,7 @@ trait InductElimination
         case _ => ()
       }
 
-    val inductionBody = oldBodyOpt.map(oldBody =>
+    val inductionBodyOpt = specced.bodyOpt.map(oldBody =>
       inductionParams.foldRight(oldBody) {
         case (vd, currentBody) =>
           vd.getType match {
@@ -160,24 +160,22 @@ trait InductElimination
       else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))
       else Some(Measure(Tuple(inductionParams.map(_.toVariable))))
 
-    val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
+    val newSpecced =
+      if (inductionParams.isEmpty || newMeasure.isEmpty) specced
+      else specced.withSpec(newMeasure.get)
 
-    val newSpecs =
-      if (inductionParams.isEmpty) specs
-      else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
-
-    val fullBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+    val newBody1 = newSpecced.withBody(inductionBodyOpt, fd.returnType).reconstructed
 
     // Remove @induct flag from parameters and replace those in the body to ensure well-formedness.
     val newParams = fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_ == Induct)).copiedFrom(vd))
-    val newBody = exprOps.replaceFromSymbols(fd.params.zip(newParams.map(_.toVariable)).toMap, fullBody)
+    val newBody2 = exprOps.replaceFromSymbols(fd.params.zip(newParams.map(_.toVariable)).toMap, newBody1)
 
     new FunDef(
       fd.id,
       fd.tparams,
       newParams,
       fd.returnType,
-      newBody,
+      newBody2,
       fd.flags.filterNot(_ == Induct),
     ).setPos(fd)
   }

@@ -7,6 +7,7 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
   val trees: ast.Trees
   val s: trees.type = trees
   val t: trees.type = trees
+
   import trees._
   import exprOps._
 
@@ -21,11 +22,11 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
             val vd = ValDef(FreshIdentifier("res"), tpe, Seq(DropVCs)).copiedFrom(e)
-            Choose(vd, post
-              .map(l => symbols.application(l, Seq(vd.toVariable)))
+            val pred = specced.getSpec(PostconditionKind)
+              .map(pc => symbols.application(pc.expr, Seq(vd.toVariable)))
               .getOrElse(BooleanLiteral(true))
               .copiedFrom(tpe)
-            ).copiedFrom(e)
+            Choose(vd, pred).copiedFrom(e)
 
           case ie @ IfExpr(c, t, e) =>
             IfExpr(c, injectChooses(t), injectChooses(e)).copiedFrom(ie)
