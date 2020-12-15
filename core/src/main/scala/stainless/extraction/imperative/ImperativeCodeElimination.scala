@@ -205,6 +205,7 @@ trait ImperativeCodeElimination
 
         case LetRec(Seq(fd), b) =>
           val inner = Inner(fd)
+          // TODO(gsps): Migrate to new specs API
           val (specs, body) = deconstructSpecs(inner.fullBody)
 
           def fdWithoutSideEffects = {
@@ -378,32 +379,35 @@ trait ImperativeCodeElimination
       case _ => false
     }
 
-    if (!exprOps.exists(requireRewriting)(fd.fullBody)) fd else {
-      val (specs, body) = deconstructSpecs(fd.fullBody)
-
-      val newSpecs = specs.map {
-        case Postcondition(ld @ Lambda(params, body)) =>
-          // Remove `Old` trees for function parameters on which no effect occurred
-          val newBody = replaceSingle(
-            fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
-            body
-          )
-
-          val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
-          Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
-
-        case spec => spec.transform { e =>
-          val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
-          scope(res)
-        }
-      }
-
-      val newBody = body.map { body =>
-        val (res, scope, _) = toFunction(body)(State(fd, Set(), Map()))
+    if (exprOps.exists(requireRewriting)(fd.fullBody)) {
+      def topLevelRewrite(expr: Expr): Expr = {
+        val (res, scope, _) = toFunction(expr)(State(fd, Set(), Map()))
         scope(res)
       }
 
-      fd.copy(fullBody = reconstructSpecs(newSpecs, newBody, fd.returnType))
+      val specced = BodyWithSpecs(fd.fullBody)
+
+      // NOTE: We assume that lets wrapping specs require no rewriting
+      val newSpecced = specced.copy(
+        specs = specced.specs.map {
+          case Postcondition(ld @ Lambda(params, body)) =>
+            // Remove `Old` trees for function parameters on which no effect occurred
+            val newBody = replaceSingle(
+              fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
+              body
+            )
+            Postcondition(Lambda(params, topLevelRewrite(newBody)).copiedFrom(ld))
+
+          case spec => spec.transform(topLevelRewrite(_))
+        },
+
+        body = topLevelRewrite(specced.body)
+      )
+
+      fd.copy(fullBody = newSpecced.reconstructed)
+
+    } else {
+      fd
     }
   }
 }
