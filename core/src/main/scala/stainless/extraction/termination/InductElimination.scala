@@ -64,10 +64,10 @@ trait InductElimination
         .fatalError(fd.getPos, s"In ${fd.id.asString}, induction on multiple parameters is not supported")
     }
 
-    val (specs, oldBodyOpt) = deconstructSpecs(fd.fullBody)
+    var specced = BodyWithSpecs(fd.fullBody)
 
     if (!inductionParams.isEmpty)
-      specs.foreach {
+      specced.specs.foreach {
         case Measure(_) =>
           context.reporter.warning(
             fd.getPos,
@@ -76,7 +76,7 @@ trait InductElimination
         case _ => ()
       }
 
-    val inductionBody = oldBodyOpt.map(oldBody =>
+    val inductionBodyOpt = specced.bodyOpt.map(oldBody =>
       inductionParams.foldRight(oldBody) {
         case (vd, currentBody) =>
           vd.getType match {
@@ -159,11 +159,11 @@ trait InductElimination
 
     val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
 
-    val newSpecs =
-      if (inductionParams.isEmpty || !typeCheckerEnabled) specs
-      else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
+    val newSpecced =
+      if (inductionParams.isEmpty || !typeCheckerEnabled || newMeasure.isEmpty) specced
+      else specced.withSpec(newMeasure.get)
 
-    val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+    val newBody = newSpecced.withBody(inductionBodyOpt, fd.returnType).reconstructed
 
     new FunDef(
       fd.id,

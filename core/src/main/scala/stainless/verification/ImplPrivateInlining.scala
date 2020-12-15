@@ -68,19 +68,21 @@ object ImplPrivateInlining {
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.collect {
           case fd if !fd.flags.contains(t.ImplPrivate) =>
-            val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
-            val newSpecs = specs.map(_.map(inlining.transform(_)))
-            val newBody = body map inlining.transform
-
-            val resultType = inlining.transform(fd.returnType)
-            val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
+            val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
+            val newSpecced = specced.copy(
+              lets = specced.lets.map { case (vd, value, pos) =>
+                (inlining.transform(vd), inlining.transform(value), pos)
+              },
+              specs = specced.specs.map(_.map(inlining.transform(_))),
+              body = inlining.transform(specced.body)
+            )
 
             new t.FunDef(
               fd.id,
               fd.tparams map inlining.transform,
               fd.params map inlining.transform,
-              resultType,
-              fullBody,
+              inlining.transform(fd.returnType),
+              newSpecced.reconstructed,
               fd.flags map inlining.transform
             ).copiedFrom(fd)
         })
