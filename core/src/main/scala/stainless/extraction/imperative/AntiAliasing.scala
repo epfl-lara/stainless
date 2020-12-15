@@ -173,12 +173,12 @@ trait AntiAliasing
 
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
           if (fiEffects.exists(e => formalArgs contains e.receiver.toVal)) {
-            val localEffects = (formalArgs zip args)
+            val localEffects: Seq[Set[(Effect, Set[Effect])]] = (formalArgs zip args)
               .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
               .filter { case (effects, _) => effects.nonEmpty }
               .map { case (effects, arg) =>
                 val rArg = exprOps.replaceFromSymbols(env.rewritings, arg)
-                effects map (e => (e, e on rArg))
+                effects map (e => (e, e.effectsOn(rArg)))
               }
 
             for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
@@ -267,7 +267,7 @@ trait AntiAliasing
         override def transform(e: Expr, env: Env): Expr = (e match {
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            if (getKnownEffects(newExpr).nonEmpty) {
+            if (computeKnownTargets(newExpr).nonEmpty) {
               val newBody = transform(b, env withRewritings Map(vd -> newExpr))
               Let(vd, newExpr, newBody).copiedFrom(l)
             } else {
@@ -281,13 +281,13 @@ trait AntiAliasing
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
           case m @ MatchExpr(scrut, cses) if isMutableType(scrut.getType) =>
-            if (effects(scrut).nonEmpty) {
+            if (exprEffects(scrut).nonEmpty) {
               def liftEffects(e: Expr): (Seq[(ValDef, Expr)], Expr) = e match {
-                case ArraySelect(e, i) if effects(i).nonEmpty =>
+                case ArraySelect(e, i) if exprEffects(i).nonEmpty =>
                   val (eBindings, eLift) = liftEffects(e)
                   val vd = ValDef(FreshIdentifier("index", true), Int32Type().copiedFrom(i)).copiedFrom(i)
                   (eBindings :+ (vd -> i), ArraySelect(eLift, vd.toVariable).copiedFrom(e))
-                case _ if effects(e).nonEmpty =>
+                case _ if exprEffects(e).nonEmpty =>
                   throw MalformedStainlessCode(m, "Unexpected effects in match scrutinee")
                 case _ => (Seq.empty, e)
               }
@@ -310,7 +310,7 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val effects = getExactEffects(ra)
+            val effects = computeExactTargets(ra)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
@@ -322,7 +322,7 @@ trait AntiAliasing
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val effects = getExactEffects(rmap)
+            val effects = computeExactTargets(rmap)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
@@ -334,7 +334,7 @@ trait AntiAliasing
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val effects = getExactEffects(so)
+            val effects = computeExactTargets(so)
 
             if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
@@ -390,7 +390,7 @@ trait AntiAliasing
               id, tps, args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
             ).copiedFrom(fi)
 
-            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
+            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), funEffects(fd), env)
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
@@ -406,7 +406,7 @@ trait AntiAliasing
             ).copiedFrom(alr)
 
             val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
-            mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
+            mapApplication(fd.params, args, nfi, resultType, funEffects(fd), env)
 
           case app @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType
