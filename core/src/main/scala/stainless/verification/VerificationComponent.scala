@@ -102,24 +102,23 @@ class VerificationRun(override val pipeline: StainlessPipeline)
       val chooses = ChooseInjector(p)
       val implPrivateInlining = ImplPrivateInlining(p, context)
 
-      // We do not need to encode empty trees as chooses when generating the VCs,
-      // as we rely on having empty trees to filter out some VCs.
-      val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
-
-      if (debugAssertions.isEnabled) {
-        debugAssertions.debugEncoder(assertionEncoder)
-      }
-
       // Inline implementation private functions
-      val implPrivateEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(implPrivateInlining)
-      val vcGenEncoder = assertionEncoder andThen implPrivateEncoder
+      val implPrivateEncoder = inox.transformers.ProgramEncoder(p)(implPrivateInlining)
 
       if (debugImplPrivateInlining.isEnabled) {
         debugImplPrivateInlining.debugEncoder(implPrivateEncoder)
       }
 
+      // We do not need to encode empty trees as chooses when generating the VCs,
+      // as we rely on having empty trees to filter out some VCs.
+      val assertionEncoder = inox.transformers.ProgramEncoder(implPrivateEncoder.targetProgram)(assertions)
+
+      if (debugAssertions.isEnabled) {
+        debugAssertions.debugEncoder(assertionEncoder)
+      }
+
       // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
-      val chooseEncoder = inox.transformers.ProgramEncoder(assertionEncoder.targetProgram)(chooses)
+      val chooseEncoder = inox.transformers.ProgramEncoder(p)(chooses)
 
       if (debugChooses.isEnabled) {
         debugChooses.debugEncoder(chooseEncoder)
@@ -128,6 +127,8 @@ class VerificationRun(override val pipeline: StainlessPipeline)
       if (!functions.isEmpty) {
         reporter.debug(s"Generating VCs for functions: ${functions map { _.uniqueName } mkString ", "}")
       }
+
+      val vcGenEncoder = implPrivateEncoder andThen assertionEncoder
 
       val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
         context.timers.verification.get("type-checker").run {
@@ -140,7 +141,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         reporter.debug(s"Finished generating VCs")
       }
 
-      val fullEncoder = assertionEncoder andThen chooseEncoder
+      val fullEncoder = chooseEncoder
 
       val res =
         if (context.options.findOptionOrDefault(optAdmitVCs)) {
