@@ -194,14 +194,21 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         val ct = tcd.toType
         val objTpe = classTypeInHeap(ct)
 
-        (Seq("heap" :: HeapType, "x" :: HeapRefType), T(option)(objTpe), { case Seq(heap, x) =>
-          if_ (IsInstanceOf(MapApply(heap, x), objTpe)) {
-            C(some)(objTpe)(AsInstanceOf(MapApply(heap, x), objTpe))
-          } else_ {
-            C(none)(objTpe)()
+        (
+          Seq("heap" :: HeapType, "readsDom" :: HeapRefSetType, "x" :: HeapRefType),
+          T(option)(objTpe),
+          { case Seq(heap, readsDom, x) =>
+            Require(
+              ElementOfSet(x, readsDom),
+              if_ (IsInstanceOf(MapApply(heap, x), objTpe)) {
+                C(some)(objTpe)(AsInstanceOf(MapApply(heap, x), objTpe))
+              } else_ {
+                C(none)(objTpe)()
+              }
+            )
           }
-        })
-      })
+        )
+      } .copiedFrom(cd))
     }
 
     // Reduce all mutation to assignments of a local heap variable
@@ -264,6 +271,18 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             dummyHeapVd
           }
 
+        def expectReadsV(pos: Position, usage: String) =
+          readsVdOpt.map(_.toVariable) getOrElse {
+            self.context.reporter.error(pos, s"Cannot $usage without a reads clause")
+            EmptyHeapRefSet
+          }
+
+        def expectModifiesV(pos: Position, usage: String) =
+          modifiesVdOpt.map(_.toVariable) getOrElse {
+            self.context.reporter.error(pos, s"Cannot $usage without a modifies clause")
+            EmptyHeapRefSet
+          }
+
         def noModifications = copy(modifiesVdOpt = None)
         def writeAllowed = modifiesVdOpt.isDefined
       }
@@ -277,10 +296,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         Assume(iio, aio).copiedFrom(fromE)
       }
 
+      def checkedRecv(recv: Expr, inSet: Expr, msg: String, result: Expr, fromE: Expr): Expr =
+        Assert(ElementOfSet(recv, inSet).copiedFrom(fromE), Some(msg), result).copiedFrom(fromE)
+
       override def transform(e: Expr, env: Env): Expr = e match {
         // Reference equality is transformed into value equality on references
         case RefEq(e1, e2) =>
-          Equals(transform(e1, env), transform(e2, env))
+          Equals(transform(e1, env), transform(e2, env)).copiedFrom(e)
 
         case ClassConstructor(ct, args) if livesInHeap(ct) =>
           // TODO: Add mechanism to keep freshly allocated objects apart from older ones
@@ -297,10 +319,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         case ClassSelector(recv, field) if livesInHeap(recv.getType) =>
           val heapVd = env.expectHeapVd(e.getPos, "read from heap object")
+          val readsDom = env.expectReadsV(e.getPos, "read from heap object")
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
+
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
-            ClassSelector(valueFromHeap(recvRef, objTpe, heapVd, e), field).copiedFrom(e)
+            val sel = ClassSelector(valueFromHeap(recvRef, objTpe, heapVd, e), field).copiedFrom(e)
+            checkedRecv(recvRef, readsDom, "read object in reads set", sel, e)
           }
 
         case FieldAssignment(recv, field, value) if livesInHeap(recv.getType) =>
@@ -308,8 +333,10 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             self.context.reporter.error(e.getPos, "Can't modify heap in read-only context")
 
           val heapVd = env.expectHeapVd(e.getPos, "write to heap object")
+          val modifiesDom = env.expectModifiesV(e.getPos, "write to heap object")
           val ct = recv.getType.asInstanceOf[ClassType]
           val objTpe = classTypeInHeap(ct)
+
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
             val oldObj = valueFromHeap(recvRef, objTpe, heapVd, e)
             let("oldObj" :: objTpe, oldObj) { oldObj =>
@@ -320,15 +347,21 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
               }
               val newObj = ClassConstructor(newCt, newArgs).copiedFrom(e)
               val newHeap = MapUpdated(heapVd.toVariable, recvRef, newObj).copiedFrom(e)
-              Assignment(heapVd.toVariable, newHeap).copiedFrom(e)
+              val assgn = Assignment(heapVd.toVariable, newHeap).copiedFrom(e)
+              checkedRecv(recvRef, modifiesDom, "modified object in modifies set", assgn, e)
             }
           }
 
         case IsInstanceOf(recv, tpe) if livesInHeap(tpe) =>
           val heapVd = env.expectHeapVd(e.getPos, "runtime type-check on heap object")
+          val readsDom = env.expectReadsV(e.getPos, "runtime type-check heap object")
           val ct = tpe.asInstanceOf[ClassType]
-          val app = MapApply(heapVd.toVariable, transform(recv, env)).copiedFrom(e)
-          IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
+
+          smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
+            val app = MapApply(heapVd.toVariable, recvRef).copiedFrom(e)
+            val iio = IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
+            checkedRecv(recvRef, readsDom, "runtime type-checked object in reads set", iio, e)
+          }
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
           val targs1 = targs.map(transform(_, env))
@@ -340,16 +373,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
             case Some(writes) =>
               val heapVd = env.expectHeapVd(e.getPos, "effectful function call")
-              val readsDom = env.readsVdOpt.map(_.toVariable) getOrElse {
-                self.context.reporter.error(e.getPos,
-                  "Cannot call heap-reading function without a reads clause")
-                EmptyHeapRefSet
-              }
-              def modifiesDom = env.modifiesVdOpt.map(_.toVariable) getOrElse {
-                self.context.reporter.error(e.getPos,
-                  "Cannot call heap-modifying function without a modifies clause")
-                EmptyHeapRefSet
-              }
+              val readsDom = env.expectReadsV(e.getPos, "call heap-reading function")
+              lazy val modifiesDom = env.expectModifiesV(e.getPos, "call heap-modifying function")
 
               val extraArgs = Seq(heapVd.toVariable, readsDom) ++
                 (if (writes) Some(modifiesDom) else None)
@@ -359,7 +384,10 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
                 // Update the local heap variable and project out the the function result
                 val resTpe = T(typeOnlyRefTransformer.transform(fi.tfd.returnType), HeapType)
                 let("res" :: resTpe, call) { res =>
-                  Block(Seq(Assignment(heapVd.toVariable, res._2)), res._1)
+                  Block(
+                    Seq(Assignment(heapVd.toVariable, res._2).copiedFrom(e)),
+                    res._1
+                  ).copiedFrom(e)
                 }
               } else {
                 // Nothing to be done, if the callee only reads from but does not write to the heap
@@ -378,6 +406,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       override def transform(pat: Pattern, env: Env): Pattern = pat match {
         case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
           val heapVd = env.expectHeapVd(pat.getPos, "class pattern unapply")
+          val readsDom = env.expectReadsV(pat.getPos, "call heap-reading unapply")
           val newClassPat = ClassPattern(
             None,
             classTypeInHeap(ct),
@@ -385,7 +414,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           ).copiedFrom(pat)
           UnapplyPattern(
             binder.map(transform(_, env)),
-            Seq(heapVd.toVariable),
+            Seq(heapVd.toVariable, readsDom),
             unapplyId(ct.id),
             ct.tps.map(transform(_, env)),
             Seq(newClassPat)
@@ -417,7 +446,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       val readsVdOpt = if (reads) Some(freshRefSetVd("reads")) else None
       val modifiesVdOpt = if (writes) Some(freshRefSetVd("modifies")) else None
 
-      def specEnv(heapVdOpt: Option[ValDef]) =
+      def specEnv(heapVdOpt: Option[ValDef], readsVdOpt: Option[ValDef] = readsVdOpt) =
         funRefTransformer.Env(readsVdOpt, modifiesVdOpt = None, heapVdOpt)
       def bodyEnv(heapVdOpt: Option[ValDef]) =
         funRefTransformer.Env(readsVdOpt, modifiesVdOpt, heapVdOpt)
@@ -464,6 +493,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           }
           val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
           (spec.kind, newSpec.setPos(spec.getPos))
+
+        case spec: ReadsContract =>
+          // FIXME: Use reads domain in the reads clause for now until we have a way of
+          //   lifting them outside and after the binding.
+          //   This will result in a type-correct translation but to lots of failing VCs.
+          val env = specEnv(heapVdOpt0, readsVdOpt = readsDomVdOpt)
+          (spec.kind, spec.map(expr => funRefTransformer.transform(expr, env)))
 
         case spec =>
           val newSpec = spec.transform(expr =>
