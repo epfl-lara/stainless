@@ -23,6 +23,7 @@ object Allocation {
   @allocates
   def testFreshDoesNotAlias1(b1: Box): Unit = {
     val b2 = alloc
+    assert(b2.value == 0)
     b2.value += 1
   } ensuring { _ =>
     b1.value == old(b1.value)
@@ -30,7 +31,7 @@ object Allocation {
 
   @allocates
   def testFreshDoesNotAlias2(b1: Box): BigInt = {
-    val b2 = Box(0)
+    val b2 = alloc
     b1.value += 1
     b2.value
   } ensuring { res =>

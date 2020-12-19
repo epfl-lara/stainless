@@ -286,7 +286,7 @@ trait Trees extends oo.Trees with Definitions { self =>
       case _ => None
     }
   }
-  
+
   def getHeapRefId(ref: Expr): Expr = ADTSelector(ref, heapRefFieldId)
   def createHeapRef(id: Expr): Expr = ADT(heapRefCons, Seq(), Seq(id))
 }
