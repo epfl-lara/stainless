@@ -742,11 +742,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         val body =
           if (writes) {
             let("res" :: newReturnType, fi) { res =>
+              var modifiedRefs: Expr = modifiesVdOpt.get.toVariable
+              if (allocs && allocUsingSets)
+                modifiedRefs = modifiedRefs ++ (res._3 -- allocVdOpt0.get.toVariable)
+
               Tuple(
                 Seq(
                   res._1,
                   MapMerge(
-                    modifiesVdOpt.get.toVariable,
+                    modifiedRefs,
                     res._2,
                     heapVdOpt0.get.toVariable
                   ).copiedFrom(fd)

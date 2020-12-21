@@ -8,6 +8,7 @@ object Allocation {
 
   @allocates
   def subAllocated(bb: BoxBox): Box = {
+    reads(Set(bb))
     bb.box
   } ensuring { res =>
     allocated(res)
@@ -22,6 +23,7 @@ object Allocation {
 
   @allocates
   def testFreshDoesNotAlias1(b1: Box): Unit = {
+    reads(Set(b1))
     val b2 = alloc
     assert(b2.value == 0)
     b2.value += 1
