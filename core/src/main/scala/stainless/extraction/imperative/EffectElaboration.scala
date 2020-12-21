@@ -8,6 +8,19 @@ import inox.utils.Position
 
 object optCheckHeapContracts extends inox.FlagOptionDef("check-heap-contracts", true)
 
+// false = counter, true = set
+object optAllocImpl extends inox.OptionDef[Boolean] {
+  val name = "alloc-impl"
+  def default = false
+  def parser = {
+    case "counter" => Some(false)
+    case "set" => Some(true)
+    case _ => None
+  }
+  def usageRhs = "counter|set"
+  override def formatDefault = "counter"
+}
+
 // TODO(gsps): Ghost annotations are currently unchecked. Should be able to reuse `GhostChecker`.
 trait EffectElaboration
   extends oo.CachingPhase
@@ -139,7 +152,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
   import s._
   import dsl._
-  import self.context.reporter.error
+  import context.reporter.error
 
   lazy val checkHeapContracts = self.context.options.findOptionOrDefault(optCheckHeapContracts)
 
@@ -150,6 +163,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     id => FreshIdentifier(s"${id.name}__shim")
   )
 
+  // Switch between the two available implementations of allocation
+  lazy val allocUsingSets = context.options.findOptionOrDefault(optAllocImpl)
+
   /* The transformer */
 
   protected type TransformerContext <: RefTransformContext
@@ -159,6 +175,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
+
+    // The type of the allocation instrumentation
+    lazy val AllocInstrumType: Type =
+      if (allocUsingSets) HeapRefSetType
+      else IntegerType()
 
     lazy val dummyHeapVd = "dummyHeap" :: HeapType
     lazy val dummyHeapRefSetVd = "dummyHeapRefSet" :: HeapRefSetType
@@ -271,8 +292,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       private lazy val dummyHeapVd: ValDef = "dummyHeap" :: HeapRefSetType
 
       case class Env(
-        readsVdOpt: Option[ValDef],
-        modifiesVdOpt: Option[ValDef],
+        readsVdOptOpt: Option[Option[ValDef]],
+        modifiesVdOptOpt: Option[Option[ValDef]],
         heapVdOpt: Option[ValDef],
         allocVdOpt: Option[ValDef],
         allocAllowed: Boolean
@@ -283,16 +304,16 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             dummyHeapVd.toVariable
           }
 
-        def expectReadsV(pos: Position, usage: String): Variable =
-          readsVdOpt.map(_.toVariable) getOrElse {
-            error(pos, s"Cannot $usage without a reads clause")
-            dummyHeapRefSetVd.toVariable
+        def expectReadsV(pos: Position, usage: String): Option[Variable] =
+          readsVdOptOpt.map(_.map(_.toVariable)) getOrElse {
+            self.context.reporter.error(pos, s"Cannot $usage without a reads clause")
+            None
           }
 
-        def expectModifiesV(pos: Position, usage: String): Variable =
-          modifiesVdOpt.map(_.toVariable) getOrElse {
-            error(pos, s"Cannot $usage without a modifies clause")
-            dummyHeapRefSetVd.toVariable
+        def expectModifiesV(pos: Position, usage: String): Option[Variable] =
+          modifiesVdOptOpt.map(_.map(_.toVariable)) getOrElse {
+            self.context.reporter.error(pos, s"Cannot $usage without a modifies clause")
+            None
           }
 
         def expectAllocV(pos: Position, usage: String, alloc: Boolean = false): Variable =
@@ -325,17 +346,24 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           case _ =>
             result
         }
+        
+      def allocated(allocV: Variable, ref: Expr, fromE: Expr): Expr =
+        if (allocUsingSets) ElementOfSet(ref, allocV).copiedFrom(fromE)
+        else LessThan(getHeapRefId(ref), allocV)
+
+      def notAllocated(allocV: Variable, ref: Expr, fromE: Expr): Expr =
+        if (allocUsingSets) Not(ElementOfSet(ref, allocV).copiedFrom(fromE)).copiedFrom(fromE)
+        else GreaterEquals(getHeapRefId(ref), allocV).copiedFrom(fromE)
 
       def assumeAlloc(allocVdOpt: Option[ValDef], ref: Expr)(e: Expr): Expr =
         allocVdOpt map { allocVd =>
-          val isAllocated = LessThan(getHeapRefId(ref), allocVd.toVariable)
-          Assume(isAllocated, e)
+          Assume(allocated(allocVd.toVariable, ref, e), e).copiedFrom(e)
         } getOrElse e
 
       def transformReturnType(returnType: Type, writes: Boolean, allocs: Boolean): Type = {
         var retTypes = Seq(typeOnlyRefTransformer.transform(returnType)) ++
           (if (writes) Seq(HeapType) else Seq()) ++
-          (if (allocs) Seq(IntegerType()) else Seq())
+          (if (allocs) Seq(AllocInstrumType) else Seq())
         tupleTypeWrap(retTypes)
       }
 
@@ -348,12 +376,23 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           // To allocate, we need both the allocated set and the heap
           val allocatedV = env.expectAllocV(e.getPos, "allocate heap object", alloc = true)
           val heapV = env.expectHeapV(e.getPos, "allocate heap object")
-          val ref = Choose("ref" :: HeapRefType, BooleanLiteral(true)).copiedFrom(e)
-          let("ref" :: HeapRefType, ref) { ref =>
+
+          val freshRef =
+            if (allocUsingSets) {
+              choose("ref" :: HeapRefType) { ref =>
+                !allocatedV.contains(ref)
+              }.copiedFrom(e)
+            } else {
+              createHeapRef(allocatedV)
+            }
+
+          let("ref" :: HeapRefType, freshRef) { ref =>
             val ctNew = ClassType(ct.id, ct.tps.map(transform(_, env))).copiedFrom(ct)
             val value = ClassConstructor(ctNew, args.map(transform(_, env))).copiedFrom(e)
             val newHeap = MapUpdated(heapV, ref, value).copiedFrom(e)
-            val newAllocated = Plus(allocatedV, IntegerLiteral(1)).copiedFrom(e)
+            val newAllocated = 
+              if (allocUsingSets) SetAdd(allocatedV, ref).copiedFrom(e)
+              else Plus(allocatedV, IntegerLiteral(1)).copiedFrom(e)
             Block(
               Seq(
                 Assignment(allocatedV, newAllocated).copiedFrom(e),
@@ -483,7 +522,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         case Allocated(ref) =>
           val allocV = env.expectAllocV(e.getPos, "checking allocation")
-          LessThan(getHeapRefId(ref), allocV)
+          allocated(allocV, ref, e)
 
         case _ => super.transform(e, env)
       }
@@ -526,10 +565,10 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       val heapVdOpt0 = if (reads) Some("heap0" :: HeapType) else None
       val heapVdOpt1 = if (writes) Some("heap1" :: HeapType) else None
+      val allocVdOpt0 = if (allocs) Some("alloc0" :: AllocInstrumType) else None
+      val allocVdOpt1 = if (allocs) Some("alloc1" :: AllocInstrumType) else None
       val readsDomVdOpt = if (reads) Some("readsDom" :: HeapRefSetType) else None
       val modifiesDomVdOpt = if (writes) Some("modifiesDom" :: HeapRefSetType) else None
-      val allocVdOpt0 = if (allocs) Some("alloc0" :: IntegerType()) else None
-      val allocVdOpt1 = if (allocs) Some("alloc1" :: IntegerType()) else None
       val newRealParams = fd.params.map(typeOnlyRefTransformer.transform)
       val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt, allocVdOpt).flatten ++ newRealParams
       val newReturnType = transformReturnType(fd.returnType, writes, allocs)
@@ -543,9 +582,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       val modifiesVdOpt = if (writes) Some("modifies" :: HeapRefSetType) else None
 
       def specEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef], readsVdOpt: Option[ValDef] = readsVdOpt) =
-        funRefTransformer.Env(readsVdOpt, modifiesVdOpt = None, heapVdOpt, allocVdOpt, allocAllowed = false)
+        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt = None, heapVdOpt, allocVdOpt, allocAllowed = false)
       def bodyEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef]) =
-        funRefTransformer.Env(readsVdOpt, modifiesVdOpt, heapVdOpt, allocVdOpt, allocAllowed = true)
+        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt.map(Some(_)), heapVdOpt, allocVdOpt, allocAllowed = true)
 
       // Transform postcondition body
       def transformPost(post: Expr, resVd: ValDef, valueVd: ValDef): Expr = {
@@ -573,9 +612,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             if (!allocs)
               error(f.getPos, "Can't use 'fresh' in a non-allocating function")
 
-            val notInAlloc0 = GreaterEquals(getHeapRefId(ref), allocVdOpt0.getOrElse(dummyAllocVd).toVariable).copiedFrom(f)
-            val inAlloc1 = LessThan(getHeapRefId(ref), allocVdOpt1.getOrElse(dummyAllocVd).toVariable).copiedFrom(f)
-            Some(And(Seq(notInAlloc0, inAlloc1)).copiedFrom(f))
+            val notAlloc0 = funRefTransformer.notAllocated(allocVdOpt0.getOrElse(dummyAllocVd).toVariable, ref, f)
+            val alloc1 = funRefTransformer.allocated(allocVdOpt1.getOrElse(dummyAllocVd).toVariable, ref, f)
+            Some(And(Seq(notAlloc0, alloc1)).copiedFrom(f))
           
           case _ =>
             None
@@ -624,7 +663,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       val innerBodyOpt: Option[Expr] = specced.bodyOpt.map { body =>
         val heapVdOpt = if (writes) Some("heap" :: HeapType) else heapVdOpt0
-        val allocVdOpt = if (allocs) Some("alloc" :: IntegerType()) else None
+        val allocVdOpt = if (allocs) Some("alloc" :: AllocInstrumType) else None
 
         // We build the resulting expression and the enclosing var definitions
         var results = Seq(funRefTransformer.transform(body, bodyEnv(heapVdOpt, allocVdOpt)))
