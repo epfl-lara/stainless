@@ -338,11 +338,19 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         Assume(iio, aio).copiedFrom(fromE)
       }
 
-      def checkedRecv(recv: Expr, inSet: Option[Expr], msg: String, result: Expr,
+      def checkedRecv(recv: Expr, inSet: Option[Expr], allocAllowed: Boolean, msg: String, result: Expr,
                       fromE: Expr): Expr =
         inSet match {
           case Some(inSet) if checkHeapContracts =>
-            Assert(ElementOfSet(recv, inSet).copiedFrom(fromE), Some(msg), result).copiedFrom(fromE)
+            val isInSet = ElementOfSet(recv, inSet).copiedFrom(fromE)
+            val cond =
+              if (allocAllowed) {
+                Implies(
+                  Old(Allocated(recv).copiedFrom(fromE)).copiedFrom(fromE),
+                  isInSet
+                ).copiedFrom(fromE)
+              } else isInSet
+            Assert(cond, Some(msg), result).copiedFrom(fromE)
           case _ =>
             result
         }
@@ -409,12 +417,12 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           val objTpe = classTypeInHeap(ct)
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
             val sel = ClassSelector(valueFromHeap(recvRef, objTpe, heapV, e), field).copiedFrom(e)
-            val instrumAlloc = if (isHeapType(cs.getType) && env.allocVdOpt.isDefined) {
+            val checkedAlloc = if (isHeapType(cs.getType) && env.allocVdOpt.isDefined) {
               let("res" :: HeapRefType, sel) { res =>
                 assumeAlloc(env.allocVdOpt, res)(res)
               }
             } else sel
-            checkedRecv(recvRef, readsDom, "read object in reads set", sel, e)
+            checkedRecv(recvRef, readsDom, env.allocAllowed, "read object in reads set", checkedAlloc, e)
           }
 
         case FieldAssignment(recv, field, value) if isHeapType(recv.getType) =>
@@ -437,7 +445,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
               val newObj = ClassConstructor(newCt, newArgs).copiedFrom(e)
               val newHeap = MapUpdated(heapV, recvRef, newObj).copiedFrom(e)
               val assgn = Assignment(heapV, newHeap).copiedFrom(e)
-              checkedRecv(recvRef, modifiesDom, "modified object in modifies set", assgn, e)
+              checkedRecv(recvRef, modifiesDom, env.allocAllowed, "modified object in modifies set", assgn, e)
             }
           }
 
@@ -449,7 +457,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           smartLet("recv" :: HeapRefType, transform(recv, env)) { recvRef =>
             val app = MapApply(heapV, recvRef).copiedFrom(e)
             val iio = IsInstanceOf(app, classTypeInHeap(ct)).copiedFrom(e)
-            checkedRecv(recvRef, readsDom, "runtime type-checked object in reads set", iio, e)
+            checkedRecv(recvRef, readsDom, env.allocAllowed, "runtime type-checked object in reads set", iio, e)
           }
 
         case ObjectIdentity(recv) =>
@@ -665,8 +673,16 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         val heapVdOpt = if (writes) Some("heap" :: HeapType) else heapVdOpt0
         val allocVdOpt = if (allocs) Some("alloc" :: AllocInstrumType) else None
 
+        // We replace the `old` statements in the body
+        val withoutOld = postMap {
+          case o @ Old(e) =>
+            Some(funRefTransformer.transform(e, bodyEnv(heapVdOpt0, allocVdOpt0)))
+          case _ =>
+            None
+        } (funRefTransformer.transform(body, bodyEnv(heapVdOpt, allocVdOpt)))
+
         // We build the resulting expression and the enclosing var definitions
-        var results = Seq(funRefTransformer.transform(body, bodyEnv(heapVdOpt, allocVdOpt)))
+        var results = Seq(withoutOld)
         var varDefs: Seq[(ValDef, Expr)] = Seq()
 
         if (writes) {
