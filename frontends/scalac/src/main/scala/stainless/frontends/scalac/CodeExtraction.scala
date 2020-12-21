@@ -1518,22 +1518,36 @@ trait CodeExtraction extends ASTExtractors {
               Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
             ).setPos(c.pos)
 
-          case (StrictBVType(_, _), "+",      Seq(rhs)) => xt.Plus(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "-",      Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "*",      Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "%",      Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "mod",    Seq(rhs)) => xt.Modulo(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "/",      Seq(rhs)) => xt.Division(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), ">",      Seq(rhs)) => xt.GreaterThan(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), ">=",     Seq(rhs)) => xt.GreaterEquals(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "<",      Seq(rhs)) => xt.LessThan(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "<=",     Seq(rhs)) => xt.LessEquals(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "|",      Seq(rhs)) => xt.BVOr(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "&",      Seq(rhs)) => xt.BVAnd(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "^",      Seq(rhs)) => xt.BVXor(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), "<<",     Seq(rhs)) => xt.BVShiftLeft(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), ">>",     Seq(rhs)) => xt.BVAShiftRight(extractTree(lhs), extractTree(rhs))
-          case (StrictBVType(_, _), ">>>",    Seq(rhs)) => xt.BVLShiftRight(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "unary_-",  Seq())    => xt.UMinus(extractTree(lhs))
+          case (StrictBVType(_, _), "+",        Seq(rhs)) => xt.Plus(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "-",        Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "*",        Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "%",        Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "mod",      Seq(rhs)) => xt.Modulo(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "/",        Seq(rhs)) => xt.Division(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">",        Seq(rhs)) => xt.GreaterThan(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">=",       Seq(rhs)) => xt.GreaterEquals(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<",        Seq(rhs)) => xt.LessThan(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<=",       Seq(rhs)) => xt.LessEquals(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "|",        Seq(rhs)) => xt.BVOr(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "&",        Seq(rhs)) => xt.BVAnd(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "^",        Seq(rhs)) => xt.BVXor(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), "<<",       Seq(rhs)) => xt.BVShiftLeft(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">>",       Seq(rhs)) => xt.BVAShiftRight(extractTree(lhs), extractTree(rhs))
+          case (StrictBVType(_, _), ">>>",      Seq(rhs)) => xt.BVLShiftRight(extractTree(lhs), extractTree(rhs))
+
+          case (StrictBVType(signed, size), "widen",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (signed2 != signed) outOfSubsetError(tr, "Method `widen` must be used with a bitvector type of the same sign")
+              else if (size2 <= size) outOfSubsetError(tr, "Method `widen` must be used with a bitvector type of a larger size")
+              else xt.BVWideningCast(extractTree(lhs), xt.BVType(signed2, size2))
+          }
+          case (StrictBVType(signed, size), "narrow",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (signed2 != signed) outOfSubsetError(tr, "Method `narrow` must be used with a bitvector type of the same sign")
+              else if (size2 >= size) outOfSubsetError(tr, "Method `narrow` must be used with a bitvector type of a smaller size")
+              else xt.BVNarrowingCast(extractTree(lhs), xt.BVType(signed2, size2))
+          }
 
           case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
           case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)

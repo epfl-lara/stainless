@@ -61,4 +61,16 @@ object BitVectors1 {
     assert(n >> 1 == n / 2)
   }
 
+  def test13(n: UInt10) = {
+    require(n == 42)
+    val m = n.widen[UInt14]
+    assert(m == 42)
+  }
+
+  def test14(n: UInt10) = {
+    require(n == 42)
+    val m = n.narrow[UInt3]
+    assert(m == 2)
+  }
+
 }

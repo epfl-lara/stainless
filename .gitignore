@@ -101,6 +101,7 @@ null
 .bloop/
 project/.bloop/
 project/project/
+.bsp
 
 # ripgrep
 .rgignore
