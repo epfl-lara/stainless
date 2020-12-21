@@ -1056,6 +1056,7 @@ object BitVectors {
 
   case class BV[T <: BVKind with Singleton](underlying: BitSet) {
 
+    def unary_- :           BV[T]   = { ??? }
     def +(other: BV[T]):    BV[T]   = { ??? }
     def -(other: BV[T]):    BV[T]   = { ??? }
     def *(other: BV[T]):    BV[T]   = { ??? }
@@ -1073,7 +1074,8 @@ object BitVectors {
     def >>(other: BV[T]):   BV[T]   = { ??? }
     def >>>(other: BV[T]):  BV[T]   = { ??? }
 
-    def changeBVKind[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+    def widen [X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+    def narrow[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
   }
 
 }

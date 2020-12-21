@@ -50,7 +50,7 @@ object VCKind {
       else if (err.startsWith("Map ")) VCKind.MapUsage
       else if (err.endsWith("Overflow")) VCKind.Overflow
       else if (err.startsWith("Shift")) VCKind.Shift
-      else if (err.startsWith("Division ")) VCKind.DivisionByZero
+      else if (err.startsWith("Division by zero")) VCKind.DivisionByZero
       else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
       else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
       else if (err.startsWith("Cast ")) VCKind.CastError
