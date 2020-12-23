@@ -535,7 +535,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         case Allocated(ref) =>
           val allocV = env.expectAllocV(e.getPos, "checking allocation")
-          allocated(allocV, ref, e)
+          allocated(allocV, transform(ref, env), e)
 
         case _ => super.transform(e, env)
       }
