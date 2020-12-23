@@ -382,16 +382,21 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         case ClassConstructor(ct, args) if isHeapType(ct) =>
           // To allocate, we need both the allocated set and the heap
-          val allocatedV = env.expectAllocV(e.getPos, "allocate heap object", alloc = true)
+          val allocV = env.expectAllocV(e.getPos, "allocate heap object", alloc = true)
           val heapV = env.expectHeapV(e.getPos, "allocate heap object")
 
           val freshRef =
             if (allocUsingSets) {
-              choose("ref" :: HeapRefType) { ref =>
-                !allocatedV.contains(ref)
-              }.copiedFrom(e)
+              Assume(
+                !forall("ref" :: HeapRefType) { ref =>
+                  allocated(allocV, ref, e)
+                },
+                choose("ref" :: HeapRefType) { ref =>
+                  !allocV.contains(ref)
+                }.copiedFrom(e)
+              )
             } else {
-              createHeapRef(allocatedV)
+              createHeapRef(allocV)
             }
 
           let("ref" :: HeapRefType, freshRef) { ref =>
@@ -399,11 +404,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             val value = ClassConstructor(ctNew, args.map(transform(_, env))).copiedFrom(e)
             val newHeap = MapUpdated(heapV, ref, value).copiedFrom(e)
             val newAllocated = 
-              if (allocUsingSets) SetAdd(allocatedV, ref).copiedFrom(e)
-              else Plus(allocatedV, IntegerLiteral(1)).copiedFrom(e)
+              if (allocUsingSets) SetAdd(allocV, ref).copiedFrom(e)
+              else Plus(allocV, IntegerLiteral(1)).copiedFrom(e)
             Block(
               Seq(
-                Assignment(allocatedV, newAllocated).copiedFrom(e),
+                Assignment(allocV, newAllocated).copiedFrom(e),
                 Assignment(heapV, newHeap).copiedFrom(e)
               ),
               ref
