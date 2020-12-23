@@ -607,7 +607,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         val outerFd = {
           val fd = makeOuterFd(Some(outerBody), freshen = true)
-          fd.copy(flags = fd.flags.filterNot(_ == Extern))
+          val extraFlags = if (newFlags.contains(Extern)) Seq(t.Unchecked) else Seq.empty
+          fd.copy(flags = newFlags.filterNot(_ == Extern) ++ extraFlags)
         }
 
         // TODO: Drop `readsDom` and `modifiesDom`?
