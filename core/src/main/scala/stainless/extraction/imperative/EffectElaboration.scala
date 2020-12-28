@@ -597,7 +597,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       def specEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef], readsVdOpt: Option[ValDef] = readsVdOpt) =
         funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt = None, heapVdOpt, allocVdOpt, allocAllowed = false)
       def bodyEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef]) =
-        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt.map(Some(_)), heapVdOpt, allocVdOpt, allocAllowed = true)
+        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt.map(Some(_)), heapVdOpt, allocVdOpt, allocVdOpt.isDefined)
 
       // Transform postcondition body
       def transformPost(post: Expr, resVd: ValDef, valueVd: ValDef): Expr = {
