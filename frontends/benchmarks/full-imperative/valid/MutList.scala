@@ -64,6 +64,30 @@ object MutListExample {
           @ghost val unused = check(valid)
       }
     } ensuring { _ => valid }
+
+    @allocates
+    def prepend(newHead: BigInt): Unit = {
+      reads(repr.content ++ Set(this))
+      modifies(Set(this))
+      require(valid)
+      
+      val newNode = Node(value, nextOpt, Nil[AnyHeapRef])
+      newNode.repr = newNode :: repr.tail
+      nextOpt = Some(newNode)
+      value = newHead
+      repr = this :: newNode.repr
+    } ensuring { _ =>
+      valid && nextOpt.isDefined && fresh(nextOpt.get)
+    }
+  }
+
+  object Node {
+    @allocates
+    def apply(value: BigInt): Node = {
+      val newNode = Node(value, None[Node], Nil[AnyHeapRef])
+      newNode.repr = List(newNode)
+      newNode
+    } ensuring(fresh(_))
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {

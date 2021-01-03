@@ -325,8 +325,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             dummyAllocVd.toVariable
           }
 
-        def noModifications = copy(modifiesVdOpt = None)
-        def writeAllowed = modifiesVdOpt.isDefined
+        def allowAllReads = copy(readsVdOptOpt = Some(None))
+        def writeAllowed = modifiesVdOptOpt.isDefined
       }
 
       def initEnv: Env = ???  // unused
@@ -503,8 +503,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
               // We add the extra arguments to the call
               if (writes)
-                newArgs +:= modifiesDom
-              newArgs ++:= Seq(heapV, readsDom)
+                newArgs +:= modifiesDom.getOrElse(EmptyHeapRefSet)
+              newArgs ++:= Seq(heapV, readsDom.getOrElse(EmptyHeapRefSet))
 
               // If the function writes to the heap, we also extract the modified heap
               if (writes)
@@ -541,7 +541,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       }
 
       override def transform(pat: Pattern, env: Env): Pattern = pat match {
-        case ClassPattern(binder, ct, subPats) if livesInHeap(ct) =>
+        case ClassPattern(binder, ct, subPats) if isHeapType(ct) =>
           val heapV = env.expectHeapV(pat.getPos, "class pattern unapply")
 
           import OptionSort._
@@ -583,19 +583,16 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       val readsDomVdOpt = if (reads) Some("readsDom" :: HeapRefSetType) else None
       val modifiesDomVdOpt = if (writes) Some("modifiesDom" :: HeapRefSetType) else None
       val newRealParams = fd.params.map(typeOnlyRefTransformer.transform)
-      val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt, allocVdOpt).flatten ++ newRealParams
-      val newReturnType = transformReturnType(fd.returnType, writes, allocs)
-
-      val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt, allocVdOpt0).flatten ++
-        fd.params.map(typeOnlyRefTransformer.transform)
       val newReturnType = funRefTransformer.transformReturnType(fd.returnType, writes, allocs)
+      val newParams = Seq(heapVdOpt0, allocVdOpt0).flatten ++ newRealParams
+      val newShimParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt, allocVdOpt0).flatten ++ newRealParams
 
       // Let-bindings to this function's `reads` and `modifies` contract sets
       val readsVdOpt = if (reads) Some("reads" :: HeapRefSetType) else None
       val modifiesVdOpt = if (writes) Some("modifies" :: HeapRefSetType) else None
 
       def specEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef], readsVdOpt: Option[ValDef] = readsVdOpt) =
-        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt = None, heapVdOpt, allocVdOpt, allocAllowed = false)
+        funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOptOpt = None, heapVdOpt, allocVdOpt, allocAllowed = false)
       def bodyEnv(heapVdOpt: Option[ValDef], allocVdOpt: Option[ValDef]) =
         funRefTransformer.Env(readsVdOpt.map(Some(_)), modifiesVdOpt.map(Some(_)), heapVdOpt, allocVdOpt, allocVdOpt.isDefined)
 
@@ -653,7 +650,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           } else {
             (resVd, transformPost(post, resVd, resVd))
           }
-          val newSpec = Postcondition(Lambda(Seq(resVd2), post2).copiedFrom(lam))
+          val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
           (spec.kind, newSpec.setPos(spec.getPos))
 
         case spec =>
@@ -663,7 +660,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       // Transform reads spec in a way that doesn't depend on the final `readsVdOpt`
       val newIndependentReadsExpr = specced.specs.collectFirst {
         case spec: ReadsContract =>
-          val env = specEnv(heapVdOpt0).allowAllReads
+          val env = specEnv(heapVdOpt0, allocVdOpt0).allowAllReads
           spec.map(expr => funRefTransformer.transform(expr, env)).expr
       } .getOrElse(EmptyHeapRefSet)
 
