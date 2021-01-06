@@ -52,6 +52,8 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
+    context.reporter.terminateIfFatal()
+
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)
       .withFunctions(currentFunctions)

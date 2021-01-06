@@ -65,6 +65,8 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   final override def failed(): Unit = ()
 
   final override def endExtractions(): Unit = {
+    reporter.terminateIfFatal()
+
     symbols = LibraryFilter.removeLibraryFlag(symbols)
 
     processSymbols(symbols)
