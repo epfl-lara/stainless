@@ -14,11 +14,12 @@ object Allocation {
     allocated(res)
   }
 
+  @extern
   @allocates
   def alloc: Box = {
     Box(0)
   } ensuring {
-    res => fresh(res)
+    res => fresh(res) && res.value == 0
   }
 
   @allocates
@@ -39,4 +40,9 @@ object Allocation {
   } ensuring { res =>
     res == 0
   }
+
+  // @allocates
+  // def allocTwice: Unit = {
+
+  // }
 }

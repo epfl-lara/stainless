@@ -7,7 +7,7 @@ object ExternAlloc {
 
   @extern
   @allocates
-  def externAlloc: Box = {
+  def alloc: Box = {
     Box(0)
   } ensuring { res =>
     fresh(res)
@@ -16,8 +16,17 @@ object ExternAlloc {
   @allocates
   def test(b1: Box): Unit = {
     reads(Set(b1))
-    val b2 = externAlloc
+    val b2 = alloc
   } ensuring {
     b1.value == old(b1.value)
+  }
+
+  @allocates
+  def allocTwice: (AnyHeapRef, AnyHeapRef) = {
+    val b1 = alloc
+    val b2 = alloc
+    (b1, b2)
+  } ensuring { res =>
+    fresh(res._1) && fresh(res._2) && res._1 != res._2
   }
 }

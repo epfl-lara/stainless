@@ -6,9 +6,9 @@ object Allocation {
 
   @allocates
   def allocPrefetching(bb: BoxBox): Unit = {
-    // Allocation prefetching: removing this precondition makes it fail to verify 
-    require(allocated(bb.box))
     reads(Set(bb))
+    // Allocation prefetching: removing this precondition makes it fail to verify 
+    assert(allocated(bb.box))
     val newBox = Box(0)
     val oldBox = bb.box
     assert(newBox != oldBox)

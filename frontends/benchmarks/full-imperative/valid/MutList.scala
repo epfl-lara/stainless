@@ -14,7 +14,6 @@ object MutListExample {
       decreases(repr.size)
 
       nextOpt match {
-        case None() =>
           repr == List(this)
         case Some(next) =>
           repr.content.contains(next) &&
@@ -23,10 +22,6 @@ object MutListExample {
           !next.repr.content.contains(this) &&
           next.valid
       }
-    }
-
-    def size: BigInt = {
-      reads(repr.content ++ Set(this))
       require(valid)
       decreases(repr.size)
 

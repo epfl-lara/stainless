@@ -598,17 +598,17 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       // Transform postcondition body
       def transformPost(post: Expr, resVd: ValDef, valueVd: ValDef): Expr = {
+        // Transform postcondition body in post-state (ignoring `old(...)` parts)
+        val post1 = funRefTransformer.transform(post, specEnv(heapVdOpt1, allocVdOpt1))
+
         // Rewrite the value result variable (used if `resVd` now also contains the heap state)
         val replaceRes = resVd != valueVd
-        val post1 = postMap {
+        val post2 = postMap {
           case v: Variable if replaceRes && v.id == resVd.id =>
             Some(valueVd.toVariable.copiedFrom(v))
           case _ =>
             None
-        } (post)
-
-        // Transform postcondition body in post-state (ignoring `old(...)` parts)
-        val post2 = funRefTransformer.transform(post1, specEnv(heapVdOpt1, allocVdOpt1))
+        } (post1)
 
         // Transform `old(...)` and `fresh(...)`
         postMap {
