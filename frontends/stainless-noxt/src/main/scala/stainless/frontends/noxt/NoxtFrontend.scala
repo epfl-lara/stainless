@@ -16,6 +16,10 @@ object NoxtFrontend {
     import scala.collection.mutable.HashMap
     val newIds: HashMap[Identifier, Identifier] = HashMap.empty
 
+    // HACK: keying this by symbol path is a hack to ensure that same symbol
+    // paths get the same symbol.id
+    val newSymbols: HashMap[Seq[String], ast.Symbol] = HashMap.empty
+
     // Since Identifiers in the given deserialized symbols were created externally, we need
     // to avoid Stainless from potentially creating duplicate ids at a later point.
     // We therefore replace replace all the deserialized ids by fresh ones.
@@ -23,9 +27,12 @@ object NoxtFrontend {
       newIds.getOrElseUpdate(id, {
         id match {
           case id: xt.SymbolIdentifier =>
-            new xt.SymbolIdentifier(FreshIdentifier(id.name), ast.Symbol(id.symbol.path))
-          case _ =>
-            FreshIdentifier(id.name)
+            new xt.SymbolIdentifier(
+              FreshIdentifier(id.name),
+              newSymbols.getOrElseUpdate(id.symbol.path, ast.Symbol(id.symbol.path))
+            )
+
+          case _ =>  FreshIdentifier(id.name)
         }
       })
     }
