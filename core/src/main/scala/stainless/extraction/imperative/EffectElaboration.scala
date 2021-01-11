@@ -434,8 +434,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       val heapVdOpt0 = if (reads) Some(freshStateParam()) else None
       val readsDomVdOpt = if (reads) Some(freshRefSetVd("readsDom")) else None
       val modifiesDomVdOpt = if (writes) Some(freshRefSetVd("modifiesDom")) else None
-      val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt).flatten ++
-        fd.params.map(typeOnlyRefTransformer.transform)
+      val newRealParams = fd.params.map(typeOnlyRefTransformer.transform)
+      val newParams = Seq(heapVdOpt0, readsDomVdOpt, modifiesDomVdOpt).flatten ++ newRealParams
 
       val newReturnType = {
         val newReturnType1 = typeOnlyRefTransformer.transform(fd.returnType)
@@ -499,13 +499,22 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           //   lifting them outside and after the binding.
           //   This will result in a type-correct translation but to lots of failing VCs.
           val env = specEnv(heapVdOpt0, readsVdOpt = readsDomVdOpt)
-          (spec.kind, spec.map(expr => funRefTransformer.transform(expr, env)))
+          (spec.kind, spec.transform(expr => funRefTransformer.transform(expr, env)))
 
         case spec =>
           val newSpec = spec.transform(expr =>
             funRefTransformer.transform(expr, specEnv(heapVdOpt0)))
           (spec.kind, newSpec)
       } .toMap
+
+      // Transform reads spec in a way that doesn't depend on `readsVdOpt`
+      val newUncheckedReadsExpr = specced.specs.collectFirst {
+        case spec: ReadsContract =>
+          val env = specEnv(heapVdOpt0, readsVdOpt = readsDomVdOpt) // Just use `readsDom` instead.
+          val newExpr = spec.transform(expr => funRefTransformer.transform(expr, env))
+            .asInstanceOf[ReadsContract].expr
+          Annotated(newExpr, Seq(DropVCs)).copiedFrom(newExpr)
+      } .getOrElse(EmptyHeapRefSet)
 
       // Translate `reads` and `modifies` into additional precondition
       val newSpecs: Seq[Specification] = Seq(
@@ -539,21 +548,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       }
 
       // Rebuild full body, potentially adding bindings for `reads` and `modifies` sets
-      def wrapHeapContractBindings(body: Expr): Expr = {
+      def wrapHeapContractBindings(body: Expr, readsExpr: => Expr, modifiesExpr: => Expr): Expr = {
         def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
           vdOpt match {
             case Some(vd) => Let(vd, value, body).copiedFrom(body)
             case None => body
           }
 
-        maybeLetWrap(
-          readsVdOpt,
-          newSpecsMap.get(ReadsKind).map(_.asInstanceOf[ReadsContract].expr)
-            .getOrElse(EmptyHeapRefSet),
-          maybeLetWrap(
-            modifiesVdOpt,
-            newSpecsMap.get(ModifiesKind).map(_.asInstanceOf[ModifiesContract].expr)
-              .getOrElse(EmptyHeapRefSet),
+        maybeLetWrap(readsVdOpt, readsExpr,
+          maybeLetWrap(modifiesVdOpt, modifiesExpr,
             body))
       }
 
@@ -562,7 +565,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       def makeOuterFd(bodyOpt: Option[Expr], freshen: Boolean): FunDef = {
         val fullBody = wrapHeapContractBindings(
-          specced.withBody(bodyOpt, newReturnType).copy(specs = newSpecs).reconstructed)
+          specced.withBody(bodyOpt, newReturnType).copy(specs = newSpecs).reconstructed,
+          readsExpr = newUncheckedReadsExpr,
+          modifiesExpr = newSpecsMap.get(ModifiesKind)
+            .map(_.asInstanceOf[ModifiesContract].expr).getOrElse(EmptyHeapRefSet)
+        )
         new FunDef(
           fd.id,
           newTParams,
@@ -577,16 +584,18 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         // If a function involves the heap we split it into
         // - an outer function that projects the heap according to the reads and modifies clauses,
         // - an inner function containing the implementation.
-        // The outer function inherits all the specs, whereas the inner function will unchecked.
-        val outerBody = {
+        // The outer function inherits all the specs, whereas the inner function will be unchecked.
+        val outerBody1 = {
+          val heapArg = MapMerge(
+            readsVdOpt.get.toVariable,
+            heapVdOpt0.get.toVariable,
+            EmptyHeap
+          ).copiedFrom(fd)
           val fi = FunctionInvocation(
             innerId(fd.id),
             newTParams.map(_.tp),
-            MapMerge(
-              readsVdOpt.get.toVariable,
-              heapVdOpt0.get.toVariable,
-              EmptyHeap
-            ).copiedFrom(fd) +: newParams.tail.map(_.toVariable)
+            Seq(heapArg, readsVdOpt.get.toVariable) ++ modifiesVdOpt.map(_.toVariable) ++
+              newRealParams.map(_.toVariable)
           ).copiedFrom(fd)
 
           if (writes) {
@@ -605,23 +614,42 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           }
         }
 
+        // We duplicate the reads clause to compensate for it being unchecked in `makeOuterFd`.
+        // This solves an issue with bootstrapping reads checks: The reads clause should be subject
+        // to its own restrictions (i.e., it must not read outside the reads clause), but we cannot
+        // refer to `readsVdOpt` while defining it. Instead, we first translate the reads clause
+        // without checks in `makeOuterFd` and insert an additional, checked copy here.
+        val outerBody2 = newSpecsMap.get(ReadsKind) match {
+          case Some(newReadsSpec) =>
+            val newReadsExpr = newReadsSpec.asInstanceOf[ReadsContract].expr
+            Block(Seq(newReadsExpr), outerBody1).copiedFrom(outerBody1)
+          case None =>
+            outerBody1
+        }
+
         val outerFd = {
-          val fd = makeOuterFd(Some(outerBody), freshen = true)
-          val extraFlags = if (newFlags.contains(Extern)) Seq(t.Unchecked) else Seq.empty
+          val fd = makeOuterFd(Some(outerBody2), freshen = true)
+          // FIXME: Reads and modifies should be checked even for extern functions.
+          val extraFlags = if (newFlags.contains(Extern)) Seq(t.DropVCs) else Seq.empty
           fd.copy(flags = newFlags.filterNot(_ == Extern) ++ extraFlags)
         }
 
-        // TODO: Drop `readsDom` and `modifiesDom`?
-        val extraFlags =
-          if (newFlags.contains(Extern)) Seq.empty
-          else Seq(t.Synthetic, t.DropVCs, t.ImplPrivate)
-        val innerFd = freshenSignature(outerFd.copy(
-          id = innerId(fd.id),
-          // params = newParamsWithoutReadsDomAndModifiesDom,
-          fullBody = wrapHeapContractBindings(
-            innerBodyOpt.getOrElse(NoTree(newReturnType).copiedFrom(fd))),
-          flags = (newFlags ++ extraFlags).distinct
-        ).copiedFrom(fd))
+        val innerFd = {
+          val fullBody = wrapHeapContractBindings(
+            innerBodyOpt.getOrElse(NoTree(newReturnType).copiedFrom(fd)),
+            readsExpr = readsDomVdOpt.get.toVariable,
+            modifiesExpr = modifiesDomVdOpt.map(_.toVariable).getOrElse(EmptyHeapRefSet))
+
+          val extraFlags =
+            if (newFlags.contains(Extern)) Seq.empty
+            else Seq(t.Synthetic, t.DropVCs, t.ImplPrivate)
+
+          freshenSignature(outerFd.copy(
+            id = innerId(fd.id),
+            fullBody = fullBody,
+            flags = (newFlags ++ extraFlags).distinct
+          ).copiedFrom(fd))
+        }
 
         Seq(outerFd, innerFd)
 
