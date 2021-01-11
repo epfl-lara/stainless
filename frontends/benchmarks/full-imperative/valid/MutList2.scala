@@ -1,4 +1,4 @@
-
+/*
 import stainless.lang._
 import stainless.collection._
 import stainless.lang.Option._
@@ -47,3 +47,4 @@ object MutList2Example {
   //   assert(h1 == h2)
   // }
 }
+*/

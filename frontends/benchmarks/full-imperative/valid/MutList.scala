@@ -13,8 +13,12 @@ object MutListExample {
       decreases(repr.size)
 
       nextOpt match {
-        case None() => repr == List(this)
-        case Some(next) => repr == this :: next.repr && next.valid
+        case None() =>
+          repr == List(this)
+        case Some(next) =>
+          repr.nonEmpty && repr.tail.nonEmpty && repr.tail.head == next && // "next ∈ repr"
+          repr == this :: next.repr &&
+          next.valid
       }
     }
 
