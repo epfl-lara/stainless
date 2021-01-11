@@ -10,7 +10,11 @@ import extraction.xlang.{ TreeSanitizer, trees => xt }
 class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
 
   override def configurations = super.configurations.map {
-    seq => Seq(extraction.imperative.optFullImperative(true), optFailEarly(true)) ++ seq
+    seq => Seq(
+      extraction.imperative.optFullImperative(true),
+      optFailEarly(true),
+      inox.optTimeout(60)
+    ) ++ seq
   }
 
   override protected def optionsString(options: inox.Options): String = ""

@@ -1,11 +1,11 @@
-
+/*
 import stainless.lang._
 import stainless.collection._
 import stainless.lang.Option._
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-object MutListExample {
+object MutListExample2 {
   case class MutList(root: Option[Node], var repr: List[AnyHeapRef]) extends AnyHeapRef {
     def validFrom(nodeOpt: Option[Node], repr: List[AnyHeapRef]): Boolean = {
       reads(repr.content ++ (if (nodeOpt.isDefined) Set(nodeOpt.get) else Set()))
@@ -47,3 +47,4 @@ object MutListExample {
   //   assert(h1 == h2)
   // }
 }
+*/
