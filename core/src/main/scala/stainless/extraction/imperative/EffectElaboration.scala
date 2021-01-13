@@ -761,8 +761,30 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           if (writes) {
             let("res" :: newReturnType, fi) { res =>
               var modifiedRefs: Expr = modifiesVdOpt.get.toVariable
-              if (allocs && allocUsingSets)
-                modifiedRefs = modifiedRefs ++ (res._3 -- allocVdOpt0.get.toVariable)
+              if (allocs) {
+                if (allocUsingSets) modifiedRefs = modifiedRefs ++ (res._3 -- allocVdOpt0.get.toVariable)
+                // TODO: quantifiers inside choose aren't allowed -> find another way for the counter encoding
+                // else {
+                //   modifiedRefs = modifiedRefs ++ choose("set" :: HeapRefSetType) { set =>
+                //     forall("ref" :: HeapRefType) { ref =>
+                //       val refId = getHeapRefId(ref)
+                //       val inSet = ElementOfSet(ref, set)
+                //       val inRange = And(Seq(
+                //         GreaterEquals(refId, allocVdOpt0.get.toVariable),
+                //         LessThan(refId, res._3)
+                //       ))
+                //       Equals(inSet, inRange)
+                //     }
+                //   }
+                // }
+              }
+
+              val allocRes = if (allocs) {
+                val allocIncreased =
+                  if (allocUsingSets) SubsetOf(allocVdOpt0.get.toVariable, res._3)
+                  else LessEquals(allocVdOpt0.get.toVariable, res._3)
+                Some(Assume(allocIncreased, res._3))
+              } else None
 
               Tuple(
                 Seq(
@@ -772,8 +794,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
                     res._2,
                     heapVdOpt0.get.toVariable
                   ).copiedFrom(fd)
-                ) ++
-                (if (allocs) Seq(res._3) else Seq())
+                ) ++ allocRes.toSeq
               )
             }
           } else {
