@@ -52,12 +52,27 @@ trait AssertionInjector extends transformers.TreeTransformer {
         ti
       ).copiedFrom(i), transform(v)).copiedFrom(e)
 
-    case sel @ s.ADTSelector(expr, _) =>
-      t.Assert(
-        t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
-        Some("Cast error"),
+    // case sel @ s.ADTSelector(expr, _) =>
+    //   t.Assert(
+    //     t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
+    //     Some("Cast error"),
+    //     super.transform(e)
+    //   ).copiedFrom(e)
+
+    // FIXME.
+    case sel @ s.ADTSelector(expr, field) =>
+      import t.dsl._
+      val recvTpe @ s.ADTType(_, _) = expr.getType
+      if (recvTpe.getSort.definition.constructors.size > 1)
+        let("recv" :: transform(expr.getType), transform(expr)) { recv =>
+          t.Assert(
+            t.IsConstructor(recv, sel.constructor.id).copiedFrom(e),
+            Some("Cast error"),
+            t.ADTSelector(recv, field).copiedFrom(e)
+          ).copiedFrom(e)
+        }.copiedFrom(e)
+      else
         super.transform(e)
-      ).copiedFrom(e)
 
     case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)
