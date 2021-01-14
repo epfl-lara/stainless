@@ -494,13 +494,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
           (spec.kind, newSpec.setPos(spec.getPos))
 
-        case spec: ReadsContract =>
-          // FIXME: Use reads domain in the reads clause for now until we have a way of
-          //   lifting them outside and after the binding.
-          //   This will result in a type-correct translation but to lots of failing VCs.
-          val env = specEnv(heapVdOpt0, readsVdOpt = readsDomVdOpt)
-          (spec.kind, spec.transform(expr => funRefTransformer.transform(expr, env)))
-
         case spec =>
           val newSpec = spec.transform(expr =>
             funRefTransformer.transform(expr, specEnv(heapVdOpt0)))
@@ -631,7 +624,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           val fd = makeOuterFd(Some(outerBody2), freshen = true)
           // FIXME: Reads and modifies should be checked even for extern functions.
           val extraFlags = if (newFlags.contains(Extern)) Seq(t.DropVCs) else Seq.empty
-          fd.copy(flags = newFlags.filterNot(_ == Extern) ++ extraFlags)
+          fd.copy(
+            flags = (newFlags.filterNot(_ == Extern) ++ extraFlags ++ Seq(InlineOnce)).distinct)
         }
 
         val innerFd = {
