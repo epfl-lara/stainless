@@ -76,16 +76,17 @@ trait AssertionInjector extends transformers.TreeTransformer {
         ).copiedFrom(e)
       }}}
 
-    case sel @ s.ADTSelector(expr, selector) =>
-      val newExpr = transform(expr)
-      if (sel.constructor.sort.constructors.size == 1) t.ADTSelector(newExpr, selector).copiedFrom(e)
-      else {
-        t.Assert(
-          t.IsConstructor(newExpr, sel.constructor.id).copiedFrom(e),
-          Some("Cast error"),
-          t.ADTSelector(newExpr, selector)
-        ).copiedFrom(e)
-      }
+    case sel @ s.ADTSelector(recv, selector) =>
+      if (sel.constructor.sort.constructors.size == 1)
+        t.ADTSelector(transform(recv), selector).copiedFrom(e)
+      else
+        bindIfCannotDuplicate(recv, "recv") { recvx =>
+          t.Assert(
+            t.IsConstructor(recvx, sel.constructor.id).copiedFrom(e),
+            Some("Cast error"),
+            t.ADTSelector(recvx, selector)
+          ).copiedFrom(e)
+        }
 
     case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>

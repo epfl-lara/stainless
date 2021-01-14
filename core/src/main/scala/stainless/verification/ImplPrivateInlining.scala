@@ -45,7 +45,8 @@ trait ImplPrivateInlining extends transformers.TreeTransformer {
 
     val freshened = exprOps.freshenLocals(result)
 
-    transform(freshened)
+    // NOTE: We assume that there is nothing further to IP-inline in ImplPrivate bodies
+    freshened
   }
 }
 
@@ -67,7 +68,11 @@ object ImplPrivateInlining {
 
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.collect {
-          case fd if !fd.flags.contains(t.ImplPrivate) =>
+          case fd if fd.flags.contains(t.ImplPrivate) =>
+            // We assume there is nothing to IP-inline in ImplPrivate functions
+            fd
+
+          case fd =>
             val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
             val newSpecced = specced.copy(
               specs = specced.specs.map(_.transform(inlining.transform(_))),
