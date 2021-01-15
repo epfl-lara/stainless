@@ -18,17 +18,31 @@ object Queue {
 
     @ghost
     def valid: Boolean = {      
-      reads(Set(this, first))
+      reads(nodes.content ++ Set(this, first))
       size == nodes.size &&
       !nodes.contains(first) &&
-      (first.nextOpt.isEmpty ||
-       (nodes.contains(first.nextOpt.get) && nodes.contains(last)))
+      inv(nodes, first.nextOpt)
     }
 
-    // first node is not used
+    @ghost
+    def inv(nodesLeft: List[AnyHeapRef], current: Option[Node]): Boolean = {
+      reads(nodesLeft.content ++ Set(this))
+      decreases(nodesLeft.size)
+      
+      nodesLeft match {
+        case Cons(hh, tail) => {
+          hh.isInstanceOf[Node] &&
+          ({
+            val h = hh.asInstanceOf[Node]
+            current == Some(h)  &&  inv(tail, h.nextOpt)
+          })
+        }
+        case Nil() => current==None()
+      }
+    }    
   
     def enqueue(n: Node): Unit = {
-      reads(Set(this, first))
+      reads(nodes.content ++ Set(this, first))
       require(valid && !nodes.contains(n))
       modifies(Set(this, last))
 
@@ -39,7 +53,7 @@ object Queue {
     } ensuring (_ => valid)
 
     def dequeue: Option[BigInt] = {
-      reads(Set(this, first, first.nextOpt.get))
+      reads(nodes.content ++ Set(this, first, first.nextOpt.get))
       require(first.nextOpt != None() && size > 0 && valid)
       modifies(Set(this))
 
