@@ -48,7 +48,7 @@ object Stack {
       first = Some(n)
       nodes = n :: nodes 
       size = size + 1
-    } ensuring (_ => valid)
+    } ensuring (_ => valid && nodes == n :: old(this.nodes))
 
     def pop: BigInt = {
       reads(nodes.content ++ Set(this))
@@ -60,7 +60,7 @@ object Stack {
       size = size - 1
       nodes = nodes.tail
       n.value
-    } ensuring (_ => valid)
+    } ensuring (_ => nodes == old(this.nodes.tail))
   }
 
   @extern
@@ -71,7 +71,11 @@ object Stack {
     s.push(Node(5, None[Node]()))
     s.push(Node(10, None[Node]()))    
     s.push(Node(14, None[Node]()))
-    println(s)
+    println("Stack is: " + s)
+    println(s.pop)
+    println(s.pop)
+    println(s.pop)
+    println("Stack is: " + s)
   }
   
 }
