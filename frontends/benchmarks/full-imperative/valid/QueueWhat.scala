@@ -2,6 +2,7 @@ import stainless.lang._
 import stainless.collection._
 import stainless.lang.Option._
 import stainless.annotation._
+import stainless.proof._
 
 object Queue {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
@@ -33,15 +34,14 @@ object Queue {
 
     def dequeue: Option[BigInt] = {
       reads(Set(this, first, first.nextOpt.get))
-      require(first.nextOpt != None() && size > 0 && valid)
+      require(first.nextOpt != None() && size > 0 && nodes != Nil() && valid)
       modifies(Set(this))
 
       first.nextOpt match {
-        case Some(nn) if size > 0 && nodes.contains(nn) => {
+        case Some(nn) if size > 0 && nn == nodes.head => {
           first = nn
           size = size - 1
-          nodes = nodes - nn
-          assert(valid)
+          nodes = nodes.tail
           Some(nn.value)
         }
         case _ => None[BigInt]()
