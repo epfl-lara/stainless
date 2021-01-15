@@ -6,16 +6,17 @@ import stainless.proof._
 import stainless.lang.StaticChecks._
 
 object SimpleStack {
-  final case class Stack[A](var content: List[A]) extends AnyHeapRef
-  {    
-    def push(a: A): Unit = {
+  // TODO: Add a generic version of Stack
+  final case class Stack(var content: List[BigInt]) extends AnyHeapRef
+  {
+    def push(a: BigInt): Unit = {
       reads(Set(this))
       modifies(Set(this))
 
       content = a :: content
     }
 
-    def pop: A = {
+    def pop: BigInt = {
       reads(Set(this))
       require(!content.isEmpty)
       modifies(Set(this))
@@ -28,7 +29,7 @@ object SimpleStack {
 
   @extern
   def main(args: Array[String]): Unit = {
-    val s = Stack[BigInt](List[BigInt]())
+    val s = Stack(List())
     println("Stack with nodes")
     s.push(5)
     s.push(10)
@@ -39,5 +40,4 @@ object SimpleStack {
     println(s.pop)
     println("Stack is: " + s)
   }
-  
 }
