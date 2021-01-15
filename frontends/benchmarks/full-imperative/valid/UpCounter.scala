@@ -14,6 +14,7 @@ object UpCounter {
     }
   
     def init(v: BigInt): Unit = {
+      reads(Set(this))
       require(0 <= v)
       modifies(Set(this))
       i = v
