@@ -258,7 +258,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     }
 
     object funRefTransformer extends RefTransformer {
-      private lazy val dummyHeapVd: ValDef = "dummyHeap" :: HeapRefSetType
+      private lazy val dummyHeapVd: ValDef = "dummyHeap" :: HeapType
 
       case class Env(
         readsVdOpt: Option[ValDef],
