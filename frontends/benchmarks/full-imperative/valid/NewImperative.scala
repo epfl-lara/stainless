@@ -35,13 +35,13 @@ object NewImpExamples {
   // Example accumulate
 
   def accumulateBox(b1: Box, b2: Box): Unit = {
-    reads(Set(b2))
+    reads(Set(b1, b2))
     modifies(Set(b1))
     b1.value += b2.value
   }
 
   def accumulateBoxBox(bb: BoxBox, b: Box): Unit = {
-    reads(Set(bb, b))
+    reads(Set(bb, bb.inner, b))
     modifies(Set(bb.inner))
     require(b.value > 0)
     accumulateBox(bb.inner, b)

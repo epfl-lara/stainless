@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof._
 import stainless.lang.StaticChecks._
 
-object Queue {
+object QueueWhatExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
 
   final case class Q(var first: Node,
@@ -17,7 +17,7 @@ object Queue {
     // first is a sentinel node, not stored in nodes
 
     @ghost
-    def valid: Boolean = {      
+    def valid: Boolean = {
       reads(nodes.content ++ Set(this, first))
       size == nodes.size &&
       !nodes.contains(first) &&
@@ -28,7 +28,7 @@ object Queue {
     def inv(nodesLeft: List[AnyHeapRef], current: Option[Node]): Boolean = {
       reads(nodesLeft.content ++ Set(this))
       decreases(nodesLeft.size)
-      
+
       nodesLeft match {
         case Cons(hh, tail) => {
           hh.isInstanceOf[Node] &&
@@ -39,8 +39,8 @@ object Queue {
         }
         case Nil() => current==None()
       }
-    }    
-  
+    }
+
     def enqueue(n: Node): Unit = {
       reads(nodes.content ++ Set(this, first))
       require(valid && !nodes.contains(n))
@@ -75,11 +75,11 @@ object Queue {
     val q = Q(n, n, 0, List[AnyHeapRef]())
     println("Q with nodes")
     q.enqueue(Node(5, None[Node]()))
-    q.enqueue(Node(10, None[Node]()))    
+    q.enqueue(Node(10, None[Node]()))
     q.enqueue(Node(14, None[Node]()))
     println(q.dequeue.get)
     println(q.dequeue.get)
     println(q.dequeue.get)
   }
-  
+
 }

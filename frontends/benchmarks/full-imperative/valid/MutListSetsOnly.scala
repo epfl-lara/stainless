@@ -1,8 +1,9 @@
-import stainless.lang._
-import stainless.collection._
-import stainless.lang.Option._
 import stainless.annotation._
+import stainless.collection._
+import stainless.lang._
+import stainless.lang.Option._
 import stainless.lang.StaticChecks._
+import stainless.proof.check
 
 object MutListSetsOnlyExample {
   final case class Node private (
@@ -17,21 +18,15 @@ object MutListSetsOnlyExample {
 
       val no = nextOpt; no match {
         case None() =>
-          // size == 1 &&
           repr == Set(this)
         case Some(next) =>
           // repr == next.repr +!+ Set(this) &&
+          repr.contains(next) &&
           (repr == next.repr ++ Set(this) : Boolean) &&
           (!next.repr.contains(this) : Boolean) &&
           next.valid
       }
     }
-
-    @ghost
-    def lemmaValidNextValid: Boolean = {
-      reads(repr ++ Set(this))
-      (valid && nextOpt.isDefined) ==> nextOpt.get.valid
-    } ensuring (res => res)
 
     def append(node: Node): Unit = {
       reads(repr ++ node.repr ++ Set(this, node))
@@ -44,24 +39,13 @@ object MutListSetsOnlyExample {
           repr = node.repr ++ Set(this)
 
         case Some(next) =>
-          assert(!(this == next))
           assert(next.valid)
-          val preRepr = repr ++ node.repr
-          val preReprN = next.repr ++ node.repr
-          assert(preRepr == preReprN ++ Set(this))
-
-          val oldRepr = repr
-          assert(oldRepr.subsetOf(preRepr))
-
           next.append(node)
-
           repr = next.repr ++ Set(this)
-
-          assert(valid)
+          @ghost val unused = check(valid)
       }
 
     } ensuring { _ =>
-      (old(nextOpt.isInstanceOf[Some[AnyHeapRef]]) ==> (nextOpt == old(nextOpt))) &&
       repr == old(repr ++ node.repr) &&
       valid
     }
