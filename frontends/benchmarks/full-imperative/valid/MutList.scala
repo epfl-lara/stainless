@@ -1,9 +1,10 @@
 
-import stainless.lang._
-import stainless.collection._
-import stainless.lang.Option._
 import stainless.annotation._
+import stainless.collection._
+import stainless.lang._
+import stainless.lang.Option._
 import stainless.lang.StaticChecks._
+import stainless.proof.check
 
 object MutListExample {
   final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghost var repr: List[AnyHeapRef]) extends AnyHeapRef {
@@ -16,8 +17,9 @@ object MutListExample {
         case None() =>
           repr == List(this)
         case Some(next) =>
-          repr.nonEmpty && repr.tail.nonEmpty && repr.tail.head == next && // "next ∈ repr"
-          repr == this :: next.repr &&
+          repr.content.contains(next) &&
+          repr.content == next.repr.content ++ Set(this) &&
+          !next.repr.content.contains(this) &&
           next.valid
       }
     }
@@ -55,12 +57,12 @@ object MutListExample {
           nextOpt = Some(node)
           repr = this :: node.repr
         case Some(next) =>
+          assert(next.valid)
           next.append(node)
           repr = this :: next.repr
+          @ghost val unused = check(valid)
       }
-
-      // We would now like to prove that the size has increased by node.size, but I haven't found a way yet
-    } ensuring (_ => valid)
+    } ensuring { _ => valid }
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {
