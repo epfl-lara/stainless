@@ -14,17 +14,21 @@ object Queue {
                      @ghost var nodes: List[AnyHeapRef])
              extends AnyHeapRef
   {
+    // first is a sentinel node, not stored in nodes
 
     @ghost
-    def valid: Boolean = {
-      reads(Set(this))
-      size == nodes.size
+    def valid: Boolean = {      
+      reads(Set(this, first))
+      size == nodes.size &&
+      !nodes.contains(first) &&
+      (first.nextOpt.isEmpty ||
+       (nodes.contains(first.nextOpt.get) && nodes.contains(last)))
     }
 
     // first node is not used
   
     def enqueue(n: Node): Unit = {
-      reads(Set(this))
+      reads(Set(this, first))
       require(valid && !nodes.contains(n))
       modifies(Set(this, last))
 
@@ -36,7 +40,7 @@ object Queue {
 
     def dequeue: Option[BigInt] = {
       reads(Set(this, first, first.nextOpt.get))
-      require(first.nextOpt != None() && size > 0 && nodes != Nil() && valid)
+      require(first.nextOpt != None() && size > 0 && valid)
       modifies(Set(this))
 
       first.nextOpt match {
