@@ -12,8 +12,6 @@ object Stack {
                      @ghost var nodes: List[AnyHeapRef])
              extends AnyHeapRef
   {
-    // first is a sentinel node, not stored in nodes
-    
     @ghost
     def valid: Boolean = {      
       reads(nodes.content ++ Set(this))
@@ -36,18 +34,6 @@ object Stack {
         case Nil() => current==None[Node]()
       }
     }
-
-    /*
-    @ghost
-    def invTailLemma(nodesLeft: List[AnyHeapRef], current: Option[Node]): Unit = {
-      reads(nodesLeft.content ++ Set(this))
-      require(inv(nodesLeft, current) && nodesLeft != Nil[AnyHeapRef]() && current != None[Node]())
-      decreases(nodesLeft.size)
-
-      ()
-    } ensuring(_ => inv(nodesLeft.tail, current.get.nextOpt))
-*/
-
   
     def push(n: Node): Unit = {
       reads(nodes.content ++ Set(this, n))
@@ -58,24 +44,7 @@ object Stack {
       first = Some(n)
       nodes = n :: nodes 
     } ensuring (_ => inv(nodes, first))
-
-    /*
-    def pop: BigInt = {
-      reads(nodes.content ++ Set(this))
-      require(valid && !nodes.isEmpty)
-      modifies(Set(this))
-
-      @ghost val ok1 = invTailLemma(nodes, first)
-      val n = first.get
-      first = n.nextOpt
-      size = size - 1
-      nodes = nodes.tail
-      @ghost val ok2 = check(inv(nodes, first))
-      n.value
-    } ensuring (_ => valid && nodes == old(this.nodes.tail))
-    */
   }
-
   @extern
   def main(args: Array[String]): Unit = {
     val n = Node(-1, None[Node]())
@@ -85,12 +54,6 @@ object Stack {
     s.push(Node(10, None[Node]()))    
     s.push(Node(14, None[Node]()))
     println("Stack is: " + s)
-    /*
-    println(s.pop)
-    println(s.pop)
-    println(s.pop)
-    println("Stack is: " + s)
-    */
   }
   
 }
