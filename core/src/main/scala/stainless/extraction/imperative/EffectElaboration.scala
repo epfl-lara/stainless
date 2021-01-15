@@ -63,7 +63,7 @@ trait EffectElaboration
 
     super.extractSymbols(tctx, newSymbols)
       .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(newSymbols))
-      .withFunctions(OptionSort.functions(newSymbols))
+      .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(newSymbols))
       // .withSorts(Seq(heapRefSort, heapSort) ++ OptionSort.sorts(newSymbols))
       // .withFunctions(heapFunctions ++ OptionSort.functions(newSymbols))
   }
@@ -153,8 +153,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
   trait RefTransformContext { context: TransformerContext =>
     implicit val symbols: s.Symbols
-
-    lazy val EmptyHeap = FiniteMap(Seq(), UnitLiteral(), HeapRefType, AnyType())
 
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
@@ -582,7 +580,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           val heapArg = MapMerge(
             readsVdOpt.get.toVariable,
             heapVdOpt0.get.toVariable,
-            EmptyHeap
+            E(dummyHeap.id)()
           ).copiedFrom(fd)
           val fi = FunctionInvocation(
             innerId(fd.id),
