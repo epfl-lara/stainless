@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof.check
 import stainless.lang.StaticChecks._
 
-object Stack {
+object StackExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
 
   final case class Q(var first: Option[Node],

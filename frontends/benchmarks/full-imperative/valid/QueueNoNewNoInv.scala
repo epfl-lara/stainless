@@ -3,7 +3,7 @@ import stainless.collection._
 import stainless.lang.Option._
 import stainless.annotation._
 
-object Queue {
+object QueueNoNewNoInvExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
 
   final case class Q(var first: Node,
@@ -18,7 +18,7 @@ object Queue {
     }
 
     // first node is not used
-  
+
     def enqueue(n: Node): Unit = {
       reads(Set(this))
       require(valid)
@@ -50,11 +50,11 @@ object Queue {
     val n = Node(-1, None[Node]())
     val q = Q(n, 0, n)
     q.enqueue(Node(5, None[Node]()))
-    q.enqueue(Node(10, None[Node]()))    
+    q.enqueue(Node(10, None[Node]()))
     q.enqueue(Node(14, None[Node]()))
     println(q.dequeue.get)
     println(q.dequeue.get)
     println(q.dequeue.get)
   }
-  
+
 }
