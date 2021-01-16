@@ -20,7 +20,7 @@ object QueueNoNewNoInvExample {
     // first node is not used
 
     def enqueue(n: Node): Unit = {
-      reads(Set(this))
+      reads(Set(this, last))
       require(valid)
       modifies(Set(this, last))
 
