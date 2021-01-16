@@ -19,6 +19,13 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
 
   override protected def optionsString(options: inox.Options): String = ""
 
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    // Incomplete proof
+    case "full-imperative/valid/QueueWhat" => Skip
+
+    case _ => super.filter(ctx, name)
+  }
+
   val component = VerificationComponent
 
   // This method was copied from the super class and overriden to filter out the 'copy' method from the extracted symbols,
