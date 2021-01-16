@@ -626,20 +626,14 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         val bodyWithChecks =
           if (checkHeapContracts) {
-            // FIXME: Fix issue with these additional assertions not showing up and wrong positions.
+            // NOTE: Leaving out position on conditions, so inliner will fill them in at call site.
             val check1 =
               if (writes) {
-                val cond1a = SubsetOf(
-                  modifiesVdOpt.get.toVariable,
-                  readsVdOpt.get.toVariable
-                ).copiedFrom(fd)
-                val check1a = Assert(cond1a, Some("reads subsumes modifies clause"), body)
-                  .copiedFrom(fd)
-                val cond1b = SubsetOf(
+                val cond1 = SubsetOf(
                   modifiesVdOpt.get.toVariable,
                   modifiesDomVdOpt.get.toVariable
-                ).copiedFrom(fd)
-                Assert(cond1b, Some("modifies clause"), check1a).copiedFrom(fd)
+                ) //.copiedFrom(fd)
+                Assert(cond1, Some("modifies clause"), body).copiedFrom(fd)
               } else {
                 body
               }
@@ -647,7 +641,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             val cond2 = SubsetOf(
               readsVdOpt.get.toVariable,
               readsDomVdOpt.get.toVariable
-            ).copiedFrom(fd)
+            ) //.copiedFrom(fd)
             Assert(cond2, Some("reads clause"), check1).copiedFrom(fd)
           } else {
             body
@@ -702,7 +696,18 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             innerBody1
         }
 
-        val innerFd = makeInnerFd(Some(innerBody2))
+        // We also ensure that the reads set subsumes modifies set
+        val innerBody3 = if (writes) {
+          val cond = SubsetOf(
+            modifiesVdOpt.get.toVariable,
+            readsVdOpt.get.toVariable
+          ).copiedFrom(fd)
+          Assert(cond, Some("reads subsumes modifies clause"), innerBody2).copiedFrom(fd)
+        } else {
+          innerBody2
+        }
+
+        val innerFd = makeInnerFd(Some(innerBody3))
         val shimFd = makeShimFd()
         Seq(shimFd, innerFd)
 

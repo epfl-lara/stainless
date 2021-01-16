@@ -124,6 +124,14 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
           val freshened = exprOps.freshenLocals(result)
 
+          // For some common shims, fill in missing positions with the position of the inlined call site
+          if (isSynthetic && hasInlineOnceFlag) {
+            exprOps.preTraversal {
+              case e if !e.getPos.isDefined => e.setPos(fi)
+              case _ =>
+            }(freshened)
+          }
+
           val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
           inliner.transform(freshened)
         }
