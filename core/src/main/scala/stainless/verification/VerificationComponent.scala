@@ -75,13 +75,6 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     val t: self.trees.type = self.trees
   }
 
-  private[this] val debugImplPrivateInlining = new DebugSymbols {
-    val name = "ImplPrivateInlining"
-    val context = self.context
-    val s: self.trees.type = self.trees
-    val t: self.trees.type = self.trees
-  }
-
   private[this] val debugChooses = new DebugSymbols {
     val name = "ChooseInjector"
     val context = self.context
@@ -100,18 +93,9 @@ class VerificationRun(override val pipeline: StainlessPipeline)
 
       val assertions = AssertionInjector(p, context)
       val chooses = ChooseInjector(p)
-      val implPrivateInlining = ImplPrivateInlining(p, context)
-
-      // Inline implementation private functions
-      val implPrivateEncoder = inox.transformers.ProgramEncoder(p)(implPrivateInlining)
-
-      if (debugImplPrivateInlining.isEnabled) {
-        debugImplPrivateInlining.debugEncoder(implPrivateEncoder)
-      }
-
       // We do not need to encode empty trees as chooses when generating the VCs,
       // as we rely on having empty trees to filter out some VCs.
-      val assertionEncoder = inox.transformers.ProgramEncoder(implPrivateEncoder.targetProgram)(assertions)
+      val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
 
       if (debugAssertions.isEnabled) {
         debugAssertions.debugEncoder(assertionEncoder)
@@ -128,7 +112,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         reporter.debug(s"Generating VCs for functions: ${functions map { _.uniqueName } mkString ", "}")
       }
 
-      val vcGenEncoder = implPrivateEncoder andThen assertionEncoder
+      val vcGenEncoder = assertionEncoder
 
       val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
         context.timers.verification.get("type-checker").run {

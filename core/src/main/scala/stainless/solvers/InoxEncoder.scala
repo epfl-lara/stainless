@@ -20,8 +20,7 @@ trait InoxEncoder extends ProgramEncoder {
   private[this] def keepFlag(flag: Flag): Boolean = flag match {
     case DropVCs | DropConjunct | Library | Synthetic | PartialEval | Extern => false
     case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping | Lazy => false
-    case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) | ClassParamInit(_) |
-         ImplPrivate => false
+    case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) | ClassParamInit(_) => false
     case TerminationStatus(_) => false
     case InlineInvariant | Template => false
     case _ => true
