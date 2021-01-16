@@ -18,6 +18,7 @@ object MutListExample {
           repr == List(this)
         case Some(next) =>
           repr.content.contains(next) &&
+          repr == this :: next.repr &&
           repr.content == next.repr.content ++ Set(this) &&
           !next.repr.content.contains(this) &&
           next.valid
