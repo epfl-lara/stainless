@@ -83,6 +83,12 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           case _ => e
         }
 
+        def fillInMissingPositions(expr: Expr): Unit =
+          exprOps.preTraversal {
+            case e if !e.getPos.isDefined => e.setPos(fi)
+            case _ =>
+          }(expr)
+
 
         val res = ValDef.fresh("inlined", tfd.returnType)
         val inlined = specced.wrapLets(addPreconditionAssertion(addPostconditionAssumption(body)))
@@ -96,6 +102,10 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
         val freshened = freshenLocals(result)
+
+        if (isSynthetic && hasInlineOnceFlag) {
+          fillInMissingPositions(freshened)
+        }
 
         val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
         inliner.transform(freshened)
