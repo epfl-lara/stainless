@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof._
 import stainless.lang.StaticChecks._
 
-object SimpleStack {
+object SimpleStackExample {
   final case class Stack[T](var content: List[T]) extends AnyHeapRef
   {
     def push(a: T): Unit = {
