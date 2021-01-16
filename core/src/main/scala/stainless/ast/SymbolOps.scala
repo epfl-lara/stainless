@@ -144,9 +144,11 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
 
     def rewritePM(e: Expr): Option[Expr] = e match {
       case m @ MatchExpr(scrut, cases) =>
+        val scrutVd = ValDef.fresh("scrut", scrut.getType).setPos(m)
+        val scrutV = scrutVd.toVariable
         val condsAndRhs = for (cse <- cases) yield {
-          val map = mapForPattern(scrut, cse.pattern)
-          val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = false)
+          val map = mapForPattern(scrutV, cse.pattern)
+          val patCond = conditionForPattern[Path](scrutV, cse.pattern, includeBinders = false)
           val realCond = cse.optGuard match {
             case Some(g) => patCond withCond replaceFromSymbols(map, g)
             case None => patCond
@@ -170,7 +172,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
           }
         })
 
-        Some(bigIte)
+        Some(Let(scrutVd, scrut, bigIte).copiedFrom(m))
 
       case _ => None
     }
