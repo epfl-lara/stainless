@@ -122,7 +122,7 @@ trait TypeEncoding
     case s.CharType() => C(char)(e)
     case s.RealType() => C(real)(e)
     case s.StringType() => C(str)(e)
-    case s.UnitType() => t.ADT(unit, Seq(), Seq())
+    case s.UnitType() => let(("u" :: t.UnitType()).copiedFrom(e), e) { _ => t.ADT(unit, Seq(), Seq()).copiedFrom(e) }
   }).copiedFrom(e)
 
   private[this] def unwrap(e: t.Expr, tpe: s.Type)(implicit scope: Scope): t.Expr = (tpe match {
