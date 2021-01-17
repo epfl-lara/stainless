@@ -227,9 +227,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       override def transform(tpe: Type, env: Env): Type = tpe match {
         case ct: ClassType if livesInHeap(ct) =>
           HeapRefType
-        case FunctionType(_, _) =>
-          val FunctionType(from, to) = super.transform(tpe, env)
-          FunctionType(HeapType +: from, T(to, HeapType))
+        // case FunctionType(_, _) =>
+        //   val FunctionType(from, to) = super.transform(tpe, env)
+        //   FunctionType(HeapType +: from, T(to, HeapType))
         // TODO: PiType
         case _ =>
           super.transform(tpe, env)
