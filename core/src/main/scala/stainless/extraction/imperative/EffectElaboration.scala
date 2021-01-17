@@ -254,6 +254,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       }
     }
 
+    // FIXME: This is probably a bad idea, since we might encounter dependent types.
     object typeOnlyRefTransformer extends RefTransformer {
       override final type Env = Unit
       override final val initEnv: Unit = ()
@@ -504,18 +505,19 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       // Transform existing specs
       val newSpecsMap: Map[SpecKind, Specification] = specced.specs.map {
         case spec @ Postcondition(lam @ Lambda(Seq(resVd), post)) =>
-          val (resVd1, post1) = if (writes) {
-            val valueVd: ValDef = "resV" :: resVd.tpe
+          val resVd1 = typeOnlyRefTransformer.transform(resVd)
+          val (resVd2, post2) = if (writes) {
+            val valueVd: ValDef = "resV" :: resVd1.tpe
             val heapVd1: ValDef = "heap1" :: HeapType
-            val resVd1 = resVd.copy(tpe = T(resVd.tpe, HeapType))
-            val post1 = Let(valueVd, resVd1.toVariable._1,
-              Let(heapVd1, resVd1.toVariable._2,
-                transformPost(post, resVd, valueVd, heapVdOpt0, Some(heapVd1))))
-            (resVd1, post1)
+            val resVd2 = resVd1.copy(tpe = T(resVd1.tpe, HeapType))
+            val post2 = Let(valueVd, resVd2.toVariable._1,
+              Let(heapVd1, resVd2.toVariable._2,
+                transformPost(post, resVd1, valueVd, heapVdOpt0, Some(heapVd1))))
+            (resVd2, post2)
           } else {
-            (resVd, transformPost(post, resVd, resVd, heapVdOpt0, heapVdOpt0))
+            (resVd1, transformPost(post, resVd1, resVd1, heapVdOpt0, heapVdOpt0))
           }
-          val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
+          val newSpec = Postcondition(Lambda(Seq(resVd2), post2).copiedFrom(lam))
           (spec.kind, newSpec.setPos(spec.getPos))
 
         case spec =>
@@ -602,11 +604,12 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             E(dummyHeap.id)()
           ).copiedFrom(fd)
 
+        // NOTE: We omit the position so the inliner can fill it in at the call site.
         val fi = FunctionInvocation(
           fd.id,
           newTParams.map(_.tp),
           Seq(heapArg) ++ newRealParams.map(_.toVariable)
-        ).copiedFrom(fd)
+        ) //.copiedFrom(fd)
 
         val body =
           if (writes) {
