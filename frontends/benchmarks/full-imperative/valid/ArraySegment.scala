@@ -33,7 +33,7 @@ object ArraySegment {
   }
   
   final case class ArraySlice[T](a: SArray[T], from: BigInt, until: BigInt)
-  // these slices retain their original indices; they just preclude access outside of range
+  // these slices retain their original indices but preclude access outside of range
   {
     def valid: Boolean = {
       reads(Set(a))
@@ -54,20 +54,21 @@ object ArraySegment {
       
       a.content = a.content.updated(i, v)
     }
+
+    def reSlice(from1: BigInt, until1: BigInt): ArraySlice[T] = {
+      reads(Set(a))
+      require(from <= from1 && from1 <= until1 && until1 <= until && valid)
+      ArraySlice[T](a, from1, until1)
+    }
   }
 
-  @extern
-  def reSliceOf[T](s: ArraySlice[T], from: BigInt, until: BigInt): ArraySlice[T] = {
-    require(s.from <= from && until <= s.until)
-    ArraySlice[T](s.a, from, until)
-  }
 
   @extern
   def pr(s: String): Unit = {
     println(s)
   }
 
-  @extern // unmark the `@extern` for some hard VCs
+  @extern // remove the `@extern` for some hard VCs
   def testSlices(a: SArray[String]): Unit = {
     reads(Set(a))
     modifies(Set(a))
@@ -78,7 +79,8 @@ object ArraySegment {
     a(4) = "s4"
     a(1) = "s1"
     val slice14 = ArraySlice(a, 1, 4)
-    val slice23 = reSliceOf(slice14, 2, 3)
+    assert(slice14.valid)
+    val slice23 = slice14.reSlice(2, 3)
     pr("slice23(2) = " + slice23(2))
     slice14(2) = "42"
     pr("slice23(2) = " + slice23(2))
