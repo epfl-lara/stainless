@@ -1228,15 +1228,16 @@ trait TypeEncoding
         Seq(t.Derived(Some(original.id)))
       ).copiedFrom(encoded))
 
-      val (vd, post) = t.exprOps.postconditionOf(encoded.fullBody) match {
-        case Some(Lambda(Seq(vd), post)) => (vd, post)
+      val specced = t.exprOps.BodyWithSpecs(encoded.fullBody)
+      val (vd, post) = specced.getSpec(t.exprOps.PostconditionKind) match {
+        case Some(t.exprOps.Postcondition(Lambda(Seq(vd), post))) => (vd, post)
         case None => (
           t.ValDef.fresh("res", encoded.returnType),
           t.BooleanLiteral(true).copiedFrom(encoded.fullBody)
         )
       }
 
-      val newPost = t.Lambda(Seq(vd),
+      val newPostLambda = t.Lambda(Seq(vd),
         t.and(
           post,
           t.Annotated(
@@ -1252,8 +1253,9 @@ trait TypeEncoding
           ).copiedFrom(post)
         )
       )
+      val newPost = t.exprOps.Postcondition(newPostLambda).setPos(post.getPos)
 
-      val newBody = t.exprOps.withPostcondition(encoded.fullBody, Some(newPost))
+      val newBody = specced.withSpec(newPost).reconstructed
       Seq(encoded.copy(fullBody = newBody), eliminated)
     }
   }
