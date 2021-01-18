@@ -1,5 +1,21 @@
 # Release Notes
 
+## Version 0.7.6 (2021-01-18)
+
+### Features
+
+- Add GenC component from Leon (#885)
+- Add frontend for more bitvector types and operations (#879)
+
+### Improvements
+
+- Inox dependency is now directly on GitHub
+
+### Bug fixes
+
+- Fix some issues in imperative phase (#874) and type encoding (#884)
+
+
 ## Version 0.7.5 (2020-11-27)
 
 ### Features
