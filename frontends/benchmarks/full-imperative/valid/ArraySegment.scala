@@ -58,7 +58,7 @@ object ArraySegment {
       reads(Set(a))
       require(from <= i && i < until && valid)
 
-      a.content(i)
+      a(i)
     }
 
     def update(i: BigInt, v: T): Unit = {
@@ -66,7 +66,7 @@ object ArraySegment {
       require(from <= i && i < until && valid)
       modifies(Set(a))
 
-      a.content = a.content.updated(i, v)
+      a(i) = v
     } ensuring { _ => valid }
 
     def reSlice(from1: BigInt, until1: BigInt): ArraySlice[T] = {
