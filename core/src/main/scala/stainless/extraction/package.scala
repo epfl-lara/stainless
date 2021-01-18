@@ -44,6 +44,7 @@ package object extraction {
     "RefinementLifting"         -> "Lift simple refinements to contracts",
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
+    "FunctionSpecialization"    -> "Specialize functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
     "LeonInlining"              -> "Transitively inline marked functions (closer to what Leon did)",
     "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
