@@ -35,11 +35,13 @@ object ArraySegment {
   final case class ArraySlice[T](a: SArray[T], from: BigInt, until: BigInt)
   // these slices retain their original indices but preclude access outside of range
   {
-    def valid: Boolean = {
+    require(0 <= from && from <= until)
+      
+    def valid: Boolean = { // this method aspires to become part of the above `require`
       reads(Set(a))
-      0 <= from && from <= until && until <= a.content.size
+      until <= a.content.size
     }
-  
+
     def apply(i: BigInt): T = {
       reads(Set(a))
       require(from <= i && i < until && valid)
