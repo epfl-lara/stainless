@@ -27,6 +27,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case object Wrapping extends Flag("wrapping", Seq.empty)
+  case object Template extends Flag("template", Seq.empty)
 
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
@@ -46,6 +47,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
     case ("wrapping", Seq()) => Wrapping
+    case ("template", Seq()) => Template
     case ("inlineInvariant", Seq()) => InlineInvariant
     case _ => Annotation(name, args)
   }

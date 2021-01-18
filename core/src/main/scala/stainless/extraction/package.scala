@@ -45,6 +45,7 @@ package object extraction {
     "RefinementLifting"         -> "Lift simple refinements to contracts",
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
+    "FunctionSpecialization"    -> "Specialize functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
     "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
