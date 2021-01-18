@@ -4,12 +4,11 @@ import stainless.lang._
 import stainless.lang.StaticChecks._
 
 object FunSpecialization1Example {
-  def concat[T](xs: List[T], ys: List[T]): List[T] = {
+  def concat[T](xs: List[T], ys: List[T]): List[T] =
     xs match {
       case Nil() => ys
       case Cons(x, xs) => Cons(x, concat(xs, ys))
     }
-  } ensuring (res => res.size == xs.size + ys.size)
 
   def concatBigInt(xs: List[BigInt], ys: List[BigInt]): List[BigInt] =
     specialize(concat[BigInt](xs, ys))
@@ -25,6 +24,36 @@ object FunSpecialization1Example {
   // def cons[T](xs: List[T], y: T): List[T] =
   //   specialize(concat(List(y), xs))
 
+  // We can also strengthen the pre- and postcondition
+  def snocStrong[T](xs: List[T], y: T): List[T] = {
+    specialize(concat(xs, List(y)))
+  } ensuring { _.size >= 1 }
+
+  def concatSized1[T](xs: List[T], ys: List[T]): List[T] = {
+    specialize(concat(xs, ys))
+  } ensuring (res => res.size == xs.size + ys.size)
+
+  def concatWithProp[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
+    require(xs.forall(f) && ys.forall(f))
+    specialize(concat(xs, ys))
+  } ensuring { _.forall(f) }
+
+
+  // We don't have to specialize the function definitions themselves to prove things about them.
+  // Instead, one can define "proof templates" like so:
+  @template
+  def concatInductiveProof[T](xs: List[T], ys: List[T]): Unit =
+    xs match {
+      case Nil() => true
+      case Cons(x, xs) => concatInductiveProof(xs, ys)
+    }
+
+  def concatSized2[T](xs: List[T], ys: List[T]): Unit = {
+    specialize(concatInductiveProof[T](xs, ys))
+  } ensuring { _ => concat(xs, ys).size == xs.size + ys.size }
+
+
+  // Some more examples
 
   def forallL[T](xs: List[T], f: T => Boolean): Boolean =
     xs match {
@@ -39,13 +68,11 @@ object FunSpecialization1Example {
     specialize(forallL[BigInt](xs, _ > 0))
 
 
-  @opaque
   @template
   def forallImpliedL[T](xs: List[T], f: T => Boolean, g: T => Boolean): Unit = {
     require(forallL(xs, f))
-    assert(forall((x: T) => f(x) ==> g(x))) // Will be proven for specializations
     if (xs.nonEmpty) {
-      assert(f(xs.head) ==> g(xs.head))
+      assert(f(xs.head) ==> g(xs.head)) // Will be proven for specializations
       forallImpliedL(xs.tail, f, g)
     }
   } ensuring (_ => forallL(xs, g))
