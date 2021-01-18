@@ -336,19 +336,25 @@ object CovariantList {
     def indexWhere(p: T => Boolean): BigInt = { this match {
       case Nil => BigInt(-1)
       case h :: _ if p(h) => BigInt(0)
-      case _ :: t => 
+      case _ :: t =>
         val rec = t.indexWhere(p)
         if (rec >= 0) rec + BigInt(1)
         else BigInt(-1)
-    }} ensuring { 
+    }} ensuring {
       _ >= BigInt(0) == (this exists p)
     }
 
 
+    // FIXME(gsps): This used to work, but a rewriting in `matchToIfThenElse` now inserts
+    //   let bindings that make the type checker miss the refinement type of the match's
+    //   scrutinee. This could be fixed either by propagating refinement type throughout
+    //   Inox's type system, or by inferring types for such lets in TypeChecker.
+/*
     // Translation to other collections
-    def toSet[T1 >: T]: Set[T1] = foldLeft(Set[T1]()){ 
+    def toSet[T1 >: T]: Set[T1] = foldLeft(Set[T1]()){
       case (current, next) => current ++ Set(next)
     }
+*/
   }
 
   case class ::[+T](h: T, t: List[T]) extends List[T]
