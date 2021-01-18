@@ -160,9 +160,8 @@ object NoxtFrontend {
 
         private def readUnit(): Option[xt.Symbols] = {
 
-          // Inherit from the used serializer to get access to protected methods
-          // like 'readObject'.
-          val serializer = new XLangSerializer(xt) {
+          // Inherit from the used serializer to get access to protected methods like 'readObject'.
+          object serializer extends XLangSerializer(xt) {
             // Take another name to make sure, this function is used.
             def deserializeNoxt(in: InputStream): xt.Symbols = {
               val serializationResult = readObject(in).asInstanceOf[SerializationResult]
