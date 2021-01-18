@@ -35,6 +35,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
     import symbols._
+    import exprOps._
 
     if (fd.flags.contains(Template))
       return None
@@ -49,6 +50,18 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
         case _ => None
       }
     }
+
+    def check(expr: Expr): Unit =
+      exprOps.preTraversal {
+        case specFi @ SpecializeCall(_) =>
+          context.reporter.fatalError(specFi.getPos,
+            "The `specialize` construct must currently be used directly as the body of a " +
+            "function without any contracts.")
+        case fi: FunctionInvocation if fi.tfd.flags.contains(Template) =>
+          context.reporter.fatalError(fi.getPos,
+            "Cannot call an `@template` function directly, since it will be removed.")
+        case _ =>
+      }(expr)
 
     class Specializer(
       origFd: FunDef,
@@ -103,7 +116,26 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
         succId => callGraph.transitiveSucc(succId) contains id
       }
 
-    val (origFd, specializer) = fd.fullBody match {
+    def mergeOptions[S <: Specification](s1: Option[S], s2: Option[S])(f: (S, S) => S): Option[S] =
+      (s1, s2) match {
+        case (None, None) => None
+        case (Some(_), None) => s1
+        case (None, Some(_)) => s2
+        case (Some(s1), Some(s2)) => Some(f(s1, s2))
+      }
+
+    // Unpack the outer function `fd`
+
+    val speccedOuter = BodyWithSpecs(fd.fullBody)
+
+    if (speccedOuter.lets.nonEmpty) {
+      check(fd.fullBody)
+      return Some(fd)
+    }
+
+    // Detect whether the outer function is specializing another function `origFd`
+
+    val (origFd, specializer) = speccedOuter.body match {
       case specFi @ SpecializeCall(fi) =>
         if (isIndirectlyRecursive(fi.id)) {
           context.reporter.fatalError(fi.getPos,
@@ -175,25 +207,42 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
         (origFd, specializer)
 
       case _ =>
-        exprOps.preTraversal {
-          case specFi @ SpecializeCall(_) =>
-            context.reporter.fatalError(specFi.getPos,
-              "The `specialize` construct must currently be used directly as the body of a " +
-              "function without any contracts.")
-          case fi: FunctionInvocation if fi.tfd.flags.contains(Template) =>
-            context.reporter.fatalError(fi.getPos,
-              "Cannot call an `@template` function directly, since it will be removed.")
-          case _ =>
-        }(fd.fullBody)
+        check(fd.fullBody)
         return Some(fd)
     }
 
-    val fullBody1 = exprOps.freshenLocals(specializer.transform(origFd.fullBody))
-    val fullBody2 = symbols.simplifyExpr(fullBody1)(inox.solvers.PurityOptions(context))
+    val fullBodySpecialized = specializer.transform(origFd.fullBody)
+
+    // Conjoin pre- and postconditions of the original and the specialized function
+    val specced1 = BodyWithSpecs(fullBodySpecialized)
+    val specced2 = specced1.copy(
+      specs = Seq(
+        mergeOptions(specced1.getSpec(PostconditionKind), speccedOuter.getSpec(PostconditionKind)) {
+          case (
+            Postcondition(Lambda(Seq(res1), cond1)),
+            pc2 @ Postcondition(lam2 @ Lambda(Seq(res2), cond2))
+          ) =>
+            val cond = and(cond1, exprOps.replaceFromSymbols(Map(res2 -> res1.toVariable), cond2))
+            Postcondition(Lambda(Seq(res1), cond.copiedFrom(cond2)).copiedFrom(lam2))
+              .setPos(pc2.getPos)
+        },
+        mergeOptions(specced1.getSpec(PreconditionKind), speccedOuter.getSpec(PreconditionKind)) {
+          case (Precondition(cond1), pc2 @ Precondition(cond2)) =>
+            Precondition(and(cond1, cond2).copiedFrom(cond2))
+              .setPos(pc2.getPos)
+        },
+        specced1.getSpec(MeasureKind),
+      ).flatten
+    )
+
+    val fullBody1 = specced2.reconstructed
+    val fullBody2 = exprOps.freshenLocals(fullBody1)
+    val fullBody3 = symbols.simplifyExpr(fullBody2)(inox.solvers.PurityOptions(context))
+
+    check(fullBody3)
 
     Some(fd.copy(
-      fullBody = fullBody2,
-      flags = (origFd.flags.filterNot(_ == Template) ++ fd.flags).distinct
+      fullBody = fullBody3
     ).copiedFrom(fd))
   }
 }
