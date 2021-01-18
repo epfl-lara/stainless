@@ -33,7 +33,7 @@ object FunSpecialization1Example {
     specialize(concat(xs, ys))
   } ensuring (res => res.size == xs.size + ys.size)
 
-  def concatWithProp[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
+  def concatWithProp1[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
     require(xs.forall(f) && ys.forall(f))
     specialize(concat(xs, ys))
   } ensuring { _.forall(f) }
@@ -51,6 +51,15 @@ object FunSpecialization1Example {
   def concatSized2[T](xs: List[T], ys: List[T]): Unit = {
     specialize(concatInductiveProof[T](xs, ys))
   } ensuring { _ => concat(xs, ys).size == xs.size + ys.size }
+
+  def concatWithProp2[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
+    require(xs.forall(f) && ys.forall(f))
+    specialize(concat(xs, ys))
+  } ensuring { _ => concat(xs, ys).forall(f) }
+
+  def concatAssoc[T](xs: List[T], ys: List[T], zs: List[T]): List[T] = {
+    specialize(concat(xs, ys))
+  } ensuring { _ => concat(concat(xs, ys), zs) == concat(xs, concat(ys, zs)) }
 
 
   // Some more examples
