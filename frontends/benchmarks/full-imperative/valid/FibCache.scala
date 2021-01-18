@@ -10,7 +10,7 @@ object FibCacheExample {
     def apply(n: BigInt): BigInt = {
       reads(Set(this))
       modifies(Set(this))
-      require(forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m))))
+      require(0 <= n && forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m))))
       decreases(n)
       cache.get(n) match {
         case None() =>
