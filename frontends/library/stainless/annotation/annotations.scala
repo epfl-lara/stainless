@@ -96,3 +96,9 @@ class indexedAt(n: BigInt) extends Annotation
 /** Export function to C for GenC translation */
 @ignore
 class export extends Annotation
+
+@ignore
+class refEq extends Annotation
+
+@ignore
+class template extends Annotation

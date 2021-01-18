@@ -145,4 +145,19 @@ package object lang {
   def print(x: String): Unit = {
     scala.Predef.print(x)
   }
+
+  @extern @library @mutable @anyHeapRef
+  trait AnyHeapRef {
+    @refEq
+    def refEq(that: AnyHeapRef): Boolean = true
+  }
+
+  @ignore
+  def reads(@ghost objs: Set[AnyHeapRef]): Unit = ()
+
+  @ignore
+  def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
+
+  @library
+  def specialize[T](call: T): T = call
 }
