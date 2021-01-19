@@ -286,6 +286,15 @@ trait Trees extends oo.Trees with Definitions { self =>
   lazy val HeapRefSetType: Type = SetType(HeapRefType)
   // lazy val HeapType: Type = ADTType(heapId, Seq.empty)
   lazy val HeapType: MapType = MapType(HeapRefType, AnyType())
+
+  object ObjectIdentity {
+    def unapply(e: Expr): Option[Expr] = e match {
+      case FunctionInvocation(
+        ast.SymbolIdentifier("stainless.lang.objectId"), Seq(_), Seq(obj)
+      ) => Some(obj)
+      case _ => None
+    }
+  }
 }
 
 trait Printer extends oo.Printer {

@@ -154,7 +154,7 @@ package object lang {
   def print(x: String): Unit = {
     scala.Predef.print(x)
   }
-  
+
   @extern @library @mutable @anyHeapRef
   trait AnyHeapRef {
     @refEq
@@ -189,4 +189,7 @@ package object lang {
 
   @ignore
   def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
+
+  @extern @library
+  def objectId[T <: AnyHeapRef](x: T): BigInt = ???
 }
