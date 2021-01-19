@@ -158,6 +158,9 @@ package object lang {
   @ignore
   def modifies(@ghost objs: Set[AnyHeapRef]): Unit = ()
 
+  @extern @library
+  def objectId[T <: AnyHeapRef](x: T): BigInt = ???
+
   @library
   def specialize[T](call: T): T = call
 }
