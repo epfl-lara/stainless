@@ -7,8 +7,8 @@ Stainless can generate from Scala code an equivalent and safe C99 code. Using th
 synthesis features of Stainless this conversion can be made safely. Additionally, the produced code can be
 compiled with any standard-compliant C99 compiler to target the desired hardware architecture
 without extra dependencies. The motivation, detailed supported features, design decisions and performance
-benchmarks can be found in `Extending Safe C Support In Stainless
-<https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%20Stainless.pdf>`_.
+benchmarks can be found in `Extending Safe C Support In Leon
+<https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%Leon.pdf>`_.
 Furthermore, this Master Thesis Report explains how to achieve compliance under the `MISRA C
 <https://en.wikipedia.org/wiki/MISRA_C>`_ guidelines.
 
