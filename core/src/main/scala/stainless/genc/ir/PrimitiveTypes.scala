@@ -25,8 +25,13 @@ private[genc] object PrimitiveTypes {
 
   case object CharType extends IntegralPrimitiveType
   case object Int8Type extends IntegralPrimitiveType
-  case object UInt32Type extends IntegralPrimitiveType
+  case object Int16Type extends IntegralPrimitiveType
   case object Int32Type extends IntegralPrimitiveType
+  case object Int64Type extends IntegralPrimitiveType
+  case object UInt8Type extends IntegralPrimitiveType
+  case object UInt16Type extends IntegralPrimitiveType
+  case object UInt32Type extends IntegralPrimitiveType
+  case object UInt64Type extends IntegralPrimitiveType
   case object BoolType extends PrimitiveType
   case object UnitType extends PrimitiveType
   case object StringType extends PrimitiveType

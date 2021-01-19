@@ -522,8 +522,17 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   private def rec(typ: Type)(implicit tm: TypeMapping): CIR.Type = typ match {
     case UnitType() => CIR.PrimitiveType(PT.UnitType)
     case BooleanType() => CIR.PrimitiveType(PT.BoolType)
+
     case BVType(true, 8) => CIR.PrimitiveType(PT.Int8Type)
+    case BVType(true, 16) => CIR.PrimitiveType(PT.Int16Type)
     case BVType(true, 32) => CIR.PrimitiveType(PT.Int32Type)
+    case BVType(true, 64) => CIR.PrimitiveType(PT.Int64Type)
+
+    case BVType(false, 8) => CIR.PrimitiveType(PT.UInt8Type)
+    case BVType(false, 16) => CIR.PrimitiveType(PT.UInt16Type)
+    case BVType(false, 32) => CIR.PrimitiveType(PT.UInt32Type)
+    case BVType(false, 64) => CIR.PrimitiveType(PT.UInt64Type)
+
     case CharType() => CIR.PrimitiveType(PT.CharType)
     case StringType() => CIR.PrimitiveType(PT.StringType)
 
@@ -598,8 +607,15 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case UnitLiteral() => CIR.Lit(L.UnitLit)
     case BooleanLiteral(v) => CIR.Lit(L.BoolLit(v))
 
-    case bv@BVLiteral(true, _, 8) => CIR.Lit(L.Int8Lit(bv.toBigInt.toByte))
-    case bv@BVLiteral(true, _, 32) => CIR.Lit(L.Int32Lit(bv.toBigInt.toInt))
+    case bv@BVLiteral(true, _, 8) => CIR.Lit(L.Int8Lit(bv.toBigInt))
+    case bv@BVLiteral(true, _, 16) => CIR.Lit(L.Int16Lit(bv.toBigInt))
+    case bv@BVLiteral(true, _, 32) => CIR.Lit(L.Int32Lit(bv.toBigInt))
+    case bv@BVLiteral(true, _, 64) => CIR.Lit(L.Int64Lit(bv.toBigInt))
+
+    case bv@BVLiteral(false, _, 8) => CIR.Lit(L.UInt8Lit(bv.toBigInt))
+    case bv@BVLiteral(false, _, 16) => CIR.Lit(L.UInt16Lit(bv.toBigInt))
+    case bv@BVLiteral(false, _, 32) => CIR.Lit(L.UInt32Lit(bv.toBigInt))
+    case bv@BVLiteral(false, _, 64) => CIR.Lit(L.UInt64Lit(bv.toBigInt))
 
     case CharLiteral(v) => CIR.Lit(L.CharLit(v))
     case StringLiteral(v) => CIR.Lit(L.StringLit(v))
@@ -730,9 +746,11 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
           // Optimisation for zero: don't generate values at all to speed up processing within GenC.
           val values = default match {
             case Int32Literal(0) | Int8Literal(0) => Left(CIR.Zero)
-            case default => Right((0 until length) map { _ => rec(exprOps.freshenLocals(default)) }) // FIXME: there was some freshening here in Leon
+            case default => Right((0 until length.toInt) map { _ =>
+              rec(exprOps.freshenLocals(default))
+            })
           }
-          CIR.ArrayAllocStatic(arrayType, length, values)
+          CIR.ArrayAllocStatic(arrayType, length.toInt, values)
 
         case length =>
           if (arrayType.base.containsArray)
