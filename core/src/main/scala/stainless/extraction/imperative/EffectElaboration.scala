@@ -379,6 +379,10 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             checkedRecv(recvRef, readsDom, "runtime type-checked object in reads set", iio, e)
           }
 
+        case ObjectIdentity(recv) =>
+          val fieldId = heapRefSort.constructors.head.fields.head.id
+          ADTSelector(transform(recv, env), fieldId).copiedFrom(e)
+
         case fi @ FunctionInvocation(id, targs, vargs) =>
           val targs1 = targs.map(transform(_, env))
           val vargs1 = vargs.map(transform(_, env))
