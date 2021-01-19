@@ -181,7 +181,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       case _ => let(vd, e)(f)
     }
 
-    def unchecked(expr: Expr): Expr = Annotated(expr, Seq(DropVCs))
+    def unchecked(expr: Expr): Expr = Annotated(expr, Seq(DropVCs)).copiedFrom(expr)
 
     def classTypeInHeap(ct: ClassType): ClassType =
       ClassType(ct.id, ct.tps.map(typeOnlyRefTransformer.transform)).copiedFrom(ct)
@@ -531,13 +531,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       } .toMap
 
       // Transform reads spec in a way that doesn't depend on the final `readsVdOpt`
-      val newUncheckedReadsExpr = specced.specs.collectFirst {
+      val newIndependentReadsExpr = specced.specs.collectFirst {
         case spec: ReadsContract =>
           val env = specEnv(heapVdOpt0).allowAllReads
-          val newExpr = spec.transform(expr => funRefTransformer.transform(expr, env))
+          spec.transform(expr => funRefTransformer.transform(expr, env))
             .asInstanceOf[ReadsContract].expr
-          Annotated(newExpr, Seq(DropVCs)).copiedFrom(newExpr)
       } .getOrElse(EmptyHeapRefSet)
+
+      val newModifiesExpr = newSpecsMap.get(ModifiesKind)
+        .map(_.asInstanceOf[ModifiesContract].expr).getOrElse(EmptyHeapRefSet)
 
       // Translate `reads` and `modifies` into additional precondition
       // TODO(gsps): Support lets and multiple preconditions here.
@@ -561,18 +563,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         }
       }
 
-      // Rebuild full body, potentially adding bindings for `reads` and `modifies` sets
-      def wrapHeapContractBindings(body: Expr, readsExpr: => Expr, modifiesExpr: => Expr): Expr = {
-        def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
-          vdOpt match {
-            case Some(vd) => Let(vd, value, body).copiedFrom(body)
-            case None => body
-          }
-
-        maybeLetWrap(readsVdOpt, readsExpr,
-          maybeLetWrap(modifiesVdOpt, modifiesExpr,
-            body))
-      }
+      def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
+        vdOpt match {
+          case Some(vd) => Let(vd, unchecked(value), body).copiedFrom(body)
+          case None => body
+        }
 
       val newTParams = fd.tparams.map(typeOnlyRefTransformer.transform)
       val newFlags = fd.flags.map(typeOnlyRefTransformer.transform)
@@ -631,7 +626,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             fi
           }
 
-        val bodyWithChecks =
+        val bodyWithContractChecks =
           if (checkHeapContracts) {
             // NOTE: Leaving out position on conditions, so inliner will fill them in at call site.
             val check1 =
@@ -654,12 +649,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             body
           }
 
-        val fullBody = wrapHeapContractBindings(
-          bodyWithChecks,
-          readsExpr = newUncheckedReadsExpr,
-          modifiesExpr = newSpecsMap.get(ModifiesKind)
-            .map(_.asInstanceOf[ModifiesContract].expr).getOrElse(EmptyHeapRefSet)
-        )
+        // Wrap in reads and modifies expression bindings
+        val fullBody =
+          maybeLetWrap(
+            readsVdOpt,
+            unchecked(newIndependentReadsExpr),
+            maybeLetWrap(
+              modifiesVdOpt,
+              unchecked(newModifiesExpr),
+              bodyWithContractChecks))
 
         freshenSignature(new FunDef(
           shimId(fd.id),
@@ -672,12 +670,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       }
 
       def makeInnerFd(bodyOpt: Option[Expr]): FunDef = {
-        val fullBody = wrapHeapContractBindings(
-          specced.withBody(bodyOpt, newReturnType).copy(specs = newSpecs).reconstructed,
-          readsExpr = newUncheckedReadsExpr,
-          modifiesExpr = newSpecsMap.get(ModifiesKind)
-            .map(_.asInstanceOf[ModifiesContract].expr).getOrElse(EmptyHeapRefSet)
-        )
+        // Reconstruct body and wrap in reads expression binding (modifies binding is inside)
+        val fullBody =
+          maybeLetWrap(
+            readsVdOpt,
+            unchecked(newIndependentReadsExpr),
+            specced.withBody(bodyOpt, newReturnType).copy(specs = newSpecs).reconstructed)
+
         new FunDef(
           fd.id,
           newTParams,
@@ -697,6 +696,10 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         val innerBody1 = innerBodyOpt.getOrElse(NoTree(newReturnType).copiedFrom(fd))
         val innerBody2 = newSpecsMap.get(ReadsKind) match {
           case Some(newReadsSpec) =>
+            // TODO: Even though this copy of the reads expressions is pure and unused, the VC
+            //   generator will gather its assertions and add them to the context, slowing things
+            //   down. We could annotate this expression accordingly and shave off a few seconds
+            //   lost in hard VCs.
             val newReadsExpr = newReadsSpec.asInstanceOf[ReadsContract].expr
             Block(Seq(newReadsExpr), innerBody1).copiedFrom(innerBody1)
           case None =>
@@ -714,7 +717,13 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           innerBody2
         }
 
-        val innerFd = makeInnerFd(Some(innerBody3))
+        // Wrap in modifies expression binding
+        val innerBody4 = maybeLetWrap(
+          modifiesVdOpt,
+          unchecked(newModifiesExpr),
+          innerBody3)
+
+        val innerFd = makeInnerFd(Some(innerBody4))
         val shimFd = makeShimFd()
         Seq(shimFd, innerFd)
 
