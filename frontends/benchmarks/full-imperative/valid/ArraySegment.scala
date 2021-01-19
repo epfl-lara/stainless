@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof._
 import stainless.lang.StaticChecks._
 
-object ArraySegment {
+object ArraySegmentExample {
    def updateSizeLemma[T](xs: List[T], i: BigInt, y: T): Boolean = {
     require(0 <= i && i < xs.size)
     decreases(xs)

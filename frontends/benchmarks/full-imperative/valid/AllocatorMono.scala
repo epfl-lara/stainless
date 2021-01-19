@@ -45,6 +45,7 @@ object AllocatorMonoExample {
       increasingIds(free.map(objectId), bound)
     }
 
+    // FIXME: Figure out why this fails with @extern (add missing case in ChooseInjector & more)
     @opaque
     def apply(): Option[Box] = {
       reads(Set(this))
