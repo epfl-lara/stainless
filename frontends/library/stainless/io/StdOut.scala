@@ -6,8 +6,89 @@ import scala.language.implicitConversions
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.math.BitVectors._
 
 object StdOut {
+
+  @library
+  @extern
+  @cCode.function(
+    code = """
+     |static void __FUNCTION__(uint8_t x) {
+     |  printf("%"PRIu8, x);
+     |}
+     """,
+    includes = "inttypes.h:stdio.h"
+  )
+  def printU8(x: UInt8): Unit = {
+    scala.Predef.print(x)
+  }
+
+  @library
+  def printlnU8(x: UInt8): Unit = {
+    printU8(x)
+    println()
+  }
+
+  @library
+  @extern
+  @cCode.function(
+    code = """
+     |static void __FUNCTION__(uint16_t x) {
+     |  printf("%"PRIu16, x);
+     |}
+     """,
+    includes = "inttypes.h:stdio.h"
+  )
+  def printU16(x: UInt16): Unit = {
+    scala.Predef.print(x)
+  }
+
+  @library
+  def printlnU16(x: UInt16): Unit = {
+    printU16(x)
+    println()
+  }
+
+  @library
+  @extern
+  @cCode.function(
+    code = """
+     |static void __FUNCTION__(uint32_t x) {
+     |  printf("%"PRIu32, x);
+     |}
+     """,
+    includes = "inttypes.h:stdio.h"
+  )
+  def printU32(x: UInt32): Unit = {
+    scala.Predef.print(x)
+  }
+
+  @library
+  def printlnU32(x: UInt32): Unit = {
+    printU32(x)
+    println()
+  }
+
+  @library
+  @extern
+  @cCode.function(
+    code = """
+     |static void __FUNCTION__(uint64_t x) {
+     |  printf("%"PRIu64, x);
+     |}
+     """,
+    includes = "inttypes.h:stdio.h"
+  )
+  def printU64(x: UInt64): Unit = {
+    scala.Predef.print(x)
+  }
+
+  @library
+  def printlnU64(x: UInt64): Unit = {
+    printU64(x)
+    println()
+  }
 
   @extern
   @library

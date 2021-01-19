@@ -15,7 +15,13 @@ private[genc] object Literals {
     def getPrimitiveType: PrimitiveType = this match {
       case CharLit(_) => CharType
       case Int8Lit(_) => Int8Type
+      case Int16Lit(_) => Int16Type
       case Int32Lit(_) => Int32Type
+      case Int64Lit(_) => Int64Type
+      case UInt8Lit(_) => UInt8Type
+      case UInt16Lit(_) => UInt16Type
+      case UInt32Lit(_) => UInt32Type
+      case UInt64Lit(_) => UInt64Type
       case BoolLit(_) => BoolType
       case UnitLit => UnitType
       case StringLit(_) => StringType
@@ -24,7 +30,13 @@ private[genc] object Literals {
     override def toString: String = this match {
       case CharLit(v) => "'" + escape(v) + "'"
       case Int8Lit(v) => s"$v"
+      case Int16Lit(v) => s"$v"
       case Int32Lit(v) => s"$v"
+      case Int64Lit(v) => s"$v"
+      case UInt8Lit(v) => s"$v"
+      case UInt16Lit(v) => s"$v"
+      case UInt32Lit(v) => s"$v"
+      case UInt64Lit(v) => s"$v"
       case BoolLit(v) => s"$v"
       case UnitLit => s"()"
       case StringLit(v) => '"' + escape(v) + '"'
@@ -33,9 +45,15 @@ private[genc] object Literals {
 
   case class CharLit(v: Char) extends Literal
 
-  case class Int8Lit(v: Byte) extends Literal
+  case class Int8Lit(v: BigInt) extends Literal
+  case class Int16Lit(v: BigInt) extends Literal
+  case class Int32Lit(v: BigInt) extends Literal
+  case class Int64Lit(v: BigInt) extends Literal
 
-  case class Int32Lit(v: Int) extends Literal
+  case class UInt8Lit(v: BigInt) extends Literal
+  case class UInt16Lit(v: BigInt) extends Literal
+  case class UInt32Lit(v: BigInt) extends Literal
+  case class UInt64Lit(v: BigInt) extends Literal
 
   case class BoolLit(v: Boolean) extends Literal
 
