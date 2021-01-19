@@ -11,14 +11,14 @@ object optCheckHeapContracts extends inox.FlagOptionDef("check-heap-contracts", 
 // false = counter, true = set
 object optAllocImpl extends inox.OptionDef[Boolean] {
   val name = "alloc-impl"
-  def default = false
+  def default = true
   def parser = {
     case "counter" => Some(false)
     case "set" => Some(true)
     case _ => None
   }
   def usageRhs = "counter|set"
-  override def formatDefault = "counter"
+  override def formatDefault = "set"
 }
 
 // TODO(gsps): Ghost annotations are currently unchecked. Should be able to reuse `GhostChecker`.

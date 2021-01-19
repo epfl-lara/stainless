@@ -17,12 +17,16 @@ object ExternAlloc {
   def test(b1: Box): Unit = {
     reads(Set(b1))
     val b2 = alloc
-  } ensuring {
+    // This passes with the counter encoding:
+    // val v = b2.value
+    // assert(v == 41)
+    // assert(v == 42)
+  } ensuring { res =>
     b1.value == old(b1.value)
   }
 
   @allocates
-  def allocTwice: (AnyHeapRef, AnyHeapRef) = {
+  def allocTwice: (Box, Box) = {
     val b1 = alloc
     val b2 = alloc
     (b1, b2)
