@@ -10,17 +10,14 @@ object ExternAlloc {
   def alloc: Box = {
     Box(0)
   } ensuring { res =>
-    fresh(res)
+    fresh(res) && res.value == 0
   }
 
   @allocates
   def test(b1: Box): Unit = {
     reads(Set(b1))
     val b2 = alloc
-    // This passes with the counter encoding:
-    // val v = b2.value
-    // assert(v == 41)
-    // assert(v == 42)
+    assert(b2.value == 0) // this passes with the set encoding only
   } ensuring { res =>
     b1.value == old(b1.value)
   }

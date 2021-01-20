@@ -14,6 +14,7 @@ object MutListExample {
       decreases(repr.size)
 
       nextOpt match {
+        case None() =>
           repr == List(this)
         case Some(next) =>
           repr.content.contains(next) &&
@@ -22,6 +23,10 @@ object MutListExample {
           !next.repr.content.contains(this) &&
           next.valid
       }
+    }
+
+    def size: BigInt = {
+      reads(repr.content ++ Set(this))
       require(valid)
       decreases(repr.size)
 
@@ -82,7 +87,7 @@ object MutListExample {
       val newNode = Node(value, None[Node], Nil[AnyHeapRef])
       newNode.repr = List(newNode)
       newNode
-    } ensuring(fresh(_))
+    } ensuring { res => fresh(res) && res.valid }
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {

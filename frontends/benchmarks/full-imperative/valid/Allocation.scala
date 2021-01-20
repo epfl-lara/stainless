@@ -34,15 +34,12 @@ object Allocation {
 
   @allocates
   def testFreshDoesNotAlias2(b1: Box): BigInt = {
+    reads(Set(b1))
+    modifies(Set(b1))
     val b2 = alloc
     b1.value += 1
     b2.value
   } ensuring { res =>
     res == 0
   }
-
-  // @allocates
-  // def allocTwice: Unit = {
-
-  // }
 }
