@@ -69,9 +69,10 @@ object MutListExample {
     def prepend(newHead: BigInt): Unit = {
       reads(repr.content ++ Set(this))
       modifies(Set(this))
-      require(valid)
+      require(valid && repr.forall(allocated(_))) // the forall is needed here, otherwise there is a counter-example
       
       val newNode = Node(value, nextOpt, Nil[AnyHeapRef])
+      assert(!repr.contains(newNode)) // we would like to prove this, but can't :/
       newNode.repr = newNode :: repr.tail
       nextOpt = Some(newNode)
       value = newHead
