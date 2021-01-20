@@ -331,6 +331,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         def writeAllowed = modifiesVdOptOpt.isDefined
         def instrumAlloc = allocVdOpt.isDefined
         def old = copy(heapVdOpt = oldHeapVdOpt, allocVdOpt = oldAllocVdOpt)
+        def oldAlloc = copy(allocVdOpt = oldAllocVdOpt)
       }
 
       def initEnv: Env = ???  // unused
@@ -349,7 +350,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             val isInSet = ElementOfSet(recv, inSet).copiedFrom(fromE)
             val cond =
               if (env.instrumAlloc) {
-                val allocInit = transform(Allocated(recv).copiedFrom(fromE), env.old)
+                val allocInit = transform(Allocated(recv).copiedFrom(fromE), env.oldAlloc)
                 Implies(allocInit, isInSet).copiedFrom(fromE)
               } else isInSet
             Assert(cond, Some(msg), result).copiedFrom(fromE)
@@ -493,6 +494,14 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             block :+= Assignment(allocV, retAlloc).copiedFrom(e)
           }
 
+          // If allocation is instrumented, we have to add the freshly allocated references to the reads and
+          // modifies domains of function invocations
+          def domainArg(env: Env, domain: Option[Variable]): Expr =
+            if (env.instrumAlloc && allocUsingSets) {
+              val freshAlloc = env.allocVdOpt.get.toVariable -- env.oldAllocVdOpt.get.toVariable
+              domain.map(d => d ++ freshAlloc).getOrElse(freshAlloc)
+            } else domain.getOrElse(EmptyHeapRefSet)
+
           effectLevel(id) match {
             case Some(writes) =>
               val heapV = env.expectHeapV(e.getPos, "effectful function call")
@@ -501,8 +510,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
               // We add the extra arguments to the call
               if (writes)
-                newArgs +:= modifiesDom.getOrElse(EmptyHeapRefSet)
-              newArgs ++:= Seq(heapV, readsDom.getOrElse(EmptyHeapRefSet))
+                newArgs +:= domainArg(env, modifiesDom)
+              newArgs ++:= Seq(heapV, domainArg(env, readsDom))
 
               // If the function writes to the heap, we also extract the modified heap
               if (writes)
@@ -540,11 +549,9 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           if (!env.instrumAlloc)
             error(f.getPos, "Can't use 'fresh' in a non-allocating function")
           
-          // Freshness can be expressed in terms of old and allocated
-          val alloc = Allocated(ref).copiedFrom(f)
-          val notAllocInit = Not(Old(alloc).copiedFrom(f)).copiedFrom(f)
-
-          transform(And(Seq(notAllocInit, alloc)).copiedFrom(f), env)
+          val alloc = transform(Allocated(ref).copiedFrom(f), env)
+          val notAllocInit = transform(Not(Allocated(ref).copiedFrom(f)).copiedFrom(f), env.oldAlloc)
+          And(Seq(notAllocInit, alloc)).copiedFrom(f)
 
         case _ => super.transform(e, env)
       }

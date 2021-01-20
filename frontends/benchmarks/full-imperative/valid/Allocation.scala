@@ -42,4 +42,24 @@ object Allocation {
   } ensuring { res =>
     res == 0
   }
+
+  def read(b: Box): BigInt = {
+    reads(Set(b))
+    b.value
+  }
+
+  @allocates
+  def testReadFresh: Unit = {
+    val b = alloc
+    // Reading b isnt' visible outside the function (since fresh), so it is allowed
+    read(b)
+  }
+
+  @allocates
+  def testHeapAccessInsideFresh(bb: BoxBox): Unit = {
+    reads(Set(bb))
+    modifies(Set(bb))
+    bb.box = alloc
+    assert(fresh(bb.box))
+  }
 }
