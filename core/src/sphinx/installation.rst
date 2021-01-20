@@ -12,6 +12,21 @@ General Requirement
   It suffices to have headless OpenJDK JRE 8 (e.g. one that one gets with ``apt install openjdk-8-jre-headless`` on Debian/Ubuntu).
   Make sure that ``java -version`` reports a version starting with 1.8, such as ``openjdk version "1.8`` or ``java version "1.8``.
 
+
+.. _running-code:
+
+Running Code with Stainless dependencies
+----------------------------------------
+
+1. Clone the sources from https://github.com/epfl-lara/stainless
+
+2. Create a folder to put compiled Scala objects: ``mkdir -p ~/.scala_objects``
+
+3. Compile your code (here in ``MyFile.scala``, though you can have more than one file) while referring to the Stainless library sources: ``scalac -d ~/.scala_objects $(find /path/to/Stainless/frontends/library/stainless/ -name "*.scala") MyFile.scala``
+
+4. Run your code (replace ``MyMainClass`` with the name of your main object): ``scala -cp ~/.scala_objects MyMainClass``
+
+
 .. _standalone-release:
 
 Use Standalone Release (recommended)
@@ -375,4 +390,4 @@ The documentation resides in the ``core/src/sphinx/`` directory and can be built
 type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
 ``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
 
-
+Note for project maintainers: to build documentation on GitHub Pages, use ``make gh-pages`` in the same Makefile, or adapt it to you needs.
