@@ -8,11 +8,11 @@ synthesis features of Stainless this conversion can be made safely. Additionally
 compiled with any standard-compliant C99 compiler to target the desired hardware architecture
 without extra dependencies. The motivation, detailed supported features, design decisions and performance
 benchmarks can be found in `Extending Safe C Support In Leon
-<https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%Leon.pdf>`_.
+<https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%20Leon.pdf>`_.
 Furthermore, this Master Thesis Report explains how to achieve compliance under the `MISRA C
 <https://en.wikipedia.org/wiki/MISRA_C>`_ guidelines.
 
-To convert a Scala program, one can use the ``--genc`` option of Stainless.
+To convert a Scala program, please use the ``--genc`` option of Stainless.
 
 .. NOTE::
   Currently the memory model is limited to stack allocations. Hence, no dynamic allocation
@@ -25,7 +25,7 @@ Requirements
 The following is required from the Scala program fed to GenC:
 
  - Any functions reachable from the ``main`` function, and the types they use,
-   should be exclusively use the set of features described below, with the
+   should be exclusively in the set of features described below, with the
    exceptions of the code used for verification conditions;
 
  - The program should be successfully verified with the ``--strict-arithmetic``
@@ -38,10 +38,9 @@ satisfy these extra conditions:
 
  - ``CHAR_BITS`` is defined to be 8;
 
- - The ``int8_t``, ``int32_t`` and ``uint32_t`` types are available;
+ - The ``int8_t``, ``int16_t``, ``int32_t``, ``int64_t`` and ``uint8_t``, ``uint16_t``, ``uint32_t``, ``uint64_t`` types are available;
 
- - And casting from unsigned to signed integer, and vice-versa, is carried out
-   as a regular reintepretation of the binary representation of the integer.
+ - Casting from unsigned to signed integer, and vice-versa, is not well supported at the moment.
 
 Supported Features
 ------------------
@@ -70,8 +69,20 @@ The following raw types and their corresponding literals are supported:
     - ``bool``
   * - ``Byte`` (8-bit integer)
     - ``int8_t``
+  * - ``Int16`` (16-bit integer)
+    - ``int16_t``
   * - ``Int`` (32-bit integer)
     - ``int32_t``
+  * - ``Long`` (64-bit integer)
+    - ``int64_t``
+  * - ``UInt8`` (8-bit unsigned integer)
+    - ``uint8_t``
+  * - ``UInt16`` (16-bit integer)
+    - ``uint16_t``
+  * - ``UInt32`` (32-bit integer)
+    - ``uint32_t``
+  * - ``UInt64`` (64-bit integer)
+    - ``uint64_t``
 
 Additionally, GenC has a partial support for character and string literals made
 of ASCII characters only but it has no API to manipulate strings at the moment:
