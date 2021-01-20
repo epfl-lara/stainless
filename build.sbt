@@ -310,29 +310,29 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   )
   .dependsOn(`stainless-scalac`)
 
-lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
-  .settings(commonSettings)
-  .settings(noPublishSettings)
-  .settings(name := "stainless-dotty-frontend")
-  .dependsOn(`stainless-core`)
-  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
+// lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
+//   .settings(commonSettings)
+//   .settings(noPublishSettings)
+//   .settings(name := "stainless-dotty-frontend")
+//   .dependsOn(`stainless-core`)
+//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
 
-lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
-  .enablePlugins(JavaAppPackaging)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings)
-  .settings(artifactSettings, scriptSettings)
-  .settings(noPublishSettings)
-  .settings(
-    name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler",
-  )
-  .dependsOn(inox % "test->test;it->test,it")
-  .dependsOn(`stainless-dotty-frontend`)
-  .aggregate(`stainless-dotty-frontend`)
-  // Should truly depend on dotty, overriding the "provided" modifier above:
-  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
-  .configs(IntegrationTest)
+// lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+//   .enablePlugins(JavaAppPackaging)
+//   .enablePlugins(BuildInfoPlugin)
+//   .settings(commonSettings, commonFrontendSettings)
+//   .settings(artifactSettings, scriptSettings)
+//   .settings(noPublishSettings)
+//   .settings(
+//     name := "stainless-dotty",
+//     frontendClass := "dotc.DottyCompiler",
+//   )
+//   .dependsOn(inox % "test->test;it->test,it")
+//   .dependsOn(`stainless-dotty-frontend`)
+//   .aggregate(`stainless-dotty-frontend`)
+//   // Should truly depend on dotty, overriding the "provided" modifier above:
+//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
+//   .configs(IntegrationTest)
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -373,8 +373,8 @@ lazy val root = (project in file("."))
   .settings(
     sourcesInBase in Compile := false,
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`/*, `stainless-dotty`*/, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`/*, `stainless-dotty`*/, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
