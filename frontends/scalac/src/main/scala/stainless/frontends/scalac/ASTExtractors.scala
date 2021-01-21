@@ -702,8 +702,16 @@ trait ASTExtractors {
       }
     }
 
+    /** Extracts the 'allocated' set from an expression */
+    object ExAllocatedSetExpression {
+      def unapply(tree: Select): Boolean = tree match {
+        case ExSelected("stainless", "lang", "package", "allocated") => true
+        case _ => false
+      }
+    }
+
     /** Extracts the 'allocated' predicate from an expression */
-    object ExAllocatedExpression {
+    object ExAllocatedPredExpression {
       def unapply(tree: Apply): Option[Tree] = tree match {
         case Apply(ExSelected("stainless", "lang", "package", "allocated"), obj :: Nil) => Some(obj)
         case _ => None

@@ -17,7 +17,7 @@ object ExternAlloc {
   def test(b1: Box): Unit = {
     reads(Set(b1))
     val b2 = alloc
-    assert(b2.value == 0) // this passes with the set encoding only
+    assert(b2.value == 0)
   } ensuring { res =>
     b1.value == old(b1.value)
   }

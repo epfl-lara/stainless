@@ -114,12 +114,9 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeType(implicit s: Symbols): Type = e.getType
   }
 
-  /** Represents the predicate `allocated(obj)` that asserts that a given reference was allocated */
-  case class Allocated(obj: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = obj.getType match {
-      case tpe if s.isSubtypeOf(tpe, AnyHeapRef()) => BooleanType()
-      case _ => Untyped
-    }
+  /** Represents the `allocated` set, which keeps track of allocated references */
+  case class Allocated() extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = SetType(AnyHeapRef())
   }
 
   /**
@@ -326,8 +323,8 @@ trait Printer extends oo.Printer {
     case Snapshot(e) =>
       p"snapshot($e)"
 
-    case Allocated(obj) =>
-      p"allocated($obj)"
+    case Allocated() =>
+      p"allocated"
 
     case Fresh(obj) =>
       p"fresh($obj)"
@@ -429,8 +426,8 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
 
-    case s.Allocated(obj) =>
-      (Seq(), Seq(), Seq(obj), Seq(), Seq(), (_, _, es, _, _) => t.Allocated(es(0)))
+    case s.Allocated() =>
+      (Seq(), Seq(), Seq(), Seq(), Seq(), (_, _, _, _, _) => t.Allocated())
 
     case s.Fresh(obj) =>
       (Seq(), Seq(), Seq(obj), Seq(), Seq(), (_, _, es, _, _) => t.Fresh(es(0)))

@@ -286,8 +286,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             val isInSet = ElementOfSet(recv, inSet).copiedFrom(fromE)
             val cond =
               if (env.instrumAlloc) {
-                val allocInit = transform(Allocated(recv).copiedFrom(fromE), env.oldAlloc)
-                Implies(allocInit, isInSet).copiedFrom(fromE)
+                val alloc = ElementOfSet(recv, Allocated().copiedFrom(fromE)).copiedFrom(fromE)
+                Implies(transform(alloc, env.oldAlloc), isInSet).copiedFrom(fromE)
               } else isInSet
             Assert(cond, Some(msg), result).copiedFrom(fromE)
           case _ =>
@@ -465,9 +465,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             }
           }
 
-        case Allocated(ref) =>
-          val allocV = env.expectAllocV(e.getPos, "checking allocation")
-          allocated(allocV, transform(ref, env), e)
+        case Allocated() =>
+          env.expectAllocV(e.getPos, "checking allocation")
 
         case Old(e) =>
           // TODO(gsps): Add ability to refer back to old state snapshots for any ghost code
@@ -478,9 +477,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           if (!env.instrumAlloc)
             error(f.getPos, "Can't use 'fresh' in a non-allocating function")
           
-          val alloc = transform(Allocated(ref).copiedFrom(f), env)
-          val notAllocInit = transform(Not(Allocated(ref).copiedFrom(f)).copiedFrom(f), env.oldAlloc)
-          And(Seq(notAllocInit, alloc)).copiedFrom(f)
+          smartLet("ref" :: HeapRefType, transform(ref, env)) { ref =>
+            val alloc = ElementOfSet(ref, Allocated().copiedFrom(f)).copiedFrom(f)
+            val notAlloc = Not(alloc).copiedFrom(f)
+            And(Seq(transform(notAlloc, env.oldAlloc), transform(alloc, env))).copiedFrom(f)
+          }
 
         case _ => super.transform(e, env)
       }

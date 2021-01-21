@@ -163,8 +163,12 @@ package object lang {
 
   @library
   def specialize[T](call: T): T = call
+
   @ignore
-  def allocated(obj: AnyHeapRef): Boolean = true
+  val allocated: Set[AnyHeapRef] = Set.empty
+
+  @ignore
+  def allocated(ref: AnyHeapRef): Boolean = false
 
   @ignore
   def fresh(obj: AnyHeapRef): Boolean = false
