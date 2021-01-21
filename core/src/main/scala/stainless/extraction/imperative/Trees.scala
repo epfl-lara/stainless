@@ -260,22 +260,8 @@ trait Trees extends oo.Trees with Definitions { self =>
     (Seq(), HeapType, { _ => NoTree(HeapType) })
   }
 
-  // private[this] lazy val heapId: Identifier = ast.SymbolIdentifier("stainless.lang.Heap")
-  // private[this] lazy val heapCons: Identifier = ast.SymbolIdentifier("stainless.lang.Heap")
-  // lazy val heapMapId: Identifier = FreshIdentifier("map")
-  // lazy val heapReadableId: Identifier = FreshIdentifier("readable")
-  // lazy val heapModifiableId: Identifier = FreshIdentifier("modifiable")
-  // lazy val heapSort: ADTSort = dsl.mkSort(heapId)() { _ =>
-  //   Seq((heapCons, Seq(
-  //     ValDef(heapMapId, HeapMapType),
-  //     ValDef(heapReadableId, HeapRefSetType),
-  //     ValDef(heapModifiableId, HeapRefSetType))))
-  // }
-
   lazy val HeapRefType: Type = ADTType(heapRefId, Seq.empty)
-  // lazy val HeapMapType: MapType = MapType(HeapRefType, AnyType())
   lazy val HeapRefSetType: Type = SetType(HeapRefType)
-  // lazy val HeapType: Type = ADTType(heapId, Seq.empty)
   lazy val HeapType: MapType = MapType(HeapRefType, AnyType())
 
   object ObjectIdentity {
@@ -286,9 +272,6 @@ trait Trees extends oo.Trees with Definitions { self =>
       case _ => None
     }
   }
-
-  def getHeapRefId(ref: Expr): Expr = ADTSelector(ref, heapRefFieldId)
-  def createHeapRef(id: Expr): Expr = ADT(heapRefCons, Seq(), Seq(id))
 }
 
 trait Printer extends oo.Printer {

@@ -32,7 +32,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
     }),
     extraction.imperative.optFullImperative -> Description(Verification, "Use the full imperative phase. That might be unstable because it is still under development."),
     extraction.imperative.optCheckHeapContracts -> Description(Verification, "Check that heap reads and modifies clauses are valid"),
-    extraction.imperative.optAllocImpl -> Description(Verification, "Instrument allocation using counters or sets"),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),

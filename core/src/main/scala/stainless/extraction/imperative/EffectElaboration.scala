@@ -8,19 +8,6 @@ import inox.utils.Position
 
 object optCheckHeapContracts extends inox.FlagOptionDef("check-heap-contracts", true)
 
-// false = counter, true = set
-object optAllocImpl extends inox.OptionDef[Boolean] {
-  val name = "alloc-impl"
-  def default = true
-  def parser = {
-    case "counter" => Some(false)
-    case "set" => Some(true)
-    case _ => None
-  }
-  def usageRhs = "counter|set"
-  override def formatDefault = "set"
-}
-
 // TODO(gsps): Ghost annotations are currently unchecked. Should be able to reuse `GhostChecker`.
 trait EffectElaboration
   extends oo.CachingPhase
@@ -103,49 +90,6 @@ object EffectElaboration {
 }
 
 /** The actual Ref transformation **/
-
-/*
-trait SyntheticHeapFunctions { self =>
-  val s: Trees
-  val t: s.trees
-
-  import t._
-  import dsl._
-
-  protected lazy val heapReadId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef.read")
-  protected lazy val heapModifyId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef.modify")
-
-  protected def heapFunctions: Seq[FunDef] = {
-    val readFd = mkFunDef(heapReadId, Unchecked, Synthetic, Inline)() { _ =>
-      (Seq("heap" :: HeapType, "x" :: HeapRefType), AnyType(), {
-        case Seq(heap, x) =>
-          Require(
-            heap.select(heapReadableId).contains(x),
-            MapApply(heap.select(heapMapId), x)
-          )
-      })
-    }
-    val modifyFd = mkFunDef(heapModifyId, Unchecked, Synthetic, Inline)() { _ =>
-      (Seq("heap" :: HeapType, "x" :: HeapRefType, "v" :: AnyType()), UnitType(), {
-        case Seq(heap, x) =>
-          Require(
-            heap.select(heapModifiableId).contains(x),
-            heapWithMap(heap, MapUpdated(heap.select(heapMapId), x, v))
-          )
-      })
-    }
-    Seq(readFd, modifyFd)
-  }
-
-  protected def heapWithMap(oldHeap: Expr, newMap: Expr): Expr =
-    C(heapCons)(
-      newMap,
-      oldHeap.select(heapReadableId),
-      oldHeap.select(heapModifiableId)
-    )
-}
-*/
-
 trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with SyntheticHeapFunctions*/ { self =>
   val s: Trees
   val t: s.type
@@ -163,9 +107,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     id => FreshIdentifier(s"${id.name}__shim")
   )
 
-  // Switch between the two available implementations of allocation
-  lazy val allocUsingSets = context.options.findOptionOrDefault(optAllocImpl)
-
   /* The transformer */
 
   protected type TransformerContext <: RefTransformContext
@@ -175,11 +116,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
-
-    // The type of the allocation instrumentation
-    lazy val AllocInstrumType: Type =
-      if (allocUsingSets) HeapRefSetType
-      else IntegerType()
 
     lazy val dummyHeapVd = "dummyHeap" :: HeapType
     lazy val dummyHeapRefSetVd = "dummyHeapRefSet" :: HeapRefSetType
@@ -359,8 +295,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         }
         
       def allocated(allocV: Variable, ref: Expr, fromE: Expr): Expr =
-        if (allocUsingSets) ElementOfSet(ref, allocV).copiedFrom(fromE)
-        else LessThan(getHeapRefId(ref), allocV)
+        ElementOfSet(ref, allocV).copiedFrom(fromE)
 
       def assumeAlloc(allocVdOpt: Option[ValDef], ref: Expr)(e: Expr): Expr =
         allocVdOpt map { allocVd =>
@@ -370,7 +305,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       def transformReturnType(returnType: Type, writes: Boolean, allocs: Boolean): Type = {
         var retTypes = Seq(typeOnlyRefTransformer.transform(returnType)) ++
           (if (writes) Seq(HeapType) else Seq()) ++
-          (if (allocs) Seq(AllocInstrumType) else Seq())
+          (if (allocs) Seq(HeapRefSetType) else Seq())
         tupleTypeWrap(retTypes)
       }
 
@@ -385,26 +320,20 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           val heapV = env.expectHeapV(e.getPos, "allocate heap object")
 
           val freshRef =
-            if (allocUsingSets) {
-              Assume(
-                !forall("ref" :: HeapRefType) { ref =>
-                  allocated(allocV, ref, e)
-                },
-                choose("ref" :: HeapRefType) { ref =>
-                  !allocV.contains(ref)
-                }.copiedFrom(e)
-              )
-            } else {
-              createHeapRef(allocV)
-            }
+            Assume(
+              !forall("ref" :: HeapRefType) { ref =>
+                allocated(allocV, ref, e)
+              },
+              choose("ref" :: HeapRefType) { ref =>
+                !allocV.contains(ref)
+              }.copiedFrom(e)
+            )
 
           let("ref" :: HeapRefType, freshRef) { ref =>
             val ctNew = ClassType(ct.id, ct.tps.map(transform(_, env))).copiedFrom(ct)
             val value = ClassConstructor(ctNew, args.map(transform(_, env))).copiedFrom(e)
             val newHeap = MapUpdated(heapV, ref, value).copiedFrom(e)
-            val newAllocated = 
-              if (allocUsingSets) SetAdd(allocV, ref).copiedFrom(e)
-              else Plus(allocV, IntegerLiteral(1)).copiedFrom(e)
+            val newAllocated = SetAdd(allocV, ref).copiedFrom(e)
             Block(
               Seq(
                 Assignment(allocV, newAllocated).copiedFrom(e),
@@ -497,7 +426,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           // If allocation is instrumented, we have to add the freshly allocated references to the reads and
           // modifies domains of function invocations
           def domainArg(env: Env, domain: Option[Variable]): Expr =
-            if (env.instrumAlloc && allocUsingSets) {
+            if (env.instrumAlloc) {
               val freshAlloc = env.allocVdOpt.get.toVariable -- env.oldAllocVdOpt.get.toVariable
               domain.map(d => d ++ freshAlloc).getOrElse(freshAlloc)
             } else domain.getOrElse(EmptyHeapRefSet)
@@ -594,8 +523,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       val heapVdOpt0 = if (reads) Some("heap0" :: HeapType) else None
       val heapVdOpt1 = if (writes) Some("heap1" :: HeapType) else None
-      val allocVdOpt0 = if (allocs) Some("alloc0" :: AllocInstrumType) else None
-      val allocVdOpt1 = if (allocs) Some("alloc1" :: AllocInstrumType) else None
+      val allocVdOpt0 = if (allocs) Some("alloc0" :: HeapRefSetType) else None
+      val allocVdOpt1 = if (allocs) Some("alloc1" :: HeapRefSetType) else None
       val readsDomVdOpt = if (reads) Some("readsDom" :: HeapRefSetType) else None
       val modifiesDomVdOpt = if (writes) Some("modifiesDom" :: HeapRefSetType) else None
       val newRealParams = fd.params.map(typeOnlyRefTransformer.transform)
@@ -686,7 +615,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       val innerBodyOpt: Option[Expr] = specced.bodyOpt.map { body =>
         val heapVdOpt = if (writes) Some("heap" :: HeapType) else heapVdOpt0
-        val allocVdOpt = if (allocs) Some("alloc" :: AllocInstrumType) else None
+        val allocVdOpt = if (allocs) Some("alloc" :: HeapRefSetType) else None
 
         // We build the resulting expression and the enclosing var definitions
         var results = Seq(funRefTransformer.transform(body, bodyEnv(heapVdOpt, allocVdOpt)))
@@ -766,28 +695,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
           if (writes) {
             let("res" :: newReturnType, fi) { res =>
               var modifiedRefs: Expr = modifiesVdOpt.get.toVariable
-              if (allocs) {
-                if (allocUsingSets) modifiedRefs = modifiedRefs ++ (res._3 -- allocVdOpt0.get.toVariable)
-                // TODO: quantifiers inside choose aren't allowed -> find another way for the counter encoding
-                // else {
-                //   modifiedRefs = modifiedRefs ++ choose("set" :: HeapRefSetType) { set =>
-                //     forall("ref" :: HeapRefType) { ref =>
-                //       val refId = getHeapRefId(ref)
-                //       val inSet = ElementOfSet(ref, set)
-                //       val inRange = And(Seq(
-                //         GreaterEquals(refId, allocVdOpt0.get.toVariable),
-                //         LessThan(refId, res._3)
-                //       ))
-                //       Equals(inSet, inRange)
-                //     }
-                //   }
-                // }
-              }
+              if (allocs)
+                modifiedRefs = modifiedRefs ++ (res._3 -- allocVdOpt0.get.toVariable)
 
               val allocRes = if (allocs) {
-                val allocIncreased =
-                  if (allocUsingSets) SubsetOf(allocVdOpt0.get.toVariable, res._3)
-                  else LessEquals(allocVdOpt0.get.toVariable, res._3)
+                val allocIncreased = SubsetOf(allocVdOpt0.get.toVariable, res._3)
                 Some(Assume(allocIncreased, res._3))
               } else None
 
