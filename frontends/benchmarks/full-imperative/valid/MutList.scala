@@ -65,20 +65,37 @@ object MutListExample {
       }
     } ensuring { _ => valid }
 
+    @ghost
+    @allocates
+    def lemma_reprAllocated: Boolean = {
+      reads(repr.content ++ Set(this))
+      require(valid)
+      decreases(size)
+
+      nextOpt match {
+        case None() =>
+        case Some(next) =>
+          assert(next.lemma_reprAllocated)
+      }
+
+      repr.content.subsetOf(allocated) && allocated == old(allocated)
+    }.holds
+
     @allocates
     def prepend(newHead: BigInt): Unit = {
       reads(repr.content ++ Set(this))
       modifies(Set(this))
-      require(valid && repr.forall(allocated(_))) // the forall is needed here, otherwise there is a counter-example
-      
+      require(valid)
+
+      assert(lemma_reprAllocated)
+
       val newNode = Node(value, nextOpt, Nil[AnyHeapRef])
-      assert(!repr.contains(newNode)) // we would like to prove this, but can't :/
       newNode.repr = newNode :: repr.tail
       nextOpt = Some(newNode)
       value = newHead
       repr = this :: newNode.repr
     } ensuring { _ =>
-      valid && nextOpt.isDefined && fresh(nextOpt.get)
+      valid && value == newHead && nextOpt.isDefined && fresh(nextOpt.get)
     }
   }
 

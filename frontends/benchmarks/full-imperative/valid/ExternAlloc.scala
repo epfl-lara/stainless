@@ -18,7 +18,7 @@ object ExternAlloc {
     reads(Set(b1))
     val b2 = alloc
     assert(b2.value == 0)
-  } ensuring { res =>
+  } ensuring { _ =>
     b1.value == old(b1.value)
   }
 

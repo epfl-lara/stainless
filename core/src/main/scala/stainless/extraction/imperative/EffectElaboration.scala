@@ -591,7 +591,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             newPost = Let(valueVd, resVd1.toVariable._1, newPost)
             (resVd1, newPost)
           } else {
-            (resVd, transformPost(post, resVd, resVd))
+            (typeOnlyRefTransformer.transform(resVd), transformPost(post, resVd, resVd))
           }
           val newSpec = Postcondition(Lambda(Seq(resVd1), post1).copiedFrom(lam))
           (spec.kind, newSpec.setPos(spec.getPos))
