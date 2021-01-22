@@ -4,7 +4,7 @@ import stainless.lang.Option._
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-object SimpleInheritanceTest {
+object TaskParallelTest {
   @mutable abstract class Task {
     def region: Set[AnyHeapRef]
 
