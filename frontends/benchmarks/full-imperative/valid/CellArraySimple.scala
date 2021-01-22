@@ -25,7 +25,7 @@ object LangCollection {
     def update(i: BigInt, v: T): Unit = {
       require(0 <= i && i < content.size)
       reads(Set(content(i)))
-      modifies(safeListLookup[T](content, i))
+      modifies(Set(content(i)))
       content(i).unref = v
     }
   }
