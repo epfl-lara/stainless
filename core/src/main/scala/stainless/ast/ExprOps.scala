@@ -175,8 +175,6 @@ trait ExprOps extends inox.ast.ExprOps {
 
       gatherSpecs(fullBody, Seq.empty, Seq.empty, None, Seq.empty) match {
         case Some((lets, specs, body)) =>
-          assert(!body.isInstanceOf[Let] || !bodyMissing(body),
-            "Body is missing, but there are let bindings irrelevant to specs")
           assert(lets.isEmpty || specs.nonEmpty)
           BodyWithSpecs(lets, specs, body)
         case None =>
