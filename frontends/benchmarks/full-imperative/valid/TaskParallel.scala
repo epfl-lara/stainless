@@ -63,7 +63,7 @@ object TaskParallelTest {
     require(disjoint(t1, t2))
     reads(t1.region ++ t2.region)
     modifies(t1.region ++ t2.region)
-    val res2 = parallel(t1, t1)
+    val res2 = parallel(t1, t2)
     ()
   }
 }
