@@ -58,4 +58,12 @@ object TaskParallelTest {
     t2.run
     (t1.join, t2.join)
   } ensuring { res => res == (t1.join, t2.join) }
+
+  def testParallel(t1: Task, t2: Task): Unit = {
+    require(disjoint(t1, t2))
+    reads(t1.region ++ t2.region)
+    modifies(t1.region ++ t2.region)
+    val res2 = parallel(t1, t1)
+    ()
+  }
 }
