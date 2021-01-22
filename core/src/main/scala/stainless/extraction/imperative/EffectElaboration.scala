@@ -558,7 +558,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
       def maybeLetWrap(vdOpt: Option[ValDef], value: => Expr, body: Expr): Expr =
         vdOpt match {
-          case Some(vd) => Let(vd, unchecked(value), body).copiedFrom(body)
+          case Some(vd) => Let(vd, value, body).copiedFrom(body)
           case None => body
         }
 
@@ -621,6 +621,11 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
 
         val bodyWithContractChecks =
           if (checkHeapContracts) {
+            val niceFdName = fd.id match {
+              case si: SymbolIdentifier => si.symbol.name
+              case id => id.name
+            }
+
             // NOTE: Leaving out position on conditions, so inliner will fill them in at call site.
             val check1 =
               if (writes) {
@@ -628,7 +633,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
                   modifiesVdOpt.get.toVariable,
                   modifiesDomVdOpt.get.toVariable
                 ) //.copiedFrom(fd)
-                Assert(cond1, Some("modifies clause"), body).copiedFrom(fd)
+                Assert(cond1, Some(s"modifies of $niceFdName"), body).copiedFrom(fd)
               } else {
                 body
               }
@@ -637,7 +642,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
               readsVdOpt.get.toVariable,
               readsDomVdOpt.get.toVariable
             ) //.copiedFrom(fd)
-            Assert(cond2, Some("reads clause"), check1).copiedFrom(fd)
+            Assert(cond2, Some(s"reads of $niceFdName"), check1).copiedFrom(fd)
           } else {
             body
           }
