@@ -18,7 +18,6 @@ object LangCollection {
     def apply(i: BigInt): Unit = {
       require(0 <= i && i < content.size)
       reads(Set(content(i)))
-      assert(safeListLookup(content, i) == Set(content(i)))
       content(i).unref
     }
 
