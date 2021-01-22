@@ -16,6 +16,26 @@ object CellArrayMergeSortExample {
     l.contains(x) == listToSet(l).contains(x)
   }.holds
 
+  def lemmaListTakeAll[T](@induct l: List[T]): Boolean = {
+    l.take(l.size) == l
+  }.holds
+
+  def lemmaListTakeEquals1[T](l1: List[T], l2: List[T], i: BigInt): Boolean = {
+    require(
+      i >= 0 && l1.size > i && l1.size == l2.size &&
+      l1.take(i) == l2.take(i) &&
+      l1(i) == l2(i)
+    )
+    if (i > 0) {
+      (l1, l2) match {
+        case (Cons(h1, t1), Cons(h2, t2)) =>
+          if (t1.nonEmpty)
+            lemmaListTakeEquals1(t1, t2, i - 1)
+      }
+    }
+    l1.take(i + 1) == l2.take(i + 1)
+  }.holds
+
 
   final case class IntCell(var value: Int) extends AnyHeapRef
 
@@ -67,7 +87,7 @@ object CellArrayMergeSortExample {
   final case class IntArrayView(underlying: IntArray, from: BigInt, until: BigInt) {
     require(0 <= from && from <= until && until <= underlying.content.size)
 
-    def size: BigInt = underlying.content.size
+    def size: BigInt = until - from
 
     def isEmpty: Boolean = from == until
 
@@ -78,6 +98,21 @@ object CellArrayMergeSortExample {
       indicesRange(from, this)
     } ensuring { _.forall(validIndex) }
 
+    private def indicesApplied(is: List[BigInt]): List[Int] = {
+      reads(cellSet)
+      require(is.forall(validIndex))
+      is match {
+        case Nil() => Nil[Int]()
+        case Cons(i, is) =>
+          lemmaCellSetContainsValidIndex(i)
+          Cons(apply(i), indicesApplied(is))
+      }
+    } ensuring (_.size == is.size)
+
+    def toList: List[Int] = {
+      reads(cellSet)
+      indicesApplied(indices)
+    } ensuring (_.size == size)
 
     // Cell access and separation
 
@@ -85,7 +120,20 @@ object CellArrayMergeSortExample {
     def cell(i: BigInt): AnyHeapRef = {
       require(validIndex(i))
       underlying.content(i)
-    }
+    } //ensuring { res => cellSet.contains(res) }
+
+    // def cellIndexFrom(theCell: AnyHeapRef, i: BigInt = from): BigInt = {
+    //   require(validIndex(i) && cellSet.contains(theCell))
+    //   if (cell(i) == theCell) {
+    //     i
+    //   } else if (i + 1 < until) {
+    //     cellIndexFrom(theCell, i + 1)
+    //   } else {
+    //     // TODO: Prove contradiction here, since `cellSet contains theCell`
+    //     assert(false)
+    //     ??? : BigInt
+    //   }
+    // } ensuring { j => validIndex(j) && cell(j) == theCell }
 
     @inline
     def cellAsSet(i: BigInt): Set[AnyHeapRef] = {
@@ -112,6 +160,9 @@ object CellArrayMergeSortExample {
     }
 
     def allDistinct: Boolean = allDistinctFrom(from, Set.empty)
+
+    // def allDistinct: Boolean =
+    //   indices.forall(i => cellIndexFrom(cell(i), from) == i)
 
 
     // Various lemmas
@@ -162,7 +213,55 @@ object CellArrayMergeSortExample {
     def slice(from: BigInt, until: BigInt): IntArrayView = {
       require(this.from <= from && from <= until && until <= this.until)
       IntArrayView(underlying, from, until)
-    }
+    } //ensuring { res => res.cellSet subsetOf this.cellSet }
+
+
+    // Copying
+
+    def copyToFrom(that: IntArrayView, i: BigInt): Unit = {
+      reads(cellSet ++ that.cellSet)
+      modifies(that.cellSet)
+      require(
+        this * that && from == that.from && until == that.until &&
+        from <= i && i <= until &&
+        toList.take(i - from) == that.toList.take(i - from)
+      )
+      if (i != until) {
+        lemmaCellSetContainsValidIndex(i)
+        that.lemmaCellSetContainsValidIndex(i)
+
+        assert(toList.take(i - from) == that.toList.take(i - from))
+
+        that(i) = this(i)
+
+        assert(this(i) == that(i))
+        assert(toList(i - from) == that.toList(i - from)) // TBD: From the previous line
+        assert(toList.take(i - from) == that.toList.take(i - from)) // TBD: From uniqueness of array cells
+        assert(i - from >= 0)
+        assert(toList.size > i - from)
+        assert(toList.size == that.toList.size)
+
+        lemmaListTakeEquals1(toList, that.toList, i - from)
+        assert(toList.take(i + 1 - from) == that.toList.take(i + 1 - from))
+
+        copyToFrom(that, i + 1)
+        check(toList == that.toList) // NOTE: Somehow slow (~14s)
+
+      } else {
+        lemmaListTakeAll(toList)
+        lemmaListTakeAll(that.toList)
+        assert(toList.take(size) == that.toList.take(size))
+        check(toList == that.toList)
+      }
+      ()
+    } ensuring (_ => toList == that.toList)
+
+    def copyTo(that: IntArrayView): Unit = {
+      reads(cellSet ++ that.cellSet)
+      modifies(that.cellSet)
+      require(this * that && from == that.from && until == that.until)
+      copyToFrom(that, from)
+    } ensuring (_ => toList == that.toList)
 
 
     // Sortedness
