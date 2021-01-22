@@ -55,8 +55,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
       exprOps.preTraversal {
         case specFi @ SpecializeCall(_) =>
           context.reporter.fatalError(specFi.getPos,
-            "The `specialize` construct must currently be used directly as the body of a " +
-            "function without any contracts.")
+            "The `specialize` construct must currently be used directly as the body of a function")
         case fi: FunctionInvocation if fi.tfd.flags.contains(Template) =>
           context.reporter.fatalError(fi.getPos,
             "Cannot call an `@template` function directly, since it will be removed.")
