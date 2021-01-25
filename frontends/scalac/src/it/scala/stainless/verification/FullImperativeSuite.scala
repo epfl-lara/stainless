@@ -13,7 +13,7 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
     seq => Seq(
       extraction.imperative.optFullImperative(true),
       optFailEarly(true),
-      inox.optTimeout(60)
+      inox.optTimeout(75)
     ) ++ seq
   }
 
