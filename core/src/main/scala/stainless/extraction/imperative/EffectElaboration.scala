@@ -159,6 +159,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
 
+    lazy val anyHeapRefOpt: Option[ClassDef] = AnyHeapRef.classDefOpt
+
     // This caches whether types live in the heap or not
     lazy val livesInHeap = new utils.ConcurrentCached[Type, Boolean](isHeapType(_))
 
@@ -166,8 +168,15 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       id => exprOps.getEffectLevel(symbols.getFunction(id))
     })
 
+    object AnyHeapRefType {
+      def unapply(tpe: Type): Boolean = tpe match {
+        case ct: ClassType => anyHeapRefOpt.isDefined && ct.id == anyHeapRefOpt.get.id
+        case _ => false
+      }
+    }
+
     private def isHeapType(tpe: Type): Boolean = tpe match {
-      case AnyHeapRef() => true
+      case AnyHeapRefType() => true
       // We lookup the parents through the cache so that the hierarchy is traversed at most once
       case ct: ClassType => ct.tcd.parents.exists(a => livesInHeap(a.toType))
       case _ => false
@@ -240,7 +249,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         // FIXME: Transform type arguments in parents?
 
         val newParents = cd.parents.filter {
-          case AnyHeapRef() => false
+          case AnyHeapRefType() => false
           case _ => true
         }
 
