@@ -167,15 +167,11 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
   object AnyHeapRef {
     // TODO(gsps): Cache this ClassDef
-    private[this] def classDef(implicit s: Symbols) =
-      s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef").get
+    def classDefOpt(implicit s: Symbols): Option[ClassDef] =
+      s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef")
 
     def apply()(implicit s: Symbols): Type =
-      classDef.typed.toType
-    def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
-      case ct: ClassType => ct.id == classDef.id
-      case _ => false
-    }
+      classDefOpt.get.typed.toType
   }
 
   /** This is an extractor for the refEq method in the stainless.lang package */
