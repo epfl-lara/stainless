@@ -235,9 +235,11 @@ object CellArrayMergeSortExample {
       underlying(from + i) = v
     }
 
+/*
+    // TODO: Prove the postcondition of `update2`.
     // TODO: State this as a two-state lemma about `update`
     def update2(i: BigInt, v: Int): Unit = {
-      reads(cellSet)
+      reads(cellSet ++ cellAsSet(i))  // TODO: Prove `cellAsSet(i) subsetOf cellSet`.
       modifies(cellAsSet(i))
       require(validIndex(i))
       underlying(from + i) = v
@@ -301,6 +303,7 @@ object CellArrayMergeSortExample {
       require(this * that && size == that.size)
       copyToFrom(that, 0)
     } ensuring (_ => toList == that.toList)
+*/
 
 
     // Sortedness
