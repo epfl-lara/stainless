@@ -5,7 +5,7 @@ import stainless.lang.Option._
 import stainless.lang.StaticChecks._
 import stainless.proof.check
 
-object ReprExample {
+object CellDataStructuresAndRepr {
   def lemmaListContainsElem[T](l: List[T], i: BigInt): Boolean = {
     require(0 <= i && i < l.size)
     if (i > 0)
@@ -60,6 +60,18 @@ object ReprExample {
       lemmaListTakeIndexOf(l.tail, n - 1, x)
     l.indexOf(x) == l.take(n).indexOf(x)
   }.holds
+
+  def lemmaListDropHead[T](l: List[T], i: BigInt): Unit = {
+    require(0 <= i && i < l.size)
+    if (i > 0)
+      lemmaListDropHead(l.tail, i - 1)
+  } ensuring (_ => l(i) == l.drop(i).head)
+
+  def lemmaListDropPlusOne[T](l: List[T], i: BigInt): Unit = {
+    require(0 <= i && i < l.size)
+    if (i > 0)
+      lemmaListDropPlusOne(l.tail, i - 1)
+  } ensuring (_ => l.drop(i + 1) == l.drop(i).tail)
 
 
   // FIXME: Spurious counterexample when Repr is unsealed
@@ -116,7 +128,10 @@ object ReprExample {
     @opaque
     def objectValidPropHolds(p: Pair[T], i: BigInt): Boolean = {
       validObjectIndex(p, i) ==> {
-        check(lemmaListContainsElem(objects(p), i)) // Just to speed thigns up.
+        // TODO(gsps): Investigate if this needs to be sped-up / rewritten again.
+        // check(lemmaListContainsElem(objects(p), i)) // Just to speed thigns up.
+        assert(lemmaListContainsElem(objects(p), i))
+        lemmaListContainsElem(objects(p), i)
       }
     } ensuring (_ => validObjectIndex(p, i) ==> (objectIndex(p, objects(p)(i)) == i))
   }
@@ -192,24 +207,27 @@ object ReprExample {
       (repr.objectSet(this) & that.repr.objectSet(that)).isEmpty
 
 
-/*
-    // TODO: Prove validIndex, apply and update correct.
-
-    // @inline // FIXME: Triggers assertion on malformed trees
     def objectSet: Set[AnyHeapRef] =
       repr.objectSet(this)
 
-    @inlineOnce
     def validIndex(i: BigInt): Boolean = {
-      repr.validObjectIndex(this, i)
-    } ensuring (res => res ==> objectSet.contains(cell(i))) // TODO: Prove post
+      val res = repr.validObjectIndex(this, i)
+      assert(res ==> lemmaValidIndexCell(cells, i))
+      res
+    } ensuring (res => res ==> objectSet.contains(cell(i)))
 
-    @inline
+    @opaque
+    private def lemmaValidIndexCell(cs: List[Cell[T]], i: BigInt): Boolean = {
+      require(0 <= i && i < cs.size)
+      if (i > 0)
+        lemmaValidIndexCell(cs.tail, i - 1)
+      true
+    } ensuring (res => res && cs.content.contains(cs(i)))
+
     def cells: List[Cell[T]] = {
       array.cells.drop(from).take(size)
     } ensuring (_ == repr.objects(this))
 
-    @inlineOnce
     def cell(i: BigInt): Cell[T] = {
       require(repr.validObjectIndex(this, i))
       cells(i)
@@ -229,28 +247,87 @@ object ReprExample {
       cellValues(cells)
     } ensuring (_.size == size)
 
+
+    // Indexing (`slice(i)`)
+
+    @opaque
     def apply(i: BigInt): T = {
       require(validIndex(i))
       reads(objectSet)
+      lemmaApplyCell(cells, i)
       cell(i).value
-    } ensuring (_ == toList(i)) // TODO: Prove post
+    } ensuring (_ == toList(i))
 
-    def xupdate(i: BigInt, v: T): Unit = {
+    @opaque
+    private def lemmaApplyCell(cs: List[Cell[T]], i: BigInt): Unit = {
+      reads(objectSet ++ Set(cs(i)))
+      require(
+        0 <= i && i < cs.size &&
+        upcastCells(cs).content.subsetOf(objectSet)
+      )
+      if (i > 0)
+        lemmaApplyCell(cs.tail, i - 1)
+    } ensuring (_ => cs(i).value == cellValues(cs)(i))
+
+
+    // Updating (`slice(i) = v`)
+
+    @opaque
+    def update(i: BigInt, v: T): Unit = {
       require(validIndex(i) && i > 0)
       reads(objectSet)
       modifies(Set(cell(i)))
-
-      // val cells = this.cells
-      // val oldVs = toList
-
-      cell(i).value = v
-
-      // val newVs = toList
-      // assert(cell(0) != cell(i))
-      // assert(newVs.head == oldVs.head)
-
+      update_(cells, 0, i, v) // effectively: `cell(i).value = v`
     } ensuring (_ => toList == old(toList).updated(i, v))
-*/
+
+    private def update_(cs: List[Cell[T]], j: BigInt, i: BigInt, v: T): Unit = {
+      reads(objectSet)
+      modifies(Set(cell(i)))
+      require(
+        validIndex(i) &&
+        0 <= j && j <= size &&
+        cs == cells.drop(j) && cs.size == size - j &&
+        upcastCells(cs).content.subsetOf(objectSet)
+      )
+      val cs0 = cs
+      val oldCellValues = cellValues(cs)
+
+      cs match {
+        case Nil() =>
+          // The actual effect, run in the base case, so that every inductive
+          //   step gets to see the same pre- and post-state.
+          cell(i).value = v
+
+        case Cons(c, cs) =>
+          val oldCV = c.value
+
+          lemmaListDropPlusOne(cells, j)
+          update_(cs, j + 1, i, v) // (recursive call!)
+
+          lemmaListDropHead(cells, j)
+          assert(cells.drop(j).head == c)
+          assert(c == cell(j))
+
+          if (j == i) {
+            // This is the updated cell.
+            assert(c == cell(i))
+            assert(c.value == v)
+            check(cellValues(cs0) == oldCellValues.updated(i - j, v))
+          } else {
+            // This must be another, unchanged cell.
+            repr.objectValidPropHolds(this, i)
+            repr.objectValidPropHolds(this, j)
+            assert(c != cell(i)) // by injectivity
+            assert(c.value == oldCV)
+            check(i - j >= 0  ==>  (cellValues(cs0) == oldCellValues.updated(i - j, v)))
+            check(i - j < 0   ==>  (cellValues(cs0) == oldCellValues))
+          }
+          ()
+      }
+    } ensuring { _ =>
+      cell(i).value == v &&
+      cellValues(cs) == (if (i - j >= 0) old(cellValues(cs)).updated(i - j, v) else old(cellValues(cs)))
+    }
   }
 
   case class CellArraySliceRepr[T](reprCAT: Repr[CellArray[T]]) extends Repr[CellArraySlice[T]] {
