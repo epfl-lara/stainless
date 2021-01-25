@@ -214,8 +214,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-//lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "master")
+// lazy val inox = RootProject(file("../inox"))
+lazy val inox = ghProject("git://github.com/epfl-lara/inox.git", "8aeb177000b71a05c2b516ee89a3d3fc8700dd78")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
