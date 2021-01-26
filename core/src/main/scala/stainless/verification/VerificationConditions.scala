@@ -19,6 +19,7 @@ object VCKind {
     override def underlying = k.underlying
   }
 
+  case object NoKind                        extends VCKind("unknown origin", "")
   case object Precondition                  extends VCKind("precondition", "precond.")
   case object Postcondition                 extends VCKind("postcondition", "postcond.")
   case object Assert                        extends VCKind("body assertion", "assert.")
@@ -39,6 +40,8 @@ object VCKind {
   case object Choose                        extends VCKind("choose satisfiability", "choose")
   case object Law                           extends VCKind("law", "law")
   case object InvariantSat                  extends VCKind("invariant satisfiability", "inv. sat")
+  case object RefinementSubtype             extends VCKind("refinements checks for subtyping", "refinements")
+  case object RecursiveSubtype              extends VCKind("recursive types indices checks for subtyping", "rec. types")
   case class  AssertErr(err: String)        extends VCKind("body assertion: " + err, "assert.")
   case object CoqMethod                     extends VCKind("coq function", "coq fun.")
   case class  Error(err: String)            extends VCKind(err, "error")
