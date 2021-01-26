@@ -22,6 +22,7 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
             val vd = ValDef(FreshIdentifier("res"), tpe, Seq(DropVCs)).copiedFrom(e)
+            // FIXME: Use `specced.wrapLets` as below, so `choose` refers to function parameters?
             val pred = specced.getSpec(PostconditionKind)
               .map(pc => symbols.application(pc.expr, Seq(vd.toVariable)))
               .getOrElse(BooleanLiteral(true))
@@ -42,19 +43,25 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
           case _ => e
         }
 
-        val newBody = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
-          val Lambda(Seq(vd), post) = specced.getSpec(PostconditionKind).map(post => post.expr).getOrElse {
-            Lambda(Seq(ValDef.fresh("res", fd.returnType).setPos(fd.fullBody)), BooleanLiteral(true).setPos(fd.fullBody)).setPos(fd.fullBody)
+        val newSpecced = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
+          val choose = specced.getSpec(PostconditionKind)
+            .map { case Postcondition(Lambda(Seq(vd), post)) =>
+              Choose(vd, freshenLocals(specced.wrapLets(post)))
+            }
+            .getOrElse {
+              Choose(ValDef(FreshIdentifier("res", true), fd.returnType), BooleanLiteral(true))
+            }
+            .copiedFrom(fd)
+          val remainingSpecs = specced.specs.filter {
+            case _: Precondition | _: LetInSpec => true
+            case _ => false
           }
-
-          specced.specs.filter(spec => spec.kind == PreconditionKind || spec.kind == LetKind)
-            .foldRight(Choose(vd, post).setPos(fd.fullBody) : Expr)(applySpec)
+          specced.copy(specs = remainingSpecs, body = choose)
         } else {
-          val newBody = injectChooses(specced.bodyOpt.getOrElse(NoTree(fd.returnType)))
-          specced.withBody(newBody).reconstructed
+          specced.copy(body = injectChooses(specced.body))
         }
 
-        fd.copy(fullBody = newBody)
+        fd.copy(fullBody = newSpecced.reconstructed)
     })
   }
 }
