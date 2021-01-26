@@ -616,23 +616,31 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         val fi = FunctionInvocation(
           fd.id,
           newTParams.map(_.tp),
-          Seq(heapArg) ++ newRealParams.map(_.toVariable)
+          Seq(heapVdOpt0.get.toVariable) ++ newRealParams.map(_.toVariable)
         ) //.copiedFrom(fd)
 
         val body =
-          if (writes) {
-            let("res" :: newReturnType, fi) { res =>
-              E(
-                res._1,
-                MapMerge(
-                  modifiesVdOpt.get.toVariable,
+          let("res" :: newReturnType, fi) { res =>
+            val result = if (writes) {
+              Assume(
+                unchecked(Equals(
                   res._2,
-                  heapVdOpt0.get.toVariable
-                ).copiedFrom(fd)
-              )
+                  MapMerge(
+                    modifiesVdOpt.get.toVariable,
+                    res._2,
+                    heapVdOpt0.get.toVariable
+                  ).copiedFrom(fd)
+                ).copiedFrom(fd)),
+                res
+              ).copiedFrom(fd)
+            } else {
+              res
             }
-          } else {
-            fi
+            val fiProjected = fi.copy(args = heapArg +: fi.args.tail).copiedFrom(fi)
+            Assume(
+              unchecked(Equals(result, fiProjected).copiedFrom(fd)),
+              result
+            ).copiedFrom(fd)
           }
 
         val bodyWithContractChecks =
