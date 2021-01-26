@@ -203,6 +203,7 @@ object CellDataStructuresAndRepr {
       CellArraySlice(array, this.from + from, this.from + until)
     }
 
+    // TODO: Prove postcondition of `splitAt`
     def splitAt(i: BigInt): (CellArraySlice[T], CellArraySlice[T]) = {
       require(0 <= i && i <= size)
       (slice(0, i), slice(i, size))
@@ -210,8 +211,9 @@ object CellDataStructuresAndRepr {
       s1 * s2 && (s1.objectSet subsetOf objectSet) && (s2.objectSet subsetOf objectSet)
     }
 
+    @inline
     def *(that: CellArraySlice[T]): Boolean =
-      (repr.objectSet(this) & that.repr.objectSet(that)).isEmpty
+      (objectSet & that.objectSet).isEmpty
 
 
     def objectSet: Set[AnyHeapRef] =
@@ -393,56 +395,48 @@ object CellDataStructuresAndRepr {
 
   // Example
 
-  def readFirst(src: CellArraySlice[Int]): Unit = {
-    reads(src.objectSet)
-    require(src.size == 1)
-    val vs = src.toList
-    val v = src.apply(0)
-    assert(vs(0) == v)
-  }
+  @opaque
+  def copy[T](src: CellArraySlice[T], dst: CellArraySlice[T]): Unit = {
+    reads(src.objectSet ++ dst.objectSet)
+    modifies(dst.objectSet)
+    require(src.size == dst.size && src * dst)
+    val oldSrcList = src.toList
 
-  // def copy(src: CellArraySlice[Int]): Unit = {
-  //   reads(src.objectSet)
-  //   // modifies(src.objectSet)
-  //   require(src.size == 1)
-  //   // if (src.size == 1) {
-  //   //   val oldList = src.toList
-  //   //   src(0) = 123
-  //   //   assert(src.toList == oldList.updated(0, 123))
-  //   //   assert(src(0) == 123)
-  //   // }
-  //   val vs = src.toList
-  //   val v = src.xapply(0)
-  //   assert(vs(0) == v)
-  // }
+    if (src.size == 1) {
+      assert(dst.validIndex(0))
+      assert(oldSrcList == List(src(0)))
+      assert(dst.toList == List(dst(0)))
 
-  // @opaque
-  // def copy[T](src: CellArraySlice[T], dst: CellArraySlice[T]): Unit = {
-  //   reads(src.objectSet ++ dst.objectSet)
-  //   modifies(dst.objectSet)
-  //   require(src.size == dst.size && src * dst)
+      dst(0) = src(0)
 
-  //   if (src.size == 1) {
-  //     dst(0) = src(0)
-  //     assert(src.cells.size == 1)
-  //     assert(dst.cells.size == 1)
-  //     val oldDstList = dst.toList
-  //     val v = src(0)
-  //     assert(dst(0) == v)
-  //     assert(dst.toList == oldDstList.updated(0, v))
-  //     assert(dst.toList == src.toList)
-  //   } else if (src.size > 1) {
-  //     val mid = src.size / 2
-  //     val srcs = src.splitAt(mid)
-  //     val dsts = dst.splitAt(mid)
-  //     copy(srcs._1, dsts._1)
-  //     copy(srcs._2, dsts._2)
-  //     assert(dsts._1.toList == srcs._1.toList)
-  //     assert(false)
-  //     // assert(dst2.toList == src2.toList)
-  //     // assert(dst.toList == src.toList)
-  //   }
-  //   ()
+      check(dst.toList == oldSrcList)
 
-  // } //ensuring (_ => dst.toList == src.toList)
+    } else if (src.size > 1) {
+      val mid = src.size / 2
+      val srcs = src.splitAt(mid)
+      val dsts = dst.splitAt(mid)
+
+      val oldListSrc1 = srcs._1.toList
+      val oldListSrc2 = srcs._2.toList
+
+      copy(srcs._1, dsts._1)
+      assert(srcs._1.toList == oldListSrc1)
+      assert(dsts._1.toList == oldListSrc1)
+
+      assert(srcs._2.toList == oldListSrc2)
+
+      copy(srcs._2, dsts._2)
+      assert(srcs._2.toList == oldListSrc2)
+      assert(dsts._2.toList == oldListSrc2)
+
+      assert(src.toList == srcs._1.toList ++ srcs._2.toList)
+      assert(dst.toList == dsts._1.toList ++ dsts._2.toList)
+      check(dst.toList == oldSrcList)
+
+    } else {
+      check(dst.toList == oldSrcList)
+    }
+    ()
+
+  } ensuring (_ => dst.toList == old(src.toList))
 }
