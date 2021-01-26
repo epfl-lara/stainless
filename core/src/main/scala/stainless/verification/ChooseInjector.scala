@@ -20,6 +20,7 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
             val vd = ValDef(FreshIdentifier("res"), tpe, Seq(Unchecked)).copiedFrom(e)
+            // FIXME: Use `specced.wrapLets` as below, so `choose` refers to function parameters?
             val pred = specced.getSpec(PostconditionKind)
               .map(pc => symbols.application(pc.expr, Seq(vd.toVariable)))
               .getOrElse(BooleanLiteral(true))
@@ -42,7 +43,9 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
 
         val newSpecced = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
           val choose = specced.getSpec(PostconditionKind)
-            .map { case Postcondition(Lambda(Seq(vd), post)) => Choose(vd, post) }
+            .map { case Postcondition(Lambda(Seq(vd), post)) =>
+              Choose(vd, freshenLocals(specced.wrapLets(post)))
+            }
             .getOrElse {
               Choose(ValDef(FreshIdentifier("res", true), fd.returnType), BooleanLiteral(true))
             }
