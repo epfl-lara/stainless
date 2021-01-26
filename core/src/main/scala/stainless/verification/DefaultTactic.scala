@@ -99,6 +99,12 @@ trait DefaultTactic extends Tactic {
     }
   }
 
+  // FIXME(gsps): Should also filter individual conjuncts?
+  protected def annotatedAsUnchecked(e: Expr): Boolean = e match {
+    case Annotated(_, flags) if flags.contains(DropConjunct) => true
+    case _ => false
+  }
+
   def generateCorrectnessConditions(id: Identifier): Seq[VC] = {
     // We don't collect preconditions here, because these are handled by generatePreconditions
     collectForConditions {
@@ -110,7 +116,7 @@ trait DefaultTactic extends Tactic {
         val condition = Not(path.toClause)
         VC(condition, id, VCKind.Assert, false).setPos(e)
 
-      case (a @ Assert(cond, optErr, _), path) =>
+      case (a @ Assert(cond, optErr, _), path) if !annotatedAsUnchecked(cond) =>
         val condition = path implies cond
         val kind = VCKind.fromErr(optErr)
         VC(condition, id, kind, false).setPos(a)
