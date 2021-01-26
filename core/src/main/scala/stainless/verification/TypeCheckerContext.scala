@@ -169,7 +169,7 @@ object TypeCheckerContext {
       currentADT = None,
       currentMeasure = None,
       measureType = None,
-      vcKind = VCKind.Assert,
+      vcKind = VCKind.NoKind,
       checkSAT = false,
       emitVCs = true,
     )

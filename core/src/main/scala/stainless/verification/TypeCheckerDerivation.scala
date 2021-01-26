@@ -13,50 +13,87 @@ object TypeCheckerDerivation {
 
   sealed abstract class Judgment(val tc: TypingContext) extends inox.utils.Positioned {
     override def getPos = tc.getPos
-    def asString(implicit opts: PrinterOptions): String
+    def asString(implicit opts: PrinterOptions, raw: Boolean = false): String
     def htmlClass: String
   }
 
   case class IsType(override val tc: TypingContext, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${typeColor(shortString(t.asString))} is a type"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${t.asString} is a type"
+      else
+        s"⊢ ${typeColor(shortString(t.asString))} is a type"
+    }
     def htmlClass = "isType"
   }
 
   case class CheckType(override val tc: TypingContext, e: Expr, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = t match {
-      case TrueBoolean() => s"⊢ ${termColor(shortString(e.asString))} is true"
-      case _ => s"⊢ ${termColor(shortString(e.asString))} ⇓ ${typeColor(shortString(t.asString))}"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = (t, raw) match {
+      case (TrueBoolean(), false) => s"⊢ ${termColor(shortString(e.asString))} is true"
+      case (_, false) => s"⊢ ${termColor(shortString(e.asString))} ⇓ ${typeColor(shortString(t.asString))}"
+      case (TrueBoolean(), true) => s"⊢ ${e.asString} is true"
+      case (_, true) => s"⊢ ${e.asString} ⇓ ${t.asString}"
     }
     def htmlClass = "checkType"
   }
 
   case class InferType(override val tc: TypingContext, e: Expr, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${termColor(shortString(e.asString))} ⇑ ${typeColor(shortString(t.asString))}"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${e.asString} ⇑ ${t.asString}"
+      else
+        s"⊢ ${termColor(shortString(e.asString))} ⇑ ${typeColor(shortString(t.asString))}"
+    }
     def htmlClass = "inferType"
   }
 
   case class IsSubtype(override val tc: TypingContext, t1: Type, t2: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${typeColor(shortString(t1.asString))} <: ${typeColor(shortString(t2.asString))}"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${t1.asString} <: ${t2.asString}"
+      else
+        s"⊢ ${typeColor(shortString(t1.asString))} <: ${typeColor(shortString(t2.asString))}"
+    }
     def htmlClass = "isSubtype"
   }
 
   case class AreEqualTypes(override val tc: TypingContext, t1: Type, t2: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${typeColor(shortString(t1.asString))} =:= ${typeColor(shortString(t2.asString))}"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${t1.asString} =:= ${t2.asString}"
+      else
+        s"⊢ ${typeColor(shortString(t1.asString))} =:= ${typeColor(shortString(t2.asString))}"
+    }
     def htmlClass = "areEqualTypes"
   }
 
   case class JVC(override val tc: TypingContext, e: Expr) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions) = s"<span style='font-weight: bold'>⊢ ${termColor(shortString(e.asString))} is true (VC: ${tc.vcKind})</span>"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"${e.asString} is true (VC: ${tc.vcKind})"
+      else
+        s"<span style='font-weight: bold'>⊢ ${termColor(shortString(e.asString))} is true (VC: ${tc.vcKind})</span>"
+    }
     def htmlClass = "vc"
   }
 
   case class OKFunction(id: Identifier) extends Judgment(TypingContext.empty) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${termColor(id.asString)} OK"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${id.asString} OK"
+      else
+        s"⊢ ${termColor(id.asString)} OK"
+    }
     def htmlClass = "okFun"
   }
 
   case class OKADT(id: Identifier) extends Judgment(TypingContext.empty) {
-    override def asString(implicit opts: PrinterOptions) = s"⊢ ${typeColor(id.asString)} OK"
+    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+      if (raw)
+        s"⊢ ${id.asString} OK"
+      else
+        s"⊢ ${typeColor(id.asString)} OK"
+    }
     def htmlClass = "okADT"
   }
 
@@ -86,7 +123,7 @@ object TypeCheckerDerivation {
   def prettyPrint(t: NodeTree[Judgment], depth: Int)(implicit opts: PrinterOptions): String = {
     val indentation = "  " * depth
     val childrenString = prettyPrint(t.children, depth + 1)
-    indentation + s"<li> <span class='node ${t.node.htmlClass}' title='${t.node.getPos.fullString}\n${t.node.tc.asString()}'> ${t.node.asString} </span>\n" +
+    indentation + s"<li> <span class='node ${t.node.htmlClass}' title='${t.node.getPos.fullString}\n\n${t.node.tc.asString()}\n\n${t.node.asString(opts, raw = true)}}'> ${t.node.asString} </span>\n" +
       childrenString +
     indentation + "</li>"
   }
