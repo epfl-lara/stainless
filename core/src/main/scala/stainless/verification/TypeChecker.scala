@@ -699,7 +699,7 @@ trait TypeChecker {
         }
 
       case Let(vd, value, body) =>
-        val trValue = checkType(tc.setPos(value), value, vd.tpe)
+        val trValue = checkType(tc.setPos(value).withVCKind(VCKind.NoKind), value, vd.tpe)
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
@@ -962,10 +962,14 @@ trait TypeChecker {
     }
 
     val TopLevelAnds(es) = e
-    val e2 = andJoin(es.filterNot {
+    val toCheck = es.filterNot {
       case Annotated(_, flags) => flags contains Unchecked
       case _ => false
-    }).copiedFrom(e)
+    }
+    if (toCheck.isEmpty) {
+      return TyperResult.valid
+    }
+    val e2 = andJoin(toCheck).copiedFrom(e)
 
     if (tc.vcKind.toString.toLowerCase.contains("cast")) {
       return TyperResult.valid
@@ -1060,7 +1064,7 @@ trait TypeChecker {
       case (Let(vd, value, body), _) =>
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
-        checkType(tc.setPos(value), value, vd.tpe) ++
+        checkType(tc.setPos(value).withVCKind(VCKind.NoKind), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
       case (Assert(cond, optErr, body), _) =>
@@ -1128,10 +1132,10 @@ trait TypeChecker {
         tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
-        buildVC(tc.bind(vd1).withTruth(prop1), renameVar(prop2, vd2.id, vd1.id))
+        buildVC(tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype), renameVar(prop2, vd2.id, vd1.id))
 
       case (_, RefinementType(vd, prop)) =>
-        isSubtype(tc, tp1, vd.tpe) ++ buildVC(tc, prop)
+        isSubtype(tc, tp1, vd.tpe) ++ buildVC(tc.withVCKind(VCKind.RefinementSubtype), prop)
 
       case (RefinementType(vd, prop), _) =>
         isSubtype(tc, vd.tpe, tp2)
@@ -1165,7 +1169,7 @@ trait TypeChecker {
       case (RecursiveType(id1, tps1, index1), RecursiveType(id2, tps2, index2))
           if id1 == id2 && tps1.length == tps2.length =>
         TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) }) ++
-        buildVC(tc, Equals(index1, index2))
+        buildVC(tc.withVCKind(VCKind.RecursiveSubtype), Equals(index1, index2))
 
       case (SetType(base1), SetType(base2)) =>
         areEqualTypes(tc, base1, base2)
