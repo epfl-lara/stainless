@@ -18,7 +18,7 @@ object TraitsReadsWrites {
     }
   }
 
-  case class IncTask() extends Task {
+  case class NothingTask() extends Task {
     def readSet: Set[AnyHeapRef] = Set[AnyHeapRef]()
     def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef]()
 
@@ -28,5 +28,20 @@ object TraitsReadsWrites {
       modifies(writeSet)
       ()
     }
-  }  
+  }
+
+  case class IntBox(var value: BigInt) extends AnyHeapRef
+  
+  case class IncTask(box: IntBox) extends Task {
+    def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+
+    @opaque
+    def run(): Unit = {
+      reads(readSet)
+      modifies(writeSet)
+      box.value = box.value + 1
+    }
+  }
+  
 }
