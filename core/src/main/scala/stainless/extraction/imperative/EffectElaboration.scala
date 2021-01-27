@@ -638,7 +638,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             }
             val fiProjected = fi.copy(args = heapArg +: fi.args.tail).copiedFrom(fi)
             Assume(
-              unchecked(Equals(result, fiProjected).copiedFrom(fd)),
+              unchecked(Equals(res, fiProjected).copiedFrom(fd)),
               result
             ).copiedFrom(fd)
           }
