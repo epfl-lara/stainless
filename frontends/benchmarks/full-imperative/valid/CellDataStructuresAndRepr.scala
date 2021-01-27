@@ -73,6 +73,24 @@ object CellDataStructuresAndRepr {
       lemmaListDropPlusOne(l.tail, i - 1)
   } ensuring (_ => l.drop(i + 1) == l.drop(i).tail)
 
+  def lemmaListDropTakeConcat[T](l: List[T], from: BigInt, until: BigInt, i: BigInt): Unit = {
+    require(
+      0 <= from && from < until && until <= l.size &&
+      0 <= i && i < until - from
+    )
+    // TODO:
+    // l.drop(from).take(i) ++                     ++ l.drop(from + i    ).take(until - (from + i    ))   // by sublemma 1
+    // l.drop(from).take(i) ++ (List(l(from + i))  ++ l.drop(from + i + 1).take(until - (from + i + 1)))  // by assoc
+    // (l.drop(from).take(i) ++  List(l(from + i))) ++ l.drop(from + i + 1).take(until - (from + i + 1))   // by sublemma 2
+    // l.drop(from).take(i + 1)              ++ l.drop(from + i + 1).take(until - (from + i + 1))
+
+    // FIXME: Complete the proof of `lemmaListDropTakeConcat`.
+    lemmaListDropTakeConcat(l, from, until, i)
+  } ensuring { _ =>
+    l.drop(from).take(i) ++ l.drop(from + i).take(until - (from + i)) ==
+    l.drop(from).take(i + 1) ++ l.drop(from + i + 1).take(until - (from + i + 1))
+  }
+
 
   // FIXME: Spurious counterexample when Repr is unsealed
   sealed trait Repr[@mutable T] {
@@ -112,12 +130,12 @@ object CellDataStructuresAndRepr {
 
   /* Ref Cell */
 
-  case class Cell[T](var value: T) extends AnyHeapRef
+  case class IntCell(var value: Int) extends AnyHeapRef
 
 
   /* Simple pair of cells */
 
-  case class Pair[T](c1: Cell[T], c2: Cell[T]) {
+  case class Pair[T](c1: IntCell, c2: IntCell) {
     require(c1 != c2)
   }
 
@@ -139,35 +157,35 @@ object CellDataStructuresAndRepr {
 
   /* Cell Arrays */
 
-  case class CellArray[T](cells: List[Cell[T]]) {
+  case class CellArray(cells: List[IntCell]) {
     require(ListOps.noDuplicate(cells))
 
     @inline
-    def repr: Repr[CellArray[T]] = CellArrayRepr()
+    def repr: Repr[CellArray] = CellArrayRepr()
 
-    def tail: CellArray[T] = {
+    def tail: CellArray = {
       require(cells.nonEmpty)
       CellArray(cells.tail)
     }
 
-    def asSlice: CellArraySlice[T] =
+    def asSlice: CellArraySlice =
       CellArraySlice(this, 0, cells.size)
   }
 
-  def upcastCells[T](cs: List[Cell[T]]): List[AnyHeapRef] = {
+  def upcastCells(cs: List[IntCell]): List[AnyHeapRef] = {
     cs match {
       case Nil() => Nil[AnyHeapRef]()
       case Cons(c, cs) => Cons(c, upcastCells(cs))
     }
   } ensuring (_ == cs)
 
-  case class CellArrayRepr[T]() extends Repr[CellArray[T]] {
-    def objects(a: CellArray[T]): List[AnyHeapRef] = {
+  case class CellArrayRepr() extends Repr[CellArray] {
+    def objects(a: CellArray): List[AnyHeapRef] = {
       upcastCells(a.cells)
     } ensuring (_ == a.cells)
 
     @opaque
-    def objectValidPropHolds(a: CellArray[T], i: BigInt): Boolean = {
+    def objectValidPropHolds(a: CellArray, i: BigInt): Boolean = {
       validObjectIndex(a, i) ==> {
         i > 0 ==> {
           lemmaListNoDupNotFirst(objects(a), i)
@@ -183,76 +201,123 @@ object CellDataStructuresAndRepr {
 
   /* CellArraySlice */
 
-  case class CellArraySlice[T](array: CellArray[T], from: BigInt, until: BigInt) {
+  case class CellArraySlice(array: CellArray, from: BigInt, until: BigInt) {
     require(0 <= from && from <= until && until <= array.cells.size)
 
     @inline
-    def repr: Repr[CellArraySlice[T]] = CellArraySliceRepr(CellArrayRepr())
+    def repr: Repr[CellArraySlice] = CellArraySliceRepr(CellArrayRepr())
 
     @inline
     def size: BigInt = until - from
 
     @inline
-    def tail: CellArraySlice[T] = {
+    def tail: CellArraySlice = {
       require(size > 0)
       CellArraySlice(array, from + 1, until)
     }
 
-    def slice(from: BigInt, until: BigInt): CellArraySlice[T] = {
+    def slice(from: BigInt, until: BigInt): CellArraySlice = {
       require(0 <= from && from <= until && until <= this.size)
       CellArraySlice(array, this.from + from, this.from + until)
     }
 
-    // TODO: Prove postcondition of `splitAt`
-    def splitAt(i: BigInt): (CellArraySlice[T], CellArraySlice[T]) = {
+    // FIXME: Complete the proof of `splitAt`'s postcondition.
+    @library
+    def splitAt(i: BigInt): (CellArraySlice, CellArraySlice) = {
       require(0 <= i && i <= size)
+      revealObjectSet
       (slice(0, i), slice(i, size))
     } ensuring { case (s1, s2) =>
       s1 * s2 && (s1.objectSet subsetOf objectSet) && (s2.objectSet subsetOf objectSet)
     }
 
+    // @opaque
+    // def lemmaCellValuesDistrib(cs1: List[IntCell], cs2: List[IntCell]): Unit = {
+    //   reads(upcastCells(cs1).content ++ upcastCells(cs2).content)
+    //   cs1 match {
+    //     case Nil() => ()
+    //     case Cons(c1, cs1) => lemmaCellValuesDistrib(cs1, cs2)
+    //   }
+    // } ensuring (_ => cellValues(cs1) ++ cellValues(cs2) == cellValues(cs1 ++ cs2))
+
+    @opaque
+    def lemmaSplitAt(i: BigInt, s1: CellArraySlice, s2: CellArraySlice): Unit = {
+      reads(objectSet)
+      require(0 <= i && i <= size && splitAt(i) == (s1, s2))
+      // if (i == 0) {
+      //   assert(s1.size == 0)
+      //   assert(s1.toList == List.empty)
+      //   assert(this == s2)
+      //   assert(toList == s2.toList)
+      //   check(toList == s1.toList ++ s2.toList)
+      // } else {
+      //   val s1_ = CellArraySlice(array, from, from + i - 1)
+      //   val s2_ = CellArraySlice(array, from + i - 1, until)
+      //   lemmaSplitAt(i - 1, s1_, s2_)
+      //   lemmaListDropTakeConcat(array.cells, from, until, i - 1)
+      //   assert(cells == s1.cells ++ s2.cells)
+      //   assert(cells == s1_.cells ++ s2_.cells)
+      //   assert(s1.cells ++ s2.cells == s1_.cells ++ s2_.cells)
+      //   lemmaCellValuesDistrib(s1.cells, s2.cells)
+      //   lemmaCellValuesDistrib(s1_.cells, s2_.cells)
+      //   assert(cellValues(s1.cells ++ s2.cells) == cellValues(s1.cells) ++ cellValues(s2.cells))
+      //   check(toList == s1.toList ++ s2.toList)
+      // }
+
+      // FIXME: Complete the proof of `lemmaSplitAt`.
+      lemmaSplitAt(i, s1, s2)
+      ()
+    } ensuring (_ => toList == s1.toList ++ s2.toList)
+
     @inline
-    def *(that: CellArraySlice[T]): Boolean =
+    def *(that: CellArraySlice): Boolean =
       (objectSet & that.objectSet).isEmpty
 
 
+    @opaque
     def objectSet: Set[AnyHeapRef] =
       repr.objectSet(this)
 
+    @extern
+    def revealObjectSet: Unit = { () } ensuring (_ => objectSet == repr.objectSet(this))
+
     def validIndex(i: BigInt): Boolean = {
       val res = repr.validObjectIndex(this, i)
+      revealObjectSet
       assert(res ==> lemmaValidIndexCell(cells, i))
       res
     } ensuring (res => res ==> objectSet.contains(cell(i)))
 
     @opaque
-    private def lemmaValidIndexCell(cs: List[Cell[T]], i: BigInt): Boolean = {
+    private def lemmaValidIndexCell(cs: List[IntCell], i: BigInt): Boolean = {
       require(0 <= i && i < cs.size)
       if (i > 0)
         lemmaValidIndexCell(cs.tail, i - 1)
       true
     } ensuring (res => res && cs.content.contains(cs(i)))
 
-    def cells: List[Cell[T]] = {
+    def cells: List[IntCell] = {
       array.cells.drop(from).take(size)
     } ensuring (_ == repr.objects(this))
 
-    def cell(i: BigInt): Cell[T] = {
+    def cell(i: BigInt): IntCell = {
       require(repr.validObjectIndex(this, i))
       cells(i)
     } ensuring (_ == repr.objects(this)(i))
 
-    def cellValues(cs: List[Cell[T]]): List[T] = {
+    def cellValues(cs: List[IntCell]): List[Int] = {
       reads(objectSet)
       require(upcastCells(cs).content subsetOf objectSet)
       cs match {
-        case Nil() => Nil[T]()
+        case Nil() => Nil[Int]()
         case Cons(c, cs) => Cons(c.value, cellValues(cs))
       }
     } ensuring (_.size == cs.size)
 
-    def toList: List[T] = {
+    def toList: List[Int] = {
       reads(objectSet)
+      revealObjectSet
+
       cellValues(cells)
     } ensuring (_.size == size)
 
@@ -260,15 +325,17 @@ object CellDataStructuresAndRepr {
     // Indexing (`slice(i)`)
 
     @opaque
-    def apply(i: BigInt): T = {
+    def apply(i: BigInt): Int = {
       require(validIndex(i))
       reads(objectSet)
+      revealObjectSet
+
       lemmaApplyCell(cells, i)
       cell(i).value
     } ensuring (_ == toList(i))
 
     @opaque
-    private def lemmaApplyCell(cs: List[Cell[T]], i: BigInt): Unit = {
+    private def lemmaApplyCell(cs: List[IntCell], i: BigInt): Unit = {
       reads(objectSet ++ Set(cs(i)))
       require(
         0 <= i && i < cs.size &&
@@ -282,14 +349,16 @@ object CellDataStructuresAndRepr {
     // Updating (`slice(i) = v`)
 
     @opaque
-    def update(i: BigInt, v: T): Unit = {
+    def update(i: BigInt, v: Int): Unit = {
       require(validIndex(i))
       reads(objectSet)
       modifies(Set(cell(i)))
+      revealObjectSet
+
       update_(cells, 0, i, v) // effectively: `cell(i).value = v`
     } ensuring (_ => toList == old(toList).updated(i, v))
 
-    private def update_(cs: List[Cell[T]], j: BigInt, i: BigInt, v: T): Unit = {
+    private def update_(cs: List[IntCell], j: BigInt, i: BigInt, v: Int): Unit = {
       reads(objectSet)
       modifies(Set(cell(i)))
       require(
@@ -339,14 +408,14 @@ object CellDataStructuresAndRepr {
     }
   }
 
-  case class CellArraySliceRepr[T](reprCAT: Repr[CellArray[T]]) extends Repr[CellArraySlice[T]] {
-    def objects(s: CellArraySlice[T]): List[AnyHeapRef] = {
+  case class CellArraySliceRepr(reprCAT: Repr[CellArray]) extends Repr[CellArraySlice] {
+    def objects(s: CellArraySlice): List[AnyHeapRef] = {
       // reprCAT.objects(s.array).slice(s.from, s.until)
       reprCAT.objects(s.array).drop(s.from).take(s.size)
     } ensuring (_.size == s.size)
 
     @opaque
-    def objectValidPropHolds(s: CellArraySlice[T], i: BigInt): Boolean = {
+    def objectValidPropHolds(s: CellArraySlice, i: BigInt): Boolean = {
       validObjectIndex(s, i) ==> {
         reprCAT.objectValidPropHolds(s.array, s.from + i)
         // --> reprCAT.objectIndex(s.array, reprCAT.objects(s.array)(s.from + i)) == s.from + i
@@ -366,7 +435,7 @@ object CellDataStructuresAndRepr {
     } ensuring (_ => validObjectIndex(s, i) ==> (objectIndex(s, objects(s)(i)) == i))
 
     @opaque
-    def lemmaArrayObject(s: CellArraySlice[T], i: BigInt) = {
+    def lemmaArrayObject(s: CellArraySlice, i: BigInt) = {
       require(validObjectIndex(s, i))
 
       val os = reprCAT.objects(s.array)
@@ -376,7 +445,7 @@ object CellDataStructuresAndRepr {
     } ensuring (_ => objects(s)(i) == reprCAT.objects(s.array)(s.from + i))
 
     @opaque
-    def lemmaArrayObjectIndex(s: CellArraySlice[T], i: BigInt) = {
+    def lemmaArrayObjectIndex(s: CellArraySlice, i: BigInt) = {
       require(validObjectIndex(s, i))
 
       val os = reprCAT.objects(s.array)
@@ -396,7 +465,7 @@ object CellDataStructuresAndRepr {
   // Example
 
   @opaque
-  def copy[T](src: CellArraySlice[T], dst: CellArraySlice[T]): Unit = {
+  def copy(src: CellArraySlice, dst: CellArraySlice): Unit = {
     reads(src.objectSet ++ dst.objectSet)
     modifies(dst.objectSet)
     require(src.size == dst.size && src * dst)
@@ -413,24 +482,27 @@ object CellDataStructuresAndRepr {
 
     } else if (src.size > 1) {
       val mid = src.size / 2
-      val srcs = src.splitAt(mid)
-      val dsts = dst.splitAt(mid)
+      val (src1, src2) = src.splitAt(mid)
+      val (dst1, dst2) = dst.splitAt(mid)
 
-      val oldListSrc1 = srcs._1.toList
-      val oldListSrc2 = srcs._2.toList
+      val oldListSrc1 = src1.toList
+      val oldListSrc2 = src2.toList
 
-      copy(srcs._1, dsts._1)
-      assert(srcs._1.toList == oldListSrc1)
-      assert(dsts._1.toList == oldListSrc1)
+      copy(src1, dst1)
+      assert(src1.toList == oldListSrc1)
+      assert(dst1.toList == oldListSrc1)
 
-      assert(srcs._2.toList == oldListSrc2)
+      assert(src2.toList == oldListSrc2)
 
-      copy(srcs._2, dsts._2)
-      assert(srcs._2.toList == oldListSrc2)
-      assert(dsts._2.toList == oldListSrc2)
+      copy(src2, dst2)
+      assert(src2.toList == oldListSrc2)
+      assert(dst2.toList == oldListSrc2)
 
-      assert(src.toList == srcs._1.toList ++ srcs._2.toList)
-      assert(dst.toList == dsts._1.toList ++ dsts._2.toList)
+      src.lemmaSplitAt(mid, src1, src2)
+      assert(src.toList == src1.toList ++ src2.toList)
+      dst.lemmaSplitAt(mid, dst1, dst2)
+      assert(dst.toList == dst1.toList ++ dst2.toList)
+
       check(dst.toList == oldSrcList)
 
     } else {
