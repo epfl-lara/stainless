@@ -45,7 +45,7 @@ object TaskImpls {
     def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
-      box.value = (box.value & (1 << 30)) + 1
+      box.value = (box.value & ((1 << 30) - 1)) + 1
     }
   }
 
