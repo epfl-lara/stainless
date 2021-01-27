@@ -35,7 +35,7 @@ object TaskImpls {
     // task1 and task2 join before this function returns
   }
 
-  case class IntBox(var value: BigInt) extends AnyHeapRef
+  case class IntBox(var value: Int) extends AnyHeapRef
 
   case class IncTask(box: IntBox) extends Task {
     def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
@@ -45,7 +45,7 @@ object TaskImpls {
     def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
-      box.value = box.value + 1
+      box.value = (box.value & (1 << 30)) + 1
     }
   }
 
@@ -54,14 +54,8 @@ object TaskImpls {
     modifies(Set(box1, box2))
     require(box1 != box2)
 
-    val v1a = box1.value
-    val v2a = box2.value
-
     val task1 = IncTask(box1)
     val task2 = IncTask(box2)
     parallel(task1, task2)
-
-    //assert(box1.value == v1a + 1)
-    //assert(box2.value == v2a + 1)
   }
 }
