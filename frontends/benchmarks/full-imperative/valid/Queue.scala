@@ -47,7 +47,7 @@ object Queue {
   
     def enqueue(n: Node): Unit = {
       require(!rep.contains(n) && valid)
-      reads(rep ++ Set(this, last, n))
+      reads(rep ++ Set(this, n))
       modifies(Set(this, last, n))
 
       last.nextOpt = Some(n)
@@ -59,7 +59,7 @@ object Queue {
     } ensuring (_ => asList == old(asList) :+ n)
 
     def dequeue: Node = {
-      reads(rep ++ Set(this, first, first.nextOpt.get))
+      reads(rep ++ Set(this))
       require(size > 0 && valid)
       modifies(Set(this))
 
