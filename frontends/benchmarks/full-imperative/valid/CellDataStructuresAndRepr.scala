@@ -222,7 +222,7 @@ object CellDataStructuresAndRepr {
     }
 
     // FIXME: Complete the proof of `splitAt`'s postcondition.
-    @library
+    @extern
     def splitAt(i: BigInt): (CellArraySlice, CellArraySlice) = {
       require(0 <= i && i <= size)
       revealObjectSet
