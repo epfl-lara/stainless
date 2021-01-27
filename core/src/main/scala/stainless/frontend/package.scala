@@ -2,6 +2,9 @@
 
 package stainless
 
+import stainless.extraction.xlang.{trees => xt}
+import scala.language.existentials
+
 package object frontend {
 
   /** An exception thrown when non-purescala compatible code is encountered. */
@@ -76,5 +79,21 @@ package object frontend {
     activeComponents.contains(genc.GenCComponent) ||
     !ctx.options.findOptionOrDefault(optKeep).isEmpty
   }
+
+
+  // removes the `StrictBV` flag used in `CodeExtraction`
+  val strictBVCleaner = extraction.oo.SymbolTransformer(new transformers.TreeTransformer {
+    val s: xt.type = xt
+    val t: xt.type = xt
+
+    override def transform(tpe: xt.Type): xt.Type = tpe match {
+      case xt.AnnotatedType(tp, flags) if flags.exists(_ != xt.StrictBV) =>
+        xt.AnnotatedType(transform(tp), flags.filter(_ != xt.StrictBV))
+      case xt.AnnotatedType(tp, flags) =>
+        transform(tp)
+      case _ =>
+        super.transform(tpe)
+    }
+  })
 }
 

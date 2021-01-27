@@ -41,7 +41,6 @@ case class CoqMatchTactic(id: CoqIdentifier, cases: Seq[CoqCase]) extends CoqCom
 case class InductiveDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], cases: Seq[InductiveCase]) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
   override def coqString = {
-    // println("Translating: " + id.coqString)
    s"Inductive ${id.coqString} ${paramString}:=" +
     cases.map(_.coqString).mkString("\n","\n",".\n")
   }
@@ -59,7 +58,6 @@ case class InductiveDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,Coq
 case class NormalDefinition(id: CoqIdentifier, params: Seq[(CoqIdentifier,CoqExpression)], returnType: CoqExpression, body: CoqExpression) extends CoqCommand {
   val paramString = params.map { case (arg,ty) => s"(${arg.coqString}: ${ty.coqString}) " }.mkString
   override def coqString = {
-    // println("Translating: " + id.coqString)
     s"Definition ${id.coqString} ${paramString}: ${returnType.coqString} :=\n" +
       body.coqString + ".\n\nFail Next Obligation.\n"
   }
