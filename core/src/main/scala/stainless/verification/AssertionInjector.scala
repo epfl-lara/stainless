@@ -10,9 +10,11 @@ package verification
  */
 trait AssertionInjector extends transformers.TreeTransformer {
   val s: ast.Trees
-  val t: ast.Trees
+  val t: s.type
 
   implicit val symbols: s.Symbols
+
+  import t.dsl._
 
   val strictArithmetic: Boolean
 
@@ -53,11 +55,33 @@ trait AssertionInjector extends transformers.TreeTransformer {
       ).copiedFrom(i), transform(v)).copiedFrom(e)
 
     case sel @ s.ADTSelector(expr, _) =>
-      t.Assert(
-        t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
-        Some("Cast error"),
-        super.transform(e)
-      ).copiedFrom(e)
+      def isIndexedType(tpe: s.Type) =
+        tpe match {
+          case _: s.RecursiveType => true
+          case _ => false
+        }
+      val hasIndexedType = expr match {
+        case v: s.Variable => isIndexedType(v.tpe)
+        case fi: s.FunctionInvocation => isIndexedType(fi.tfd.returnType)
+        case _ => false
+      }
+
+      // NOTE(gsps): Keeping the old, code-duplicating behavior here, since index annotations on
+      //   types are not propagated through `expr.getType`, breaking the Streams example.
+      if (hasIndexedType)
+        t.Assert(
+          t.IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
+          Some("Cast error"),
+          super.transform(e)
+        ).copiedFrom(e)
+      else
+        let("recv" :: expr.getType, transform(expr)) { recv =>
+          t.Assert(
+            t.IsConstructor(recv, sel.constructor.id).copiedFrom(e),
+            Some("Cast error"),
+            super.transform(sel.copy(adt = recv).copiedFrom(e))
+          ).copiedFrom(e)
+        }.copiedFrom(e)
 
     case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
       val lhs = transform(lhs0)

@@ -199,7 +199,8 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.RecursiveType(id, tps, e) => (Seq(id), Seq(), Seq(e), tps, Seq(), (ids, _, es, ntps, _) => t.RecursiveType(ids(0), ntps, es(0)))
     case s.ValueType(tpe) => (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.ValueType(tps(0)))
     case s.AnnotatedType(tpe, flags) =>
-      (Seq(), Seq(), Seq(), Seq(tpe), flags, (_, _, _, tps, flags) => t.AnnotatedType(tps(0), flags))
+      (Seq(), Seq(), Seq(), Seq(tpe), flags,
+        (_, _, _, tps, flags) => if (flags.nonEmpty) t.AnnotatedType(tps(0), flags) else tps(0))
     case _ => super.deconstruct(tpe)
   }
 
