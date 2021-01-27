@@ -47,23 +47,42 @@ object MutListExample {
       }
     }
 
+    @opaque
     def append(node: Node): Unit = {
       reads(repr.content ++ node.repr.content ++ Set(this, node))
       modifies(repr.content ++ Set(this))
       require(valid && node.valid && (repr.content & node.repr.content).isEmpty)
       decreases(size)
 
+      @ghost val oldReprConcat = repr ++ node.repr
+      @ghost val oldReprConcatContents = repr.content ++ node.repr.content
+
       nextOpt match {
         case None() =>
           nextOpt = Some(node)
           repr = this :: node.repr
+          @ghost val unused1 = check(valid)
+          @ghost val unused2 = check(repr == oldReprConcat)
+          @ghost val unused3 = check(repr.content == oldReprConcatContents)
+
         case Some(next) =>
           assert(next.valid)
+          assert(next.repr.content subsetOf repr.content)
+          @ghost val oldReprC = next.repr.content ++ node.repr.content
+
           next.append(node)
+
+          assert(next.repr.content == oldReprC)
+          assert(next.valid)
+
           repr = this :: next.repr
-          @ghost val unused = check(valid)
+
+          assert(next.repr.content subsetOf repr.content)
+          @ghost val unused1 = check(valid)
+          @ghost val unused2 = check(repr == oldReprConcat)
+          @ghost val unused3 = check(repr.content == oldReprConcatContents)
       }
-    } ensuring { _ => valid }
+    } ensuring { _ => valid && repr == old(repr ++ node.repr) && repr.content == old(repr.content ++ node.repr.content) }
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {
