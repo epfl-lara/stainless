@@ -6,13 +6,12 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object TaskImpls {
-  @mutable abstract class Task {
+  @mutable sealed abstract class Task {
   
     def readSet: Set[AnyHeapRef]
     def writeSet: Set[AnyHeapRef]
 
     def run(): Unit = {
-      require(writeSet.subsetOf(readSet))
       reads(readSet)
       modifies(writeSet)
       ??? : Unit
