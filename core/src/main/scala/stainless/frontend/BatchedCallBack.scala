@@ -59,7 +59,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
 
-    val initialSymbols = LibraryFilter.removeLibraryFlag(allSymbols)
+    val initialSymbols = strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(allSymbols))
 
     def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
 

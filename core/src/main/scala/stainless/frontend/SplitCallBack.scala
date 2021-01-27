@@ -67,7 +67,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   final override def endExtractions(): Unit = {
     reporter.terminateIfFatal()
 
-    symbols = LibraryFilter.removeLibraryFlag(symbols)
+    symbols = strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(symbols))
 
     processSymbols(symbols)
 

@@ -316,7 +316,6 @@ trait CoqEncoder {
     val ttparams = root.tparams.map(p => (CoqIdentifier(p.id), TypeSort))
     val tparams = root.tparams.map(t => CoqIdentifier(t.id))
     val element = rawIdentifier("src")
-    // println(a.invariant)
     NormalDefinition(
       refinedIdentifier(constructor.id),
       ttparams,

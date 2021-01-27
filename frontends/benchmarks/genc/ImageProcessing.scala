@@ -662,7 +662,6 @@ object ImageProcessing {
 
       res = clamp(res / scale, 0, 255)
       // StdOut.print("RESULT BYTE: ")
-      // printAsInt(res.toByte)
       res.toByte
     }
 
