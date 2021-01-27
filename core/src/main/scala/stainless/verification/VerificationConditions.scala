@@ -19,7 +19,7 @@ object VCKind {
     override def underlying = k.underlying
   }
 
-  case object NoKind                        extends VCKind("unknown origin", "")
+  case object CheckType                     extends VCKind("type-checking", "types")
   case object Precondition                  extends VCKind("precondition", "precond.")
   case object Postcondition                 extends VCKind("postcondition", "postcond.")
   case object Assert                        extends VCKind("body assertion", "assert.")

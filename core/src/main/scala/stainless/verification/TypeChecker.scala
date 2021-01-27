@@ -635,7 +635,7 @@ trait TypeChecker {
       case IfExpr(b, e1, e2) =>
         val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
         val (tpe2, tr2) = inferType(tc.withTruth(Not(b)).setPos(e2), e2)
-        (ite(b, tpe1, tpe2), checkType(tc.setPos(b), b, BooleanType()) ++ tr1 ++ tr2)
+        (ite(b, tpe1, tpe2), checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++ tr1 ++ tr2)
 
       case Error(tpe, descr) =>
         val tr = isType(tc, tpe)
@@ -699,7 +699,7 @@ trait TypeChecker {
         }
 
       case Let(vd, value, body) =>
-        val trValue = checkType(tc.setPos(value).withVCKind(VCKind.NoKind), value, vd.tpe)
+        val trValue = checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe)
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
@@ -1039,11 +1039,11 @@ trait TypeChecker {
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
       case (e, TrueBoolean()) =>
-        checkType(tc, e, BooleanType()) ++ buildVC(tc, e)
+        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
 
       case (e, RefinementType(vd, prop)) =>
         val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
+        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
 
       case (Tuple(es), TupleType(tps)) =>
         checkTypes(tc, es, tps)
@@ -1064,7 +1064,7 @@ trait TypeChecker {
       case (Let(vd, value, body), _) =>
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
-        checkType(tc.setPos(value).withVCKind(VCKind.NoKind), value, vd.tpe) ++
+        checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
       case (Assert(cond, optErr, body), _) =>
@@ -1080,7 +1080,7 @@ trait TypeChecker {
         tr ++ mr
 
       case (IfExpr(b, e1, e2), _) =>
-        checkType(tc.setPos(b), b, BooleanType()) ++
+        checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
