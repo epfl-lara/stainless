@@ -6,11 +6,13 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object TaskImpls {
-  @mutable sealed abstract class Task {
+  @mutable abstract class Task {
+  
     def readSet: Set[AnyHeapRef]
     def writeSet: Set[AnyHeapRef]
 
     def run(): Unit = {
+      require(writeSet.subsetOf(readSet))
       reads(readSet)
       modifies(writeSet)
       ??? : Unit
@@ -35,6 +37,7 @@ object TaskImpls {
     def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
     def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
 
+    @opaque
     def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
@@ -54,7 +57,7 @@ object TaskImpls {
     val task2 = IncTask(box2)
     parallel(task1, task2)
 
-    assert(box1.value == v1a + 1)
-    assert(box2.value == v2a + 1)
+//    assert(box1.value == v1a + 1)
+//    assert(box2.value == v2a + 1)
   }
 }
