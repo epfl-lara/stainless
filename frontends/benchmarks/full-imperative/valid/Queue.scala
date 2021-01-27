@@ -48,13 +48,14 @@ object Queue {
     def enqueue(n: Node): Unit = {
       require(!rep.contains(n) && valid)
       reads(rep ++ Set(this, last, n))
-      modifies(Set(this, last))
+      modifies(Set(this, last, n))
 
       last.nextOpt = Some(n)
       last = n
       size = size + 1
       asList = asList :+ n
       rep = rep ++ Set[AnyHeapRef](n)
+      n.nextOpt = None[Node]()
     } ensuring (_ => asList == old(asList) :+ n)
 
     def dequeue: Node = {
