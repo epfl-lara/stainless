@@ -22,8 +22,9 @@ object Queue {
       reads(rep ++ Set(this))
       size >= 0 && size == asList.size &&      
       rep.contains(first) && rep.contains(last) &&
+      last.nextOpt == None[Node]() &&
       (asList match {
-        case Nil() => first == last && first.nextOpt == None[Node]()
+        case Nil() => first == last
         case Cons(h, ns) =>
           first.nextOpt == Some(asList.head) &&
           asList.last == last
@@ -36,7 +37,7 @@ object Queue {
       
       rep.contains(current) &&
       (nodes match {
-        case Nil() => current.nextOpt == None[Node]() && current == last
+        case Nil() => current == last
         case n :: nodes1 =>
           current.nextOpt match {
             case None() => false
@@ -50,12 +51,12 @@ object Queue {
       reads(rep ++ Set(this, n))
       modifies(Set(this, last, n))
 
+      n.nextOpt = None[Node]()
       last.nextOpt = Some(n)
       last = n
-      size = size + 1
       asList = asList :+ n
+      size = size + 1
       rep = rep ++ Set[AnyHeapRef](n)
-      n.nextOpt = None[Node]()
     } ensuring (_ => asList == old(asList) :+ n)
 
     def dequeue: Node = {
@@ -69,6 +70,8 @@ object Queue {
           first = nn
           size = size - 1
           asList = asList.tail
+          // suffices for `valid`
+          // check(inv(asList, first))
           nn
         }
       }
