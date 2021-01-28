@@ -6,16 +6,11 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object TaskImpls {
-  @mutable abstract class Task { 
+  @mutable abstract class Task {
     def readSet: Set[AnyHeapRef]
-    def writeSet: Set[AnyHeapRef]
-    
-    @law
-    def writeInRead: Boolean =
-      writeSet.subsetOf(readSet)
+    def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
 
     def run(): Unit = {
-      require(writeInRead)
       reads(readSet)
       modifies(writeSet)
       ??? : Unit
@@ -26,7 +21,6 @@ object TaskImpls {
     reads(task1.readSet ++ task2.readSet)
     modifies(task1.writeSet ++ task2.writeSet)
     require(
-      task1.writeInRead && task2.writeInRead &&
       (task1.writeSet & task2.readSet).isEmpty &&
       (task2.writeSet & task1.readSet).isEmpty
     )
