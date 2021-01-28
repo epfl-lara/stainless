@@ -45,6 +45,7 @@ object TreeImmutMapGenericExample {
       reads(repr)
       modifies(repr)
       require(valid)
+      decreases(this)
       @ghost val oldList = toList
 
       this match {
