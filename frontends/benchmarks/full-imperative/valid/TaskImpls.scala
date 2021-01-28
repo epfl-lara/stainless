@@ -7,8 +7,8 @@ import stainless.proof.check
 
 object TaskImpls {
   @mutable abstract class Task {
-    def readSet: Set[AnyHeapRef]
-    def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
+    @ghost def readSet: Set[AnyHeapRef]
+    @ghost def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
 
     def run(): Unit = {
       reads(readSet)
@@ -32,8 +32,8 @@ object TaskImpls {
   case class IntBox(var value: Int) extends AnyHeapRef
 
   case class IncTask(box: IntBox) extends Task {
-    def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
-    def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    @ghost def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    @ghost def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
 
     @opaque
     def run(): Unit = {
