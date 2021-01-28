@@ -5,7 +5,7 @@ import stainless.lang.Option._
 import stainless.lang.StaticChecks._
 import stainless.proof.check
 
-object TreeImmutStuffExample {
+object TreeImmutMapExample {
   // Task
 
   @mutable abstract class Task {
