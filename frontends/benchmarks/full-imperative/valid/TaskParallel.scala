@@ -1,69 +1,55 @@
-import stainless.lang._
-import stainless.collection._
-import stainless.lang.Option._
 import stainless.annotation._
+import stainless.collection._
+import stainless.lang._
+import stainless.lang.Option._
 import stainless.lang.StaticChecks._
+import stainless.proof.check
 
-object TaskParallelTest {
+object TaskParallelExample {
   @mutable abstract class Task {
-    def region: Set[AnyHeapRef]
+    @ghost def readSet: Set[AnyHeapRef]
+    @ghost def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
 
-    def run: Unit = {
-      reads(region)
-      modifies(region)
+    def run(): Unit = {
+      reads(readSet)
+      modifies(writeSet)
       ??? : Unit
     }
+  }
 
-    def join: BigInt = {
-      reads(region)
-      ??? : BigInt
+  def parallel(task1: Task, task2: Task): Unit = {
+    reads(task1.readSet ++ task2.readSet)
+    modifies(task1.writeSet ++ task2.writeSet)
+    require(
+      (task1.writeSet & task2.readSet).isEmpty &&
+      (task2.writeSet & task1.readSet).isEmpty
+    )
+    task1.run()
+    task2.run()
+    // task1 and task2 join before this function returns
+  }
+
+  case class IntBox(var value: Int) extends AnyHeapRef
+
+  case class IncTask(box: IntBox) extends Task {
+    @ghost def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    @ghost def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+
+    @opaque
+    def run(): Unit = {
+      reads(readSet)
+      modifies(writeSet)
+      box.value = (box.value & ((1 << 30) - 1)) + 1
     }
   }
 
-  case object pureTask extends Task {
-    def region = Set[AnyHeapRef]()
-    override def run = ()
-    override def join = 42
-  }
+  def parallelInc(box1: IntBox, box2: IntBox): Unit = {
+    reads(Set(box1, box2))
+    modifies(Set(box1, box2))
+    require(box1 != box2)
 
-  case class IntBox(var value: BigInt) extends AnyHeapRef
-
-  case class SumTask(box: IntBox) extends Task {
-    def region: Set[AnyHeapRef] = Set[AnyHeapRef](box)
-
-    override def run = {
-      reads(region)
-      modifies(region)
-      box.value = box.value + box.value
-      ()
-    }
-
-    override def join: BigInt = {
-      reads(region)
-      box.value
-    }
-  }
-
-  @inline
-  def disjoint(t1: Task, t2: Task): Boolean = {
-      (t1.region & t2.region) == Set[AnyHeapRef]()
-  }
-
-  @opaque
-  def parallel(t1: Task, t2: Task): (BigInt, BigInt) = {
-    require(disjoint(t1, t2))
-    reads(t1.region ++ t2.region)
-    modifies(t1.region ++ t2.region)
-    t1.run
-    t2.run
-    (t1.join, t2.join)
-  } ensuring { res => res == (t1.join, t2.join) }
-
-  def testParallel(t1: Task, t2: Task): Unit = {
-    require(disjoint(t1, t2))
-    reads(t1.region ++ t2.region)
-    modifies(t1.region ++ t2.region)
-    val res2 = parallel(t1, t2)
-    ()
+    val task1 = IncTask(box1)
+    val task2 = IncTask(box2)
+    parallel(task1, task2)
   }
 }
