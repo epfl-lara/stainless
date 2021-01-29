@@ -1,3 +1,4 @@
+/*
 import stainless.annotation._
 import stainless.collection._
 import stainless.lang._
@@ -162,3 +163,4 @@ object TreeImmutSumExample {
     } ensuring (res => dataCell.value == Some(res) && valid)
   }
 }
+*/
