@@ -15,10 +15,11 @@ object TreeImmutMapGenericExample {
     @ghost def repr: Set[AnyHeapRef] =
       this match {
         case Leaf(data) => Set[AnyHeapRef](data)
-        case Branch(left, right) => left.repr ++ right.repr
-        //totry: Set[AnyHeapRef]() 
+        case Branch(left, right) => //left.repr ++ right.repr
+          //totry:
+          Set[AnyHeapRef]() 
       }
-    @opaque
+  //  @opaque
     def tmap(f: T => T): Unit = {
       reads(repr)
       modifies(repr)
@@ -42,6 +43,7 @@ object TreeImmutMapGenericExample {
 
 */
 
+  /*
   def test(t: Tree[Int], c: Cell[Int]) = {
     require(c.value == 0)
     reads(t.repr ++ Set[AnyHeapRef](c))
@@ -49,4 +51,5 @@ object TreeImmutMapGenericExample {
     
     t.tmap(x => (x | 1))
   } ensuring(_ => c.value == 0)
+*/
 }
