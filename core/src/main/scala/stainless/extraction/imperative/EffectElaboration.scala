@@ -729,7 +729,7 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         }
 
         // We also ensure that the reads set subsumes modifies set
-        val innerBody3 = if (writes) {
+        val innerBody3 = if (writes && checkHeapContracts) {
           val cond = SubsetOf(
             modifiesVdOpt.get.toVariable,
             readsVdOpt.get.toVariable
