@@ -1,4 +1,11 @@
-import stainless.annotation._
+/*
+This benchmark is important because it shows a nice counterexample.
+
+However, frame condition checks time out, which is why a CI might
+not realize that there is a properly failing counterexample.
+*/
+
+  import stainless.annotation._
 import stainless.collection._
 import stainless.lang._
 import stainless.lang.Option._
