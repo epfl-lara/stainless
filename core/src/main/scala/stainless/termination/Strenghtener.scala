@@ -17,6 +17,7 @@ trait Strengthener { self: OrderingRelation =>
   import checker.program.trees._
   import checker.program.symbols._
   import CallGraphOrderings._
+  import exprOps._
 
   private val strengthenedPost: MutableMap[Identifier, Option[Lambda]] = MutableMap.empty
 
@@ -53,17 +54,22 @@ trait Strengthener { self: OrderingRelation =>
       strengthenedPost(fd.id) = None
 
       def strengthen(cmp: (Seq[Expr], Seq[Expr]) => Expr): Boolean = {
+        val specced = BodyWithSpecs(fd.fullBody)
+
         val postcondition = {
           val res = ValDef.fresh("res", fd.returnType)
-          val post = fd.postcondition match {
-            case Some(post) if !ignorePosts => application(post, Seq(res.toVariable))
-            case _                          => BooleanLiteral(true)
+          val post = specced.getSpec(PostconditionKind) match {
+            case Some(Postcondition(lambda)) if !ignorePosts  => application(lambda, Seq(res.toVariable))
+            case _                                            => BooleanLiteral(true)
           }
           val sizePost = cmp(Seq(res.toVariable), fd.params.map(_.toVariable))
           Lambda(Seq(res), and(post, sizePost))
         }
 
-        val formula = implies(fd.precOrTrue, application(postcondition, Seq(fd.body.get)))
+        val formula = specced.wrapLets(implies(
+          specced.getSpec(PreconditionKind).map(_.expr).getOrElse(BooleanLiteral(true)),
+          application(postcondition, Seq(specced.body))
+        ))
 
         val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
@@ -75,6 +81,9 @@ trait Strengthener { self: OrderingRelation =>
 
         // @nv: one must also check that variablesOf(formula) is non-empty as
         //      we may proceed to invalid strenghtening otherwise
+
+        println("THE FORMULA")
+        println(formula.asString)
 
         if (exprOps.variablesOf(formula).nonEmpty &&
             api.solveVALID(formula).contains(true)) {
