@@ -52,36 +52,49 @@ trait FunctionClosure
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
+      val oldInst = new typeOps.TypeInstantiator(tparams.map(td => td.tp -> td.tp).toMap)
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
       val (paramSubst, freshVals) = (params ++ free)
-        .map { vd =>
-          vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
-        }
-        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vd) =>
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vdOld) =>
+          val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
           val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
           val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
-          (paramSubst + (vd -> nvd.toVariable), params :+ (vd -> nvd))
+          (paramSubst + (vd -> nvd.toVariable), params :+ (vdOld -> nvd))
         }
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val instBody = inst.transform(withPath(fullBody, reqPC))
+      val oldInstBody = oldInst.transform(withPath(fullBody, reqPC))
 
-      val newBody = exprOps.preMap {
-        case v: Variable => freeMap.get(v.toVal).map(_.toVariable.copiedFrom(v))
+      object bodyTransformer extends SelfTreeTransformer {
+        override val s: self.s.type = self.s
 
-        case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
-          Some(Let(freeMap(id), v, r).copiedFrom(let))
+        override def transform(e: Expr): Expr = e match {
+          case v: Variable if freeMap.contains(v.toVal) =>
+            freeMap(v.toVal).toVariable.copiedFrom(v)
 
-        case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
-          val ntps = tps ++ tpFresh.map(_.tp)
-          val nargs = args ++ freshParams.drop(args.length).map(_.toVariable)
-          Some(FunctionInvocation(id, ntps, nargs).copiedFrom(app))
+          case let @ Let(id, v, r) if freeMap.contains(id) =>
+            Let(freeMap(id), transform(v), transform(r)).copiedFrom(let)
 
-        case _ => None
-      }(instBody)
+          case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
+            val ntps = tps.map(transform) ++ tpFresh.map(_.tp)
+            val nargs = args.map(transform) ++ freshParams.drop(args.length).map(_.toVariable)
+            FunctionInvocation(id, ntps, nargs).copiedFrom(app)
+
+          case _ => super.transform(e)
+        }
+
+        override def transform(tpe: Type): Type = tpe match {
+          case tp: TypeParameter =>
+            tparamsMap.getOrElse(tp, super.transform(tpe))
+
+          case _ => super.transform(tpe)
+        }
+      }
+
+      val newBody = bodyTransformer.transform(oldInstBody)
 
       val newFd = new s.FunDef(
         id,
@@ -159,6 +172,7 @@ trait FunctionClosure
 
         override def transform(e: s.Expr): t.Expr = e match {
           case app @ ApplyLetRec(id, tparams, tpe, tps, args) if closed contains id =>
+
             val FunSubst(newCallee, calleeMap, calleeTMap) = closed(id)
 
             // This needs some explanation.

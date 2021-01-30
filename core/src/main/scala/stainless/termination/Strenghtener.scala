@@ -82,9 +82,6 @@ trait Strengthener { self: OrderingRelation =>
         // @nv: one must also check that variablesOf(formula) is non-empty as
         //      we may proceed to invalid strenghtening otherwise
 
-        println("THE FORMULA")
-        println(formula.asString)
-
         if (exprOps.variablesOf(formula).nonEmpty &&
             api.solveVALID(formula).contains(true)) {
           strengthenedPost(fd.id) = Some(postcondition)
