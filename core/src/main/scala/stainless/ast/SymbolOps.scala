@@ -341,7 +341,6 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     }
 
     expr match {
-      case Let(i, e, b) => withPath(b, path withBinding (i -> e))
       case Require(pre, b) => withShared(path, Seq(b, pre), spec, expr.getPos)
       case Ensuring(Require(pre, b), post) => withShared(path, Seq(b, pre, post), spec, expr.getPos)
       case Ensuring(b, post) => withShared(path, Seq(b, BooleanLiteral(true).copiedFrom(expr), post), spec, expr.getPos)
