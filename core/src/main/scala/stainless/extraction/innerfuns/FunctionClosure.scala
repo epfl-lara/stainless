@@ -52,7 +52,6 @@ trait FunctionClosure
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
-      val oldInst = new typeOps.TypeInstantiator(tparams.map(td => td.tp -> td.tp).toMap)
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
       val (paramSubst, freshVals) = (params ++ free)
@@ -66,7 +65,7 @@ trait FunctionClosure
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val oldInstBody = oldInst.transform(withPath(fullBody, reqPC))
+      val oldBody = withPath(fullBody, reqPC)
 
       object bodyTransformer extends SelfTreeTransformer {
         override val s: self.s.type = self.s
@@ -94,7 +93,7 @@ trait FunctionClosure
         }
       }
 
-      val newBody = bodyTransformer.transform(oldInstBody)
+      val newBody = bodyTransformer.transform(oldBody)
 
       val newFd = new s.FunDef(
         id,
